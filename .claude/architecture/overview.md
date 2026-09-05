@@ -93,6 +93,11 @@ Root directory (`MIXENGINE_HOME`, overridable):
 - macOS: `~/Library/Application Support/MixEngine`
 - Linux: `$XDG_DATA_HOME/mixengine` (fallback `~/.local/share/mixengine`)
 
+A binary that did not come out of the packaging pipeline appends `-dev` to that last component —
+`MixEngine-dev`, `mixengine-dev` — so a working tree cannot migrate the database somebody runs real
+projects with. See
+[ADR 0024](../decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md).
+
 ```
 <root>/
   bin/            version-resolving shims: php, node, npm, python, ruby, composer …
