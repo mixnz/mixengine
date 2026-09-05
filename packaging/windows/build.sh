@@ -26,15 +26,17 @@ mkdir -p "$dist"
 zip_name="mixengine-$version-windows-$arch.zip"
 setup_name="mixengine-$version-windows-$arch-setup.exe"
 
-# The zip holds one directory, so unzipping it into Downloads does not scatter three binaries there.
-# Written with `Compress-Archive` rather than with `7z`: it ships with Windows, so the portable
-# artifact needs nothing installed to build.
+# The zip holds one directory, so unzipping it into Downloads does not scatter four binaries there.
+# Through `zip.ps1` rather than `Compress-Archive`, which spells the separator inside the archive
+# with a backslash — see that file for what it cost. Still PowerShell and still nothing installed.
 rm -rf "$MIX_OUT/zip"
 mkdir -p "$MIX_OUT/zip/mixengine"
 cp "$stage"/*.exe "$MIX_OUT/zip/mixengine/"
 rm -f "$dist/$zip_name"
-powershell -NoProfile -NonInteractive -Command \
-  "Compress-Archive -Path '$(cygpath -w "$MIX_OUT/zip/mixengine")' -DestinationPath '$(cygpath -w "$dist/$zip_name")' -Force"
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
+  -File "$(cygpath -w "$MIX_ROOT/packaging/windows/zip.ps1")" \
+  -Source "$(cygpath -w "$MIX_OUT/zip/mixengine")" \
+  -Destination "$(cygpath -w "$dist/$zip_name")"
 
 "$makensis" -NOCD \
   "-DVERSION=$version" \
@@ -52,11 +54,16 @@ powershell -NoProfile -NonInteractive -Command \
 # with a SIGPIPE the moment the match is found and — under `pipefail`, which `common.sh` sets —
 # reports a perfectly good artifact as broken for holding exactly what was looked for. Measured on
 # both Linux legs of run 33906595994; see the note in `packaging/linux/build-tarball.sh`.
-zip_entries="$(unzip -l "$dist/$zip_name")"
+#
+# **The zip is checked by whole entry name and not by substring** — `unzip -Z1`, matched with
+# `grep -qx`. A listing searched for `mix.exe` anywhere says yes to `mixengine\mix.exe`, which is
+# what `Compress-Archive` used to write and what no reader of this archive can find; the path a
+# reader asks for is the thing worth asserting.
+zip_entries="$(unzip -Z1 "$dist/$zip_name")"
 setup_entries="$(7z l "$dist/$setup_name")"
 for binary in "${MIX_BINARIES[@]}"; do
-  grep -qF "$binary.exe" <<<"$zip_entries" || {
-    echo "$binary.exe is not in the zip" >&2
+  grep -qx "mixengine/$binary.exe" <<<"$zip_entries" || {
+    echo "the zip has no mixengine/$binary.exe" >&2
     exit 1
   }
   grep -qF "$binary.exe" <<<"$setup_entries" || {
