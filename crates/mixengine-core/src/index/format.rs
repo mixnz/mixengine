@@ -17,6 +17,7 @@
 
 use std::collections::BTreeMap;
 
+use mixengine_proto::Execution;
 use serde::{Deserialize, Serialize};
 
 /// The schema this build can read.
@@ -115,8 +116,22 @@ pub struct Artifact {
     pub extensions: Extensions,
 }
 
-/// Preconditions the daemon checks before installing, and prompts about rather than silently
-/// satisfying.
+/// What the publisher measured off the finished artifact, as preconditions on the machine.
+///
+/// **Nothing in this workspace reads any of them**, and saying otherwise here would be worse than
+/// saying nothing: this comment used to claim the daemon *"checks these before installing, and
+/// prompts about them rather than silently satisfying"*, and roadmap task **T92** found no consumer
+/// at all. The mechanism that exists is [`crate::install::SmokeTest`], whose own note argues the
+/// case — every failure these fields describe is invisible until something tries, and what a
+/// refusal here would have to say is what the loader says anyway.
+///
+/// **The published document already carries a field this type does not model.** Ten artifacts — the
+/// Linux PostgreSQL cells — state a `requires.tzdata`, and it is prose rather than a version: *"the
+/// system timezone database at /usr/share/zoneinfo — Debian builds PostgreSQL `--with-system-tzdata`,
+/// so unlike the Windows and macOS cells this one does not carry its own"*. It parses, because this
+/// module is deliberately not `deny_unknown_fields`, and it is dropped. Carrying a sentence like
+/// that to a person at install time is a feature with a design of its own, and a fourth unread
+/// field would not be it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Requires {
     /// The Visual C++ redistributable year, on Windows.
@@ -290,6 +305,91 @@ impl Arch {
     }
 }
 
+/// One operating system and architecture a build can be made for.
+///
+/// A pair rather than two arguments, because every question worth asking of this document takes
+/// both, and because [`runnable`](Self::runnable) is a fact about the pair rather than about either
+/// half: an ARM64 *Windows* machine executes an x86_64 build and an ARM64 *Linux* machine does not.
+///
+/// **Taken as an argument rather than read off the host**, which is what makes the rule below
+/// testable at all: `test` runs on `ubuntu-latest`, `windows-latest` and `macos-latest` and on no
+/// ARM runner, so a host-only reading would leave the one interesting case to be exercised for the
+/// first time by a user.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Target {
+    /// Which operating system.
+    pub os: Os,
+
+    /// Which architecture.
+    pub arch: Arch,
+}
+
+/// Every target MixEngine ships a build for, in the order a coverage matrix reads them.
+///
+/// Six, and the number is a fact about this product rather than about the index: it is what
+/// [build-and-release.md](../../../../.claude/operations/build-and-release.md) produces and what
+/// roadmap task **T92** measured the packaging pipeline against.
+pub const TARGETS: [Target; 6] = [
+    Target::new(Os::Windows, Arch::X86_64),
+    Target::new(Os::Windows, Arch::Aarch64),
+    Target::new(Os::Macos, Arch::X86_64),
+    Target::new(Os::Macos, Arch::Aarch64),
+    Target::new(Os::Linux, Arch::X86_64),
+    Target::new(Os::Linux, Arch::Aarch64),
+];
+
+impl Target {
+    /// Name one.
+    #[must_use]
+    pub const fn new(os: Os, arch: Arch) -> Self {
+        Self { os, arch }
+    }
+
+    /// What this build of MixEngine was compiled for, or [`None`] on a system the index has no
+    /// vocabulary for. See [`Os::host`].
+    #[must_use]
+    pub fn host() -> Option<Self> {
+        Some(Self::new(Os::host()?, Arch::host()?))
+    }
+
+    /// Every target whose artifacts a machine of this one can execute, most preferred first.
+    ///
+    /// **One entry everywhere but ARM64 Windows**, and that exception is the operating system's own
+    /// rather than ours: Windows 11 on ARM runs an x86_64 user-mode process under emulation, which
+    /// is what [runtime-packaging.md](../../../../.claude/operations/runtime-packaging.md) already
+    /// means when it says *"a Windows-on-ARM machine runs the daemon natively and PHP under
+    /// emulation"*. Upstream publishes no ARM64 Windows PHP in any branch, and forty of the
+    /// forty-one empty cells on that target have an x86_64 twin — see
+    /// [ADR 0023](../../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
+    ///
+    /// macOS is **not** given Rosetta here, for two reasons that agree: the packaging document
+    /// refuses emulation for it by name, and all four Unix targets are complete anyway, so there is
+    /// no cell to fill. Linux has no emulator the operating system provides.
+    ///
+    /// **The native target is first and the order is load-bearing** — see [`Package::select`],
+    /// which walks this list on the outside and the artifacts on the inside precisely so that a
+    /// package built for both Windows cells resolves to the native one rather than to whichever the
+    /// generator happened to write first.
+    #[must_use]
+    pub fn runnable(self) -> &'static [Self] {
+        const WINDOWS_X86_64: Target = Target::new(Os::Windows, Arch::X86_64);
+        const WINDOWS_AARCH64: Target = Target::new(Os::Windows, Arch::Aarch64);
+        const MACOS_X86_64: Target = Target::new(Os::Macos, Arch::X86_64);
+        const MACOS_AARCH64: Target = Target::new(Os::Macos, Arch::Aarch64);
+        const LINUX_X86_64: Target = Target::new(Os::Linux, Arch::X86_64);
+        const LINUX_AARCH64: Target = Target::new(Os::Linux, Arch::Aarch64);
+
+        match (self.os, self.arch) {
+            (Os::Windows, Arch::X86_64) => &[WINDOWS_X86_64],
+            (Os::Windows, Arch::Aarch64) => &[WINDOWS_AARCH64, WINDOWS_X86_64],
+            (Os::Macos, Arch::X86_64) => &[MACOS_X86_64],
+            (Os::Macos, Arch::Aarch64) => &[MACOS_AARCH64],
+            (Os::Linux, Arch::X86_64) => &[LINUX_X86_64],
+            (Os::Linux, Arch::Aarch64) => &[LINUX_AARCH64],
+        }
+    }
+}
+
 /// A moment, as the index writes one: strict RFC 3339 in UTC, to the second.
 ///
 /// # Why this is parsed rather than compared as a string
@@ -403,39 +503,91 @@ impl<'de> Deserialize<'de> for Timestamp {
     }
 }
 
-impl Index {
-    /// The artifact of `kind` at `version` built for the machine this build runs on.
+/// The artifact a target would install, and how it would run it.
+///
+/// Returned together rather than as an artifact alone, because the second half is a fact only the
+/// selection knows: the artifact says what it *is*, and whether the machine that asked runs it
+/// natively is a comparison against the target that asked. A caller that dropped it would install
+/// an x86_64 build on an ARM machine without saying so, which is the one thing
+/// [ADR 0023](../../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md)
+/// forbids.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Selection<'a> {
+    /// What to download.
+    pub artifact: &'a Artifact,
+
+    /// Whether the machine that asked runs it natively or through its operating system's emulation.
+    pub execution: Execution,
+}
+
+impl Package {
+    /// The artifact `target` would install, and how it would run it.
     ///
-    /// [`None`] covers three different disappointments — no such package, no such version, and a
-    /// version that exists but was never built for this platform — and the caller that needs to tell
-    /// them apart walks [`Index::packages`] itself. The common caller is about to download something
-    /// and only needs the one answer.
+    /// **Targets on the outside, artifacts on the inside.** Written the other way round — walk the
+    /// artifacts and keep the first one that is runnable — it would compile, pass a test with one
+    /// Windows artifact in it, and hand the choice between two valid ones to the order the
+    /// *generator* happened to write them in. [`Target::runnable`] states a preference and this is
+    /// where it is honoured.
     #[must_use]
-    pub fn artifact(&self, kind: &str, version: &str) -> Option<&Artifact> {
-        let (os, arch) = (Os::host()?, Arch::host()?);
+    pub fn select(&self, target: Target) -> Option<Selection<'_>> {
+        target.runnable().iter().find_map(|runnable| {
+            self.artifacts
+                .iter()
+                .find(|artifact| artifact.os == runnable.os && artifact.arch == runnable.arch)
+                .map(|artifact| Selection {
+                    artifact,
+                    execution: match *runnable == target {
+                        true => Execution::Native,
+                        false => Execution::Emulated,
+                    },
+                })
+        })
+    }
+}
+
+impl Index {
+    /// The package this document has for `kind` at `version`, whatever it was built for.
+    fn published(&self, kind: &str, version: &str) -> Option<&Package> {
         self.packages
             .iter()
-            .find(|package| package.kind == kind && package.version == version)?
-            .artifacts
-            .iter()
-            .find(|artifact| artifact.os == os && artifact.arch == arch)
+            .find(|package| package.kind == kind && package.version == version)
     }
 
-    /// Every version of `kind` that has an artifact for this machine.
+    /// What `target` would install for `kind` at `version`.
+    #[must_use]
+    pub fn select(&self, target: Target, kind: &str, version: &str) -> Option<Selection<'_>> {
+        self.published(kind, version)?.select(target)
+    }
+
+    /// The same, for the machine this build runs on.
+    ///
+    /// [`None`] covers three different disappointments — no such package, no such version, and a
+    /// version that exists but was built only for systems this one cannot execute — and the caller
+    /// that needs to tell them apart walks [`Index::packages`] itself. The common caller is about to
+    /// download something and only needs the one answer.
+    #[must_use]
+    pub fn artifact(&self, kind: &str, version: &str) -> Option<Selection<'_>> {
+        self.select(Target::host()?, kind, version)
+    }
+
+    /// Every version of `kind` that `target` could install.
     ///
     /// The filter is the point: a version listed only for macOS is not a version a Windows user can
     /// install, and offering it would produce a failure at download time instead of an absence at
-    /// list time.
+    /// list time. Since **T92** it resolves through [`Package::select`], so a version an ARM64
+    /// Windows machine can only reach by emulation *is* listed — the alternative was that machine
+    /// being shown no PHP at all, in any branch, because upstream builds none for it.
+    pub fn installable_for(&self, target: Target, kind: &str) -> impl Iterator<Item = &Package> {
+        self.packages
+            .iter()
+            .filter(move |package| package.kind == kind && package.select(target).is_some())
+    }
+
+    /// The same, for the machine this build runs on.
     pub fn installable(&self, kind: &str) -> impl Iterator<Item = &Package> {
-        let host = Os::host().zip(Arch::host());
+        let host = Target::host();
         self.packages.iter().filter(move |package| {
-            package.kind == kind
-                && host.is_some_and(|(os, arch)| {
-                    package
-                        .artifacts
-                        .iter()
-                        .any(|artifact| artifact.os == os && artifact.arch == arch)
-                })
+            package.kind == kind && host.is_some_and(|target| package.select(target).is_some())
         })
     }
 }
@@ -573,6 +725,169 @@ mod tests {
             !artifact.extensions.enabled.contains(&"xdebug".to_owned()),
             "a shared extension the publisher does not switch on is not enabled by being shipped"
         );
+    }
+
+    /// An index shaped like the published one where it matters: PHP is on five targets and not on
+    /// ARM64 Windows, which is true of every branch upstream has ever built.
+    fn php_as_published() -> Index {
+        let artifact = |os: Os, arch: Arch| {
+            serde_json::json!({
+                "os": os.as_str(), "arch": arch.as_str(),
+                "url": format!("https://example.invalid/php-{}-{}.zip", os.as_str(), arch.as_str()),
+                "sha256": "00", "size": 1,
+                "provides": { "php": "php.exe" }
+            })
+        };
+
+        serde_json::from_value(serde_json::json!({
+            "schema": 1,
+            "generated_at": "2026-08-31T07:40:07Z",
+            "packages": [{
+                "kind": "php", "version": "8.3.33", "channel": "stable",
+                "artifacts": [
+                    artifact(Os::Windows, Arch::X86_64),
+                    artifact(Os::Macos, Arch::X86_64),
+                    artifact(Os::Macos, Arch::Aarch64),
+                    artifact(Os::Linux, Arch::X86_64),
+                    artifact(Os::Linux, Arch::Aarch64),
+                ]
+            }]
+        }))
+        .expect("the published shape parses")
+    }
+
+    /// The finding this task exists for — roadmap task **T92**.
+    #[test]
+    fn an_arm64_windows_machine_is_offered_the_x86_64_build_and_told_so() {
+        let index = php_as_published();
+
+        let chosen = index
+            .select(Target::new(Os::Windows, Arch::Aarch64), "php", "8.3.33")
+            .expect("the x86_64 build is what that machine can run");
+
+        assert_eq!(chosen.artifact.arch, Arch::X86_64);
+        assert_eq!(chosen.execution, Execution::Emulated);
+    }
+
+    #[test]
+    fn every_other_target_is_offered_its_own_build() {
+        let index = php_as_published();
+
+        for target in TARGETS {
+            let chosen = index
+                .select(target, "php", "8.3.33")
+                .expect("reachable from all six");
+
+            match target == Target::new(Os::Windows, Arch::Aarch64) {
+                true => assert_eq!(chosen.execution, Execution::Emulated),
+                false => {
+                    assert_eq!(chosen.execution, Execution::Native);
+                    assert_eq!(chosen.artifact.os, target.os);
+                    assert_eq!(chosen.artifact.arch, target.arch);
+                }
+            }
+        }
+    }
+
+    /// A native build wins over one that would have to be emulated, and it wins whichever order the
+    /// generator wrote the two artifacts in — which is the whole reason the search walks the
+    /// preference list on the outside.
+    #[test]
+    fn a_native_build_wins_over_one_that_would_have_to_be_emulated() {
+        for first in [false, true] {
+            let mut index = php_as_published();
+            let native: Artifact = serde_json::from_value(serde_json::json!({
+                "os": "windows", "arch": "aarch64",
+                "url": "https://example.invalid/php-windows-aarch64.zip",
+                "sha256": "00", "size": 1, "provides": { "php": "php.exe" }
+            }))
+            .expect("an artifact");
+
+            match first {
+                true => index.packages[0].artifacts.insert(0, native),
+                false => index.packages[0].artifacts.push(native),
+            }
+
+            let chosen = index
+                .select(Target::new(Os::Windows, Arch::Aarch64), "php", "8.3.33")
+                .expect("published");
+
+            assert_eq!(chosen.execution, Execution::Native);
+            assert_eq!(chosen.artifact.arch, Arch::Aarch64);
+        }
+    }
+
+    /// `redis 7.2.15` is the shape of this: no Windows artifact at all, so no Windows machine is
+    /// offered one and the emulation rule changes nothing.
+    #[test]
+    fn a_version_with_no_windows_build_is_offered_to_no_windows_machine() {
+        let mut index = php_as_published();
+        index.packages[0]
+            .artifacts
+            .retain(|artifact| artifact.os != Os::Windows);
+
+        for arch in [Arch::X86_64, Arch::Aarch64] {
+            let target = Target::new(Os::Windows, arch);
+            assert!(index.select(target, "php", "8.3.33").is_none());
+            assert_eq!(index.installable_for(target, "php").count(), 0);
+        }
+    }
+
+    /// The listing follows the selection, so a version reachable only by emulation is listed.
+    #[test]
+    fn a_version_reachable_only_by_emulation_is_listed_as_installable() {
+        let index = php_as_published();
+
+        assert_eq!(
+            index
+                .installable_for(Target::new(Os::Windows, Arch::Aarch64), "php")
+                .count(),
+            1
+        );
+        assert_eq!(
+            index
+                .installable_for(Target::new(Os::Windows, Arch::X86_64), "node")
+                .count(),
+            0,
+            "a kind the index has nothing for is still nothing"
+        );
+    }
+
+    /// The whole of the emulation rule, asserted per target — roadmap task **T92**.
+    #[test]
+    fn only_an_arm64_windows_machine_can_run_something_that_is_not_its_own_build() {
+        for target in TARGETS {
+            let runs = target.runnable();
+            assert_eq!(runs[0], target, "a machine prefers its own build, always");
+
+            match (target.os, target.arch) {
+                (Os::Windows, Arch::Aarch64) => assert_eq!(
+                    runs,
+                    [target, Target::new(Os::Windows, Arch::X86_64)],
+                    "Windows on ARM runs an x86_64 build under the operating system's emulation"
+                ),
+                _ => assert_eq!(runs.len(), 1, "{target:?} runs nothing but its own build"),
+            }
+        }
+    }
+
+    /// Six, and the matrix in `runtime-packaging.md` is read in this order.
+    #[test]
+    fn the_targets_are_the_six_mixengine_ships_a_build_for() {
+        assert_eq!(TARGETS[0], Target::new(Os::Windows, Arch::X86_64));
+        assert_eq!(
+            TARGETS
+                .iter()
+                .filter(|target| target.os == Os::Macos)
+                .count(),
+            2
+        );
+        for (at, target) in TARGETS.iter().enumerate() {
+            assert!(
+                !TARGETS[at + 1..].contains(target),
+                "no target is named twice: {target:?}"
+            );
+        }
     }
 
     /// An index from before this field, and an artifact that loads nothing, are both silent.
