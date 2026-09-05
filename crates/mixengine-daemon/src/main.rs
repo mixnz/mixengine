@@ -196,10 +196,17 @@ const DETACH_TIMEOUT: Duration = Duration::from_secs(30);
 /// How often it asks during that.
 const DETACH_POLL: Duration = Duration::from_millis(50);
 
+/// What `--version` prints. `mix`'s reason, in the binary a service manager starts — T95.
+const VERSION: &str = if mixengine_platform::RELEASE {
+    env!("CARGO_PKG_VERSION")
+} else {
+    concat!(env!("CARGO_PKG_VERSION"), " (development build)")
+};
+
 /// Command line of the daemon. Configuration enters the program here and is passed down; nothing
 /// deeper reads the environment on its own.
 #[derive(Debug, Parser)]
-#[command(name = "mixengined", version, about = "MixEngine daemon")]
+#[command(name = "mixengined", version = VERSION, about = "MixEngine daemon")]
 struct Args {
     /// Root directory for everything MixEngine owns.
     ///
