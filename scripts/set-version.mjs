@@ -6,8 +6,9 @@
 //
 // **There is one place the version is written**, `[workspace.package]` in the root `Cargo.toml`.
 // Every crate takes `version.workspace = true`, and everything in `packaging/` reads it back with
-// `mix_version()` in `packaging/common.sh` — which is what makes "cutting a release is a version
-// bump and nothing else" true. So this script edits one line and then lets cargo write `Cargo.lock`.
+// `mix_version()` in `packaging/common.sh`. So this script edits one line, and then lets the two
+// tools that own the rest write it out: cargo for `Cargo.lock`, and `mix` itself for the committed
+// command reference, whose first paragraph states the version it was generated from.
 //
 // **What it must not do is replace the old version wherever it appears.** Six blueprints in
 // `crates/mixengine-core/src/blueprints/gallery/` and one CLI fixture carry a
@@ -92,6 +93,27 @@ if (dryRun) {
   } catch {
     fail("cargo update --workspace failed — Cargo.lock still names the old version");
   }
+
+  // **The committed command reference carries the version in its own first paragraph**, so a bump
+  // makes it stale and the `docs` job fails on the diff. Leaving that to a warning is what cost a
+  // CI run on v0.0.1-beta.1.
+  //
+  // This is `packaging/docs.sh --reference`'s one command rather than the script, because `bash` on
+  // Windows is often WSL's, which has no cargo — and capturing the bytes here is safer than that
+  // script's redirect anyway: it writes `cli.md` only once cargo has produced all of it, where a
+  // redirect truncates the page *before* the build that compiles it into the binary.
+  const REFERENCE = join(ROOT, "docs", "guide", "en", "cli.md");
+  try {
+    const generated = execFileSync(
+      "cargo",
+      ["run", "--quiet", "-p", "mixengine-cli", "--", "docs", "--reference"],
+      { cwd: ROOT, encoding: "buffer", maxBuffer: 32 * 1024 * 1024 },
+    );
+    writeFileSync(REFERENCE, generated);
+    console.log(`${relative(ROOT, REFERENCE)}: regenerated`);
+  } catch {
+    fail("could not regenerate the command reference — it still names the old version");
+  }
 }
 
 // Look for a hardcoded version only where one would be a *bug*: everything under `packaging/` and
@@ -115,4 +137,4 @@ if (hardcoded.length > 0) {
   for (const path of hardcoded) console.log(`  ${path}`);
 }
 
-console.log("\nNext: commit Cargo.toml and Cargo.lock, then tag — see docs/releasing.md");
+console.log("\nNext: commit Cargo.toml, Cargo.lock and cli.md, then tag — see docs/releasing.md");
