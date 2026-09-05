@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Watch the CI run this branch asked for, and say what failed rather than that something did.
 #
-# CI fires by itself on `master` and on nothing else — see
-# `.claude/operations/build-and-release.md`. Every other branch pushes and then requests a run, and
-# this is the loop that waits for the answer: it polls `gh run view`, prints each job as it settles,
+# CI fires by itself on a `v*` tag and on nothing else — see
+# `.claude/operations/build-and-release.md`. Every ref pushes and then requests a run, `master`
+# included, and this is the loop that waits for the answer: it polls `gh run view`, prints each job as it settles,
 # and on a failure prints an extract of the failing steps' logs so the next thing to read is the
 # error and not a URL.
 #

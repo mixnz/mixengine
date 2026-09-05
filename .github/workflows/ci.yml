@@ -12,23 +12,26 @@
 # workflow is `contents: read` and stays that way: see `.github/workflows/pages.yml`.
 name: CI
 
-# One ref fires on its own, and only one. The `test` job is the only thing in this repository that
-# compiles the workspace for all three operating systems, and two thirds of `mixengine-platform` is
-# behind a `#[path]` that a developer machine never builds — so a change that breaks Linux or macOS
-# is invisible until something compiles it there. That answer is wanted while the work is still in
-# progress, not after it lands; but firing on every branch bought it by spending a runner on every
-# push, including the dozen that are just a work-in-progress save.
+# **No branch fires on its own, `master` included.** The `test` job is the only thing in this
+# repository that compiles the workspace for all three operating systems, and two thirds of
+# `mixengine-platform` is behind a `#[path]` that a developer machine never builds — so a change that
+# breaks Linux or macOS is invisible until something compiles it there. That answer is worth a
+# runner when somebody is asking for it, and a push is not the same thing as asking: a merge, a
+# documentation fix and a work-in-progress save all look identical to a `push` trigger, and only one
+# of them wanted an answer.
 #
-# So the automatic trigger is `master` alone: the merge itself is a state no feature branch ever
-# compiled, and it is the one ref whose result nobody has to remember to ask for. Every other branch
-# asks for itself. Push the branch under its own name, then request a run on it:
+# So every ref asks for itself, `master` the same as any other. Push, then request a run on it:
 #
 #     git push origin HEAD
 #     gh workflow run ci.yml --ref "$(git branch --show-current)"
 #
-# The run is then labelled with the branch that asked, so two questions in flight are told apart by
-# their ref instead of overwriting each other on one shared lane — and nothing has to be force-pushed
-# to a scratch branch to ask one. `workflow_dispatch` re-runs `master` from the UI the same way.
+# The run is labelled with the ref that asked, so two questions in flight are told apart by their ref
+# instead of overwriting each other on one shared lane.
+#
+# **A tag is the one exception**, and it is not a branch. Pushing `v*` fires the run that *is*
+# release-checklist item 1 — "all CI green on all three OSes" — and then `preflight` and `release` at
+# the bottom of this file: sign what `build` made, and assemble a draft somebody publishes. That one
+# has to be automatic, because a tag whose run was never requested is a release nobody checked.
 #
 # The dispatch list is read from the default branch: a workflow file only becomes requestable once
 # this file is on `master`, and a branch that edits it runs its own version once selected.
@@ -37,18 +40,13 @@ name: CI
 # any other, and leaving `pull_request` on would mean the same commit builds twice.
 on:
   push:
-    branches: [master]
-    # T86: a tag is the third ref whose answer nobody should have to remember to ask for, and the run
-    # it fires *is* release-checklist item 1 — "all CI green on all three OSes" — which until now was
-    # a thing a person asserted. What it additionally does is `preflight` and `release` at the bottom
-    # of this file: sign what `build` made, and assemble a draft somebody publishes.
     tags: ['v*']
   workflow_dispatch:
 
-# A new push, or a second request on the same branch, makes the previous run pointless. Runs on
-# master are kept so the branch always has a complete result history; a feature branch's run is
+# A second request on the same ref makes the previous run pointless. A feature branch's run is
 # cancelled and replaced, because asking again means the answer in flight is about a commit you have
-# already moved past, and waiting it out delays the one you now want.
+# already moved past, and waiting it out delays the one you now want. Runs on `master` are kept
+# anyway, so that ref keeps a complete result history however the runs were started.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   # A tag joins master in never being cancelled (T86). A cancelled release run leaves a half-uploaded

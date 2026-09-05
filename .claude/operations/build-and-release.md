@@ -72,9 +72,9 @@ happens to contain.
 
 ## CI matrix
 
-CI fires by itself on `master` and on nothing else — a workspace that compiles for three operating
-systems is worth a runner when you are asking a question, not on every work-in-progress save. Every
-other branch asks for its own answer: push the branch under its own name, then request a run on it.
+CI fires by itself on a `v*` **tag** and on nothing else — a workspace that compiles for three
+operating systems is worth a runner when you are asking a question, and a push is not the same thing
+as asking. Every ref asks for its own answer, `master` included: push it, then request a run on it.
 
 ```bash
 git push origin HEAD
