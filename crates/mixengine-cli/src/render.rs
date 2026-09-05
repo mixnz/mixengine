@@ -4542,10 +4542,14 @@ mod tests {
         let rendered = status(&example());
         let mut lines = rendered.lines();
 
-        assert_eq!(
-            lines.next(),
-            Some("mixengined 0.1.0 — running (pid 4123, up 13m 32s)")
+        // Read from the same constant `example()` builds the status with, rather than written out:
+        // the fixture has always been version-agnostic and this assertion was not, so a version bump
+        // failed a test that is about a *heading* and not about a number.
+        let heading = format!(
+            "mixengined {} — running (pid 4123, up 13m 32s)",
+            env!("CARGO_PKG_VERSION")
         );
+        assert_eq!(lines.next(), Some(heading.as_str()));
         assert_eq!(
             lines.next(),
             Some("  home      /home/dev/.local/share/mixengine")
