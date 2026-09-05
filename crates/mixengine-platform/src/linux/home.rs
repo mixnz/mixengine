@@ -1,10 +1,18 @@
-//! `$XDG_DATA_HOME/mixengine`, falling back to `~/.local/share/mixengine`.
+//! `$XDG_DATA_HOME/mixengine`, falling back to `~/.local/share/mixengine`; `mixengine-dev` for
+//! a build that is not a release.
 
 use std::path::PathBuf;
 
 use directories::BaseDirs;
 
 use crate::{Error, HomeDirs, Result};
+
+/// Beside the released one — T95, D3. Lowercase, like everything else under `$XDG_DATA_HOME`.
+const NAME: &str = if crate::RELEASE {
+    "mixengine"
+} else {
+    "mixengine-dev"
+};
 
 #[derive(Debug, Default)]
 pub(crate) struct Home;
@@ -16,6 +24,6 @@ impl HomeDirs for Home {
         let base = BaseDirs::new().ok_or(Error::NoHomeDirectory {
             reason: "neither $XDG_DATA_HOME nor $HOME is set",
         })?;
-        Ok(base.data_dir().join("mixengine"))
+        Ok(base.data_dir().join(NAME))
     }
 }

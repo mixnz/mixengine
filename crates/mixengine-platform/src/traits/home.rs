@@ -13,11 +13,14 @@ pub trait HomeDirs: std::fmt::Debug + Send + Sync {
     ///
     /// Per `.claude/architecture/overview.md`:
     ///
-    /// | OS | Directory |
-    /// | --- | --- |
-    /// | Windows | `%LOCALAPPDATA%\MixEngine` |
-    /// | macOS | `~/Library/Application Support/MixEngine` |
-    /// | Linux | `$XDG_DATA_HOME/mixengine`, falling back to `~/.local/share/mixengine` |
+    /// | OS | Directory | A build that is not a release |
+    /// | --- | --- | --- |
+    /// | Windows | `%LOCALAPPDATA%\MixEngine` | `%LOCALAPPDATA%\MixEngine-dev` |
+    /// | macOS | `~/Library/Application Support/MixEngine` | `…/MixEngine-dev` |
+    /// | Linux | `$XDG_DATA_HOME/mixengine`, falling back to `~/.local/share/mixengine` | `…/mixengine-dev` |
+    ///
+    /// The second column is [`crate::RELEASE`]'s doing and is not a mode anything selects at run
+    /// time: it is decided when the binary is compiled — T95.
     ///
     /// The directory is **not** created here and may not exist yet; bootstrapping it is the
     /// caller's job.
