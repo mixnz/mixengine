@@ -14,17 +14,43 @@ fn the_default_root_follows_this_os_convention() {
     assert!(root.is_absolute(), "{} is not absolute", root.display());
     // Windows and macOS name application directories the way their users see them; XDG is
     // lowercase.
-    let expected = if cfg!(target_os = "linux") {
+    let released = if cfg!(target_os = "linux") {
         "mixengine"
     } else {
         "MixEngine"
     };
-    assert_eq!(root.file_name().unwrap(), expected);
+    // **This suite is compiled by cargo and so never carries the release marker** — T95. Written
+    // against `RELEASE` rather than against the development name, because a test that asserted the
+    // released one could only pass in a build no test run produces, and a test that asserted the
+    // development one would stop describing the product.
+    let expected = if mixengine_platform::RELEASE {
+        released.to_owned()
+    } else {
+        format!("{released}-dev")
+    };
+    assert_eq!(root.file_name().unwrap(), expected.as_str());
     // Under the user's data directory, not at the top of a drive or a filesystem.
     assert!(
         root.parent()
             .is_some_and(|parent| parent.parent().is_some())
     );
+}
+
+/// The claim D3 makes, which is about where a person will look rather than about a string.
+#[test]
+fn the_development_home_is_a_sibling_of_the_released_one() {
+    let root = host().home_dirs().default_home().unwrap();
+    let leaf = root.file_name().unwrap().to_string_lossy().into_owned();
+    let released = if cfg!(target_os = "linux") {
+        "mixengine"
+    } else {
+        "MixEngine"
+    };
+
+    // Same parent directory and a leaf that differs only by a suffix, so a developer wondering
+    // where their sites went finds the answer in the folder they were already looking at.
+    assert!(leaf.starts_with(released), "{leaf}");
+    assert_eq!(leaf == released, mixengine_platform::RELEASE, "{leaf}");
 }
 
 #[test]

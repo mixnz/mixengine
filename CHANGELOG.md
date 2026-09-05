@@ -13,6 +13,9 @@ The first public beta.
 - Installers for six OS/arch targets, a signature-verified `mix self-update`, a handbook in English
   and Vietnamese, and a published TypeScript API contract for clients.
 
+A MixEngine built from source keeps its own home directory (`MixEngine-dev`), so a working tree
+cannot migrate the database a released MixEngine is using.
+
 Nothing is code-signed or notarised, by design: expect SmartScreen on Windows and Gatekeeper's
 "Open Anyway" on macOS. A machine with Smart App Control enforcing is not supported. On ARM64
 Windows some runtimes have no build of their own and run under emulation, marked `emulated` in

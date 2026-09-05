@@ -56,10 +56,22 @@ use mixengine_proto::{
 use autostart::Autostart;
 use client::Client;
 
+/// What `--version` prints.
+///
+/// **A build nobody released is worth saying out loud** — T95. It defaults to its own home
+/// directory, so a bug report pasting this line answers "which MixEngine is this, and which
+/// directory was it looking at" in one go, and `packaging/*/build.sh` refuses an artifact that
+/// carries the note.
+const VERSION: &str = if mixengine_platform::RELEASE {
+    env!("CARGO_PKG_VERSION")
+} else {
+    concat!(env!("CARGO_PKG_VERSION"), " (development build)")
+};
+
 /// Command line of the client. Configuration enters the program here and is passed down; nothing
 /// deeper reads the environment on its own.
 #[derive(Debug, Parser)]
-#[command(name = "mix", version, about = "MixEngine command line")]
+#[command(name = "mix", version = VERSION, about = "MixEngine command line")]
 struct Args {
     /// Root directory of the MixEngine installation to talk to.
     ///

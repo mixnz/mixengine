@@ -46,6 +46,22 @@ chmod 755 \
   "$root/usr/local/bin/mixengine-shim" \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate"
 
+# **T95: a release must not admit to being a development build.** `mixengine_platform::RELEASE` is
+# compiled in from `MIXENGINE_RELEASE`, which `packaging/stage.sh` exports; if that ever stops
+# reaching the compiler, every artifact on this leg would default to `MixEngine-dev` and rename the
+# home of everybody who upgraded. Nothing else would notice — the binaries run, the installer opens,
+# and the damage appears on a user's machine.
+#
+# Asked of the universal binary rather than of either slice, because that is the file this package
+# installs and the one a user ends up running.
+printed="$("$root/usr/local/bin/mix" --version)"
+case "$printed" in
+  *"(development build)"*)
+    echo "the staged mix says '$printed' — MIXENGINE_RELEASE did not reach the build" >&2
+    exit 1
+    ;;
+esac
+
 name="mixengine-$version-macos-universal.pkg"
 rm -f "$dist/$name"
 

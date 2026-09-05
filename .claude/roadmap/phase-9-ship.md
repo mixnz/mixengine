@@ -450,6 +450,20 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       x86-64**, which the smoke test would catch rather than the selection — MixEngine states no
       minimum Windows version anywhere, which is a gap this task noticed and did not fill.
 
+- [x] **T95** A build that is not a release keeps its own home.
+      Design: [2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md](../../docs/superpowers/specs/2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md).
+      Decision: [ADR 0024](../decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md).
+      Found by the first beta install, on the machine this product is written on: `cargo run -p
+      mixengine-daemon` and the installed `mixengined.exe` resolved the same `%LOCALAPPDATA%\
+      MixEngine`, so a working tree carrying an unreleased migration would migrate the database
+      holding somebody's real projects — silently, because migrating a database that is behind is
+      exactly right — and editing that migration afterwards leaves it openable by nothing.
+      `MIXENGINE_RELEASE`, set only by `packaging/stage.sh`, now decides the default; `--version`
+      says which kind of build printed it, and each leg refuses an artifact that admits to being a
+      development build, because a release that lost the marker would rename every user's home.
+      **Not the whole fence:** `MIXENGINE_HOME` and `--home` still win, so a developer who points a
+      build at the real home on purpose still can — and one who forgets still hits it.
+
 **Milestone M9 — v0.1.0.**
 
 ---

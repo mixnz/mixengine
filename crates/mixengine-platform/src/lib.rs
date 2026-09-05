@@ -161,6 +161,26 @@ compile_error!(
      src/linux/ and an implementation of every trait in src/traits/."
 );
 
+/// Whether this binary came out of the packaging pipeline.
+///
+/// **`packaging/stage.sh` sets `MIXENGINE_RELEASE` and nothing else in this repository does**, so
+/// this is false for every `cargo build`, `cargo run` and `cargo test` — which is the point. A
+/// working tree carries migrations that have not shipped, and a daemon built from one will migrate
+/// whatever database it opens; if that is the home a person keeps real projects in, their data ends
+/// up on a schema no release can read, and editing that migration afterwards — normal, while it is
+/// unreleased — leaves it openable by nothing. See
+/// `.claude/decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md`.
+///
+/// **Provenance and not optimisation.** `cfg!(debug_assertions)` would need no packaging change and
+/// would answer this for `cargo run` and `cargo test`, but it calls a developer's
+/// `cargo build --release` a release — and that is the build somebody points at real work to see
+/// how it behaves.
+///
+/// `option_env!` is tracked by cargo's fingerprint, so changing the variable rebuilds rather than
+/// serving a cached answer. Measured both ways, in a crate used as a dependency, which is how this
+/// one is used.
+pub const RELEASE: bool = option_env!("MIXENGINE_RELEASE").is_some();
+
 /// The machine this process is running on.
 ///
 /// Constructed once at startup and passed down as `Arc<dyn Host>`; tests inject

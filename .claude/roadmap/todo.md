@@ -3,7 +3,7 @@
 Phases are ordered. Work top to bottom — each phase depends on the ones above it. Tick items as they
 land; when new work appears, insert it **where it belongs in the order**, not at the end.
 
-Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T93`) are global and
+Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T95`) are global and
 never reused, so a task keeps its number wherever it is cited — which is why phase 6 is a gap rather
 than a renumbering, and why T56 and T64 keep their numbers in the phases they moved to.
 
@@ -25,7 +25,7 @@ needs verification on Windows + macOS + Linux.
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
 | [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 9 / 9 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
 | [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84 | 19 / 19 | **M8** capture, apply, open in MixDB, test from a phone |
-| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94 | 16 / 17 | **M9 — v0.1.0** |
+| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.1.0** |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
