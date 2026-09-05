@@ -45,6 +45,15 @@ for crate in "${MIX_CRATES[@]}"; do
   packages_string="$packages_string -p $crate"
 done
 
+# **What makes these binaries releases** — roadmap task T95. `mixengine_platform::RELEASE` reads this
+# at compile time and the default home directory follows it, so a binary built without it defaults to
+# `MixEngine-dev` and one built with it defaults to `MixEngine`.
+#
+# Exported here rather than written on each of the three `cargo build` lines below: three places to
+# set it is three places to forget it, and forgetting it ships an artifact that renames every user's
+# home. `packaging/*/build.sh` checks the staged binary rather than trusting this line.
+export MIXENGINE_RELEASE=1
+
 # `--locked`, so a packaging run cannot quietly resolve a dependency the tested build did not have.
 if [ -n "$container" ]; then
   mix_in_container "$container" \

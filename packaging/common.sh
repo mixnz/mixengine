@@ -109,8 +109,12 @@ mix_in_container() {
   # PHP/Ruby builds, named here rather than reached for blind.
   uid="$(id -u)"
   gid="$(id -g)"
+  # `-e MIXENGINE_RELEASE` with no value passes the caller's through — T95. The two Linux legs build
+  # in here, and a variable that stopped at the container boundary would make exactly those two the
+  # artifacts that rename a user's home.
   docker run --rm \
     -v "$MIX_ROOT:/work" -w /work \
+    -e MIXENGINE_RELEASE \
     "$container" \
     bash -c "
       set -euo pipefail
