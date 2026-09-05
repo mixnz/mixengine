@@ -46,6 +46,27 @@ mix_version() {
     | head -1
 }
 
+# The same version, spelled the way a native Linux package manager can order it.
+#
+# **`.deb` and `.rpm` both read `-` as structure rather than as text**, so a pre-release cannot be
+# handed to either as it is written. rpm refuses it outright — `Illegal char '-' (0x2d) in: Version:
+# 0.0.1-beta.1`, measured on the first tag that had one — because the hyphen is what separates
+# version from release. dpkg is worse than that: it accepts the same string, reads the last hyphen as
+# the revision separator, and then orders `0.0.1-beta.1` *above* the `0.0.1` it comes before, so the
+# beta would be offered as an upgrade over the final release.
+#
+# Both formats spell a pre-release with `~`, which sorts before everything including the empty
+# string — `0.0.1~beta.1 < 0.0.1` on either system, which is the semver ordering. Build metadata goes
+# the same way: `+` is a character `set-version.mjs` allows and neither format has a meaning for.
+#
+# Only the two native packages use this. Every other artifact is named for the version as written,
+# because `packaging/feed.sh` matches payloads by name and `mixengine_core::index` parses semver.
+# `'+-'` and not `'-+'`: a set beginning with a hyphen is an option to `tr`, and both spellings of
+# the tool say so by failing rather than by translating.
+mix_native_version() {
+  mix_version | tr '+-' '~~'
+}
+
 # The single source of truth for "which architecture is this leg" — T85a design, D4. An explicit
 # override takes priority, because the two Linux legs that build inside a container have no `rustc`
 # on the runner itself to ask; everywhere else this asks the toolchain that is about to build rather

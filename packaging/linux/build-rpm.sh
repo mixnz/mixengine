@@ -7,7 +7,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/../common.sh"
 
 mix_require rpmbuild rpm
 
-version="$(mix_version)"
+# `mix_native_version`, not `mix_version`: `Version:` may not contain a hyphen, and rpmbuild names
+# the file it writes after that field — so the two have to be read from the same place.
+version="$(mix_native_version)"
 target="$(mix_host_target)"
 arch="$(mix_arch_label "$target")"
 stage_args=(--target "$target")

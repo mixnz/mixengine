@@ -9,7 +9,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/../common.sh"
 
 mix_require dpkg-deb
 
-version="$(mix_version)"
+# `mix_native_version`, not `mix_version`: dpkg accepts a hyphen and then misreads it, which is the
+# quieter half of what that function is for.
+version="$(mix_native_version)"
 target="$(mix_host_target)"
 arch="$(mix_arch_label "$target")"
 deb_arch="amd64"

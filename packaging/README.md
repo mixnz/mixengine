@@ -52,6 +52,10 @@ bash packaging/bindings.sh --check    # the committed API contract is what the c
 | macOS | `mixengine-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal.tar.gz` |
 | Linux | `mixengine-<version>-linux-x86_64.AppImage`, `mixengine_<version>-1_amd64.deb`, `mixengine-<version>-1.x86_64.rpm`, `mixengine-<version>-linux-x86_64.tar.gz` |
 
+In the `.deb` and the `.rpm` alone, `<version>` is `mix_native_version` rather than the version as
+written: neither format can hold the `-` of a pre-release, so `0.0.1-beta.1` is named
+`0.0.1~beta.1` there and as written everywhere else. `common.sh` says why.
+
 ## The update payload, and the feed
 
 One artifact per OS is not an installer at all: a plain archive of the release's binaries, which is
