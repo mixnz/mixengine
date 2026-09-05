@@ -32,6 +32,7 @@ mod updates;
 use std::ffi::OsString;
 use std::io::{IsTerminal, Write as _};
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -389,7 +390,44 @@ fn as_arg(value: impl ValueEnum) -> String {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> ExitCode {
+    let Err(error) = run().await else {
+        return ExitCode::SUCCESS;
+    };
+
+    // **`mix` sends whoever reads its message to this file**: a daemon that stopped before it
+    // listened is reported as "logs/daemon.log says why". Until this line it did not. The reason
+    // went to this process's stderr alone, and nobody holds it — the client that autostarted the
+    // daemon has already given up waiting on the endpoint, and a daemon a service manager started
+    // has no stderr at all. Measured on an upgrade that could not migrate its database: the log
+    // ended at the line before the failure, and the only way to read the reason was to run
+    // `mixengined` by hand.
+    //
+    // **An event rather than a returned `Result`, and that is what removes a second copy.** The
+    // subscriber writes to stderr as well as to the file — one filter for both, deliberately, see
+    // `logging::subscriber` — so returning the error as well would put a `tracing` line and
+    // `anyhow`'s own `Error:` line on the same terminal. The event is also the better of the two
+    // for a machine: under `log.format = "json"` the collector reading this daemon's stderr gets
+    // one more object, where a bare `Error:` line is prose it cannot parse.
+    //
+    // Flattened onto one line, because the log is read a line at a time and a wire error's `hint`
+    // arrives with a newline in front of it.
+    if logging::started() {
+        tracing::error!(
+            error = format!("{error:#}").replace('\n', "; "),
+            "mixengined stopped"
+        );
+    } else {
+        // Nothing is installed yet, so an event would go nowhere. Everything that fails this early
+        // — the home directory, `config.toml`, opening the log — fails with somebody watching this
+        // stream, and the two-line shape with the hint under the message is what they should read.
+        eprintln!("Error: {error:#}");
+    }
+
+    ExitCode::FAILURE
+}
+
+async fn run() -> anyhow::Result<()> {
     // First line of the process, so that `daemon.status` answers when this daemon *started* rather
     // than when it finished starting: creating a home, running the migrations and opening SQLite
     // are seconds a user would otherwise never see in `uptime`.

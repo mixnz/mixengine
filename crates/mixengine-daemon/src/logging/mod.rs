@@ -91,6 +91,16 @@ pub(crate) fn init(options: &Options<'_>) -> io::Result<()> {
 /// the process, and nothing this module hands back could be dropped to close the file.
 static LIVE: OnceLock<Arc<Mutex<RotatingFile>>> = OnceLock::new();
 
+/// Whether [`init`] has run, and an event therefore has somewhere to go.
+///
+/// Asked by `main` alone, to decide whether a failure on the way out is reported as an event or
+/// printed by hand. Everything that fails before the subscriber exists — the home directory,
+/// `config.toml`, the log file itself — has only stderr, and a `tracing::error!` there would be
+/// dropped on the floor by a subscriber that is not installed yet.
+pub(crate) fn started() -> bool {
+    LIVE.get().is_some()
+}
+
 /// Let go of `daemon.log`, so the directory holding it can be removed — roadmap task **T87**.
 ///
 /// **Windows will not remove a directory holding an open file**, even one already marked for

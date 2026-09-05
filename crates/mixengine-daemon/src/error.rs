@@ -75,12 +75,31 @@ impl ToWire for mixengine_core::Error {
                  and the version you upgraded from still runs against it",
             ),
 
-            // Not a bug and not a dead end, which is why it is not `internal`: the file is from
-            // another build, and the copy taken before the upgrade is the way back.
+            // Not a bug, which is why it is not `internal`: the file was written by a build whose
+            // migrations are not this one's, and it has been left exactly as it was found.
+            //
+            // **This hint used to name the `.bak-…` copy as *the* way back, and that is sometimes
+            // false.** A backup is taken only when the schema is behind, so which file sits there
+            // depends on how the database got ahead of this build: a home written by an older
+            // MixEngine gets a copy taken by this same run, moments earlier, of this same
+            // unreadable file — measured on one from before v0.0.1-beta.1, where copy and original
+            // agreed on every checksum — while a home a *newer* build migrated has a copy from
+            // before that migration, which does open.
+            //
+            // So the three are listed as actions in the order that keeps the most, and none of
+            // them is promised: whether the copy helps depends on which of those two happened, and
+            // that is not something this arm can tell. What it must not do is what it did before —
+            // name one of the three as *the* way back.
+            //
+            // The hint has to carry the way out itself, because nothing else can: the daemon is
+            // not listening, and every `mix` command goes through the daemon.
             Core::IncompatibleDatabase { path, .. } => {
                 Error::new(ErrorCode::PreconditionFailed, chain(self)).with_hint(format!(
-                    "MixEngine copies the database aside before it migrates one — the \
-                     `{}.bak-…` next to it is from before the upgrade that did this",
+                    // The path once and never three times: it is absolute, and a home under a
+                    // temporary directory or a relocated profile runs to a hundred characters —
+                    // repeated for each of the three actions it buries them.
+                    "nothing was changed — run the MixEngine that wrote it, or replace {} with the \
+                     `.bak-…` copy beside it, or move it aside and MixEngine will start fresh",
                     path.display()
                 ))
             }
@@ -995,12 +1014,18 @@ mod tests {
 
         // Not `internal`: nothing is broken, the file is simply newer than this binary.
         assert_eq!(error.code, ErrorCode::PreconditionFailed);
+
+        // **The database's own path.** Every action available here is about that file — running
+        // what wrote it, or moving it aside — and the daemon is not listening, so no `mix` command
+        // can lead the reader to it afterwards. The `.bak-…` copy is mentioned by the hint and is
+        // deliberately not asserted: whether it opens depends on how this database got ahead of
+        // this build, which is not something the hint can know.
         assert!(
             error
                 .hint
                 .as_deref()
-                .is_some_and(|hint| hint.contains(".bak")),
-            "the way back is the copy taken before the upgrade: {:?}",
+                .is_some_and(|hint| hint.contains("/home/dev/.local/share/mixengine/mixengine.db")),
+            "the way out is about the database itself: {:?}",
             error.hint
         );
     }

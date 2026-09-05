@@ -1,4 +1,4 @@
-# The TypeScript contract generator's configuration, and nothing else — roadmap task T56.
+# What cargo puts in the environment of everything it runs here.
 #
 # Design: docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md
 #
@@ -22,3 +22,28 @@ TS_RS_EXPORT_DIR = { value = "bindings", relative = true }
 # on this wire are milliseconds, byte counts and counts of things on one machine; the largest of them
 # reaches 2^53 in about 285,000 years.
 TS_RS_LARGE_INT = "number"
+
+# **A daemon built here must not open the MixEngine somebody is running their real projects with.**
+#
+# The home directory is chosen by the platform default, and that default knows nothing about which
+# binary asked: `cargo run -p mixengine-daemon` on a developer's machine resolves the same
+# `%LOCALAPPDATA%\MixEngine` an installed release does. So a working tree carrying a migration that
+# has not shipped yet will *migrate that person's real database* to a schema no release can read —
+# silently, because migrating a database that is behind is exactly the right thing to do. Editing
+# that migration afterwards, which is normal while it is unreleased, then leaves the database
+# openable by nothing at all.
+#
+# This closes the path a developer actually walks. **It is not the whole fix**: cargo sets this for
+# what cargo runs, so `./target/debug/mixengined` started by hand — the quickest way to read a
+# daemon's startup failure, and done twice while diagnosing the one that prompted this — is outside
+# it. The fix that travels with the binary is a release marker compiled into it.
+#
+# `.mixengine-home` and **not** anything under `target/`, which is the first place this was written:
+# `cargo clean` empties that directory, and a home is where runtimes land — gigabytes of downloaded
+# PHP and Node beside the sites and services that refer to them. Throwing all of it away as a side
+# effect of a routine clean is a smaller instance of exactly the loss this entry exists to prevent.
+# `.gitignore` has carried `/.mixengine-home/` for sandbox roots since before this file did.
+#
+# Not `force = true`, so `MIXENGINE_HOME=… cargo run` still chooses; and `--home`, which every test
+# suite passes for itself, beats both.
+MIXENGINE_HOME = { value = ".mixengine-home", relative = true }
