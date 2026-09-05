@@ -1800,7 +1800,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-cli"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "clap",
  "http-body-util",
@@ -1820,7 +1820,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-core"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "flate2",
  "minijinja",
@@ -1849,7 +1849,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-daemon"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1882,7 +1882,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-docs"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "minijinja",
  "pulldown-cmark",
@@ -1895,7 +1895,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-elevate"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "minisign",
  "minisign-verify",
@@ -1908,7 +1908,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-platform"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "dbus-secret-service",
  "directories",
@@ -1931,7 +1931,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-proto"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "cargo_metadata",
  "serde",
@@ -1942,7 +1942,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-shim"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "mixengine-core",
  "mixengine-platform",
@@ -1954,7 +1954,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-supervisor"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "http-body-util",
  "hyper",
@@ -1972,7 +1972,7 @@ dependencies = [
 
 [[package]]
 name = "mixengine-testkit"
-version = "0.1.0"
+version = "0.0.1-beta.1"
 dependencies = [
  "clap",
  "flate2",
