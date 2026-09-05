@@ -54,7 +54,7 @@ Gatekeeper dialog and, on macOS 15 and later, a trip through **System Settings â
 â†’ Open Anyway**. Installing from a terminal avoids all of that:
 
 ```bash
-sudo installer -pkg mixengine-0.1.0-macos-universal.pkg -target /
+sudo installer -pkg mixengine-*-macos-universal.pkg -target /
 ```
 
 That is the instruction to reach for first on a command-line product. The package runs as root, so
@@ -69,9 +69,9 @@ Three files, each a complete install:
 - **`.AppImage`**, which needs no package manager and no root at all
 
 ```bash
-sudo dpkg -i mixengine_0.1.0_amd64.deb
-sudo rpm -i mixengine-0.1.0.x86_64.rpm
-chmod +x MixEngine-0.1.0-x86_64.AppImage && ./MixEngine-0.1.0-x86_64.AppImage
+sudo dpkg -i mixengine_*_amd64.deb
+sudo rpm -i mixengine-*.x86_64.rpm
+chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage
 ```
 
 Both packages are built against glibc 2.28, so they run on the long-term-support distributions they
@@ -96,8 +96,8 @@ you, which is why placing the privileged helper is never a packager's job.
 Two files sit beside every artifact, and they answer different questions.
 
 ```bash
-sha256sum -c mixengine-0.1.0-linux-x86_64.tar.gz.sha256
-minisign -Vm mixengine-0.1.0-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
+sha256sum -c mixengine-*-linux-x86_64.tar.gz.sha256
+minisign -Vm mixengine-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
 ```
 
 The `.sha256` tells you whether two downloads of the same file are the same file. **It is not a

@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bản cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file bạn vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "fe1c764e2fd012b35f0ae934883b21b49627ae0b9952ca50195dd26c35fb28ba"
+source_sha256 = "b108c58744020133020f0514ad5f89baec2232d81636ee4f6ac9d8a20404f851"
 +++
 
 # Cài đặt MixEngine
@@ -57,7 +57,7 @@ Gatekeeper, và từ macOS 15 trở đi là một vòng qua **System Settings �
 Anyway**. Cài từ terminal thì tránh được tất cả những thứ đó:
 
 ```bash
-sudo installer -pkg mixengine-0.1.0-macos-universal.pkg -target /
+sudo installer -pkg mixengine-*-macos-universal.pkg -target /
 ```
 
 Với một sản phẩm dòng lệnh, đó là hướng dẫn nên dùng trước tiên. Gói này chạy với quyền root, nên nó
@@ -72,9 +72,9 @@ Ba file, mỗi file là một bản cài hoàn chỉnh:
 - **`.AppImage`**, không cần trình quản lý gói và không cần root
 
 ```bash
-sudo dpkg -i mixengine_0.1.0_amd64.deb
-sudo rpm -i mixengine-0.1.0.x86_64.rpm
-chmod +x MixEngine-0.1.0-x86_64.AppImage && ./MixEngine-0.1.0-x86_64.AppImage
+sudo dpkg -i mixengine_*_amd64.deb
+sudo rpm -i mixengine-*.x86_64.rpm
+chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage
 ```
 
 Cả hai gói được dựng trên glibc 2.28, nên chúng chạy được trên các bản phân phối hỗ trợ dài hạn mà
@@ -99,8 +99,8 @@ và đó là lý do việc đặt chương trình phụ trợ đặc quyền kh�
 Bên cạnh mỗi file phát hành có hai file, và chúng trả lời hai câu hỏi khác nhau.
 
 ```bash
-sha256sum -c mixengine-0.1.0-linux-x86_64.tar.gz.sha256
-minisign -Vm mixengine-0.1.0-linux-x86_64.tar.gz -P <khóa trong packaging/updates.pub>
+sha256sum -c mixengine-*-linux-x86_64.tar.gz.sha256
+minisign -Vm mixengine-*-linux-x86_64.tar.gz -P <khóa trong packaging/updates.pub>
 ```
 
 File `.sha256` cho bạn biết hai lần tải cùng một file có ra cùng một file hay không. **Nó không phải
