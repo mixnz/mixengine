@@ -43,7 +43,7 @@ use mixengine_proto::privileged::{HelperStamp, OpOutcome};
 /// and the argument holds here. A key of its own for the one binary that runs as root would be the
 /// same secret in the same place under a second name — it splits the label and not the blast
 /// radius.
-pub(crate) const PUBLIC_KEY: &str = "RWTYXH7WrSyA9PjseTArGpMA1b2uedummCWwZAgBp8PtNh6VDeCwqu+z";
+pub(crate) const PUBLIC_KEY: &str = "RWSELKuybM79fmLhYywhXv8mdDvB3LPCC3TyHTdm2svTti6clLkck051";
 
 /// The largest candidate this process will read into memory.
 ///

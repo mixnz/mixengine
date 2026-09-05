@@ -59,7 +59,7 @@ pub type Client = crate::index::Client<Feed>;
 /// announce would be a key an attacker serving the release could announce. The same value is
 /// committed as `packaging/updates.pub` beside the script that signs with it, and the tests below
 /// keep the two from drifting apart.
-pub const PUBLIC_KEY: &str = "RWTYXH7WrSyA9PjseTArGpMA1b2uedummCWwZAgBp8PtNh6VDeCwqu+z";
+pub const PUBLIC_KEY: &str = "RWSELKuybM79fmLhYywhXv8mdDvB3LPCC3TyHTdm2svTti6clLkck051";
 
 #[cfg(test)]
 mod tests {
