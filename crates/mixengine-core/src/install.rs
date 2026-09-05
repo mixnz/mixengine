@@ -87,10 +87,23 @@ const SMOKE_TIMEOUT: Duration = Duration::from_secs(60);
 /// test has just run a binary from in there: the process has exited, but an antivirus scanner or the
 /// search indexer may still be reading what it left. A short retry turns a race that resolves itself
 /// into a pause nobody notices.
-const RENAME_ATTEMPTS: u32 = 4;
+///
+/// **Seven attempts over six seconds, and the number is a measurement rather than a guess.** Four
+/// attempts inside 450ms was what this was, and it lost: the Windows system suite installed the same
+/// Caddy four times in one job and the fourth failed with `Access is denied (os error 5)` — run
+/// 33990492733. A scanner reading a freshly written 50MB executable it has just watched run does not
+/// reliably finish inside half a second on a machine running somebody else's build as well. A window
+/// too short to cover the thing it exists for is not a retry, it is a coin toss, and this one was
+/// tossed once per install.
+const RENAME_ATTEMPTS: u32 = 7;
 
-/// How long to wait between those attempts.
-const RENAME_PAUSE: Duration = Duration::from_millis(150);
+/// How long to wait before the second attempt; doubled before each attempt after it.
+///
+/// Doubling rather than a fixed pause, so that covering a slow scanner costs a fast machine nothing:
+/// the first attempt is still made immediately and still succeeds immediately in the ordinary case,
+/// and only a home that is actually contended pays for the long tail — 100ms through 3.2s, six
+/// seconds in total.
+const RENAME_PAUSE: Duration = Duration::from_millis(100);
 
 /// The percentage the download is finished at.
 ///
@@ -728,11 +741,14 @@ fn present(artifact: &Artifact, staging: &Path) -> Result<()> {
 ///
 /// See [`RENAME_ATTEMPTS`] for why this is retried rather than attempted once.
 async fn promote(staging: &Path, into: &Path) -> Result<()> {
+    let mut pause = RENAME_PAUSE;
+
     for _ in 1..RENAME_ATTEMPTS {
         if tokio::fs::rename(staging, into).await.is_ok() {
             return Ok(());
         }
-        tokio::time::sleep(RENAME_PAUSE).await;
+        tokio::time::sleep(pause).await;
+        pause *= 2;
     }
 
     tokio::fs::rename(staging, into)
