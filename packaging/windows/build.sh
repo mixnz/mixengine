@@ -72,6 +72,22 @@ for binary in "${MIX_BINARIES[@]}"; do
   }
 done
 
+# **T95: a release must not admit to being a development build.** `mixengine_platform::RELEASE` is
+# compiled in from `MIXENGINE_RELEASE`, which `packaging/stage.sh` exports; if that ever stops
+# reaching the compiler, every artifact on this leg would default to `MixEngine-dev` and rename the
+# home of everybody who upgraded. Nothing else would notice — the binaries run, the installer opens,
+# and the damage appears on a user's machine.
+#
+# The staged binary rather than one out of an artifact: both Windows legs build for the architecture
+# they run on, so it executes here, and it is the same file both artifacts were made from.
+printed="$("$stage/mix.exe" --version)"
+case "$printed" in
+  *"(development build)"*)
+    echo "the staged mix says '$printed' — MIXENGINE_RELEASE did not reach the build" >&2
+    exit 1
+    ;;
+esac
+
 mix_checksum "$dist/$zip_name"
 mix_checksum "$dist/$setup_name"
 

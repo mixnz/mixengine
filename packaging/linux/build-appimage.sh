@@ -74,6 +74,23 @@ case "$printed" in
     ;;
 esac
 
+# **T95: a release must not admit to being a development build.** `mixengine_platform::RELEASE` is
+# compiled in from `MIXENGINE_RELEASE`, which `packaging/stage.sh` exports; if that ever stops
+# reaching the compiler, every artifact on this leg would default to `MixEngine-dev` and rename the
+# home of everybody who upgraded. Nothing else would notice — the binaries run, the packages install,
+# and the damage appears on a user's machine.
+#
+# **One check for all four Linux artifacts.** The `.deb`, the `.rpm` and the update tarball are
+# copied from the same `stage.sh` output this AppImage was built from, so a leg that gets here with a
+# clean answer has four clean artifacts. Reusing `$printed` rather than running the binary again,
+# because extracting an AppImage to ask it twice is a second answer to a question already answered.
+case "$printed" in
+  *"(development build)"*)
+    echo "the AppImage says '$printed' — MIXENGINE_RELEASE did not reach the build" >&2
+    exit 1
+    ;;
+esac
+
 # And the helper really is in there, since nothing above would have run it.
 test -x "$appdir/usr/bin/mixengine-elevate" || {
   echo "mixengine-elevate is not in the AppDir" >&2
