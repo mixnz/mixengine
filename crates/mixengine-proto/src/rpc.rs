@@ -463,6 +463,15 @@ pub mod method {
     /// answer, not an error.
     pub const DATABASE_OPEN: &str = "database.open";
 
+    /// The password MixEngine holds for one account. Takes
+    /// [`DatabaseCredentialsQuery`](crate::DatabaseCredentialsQuery), answers
+    /// [`DatabaseCredentials`](crate::DatabaseCredentials). Roadmap task **T77b**.
+    ///
+    /// **Reads only**, like [`DATABASE_CLIENT`]: no instance is started, no statement runs. It
+    /// exists so a password already held can reach a project's `.env`, which nothing before this
+    /// task could do — every other `database.*` answer names the address and never the value.
+    pub const DATABASE_CREDENTIALS: &str = "database.credentials";
+
     /// The long operations this daemon has run, newest first. Takes
     /// [`JobFilter`](crate::JobFilter), answers [`JobList`](crate::JobList).
     pub const JOB_LIST: &str = "job.list";
