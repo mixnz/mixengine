@@ -24,12 +24,14 @@
 // to claim `0.1.0` through three bumps.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = join(ROOT, "Cargo.toml");
+const GUIDE = join(ROOT, "docs", "guide");
 
 /** Semantic versions, with an optional pre-release and build metadata. */
 const SEMVER =
@@ -168,7 +170,7 @@ if (dryRun) {
   // Windows is often WSL's, which has no cargo — and capturing the bytes here is safer than that
   // script's redirect anyway: it writes `cli.md` only once cargo has produced all of it, where a
   // redirect truncates the page *before* the build that compiles it into the binary.
-  const REFERENCE = join(ROOT, "docs", "guide", "en", "cli.md");
+  const REFERENCE = join(GUIDE, "en", "cli.md");
   try {
     const generated = execFileSync(
       "cargo",
@@ -187,6 +189,38 @@ if (dryRun) {
     const page = join(ROOT, path);
     writeFileSync(page, readFileSync(page, "utf8").replace(outgoing, wanted));
     console.log(`${path}: rewritten to ${wanted}`);
+  }
+
+  // **And restamp the translations that rewrite just invalidated.** Every Vietnamese page carries
+  // the SHA-256 of the English page it was made from, and `mixengine-docs`'s
+  // `a_translation_names_the_version_it_was_made_from` fails the build when the two disagree.
+  // Rewriting an English page changes that hash, so a bump that stopped at the rewrite would be a
+  // bump that reddens CI — which is what the first one did.
+  //
+  // **This records that somebody looked, and nothing more**, exactly as `packaging/docs.sh
+  // --restamp` says of itself: the change being carried is a version number, which is the one edit
+  // to an English page that needs no translating because both pages already spell it the same way.
+  // Any other edit still has to be translated by hand before that script is run.
+  //
+  // It is spelled again here rather than shelled out to for the same reason as the reference above:
+  // `docs.sh` needs `bash` *and* `cargo`, and `bash` on Windows is often WSL's, which has neither.
+  const STAMP = /^source_sha256 = ".*"$/m;
+  for (const name of readdirSync(join(GUIDE, "vi"))) {
+    if (!name.endsWith(".md")) continue;
+
+    const page = join(GUIDE, "vi", name);
+    const translation = readFileSync(page, "utf8");
+
+    // `cli.md` is the one page with no stamp: it is generated from the binary's English help and is
+    // published untranslated, which its own `untranslated_reason` states.
+    if (!STAMP.test(translation)) continue;
+
+    const digest = createHash("sha256").update(readFileSync(join(GUIDE, "en", name))).digest("hex");
+    const stamped = translation.replace(STAMP, `source_sha256 = "${digest}"`);
+    if (stamped === translation) continue;
+
+    writeFileSync(page, stamped);
+    console.log(`docs/guide/vi/${name}: restamped against en/${name}`);
   }
 }
 

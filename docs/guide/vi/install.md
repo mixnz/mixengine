@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "18c87a8442bb40476d38db7c04ba525d37ca9068f242f740373cc4f159c58c97"
+source_sha256 = "08e1226dad476a1d0f58e218b934117367f9ea15830223103f9f0c8ed6827209"
 +++
 
 # Cài đặt MixEngine
