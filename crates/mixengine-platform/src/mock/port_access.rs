@@ -10,13 +10,21 @@ pub(crate) struct Access {
     answer: std::result::Result<Answer, String>,
 }
 
-/// The three fields a fixture sets; the bindings are derived from the method, so a test that says
+/// The fields a fixture sets; the bindings are derived from the method, so a test that says
 /// `Redirect` gets 8080 without having to spell it.
 #[derive(Debug, Clone)]
 struct Answer {
     method: PortAccessMethod,
     granted: bool,
     missing: Option<String>,
+
+    /// When set, only a binary whose file name contains this holds the grant.
+    ///
+    /// **The one thing about `Capability` a global flag cannot describe** — roadmap task **T97**.
+    /// On Linux the grant is an attribute *of the binary*, so a home that switches web server is a
+    /// home whose new front end has none while the old one still has it; a fixture that answered
+    /// the same for every path could not express the machine the switch is designed around.
+    only: Option<String>,
 }
 
 impl Default for Access {
@@ -28,6 +36,7 @@ impl Default for Access {
                 method: PortAccessMethod::Direct,
                 granted: true,
                 missing: None,
+                only: None,
             }),
         }
     }
@@ -41,6 +50,19 @@ impl Access {
                 method,
                 granted: true,
                 missing: None,
+                only: None,
+            }),
+        }
+    }
+
+    /// A machine using `method` where only `program` holds the grant.
+    pub(crate) fn granting_only(method: PortAccessMethod, program: &str) -> Self {
+        Self {
+            answer: Ok(Answer {
+                method,
+                granted: true,
+                missing: Some(format!("only {program} has been granted on this machine")),
+                only: Some(program.to_owned()),
             }),
         }
     }
@@ -52,6 +74,7 @@ impl Access {
                 method,
                 granted: false,
                 missing: Some(missing.to_owned()),
+                only: None,
             }),
         }
     }
@@ -83,7 +106,7 @@ impl crate::PortAccess for Access {
             .collect()
     }
 
-    fn probe(&self, _binary: &Path, answering: &[u16]) -> Result<PortAccessState> {
+    fn probe(&self, binary: &Path, answering: &[u16]) -> Result<PortAccessState> {
         let answer = self
             .answer
             .clone()
@@ -92,11 +115,20 @@ impl crate::PortAccess for Access {
                 reason,
             })?;
 
+        // A fixture that named one program answers about that program and no other.
+        let granted = match &answer.only {
+            Some(program) => binary
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .is_some_and(|name| name.contains(program.as_str())),
+            None => answer.granted,
+        };
+
         Ok(PortAccessState {
             method: answer.method,
             bindings: self.bindings(answering),
-            granted: answer.granted,
-            missing: answer.missing,
+            granted,
+            missing: (!granted).then(|| answer.missing.clone()).flatten(),
         })
     }
 }

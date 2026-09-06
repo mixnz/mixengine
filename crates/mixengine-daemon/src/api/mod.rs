@@ -19,6 +19,7 @@
 mod apply;
 mod create;
 pub(crate) mod events;
+mod front_end;
 mod http;
 mod logs;
 mod metrics;
