@@ -26,6 +26,11 @@
 //! - **Bootstrapping is a table of three routes and not a version test** — see `Route`. 5.6
 //!   answers differently on Windows than on Unix, and its Unix installer is *Perl* in a tree
 //!   compiled from source, so what runs it is read off its own first line.
+//! - **5.7's Windows binary refuses `--skip-networking` alone.** It aborts a `--skip-networking`
+//!   start with `TCP/IP, --shared-memory, or --named-pipe should be configured on NT OS` — after
+//!   running the `--init-file` that sets the password, so the account is left with its new password
+//!   on a server that then fails to come up. Measured against 5.7.44; 8.0.44 has no such check, so
+//!   the extra flag is added only where the version and the OS both call for it.
 //!
 //! # What this recipe deliberately does not do
 //!
@@ -361,12 +366,7 @@ impl Recipe for Mysql {
 /// `windows` is an argument rather than a [`cfg!`] so that the whole table is exercised wherever the
 /// tests run: two of its three answers would otherwise be unreachable on any one machine.
 pub(super) fn route(version: &str, windows: bool) -> Route {
-    let mut parts = version
-        .split(['.', '-'])
-        .filter_map(|part| part.parse::<u32>().ok());
-
-    let major = parts.next().unwrap_or(0);
-    let minor = parts.next().unwrap_or(0);
+    let (major, minor) = version_parts(version);
 
     // A version this cannot read is treated as a modern one: every line published since 5.7 has
     // `--initialize-insecure`, and the two that do not are the two whose numbers are unmistakable.
@@ -381,6 +381,15 @@ pub(super) fn route(version: &str, windows: bool) -> Route {
     }
 }
 
+/// The `(major, minor)` a version string starts with. Unparsable is `(0, 0)`, which reads as old.
+fn version_parts(version: &str) -> (u32, u32) {
+    let mut parts = version
+        .split(['.', '-'])
+        .filter_map(|part| part.parse::<u32>().ok());
+
+    (parts.next().unwrap_or(0), parts.next().unwrap_or(0))
+}
+
 /// The things that have to happen before this database is ever started.
 ///
 /// # Errors
@@ -388,15 +397,22 @@ pub(super) fn route(version: &str, windows: bool) -> Route {
 /// [`Error::ServiceProvidesNothing`] for an install missing one of the commands this needs, and
 /// [`Error::SettingValue`] for a credential this recipe will not put in a SQL literal.
 fn steps(context: &Context) -> Result<Vec<Step>> {
-    steps_for(context, route(context.version(), cfg!(windows)))
+    steps_for(
+        context,
+        route(context.version(), cfg!(windows)),
+        cfg!(windows),
+    )
 }
 
 /// The steps for one route, which is what a test can ask for on any system.
 ///
+/// `windows` is an argument for [`route`]'s reason: the 5.7-on-Windows quirk `set_the_password`
+/// works around would otherwise be exercised on only one of the two systems the CI runs on.
+///
 /// # Errors
 ///
 /// As [`steps`].
-pub(super) fn steps_for(context: &Context, route: Route) -> Result<Vec<Step>> {
+pub(super) fn steps_for(context: &Context, route: Route, windows: bool) -> Result<Vec<Step>> {
     let password = context.secret(ROOT);
 
     // **Refused rather than escaped**, for MariaDB's reason: the only producer of this value is
@@ -415,7 +431,7 @@ pub(super) fn steps_for(context: &Context, route: Route) -> Result<Vec<Step>> {
     match route {
         Route::Initialize => Ok(vec![
             initialize(context)?,
-            set_the_password(context, password)?,
+            set_the_password(context, password, windows)?,
         ]),
 
         Route::Script => {
@@ -460,32 +476,47 @@ fn initialize(context: &Context) -> Result<Step> {
     })
 }
 
-/// Give `root` its password, through a server nothing can connect to.
+/// Give `root` its password, through a server nothing off this machine can connect to.
 ///
 /// **`--skip-networking` is the whole point.** `--initialize-insecure` leaves an account with no
 /// password, and every other way of setting one has a window in which that account is reachable: on
-/// 3306, on a temporary port, or through a socket. This server binds nothing at all, runs the two
+/// 3306, on a temporary port, or through a socket. This server binds no *network* port, runs the two
 /// statements it was given and stops itself with the second of them.
+///
+/// **5.7's Windows binary will not start on `--skip-networking` alone**, though — measured against
+/// 5.7.44, which runs the `--init-file` and then aborts with `TCP/IP, --shared-memory, or
+/// --named-pipe should be configured on NT OS`, leaving the account with its new password on a
+/// server that never came up. `--shared-memory` is a channel nothing off this machine can reach
+/// either, so it satisfies that check without reopening the window `--skip-networking` closes. 8.0
+/// dropped the check, and every other route here already avoids `--skip-networking` entirely, so the
+/// flag is added for 5.7 on Windows only.
 ///
 /// The statement is in a file rather than on the command line because an argument list is readable
 /// by every process on this machine. The daemon writes that file inside `run/`, which is owner-only,
 /// and removes it whatever the step does — see [`SecretFile`].
-fn set_the_password(context: &Context, password: &str) -> Result<Step> {
+fn set_the_password(context: &Context, password: &str, windows: bool) -> Result<Step> {
     let init = context
         .run()
         .join(format!("{}{INIT_FILE_SUFFIX}", context.service().as_str()));
 
+    let mut args = vec![
+        "--no-defaults".to_owned(),
+        format!("--basedir={}", context.install_path().display()),
+        format!("--datadir={}", context.data().display()),
+        format!("--log-error={}", bootstrap_log(context).display()),
+        "--skip-networking".to_owned(),
+    ];
+
+    if windows && version_parts(context.version()).0 < 8 {
+        args.push("--shared-memory".to_owned());
+    }
+
+    args.push(format!("--init-file={}", init.display()));
+
     Ok(Step {
         label: "set the root password".to_owned(),
         program: context.provided(SERVER)?,
-        args: vec![
-            "--no-defaults".to_owned(),
-            format!("--basedir={}", context.install_path().display()),
-            format!("--datadir={}", context.data().display()),
-            format!("--log-error={}", bootstrap_log(context).display()),
-            "--skip-networking".to_owned(),
-            format!("--init-file={}", init.display()),
-        ],
+        args,
         stdin: None,
         secret_file: Some(SecretFile {
             path: init,
@@ -1059,8 +1090,8 @@ mod tests {
     /// stops itself: the statement after the password is `SHUTDOWN`.
     #[test]
     fn a_modern_line_initialises_itself_and_sets_the_password_on_a_server_nobody_can_reach() {
-        let steps =
-            steps_for(&initialised("8.4.10", provides()), Route::Initialize).expect("two steps");
+        let steps = steps_for(&initialised("8.4.10", provides()), Route::Initialize, false)
+            .expect("two steps");
 
         assert_eq!(steps.len(), 2, "{steps:?}");
         assert!(
@@ -1097,6 +1128,55 @@ mod tests {
             file.content.contains("SHUTDOWN"),
             "nothing else can stop a server listening on nothing"
         );
+        assert!(
+            !setting.args.iter().any(|arg| arg == "--shared-memory"),
+            "8.4 dropped the Windows transport check this flag works around: {setting:?}"
+        );
+    }
+
+    /// 5.7's Windows binary aborts on `--skip-networking` alone, so it also gets `--shared-memory`.
+    ///
+    /// Measured against 5.7.44: the init-file still runs and sets the password, but the server then
+    /// refuses to come up at all with `TCP/IP, --shared-memory, or --named-pipe should be configured
+    /// on NT OS`. `windows` is passed explicitly — see [`steps_for`] — so this is exercised on every
+    /// system the tests run on, not only on Windows.
+    #[test]
+    fn windows_five_seven_gets_shared_memory_because_it_refuses_no_transport_at_all() {
+        let steps = steps_for(&initialised("5.7.44", provides()), Route::Initialize, true)
+            .expect("two steps");
+
+        let setting = &steps[1];
+        assert!(
+            setting.args.iter().any(|arg| arg == "--shared-memory"),
+            "{setting:?}"
+        );
+    }
+
+    /// The same version on Unix needs no such flag: a Unix socket exists whatever `--skip-networking`
+    /// says, so there is nothing there for the check `--shared-memory` works around.
+    #[test]
+    fn unix_five_seven_needs_no_shared_memory_because_it_always_has_a_socket() {
+        let steps = steps_for(&initialised("5.7.44", provides()), Route::Initialize, false)
+            .expect("two steps");
+
+        let setting = &steps[1];
+        assert!(
+            !setting.args.iter().any(|arg| arg == "--shared-memory"),
+            "{setting:?}"
+        );
+    }
+
+    /// 8.0 and newer dropped the check 5.7 has, on Windows as much as anywhere else.
+    #[test]
+    fn windows_eight_oh_needs_no_shared_memory_because_upstream_dropped_the_check() {
+        let steps = steps_for(&initialised("8.0.44", provides()), Route::Initialize, true)
+            .expect("two steps");
+
+        let setting = &steps[1];
+        assert!(
+            !setting.args.iter().any(|arg| arg == "--shared-memory"),
+            "{setting:?}"
+        );
     }
 
     /// 5.6 on Unix runs its installer through the interpreter the script's own first line names.
@@ -1107,8 +1187,8 @@ mod tests {
     /// found` and reads like a corrupt archive.
     #[test]
     fn five_six_on_unix_runs_its_installer_through_the_interpreter_the_script_names() {
-        let steps =
-            steps_for(&initialised("5.6.51", provides_5_6()), Route::Script).expect("the steps");
+        let steps = steps_for(&initialised("5.6.51", provides_5_6()), Route::Script, false)
+            .expect("the steps");
 
         let installing = steps
             .iter()
@@ -1127,8 +1207,8 @@ mod tests {
     /// 5.6 on Windows has no installer at all, and copies the directory upstream ships built.
     #[test]
     fn five_six_on_windows_copies_the_data_directory_upstream_ships() {
-        let steps =
-            steps_for(&initialised("5.6.51", provides()), Route::ShippedData).expect("the steps");
+        let steps = steps_for(&initialised("5.6.51", provides()), Route::ShippedData, true)
+            .expect("the steps");
 
         let copying = steps
             .iter()
@@ -1150,12 +1230,13 @@ mod tests {
     fn the_password_is_never_in_an_argument_list() {
         const PASSWORD: &str = "abcd1234abcd1234abcd1234abcd1234";
 
-        for (version, provides, route) in [
-            ("8.4.10", provides(), Route::Initialize),
-            ("5.6.51", provides_5_6(), Route::Script),
-            ("5.6.51", provides(), Route::ShippedData),
+        for (version, provides, route, windows) in [
+            ("8.4.10", provides(), Route::Initialize, false),
+            ("5.6.51", provides_5_6(), Route::Script, false),
+            ("5.6.51", provides(), Route::ShippedData, true),
         ] {
-            let steps = steps_for(&initialised(version, provides), route).expect("the steps");
+            let steps =
+                steps_for(&initialised(version, provides), route, windows).expect("the steps");
 
             for step in &steps {
                 assert!(
