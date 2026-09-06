@@ -480,6 +480,20 @@ pub struct ExtensionOffer {
     pub artifact: ArtifactAvailability,
 }
 
+/// What `extension.available` asks for.
+///
+/// Every field has a default, so `{}` is a question a person can type —
+/// [`RuntimeFilter`](crate::RuntimeFilter)'s rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct ExtensionAvailable {
+    /// Ask the registry again even if the cached copy is still fresh —
+    /// [`RuntimeFilter::refresh`](crate::RuntimeFilter::refresh)'s reason, for the registry's own
+    /// `mixengine_core::index::Client` rather than the package index's.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub refresh: bool,
+}
+
 /// What the registry publishes.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]

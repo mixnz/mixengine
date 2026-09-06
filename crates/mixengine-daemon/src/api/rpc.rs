@@ -15,15 +15,16 @@ use mixengine_proto::{
     CaStatusQuery, CaUninstallQuery, CertIssue, CertStatusQuery, DaemonShutdown, DaemonStatus,
     DaemonVersion, DatabaseClientQuery, DatabaseCreate, DatabaseCredentialsQuery, DatabaseOpen,
     DiagnosticsBundle, DoctorRepair, DomainAdd, DomainRemove, DomainStatusQuery, ElevationDrop,
-    Enforcement, Error, ErrorCode, ExtensionChoice, ExtensionInspect, ExtensionInstall,
-    ExtensionPlanRequest, ExtensionTarget, ExtensionUninstall, IdleReport, IdleSource, JobFilter,
-    JobKind, JobList, JobQuery, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
-    MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery,
-    ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall,
-    ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceSpec, ServiceSummary, ServiceTarget,
-    ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate, UninstallQuery,
-    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
+    Enforcement, Error, ErrorCode, ExtensionAvailable, ExtensionChoice, ExtensionInspect,
+    ExtensionInstall, ExtensionPlanRequest, ExtensionTarget, ExtensionUninstall, IdleReport,
+    IdleSource, JobFilter, JobKind, JobList, JobQuery, JobSummary, JobWait, LimitSupport,
+    MemoryWatchdog, MetricsFrame, MetricsHistory, MetricsHistoryQuery, PackageFilter,
+    PackageTarget, ProjectCreate, ProjectQuery, ProjectUpdate, ResourceLimits, RuntimeFilter,
+    RuntimeQuestion, RuntimeTarget, RuntimeUninstall, ServiceCreate, ServiceDelete, ServiceFailure,
+    ServiceId, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
+    ServiceSpec, ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery,
+    SiteShare, SiteUpdate, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
+    UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -424,8 +425,8 @@ async fn call_method(
                 }
 
                 rpc::method::EXTENSION_AVAILABLE => {
-                    no_params(params.as_ref())?;
-                    encode_result(&api.extensions.available().await.map_err(refused)?)
+                    let asked: ExtensionAvailable = arguments(params)?;
+                    encode_result(&api.extensions.available(&asked).await.map_err(refused)?)
                 }
 
                 rpc::method::EXTENSION_PLAN => {

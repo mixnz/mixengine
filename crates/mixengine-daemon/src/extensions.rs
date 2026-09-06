@@ -25,10 +25,10 @@ use mixengine_core::index::Client;
 use mixengine_core::{Paths, Store};
 use mixengine_platform::Located;
 use mixengine_proto::{
-    DesktopPresence, Error, ErrorCode, ExtensionCatalogue, ExtensionConsent, ExtensionId,
-    ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer, ExtensionOrigin,
-    ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary, ExtensionUninstall,
-    JobKind, JobSummary, PortWish, ServiceId, Timestamp, rpc,
+    DesktopPresence, Error, ErrorCode, ExtensionAvailable, ExtensionCatalogue, ExtensionConsent,
+    ExtensionId, ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer,
+    ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary,
+    ExtensionUninstall, JobKind, JobSummary, PortWish, ServiceId, Timestamp, rpc,
 };
 
 use crate::error::ToWire as _;
@@ -153,17 +153,24 @@ impl Extensions {
 
     /// What the signed registry publishes.
     ///
+    /// **`asked.refresh` skips a still-fresh cache** — `RuntimeFilter::refresh`'s reason: someone
+    /// who just watched an extension get published should not have to wait out the registry
+    /// client's own freshness window before this home notices.
+    ///
     /// # Errors
     ///
     /// Whatever obtaining the registry costs when there is no usable cache either — a signature
     /// that does not verify, a document from before the cached one, a server that cannot be
     /// reached.
-    pub(crate) async fn available(&self) -> Result<ExtensionCatalogue, Error> {
-        let catalogue = self
-            .registry
-            .catalogue()
-            .await
-            .map_err(|error| error.to_wire())?;
+    pub(crate) async fn available(
+        &self,
+        asked: &ExtensionAvailable,
+    ) -> Result<ExtensionCatalogue, Error> {
+        let catalogue = match asked.refresh {
+            true => self.registry.refresh().await,
+            false => self.registry.catalogue().await,
+        }
+        .map_err(|error| error.to_wire())?;
         let listing = catalogue.index.listing();
 
         let installed = extension_store::all(&self.store)

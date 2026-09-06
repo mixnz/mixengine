@@ -939,3 +939,48 @@ async fn a_running_pool_refuses_an_uninstall_even_when_it_is_forced() {
         .await;
     assert_eq!(listed["runtimes"][0]["version"], VERSION, "{listed}");
 }
+
+/// **`refresh` reaches the registry instead of answering from a still-fresh cache.**
+///
+/// `mixengine_core::index::Client::catalogue` only asks the network again once the cache is older
+/// than `FRESH_FOR` — six hours, which no test can wait out. `refresh` is the escape hatch: a person
+/// who just watched a new version get published should not have to wait for the old one's six hours
+/// to run out, and this is the only way to prove the flag does that rather than nothing.
+#[tokio::test]
+async fn refresh_bypasses_a_fresh_cache() {
+    let fixture = Fixture::start().await;
+    let mut client = fixture.client().await;
+
+    // Fetches and caches the index the fixture published.
+    let first = client.call("runtime.list_available", json!({})).await;
+    assert_eq!(
+        first["runtimes"].as_array().map(Vec::len),
+        Some(1),
+        "{first}"
+    );
+
+    // Republished with the one offered version gone. The cache is still fresh, so an ordinary call
+    // keeps answering from it — the behaviour `refresh` exists to bypass, proved here so the test
+    // below is proof of the flag and not of a registry that always answers the same way.
+    fixture._registry.publish(&json!({
+        "schema": 1,
+        "generated_at": "2026-08-14T06:55:13Z",
+        "packages": [],
+    }));
+
+    let cached = client.call("runtime.list_available", json!({})).await;
+    assert_eq!(
+        cached["runtimes"].as_array().map(Vec::len),
+        Some(1),
+        "a fresh cache is not asked about again: {cached}"
+    );
+
+    let refreshed = client
+        .call("runtime.list_available", json!({"refresh": true}))
+        .await;
+    assert_eq!(
+        refreshed["runtimes"].as_array().map(Vec::len),
+        Some(0),
+        "`refresh` reaches the registry instead of answering from the cache: {refreshed}"
+    );
+}

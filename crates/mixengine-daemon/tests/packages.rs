@@ -721,3 +721,47 @@ async fn a_service_a_site_declares_is_refused_and_then_forced() {
         "the link went with the service: {site}"
     );
 }
+
+/// **`refresh` reaches the registry instead of answering from a still-fresh cache.**
+///
+/// [`tests/runtimes.rs`](../../mixengine-daemon/tests/runtimes.rs)'s test of the same name, for
+/// `package.list_available` — the two share one `mixengine_core::index::Client<Index>` under the
+/// daemon, so this is also proof that `runtime available --refresh` and `package available
+/// --refresh` do not each refresh only the other's half of one document.
+#[tokio::test]
+async fn refresh_bypasses_a_fresh_cache() {
+    let fixture = Fixture::start().await;
+    let mut client = fixture.client().await;
+
+    // Fetches and caches the index the fixture published.
+    let first = client.call("package.list_available", json!({})).await;
+    assert_eq!(
+        first["packages"].as_array().map(Vec::len),
+        Some(1),
+        "{first}"
+    );
+
+    // Republished with nothing offered. The cache is still fresh, so an ordinary call keeps
+    // answering from it — the behaviour `refresh` exists to bypass.
+    fixture._registry.publish(&json!({
+        "schema": 1,
+        "generated_at": "2026-08-19T06:55:13Z",
+        "packages": [],
+    }));
+
+    let cached = client.call("package.list_available", json!({})).await;
+    assert_eq!(
+        cached["packages"].as_array().map(Vec::len),
+        Some(1),
+        "a fresh cache is not asked about again: {cached}"
+    );
+
+    let refreshed = client
+        .call("package.list_available", json!({"refresh": true}))
+        .await;
+    assert_eq!(
+        refreshed["packages"].as_array().map(Vec::len),
+        Some(0),
+        "`refresh` reaches the registry instead of answering from the cache: {refreshed}"
+    );
+}

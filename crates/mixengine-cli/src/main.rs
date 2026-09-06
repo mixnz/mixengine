@@ -34,15 +34,15 @@ use mixengine_proto::{
     DatabaseClientQuery, DatabaseClientReport, DatabaseCreate, DatabaseCredentials,
     DatabaseCredentialsQuery, DatabaseHandoff, DatabaseOpen, DiagnosticsBundle, Disposition,
     DoctorRepair, DoctorReport, DomainAdd, DomainRemove, DomainStatusQuery, DomainStatusReport,
-    ElevationDrop, ElevationStatus, Error, ErrorCode, ExtensionCatalogue, ExtensionChange,
-    ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect, ExtensionInspection,
-    ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest,
-    ExtensionRemoval, ExtensionTarget, ExtensionUninstall, HelperUpgrade, IdleReport,
-    InstalledExtensions, JobFilter, JobId, JobList, JobOutcome, JobQuery, JobState, JobSummary,
-    JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis, MismatchAnswer, PackageCatalogue,
-    PackageFilter, PackageList, PackageRemoval, PackageTarget, PackageVersion, PathReport,
-    PendingOpId, PlanAction, Priority, ProjectCreate, ProjectDetail, ProjectExport, ProjectList,
-    ProjectQuery, ProjectRef, ProjectRemoval, ProjectUpdate, Removal, RepairReport,
+    ElevationDrop, ElevationStatus, Error, ErrorCode, ExtensionAvailable, ExtensionCatalogue,
+    ExtensionChange, ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect,
+    ExtensionInspection, ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan,
+    ExtensionPlanRequest, ExtensionRemoval, ExtensionTarget, ExtensionUninstall, HelperUpgrade,
+    IdleReport, InstalledExtensions, JobFilter, JobId, JobList, JobOutcome, JobQuery, JobState,
+    JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis, MismatchAnswer,
+    PackageCatalogue, PackageFilter, PackageList, PackageRemoval, PackageTarget, PackageVersion,
+    PathReport, PendingOpId, PlanAction, Priority, ProjectCreate, ProjectDetail, ProjectExport,
+    ProjectList, ProjectQuery, ProjectRef, ProjectRemoval, ProjectUpdate, Removal, RepairReport,
     ResolvedRuntime, ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList,
     RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
     ScaffoldConsent, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet,
@@ -519,7 +519,15 @@ enum ExtensionCommand {
     List,
 
     /// What the signed registry publishes.
-    Available,
+    Available {
+        /// Ask the registry again even if the cached copy is still fresh.
+        ///
+        /// The daemon otherwise answers from a cache for up to six hours, which is the wrong
+        /// default for someone who just watched an extension get published and does not want to
+        /// wait for their own machine to notice.
+        #[arg(long)]
+        refresh: bool,
+    },
 
     /// Say what installing one would do, and change nothing.
     Plan {
@@ -1127,7 +1135,18 @@ enum RuntimeCommand {
     List(Kind),
 
     /// List the versions the package index offers for this machine.
-    Available(Kind),
+    Available {
+        #[command(flatten)]
+        filter: Kind,
+
+        /// Ask the package index again even if the cached copy is still fresh.
+        ///
+        /// The daemon otherwise answers from a cache for up to six hours, which is the wrong
+        /// default for someone who just watched a version get published and does not want to wait
+        /// for their own machine to notice.
+        #[arg(long)]
+        refresh: bool,
+    },
 
     /// Download and install one version.
     Install {
@@ -1251,7 +1270,18 @@ enum PackageCommand {
     ///
     /// Only packages this build knows how to configure and run: an entry MixEngine has no recipe for
     /// would unpack into a directory nothing could start.
-    Available(Named),
+    Available {
+        #[command(flatten)]
+        filter: Named,
+
+        /// Ask the package index again even if the cached copy is still fresh.
+        ///
+        /// The daemon otherwise answers from a cache for up to six hours, which is the wrong
+        /// default for someone who just watched a version get published and does not want to wait
+        /// for their own machine to notice.
+        #[arg(long)]
+        refresh: bool,
+    },
 
     /// Download and install one version.
     Install {
@@ -2974,9 +3004,14 @@ async fn extension(
             }))?;
         }
 
-        ExtensionCommand::Available => {
-            let catalogue: ExtensionCatalogue =
-                ask(&mut client, rpc::method::EXTENSION_AVAILABLE, encode(&())).await?;
+        ExtensionCommand::Available { refresh } => {
+            let asked = ExtensionAvailable { refresh };
+            let catalogue: ExtensionCatalogue = ask(
+                &mut client,
+                rpc::method::EXTENSION_AVAILABLE,
+                encode(&asked),
+            )
+            .await?;
 
             emit(&rendered(json, &catalogue, || {
                 render::extension_catalogue(&catalogue)
@@ -3507,14 +3542,20 @@ async fn package(
 
     match command {
         PackageCommand::List(Named { package }) => {
-            let filter = PackageFilter { package };
+            let filter = PackageFilter {
+                package,
+                refresh: false,
+            };
             let list: PackageList =
                 ask(&mut client, rpc::method::PACKAGE_LIST, encode(&filter)).await?;
             emit(&rendered(json, &list, || render::package_list(&list)))?;
         }
 
-        PackageCommand::Available(Named { package }) => {
-            let filter = PackageFilter { package };
+        PackageCommand::Available {
+            filter: Named { package },
+            refresh,
+        } => {
+            let filter = PackageFilter { package, refresh };
             let catalogue: PackageCatalogue = ask(
                 &mut client,
                 rpc::method::PACKAGE_LIST_AVAILABLE,
@@ -4074,7 +4115,10 @@ async fn runtime(
 
     match command {
         RuntimeCommand::List(Kind { kind }) => {
-            let filter = RuntimeFilter { kind };
+            let filter = RuntimeFilter {
+                kind,
+                refresh: false,
+            };
             let list: RuntimeList = ask(
                 &mut client,
                 rpc::method::RUNTIME_LIST_INSTALLED,
@@ -4084,8 +4128,11 @@ async fn runtime(
             emit(&rendered(json, &list, || render::runtime_list(&list)))?;
         }
 
-        RuntimeCommand::Available(Kind { kind }) => {
-            let filter = RuntimeFilter { kind };
+        RuntimeCommand::Available {
+            filter: Kind { kind },
+            refresh,
+        } => {
+            let filter = RuntimeFilter { kind, refresh };
             let catalogue: RuntimeCatalogue = ask(
                 &mut client,
                 rpc::method::RUNTIME_LIST_AVAILABLE,
