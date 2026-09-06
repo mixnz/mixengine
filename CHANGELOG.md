@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.0.4
+
+- Every .tar.zst and .tar.gz we publish begins with the ./ entry tar writes,
+  and the path check read it as one escaping the destination — no runtime or
+  package could install on macOS or Linux. The unpackers now skip an entry
+  that names the destination itself; safe() and the traversal guard are
+  unchanged.
+
 ## v0.0.3
 
 - `feat(disk)`: disk usage by category plus a cleanup that only reaches what is safe to lose (`mix disk`, `mix cleanup`).
