@@ -173,6 +173,14 @@ pub(crate) struct Api {
     /// different dependencies would be giving them different answers about one machine.
     pub(crate) uninstall: Arc<crate::uninstall::Uninstall>,
 
+    /// `mix disk`'s and `mix cleanup`'s half — roadmap task **T96**.
+    ///
+    /// Holds only [`Paths`] and its own last reading: what it measures is directories, and what it
+    /// removes is a closed list of names under two of them. The refusal that keeps it away from a
+    /// download in flight needs `jobs`, and lives in the handler rather than in here — see
+    /// `Api::cleanup_now`.
+    pub(crate) disk: Arc<crate::disk::Disk>,
+
     /// This home's certificate authority (T48): made at start, reported by `cert.ca_status`.
     pub(crate) certificates: crate::certs::Certificates,
 
@@ -534,6 +542,7 @@ impl Api {
             },
             paths,
         );
+        let disk = crate::disk::Disk::new(paths);
 
         Arc::new(Self {
             version: env!("CARGO_PKG_VERSION"),
@@ -560,6 +569,7 @@ impl Api {
             bundles,
             armed,
             uninstall,
+            disk,
             certificates,
             shims,
             autostart,
