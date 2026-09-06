@@ -2042,8 +2042,9 @@ fn kind_word(kind: &SiteKind) -> &'static str {
 /// was examined rather than only what was wrong.
 ///
 /// The word in the margin is the outcome and the indented line under it is the daemon's own
-/// sentence — this client writes none of its own, on the standing rule that a client renders what
-/// the daemon returns.
+/// sentence — the daemon's `because` never carries advice (T47a design, D3), so the one line telling
+/// a person what to do about a `PROBLEM` is this client's own, appended once for the whole report
+/// rather than repeated under every line that earned it.
 pub(crate) fn doctor(report: &DoctorReport) -> String {
     let mut out = String::new();
 
@@ -2060,6 +2061,10 @@ pub(crate) fn doctor(report: &DoctorReport) -> String {
         if let Some(because) = because {
             out.push_str(&format!("         {because}\n"));
         }
+    }
+
+    if report.has_a_problem() {
+        out.push_str("\nrun `mix doctor --repair` to fix what it can\n");
     }
 
     out
