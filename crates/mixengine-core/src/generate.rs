@@ -51,7 +51,7 @@ pub use document::{Document, Reason, Validator, Written};
 pub use first_run::{DataDirectory, FirstRun, Ritual, SecretSpec};
 pub use recipe::{
     Catalogue, Context, Endpoints, FrontEndAddition, Instancing, Recipe, Role, Source,
-    TemplateFile, Upstream, Upstreams,
+    TemplateFile, Upstream, Upstreams, program,
 };
 pub use recipes::{Caddy, Mariadb, PhpFpm, Postgres};
 pub use served::{Served, ServedKind, Shared};

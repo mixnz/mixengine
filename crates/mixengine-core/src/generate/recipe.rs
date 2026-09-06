@@ -319,8 +319,7 @@ impl Context {
     /// the suffix, and no recipe carries a `#[cfg]`.
     #[must_use]
     pub fn program(&self, name: &str) -> PathBuf {
-        self.install_path
-            .join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
+        program(&self.install_path, name)
     }
 
     /// The executable this install publishes under `name`, wherever the publisher put it.
@@ -728,6 +727,19 @@ pub enum Role {
 
     /// Everything else: a database, a cache, a pool. As many as the home wants.
     Other,
+}
+
+/// An executable inside an installed package, spelled the way this OS spells one.
+///
+/// **The one spelling of that join, and the reason it is a free function** — roadmap task **T97**.
+/// [`Context::program`] is how a recipe asks, and it is the only way to ask while a service exists;
+/// `service.set_front_end` has to name the binary of a front end whose row *does not exist yet*, in
+/// order to find out whether this machine will let it answer on 80 and 443 before anything is
+/// stopped or deleted. Both callers therefore ask the same function, so the path a grant is written
+/// against and the path a spec runs cannot come to differ by a suffix.
+#[must_use]
+pub fn program(install_path: &Path, name: &str) -> PathBuf {
+    install_path.join(format!("{name}{}", std::env::consts::EXE_SUFFIX))
 }
 
 /// Where one service listens, for whoever else has to point at it.
@@ -1337,6 +1349,34 @@ mod tests {
             preferred("caddy"),
             None,
             "a front end's ports are its own settings"
+        );
+    }
+
+    /// **T97.** The free function and the method are one join, and this is what keeps them one: a
+    /// switch writes a port-80 grant against the first and the supervisor runs the second, so a
+    /// suffix spelled in one place and not the other would be a capability on a file nothing runs.
+    #[test]
+    fn a_package_executable_is_spelled_once_however_it_is_asked_for() {
+        let service = ServiceId::parse("nginx").expect("an id");
+        let settings = Settings::merge(&[], "{}", &service).expect("no settings, no overrides");
+        let context = Context::for_test(
+            service,
+            "nginx",
+            Path::new(root()),
+            BTreeMap::new(),
+            None,
+            settings,
+        );
+
+        let install_path = Path::new(root()).join("packages").join("nginx");
+
+        assert_eq!(context.program("nginx"), program(&install_path, "nginx"));
+        assert_eq!(
+            program(&install_path, "nginx")
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str),
+            Some(if cfg!(windows) { "nginx.exe" } else { "nginx" }),
+            "the suffix is this operating system's and never a recipe's"
         );
     }
 

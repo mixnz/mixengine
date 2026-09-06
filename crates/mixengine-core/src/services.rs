@@ -605,6 +605,106 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
     })
 }
 
+/// One service's row, read back as the [`Declaration`] that wrote it — roadmap task **T97**.
+///
+/// **The inverse of [`create`], and it is a value rather than a query so that the two cannot
+/// drift.** Its caller is `service.set_front_end`, which deletes the row a home's front end is
+/// before it creates the row the new one will be: a create that will not render has to put the old
+/// row back exactly, and *exactly* is not something a caller can reassemble from a summary. So the
+/// declaration is read while the row is still there, and the rollback is a second [`create`] of the
+/// same value.
+///
+/// **The port comes back as [`Port::Fixed`] and never as [`Port::Allocate`].** A restore is not a
+/// creation: the number in the column was decided once, is in somebody's `.env` by now, and must
+/// come back as itself rather than be searched for again — which is the whole of what
+/// [`Port::Fixed`] means.
+///
+/// # Errors
+///
+/// [`Error::NotFound`] when there is no such service, [`Error::UnreadableServiceRow`] when the row
+/// names no parent at all or holds a kind or a version this build cannot read, and
+/// [`Error::Database`] when the file cannot be read.
+pub async fn declaration(store: &Store, service: &ServiceId) -> Result<Declaration> {
+    let id = service.as_str();
+
+    let row = sqlx::query!(
+        "SELECT s.instance_name, s.autostart, s.port, s.bind_addr, s.data_dir,
+                s.config_overrides_json, s.extension_id,
+                p.name AS package, p.version AS package_version,
+                r.kind AS runtime_kind, r.version AS runtime_version
+         FROM services s
+         LEFT JOIN packages p ON p.id = s.package_id
+         LEFT JOIN runtime_installs r ON r.id = s.runtime_install_id
+         WHERE s.id = ?",
+        id
+    )
+    .fetch_optional(store.pool())
+    .await
+    .map_err(|source| store.failure("read", source))?
+    .ok_or_else(|| Error::NotFound {
+        kind: "service",
+        id: id.to_owned(),
+    })?;
+
+    let unreadable = |column: &'static str, value: String| Error::UnreadableServiceRow {
+        service: id.to_owned(),
+        column,
+        value,
+    };
+
+    // The `CHECK` on the table says exactly one parent is set, so this is a match on which — and
+    // the `else` is the hand-edited row that constraint is there to catch.
+    let origin = match (row.package, row.extension_id, row.runtime_kind) {
+        (Some(name), _, _) => {
+            let version = row
+                .package_version
+                .ok_or_else(|| unreadable("packages.version", "nothing".to_owned()))?;
+
+            Origin::Package {
+                name,
+                version: PackageVersion::parse(version.clone())
+                    .map_err(|_| unreadable("packages.version", version))?,
+            }
+        }
+
+        (_, Some(extension), _) => Origin::Extension {
+            id: ExtensionId::parse(extension.clone())
+                .map_err(|_| unreadable("services.extension_id", extension))?,
+        },
+
+        (_, _, Some(kind)) => {
+            let version = row
+                .runtime_version
+                .ok_or_else(|| unreadable("runtime_installs.version", "nothing".to_owned()))?;
+
+            Origin::Runtime {
+                kind: RuntimeKind::parse(&kind)
+                    .ok_or_else(|| unreadable("runtime_installs.kind", kind.to_string()))?,
+                version: PackageVersion::parse(version.clone())
+                    .map_err(|_| unreadable("runtime_installs.version", version))?,
+            }
+        }
+
+        (None, None, None) => {
+            return Err(unreadable("package_id", "no parent at all".to_owned()));
+        }
+    };
+
+    Ok(Declaration {
+        service: service.clone(),
+        origin,
+        instance_name: row.instance_name,
+        port: match listening_port(row.port) {
+            Some(port) => Port::Fixed(port),
+            None => Port::None,
+        },
+        bind_addr: Some(row.bind_addr),
+        data_dir: row.data_dir,
+        autostart: row.autostart != 0,
+        overrides: row.config_overrides_json,
+    })
+}
+
 /// Every service's row, keyed by the id the row itself holds.
 ///
 /// **One query rather than one per service**, because the caller is answering `service.list` and a
@@ -1192,6 +1292,104 @@ mod tests {
             "{error:?}"
         );
     }
+    /// **T97.** A row reads back as the value that wrote it, which is what makes a switch's
+    /// rollback a second [`create`] rather than a reconstruction from a summary.
+    #[tokio::test]
+    async fn a_row_reads_back_as_the_declaration_that_wrote_it() {
+        let (_home, store) = store().await;
+
+        sqlx::query(
+            "INSERT INTO packages (name, version, install_path, installed_at, source_url, sha256)
+             VALUES ('mariadb', '11.4.2', '/packages/mariadb/11.4.2', '2026-09-07T00:00:00Z',
+                     'https://example.invalid/mariadb', 'ab')",
+        )
+        .execute(store.pool())
+        .await
+        .expect("a package for the service to belong to");
+
+        let service = ServiceId::parse("mariadb@legacy").expect("a valid id");
+        let written = Declaration {
+            service: service.clone(),
+            origin: Origin::Package {
+                name: "mariadb".to_owned(),
+                version: PackageVersion::parse("11.4.2").expect("a version"),
+            },
+            instance_name: "legacy".to_owned(),
+            port: Port::Fixed(3307),
+            bind_addr: Some("0.0.0.0".to_owned()),
+            data_dir: Some("/somewhere/else".to_owned()),
+            autostart: true,
+            overrides: r#"{"innodb_buffer_pool_size":"512M"}"#.to_owned(),
+        };
+
+        create(
+            &store,
+            &mixengine_platform::mock::Host::with_home("/mixengine"),
+            &written,
+        )
+        .await
+        .expect("a service");
+
+        let read = super::declaration(&store, &service)
+            .await
+            .expect("the row back");
+
+        assert!(
+            matches!(
+                &read.origin,
+                Origin::Package { name, version }
+                    if name == "mariadb" && version.as_str() == "11.4.2"
+            ),
+            "{:?}",
+            read.origin
+        );
+        assert_eq!(read.service, service);
+        assert_eq!(read.instance_name, "legacy");
+        assert_eq!(
+            read.port,
+            Port::Fixed(3307),
+            "a restore takes the number back as itself and does not go looking for one again"
+        );
+        assert_eq!(read.bind_addr.as_deref(), Some("0.0.0.0"));
+        assert_eq!(read.data_dir.as_deref(), Some("/somewhere/else"));
+        assert!(read.autostart);
+        assert_eq!(read.overrides, written.overrides);
+    }
+
+    /// A service with no port has none coming back, and not one somebody would have to allocate.
+    #[tokio::test]
+    async fn a_row_with_no_port_reads_back_as_a_service_that_has_none() {
+        let (_home, store) = store().await;
+        let service = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        let read = super::declaration(&store, &service)
+            .await
+            .expect("the row back");
+
+        assert_eq!(read.port, Port::None);
+        assert!(!read.autostart);
+        assert_eq!(
+            read.bind_addr.as_deref(),
+            Some("127.0.0.1"),
+            "the column's own default, read back as the value it holds"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_declaration_of_a_service_that_is_not_there_is_named_as_such() {
+        let (_home, store) = store().await;
+        let id = ServiceId::parse("nginx").expect("a valid id");
+
+        let error = super::declaration(&store, &id)
+            .await
+            .expect_err("no such row");
+
+        assert!(
+            matches!(&error, Error::NotFound { kind: "service", id } if id == "nginx"),
+            "{error:?}"
+        );
+    }
+
     /// A row whose binary comes from an installed runtime rather than from a package.
     ///
     /// The whole of T32's schema change seen from the only place that writes it: `create` resolves
