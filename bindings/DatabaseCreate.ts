@@ -20,9 +20,9 @@ user?: string | null,
 /**
  * A password the caller chose, rather than one MixEngine generates. Roadmap task **T77b**.
  *
- * Validated and never escaped:
- * [`mixengine_core::generate::databases::validated_password`] refuses everything that could
- * end the quoted SQL literal it is interpolated into. Absent (rather than empty) means
- * *generate one*, which is what every caller built before this task still asks for.
+ * Validated and never escaped: `mixengine_core::generate::databases::validated_password`
+ * refuses everything that could end the quoted SQL literal it is interpolated into. Absent
+ * (rather than empty) means *generate one*, which is what every caller built before this task
+ * still asks for.
  */
 password?: string | null, };
