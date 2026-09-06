@@ -1546,10 +1546,9 @@ mod tests {
     /// should.
     #[test]
     fn every_accepted_password_character_survives_the_login_password_literal() {
-        let chosen = crate::generate::databases::validated_password(
-            "aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~",
-        )
-        .expect("every one of these is accepted");
+        let chosen =
+            crate::generate::databases::validated_password("aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~")
+                .expect("every one of these is accepted");
 
         let context = context("{}");
         let admin = Postgres
@@ -1561,15 +1560,22 @@ mod tests {
             account: chosen.clone(),
         };
 
-        let sql = (admin.steps)(&context, &ask, crate::generate::Found::default(), &credentials)
-            .expect("statements")
-            .iter()
-            .filter_map(|step| step.stdin.clone())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let sql = (admin.steps)(
+            &context,
+            &ask,
+            crate::generate::Found::default(),
+            &credentials,
+        )
+        .expect("statements")
+        .iter()
+        .filter_map(|step| step.stdin.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
 
         assert!(
-            sql.contains(&format!("ALTER ROLE \"blog\" WITH LOGIN PASSWORD '{chosen}';")),
+            sql.contains(&format!(
+                "ALTER ROLE \"blog\" WITH LOGIN PASSWORD '{chosen}';"
+            )),
             "the chosen password must appear as one intact literal: {sql}"
         );
     }

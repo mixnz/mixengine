@@ -319,7 +319,7 @@ mod tests {
             &service(),
             "blog",
             Found::default(),
-        None,
+            None,
         )
         .await
         .expect("a password");
@@ -352,7 +352,7 @@ mod tests {
                 database: true,
                 user: true,
             },
-        None,
+            None,
         )
         .await
         .expect("a password");
@@ -382,7 +382,7 @@ mod tests {
                 database: false,
                 user: true,
             },
-        None,
+            None,
         )
         .await
         .expect_err("it refuses");
@@ -404,7 +404,7 @@ mod tests {
             &service(),
             "blog",
             Found::default(),
-        None,
+            None,
         )
         .await
         .expect_err("there is nowhere to put a password");

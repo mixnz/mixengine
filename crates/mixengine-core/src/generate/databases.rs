@@ -372,10 +372,7 @@ mod tests {
     /// it, so every character that could end that literal early is refused here instead.
     #[test]
     fn a_password_refuses_what_would_end_a_quoted_literal() {
-        assert_eq!(
-            validated_password("secret").ok().as_deref(),
-            Some("secret")
-        );
+        assert_eq!(validated_password("secret").ok().as_deref(), Some("secret"));
         assert_eq!(
             validated_password("p@ss$word#1").ok().as_deref(),
             Some("p@ss$word#1"),
@@ -390,20 +387,35 @@ mod tests {
 
         assert!(validated_password("").is_err(), "empty is refused");
         assert!(
-            matches!(validated_password("a'b"), Err(Error::InvalidPassword { .. })),
+            matches!(
+                validated_password("a'b"),
+                Err(Error::InvalidPassword { .. })
+            ),
             "a single quote ends MariaDB's and PostgreSQL's literal early"
         );
         assert!(
-            matches!(validated_password("a\\b"), Err(Error::InvalidPassword { .. })),
+            matches!(
+                validated_password("a\\b"),
+                Err(Error::InvalidPassword { .. })
+            ),
             "backslash is MySQL's escape character inside a literal"
         );
         assert!(
             validated_password("a b").is_err(),
             "a space breaks a .env line in half the parsers that exist"
         );
-        assert!(validated_password("a\tb").is_err(), "a tab is whitespace too");
-        assert!(validated_password("a\nb").is_err(), "a newline is whitespace too");
-        assert!(validated_password("café").is_err(), "outside printable ASCII is refused");
+        assert!(
+            validated_password("a\tb").is_err(),
+            "a tab is whitespace too"
+        );
+        assert!(
+            validated_password("a\nb").is_err(),
+            "a newline is whitespace too"
+        );
+        assert!(
+            validated_password("café").is_err(),
+            "outside printable ASCII is refused"
+        );
         assert!(
             validated_password(&"x".repeat(129)).is_err(),
             "129 characters is over the ceiling"

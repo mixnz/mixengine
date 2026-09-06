@@ -21,9 +21,9 @@ use mixengine_core::generate::databases::{Ask, validated_identifier};
 use mixengine_core::services::handoff::{self, CREDENTIAL_ENV, Connection};
 use mixengine_platform::{InstalledApp, Located, Started};
 use mixengine_proto::{
-    DatabaseAccount, DatabaseClientQuery, DatabaseClientReport, DatabaseCreate, DatabaseCredentials,
-    DatabaseCredentialsQuery, DatabaseHandoff, DatabaseOpen, DesktopClient, Error, ErrorCode,
-    Launch, SecretAddress, ServiceId,
+    DatabaseAccount, DatabaseClientQuery, DatabaseClientReport, DatabaseCreate,
+    DatabaseCredentials, DatabaseCredentialsQuery, DatabaseHandoff, DatabaseOpen, DesktopClient,
+    Error, ErrorCode, Launch, SecretAddress, ServiceId,
 };
 use tokio::sync::Mutex;
 
@@ -215,12 +215,14 @@ impl Databases {
             .with_hint("leave `--user` off: the server has no account to read a password for"));
         }
 
-        let account = user.or_else(|| address.administrator.clone()).ok_or_else(|| {
-            Error::new(
-                ErrorCode::InvalidArgument,
-                format!("{} has no accounts to sign in as", asked.service),
-            )
-        })?;
+        let account = user
+            .or_else(|| address.administrator.clone())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidArgument,
+                    format!("{} has no accounts to sign in as", asked.service),
+                )
+            })?;
 
         let at = handoff::secret_key(&asked.service, &account);
         let password = self
