@@ -2040,14 +2040,23 @@ jobs:
       # publishing to the world is not the same deliberate act as tagging.
       #
       # Notes are generated from the commits and are a starting point: the draft exists to be edited.
+      # The unsigned-binary warning is prepended ahead of the generated list rather than left to
+      # CHANGELOG.md, because a release page is what a downloader actually reads before running
+      # SmartScreen or Gatekeeper past its warning.
       - name: Assemble the draft release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            notes_header="$(printf '%s\n' \
+              "Nothing is code-signed or notarised, by design: expect SmartScreen on Windows and Gatekeeper's" \
+              '"Open Anyway" on macOS. A machine with Smart App Control enforcing is not supported. On ARM64' \
+              'Windows some runtimes have no build of their own and run under emulation, marked `emulated` in' \
+              '`mix runtime available`.')"
             gh release create "$GITHUB_REF_NAME" \
-              --draft --title "$GITHUB_REF_NAME" --generate-notes
+              --draft --title "$GITHUB_REF_NAME" --generate-notes \
+              --notes "$notes_header"
           fi
           gh release upload "$GITHUB_REF_NAME" target/packaging/dist/* --clobber
 

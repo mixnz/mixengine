@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.0.1
+
+MixEngine is a local web development environment: run and switch multiple PHP,
+Node.js, Python and Ruby versions, plus bundled Nginx/Caddy and MariaDB/MySQL/PostgreSQL/Redis/
+Memcached, local domains with automatic HTTPS — without Docker, without hand-written config files.
+
+Note: this will be the first release. Scope and timeline are still under discussion; not finalized.
+
+Nothing is code-signed or notarised, by design: expect SmartScreen on Windows and Gatekeeper's
+"Open Anyway" on macOS. A machine with Smart App Control enforcing is not supported. On ARM64
+Windows some runtimes have no build of their own and run under emulation, marked `emulated` in
+`mix runtime available`.
+
+## 0.0.1-beta.2 — unreleased
+
+Updates on top of beta.1:
+
+- `mix database credentials` reads a stored password back, and `--password` on `mix database
+  create` lets you choose one instead of generating it.
+- `--refresh` on `mix runtime available`, `mix package available` and `mix extension available`
+  bypasses the registry's six-hour cache and asks again immediately.
+- A build that did not come out of the packaging pipeline (a local `cargo run`) now keeps its own
+  `MixEngine-dev` home instead of touching the real release home and its database.
+- A daemon that fails to start now says why, instead of leaving you to guess.
+- One-off child processes on Windows start without a stray console window.
+- The installer's final rename gets a longer window so a scanner locking the file doesn't fail it.
+- Install docs link to each OS's latest release automatically instead of naming a version.
+
+Nothing is code-signed or notarised, by design: expect SmartScreen on Windows and Gatekeeper's
+"Open Anyway" on macOS. A machine with Smart App Control enforcing is not supported. On ARM64
+Windows some runtimes have no build of their own and run under emulation, marked `emulated` in
+`mix runtime available`.
+
 ## 0.0.1-beta.1 — unreleased
 
 The first public beta.

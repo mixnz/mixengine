@@ -1,12 +1,12 @@
 # Cutting a release
 
 ```bash
-node scripts/set-version.mjs 0.0.1-beta.1
+node scripts/set-version.mjs 0.0.1
 git add Cargo.toml Cargo.lock docs/guide/en/cli.md
-git commit -m "chore(release): v0.0.1-beta.1"
+git commit -m "chore(release): v0.0.1"
 git push origin master
-git tag v0.0.1-beta.1
-git push origin v0.0.1-beta.1
+git tag v0.0.1
+git push origin v0.0.1
 ```
 
 CI builds every artifact, signs them, and leaves a **draft** — nothing is public until you publish

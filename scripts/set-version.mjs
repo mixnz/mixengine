@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Set the workspace version, and nothing else.
 //
-//   node scripts/set-version.mjs 0.0.1-beta.1
-//   node scripts/set-version.mjs 0.0.1-beta.1 --dry-run
+//   node scripts/set-version.mjs 0.0.1
+//   node scripts/set-version.mjs 0.0.1 --dry-run
 //
 // **There is one place the version is written**, `[workspace.package]` in the root `Cargo.toml`.
 // Every crate takes `version.workspace = true`, and everything in `packaging/` reads it back with
