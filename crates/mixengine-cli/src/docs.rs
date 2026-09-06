@@ -113,6 +113,16 @@ pub(crate) fn reference(command: &clap::Command) -> String {
     out.push_str("+++\n\n");
 
     out.push_str("# Command reference\n\n");
+    // The same box every other page of the handbook opens with. Fixed text rather than a read of
+    // the corpus, which keeps the generation non-circular — see the doc comment above.
+    out.push_str(
+        "> **This handbook covers MixEngine through the `mix` command line.** If you would rather \
+         work in\n\
+         > a graphical interface, download the **MixDB** app at\n\
+         > [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same \
+         MixEngine,\n\
+         > so everything in this handbook still applies.\n\n",
+    );
     out.push_str(&format!(
         "Every command `mix` accepts, in version {VERSION}. This page is **generated** from the\n\
          binary's own definitions, so it cannot describe a flag that is not there — and it is the\n\

@@ -2,38 +2,43 @@
 title = "Máy chủ, cơ sở dữ liệu và bộ nhớ đệm"
 slug = "services"
 order = 6
-summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached — cài khi được yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra."
+summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "0196e4bdbbd6ee6dbb33108c6ec5cf56186f0cb3b88de9d7b2137162d521db93"
+source_sha256 = "22766d1ae1cb1fdb29b092d328766dfb72452f6dac8f12faed6eb5f587b161d9"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
 
-Hai từ, được phân biệt đúng như cách MixEngine phân biệt chúng.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-**Package** là một chương trình MixEngine biết cách chạy — Caddy, MariaDB, Redis. Cài một package là
-đặt một bản của nó vào thư mục riêng của MixEngine, và không làm gì khác.
+Có hai từ cần phân biệt, đúng như cách MixEngine phân biệt chúng.
 
-**Service** là một thể hiện đang chạy của một package: một cổng, một thư mục dữ liệu, một cấu hình
-được sinh ra, một file log, và một trạng thái. `mariadb@main` và `mariadb@legacy` là hai service của
-cùng một package, với cổng khác nhau, dữ liệu khác nhau và có thể cả phiên bản khác nhau.
+**Package** là một chương trình MixEngine biết cách chạy, ví dụ Caddy, MariaDB, Redis. Cài package
+chỉ là chép một bản của nó vào thư mục riêng của MixEngine, không làm gì khác.
 
-## Có sẵn những gì
+**Service** là một instance đang chạy của package: có cổng, thư mục dữ liệu, cấu hình sinh tự động,
+log và trạng thái riêng. `mariadb@main` và `mariadb@legacy` là hai service của cùng một package,
+với cổng khác nhau, dữ liệu khác nhau, và có thể cả phiên bản khác nhau.
 
-| Service | Dòng mặc định | Cổng mặc định |
+## Có những gì
+
+| Service | Dòng phiên bản mặc định | Cổng mặc định |
 | --- | --- | --- |
-| Caddy | 2.x | 80 và 443 — front end mặc định |
-| Nginx | 1.27 | 80 và 443 — lựa chọn thay thế, mỗi lúc chỉ một front end |
-| php-fpm | mỗi bản PHP đã cài một cái | một socket, hoặc một cổng cục bộ trên Windows |
+| Caddy | 2.x | 80 và 443. Front end mặc định |
+| Nginx | 1.27 | 80 và 443. Lựa chọn thay thế, mỗi lúc chỉ chạy một front end |
+| php-fpm | một pool cho mỗi PHP đã cài | một socket, hoặc một cổng cục bộ trên Windows |
 | MariaDB | 11.4 LTS | 3306 |
-| MySQL | 8.4 LTS | 3306 — một sản phẩm khác với MariaDB, không phải một phiên bản của nó |
+| MySQL | 8.4 LTS | 3306. Đây là sản phẩm khác MariaDB, không phải một phiên bản của nó |
 | PostgreSQL | 16 | 5432 |
 | Redis | 7.x | 6379 |
 | Memcached | 1.6 | 11211 |
 
-**Không có gì tự đến cả.** Một MixEngine mới tinh không có máy chủ web nào cho tới khi bạn cài một
-cái, và chữ "mặc định" ở trên nghĩa là *cái mà dự án này khuyên dùng khi có lựa chọn*, chứ không
-phải *cái đã có sẵn ở đó*.
+**Không có gì tự xuất hiện.** MixEngine mới cài chưa có web server nào cho tới khi bạn cài. Chữ
+"mặc định" ở bảng trên nghĩa là *thứ dự án này khuyên dùng khi có nhiều lựa chọn*, chứ không phải
+*thứ đã có sẵn*.
 
 ## Cài và tạo
 
@@ -43,40 +48,39 @@ mix package install mariadb 12.3.2
 mix service create mariadb@main 12.3.2
 ```
 
-Phần đứng trước `@` trong id của service là package mà nó là một thể hiện, và đó là lý do `mix
-service create` không cần một tham số riêng cho nó. Phần sau `@` là của bạn: nó là thứ phân biệt hai
-service, và MixEngine không gán ý nghĩa gì cho những chữ đó. Caddy chạy một lần cho cả một home của
-MixEngine, nên service của nó chỉ đơn giản là `caddy`, không có `@` nào.
+Phần trước dấu `@` trong id service là tên package mà service đó là instance của. Vì thế
+`mix service create` không cần thêm tham số riêng cho package. Phần sau dấu `@` là do bạn đặt, dùng
+để phân biệt hai service với nhau; MixEngine không gán ý nghĩa gì cho chữ đó. Caddy chỉ chạy một
+lần cho cả home MixEngine, nên service của nó chỉ đơn giản là `caddy`, không có `@`.
 
-Id không đổi được về sau — nó cũng là thư mục cấu hình được sinh ra, thư mục log, file socket và địa
-chỉ nơi mật khẩu được cất — nên đổi tên một service nghĩa là tạo cái kia và xóa cái này, và việc đó
-giữ lại dữ liệu.
+Id không đổi được sau khi tạo, vì nó cũng là tên thư mục cấu hình sinh ra, thư mục log, socket, và
+địa chỉ lưu mật khẩu. Muốn đổi tên thì tạo service mới rồi xóa cái cũ; dữ liệu vẫn được giữ lại.
 
-Vài cờ hữu ích của `mix service create`:
+Các cờ hữu ích của `mix service create`:
 
-| Cờ | Nó làm gì |
+| Cờ | Tác dụng |
 | --- | --- |
-| `--port` | Cổng nó lắng nghe. Mặc định của chính recipe khi để trống |
-| `--bind` | Địa chỉ nó gắn vào. `127.0.0.1` khi để trống |
-| `--data-dir` | Dữ liệu của nó nằm ở đâu. Một thư mục dưới home khi để trống |
-| `--autostart` | Khởi động nó mỗi khi daemon khởi động |
+| `--port` | Cổng service lắng nghe. Bỏ trống thì dùng cổng mặc định của recipe |
+| `--bind` | Địa chỉ service bind vào. Bỏ trống thì là `127.0.0.1` |
+| `--data-dir` | Nơi lưu dữ liệu. Bỏ trống thì là một thư mục dưới home |
+| `--autostart` | Tự khởi động mỗi khi daemon khởi động |
 
 ### Ai được cổng 3306
 
-MariaDB và MySQL cùng muốn một cổng, và hai thể hiện của bất kỳ cái nào cũng vậy. Quy tắc chỉ có
-một: **ai tạo trước, người đó được trước**. Cái đầu tiên xin 3306 sẽ được nó; cái tiếp theo nhận
-cổng trống đầu tiên phía trên. MixEngine báo lại cổng nó đã chọn, vì một cổng bạn không tự chọn là
-một cổng phải được nói cho bạn biết.
+MariaDB và MySQL cùng muốn một cổng, và hai instance của cùng một loại cũng vậy. Quy tắc chỉ có
+một: **ai tạo trước thì được trước**. Service đầu tiên xin 3306 sẽ được nó; service tiếp theo nhận
+cổng trống đầu tiên phía trên. MixEngine báo lại cổng nó đã chọn, vì cổng bạn không tự chọn thì bạn
+cần được cho biết.
 
-Một cổng bạn nêu tường minh thì được nhận đúng như vậy, không có phân bổ nào cả.
+Nếu bạn ghi rõ cổng, MixEngine dùng đúng cổng đó, không cấp phát gì thêm.
 
-### Một thư mục dữ liệu, một service
+### Mỗi thư mục dữ liệu chỉ một service
 
-`mix service create` từ chối một `--data-dir` mà service khác đang giữ, và nêu tên ai đang giữ. Hai
-máy chủ trên cùng một tập file sẽ làm hỏng chúng, và cái giá đó rơi vào dữ liệu của bạn chứ không
-rơi vào một lần khởi động thất bại.
+`mix service create` từ chối `--data-dir` mà một service khác đang giữ, và nêu tên service đó. Hai
+server cùng ghi lên một bộ file sẽ làm hỏng chúng, và cái giá đó rơi vào dữ liệu của bạn chứ không
+phải vào một lần khởi động thất bại.
 
-## Chạy chúng
+## Chạy service
 
 ```bash
 mix service list
@@ -86,11 +90,12 @@ mix service stop mariadb@main
 mix service logs mariadb@main --follow
 ```
 
-`mix service status` bắt buộc có id trong khi `start` và những lệnh còn lại nhận id tùy chọn: một
-`status` không có chủ ngữ là một `list` bị gõ sai, và trả lời nó như một `list` sẽ che mất điều đó.
+`mix service status` bắt buộc có id, trong khi `start` và các lệnh còn lại thì id là tùy chọn. Hỏi
+status mà không nói của cái gì thì thực ra là gõ nhầm `list`, và nếu trả lời bằng một danh sách thì
+sẽ che mất lỗi đó.
 
-Xóa một service lấy đi bản ghi và cấu hình sinh ra từ nó, và **không bao giờ lấy dữ liệu** — đó là
-cơ sở dữ liệu của ai đó. Câu trả lời nêu tên thư mục đã được giữ lại, để không ai phải đi tìm:
+Xóa service sẽ xóa bản ghi và cấu hình sinh ra từ nó, nhưng **không bao giờ xóa dữ liệu**, vì đó là
+cơ sở dữ liệu của ai đó. Kết quả trả về nêu rõ thư mục còn để lại, để không ai phải đi tìm:
 
 ```bash
 mix service delete mariadb@legacy
@@ -98,51 +103,48 @@ mix service delete mariadb@legacy
 
 ## Cơ sở dữ liệu và tài khoản
 
-Tạo một cơ sở dữ liệu là một câu lệnh, và nó khởi động máy chủ nếu máy chủ chưa chạy:
+Tạo cơ sở dữ liệu chỉ cần một lệnh, và lệnh này tự khởi động server nếu nó chưa chạy:
 
 ```bash
 mix database create mariadb@main --name blog
 mix database create mariadb@main --name shop --user shop_app
 ```
 
-**Mặc định không có gì in mật khẩu ra.** Mật khẩu được sinh ra và đưa vào kho lưu thông tin
-đăng nhập của chính hệ điều hành bạn — Credential Manager trên Windows, Keychain trên macOS,
-Secret Service trên Linux — và thứ được in ra là địa chỉ nó đã được cất, dưới dạng tên kho và
-khóa của chính kho đó. Đó là thứ cho phép một chương trình khách nói với bạn *"đã cất trong kho
-thông tin đăng nhập ở …"* mà không ai phải mã hóa cứng cách đặt tên của MixEngine.
+**Mặc định không in mật khẩu ra.** Mật khẩu được sinh ngẫu nhiên rồi lưu vào credential store của
+hệ điều hành: Credential Manager trên Windows, Keychain trên macOS, Secret Service trên Linux. Thứ
+được in ra là địa chỉ nơi nó được lưu, theo đúng tên và key của store. Nhờ vậy một client có thể
+nói với bạn *"đã lưu trong credential store dưới tên …"* mà không ai phải hardcode quy tắc đặt tên
+của MixEngine.
 
-Khi một dự án cần chính mật khẩu — thường là để bỏ vào file `.env` — `mix database credentials` in
-nó ra, và `--password` ở lệnh `create` cho phép bạn tự chọn mật khẩu thay vì để MixEngine sinh ngẫu
-nhiên:
+Khi project cần chính mật khẩu đó, thường là để điền vào file `.env`, `mix database credentials` sẽ
+in nó ra. Cờ `--password` trên lệnh `create` cho bạn tự chọn mật khẩu thay vì để MixEngine sinh:
 
 ```bash
 mix database credentials mariadb@main --user blog
 mix database create mariadb@main --name shop --user shop-app --password
 ```
 
-Không kèm giá trị, `--password` sẽ hỏi và đọc một dòng từ đầu vào chuẩn, nên cũng dùng được qua
-pipe: `echo secret | mix database create … --password`. Chọn mật khẩu cho một tài khoản đã tạo
-trước đó sẽ đổi thứ được lưu, và máy chủ được chỉnh lại theo đúng cách nó vẫn làm khi mật khẩu
-lệch — nhưng một tài khoản đã có trên máy chủ mà MixEngine không giữ thông tin đăng nhập nào
-vẫn bị từ chối, kể cả khi đúng mật khẩu: biết mật khẩu không có nghĩa là tài khoản đó thuộc về
-bạn.
+Không kèm giá trị thì `--password` sẽ hỏi và đọc một dòng từ standard input, nên dùng qua pipe cũng
+được: `echo secret | mix database create … --password`. Chọn mật khẩu cho tài khoản đã tạo trước đó
+sẽ thay đổi giá trị đang lưu, và server được đồng bộ lại theo đúng cách nó vẫn làm khi mật khẩu bị
+lệch. Tuy nhiên, một tài khoản có sẵn trên server mà MixEngine không giữ credential nào thì vẫn bị
+từ chối, kể cả khi bạn đưa đúng mật khẩu. Biết mật khẩu không có nghĩa tài khoản đó là của bạn.
 
-Để mở cơ sở dữ liệu bằng một chương trình quản trị trên máy:
+Để mở cơ sở dữ liệu bằng ứng dụng trên máy:
 
 ```bash
-mix database client mariadb@main   # có cái nào được cài, và hệ thống đã tìm ở đâu
-mix database open mariadb@main     # mở nó
+mix database client mariadb@main   # what is installed, and where this system looked
+mix database open mariadb@main     # open it
 ```
 
-`client` chỉ đọc: nó không khởi động gì và không mở gì, và *"chưa cài chương trình nào"* là một câu
-trả lời chứ không phải một lỗi — nó nêu tên nơi MixEngine đã tìm và nơi để tải về.
+`client` chỉ đọc: không khởi động gì, không mở gì. *"Chưa cài client nào"* là một câu trả lời chứ
+không phải lỗi; nó cho biết MixEngine đã tìm ở đâu và có thể tải client ở đâu.
 
-`open` khởi động thể hiện nếu nó đang dừng, đọc mật khẩu từ kho thông tin đăng nhập **ngay tại thời
-điểm đó**, và trao nó cho chương trình khách trong môi trường của chính tiến trình ấy. Mật khẩu
-không bao giờ được in ra, không bao giờ nằm trong một tham số, và vì thế không bao giờ nằm trong
-lịch sử shell của bạn.
+`open` khởi động instance nếu nó đang dừng, đọc mật khẩu từ credential store **ngay lúc đó**, rồi
+đưa cho client qua biến môi trường của chính tiến trình client. Mật khẩu không bao giờ được in ra,
+không nằm trong tham số, nên cũng không bao giờ lọt vào lịch sử shell.
 
-## Một service được lấy bao nhiêu, và khi nào thì nó dừng
+## Service được dùng bao nhiêu tài nguyên, và khi nào thì dừng
 
 ```bash
 mix service limits mariadb@main
@@ -150,22 +152,22 @@ mix service limits mariadb@main set --memory 512 --cpu 50
 mix service idle mariadb@main --after 30m
 ```
 
-`limits` không kèm lệnh con thì đọc; `set` thay thế; `clear` xóa. **`set` thay thế mọi trường, không
-chỉ những trường bạn nêu** — `set --cpu 50` xóa mất trần bộ nhớ đang có — nên nó in ra cả ba trường
-của kết quả, và một giới hạn vừa bị xóa nằm ngay trên màn hình bạn chứ không phải là một bất ngờ.
-Thứ mà hệ điều hành của bạn thật sự cưỡng chế thì mỗi nơi mỗi khác, và câu trả lời nói rõ bạn đang
-có cái nào: một trần **cứng** là một bức tường — chạm vào nó thì service bị giết hoặc lần cấp phát
-tiếp theo thất bại — còn một trần **khuyến nghị** là một vạch được canh chừng mà service có thể vượt
-qua, sau đó MixEngine cảnh báo và, ở nơi recipe cho phép, khởi động lại. Vẽ một điều khiển như một
-lời bảo đảm trong khi nó chỉ là khuyến nghị thì là nói dối về dữ liệu của bạn.
+`limits` không kèm lệnh con thì đọc; `set` thay thế; `clear` xóa. **`set` thay thế tất cả các
+trường, không chỉ trường bạn nêu.** Ví dụ `set --cpu 50` sẽ xóa luôn giới hạn bộ nhớ đang có. Vì
+thế lệnh in ra cả ba trường của kết quả, để giới hạn bị xóa hiện ngay trên màn hình chứ không thành
+bất ngờ về sau. Hệ điều hành thực sự áp đặt được gì thì mỗi hệ mỗi khác, và câu trả lời sẽ nói bạn
+đang có loại nào trong hai loại: giới hạn **cứng** là một bức tường, chạm tới là service bị kill
+hoặc lần cấp phát tiếp theo thất bại; giới hạn **cảnh báo** là một vạch được theo dõi, service có
+thể vượt qua, khi đó MixEngine cảnh báo và, nếu recipe cho phép, khởi động lại. Nếu vẽ một giới hạn
+cảnh báo như thể nó là một bảo đảm thì đó là nói dối về dữ liệu của bạn.
 
-`idle` cho biết khi nào một service bị dừng vì không ai dùng, và hiện thứ gì đang giữ nó mở. **Mặc
-định không có gì tự dừng cả**: một service đã dừng thì nằm im cho tới khi bạn khởi động nó, nên bật
-thứ này lên là một lựa chọn bạn đưa ra cho từng service.
+`idle` cho biết khi nào service bị dừng vì không ai dùng, và hiện tại cái gì đang giữ nó mở.
+**Mặc định không có gì tự dừng**: service đã dừng thì cứ dừng cho tới khi bạn khởi động lại, nên
+bật tính năng này là lựa chọn bạn đưa ra cho từng service.
 
-## Cấu hình được sinh ra
+## Cấu hình sinh tự động
 
-MixEngine tự viết cấu hình cho mọi service nó chạy, từ những gì nó biết. Những file đó là thứ dùng
-xong bỏ đi — chúng được sinh lại, không bao giờ được đọc ngược — nên ở đó không có gì để bạn sửa và
-không có gì phải giữ cho khớp. Nếu một thiết lập bạn cần mà không có cờ nào tương ứng, đó là một
-thiếu sót của MixEngine chứ không phải một lời mời sửa file.
+MixEngine tự viết cấu hình cho mọi service nó chạy, từ những gì nó biết. Các file đó dùng xong bỏ:
+chúng được sinh lại, không bao giờ được đọc ngược lại. Nên không có gì trong đó để bạn sửa, và
+không có gì phải giữ cho đồng bộ. Nếu một thiết lập bạn cần chưa có cờ tương ứng, đó là thiếu sót
+của MixEngine, không phải lời mời bạn sửa file.

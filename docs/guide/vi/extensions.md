@@ -2,34 +2,39 @@
 title = "Extension"
 slug = "extensions"
 order = 10
-summary = "Những công cụ bạn hay dùng bên cạnh stack — phpMyAdmin, Mailpit, MinIO — cài từ một registry đã ký, và mỗi cái được phép làm gì đều hiện ra trước khi bạn đồng ý."
+summary = "Những công cụ đi kèm stack như phpMyAdmin, Mailpit, MinIO. Cài từ một registry có chữ ký, và cho bạn xem mỗi cái được phép làm gì trước khi đồng ý."
 translation_of = "en/extensions.md"
-source_sha256 = "a9de83194e3bc7b8021e35c615cabd3f9bdc17333e30672a29d884b58ce7acec"
+source_sha256 = "1832ed973ed067f3cdd49db998aa0cdec4c5688ea742f2eca5dfdda1a83dbb6b"
 +++
 
 # Extension
 
-Extension là một công cụ sống bên cạnh stack của bạn chứ không nằm trong nó: một giao diện quản trị
-cơ sở dữ liệu, một cái bẫy email, một kho object, một máy tìm kiếm. MixEngine cài nó, giám sát nó,
-và cho nó một cái tên cùng một chứng chỉ đúng như cách nó làm với các site của bạn.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-## Có gì
+Extension là công cụ nằm bên cạnh stack của bạn chứ không phải bên trong: giao diện quản trị cơ sở
+dữ liệu, công cụ bắt mail, object store, search engine. MixEngine cài nó, giám sát nó, và cấp cho
+nó một tên miền cùng chứng chỉ, giống hệt cách làm với site của bạn.
+
+## Có những gì
 
 ```bash
 mix extension available
 mix extension list
 ```
 
-`available` là registry đã ký mà MixEngine phát hành; `list` là những gì máy này đã cài.
+`available` là registry có chữ ký mà MixEngine phát hành; `list` là những gì máy này đã cài.
 
-Một extension có thể mang bốn hình dáng, và nên nhận ra mình đang cài loại nào:
+Extension có bốn dạng, và bạn nên nhận ra mình đang cài dạng nào:
 
-| Loại | Nó là gì |
+| Dạng | Là gì |
 | --- | --- |
-| `web-app` | Mã nguồn được phục vụ trên chính stack của bạn, ở một site nội bộ sinh ra — phpMyAdmin, Adminer |
-| `service` | Một chương trình MixEngine giám sát như mọi service khác — Mailpit, MinIO, MeiliSearch |
-| `desktop-app` | Một ứng dụng trên máy bạn mà MixEngine tìm ra và trao cho một kết nối |
-| `recipe` | Chỉ cấu hình: thêm chỉ thị cho máy chủ web, một hồ sơ `php.ini` |
+| `web-app` | Mã nguồn chạy trên chính stack của bạn, ở một site nội bộ được sinh ra. Ví dụ phpMyAdmin, Adminer |
+| `service` | Một chương trình MixEngine giám sát như mọi service khác. Ví dụ Mailpit, MinIO, MeiliSearch |
+| `desktop-app` | Ứng dụng có sẵn trên máy bạn, MixEngine tìm thấy và đưa kết nối cho nó |
+| `recipe` | Chỉ có cấu hình: thêm directive cho web server, một profile `php.ini` |
 
 ## Xem trước khi cài
 
@@ -37,21 +42,20 @@ Một extension có thể mang bốn hình dáng, và nên nhận ra mình đang
 mix extension plan mailpit
 ```
 
-Lệnh này không thay đổi gì và in ra thứ mà việc cài sẽ tạo ra: nó sẽ tải gì, sẽ tạo service nào, sẽ
-truy cập được ở site nào, và **nó đang xin được phép làm gì**.
+Lệnh này không thay đổi gì, chỉ in ra việc cài sẽ tạo ra những gì: sẽ tải gì, tạo service nào,
+truy cập ở site nào, và **nó xin được phép làm gì**.
 
-Có hai dòng trong kế hoạch đó đáng đọc kỹ chứ không nên lướt, và chúng chỉ xuất hiện với một
-`web-app`:
+Có hai dòng trong kế hoạch đáng đọc kỹ thay vì lướt qua, và chúng chỉ xuất hiện với dạng `web-app`:
 
-- **Một giao diện quản trị sẽ mở lên cơ sở dữ liệu nào.** Một công cụ như phpMyAdmin đóng băng điều
-  đó ngay lúc cài, và việc nó quản trị máy chủ nào không phải là chi tiết nên phát hiện ra sau.
-- **Nó sẽ đăng nhập bằng tài khoản nào.** Một extension có thể khai báo rằng nó đăng nhập bằng tài
-  khoản quản trị cao nhất của một máy chủ — đó là thứ hệ trọng nhất mà một extension có thể được
-  trao. Kế hoạch nêu tên tài khoản, nói rằng mật khẩu được lấy từ kho thông tin đăng nhập của hệ
-  điều hành khi pool khởi động, và nói rằng không có gì ghi nó xuống đĩa.
+- **Giao diện quản trị sẽ mở vào cơ sở dữ liệu nào.** Công cụ như phpMyAdmin chốt điều này lúc
+  cài, và server nào nó quản trị không phải chi tiết để phát hiện về sau.
+- **Nó sẽ đăng nhập bằng tài khoản nào.** Extension có thể khai báo rằng nó đăng nhập bằng tài khoản
+  superuser của server, tức là thứ quyền hệ trọng nhất một extension có thể được cấp. Kế hoạch nêu
+  tên tài khoản, nói rõ mật khẩu được lấy từ credential store của hệ điều hành khi pool khởi động,
+  và không có gì ghi mật khẩu đó ra đĩa.
 
-`mix extension install` hỏi về tất cả những điều đó trước khi làm bất cứ việc gì. `--yes` bỏ qua câu
-hỏi, và dành cho một script đã đọc kế hoạch rồi.
+`mix extension install` hỏi bạn về tất cả những điều đó trước khi làm bất cứ gì. `--yes` bỏ qua câu
+hỏi, dành cho script đã đọc kế hoạch rồi.
 
 ## Cài và gỡ
 
@@ -62,12 +66,12 @@ mix extension stop mailpit
 mix extension uninstall mailpit
 ```
 
-Cài là một job; `--no-wait` đưa cho bạn id job thay vì chờ.
+Cài là một job; `--no-wait` đưa bạn job id thay vì chờ.
 
-`mix extension uninstall` **giữ lại dữ liệu của extension** trừ khi bạn nói khác, vì đó là câu trả
-lời có thể hoàn tác. `--delete-data` là câu trả lời không thể.
+`mix extension uninstall` **giữ lại dữ liệu của extension** trừ khi bạn nói khác, vì đó là lựa
+chọn có thể hoàn tác. `--delete-data` là lựa chọn không hoàn tác được.
 
-## Cài thứ registry không có
+## Cài thứ không có trong registry
 
 ```bash
 mix extension inspect ./my-tool
@@ -75,19 +79,19 @@ mix extension plan --path ./my-tool
 mix extension install --path ./my-tool
 ```
 
-`inspect` đọc một `extension.toml` và cho bạn biết nó khai báo gì, mà không cài gì cả.
+`inspect` đọc file `extension.toml` và cho bạn biết nó khai báo gì, không cài gì cả.
 
-**Không gì bảo lãnh cho một extension cài từ đường dẫn**, và bản ghi nói rõ điều đó chừng nào nó còn
-được cài. Đó không phải một cảnh báo bạn bấm bỏ qua được: nó là thứ khiến một extension chưa ký hiện
-rõ trong mọi danh sách nêu tên nó, để không ai phải nhớ nó đến từ đâu.
+**Không ai bảo đảm cho extension cài từ đường dẫn**, và bản ghi sẽ nói vậy chừng nào extension còn
+được cài. Đây không phải cảnh báo bạn tắt đi được: chính nó làm cho extension chưa ký hiện rõ trong
+mọi danh sách có nêu tên nó, để không ai phải nhớ nó đến từ đâu.
 
 ## Extension không phải là gì
 
-**Extension không phải một chương trình khách của API.** Nó không được gọi API của chính MixEngine,
-không được nhờ daemon thay đổi máy bạn, và không với tới được thứ gì nó không khai báo. Thứ nó nhận
-được là những gì manifest của nó đã khai báo và những gì bạn đã đồng ý — một cổng, một site, một
-service, một kết nối cơ sở dữ liệu — và không gì khác.
+**Extension không phải API client.** Nó không được gọi API của MixEngine, không được bảo daemon
+thay đổi máy bạn, và không chạm tới thứ gì nó chưa khai báo. Nó chỉ nhận đúng những gì manifest đã
+khai báo và bạn đã đồng ý: một cổng, một site, một service, một kết nối cơ sở dữ liệu. Không gì
+khác.
 
-Site của một extension xuất hiện trong `mix site list` như mọi site khác, và có thể bật tắt. Mọi
-thay đổi khác lên nó đều bị từ chối, và lời từ chối nêu tên câu lệnh gỡ cài đặt sẽ xóa nó đi: site
-đó thuộc về extension, và sửa nó từ bên dưới extension sẽ là một cách âm thầm làm hỏng extension.
+Site của extension xuất hiện trong `mix site list` như mọi site khác, và có thể bật hoặc tắt. Mọi
+chỉnh sửa khác lên site đó đều bị từ chối, và lời từ chối nêu tên lệnh uninstall để gỡ nó. Site
+thuộc về extension, và sửa site sau lưng extension là một cách âm thầm làm hỏng nó.

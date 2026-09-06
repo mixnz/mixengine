@@ -2,16 +2,21 @@
 title = "Site đầu tiên của bạn"
 slug = "getting-started"
 order = 3
-summary = "Từ bản cài mới tinh tới https://blog.test với ổ khóa xanh, trong khoảng năm phút."
+summary = "Từ máy vừa cài xong tới https://blog.test với ổ khóa xanh, mất khoảng năm phút."
 translation_of = "en/getting-started.md"
-source_sha256 = "7f2f6ef0dd438578b3184e8a3122b1a691df1713e745631b99c94b141af37e3c"
+source_sha256 = "64e315a8bd96323e454a312ece56e906785168785eb8d9ea043663c14a02b1e6"
 +++
 
 # Site đầu tiên của bạn
 
-Trang này đi hết một vòng: một phiên bản PHP, một máy chủ web, một dự án, một site, và một chứng chỉ
-mà trình duyệt của bạn chấp nhận. Nó giả định MixEngine đã được cài —
-[Cài đặt MixEngine](./install.md) nếu chưa — và không giả định gì thêm.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+
+Trang này dẫn bạn đi trọn một vòng: cài một phiên bản PHP, một web server, tạo một project, một
+site, và có chứng chỉ mà trình duyệt chấp nhận. Trang giả định bạn đã cài MixEngine, nếu chưa thì
+xem [Cài đặt MixEngine](./install.md). Ngoài ra không giả định gì thêm.
 
 ## 1. Kiểm tra daemon
 
@@ -19,28 +24,28 @@ mà trình duyệt của bạn chấp nhận. Nó giả định MixEngine đã �
 mix status
 ```
 
-Lệnh `mix` đầu tiên sẽ khởi động daemon nếu nó chưa chạy, nên đây cũng là cách bạn biết bản cài đã
-chạy được. Thứ trả về là phiên bản của daemon, thư mục home của nó nằm ở đâu, và nó đang giám sát
-những gì — lúc này là chưa gì cả.
+Lệnh `mix` đầu tiên sẽ tự khởi động daemon nếu nó chưa chạy, nên đây cũng là cách để biết bản cài
+đã hoạt động. Kết quả trả về gồm phiên bản của daemon, thư mục home của nó nằm ở đâu, và nó đang
+giám sát những gì. Lúc này thì chưa có gì cả.
 
-## 2. Cài một bản PHP
+## 2. Cài một phiên bản PHP
 
-MixEngine không kèm sẵn runtime nào: nó tải về đúng những phiên bản bạn hỏi, và chỉ những phiên bản
-đó. Xem có gì, rồi lấy một cái:
+MixEngine không kèm sẵn runtime nào. Nó chỉ tải về đúng những phiên bản bạn yêu cầu. Xem có gì rồi
+chọn một cái:
 
 ```bash
 mix runtime available --kind php
 mix runtime install php 8.3.33
 ```
 
-Phiên bản phải chính xác chứ không phải một khoảng, và điều này là cố ý — `8.3` sẽ là yêu cầu
-MixEngine chọn giữa những phiên bản mà chưa cái nào có trên máy cả. `mix runtime list` cho thấy bạn
+Phiên bản phải ghi chính xác, không phải một khoảng, và đây là cố ý. Nếu ghi `8.3` thì bạn đang bảo
+MixEngine chọn giữa những phiên bản mà chưa cái nào có trên máy. `mix runtime list` cho biết bạn
 đang có gì.
 
-## 3. Cài và tạo một máy chủ web
+## 3. Cài và tạo một web server
 
-**Package** là một chương trình MixEngine biết cách chạy; **service** là một bản đang chạy của
-package đó với cấu hình riêng. Caddy là front end mặc định:
+**Package** là một chương trình MixEngine biết cách chạy. **Service** là một instance đang chạy của
+package đó, với cấu hình riêng. Caddy là front end mặc định:
 
 ```bash
 mix package available
@@ -49,15 +54,15 @@ mix service create caddy 2.11.4
 mix service list
 ```
 
-Phiên bản thì thay đổi: hãy lấy một cái từ danh sách mà `mix package available` thật sự in ra, chứ
-đừng lấy từ trang này. Caddy chạy một lần cho cả home chứ không phải mỗi site một lần, và đó là lý
-do id service của nó không có `@name` — `mariadb@main` gọi tên một thể hiện, còn `caddy` gọi tên cái
-duy nhất có.
+Số phiên bản thay đổi theo thời gian, nên hãy lấy từ danh sách mà `mix package available` thật sự
+in ra, đừng chép từ trang này. Caddy chạy một lần cho cả home chứ không phải mỗi site một bản. Vì
+vậy id service của nó không có phần `@name`: `mariadb@main` là tên một instance cụ thể, còn `caddy`
+là cái duy nhất có.
 
-## 4. Đăng ký một dự án
+## 4. Đăng ký một project
 
-**Project** là một thư mục mà MixEngine biết tới. Hãy vào thư mục bạn muốn phục vụ — tạo một thư mục
-rỗng nếu bạn chỉ đang thử — rồi đăng ký nó:
+**Project** là một thư mục mà MixEngine biết tới. Vào thư mục bạn muốn phục vụ, hoặc tạo một thư
+mục trống nếu chỉ đang thử, rồi đăng ký:
 
 ```bash
 mkdir -p ~/code/blog && cd ~/code/blog
@@ -65,8 +70,8 @@ echo '<?php phpinfo();' > index.php
 mix project create
 ```
 
-Không tham số thì nó lấy thư mục hiện tại và đặt tên dự án theo thư mục đó, nên dự án này tên là
-`blog`.
+Không truyền tham số thì lệnh lấy thư mục hiện tại và đặt tên project theo tên thư mục. Ở đây
+project sẽ tên là `blog`.
 
 ## 5. Khai báo một site
 
@@ -74,31 +79,32 @@ Không tham số thì nó lấy thư mục hiện tại và đặt tên dự án
 mix site create --domain blog.test --kind php-fpm --https true
 ```
 
-**Đây là bước xin quyền**, và trên một máy mới tinh thì nó là bước duy nhất làm việc đó. MixEngine
-cần cái tên `blog.test` trỏ về chính máy bạn, và cần trình duyệt của bạn tin chứng chỉ mà nó sắp
-phát hành. Nó gom cả hai — và cả quyền lắng nghe trên cổng 80 và 443 ở nơi cổng đó là đặc quyền —
-rồi bật **một** hộp thoại cho tất cả. Nếu bạn muốn xem chính xác nó đang xin gì trước khi đồng ý,
-`mix elevation status` in ra; [MixEngine xin quyền để làm gì](./permissions.md) giải thích từng cái.
+**Đây là bước sẽ xin quyền**, và trên máy mới thì đây là bước duy nhất xin quyền. MixEngine cần
+tên `blog.test` trỏ về chính máy bạn, và cần trình duyệt tin chứng chỉ mà nó sắp cấp. Nó gom cả hai
+việc đó, cộng thêm quyền lắng nghe trên cổng 80 và 443 nếu hệ điều hành coi đó là đặc quyền, rồi
+hiện **một** hộp thoại duy nhất cho tất cả. Muốn xem chính xác nó xin gì trước khi đồng ý, chạy
+`mix elevation status`. Trang [MixEngine xin quyền để làm gì](./permissions.md) giải thích từng
+mục.
 
-Từ chối là một câu trả lời hợp lệ. Site vẫn được tạo và vẫn được phục vụ qua `http://`.
+Từ chối cũng được. Site vẫn được tạo và vẫn chạy qua `http://`.
 
-## 6. Mở nó ra
+## 6. Mở site
 
 ```bash
 mix site list
 ```
 
-Rồi mở `https://blog.test` trong trình duyệt. Bạn sẽ thấy `phpinfo()` và một ổ khóa không kèm cảnh
-báo nào. Nếu ổ khóa không xanh, hãy hỏi máy chủ thay vì đoán:
+Rồi mở `https://blog.test` trên trình duyệt. Bạn sẽ thấy trang `phpinfo()` và một ổ khóa, không có
+cảnh báo nào. Nếu ổ khóa không xanh, hãy hỏi thẳng server thay vì đoán:
 
 ```bash
 mix cert status
 ```
 
-Lệnh đó mở một kết nối TLS thật tới chính front end của bạn cho từng site và báo lại chứng chỉ mà nó
-thực sự đưa ra — đó là thứ duy nhất trình duyệt từng nhìn thấy.
+Lệnh này mở một kết nối TLS thật tới front end của bạn cho từng site, rồi báo lại chứng chỉ mà
+server thực sự đưa ra. Đó cũng là thứ duy nhất trình duyệt nhìn thấy.
 
-## 7. Thêm một cơ sở dữ liệu, nếu dự án cần
+## 7. Thêm cơ sở dữ liệu, nếu project cần
 
 ```bash
 mix package install mariadb 12.3.2
@@ -106,26 +112,25 @@ mix service create mariadb@main 12.3.2
 mix database create mariadb@main --name blog
 ```
 
-Lệnh cuối tạo cơ sở dữ liệu và một tài khoản truy cập được nó. **Không có gì in mật khẩu ra**: mật
-khẩu đi vào kho lưu thông tin đăng nhập của chính hệ điều hành bạn, và thứ được in ra là địa chỉ nó
-đã được cất. `mix database open` trao mật khẩu cho một chương trình quản trị cơ sở dữ liệu trên máy
-mà nó không bao giờ xuất hiện trong lịch sử shell hay trong danh sách tham số.
+Lệnh cuối tạo cơ sở dữ liệu và một tài khoản để truy cập nó. **Mật khẩu không được in ra**: nó
+được lưu vào credential store của hệ điều hành, và thứ được in ra là địa chỉ nơi nó được lưu.
+`mix database open` đưa mật khẩu thẳng cho ứng dụng quản lý cơ sở dữ liệu trên máy, không bao giờ
+để nó lọt vào lịch sử shell hay danh sách tham số.
 
-## Vừa rồi đã có chuyện gì
+## Chuyện gì vừa xảy ra
 
-- MixEngine tải một bản PHP và một máy chủ web vào thư mục của riêng nó. Không có gì được cài ở mức
-  toàn hệ thống, và không phiên bản nào khác trên máy bạn bị đụng tới.
-- Nó sinh ra một chứng thực số, hỏi một lần để chứng thực số đó được tin, rồi phát hành một chứng
-  chỉ 90 ngày cho `blog.test` — và nó sẽ phát hành lại chứng chỉ đó trước khi hết hạn mà không cần
-  ai nhắc.
-- Nó tự viết cấu hình của máy chủ web. Cấu hình đó là thứ dùng xong bỏ đi: MixEngine sinh lại nó từ
-  những gì nó biết, nên không có file nào để bạn phải giữ cho khớp.
+- MixEngine tải một bản PHP và một web server vào thư mục riêng của nó. Không có gì được cài ở mức
+  hệ thống, và không phiên bản nào khác trên máy bạn bị đụng tới.
+- Nó tạo một certificate authority, xin quyền tin cậy CA đó một lần, và cấp chứng chỉ 90 ngày cho
+  `blog.test`. Nó sẽ tự cấp lại chứng chỉ này trước khi hết hạn mà bạn không phải làm gì.
+- Nó tự viết file cấu hình cho web server. Cấu hình đó dùng xong bỏ: MixEngine sinh lại từ những gì
+  nó biết, nên bạn không có file nào phải giữ cho đồng bộ.
 
-## Đi tiếp đâu
+## Đọc tiếp
 
-- [Dự án và site](./projects-and-sites.md) — hai danh từ, và mỗi cái sở hữu gì.
-- [Phiên bản PHP, Node, Python và Ruby](./runtimes.md) — một thư mục chọn phiên bản của nó ra sao.
-- [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md) — mọi thứ một dự án chạy dựa trên.
-- [Tên miền và ổ khóa](./domains-and-https.md) — `blog.test` phân giải ra sao, và ai đã ký nó.
-- [MixEngine xin quyền để làm gì](./permissions.md) — mọi hộp thoại, và nó thay đổi cái gì.
-- [Khi có gì đó không ổn](./troubleshooting.md) — `mix doctor` trước đã.
+- [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và mỗi cái quản gì.
+- [Phiên bản PHP, Node, Python và Ruby](./runtimes.md): cách một thư mục tự chọn phiên bản.
+- [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): mọi thứ một project cần để chạy.
+- [Tên miền và ổ khóa](./domains-and-https.md): `blog.test` phân giải thế nào, và ai ký chứng chỉ.
+- [MixEngine xin quyền để làm gì](./permissions.md): từng hộp thoại, và nó thay đổi gì.
+- [Khi có gì đó không ổn](./troubleshooting.md): chạy `mix doctor` trước đã.

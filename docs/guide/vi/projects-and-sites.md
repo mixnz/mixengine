@@ -2,22 +2,26 @@
 title = "Dự án và site"
 slug = "projects-and-sites"
 order = 4
-summary = "Hai danh từ MixEngine dựng lên trên đó, mỗi cái sở hữu gì, và làm sao một bản checkout tự mang theo cấu hình của nó."
+summary = "Hai khái niệm cốt lõi của MixEngine, mỗi cái quản những gì, và cách một bản checkout mang theo cấu hình của chính nó."
 translation_of = "en/projects-and-sites.md"
-source_sha256 = "2f97de6e64cc9825a9775eff773507c07bf517f6fe246b75e0e40949b130cfc4"
+source_sha256 = "56b7dd0910fb458a5e7f716e7c777c72a5e8679b65e35543fe2118ea96aaa407"
 +++
 
 # Dự án và site
 
-MixEngine có hai danh từ, và nên phân biệt rõ chúng.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-**Project** là một thư mục trên đĩa của bạn mà MixEngine biết tới. Nó sở hữu đường dẫn, một cái tên,
-và những phiên bản ngôn ngữ mà thư mục đó dùng.
+MixEngine có hai khái niệm chính, và bạn nên phân biệt rõ chúng.
 
-**Site** là một thứ được phục vụ, nằm dưới một project. Nó sở hữu một hoặc nhiều tên miền, thứ gì
-được phục vụ ra từ thư mục nào, và cái gì phục vụ nó. Một project không có site nào là chuyện hoàn
-toàn bình thường — đó là một thư mục mà MixEngine biết phiên bản PHP của nó. Một project có thể có
-nhiều site.
+**Project** là một thư mục trên đĩa mà MixEngine biết tới. Nó giữ đường dẫn, một cái tên, và thông
+tin thư mục đó dùng phiên bản ngôn ngữ nào.
+
+**Site** là thứ được phục vụ ra ngoài, nằm dưới một project. Nó giữ một hoặc nhiều tên miền, thư mục
+nào được phục vụ, và service nào phục vụ nó. Một project không có site nào là chuyện bình thường:
+đó đơn giản là một thư mục mà MixEngine biết phiên bản PHP của nó. Một project có thể có nhiều site.
 
 ## Đăng ký một project
 
@@ -28,16 +32,17 @@ mix project list
 mix project show blog
 ```
 
-Không tham số thì `mix project create` lấy thư mục hiện tại và đặt tên project theo thư mục đó.
-`--name` ghi đè điều đó, còn `--pin` cố định một phiên bản ngôn ngữ cho mọi thứ nằm dưới thư mục ấy:
+Không truyền tham số thì `mix project create` lấy thư mục hiện tại và đặt tên project theo tên thư
+mục. `--name` cho bạn đặt tên khác, còn `--pin` ghim một phiên bản ngôn ngữ cho mọi thứ nằm dưới
+thư mục đó:
 
 ```bash
 mix project create --name blog --pin php=^8.3 --pin node=22
 ```
 
-`mix project update` đổi bất cứ thứ gì trong số đó về sau. Có một điều cần biết: `--pin` **thay
-thế** toàn bộ tập pin chứ không thêm vào, và `--clear-pins` khi không có `--pin` nào thì xóa sạch.
-Xóa một project là quên nó đi; các file của bạn vẫn y nguyên.
+Về sau muốn sửa gì thì dùng `mix project update`. Một điểm cần nhớ: `--pin` **thay thế** toàn bộ
+danh sách pin chứ không thêm vào, và `--clear-pins` mà không kèm `--pin` sẽ xóa hết. Xóa project
+chỉ là MixEngine quên nó đi; file của bạn vẫn còn nguyên.
 
 ## Khai báo một site
 
@@ -47,39 +52,40 @@ mix site list
 mix site show blog.test
 ```
 
-`--doc-root` là thư mục được phục vụ, tính tương đối so với gốc project — thường là `public` với các
-framework PHP hiện đại, và là chính gốc project khi để trống. `--domain` có thể đưa nhiều lần; cái
-đầu tiên là **tên chính**, các cái sau là bí danh. Tên chính có ý nghĩa: URL chuẩn của site và chứng
-chỉ của nó được đặt theo tên đó.
+`--doc-root` là thư mục được phục vụ, tính tương đối so với gốc project. Với phần lớn framework PHP
+hiện đại thì đó là `public`; bỏ trống thì lấy chính gốc project. `--domain` có thể truyền nhiều
+lần: cái đầu tiên là tên miền **chính**, các cái sau là alias. Tên miền chính quan trọng vì URL
+chuẩn của site và chứng chỉ đều lấy tên theo nó.
 
-`mix site update` thay đổi một site. Giống `--pin` ở trên, `--domain` và `--service` thay thế những
-gì site đang có chứ không thêm vào — không đưa cái nào thì không đổi cái nào.
+`mix site update` dùng để sửa site. Giống `--pin` ở trên, `--domain` và `--service` thay thế giá
+trị cũ của site chứ không thêm vào. Không truyền cái nào thì không cái nào đổi.
 
-Bật và tắt một site là một cờ và một lần sinh lại cấu hình, không phải một tiến trình:
+Bật và tắt site chỉ là bật một cờ rồi sinh lại cấu hình, không phải khởi động hay dừng tiến trình:
 
 ```bash
 mix site stop blog.test
 mix site start blog.test
 ```
 
-Không có gì được khởi động hay bị giết bởi hai lệnh đó. Site là một lời khai báo; các service mà nó
-dùng có trạng thái riêng của chúng.
+Hai lệnh này không khởi động hay tắt tiến trình nào. Site chỉ là một bản khai báo; các service nó
+dùng có trạng thái riêng.
 
 ## Bốn loại site
 
-| `--kind` | Nó là gì |
+| `--kind` | Là gì |
 | --- | --- |
-| `php-fpm` | PHP, qua một pool của phiên bản mà thư mục này phân giải ra |
-| `static` | File, và không có gì chạy cả |
-| `reverse-proxy` | Chuyển tiếp toàn bộ tới một địa chỉ bạn đã có sẵn — `--upstream` |
-| `node-app` | Một tiến trình Node bạn tự chạy, trên một cổng — `--port` |
+| `php-fpm` | PHP, chạy qua pool của phiên bản mà thư mục này resolve ra |
+| `static` | Chỉ phục vụ file, không có gì chạy |
+| `reverse-proxy` | Chuyển tiếp mọi thứ tới một địa chỉ bạn đã có sẵn đang lắng nghe, qua `--upstream` |
+| `node-app` | Một tiến trình Node bạn tự chạy, trên một cổng, qua `--port` |
 
-`reverse-proxy` và `node-app` là hai loại đáng chú ý khi bạn đã có sẵn thứ gì đó đang chạy.
-MixEngine cho nó một cái tên thật và một chứng chỉ mà không giành lấy việc khởi động nó.
+`reverse-proxy` và `node-app` là hai loại đáng quan tâm khi bạn đã có sẵn thứ gì đó đang chạy.
+MixEngine gán cho nó một tên miền thật và một chứng chỉ, mà không can thiệp vào cách bạn khởi động
+nó.
 
-## `mixengine.toml`, và việc nhận một bản checkout của đồng nghiệp
+## `mixengine.toml`, và nhận checkout của đồng nghiệp
 
-Một project có thể tự mô tả nó, trong một file được commit vào kho mã:
+Một project có thể tự mô tả chính nó trong một file commit vào repo:
 
 ```toml
 [project]
@@ -102,45 +108,45 @@ version = "11.4"
 database = "blog"
 ```
 
-Khi có file đó, `mix project create` rồi `mix site create` không tham số nào sẽ làm đúng những gì
-file nói. Đó là hình dáng của việc nhận một bản checkout của người khác: clone, hai câu lệnh, và bạn
-có cùng phiên bản PHP và cùng tên miền với người đã viết nó.
+Khi có file này, chạy `mix project create` rồi `mix site create` không cần tham số nào, MixEngine sẽ
+làm đúng như file mô tả. Nhận checkout của người khác trông đúng như vậy: clone về, gõ hai lệnh, và
+bạn có cùng phiên bản PHP, cùng tên miền với người đã viết file đó.
 
-Theo chiều ngược lại, `mix project export` ghi project hiện tại vào `<root>/mixengine.toml`, giữ
+Theo chiều ngược lại, `mix project export` ghi project hiện tại ra `<root>/mixengine.toml`, và giữ
 nguyên mọi thứ khác đã có trong file.
 
 ## Thư mục này dùng phiên bản nào?
 
-Bốn thứ có thể quyết định, và chúng được xét theo thứ tự này:
+Có bốn nguồn có thể quyết định, và chúng được xét theo thứ tự sau:
 
-1. Một cờ hoặc biến môi trường tường minh cho câu lệnh bạn đang chạy.
-2. File `mixengine.toml` gần nhất **có nhắc tới ngôn ngữ này**, đi ngược lên từ chỗ bạn đang đứng.
-   Một manifest không nói gì về PHP thì không phải là câu trả lời về PHP, nên một pin ở ngoài vẫn có
-   hiệu lực.
-3. Project đã đăng ký có gốc là thư mục đó hoặc một thư mục cha của nó.
-4. Mặc định toàn cục.
+1. Cờ hoặc biến môi trường truyền tường minh cho lệnh bạn đang chạy.
+2. File `mixengine.toml` gần nhất có nhắc tới **ngôn ngữ này**, tìm ngược lên từ thư mục hiện
+   tại. Một manifest không nói gì về PHP thì không phải câu trả lời cho PHP, nên pin ở lớp ngoài
+   vẫn có hiệu lực.
+3. Project đã đăng ký có gốc là thư mục này hoặc một thư mục cha.
+4. Giá trị mặc định toàn cục.
 
-Thay vì tự suy ra, hãy hỏi:
+Thay vì tự tính, hãy hỏi:
 
 ```bash
 mix runtime resolve php
 ```
 
-Lệnh đó trả lời thư mục này nhận phiên bản đã cài nào **và cái nào trong bốn nguồn đã quyết định**,
-đó mới là nửa mà người ta thật sự cần khi phiên bản làm họ bất ngờ. Không có gì được chạy để tìm ra
-câu trả lời.
+Lệnh này trả lời thư mục hiện tại dùng phiên bản nào đã cài, **và nguồn nào trong bốn nguồn trên
+quyết định điều đó**. Vế sau mới là thứ người ta thật sự muốn biết khi một phiên bản khiến họ ngạc
+nhiên. Không có gì được chạy để tìm ra câu trả lời.
 
-## Giữ ấm một project
+## Giữ project luôn sẵn sàng
 
-Các service có thể bị dừng tự động khi đã lâu không ai dùng. Trong lúc bạn đang làm việc trên một
-project, đó là một khoảng nghỉ bạn không muốn có:
+Service có thể tự dừng khi không ai dùng trong một khoảng thời gian. Trong lúc bạn đang làm việc với
+một project thì đây là điều bạn không muốn:
 
 ```bash
 mix project keep-warm blog
 mix project keep-warm blog --off
 ```
 
-Đây là một động từ riêng chứ không phải một thiết lập của project, vì nó là việc bạn làm trong một
-buổi chiều chứ không phải một phần của việc project *là gì*. Nó với tới pool PHP mà các site của
-project gọi tên; nó chưa với tới cơ sở dữ liệu mà chúng truy vấn, vì trong MixEngine không có gì ghi
-lại project nào dùng cơ sở dữ liệu nào.
+Đây là một lệnh riêng chứ không phải một thuộc tính của project, vì đó là việc bạn làm trong một
+buổi chiều chứ không phải một phần của bản chất project. Lệnh này tác động tới pool PHP mà các site
+của project dùng. Nó chưa tác động tới cơ sở dữ liệu mà project truy vấn, vì MixEngine chưa ghi lại
+project nào dùng cơ sở dữ liệu nào.

@@ -7,6 +7,11 @@ summary = "Run PHP, Node, Python and Ruby locally on any version, with real doma
 
 # MixEngine
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 MixEngine is a local web development environment. It runs several versions of PHP, Node.js, Python
 and Ruby side by side and lets a directory choose which one it uses; it runs the web server,
 databases and caches your projects need; and it gives every site a real name like

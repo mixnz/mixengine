@@ -7,6 +7,11 @@ summary = "Undo everything MixEngine wrote outside its own directory, see the li
 
 # Removing MixEngine
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 MixEngine writes almost everything inside one directory. The exceptions are the handful of
 privileged changes it asked permission for, and taking those back is what `mix uninstall` is for.
 

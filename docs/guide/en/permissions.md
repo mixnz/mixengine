@@ -7,6 +7,11 @@ summary = "Every administrator prompt MixEngine can raise, what each one literal
 
 # What MixEngine asks permission for
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 A local development environment has to touch a few things that belong to the whole machine: the name
 `blog.test` has to resolve, a browser has to trust a certificate, something has to listen on port
 80. MixEngine's rule about all of it is short.

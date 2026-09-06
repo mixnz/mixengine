@@ -7,6 +7,11 @@ summary = "The tools you reach for beside the stack — phpMyAdmin, Mailpit, Min
 
 # Extensions
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 An extension is a tool that lives beside your stack rather than inside it: a database administration
 interface, a mail catcher, an object store, a search engine. MixEngine installs it, supervises it,
 and gives it a name and a certificate the same way it does for your own sites.

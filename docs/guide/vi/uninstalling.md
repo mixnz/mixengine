@@ -4,13 +4,18 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixEngine đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "bcb8137a326b3149f20346f3d7fa6ed048cf808243752ee93c59fbc3cb3790d2"
+source_sha256 = "4d43c190c8f39b1f40bf0d067e5469e0e78057aa6a3e1ab15b0a6e972bb9c2bc"
 +++
 
 # Gỡ MixEngine
 
-MixEngine ghi gần như mọi thứ vào bên trong một thư mục. Ngoại lệ là một nhúm thay đổi đặc quyền mà
-nó đã xin phép, và `mix uninstall` tồn tại để lấy lại những thay đổi đó.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+
+MixEngine ghi gần như mọi thứ vào một thư mục duy nhất. Ngoại lệ là vài thay đổi đặc quyền mà nó
+đã xin phép bạn, và `mix uninstall` chính là để thu hồi những thay đổi đó.
 
 ## Xem danh sách trước
 
@@ -18,53 +23,51 @@ nó đã xin phép, và `mix uninstall` tồn tại để lấy lại những th
 mix uninstall --dry-run
 ```
 
-Lệnh này không thay đổi gì và nêu tên từng thứ một mà nó sẽ gỡ:
+Lệnh này không thay đổi gì, chỉ liệt kê từng thứ nó sẽ gỡ:
 
-- khối trong file hosts, và luật DNS hay resolver định tuyến các tên của bạn
+- khối trong file hosts, và rule DNS hoặc resolver dùng để định tuyến tên miền của bạn
 - quyền lắng nghe trên cổng 80 và 443
-- chứng thực số, khỏi mọi kho đang tin nó
-- mọi luật tường lửa còn sót lại từ một site đã chia sẻ
-- mục khởi động daemon khi bạn đăng nhập
+- certificate authority, khỏi mọi store đang tin nó
+- rule firewall nào còn sót lại từ site đã chia sẻ
+- mục tự khởi động daemon khi bạn đăng nhập
 - mục trong `PATH`
-- chương trình phụ trợ đặc quyền, và file log kiểm toán của nó
-- và cuối cùng là chính thư mục của MixEngine
+- chương trình phụ trợ đặc quyền, cùng nhật ký kiểm tra của nó
+- và cuối cùng là thư mục riêng của MixEngine
 
-## Làm thật
+## Thực hiện
 
 ```bash
 mix uninstall
 ```
 
-Bạn được hỏi để xác nhận, và một hộp thoại quyền quản trị bao trọn nửa phần đặc quyền. `--yes` trả
-lời xác nhận trước, cho một script.
+Bạn sẽ được hỏi xác nhận, và một hộp thoại quản trị duy nhất bao trọn phần đặc quyền. `--yes` trả
+lời trước câu xác nhận đó, dành cho script.
 
-**Báo cáo là một phép đo, không phải một lời tuyên bố.** Thứ trả về là những gì MixEngine tìm thấy
-trên máy *sau đó*, từng dòng một, kể cả những dòng trả lời *không có gì ở đó* — một báo cáo giấu
-những dòng ấy đi sẽ khiến bạn không phân biệt được "không hề có cấu hình resolver" với "cấu hình
-resolver đã không được nhìn tới". Lệnh thoát với mã khác 0 nếu bất cứ thứ gì nó đã tác động vẫn còn
-đó, để một script có thể hỏi.
+**Báo cáo là kết quả đo được, không phải lời khẳng định.** Thứ trả về là những gì MixEngine tìm
+thấy trên máy *sau khi* gỡ, từng dòng một, kể cả những dòng trả lời *không có gì ở đây*. Nếu báo
+cáo giấu những dòng đó, bạn sẽ không phân biệt được "không có cấu hình resolver nào" với "chưa
+kiểm tra cấu hình resolver". Lệnh thoát với mã khác không nếu bất cứ thứ gì nó đã xử lý vẫn còn,
+để script kiểm tra được.
 
-Hãy chờ đợi việc kết nối đứt giữa chừng: daemon đang gỡ chính cái home mà nó phục vụ, nên nó tự
-dừng. Đó là kết thúc bình thường, và MixEngine đọc những dòng cuối cùng ngược lại từ đĩa sau khi
-việc đó xảy ra — chính điều ấy khiến câu trả lời là *không còn gì sót lại* chứ không phải *daemon
-bảo thế*.
+Kết nối sẽ đứt giữa chừng, và đó là bình thường: daemon đang xóa chính thư mục home nó phục vụ, nên
+nó tự dừng. Sau đó MixEngine đọc lại các dòng cuối trực tiếp từ đĩa. Nhờ vậy câu trả lời là *không
+còn gì sót lại*, chứ không phải *daemon bảo thế*.
 
-## Giữ lại dữ liệu của bạn
+## Giữ lại dữ liệu
 
 ```bash
 mix uninstall --keep-home
 ```
 
-Lệnh này hoàn tác mọi thứ **bên ngoài** thư mục home và để home nguyên tại chỗ: cơ sở dữ liệu của
-bạn trong `data/`, các chứng chỉ, bản ghi các dự án của bạn. Daemon vẫn chạy, vì vẫn còn một home để
-nó phục vụ.
+Lệnh này hoàn tác mọi thứ **bên ngoài** thư mục home và để nguyên home: cơ sở dữ liệu trong `data/`,
+chứng chỉ, bản ghi các project. Daemon vẫn chạy, vì vẫn còn home để nó phục vụ.
 
-Đó là câu lệnh đúng khi bạn trả lại cấu hình mạng của máy nhưng chưa xong việc với dữ liệu.
+Đây là lệnh đúng khi bạn muốn trả lại cấu hình mạng cho máy nhưng vẫn chưa xong việc với dữ liệu.
 
 ## Rồi gỡ chính chương trình
 
-`mix uninstall` gỡ những gì MixEngine đã làm. Gỡ MixEngine là việc của trình quản lý gói của bạn, và
-nó tùy vào cách bạn đã cài:
+`mix uninstall` gỡ những gì MixEngine đã làm. Còn gỡ bản thân MixEngine là việc của trình quản lý
+gói, và tùy vào cách bạn đã cài:
 
 ```bash
 sudo dpkg -r mixengine
@@ -72,12 +75,13 @@ sudo rpm -e mixengine
 sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim
 ```
 
-Trên Windows, dùng Apps & Features cho bản cài, hoặc xóa thư mục với bản zip xách tay. Trên macOS,
-dòng thứ ba ở trên là những gì gói `.pkg` đã đặt vào. AppImage là một file bạn xóa đi.
+Trên Windows, dùng Apps & Features nếu cài bằng bộ cài, hoặc xóa thư mục nếu dùng bản zip portable.
+Trên macOS, dòng thứ ba ở trên xóa những gì `.pkg` đã đặt vào. AppImage chỉ là một file, xóa đi là
+xong.
 
-## Thứ cố ý không tự động
+## Những gì cố ý không tự động
 
-File log kiểm toán mà chương trình phụ trợ đặc quyền giữ thuộc quyền root, và bản thân chương trình
-phụ trợ cũng vậy. `mix doctor` báo cáo cả hai và không gỡ cái nào: một công cụ chẩn đoán mà xóa mất
-dấu vết kiểm toán thuộc quyền root thì đang xóa đúng cái ghi chép về thứ nó đang chẩn đoán.
-`mix uninstall` mới là câu lệnh gỡ chúng, và nó có hỏi.
+Nhật ký kiểm tra của chương trình phụ trợ đặc quyền thuộc sở hữu root, và bản thân chương trình đó
+cũng vậy. `mix doctor` báo cáo cả hai và không xóa cái nào. Một công cụ chẩn đoán mà xóa nhật ký
+thuộc sở hữu root thì tức là xóa luôn bằng chứng về thứ nó đang chẩn đoán. `mix uninstall` mới là
+lệnh gỡ chúng, và nó sẽ hỏi trước.

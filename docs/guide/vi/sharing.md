@@ -2,72 +2,75 @@
 title = "Cho điện thoại xem site của bạn"
 slug = "sharing"
 order = 8
-summary = "Đưa đúng một site ra mạng nội bộ, quét một mã QR, rồi rút nó về — một site, một cổng, một luật."
+summary = "Đưa đúng một site ra mạng nội bộ, quét mã QR, rồi rút nó về. Một site, một cổng, một luật."
 translation_of = "en/sharing.md"
-source_sha256 = "8978a56454c9ff19e17f9611451ecc43cd6c90091f0564caf10a139ce4156d1a"
+source_sha256 = "2d14ee84cd99cb074e66340722c8560f9ea11b1e79e04daffb09ba54e19791c6"
 +++
 
 # Cho điện thoại xem site của bạn
 
-Mọi thứ MixEngine phục vụ đều chỉ trả lời trên loopback và không ở đâu khác. Thử trên một chiếc điện
-thoại thật nghĩa là tạo một ngoại lệ, và ngoại lệ đó là của từng site, có chủ ý, và đảo ngược được.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+
+Mọi thứ MixEngine phục vụ đều chỉ trả lời trên loopback, không ở đâu khác. Muốn thử trên điện thoại
+thật thì phải tạo một ngoại lệ, và ngoại lệ này áp dụng cho từng site, do bạn chủ động, và có thể
+rút lại.
 
 ```bash
 mix site share blog.test
 ```
 
-Lệnh đó in ra một URL mà điện thoại của bạn mở được và một mã QR để chĩa camera vào. Ba việc vừa xảy
+Lệnh này in ra một URL mà điện thoại mở được, và một mã QR để bạn giơ camera vào. Ba việc đã xảy
 ra:
 
-1. Site bắt đầu trả lời trên địa chỉ của máy này trong mạng nội bộ, thay vì chỉ trên loopback. **Chỉ
-   site này** — mọi site khác vẫn chỉ trả lời trên loopback.
-2. Chứng chỉ được phát hành lại để phủ cả địa chỉ đó, nên ổ khóa sống sót qua chuyến đi.
-3. Một hộp thoại quyền quản trị xin một luật tường lửa, cho đúng cổng đó.
+1. Site bắt đầu trả lời trên địa chỉ của máy này trong mạng nội bộ, thay vì chỉ trên loopback.
+   **Chỉ site này thôi.** Mọi site khác vẫn chỉ trả lời trên loopback.
+2. Chứng chỉ được cấp lại để bao cả địa chỉ đó, nên ổ khóa vẫn còn khi truy cập từ máy khác.
+3. Một hộp thoại quản trị xin thêm một rule firewall, cho đúng một cổng đó.
 
-## Khi máy có nhiều hơn một mạng
+## Khi máy có nhiều mạng
 
-MixEngine **từ chối tự chọn** thay vì đưa site của bạn lên một mạng bạn không có ý — một chiếc
-laptop đang ở Wi-Fi văn phòng và đồng thời có VPN là đúng trường hợp mà điều này tồn tại vì nó. Nó
-nêu tên các ứng viên, và bạn chọn:
+MixEngine **từ chối tự chọn** thay vì đưa site của bạn lên một mạng bạn không định đưa. Trường hợp
+điển hình là laptop đang vừa nối Wi-Fi văn phòng vừa bật VPN. Lệnh liệt kê các mạng có thể chọn,
+và bạn tự chỉ định:
 
 ```bash
 mix site share blog.test --interface "Wi-Fi"
 ```
 
-## Một lần chia sẻ tự kết thúc
+## Chia sẻ có thời hạn
 
 ```bash
 mix site share blog.test --for 2h
 ```
 
-`30s`, `90m`, `2h`, `1d`, hoặc một con số giây trần. Độ dài được tính **từ lúc lần chia sẻ bắt
-đầu**, nên xin một độ dài ngắn hơn khoảng thời gian site đã được chia sẻ sẽ bị từ chối chứ không kết
-thúc nó ngay tại chỗ.
+Chấp nhận `30s`, `90m`, `2h`, `1d`, hoặc một số giây không đơn vị. Thời hạn tính **từ lúc bắt đầu
+chia sẻ**, nên nếu bạn đặt thời hạn ngắn hơn khoảng thời gian site đã được chia sẻ thì lệnh bị từ
+chối, chứ không kết thúc chia sẻ ngay lập tức.
 
-Không có `--for`, một lần chia sẻ kéo dài cho tới khi bạn kết thúc nó hoặc cho tới khi máy này rời
-khỏi mạng mà nó được chia sẻ trên đó. Trường hợp cuối đáng biết: gập laptop lại rồi mở ra ở một nơi
-khác là kết thúc lần chia sẻ, vì địa chỉ nó được chia sẻ tại đó không còn là địa chỉ của máy này
-nữa.
+Không có `--for` thì chia sẻ kéo dài tới khi bạn tự kết thúc, hoặc tới khi máy này rời khỏi mạng
+đã chia sẻ. Trường hợp sau đáng để biết: gập laptop lại rồi mở ở chỗ khác sẽ kết thúc chia sẻ, vì
+địa chỉ đã dùng để chia sẻ không còn là địa chỉ của máy này nữa.
 
-## Rút nó về
+## Rút về
 
 ```bash
 mix site unshare blog.test
 ```
 
-Lệnh đó gỡ luật tường lửa, buộc site về lại loopback, và phát hành lại chứng chỉ không kèm địa chỉ
-mạng. Một site không đang được chia sẻ thì được để y nguyên, nên chạy nó khi bạn không chắc cũng
-không tốn gì.
+Lệnh này gỡ rule firewall, bind site lại về loopback, và cấp lại chứng chỉ không còn địa chỉ mạng.
+Site chưa được chia sẻ thì giữ nguyên, nên chạy lệnh này khi không chắc cũng không mất gì.
 
 ## Cần biết trước khi dùng
 
-- **Bất kỳ ai trong mạng đó đều với tới được site.** Không có lớp xác thực nào phía trước. Trên mạng
-  quán cà phê hay một văn phòng dùng chung, đó là toàn bộ câu chuyện — hãy chia sẻ kèm một độ dài,
-  và rút về khi xong.
-- **Chứng chỉ vẫn là của MixEngine.** Điện thoại của bạn không tin chứng thực số của MixEngine, nên
-  nó sẽ cảnh báo. Chia sẻ là để xem bố cục trên một màn hình thật, không phải để trình diễn ổ khóa.
-- **Không có gì thay đổi ở các site khác của bạn.** Luật đó là một cổng, một site, và nó bị hủy bởi
-  `unshare`, bởi độ dài hết giờ, hoặc bởi việc rời khỏi mạng.
+- **Bất kỳ ai trong mạng đó đều truy cập được site.** Không có lớp xác thực nào phía trước. Ở mạng
+  quán cà phê hay văn phòng chung, chuyện chỉ có vậy: chia sẻ có thời hạn, và rút về khi xong việc.
+- **Chứng chỉ vẫn là của MixEngine.** Điện thoại của bạn không tin CA của MixEngine, nên nó sẽ cảnh
+  báo. Chia sẻ là để kiểm tra layout trên màn hình thật, không phải để trình diễn ổ khóa.
+- **Các site khác không đổi gì.** Luật là một cổng, một site, và nó được hoàn tác bằng `unshare`,
+  khi hết thời hạn, hoặc khi rời khỏi mạng.
 
-Mọi thứ hộp thoại xin đều được liệt kê ở
+Mọi thứ hộp thoại xin quyền hỏi đều được liệt kê ở
 [MixEngine xin quyền để làm gì](./permissions.md).

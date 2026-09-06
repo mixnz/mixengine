@@ -2,31 +2,36 @@
 title = "Khi có gì đó không ổn"
 slug = "troubleshooting"
 order = 14
-summary = "mix doctor trước, rồi bốn câu lệnh trả lời đúng những câu hỏi người ta thật sự có — và một file chứa mọi thứ một báo cáo lỗi cần."
+summary = "Chạy mix doctor trước, rồi bốn lệnh trả lời đúng những câu hỏi người dùng hay gặp, và một file gom đủ mọi thứ một báo cáo lỗi cần."
 translation_of = "en/troubleshooting.md"
-source_sha256 = "059f3e35ad1aa459e14c0a038398024a8e22517f052b016427167d23151adf9b"
+source_sha256 = "f884545cb7911fdc318dc26012d1694b601e2e711a57d27cc9418bd80f94d6cc"
 +++
 
 # Khi có gì đó không ổn
 
-## Bắt đầu ở đây
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+
+## Bắt đầu từ đây
 
 ```bash
 mix doctor
 ```
 
-Nó khám cỗ máy và nói cái gì đang sai. Nó **không báo cáo và không sửa gì** trừ khi bạn yêu cầu, và
-nó thoát với mã khác 0 khi tìm thấy vấn đề, để một script cũng hỏi được.
+Lệnh này kiểm tra máy và cho biết có gì sai. Nó **chỉ báo cáo, không sửa gì** trừ khi bạn yêu cầu,
+và thoát với mã khác không khi phát hiện vấn đề, nên script cũng dùng được.
 
 ```bash
 mix doctor --repair
 ```
 
-Sửa mọi thứ sửa được. Bất cứ gì nằm trong home của chính MixEngine được sửa ngay; bất cứ gì cần
-quyền quản trị được xếp hàng, cho bạn xem, rồi được cấp trong **một** hộp thoại cho cả lô. `--yes`
-bỏ qua bước xác nhận trước hộp thoại đó.
+Sửa mọi thứ có thể sửa. Những gì nằm trong home của MixEngine được sửa ngay. Những gì cần quyền
+quản trị được xếp vào hàng đợi, hiện ra cho bạn xem, rồi cấp quyền trong **một** hộp thoại cho cả
+đợt. `--yes` bỏ qua bước xác nhận trước hộp thoại đó.
 
-## Bốn câu hỏi người ta thật sự có
+## Bốn câu hỏi người dùng hay gặp
 
 ### "Có gì đang chạy không?"
 
@@ -35,29 +40,29 @@ mix status
 mix service list
 ```
 
-`status` nói về daemon: phiên bản, home, và nó đang giám sát gì. `service list` là mỗi service một
-dòng, kèm việc mỗi cái đang làm gì.
+`status` nói về daemon: phiên bản, thư mục home, và nó đang giám sát gì. `service list` liệt kê
+từng service và trạng thái của mỗi cái.
 
-### "Vì sao tên này không mở được?"
+### "Sao tên miền này không mở được?"
 
 ```bash
 mix domain status blog.test
 ```
 
-Bốn sự kiện, được trả lời tách rời chứ không gộp thành một phán quyết: tên đó đã được khai báo chưa,
-nó được định tuyến ra sao, ngay lúc này nó có phân giải trên máy này không, và có gì trả lời trên nó
-không. Cái nào là `không` thì đó là cái cần sửa.
+Bốn câu hỏi được trả lời riêng rẽ thay vì một kết luận chung: tên đã được khai báo chưa, nó được
+định tuyến bằng cách nào, hiện tại nó có phân giải được trên máy này không, và có gì đang trả lời
+ở đó không. Câu nào trả lời `no` thì đó là chỗ cần sửa.
 
-### "Vì sao ổ khóa không xanh?"
+### "Sao ổ khóa không xanh?"
 
 ```bash
 mix cert status
 mix cert ca-status
 ```
 
-`cert status` mở một kết nối thật và báo lại chứng chỉ đã thật sự được đưa ra, đó là thứ duy nhất
-trình duyệt từng nhìn thấy. `ca-status` cho biết chứng thực số là gì. Nếu chứng thực số không được
-tin, `mix doctor --repair` là thứ đặt nó lại.
+`cert status` mở một kết nối thật và báo lại chứng chỉ thực sự được đưa ra, tức là thứ duy nhất
+trình duyệt nhìn thấy. `ca-status` cho biết CA là gì. Nếu CA chưa được tin cậy,
+`mix doctor --repair` sẽ đưa nó trở lại.
 
 ### "Đây là PHP nào, và vì sao?"
 
@@ -65,8 +70,8 @@ tin, `mix doctor --repair` là thứ đặt nó lại.
 mix runtime resolve php
 ```
 
-Phiên bản mà thư mục này nhận, **và cái nào trong bốn nguồn đã quyết định** — đó là nửa bạn cần khi
-câu trả lời không phải cái bạn nghĩ.
+Phiên bản mà thư mục này dùng, **và nguồn nào trong bốn nguồn quyết định điều đó**. Vế sau là thứ
+bạn cần khi câu trả lời không như mong đợi.
 
 ## Đọc log
 
@@ -75,11 +80,11 @@ mix service logs caddy --follow
 mix service logs mariadb@main -n 200
 ```
 
-`--follow` sống sót qua việc service sập và được khởi động lại: thứ đang được theo dõi là service,
-không phải một lần chạy của tiến trình. Log của chính daemon nằm ở `logs/daemon.log` trong home của
-MixEngine.
+`--follow` vẫn tiếp tục khi service crash và được khởi động lại, vì thứ đang được theo dõi là
+service chứ không phải một lần chạy của tiến trình. Log của chính daemon nằm ở `logs/daemon.log`
+trong home của MixEngine.
 
-Với một thao tác dài — một lần cài, một lần áp dụng blueprint — job là nơi cần nhìn:
+Với các thao tác dài, như cài đặt hay áp dụng blueprint, hãy xem ở job:
 
 ```bash
 mix job list
@@ -87,69 +92,68 @@ mix job status <id>
 mix job logs <id>
 ```
 
-`mix job logs` chỉ trả lời cho một job có chạy chương trình của người khác, mà hôm nay nghĩa là một
-blueprint đang chạy câu lệnh dựng khung của chính nó. Mọi việc khác một job làm đều được báo cáo
-dưới dạng tiến độ và kết quả, và lệnh này nói thẳng ra điều đó thay vì giả vờ rằng đầu ra đã mất.
+`mix job logs` chỉ trả lời cho job chạy chương trình của người khác, hiện tại nghĩa là blueprint
+chạy lệnh scaffold của nó. Mọi việc khác một job làm đều được báo qua tiến độ và kết quả, và lệnh
+nói rõ như vậy thay vì giả vờ output bị mất.
 
-## Vài tình huống thường gặp
+## Các tình huống thường gặp
 
-**Một cổng đã bị chiếm.** Có thứ khác trên máy bạn đang giữ nó. `mix service create --port` chọn
-cổng khác cho một service mới; với một service đã có, hãy xóa nó rồi tạo lại trên cổng khác — thư
-mục dữ liệu được giữ lại.
+**Cổng đã bị chiếm.** Có thứ gì khác trên máy đang dùng nó. Với service mới, dùng
+`mix service create --port` để chọn cổng khác. Với service đã có, xóa rồi tạo lại trên cổng khác;
+thư mục dữ liệu được giữ nguyên.
 
-**Daemon không khởi động được.** Hãy đọc `logs/daemon.log` trong home. `mix status --no-autostart`
-hỏi xem có daemon nào đang chạy không mà không khởi động một cái, đó mới là câu hỏi đúng khi bạn
-đang chẩn đoán chứ không phải đang làm việc.
+**Daemon không khởi động.** Đọc `logs/daemon.log` trong home. `mix status --no-autostart` hỏi xem
+có daemon đang chạy không mà không khởi động cái mới. Đó là câu hỏi đúng khi bạn đang chẩn đoán chứ
+không phải đang làm việc.
 
-**Một câu lệnh cần một phiên bản chưa được cài.** MixEngine nói ra điều đó và nêu chính xác câu lệnh
-`mix runtime install` cần gõ. Khi thứ được hỏi là một *khoảng*, nó không thể biết phiên bản nào thỏa
-mãn và trỏ sang `mix runtime available`.
+**Lệnh cần một phiên bản chưa cài.** MixEngine nói rõ và nêu đúng lệnh `mix runtime install` cần
+gõ. Nếu bạn yêu cầu một *khoảng* phiên bản thì nó không biết phiên bản nào thỏa mãn, nên chỉ bạn
+sang `mix runtime available`.
 
-**Có thứ xin quyền quản trị và bạn đã nói không.** Không có gì bị áp dụng dở dang. `mix elevation
-status` cho thấy những gì còn đang chờ, và `mix elevation grant` hỏi lại.
+**Có gì đó xin quyền quản trị và bạn đã từ chối.** Không có gì bị áp dụng nửa chừng.
+`mix elevation status` cho biết còn gì đang chờ, và `mix elevation grant` hỏi lại.
 
-## Khi chính MixEngine gặp lỗi
+## Khi chính MixEngine gặp bug
 
-Nếu daemon vấp phải một lỗi trong mã của chính nó, nó ghi một file nhỏ vào `logs/crashes/` bên trong
-thư mục nhà của MixEngine. `mix doctor` cho bạn biết là có một file như vậy — dưới dạng một ghi chú,
-không bao giờ là một vấn đề, nên nó không làm đổi mã thoát của câu lệnh.
+Nếu daemon gặp bug trong mã của chính nó, nó ghi một file nhỏ vào `logs/crashes/` trong home của
+MixEngine. `mix doctor` cho bạn biết có file như vậy, dưới dạng ghi chú chứ không phải vấn đề, nên
+không làm đổi mã thoát của lệnh.
 
-**Trong đó có gì**: lỗi xảy ra ở chỗ nào trong mã nguồn của chính MixEngine, tên các hàm quanh đó,
-phiên bản nào đang chạy và hệ điều hành nào. Danh sách chỉ có thế.
+**Trong file có gì**: bug xảy ra ở đâu trong mã nguồn của MixEngine, tên các hàm xung quanh, phiên
+bản đang chạy và hệ điều hành nào. Chỉ có vậy.
 
-**Trong đó không có gì**: không có đường dẫn nào của bạn, không có tên site hay tên dự án nào của
-bạn, và không có mật khẩu. Điều đó đúng vì những gì file này *được phép chứa*, chứ không phải vì có
-thứ gì đó bị lọc bỏ đi sau — nên bạn có thể đính kèm nó vào một báo cáo lỗi công khai y nguyên,
-không cần đọc trước.
+**Trong file không có gì**: không có đường dẫn nào của bạn, không có tên site hay project, và không
+có mật khẩu. Điều này đúng vì file *chỉ được phép chứa* những gì kể trên, chứ không phải vì có gì
+đó được lọc bỏ về sau. Nên bạn có thể đính kèm nguyên file vào một báo cáo lỗi công khai mà không
+cần đọc trước.
 
-Thông điệp mà cú crash in ra là phần duy nhất có thể nhắc đến một đường dẫn của bạn, nên nó đi vào
-`logs/daemon.log`. File đó cũng đáng gửi, nhưng hãy gửi khi bạn biết mình đang gửi gì — xem bên
-dưới.
+Thông báo mà crash in ra là phần duy nhất có thể nhắc tới đường dẫn của bạn, nên nó được ghi vào
+`logs/daemon.log` thay vì vào file kia. File đó cũng đáng gửi kèm, nhưng hãy gửi có ý thức. Xem
+bên dưới.
 
-**Không có gì gửi bất cứ thứ nào trong số đó đi đâu cả.** Không có máy chủ nào để gửi tới. Hai mươi
-file mới nhất được giữ lại, các file cũ hơn bị xoá. Nếu bạn muốn không có file nào được ghi cả, hãy
-đặt dòng này vào `config.toml`:
+**Không có gì được gửi đi đâu cả.** Không có server nào để gửi tới. Hai mươi file mới nhất được
+giữ lại, các file cũ hơn bị xóa. Nếu bạn không muốn file như vậy được ghi ra, thêm vào
+`config.toml`:
 
 ```toml
 [crash]
 enabled = false
 ```
 
-Log của daemon vẫn ghi lại rằng đã có một cú crash.
+Log của daemon vẫn ghi lại rằng đã có crash.
 
-## Báo lỗi
+## Báo cáo lỗi
 
 ```bash
 mix doctor --bundle
 ```
 
-Một file nén chứa mọi thứ một báo cáo lỗi cần: những gì `doctor` tìm thấy, trạng thái của daemon
-này, cỗ máy này là gì, các báo cáo crash nếu có, và phần đuôi của log. `--out` chép nó sang nơi bạn
-chọn.
+Một file nén gom đủ mọi thứ một báo cáo lỗi cần: kết quả `doctor` tìm được, trạng thái daemon này,
+thông tin máy, các báo cáo crash nếu có, và phần cuối của log. `--out` chép nó tới nơi bạn chọn.
 
-**Thứ nó cố ý bỏ ra ngoài được nêu tên ngay trong file nén**, để không ai phải đoán xem một phần
-thiếu là bị lược bỏ hay là một thất bại. Hãy mở ra xem trước khi gửi đi đâu — nó là một file nén
-bình thường, và nó là của bạn.
+**Những gì cố ý bỏ ra ngoài được ghi tên ngay trong file nén**, nên không ai phải đoán một phần
+thiếu là do che đi hay do lỗi. Hãy mở ra xem trước khi gửi đi đâu. Đó là một file nén bình thường,
+và nó là của bạn.
 
-Mọi câu lệnh `mix` cũng nhận `--json`, và đó thường là cách nhanh nhất để cho ai đó thấy chính xác
-thứ bạn đã thấy.
+Mọi lệnh `mix` đều nhận `--json`, thường là cách nhanh nhất để cho người khác thấy chính xác bạn
+đã thấy gì.

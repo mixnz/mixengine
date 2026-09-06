@@ -7,6 +7,11 @@ summary = "Caddy or Nginx, MariaDB, MySQL, PostgreSQL, Redis and Memcached — i
 
 # Servers, databases and caches
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 Two words, kept apart the way MixEngine keeps them apart.
 
 A **package** is a program MixEngine knows how to run — Caddy, MariaDB, Redis. Installing one puts a

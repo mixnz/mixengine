@@ -7,6 +7,11 @@ summary = "mix doctor first, then the four commands that answer the questions pe
 
 # When something is wrong
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 ## Start here
 
 ```bash

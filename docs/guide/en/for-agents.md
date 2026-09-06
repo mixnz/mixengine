@@ -7,6 +7,11 @@ summary = "Every page of this handbook is plain Markdown at a guessable address,
 
 # Reading this as a program
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 This site is written for people and published for programs. Nothing here is rendered by JavaScript,
 no page is a summary of a real page kept somewhere else, and every address below is stable.
 

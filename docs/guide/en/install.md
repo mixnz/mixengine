@@ -7,6 +7,11 @@ summary = "The installer for your system, what it touches, what it deliberately 
 
 # Installing MixEngine
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 Every build is published on the project's GitHub releases page, with a checksum and a signature
 beside it. Pick the file for your system below. Installing changes as little as it can: nothing is
 added to your certificate store, your DNS settings or your firewall until the day you ask for

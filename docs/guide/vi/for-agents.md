@@ -2,53 +2,57 @@
 title = "Đọc cẩm nang này bằng chương trình"
 slug = "for-agents"
 order = 16
-summary = "Mọi trang của cẩm nang này đều là Markdown thuần tại một địa chỉ đoán được, kèm một bản kê, một file gộp, và cùng những byte đó nằm trong chương trình mix."
+summary = "Mọi trang của cẩm nang này đều là Markdown thuần tại một địa chỉ dễ đoán, kèm một manifest, một file gộp, và cùng nội dung đó nằm sẵn trong chương trình mix."
 translation_of = "en/for-agents.md"
-source_sha256 = "f5f99e8890ec290ed0a7c99e78b68070b03d1c75c5d43b59422970c4daf7f2fa"
+source_sha256 = "911fa50b103784de2b8a69c7ed0687a99df7d854faf13adc2d3a7c218b40ae19"
 +++
 
 # Đọc cẩm nang này bằng chương trình
 
-Trang này được viết cho người và được phát hành cho chương trình. Không có gì ở đây được dựng bằng
-JavaScript, không trang nào là bản tóm tắt của một trang thật cất ở chỗ khác, và mọi địa chỉ dưới
-đây đều ổn định.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-Nếu bạn là một agent đang giúp ai đó dùng MixEngine: hãy đọc `llms.txt` trước, rồi tải một hoặc hai
-trang bạn cần dưới dạng Markdown.
+Trang web này viết cho người đọc và phát hành cho chương trình đọc. Không có gì ở đây được render
+bằng JavaScript, không trang nào là bản tóm tắt của một trang thật nằm ở chỗ khác, và mọi địa chỉ
+bên dưới đều ổn định.
 
-## Bắt đầu ở đây
+Nếu bạn là một agent đang giúp ai đó dùng MixEngine: hãy đọc `llms.txt` trước, rồi lấy một hai
+trang bạn cần ở dạng Markdown.
+
+## Bắt đầu từ đây
 
 ```
 https://mixnz.github.io/mixengine/llms.txt
 ```
 
-Một bản mục lục của mọi trang trong cả hai ngôn ngữ, mỗi trang kèm một URL Markdown tuyệt đối và một
-câu tóm tắt, cộng thêm các tài nguyên dành cho máy ở dưới.
+Đây là mục lục mọi trang ở cả hai ngôn ngữ, mỗi trang có URL Markdown tuyệt đối và một câu tóm
+tắt, cộng thêm các tài nguyên máy đọc được liệt kê bên dưới.
 
-## Toàn bộ địa chỉ
+## Mọi địa chỉ
 
-| Địa chỉ | Nó là gì |
+| Địa chỉ | Là gì |
 | --- | --- |
-| `/` | Trang chọn ngôn ngữ. Là nội dung thật, không phải một lệnh chuyển hướng |
-| `/en/` và `/vi/` | Mục lục của từng ngôn ngữ |
-| `/en/<slug>/` | Một trang, dạng HTML, cho người |
-| `/en/<slug>.md` | Cũng trang đó, dạng Markdown |
-| `/en/llms-full.txt` | Mọi trang tiếng Anh nối lại, để tải một lần thay vì mười sáu lần |
+| `/` | Trang chọn ngôn ngữ. Nội dung thật, không phải redirect |
+| `/en/` và `/vi/` | Trang mục lục của mỗi ngôn ngữ |
+| `/en/<slug>/` | Một trang, dạng HTML, cho người đọc |
+| `/en/<slug>.md` | Cùng trang đó, dạng Markdown |
+| `/en/llms-full.txt` | Mọi trang tiếng Anh nối lại, để gửi một request thay vì mười sáu |
 | `/vi/llms-full.txt` | Tương tự, bằng tiếng Việt |
-| `/llms.txt` | Bản mục lục ở trên |
-| `/index.json` | Bản kê ở dưới |
-| `/sitemap.xml`, `/robots.txt` | Dành cho trình thu thập |
+| `/llms.txt` | Mục lục nói ở trên |
+| `/index.json` | Manifest nói ở dưới |
+| `/sitemap.xml`, `/robots.txt` | Cho crawler |
 
-**`/<locale>/<slug>.md` là chính file trong kho mã, từng byte một.** Nó không phải bản dựng lại và
-không phải bản trích; cũng những byte đó nằm trong `docs/guide/` ở kho mã nguồn và được biên dịch
-vào chương trình `mix`. Mỗi trang HTML cũng mang một thẻ `<link rel="alternate"
-type="text/markdown">` trỏ tới Markdown của chính nó, nên một chương trình lỡ vào HTML không bao giờ
-phải đoán.
+**`/<locale>/<slug>.md` chính là file trong repo, từng byte một.** Không phải bản render lại, không
+phải bản trích. Cùng những byte đó nằm trong `docs/guide/` của repo mã nguồn và được biên dịch vào
+chương trình `mix`. Mỗi trang HTML cũng có thẻ `<link rel="alternate" type="text/markdown">` trỏ
+tới bản Markdown của chính nó, nên chương trình nào lỡ vào trang HTML cũng không phải đoán.
 
-Các tham chiếu chéo bên trong một trang được viết là `./<slug>.md`, dạng này phân giải đúng ngay từ
-địa chỉ Markdown mà không cần viết lại gì.
+Liên kết chéo giữa các trang được viết dạng `./<slug>.md`, và từ địa chỉ Markdown thì nó phân giải
+đúng mà không cần viết lại gì.
 
-## Bản kê
+## Manifest
 
 ```
 https://mixnz.github.io/mixengine/index.json
@@ -62,44 +66,44 @@ https://mixnz.github.io/mixengine/index.json
   "locales": ["en", "vi"],
   "pages": [
     {
-      "locale": "vi",
+      "locale": "en",
       "slug": "getting-started",
       "order": 3,
-      "title": "Site đầu tiên của bạn",
-      "summary": "Từ bản cài mới tinh tới https://blog.test …",
-      "html": "https://mixnz.github.io/mixengine/vi/getting-started/",
-      "markdown": "https://mixnz.github.io/mixengine/vi/getting-started.md",
+      "title": "Your first site",
+      "summary": "From a fresh install to https://blog.test …",
+      "html": "https://mixnz.github.io/mixengine/en/getting-started/",
+      "markdown": "https://mixnz.github.io/mixengine/en/getting-started.md",
       "sha256": "…",
-      "translation_of": "en/getting-started.md"
+      "translation_of": null
     }
   ]
 }
 ```
 
-`sha256` được tính trên các byte của file Markdown, nên một bản đã lưu đệm có thể được kiểm mà không
-cần tải lại. `version` là bản phát hành MixEngine mà trang này mô tả.
+`sha256` được tính trên các byte của file Markdown, nên bạn kiểm tra được bản cache mà không cần
+tải lại. `version` là bản phát hành MixEngine mà site này mô tả.
 
-## Ngoại tuyến, ngay trên máy
+## Offline, ngay trên máy
 
-Mọi trang đều được biên dịch vào `mix`, và `mix docs` in ra đúng những byte đó mà không cần mạng và
+Mọi trang đều được biên dịch vào `mix`, và `mix docs` in ra đúng những byte đó mà không cần mạng,
 không cần daemon đang chạy:
 
 ```bash
-mix docs                       # liệt kê các chủ đề
-mix docs getting-started       # in một trang, dạng Markdown
+mix docs                       # list the topics
+mix docs getting-started       # print one, as Markdown
 mix docs getting-started --lang vi
 mix docs getting-started --json
-mix docs --reference           # toàn bộ tham chiếu lệnh
+mix docs --reference           # the whole command reference
 ```
 
-`--json` trả về `{ topic, locale, title, url, body }`, trong đó `body` đúng là thứ mà dạng thường in
-ra. Đây là đường đáng tin khi không có mạng, và là đường đúng khi phiên bản trên máy mới là thứ quan
-trọng — các trang bên trong một chương trình là phiên bản của chính chương trình đó, còn trang web
-này mô tả bản phát hành hiện tại.
+`--json` trả về `{ topic, locale, title, url, body }`, trong đó `body` đúng là thứ dạng thường in
+ra. Đây là đường đáng tin khi không có mạng, và là đường đúng khi phiên bản trên máy mới là điều
+quan trọng: các trang nằm trong một binary là phiên bản của binary đó, còn site này mô tả bản phát
+hành hiện tại.
 
-## Mọi câu lệnh đều trả lời JSON
+## Mọi lệnh đều trả lời bằng JSON
 
-Không chỉ `docs`. `--json` là một cờ toàn cục của `mix`:
+Không chỉ `docs`. `--json` là cờ toàn cục của `mix`:
 
 ```bash
 mix status --json
@@ -107,30 +111,30 @@ mix site list --json
 mix doctor --json
 ```
 
-Lỗi cũng trả về dạng JSON, và là cùng một đối tượng bất kể daemon đã từ chối lời gọi hay `mix` chưa
-bao giờ với tới được một daemon: một mã `code` ổn định, một câu, và một `hint` khi có việc để làm.
-Hãy rẽ nhánh theo `code`, đừng bao giờ theo câu chữ.
+Lỗi cũng trả về dạng JSON, và cùng một cấu trúc dù daemon từ chối lời gọi hay `mix` không kết nối
+được tới daemon nào: một `code` ổn định, một câu mô tả, và một `hint` khi có việc gì đó để làm. Hãy
+rẽ nhánh theo `code`, đừng bao giờ theo câu mô tả.
 
-## Nói chuyện thẳng với daemon
+## Nói chuyện trực tiếp với daemon
 
-`mix` là một chương trình khách mỏng nằm trên một API JSON-RPC cục bộ — một Unix socket, hoặc một
-named pipe trên Windows. Toàn bộ hợp đồng được phát hành dưới dạng kiểu TypeScript, sinh ra từ chính
-mã nguồn của daemon và được CI đối chiếu lại với nó:
+`mix` là một client mỏng bên trên API JSON-RPC cục bộ, qua Unix socket, hoặc named pipe trên
+Windows. Toàn bộ hợp đồng được công bố dưới dạng kiểu TypeScript, sinh ra từ chính mã nguồn của
+daemon và được CI kiểm tra đối chiếu với nó:
 
 ```
 https://github.com/mixnz/mixengine/tree/master/bindings
 ```
 
-Một file nén của các kiểu đó được đính kèm mỗi bản phát hành, ký bằng đúng khóa dùng cho các chương
-trình. Thứ mà các kiểu ấy mô tả là những gì daemon **ghi ra**; một vài yêu cầu chấp nhận nhiều hơn
-những gì chúng mô tả, và gửi đúng hình dạng đã ghi trong tài liệu thì luôn được chấp nhận.
+Một file nén chứa các kiểu đó được đính kèm mỗi bản phát hành, ký bằng cùng khóa với các binary.
+Những gì các kiểu này mô tả là những gì daemon **ghi ra**; vài request chấp nhận nhiều hơn những gì
+được mô tả, và gửi đúng cấu trúc đã ghi trong tài liệu thì luôn được chấp nhận.
 
-Phiên bản giao thức được học từ lần bắt tay chứ không phải từ các kiểu, vì kết nối là đầu duy nhất
-biết nó.
+Phiên bản giao thức được biết qua bước handshake chứ không qua các kiểu, vì kết nối là đầu duy nhất
+biết điều đó.
 
-## Nên làm gì với phiên bản
+## Xử lý chuyện phiên bản
 
-- Trang web mô tả một bản phát hành; `index.json` nói đó là bản nào.
-- Một daemon đang chạy tự báo phiên bản của nó — `mix status --json`.
-- Khi hai thứ đó không khớp, daemon là sự thật về cỗ máy trước mặt bạn, còn trang web là sự thật về
-  bản phát hành hiện tại.
+- Site mô tả một bản phát hành; `index.json` nói đó là bản nào.
+- Daemon đang chạy tự báo phiên bản của nó qua `mix status --json`.
+- Khi hai bên không khớp, daemon là sự thật về cái máy trước mặt bạn, còn site là sự thật về bản
+  phát hành hiện tại.

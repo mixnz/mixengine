@@ -2,19 +2,23 @@
 title = "Blueprint"
 slug = "blueprints"
 order = 9
-summary = "Ghi lại một dự án được làm từ những gì, rồi dựng lại đúng như vậy ở nơi khác — hoặc trên máy của người khác."
+summary = "Ghi lại một dự án gồm những gì, rồi dựng lại y hệt ở nơi khác, hoặc trên máy của người khác."
 translation_of = "en/blueprints.md"
-source_sha256 = "7a79d2bf3edf50ce56c3181f920e99d3ac7422092bdce952584506b1f3227655"
+source_sha256 = "2e55952379978471af5dd9c8e3ca6a4db07648a96bbfe2a520c9c798e5beb661"
 +++
 
 # Blueprint
 
-Blueprint là bản ghi chép về việc một dự án được làm từ những gì: nó cần PHP nào, dùng những service
-nào, site của nó trông ra sao, và tùy chọn thêm một câu lệnh dựng khung một bản mới. Đó là cách bạn
-dựng cùng một môi trường hai lần — trên máy thứ hai, cho một đồng nghiệp, hoặc cho dự án tiếp theo
-có cùng hình dáng.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-## Chụp lại một cái
+Blueprint là bản ghi mô tả một project gồm những gì: cần PHP nào, dùng service nào, site trông ra
+sao, và tùy chọn thêm một lệnh để scaffold ra một bản mới. Đây là cách bạn dựng cùng một môi trường
+hai lần: trên máy thứ hai, cho đồng nghiệp, hoặc cho project tiếp theo có cùng cấu trúc.
+
+## Ghi lại một blueprint
 
 ```bash
 cd ~/code/blog
@@ -22,74 +26,74 @@ mix blueprint capture blog-stack --description "PHP 8.3, MariaDB, Redis"
 mix blueprint list
 ```
 
-Cái tên là thứ nó được lưu dưới đó — chữ thường, chữ số và dấu gạch nối.
+Tên là thứ blueprint được lưu dưới đó, gồm chữ thường, chữ số và dấu gạch ngang.
 
-**Blueprint mang theo hình dáng, không mang theo nội dung.** Nó ghi lại rằng dự án dùng một MariaDB
-và phiên bản nào; nó không ghi lại dữ liệu của bạn, và không bao giờ chứa mật khẩu. Áp dụng một
-blueprint cho bạn cùng một môi trường, không phải một bản sao công việc của bạn.
+**Blueprint ghi lại hình dạng, không ghi nội dung.** Nó ghi rằng project dùng MariaDB và phiên bản
+nào; nó không ghi dữ liệu của bạn, và không bao giờ chứa mật khẩu. Áp dụng blueprint cho bạn cùng
+một môi trường, chứ không phải bản sao công việc của bạn.
 
-## Áp dụng một cái
+## Áp dụng một blueprint
 
 ```bash
 mix blueprint apply blog-stack --project shop --dry-run
 mix blueprint apply blog-stack --project shop
 ```
 
-**Hãy chạy bản thử trước.** Nó in ra kế hoạch và không thay đổi gì: runtime nào sẽ được cài, service
-nào sẽ được tạo, site sẽ tên gì, và — nếu có — câu lệnh dựng khung sẽ được chạy. Không có gì trong
-một lần áp dụng bị giấu khỏi kế hoạch đó.
+**Hãy chạy dry run trước.** Nó in ra kế hoạch và không thay đổi gì: runtime nào sẽ được cài,
+service nào sẽ được tạo, site sẽ tên gì, và nếu có thì lệnh scaffold nào sẽ được chạy. Không có
+bước nào của việc áp dụng bị giấu khỏi kế hoạch này.
 
-`--path` nói nơi dự án mới nằm; mặc định là một thư mục đặt tên theo dự án, nằm dưới chỗ bạn đang
-đứng.
+`--path` chỉ định project mới nằm ở đâu. Mặc định là một thư mục đặt theo tên project, nằm dưới
+thư mục hiện tại.
 
 ### Trả lời các câu hỏi về phiên bản
 
-Một blueprint đòi PHP 8.3 trên máy đang có 8.2 là một câu hỏi, không phải một lỗi. Hai cờ trả lời
-trước cho mọi câu hỏi loại đó trong kế hoạch:
+Blueprint đòi PHP 8.3 trên máy chỉ có 8.2 là một câu hỏi, không phải lỗi. Hai cờ sau trả lời trước
+cho mọi câu hỏi kiểu đó trong kế hoạch:
 
-| Cờ | Nghĩa là |
+| Cờ | Nghĩa |
 | --- | --- |
-| `--install-missing` | Cài đúng thứ blueprint đòi |
-| `--use-installed` | Dùng thứ máy này đã có |
+| `--install-missing` | Cài đúng thứ blueprint yêu cầu |
+| `--use-installed` | Dùng thứ máy này đã có sẵn |
 
-## Nhận blueprint của người khác
+## Import blueprint của người khác
 
 ```bash
 mix blueprint import ./blog-stack.toml
 ```
 
-Một blueprint đến từ nơi khác có thể mang theo một chữ ký rời — `mix` tìm `<file>.minisig` nằm cạnh
-nó, hoặc nhận `--signature`. Và đây là quy tắc quan trọng:
+Blueprint từ nơi khác có thể kèm chữ ký rời: `mix` tìm file `<file>.minisig` nằm cạnh, hoặc nhận
+qua `--signature`. Và đây là luật quan trọng:
 
-**Thứ đến mà không có chữ ký được gallery bảo lãnh thì không đáng tin, vĩnh viễn.** Không gì nâng
-điều đó lên về sau. Nhập lại nó kèm chữ ký cũng không tẩy trắng được; trạng thái tin cậy được quyết
-định một lần, lúc nhập, và mọi danh sách nêu tên blueprint đó đều hiển thị nó.
+**Cái gì đến mà không có chữ ký được gallery xác nhận thì mãi mãi là không tin cậy.** Không có gì
+nâng trạng thái đó lên về sau. Import lại kèm chữ ký cũng không rửa được nó; trạng thái tin cậy
+được quyết định một lần, lúc import, và mọi danh sách có nêu tên blueprint đó đều hiển thị nó.
 
-Trạng thái đó không phải để trang trí. Nó quyết định câu lệnh `[scaffold]` của blueprint phải được
-đồng ý lớn tiếng đến mức nào trước khi chạy.
+Trạng thái này không phải để trang trí. Nó quyết định lệnh `[scaffold]` của blueprint phải được
+bạn đồng ý rõ ràng tới mức nào trước khi chạy.
 
-## Câu lệnh dựng khung, và vì sao nó được hỏi
+## Lệnh scaffold, và vì sao phải hỏi
 
-Một blueprint có thể mang theo một câu lệnh chạy một lần trong dự án mới — `composer create-project
-…` hoặc thứ tương đương cho framework mà nó dành cho. Đó là chương trình của người khác chạy trên
-máy bạn, nên MixEngine in ra chính xác câu lệnh đó và hỏi trước khi chạy, và nó hỏi khác nhau tùy
-theo blueprint đến từ đâu.
+Blueprint có thể mang theo một lệnh chạy một lần trong project mới, ví dụ
+`composer create-project …`, hoặc lệnh tương đương của framework mà nó dành cho. Đó là chương trình
+của người khác chạy trên máy bạn, nên MixEngine in ra chính xác lệnh đó và hỏi trước khi chạy. Cách
+hỏi khác nhau tùy blueprint đến từ đâu.
 
-Hai cờ bỏ qua câu hỏi, và **không cái nào bao được cái kia**:
+Hai cờ bỏ qua câu hỏi này, và **cờ nào chỉ dùng cho trường hợp của cờ đó**:
 
 | Cờ | Dành cho |
 | --- | --- |
-| `--run-scaffold` | Một blueprint mà gallery đã ký |
-| `--run-untrusted-scaffold` | Một cái không đáng tin. Không gì bảo lãnh cho thứ này chạy |
+| `--run-scaffold` | Blueprint được gallery ký |
+| `--run-untrusted-scaffold` | Blueprint không tin cậy. Không ai bảo đảm cho thứ lệnh này chạy |
 
-Một script chạy câu lệnh chưa ký của ai đó thì nên nói ra điều ấy ngay trên dòng làm việc đó. Đó là
-toàn bộ lý do có hai cờ chứ không phải một, và câu lệnh vẫn được in ra trước khi chạy trong cả hai
-trường hợp.
+Một script chạy lệnh chưa ký của người khác thì nên nói rõ điều đó ngay trên dòng thực hiện việc
+ấy. Đó là toàn bộ lý do có hai cờ thay vì một, và trong cả hai trường hợp lệnh đều được in ra trước
+khi chạy.
 
-## Theo dõi một lần áp dụng
+## Theo dõi quá trình áp dụng
 
-Một lần áp dụng là một job. Nó có thể cài runtime, tạo service và chạy lệnh dựng khung, nên có thể
-mất một lúc:
+Áp dụng blueprint là một job. Nó có thể cài runtime, tạo service và chạy scaffold, nên có thể mất
+một lúc:
 
 ```bash
 mix job list
@@ -98,9 +102,9 @@ mix job logs <id>
 mix job wait <id>
 ```
 
-`mix job logs` là nơi đầu ra của chính câu lệnh dựng khung đi tới — đó là thứ duy nhất một lần áp
-dụng chạy mà tự in ra cái gì. Các dòng đó sống chừng nào daemon còn giữ job, nên nó là thứ để đọc
-trong lúc job đang chạy chứ không phải một bản ghi để quay lại xem vào tuần sau.
+`mix job logs` là nơi output của lệnh scaffold hiện ra; đó là thứ duy nhất trong quá trình áp dụng
+tự in ra gì đó. Các dòng log tồn tại chừng nào daemon còn giữ job, nên đây là thứ để đọc trong lúc
+job chạy, không phải bản ghi để tuần sau quay lại xem.
 
-Nếu lần áp dụng cần quyền quản trị — chẳng hạn một tên miền mới cần được định tuyến — nó hỏi một lần
-ở cuối. `--grant` tiêu luôn hộp thoại đó mà không hỏi trước.
+Nếu việc áp dụng cần quyền quản trị, ví dụ một tên miền mới cần định tuyến, nó hỏi một lần ở cuối.
+`--grant` dùng luôn hộp thoại đó mà không hỏi trước.

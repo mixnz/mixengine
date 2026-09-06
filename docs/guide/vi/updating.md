@@ -2,76 +2,80 @@
 title = "Giữ MixEngine luôn mới"
 slug = "updating"
 order = 12
-summary = "Cập nhật là do bạn chọn, được đối chiếu chữ ký, và được diễn thử trước khi thay bất cứ thứ gì — và có một chương trình cố ý không bao giờ được thay theo đường này."
+summary = "Cập nhật do bạn quyết, có kiểm tra chữ ký, và có chạy thử trước khi thay bất cứ thứ gì. Riêng một chương trình cố ý không bao giờ được thay theo đường này."
 translation_of = "en/updating.md"
-source_sha256 = "d7555eb599dc828c78f95492e52d26b9d536a2061604e993d407021d3717d62e"
+source_sha256 = "41086d8cb9d4d8c76f67151815a7b9b554bb3ec2880e29b672788c7016f57f8c"
 +++
 
 # Giữ MixEngine luôn mới
+
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
 ```bash
 mix self-update --check
 mix self-update
 ```
 
-`--check` in ra thứ đang có — phiên bản, dung lượng, và những gì đã thay đổi — và không cài gì.
-Không có nó thì cũng thông tin ấy được hiện ra rồi bạn được hỏi.
+`--check` in ra bản có sẵn, gồm phiên bản, dung lượng và những gì đã thay đổi, và không cài gì.
+Không có `--check` thì cũng hiện đúng thông tin đó, rồi hỏi bạn có cập nhật không.
 
-## Cập nhật không bao giờ diễn ra âm thầm
+## Cập nhật không bao giờ âm thầm
 
-Một lần cập nhật khởi động lại những service bạn đang chạy. Điều đó khiến nó là việc bạn chọn, chứ
-không phải việc xảy đến với bạn giữa lúc đang làm, nên **không gì được cài mà không hỏi**. Daemon có
-kiểm tra âm thầm — lúc khởi động, và theo một nhịp mỗi ngày — để `mix status` có thể nói cho bạn
-biết là có bản mới, và cả hai lần kiểm tra đều im lặng khi thất bại: một cái máy không có mạng không
-phải một cái máy có vấn đề.
+Cập nhật sẽ khởi động lại các service bạn đang chạy. Vì thế đó là việc bạn chọn, không phải việc
+xảy ra với bạn giữa lúc đang làm, nên **không có gì được cài mà không hỏi**. Daemon có kiểm tra
+lặng lẽ, lúc khởi động và mỗi ngày một lần, để `mix status` báo được cho bạn là có bản mới. Cả hai
+lần kiểm tra đều thất bại trong im lặng nếu không có mạng: máy không có mạng không phải máy có vấn
+đề.
 
-`--yes` trả lời câu hỏi trước, cho một script không có ai ngồi ở bàn phím.
+`--yes` trả lời trước câu hỏi, dành cho script chạy khi không có ai ở bàn phím.
 
 ## Chuyện gì xảy ra khi bạn đồng ý
 
-Theo thứ tự, và không bước nào là tùy chọn:
+Theo thứ tự, và không bước nào bỏ qua được:
 
-1. Bản phát hành được tải về và băm để đối chiếu với feed cập nhật **đã ký**. Một gói không khớp thì
-   không được giải nén.
-2. Chữ ký được kiểm với một khóa công khai được biên dịch thẳng vào MixEngine. Không có gì thuộc về
-   đường truyền được tin để quyết định một file có phải của chúng tôi hay không.
-3. **`mixengined` mới được chạy thử một lần**, trước khi bất cứ thứ gì bị thay, để chắc rằng máy này
-   sẽ khởi động được nó. Một bản cập nhật sẽ để lại cho bạn một daemon không chạy được thì bị chặn ở
-   đây chứ không bị phát hiện sau đó.
-4. Những gì đang chạy được dừng lại, các chương trình được thay, và daemon thoát.
-5. `mix` khởi động daemon mới, và daemon mới khởi động lại các service của bạn.
+1. Bản phát hành được tải về và đối chiếu hash với feed cập nhật **có chữ ký**. Payload không khớp
+   thì không được giải nén.
+2. Chữ ký được kiểm tra bằng khóa công khai biên dịch sẵn trong MixEngine. Không có gì ở tầng
+   truyền tải được tin để quyết định một file có phải của chúng tôi hay không.
+3. **Bản `mixengined` mới được chạy thử một lần** trước khi thay bất cứ gì, để chắc máy này khởi
+   động được nó. Một bản cập nhật sẽ để lại daemon không chạy được thì bị chặn ở đây, thay vì phát
+   hiện ra sau.
+4. Những gì đang chạy được dừng, các file thực thi được thay, và daemon thoát.
+5. `mix` khởi động daemon mới, và daemon khởi động lại service của bạn.
 
-## Chương trình duy nhất việc này không bao giờ đụng tới
+## Chương trình duy nhất không bao giờ bị đụng tới
 
-`mixengine-elevate` chạy với quyền quản trị, và thay nó là một hành vi đặc quyền.
-`mix self-update` cố ý để nó y nguyên.
+`mixengine-elevate` chạy với quyền quản trị, nên thay nó là một hành động đặc quyền.
+`mix self-update` cố ý để nguyên nó.
 
 ```bash
 mix elevation upgrade
 ```
 
-Đó là hành động riêng, có chủ ý. Nó tải chương trình phụ trợ mà bản phát hành này công bố, kiểm chữ
-ký của MixEngine trên đó, chạy thử một lần để chắc nó khởi động được, và đặt bản thay thế vào hàng
-đợi. **Không có gì được cài bởi câu lệnh đó**: `mix elevation grant` mới là thứ bật hộp thoại lên,
-và chương trình phụ trợ đang cài tự kiểm lại chữ ký một lần nữa trước khi cho phép bất cứ thứ gì ghi
-đè lên nó.
+Đó là hành động riêng, có chủ đích. Lệnh này tải chương trình phụ trợ mà bản phát hành này công
+bố, kiểm tra chữ ký của MixEngine trên đó, chạy thử một lần để chắc nó khởi động được, rồi đưa bản
+thay thế vào hàng đợi. **Lệnh này không cài gì cả**: `mix elevation grant` mới là lệnh hiện hộp
+thoại xin quyền, và chương trình phụ trợ đang cài sẽ tự kiểm tra chữ ký thêm lần nữa trước khi cho
+phép bất cứ gì ghi đè lên nó.
 
-Bản cũ và bản mới cùng tồn tại an toàn trong lúc đó. Daemon và chương trình phụ trợ thống nhất một
-phiên bản giao thức khi chúng nói chuyện, và một chương trình phụ trợ cũ vẫn phục vụ những thao tác
-nó biết trong khi MixEngine đề nghị bạn nâng cấp nó.
+Trong lúc đó, bản cũ và bản mới cùng tồn tại an toàn. Daemon và chương trình phụ trợ thỏa thuận
+phiên bản giao thức khi nói chuyện với nhau. Chương trình phụ trợ cũ vẫn phục vụ các thao tác nó
+biết, trong khi MixEngine nhắc bạn nâng cấp nó.
 
 ## Khi MixEngine được cài bằng trình quản lý gói
 
-`mix self-update` từ chối, nói ra điều đó, và nêu tên thư mục. Đó là đúng chứ không phải vô ích: một
-bản do `apt`, `dnf` hay một `.pkg` cài thuộc quyền quản lý của trình quản lý gói đó, và thay file
-bên dưới nó sẽ để lại một hệ thống mà hồ sơ của chính nó mô tả một thứ không còn ở đó nữa. Hãy cập
-nhật theo đúng cách bạn đã cài.
+`mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ không phải vô
+ích: bản cài bằng `apt`, `dnf` hay `.pkg` thuộc về trình quản lý gói đó. Thay file sau lưng nó sẽ
+khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn đã cài.
 
-Bản zip xách tay, AppImage, bản cài Windows cho riêng một người dùng, và bản dựng từ mã nguồn đều
-được `mix self-update` cập nhật bình thường.
+Bản zip portable, AppImage, bộ cài Windows theo người dùng và bản build từ mã nguồn đều cập nhật
+bình thường bằng `mix self-update`.
 
 ## Phiên bản
 
-MixEngine dùng semantic versioning, một phiên bản duy nhất cho mọi thứ nó phát hành. Trước 1.0, API
-có thể phá vỡ tương thích giữa các phiên bản phụ, và mỗi lần như vậy đều được liệt kê trong
-changelog — đó chính là thứ `mix self-update --check` in ra trước khi hỏi.
+MixEngine dùng semantic versioning, một số phiên bản chung cho mọi thứ nó phát hành. Trước 1.0, API
+có thể thay đổi không tương thích giữa các phiên bản minor, và mỗi thay đổi như vậy được liệt kê
+trong changelog. Đó chính là thứ `mix self-update --check` in ra trước khi hỏi bạn.

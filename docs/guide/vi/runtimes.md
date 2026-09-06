@@ -2,16 +2,21 @@
 title = "Phiên bản PHP, Node, Python và Ruby"
 slug = "runtimes"
 order = 5
-summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó — không hook shell, không phải nhớ gì cả."
+summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó. Không hook shell, không phải nhớ gì cả."
 translation_of = "en/runtimes.md"
-source_sha256 = "f1f3b60d4bef5176ea6682af42816d1139eca0413fd9755eb20921ce223c7ce6"
+source_sha256 = "81084da73c0bbe86652045b3a7371b86aa806a501ee6810f07687b18c44c9e59"
 +++
 
 # Phiên bản PHP, Node, Python và Ruby
 
-MixEngine cài các runtime ngôn ngữ vào thư mục của riêng nó, mỗi phiên bản một thư mục bất biến, và
-không bao giờ đụng tới thứ mà hệ điều hành của bạn đã có sẵn. Cài một phiên bản không bao giờ sửa
-một phiên bản đã cài, nên không thứ gì đang chạy được của bạn bị hỏng vì bạn thêm một thứ mới.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+
+MixEngine cài runtime ngôn ngữ vào thư mục riêng của nó, mỗi phiên bản một thư mục bất biến, và
+không bao giờ đụng tới những gì hệ điều hành đã có sẵn. Cài một phiên bản mới không bao giờ sửa
+phiên bản đã cài, nên bạn thêm gì vào cũng không làm hỏng thứ đang chạy tốt.
 
 Có bốn ngôn ngữ được quản lý: **PHP**, **Node.js**, **Python** và **Ruby**.
 
@@ -23,94 +28,95 @@ mix runtime install php 8.3.33
 mix runtime list
 ```
 
-Phiên bản phải chính xác, và đó là chủ ý chứ không phải thiếu sót. `8.3` là câu *"chọn giùm tôi một
-cái"*, mà chưa có gì để chọn cho tới khi có thứ được cài — chọn giữa các phiên bản là việc của phân
-giải, và phân giải trả lời bằng những gì đang có trên máy. `mix runtime available` mới là nơi dành
-cho một khoảng.
+Phiên bản phải ghi chính xác. Đây là cố ý chứ không phải thiếu sót. Ghi `8.3` nghĩa là *"chọn giúp
+tôi một cái"*, mà chưa cài gì thì không có gì để chọn. Việc chọn giữa các phiên bản là việc của bước
+resolve, và resolve chỉ trả lời dựa trên những gì có trên máy. Muốn dùng một khoảng phiên bản thì
+dùng ở `mix runtime available`.
 
-Một lần cài là một job, và `mix` mặc định chờ nó: `mix runtime install php 8.3.33 && …` là một câu
-nói về việc PHP đã có mặt. `--no-wait` trả về ngay khi daemon nhận việc và đưa cho bạn một id job,
-mà `mix job wait` có thể trỏ tới sau.
+Cài đặt là một job, và mặc định `mix` sẽ chờ nó xong. Vì thế `mix runtime install php 8.3.33 && …`
+đảm bảo PHP đã có mặt trước khi lệnh sau chạy. Với `--no-wait`, lệnh trả về ngay khi daemon nhận
+việc và đưa bạn một job id, để sau đó bạn chờ bằng `mix job wait`.
 
-**Cài một bản PHP cũng tạo ra pool php-fpm của nó** — `php-fpm@8.3.33`, một service như mọi service
-khác, có trong `mix service list`. Node, Python và Ruby được gọi theo từng lệnh và không có gì được
-giám sát.
+**Cài PHP cũng tạo luôn pool php-fpm** cho phiên bản đó, ví dụ `php-fpm@8.3.33`. Đây là một
+service như mọi service khác, xuất hiện trong `mix service list`. Node, Python và Ruby được gọi theo
+từng lệnh, không có gì cần giám sát.
 
 ### Trên máy Windows dùng chip ARM
 
-Một số phiên bản không có bản dựng cho loại chip đó — chẳng hạn không ai phát hành PHP ARM64 cho
-Windows cả. Ở những chỗ như vậy, MixEngine cài bản x86_64 và Windows chạy nó giúp bạn. Nó hoạt động
-được; chỉ chậm hơn một chút so với một bản dựng riêng cho máy bạn.
+Một số phiên bản không có bản build cho chip này, ví dụ không ai phát hành PHP cho Windows ARM64.
+Trong trường hợp đó, MixEngine cài bản x86_64 và Windows sẽ chạy nó cho bạn. Vẫn chạy được, chỉ
+chậm hơn một chút so với bản build đúng cho máy.
 
-Bạn không bao giờ phải tự đoán bản nào là bản nào. Trên máy đó, `mix runtime available` và
-`mix package available` có thêm một cột `RUNS`, ghi `native` hoặc `emulated` cho từng phiên bản, và
-lệnh cài nói ra điều đó trước khi bắt đầu tải. Trên mọi máy khác không có cột này, vì không có gì để
+Bạn không phải đoán cái nào là cái nào. Trên máy đó, `mix runtime available` và
+`mix package available` có thêm cột `RUNS`, ghi `native` hoặc `emulated` cho từng phiên bản, và
+lệnh cài sẽ nói rõ trước khi bắt đầu tải. Trên các máy khác không có cột này, vì không có gì để
 nói.
 
-## Chọn phiên bản cho một thư mục
+## Chọn phiên bản cho từng thư mục
 
-Không có gì ở đây đổi shell của bạn, vá một profile, hay bắt bạn gõ một lệnh kích hoạt. Một thư mục
-phân giải ra một phiên bản, và các shim lo phần còn lại.
+Không có gì ở đây sửa shell, vá file profile, hay bắt bạn gõ lệnh activate. Mỗi thư mục resolve ra
+một phiên bản, phần còn lại do shim lo.
 
 ```bash
-mix runtime default php 8.3.33      # mặc định cho cả máy
+mix runtime default php 8.3.33      # the machine-wide fallback
 mix project update blog --pin php=^8.1
-mix runtime resolve php             # *thư mục này* nhận cái nào, và vì sao?
+mix runtime resolve php             # what does *this* directory get, and why?
 ```
 
-`mix runtime resolve` là lệnh đáng nhớ. Nó trả lời đúng thứ `php -v` sẽ trả lời, mà không chạy gì
-cả, **và** nó nêu tên cái nào trong bốn nguồn đã quyết định:
+`mix runtime resolve` là lệnh đáng nhớ nhất. Nó trả lời đúng thứ `php -v` sẽ trả lời mà không chạy
+gì cả, **và** nói rõ nguồn nào trong bốn nguồn sau quyết định điều đó:
 
-1. Một cờ hoặc biến môi trường tường minh trên chính câu lệnh đang chạy.
-2. File `mixengine.toml` gần nhất có nhắc tới ngôn ngữ này, đi ngược lên từ chỗ bạn đứng.
-3. Project đã đăng ký bao phủ thư mục này.
-4. Mặc định toàn cục.
+1. Cờ hoặc biến môi trường truyền tường minh cho lệnh đang chạy.
+2. File `mixengine.toml` gần nhất có nhắc tới ngôn ngữ này, tìm ngược lên từ thư mục hiện tại.
+3. Project đã đăng ký bao trùm thư mục này.
+4. Giá trị mặc định toàn cục.
 
-Một `mixengine.toml` không nói gì về PHP thì không phải câu trả lời về PHP, nên một pin ở trên vẫn
-có hiệu lực.
+Một file `mixengine.toml` không nói gì về PHP thì không phải câu trả lời cho PHP, nên pin ở lớp
+ngoài vẫn có hiệu lực.
 
-### Viết một ràng buộc phiên bản
+### Cách viết ràng buộc phiên bản
 
-Pin và `--version` nhận ba dạng, tất cả đều được phân giải dựa trên các phiên bản **đã cài** chứ
-không bao giờ âm thầm dựa trên những phiên bản có thể tải về:
+Pin và `--version` chấp nhận ba dạng. Tất cả đều resolve trên các phiên bản **đã cài**, không bao
+giờ âm thầm lấy từ danh sách có thể tải:
 
-| Viết | Nghĩa là |
+| Cách viết | Nghĩa |
 | --- | --- |
 | `8.3.33` | Đúng phiên bản đó |
-| `8.3` hoặc `8` | Viết bao nhiêu đoạn thì bấy nhiêu đoạn phải khớp; đoạn không ai viết là số 0 |
-| `^8.3` | Tới đoạn khác 0 ngoài cùng bên trái — `^0.12` dừng trước `0.13` |
+| `8.3` hoặc `8` | Các phần được ghi phải khớp; phần không ghi coi như số không |
+| `^8.3` | Khớp tới phần khác không ở ngoài cùng bên trái; `^0.12` dừng trước `0.13` |
 
-Một ràng buộc không có phần tiền phát hành thì không bao giờ chọn một bản tiền phát hành. `8.5` và
-`^8.5` đều bỏ qua `8.5.0RC1`; gọi đúng tên nó là cách bạn yêu cầu nó.
+Ràng buộc không ghi pre-release thì không bao giờ chọn pre-release. `8.5` và `^8.5` đều bỏ qua
+`8.5.0RC1`; muốn dùng nó thì phải ghi chính xác tên.
 
-## Các shim
+## Shim
 
-`mix path install` lấp đầy `<root>/bin` và đưa đúng một thư mục đó vào `PATH` của bạn. Nó chứa một
-chương trình nhỏ cho mỗi lệnh — `php`, `php-config`, `pecl`, `composer`, `node`, `npm`, `npx`,
-`python`, `pip`, `ruby`, `gem`, `bundle` — và mỗi cái tự tìm ra phiên bản mà thư mục này muốn rồi
-chuyển giao cho chương trình thật.
+`mix path install` điền vào `<root>/bin` và đưa duy nhất thư mục đó vào `PATH` của bạn. Trong đó
+có một chương trình nhỏ cho mỗi lệnh: `php`, `php-config`, `pecl`, `composer`, `node`, `npm`,
+`npx`, `python`, `pip`, `ruby`, `gem`, `bundle`. Mỗi chương trình tự tìm xem thư mục hiện tại muốn
+phiên bản nào rồi chuyển cho file thực thi thật.
 
 Hai hệ quả đáng biết:
 
-- **Nó chạy được khi daemon đang tắt.** Một shim đọc thẳng thứ nó cần chứ không hỏi qua socket, và
-  đó là lý do `php -v` trong một project vẫn trả lời khi MixEngine không chạy.
-- **Không có gì phải làm mới sau khi cài.** Danh sách lệnh là cố định, nên `<root>/bin` không phụ
-  thuộc vào những gì bạn đã cài. Một shim `node` trên máy không có Node.js thì không phân giải ra gì
-  cả và nói cho bạn biết cần gõ lệnh nào.
+- **Hoạt động cả khi daemon đã dừng.** Shim đọc trực tiếp thứ nó cần thay vì hỏi qua socket. Vì
+  vậy `php -v` trong một project vẫn trả lời được khi MixEngine không chạy.
+- **Không cần làm mới gì sau khi cài thêm.** Danh sách lệnh là cố định, nên `<root>/bin` không phụ
+  thuộc vào bạn đã cài gì. Shim `node` trên máy chưa có Node.js sẽ không resolve ra gì, và cho bạn
+  biết cần gõ lệnh nào.
 
-Chỉ `<root>/bin` được đưa vào `PATH` — đúng một mục, không bao giờ mỗi phiên bản một thư mục.
+Chỉ có `<root>/bin` được đưa vào `PATH`. Một mục duy nhất, không bao giờ là một thư mục cho mỗi
+phiên bản.
 
 ```bash
 mix path status
 mix path uninstall
 ```
 
-`mix path uninstall` gỡ thư mục đó khỏi `PATH` và để các lệnh nguyên tại chỗ: chúng nằm trong home
-của chính MixEngine, và gỡ home mới là thứ gỡ chúng đi.
+`mix path uninstall` gỡ thư mục đó khỏi `PATH` nhưng để nguyên các lệnh bên trong. Chúng nằm trong
+thư mục home của MixEngine, và chỉ khi gỡ home thì chúng mới mất.
 
 ## Extension của PHP
 
-Extension gắn với từng phiên bản đã cài, vì chúng được biên dịch theo phiên bản đó:
+Extension gắn với từng phiên bản đã cài, vì chúng được biên dịch ứng với phiên bản đó:
 
 ```bash
 mix runtime ext list --php 8.3.33
@@ -118,10 +124,10 @@ mix runtime ext enable redis --php 8.3.33
 mix runtime ext disable xdebug --php 8.3.33
 ```
 
-`list` cho biết bản dựng có những extension nào và **vì sao mỗi cái đang bật hay tắt**, đó thường
-mới là câu hỏi. Bỏ `--php` đi nghĩa là phiên bản mà thư mục này phân giải ra.
+`list` cho biết bản build có những extension nào, **và vì sao mỗi cái đang bật hay tắt**. Đó
+thường mới là câu hỏi thật. Bỏ `--php` thì lấy phiên bản mà thư mục hiện tại resolve ra.
 
-Bật một extension sẽ nạp nó trên mọi tiến trình PHP của phiên bản đó, kể cả pool.
+Bật một extension nghĩa là mọi tiến trình PHP của phiên bản đó đều nạp nó, kể cả pool.
 
 ## Gỡ một phiên bản
 
@@ -129,6 +135,6 @@ Bật một extension sẽ nạp nó trên mọi tiến trình PHP của phiên 
 mix runtime uninstall php 8.1.31
 ```
 
-Lệnh này bị từ chối khi còn một project đã đăng ký ghim phiên bản đó — các project sẽ được nêu tên —
-và khi pool php-fpm chạy trên nó đang chạy. `--force` vượt qua điều kiện thứ nhất và không bao giờ
-vượt qua điều kiện thứ hai.
+Lệnh này bị từ chối khi còn project đã đăng ký đang pin phiên bản đó, và MixEngine sẽ nêu tên các
+project ấy. Nó cũng bị từ chối khi pool php-fpm chạy từ phiên bản đó vẫn đang chạy. `--force` bỏ
+qua được điều kiện thứ nhất, nhưng không bao giờ bỏ qua điều kiện thứ hai.

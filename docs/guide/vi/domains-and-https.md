@@ -2,103 +2,108 @@
 title = "Tên miền và ổ khóa"
 slug = "domains-and-https"
 order = 7
-summary = "Vì sao blog.test trỏ về máy bạn, ai đã ký chứng chỉ cho nó, và cách tìm ra vấn đề khi ổ khóa không xanh."
+summary = "Vì sao blog.test trỏ về máy bạn, ai ký chứng chỉ cho nó, và cách tìm ra vấn đề khi ổ khóa không xanh."
 translation_of = "en/domains-and-https.md"
-source_sha256 = "f290a581cd57945277e34e0974757c8875668ef8ad234d88f3aa841a676a4fa4"
+source_sha256 = "90c2527c0a658a9455f940d9e78e0b60d4bfdd40405d32b643e72ea210d38eb3"
 +++
 
 # Tên miền và ổ khóa
 
-Hai điều phải đúng thì `https://blog.test` mới mở ra mà không có cảnh báo. Cái tên phải trỏ về chính
-máy bạn, và trình duyệt của bạn phải chấp nhận chứng chỉ mà nó được đưa. MixEngine lo cả hai, và
-trang này nói về việc nó đã thật sự làm gì.
+> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
+> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
 
-## Bạn được dùng những hậu tố nào
+Để `https://blog.test` mở lên không có cảnh báo, cần hai điều. Tên miền phải trỏ về đúng máy bạn,
+và trình duyệt phải chấp nhận chứng chỉ mà server đưa ra. MixEngine lo cả hai, và trang này nói về
+những gì nó thật sự đã làm.
+
+## Bạn được dùng những tên nào
 
 | Hậu tố | Trạng thái |
 | --- | --- |
-| `.test` | **Mặc định.** Được tổ chức tiêu chuẩn dành riêng đúng cho việc này, không bao giờ phân giải được trên internet, và không thể đụng độ với thứ gì có thật |
-| `.internal` | Cũng được quản lý. Được dành riêng làm hậu tố dùng nội bộ, và nó đọc lên như một ý định trong khi `.test` đọc lên như một thí nghiệm |
-| `.localhost` | Lựa chọn không cần cấu hình: nhiều hệ thống đã sẵn gửi `*.localhost` về loopback, nên nó không cần thay đổi gì cả |
-| `.local` | Có hỗ trợ, và có cảnh báo — xem bên dưới |
-| `.dev`, `.app`, … | **Bị từ chối.** Chúng là hậu tố thật, công khai, và bị trình duyệt ghim vào HTTPS; chiếm lấy một cái ở máy bạn là làm hỏng internet thật đối với bạn |
+| `.test` | **Mặc định.** Được tổ chức tiêu chuẩn dành riêng cho đúng mục đích này, không bao giờ phân giải được trên internet, và không thể trùng với thứ gì có thật |
+| `.internal` | Cũng được quản lý. Dành riêng cho mục đích nội bộ, và nghe như một ý định thay vì một thử nghiệm như `.test` |
+| `.localhost` | Lựa chọn không cần cấu hình: nhiều hệ thống đã sẵn trỏ `*.localhost` về loopback, nên không phải sửa gì |
+| `.local` | Hỗ trợ, nhưng có cảnh báo. Xem bên dưới |
+| `.dev`, `.app`, … | **Từ chối.** Đây là tên miền công cộng có thật, được trình duyệt ép dùng HTTPS; chiếm một tên như vậy trên máy sẽ làm hỏng internet thật của bạn |
 
-**`.local` thuộc về mDNS**, cơ chế mà máy in và loa dùng để tự giới thiệu trên mạng. Dùng nó thì
-chạy được cho tới khi ai đó cắm một cái vào. MixEngine cho phép bạn dùng, nhưng dòng lệnh bắt bạn
-nói `--i-know`, và nó không bao giờ trỏ một *resolver* vào `.local` — một site ở đó nhận đúng một
-dòng hosts và không gì hơn, vì gửi mọi tên `.local` về loopback sẽ làm hỏng mọi thiết bị Bonjour
-trên mạng của bạn.
+**`.local` thuộc về mDNS**, là cơ chế để máy in và loa tự giới thiệu mình trên mạng. Dùng nó vẫn
+chạy, cho tới khi ai đó cắm một thiết bị như vậy vào. MixEngine vẫn cho phép, nhưng CLI bắt bạn
+ghi rõ `--i-know`, và không bao giờ trỏ *resolver* vào `.local`. Site ở hậu tố này chỉ nhận đúng
+một dòng trong file hosts, không hơn, vì nếu đẩy mọi tên `.local` về loopback thì mọi thiết bị
+Bonjour trên mạng của bạn sẽ hỏng.
 
-## Cái tên trỏ về bạn bằng cách nào
+## Tên miền trỏ về máy bạn bằng cách nào
 
-MixEngine chạy một máy chủ DNS nhỏ của riêng nó, trả lời `127.0.0.1` cho **mọi** tên nằm dưới một
-hậu tố được quản lý, ở bất kỳ độ sâu nào, bất kể có site nào được khai báo cho tên đó hay không. Đó
-là thứ khiến `api.blog.test` và `staging.blog.test` chạy được mà không ai phải khai báo chúng.
+MixEngine chạy một DNS server nhỏ của riêng nó, trả lời `127.0.0.1` cho **mọi** tên dưới một hậu
+tố được quản lý, ở bất kỳ độ sâu nào, dù đã khai báo site cho tên đó hay chưa. Nhờ vậy
+`api.blog.test` và `staging.blog.test` hoạt động được mà không cần ai khai báo.
 
-Trỏ hệ thống của bạn về máy chủ đó cần quyền **một lần**. Ngược lại, file hosts sẽ cần mật khẩu của
-bạn mỗi lần bạn tạo một site, và đó chính là lý do máy chủ DNS là cơ chế chính còn file hosts là
-phương án dự phòng. Ở nơi không dùng được đường resolver, MixEngine ghi đúng một dòng cho mỗi tên,
-bên trong một khối được đánh dấu mà nó sở hữu và có thể gỡ đi.
+Trỏ hệ thống của bạn vào server đó chỉ cần xin quyền **một lần**. Ngược lại, nếu dùng file hosts
+thì mỗi lần tạo site lại phải nhập mật khẩu. Đó là toàn bộ lý do DNS server là cơ chế chính, còn
+file hosts chỉ là phương án dự phòng. Ở đâu không dùng được đường resolver, MixEngine ghi đúng một
+dòng cho mỗi tên, trong một khối được đánh dấu mà nó sở hữu và có thể gỡ đi.
 
-Truy vấn `AAAA` được trả lời là không có bản ghi chứ không phải `::1`, và đó là chủ ý: front end
-lắng nghe trên IPv4, mà một cái tên phân giải ra một địa chỉ không có ai lắng nghe thì là một trình
-duyệt phải chờ trước khi lùi lại.
+Truy vấn `AAAA` được trả lời là không có bản ghi, thay vì `::1`, và đây là cố ý: front end lắng
+nghe trên IPv4. Một tên phân giải ra địa chỉ không ai lắng nghe sẽ khiến trình duyệt chờ một lúc
+rồi mới thử địa chỉ khác.
 
-## Thêm và bớt tên
+## Thêm và bớt tên miền
 
 ```bash
 mix domain add api.blog.test --site blog.test
 mix domain remove api.blog.test
 ```
 
-Một tên thêm bằng cách này là **bí danh**. Tên chính của site không đổi, vì tên chính là thứ mà URL
-chuẩn và chứng chỉ được đặt theo. Việc gỡ bị từ chối với tên cuối cùng của một site và với tên chính
-của nó — `mix site update` mới là thứ sắp xếp lại thứ tự, và `--domain` đầu tiên đưa vào đó trở
-thành tên chính.
+Tên thêm bằng cách này là **alias**. Tên miền chính của site không đổi, vì tên chính là thứ URL
+chuẩn và chứng chỉ lấy tên theo. Không thể xóa tên miền cuối cùng của site, cũng không xóa được
+tên chính. Muốn sắp xếp lại thì dùng `mix site update`; `--domain` đầu tiên bạn truyền sẽ thành
+tên chính.
 
-## Khi một cái tên không chạy
+## Khi một tên miền không hoạt động
 
 ```bash
 mix domain status blog.test
 ```
 
-Đây là công cụ chẩn đoán nên dùng, và nó được xây để hỏng từng phần một thay vì nói "hỏng rồi". Nó
-trả lời bốn sự kiện tách rời: tên đó đã được khai báo chưa, nó được định tuyến ra sao, ngay lúc này
-nó có thật sự phân giải trên máy này không, và có gì trả lời trên nó không. Không kèm tham số thì nó
-làm việc đó cho mọi tên mà MixEngine này biết.
+Đây là lệnh chẩn đoán nên dùng, và nó được thiết kế để chỉ ra từng phần hỏng thay vì chỉ nói
+"hỏng". Nó trả lời bốn câu hỏi riêng biệt: tên đã được khai báo chưa, nó được định tuyến bằng cách
+nào, hiện tại nó có thật sự phân giải được trên máy này không, và có gì đang trả lời ở đó không.
+Không truyền tham số thì lệnh làm vậy cho mọi tên mà MixEngine này biết.
 
-## Chứng thực số
+## Certificate authority
 
-MixEngine tự phát hành chứng chỉ thay vì dùng một chứng thực số công khai, vì các tên cục bộ không
-phân giải được công khai và không chứng thực số công khai nào chịu ký cho chúng. Vậy nên trên máy
-bạn có một chứng thực số, sinh ra ở lần dùng đầu tiên, và khóa riêng của nó không bao giờ rời khỏi
-máy.
+MixEngine tự cấp chứng chỉ thay vì dùng một CA công cộng, vì tên miền cục bộ không phân giải được
+trên internet và không CA công cộng nào chịu ký cho chúng. Vì vậy trên máy bạn có một CA riêng, được
+tạo lần đầu dùng, và khóa bí mật của nó không bao giờ rời khỏi máy.
 
 ```bash
 mix cert ca-status
 ```
 
-Lệnh đó cho biết chứng thực số ấy là gì — tên, vân tay, còn hạn bao lâu. Việc máy bạn có *tin* nó
-hay không là một câu hỏi khác, về các kho của hệ điều hành, và bản dựng này không trả lời nó ở đây;
-không gì `ca-status` in ra hàm ý một câu trả lời cho nó.
+Lệnh này cho biết CA đó là gì: tên, fingerprint, còn hạn bao lâu. Máy bạn có *tin* nó hay không là
+một câu hỏi khác, liên quan tới các trust store của hệ điều hành, và bản build này không trả lời ở
+đây. Không có gì `ca-status` in ra ngụ ý câu trả lời cho câu hỏi đó.
 
-Trên Linux có hai câu trả lời về tin cậy chứ không phải một, và MixEngine giữ chúng tách nhau: kho
-hệ thống, và các kho chứng chỉ riêng mà Chrome và Firefox đọc thay vào đó. Một công cụ gộp hai thứ
-đó làm một sẽ hiện dấu tích xanh bên cạnh một trình duyệt đang hiện ổ khóa đỏ.
+Trên Linux có hai câu trả lời về độ tin cậy chứ không phải một, và MixEngine giữ chúng tách biệt:
+trust store của hệ thống, và cơ sở dữ liệu chứng chỉ riêng mà Chrome và Firefox đọc thay vì store
+hệ thống. Một công cụ gộp hai cái làm một sẽ hiện dấu tích xanh ngay cạnh trình duyệt đang báo ổ
+khóa đỏ.
 
-## Chứng chỉ cho từng site
+## Chứng chỉ cho site
 
-Chứng chỉ lá là của từng site, 90 ngày, phủ đúng các tên miền của site đó theo đúng thứ tự của site
-đó.
+Chứng chỉ lá được cấp theo từng site, thời hạn 90 ngày, bao đúng các tên miền của site đó theo đúng
+thứ tự của site.
 
 ```bash
 mix cert issue --site blog.test
-mix cert issue            # mọi site HTTPS
+mix cert issue            # every HTTPS site
 ```
 
-Việc phát hành là **lũy đẳng**: một chứng chỉ vẫn phủ đúng các tên, còn hơn ba mươi ngày và được ký
-bởi chứng thực số bạn đang có thì được để y nguyên. Nên chạy nó không tốn gì, và là việc hợp lý khi
-bạn không chắc.
+Việc cấp là **idempotent**: chứng chỉ nào vẫn bao đúng các tên, còn hơn ba mươi ngày, và được ký
+bởi CA hiện tại thì được giữ nguyên. Nên chạy lệnh này không tốn gì, và là việc hợp lý khi bạn
+không chắc.
 
 ## Ổ khóa có thật sự xanh không?
 
@@ -106,26 +111,26 @@ bạn không chắc.
 mix cert status
 ```
 
-Lệnh này không đọc đĩa. Nó mở một kết nối TLS thật tới chính front end của bạn cho từng site và báo
-lại chứng chỉ đã thật sự được đưa ra — đó là thứ duy nhất trình duyệt từng nhìn thấy, và là cách duy
-nhất để phát hiện một máy chủ vẫn đang giữ một chứng chỉ đã bị thay bên dưới nó. Nó chỉ đọc: không
-phát hành gì, không cài gì, không nạp lại gì.
+Lệnh này không đọc từ đĩa. Nó mở một kết nối TLS thật tới front end của bạn cho từng site, rồi báo
+lại chứng chỉ thật sự được đưa ra. Đó là thứ duy nhất trình duyệt nhìn thấy, và là cách duy nhất
+để phát hiện server vẫn giữ một chứng chỉ đã bị thay bên dưới. Lệnh chỉ đọc: không cấp, không cài,
+không reload gì cả.
 
-## Thay chứng thực số
+## Thay CA
 
 ```bash
 mix cert ca-rotate
 ```
 
-**Phá hủy.** Mọi trình duyệt đang giữ chuỗi chứng chỉ cũ trong bộ nhớ đệm sẽ ngừng chấp nhận nó, và
-chứng chỉ của mọi site được phát hành lại. Không gì bị thay nếu máy này không thể được làm cho tin
-chứng thực số mới — từ chối hộp thoại thì mọi thứ y nguyên như trước.
+**Có tính phá hủy.** Mọi trình duyệt đang cache chuỗi chứng chỉ dưới CA cũ sẽ ngừng chấp nhận, và
+chứng chỉ của mọi site được cấp lại. Không có gì bị thay nếu máy này không tin được CA mới: từ
+chối hộp thoại xin quyền thì mọi thứ giữ nguyên như cũ.
 
-Để ngừng tin chứng thực số của MixEngine mà không gỡ thứ gì khác:
+Để máy ngừng tin CA của MixEngine mà không gỡ gì khác:
 
 ```bash
 mix cert ca-uninstall
 ```
 
-Lệnh đó lấy chứng thực số ra khỏi mọi kho đang tin nó, và để nguyên cả file chứng chỉ trên đĩa lẫn
-chứng chỉ của từng site. `mix doctor --repair` đặt lại sự tin cậy đó.
+Lệnh này gỡ CA khỏi mọi store đang tin nó, nhưng để nguyên file chứng chỉ trên đĩa và chứng chỉ
+của mọi site. `mix doctor --repair` sẽ đưa lại độ tin cậy đó.

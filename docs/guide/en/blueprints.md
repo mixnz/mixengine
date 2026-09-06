@@ -7,6 +7,11 @@ summary = "Write down what a project is made of, and set the same thing up again
 
 # Blueprints
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 A blueprint is a written record of what a project is made of: which PHP it wants, which services it
 uses, what its site looks like, and optionally a command that scaffolds a fresh copy. It is how you
 set the same environment up twice — on a second machine, for a colleague, or for the next project of

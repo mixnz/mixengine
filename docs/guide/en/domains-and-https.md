@@ -7,6 +7,11 @@ summary = "How blog.test reaches your machine, which certificate signed it, and 
 
 # Names and the padlock
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 Two things have to be true before `https://blog.test` opens without a warning. The name has to reach
 your own machine, and your browser has to accept the certificate it is offered. MixEngine arranges
 both, and this page is about what it actually did.

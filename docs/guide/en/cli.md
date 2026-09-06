@@ -7,6 +7,11 @@ summary = "Every mix command and every flag, generated from the binary's own def
 
 # Command reference
 
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
+> a graphical interface, download the **MixDB** app at
+> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
+> so everything in this handbook still applies.
+
 Every command `mix` accepts, in version 0.0.1. This page is **generated** from the
 binary's own definitions, so it cannot describe a flag that is not there — and it is the
 one page of this handbook that exists in English only, because those definitions are.
