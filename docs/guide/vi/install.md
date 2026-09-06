@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bản cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file bạn vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "b108c58744020133020f0514ad5f89baec2232d81636ee4f6ac9d8a20404f851"
+source_sha256 = "cfb9eb665437eb17a5fc7943fb37a98dc87d59827fc6a0afc5e2def1ce7dd267"
 +++
 
 # Cài đặt MixEngine
@@ -13,6 +13,11 @@ Mỗi bản dựng đều được phát hành trên trang releases của dự �
 chữ ký bên cạnh. Chọn file cho hệ điều hành của bạn bên dưới. Việc cài đặt thay đổi ít nhất có thể:
 không có gì được thêm vào kho chứng chỉ, cấu hình DNS hay tường lửa của bạn cho tới ngày bạn yêu cầu
 một việc cần đến chúng — xem [MixEngine xin quyền để làm gì](./permissions.md).
+
+**Hiện chưa có bản phát hành ổn định nào.** Mỗi link tải bên dưới là một URL cố định mà GitHub luôn
+trỏ tới bản mới nhất *không phải* pre-release, nên ngay khi bản ổn định đầu tiên ra mắt, các link
+này tự động sống mà không cần sửa trang này. Trong lúc chờ, hãy tự lấy bản pre-release mới nhất từ
+[trang releases](https://github.com/mixnz/mixengine/releases) — hiện tại đó là `v0.0.1-beta.1`.
 
 ## Bạn đang cài những gì
 
@@ -30,6 +35,11 @@ do bản cài đặt đặt vào — MixEngine tự đặt nó, lần đầu ti�
 hộp thoại mà bạn dù sao cũng sẽ thấy.
 
 ## Windows
+
+[**Tải bản cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
+· [bản zip xách tay](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
+· Windows ARM: [bản cài](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
+[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip)
 
 Có hai file được phát hành, và mỗi file là một bản cài hoàn chỉnh.
 
@@ -50,6 +60,8 @@ không cho cả dự án.
 
 ## macOS
 
+[**Tải gói cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
+
 **`mixengine-<phiên bản>-macos-universal.pkg`**, một gói cho cả Intel lẫn Apple silicon.
 
 MixEngine cũng không có Apple Developer ID, nên bấm đúp vào gói trong Finder sẽ gặp hộp thoại
@@ -64,6 +76,13 @@ Với một sản phẩm dòng lệnh, đó là hướng dẫn nên dùng trư�
 cũng đặt luôn chương trình phụ trợ đặc quyền giúp bạn.
 
 ## Linux
+
+[**`.deb`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_amd64.deb)
+· [**`.rpm`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-x86_64.rpm)
+· [**`.AppImage`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64.AppImage)
+· arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
+[`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
 
 Ba file, mỗi file là một bản cài hoàn chỉnh:
 
@@ -105,10 +124,11 @@ minisign -Vm mixengine-*-linux-x86_64.tar.gz -P <khóa trong packaging/updates.p
 
 File `.sha256` cho bạn biết hai lần tải cùng một file có ra cùng một file hay không. **Nó không phải
 chữ ký** và không được trưng ra như chữ ký: ai thay được file phát hành thì cũng thay được checksum
-nằm cạnh nó. File `.minisig` mới là câu trả lời thật — một chữ ký Ed25519 do chính quy trình phát
-hành của MixEngine tạo ra, đối chiếu với khóa công khai được commit trong kho mã của dự án ở
-`packaging/updates.pub` và được biên dịch thẳng vào MixEngine. Đó cũng là khóa mà `mix self-update`
-kiểm trước khi nó thay bất cứ thứ gì.
+nằm cạnh nó. Các file không kèm version mà những link ở trên trỏ tới cũng có `.sha256` và `.minisig`
+riêng, đặt tên theo chính chúng chứ không theo file có version mà chúng là bản sao. File `.minisig`
+mới là câu trả lời thật — một chữ ký Ed25519 do chính quy trình phát hành của MixEngine tạo ra, đối
+chiếu với khóa công khai được commit trong kho mã của dự án ở `packaging/updates.pub` và được biên
+dịch thẳng vào MixEngine. Đó cũng là khóa mà `mix self-update` kiểm trước khi nó thay bất cứ thứ gì.
 
 ## Sau khi cài
 

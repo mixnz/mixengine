@@ -12,6 +12,12 @@ beside it. Pick the file for your system below. Installing changes as little as 
 added to your certificate store, your DNS settings or your firewall until the day you ask for
 something that needs it — see [What MixEngine asks permission for](./permissions.md).
 
+**No stable release exists yet.** Every download link below is a permanent URL that GitHub always
+resolves to whichever release is newest and *not* a pre-release, so once the first one ships these
+links go live with no edit to this page. Until then, get the newest pre-release by hand from
+[the releases page](https://github.com/mixnz/mixengine/releases) — right now that is
+`v0.0.1-beta.1`.
+
 ## What you are installing
 
 Four programs, and it is worth knowing what each is before one of them surprises you.
@@ -28,6 +34,11 @@ most systems — MixEngine installs it itself, the first time something needs an
 a prompt you were going to see anyway.
 
 ## Windows
+
+[**Download the installer**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
+· [portable zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
+· Windows ARM: [installer](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
+[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip)
 
 Two files are published, and either is a complete install.
 
@@ -47,6 +58,8 @@ release, because reputation with no publisher identity accrues to a file rather 
 
 ## macOS
 
+[**Download the package**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
+
 **`mixengine-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon.
 
 MixEngine has no Apple Developer ID either, so double-clicking the package in Finder gets you a
@@ -61,6 +74,13 @@ That is the instruction to reach for first on a command-line product. The packag
 it also places the privileged helper for you.
 
 ## Linux
+
+[**`.deb`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_amd64.deb)
+· [**`.rpm`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-x86_64.rpm)
+· [**`.AppImage`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64.AppImage)
+· arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
+[`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
 
 Three files, each a complete install:
 
@@ -102,10 +122,11 @@ minisign -Vm mixengine-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pu
 
 The `.sha256` tells you whether two downloads of the same file are the same file. **It is not a
 signature** and is not offered as one: anybody who could replace the artifact could replace the
-checksum beside it. The `.minisig` is the real answer — an Ed25519 signature MixEngine's own release
-pipeline makes, against a public key committed in this project's repository as
-`packaging/updates.pub` and compiled into MixEngine itself. That is the same key `mix self-update`
-checks before it replaces anything.
+checksum beside it. The unversioned files the links above point at carry their own `.sha256` and
+`.minisig`, named after themselves rather than after the versioned file they are a copy of. The
+`.minisig` is the real answer — an Ed25519 signature MixEngine's own release pipeline makes, against
+a public key committed in this project's repository as `packaging/updates.pub` and compiled into
+MixEngine itself. That is the same key `mix self-update` checks before it replaces anything.
 
 ## After installing
 

@@ -37,8 +37,8 @@ already there*.
 
 ```bash
 mix package available
-mix package install mariadb 11.4.4
-mix service create mariadb@main 11.4.4
+mix package install mariadb 12.3.2
+mix service create mariadb@main 12.3.2
 ```
 
 The part of a service id before the `@` is the package it is an instance of, which is why

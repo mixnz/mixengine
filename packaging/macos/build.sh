@@ -142,6 +142,10 @@ mix_checksum "$dist/$payload"
 helper_name="$(mix_publish_helper \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" macos universal)"
 
+# The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_pkg="$(mix_publish_alias "$dist/$name" "mixengine-macos-universal.pkg")"
+
 echo "$dist/$name"
 echo "$dist/$payload"
 echo "$helper_name"
+echo "$alias_pkg"

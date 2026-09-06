@@ -4,7 +4,7 @@ slug = "getting-started"
 order = 3
 summary = "Từ bản cài mới tinh tới https://blog.test với ổ khóa xanh, trong khoảng năm phút."
 translation_of = "en/getting-started.md"
-source_sha256 = "67b521b2dcf641095fc148c31996ae04aa4c2c6b878220838487b17ba507c360"
+source_sha256 = "7f2f6ef0dd438578b3184e8a3122b1a691df1713e745631b99c94b141af37e3c"
 +++
 
 # Site đầu tiên của bạn
@@ -44,8 +44,8 @@ package đó với cấu hình riêng. Caddy là front end mặc định:
 
 ```bash
 mix package available
-mix package install caddy 2.10.0
-mix service create caddy 2.10.0
+mix package install caddy 2.11.4
+mix service create caddy 2.11.4
 mix service list
 ```
 
@@ -101,8 +101,8 @@ thực sự đưa ra — đó là thứ duy nhất trình duyệt từng nhìn t
 ## 7. Thêm một cơ sở dữ liệu, nếu dự án cần
 
 ```bash
-mix package install mariadb 11.4.4
-mix service create mariadb@main 11.4.4
+mix package install mariadb 12.3.2
+mix service create mariadb@main 12.3.2
 mix database create mariadb@main --name blog
 ```
 

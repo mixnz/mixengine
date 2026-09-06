@@ -41,8 +41,8 @@ with its own configuration. Caddy is the default front end:
 
 ```bash
 mix package available
-mix package install caddy 2.10.0
-mix service create caddy 2.10.0
+mix package install caddy 2.11.4
+mix service create caddy 2.11.4
 mix service list
 ```
 
@@ -98,8 +98,8 @@ actually presented — which is the only thing a browser ever sees.
 ## 7. Add a database, if the project needs one
 
 ```bash
-mix package install mariadb 11.4.4
-mix service create mariadb@main 11.4.4
+mix package install mariadb 12.3.2
+mix service create mariadb@main 12.3.2
 mix database create mariadb@main --name blog
 ```
 

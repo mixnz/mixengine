@@ -96,6 +96,12 @@ mix_checksum "$dist/$setup_name"
 # that can carry a detached signature.
 helper_name="$(mix_publish_helper "$stage/mixengine-elevate.exe" windows "$arch")"
 
+# The handbook's install page links these, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_zip="$(mix_publish_alias "$dist/$zip_name" "mixengine-windows-$arch.zip")"
+alias_setup="$(mix_publish_alias "$dist/$setup_name" "mixengine-windows-$arch-setup.exe")"
+
 echo "$dist/$zip_name"
 echo "$dist/$setup_name"
 echo "$helper_name"
+echo "$alias_zip"
+echo "$alias_setup"

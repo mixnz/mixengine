@@ -81,4 +81,8 @@ done
 
 mix_checksum "$dist/$name"
 
+# The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_deb="$(mix_publish_alias "$dist/$name" "mixengine_${deb_arch}.deb")"
+
 echo "$dist/$name"
+echo "$alias_deb"

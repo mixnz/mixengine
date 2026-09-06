@@ -56,6 +56,14 @@ In the `.deb` and the `.rpm` alone, `<version>` is `mix_native_version` rather t
 written: neither format can hold the `-` of a pre-release, so `0.0.1-beta.1` is named
 `0.0.1~beta.1` there and as written everywhere else. `common.sh` says why.
 
+**Every installer in the table above is published a second time under a name with no version in
+it** — `mixengine-windows-x86_64-setup.exe` beside `mixengine-<version>-windows-x86_64-setup.exe`,
+and so on for the other five — through `mix_publish_alias` in `common.sh`. That is what lets the
+handbook's install page link `.../releases/latest/download/<name>` and never need editing again:
+GitHub resolves that URL to whichever release is newest and not a pre-release, the same mechanism
+`latest.json` already relies on (T88). The update payloads and `latest.json` itself are not
+aliased — nothing downloads those by hand.
+
 ## The update payload, and the feed
 
 One artifact per OS is not an installer at all: a plain archive of the release's binaries, which is

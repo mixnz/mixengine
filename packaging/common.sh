@@ -173,3 +173,25 @@ mix_checksum() {
   local file="$1"
   (cd "$(dirname "$file")" && sha256sum "$(basename "$file")" >"$(basename "$file").sha256")
 }
+
+# A second copy of an installer, published under a name with no version in it — so the handbook's
+# install page can link `.../releases/latest/download/<name>` and never need editing again, the same
+# trick T88's `latest.json` already relies on (`crates/mixengine-core/src/updates/feed.rs`). GitHub
+# resolves that URL to the newest **published, non-draft, non-prerelease** release, which is why this
+# is worth nothing until the first such release exists — the handbook says so until then.
+#
+# Checksummed under its own name rather than copied alongside the versioned one's `.sha256`: that
+# file names the file it is beside, and `sha256sum -c` fails on a name mismatch.
+#
+# Not read by `feed.sh`, which matches payload archives by their versioned shape — an installer, of a
+# different extension, with no version in its name, cannot collide with what that script looks for.
+#
+# $1 the file to alias, $2 the unversioned name to give the copy.
+mix_publish_alias() {
+  local source="$1" name="$2"
+  local dest
+  dest="$(dirname "$source")/$name"
+  cp "$source" "$dest"
+  mix_checksum "$dest"
+  echo "$dest"
+}
