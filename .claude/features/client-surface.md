@@ -18,9 +18,22 @@ binaries. What they state is what the daemon **writes** —
 
 ## Screens, and what each one demands of the API
 
-1. **Dashboard** — per-service state, uptime, CPU %, RSS and port in one read; start/stop/restart per
-   service and a global stop-all; disk usage broken down by category (runtimes, data, logs, certs)
-   with a cleanup action; the recent slice of the event stream.
+1. **Dashboard** — per-service state, port and uptime from `service.list`, and CPU % and RSS from
+   the metrics stream, joined on `MetricsSubject::Service(id)`; start/stop/restart per service and a
+   global stop-all; disk usage broken down by category (runtimes, data, logs, certs) with a cleanup
+   action — **T96**; the recent slice of the event stream.
+
+   **This line said "in one read" until 2026-09-06, and the correction is the point rather than the
+   pedantry.** The join is exact — `MetricsSubject` wraps a real `ServiceId` and not a guess — but
+   the two halves are read on different cadences on purpose, and collapsing them into one call would
+   undo the invariant T71 built: the fast reading exists **only while somebody is subscribed**, so a
+   `cpu_percent` answered by `service.list` is a way to poll a laptop at 1 Hz without ever opening
+   the subscription that was supposed to gate it. The alternative — answering from the last minute's
+   frame — puts a figure in a struct with nowhere to say *when* it was taken, which is exactly what
+   `MetricsFrame.at` exists to prevent. So a dashboard holds the stream open and calls `service.list`
+   again when the event stream says something changed: one list plus one stream, not two reads a
+   frame. **Uptime is not a third thing**: it is `last_started_at` with `state`, and the daemon and
+   the client share a clock because they share a machine.
 2. **Sites** — list carrying domain, runtime version, HTTPS state and health, and its owner
    (**T81b**: `SiteOwner` is a project by name or an extension by id — an extension's site is shown,
    started and stopped, and every other edit is refused with the uninstall command that removes
@@ -127,6 +140,15 @@ binaries. What they state is what the daemon **writes** —
    client must not work out for itself — whether an entry that *is* registered belongs to this home
    or to another one, which is a switch that must read "on, for a different home" rather than "on".
 
+   **"Default web server" is a switch nothing answers yet** — **T97**. The fact is real and the
+   daemon holds it: `services::front_end::held_by` knows which row is the front end, by
+   `Recipe::role` rather than by name, and refuses a second. It is simply never asked over the API,
+   so today a client could only infer it by hardcoding that `caddy` and `nginx` mean "front end".
+   `ServiceSummary` gains a `role` for the reading half, and the switch is a job rather than a
+   setting — [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md),
+   which makes ADR 0004's "the switch is one setting" precise: on Linux the port-80 grant is written
+   into the binary, so changing front end changes which binary needs it.
+
 A tray or menu-bar item needs no more than the dashboard does: overall state, stop-all, and the site
 list.
 
@@ -217,3 +239,12 @@ reason.
   no capability is trapped behind a screen that does not exist.
 - Every screen above can be assembled from documented methods and events, with no method existing
   solely to serve one of them.
+
+**The second criterion is not met, and this is where that is written down rather than discovered.**
+Two things it promises have no method behind them — the Dashboard's disk usage and the Settings
+screen's default web server — and both were found by **MixDB reading this page against the API**
+while writing its own Phase 4 spec, not by anybody here. That is the arrangement
+[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) accepted working as designed and costing
+what it costs: a claim made on paper in this repository is checked by somebody else's code, later.
+They are **T96** and **T97**, in [phase 10](../roadmap/phase-10-client-surface.md), and the criterion
+above is that phase's milestone.

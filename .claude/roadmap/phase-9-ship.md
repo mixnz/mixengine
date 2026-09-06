@@ -94,9 +94,9 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **What stays open is two dialogs**, and they are now release-checklist item 4's rather than
       nobody's: SmartScreen's own verdict on a browser download of a published release, and macOS
       15's System Settings → "Open Anyway" flow in Finder. That also resolves a contradiction this
-      entry used to carry — it said v0.1.0 ships after this is answered, while the SmartScreen half
+      entry used to carry — it said v0.0.1 ships after this is answered, while the SmartScreen half
       asks about *two consecutive* releases, which cannot both be true. **The first-release dialog
-      gates v0.1.0; the reset across releases gates v0.1.1**, and the reset is not a surprise waiting
+      gates v0.0.1; the reset across releases gates the one after it**, and the reset is not a surprise waiting
       to happen: with no publisher identity, reputation accrues to a file hash and the hash changes
       every build, which is what the probe's W1 establishes.
       The elevation and hosts half of this question is
@@ -105,7 +105,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       it, while a bad answer here only changes a release process. It was **not** run there: on
       2026-08-23 it was deferred to this release for want of a clean SAC-enforced VM, and on
       2026-08-24 its certificate question was split off as **T94** below — so three readings fell due
-      together, and v0.1.0 does not ship before all of them are answered. **T94 answered its own on
+      together, and v0.0.1 does not ship before all of them are answered. **T94 answered its own on
       2026-09-04 and needed no VM to do it**, so what is left is T41a's two, both of which still do.
       What is left that is this task's own is the part that only exists once there is something to
       install and something to update.
@@ -215,7 +215,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       check, it silently answered `AlreadyDone`**. `elevation::choose` prefers the installed copy, so
       the elevated process on any machine past its first prompt *is* that copy — it compared its own
       image with its own destination and did nothing, for ever, while `swap`'s `KEPT` rule meant
-      nothing beside `mixengined` was ever newer either. A 0.1.0 shipped without this is a 0.1.0
+      nothing beside `mixengined` was ever newer either. A 0.0.1 shipped without this is a 0.0.1
       whose helper no later release could fix.
       **The candidate is fetched from the release rather than taken out of the payload**, because
       `UPDATE_SECRET_KEY` reaches exactly one step of one job, after all five `build` legs have
@@ -414,7 +414,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `ProblemId` is for. `Part::Crashes` puts them in the bundle, which is a wire change
       [ADR 0019](../decisions/0019-an-added-response-member-is-optional.md) does not cover: it settles
       an added *member*, not an added *variant*. Free here because nothing has ever been released;
-      after v0.1.0 a new `Part` bumps `PROTOCOL_VERSION`, which ADR 0022 writes down.
+      after v0.0.1 a new `Part` bumps `PROTOCOL_VERSION`, which ADR 0022 writes down.
       **What it leaves.** **A `SIGKILL`, an OOM kill and a hardware fault leave nothing** — a panic
       hook is not a signal handler, which is why the check says "crash reports" and never "crashes".
       **The method being served is on the log line and not in the file**, through the request's span;
@@ -478,8 +478,12 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **Not the whole fence:** `MIXENGINE_HOME` and `--home` still win, so a developer who points a
       build at the real home on purpose still can — and one who forgets still hits it.
 
-**Milestone M9 — v0.1.0.**
+**Milestone M9 — v0.0.1.** This page named it `v0.1.0` until 2026-09-06: `66695d0` swept that
+literal out of everything the build reads but spared the roadmap, on the reading that the number
+here was a milestone still ahead rather than the stale half of a rename. It was the second. The
+release line is `0.0.x` and always was — and the version this tree is at is `Cargo.toml`'s to say,
+not this page's.
 
 ---
 
-Previous: [Phase 8 — Differentiators](phase-8-differentiators.md) · Then: [Parked](parked.md)
+Previous: [Phase 8 — Differentiators](phase-8-differentiators.md) · Next: [Phase 10 — Client surface](phase-10-client-surface.md) · Then: [Parked](parked.md)

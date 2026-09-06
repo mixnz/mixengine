@@ -31,6 +31,8 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0022](0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md) | A crash report is recorded by default and sent by nothing | Accepted |
 | [0023](0023-an-arm64-windows-machine-runs-the-x86_64-build.md) | An ARM64 Windows machine installs the x86_64 build, and is told that it did | Accepted |
 | [0024](0024-a-build-that-is-not-a-release-keeps-its-own-home.md) | A build that is not a release keeps its own home | Accepted |
+| [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
+| [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
 
 ## Template
 

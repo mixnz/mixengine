@@ -225,7 +225,7 @@ root process.
       **Carried to the first release, decided 2026-08-23.** The argument above for running it now is
       not answered — it is overruled by the fact that neither half can be run at all today. Both need
       a clean Windows 11 VM with SAC enforced, and the half that decides everything else needs a code
-      signing certificate to be bought first. So this becomes a debt against **v0.1.0** rather than
+      signing certificate to be bought first. So this becomes a debt against **v0.0.1** rather than
       against phase 4: **nothing ships to a user until it is answered**, and T42 through T47 and the
       whole of Phase 5 are knowingly built on an assumption that a VM could have checked. What the
       deferral accepts is the cost the paragraph above names: if the answer is no, it invalidates

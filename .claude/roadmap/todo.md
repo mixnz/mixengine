@@ -3,7 +3,7 @@
 Phases are ordered. Work top to bottom — each phase depends on the ones above it. Tick items as they
 land; when new work appears, insert it **where it belongs in the order**, not at the end.
 
-Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T95`) are global and
+Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T97`) are global and
 never reused, so a task keeps its number wherever it is cited — which is why phase 6 is a gap rather
 than a renumbering, and why T56 and T64 keep their numbers in the phases they moved to.
 
@@ -25,9 +25,15 @@ needs verification on Windows + macOS + Linux.
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
 | [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 9 / 9 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
 | [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b | 20 / 20 | **M8** capture, apply, open in MixDB, test from a phone |
-| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.1.0** |
+| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.0.1** |
+| [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 0 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
+
+**The release line is `0.0.x`, and it always was.** M9 shipped as **v0.0.1**, not the `v0.1.0` this
+table named until 2026-09-06; the literal survived here because `66695d0`'s sweep deliberately
+spared `.claude/roadmap/`, reading the number as a milestone still ahead rather than as the stale
+half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
 
@@ -189,16 +195,35 @@ keep.
 
 ### What is open, and what each one blocks
 
+**Two rows below say they gate a release that has since been tagged.** **T41a** is still open and
+**T86a** is still `[~]`, and v0.0.1 shipped anyway, so "blocks the release" describes the intention
+of 2026-08-23 and not what happened. The rows are left as written rather than quietly softened,
+because deciding what they gate *now* — the next release, or nothing — is a call to make
+deliberately and not while correcting a version literal.
+
 | Debt | Blocks | Where |
 | --- | --- | --- |
-| **T41a** does an unsigned binary load under Smart App Control, and does the hosts write survive Defender | **the release, and nothing before it.** Deferred to v0.1.0 on 2026-08-23. It needs one thing, and it is not money: a clean machine with SAC enforced. Everything from T42 on is built on the assumption that the answer is yes. Its remedy half left with **T94**, which is now closed, so what is owed here is these two readings and nothing else | [phase 4](phase-4-sites-and-elevation.md) |
+| **T41a** does an unsigned binary load under Smart App Control, and does the hosts write survive Defender | **the release, and nothing before it.** Deferred to v0.0.1 on 2026-08-23. It needs one thing, and it is not money: a clean machine with SAC enforced. Everything from T42 on is built on the assumption that the answer is yes. Its remedy half left with **T94**, which is now closed, so what is owed here is these two readings and nothing else | [phase 4](phase-4-sites-and-elevation.md) |
 | **T45's fixed link-local address** — `169.254.53.53/32` is not negotiated and nothing detects a machine already using it | nothing; the whole-state shape makes the fix additive | [phase 4](phase-4-sites-and-elevation.md) |
 | **M3's tail** — the warm median is inside ten seconds on all three, and two Linux rounds of five were 11.8 s and 15.1 s | nothing. The milestone is reached on the number it named; this is the honest footnote under it, and it is MariaDB's own start on cold I/O rather than the sequential walker | [phase 3](phase-3-services.md) |
 | **T69's idle shutdown ships switched off** — no recipe offers a default, so nothing is ever stopped unless somebody asks per service | nothing, and it is a choice rather than an omission: a stopped pool has nothing to start it again until **T70**. Turning it on is four `None`s in four recipes | [phase 7](phase-7-efficiency.md) |
 | **Keep-warm reaches a project's PHP pool and not its database** — `kept_warm` joins on `sites.php_service_id` alone | nothing while idle shutdown is off. **Widening it needs no new feature**: `site_service_links` has held the edge since `0006`, which T77 established while reading it for capture — the row used to say the widening waited on T77 | [phase 7](phase-7-efficiency.md) |
-| **`ServiceSummary` carries no cpu/rss/uptime** — those three live only in `MetricsSample`/`MetricsFrame` (`metrics.snapshot`), keyed by `MetricsSubject`, which a client must join against `service.list` itself by constructing `MetricsSubject::Service(id)`. The join is exact (`MetricsSubject` wraps a real `ServiceId`, not a guess), but it is two reads where [client-surface.md](../features/client-surface.md) mult. 1 says "in one read" | MixDB's Phase 4 spec (Dashboard/Metrics screen) — needs a decision on whether "one read" is loose prose (dashboard calls both once per render) or a real ask to add fields to `ServiceSummary`, which would fight T71's two-cadence sampling design | [client-surface.md](../features/client-surface.md), [phase 7](phase-7-efficiency.md) (T71) |
-| **No disk-usage-by-category or cleanup method exists** — `client-surface.md` mult. 1 promises "disk usage broken down by category (runtimes, data, logs, certs) with a cleanup action"; no method in any namespace (`daemon.* path.* runtime.* metrics.*`) answers it | MixDB's Phase 4 spec (Dashboard screen) — genuinely unbuilt, not a naming mismatch. Needs its own task number when picked up | [client-surface.md](../features/client-surface.md) |
-| **Which web server is active has no readable/writable state** — `FrontEndServer` only appears inside `RecipeAddition` (an extension's fragment target); the actual "one of Caddy/Nginx is the active front end" fact is derived internally by `services::front_end::held_by` scanning the `services` table, used only to *refuse* a second front end ([create.rs](../../crates/mixengine-daemon/src/api/create.rs), [services/mod.rs](../../crates/mixengine-core/src/services/front_end.rs)) and never answered by any RPC. `config.toml`'s `Config` struct has no field for it either, and there is no `settings.*` namespace at all | MixDB's Phase 4 spec (Settings screen) — ADR 0004's "the switch is one setting" is not yet built as a readable/writable state; today a client could only infer it by hardcoding that `caddy`/`nginx` package names mean "front end", which is exactly the business logic `CLAUDE.md` keeps out of clients | [client-surface.md](../features/client-surface.md), [ADR 0004](../decisions/0004-caddy-as-default-web-server.md) |
+| **No disk-usage-by-category or cleanup method exists** — `client-surface.md` screen 1 promises "disk usage broken down by category (runtimes, data, logs, certs) with a cleanup action"; no method in any namespace (`daemon.* path.* runtime.* metrics.*`) answers it | MixDB's Phase 4 spec (Dashboard screen), and now **T96** | [phase 10](phase-10-client-surface.md) |
+| **Which web server is active has no readable/writable state** — `FrontEndServer` only appears inside `RecipeAddition` (an extension's fragment target); the actual "one of Caddy/Nginx is the active front end" fact is derived internally by `services::front_end::held_by` scanning the `services` table, used only to *refuse* a second front end ([create.rs](../../crates/mixengine-daemon/src/api/create.rs), [front_end.rs](../../crates/mixengine-core/src/services/front_end.rs)) and never answered by any RPC | MixDB's Phase 4 spec (Settings screen), and now **T97** — with [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) making ADR 0004's "the switch is one setting" precise | [phase 10](phase-10-client-surface.md) |
+
+**One of the three gaps MixDB's Phase 4 spec found is closed by reading it rather than by building
+anything.** `ServiceSummary` carries no CPU or RSS, and it should not: those live in
+`MetricsSample`, keyed by `MetricsSubject::Service(id)`, and putting them on the summary would break
+the invariant T71 exists to hold. The fast cadence is 1 Hz **only while somebody is subscribed to
+`GET /metrics`** — the connection *is* the subscription, which is what stops a crashed client
+leaving a laptop being polled. A `cpu_percent` on `service.list` is a way to take that cadence
+without opening the stream; the alternative is answering with a reading up to a minute old from a
+struct that has nowhere to say *when*, and `MetricsFrame.at` exists because a figure without its
+moment is a figure that lies. So the Dashboard's "in one read" is **one list plus one stream**, not
+two reads per frame: it holds the frame continuously and calls `service.list` again when the event
+stream says something changed. Uptime is not missing either — `last_started_at` and `state` are it,
+and daemon and client share a clock because they share a machine. [client-surface.md](../features/client-surface.md)
+screen 1 said "in one read" and now says which two things the join is between.
 
 **The scaffolding that carried an expiry date has half met it.** `mixengine_testkit::declare` no
 longer writes a `services` row: **T31a**'s `service.create` does, over a real socket, so the row every
@@ -358,6 +383,11 @@ pool is a process serving requests now.
   the task it follows (`T40a`, `T40b`) rather than renumbering anything after it. A task may be
   lettered after the one it is ordered *before* — T19c and T20a both are — as long as it says so.
 - A phase file carries its own goal, legend and milestone so it reads on its own.
+- **A milestone names the release it shipped as, and nothing here names the current one.** The
+  version this tree is at is `Cargo.toml`'s to say; it moves, and a copy of it in prose is a copy
+  that goes stale at the next bump. Work that has not shipped is "the next release", never a number
+  — a number written for one that has not happened is what let `v0.1.0` survive a rename here and
+  read as a milestone still ahead.
 - **One note, one place.** A decision that is *in* the code — why this type, why this order, why not
   the obvious alternative — belongs in the doc comment beside it. One that crosses crates belongs in
   an [ADR](../decisions/). What a phase file carries is only what neither can: what a task

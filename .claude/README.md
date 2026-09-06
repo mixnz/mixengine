@@ -71,7 +71,8 @@ one job:
   [phase-5-https.md](roadmap/phase-5-https.md) ·
   [phase-7-efficiency.md](roadmap/phase-7-efficiency.md) ·
   [phase-8-differentiators.md](roadmap/phase-8-differentiators.md) ·
-  [phase-9-ship.md](roadmap/phase-9-ship.md) · [parked.md](roadmap/parked.md)
+  [phase-9-ship.md](roadmap/phase-9-ship.md) ·
+  [phase-10-client-surface.md](roadmap/phase-10-client-surface.md) · [parked.md](roadmap/parked.md)
 
 ### reviews
 - [reviews/README.md](reviews/README.md) — conventions (`R<n>` ids, status legend) and the index
