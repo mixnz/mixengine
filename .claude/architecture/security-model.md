@@ -160,7 +160,9 @@ is a development tree, and a machine before its first prompt.
   SSID/subnet) and never applies to database ports — the API refuses that combination, so no
   client can offer it.
 - Generated DB instances get a random 32-char root password stored in the OS keyring, not a blank
-  password. `mix service credentials <id>` reveals it on demand.
+  password. `mix database credentials <id>` reveals it on demand (T77b), the one method built to
+  answer a credential rather than only its address — see
+  [ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md).
 
 ## Client authentication
 

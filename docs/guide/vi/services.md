@@ -105,11 +105,26 @@ mix database create mariadb@main --name blog
 mix database create mariadb@main --name shop --user shop_app
 ```
 
-**Không có gì in mật khẩu ra.** Mật khẩu được sinh ra và đưa vào kho lưu thông tin đăng nhập của
-chính hệ điều hành bạn — Credential Manager trên Windows, Keychain trên macOS, Secret Service trên
-Linux — và thứ được in ra là địa chỉ nó đã được cất, dưới dạng tên kho và khóa của chính kho đó. Đó
-là thứ cho phép một chương trình khách nói với bạn *"đã cất trong kho thông tin đăng nhập ở …"* mà
+**Mặc định không có gì in mật khẩu ra.** Mật khẩu được sinh ra và đưa vào kho lưu thông tin đăng nhập
+của chính hệ điều hành bạn — Credential Manager trên Windows, Keychain trên macOS, Secret Service
+trên Linux — và thứ được in ra là địa chỉ nó đã được cất, dưới dạng tên kho và khóa của chính kho đó.
+Đó là thứ cho phép một chương trình khách nói với bạn *"đã cất trong kho thông tin đăng nhập ở …"* mà
 không ai phải mã hóa cứng cách đặt tên của MixEngine.
+
+Khi một dự án cần chính mật khẩu — thường là để bỏ vào file `.env` — `mix database credentials` in
+nó ra, và `--password` ở lệnh `create` cho phép bạn tự chọn mật khẩu thay vì để MixEngine sinh ngẫu
+nhiên:
+
+```bash
+mix database credentials mariadb@main --user blog
+mix database create mariadb@main --name shop --user shop-app --password
+```
+
+Không kèm giá trị, `--password` sẽ hỏi và đọc một dòng từ đầu vào chuẩn, nên cũng dùng được qua pipe:
+`echo secret | mix database create … --password`. Chọn mật khẩu cho một tài khoản đã tạo trước đó sẽ
+đổi thứ được lưu, và máy chủ được chỉnh lại theo đúng cách nó vẫn làm khi mật khẩu lệch — nhưng một
+tài khoản đã có trên máy chủ mà MixEngine không giữ thông tin đăng nhập nào vẫn bị từ chối, kể cả khi
+đúng mật khẩu: biết mật khẩu không có nghĩa là tài khoản đó thuộc về bạn.
 
 Để mở cơ sở dữ liệu bằng một chương trình quản trị trên máy:
 

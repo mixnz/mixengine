@@ -104,11 +104,26 @@ mix database create mariadb@main --name blog
 mix database create mariadb@main --name shop --user shop_app
 ```
 
-**Nothing prints the password.** It is generated and put into your operating system's own credential
-store — Credential Manager on Windows, the Keychain on macOS, the Secret Service on Linux — and what
-is printed is the address it was stored at, as the store's own name and key. That is what lets a
-client tell you *"stored in your credential store as …"* without anybody hardcoding MixEngine's
-naming.
+**Nothing prints the password by default.** It is generated and put into your operating system's own
+credential store — Credential Manager on Windows, the Keychain on macOS, the Secret Service on
+Linux — and what is printed is the address it was stored at, as the store's own name and key. That
+is what lets a client tell you *"stored in your credential store as …"* without anybody hardcoding
+MixEngine's naming.
+
+When a project needs the password itself — most often for a `.env` file — `mix database
+credentials` prints it, and `--password` on `create` lets you choose it instead of letting MixEngine
+generate one:
+
+```bash
+mix database credentials mariadb@main --user blog
+mix database create mariadb@main --name shop --user shop-app --password
+```
+
+Without a value, `--password` prompts and reads one line from standard input, so it also works
+piped: `echo secret | mix database create … --password`. Choosing a password for an account you
+already made changes what is stored, and the server is realigned to it the same way it already is
+when a password drifts — but an account already on the server that MixEngine holds no credential for
+is still refused, even with the correct password: knowing a password is not what makes it yours.
 
 To open the database in a desktop client:
 
