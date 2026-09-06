@@ -241,6 +241,43 @@ async fn an_artifact_is_downloaded_verified_unpacked_and_renamed_into_place() {
     }
 }
 
+/// The entry a real artifact starts with, and the one that once failed every install of one.
+///
+/// `tar -C tree .` names the directory it was pointed at as the archive's first entry, so every
+/// `.tar.zst` and `.tar.gz` this project publishes begins with `./`. That name resolves to the
+/// destination rather than to anything inside it, the path check read it as a way out, and macOS and
+/// Linux could install nothing while Windows — whose artifacts are zips, which carry no such entry —
+/// went on working. Run over every packing so the fixture that has the entry and the fixture that
+/// cannot are both installed by the same test.
+#[tokio::test]
+async fn an_archive_that_names_its_own_root_first_installs() {
+    for packing in Packing::ALL {
+        let fixture = Fixture::start().await;
+        let packed = FakePackage::new(packing)
+            .tar_root()
+            .file("php.ini-development", b"; a file the archive carries\n")
+            .file("ext/php_curl.so", b"not really a shared object\n")
+            .build("php-8.3.33-test");
+        let artifact = fixture.publish(&packed, &[("php-ini", "php.ini-development")]);
+
+        fixture
+            .install(&artifact, &Recorder::default())
+            .await
+            .unwrap_or_else(|error| panic!("{packing:?} should install: {error}"));
+
+        assert_eq!(
+            std::fs::read_to_string(fixture.target().join("php.ini-development")).unwrap_or_else(
+                |error| panic!("{packing:?}: the file the archive carried: {error}")
+            ),
+            "; a file the archive carries\n"
+        );
+        assert!(
+            fixture.target().join("ext/php_curl.so").is_file(),
+            "{packing:?}: the rest of the tree is there too"
+        );
+    }
+}
+
 /// The staging directory is beside the destination, and neither it nor anything in it survives.
 #[tokio::test]
 async fn nothing_is_left_beside_the_destination() {

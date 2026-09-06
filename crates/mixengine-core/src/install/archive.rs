@@ -98,9 +98,12 @@ pub(crate) fn extract(archive: &Path, format: Format, into: &Path) -> Result<()>
 
 /// Whether an entry may be written at all.
 ///
-/// Accepts a path made only of ordinary names and `.` — which every `tar -C tree .` entry starts
-/// with — and refuses everything that could mean somewhere else: `..`, a leading `/`, and a Windows
-/// prefix such as `C:` or `\\?\`. An empty path is refused too; a nameless entry has nowhere to go.
+/// Accepts a path made only of ordinary names and `.` — the `./bin/php` shape every `tar -C tree .`
+/// entry has — and refuses everything that could mean somewhere else: `..`, a leading `/`, and a
+/// Windows prefix such as `C:` or `\\?\`. A path that names nothing at all is refused too, the empty
+/// one and the bare `./` alike: as a recorded path it is a row that runs no file, and as an archive
+/// entry it is the root that [`names_the_destination`] takes out of the unpackers' way before they
+/// ask this.
 ///
 /// `pub(crate)` rather than `pub(super)` since T25: [`crate::runtimes::program`] asks the same
 /// question of the same value months later. What an archive entry was allowed to be when it was
@@ -116,6 +119,23 @@ pub(crate) fn safe(path: &Path) -> bool {
         }
     }
     named
+}
+
+/// Whether an entry names the directory it is being unpacked into rather than anything inside it.
+///
+/// **The `./` that GNU and BSD `tar` write first.** `tar -C tree .` records the directory it was
+/// pointed at as an entry of its own, and that name resolves to the destination — which already
+/// exists, and which nothing has to write. [`safe`] answers `false` for it, correctly for the
+/// question it is asked elsewhere, where a path naming no file is a row that can run nothing; the
+/// unpackers ask this one first and skip what it accepts, so the check after it only ever sees
+/// entries that mean somewhere.
+///
+/// Refusing it instead was a real failure and worth naming: no zip carries such an entry, so every
+/// Windows install went on working while every macOS and Linux one refused its own artifact at the
+/// unpack step.
+fn names_the_destination(path: &Path) -> bool {
+    path.components()
+        .all(|component| component == Component::CurDir)
 }
 
 /// Unpack a zip, refusing any entry that names somewhere else first.
@@ -134,7 +154,7 @@ fn unpack_zip<R: Read + std::io::Seek>(file: R, archive: &Path, into: &Path) -> 
         // `enclosed_name` is `None` for an absolute path, a `..`, and — the one a reader forgets —
         // a name whose backslashes make it a different path on Windows than on Unix.
         let refused = match entry.enclosed_name() {
-            Some(path) => !safe(&path),
+            Some(path) => !safe(&path) && !names_the_destination(&path),
             None => true,
         };
         if refused {
@@ -181,6 +201,13 @@ fn unpack_tar<R: Read>(reader: R, archive: &Path, into: &Path) -> Result<()> {
             archive: archive.to_path_buf(),
             entry: named.display().to_string(),
         };
+
+        // The archive's own root, which is the directory these bytes are already going into.
+        // Skipped rather than checked: there is nothing to write, and `unpack_in` — which stops at
+        // the same entry, for the same reason — would answer `true` having done nothing.
+        if names_the_destination(&path) {
+            continue;
+        }
 
         if !safe(&path) {
             return Err(refused(&path));
@@ -254,6 +281,25 @@ mod tests {
             r"..\outside",
         ] {
             assert!(!safe(&PathBuf::from(name)), "{name:?} should be refused");
+        }
+    }
+
+    /// The first entry of every artifact this project publishes for macOS and Linux, and the one
+    /// [`safe`] refuses on its own: it names the destination, so the unpackers step over it.
+    #[test]
+    fn the_root_entry_tar_writes_first_names_the_destination() {
+        for name in ["./", ".", "./.", ""] {
+            assert!(
+                names_the_destination(&PathBuf::from(name)),
+                "{name:?} is the destination itself"
+            );
+        }
+
+        for name in ["bin", "./bin/php", "..", "/"] {
+            assert!(
+                !names_the_destination(&PathBuf::from(name)),
+                "{name:?} names something other than the destination"
+            );
         }
     }
 
