@@ -1244,10 +1244,9 @@ mod tests {
     /// literal.
     #[test]
     fn every_accepted_password_character_survives_the_identified_by_literal() {
-        let chosen = crate::generate::databases::validated_password(
-            "aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~",
-        )
-        .expect("every one of these is accepted");
+        let chosen =
+            crate::generate::databases::validated_password("aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~")
+                .expect("every one of these is accepted");
 
         let context = context("{}");
         let admin = Mariadb.databases().expect("mariadb administers databases");
@@ -1257,22 +1256,30 @@ mod tests {
             account: chosen.clone(),
         };
 
-        let steps = (admin.steps)(&context, &ask, crate::generate::Found::default(), &credentials)
-            .expect("statements");
+        let steps = (admin.steps)(
+            &context,
+            &ask,
+            crate::generate::Found::default(),
+            &credentials,
+        )
+        .expect("statements");
 
         let mut found_identified_by = false;
         for step in &steps {
-            if let Some(sql) = &step.stdin {
-                if sql.contains("IDENTIFIED BY") {
-                    found_identified_by = true;
-                    assert!(
-                        sql.contains(&format!("IDENTIFIED BY '{chosen}'")),
-                        "the chosen password must appear as one intact literal: {sql}"
-                    );
-                }
+            if let Some(sql) = &step.stdin
+                && sql.contains("IDENTIFIED BY")
+            {
+                found_identified_by = true;
+                assert!(
+                    sql.contains(&format!("IDENTIFIED BY '{chosen}'")),
+                    "the chosen password must appear as one intact literal: {sql}"
+                );
             }
         }
-        assert!(found_identified_by, "no statement carried IDENTIFIED BY at all");
+        assert!(
+            found_identified_by,
+            "no statement carried IDENTIFIED BY at all"
+        );
     }
 
     /// The superuser's password reaches the client the way the health check's already does.

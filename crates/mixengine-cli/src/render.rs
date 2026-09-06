@@ -32,22 +32,22 @@ use mixengine_proto::{
     BlueprintList, BlueprintPlan, BlueprintSummary, BrowserDatabase, Browsers, BundleReport,
     CaRotateReport, CaState, CaStatus, CaUninstallReport, CertIssueReport, CertProblem, CertState,
     CertStatusReport, DaemonShutdown, DaemonStatus, DaemonVersion, DatabaseAccount,
-    DatabaseClientReport, DatabaseHandoff, DesktopClient, DesktopPresence, Disposition, DnsMode,
-    DoctorReport, DomainStatusReport, ElevationStatus, Enforcement, Execution, ExtensionCatalogue,
-    ExtensionChange, ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan,
-    ExtensionRemoval, ExtensionSource, FilesystemReach, GrantOutcome, Handshake, HelperUpgrade,
-    HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource, InstalledExtensions,
-    IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage, Made, MemoryMeasure,
-    MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome, PROTOCOL_VERSION,
-    PackageCatalogue, PackageList, PackageRelease, PackageRemoval, PackageVersion, PathReport,
-    PinSource, PlanAction, PlanStep, PoolOutcome, Priority, ProjectDetail, ProjectExport,
-    ProjectList, ProjectRemoval, RecipeAddition, Removal, RepairReport, ResolvedRuntime,
-    RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource,
-    RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval,
-    ServiceState, ServiceSummary, ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList,
-    SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult, Timestamp, Trust,
-    UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus,
-    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
+    DatabaseClientReport, DatabaseCredentials, DatabaseHandoff, DesktopClient, DesktopPresence,
+    Disposition, DnsMode, DoctorReport, DomainStatusReport, ElevationStatus, Enforcement,
+    Execution, ExtensionCatalogue, ExtensionChange, ExtensionInspection, ExtensionKind,
+    ExtensionList, ExtensionPlan, ExtensionRemoval, ExtensionSource, FilesystemReach, GrantOutcome,
+    Handshake, HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport,
+    IdleSource, InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary,
+    Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory,
+    NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease,
+    PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome,
+    Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Removal,
+    RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease,
+    RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport,
+    ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk, SignatureCheck,
+    SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult,
+    Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement,
+    UpdateStatus, Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -2690,6 +2690,18 @@ pub(crate) fn database_created(account: &DatabaseAccount) -> String {
         word(account.made.user),
         account.secret.service,
         account.secret.key,
+    )
+}
+
+/// `mix database credentials` — the address, and the password itself, last and alone.
+///
+/// **The last line is the value and nothing else** — roadmap task **T77b**'s D3 — so that
+/// `mix database credentials mariadb@main --user blog | tail -1` is the password, for a script
+/// writing a project's `.env`.
+pub(crate) fn database_credentials(answer: &DatabaseCredentials) -> String {
+    format!(
+        "password for {} on {}\n  stored in the {} credentials at {}\n  {}",
+        answer.user, answer.service, answer.secret.service, answer.secret.key, answer.password,
     )
 }
 

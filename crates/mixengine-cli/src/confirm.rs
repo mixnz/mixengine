@@ -173,9 +173,42 @@ fn update_answer(line: &str) -> crate::Choice {
     }
 }
 
+/// Put the prompt on standard error and read one line of a password back — roadmap task **T77b**.
+///
+/// [`None`] is end of file, on [`ask`]'s own reasoning: a line typed or piped in is the answer, and
+/// nobody being there to type one is a different thing from a "no" — the caller decides what that
+/// means (here, refusing before anything is sent to the daemon).
+///
+/// **Echo is not hidden.** Doing so is a per-OS console call this crate has no dependency for, and
+/// the value is about to be pasted into a plaintext `.env` in the next few seconds regardless — see
+/// the design's D5.
+pub(crate) fn read_password(prompt: &str) -> Option<String> {
+    let mut error = std::io::stderr();
+    let _ = write!(error, "{prompt}");
+    let _ = error.flush();
+
+    let mut line = String::new();
+
+    match std::io::stdin().lock().read_line(&mut line) {
+        Ok(0) | Err(_) => {
+            let _ = writeln!(error);
+            None
+        }
+        Ok(_) => password_line(Some(&line)),
+    }
+}
+
+/// What one typed line becomes as a password. [`None`] is end of file.
+///
+/// Split from [`read_password`] on [`answer`]'s own precedent, so the one rule that matters — the
+/// trailing newline is not part of the value — is tested without a terminal to type into.
+fn password_line(line: Option<&str>) -> Option<String> {
+    line.map(|line| line.trim_end_matches(['\n', '\r']).to_owned())
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Answer, Choice, answer, chosen, update_answer};
+    use super::{Answer, Choice, answer, chosen, password_line, update_answer};
 
     /// The default is no, and only the word means yes.
     ///
@@ -238,5 +271,20 @@ mod tests {
         assert_eq!(update_answer("\n"), crate::Choice::Later);
         assert_eq!(update_answer("l"), crate::Choice::Later);
         assert_eq!(update_answer("what"), crate::Choice::Later);
+    }
+
+    /// **A line is the value, with its trailing newline gone** — roadmap task **T77b**. End of
+    /// file is `None`, the same way [`answer`] and [`chosen`] read it.
+    #[test]
+    fn a_password_line_keeps_everything_but_the_newline() {
+        assert_eq!(password_line(Some("secret\n")), Some("secret".to_owned()));
+        assert_eq!(password_line(Some("secret\r\n")), Some("secret".to_owned()));
+        assert_eq!(
+            password_line(Some(" has spaces \n")),
+            Some(" has spaces ".to_owned()),
+            "only the line ending is trimmed — a leading or trailing space in the password is the \
+             person's own, and echoed back exactly"
+        );
+        assert_eq!(password_line(None), None);
     }
 }
