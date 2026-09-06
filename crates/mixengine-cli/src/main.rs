@@ -31,19 +31,20 @@ use mixengine_proto::{
     BlueprintCapture, BlueprintImport, BlueprintList, BlueprintPlan, BlueprintSummary,
     BundleReport, CaRotateReport, CaStatus, CaUninstallReport, CertIssue, CertIssueReport,
     CertStatusQuery, CertStatusReport, DaemonShutdown, DaemonStatus, DatabaseAccount,
-    DatabaseClientQuery, DatabaseClientReport, DatabaseCreate, DatabaseHandoff, DatabaseOpen,
-    DiagnosticsBundle, Disposition, DoctorRepair, DoctorReport, DomainAdd, DomainRemove,
-    DomainStatusQuery, DomainStatusReport, ElevationDrop, ElevationStatus, Error, ErrorCode,
-    ExtensionCatalogue, ExtensionChange, ExtensionChoice, ExtensionConsent, ExtensionId,
-    ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionList, ExtensionOrigin,
-    ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionTarget, ExtensionUninstall,
-    HelperUpgrade, IdleReport, InstalledExtensions, JobFilter, JobId, JobList, JobOutcome,
-    JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis,
-    MismatchAnswer, PackageCatalogue, PackageFilter, PackageList, PackageRemoval, PackageTarget,
-    PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate, ProjectDetail,
-    ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval, ProjectUpdate, Removal,
-    RepairReport, ResolvedRuntime, ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind,
-    RuntimeList, RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
+    DatabaseClientQuery, DatabaseClientReport, DatabaseCreate, DatabaseCredentials,
+    DatabaseCredentialsQuery, DatabaseHandoff, DatabaseOpen, DiagnosticsBundle, Disposition,
+    DoctorRepair, DoctorReport, DomainAdd, DomainRemove, DomainStatusQuery, DomainStatusReport,
+    ElevationDrop, ElevationStatus, Error, ErrorCode, ExtensionCatalogue, ExtensionChange,
+    ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect, ExtensionInspection,
+    ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest,
+    ExtensionRemoval, ExtensionTarget, ExtensionUninstall, HelperUpgrade, IdleReport,
+    InstalledExtensions, JobFilter, JobId, JobList, JobOutcome, JobQuery, JobState, JobSummary,
+    JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis, MismatchAnswer, PackageCatalogue,
+    PackageFilter, PackageList, PackageRemoval, PackageTarget, PackageVersion, PathReport,
+    PendingOpId, PlanAction, Priority, ProjectCreate, ProjectDetail, ProjectExport, ProjectList,
+    ProjectQuery, ProjectRef, ProjectRemoval, ProjectUpdate, Removal, RepairReport,
+    ResolvedRuntime, ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList,
+    RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
     ScaffoldConsent, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet,
     ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval,
     ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation,
@@ -704,6 +705,18 @@ enum DatabaseCommand {
         /// The account's name. The database's own when nobody says.
         #[arg(long, value_name = "ACCOUNT")]
         user: Option<String>,
+
+        /// Choose the account's password instead of generating one.
+        ///
+        /// With a value, that is the password. Without one, `mix` prompts and reads one line from
+        /// standard input — so this also works piped: `echo secret | mix database create … --password`.
+        /// Not shown on any command line MixEngine itself runs afterwards: it goes into this
+        /// machine's credential store the same way a generated password does.
+        ///
+        /// With an existing account of ours, this changes what is stored — and the server is
+        /// realigned to it, the same way it already is when a password drifts.
+        #[arg(long, num_args = 0..=1, default_missing_value = "", value_name = "VALUE")]
+        password: Option<String>,
     },
 
     /// Where this instance could be opened, and with what.
@@ -713,6 +726,21 @@ enum DatabaseCommand {
         /// Which instance: `mariadb@main`, `redis@main`.
         #[arg(value_name = "SERVICE", value_parser = service_id)]
         service: ServiceId,
+    },
+
+    /// The password MixEngine holds for one account.
+    ///
+    /// Reads only: starts nothing. Prints the password itself — the last line of the plain
+    /// rendering is the value alone, so a script can read it with `tail -1`. This is the only
+    /// `mix database` command whose whole purpose is to print a credential.
+    Credentials {
+        /// Which instance: `mariadb@main`, `postgres@shop`.
+        #[arg(value_name = "SERVICE", value_parser = service_id)]
+        service: ServiceId,
+
+        /// The account to read. The server's administrator when nobody says.
+        #[arg(long, value_name = "ACCOUNT")]
+        user: Option<String>,
     },
 
     /// Open this instance in the installed desktop database client.
@@ -3323,12 +3351,14 @@ async fn blueprint(
     Ok(ExitCode::SUCCESS)
 }
 
-/// `mix database …` — make a database and the account that reaches it, or hand it to a client.
+/// `mix database …` — make a database and the account that reaches it, hand it to a client, or
+/// read what password is stored for one.
 ///
-/// **The password is never printed**, and that is the whole shape of these commands: what comes
-/// back is the address the credential is stored under, because a password on a terminal is a
-/// password in scrollback, in a tmux buffer and in a CI log. Handing one to a program that needs it
-/// is `open` (roadmap task **T83**), and the daemon puts it in that program's environment alone.
+/// **`create`, `client` and `open` never print a password**: what comes back is the address the
+/// credential is stored under, because a password on a terminal is a password in scrollback, in a
+/// tmux buffer and in a CI log. Handing one to a program that needs it is `open` (roadmap task
+/// **T83**), and the daemon puts it in that program's environment alone. `credentials` is the one
+/// exception — its whole purpose is to print one, for a project's `.env` — roadmap task **T77b**.
 async fn database(
     command: DatabaseCommand,
     endpoint: &Endpoint,
@@ -3342,11 +3372,28 @@ async fn database(
             service,
             name,
             user,
+            password,
         } => {
+            let password = match password.as_deref() {
+                None => None,
+                Some(value) if !value.is_empty() => Some(value.to_owned()),
+                Some(_) => match crate::confirm::read_password(&format!(
+                    "password for {} on {service}: ",
+                    user.as_deref().unwrap_or(&name)
+                )) {
+                    Some(line) => Some(line),
+                    None => {
+                        eprintln!("nobody to ask — pass `--password <value>` or pipe one line in");
+                        return Ok(ExitCode::from(1));
+                    }
+                },
+            };
+
             let create = DatabaseCreate {
                 service,
                 database: name,
                 user,
+                password,
             };
             let account: DatabaseAccount =
                 ask(&mut client, rpc::method::DATABASE_CREATE, encode(&create)).await?;
@@ -3395,6 +3442,19 @@ async fn database(
             if handoff.launched.is_none() {
                 return Ok(ExitCode::from(1));
             }
+        }
+
+        DatabaseCommand::Credentials { service, user } => {
+            let answer: DatabaseCredentials = ask(
+                &mut client,
+                rpc::method::DATABASE_CREDENTIALS,
+                encode(&DatabaseCredentialsQuery { service, user }),
+            )
+            .await?;
+
+            emit(&rendered(json, &answer, || {
+                render::database_credentials(&answer)
+            }))?;
         }
     }
 

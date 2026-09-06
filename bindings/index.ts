@@ -47,6 +47,8 @@ export * from "./DatabaseAccount";
 export * from "./DatabaseClientQuery";
 export * from "./DatabaseClientReport";
 export * from "./DatabaseCreate";
+export * from "./DatabaseCredentials";
+export * from "./DatabaseCredentialsQuery";
 export * from "./DatabaseHandoff";
 export * from "./DatabaseOpen";
 export * from "./DatabaseProtocol";

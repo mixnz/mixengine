@@ -21,8 +21,9 @@ use mixengine_core::generate::databases::{Ask, validated_identifier};
 use mixengine_core::services::handoff::{self, CREDENTIAL_ENV, Connection};
 use mixengine_platform::{InstalledApp, Located, Started};
 use mixengine_proto::{
-    DatabaseAccount, DatabaseClientQuery, DatabaseClientReport, DatabaseCreate, DatabaseHandoff,
-    DatabaseOpen, DesktopClient, Error, ErrorCode, Launch, SecretAddress, ServiceId,
+    DatabaseAccount, DatabaseClientQuery, DatabaseClientReport, DatabaseCreate,
+    DatabaseCredentials, DatabaseCredentialsQuery, DatabaseHandoff, DatabaseOpen, DesktopClient,
+    Error, ErrorCode, Launch, SecretAddress, ServiceId,
 };
 use tokio::sync::Mutex;
 
@@ -72,6 +73,12 @@ impl Databases {
         let database = validated_identifier(&asked.database).map_err(|error| error.to_wire())?;
         let user = validated_identifier(asked.user.as_deref().unwrap_or(&database))
             .map_err(|error| error.to_wire())?;
+        let password = asked
+            .password
+            .as_deref()
+            .map(mixengine_core::generate::databases::validated_password)
+            .transpose()
+            .map_err(|error| error.to_wire())?;
 
         let provisioning = self.vocabulary(&asked.service).await?;
 
@@ -89,9 +96,14 @@ impl Databases {
         self.services.ensure_running(&asked.service).await?;
 
         let ask = Ask { database, user };
-        let made =
-            crate::services::databases::ensure(&self.host, &provisioning, &asked.service, &ask)
-                .await?;
+        let made = crate::services::databases::ensure(
+            &self.host,
+            &provisioning,
+            &asked.service,
+            &ask,
+            password,
+        )
+        .await?;
 
         Ok(DatabaseAccount {
             service: asked.service.clone(),
@@ -163,6 +175,70 @@ impl Databases {
             protocol: address.map(|address| address.protocol),
             secret,
             client,
+        })
+    }
+
+    /// `database.credentials` — the password held for one account. Reads only — roadmap task
+    /// **T77b**.
+    ///
+    /// # Errors
+    ///
+    /// `invalid_argument` for a service no client opens or one with no accounts to read a
+    /// password for; `not_found` for a service this home does not declare; `precondition_failed`
+    /// for an account — administrator included — MixEngine holds no credential for.
+    pub(crate) async fn credentials(
+        &self,
+        asked: &DatabaseCredentialsQuery,
+    ) -> Result<DatabaseCredentials, Error> {
+        let user = asked
+            .user
+            .as_deref()
+            .map(validated_identifier)
+            .transpose()
+            .map_err(|error| error.to_wire())?;
+
+        let address = handoff::address(&self.store, &asked.service)
+            .await
+            .map_err(|error| error.to_wire())?
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidArgument,
+                    format!("{} is not a database a client opens", asked.service),
+                )
+            })?;
+
+        if user.is_some() && !address.protocol.has_accounts() {
+            return Err(Error::new(
+                ErrorCode::InvalidArgument,
+                format!("{} has no accounts to sign in as", asked.service),
+            )
+            .with_hint("leave `--user` off: the server has no account to read a password for"));
+        }
+
+        let account = user
+            .or_else(|| address.administrator.clone())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidArgument,
+                    format!("{} has no accounts to sign in as", asked.service),
+                )
+            })?;
+
+        let at = handoff::secret_key(&asked.service, &account);
+        let password = self
+            .credential(
+                &asked.service,
+                &account,
+                &at,
+                address.administrator.as_deref(),
+            )
+            .await?;
+
+        Ok(DatabaseCredentials {
+            service: asked.service.clone(),
+            user: account,
+            secret: SecretAddress::of(at),
+            password,
         })
     }
 
@@ -716,5 +792,64 @@ mod tests {
             .expect_err("no such account of ours");
         assert_eq!(named.code, ErrorCode::PreconditionFailed);
         assert!(named.message.contains("blog"), "{}", named.message);
+    }
+
+    fn credentials_query(service: &str, user: Option<&str>) -> DatabaseCredentialsQuery {
+        DatabaseCredentialsQuery {
+            service: id(service),
+            user: user.map(str::to_owned),
+        }
+    }
+
+    /// **The administrator by default** — roadmap task **T77b** — exactly as `database.open`'s own
+    /// default: the two commands answer the same question for a process and for a person.
+    #[tokio::test]
+    async fn credentials_defaults_to_the_administrator() {
+        let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
+        host.keyring()
+            .set_secret(KEYRING_SERVICE, "mariadb@main/root", "root-secret")
+            .expect("the mock store takes it");
+        let (_home, databases) =
+            databases(Arc::clone(&host), &[("mariadb@main", "mariadb", 3306)]).await;
+
+        let answer = databases
+            .credentials(&credentials_query("mariadb@main", None))
+            .await
+            .expect("answers");
+
+        assert_eq!(answer.user, "root");
+        assert_eq!(answer.password, "root-secret");
+        assert_eq!(answer.secret.key, "mariadb@main/root");
+    }
+
+    /// A named account with no entry is the same refusal `database.open` already gives, with the
+    /// same hint pointing at `database create`.
+    #[tokio::test]
+    async fn credentials_for_an_account_with_no_entry_is_precondition_failed() {
+        let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
+        let (_home, databases) =
+            databases(Arc::clone(&host), &[("mariadb@main", "mariadb", 3306)]).await;
+
+        let error = databases
+            .credentials(&credentials_query("mariadb@main", Some("blog")))
+            .await
+            .expect_err("no entry for blog yet");
+
+        assert_eq!(error.code, ErrorCode::PreconditionFailed);
+    }
+
+    /// A service with no accounts refuses by name, as `database.open --user` already does.
+    #[tokio::test]
+    async fn credentials_on_a_service_with_no_accounts_is_invalid_argument() {
+        let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
+        let (_home, databases) =
+            databases(Arc::clone(&host), &[("redis@main", "redis", 6379)]).await;
+
+        let error = databases
+            .credentials(&credentials_query("redis@main", None))
+            .await
+            .expect_err("redis has no accounts");
+
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
     }
 }

@@ -282,6 +282,13 @@ impl ToWire for mixengine_core::Error {
                      digits and hyphens, up to thirty-two characters",
                 ),
 
+            // The message never carries the value — `Core::InvalidPassword` has none to leak.
+            Core::InvalidPassword { .. } => Error::new(ErrorCode::InvalidArgument, chain(self))
+                .with_hint(
+                    "1 to 128 printable ASCII characters, and none of: a quote, a backslash, or \
+                     whitespace",
+                ),
+
             // `conflict` rather than `already_exists`: what is refused is not the name being taken
             // but MixEngine being unable to prove the account is its own to change — T77a's D3.
             Core::AccountNotOurs { .. } => Error::new(ErrorCode::Conflict, chain(self)).with_hint(

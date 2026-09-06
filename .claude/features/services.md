@@ -206,17 +206,28 @@ snapshots of the data dir). Browsing and querying data is **out of scope** — t
 **Making a database is part of that lifecycle, and "credentials" is what makes it one.**
 `database.create` — `mix database create mariadb@main --name blog` — creates a database and an
 account that reaches it on a running instance, generating the account's password and storing it in
-the OS keyring at `<service-id>/<user>`. Nothing prints it or puts it on the wire: what a caller is
-told is the address, and handing a credential to a program that needs one is `database.open` —
-`mix database open mariadb@main --user blog` — which starts the installed desktop client with the
-password in that process's environment alone (T83, [extensions.md](extensions.md)).
+the OS keyring at `<service-id>/<user>`. Nothing prints it or puts it on the wire *by default*: what
+a caller is told is the address, and handing a credential to a program that needs one is
+`database.open` — `mix database open mariadb@main --user blog` — which starts the installed desktop
+client with the password in that process's environment alone (T83, [extensions.md](extensions.md)).
+
+**A person can still read it, and can still choose it** — T77b. Neither of the two calls above
+reaches the one case they leave uncovered: a project's own `.env`. `mix database credentials
+mariadb@main --user blog` prints the password MixEngine holds, and `mix database create mariadb@main
+--name blog --user blog --password` lets a person choose it instead of letting MixEngine generate
+one — through the same ownership rule the paragraph below states, so a correct password for an
+account MixEngine holds no keyring entry for is still refused: knowing a password is not the deed.
+Design, and the rule for when a credential is allowed on the wire at all:
+[docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../../docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md),
+[ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md).
 
 Two rules make it repeatable and safe to run twice. **A keyring entry is the deed of ownership**: an
 account already on the server that MixEngine holds no credential for is refused by name rather than
 having its password reset, because "make sure this account exists" must not mean taking over
-somebody else's. And the last statement **logs in as the account just made** and creates a table with
-it, so the call cannot report a success the account cannot use — on PostgreSQL that account *owns*
-its database, since `GRANT ALL ON DATABASE` has not carried `CREATE` on `public` since version 15.
+somebody else's — and a password a person supplies that happens to be correct does not change that
+refusal. And the last statement **logs in as the account just made** and creates a table with it, so
+the call cannot report a success the account cannot use — on PostgreSQL that account *owns* its
+database, since `GRANT ALL ON DATABASE` has not carried `CREATE` on `public` since version 15.
 
 There is no `database.drop`. Removing a database destroys data, and nothing has asked for it — see
 [blueprints.md](blueprints.md) for what a blueprint rollback does instead.

@@ -725,6 +725,7 @@ mix database create <SERVICE> [OPTIONS]
 | `<SERVICE>` | Which instance: `mariadb@main`, `postgres@shop` |
 | `--name` `<NAME>` | The database's name |
 | `--user` `<ACCOUNT>` | The account's name. The database's own when nobody says |
+| `--password` `<VALUE>` | Choose the account's password instead of generating one. With a value, that is the password. Without one, `mix` prompts and reads one line from standard input — so this also works piped: `echo secret | mix database create … --password`. Not shown on any command line MixEngine itself runs afterwards: it goes into this machine's credential store the same way a generated password does. With an existing account of ours, this changes what is stored — and the server is realigned to it, the same way it already is when a password drifts. |
 
 ### mix database client
 
@@ -739,6 +740,23 @@ mix database client <SERVICE>
 | Flag | What it does |
 | --- | --- |
 | `<SERVICE>` | Which instance: `mariadb@main`, `redis@main` |
+
+### mix database credentials
+
+The password MixEngine holds for one account.
+
+Reads only: starts nothing. Prints the password itself — the last line of the plain rendering is the
+value alone, so a script can read it with `tail -1`. This is the only `mix database` command whose
+whole purpose is to print a credential.
+
+```
+mix database credentials <SERVICE> [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `<SERVICE>` | Which instance: `mariadb@main`, `postgres@shop` |
+| `--user` `<ACCOUNT>` | The account to read. The server's administrator when nobody says |
 
 ### mix database open
 

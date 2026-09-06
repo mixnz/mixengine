@@ -32,22 +32,22 @@ use mixengine_proto::{
     BlueprintList, BlueprintPlan, BlueprintSummary, BrowserDatabase, Browsers, BundleReport,
     CaRotateReport, CaState, CaStatus, CaUninstallReport, CertIssueReport, CertProblem, CertState,
     CertStatusReport, DaemonShutdown, DaemonStatus, DaemonVersion, DatabaseAccount,
-    DatabaseClientReport, DatabaseHandoff, DesktopClient, DesktopPresence, Disposition, DnsMode,
-    DoctorReport, DomainStatusReport, ElevationStatus, Enforcement, Execution, ExtensionCatalogue,
-    ExtensionChange, ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan,
-    ExtensionRemoval, ExtensionSource, FilesystemReach, GrantOutcome, Handshake, HelperUpgrade,
-    HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource, InstalledExtensions,
-    IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage, Made, MemoryMeasure,
-    MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome, PROTOCOL_VERSION,
-    PackageCatalogue, PackageList, PackageRelease, PackageRemoval, PackageVersion, PathReport,
-    PinSource, PlanAction, PlanStep, PoolOutcome, Priority, ProjectDetail, ProjectExport,
-    ProjectList, ProjectRemoval, RecipeAddition, Removal, RepairReport, ResolvedRuntime,
-    RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource,
-    RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval,
-    ServiceState, ServiceSummary, ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList,
-    SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult, Timestamp, Trust,
-    UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus,
-    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
+    DatabaseClientReport, DatabaseCredentials, DatabaseHandoff, DesktopClient, DesktopPresence,
+    Disposition, DnsMode, DoctorReport, DomainStatusReport, ElevationStatus, Enforcement,
+    Execution, ExtensionCatalogue, ExtensionChange, ExtensionInspection, ExtensionKind,
+    ExtensionList, ExtensionPlan, ExtensionRemoval, ExtensionSource, FilesystemReach, GrantOutcome,
+    Handshake, HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport,
+    IdleSource, InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary,
+    Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory,
+    NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease,
+    PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome,
+    Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Removal,
+    RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease,
+    RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport,
+    ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk, SignatureCheck,
+    SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult,
+    Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement,
+    UpdateStatus, Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -2042,8 +2042,9 @@ fn kind_word(kind: &SiteKind) -> &'static str {
 /// was examined rather than only what was wrong.
 ///
 /// The word in the margin is the outcome and the indented line under it is the daemon's own
-/// sentence — this client writes none of its own, on the standing rule that a client renders what
-/// the daemon returns.
+/// sentence — the daemon's `because` never carries advice (T47a design, D3), so the one line telling
+/// a person what to do about a `PROBLEM` is this client's own, appended once for the whole report
+/// rather than repeated under every line that earned it.
 pub(crate) fn doctor(report: &DoctorReport) -> String {
     let mut out = String::new();
 
@@ -2060,6 +2061,10 @@ pub(crate) fn doctor(report: &DoctorReport) -> String {
         if let Some(because) = because {
             out.push_str(&format!("         {because}\n"));
         }
+    }
+
+    if report.has_a_problem() {
+        out.push_str("\nrun `mix doctor --repair` to fix what it can\n");
     }
 
     out
@@ -2685,6 +2690,18 @@ pub(crate) fn database_created(account: &DatabaseAccount) -> String {
         word(account.made.user),
         account.secret.service,
         account.secret.key,
+    )
+}
+
+/// `mix database credentials` — the address, and the password itself, last and alone.
+///
+/// **The last line is the value and nothing else** — roadmap task **T77b**'s D3 — so that
+/// `mix database credentials mariadb@main --user blog | tail -1` is the password, for a script
+/// writing a project's `.env`.
+pub(crate) fn database_credentials(answer: &DatabaseCredentials) -> String {
+    format!(
+        "password for {} on {}\n  stored in the {} credentials at {}\n  {}",
+        answer.user, answer.service, answer.secret.service, answer.secret.key, answer.password,
     )
 }
 

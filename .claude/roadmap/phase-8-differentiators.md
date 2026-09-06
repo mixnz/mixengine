@@ -502,6 +502,18 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       handoff that arrived on `argv` of a fresh process, ask again when the entry is gone — and
       `mixnz/mixengine-packages` owes `data/extensions/mixdb.toml`, the same file as the fixture.
       **(P)**
+- [x] **T77b** A password a person can read, and a password a person chooses — design in
+      [docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../../docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md).
+      T77a's D11 answered one consumer of a database credential — a process MixEngine starts — and
+      left no way for a person to get one into a project's `.env`. `mix database credentials`
+      reads what is stored; `mix database create --password` lets a person choose one instead of
+      generating it, through the same ownership rule (`decide`) a generated password already goes
+      through — a correct password for an account MixEngine holds no keyring entry for is still
+      refused, because knowing a password is not the deed. **The rule for a credential on the
+      wire got its own decision** — [ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md)
+      — since T77a's "never the password" and this task's "this one method answers nothing else"
+      are two rules that needed to be told apart rather than left to collide silently the next time
+      somebody adds a field. **(P)**
 
 **Milestone M8** — capture a project as a blueprint, apply it to a new one, open its database in
 MixDB, and test it from a phone.

@@ -199,3 +199,34 @@ fn a_service_no_client_opens_is_said_in_those_words() {
         stderr(&refused)
     );
 }
+
+/// **`--password` with no value and closed standard input refuses before anything is sent** —
+/// roadmap task **T77b**. `Home::mix` gives its child a closed stdin, which is exactly the cron
+/// job this refusal exists for: nobody was there to answer, and the daemon is never asked.
+#[test]
+fn password_flag_with_no_value_and_closed_stdin_refuses() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    mixengine_testkit::declare::database_blocking(
+        &home.database_file(),
+        "mariadb@main",
+        "mariadb",
+        3306,
+    );
+
+    let refused = home.mix(&[
+        "database",
+        "create",
+        "mariadb@main",
+        "--name",
+        "blog",
+        "--password",
+    ]);
+
+    assert_eq!(refused.status.code(), Some(1), "{}", stderr(&refused));
+    assert!(
+        stderr(&refused).contains("nobody to ask"),
+        "{}",
+        stderr(&refused)
+    );
+}

@@ -1539,6 +1539,47 @@ mod tests {
             .join("\n")
     }
 
+    /// **The validator's alphabet is exactly what every accepted character survives being embedded
+    /// as** — roadmap task **T77b**. A chosen password containing every printable-ASCII character
+    /// the validator accepts must still produce SQL whose `LOGIN PASSWORD '...'` literal (on the
+    /// `ALTER ROLE` line, the plain one and not the `\gexec`-wrapped `CREATE ROLE`) closes where it
+    /// should.
+    #[test]
+    fn every_accepted_password_character_survives_the_login_password_literal() {
+        let chosen =
+            crate::generate::databases::validated_password("aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~")
+                .expect("every one of these is accepted");
+
+        let context = context("{}");
+        let admin = Postgres
+            .databases()
+            .expect("postgres administers databases");
+        let (ask, _) = asked();
+        let credentials = crate::generate::Credentials {
+            root: "a".repeat(32),
+            account: chosen.clone(),
+        };
+
+        let sql = (admin.steps)(
+            &context,
+            &ask,
+            crate::generate::Found::default(),
+            &credentials,
+        )
+        .expect("statements")
+        .iter()
+        .filter_map(|step| step.stdin.clone())
+        .collect::<Vec<_>>()
+        .join("\n");
+
+        assert!(
+            sql.contains(&format!(
+                "ALTER ROLE \"blog\" WITH LOGIN PASSWORD '{chosen}';"
+            )),
+            "the chosen password must appear as one intact literal: {sql}"
+        );
+    }
+
     /// **Design D6.** The role is created before the database, because the database is created
     /// *owned by* it — and from PostgreSQL 15 `GRANT ALL ON DATABASE` no longer carries `CREATE` on
     /// the `public` schema, so a role granted everything still cannot make a table.

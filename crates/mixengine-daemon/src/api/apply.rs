@@ -300,6 +300,9 @@ impl Api {
                         service,
                         database: database.clone(),
                         user: Some(user.clone()),
+                        // A blueprint never names a password — T77b's `--password` is a person
+                        // choosing one at the keyboard, not a value a plan can carry.
+                        password: None,
                     })
                     .await?;
 

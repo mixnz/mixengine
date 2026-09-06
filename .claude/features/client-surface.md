@@ -71,8 +71,12 @@ binaries. What they state is what the daemon **writes** —
    password was read from, never the password: it went into the started process's environment and
    nowhere else. **And making one — T77a**: a client creating a project on a database stack needs
    `database.create`, which answers the database, the account, and the keyring address the credential
-   sits at. It never receives the password itself; a client that wants to *show* one is asking for
-   T83's handoff.
+   sits at — and, since T77b, an optional `password` a person chose, so the flow that creates a
+   project can offer *"use my own"* instead of always generating one. `database.create` itself never
+   *answers* with the password: a client that wants to show one asks `database.credentials`
+   ([ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md)),
+   which exists for exactly that and nothing else — T83's handoff is the other way a password
+   reaches somewhere outside the keyring, into a process MixEngine starts rather than a screen.
    **The address is both halves, and `client` carries one too — T84**: `secret` is
    `{ service, key }` rather than the key alone, so a client renders *"stored in your credential
    store as …"* without hardcoding MixEngine's namespace — which is the business logic `CLAUDE.md`

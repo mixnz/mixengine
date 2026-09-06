@@ -1236,6 +1236,52 @@ mod tests {
         }
     }
 
+    /// **The validator's alphabet is exactly what every accepted character survives being embedded
+    /// as** — roadmap task **T77b**. A chosen password containing every printable-ASCII character
+    /// the validator accepts must still produce SQL whose `IDENTIFIED BY '...'` literal closes
+    /// where it should: an unescaped literal that swallowed a later character would shift where
+    /// the string appears to end, and the assertion below would then fail to find the exact
+    /// literal.
+    #[test]
+    fn every_accepted_password_character_survives_the_identified_by_literal() {
+        let chosen =
+            crate::generate::databases::validated_password("aZ09!\"#$%&()*+,-./:;<=>?@[]^_`{|}~")
+                .expect("every one of these is accepted");
+
+        let context = context("{}");
+        let admin = Mariadb.databases().expect("mariadb administers databases");
+        let (ask, _) = asked();
+        let credentials = crate::generate::Credentials {
+            root: "a".repeat(32),
+            account: chosen.clone(),
+        };
+
+        let steps = (admin.steps)(
+            &context,
+            &ask,
+            crate::generate::Found::default(),
+            &credentials,
+        )
+        .expect("statements");
+
+        let mut found_identified_by = false;
+        for step in &steps {
+            if let Some(sql) = &step.stdin
+                && sql.contains("IDENTIFIED BY")
+            {
+                found_identified_by = true;
+                assert!(
+                    sql.contains(&format!("IDENTIFIED BY '{chosen}'")),
+                    "the chosen password must appear as one intact literal: {sql}"
+                );
+            }
+        }
+        assert!(
+            found_identified_by,
+            "no statement carried IDENTIFIED BY at all"
+        );
+    }
+
     /// The superuser's password reaches the client the way the health check's already does.
     #[test]
     fn the_superuser_password_travels_in_the_environment() {

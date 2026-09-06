@@ -289,6 +289,45 @@ pub struct DatabaseHandoff {
     pub launched: Option<Launch>,
 }
 
+/// `database.credentials` — the password held for one account, read from this machine's
+/// credential store. Roadmap task **T77b**.
+///
+/// **The one exception to this module's own rule.** Every other type here answers *where* a
+/// credential is; this answers *what it is*, because its whole purpose is to put a stored password
+/// somewhere a person can paste it — into a project's `.env`, most of all. See
+/// `docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md`'s D2.
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct DatabaseCredentials {
+    /// Which instance.
+    pub service: ServiceId,
+
+    /// The account this password signs in as.
+    pub user: String,
+
+    /// Where it lives in this machine's credential store — the same address a `DatabaseAccount`
+    /// or a `DatabaseHandoff` would have named for the same account.
+    pub secret: SecretAddress,
+
+    /// The password itself. Never printed by [`std::fmt::Debug`] — see the hand-written impl
+    /// below.
+    pub password: String,
+}
+
+/// **Redacted, on `generate::databases::Credentials`'s precedent.** A `Debug` derive would print
+/// `password` in full on the first `tracing` line a failed handler writes; this prints its length
+/// and nothing else.
+impl std::fmt::Debug for DatabaseCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DatabaseCredentials")
+            .field("service", &self.service)
+            .field("user", &self.user)
+            .field("secret", &self.secret)
+            .field("password", &format!("<{} bytes>", self.password.len()))
+            .finish()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -395,11 +434,16 @@ mod tests {
             service: ServiceId::parse("postgres@main").expect("an id"),
             database: "shop".to_owned(),
             user: None,
+            password: None,
         };
 
         let json = serde_json::to_value(&asked).expect("it encodes");
 
         assert!(json.get("user").is_none(), "{json}");
+        assert!(
+            json.get("password").is_none(),
+            "absent, like user, when nobody chose one: {json}"
+        );
     }
 
     /// The three states a client can be in are three words on the wire, and a person can read them.
@@ -490,6 +534,49 @@ mod tests {
         assert!(
             json.get("user").is_none() && json.get("database").is_none(),
             "{json}"
+        );
+    }
+
+    /// **The exception to "never the password"** — roadmap task **T77b**, spec D2. This is the one
+    /// type in the workspace whose whole purpose is to answer a credential, so its serialised form
+    /// must contain it — the inverse of every neighbouring test in this file.
+    #[test]
+    fn a_credentials_answer_does_carry_the_password_because_that_is_what_it_is_for() {
+        let answer = DatabaseCredentials {
+            service: ServiceId::parse("mariadb@main").expect("an id"),
+            user: "blog".to_owned(),
+            secret: SecretAddress::of("mariadb@main/blog"),
+            password: "hunter2hunter2hunter2".to_owned(),
+        };
+
+        let rendered = serde_json::to_string(&answer).expect("serialises");
+        assert!(
+            rendered.contains("hunter2hunter2hunter2"),
+            "the one response type that exists to answer a credential must carry it: {rendered}"
+        );
+    }
+
+    /// **`Debug` still redacts**, on `generate::databases::Credentials`'s precedent: a `tracing`
+    /// line on a failed request is one line away from printing whatever `{:?}` finds, and this
+    /// type is the only response shaped like a credential, so it is the one response `Debug` must
+    /// not trust every caller with.
+    #[test]
+    fn debug_never_prints_the_password_even_though_serde_does() {
+        let answer = DatabaseCredentials {
+            service: ServiceId::parse("mariadb@main").expect("an id"),
+            user: "blog".to_owned(),
+            secret: SecretAddress::of("mariadb@main/blog"),
+            password: "hunter2hunter2hunter2".to_owned(),
+        };
+
+        let debugged = format!("{answer:?}");
+        assert!(
+            !debugged.contains("hunter2"),
+            "Debug must redact the password: {debugged}"
+        );
+        assert!(
+            debugged.contains("bytes"),
+            "and say how long it is instead: {debugged}"
         );
     }
 }

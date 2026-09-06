@@ -78,10 +78,12 @@ pub use cert_api::{
 pub use crash::{CRASH_FORMAT, CrashLocation, CrashReport};
 pub use daemon::{DaemonShutdown, DaemonStatus, DaemonVersion, DnsMode, DnsStatus, Health};
 pub use database::{
-    DatabaseAccount, DatabaseClientReport, DatabaseHandoff, DatabaseProtocol, DesktopClient,
-    DesktopPresence, Launch, Made, Provisioned, SecretAddress,
+    DatabaseAccount, DatabaseClientReport, DatabaseCredentials, DatabaseHandoff, DatabaseProtocol,
+    DesktopClient, DesktopPresence, Launch, Made, Provisioned, SecretAddress,
 };
-pub use database_api::{DatabaseClientQuery, DatabaseCreate, DatabaseOpen};
+pub use database_api::{
+    DatabaseClientQuery, DatabaseCreate, DatabaseCredentialsQuery, DatabaseOpen,
+};
 pub use doctor_api::{Check, DoctorReport, Outcome, ProblemId};
 pub use domain_api::{
     DomainAdd, DomainRemove, DomainStatus, DomainStatusQuery, DomainStatusReport,
