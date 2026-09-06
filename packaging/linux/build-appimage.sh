@@ -99,4 +99,8 @@ test -x "$appdir/usr/bin/mixengine-elevate" || {
 
 mix_checksum "$dist/$name"
 
+# The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_appimage="$(mix_publish_alias "$dist/$name" "mixengine-linux-$arch.AppImage")"
+
 echo "$dist/$name"
+echo "$alias_appimage"

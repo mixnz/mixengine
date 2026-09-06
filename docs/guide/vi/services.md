@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached — cài khi được yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra."
 translation_of = "en/services.md"
-source_sha256 = "faaeb8bc23d162c0da016e07ee1814dc483a47ca48df60dd8a4dd886a6fdd57a"
+source_sha256 = "0196e4bdbbd6ee6dbb33108c6ec5cf56186f0cb3b88de9d7b2137162d521db93"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -39,8 +39,8 @@ phải *cái đã có sẵn ở đó*.
 
 ```bash
 mix package available
-mix package install mariadb 11.4.4
-mix service create mariadb@main 11.4.4
+mix package install mariadb 12.3.2
+mix service create mariadb@main 12.3.2
 ```
 
 Phần đứng trước `@` trong id của service là package mà nó là một thể hiện, và đó là lý do `mix

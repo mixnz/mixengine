@@ -365,6 +365,20 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the site documents one version, because there is one. And **`mix service logs`' help text lost
       a link**: it cited an ADR by repository path, which is a dead link for every reader of
       `--help` and of the handbook alike — the citation is now a `//` comment beside it.
+- [x] **T90a** `install.md`'s download links, kept current with no edit and no network call in the
+      `docs` build. Each of the six installers is now published twice — once under its versioned
+      name, once under `mix_publish_alias`'s unversioned copy of it (`packaging/common.sh`) — and the
+      handbook links the unversioned name at
+      `https://github.com/mixnz/mixengine/releases/latest/download/<name>`, which GitHub always
+      resolves to whichever release is newest and not a pre-release. The same mechanism T88 already
+      uses for `latest.json`, reused rather than reinvented, and outside T90's "no external link is
+      checked" only in the sense that nothing here checks one — the build still touches no network,
+      and a stale link would 404 in a browser long before it failed silently in CI.
+      **What it leaves.** The page still names one pre-release by hand
+      (`v0.0.1-beta.1`) in a paragraph that says so, because GitHub's `/releases/latest/` deliberately
+      excludes pre-releases and has no equivalent for "newest, pre-release or not". That paragraph
+      comes out — by hand, per `docs/releasing.md` — the first time a non-pre-release version is
+      published; nothing else on the page changes after that, ever again, for this reason.
 - [x] **T91** Crash reporting that is opt-in and contains no project paths or credentials.
       Design: [2026-09-05-t91-crash-reporting-design.md](../../docs/superpowers/specs/2026-09-05-t91-crash-reporting-design.md).
       Decision: [ADR 0022](../decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).

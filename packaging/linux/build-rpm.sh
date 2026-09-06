@@ -47,4 +47,8 @@ done
 
 mix_checksum "$dist/$name"
 
+# The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_rpm="$(mix_publish_alias "$dist/$name" "mixengine-$arch.rpm")"
+
 echo "$dist/$name"
+echo "$alias_rpm"
