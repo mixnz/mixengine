@@ -21,7 +21,7 @@ answer was that the API is right and the prose was loose: `ServiceSummary` carri
 purpose, since a figure on `service.list` is a way to take T71's fast cadence without opening the
 subscription that is supposed to gate it.
 
-- [ ] **T96** Disk usage broken down by category, and a cleanup that can only reach what is safe to
+- [x] **T96** Disk usage broken down by category, and a cleanup that can only reach what is safe to
       lose.
       `daemon.disk_usage` is a strict read and `daemon.cleanup` is a job — the shape **T87** already
       established for `daemon.uninstall_plan` / `daemon.uninstall`, for the same reason: a call that

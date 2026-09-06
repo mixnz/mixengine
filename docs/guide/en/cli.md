@@ -847,6 +847,41 @@ mix self-update [OPTIONS]
 | `--check` | Check and print what is available. Installs nothing |
 | `--yes` | Answer the prompt in advance, for a script with nobody at the keyboard |
 
+## mix disk
+
+Where this home's disk has gone, and what would take each part back.
+
+Five categories — runtimes, data, logs, certs and cache — plus everything else. Each row says what
+would reclaim it: your databases never, a runtime only through `mix runtime uninstall`, the
+certificates only by losing HTTPS until they are issued again, and the logs and the cache by `mix
+cleanup`.
+
+```
+mix disk
+```
+
+## mix cleanup
+
+Take back what is safe to lose: rotated log files and the download cache.
+
+Nothing else, whatever `mix disk` says the total is. Your databases, your installed runtimes, your
+certificates, the log files being written right now and this home's crash reports are all out of
+reach — this command matches file names, it does not sweep the home.
+
+Refuses while another job is running, because a cleanup empties the directory a download resumes
+from.
+
+```
+mix cleanup [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--keep-logs` | Leave the rotated log files where they are |
+| `--keep-cache` | Leave the download cache where it is |
+| `--yes` | Answer the confirmation in advance, for a script with nobody at the keyboard |
+| `--no-wait` | Start the work and print the job, rather than waiting for it to finish |
+
 ## mix uninstall
 
 Take MixEngine off this machine.

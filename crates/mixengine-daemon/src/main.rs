@@ -7,6 +7,7 @@ mod certs;
 mod crash;
 mod databases;
 mod diagnostics;
+mod disk;
 mod dns;
 mod doctor;
 mod domains;

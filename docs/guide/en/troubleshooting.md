@@ -110,6 +110,36 @@ satisfies it and points at `mix runtime available` instead.
 **Something asked for an administrator and you said no.** Nothing is half-applied. `mix elevation
 status` shows what is still waiting, and `mix elevation grant` asks again.
 
+## MixEngine is using too much disk
+
+`mix disk` breaks this home down into five categories and says, for each one, what would take it
+back:
+
+```
+          size      reclaimed by
+runtimes  700 MiB   runtime.uninstall — one runtime at a time, and never one a running pool is using
+data      1200 MiB  these are your databases, and nothing in MixEngine deletes them
+logs      40 MiB    `mix cleanup` — 30 MiB in 4 file(s)
+certs     < 1 MiB   every site would lose HTTPS until `cert.issue` ran again …
+cache     90 MiB    `mix cleanup` — 90 MiB in 12 file(s)
+other     310 MiB   packages, generated config, the database
+```
+
+`mix cleanup` takes back the last two and nothing else. It removes rotated log files —
+`daemon.log.1`, a service's `current.log.2` — and empties the download cache. It does not touch the
+log files being written right now, this home's crash reports, your databases, your installed
+runtimes or your certificates: it matches file names rather than sweeping the home, so there is no
+argument you can give it that would reach them.
+
+`--keep-logs` and `--keep-cache` leave one of the two alone. `--yes` answers the confirmation in
+advance, which is how a script says yes.
+
+It refuses while another job is running, because emptying the cache would delete the file a download
+is resuming from. Wait for the job, or cancel it with `mix job cancel <id>`.
+
+To free more than that: `mix runtime list` and `mix runtime uninstall <kind>@<version>` are what
+reclaim `runtimes/`, and `mix package list` and `mix package uninstall <name>` most of *other*.
+
 ## When MixEngine itself hits a bug
 
 If the daemon runs into a bug in its own code, it writes a small file into `logs/crashes/` inside

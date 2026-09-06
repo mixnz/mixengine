@@ -4,7 +4,7 @@ slug = "troubleshooting"
 order = 14
 summary = "Chạy mix doctor trước, rồi bốn lệnh trả lời đúng những câu hỏi người dùng hay gặp, và một file gom đủ mọi thứ một báo cáo lỗi cần."
 translation_of = "en/troubleshooting.md"
-source_sha256 = "f884545cb7911fdc318dc26012d1694b601e2e711a57d27cc9418bd80f94d6cc"
+source_sha256 = "d247f5fee1a1e68095e79fa749632921e65dd42b6bffd85ef0eac0df6ac854bb"
 +++
 
 # Khi có gì đó không ổn
@@ -112,6 +112,36 @@ sang `mix runtime available`.
 
 **Có gì đó xin quyền quản trị và bạn đã từ chối.** Không có gì bị áp dụng nửa chừng.
 `mix elevation status` cho biết còn gì đang chờ, và `mix elevation grant` hỏi lại.
+
+## MixEngine chiếm quá nhiều dung lượng đĩa
+
+`mix disk` chia home này thành năm nhóm và nói rõ, với từng nhóm, thứ gì lấy lại được dung lượng đó:
+
+```
+          size      reclaimed by
+runtimes  700 MiB   runtime.uninstall — one runtime at a time, and never one a running pool is using
+data      1200 MiB  these are your databases, and nothing in MixEngine deletes them
+logs      40 MiB    `mix cleanup` — 30 MiB in 4 file(s)
+certs     < 1 MiB   every site would lose HTTPS until `cert.issue` ran again …
+cache     90 MiB    `mix cleanup` — 90 MiB in 12 file(s)
+other     310 MiB   packages, generated config, the database
+```
+
+`mix cleanup` chỉ lấy lại hai nhóm cuối và không gì khác. Nó xóa các bản log đã xoay vòng —
+`daemon.log.1`, `current.log.2` của một service — và dọn sạch cache tải về. Nó không đụng tới các
+file log đang được ghi ngay lúc này, các báo cáo sự cố của home, cơ sở dữ liệu của bạn, các runtime
+đã cài hay các chứng chỉ: nó khớp theo *tên file* chứ không quét cả home, nên không có tham số nào
+bạn truyền vào mà chạm tới được chúng.
+
+`--keep-logs` và `--keep-cache` giữ lại một trong hai nhóm. `--yes` trả lời câu xác nhận trước, đó
+là cách một script nói đồng ý.
+
+Lệnh này từ chối chạy khi còn job khác đang chạy, vì dọn cache sẽ xóa mất file mà một lượt tải đang
+tiếp tục dở. Hãy đợi job đó xong, hoặc hủy nó bằng `mix job cancel <id>`.
+
+Để giải phóng nhiều hơn: `mix runtime list` và `mix runtime uninstall <kind>@<version>` là thứ lấy
+lại `runtimes/`, còn `mix package list` và `mix package uninstall <name>` lấy lại phần lớn của
+*other*.
 
 ## Khi chính MixEngine gặp bug
 

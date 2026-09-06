@@ -21,6 +21,7 @@ mod crash;
 mod daemon;
 mod database;
 mod database_api;
+mod disk_api;
 mod doctor_api;
 mod domain_api;
 
@@ -83,6 +84,10 @@ pub use database::{
 };
 pub use database_api::{
     DatabaseClientQuery, DatabaseCreate, DatabaseCredentialsQuery, DatabaseOpen,
+};
+pub use disk_api::{
+    CategoryUsage, Cleaned, Cleanup, CleanupQuery, CleanupReport, DiskCategory, DiskUsage,
+    DiskUsageQuery, Reclaim,
 };
 pub use doctor_api::{Check, DoctorReport, Outcome, ProblemId};
 pub use domain_api::{

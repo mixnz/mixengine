@@ -179,6 +179,11 @@ const PERMITTED: &[(&str, &str)] = &[
         "mixengine-daemon/src/uninstall/inventory.rs",
         "the test for what a dangling symlink means, on the system that has them",
     ),
+    (
+        "mixengine-daemon/src/disk/measure.rs",
+        "the test that a walk counts a symlink as itself rather than following it, which needs a \
+         symlink to make — and making one on Windows needs a privilege the runner does not have",
+    ),
 ];
 
 /// **`cfg!` is deliberately not caught, and the difference is not a technicality.** A `cfg!(windows)`

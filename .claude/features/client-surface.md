@@ -20,8 +20,10 @@ binaries. What they state is what the daemon **writes** —
 
 1. **Dashboard** — per-service state, port and uptime from `service.list`, and CPU % and RSS from
    the metrics stream, joined on `MetricsSubject::Service(id)`; start/stop/restart per service and a
-   global stop-all; disk usage broken down by category (runtimes, data, logs, certs) with a cleanup
-   action — **T96**; the recent slice of the event stream.
+   global stop-all; disk usage broken down by **five** categories from `daemon.disk_usage` —
+   runtimes, data, logs, certs and `cache/` — each carrying what would reclaim it, with
+   `daemon.cleanup` behind the button and only two of the five in its reach (**T96**); the recent
+   slice of the event stream.
 
    **This line said "in one read" until 2026-09-06, and the correction is the point rather than the
    pedantry.** The join is exact — `MetricsSubject` wraps a real `ServiceId` and not a guess — but
@@ -240,11 +242,13 @@ reason.
 - Every screen above can be assembled from documented methods and events, with no method existing
   solely to serve one of them.
 
-**The second criterion is not met, and this is where that is written down rather than discovered.**
-Two things it promises have no method behind them — the Dashboard's disk usage and the Settings
-screen's default web server — and both were found by **MixDB reading this page against the API**
-while writing its own Phase 4 spec, not by anybody here. That is the arrangement
+**The second criterion was not met until 2026-09-06, and this is where that is written down rather
+than discovered.** Two things it promised had no method behind them — the Dashboard's disk usage and
+the Settings screen's default web server — and both were found by **MixDB reading this page against
+the API** while writing its own Phase 4 spec, not by anybody here. That is the arrangement
 [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) accepted working as designed and costing
 what it costs: a claim made on paper in this repository is checked by somebody else's code, later.
-They are **T96** and **T97**, in [phase 10](../roadmap/phase-10-client-surface.md), and the criterion
-above is that phase's milestone.
+The first is closed by **T96** — `daemon.disk_usage` and `daemon.cleanup`, reachable as `mix disk`
+and `mix cleanup`. The second is **T97**, in
+[phase 10](../roadmap/phase-10-client-surface.md), and the criterion above is that phase's
+milestone.
