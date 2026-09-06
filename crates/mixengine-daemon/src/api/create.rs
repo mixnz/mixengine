@@ -198,6 +198,7 @@ impl Api {
             Ok(graph) => Ok(ServiceCreation {
                 service: super::rpc::summary(
                     &graph,
+                    &catalogue,
                     &create.id,
                     mixengine_core::services::record(&self.store, &create.id)
                         .await
@@ -281,7 +282,13 @@ impl Api {
         }
 
         // Read before anything is removed, because afterwards there is nothing left to describe.
-        let removed = super::rpc::summary(&graph, id, Some(&record), &supervised);
+        let removed = super::rpc::summary(
+            &graph,
+            &crate::services::catalogue(),
+            id,
+            Some(&record),
+            &supervised,
+        );
 
         let column = mixengine_core::services::delete(&self.store, id)
             .await

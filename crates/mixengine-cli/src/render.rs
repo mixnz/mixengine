@@ -4774,6 +4774,7 @@ mod tests {
             last_started_at: running.then_some(Timestamp(1_723_000_000_000)),
             last_exit_code: None,
             depends_on: Vec::new(),
+            role: Some(mixengine_proto::ServiceRole::Other {}),
         }
     }
 

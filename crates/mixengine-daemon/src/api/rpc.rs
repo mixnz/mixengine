@@ -22,9 +22,9 @@ use mixengine_proto::{
     MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery, ProjectUpdate,
     ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall, ServiceCreate,
     ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceSpec, ServiceSummary, ServiceTarget,
-    ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate, UninstallQuery,
-    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
+    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec, ServiceSummary,
+    ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate,
+    UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -1496,9 +1496,13 @@ impl Api {
             .map_err(|error| error.to_wire())?;
         let supervised = self.services.supervised();
 
+        // Built once for the listing and not once per row: what a package is for is the same
+        // answer for every service in it.
+        let catalogue = crate::services::catalogue();
+
         let services = graph
             .ids()
-            .map(|id| summary(&graph, id, rows.get(id.as_str()), &supervised))
+            .map(|id| summary(&graph, &catalogue, id, rows.get(id.as_str()), &supervised))
             .collect();
 
         Ok(ServiceList { services })
@@ -1730,6 +1734,7 @@ impl Api {
 
         Ok(summary(
             &graph,
+            &crate::services::catalogue(),
             id,
             record.as_ref(),
             &self.services.supervised(),
@@ -1948,6 +1953,7 @@ fn stop_plan(graph: &ServiceGraph, service: Option<&ServiceId>) -> Result<Plan, 
 /// then refuses to start explains nothing to whoever declared it.
 pub(super) fn summary(
     graph: &ServiceGraph,
+    catalogue: &mixengine_core::generate::Catalogue,
     id: &ServiceId,
     record: Option<&ServiceRecord>,
     supervised: &BTreeSet<ServiceId>,
@@ -1971,6 +1977,24 @@ pub(super) fn summary(
             .dependencies_of(id)
             .map(|dependencies| dependencies.iter().cloned().collect())
             .unwrap_or_default(),
+        role: Some(role_of(catalogue, id)),
+    }
+}
+
+/// What a package is *for*, as the catalogue answers it — roadmap task **T97**.
+///
+/// **By what the recipe says, never by the name.** That is the whole of what this member exists to
+/// stop a client doing, so deriving it here from a string would only move the copy one crate down.
+///
+/// A row this build has no recipe for is [`ServiceRole::Other`] rather than absent: `None` on the
+/// wire means *the daemon predates the member* (ADR 0019), and a service MixEngine cannot configure
+/// is certainly not the program every site is reached through — which is the same answer
+/// [`front_end::held_by`](mixengine_core::services::front_end::held_by) already gives such a row
+/// when it passes over it.
+fn role_of(catalogue: &mixengine_core::generate::Catalogue, id: &ServiceId) -> ServiceRole {
+    match catalogue.recipe(id.name()).map(|recipe| recipe.role()) {
+        Some(mixengine_core::generate::Role::FrontEnd(server)) => ServiceRole::FrontEnd { server },
+        Some(mixengine_core::generate::Role::Other) | None => ServiceRole::Other {},
     }
 }
 
@@ -3088,6 +3112,46 @@ mod tests {
             web.depends_on,
             vec![fixture::service("db")],
             "the graph's edge, which is what makes a start order explicable"
+        );
+    }
+
+    /// **T97.** A listing says what each service is *for*, so a client never has to decide that
+    /// `nginx` means "front end" for itself.
+    ///
+    /// Written with nginx rather than Caddy on purpose, which is `front_end::held_by`'s own test
+    /// rule: the answer has to come from the recipe, and a lookup that had happened to be a
+    /// comparison against the string `caddy` would pass the other way round and fail this.
+    #[tokio::test]
+    async fn a_listing_says_what_each_service_is_for() {
+        let declared = Arc::new(fixture::Declared(vec![
+            fixture::spec("mariadb@main")
+                .build()
+                .expect("a usable spec"),
+            fixture::spec("nginx").build().expect("a usable spec"),
+        ]));
+        let daemon = daemon(declared, &["mariadb@main", "nginx"]).await;
+
+        let list: ServiceList = daemon.expect(rpc::method::SERVICE_LIST, Value::Null).await;
+
+        let role = |id: &str| {
+            list.services
+                .iter()
+                .find(|one| one.id.as_str() == id)
+                .unwrap_or_else(|| panic!("{id} is in the listing"))
+                .role
+        };
+
+        assert_eq!(
+            role("nginx"),
+            Some(ServiceRole::FrontEnd {
+                server: mixengine_proto::FrontEndServer::Nginx
+            }),
+            "the program every site is reached through, by what its recipe is for"
+        );
+        assert_eq!(
+            role("mariadb@main"),
+            Some(ServiceRole::Other {}),
+            "a database is not one of them"
         );
     }
 

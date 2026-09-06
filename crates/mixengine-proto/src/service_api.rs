@@ -14,8 +14,8 @@
 //! [`ServiceSpec`]: crate::ServiceSpec
 
 use crate::{
-    IdleExemption, IdlePolicy, IdleSource, LimitSupport, PackageVersion, ResourceLimits, ServiceId,
-    ServiceState, StateReason, Timestamp,
+    FrontEndServer, IdleExemption, IdlePolicy, IdleSource, LimitSupport, PackageVersion,
+    ResourceLimits, ServiceId, ServiceState, StateReason, Timestamp,
 };
 
 /// Which services a call is about, and whether the caller waits for the answer to be true.
@@ -167,6 +167,56 @@ pub struct ServiceSummary {
     /// What it declares it needs, as the graph holds it: each dependency once, in [`ServiceId`]
     /// order. Empty for a service that depends on nothing.
     pub depends_on: Vec<ServiceId>,
+
+    /// What this service is *for*, where two packages can be for the same thing — roadmap task
+    /// **T97**.
+    ///
+    /// **The one thing a client could previously do nothing about.** Which program a home's sites
+    /// are reached through is a fact the daemon holds and never published, so a client wanting to
+    /// draw it had to hardcode that the package names `caddy` and `nginx` mean "front end" — a copy,
+    /// in the client, of a table the daemon compiles in. This is that table answering.
+    ///
+    /// **A wire fact and not a domain one**, in
+    /// [ADR 0019](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md)'s
+    /// sense: [`None`] means *this daemon was built before the member existed* and never *the role
+    /// could not be determined*. A row whose package this build has no recipe for is
+    /// [`ServiceRole::Other`], decided rather than absent — which is the same answer the refusal
+    /// behind this already gives such a row when it passes over it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<ServiceRole>,
+}
+
+/// What a service is *for*, where two packages can be for the same thing — roadmap task **T97**.
+///
+/// The wire half of `mixengine-core`'s `Role`, which is what a recipe answers and what
+/// `service.create` refuses a second front end by (**T37**).
+///
+/// **[`FrontEnd`](Self::FrontEnd) carries which of the two it is, and that is the whole point.**
+/// Without the payload a client that wanted to draw a two-way switch would be back where it started:
+/// it would know that `caddy` is a front end and have no way to name the other one but by writing
+/// the string. With it, the value read off the active row is the value
+/// [`FrontEndSwitch::server`] takes, and
+/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)'s
+/// *no client may map a package name to a role* is something a client can obey.
+///
+/// Only the one distinction, because only one exists: every other recipe is a server a home may run
+/// beside any of the others.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "role", rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum ServiceRole {
+    /// The program every site on this machine is reached through. Exactly one at a time.
+    FrontEnd {
+        /// Which of them, as the value a switch is asked for by.
+        server: FrontEndServer,
+    },
+
+    /// Everything else: a database, a cache, a pool.
+    ///
+    /// `Other {}` and not `Other`, for the reason `PrivilegedOp::Probe` is written that way: serde
+    /// reads a *unit* variant of an internally tagged enum through `deserialize_any`, which takes
+    /// the map and drops every key but the tag. An empty struct variant is read as a struct.
+    Other {},
 }
 
 /// What a `service.start`, `service.stop` or `service.restart` did.
@@ -344,6 +394,60 @@ mod tests {
         ServiceId::parse(id).expect("a valid service id")
     }
 
+    /// Both answers travel tagged, and the front-end one carries which program it is — which is
+    /// what a client sends back to switch.
+    #[test]
+    fn a_role_says_what_a_service_is_for_and_names_the_program_when_it_matters() {
+        let front_end = ServiceRole::FrontEnd {
+            server: FrontEndServer::Nginx,
+        };
+
+        let encoded = serde_json::to_value(front_end).expect("a role encodes");
+        assert_eq!(encoded["role"], "front_end");
+        assert_eq!(encoded["server"], "nginx");
+        assert_eq!(
+            serde_json::from_value::<ServiceRole>(encoded).expect("and decodes"),
+            front_end
+        );
+
+        let other = serde_json::to_value(ServiceRole::Other {}).expect("a role encodes");
+        assert_eq!(other["role"], "other");
+        assert_eq!(
+            serde_json::from_value::<ServiceRole>(other).expect("and decodes"),
+            ServiceRole::Other {}
+        );
+    }
+
+    /// **The floor of protocol 1**, as the JSON a daemon from before **T97** actually sent — and
+    /// the guard on [ADR 0019] that keeps the next added member optional too.
+    ///
+    /// Every member below is one this type was frozen with. [`ServiceSummary::role`] is absent,
+    /// which is what such a daemon puts on the wire, and this build reads it as [`None`] rather
+    /// than refusing the whole answer — which is the state a self-updating product spends every
+    /// upgrade in, its binaries replaced and its daemon not yet restarted.
+    ///
+    /// [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md
+    #[test]
+    fn a_summary_from_before_a_role_existed_still_reads() {
+        let floor = r#"{
+            "id": "mariadb@main",
+            "state": "stopped",
+            "supervised": false,
+            "pid": null,
+            "last_started_at": null,
+            "last_exit_code": null,
+            "depends_on": []
+        }"#;
+
+        let decoded: ServiceSummary = serde_json::from_str(floor).expect("a summary");
+
+        assert_eq!(decoded.id.as_str(), "mariadb@main");
+        assert_eq!(
+            decoded.role, None,
+            "an absent role is a daemon that predates the member, never a role nobody established"
+        );
+    }
+
     /// **D4.** The shape every client has sent since T31a still parses, and gains one optional key.
     #[test]
     fn a_service_delete_from_before_force_existed_still_parses() {
@@ -366,6 +470,7 @@ mod tests {
             last_started_at: None,
             last_exit_code: None,
             depends_on: Vec::new(),
+            role: Some(ServiceRole::Other {}),
         }
     }
 
@@ -454,10 +559,12 @@ mod tests {
             last_started_at: None,
             last_exit_code: None,
             depends_on: Vec::new(),
+            role: None,
         };
 
         let encoded = serde_json::to_value(&summary).unwrap();
         assert!(encoded.get("state").is_none(), "{encoded}");
+        assert!(encoded.get("role").is_none(), "{encoded}");
         assert_eq!(encoded["supervised"], false);
         assert_eq!(
             serde_json::from_value::<ServiceSummary>(encoded).unwrap(),
