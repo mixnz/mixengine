@@ -92,6 +92,37 @@ pub mod method {
     /// removed has nothing left to serve. The job's result is written before the process goes.
     pub const DAEMON_UNINSTALL: &str = "daemon.uninstall";
 
+    /// Where this home's disk has gone, category by category. Takes
+    /// [`DiskUsageQuery`](crate::DiskUsageQuery), answers [`DiskUsage`](crate::DiskUsage). Roadmap
+    /// task **T96**.
+    ///
+    /// **A read in the strict sense**, exactly as [`DAEMON_DOCTOR`] and [`DAEMON_UNINSTALL_PLAN`]
+    /// are: no row is written, no file is written, nothing is enqueued, and no elevation prompt can
+    /// result from calling it. It is also a walk of tens of thousands of files, so the daemon keeps
+    /// the last reading for a minute — [`DiskUsageQuery::refresh`](crate::DiskUsageQuery::refresh)
+    /// forces a fresh one and [`DiskUsage::measured_at`](crate::DiskUsage::measured_at) says which
+    /// happened.
+    ///
+    /// Acting on what it found is [`DAEMON_CLEANUP`], and only two of the five rows can be acted on
+    /// at all.
+    pub const DAEMON_DISK_USAGE: &str = "daemon.disk_usage";
+
+    /// Remove what is safe to lose. Takes [`CleanupQuery`](crate::CleanupQuery), answers a
+    /// [`JobSummary`](crate::JobSummary) whose result is a [`CleanupReport`](crate::CleanupReport).
+    /// Roadmap task **T96**.
+    ///
+    /// **What it may remove is a closed list, never a walk of the home** — [`DAEMON_BUNDLE`]'s rule
+    /// (**T93**) applied to deletion. Rotated log files and `cache/`; nothing else, whatever
+    /// [`DAEMON_DISK_USAGE`]'s sum says. The live log files, `logs/crashes/`, `data/`, `runtimes/`
+    /// and `certs/` are out of reach by construction rather than by a check somebody has to
+    /// remember.
+    ///
+    /// **A job, and one that refuses to run beside another.** `cache/downloads/` holds a resumable
+    /// download [`RUNTIME_INSTALL`] may be writing to and `cache/updates/` a payload
+    /// [`UPDATE_APPLY`] is about to run; unlinking either mid-flight breaks an install for a reason
+    /// nothing in its own log explains. So a second job running is `precondition_failed`, naming it.
+    pub const DAEMON_CLEANUP: &str = "daemon.cleanup";
+
     /// What this home's certificate authority is: its subject, its fingerprint and how long it has
     /// left.
     ///
