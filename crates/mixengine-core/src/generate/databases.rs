@@ -171,6 +171,41 @@ pub fn validated_identifier(name: &str) -> Result<String> {
     Ok(name.to_owned())
 }
 
+/// A password a person chose, validated and never escaped — roadmap task **T77b**.
+///
+/// The same reasoning as [`validated_identifier`]: every recipe interpolates this value into a
+/// quoted SQL literal and nothing escapes it, so what is refused here is exactly the set of
+/// characters that could end that literal early or break a `.env` line it will be pasted into — a
+/// single quote, a backslash, any whitespace, any control character, and anything outside
+/// printable ASCII. Length is bounded at 128: long enough for any passphrase, short enough that a
+/// pasted value that is actually a whole file is refused rather than silently truncated later.
+///
+/// # Errors
+///
+/// [`Error::InvalidPassword`], which carries no copy of what was refused.
+pub(crate) fn validated_password(raw: &str) -> Result<String> {
+    let refuse = |reason: &'static str| Err(Error::InvalidPassword { reason });
+
+    let len = raw.chars().count();
+
+    if len == 0 {
+        return refuse("it is empty");
+    }
+    if len > 128 {
+        return refuse("it is longer than 128 characters");
+    }
+    if !raw
+        .chars()
+        .all(|c| c.is_ascii_graphic() && c != '\'' && c != '\\')
+    {
+        return refuse(
+            "only printable ASCII is allowed, and not a quote, a backslash, or whitespace",
+        );
+    }
+
+    Ok(raw.to_owned())
+}
+
 /// A [`DatabaseAdmin`], bound to the instance it is for.
 ///
 /// Holds the [`Context`] for [`super::first_run::FirstRun`]'s reason: the steps cannot be built
@@ -330,5 +365,48 @@ mod tests {
     fn an_identifier_stops_at_the_length_an_account_may_have() {
         assert!(validated_identifier(&"a".repeat(IDENTIFIER_LIMIT)).is_ok());
         assert!(validated_identifier(&"a".repeat(IDENTIFIER_LIMIT + 1)).is_err());
+    }
+
+    /// **Validated, never escaped** — the same rule [`validated_identifier`] follows, for the same
+    /// reason: every recipe interpolates this value into a quoted SQL literal and nothing escapes
+    /// it, so every character that could end that literal early is refused here instead.
+    #[test]
+    fn a_password_refuses_what_would_end_a_quoted_literal() {
+        assert_eq!(
+            validated_password("secret").ok().as_deref(),
+            Some("secret")
+        );
+        assert_eq!(
+            validated_password("p@ss$word#1").ok().as_deref(),
+            Some("p@ss$word#1"),
+            "punctuation that cannot end a quoted literal is the person's .env parser's problem, \
+             not this validator's"
+        );
+        assert_eq!(
+            validated_password(&"x".repeat(128)).ok().as_deref(),
+            Some("x".repeat(128).as_str()),
+            "128 characters is the ceiling, and it is allowed"
+        );
+
+        assert!(validated_password("").is_err(), "empty is refused");
+        assert!(
+            matches!(validated_password("a'b"), Err(Error::InvalidPassword { .. })),
+            "a single quote ends MariaDB's and PostgreSQL's literal early"
+        );
+        assert!(
+            matches!(validated_password("a\\b"), Err(Error::InvalidPassword { .. })),
+            "backslash is MySQL's escape character inside a literal"
+        );
+        assert!(
+            validated_password("a b").is_err(),
+            "a space breaks a .env line in half the parsers that exist"
+        );
+        assert!(validated_password("a\tb").is_err(), "a tab is whitespace too");
+        assert!(validated_password("a\nb").is_err(), "a newline is whitespace too");
+        assert!(validated_password("café").is_err(), "outside printable ASCII is refused");
+        assert!(
+            validated_password(&"x".repeat(129)).is_err(),
+            "129 characters is over the ceiling"
+        );
     }
 }

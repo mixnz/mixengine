@@ -183,6 +183,18 @@ pub enum Error {
         reason: &'static str,
     },
 
+    /// A password a person chose is not one this build will put in a statement.
+    ///
+    /// **Never the value** — roadmap task **T77b**. Unlike [`Error::InvalidDatabaseName`], this
+    /// variant carries no copy of what was refused: a database or account name is meant to be seen
+    /// again, a password is not, and an error that echoed it back would put it in a terminal's
+    /// scrollback and a CI log for the one call that exists to keep it out of both.
+    #[error("that password cannot be used: {reason}")]
+    InvalidPassword {
+        /// Which rule it broke, in the words the user is shown.
+        reason: &'static str,
+    },
+
     /// An account of this name is on the server and MixEngine holds no credential for it.
     ///
     /// **A keyring entry is the deed of ownership** — the T77a design, D3. Without this refusal,
