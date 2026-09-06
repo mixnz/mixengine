@@ -185,6 +185,17 @@ pub struct RuntimeFilter {
     /// installed is an empty list rather than an error.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kind: Option<RuntimeKind>,
+
+    /// Ask the package index again even if the cached copy is still fresh.
+    ///
+    /// Meaningless for `runtime.list_installed`, which never reaches the index at all — carried on
+    /// the one filter type both methods take rather than a second type for the one field that
+    /// differs, on this type's own precedent for `kind`. `mixengine_core::index::Client::catalogue`
+    /// only asks again once the cache is older than `FRESH_FOR`, which is the right default and the
+    /// wrong answer for someone who just watched a version get published and does not want to wait
+    /// six hours for their own machine to notice.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub refresh: bool,
 }
 
 /// What `runtime.list_installed` answers.
@@ -426,6 +437,7 @@ mod tests {
 
         assert_eq!(filter, RuntimeFilter::default());
         assert_eq!(filter.kind, None, "every kind");
+        assert!(!filter.refresh, "a fresh cache is used by default");
     }
 
     #[test]

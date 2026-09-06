@@ -93,6 +93,7 @@ mix runtime available [OPTIONS]
 | Flag | What it does |
 | --- | --- |
 | `--kind` `<RUNTIME>` | Only this language. Every one of them when it is left out |
+| `--refresh` | Ask the package index again even if the cached copy is still fresh. The daemon otherwise answers from a cache for up to six hours, which is the wrong default for someone who just watched a version get published and does not want to wait for their own machine to notice. |
 
 ### mix runtime install
 
@@ -240,6 +241,7 @@ mix package available [OPTIONS]
 | Flag | What it does |
 | --- | --- |
 | `--package` `<PACKAGE>` | Only this package. Every one of them when it is left out |
+| `--refresh` | Ask the package index again even if the cached copy is still fresh. The daemon otherwise answers from a cache for up to six hours, which is the wrong default for someone who just watched a version get published and does not want to wait for their own machine to notice. |
 
 ### mix package install
 
@@ -633,8 +635,12 @@ mix extension list
 What the signed registry publishes
 
 ```
-mix extension available
+mix extension available [OPTIONS]
 ```
+
+| Flag | What it does |
+| --- | --- |
+| `--refresh` | Ask the registry again even if the cached copy is still fresh. The daemon otherwise answers from a cache for up to six hours, which is the wrong default for someone who just watched an extension get published and does not want to wait for their own machine to notice. |
 
 ### mix extension plan
 

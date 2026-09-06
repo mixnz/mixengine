@@ -63,6 +63,12 @@ pub struct PackageFilter {
     /// nobody has installed is an empty list rather than an error.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub package: Option<String>,
+
+    /// Ask the package index again even if the cached copy is still fresh —
+    /// [`RuntimeFilter::refresh`](crate::RuntimeFilter::refresh)'s reason, meaningless here for
+    /// `package.list`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub refresh: bool,
 }
 
 /// What `package.list` answers.
@@ -197,6 +203,7 @@ mod tests {
 
         assert_eq!(filter, PackageFilter::default());
         assert_eq!(filter.package, None);
+        assert!(!filter.refresh, "a fresh cache is used by default");
     }
 
     /// A held package says so in the listing, because that is where "why can I not remove this" is

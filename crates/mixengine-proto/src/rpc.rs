@@ -189,6 +189,7 @@ pub mod method {
     ///
     /// Reaches the network, and answers from the last verified index when it cannot — the
     /// `stale` flag beside the list is what says which happened.
+    /// [`RuntimeFilter::refresh`](crate::RuntimeFilter::refresh) skips a still-fresh cache.
     pub const RUNTIME_LIST_AVAILABLE: &str = "runtime.list_available";
 
     /// Every runtime on this machine. Takes [`RuntimeFilter`](crate::RuntimeFilter), answers
@@ -351,6 +352,7 @@ pub mod method {
     ///
     /// Reaches the network, and answers from the last verified index when it cannot — the `stale`
     /// flag beside the list is what says which happened.
+    /// [`PackageFilter::refresh`](crate::PackageFilter::refresh) skips a still-fresh cache.
     ///
     /// **Names only what this build has a recipe for.** An index entry MixEngine cannot configure is
     /// a download ending in a directory nothing can use, so it is not offered at all.
@@ -703,7 +705,8 @@ pub mod method {
     /// [`ExtensionList`](crate::ExtensionList).
     pub const EXTENSION_LIST: &str = "extension.list";
 
-    /// What the signed registry publishes. Takes nothing, answers
+    /// What the signed registry publishes. Takes
+    /// [`ExtensionAvailable`](crate::ExtensionAvailable), answers
     /// [`ExtensionCatalogue`](crate::ExtensionCatalogue), which says how many entries this build
     /// could not read rather than leaving them out in silence.
     pub const EXTENSION_AVAILABLE: &str = "extension.available";

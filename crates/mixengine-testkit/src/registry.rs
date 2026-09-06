@@ -36,6 +36,14 @@ use minisign::{KeyPair, SecretKey};
 struct Published {
     document: Vec<u8>,
     signature: String,
+
+    /// The second document, served at `/extensions.json` beside `/index.json` — the shape
+    /// `mixengine_core::extensions::registry::Registry` reads. `None` until
+    /// [`MockRegistry::publish_extensions`] is called, so a test that never touches the extension
+    /// registry costs this struct nothing and a fetch against it 404s the way an unpublished path
+    /// does for any other server.
+    extensions: Option<(Vec<u8>, String)>,
+
     reachable: bool,
     assets: BTreeMap<String, Vec<u8>>,
     cut_after: Option<usize>,
@@ -72,6 +80,7 @@ impl MockRegistry {
         let published = Arc::new(Mutex::new(Published {
             document,
             signature,
+            extensions: None,
             reachable: true,
             assets: BTreeMap::new(),
             cut_after: None,
@@ -132,6 +141,22 @@ impl MockRegistry {
         let mut published = self.published.lock().expect("the registry lock");
         published.document = document;
         published.signature = signature;
+    }
+
+    /// Replace what is served at `/extensions.json`, signed with the same key as `/index.json`.
+    ///
+    /// The extension registry's own precedent for the one key: `.claude`'s note beside
+    /// `registry::DEFAULT_URL` argues a compromise of it costs the package index either way, so a
+    /// second key would separate nothing. Absent until this is called at least once.
+    ///
+    /// # Panics
+    ///
+    /// If the document cannot be serialised or signed.
+    pub fn publish_extensions(&self, extensions: &serde_json::Value) {
+        let document = serde_json::to_vec_pretty(extensions).expect("serialise the registry");
+        let signature = sign(&self.secret_key, &document);
+        let mut published = self.published.lock().expect("the registry lock");
+        published.extensions = Some((document, signature));
     }
 
     /// Serve a document with a signature that does not cover it.
@@ -233,6 +258,16 @@ async fn answer(
                     Bytes::from(published.signature.clone().into_bytes()),
                     StatusCode::OK,
                 ),
+                "/extensions.json" => match &published.extensions {
+                    Some((document, _)) => (Bytes::from(document.clone()), StatusCode::OK),
+                    None => (Bytes::new(), StatusCode::NOT_FOUND),
+                },
+                "/extensions.json.minisig" => match &published.extensions {
+                    Some((_, signature)) => {
+                        (Bytes::from(signature.clone().into_bytes()), StatusCode::OK)
+                    }
+                    None => (Bytes::new(), StatusCode::NOT_FOUND),
+                },
                 path => match published.assets.get(path).cloned() {
                     Some(asset) => asset_answer(&mut published, &request, asset),
                     None => (Bytes::new(), StatusCode::NOT_FOUND),

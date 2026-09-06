@@ -13,4 +13,10 @@ export type PackageFilter = {
  * reason: a GUI's first paint asks about everything at once, and the answer for a package
  * nobody has installed is an empty list rather than an error.
  */
-package?: string | null, };
+package?: string | null, 
+/**
+ * Ask the package index again even if the cached copy is still fresh —
+ * [`RuntimeFilter::refresh`](crate::RuntimeFilter::refresh)'s reason, meaningless here for
+ * `package.list`.
+ */
+refresh?: boolean, };

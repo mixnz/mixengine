@@ -207,6 +207,9 @@ impl Runtimes {
     /// listed version is installed is a fact about two lists, and leaving a client to cross-reference
     /// them would be two clients able to disagree about what "installed" means.
     ///
+    /// `filter.refresh` reaches the network even if the cache is still fresh — see
+    /// [`RuntimeFilter::refresh`](mixengine_proto::RuntimeFilter::refresh).
+    ///
     /// # Errors
     ///
     /// The wire error of an index that could not be obtained *at all* — a fetch that fails while a
@@ -215,12 +218,11 @@ impl Runtimes {
         &self,
         filter: &RuntimeFilter,
     ) -> Result<RuntimeCatalogue, Error> {
-        let catalogue = self
-            .fetcher
-            .index
-            .catalogue()
-            .await
-            .map_err(|error| error.to_wire())?;
+        let catalogue = match filter.refresh {
+            true => self.fetcher.index.refresh().await,
+            false => self.fetcher.index.catalogue().await,
+        }
+        .map_err(|error| error.to_wire())?;
         let installed = runtimes::records(&self.store, filter.kind)
             .await
             .map_err(|error| error.to_wire())?;

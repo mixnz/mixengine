@@ -99,10 +99,11 @@ pub use extension::{
     NetworkReach,
 };
 pub use extension_api::{
-    ArtifactAvailability, DesktopAppSummary, ExtensionCatalogue, ExtensionConsent,
-    ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer, ExtensionOrigin,
-    ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary, ExtensionTarget,
-    ExtensionUninstall, InstalledExtensions, PlannedSite, PortWish, RecipeAddition, WebAppSummary,
+    ArtifactAvailability, DesktopAppSummary, ExtensionAvailable, ExtensionCatalogue,
+    ExtensionConsent, ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer,
+    ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary,
+    ExtensionTarget, ExtensionUninstall, InstalledExtensions, PlannedSite, PortWish,
+    RecipeAddition, WebAppSummary,
 };
 pub use job::{JobFinish, JobId, JobKind, JobOutcome, JobProgress, JobState, JobUpdate};
 pub use job_api::{JobFilter, JobList, JobQuery, JobSummary, JobWait};

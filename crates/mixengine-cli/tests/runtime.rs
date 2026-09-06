@@ -292,3 +292,37 @@ async fn extensions_are_listed_with_a_reason_and_turned_round_one_at_a_time() {
         String::from_utf8_lossy(&refused.stderr)
     );
 }
+
+/// **`--refresh` is the argument that reaches `RuntimeFilter::refresh`.**
+///
+/// What the daemon does with the flag is `tests/runtimes.rs`' `refresh_bypasses_a_fresh_cache`; what
+/// is only true of `mix` is that this exact word, typed on the command line, is the thing that sets
+/// it — proved here by a republished index a plain `mix runtime available` still cannot see.
+#[tokio::test(flavor = "multi_thread")]
+async fn refresh_reaches_the_daemon_from_the_command_line() {
+    let fixture = Fixture::start().await;
+    let home = &fixture.home;
+
+    let first = json(&home.mix(&["runtime", "available", "--json"]));
+    assert_eq!(first["runtimes"].as_array().map(Vec::len), Some(1));
+
+    fixture._registry.publish(&document!({
+        "schema": 1,
+        "generated_at": "2026-08-14T06:55:13Z",
+        "packages": [],
+    }));
+
+    let cached = json(&home.mix(&["runtime", "available", "--json"]));
+    assert_eq!(
+        cached["runtimes"].as_array().map(Vec::len),
+        Some(1),
+        "a fresh cache is not asked about again: {cached}"
+    );
+
+    let refreshed = json(&home.mix(&["runtime", "available", "--refresh", "--json"]));
+    assert_eq!(
+        refreshed["runtimes"].as_array().map(Vec::len),
+        Some(0),
+        "`--refresh` reached the daemon: {refreshed}"
+    );
+}

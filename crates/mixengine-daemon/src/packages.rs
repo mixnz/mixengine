@@ -114,6 +114,9 @@ impl Packages {
     /// silently matched nothing would look exactly like an index that publishes nothing — and the
     /// wire error of an index that could not be obtained *at all*. A fetch that fails while a cached
     /// index exists is answered from the cache, with [`PackageCatalogue::stale`] set.
+    ///
+    /// `filter.refresh` reaches the network even if the cache is still fresh — see
+    /// [`PackageFilter::refresh`](mixengine_proto::PackageFilter::refresh).
     pub(crate) async fn list_available(
         &self,
         filter: &PackageFilter,
@@ -123,12 +126,11 @@ impl Packages {
             None => self.catalogue.packages().map(str::to_owned).collect(),
         };
 
-        let catalogue = self
-            .fetcher
-            .index
-            .catalogue()
-            .await
-            .map_err(|error| error.to_wire())?;
+        let catalogue = match filter.refresh {
+            true => self.fetcher.index.refresh().await,
+            false => self.fetcher.index.catalogue().await,
+        }
+        .map_err(|error| error.to_wire())?;
         let installed = packages::records(&self.store, filter.package.as_deref())
             .await
             .map_err(|error| error.to_wire())?;

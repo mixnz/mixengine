@@ -14,4 +14,15 @@ export type RuntimeFilter = {
  * first paint asks about everything at once, and because the answer for a kind nobody has
  * installed is an empty list rather than an error.
  */
-kind?: RuntimeKind | null, };
+kind?: RuntimeKind | null, 
+/**
+ * Ask the package index again even if the cached copy is still fresh.
+ *
+ * Meaningless for `runtime.list_installed`, which never reaches the index at all — carried on
+ * the one filter type both methods take rather than a second type for the one field that
+ * differs, on this type's own precedent for `kind`. `mixengine_core::index::Client::catalogue`
+ * only asks again once the cache is older than `FRESH_FOR`, which is the right default and the
+ * wrong answer for someone who just watched a version get published and does not want to wait
+ * six hours for their own machine to notice.
+ */
+refresh?: boolean, };
