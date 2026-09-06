@@ -31,7 +31,17 @@ pub(crate) enum Account {
     /// Nothing of ours and nothing on the server: generate a password and store it.
     Generate,
 
-    /// Ours. Use this, and let the statements bring the server into line with it.
+    /// A password a person chose: write it to the keyring before anything runs, exactly as
+    /// [`Generate`](Self::Generate) does, then use it. Roadmap task **T77b**.
+    ///
+    /// **Distinct from [`Stored`](Self::Stored) on purpose.** A chosen password has never been
+    /// written yet — not even when it replaces an existing entry — so treating it as already
+    /// stored would use it without ever putting it in the keyring, which is the one bug this
+    /// distinction exists to rule out.
+    Store(String),
+
+    /// Ours, and already in the keyring. Use this, and let the statements bring the server into
+    /// line with it. Nothing is written: it is already there.
     Stored(String),
 
     /// On the server, and MixEngine holds no credential for it. Refuse.
@@ -53,11 +63,11 @@ pub(crate) fn decide(found: Found, stored: Option<String>, chosen: Option<String
         (true, None, _) => Account::Foreign,
 
         // A password was offered and the account is either ours already or does not exist yet:
-        // the chosen value replaces whatever was stored (or fills nothing), and the statements
-        // realign the server to it.
-        (_, _, Some(password)) => Account::Stored(password),
+        // the chosen value replaces whatever was stored (or fills nothing) and is written before
+        // the statements run, and the statements realign the server to it.
+        (_, _, Some(password)) => Account::Store(password),
 
-        // Ours: reuse the stored value.
+        // Ours: reuse the stored value. Nothing is written.
         (_, Some(password), None) => Account::Stored(password),
 
         // Nothing stored, nothing chosen, no account on the server: generate one.
@@ -81,6 +91,12 @@ pub(crate) async fn account_password(
 ) -> Result<String, Error> {
     match decide(found, read(host, address).await?, chosen) {
         Account::Stored(password) => Ok(password),
+
+        Account::Store(password) => {
+            write(host, address, &password).await?;
+
+            Ok(password)
+        }
 
         Account::Foreign => Err(mixengine_core::Error::AccountNotOurs {
             service: service.as_str().to_owned(),
@@ -279,12 +295,13 @@ mod tests {
 
         assert_eq!(
             decide(nothing, None, Some("chosen".to_owned())),
-            Account::Stored("chosen".to_owned()),
-            "no server account and no keyring entry: the chosen password becomes the stored one"
+            Account::Store("chosen".to_owned()),
+            "no server account and no keyring entry: the chosen password is written and then used, \
+             exactly as Generate's would be — never Stored, which writes nothing"
         );
         assert_eq!(
             decide(account, Some("old".to_owned()), Some("chosen".to_owned())),
-            Account::Stored("chosen".to_owned()),
+            Account::Store("chosen".to_owned()),
             "ours already, but the person wants it changed: replace the keyring entry and let the \
              statements' ALTER USER realign the server"
         );
@@ -331,6 +348,34 @@ mod tests {
                 service: KEYRING_SERVICE.to_owned(),
                 key: "mariadb@main/blog".to_owned(),
             }]
+        );
+    }
+
+    /// **A chosen password reaches the keyring, not just the return value** — roadmap task
+    /// **T77b**. Asserting only `decide`'s output would pass even if the caller forgot to write a
+    /// value nobody had stored yet; this is the test that actually exercises the write.
+    #[tokio::test]
+    async fn a_chosen_password_is_written_to_the_keyring_before_it_is_used() {
+        let (mock, host) = host(true);
+
+        let password = account_password(
+            &host,
+            "mariadb@main/blog",
+            &service(),
+            "blog",
+            Found::default(),
+            Some("chosen-by-a-person".to_owned()),
+        )
+        .await
+        .expect("a password");
+
+        assert_eq!(password, "chosen-by-a-person");
+        assert_eq!(
+            mock.keyring()
+                .secret(KEYRING_SERVICE, "mariadb@main/blog")
+                .expect("the mock store answers"),
+            Some("chosen-by-a-person".to_owned()),
+            "the chosen password must actually be in the keyring, not merely returned"
         );
     }
 
