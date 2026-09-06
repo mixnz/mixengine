@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.0.3
+
 - `feat(disk)`: disk usage by category plus a cleanup that only reaches what is safe to lose (`mix disk`, `mix cleanup`).
 - `fix(mysql)`: MySQL 5.7 now starts on Windows (`--shared-memory`); daemon waits for a leaving lock holder instead of racing it.
 - `fix(runtimes)`: correct the Windows DLL file name for a generated extension line.
