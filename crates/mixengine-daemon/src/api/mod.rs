@@ -231,6 +231,21 @@ pub(crate) struct Api {
 
     /// How this daemon stops, and how long it is allowed to take — see [`Shutdown`].
     shutdown: Shutdown,
+
+    /// One change to *which row is this home's front end* at a time — roadmap task **T97**.
+    ///
+    /// **The window this closes is real and short.** `service.set_front_end` deletes the old row
+    /// before it creates the new one, because ADR 0026 requires that "exactly one front end" is
+    /// never momentarily false — and in that window the very refusal that enforces it,
+    /// `service.create`'s, *accepts* a second front end, because at that instant the home genuinely
+    /// has none. The switch's own create then fails on a refusal it caused itself, with nothing left
+    /// to roll back to.
+    ///
+    /// Taken by `service.create` only when the recipe answers `Role::FrontEnd`, by `service.delete`
+    /// only when the row being deleted is one, and held across the whole of a switch. Every
+    /// database, cache and pool goes past it untouched, which is what makes a lock affordable on a
+    /// path that is otherwise the hottest in this file.
+    front_end: tokio::sync::Mutex<()>,
 }
 
 /// What this daemon is looking after: its services, its jobs, its runtimes and its `bin/`.
@@ -581,6 +596,7 @@ impl Api {
             started,
             events,
             shutdown,
+            front_end: tokio::sync::Mutex::new(()),
         })
     }
 
