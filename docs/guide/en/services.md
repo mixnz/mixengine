@@ -102,8 +102,8 @@ mix service delete mariadb@legacy
 
 ## Which web server your sites go through
 
-One of Caddy and Nginx is your front end at a time: every site in the home is reached through it, and
-`mix service front-end` says which one it is.
+One of Caddy and Nginx is your front end at a time: every site in the home is reached through it,
+and `mix service front-end` says which one it is.
 
 ```bash
 mix service front-end

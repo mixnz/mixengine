@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "e54569b860ed1390b5a8a8ca6aa199e241f05beb3dcb9b023af42738f78a5c1f"
+source_sha256 = "1d3493a9cd0667ba5e8816d4ac34e6de5bdb599b9e2826c4c67f7774b2c1a481"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
