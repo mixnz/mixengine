@@ -14,15 +14,24 @@
 // `crates/mixengine-core/src/blueprints/gallery/` and one CLI fixture carry a
 // `[blueprint.created_on] version`, which is the MixEngine a blueprint was *captured on* — a fact
 // about the past. Rewriting those would make six documents claim they were captured on a release
-// that did not exist when they were written. They are reported at the end and never touched.
+// that did not exist when they were written. They are neither rewritten nor searched.
+//
+// **What it does do is carry the version to the two other kinds of place that hold one**: it stops
+// the bump when `packaging/` or `.github/` types the version out instead of deriving it, and it
+// rewrites the handbook pages that name the current release in prose. That is why this is a script
+// and not a one-line edit — a version that has to be retyped by hand somewhere else is a version
+// that will one day be retyped in only one of them, which is how `docs/guide/*/for-agents.md` came
+// to claim `0.1.0` through three bumps.
 
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = join(ROOT, "Cargo.toml");
+const GUIDE = join(ROOT, "docs", "guide");
 
 /** Semantic versions, with an optional pre-release and build metadata. */
 const SEMVER =
@@ -74,7 +83,66 @@ if (current === wanted) {
   fail(`the workspace version is already ${wanted}`);
 }
 
+// **Two kinds of place hold a version, and they get two different answers.**
+//
+// `packaging/` and `.github/` *derive* it: `mix_version()` in `packaging/common.sh` reads it back
+// out of `Cargo.toml`. One typed out there is a bug, so it stops the bump before anything is
+// written — a refusal leaves the tree exactly as it was found, rather than half-bumped with a
+// message about it.
+//
+// `docs/guide/` *names* it in prose. The install page says which release to fetch by hand until the
+// permanent links go live, and the agent page prints a sample of the published manifest, whose
+// `version` is `mixengine_docs::VERSION`. Neither is a bug and neither is history: they are claims
+// about the current release, so the bump rewrites them.
+//
+// Everywhere else an old version is deliberate — a test needs an older release to compare itself
+// against, a design document records what was true when it was written, a blueprint records what
+// captured it — and is neither searched nor touched. So there is no list of hits for this script to
+// tell the reader to ignore, which is a habit worth not starting.
+//
+// **A version token, not a substring.** `--fixed-strings` was the original spelling, and it matched
+// `0.0.1` inside `127.0.0.1` — which appears on four handbook pages, enough noise to bury the one
+// real hit under it. The rule is written twice below because `git grep` takes a POSIX regex and has
+// no lookbehind: not preceded by a digit or a dot, not followed by a digit. It still finds
+// `v0.0.1`, `mixengine-0.0.1-linux-x86_64.deb` and `"version": "0.0.1"`.
+const escaped = current.replace(/[.+]/g, "\\$&");
+const OUTGOING = `(^|[^0-9.])${escaped}([^0-9]|$)`;
+const outgoing = new RegExp(`(?<![0-9.])${escaped}(?![0-9])`, "g");
+
+/** Which tracked files under `pathspecs` still name the outgoing version. */
+function naming(pathspecs) {
+  try {
+    const listed = execFileSync("git", ["grep", "-l", "-E", OUTGOING, "--", ...pathspecs], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    return listed.split("\n").filter(Boolean);
+  } catch {
+    // `git grep` exits non-zero when it matches nothing, which is the answer we want.
+    return [];
+  }
+}
+
+// `common.sh` and the packaging README walk `0.0.1-beta.1` through Debian's and RPM's version
+// ordering as a worked example. That is prose about one particular past tag — the one exception on
+// this side, and the reason it is named here rather than discovered again every release.
+const typedOut = naming(["packaging", ".github", ":!packaging/common.sh", ":!packaging/README.md"]);
+
+if (typedOut.length > 0) {
+  console.error(`set-version: ${current} is typed out in these, which are supposed to derive it:`);
+  for (const path of typedOut) console.error(`  ${path}`);
+  fail("fix them first — nothing has been written");
+}
+
+// `docs/guide/en/cli.md` is regenerated from the binary further down, so it names the old version
+// right up until it does not; rewriting it here would only be undone in the same run.
+const prose = naming(["docs/guide", ":!docs/guide/en/cli.md"]);
+
 console.log(`${relative(ROOT, MANIFEST)}: ${current} -> ${wanted}`);
+
+for (const path of prose) {
+  console.log(`${path}: names ${current}${dryRun ? " (would be rewritten)" : ""}`);
+}
 
 if (dryRun) {
   console.log("--dry-run: nothing written");
@@ -102,7 +170,7 @@ if (dryRun) {
   // Windows is often WSL's, which has no cargo — and capturing the bytes here is safer than that
   // script's redirect anyway: it writes `cli.md` only once cargo has produced all of it, where a
   // redirect truncates the page *before* the build that compiles it into the binary.
-  const REFERENCE = join(ROOT, "docs", "guide", "en", "cli.md");
+  const REFERENCE = join(GUIDE, "en", "cli.md");
   try {
     const generated = execFileSync(
       "cargo",
@@ -114,27 +182,49 @@ if (dryRun) {
   } catch {
     fail("could not regenerate the command reference — it still names the old version");
   }
+
+  // Last, so that a failure above leaves the handbook alone. The read and the write are both UTF-8
+  // strings and the pattern cannot match a newline, so a page keeps the line endings it had.
+  for (const path of prose) {
+    const page = join(ROOT, path);
+    writeFileSync(page, readFileSync(page, "utf8").replace(outgoing, wanted));
+    console.log(`${path}: rewritten to ${wanted}`);
+  }
+
+  // **And restamp the translations that rewrite just invalidated.** Every Vietnamese page carries
+  // the SHA-256 of the English page it was made from, and `mixengine-docs`'s
+  // `a_translation_names_the_version_it_was_made_from` fails the build when the two disagree.
+  // Rewriting an English page changes that hash, so a bump that stopped at the rewrite would be a
+  // bump that reddens CI — which is what the first one did.
+  //
+  // **This records that somebody looked, and nothing more**, exactly as `packaging/docs.sh
+  // --restamp` says of itself: the change being carried is a version number, which is the one edit
+  // to an English page that needs no translating because both pages already spell it the same way.
+  // Any other edit still has to be translated by hand before that script is run.
+  //
+  // It is spelled again here rather than shelled out to for the same reason as the reference above:
+  // `docs.sh` needs `bash` *and* `cargo`, and `bash` on Windows is often WSL's, which has neither.
+  const STAMP = /^source_sha256 = ".*"$/m;
+  for (const name of readdirSync(join(GUIDE, "vi"))) {
+    if (!name.endsWith(".md")) continue;
+
+    const page = join(GUIDE, "vi", name);
+    const translation = readFileSync(page, "utf8");
+
+    // `cli.md` is the one page with no stamp: it is generated from the binary's English help and is
+    // published untranslated, which its own `untranslated_reason` states.
+    if (!STAMP.test(translation)) continue;
+
+    const digest = createHash("sha256").update(readFileSync(join(GUIDE, "en", name))).digest("hex");
+    const stamped = translation.replace(STAMP, `source_sha256 = "${digest}"`);
+    if (stamped === translation) continue;
+
+    writeFileSync(page, stamped);
+    console.log(`docs/guide/vi/${name}: restamped against en/${name}`);
+  }
 }
 
-// Look for a hardcoded version only where one would be a *bug*: everything under `packaging/` and
-// `.github/` is supposed to read `mix_version()` instead. Searching the whole tree would report
-// dozens of test fixtures, doc examples and `created_on` fields — noise this script would then have
-// to tell the reader to ignore, which is a habit worth not starting.
-let hardcoded = [];
-try {
-  const listed = execFileSync(
-    "git",
-    ["grep", "-l", "--fixed-strings", current, "--", "packaging", ".github"],
-    { cwd: ROOT, encoding: "utf8" },
-  );
-  hardcoded = listed.split("\n").filter(Boolean);
-} catch {
-  // `git grep` exits non-zero when it matches nothing, which is the answer we want.
-}
-
-if (hardcoded.length > 0) {
-  console.log(`\nWarning: ${current} is written out in these, which derive it everywhere else:`);
-  for (const path of hardcoded) console.log(`  ${path}`);
-}
-
-console.log("\nNext: commit Cargo.toml, Cargo.lock and cli.md, then tag — see docs/releasing.md");
+console.log(
+  "\nNext: commit Cargo.toml, Cargo.lock, cli.md and the handbook pages above, then tag — see " +
+    "docs/releasing.md",
+);

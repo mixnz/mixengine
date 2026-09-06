@@ -7,7 +7,7 @@ created_at = "2026-09-01T00:00:00Z"
 
 [blueprint.created_on]
 os = "any"
-version = "0.1.0"
+version = "0.0.1"
 
 [runtimes]
 python = "3.13"
