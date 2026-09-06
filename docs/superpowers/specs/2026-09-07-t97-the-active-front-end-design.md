@@ -123,7 +123,9 @@ pub struct FrontEndReport {
     /// **A measurement of the home afterwards**, taken whatever the outcome. `false` is the
     /// degraded mode of ADR 0005 and not a failure of this call — a Linux home where nobody has
     /// granted `cap_net_bind_service` has a front end that will not start, and it had one before
-    /// this was called too.
+    /// this was called too. **A machine that cannot be probed at all is not reported as a
+    /// refusal**: `require_port_access` treats an unreadable probe as *ask for nothing*, and
+    /// answering `false` here would invent a machine saying no out of one that said nothing.
     pub answering: bool,
 
     /// The old front end's data directory, kept. `service.delete`'s rule, and `None` when there was
@@ -508,6 +510,19 @@ moved.
 **Docs** — `bash packaging/docs.sh --reference` regenerates `cli.md` and CI's diff is the gate;
 `bash packaging/bindings.sh --check` is the gate for `bindings/`; the Vietnamese handbook page is
 translated and restamped.
+
+## What the tests could not reach, and why
+
+**No test drives the whole walk against a real Caddy or a real nginx**, and none could: the daemon's
+suites declare through a spec fixture, because the only package a debug build has a runnable archive
+for is `fakeservice` — the constraint `tests/packages.rs` opens by naming. So the switch is proved
+against that fixture, which exercises the ordering, the refusals, the grant table, what travels and
+what does not, and leaves the *rendering* faked.
+
+What that leaves untested by this task is the rendering-refused branch — `RolledBack` — on a real
+front-end recipe. It is not untested code: the rollback is `services::create` of a value
+`services::declaration` read back, and both halves have their own tests in `mixengine-core`. It is
+the *composition* that is only argued and not measured, and the honest place to say so is here.
 
 ## Risks, and where each is answered
 
