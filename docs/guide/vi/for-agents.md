@@ -61,7 +61,7 @@ https://mixnz.github.io/mixengine/index.json
 ```json
 {
   "product": "MixEngine",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "base_url": "https://mixnz.github.io/mixengine/",
   "locales": ["en", "vi"],
   "pages": [

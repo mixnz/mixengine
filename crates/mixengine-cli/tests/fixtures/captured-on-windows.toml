@@ -6,7 +6,7 @@ created_at = "2026-09-01T17:10:33Z"
 
 [blueprint.created_on]
 os = "windows"
-version = "0.1.0"
+version = "0.0.1"
 
 [site]
 kind = "static"

@@ -22,7 +22,7 @@ tính năng cần tới chúng. Chi tiết xem ở [MixEngine xin quyền để 
 **Hiện chưa có bản phát hành ổn định.** Mọi link tải bên dưới là URL cố định, GitHub luôn trỏ nó
 tới bản mới nhất *không phải* pre-release. Vì vậy khi bản ổn định đầu tiên ra mắt, các link này sẽ
 tự hoạt động mà không cần sửa trang này. Trong lúc chờ, bạn lấy bản pre-release mới nhất thủ công
-tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tại đó là `v0.0.1-beta.1`.
+tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tại đó là `v0.0.1`.
 
 ## Bạn đang cài những gì
 
