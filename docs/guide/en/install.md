@@ -21,7 +21,7 @@ something that needs it — see [What MixEngine asks permission for](./permissio
 resolves to whichever release is newest and *not* a pre-release, so once the first one ships these
 links go live with no edit to this page. Until then, get the newest pre-release by hand from
 [the releases page](https://github.com/mixnz/mixengine/releases) — right now that is
-`v0.0.1`.
+`v0.0.2`.
 
 ## What you are installing
 

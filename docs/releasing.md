@@ -2,8 +2,7 @@
 
 ```bash
 node scripts/set-version.mjs 0.0.1
-git add Cargo.toml Cargo.lock docs/guide
-git commit -m "chore(release): v0.0.1"
+git commit -am "chore(release): v0.0.1"
 git push origin master
 git tag v0.0.1
 git push origin v0.0.1
