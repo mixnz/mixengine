@@ -73,6 +73,12 @@ struct Entry {
     /// else — and the install refused the package with `error while loading shared libraries:
     /// libldap-2.5.so.0`. The link has to arrive as a link.
     link: Option<String>,
+
+    /// Whether this entry is a directory rather than a file.
+    ///
+    /// Only [`FakePackage::tar_root`] sets it, and only a tar records it: a zip built by the
+    /// publishing pipeline has no entry for the root of what it packed.
+    directory: bool,
 }
 
 /// An archive under construction.
@@ -113,6 +119,7 @@ impl FakePackage {
             contents: contents.to_vec(),
             mode: 0o644,
             link: None,
+            directory: false,
         });
         self
     }
@@ -140,6 +147,7 @@ impl FakePackage {
             contents,
             mode: 0o755,
             link: None,
+            directory: false,
         });
         self
     }
@@ -165,6 +173,7 @@ impl FakePackage {
             contents,
             mode: 0o755,
             link: None,
+            directory: false,
         });
         self
     }
@@ -221,6 +230,7 @@ impl FakePackage {
                         contents: Vec::new(),
                         mode: 0o777,
                         link: Some(target.to_string_lossy().replace('\\', "/")),
+                        directory: false,
                     });
 
                     continue;
@@ -252,12 +262,35 @@ impl FakePackage {
                     contents,
                     mode: 0o755,
                     link: None,
+                    directory: false,
                 });
             }
         }
 
         self.entries.sort_by(|one, two| one.name.cmp(&two.name));
 
+        self
+    }
+
+    /// Add the `./` entry GNU and BSD `tar` write first.
+    ///
+    /// **Every artifact this project publishes for macOS and Linux begins with one**, because they
+    /// are packed with `tar -C tree .` and that names the directory it was pointed at as an entry of
+    /// its own. The entry resolves to wherever it is unpacked rather than to anything inside it,
+    /// which is exactly the shape an installer's path check can read as a way *out* of there — and
+    /// once did, failing every install on two platforms out of three while Windows went on working.
+    ///
+    /// A zip carries no such entry, so for [`Packing::Zip`] this adds nothing and the fixture stays
+    /// the one the pipeline really produces there.
+    #[must_use]
+    pub fn tar_root(mut self) -> Self {
+        self.entries.push(Entry {
+            name: "./".to_owned(),
+            contents: Vec::new(),
+            mode: 0o755,
+            link: None,
+            directory: true,
+        });
         self
     }
 
@@ -273,6 +306,7 @@ impl FakePackage {
             contents: contents.to_vec(),
             mode: 0o644,
             link: None,
+            directory: false,
         });
         self
     }
@@ -317,6 +351,11 @@ impl FakePackage {
         let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
 
         for entry in &self.entries {
+            // See [`FakePackage::tar_root`]: the entry it adds is a tar's, and a zip has none.
+            if entry.directory {
+                continue;
+            }
+
             let options = zip::write::SimpleFileOptions::default()
                 .compression_method(zip::CompressionMethod::Deflated)
                 .unix_permissions(entry.mode);
@@ -348,6 +387,11 @@ impl FakePackage {
             let mut header = tar::Header::new_gnu();
             header.set_size(entry.contents.len() as u64);
             header.set_mode(entry.mode);
+
+            if entry.directory {
+                header.set_entry_type(tar::EntryType::Directory);
+                header.set_size(0);
+            }
 
             if let Some(target) = &entry.link {
                 header.set_entry_type(tar::EntryType::Symlink);
