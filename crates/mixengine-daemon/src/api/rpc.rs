@@ -13,7 +13,8 @@ use mixengine_proto::rpc::{self, Id, Request, Response, RpcCode, RpcError};
 use mixengine_proto::{
     BlueprintApply, BlueprintCapture, BlueprintImport, BundleReport, CaRotateQuery, CaStatus,
     CaStatusQuery, CaUninstallQuery, CertIssue, CertStatusQuery, DaemonShutdown, DaemonStatus,
-    DaemonVersion, DatabaseClientQuery, DatabaseCreate, DatabaseOpen, DiagnosticsBundle,
+    DaemonVersion, DatabaseClientQuery, DatabaseCreate, DatabaseCredentialsQuery, DatabaseOpen,
+    DiagnosticsBundle,
     DoctorRepair, DomainAdd, DomainRemove, DomainStatusQuery, ElevationDrop, Enforcement, Error,
     ErrorCode, ExtensionChoice, ExtensionInspect, ExtensionInstall, ExtensionPlanRequest,
     ExtensionTarget, ExtensionUninstall, IdleReport, IdleSource, JobFilter, JobKind, JobList,
@@ -698,6 +699,11 @@ async fn call_method(
                 rpc::method::DATABASE_OPEN => {
                     let asked: DatabaseOpen = arguments(params)?;
                     encode_result(&api.databases.open(&asked).await.map_err(refused)?)
+                }
+
+                rpc::method::DATABASE_CREDENTIALS => {
+                    let asked: DatabaseCredentialsQuery = arguments(params)?;
+                    encode_result(&api.databases.credentials(&asked).await.map_err(refused)?)
                 }
 
                 rpc::method::SERVICE_CREATE => {
@@ -3690,14 +3696,19 @@ mod tests {
         daemon.quiet().await;
     }
 
-    /// `database.client` and `database.open` reach their handler, and a service nothing declares
-    /// is the same miss to both — roadmap task **T83**. What the methods *do* is proved beside
-    /// them, in `crate::databases`, on a mock host that records what it was asked to start.
+    /// `database.client`, `database.open` and `database.credentials` reach their handler, and a
+    /// service nothing declares is the same miss to all three — roadmap tasks **T83** and **T77b**.
+    /// What the methods *do* is proved beside them, in `crate::databases`, on a mock host that
+    /// records what it was asked to start.
     #[tokio::test]
     async fn asking_where_a_service_nothing_declares_could_be_opened_is_not_found() {
         let daemon = daemon(Arc::new(fixture::Declared(Vec::new())), &[]).await;
 
-        for method in [rpc::method::DATABASE_CLIENT, rpc::method::DATABASE_OPEN] {
+        for method in [
+            rpc::method::DATABASE_CLIENT,
+            rpc::method::DATABASE_OPEN,
+            rpc::method::DATABASE_CREDENTIALS,
+        ] {
             let answer = daemon
                 .ask(method, serde_json::json!({"service": "mariadb@main"}))
                 .await;
