@@ -3144,7 +3144,7 @@ mod tests {
         Arc::new(fixture::Declared(vec![
             ServiceSpec::builder(
                 fixture::service(id),
-                mixengine_core::generate::program(std::path::Path::new("/packages/x"), id),
+                mixengine_core::generate::program(&packages_root(), id),
             )
             .cwd(std::env::temp_dir())
             .ready(mixengine_proto::ReadyCheck::LogPattern {
@@ -3158,17 +3158,44 @@ mod tests {
         ]))
     }
 
-    /// A package on disk that no service is an instance of — what a home looks like the moment
-    /// after `mix package install nginx` and before anything is created from it.
-    async fn also_installed(daemon: &Daemon, package: &str) {
-        sqlx::query(
-            "INSERT INTO packages (name, version, install_path, installed_at, source_url, sha256)
-             VALUES (?, '1.0.0', '/packages/x', '2026-09-07T00:00:00Z', 'https://example', 'ab')",
-        )
-        .bind(package)
-        .execute(daemon.api.store.pool())
-        .await
-        .expect("an installed package");
+    /// Where the switch tests say a package was installed.
+    ///
+    /// **Absolute on all three systems, which `fixture::home`'s `/packages/x` is not.** That value
+    /// is a path on Unix and a *relative* one on Windows — no drive letter — and these are the first
+    /// tests to build a spec's program out of an install path rather than out of the fake service's
+    /// own, which is where a spec refuses it. Nothing is ever run from here.
+    fn packages_root() -> std::path::PathBuf {
+        match cfg!(windows) {
+            true => std::path::PathBuf::from(r"C:\packages\x"),
+            false => std::path::PathBuf::from("/packages/x"),
+        }
+    }
+
+    /// Put every installed package where [`packages_root`] says, and install `also` beside them.
+    ///
+    /// The `also` half is what a home looks like the moment after `mix package install nginx` and
+    /// before anything has been created from it: a `packages` row that no service is an instance of.
+    async fn installed(daemon: &Daemon, also: &[&str]) {
+        let root = packages_root().display().to_string();
+
+        for package in also {
+            sqlx::query(
+                "INSERT INTO packages (name, version, install_path, installed_at, source_url,
+                                       sha256)
+                 VALUES (?, '1.0.0', ?, '2026-09-07T00:00:00Z', 'https://example', 'ab')",
+            )
+            .bind(package)
+            .bind(&root)
+            .execute(daemon.api.store.pool())
+            .await
+            .expect("an installed package");
+        }
+
+        sqlx::query("UPDATE packages SET install_path = ?")
+            .bind(&root)
+            .execute(daemon.api.store.pool())
+            .await
+            .expect("a readable table");
     }
 
     /// The report a finished switch left behind, or the reason there is not one.
@@ -3221,6 +3248,7 @@ mod tests {
     #[tokio::test]
     async fn a_switch_to_the_server_a_home_is_already_on_moves_nothing() {
         let daemon = daemon(front_end("nginx"), &["nginx"]).await;
+        installed(&daemon, &[]).await;
 
         let report = switched(&daemon, serde_json::json!({"server": "nginx"})).await;
 
@@ -3255,7 +3283,7 @@ mod tests {
             )
         })
         .await;
-        also_installed(&daemon, "caddy").await;
+        installed(&daemon, &["caddy"]).await;
 
         let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
 
@@ -3315,7 +3343,7 @@ mod tests {
             )
         })
         .await;
-        also_installed(&daemon, "caddy").await;
+        installed(&daemon, &["caddy"]).await;
 
         let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
 
@@ -3348,7 +3376,7 @@ mod tests {
         .execute(daemon.api.store.pool())
         .await
         .expect("a front end somebody had configured");
-        also_installed(&daemon, "caddy").await;
+        installed(&daemon, &["caddy"]).await;
 
         let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
 
