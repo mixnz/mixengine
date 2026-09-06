@@ -32,7 +32,7 @@ mod updates;
 
 use std::ffi::OsString;
 use std::io::{IsTerminal, Write as _};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -196,6 +196,27 @@ const DETACH_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// How often it asks during that.
 const DETACH_POLL: Duration = Duration::from_millis(50);
+
+/// How long a daemon that finds the lock taken waits for the holder to either answer or let go.
+///
+/// **The holder of the lock is not always a daemon that is running.** A daemon closes its endpoint
+/// first and releases the lock last — between the two it drains its clients ([`CLIENT_GRACE`]) and
+/// checkpoints the write-ahead log — so a daemon started inside that window finds the lock held by
+/// a process that will never answer. Standing aside there, as this used to, meant nobody started:
+/// `mix self-update` waits for the endpoint to go quiet and then starts the new daemon, which lands
+/// exactly inside the window, and its `--detach` then waited the whole of [`DETACH_TIMEOUT`] for a
+/// daemon nobody was going to start (measured on CI). `mix daemon stop` followed by any command
+/// that autostarts is the same handoff by hand.
+///
+/// Sized to cover a holder that is leaving — the clients, then the checkpoint, with room for a loaded
+/// machine — and a fraction of [`DETACH_TIMEOUT`], since a `--detach` parent is usually what is
+/// waiting behind this. A holder that neither answers nor leaves inside it is one still starting
+/// up — roadmap task T10's window, `Store::open` mid-migration — and standing aside for that one
+/// stays right: it will answer, and the parent waits for it.
+const HANDOFF: Duration = Duration::from_secs(5);
+
+/// How often the lock is asked for again during that.
+const HANDOFF_POLL: Duration = Duration::from_millis(50);
 
 /// What `--version` prints. `mix`'s reason, in the binary a service manager starts — T95.
 const VERSION: &str = if mixengine_platform::RELEASE {
@@ -529,18 +550,13 @@ async fn run() -> anyhow::Result<()> {
     // implements the migration lock as a no-op, SQLite having no advisory lock to use, so two
     // daemons that both got as far as opening the database could both read the schema as behind and
     // both migrate it. A single-instance lock acquired afterwards would guard nothing.
-    let lock = match lock::Lock::acquire(home.paths.lock_file()).map_err(|error| error.to_wire())? {
-        lock::Acquired::Held(lock) => lock,
-
+    let Some(lock) = take_over(home.paths.lock_file(), &endpoint).await? else {
         // Not a failure, and the exit status says so. The caller asked for a running daemon for this
         // home and there is one — `.claude/architecture/daemon-and-ipc.md` has this print the
         // endpoint and stop, which is also what makes two clients autostarting at the same instant
         // (roadmap task T10) produce one daemon and no error message.
-        lock::Acquired::Taken(holder) => {
-            tracing::info!(%holder, %endpoint, "a daemon is already running for this home");
-            println!("{endpoint}");
-            return Ok(());
-        }
+        println!("{endpoint}");
+        return Ok(());
     };
 
     // Through the same mapping as `open_home`, and for the same reason: a database that will not
@@ -767,6 +783,61 @@ async fn detach(args: &Args, paths: &Paths, endpoint: &ipc::Endpoint) -> anyhow:
         }
 
         tokio::time::sleep(DETACH_POLL).await;
+    }
+}
+
+/// Take the single-instance lock, waiting out a holder that is on its way out.
+///
+/// `None` when another daemon has this home: it answered on `endpoint`, or it held the lock for the
+/// whole of [`HANDOFF`] without answering, which is a daemon that is still starting. Either way the
+/// caller prints the endpoint and exits 0, which is what a client autostarting a daemon asked for.
+///
+/// **The endpoint is asked only once the lock has refused**, and the lock is asked first on every
+/// turn: a daemon that answers *is* the holder, so a `Some` here can never be a second daemon
+/// beside a live one — that is the guarantee the lock exists for, and dialling the endpoint adds a
+/// way of standing aside sooner, not a way of proceeding.
+///
+/// # Errors
+///
+/// Whatever [`lock::Lock::acquire`] reported — a `run/` that cannot be written, or a lock the OS
+/// refused for a reason other than somebody holding it.
+async fn take_over(path: &Path, endpoint: &ipc::Endpoint) -> anyhow::Result<Option<lock::Lock>> {
+    let deadline = Instant::now() + HANDOFF;
+    let mut waiting_on = None;
+
+    loop {
+        let holder = match lock::Lock::acquire(path).map_err(|error| error.to_wire())? {
+            lock::Acquired::Held(lock) => {
+                if let Some(holder) = waiting_on {
+                    tracing::info!(%holder, "the daemon that held this home has left; taking it over");
+                }
+
+                return Ok(Some(lock));
+            }
+
+            lock::Acquired::Taken(holder) => holder,
+        };
+
+        if ipc::Connection::connect(endpoint).await.is_ok() || Instant::now() >= deadline {
+            tracing::info!(%holder, %endpoint, "a daemon is already running for this home");
+            return Ok(None);
+        }
+
+        // Said once, on the first refusal, so the log explains a start that takes a few seconds
+        // without saying so fifty times over.
+        if waiting_on.is_none() {
+            tracing::info!(
+                %holder,
+                %endpoint,
+                within = ?HANDOFF,
+                "another daemon holds this home and is not answering; waiting for it to answer or \
+                 to let go"
+            );
+        }
+
+        waiting_on = Some(holder);
+
+        tokio::time::sleep(HANDOFF_POLL).await;
     }
 }
 

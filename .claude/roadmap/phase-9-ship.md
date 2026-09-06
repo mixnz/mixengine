@@ -201,6 +201,16 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       clamped on read but **disbelieved** past seven days. A clamp re-evaluated against `now` moves
       its own deadline forward on every read and never comes due, which the test written from that
       sentence caught.
+      **One defect found by CI after landing, and it was the lock's rather than this task's.** A
+      daemon closes its endpoint first and releases the lock last, with its clients and the WAL
+      checkpoint in between; `mix` waits for the endpoint to go quiet and starts the new daemon,
+      which lands inside that window, and the new daemon found the lock taken, stood aside as it
+      does for a daemon still starting, and exited 0 — so nobody started, and `--detach` waited its
+      whole thirty seconds for it. `mix daemon stop` followed by any autostart was the same handoff
+      by hand. A daemon that finds the lock held by a process that is not answering now waits a few
+      seconds for it to answer or let go before standing aside — the architecture's single-instance
+      paragraph says which of the three outcomes means what, and `lifecycle.rs` holds the window
+      open to prove the takeover.
       What this task did **not** do is replace `mixengine-elevate` — that is **T88a**, and the swap
       excludes it by name and reports it as kept.
 - [x] **T88a** `mixengine-elevate` update path: excluded from auto-update, own elevation prompt,

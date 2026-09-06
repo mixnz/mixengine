@@ -500,3 +500,45 @@ async fn the_home_can_be_taken_over_once_the_daemon_holding_it_stops() {
         "the next daemon took the home over"
     );
 }
+
+/// **A daemon started while the last one is still leaving takes the home over once it has left.**
+///
+/// A daemon closes its endpoint first and releases the lock last: between the two it drains its
+/// clients and checkpoints the write-ahead log, which is a few hundred milliseconds on a loaded
+/// machine and up to a few seconds. What used to happen inside that window: the next daemon found
+/// the lock taken, printed the endpoint and exited 0 — the answer for a holder that is *starting*,
+/// given to one that was *stopping* — and then nothing started at all. `mix self-update` waits for
+/// the endpoint to go quiet and starts the new daemon, which is exactly inside the window; measured
+/// on CI, its `--detach` then waited its whole thirty seconds for a daemon nobody was going to
+/// start. `mix daemon stop` followed by any command that autostarts is the same handoff by hand.
+///
+/// Held open here the way `detaching_keeps_waiting…` holds its window open, and for its reason:
+/// the window is real and narrow, so this test *is* the holder — it takes the lock, never binds
+/// anything, and lets go a second later, which is a holder finishing its checkpoint.
+#[tokio::test]
+async fn a_daemon_waits_for_a_holder_that_is_leaving_and_then_takes_the_home() {
+    let home = Home::new();
+
+    std::fs::create_dir_all(home.run_dir()).expect("a run directory to lock in");
+
+    let held = match lock::Lock::acquire(&home.lock_file()).expect("the lock can be asked for") {
+        lock::Acquired::Held(held) => held,
+        lock::Acquired::Taken(holder) => panic!("a brand new home was already locked by {holder}"),
+    };
+
+    let daemon = spawn(&home, &[]);
+
+    // The holder leaves a second later. Slept and not polled on purpose: what is being handed to
+    // the daemon is a lock that stays taken for a while and then is not, and a second is that
+    // while.
+    tokio::time::sleep(Duration::from_secs(1)).await;
+    drop(held);
+
+    home.wait_until_listening().await;
+
+    assert_eq!(
+        home.locked_by(),
+        Some(daemon.0.id()),
+        "the daemon that waited is the one holding the home now"
+    );
+}
