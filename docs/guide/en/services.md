@@ -100,6 +100,37 @@ looking:
 mix service delete mariadb@legacy
 ```
 
+## Which web server your sites go through
+
+One of Caddy and Nginx is your front end at a time: every site in the home is reached through it, and
+`mix service front-end` says which one it is.
+
+```bash
+mix service front-end
+```
+
+Changing it is one command, and it is a real operation rather than a setting: the server you are on
+is stopped, its row goes, every site is rendered for the new one, and that one is started.
+
+```bash
+mix package install nginx 1.27.3
+mix service set-front-end nginx
+```
+
+**No site is reachable while that happens**, so `mix` tells you what is about to happen and asks
+before it starts. Pass `--yes` in a script.
+
+**On Linux the new server needs permission to answer on ports 80 and 443**, and that permission
+belongs to the program rather than to MixEngine — so moving to a different program means asking for
+it again, and a prompt may appear. If nobody allows it, **nothing changes**: you stay on the server
+you were on, MixEngine says so, and `mix elevation grant` followed by the same command finishes the
+job. macOS and Windows need no second permission.
+
+Two things do not travel with the switch, and MixEngine names them rather than dropping them
+quietly: settings you had overridden — an `nginx.conf` setting means nothing to Caddy — and any
+limits or idle policy you had set on the old server. The old server's data directory is left exactly
+where it was.
+
 ## Databases and accounts
 
 Making a database is one command, and it starts the server if it is not running:

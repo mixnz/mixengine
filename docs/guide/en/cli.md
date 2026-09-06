@@ -1106,6 +1106,39 @@ mix service delete <SERVICE> [OPTIONS]
 | `<SERVICE>` | The service to delete |
 | `--force` | Delete it even though a site declares it |
 
+### mix service front-end
+
+Which program every site in this home is reached through.
+
+Answered from the service listing: what a service is *for* travels on its summary, so there is no
+second question to ask and no client anywhere decides that `nginx` means "front end".
+
+```
+mix service front-end
+```
+
+### mix service set-front-end
+
+Change it.
+
+Stops the front end this home is on, swaps the row, renders every site for the new one and starts
+it. Every site is unreachable while that happens.
+
+**On Linux the new server needs this machine's permission to answer on 80 and 443**, because that
+permission is written into the binary and the new binary does not have it. A machine where nobody
+grants it stays on the front end it had, and says so.
+
+```
+mix service set-front-end <SERVER> [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `<SERVER>` | The program to move to |
+| `--version` `<VERSION>` | Which installed version of it. The newest installed when it is left out |
+| `-y`, `--yes` | Answer the question in advance |
+| `--no-wait` | Return once the daemon has accepted the switch rather than once it has made it |
+
 ### mix service start
 
 Start a service, and everything it depends on

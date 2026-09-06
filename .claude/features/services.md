@@ -23,6 +23,17 @@ should be when there is a choice — but a home with neither has neither until s
 `mix package install caddy`, or `nginx`, which is a first-class alternative and not a lesser one. A
 first run that offers to do it for them is not built and has no task of its own yet.
 
+**Which one a home is on is answerable and changeable** — **T97**, on
+[ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md). The
+`services` table is the only record: the front end is the row whose recipe answers `Role::FrontEnd`,
+reported as `ServiceSummary::role` and changed by `service.set_front_end`, which stops the old one,
+swaps the row, renders every site for the new one and starts it. **No field is added to
+`config.toml`**, because two statements of one fact would have no arbiter. The switch can end with
+the home still on the server it had — on Linux the port-80 grant is written into the binary, so the
+new front end needs a grant of its own — and that outcome is described rather than left as a home
+whose sites are rendered for a server that cannot answer. `mix service front-end` and
+`mix service set-front-end <caddy|nginx>`.
+
 Multiple instances of the same service are supported (`mariadb@main`, `mariadb@legacy`, and
 `mysql@main` beside `mysql@legacy` on the same terms) with independent ports, data dirs and
 versions. Instance name is part of the `ServiceId`, and the name after the `@` is the user's: it is

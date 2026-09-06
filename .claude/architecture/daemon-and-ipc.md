@@ -123,7 +123,10 @@ runtime.*    list_available, list_installed, install, uninstall, set_default, re
 path.*       status, install, uninstall
 autostart.*  status, enable, disable   (T85b; enable registers and does not start, disable
                                         removes and does not stop — ADR 0016)
-service.*    list, start, stop, restart, reload, status, config_get, config_set
+service.*    list, status, create, delete, start, stop, restart, limits, set_limits,
+             idle, set_idle, set_front_end   (T97; which program every site is reached
+                                             through is `ServiceSummary::role`, and changing
+                                             it is a job — ADR 0026)
 database.*   create, client, open       (T77a and T83; `open` starts a process this daemon does not supervise)
                                         all three answer `secret: { service, key }`, the credential's whole
                                         keyring address and never its value — T84. `client` composes it from

@@ -142,14 +142,20 @@ binaries. What they state is what the daemon **writes** —
    client must not work out for itself — whether an entry that *is* registered belongs to this home
    or to another one, which is a switch that must read "on, for a different home" rather than "on".
 
-   **"Default web server" is a switch nothing answers yet** — **T97**. The fact is real and the
-   daemon holds it: `services::front_end::held_by` knows which row is the front end, by
-   `Recipe::role` rather than by name, and refuses a second. It is simply never asked over the API,
-   so today a client could only infer it by hardcoding that `caddy` and `nginx` mean "front end".
-   `ServiceSummary` gains a `role` for the reading half, and the switch is a job rather than a
-   setting — [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md),
-   which makes ADR 0004's "the switch is one setting" precise: on Linux the port-80 grant is written
-   into the binary, so changing front end changes which binary needs it.
+   **"Default web server" is `ServiceSummary::role` and `service.set_front_end`** — **T97**, on
+   [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md). The
+   reading is a member on every service summary, carrying which of the two programs a front end is,
+   so a client picks the active row out of `service.list` and never maps a package name to a
+   meaning. The switch is a job rather than a setting, which is what makes ADR 0004's "the switch is
+   one setting" precise: on Linux the port-80 grant is written into the binary, so changing front
+   end changes which binary needs it.
+
+   **A client must render the three endings that leave the home where it started.** `NotGranted` is
+   a machine where nobody allowed the new server to answer on 80 and 443 — the switch did not
+   happen, the grant is waiting, and `elevation.grant` followed by the same call works.
+   `RolledBack` is a configuration the new program's own checker refused. `Failed` is the ending
+   nothing can prevent. `answering` beside them is measured after the walk, so a screen can say
+   *this home's front end will not start* rather than implying the switch caused it.
 
 A tray or menu-bar item needs no more than the dashboard does: overall state, stop-all, and the site
 list.
@@ -249,6 +255,7 @@ the API** while writing its own Phase 4 spec, not by anybody here. That is the a
 [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) accepted working as designed and costing
 what it costs: a claim made on paper in this repository is checked by somebody else's code, later.
 The first is closed by **T96** — `daemon.disk_usage` and `daemon.cleanup`, reachable as `mix disk`
-and `mix cleanup`. The second is **T97**, in
-[phase 10](../roadmap/phase-10-client-surface.md), and the criterion above is that phase's
-milestone.
+and `mix cleanup`. The second is closed by **T97** — `ServiceSummary::role` and
+`service.set_front_end`, reachable as `mix service front-end` and `mix service set-front-end`. With
+both landed the criterion above holds for the first time since this page was written, which is
+[phase 10](../roadmap/phase-10-client-surface.md)'s milestone.

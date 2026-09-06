@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "22766d1ae1cb1fdb29b092d328766dfb72452f6dac8f12faed6eb5f587b161d9"
+source_sha256 = "e54569b860ed1390b5a8a8ca6aa199e241f05beb3dcb9b023af42738f78a5c1f"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -100,6 +100,38 @@ cơ sở dữ liệu của ai đó. Kết quả trả về nêu rõ thư mục c
 ```bash
 mix service delete mariadb@legacy
 ```
+
+## Web server nào đang phục vụ site của bạn
+
+Tại một thời điểm, chỉ một trong hai Caddy và Nginx là front end: mọi site trong home đều đi qua nó,
+và `mix service front-end` cho biết đó là cái nào.
+
+```bash
+mix service front-end
+```
+
+Đổi sang cái kia chỉ một lệnh, và đây là một thao tác thật chứ không phải một tùy chọn: server đang
+dùng bị dừng, bản ghi của nó bị xóa, mọi site được render lại cho server mới, rồi server mới được
+khởi động.
+
+```bash
+mix package install nginx 1.27.3
+mix service set-front-end nginx
+```
+
+**Trong lúc đó không site nào truy cập được**, nên `mix` sẽ nói trước điều sắp xảy ra và hỏi bạn.
+Thêm `--yes` khi chạy trong script.
+
+**Trên Linux, server mới cần quyền để trả lời trên cổng 80 và 443**, và quyền đó thuộc về chính
+chương trình chứ không thuộc về MixEngine — nên đổi sang chương trình khác nghĩa là phải xin lại, và
+một hộp thoại xin quyền có thể hiện ra. Nếu không ai cấp quyền thì **không có gì thay đổi cả**: bạn
+vẫn ở trên server cũ, MixEngine nói rõ điều đó, và `mix elevation grant` rồi chạy lại đúng lệnh trên
+sẽ hoàn tất. macOS và Windows không cần xin quyền lần hai.
+
+Có hai thứ không đi theo khi đổi, và MixEngine nêu tên chúng thay vì lặng lẽ bỏ đi: các thiết lập
+bạn đã ghi đè — một tùy chọn của `nginx.conf` chẳng có ý nghĩa gì với Caddy — cùng với giới hạn tài
+nguyên hay chính sách idle bạn đã đặt cho server cũ. Thư mục dữ liệu của server cũ được giữ nguyên
+tại chỗ.
 
 ## Cơ sở dữ liệu và tài khoản
 
