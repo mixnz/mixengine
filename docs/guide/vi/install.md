@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "ef85700dde4ece5cdbaee2de27a2a17cb90f55f29964dae7f6fabd826adcee4f"
+source_sha256 = "2986625fd967c62c77ac30676499bd4e8037decd6cb67715e56ff70ff21dd98b"
 +++
 
 # Cài đặt MixEngine
@@ -22,7 +22,7 @@ tính năng cần tới chúng. Chi tiết xem ở [MixEngine xin quyền để 
 **Hiện chưa có bản phát hành ổn định.** Mọi link tải bên dưới là URL cố định, GitHub luôn trỏ nó
 tới bản mới nhất *không phải* pre-release. Vì vậy khi bản ổn định đầu tiên ra mắt, các link này sẽ
 tự hoạt động mà không cần sửa trang này. Trong lúc chờ, bạn lấy bản pre-release mới nhất thủ công
-tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tại đó là `v0.0.2`.
+tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tại đó là `v0.0.3`.
 
 ## Bạn đang cài những gì
 

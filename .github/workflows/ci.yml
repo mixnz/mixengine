@@ -2050,6 +2050,8 @@ jobs:
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             notes_header="$(printf '%s\n' \
+              '### Installation notes' \
+              '' \
               "Nothing is code-signed or notarised, by design: expect SmartScreen on Windows and Gatekeeper's" \
               '"Open Anyway" on macOS. A machine with Smart App Control enforcing is not supported. On ARM64' \
               'Windows some runtimes have no build of their own and run under emulation, marked `emulated` in' \
