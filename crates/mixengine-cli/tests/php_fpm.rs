@@ -428,13 +428,13 @@ async fn a_status_probe_costs_the_pool_exactly_one_connection() {
     );
 
     let first = numbers(&listen, &home);
-    let second = numbers(&listen, &home);
+    let (previous, second) = settled(&listen, &home, first);
 
     assert_eq!(
         second.accepted,
-        first.accepted + 1,
-        "a probe is one request and no more, which is exactly what the daemon subtracts: {first:?} \
-         then {second:?}\n{}",
+        previous.accepted + 1,
+        "a probe is one request and no more, which is exactly what the daemon subtracts: \
+         {previous:?} then {second:?}\n{}",
         home.daemon_log()
     );
     assert_eq!(
@@ -443,16 +443,57 @@ async fn a_status_probe_costs_the_pool_exactly_one_connection() {
     );
     assert_eq!(
         second.started, first.started,
-        "the pool restarted between the two readings, so this proved nothing: {first:?} then \
+        "the pool restarted between the readings, so this proved nothing: {first:?} then \
          {second:?}"
     );
 
     home.mix(&["service", "stop", &pool(), "--json"]);
 }
 
+/// The reading after `first`, taken once the worker that answered `first` is back at `accept()`,
+/// together with the reading immediately before it.
+///
+/// **What this waits for is php-fpm's bookkeeping, not the pool.** A worker is charged to
+/// `active processes` from the moment it accepts until it is back at `accept()`, and it gets back
+/// there only after it has written the whole answer, closed the connection *and* run the request's
+/// shutdown. The client sees the close before that shutdown has run, so a second probe fired the
+/// instant the first returned is answered by another of the pool's workers — `pm = static` holds
+/// five — while the first is still winding down, and that snapshot says two. On a three-core runner
+/// carrying this suite's three pools at once the window is wide enough to land in: measured on
+/// macOS CI, while the neighbouring test was stopping its pool.
+///
+/// The wait does not loosen what the caller proves. Every reading taken on the way is held to the
+/// same `+ 1`, so a stray connection cannot hide behind it; `active` is asserted by the caller on
+/// the reading this returns; and the deadline is [`EVENTUALLY`], after which the last reading is
+/// returned as it is and the caller's assertion says what was seen.
+#[cfg(unix)]
+fn settled(listen: &Pool, home: &Home, first: Numbers) -> (Numbers, Numbers) {
+    let deadline = Instant::now() + EVENTUALLY;
+    let mut previous = first;
+
+    loop {
+        let next = numbers(listen, home);
+
+        if next.active <= 1 || Instant::now() >= deadline {
+            return (previous, next);
+        }
+
+        assert_eq!(
+            next.accepted,
+            previous.accepted + 1,
+            "a probe is one request and no more, even while the pool is still settling: \
+             {previous:?} then {next:?}\n{}",
+            home.daemon_log()
+        );
+
+        std::thread::sleep(Duration::from_millis(20));
+        previous = next;
+    }
+}
+
 /// The three numbers `mixengine_supervisor::idle::observe` reads, off a real status page.
 #[cfg(unix)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct Numbers {
     accepted: u64,
     active: u64,

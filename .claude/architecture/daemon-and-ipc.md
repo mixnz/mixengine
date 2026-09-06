@@ -293,9 +293,15 @@ it is the end of it, and a socket cannot forget to close.
 - **Single instance**: a lock held on `<root>/run/mixengined.lock` for the life of the process —
   `flock` on Unix, an exclusive share mode on Windows — so the OS releases it even when the daemon is
   killed. A second instance exits 0 after printing the endpoint: it was asked for a running daemon
-  and there is one. The lock is taken **before SQLite is opened**, because `sqlx-sqlite` implements
-  the migration lock as a no-op and two daemons that got that far could both migrate the same
-  database. The file's contents are the holder's pid, for the message; its *existence* means
+  and there is one. **A holder that is not answering is given a few seconds to answer or let go
+  first**, because a daemon closes its endpoint before it releases the lock — it drains its clients
+  and checkpoints the database in between — and a daemon started inside that window is the handoff
+  `mix self-update` and `mix daemon stop` followed by an autostart both make; standing aside for a
+  holder that was leaving meant nobody started. A holder that answers is a running daemon; one that
+  lets go is taken over from; one that does neither inside the wait is still starting, and is stood
+  aside for as before. The lock is taken **before SQLite is opened**, because `sqlx-sqlite`
+  implements the migration lock as a no-op and two daemons that got that far could both migrate the
+  same database. The file's contents are the holder's pid, for the message; its *existence* means
   nothing. One consequence differs by OS and is left as it is: the Windows share mode withholds
   `FILE_SHARE_DELETE`, so a home cannot be deleted while its daemon runs, where on Unix an `rm -rf`
   of a live home succeeds and the daemon carries on writing into files that have no names.
