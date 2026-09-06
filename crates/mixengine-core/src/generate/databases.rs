@@ -183,7 +183,7 @@ pub fn validated_identifier(name: &str) -> Result<String> {
 /// # Errors
 ///
 /// [`Error::InvalidPassword`], which carries no copy of what was refused.
-pub(crate) fn validated_password(raw: &str) -> Result<String> {
+pub fn validated_password(raw: &str) -> Result<String> {
     let refuse = |reason: &'static str| Err(Error::InvalidPassword { reason });
 
     let len = raw.chars().count();
