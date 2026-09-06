@@ -1,0 +1,146 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT s.instance_name, s.autostart, s.port, s.bind_addr, s.data_dir,\n                s.config_overrides_json, s.extension_id,\n                p.name AS package, p.version AS package_version,\n                r.kind AS runtime_kind, r.version AS runtime_version\n         FROM services s\n         LEFT JOIN packages p ON p.id = s.package_id\n         LEFT JOIN runtime_installs r ON r.id = s.runtime_install_id\n         WHERE s.id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "instance_name",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "instance_name"
+          }
+        }
+      },
+      {
+        "name": "autostart",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "autostart"
+          }
+        }
+      },
+      {
+        "name": "port",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "port"
+          }
+        }
+      },
+      {
+        "name": "bind_addr",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "bind_addr"
+          }
+        }
+      },
+      {
+        "name": "data_dir",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "data_dir"
+          }
+        }
+      },
+      {
+        "name": "config_overrides_json",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "config_overrides_json"
+          }
+        }
+      },
+      {
+        "name": "extension_id",
+        "ordinal": 6,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "extension_id"
+          }
+        }
+      },
+      {
+        "name": "package",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "package_version",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "name": "runtime_kind",
+        "ordinal": 9,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "runtime_version",
+        "ordinal": 10,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "version"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "c40e0a5b07c654922ce50f2bab4f4e011633bcbeb1eb08ade838aec909204da8"
+}

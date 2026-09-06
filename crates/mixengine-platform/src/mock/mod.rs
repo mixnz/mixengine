@@ -332,6 +332,24 @@ impl Host {
         }
     }
 
+    /// A host whose machine uses `method` and has granted it to `program` alone.
+    ///
+    /// **The shape of a Linux home that has changed web server** — roadmap task **T97**: the grant
+    /// is an attribute of the binary, so the front end the home is on holds it and the one it is
+    /// being asked to move to does not. A fixture with one flag for the whole machine cannot say
+    /// that, and it is the case `service.set_front_end` exists to get right.
+    #[must_use]
+    pub fn with_port_access_for(
+        home: impl Into<PathBuf>,
+        method: crate::PortAccessMethod,
+        program: &str,
+    ) -> Self {
+        Self {
+            port_access: port_access::Access::granting_only(method, program),
+            ..Self::with_home(home)
+        }
+    }
+
     /// A host whose machine uses `method` and has not been granted it, with `missing` saying why.
     ///
     /// The producer's whole question — the T42 design, D7 — is whether the grant is still there, and

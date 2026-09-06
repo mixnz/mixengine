@@ -36,19 +36,19 @@ use mixengine_proto::{
     DesktopPresence, DiskUsage, Disposition, DnsMode, DoctorReport, DomainStatusReport,
     ElevationStatus, Enforcement, Execution, ExtensionCatalogue, ExtensionChange,
     ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan, ExtensionRemoval,
-    ExtensionSource, FilesystemReach, GrantOutcome, Handshake, HelperUpgrade, HelperUpgradeOutcome,
-    IdleExemption, IdleProbe, IdleReport, IdleSource, InstalledExtensions, IssueOutcome, JobList,
-    JobOutcome, JobState, JobSummary, Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog,
-    MetricsFrame, MetricsHistory, NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue,
-    PackageList, PackageRelease, PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction,
-    PlanStep, PoolOutcome, Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval,
-    RecipeAddition, Reclaim, Removal, RepairReport, ResolvedRuntime, RotateOutcome,
-    RuntimeCatalogue, RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary,
-    ServiceCreation, ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState,
-    ServiceSummary, ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner,
-    SiteRemoval, SiteSharing, StateReason, StepResult, Timestamp, Trust, UninstallOutcome,
-    UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict,
-    WhenExceeded, privileged::ElevationOutcome,
+    ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport, GrantOutcome, Handshake,
+    HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource,
+    InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage,
+    Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome,
+    PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease, PackageRemoval,
+    PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome, Priority,
+    ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim, Removal,
+    RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease,
+    RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport,
+    ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk, SignatureCheck,
+    SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult,
+    Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement,
+    UpdateStatus, Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -809,6 +809,100 @@ pub(crate) fn service_status(service: &ServiceSummary) -> String {
             "the row names a process and nothing in this daemon is supervising it — that is what a \
              daemon which was killed leaves behind",
         );
+    }
+
+    rendered
+}
+
+/// `mix service front-end`, for a person — roadmap task **T97**.
+///
+/// **What the daemon said, not what this client worked out.** The row is picked by
+/// [`ServiceSummary::role`], which is the whole point of that member: no client anywhere maps a
+/// package name to a meaning.
+pub(crate) fn front_end(found: Option<&ServiceSummary>) -> String {
+    let Some(service) = found else {
+        return "this home has no front end, so nothing is serving its sites\n  \
+                `mix service set-front-end caddy` makes one out of an installed package\n"
+            .to_owned();
+    };
+
+    format!(
+        "every site in this home is reached through {}\n{}",
+        service.id,
+        service_status(service)
+    )
+}
+
+/// `mix service set-front-end`, for a person — roadmap task **T97**.
+///
+/// **The outcome leads**, on [`service_walk`]'s rule: three of the five endings leave the home where
+/// it started, and somebody reading this needs to know which one happened before anything else.
+pub(crate) fn front_end_report(report: &FrontEndReport) -> String {
+    let named =
+        |id: Option<&ServiceId>| id.map_or_else(|| "nothing".to_owned(), ToString::to_string);
+
+    let mut rendered = match &report.outcome {
+        FrontEndOutcome::Unchanged {} => format!(
+            "{} is already this home's front end; nothing was stopped, deleted or created\n",
+            named(report.was.as_ref())
+        ),
+
+        FrontEndOutcome::Switched { started } => {
+            let mut said = format!(
+                "every site in this home is now reached through {}, and was reached through {}\n",
+                named(report.now.as_ref()),
+                named(report.was.as_ref())
+            );
+
+            match started {
+                Some(walk) if walk.failed.is_some() => said.push_str(
+                    "  it was started and did not come up — `mix service logs` has what it \
+                     printed\n",
+                ),
+                Some(_) => said.push_str("  started, because the one it replaced was running\n"),
+                None => said.push_str(
+                    "  left stopped, because the one it replaced was — `mix service start` brings \
+                     it up\n",
+                ),
+            }
+
+            said
+        }
+
+        FrontEndOutcome::NotGranted { because } => format!(
+            "this home is still reached through {}, and nothing was changed\n  {because}\n  \
+             `mix elevation grant` allows it, and then this command works\n",
+            named(report.now.as_ref())
+        ),
+
+        FrontEndOutcome::RolledBack { because } => format!(
+            "the switch did not happen and {} was put back\n  {because}\n",
+            named(report.now.as_ref())
+        ),
+
+        FrontEndOutcome::Failed { because } => format!(
+            "the switch failed and this home is now reached through {}\n  {because}\n",
+            named(report.now.as_ref())
+        ),
+    };
+
+    if !report.answering {
+        rendered.push_str(
+            "  it has not been allowed to answer on 80 and 443 on this machine, so it will not \
+             start — `mix doctor` says what to do\n",
+        );
+    }
+
+    if let Some(data) = &report.kept_data {
+        rendered.push_str(&format!("  the data left where it was: {data}\n"));
+    }
+
+    if !report.not_carried.is_empty() {
+        rendered.push_str("  what did not travel with the switch:\n");
+
+        for left in &report.not_carried {
+            rendered.push_str(&format!("    - {left}\n"));
+        }
     }
 
     rendered
@@ -4774,6 +4868,7 @@ mod tests {
             last_started_at: running.then_some(Timestamp(1_723_000_000_000)),
             last_exit_code: None,
             depends_on: Vec::new(),
+            role: Some(mixengine_proto::ServiceRole::Other {}),
         }
     }
 

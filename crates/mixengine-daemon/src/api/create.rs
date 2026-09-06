@@ -54,6 +54,23 @@ impl Api {
         create: &ServiceCreate,
     ) -> Result<ServiceCreation, Error> {
         let catalogue = crate::services::catalogue();
+        let _guard = self
+            .one_front_end_change_at_a_time(&catalogue, &create.id)
+            .await;
+
+        self.create_declared(&catalogue, create).await
+    }
+
+    /// [`service_create`](Self::service_create) with the front-end lock already taken.
+    ///
+    /// **Separate so that `service.set_front_end` can reuse every refusal in it** — T32's, T36's,
+    /// T37's — rather than grow a second implementation that would drift from this one. A switch
+    /// holds the lock across its whole walk, so a create that took it again would wait for itself.
+    pub(super) async fn create_declared(
+        &self,
+        catalogue: &mixengine_core::generate::Catalogue,
+        create: &ServiceCreate,
+    ) -> Result<ServiceCreation, Error> {
         let package = create.id.name();
 
         let Some(recipe) = catalogue.recipe(package) else {
@@ -122,7 +139,7 @@ impl Api {
         // 443. Refused before the package check, because installing the second one would not help.
         if matches!(recipe.role(), Role::FrontEnd(_))
             && let Some(holder) =
-                mixengine_core::services::front_end::held_by(&self.store, &catalogue)
+                mixengine_core::services::front_end::held_by(&self.store, catalogue)
                     .await
                     .map_err(|error| error.to_wire())?
             && holder != create.id.as_str()
@@ -198,6 +215,7 @@ impl Api {
             Ok(graph) => Ok(ServiceCreation {
                 service: super::rpc::summary(
                     &graph,
+                    catalogue,
                     &create.id,
                     mixengine_core::services::record(&self.store, &create.id)
                         .await
@@ -228,6 +246,20 @@ impl Api {
     /// wire error of a directory that could not be removed.
     pub(crate) async fn service_delete(
         &self,
+        id: &ServiceId,
+        force: bool,
+    ) -> Result<ServiceRemoval, Error> {
+        let catalogue = crate::services::catalogue();
+        let _guard = self.one_front_end_change_at_a_time(&catalogue, id).await;
+
+        self.delete_declared(&catalogue, id, force).await
+    }
+
+    /// [`service_delete`](Self::service_delete) with the front-end lock already taken. See
+    /// [`create_declared`](Self::create_declared).
+    pub(super) async fn delete_declared(
+        &self,
+        catalogue: &mixengine_core::generate::Catalogue,
         id: &ServiceId,
         force: bool,
     ) -> Result<ServiceRemoval, Error> {
@@ -281,7 +313,7 @@ impl Api {
         }
 
         // Read before anything is removed, because afterwards there is nothing left to describe.
-        let removed = super::rpc::summary(&graph, id, Some(&record), &supervised);
+        let removed = super::rpc::summary(&graph, catalogue, id, Some(&record), &supervised);
 
         let column = mixengine_core::services::delete(&self.store, id)
             .await
@@ -299,6 +331,25 @@ impl Api {
             // telling somebody to look after a path that does not exist is noise.
             data_kept: data.is_dir().then(|| data.display().to_string()),
         })
+    }
+
+    /// The lock, taken only for the one role that has an invariant spanning rows — **T97**.
+    ///
+    /// **[`None`] is not a failure to lock**; it is a service for which there is nothing to
+    /// serialise. A home may have as many databases as it likes and they contend for nothing here,
+    /// so every create and every delete but a front end's goes straight past.
+    ///
+    /// A package this build has no recipe for is not a front end either — the call is about to
+    /// refuse it by name anyway.
+    pub(super) async fn one_front_end_change_at_a_time(
+        &self,
+        catalogue: &mixengine_core::generate::Catalogue,
+        id: &ServiceId,
+    ) -> Option<tokio::sync::MutexGuard<'_, ()>> {
+        match catalogue.recipe(id.name()).map(|recipe| recipe.role()) {
+            Some(Role::FrontEnd(_)) => Some(self.front_end.lock().await),
+            Some(Role::Other) | None => None,
+        }
     }
 
     /// Where a row that named no `data_dir` would have had its data placed.

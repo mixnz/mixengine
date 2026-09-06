@@ -9,7 +9,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 
 **This phase exists because of one sentence the file writes about itself.** Its acceptance criteria
 end with *"Every screen above can be assembled from documented methods and events, with no method
-existing solely to serve one of them"* — and that sentence is currently false in two places. Both
+existing solely to serve one of them"* — and that sentence was false in two places. Both
 were found by **MixDB reading the file against the API** while writing its own Phase 4 spec, which
 is the failure mode [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) accepted when it put
 the graphical client in another repository: a claim made on paper here is checked by somebody else's
@@ -42,7 +42,7 @@ subscription that is supposed to gate it.
       the sum says.
       Reachable as `mix disk` and `mix cleanup`, because a gap in the CLI is a gap in the product.
 
-- [ ] **T97** The active front end is answerable, and switchable — design in
+- [x] **T97** The active front end is answerable, and switchable — design in
       [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md). **(P)**
       **The two halves are not the same size, and only the first one is cheap.** Reading is a
       `role: ServiceRole` on `ServiceSummary`, copied from the `Recipe::role` **T37** already
@@ -61,12 +61,23 @@ subscription that is supposed to gate it.
       The walk is stop, swap the row, re-render `sites/` (**T43**), start — deleting before creating,
       so `front_end::held_by`'s "exactly one" is never momentarily false and the refusal needs no
       exception carved into it for its own caller.
+      **The rule is *do not make it worse*, not *require a grant*** — settled while building it: a
+      home whose current front end cannot answer either has nothing to lose, and refusing there
+      would trap somebody on a server that cannot bind 80 to protect them from a server that cannot
+      bind 80. So the old binary is probed as well, and `answering` on the report is what the
+      machine said afterwards.
+      **A create that will not render puts the old row back.** The window the delete-before-create
+      order opens is real, and the step inside it is the one that can fail — a front end renders
+      through its own checker, `nginx -t` and `caddy validate` — so the old declaration is read
+      before it is deleted and `RolledBack` is what a refused rendering answers.
       Reachable as `mix service front-end` and `mix service set-front-end <caddy|nginx>`.
+      Design:
+      [docs/superpowers/specs/2026-09-07-t97-the-active-front-end-design.md](../../docs/superpowers/specs/2026-09-07-t97-the-active-front-end-design.md).
 
 **Milestone M10 — MixDB's Dashboard and Settings screens draw whole, with no business logic in the
 client.** Not *a client can call these methods*: the test is that the screen `client-surface.md`
 describes can be built from what is documented, which is the claim the file has been making since it
-was written and has not been able to keep.
+was written and has not been able to keep. **Reached with T97.**
 
 ---
 

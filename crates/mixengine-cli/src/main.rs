@@ -38,21 +38,22 @@ use mixengine_proto::{
     ElevationStatus, Error, ErrorCode, ExtensionAvailable, ExtensionCatalogue, ExtensionChange,
     ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect, ExtensionInspection,
     ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest,
-    ExtensionRemoval, ExtensionTarget, ExtensionUninstall, HelperUpgrade, IdleReport,
-    InstalledExtensions, JobFilter, JobId, JobList, JobOutcome, JobQuery, JobState, JobSummary,
-    JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis, MismatchAnswer, PackageCatalogue,
-    PackageFilter, PackageList, PackageRemoval, PackageTarget, PackageVersion, PathReport,
-    PendingOpId, PlanAction, Priority, ProjectCreate, ProjectDetail, ProjectExport, ProjectList,
-    ProjectQuery, ProjectRef, ProjectRemoval, ProjectUpdate, Reclaim, Removal, RepairReport,
-    ResolvedRuntime, ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList,
-    RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
-    ScaffoldConsent, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet,
-    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval,
-    ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation,
-    SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare,
-    SiteSharing, SiteState, SiteUpdate, Timestamp, UninstallQuery, UninstallReport, UpdateApplied,
-    UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus,
-    VersionAnswer, VersionConstraint, rpc,
+    ExtensionRemoval, ExtensionTarget, ExtensionUninstall, FrontEndReport, FrontEndServer,
+    FrontEndSwitch, HelperUpgrade, IdleReport, InstalledExtensions, JobFilter, JobId, JobList,
+    JobOutcome, JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory,
+    Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageList, PackageRemoval,
+    PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
+    ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
+    ProjectUpdate, Reclaim, Removal, RepairReport, ResolvedRuntime, ResourceLimits,
+    RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceCreate,
+    ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
+    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary,
+    ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind,
+    SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare, SiteSharing, SiteState,
+    SiteUpdate, Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply,
+    UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer,
+    VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -1588,6 +1589,38 @@ enum ServiceCommand {
         force: bool,
     },
 
+    /// Which program every site in this home is reached through.
+    ///
+    /// Answered from the service listing: what a service is *for* travels on its summary, so there
+    /// is no second question to ask and no client anywhere decides that `nginx` means "front end".
+    FrontEnd,
+
+    /// Change it.
+    ///
+    /// Stops the front end this home is on, swaps the row, renders every site for the new one and
+    /// starts it. Every site is unreachable while that happens.
+    ///
+    /// **On Linux the new server needs this machine's permission to answer on 80 and 443**, because
+    /// that permission is written into the binary and the new binary does not have it. A machine
+    /// where nobody grants it stays on the front end it had, and says so.
+    SetFrontEnd {
+        /// The program to move to.
+        #[arg(value_name = "SERVER", value_enum)]
+        server: FrontEndServerArg,
+
+        /// Which installed version of it. The newest installed when it is left out.
+        #[arg(long, value_name = "VERSION", value_parser = runtime_version)]
+        version: Option<PackageVersion>,
+
+        /// Answer the question in advance.
+        #[arg(long, short)]
+        yes: bool,
+
+        /// Return once the daemon has accepted the switch rather than once it has made it.
+        #[arg(long)]
+        no_wait: bool,
+    },
+
     /// Start a service, and everything it depends on.
     Start(Target),
 
@@ -1629,6 +1662,29 @@ enum LimitsCommand {
     Clear,
 }
 
+/// [`FrontEndServer`] on a command line.
+///
+/// Its own type for [`PriorityArg`]'s reason — `clap::ValueEnum` cannot be derived for a type in
+/// another crate — and the words are the same ones the API spells, because they are the same two
+/// programs.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum FrontEndServerArg {
+    /// Caddy, which is what this project picks when there is a choice — ADR 0004.
+    Caddy,
+
+    /// nginx, which is a first-class alternative and not a lesser one.
+    Nginx,
+}
+
+impl From<FrontEndServerArg> for FrontEndServer {
+    fn from(arg: FrontEndServerArg) -> Self {
+        match arg {
+            FrontEndServerArg::Caddy => Self::Caddy,
+            FrontEndServerArg::Nginx => Self::Nginx,
+        }
+    }
+}
+
 /// [`Priority`] on a command line.
 ///
 /// Its own type because `clap::ValueEnum` cannot be derived for a type in another crate, and because
@@ -1667,6 +1723,172 @@ struct Target {
     /// being up: an answer sent before the walk would exit `0` for a service that never came up.
     #[arg(long)]
     no_wait: bool,
+}
+
+/// Which service in a listing is the front end, as the daemon answered — roadmap task **T97**.
+///
+/// **Three answers and not an [`Option`]**, because the third is a wire fact and not a home fact: a
+/// daemon built before `ServiceSummary::role` sends none, and reading that as *no front end* would
+/// tell somebody their sites are unserved when they are being served perfectly well.
+#[derive(Debug)]
+enum Found<'a> {
+    /// The row whose role says so.
+    On(&'a ServiceSummary),
+
+    /// Every row answered, and none of them is one.
+    None,
+
+    /// No row answered at all: this daemon predates the member.
+    Unanswered,
+}
+
+/// Pick it out, by what the daemon said a service is *for*.
+///
+/// Not a client deciding anything — the role is the daemon's own answer, from the crate that owns
+/// the recipes — this is where it is read. ADR 0026's enforcement clause is that no client maps a
+/// package name to a role, and this function is `mix` obeying it.
+fn the_front_end(list: &ServiceList) -> Found<'_> {
+    if let Some(service) = list
+        .services
+        .iter()
+        .find(|service| matches!(service.role, Some(ServiceRole::FrontEnd { .. })))
+    {
+        return Found::On(service);
+    }
+
+    // A home with no services at all has no front end, and that is an answer whatever the daemon's
+    // build: there is no row whose role could have been missing.
+    match list.services.is_empty() || list.services.iter().any(|service| service.role.is_some()) {
+        true => Found::None,
+        false => Found::Unanswered,
+    }
+}
+
+/// `mix service set-front-end <server>` — roadmap task **T97**.
+///
+/// **The question is asked before the call and not after it**, on `mix cleanup`'s rule: a switch
+/// stops the web server every site in this home is reached through, and somebody who typed it needs
+/// to know that before it happens rather than to read it in a report.
+///
+/// `grant: true` is sent because the person has just been told that a permission prompt may appear
+/// — which is T64's rule met — and because the switch cannot go ahead without the grant on the one
+/// system that needs it.
+async fn set_front_end(
+    client: &mut Client,
+    json: bool,
+    server: FrontEndServer,
+    version: Option<PackageVersion>,
+    yes: bool,
+    no_wait: bool,
+) -> Result<ExitCode, Error> {
+    if !yes {
+        let list: ServiceList = ask(client, rpc::method::SERVICE_LIST, None).await?;
+
+        if !agreed_to_switch(&list, server, json)? {
+            // Saying no is an answer and not a failure — `mix uninstall`'s rule. Nothing moved, so
+            // the same command works when the person is ready.
+            return Ok(ExitCode::SUCCESS);
+        }
+    }
+
+    let started: JobSummary = ask(
+        client,
+        rpc::method::SERVICE_SET_FRONT_END,
+        encode(&FrontEndSwitch {
+            server,
+            version,
+            grant: true,
+        }),
+    )
+    .await?;
+
+    if no_wait {
+        emit(&rendered(json, &started, || render::job_status(&started)))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let finished = follow(client, started, json).await?;
+
+    let Some(JobOutcome::Succeeded { result }) = finished.outcome.clone() else {
+        emit(&rendered(json, &finished, || render::job_status(&finished)))?;
+        return Ok(ExitCode::FAILURE);
+    };
+
+    let report: FrontEndReport = serde_json::from_value(result).map_err(|error| {
+        Error::new(
+            ErrorCode::Internal,
+            format!(
+                "mix {} cannot read the front-end report: {error}",
+                env!("CARGO_PKG_VERSION")
+            ),
+        )
+    })?;
+
+    emit(&rendered(json, &report, || {
+        render::front_end_report(&report)
+    }))?;
+
+    Ok(match report.wanted_more() {
+        true => ExitCode::FAILURE,
+        false => ExitCode::SUCCESS,
+    })
+}
+
+/// Ask, once, in front of what is about to happen — roadmap task **T97**.
+///
+/// **Asking for the server a home is already on is a yes**, on `agreed_to_cleanup`'s rule: a command
+/// that asked *"change nothing?"* is one people learn to answer without reading.
+///
+/// **`--json` never asks**, and never acts instead.
+fn agreed_to_switch(list: &ServiceList, server: FrontEndServer, json: bool) -> Result<bool, Error> {
+    let standing = match the_front_end(list) {
+        Found::On(service) => Some(service),
+        // A home with none has nothing to stop, and a daemon that will not say is one the switch
+        // itself refuses a moment later — neither is a reason to withhold the question.
+        Found::None | Found::Unanswered => None,
+    };
+
+    if standing.is_some_and(|service| service.id.name() == server.package()) {
+        return Ok(true);
+    }
+
+    if json {
+        return Err(unanswered());
+    }
+
+    // Printed rather than held back, because the question below is refused under `--json` anyway:
+    // what somebody is about to allow is what they are shown.
+    emit(&match standing {
+        Some(service) => format!(
+            "{} is this home's front end.\nswitching to {server} stops it, renders every site for \
+             {server} and starts it — no site is reachable while that happens.\n",
+            service.id,
+            server = server.package()
+        ),
+        None => format!(
+            "this home has no front end; {} becomes one, and is left stopped.\n",
+            server.package()
+        ),
+    })?;
+
+    emit(
+        "this machine may ask permission for it to answer on 80 and 443, and anything else \
+         MixEngine is already waiting for is asked for at the same time — `mix elevation status` \
+         lists that.\n",
+    )?;
+
+    match confirm::ask(&format!("\nswitch to {}? [y/N] ", server.package())) {
+        confirm::Answer::Yes => Ok(true),
+
+        confirm::Answer::No => {
+            // On stderr, beside the question it answers.
+            let _ = writeln!(std::io::stderr(), "nothing was changed");
+
+            Ok(false)
+        }
+
+        confirm::Answer::Unanswerable => Err(unanswered()),
+    }
 }
 
 /// A service id from the command line, refused here rather than at the daemon.
@@ -5010,6 +5232,58 @@ async fn service(
                 render::service_creation(&creation)
             }))?;
             return Ok(ExitCode::SUCCESS);
+        }
+
+        ServiceCommand::FrontEnd => {
+            let list: ServiceList = ask(&mut client, rpc::method::SERVICE_LIST, None).await?;
+
+            return match the_front_end(&list) {
+                // `--json` answers with the summary itself, or `null`, so a script asks
+                // `.id` and `.state` where the API names them.
+                Found::On(service) => {
+                    emit(&rendered(json, &service, || {
+                        render::front_end(Some(service))
+                    }))?;
+                    Ok(ExitCode::SUCCESS)
+                }
+
+                Found::None => {
+                    emit(&rendered(json, &Option::<ServiceSummary>::None, || {
+                        render::front_end(None)
+                    }))?;
+                    Ok(ExitCode::SUCCESS)
+                }
+
+                // ADR 0019's cost, paid in the one place that reads the member: a daemon from before
+                // T97 sends no role at all, and guessing from the package names is the thing this
+                // command exists so that nobody does.
+                Found::Unanswered => Err(Error::new(
+                    ErrorCode::PreconditionFailed,
+                    "this daemon does not say what a service is for, so which one is the front \
+                     end cannot be read",
+                )
+                .with_hint(
+                    "it is older than this `mix`; restart it so the build you installed is the \
+                     one answering",
+                )),
+            };
+        }
+
+        ServiceCommand::SetFrontEnd {
+            server,
+            version,
+            yes,
+            no_wait,
+        } => {
+            return set_front_end(
+                &mut client,
+                json,
+                (*server).into(),
+                version.clone(),
+                *yes,
+                *no_wait,
+            )
+            .await;
         }
 
         ServiceCommand::Delete { service, force } => {

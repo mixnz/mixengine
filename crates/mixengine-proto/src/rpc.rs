@@ -422,6 +422,21 @@ pub mod method {
     /// subject is not a delete of everything.
     pub const SERVICE_DELETE: &str = "service.delete";
 
+    /// Change which program every site on this machine is reached through. Takes
+    /// [`FrontEndSwitch`](crate::FrontEndSwitch), answers a [`JobSummary`](crate::JobSummary) whose
+    /// result is a [`FrontEndReport`](crate::FrontEndReport). Roadmap task **T97**.
+    ///
+    /// **A job and not a setting**, which is
+    /// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md):
+    /// the row, the rendered sites and — on Linux — the port-80 grant all have to move together, and
+    /// on a machine where nobody grants the honest outcome is that the home **stays on the front end
+    /// it had**. That outcome is described rather than left as a home whose sites are rendered for a
+    /// server that cannot answer.
+    ///
+    /// **There is no method for reading it back**, deliberately: [`SERVICE_LIST`] already answers,
+    /// through [`ServiceSummary::role`](crate::ServiceSummary).
+    pub const SERVICE_SET_FRONT_END: &str = "service.set_front_end";
+
     /// What a service may take, and what this machine will actually enforce of it. Takes
     /// [`ServiceTarget`](crate::ServiceTarget), answers
     /// [`ServiceLimitsReport`](crate::ServiceLimitsReport).

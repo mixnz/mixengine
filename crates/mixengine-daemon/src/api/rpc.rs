@@ -17,14 +17,14 @@ use mixengine_proto::{
     DatabaseOpen, DiagnosticsBundle, DiskUsageQuery, DoctorRepair, DomainAdd, DomainRemove,
     DomainStatusQuery, ElevationDrop, Enforcement, Error, ErrorCode, ExtensionAvailable,
     ExtensionChoice, ExtensionInspect, ExtensionInstall, ExtensionPlanRequest, ExtensionTarget,
-    ExtensionUninstall, IdleReport, IdleSource, JobFilter, JobId, JobKind, JobList, JobQuery,
-    JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame, MetricsHistory,
-    MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery, ProjectUpdate,
-    ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall, ServiceCreate,
-    ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceSpec, ServiceSummary, ServiceTarget,
-    ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate, UninstallQuery,
-    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
+    ExtensionUninstall, FrontEndSwitch, IdleReport, IdleSource, JobFilter, JobId, JobKind, JobList,
+    JobQuery, JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
+    MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery,
+    ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall,
+    ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport,
+    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec, ServiceSummary,
+    ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate,
+    UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -739,6 +739,11 @@ async fn call_method(
                 rpc::method::SERVICE_SET_IDLE => {
                     let asked: ServiceIdleSet = arguments(params)?;
                     encode_result(&api.service_set_idle(&asked).await.map_err(refused)?)
+                }
+
+                rpc::method::SERVICE_SET_FRONT_END => {
+                    let switch: FrontEndSwitch = arguments(params)?;
+                    encode_result(&api.service_set_front_end(switch).await.map_err(refused)?)
                 }
 
                 rpc::method::SERVICE_DELETE => {
@@ -1496,9 +1501,13 @@ impl Api {
             .map_err(|error| error.to_wire())?;
         let supervised = self.services.supervised();
 
+        // Built once for the listing and not once per row: what a package is for is the same
+        // answer for every service in it.
+        let catalogue = crate::services::catalogue();
+
         let services = graph
             .ids()
-            .map(|id| summary(&graph, id, rows.get(id.as_str()), &supervised))
+            .map(|id| summary(&graph, &catalogue, id, rows.get(id.as_str()), &supervised))
             .collect();
 
         Ok(ServiceList { services })
@@ -1730,6 +1739,7 @@ impl Api {
 
         Ok(summary(
             &graph,
+            &crate::services::catalogue(),
             id,
             record.as_ref(),
             &self.services.supervised(),
@@ -1737,7 +1747,7 @@ impl Api {
     }
 
     /// `service.start` — bring a service up, and everything it depends on with it.
-    async fn service_start(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
+    pub(super) async fn service_start(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
         let graph = self
             .services
             .graph()
@@ -1762,7 +1772,7 @@ impl Api {
     /// **A stop can fail**, and since T18 there is exactly one way: a process that outlived a
     /// previous daemon, was adopted by this one, and would not die. What comes back then names it,
     /// with no reason attached — see [`Registry::stop`](crate::services::Registry::stop).
-    async fn service_stop(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
+    pub(super) async fn service_stop(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
         let graph = self
             .services
             .graph()
@@ -1948,6 +1958,7 @@ fn stop_plan(graph: &ServiceGraph, service: Option<&ServiceId>) -> Result<Plan, 
 /// then refuses to start explains nothing to whoever declared it.
 pub(super) fn summary(
     graph: &ServiceGraph,
+    catalogue: &mixengine_core::generate::Catalogue,
     id: &ServiceId,
     record: Option<&ServiceRecord>,
     supervised: &BTreeSet<ServiceId>,
@@ -1971,6 +1982,24 @@ pub(super) fn summary(
             .dependencies_of(id)
             .map(|dependencies| dependencies.iter().cloned().collect())
             .unwrap_or_default(),
+        role: Some(role_of(catalogue, id)),
+    }
+}
+
+/// What a package is *for*, as the catalogue answers it — roadmap task **T97**.
+///
+/// **By what the recipe says, never by the name.** That is the whole of what this member exists to
+/// stop a client doing, so deriving it here from a string would only move the copy one crate down.
+///
+/// A row this build has no recipe for is [`ServiceRole::Other`] rather than absent: `None` on the
+/// wire means *the daemon predates the member* (ADR 0019), and a service MixEngine cannot configure
+/// is certainly not the program every site is reached through — which is the same answer
+/// [`front_end::held_by`](mixengine_core::services::front_end::held_by) already gives such a row
+/// when it passes over it.
+fn role_of(catalogue: &mixengine_core::generate::Catalogue, id: &ServiceId) -> ServiceRole {
+    match catalogue.recipe(id.name()).map(|recipe| recipe.role()) {
+        Some(mixengine_core::generate::Role::FrontEnd(server)) => ServiceRole::FrontEnd { server },
+        Some(mixengine_core::generate::Role::Other) | None => ServiceRole::Other {},
     }
 }
 
@@ -2109,6 +2138,19 @@ mod tests {
     /// The two lists are separate on purpose: a declaration and a row are different things, and the
     /// one test that gives a service the first without the second is testing exactly that.
     async fn daemon(specs: Arc<dyn services::SpecSource>, rows: &[&str]) -> Daemon {
+        daemon_on(specs, rows, mixengine_platform::mock::Host::with_home).await
+    }
+
+    /// The same daemon on a machine the caller describes — roadmap task **T97**.
+    ///
+    /// **A constructor rather than a host**, because the mock's own constructors all take the home
+    /// and this harness is the only thing that knows where it is. What varies between the switch
+    /// tests is exactly one thing: whether this machine will let a given binary answer on 80 and
+    /// 443, which is not something a test can arrange any other way.
+    async fn daemon_on<H>(specs: Arc<dyn services::SpecSource>, rows: &[&str], machine: H) -> Daemon
+    where
+        H: FnOnce(std::path::PathBuf) -> mixengine_platform::mock::Host,
+    {
         let (home, paths, store) = fixture::home(rows).await;
         let events = super::super::Events::new();
 
@@ -2159,7 +2201,7 @@ mod tests {
         )
         .expect("a file in a temporary home");
 
-        let host = Arc::new(mixengine_platform::mock::Host::with_home(paths.root()));
+        let host = Arc::new(machine(paths.root().to_path_buf()));
 
         let shims = Arc::new(crate::shims::Shims::new(
             &paths,
@@ -2349,6 +2391,7 @@ mod tests {
             // these tests waiting on it, which is what makes the method's own test able to assert
             // that it was cancelled rather than watch a process exit.
             shutdown: super::super::Shutdown::new(CancellationToken::new(), SHUTDOWN_GRACE),
+            front_end: tokio::sync::Mutex::new(()),
         });
 
         Daemon {
@@ -3088,6 +3131,369 @@ mod tests {
             web.depends_on,
             vec![fixture::service("db")],
             "the graph's edge, which is what makes a start order explicable"
+        );
+    }
+
+    /// A home reached through one front end, declared and rowed.
+    ///
+    /// **Its program is the one inside the installed package**, unlike [`fixture::spec`]'s, and it
+    /// has to be: on Linux the port-80 grant is an attribute of *that file*, so a fixture pointing
+    /// at the fake service somewhere else would be a home whose front end could never be found to
+    /// hold one.
+    fn front_end(id: &str) -> Arc<fixture::Declared> {
+        Arc::new(fixture::Declared(vec![
+            ServiceSpec::builder(
+                fixture::service(id),
+                mixengine_core::generate::program(&packages_root(), id),
+            )
+            .cwd(std::env::temp_dir())
+            .ready(mixengine_proto::ReadyCheck::LogPattern {
+                regex: mixengine_testkit::service::READY_LINE.to_owned(),
+                timeout: Millis::from_secs(20),
+            })
+            .restart(mixengine_proto::RestartPolicy::Never)
+            .stop(StopBehaviour::Signal { grace: Millis(500) })
+            .build()
+            .expect("a usable spec"),
+        ]))
+    }
+
+    /// Where the switch tests say a package was installed.
+    ///
+    /// **Absolute on all three systems, which `fixture::home`'s `/packages/x` is not.** That value
+    /// is a path on Unix and a *relative* one on Windows — no drive letter — and these are the first
+    /// tests to build a spec's program out of an install path rather than out of the fake service's
+    /// own, which is where a spec refuses it. Nothing is ever run from here.
+    fn packages_root() -> std::path::PathBuf {
+        match cfg!(windows) {
+            true => std::path::PathBuf::from(r"C:\packages\x"),
+            false => std::path::PathBuf::from("/packages/x"),
+        }
+    }
+
+    /// Put every installed package where [`packages_root`] says, and install `also` beside them.
+    ///
+    /// The `also` half is what a home looks like the moment after `mix package install nginx` and
+    /// before anything has been created from it: a `packages` row that no service is an instance of.
+    async fn installed(daemon: &Daemon, also: &[&str]) {
+        let root = packages_root().display().to_string();
+
+        for package in also {
+            sqlx::query(
+                "INSERT INTO packages (name, version, install_path, installed_at, source_url,
+                                       sha256)
+                 VALUES (?, '1.0.0', ?, '2026-09-07T00:00:00Z', 'https://example', 'ab')",
+            )
+            .bind(package)
+            .bind(&root)
+            .execute(daemon.api.store.pool())
+            .await
+            .expect("an installed package");
+        }
+
+        sqlx::query("UPDATE packages SET install_path = ?")
+            .bind(&root)
+            .execute(daemon.api.store.pool())
+            .await
+            .expect("a readable table");
+    }
+
+    /// The report a finished switch left behind, or the reason there is not one.
+    async fn switched(daemon: &Daemon, params: Value) -> mixengine_proto::FrontEndReport {
+        let started: JobSummary = serde_json::from_value(
+            daemon.ask(rpc::method::SERVICE_SET_FRONT_END, params).await["result"].clone(),
+        )
+        .expect("a job");
+
+        let finished = daemon
+            .api
+            .jobs
+            .wait(started.id, Millis::from_secs(30))
+            .await
+            .expect("a job that ends");
+
+        match finished.outcome {
+            Some(mixengine_proto::JobOutcome::Succeeded { result }) => {
+                serde_json::from_value(result).expect("a front-end report")
+            }
+            other => panic!("the switch did not finish: {other:?}"),
+        }
+    }
+
+    /// **T97.** A switch installs nothing, so a server that is not here is a refusal with the
+    /// command that would put it here — not a job that downloads forty megabytes.
+    #[tokio::test]
+    async fn a_switch_to_a_server_that_is_not_installed_is_refused_with_the_way_to_install_it() {
+        let daemon = undeclared().await;
+
+        let answer = daemon
+            .ask(
+                rpc::method::SERVICE_SET_FRONT_END,
+                serde_json::json!({"server": "nginx"}),
+            )
+            .await;
+
+        assert_eq!(answer["error"]["data"]["code"], "precondition_failed");
+        assert!(
+            answer["error"]["data"]["hint"]
+                .as_str()
+                .is_some_and(|hint| hint.contains("mix package install nginx")),
+            "{answer}"
+        );
+    }
+
+    /// **T97.** Asking for the server a home is already on is a question with an answer, and not a
+    /// refusal: a switch clicked on the option that is already selected is an ordinary thing to
+    /// happen, and refusing it would make a client suppress the call.
+    #[tokio::test]
+    async fn a_switch_to_the_server_a_home_is_already_on_moves_nothing() {
+        let daemon = daemon(front_end("nginx"), &["nginx"]).await;
+        installed(&daemon, &[]).await;
+
+        let report = switched(&daemon, serde_json::json!({"server": "nginx"})).await;
+
+        assert!(
+            matches!(
+                report.outcome,
+                mixengine_proto::FrontEndOutcome::Unchanged {}
+            ),
+            "{report:?}"
+        );
+        assert_eq!(report.was, report.now);
+        assert_eq!(
+            report.was.as_ref().map(ServiceId::as_str),
+            Some("nginx"),
+            "and the home is still on it"
+        );
+    }
+
+    /// **T97, and ADR 0026's hardest sentence.** A machine that has granted port 80 to the front end
+    /// this home is on and not to the one it is being asked to move to **stays where it was**.
+    ///
+    /// The outcome a switch must never produce is a home whose sites are rendered for a server that
+    /// cannot answer, so this is refused before anything is stopped — and the grant it asked for is
+    /// left waiting, which is what makes `mix elevation grant` and the same command again work.
+    #[tokio::test]
+    async fn a_machine_that_will_not_grant_the_new_front_end_keeps_the_one_it_had() {
+        let daemon = daemon_on(front_end("nginx"), &["nginx"], |home| {
+            mixengine_platform::mock::Host::with_port_access_for(
+                home,
+                mixengine_platform::PortAccessMethod::Capability,
+                "nginx",
+            )
+        })
+        .await;
+        installed(&daemon, &["caddy"]).await;
+
+        let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
+
+        assert!(
+            matches!(
+                report.outcome,
+                mixengine_proto::FrontEndOutcome::NotGranted { .. }
+            ),
+            "{report:?}"
+        );
+        assert_eq!(
+            report.now.as_ref().map(ServiceId::as_str),
+            Some("nginx"),
+            "the home did not move"
+        );
+        assert!(
+            report.answering,
+            "and what it is on can still answer, which is what was being protected"
+        );
+        assert_eq!(
+            mixengine_core::services::front_end::held_by(
+                &daemon.api.store,
+                &crate::services::catalogue()
+            )
+            .await
+            .expect("a readable table"),
+            Some("nginx".to_owned()),
+            "the row is untouched"
+        );
+        assert_eq!(
+            daemon
+                .api
+                .elevation
+                .status()
+                .await
+                .expect("a readable queue")
+                .pending
+                .len(),
+            1,
+            "and the grant it asked for is waiting, so allowing it and asking again works"
+        );
+    }
+
+    /// **T97.** The rule is *do not make it worse*, not *require a grant*.
+    ///
+    /// A Linux home where nobody ever granted has a front end that cannot bind 80 and therefore does
+    /// not start. Refusing to move it would trap somebody on a server that cannot answer in order to
+    /// protect them from a server that cannot answer — so this switch goes ahead, and the report
+    /// says the home still cannot answer rather than pretending the switch fixed it.
+    #[tokio::test]
+    async fn a_switch_from_a_front_end_that_cannot_answer_either_goes_ahead_and_says_so() {
+        let daemon = daemon_on(front_end("nginx"), &["nginx"], |home| {
+            mixengine_platform::mock::Host::without_port_access(
+                home,
+                mixengine_platform::PortAccessMethod::Capability,
+                "nobody has granted anything on this machine",
+            )
+        })
+        .await;
+        installed(&daemon, &["caddy"]).await;
+
+        let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
+
+        assert!(
+            matches!(
+                report.outcome,
+                mixengine_proto::FrontEndOutcome::Switched { .. }
+            ),
+            "{report:?}"
+        );
+        assert_eq!(report.now.as_ref().map(ServiceId::as_str), Some("caddy"));
+        assert!(
+            !report.answering,
+            "and it is still a home whose front end cannot bind 80, which is the truth"
+        );
+    }
+
+    /// **T97.** The row moves, what is about the home's front end travels with it, and what belonged
+    /// to the program that is going is named rather than silently dropped.
+    #[tokio::test]
+    async fn a_switch_carries_the_home_s_own_settings_and_names_what_it_left() {
+        let daemon = daemon(front_end("nginx"), &["nginx"]).await;
+
+        sqlx::query(
+            "UPDATE services
+                SET autostart = 1, bind_addr = '0.0.0.0',
+                    config_overrides_json = '{\"worker_processes\":4}'
+              WHERE id = 'nginx'",
+        )
+        .execute(daemon.api.store.pool())
+        .await
+        .expect("a front end somebody had configured");
+        installed(&daemon, &["caddy"]).await;
+
+        let report = switched(&daemon, serde_json::json!({"server": "caddy"})).await;
+
+        assert_eq!(report.was.as_ref().map(ServiceId::as_str), Some("nginx"));
+        assert_eq!(report.now.as_ref().map(ServiceId::as_str), Some("caddy"));
+        assert_eq!(
+            mixengine_core::services::front_end::held_by(
+                &daemon.api.store,
+                &crate::services::catalogue()
+            )
+            .await
+            .expect("a readable table"),
+            Some("caddy".to_owned()),
+            "exactly one front end, and it is the new one"
+        );
+
+        let moved =
+            mixengine_core::services::declaration(&daemon.api.store, &fixture::service("caddy"))
+                .await
+                .expect("the new row");
+
+        assert!(moved.autostart, "starting with the daemon is about the job");
+        assert_eq!(
+            moved.bind_addr.as_deref(),
+            Some("0.0.0.0"),
+            "and so is the address this home's front end answers on"
+        );
+        assert!(
+            crate::api::front_end::is_empty_document(&moved.overrides),
+            "an nginx.conf setting is a syntax error in a Caddyfile, so it does not travel"
+        );
+        assert!(
+            report
+                .not_carried
+                .iter()
+                .any(|left| left.contains("overriding")),
+            "and what did not travel is named: {:?}",
+            report.not_carried
+        );
+    }
+
+    /// **T97.** The lock is taken for the one role that has an invariant spanning rows, and for
+    /// nothing else.
+    ///
+    /// A home may have as many databases as it likes and they contend for nothing here; a home may
+    /// have one front end, and the window in which that is momentarily untrue is what this closes.
+    #[tokio::test]
+    async fn only_a_front_end_change_waits_for_another_one() {
+        let daemon = undeclared().await;
+        let catalogue = crate::services::catalogue();
+
+        let held = daemon
+            .api
+            .one_front_end_change_at_a_time(&catalogue, &fixture::service("nginx"))
+            .await;
+
+        assert!(held.is_some(), "a front end takes the lock");
+        assert!(
+            daemon.api.front_end.try_lock().is_err(),
+            "and holds it, which is the whole of what it is for"
+        );
+
+        assert!(
+            daemon
+                .api
+                .one_front_end_change_at_a_time(&catalogue, &fixture::service("mariadb@main"))
+                .await
+                .is_none(),
+            "a database goes straight past it, even while a front end holds it"
+        );
+        assert!(
+            daemon
+                .api
+                .one_front_end_change_at_a_time(&catalogue, &fixture::service("not-a-package"))
+                .await
+                .is_none(),
+            "and so does a package this build has no recipe for"
+        );
+    }
+
+    /// **T97.** A listing says what each service is *for*, so a client never has to decide that
+    /// `nginx` means "front end" for itself.
+    ///
+    /// Written with nginx rather than Caddy on purpose, which is `front_end::held_by`'s own test
+    /// rule: the answer has to come from the recipe, and a lookup that had happened to be a
+    /// comparison against the string `caddy` would pass the other way round and fail this.
+    #[tokio::test]
+    async fn a_listing_says_what_each_service_is_for() {
+        let declared = Arc::new(fixture::Declared(vec![
+            fixture::spec("mariadb@main")
+                .build()
+                .expect("a usable spec"),
+            fixture::spec("nginx").build().expect("a usable spec"),
+        ]));
+        let daemon = daemon(declared, &["mariadb@main", "nginx"]).await;
+
+        let list: ServiceList = daemon.expect(rpc::method::SERVICE_LIST, Value::Null).await;
+
+        let role = |id: &str| {
+            list.services
+                .iter()
+                .find(|one| one.id.as_str() == id)
+                .unwrap_or_else(|| panic!("{id} is in the listing"))
+                .role
+        };
+
+        assert_eq!(
+            role("nginx"),
+            Some(ServiceRole::FrontEnd {
+                server: mixengine_proto::FrontEndServer::Nginx
+            }),
+            "the program every site is reached through, by what its recipe is for"
+        );
+        assert_eq!(
+            role("mariadb@main"),
+            Some(ServiceRole::Other {}),
+            "a database is not one of them"
         );
     }
 
