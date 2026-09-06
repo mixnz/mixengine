@@ -2162,9 +2162,21 @@ pub(crate) fn disk_usage(usage: &DiskUsage) -> String {
         "packages, generated config, the database".to_owned(),
     ]);
 
+    // The summary line is not a row — it would read as a sixth category — so it lines its own label
+    // up against the ones above rather than against a width written down twice.
+    let label = rows
+        .iter()
+        .map(|row| row[0].chars().count())
+        .max()
+        .unwrap_or_default();
+
     let mut out = table(["", "size", "reclaimed by"], &rows);
 
-    out.push_str(&format!("\ntotal    {}\n", size(usage.total_bytes())));
+    out.push_str(&format!(
+        "\n{:<label$}  {}\n",
+        "total",
+        size(usage.total_bytes())
+    ));
 
     for category in &usage.categories {
         if let Some(note) = &category.unreadable {
@@ -5478,6 +5490,9 @@ mod tests {
         assert!(rendered.contains("10 MiB"), "{rendered}");
         assert!(rendered.contains("mix cleanup"), "{rendered}");
         assert!(rendered.contains("90 MiB"), "{rendered}");
+
+        // The summary line sits under the column it summarises, whatever the longest label is.
+        assert!(rendered.contains("\ntotal     800 MiB\n"), "{rendered}");
     }
 
     /// T96. A category that could only be read in part says so in the table, not only in the JSON: a
