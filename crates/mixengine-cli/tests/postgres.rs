@@ -274,6 +274,41 @@ fn without_a_password(root: &Path, port: u16, user: &str, database: &str) -> Str
     said
 }
 
+/// The positive counterpart of [`without_a_password`] — roadmap task **T77b**. A query that
+/// succeeds with exactly the password this test chose *is* the proof the daemon stored and used
+/// it, on T77a's D13 reasoning: nothing here ever reads the keyring, because nothing needs to —
+/// the value was never MixEngine's to generate.
+fn with_the_password(root: &Path, port: u16, user: &str, database: &str, password: &str) -> String {
+    let psql = root.join(format!("bin/psql{}", std::env::consts::EXE_SUFFIX));
+
+    let answered = Command::new(psql)
+        .env("PGPASSWORD", password)
+        .args([
+            "--host=127.0.0.1",
+            &format!("--port={port}"),
+            &format!("--username={user}"),
+            &format!("--dbname={database}"),
+            "--no-password",
+            "-tAc",
+            "SELECT 1",
+        ])
+        .output()
+        .expect("the client in the archive can be run");
+
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&answered.stdout),
+        String::from_utf8_lossy(&answered.stderr)
+    );
+
+    assert!(
+        answered.status.success(),
+        "the server refused the password this test chose for `{user}`: {said}"
+    );
+
+    said
+}
+
 /// A home with a real PostgreSQL installed in it, a service created over it, and the port it uses.
 ///
 /// The archive is packed here out of the directory the CI step unpacked, served by a registry that
@@ -476,6 +511,101 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
         !bad.status.success(),
         "a name outside the slug charset was accepted: {}",
         harness::stdout(&bad)
+    );
+
+    // --- a chosen password ---------------------------------------------------------------------
+    //
+    // Roadmap task **T77b**. Success against the real server *is* the proof the daemon stored and
+    // used exactly the password given — T77a's D13 reasoning, extended to a value nobody
+    // generated.
+    at("creating an account with a chosen password");
+    let chosen = expect(
+        &home,
+        &[
+            "database",
+            "create",
+            SERVICE,
+            "--name",
+            "shop",
+            "--user",
+            "shop-app",
+            "--password",
+            "Ch0sen!Pw",
+            "--json",
+        ],
+    );
+    assert_eq!(chosen["made"]["user"], "created", "{chosen}");
+    with_the_password(&installed_at, port, "shop-app", "shop", "Ch0sen!Pw");
+
+    at("reading it back through mix database credentials");
+    let read_back = expect(
+        &home,
+        &[
+            "database",
+            "credentials",
+            SERVICE,
+            "--user",
+            "shop-app",
+            "--json",
+        ],
+    );
+    assert_eq!(read_back["password"], "Ch0sen!Pw", "{read_back}");
+
+    at("changing an existing account's password");
+    let changed = expect(
+        &home,
+        &[
+            "database",
+            "create",
+            SERVICE,
+            "--name",
+            "shop",
+            "--user",
+            "shop-app",
+            "--password",
+            "N3wPassword",
+            "--json",
+        ],
+    );
+    assert_eq!(changed["made"]["user"], "existing", "{changed}");
+    with_the_password(&installed_at, port, "shop-app", "shop", "N3wPassword");
+
+    at("the new password reads back");
+    let after_change = expect(
+        &home,
+        &[
+            "database",
+            "credentials",
+            SERVICE,
+            "--user",
+            "shop-app",
+            "--json",
+        ],
+    );
+    assert_eq!(after_change["password"], "N3wPassword", "{after_change}");
+
+    at("a password with a character the validator refuses is rejected before anything starts");
+    let refused_password = home.mix(&[
+        "database",
+        "create",
+        SERVICE,
+        "--name",
+        "nope",
+        "--password",
+        "has'quote",
+    ]);
+    assert!(
+        !refused_password.status.success(),
+        "a password outside the accepted alphabet was accepted: {}",
+        harness::stdout(&refused_password)
+    );
+
+    at("the administrator's own password reads back too");
+    let root = expect(&home, &["database", "credentials", SERVICE, "--json"]);
+    assert_eq!(root["user"], "postgres", "{root}");
+    assert!(
+        !root["password"].as_str().unwrap_or_default().is_empty(),
+        "{root}"
     );
 
     // --- stopped, cleanly --------------------------------------------------------------------------
