@@ -542,6 +542,127 @@ mod tests {
         );
     }
 
+    /// **T97.** The only thing a Settings screen has to send is which program it wants.
+    #[test]
+    fn a_switch_needs_only_the_server_and_raises_nothing_by_itself() {
+        let switch: FrontEndSwitch =
+            serde_json::from_str(r#"{"server":"nginx"}"#).expect("the one required field");
+
+        assert_eq!(switch.server, FrontEndServer::Nginx);
+        assert_eq!(
+            switch.version, None,
+            "a version nobody named is the newest installed"
+        );
+        assert!(
+            !switch.grant,
+            "what is about to be allowed is read before it is allowed"
+        );
+    }
+
+    /// A misspelled member must not be read as *do not raise a prompt*, which is what a switch with
+    /// an unknown key and a permissive parser would silently be.
+    #[test]
+    fn a_switch_refuses_a_member_it_does_not_know() {
+        serde_json::from_str::<FrontEndSwitch>(r#"{"server":"caddy","grants":true}"#)
+            .expect_err("deny_unknown_fields");
+    }
+
+    /// Each ending travels tagged, and the two that carry nothing are still objects — the shape a
+    /// client switches on.
+    #[test]
+    fn every_ending_a_switch_can_have_round_trips_tagged() {
+        for (outcome, tag) in [
+            (FrontEndOutcome::Unchanged {}, "unchanged"),
+            (FrontEndOutcome::Switched { started: None }, "switched"),
+            (
+                FrontEndOutcome::NotGranted {
+                    because: "nobody answered the prompt".to_owned(),
+                },
+                "not_granted",
+            ),
+            (
+                FrontEndOutcome::RolledBack {
+                    because: "nginx -t refused the rendering".to_owned(),
+                },
+                "rolled_back",
+            ),
+            (
+                FrontEndOutcome::Failed {
+                    because: "the old row could not be written back".to_owned(),
+                },
+                "failed",
+            ),
+        ] {
+            let encoded = serde_json::to_value(&outcome).expect("an outcome encodes");
+            assert_eq!(encoded["outcome"], tag);
+            assert_eq!(
+                serde_json::from_value::<FrontEndOutcome>(encoded).expect("and decodes"),
+                outcome
+            );
+        }
+    }
+
+    /// The exit code, and the one ending that is deliberately not a failure: asking for the server a
+    /// home is already on is a question with an answer.
+    #[test]
+    fn only_a_switch_that_did_not_happen_is_something_the_caller_wanted_more_of() {
+        let report = |outcome| FrontEndReport {
+            was: Some(service("caddy")),
+            now: Some(service("caddy")),
+            outcome,
+            answering: true,
+            kept_data: None,
+            not_carried: Vec::new(),
+        };
+
+        assert!(!report(FrontEndOutcome::Unchanged {}).wanted_more());
+        assert!(!report(FrontEndOutcome::Switched { started: None }).wanted_more());
+
+        for refused in [
+            FrontEndOutcome::NotGranted {
+                because: "no helper".to_owned(),
+            },
+            FrontEndOutcome::RolledBack {
+                because: "it would not render".to_owned(),
+            },
+            FrontEndOutcome::Failed {
+                because: "and would not go back".to_owned(),
+            },
+        ] {
+            assert!(report(refused).wanted_more());
+        }
+
+        assert!(
+            report(FrontEndOutcome::Switched { started: None }).moved(),
+            "and only a switch moved the home"
+        );
+        assert!(!report(FrontEndOutcome::Unchanged {}).moved());
+    }
+
+    /// What a switch left behind is on the wire even when there is nothing to say, because an empty
+    /// list and an absent one are different answers — and a client renders the first as *nothing
+    /// was lost*.
+    #[test]
+    fn a_report_that_left_nothing_behind_still_says_so() {
+        let report = FrontEndReport {
+            was: None,
+            now: Some(service("nginx")),
+            outcome: FrontEndOutcome::Switched { started: None },
+            answering: false,
+            kept_data: None,
+            not_carried: Vec::new(),
+        };
+
+        let encoded = serde_json::to_value(&report).expect("a report encodes");
+        assert!(encoded.get("was").is_none(), "{encoded}");
+        assert!(encoded.get("kept_data").is_none(), "{encoded}");
+        assert_eq!(encoded["not_carried"], serde_json::json!([]));
+        assert_eq!(
+            serde_json::from_value::<FrontEndReport>(encoded).expect("and decodes"),
+            report
+        );
+    }
+
     #[test]
     fn a_status_without_a_service_does_not_decode() {
         serde_json::from_str::<ServiceQuery>("{}")
@@ -702,6 +823,165 @@ pub struct ServiceIdleSet {
     /// How many minutes it may look idle before it is stopped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub minutes: Option<u32>,
+}
+
+/// What `service.set_front_end` takes — roadmap task **T97**.
+///
+/// **Which program, and not which row.** A caller does not name a `ServiceId`, because the id of the
+/// service that is about to exist is the recipe's to decide and the one that is about to go is the
+/// daemon's to find — see
+/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct FrontEndSwitch {
+    /// Which program every site on this machine should be reached through from now on.
+    ///
+    /// The same value [`ServiceRole::FrontEnd`] reports, which is what makes a switch drawable from
+    /// a listing and nothing else.
+    pub server: FrontEndServer,
+
+    /// Which installed version of it, and the newest installed when absent.
+    ///
+    /// **Optional because nobody choosing a web server is choosing a patch release.** A version
+    /// that is named and not installed is refused; no version installed at all is refused with the
+    /// install command, because a switch installs nothing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<PackageVersion>,
+
+    /// Flush the elevation queue in this same call, raising the one prompt.
+    ///
+    /// **Defaults to `false`**, on [`UninstallQuery::grant`](crate::UninstallQuery)'s rule and for
+    /// its reason: what is about to be allowed is read before it is allowed. A switch that needs a
+    /// grant it was not allowed to raise answers [`FrontEndOutcome::NotGranted`] with the operation
+    /// left waiting, so allowing it and asking again works.
+    #[serde(default)]
+    pub grant: bool,
+}
+
+/// What a switch did — roadmap task **T97**.
+///
+/// **A measurement of the home afterwards, not a claim about what was attempted**, which is
+/// [`UninstallReport`](crate::UninstallReport)'s shape and its reasoning: the interesting outcomes
+/// here are the ones where the home ends up where it started, and a client has to be able to render
+/// each of them as the outcome it is rather than as a failure with no detail.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct FrontEndReport {
+    /// What the home was reached through when the call began, and [`None`] for a home that had no
+    /// front end at all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub was: Option<ServiceId>,
+
+    /// What it is reached through now. Equal to [`was`](Self::was) whenever nothing moved, and
+    /// [`None`] only where a switch failed and could not be undone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub now: Option<ServiceId>,
+
+    /// What happened, and why.
+    pub outcome: FrontEndOutcome,
+
+    /// Whether the front end named by [`now`](Self::now) may bind 80 and 443 on this machine.
+    ///
+    /// **Read from the machine after the walk, whatever the outcome.** `false` is the degraded mode
+    /// of [ADR 0005] and not a failure of this call: a Linux home where nobody has granted
+    /// `cap_net_bind_service` has a front end that will not start, and it had one before this was
+    /// called too.
+    ///
+    /// [ADR 0005]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0005-on-demand-elevation.md
+    pub answering: bool,
+
+    /// The old front end's data directory, kept where it was.
+    ///
+    /// `service.delete`'s rule — nothing about replacing a program says anything about wanting its
+    /// files gone — and named for its reason: a directory nobody was told about is a directory
+    /// nobody ever cleans up. [`None`] when there was none on disk.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kept_data: Option<String>,
+
+    /// What did not travel to the new row, one sentence each.
+    ///
+    /// **Settings measured against the program that is going**: an override written in one server's
+    /// configuration language, a ceiling, an idle policy. A silently dropped override is the failure
+    /// this member exists to prevent; a listed one is something a person can put back. Empty when
+    /// the old row carried none of them.
+    pub not_carried: Vec<String>,
+}
+
+impl FrontEndReport {
+    /// Did the home actually move?
+    #[must_use]
+    pub fn moved(&self) -> bool {
+        matches!(self.outcome, FrontEndOutcome::Switched { .. })
+    }
+
+    /// Did the caller ask for something they did not get?
+    ///
+    /// **What `mix service set-front-end` exits with**, on `UninstallReport::left_behind`'s rule.
+    /// [`FrontEndOutcome::Unchanged`] is deliberately not one: asking for the server a home is
+    /// already on is a question with an answer, not a request that failed.
+    #[must_use]
+    pub fn wanted_more(&self) -> bool {
+        matches!(
+            self.outcome,
+            FrontEndOutcome::NotGranted { .. }
+                | FrontEndOutcome::RolledBack { .. }
+                | FrontEndOutcome::Failed { .. }
+        )
+    }
+}
+
+/// The five ends a switch can have — roadmap task **T97**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "outcome", rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum FrontEndOutcome {
+    /// It was already the front end. Nothing was stopped, deleted, created or started.
+    ///
+    /// Not an error: a switch clicked on the option that is already selected is an ordinary thing to
+    /// happen, and refusing it would make a client suppress the call — which is the client deciding.
+    Unchanged {},
+
+    /// Done.
+    Switched {
+        /// The walk that brought the new front end up, and [`None`] when the old one was not
+        /// running and nothing was started in its place.
+        ///
+        /// **A switch preserves what it found.** Starting a server somebody had deliberately
+        /// stopped is the tool overruling its user.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        started: Option<ServiceWalk>,
+    },
+
+    /// This machine will not let the new front end answer on 80 and 443 and the one it is on can,
+    /// so the home was left where it was.
+    ///
+    /// ADR 0026's *"a machine where nobody grants stays on the front end it had"*. The grant this
+    /// asked for is still waiting, so allowing it and asking again works.
+    NotGranted {
+        /// What the machine said, phrased for a person.
+        because: String,
+    },
+
+    /// Something failed after the old row had gone, and the old front end was put back.
+    ///
+    /// The usual cause is the one worth catching: a front end renders through its own checker —
+    /// `nginx -t`, `caddy validate` — so a configuration the new program refuses is caught at the
+    /// one step that is still undoable.
+    RolledBack {
+        /// What refused, unedited.
+        because: String,
+    },
+
+    /// Something failed and the home could not be put back either.
+    ///
+    /// [`FrontEndReport::now`] says what is there, which may be nothing at all. Nothing can prevent
+    /// this ending; the report exists so that it is a sentence on somebody's screen instead of a
+    /// home that quietly stopped serving.
+    Failed {
+        /// What went wrong, in the order it went wrong.
+        because: String,
+    },
 }
 
 /// What `service.set_limits` takes.
