@@ -6,7 +6,9 @@
 //! including the dynamic ranges Hyper-V and `winnat` claim at boot. The second is the one a failing
 //! bind is about.
 
-use crate::{Error, PortRange, ReservedPorts, Result};
+use std::ffi::OsStr;
+
+use crate::{PortRange, ReservedPorts, Result};
 
 /// This system's answer.
 #[derive(Debug, Default)]
@@ -14,16 +16,18 @@ pub(crate) struct Reserved;
 
 impl ReservedPorts for Reserved {
     fn reserved(&self) -> Result<Vec<PortRange>> {
-        let output = std::process::Command::new("netsh")
-            .args(["int", "ipv4", "show", "excludedportrange", "protocol=tcp"])
-            .output()
-            .map_err(|source| Error::Os {
-                action: "ask netsh which port ranges this system has reserved",
-                source,
-            })?;
+        // Through `command::output_of` and not a `Command` of its own, for the two things that
+        // helper settles: the tool is `System32\netsh.exe` rather than whatever `PATH` says, and the
+        // child is started without a console window. A daemon has no console, so a bare `Command`
+        // here was a Windows Terminal window flashing on the desktop on every `mix doctor`. The exit
+        // status is not consulted, as it never was: an empty list is a list.
+        let output = super::command::output_of(
+            "netsh",
+            ["int", "ipv4", "show", "excludedportrange", "protocol=tcp"]
+                .iter()
+                .map(OsStr::new),
+        )?;
 
-        Ok(crate::reserved::parse(&String::from_utf8_lossy(
-            &output.stdout,
-        )))
+        Ok(crate::reserved::parse(&output))
     }
 }

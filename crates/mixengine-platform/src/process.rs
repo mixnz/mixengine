@@ -191,6 +191,31 @@ pub fn hide_stdio_from_children() -> HiddenStdio {
     HiddenStdio(sys::hide_stdio())
 }
 
+/// Keep a child this process starts on its own — not through [`run_once`] or either spawn here —
+/// from opening a console window.
+///
+/// **For the one-off program a crate above this one runs with a `Command` of its own**: the
+/// privileged helper's probe, a freshly installed runtime's smoke test. Every spawn *inside* this
+/// crate already says it; this is how a caller that has to build the `Command` itself — because it
+/// needs `tokio`'s child, or a deadline `run_once` does not offer — says the same thing.
+///
+/// What goes wrong without it is measured, not reasoned about. A process that has no console — a
+/// `--detach`ed `mixengined`, and so every daemon a client autostarts — gives a console-subsystem
+/// child nothing to inherit, and Windows answers that by creating one. On Windows 11 a new console is
+/// handed to the default terminal application, which opens a window for it: one `mix doctor` was
+/// one Windows Terminal window flashing on the desktop for the `netsh` it runs, and every daemon
+/// start another for the helper it probes. `CREATE_NO_WINDOW` is the answer for a child whose output
+/// the caller reads: the console is still created, so the pipes work as usual, and no window is
+/// handed out for it.
+///
+/// Nothing to do on either Unix, where a console window is not a thing a child can be given.
+///
+/// Takes the standard library's `Command` so that a tokio one is covered too — `as_std_mut` is the
+/// bridge — and so this crate's `process` feature does not have to grow a second signature.
+pub fn without_a_window(command: &mut Command) {
+    sys::without_a_window(command);
+}
+
 /// Let go of a console this process is the only one attached to — roadmap task **T85b**.
 ///
 /// **For the daemon a service manager starts.** A console-subsystem program launched with no console

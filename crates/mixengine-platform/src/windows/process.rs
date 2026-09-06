@@ -70,9 +70,9 @@ use windows_sys::Win32::System::JobObjects::{
     TerminateJobObject,
 };
 use windows_sys::Win32::System::Threading::{
-    BELOW_NORMAL_PRIORITY_CLASS, CREATE_NEW_PROCESS_GROUP, DETACHED_PROCESS, GetExitCodeProcess,
-    GetProcessTimes, INFINITE, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
-    TerminateProcess, WaitForSingleObject,
+    BELOW_NORMAL_PRIORITY_CLASS, CREATE_NEW_PROCESS_GROUP, CREATE_NO_WINDOW, DETACHED_PROCESS,
+    GetExitCodeProcess, GetProcessTimes, INFINITE, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_TERMINATE, TerminateProcess, WaitForSingleObject,
 };
 use windows_sys::core::BOOL;
 
@@ -123,6 +123,17 @@ struct Hiding {
     /// non-inheritable is left out, so nothing here can hand out an inheritance the process did not
     /// have to begin with.
     restore: Vec<usize>,
+}
+
+/// [`crate::process::without_a_window`] on this system.
+///
+/// The same flag `command::without_a_window` puts on the tools the platform layer runs itself, and
+/// the same one `restricted` passes to `CreateProcessAsUserW` for a supervised child: the console
+/// is still created, so the caller reads the child's output as usual, and no window is handed out
+/// for it. Written out here rather than delegated because `command` is a `host`/`elevated` module
+/// and this one is `process`, and a build of either feature without the other has to compile.
+pub(crate) fn without_a_window(command: &mut Command) {
+    command.creation_flags(CREATE_NO_WINDOW);
 }
 
 /// Arrange for the child to have no console, no group in common with this process, and none of the

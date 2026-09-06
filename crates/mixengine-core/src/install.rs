@@ -631,13 +631,19 @@ impl Installer {
         // `current_dir` is the staging directory because that is where the runtime's own files are:
         // a Windows PHP resolves its DLLs from beside the executable, which is the whole reason
         // `provides` carries a path rather than only a name.
-        let running = tokio::process::Command::new(&program)
+        let mut checking = tokio::process::Command::new(&program);
+        checking
             .args(&smoke.args)
             .current_dir(staging)
             // A check that hung would otherwise outlive the timeout below and hold the staging
             // directory open, which is exactly what the rename cannot tolerate on Windows.
-            .kill_on_drop(true)
-            .output();
+            .kill_on_drop(true);
+
+        // A runtime is a console program and the daemon has no console, so without this Windows
+        // makes one for it — a terminal window flashing on the desktop for every `php -v`.
+        mixengine_platform::process::without_a_window(checking.as_std_mut());
+
+        let running = checking.output();
 
         let output = match tokio::time::timeout(SMOKE_TIMEOUT, running).await {
             Ok(Ok(output)) => output,

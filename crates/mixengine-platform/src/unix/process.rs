@@ -90,6 +90,13 @@ pub(crate) fn new_session(command: &mut Command) {
 /// The empty body is the answer, and it takes an argument only so both systems present one shape.
 pub(crate) fn arrange_one_shot(_command: &mut Command) {}
 
+/// [`crate::process::without_a_window`] on this system: nothing.
+///
+/// A console window is a Windows notion. A Unix child inherits whatever terminal its parent has or
+/// has none, and neither case opens anything on a desktop. The empty body is the answer, and it
+/// takes an argument only so both systems present one shape.
+pub(crate) fn without_a_window(_command: &mut Command) {}
+
 /// The process group a supervised child leads, and whatever this system caps it with.
 ///
 /// The *group* itself needs nothing held, unlike the Windows counterpart's job object handle: after

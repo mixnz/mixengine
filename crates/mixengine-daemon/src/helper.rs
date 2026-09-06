@@ -94,16 +94,18 @@ async fn probe(helper: &Path, home: &Path, directory: &Path) -> Option<HelperFac
     )
     .ok()?;
 
-    let ran = tokio::time::timeout(
-        HANDSHAKE_TIMEOUT,
-        tokio::process::Command::new(helper)
-            .arg(request.path())
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status(),
-    )
-    .await;
+    let mut probing = tokio::process::Command::new(helper);
+    probing
+        .arg(request.path())
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+
+    // The helper is a console program and this daemon has no console, so without this Windows
+    // makes one for it — a terminal window on the desktop, on every daemon start.
+    mixengine_platform::process::without_a_window(probing.as_std_mut());
+
+    let ran = tokio::time::timeout(HANDSHAKE_TIMEOUT, probing.status()).await;
 
     if !matches!(ran, Ok(Ok(status)) if status.success()) {
         tracing::debug!(
