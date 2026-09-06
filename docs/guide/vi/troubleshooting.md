@@ -4,7 +4,7 @@ slug = "troubleshooting"
 order = 14
 summary = "Chạy mix doctor trước, rồi bốn lệnh trả lời đúng những câu hỏi người dùng hay gặp, và một file gom đủ mọi thứ một báo cáo lỗi cần."
 translation_of = "en/troubleshooting.md"
-source_sha256 = "f884545cb7911fdc318dc26012d1694b601e2e711a57d27cc9418bd80f94d6cc"
+source_sha256 = "d247f5fee1a1e68095e79fa749632921e65dd42b6bffd85ef0eac0df6ac854bb"
 +++
 
 # Khi có gì đó không ổn
