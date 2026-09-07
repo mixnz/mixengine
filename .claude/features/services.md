@@ -198,7 +198,9 @@ inside it, because Windows' `mariadb-install-db` refuses any datadir that is not
   `PortBinding` per port, and **T43** is what renders it into a front end's configuration.
 - Neither is bound by an elevated process. Windows reserves nothing below 1024; Linux is granted
   `cap_net_bind_service` on the front end's binary; macOS gets a packet-filter redirect plus the
-  boot-time job that enables pf ([ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md)). All of it is arranged by a
+  boot-time job that enables pf ([ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md)) — and the grant runs that job's
+  command itself before it returns, because a machine granted the redirect today has not rebooted
+  and three files on disk leave the running pf exactly as it was. All of it is arranged by a
   one-time `PortAccessGrant` — see
   [../decisions/0005-on-demand-elevation.md](../decisions/0005-on-demand-elevation.md). If a port is taken by another
   program, report `port_in_use` **with the owning process name** — the platform layer's `PortOwner`

@@ -277,8 +277,10 @@ fn a_capability_is_granted_read_back_lost_to_a_write_and_revoked() {
 /// `http://127.0.0.1/`, and the machine's own `/etc/pf.conf` comes back byte for byte.
 ///
 /// **The plist is checked as a file and not by rebooting**, which is the honest limit of what a
-/// runner can prove — D3 and D9. `pfctl -e` is run here because the boot job is what would run it on
-/// a real machine, and the test undoes whatever it changed about pf's enabled state.
+/// runner can prove — D3 and D9. What the boot job would do at the next boot, `apply` does at once
+/// — a grant that left pf off until a reboot was a grant `mix doctor` called complete on a machine
+/// where 80 reached nothing — so the redirect is used here without the test enabling anything, and
+/// the test undoes whatever `apply` changed about pf's enabled state.
 #[cfg(all(target_os = "macos", feature = "elevated"))]
 #[test]
 #[ignore = "edits /etc/pf.conf and enables the packet filter; run in CI's system job"]
@@ -313,17 +315,9 @@ fn a_redirect_is_installed_reaches_a_server_on_8080_and_leaves_the_machine_as_it
             .granted
     );
 
-    // What the boot job does. It cannot be tested by rebooting a hosted runner, so this is the one
-    // step the plist stands in for — see D3.
-    let enabled = std::process::Command::new("/sbin/pfctl")
-        .args(["-e", "-f", "/etc/pf.conf"])
-        .output()
-        .expect("pfctl is on every macOS machine");
-    assert!(
-        enabled.status.success(),
-        "{}",
-        String::from_utf8_lossy(&enabled.stderr)
-    );
+    // The grant enabled pf itself — the step the plist repeats at every boot, taken now so the
+    // redirect works on a machine that has not rebooted since it was granted.
+    assert!(pf_is_enabled(), "apply left the packet filter off");
 
     let listener = std::net::TcpListener::bind("127.0.0.1:8080").expect("8080 is free on a runner");
     let server = std::thread::spawn(move || {

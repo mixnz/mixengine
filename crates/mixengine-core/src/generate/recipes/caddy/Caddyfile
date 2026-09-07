@@ -44,9 +44,14 @@
 	# (T74) is about; macOS makes a front end listen on 8080 and 8443 behind a packet-filter
 	# redirect, and `bound` is where that arrives as data rather than as a `#[cfg]` in this repo's
 	# only cross-platform crate. On Windows and Linux it is the same number.
-{%- if service.port %}
-	http_port {{ service.port | bound }}
-{%- endif %}
+	#
+	# **Written even for a row with no port.** A front end's row carries none — its 80 and 443 are
+	# its own settings, not a number the daemon allocates — and Caddy answers a missing `http_port`
+	# with 80, which is the right *answer* port and the wrong one to *bind*: on macOS a user cannot
+	# bind 127.0.0.1:80, so a Caddyfile that stayed silent here was a front end refused on every
+	# start with `bind: permission denied`. Saying 80 out loud is what lets `bound` turn it into
+	# 8080 there. nginx's recipe does the same with `DEFAULT_HTTP_PORT`.
+	http_port {{ (service.port or 80) | bound }}
 	https_port {{ settings.https_port | bound }}
 
 	# Backticks and not quotes, on every path this file writes. A Caddyfile token in double quotes

@@ -217,8 +217,9 @@ pub struct ServiceRemoval {
 is on `service.status`, and a delete with no subject is not a delete of everything.
 
 `port` and `data_dir` are optional because the row's columns are nullable and both already have
-meaning when null: the Caddy template wraps `http_port` in `{%- if service.port %}`, and the
-generator falls back to `data/<package>[/<instance>]`.
+meaning when null: the Caddy template answers on 80 for a row with none (written out, so that the
+macOS mapping to 8080 reaches it — the T43 design), and the generator falls back to
+`data/<package>[/<instance>]`.
 
 Method constants in `rpc::method`: `PACKAGE_LIST`, `PACKAGE_LIST_AVAILABLE`, `PACKAGE_INSTALL`,
 `PACKAGE_UNINSTALL`, `SERVICE_CREATE`, `SERVICE_DELETE`.

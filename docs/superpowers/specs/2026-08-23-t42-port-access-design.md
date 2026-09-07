@@ -120,9 +120,21 @@ are both root-owned, so a compromised daemon can change neither; and the alterna
 it is a prompt on every boot, against an ADR 0005 budget of about two prompts for the product's whole
 lifetime.
 
+**The grant then runs the boot job's command itself, once, before it exits.** Three files written
+by a helper that then returns are three files: pf is still off, the anchor is still unloaded, and
+the front end that binds 8080 on their strength reaches nothing on 80 until the machine is rebooted
+— which a machine granted the redirect this afternoon has not been. Measured on a machine booted
+at 01:05 and granted at 02:43, where `mix doctor`, reading the same three files, reported the grant
+complete. So the helper, already root, runs `pfctl -f /etc/pf.conf` and then `pfctl -e`: the
+plist's own command, split so that a refused ruleset is reported as one, with nothing in either
+taken from the request. `pf already enabled` is success — a VPN or an earlier grant may have turned
+it on — and whether pf was up is read before it is touched, so a second call with the same plan on
+a machine already redirecting is `Unchanged` (D4), while the first reports the switch it threw.
+
 `Revoke` removes all three and **does not run `pfctl -d`**. By then there is no way to know who else
 has come to depend on pf being up, and pf enabled with none of our rules in it is not observably
-different from pf disabled.
+different from pf disabled. It does reload the ruleset when pf is up, so the redirect stops when the
+files go rather than at the next boot — the rules are taken out, the switch is left alone.
 
 ### D4 — The operation carries whole state, in a plan the helper can validate field by field
 

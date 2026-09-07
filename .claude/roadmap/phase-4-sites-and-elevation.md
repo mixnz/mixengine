@@ -238,6 +238,12 @@ root process.
       and the losses that were not updates — **and closes T88b**. `nftables` was not needed and is
       not there: `setcap` was measured to work and to be readable back without privilege. Design in
       [../../docs/superpowers/specs/2026-08-23-t42-port-access-design.md](../../docs/superpowers/specs/2026-08-23-t42-port-access-design.md).
+      **Amended after a first macOS install**: the grant wrote its three files and stopped, so pf
+      stayed off until a reboot nobody had done while `mix doctor` called the grant complete; the
+      helper now runs the boot job's command itself (D3). In the same install Caddy's template wrote
+      no `http_port` for a row with no port, so Caddy bound its own default 80 on 127.0.0.1 — which
+      macOS refuses — beside a correctly mapped `https_port 8443`; the template now says 80 for such
+      a row so the mapping reaches it (T43's D8).
 - [x] **T43** Site → config → reload end-to-end; `site.start|stop`, idempotent re-runs. A site file
       belongs to the front end's **own** document set, appended by `Recipe::sites` and selected by
       `Role::FrontEnd`, so T30's staging, the server's own checker and T31's reload arc are the ones

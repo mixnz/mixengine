@@ -1486,26 +1486,47 @@ zz
         }
     }
 
-    /// A row with no port is a Caddy that binds nothing until a site says otherwise, which is what
-    /// the `services` schema means by a nullable `port` — not a rendering with an empty directive in
-    /// it, and not a failure.
+    /// A row with no port is a front end answering on 80, which is what the `services` schema means
+    /// by a nullable `port` for a recipe that names no preferred one — and 80 is still written into
+    /// the global block, because leaving it out hands Caddy its own default *unmapped*. A machine on
+    /// which the front end binds 8080 to answer on 80 then had a Caddy refusing to start with
+    /// `bind: permission denied` on 127.0.0.1:80, for a row that said exactly what the design
+    /// intends. Measured on macOS, where `https_port 8443` was rendered beside no `http_port` at all.
     #[test]
-    fn a_row_with_no_port_renders_no_http_port_at_all() {
-        let service = ServiceId::parse("caddy").expect("an id");
-        let settings = Settings::merge(Caddy.settings(), "{}", &service).expect("defaults");
-        let portless = Context::for_test(
-            service,
-            PACKAGE,
-            Path::new(root()),
-            BTreeMap::new(),
-            None,
-            settings,
-        );
+    fn a_row_with_no_port_answers_on_eighty_and_binds_what_this_system_maps_it_to() {
+        let portless = || {
+            let service = ServiceId::parse("caddy").expect("an id");
+            let settings = Settings::merge(Caddy.settings(), "{}", &service).expect("defaults");
+            Context::for_test(
+                service,
+                PACKAGE,
+                Path::new(root()),
+                BTreeMap::new(),
+                None,
+                settings,
+            )
+        };
 
-        let documents = recipe::render(&Caddy, &portless).expect("a rendering");
-        let rendered = documents[0].contents();
+        let direct = recipe::render(&Caddy, &portless()).expect("a rendering");
+        let plain = direct[0].contents();
 
-        assert!(!rendered.contains("http_port"), "{rendered}");
-        assert!(rendered.contains("https_port 443"), "{rendered}");
+        assert!(plain.contains("http_port 80"), "{plain}");
+        assert!(plain.contains("https_port 443"), "{plain}");
+
+        let redirected = portless().with_bindings(vec![
+            PortBinding {
+                answer: 80,
+                bind: 8080,
+            },
+            PortBinding {
+                answer: 443,
+                bind: 8443,
+            },
+        ]);
+        let mapped = recipe::render(&Caddy, &redirected).expect("a rendering");
+        let rendered = mapped[0].contents();
+
+        assert!(rendered.contains("http_port 8080"), "{rendered}");
+        assert!(rendered.contains("https_port 8443"), "{rendered}");
     }
 }

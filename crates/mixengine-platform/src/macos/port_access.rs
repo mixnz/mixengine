@@ -112,19 +112,31 @@ fn text(path: &str) -> Option<String> {
     std::fs::read_to_string(Path::new(path)).ok()
 }
 
-/// Write the three artifacts a redirect is made of — the T42 design, D3, and ADR 0012.
+/// Write the three artifacts a redirect is made of, then do now what the third does at boot — the
+/// T42 design, D3, and ADR 0012.
 ///
 /// **The third is a boot job**, and it is what makes the other two mean anything: pf is disabled on
 /// every boot and `pfctl -e` needs root, so a redirect that is only installed works until the first
 /// reboot and then silently stops — leaving a front end answering on 8080 that nothing reaches on
 /// 80.
 ///
+/// **And the boot job runs at boot, which a machine that was granted the redirect this afternoon
+/// has not done.** Three files on disk change nothing about the packet filter that is running:
+/// until the next reboot pf stays off, the anchor stays unloaded, and `http://blog.test` finds
+/// nothing on 80 while `mix doctor` — reading the same three files — reports the grant complete.
+/// Measured on a machine booted at 01:05 and granted at 02:43. So the helper, already root, loads
+/// the rules and enables pf itself, with the plist's own command and no other: `pfctl -f` then
+/// `pfctl -e`, both fixed, neither taking a word from the request. It is the one step the plist
+/// would take, taken once early.
+///
 /// # Errors
 ///
 /// [`Error::UnsupportedPlatform`](crate::Error::UnsupportedPlatform) for a capability plan, which is
 /// not this system's mechanism, [`Error::MalformedBlock`](crate::Error::MalformedBlock) for a
-/// `/etc/pf.conf` somebody has half-edited, and [`Error::Io`](crate::Error::Io) when a file cannot
-/// be read or replaced.
+/// `/etc/pf.conf` somebody has half-edited, [`Error::Io`](crate::Error::Io) when a file cannot be
+/// read or replaced, and [`Error::Os`](crate::Error::Os) when `pfctl` refuses the ruleset it was
+/// just given or will not enable — with `pfctl`'s own words, because a rule it will not load is a
+/// bug in [`pf::anchor`] and not a thing a user can fix.
 #[cfg(feature = "elevated")]
 pub(crate) fn apply(plan: &PortAccessPlan) -> crate::Result<crate::port_access::Change> {
     let PortAccessPlan::Redirect { redirects } = plan else {
@@ -155,7 +167,32 @@ pub(crate) fn apply(plan: &PortAccessPlan) -> crate::Result<crate::port_access::
         changed.push(pf::PLIST_FILE);
     }
 
-    Ok(change(changed, "wrote"))
+    // Whether pf was up is read *before* it is touched, so that a second call with the same plan on
+    // a machine already redirecting is `Unchanged` — D4's whole-state promise — while the first call
+    // on a machine that has never rebooted since the grant reports the switch it threw.
+    let was_enabled = pfctl::enabled()?;
+    pfctl::load()?;
+    pfctl::enable()?;
+
+    let mut detail = change(changed, "wrote");
+    if !was_enabled {
+        detail = also(detail, "enabled the packet filter");
+    }
+
+    Ok(detail)
+}
+
+/// Fold a second sentence into what [`apply`] reports.
+#[cfg(feature = "elevated")]
+fn also(change: crate::port_access::Change, more: &str) -> crate::port_access::Change {
+    match change {
+        crate::port_access::Change::Unchanged => crate::port_access::Change::Written {
+            detail: more.to_owned(),
+        },
+        crate::port_access::Change::Written { detail } => crate::port_access::Change::Written {
+            detail: format!("{detail}; {more}"),
+        },
+    }
 }
 
 /// Remove all three.
@@ -194,7 +231,94 @@ pub(crate) fn revoke(target: &PortAccessTarget) -> crate::Result<crate::port_acc
         }
     }
 
+    // The running ruleset is reloaded from the file that no longer declares the anchor, so the
+    // redirect stops now rather than at the next boot — otherwise 80 goes on being sent to a port
+    // the front end this revoke was made for has left. pf itself is left as it was found; what is
+    // taken out is the rules, not the switch.
+    if !changed.is_empty() && pfctl::enabled()? {
+        pfctl::load()?;
+    }
+
     Ok(change(changed, "removed"))
+}
+
+/// `/sbin/pfctl`, three fixed invocations, none of them taking a word from anywhere.
+///
+/// Here rather than in `port_access/pf.rs`, which is compiled and tested on all three systems and
+/// is text only: this is the part that is macOS and root.
+#[cfg(feature = "elevated")]
+mod pfctl {
+    use std::process::{Command, Output, Stdio};
+
+    use crate::port_access::pf;
+
+    /// Apple's, on every macOS machine.
+    const PFCTL: &str = "/sbin/pfctl";
+
+    /// Whether pf is up. `pfctl -s info` opens with `Status: Enabled` or `Status: Disabled`, and
+    /// nothing but root can ask — which is why the daemon's probe reads files instead.
+    pub(super) fn enabled() -> crate::Result<bool> {
+        let output = run(
+            &["-s", "info"],
+            "ask the packet filter whether it is enabled",
+        )?;
+
+        Ok(String::from_utf8_lossy(&output.stdout).contains("Status: Enabled"))
+    }
+
+    /// Load the main ruleset, anchor and all — the `-f` half of the boot job's command.
+    ///
+    /// A refusal here is the file the grant just wrote, in `pfctl`'s own words, and it is a bug in
+    /// this crate's rendering rather than anything a user did.
+    pub(super) fn load() -> crate::Result<()> {
+        let output = run(&["-f", pf::CONF_FILE], "load the packet-filter rules")?;
+
+        if output.status.success() {
+            return Ok(());
+        }
+
+        Err(refused("load the packet-filter rules", &output))
+    }
+
+    /// Enable pf — the `-e` half.
+    ///
+    /// **Already enabled is success.** `pfctl -e` on a running pf exits non-zero saying `pf
+    /// already enabled`, and a grant on a machine where a VPN or an earlier grant turned it on is
+    /// exactly the case D4 calls unchanged rather than failed.
+    pub(super) fn enable() -> crate::Result<()> {
+        let output = run(&["-e"], "enable the packet filter")?;
+
+        if output.status.success()
+            || String::from_utf8_lossy(&output.stderr).contains("already enabled")
+        {
+            return Ok(());
+        }
+
+        Err(refused("enable the packet filter", &output))
+    }
+
+    fn run(arguments: &[&str], action: &'static str) -> crate::Result<Output> {
+        Command::new(PFCTL)
+            .args(arguments)
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|source| crate::Error::Os { action, source })
+    }
+
+    fn refused(action: &'static str, output: &Output) -> crate::Error {
+        let said = String::from_utf8_lossy(&output.stderr);
+        let said = said.trim();
+
+        crate::Error::Os {
+            action,
+            source: std::io::Error::other(format!(
+                "`pfctl` exited with {}{}{}",
+                output.status,
+                if said.is_empty() { "" } else { ": " },
+                said
+            )),
+        }
+    }
 }
 
 /// Replace `path` with `contents` when it does not already say that. Answers whether it wrote.

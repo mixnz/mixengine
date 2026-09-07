@@ -184,7 +184,12 @@ Nothing starts `npm run dev`, and nothing in this build pretends to.
 `PortBinding::bind`, which on macOS is 8080 for 80 and 8443 for 443 and on the other two systems is
 the same number. Rendering that is T43's, and `.claude/features/services.md` already says so.
 
-So the front-end templates render the *mapped* value: `http_port` is the binding for the row's port,
+So the front-end templates render the *mapped* value: `http_port` is the binding for the row's port
+— **or for 80 when the row has none**, which is what a front end's row has, since neither recipe
+names a preferred port. A Caddyfile that stayed silent on `http_port` for such a row handed Caddy
+its own default unmapped, and on macOS that is `127.0.0.1:80`, which this user cannot bind: the
+front end was refused on every start while `https_port 8443` sat beside the gap. nginx's template
+always had the fallback (`DEFAULT_HTTP_PORT`); Caddy's now says 80 out loud so `bound` can reach it.
 `https_port` is the binding for the `https_port` setting. The row is not rewritten — a row holding
 8080 would make the answer port unrecoverable and would break LAN sharing (T74), which is about
 `bind_addr` and the port a site is *reached* on.
