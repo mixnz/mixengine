@@ -1367,9 +1367,8 @@ mod tests {
     fn only_mariadb_asks_for_a_certificate() {
         let catalogue = super::super::Catalogue::builtin();
 
-        // MariaDB flips to `true` in the commit that teaches its recipe to ask — T99's fourth task.
         for (package, wants_one) in [
-            ("mariadb", false),
+            ("mariadb", true),
             ("mysql", false),
             ("postgres", false),
             ("redis", false),
