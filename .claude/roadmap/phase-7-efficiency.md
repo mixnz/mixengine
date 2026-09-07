@@ -313,8 +313,9 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       Of T77b, T80, T81, T83, T84, T88, T88a, T96 and T97 — everything that landed between the two
       readings, a longer list than the roadmap had named — one task owned nearly all of it: T88's
       `mix self-update` built its own `reqwest::Client`, on top of the two the package index and the
-      extension registry already held, and read `latest.json` at every start. Measured by disabling
-      the daily check alone: ~3.5 MB of the growth was T88's; everything else combined measured
+      extension registry already held, and read `latest.json` at every start. Measured by turning
+      `[updates] enabled` off alone — which skips the start-up fetch as well as the daily clock:
+      ~3.5 MB of the growth was T88's; everything else combined measured
       under 1.5 MB, too small and too spread across too many tasks to be one thing worth chasing —
       this task's sentence for that part, per its own mandate.
       **The fix**: one `reqwest::Client`, built once in `mixengined`'s `main` and handed to the

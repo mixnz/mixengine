@@ -90,11 +90,11 @@ use harness::json;
 /// The fix built one transport and handed clones of it to the package index, extension registry
 /// and update feed clients instead of three independent ones — [the T72b
 /// design](../../../docs/superpowers/specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
-/// Re-measured on the same machine, release, five runs: 30.7–34.2 MB, worse than this document's own
-/// numbers above are used to — noisier than the paired A/B this document's history was measured
-/// with, most likely this machine under more background load by the time of the reading rather than
-/// the fix itself, and written down rather than smoothed over. Forty-one is about a fifth above the
-/// worst of the five, on the same rule as every number above it.
+/// Re-measured on the same machine, release, five runs: 30.7–34.2 MB. That spread is wider than the
+/// paired A/B the T72b design was measured with — most likely this machine under more background
+/// load by the time of the reading rather than the fix itself — and it is written down rather than
+/// smoothed over. Forty-one is about a fifth above the worst of the five, on the same rule as every
+/// number above it.
 ///
 /// **What the fix did not do is make the eager fetch free.** The transport is shared; the network
 /// round trip at every start and the `Feed` cached from it are not, and most of what was measured
