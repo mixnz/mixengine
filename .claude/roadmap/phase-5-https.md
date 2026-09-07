@@ -444,6 +444,15 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 **Milestone M5** — `https://blog.test` is trusted in Chrome, Firefox, Safari and Edge on their
 platforms; adding a domain keeps the padlock green.
 
+- [ ] **T98** Opt-in per-site HTTP→HTTPS redirect. T51's D9 decided no redirect, for every site that
+      does not ask for one — that stays the default. This adds a `https_redirect` column a site can
+      turn on for itself, enforced against `https_enabled` by a `CHECK` SQLite will hold on its own,
+      with the one exemption a redirect cannot be allowed to swallow: a shared site's
+      `/__mixengine/ca.crt` route, which a phone that has not yet trusted this home's authority can
+      only reach over plaintext — a redirect that caught it would send that phone into a handshake
+      TLS refuses, for a document that would have fixed exactly that. Design:
+      [T98 spec](../../docs/superpowers/specs/2026-09-07-t98-opt-in-https-redirect-design.md).
+
 ---
 
 Previous: [Phase 4 — Sites, domains and on-demand elevation](phase-4-sites-and-elevation.md) · Next: [Phase 7 — Efficiency](phase-7-efficiency.md)
