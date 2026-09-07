@@ -53,7 +53,8 @@ one job:
 - [rust.md](standards/rust.md) · [testing.md](standards/testing.md) ·
   [git-and-reviews.md](standards/git-and-reviews.md) ·
   [plans-and-specs.md](standards/plans-and-specs.md) — which of the two `docs/superpowers/`
-  folders is shared, and which never gets linked to
+  folders is shared, and which never gets linked to ·
+  [changelog.md](standards/changelog.md) — one tag per section, in order, three subheadings
 
 ### operations
 - [build-and-release.md](operations/build-and-release.md) · [runtime-packaging.md](operations/runtime-packaging.md)
