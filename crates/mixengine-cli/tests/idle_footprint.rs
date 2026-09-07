@@ -77,11 +77,33 @@ use harness::json;
 /// paragraph above warns about.** A week after T72 the daemon measured 31 MB on Windows, 30 MB on
 /// Linux and 35 MB on macOS — five to ten more than the day the budget was set, on every system —
 /// and the macOS reading sat within a megabyte of the gate for ten runs before a runner's noise
-/// took it over, on a commit that changed a test file in another crate. Forty-two is the same rule
-/// applied to the new worst: about a fifth above it. What it is *not* is an answer to where the
-/// five megabytes went; that question is a task of its own in `phase-7-efficiency.md`, and this
-/// constant going up is what makes it one rather than a green build nobody looks at again.
-const DAEMON_BUDGET: u64 = 42 * 1024 * 1024;
+/// took it over, on a commit that changed a test file in another crate. Forty-two was the same rule
+/// applied to the new worst: about a fifth above it, and an explicit non-answer to where the five
+/// megabytes went — that question became roadmap task **T72b**.
+///
+/// **Lowered to 41 MB, T72b's own reading.** Of the growth, ~3.5 MB traced to `mix self-update`
+/// (T88): a `reqwest::Client` built and never shared, plus the feed it eagerly fetches at every
+/// start. The rest — everything else that landed the same week — measured under 1.5 MB combined,
+/// too small and too spread across too many tasks to be one thing worth chasing; see the T72b
+/// design's own reading of it.
+///
+/// The fix built one transport and handed clones of it to the package index, extension registry
+/// and update feed clients instead of three independent ones — [the T72b
+/// design](../../../docs/superpowers/specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
+/// Re-measured on the same machine, release, five runs: 30.7–34.2 MB, worse than this document's own
+/// numbers above are used to — noisier than the paired A/B this document's history was measured
+/// with, most likely this machine under more background load by the time of the reading rather than
+/// the fix itself, and written down rather than smoothed over. Forty-one is about a fifth above the
+/// worst of the five, on the same rule as every number above it.
+///
+/// **What the fix did not do is make the eager fetch free.** The transport is shared; the network
+/// round trip at every start and the `Feed` cached from it are not, and most of what was measured
+/// before the fix is plausibly still there — a live TLS connection inside `reqwest`'s 90-second idle
+/// window at the moment this test reads it, which is not the same claim as a leak, and not one this
+/// task's numbers prove either way. Chasing that further needs a profiler rather than a second guess
+/// at `pool_idle_timeout`, and is deliberately left as a reading nobody has taken yet rather than a
+/// change made without one.
+const DAEMON_BUDGET: u64 = 41 * 1024 * 1024;
 
 /// The total this project publishes, reported beside the gate and asserted nowhere.
 const PUBLISHED_TOTAL: u64 = 60 * 1024 * 1024;
