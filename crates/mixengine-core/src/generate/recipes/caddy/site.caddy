@@ -66,6 +66,15 @@
 	# so the route above is not something a site's own files can shadow.
 	handle {
 {%- endif %}
+{%- if https_redirect and certificate %}
+
+	# Every request but the CA route above (when there is one) goes straight to HTTPS — opted into
+	# per site, roadmap task T98. `{host}` and `{uri}` are the request's own, not this site's
+	# `domains` list, so an alias and the LAN address each redirect to the scheme on the name they
+	# were reached by rather than to the primary domain's — which a name the certificate's SANs do
+	# not cover would otherwise send every other name into.
+	redir https://{host}{uri} permanent
+{%- else %}
 	# Backticks and not quotes, on every path this file writes: a Caddyfile token in double quotes
 	# processes `\"` and `\\` as escapes, so `C:\src\blog` ends the string one character early and
 	# the parse error names the line after it.
@@ -107,6 +116,7 @@
 	file_server
 {%- else %}
 	reverse_proxy {{ upstream }}
+{%- endif %}
 {%- endif %}
 {%- if authority %}
 	}

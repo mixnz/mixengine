@@ -379,6 +379,9 @@ impl ToWire for mixengine_core::Error {
             Core::DocRootOutsideProject { .. } => Error::new(ErrorCode::InvalidArgument, chain(self))
                 .with_hint("a doc root is a directory inside the project's own root"),
 
+            Core::HttpsRedirectNeedsHttps => Error::new(ErrorCode::InvalidArgument, chain(self))
+                .with_hint("`--https true` first, or leave `--https-redirect` unset"),
+
             // Never reaches a client as an error: the job registry judges an ending by the token
             // rather than by what the work returned, so work that gave up when asked is recorded as
             // *cancelled*. Classified all the same, because a value that can be constructed can be

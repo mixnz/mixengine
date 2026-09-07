@@ -460,6 +460,7 @@ mod tests {
             doc_root: String::new(),
             kind: mixengine_proto::SiteKind::Static,
             https_enabled: false,
+            https_redirect: false,
             state: mixengine_proto::SiteState::Enabled,
             domains: vec![primary.to_owned()],
             services: Vec::new(),

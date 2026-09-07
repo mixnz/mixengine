@@ -742,6 +742,7 @@ mod tests {
             doc_root: String::new(),
             kind: mixengine_proto::SiteKind::Static,
             https_enabled: true,
+            https_redirect: false,
             state: mixengine_proto::SiteState::Enabled,
             domains: domains.iter().map(|one| (*one).to_owned()).collect(),
             services: Vec::new(),
@@ -1014,6 +1015,7 @@ mod tests {
 
         let plain = mixengine_core::sites::SiteRecord {
             https_enabled: false,
+            https_redirect: false,
             ..a_site(&["blog.test"])
         };
         let report = certificates.issue(Some(plain)).await.expect("it answers");

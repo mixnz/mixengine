@@ -121,6 +121,13 @@ pub struct SiteCreate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub https: Option<bool>,
 
+    /// Whether the plaintext address should redirect to the HTTPS one — roadmap task **T98**.
+    ///
+    /// Refused when `true` beside an `https` that resolves to `false`, whether that is this same
+    /// request's own `https: Some(false)` or a `https` left unset on a site created plaintext-only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub https_redirect: Option<bool>,
+
     /// `.local`, acknowledged. `--i-know` on the CLI.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub accept_risky_tld: bool,
@@ -155,6 +162,14 @@ pub struct SiteUpdate {
     /// Whether HTTPS is wanted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub https: Option<bool>,
+
+    /// Whether the plaintext address should redirect to the HTTPS one — roadmap task **T98**.
+    ///
+    /// `None` leaves it — except that turning `https` off while this is left unset carries it to
+    /// `false` as well, a site whose `https` this update leaves `false` for any reason refuses
+    /// `Some(true)` here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub https_redirect: Option<bool>,
 
     /// Whether the web server should serve it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -259,6 +274,9 @@ pub struct SiteSummary {
 
     /// Whether HTTPS is declared.
     pub https: bool,
+
+    /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
+    pub https_redirect: bool,
 
     /// Whether the web server should serve it.
     pub state: SiteState,

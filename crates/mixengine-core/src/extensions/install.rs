@@ -555,6 +555,7 @@ async fn write_rows(
                 pool: Some(site.pool.clone()),
             },
             https_enabled: true,
+            https_redirect: false,
             domains: vec![site.domain.clone()],
             // **The link, and what it buys** — roadmap task **T82**, the design's D4.
             // `sites::declaring` reads `site_service_links`, so writing this row is what makes

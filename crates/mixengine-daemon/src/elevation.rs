@@ -1612,6 +1612,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: mixengine_proto::SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec![domain.to_owned()],
                 services: Vec::new(),
             },

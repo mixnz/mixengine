@@ -29,6 +29,10 @@ doc_root: string,
  */
 https: boolean, 
 /**
+ * Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
+ */
+https_redirect: boolean, 
+/**
  * Whether the web server should serve it.
  */
 state: SiteState, 

@@ -36,6 +36,14 @@ services?: Array<ServiceId> | null,
  */
 https?: boolean | null, 
 /**
+ * Whether the plaintext address should redirect to the HTTPS one — roadmap task **T98**.
+ *
+ * `None` leaves it — except that turning `https` off while this is left unset carries it to
+ * `false` as well, a site whose `https` this update leaves `false` for any reason refuses
+ * `Some(true)` here.
+ */
+https_redirect?: boolean | null, 
+/**
  * Whether the web server should serve it.
  */
 state?: SiteState | null, 

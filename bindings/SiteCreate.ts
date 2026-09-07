@@ -36,6 +36,13 @@ services?: Array<ServiceId> | null,
  */
 https?: boolean | null, 
 /**
+ * Whether the plaintext address should redirect to the HTTPS one — roadmap task **T98**.
+ *
+ * Refused when `true` beside an `https` that resolves to `false`, whether that is this same
+ * request's own `https: Some(false)` or a `https` left unset on a site created plaintext-only.
+ */
+https_redirect?: boolean | null, 
+/**
  * `.local`, acknowledged. `--i-know` on the CLI.
  */
 accept_risky_tld?: boolean, };

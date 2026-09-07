@@ -285,6 +285,7 @@ impl Recipe for Caddy {
                     upstream: upstream(&site.kind),
                     activator: activator(&site.kind),
                     certificate: site.certificate.as_ref().map(Certificate::from),
+                    https_redirect: site.https_redirect,
                     bind: bound(site.shared.as_ref().map(|shared| shared.address)),
                     lan: site
                         .shared
@@ -462,6 +463,14 @@ struct SiteRendering<'a> {
     /// missing key an error rather than a falsy value. `None` serialises to `null`, which `{% if %}`
     /// reads as false.
     certificate: Option<Certificate>,
+
+    /// Whether the plaintext block redirects rather than serves — roadmap task **T98**.
+    ///
+    /// **Read beside `certificate` in the template, never alone.** A site can carry this as `true`
+    /// with no usable certificate — the same gap [`certificate`](Self::certificate) already has a
+    /// name for — and redirecting to a TLS listener nothing is bound to would be worse than the
+    /// plaintext page it has always been able to serve.
+    https_redirect: bool,
 
     /// Every address this site's listeners bind, loopback first — roadmap task **T74**.
     ///
@@ -673,6 +682,7 @@ mod tests {
                 doc_root: doc_root(),
                 kind: ServedKind::Static,
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
             Served {
@@ -684,6 +694,7 @@ mod tests {
                     activator: None,
                 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
             Served {
@@ -694,6 +705,7 @@ mod tests {
                     upstream: "http://127.0.0.1:4000".to_owned(),
                 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
             Served {
@@ -702,6 +714,7 @@ mod tests {
                 doc_root: doc_root(),
                 kind: ServedKind::NodeApp { port: 3000 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
         ];
@@ -769,6 +782,7 @@ mod tests {
                 activator: None,
             },
             https: true,
+            https_redirect: false,
             certificate: None,
         }];
 
@@ -802,6 +816,7 @@ mod tests {
                 )))),
             },
             https: true,
+            https_redirect: false,
             certificate: None,
         }];
 
@@ -926,6 +941,7 @@ zz
                     doc_root: doc_root(),
                     kind: ServedKind::Static,
                     https: false,
+                    https_redirect: false,
                     certificate: None,
                 }],
             )
@@ -947,6 +963,7 @@ zz
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: false,
+            https_redirect: false,
             certificate: None,
         }
     }
@@ -1108,6 +1125,7 @@ zz
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: true,
+            https_redirect: false,
             certificate: Some(crate::generate::served::SiteCertificate {
                 certificate: std::path::PathBuf::from(
                     "/home/someone/.mixengine/certs/sites/blog.test.crt",
@@ -1145,6 +1163,7 @@ zz
                 activator: Some(Upstream::Tcp("127.0.0.1:9500".parse().expect("an address"))),
             },
             https: false,
+            https_redirect: false,
             certificate: None,
         });
 
@@ -1177,6 +1196,7 @@ zz
                 activator: None,
             },
             https: false,
+            https_redirect: false,
             certificate: None,
         });
 
@@ -1214,6 +1234,95 @@ zz
         assert!(rendered.contains("https://blog.test"), "{rendered}");
         assert_eq!(rendered.matches("\n\ttls ").count(), 1, "{rendered}");
         assert_eq!(rendered.matches("\n\troot *").count(), 2, "{rendered}");
+    }
+
+    /// **The plaintext block redirects and serves nothing itself** — roadmap task **T98**. The TLS
+    /// block is untouched: it still carries the one `root *` a site with a certificate has always
+    /// had, which is the assertion that this is an addition to the plaintext block and not a second
+    /// change smuggled into the one T51 shipped.
+    #[test]
+    fn a_site_with_redirect_on_sends_its_plaintext_block_straight_to_https() {
+        let rendered = render_site(&Served {
+            https_redirect: true,
+            ..a_site_with_a_certificate()
+        });
+
+        assert!(
+            rendered.contains("redir https://{host}{uri} permanent"),
+            "{rendered}"
+        );
+        assert_eq!(
+            rendered.matches("\n\troot *").count(),
+            1,
+            "only the TLS block serves a document root: {rendered}"
+        );
+    }
+
+    /// **Off by default, and a site that never asked still renders exactly what T51 shipped** —
+    /// the regression this whole feature must not be.
+    #[test]
+    fn a_site_with_redirect_off_renders_the_same_plaintext_block_as_before() {
+        let rendered = render_site(&a_site_with_a_certificate());
+
+        assert!(!rendered.contains("redir "), "{rendered}");
+        assert_eq!(rendered.matches("\n\troot *").count(), 2, "{rendered}");
+    }
+
+    /// **A redirect needs a usable certificate, not only the flag** — the T51 design's D4 applied a
+    /// second time. A site that asked for HTTPS but has nothing on disk to serve it with already
+    /// renders plaintext alone; asking for a redirect too must not turn that into a 301 into a TLS
+    /// listener nothing is bound to.
+    #[test]
+    fn a_site_with_redirect_on_but_no_certificate_renders_plaintext_exactly_as_before() {
+        let mut site = a_site_with_a_certificate();
+        site.https_redirect = true;
+        site.certificate = None;
+
+        let rendered = render_site(&site);
+
+        assert!(!rendered.contains("redir "), "{rendered}");
+        assert!(rendered.contains("file_server"), "{rendered}");
+        assert_eq!(rendered.matches("\n\troot *").count(), 1, "{rendered}");
+    }
+
+    /// **The CA route is reachable over plaintext on a redirecting shared site, and the redirect is
+    /// what everything else gets** — roadmap task **T98**, the design's D3. A phone that has not
+    /// yet trusted this home's authority can only reach `/__mixengine/ca.crt` before that trust
+    /// exists; a redirect that caught it too would send the phone into a handshake TLS refuses, for
+    /// the one document that would have fixed that.
+    #[test]
+    fn a_redirecting_shared_site_still_serves_its_ca_route_over_plaintext() {
+        let context = context("{}").with_authority(Some("-----BEGIN CERTIFICATE-----".to_owned()));
+        let site = Served {
+            https_redirect: true,
+            certificate: Some(crate::generate::served::SiteCertificate {
+                certificate: std::path::PathBuf::from(
+                    "/home/someone/.mixengine/certs/sites/blog.test.crt",
+                ),
+                key: std::path::PathBuf::from("/home/someone/.mixengine/certs/sites/blog.test.key"),
+                fingerprint: "ab".repeat(32),
+            }),
+            ..a_shared_site([192, 168, 1, 10])
+        };
+
+        let rendered = Caddy.sites(&context, &[site]).expect("one site")[0]
+            .contents()
+            .to_owned();
+
+        assert!(
+            rendered.contains("handle /__mixengine/ca.crt {"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("redir https://{host}{uri} permanent"),
+            "{rendered}"
+        );
+
+        // The CA route's own `handle` comes before the generic one Caddy matches in order, so the
+        // redirect is never reached for it — asserted on the order rather than trusted from it.
+        let ca_route = rendered.find("/__mixengine/ca.crt").expect("the route");
+        let redirect = rendered.find("redir ").expect("the redirect");
+        assert!(ca_route < redirect, "{rendered}");
     }
 
     /// **A site with no certificate renders one block and no `tls`** — the T51 design, D4. A `tls`
