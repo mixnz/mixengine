@@ -274,9 +274,9 @@ impl Elevation {
     /// upgrade`'s job. A daemon start that reached the network would be a start an offline machine
     /// pays for, which `.claude/features/updates.md` forbids in as many words.
     ///
-    /// Called at start, and again after every prompt that changed the machine: the prompt that
-    /// installs the helper is one of those, and a daemon that learned the helper's version only at
-    /// start went on answering *none installed* until it was restarted.
+    /// Called at start, and again after a prompt that installed or replaced the helper: a daemon
+    /// that learned the helper's version only at start went on answering *none installed* until it
+    /// was restarted. Not after every prompt — [`may_have_changed_the_helper`] says why.
     async fn learn_installed_helper(&self) {
         let Some(installed) = self.candidates.installed.as_deref() else {
             return;
@@ -728,7 +728,7 @@ impl Elevation {
                 )
             })?;
 
-        let answer = self.judge(handle, &request, raised, waiting.len()).await;
+        let answer = self.judge(handle, &request, raised, &waiting).await;
 
         // **D8.** The machine may have just been wired, and a daemon that only learned that at its
         // next start would go on writing hosts entries while the user watched their grant do
@@ -771,9 +771,10 @@ impl Elevation {
         handle: &crate::jobs::JobHandle,
         request: &mixengine_core::elevation::Request,
         raised: mixengine_platform::Result<ElevationOutcome>,
-        asked: usize,
+        waiting: &[mixengine_proto::PendingOp],
     ) -> Result<serde_json::Value, Error> {
         let outcome = raised.map_err(|error| mixengine_core::Error::Platform(error).to_wire())?;
+        let asked = waiting.len();
 
         let (applied, still_pending) = match &outcome {
             // Every row kept, and the job **succeeds**: ADR 0005 says a declined prompt is a normal
@@ -836,10 +837,16 @@ impl Elevation {
                     "an elevated batch was applied"
                 );
 
-                // A batch that changed the machine may have installed or replaced the helper, and
-                // the one this daemon knows about is the one it asked at start. One probe, unelevated,
-                // rather than a search of the batch for the operations that could have done it.
-                if settled.applied > 0 {
+                // A batch that installed or replaced the helper is one whose answer the daemon no
+                // longer holds: the one it knows about is the one it asked at start. **Only those two
+                // operations, and not "any batch that changed the machine"**, which was the first
+                // draft and undid an uninstall on CI's Windows runner (2026-09-07): the batch removed
+                // the audit log last, the probe that followed ran under the runner's already-elevated
+                // token, and an elevated helper writes a line for what it did — so the log the batch
+                // had just removed was back before the uninstall read the machine a second time, and
+                // the home was kept for it. A probe is only ever spent on what could have changed the
+                // thing it asks about.
+                if settled.applied > 0 && may_have_changed_the_helper(waiting) {
                     self.learn_installed_helper().await;
                 }
 
@@ -1024,6 +1031,22 @@ impl Drop for Released<'_> {
     fn drop(&mut self) {
         self.0.release();
     }
+}
+
+/// Whether a batch held an operation that could have put a different helper on this machine.
+///
+/// **The two that write the helper's own file, and nothing else.** `HelperRemove` is not one: on
+/// Windows the file it removed is still there until the next restart, and on the other two the
+/// probe finds nothing to run — neither answer is a new helper to learn. And a probe after a batch
+/// that removed the audit log recreates it on a machine whose token is already elevated, which is
+/// how CI's Windows runner read an uninstall as unfinished; see `judge`.
+fn may_have_changed_the_helper(waiting: &[mixengine_proto::PendingOp]) -> bool {
+    waiting.iter().any(|pending| {
+        matches!(
+            pending.op,
+            PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
+        )
+    })
 }
 
 #[cfg(test)]
@@ -1815,5 +1838,40 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    /// The probe after a grant is spent on the two operations that write the helper's file, and on
+    /// nothing else — least of all on an uninstall, whose last operation removes the audit log the
+    /// probe would put back on a machine whose token is already elevated.
+    #[test]
+    fn only_a_batch_that_installed_or_replaced_the_helper_is_worth_a_probe() {
+        let batch = |ops: &[PrivilegedOp]| -> Vec<mixengine_proto::PendingOp> {
+            ops.iter()
+                .enumerate()
+                .map(|(index, op)| mixengine_proto::PendingOp {
+                    id: mixengine_proto::PendingOpId(index as i64),
+                    description: op.describe(),
+                    op: op.clone(),
+                    requested_at: mixengine_proto::Timestamp(0),
+                })
+                .collect()
+        };
+
+        assert!(may_have_changed_the_helper(&batch(&[
+            PrivilegedOp::hosts_apply(vec![]),
+            PrivilegedOp::HelperInstall {},
+        ])));
+        assert!(may_have_changed_the_helper(&batch(&[
+            PrivilegedOp::HelperReplace {}
+        ])));
+
+        assert!(!may_have_changed_the_helper(&batch(&[])));
+        assert!(!may_have_changed_the_helper(&batch(&[
+            PrivilegedOp::hosts_apply(vec![]),
+        ])));
+        assert!(!may_have_changed_the_helper(&batch(&[
+            PrivilegedOp::HelperRemove {},
+            PrivilegedOp::AuditLogRemove {},
+        ])));
     }
 }
