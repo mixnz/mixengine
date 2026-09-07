@@ -389,7 +389,7 @@ directory, which is where a generated defaults file and a keyring credential rea
       The suite keeps the two apart by name; the collision itself is real for two users of one
       machine, whose `/tmp` is shared and whose `rm -rf` on each other's directory fails outright.
       The keyring entry is keyed the same way and is the same follow-up.
-- [ ] **T99** MariaDB serves a certificate this home's authority signed — design in
+- [x] **T99** MariaDB serves a certificate this home's authority signed — design in
       [docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
       **What was measured.** Run 34128004289's `bench (ubuntu-latest)` put the M3 warm median at
       11.1 s, and every slow round's `mariadb.err` had the same shape: InnoDB up, four to thirteen
@@ -409,8 +409,9 @@ directory, which is where a generated defaults file and a keyring credential rea
       writes, and a template that names the pair and its fingerprint or says nothing about TLS. A
       failed issuance is a warning and the status quo, never a start refused. The real-server suite
       now asserts `Ssl_cipher` is non-empty on the password login, which is what separates *written*
-      from *served*. **Owed:** the next `bench (ubuntu-latest)` number, which closes the "M3's tail"
-      row in the index.
+      from *served*. **Measured, run 34144793031**: the warm median went from 3189 ms to **592 ms**
+      on ubuntu, 2144 ms to **1655 ms** on Windows, 1160 ms to **637 ms** on macOS, and every one of
+      the five ubuntu rounds was within 3 ms of the others — the tail is gone with its cause.
 - [x] **T34a** A supervised child never inherits Administrators. `postgres` calls `check_root()`
       before it dispatches a mode and refuses a token holding an enabled `BUILTIN\Administrators`;
       this repository's Windows CI leg holds one on purpose (T2b). So every child MixEngine starts to
