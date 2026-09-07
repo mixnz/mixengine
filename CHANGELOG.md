@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## v0.0.6
+
+### Added
+- Opt-in per-site HTTP → HTTPS redirect (`--https-redirect` on `site create`/`site update`), off by
+  default; answers with a `307` so a site can turn it back off.
+
+### Updated
+- Signed-document clients (runtimes, updates, extension registry, RPC) now share one HTTP
+  transport instead of building one each, cutting the daemon's idle memory footprint.
+
+### Fixed
+- The missing-helper hint now matches how each install format actually ships
+  `mixengine-elevate`, instead of assuming every release keeps a copy beside `mixengined`.
+- MariaDB starts from a certificate issued once by this home's own authority instead of
+  generating a new key at every start, cutting several seconds off every warm start.
+
 ## v0.0.5
 
 ### Fixed
