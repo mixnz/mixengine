@@ -2172,14 +2172,22 @@ mod tests {
             Arc::clone(&jobs),
         ));
 
+        // One transport, shared the way `main` shares it — roadmap task **T72b** — so this test
+        // context stays an honest copy of what the daemon actually builds.
+        let transport =
+            mixengine_core::index::default_transport().expect("an HTTP client can be built");
+
         // Pointed at the published index, which nothing in this file asks anything of: these tests
         // are about dispatch, and every `runtime.*` method's own behaviour is proved against a
         // `MockRegistry` in `tests/runtimes.rs`, where there is a real socket to serve one over.
         // Constructing it here is still worth doing rather than stubbing — it is the one assertion
         // available that a daemon builds one at all without reaching the network to do it.
-        let fetcher =
-            crate::runtimes::Fetcher::new(&paths, &crate::runtimes::IndexSource::default())
-                .expect("the compiled-in index key is a key");
+        let fetcher = crate::runtimes::Fetcher::new(
+            &paths,
+            &crate::runtimes::IndexSource::default(),
+            transport.clone(),
+        )
+        .expect("the compiled-in index key is a key");
         let runtimes = crate::runtimes::Runtimes::new(
             &paths,
             &store,
@@ -2268,6 +2276,7 @@ mod tests {
                     &crate::runtimes::IndexSource::default().registry_url(),
                     &crate::runtimes::IndexSource::default().public_key,
                     paths.cache(),
+                    transport.clone(),
                 )
                 .expect("the compiled-in registry key is a key"),
                 Arc::clone(&sites),
@@ -2370,6 +2379,7 @@ mod tests {
                 },
                 Some(&installed.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX))),
                 events.clone(),
+                transport,
             )
             .expect("the compiled-in updater key is a key"),
             elevation,

@@ -121,16 +121,28 @@ pub(crate) struct Fetcher {
 impl Fetcher {
     /// Point an index client and an installer at `source`, caching under the home's `cache/`.
     ///
+    /// `http` is the daemon's own transport, shared with the extension registry client and the
+    /// update feed client rather than built fresh here — roadmap task **T72b**, the same "one per
+    /// daemon" rule this type's own doc comment already states, one layer down.
+    ///
     /// # Errors
     ///
-    /// The wire error of a public key that is not one, or of an HTTP client that cannot be built —
-    /// both of which mean a broken build or an unusable `--index-key`, and both of which fail the
-    /// daemon's start rather than the first call: a daemon that cannot install anything should say
-    /// so while somebody is looking at it.
-    pub(crate) fn new(paths: &Paths, source: &IndexSource) -> Result<Arc<Self>, Error> {
+    /// The wire error of a public key that is not one, which means a broken build or an unusable
+    /// `--index-key` and fails the daemon's start rather than the first call: a daemon that cannot
+    /// install anything should say so while somebody is looking at it.
+    pub(crate) fn new(
+        paths: &Paths,
+        source: &IndexSource,
+        http: reqwest::Client,
+    ) -> Result<Arc<Self>, Error> {
         Ok(Arc::new(Self {
-            index: index::Client::with(&source.url, &source.public_key, paths.cache())
-                .map_err(|error| error.to_wire())?,
+            index: index::Client::with_transport(
+                &source.url,
+                &source.public_key,
+                paths.cache(),
+                http,
+            )
+            .map_err(|error| error.to_wire())?,
             installer: Installer::new(paths.cache()).map_err(|error| error.to_wire())?,
         }))
     }
