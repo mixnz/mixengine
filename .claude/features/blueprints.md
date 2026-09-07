@@ -127,6 +127,16 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   Output goes to the job's log (`GET /logs/job/{id}`, `mix job logs <job> -f`), which is the log
   surface a service's output already uses and not the event stream: how much a scaffold prints is
   decided by somebody else's program.
+- **Its program is checked at plan time, by the shell's own rule** — T78b. The command's first
+  word, when it is a bare name (no quotes, no shell syntax, no path separator, not a builtin of
+  `cmd.exe` or `sh`), is looked for on exactly the `PATH` the command would run with — `<home>/bin`,
+  then the daemon's own — and a name nothing answers to makes the step `blocked`, naming the
+  program and both halves of that PATH. **A blocked scaffold blocks the scaffold, not the apply**:
+  with a consent for it the apply is refused up front, in the plan's words; without one everything
+  else is applied and the step is reported not run for that reason. `cmd.exe` never runs a bare
+  file with no extension and `bin/` is swept of strangers at every start, so the hint says *put it
+  on your PATH and restart the daemon* and never *copy it into `bin/`*. Design:
+  [docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../../docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
 - **No timeout.** Any number would kill a legitimate `composer install` on a slow line; the bound is
   that the job is visible and `job.cancel` stops it — killing the process *group*, so what a package
   manager forked goes with it.
@@ -173,8 +183,9 @@ home for good as well.
 
 Three of them carry a `[scaffold]` — `laravel`, `symfony` and `nextjs` — and three deliberately do
 not. A gallery command has to be non-interactive (there is no timeout, so a prompt would hang a
-job), spelled the same for `cmd.exe` and `sh`, and it may not write into a shared runtime: that last
-rule is what removes Django's, since `pip install django` reaches every project using that Python.
+job), spelled the same for `cmd.exe` and `sh`, with a program for its first word — the plan reads it
+as one (T78b) — and it may not write into a shared runtime: that last rule is what removes
+Django's, since `pip install django` reaches every project using that Python.
 The gallery sells a stack, not a scaffold.
 
 They double as end-to-end tests of the whole system, but **not of the cross-OS criterion below** — a

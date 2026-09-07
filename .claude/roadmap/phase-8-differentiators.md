@@ -133,6 +133,20 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the other; where there is nobody to ask, the command is left unrun with a line saying so
       rather than the apply being refused, because there is no flag for *no* and a script must be
       able to apply a blueprint without its command.
+- [x] **T78b** A `[scaffold]`'s program is checked at plan time — design in
+      [docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../../docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
+      Found by applying `laravel` on a Windows machine without `composer`: eleven steps applied and
+      the twelfth was `cmd.exe` saying it did not recognise the word, which is the one step T77's
+      D10 had left to the end of the job. The first word of the command, when it is a bare name, is
+      now looked for on the PATH the command would run with — `platform::process::program_on_path`,
+      by `cmd.exe`'s `PATHEXT` rule and `execvp`'s execute bit — and a miss is a `blocked` step
+      naming the program and both halves of that PATH. **It blocks the command and not the apply**,
+      because T78a made the scaffold the one optional step: a consent for a blocked command is
+      refused up front, no consent leaves it unrun with the reason. **Every doubt resolves to not
+      judging** — quotes, shell syntax, paths, `VAR=x`, and a short list of builtins (`echo` is what
+      the scaffold suite runs on Windows) leave the step `confirm`. The gallery is unchanged;
+      `laravel` and `symfony` now say `blocked` where they said `confirm` on a machine without
+      `composer`, which T25 keeps out of the shims on purpose — whether to ship it is the next task.
 - [x] **T79** Built-in blueprint gallery — six blueprints compiled into the binary and seeded as
       `builtin` rows at daemon start, which is the first thing in this product to write that word.
       **Trusted without a signature check**, and that is the departure from what T78a expected of
