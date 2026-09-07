@@ -149,17 +149,22 @@ impl Watcher for Quiet {
 impl Updates {
     /// Point a feed client and an installer at `source`, caching under the home's `cache/`.
     ///
+    /// `http` is the daemon's own transport, shared with the package index client and the
+    /// extension registry client rather than built fresh here — roadmap task **T72b**, on
+    /// `runtimes::Fetcher`'s own "one per daemon" reasoning, one layer down.
+    ///
     /// # Errors
     ///
-    /// The wire error of a public key that is not one, or of an HTTP client that cannot be built.
-    /// Both fail the daemon's start rather than the first call, on `runtimes::Fetcher`'s reasoning:
-    /// a daemon that can never verify an update should say so while somebody is watching.
+    /// The wire error of a public key that is not one, which means a broken build or an unusable
+    /// `--update-key` and fails the daemon's start rather than the first call: a daemon that can
+    /// never verify an update should say so while somebody is watching.
     pub(crate) fn new(
         paths: &Paths,
         store: &Store,
         source: &FeedSource,
         daemon_exe: Option<&std::path::Path>,
         events: crate::api::Events,
+        http: reqwest::Client,
     ) -> Result<std::sync::Arc<Self>, Error> {
         let placement = match daemon_exe {
             Some(exe) => updates::placement::of(
@@ -182,8 +187,13 @@ impl Updates {
         Ok(std::sync::Arc::new(Self {
             paths: paths.clone(),
             store: store.clone(),
-            client: updates::Client::with(&source.url, &source.public_key, paths.cache())
-                .map_err(|error| error.to_wire())?,
+            client: updates::Client::with_transport(
+                &source.url,
+                &source.public_key,
+                paths.cache(),
+                http,
+            )
+            .map_err(|error| error.to_wire())?,
             installer: Installer::new(paths.cache()).map_err(|error| error.to_wire())?,
             placement,
             events,

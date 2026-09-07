@@ -1446,11 +1446,20 @@ async fn serve(
         Err(error) => tracing::warn!(%error, "could not close the jobs a previous daemon left"),
     }
 
+    // One transport for every signed document this daemon reads — package index, extension
+    // registry, update feed — roadmap task **T72b**. `Fetcher`'s own comment already argues this
+    // for the index client and the installer that shares its cache directory: built once, handed
+    // to everything that needs it, rather than once per namespace. A `reqwest::Client` is the same
+    // shape of thing, cheap to clone and meant to be reused across hosts rather than built once per
+    // host, so it fails the start here beside the keys rather than three times over.
+    let transport =
+        mixengine_core::index::default_transport().map_err(|error| anyhow::anyhow!("{error}"))?;
+
     // **Fails the start rather than the first call** (roadmap task T23). What can go wrong here is a
     // public key that is not one — the compiled-in constant, or an `--index-key` somebody pasted
     // half of — and a daemon that will refuse every install for the rest of its life should say so
     // while the person who started it is still watching.
-    let fetcher = runtimes::Fetcher::new(paths, &sources.index)
+    let fetcher = runtimes::Fetcher::new(paths, &sources.index, transport.clone())
         .map_err(|error| anyhow::anyhow!("{error}"))?;
 
     // The signed extension registry's client — roadmap task **T81**, moved here by **T81b**. Built
@@ -1461,6 +1470,7 @@ async fn serve(
         &sources.index.registry_url(),
         &sources.index.public_key,
         paths.cache(),
+        transport.clone(),
     )
     .map_err(|error| anyhow::anyhow!("{error}"))?;
     let runtimes = runtimes::Runtimes::new(
@@ -1491,6 +1501,7 @@ async fn serve(
         &sources.feed,
         Some(daemon_exe.as_path()),
         events.clone(),
+        transport,
     )
     .map_err(|error| anyhow::anyhow!("{error}"))?;
 

@@ -138,16 +138,23 @@ impl Registry {
     }
 }
 
-/// A client for the registry at `url`, verified against `public_key` and cached under `cache_dir`.
+/// A client for the registry at `url`, verified against `public_key` and cached under `cache_dir`,
+/// over `http` — the daemon's own transport, shared with the package index client and the update
+/// feed client rather than built fresh here (roadmap task **T72b**).
 ///
-/// **The key is a parameter for [`index::Client::with`]'s reason**: a test cannot hold the
+/// **The key is a parameter for [`index::Client::with_transport`]'s reason**: a test cannot hold the
 /// production private key, and a verification path switched off for tests is one nothing checks.
 ///
 /// # Errors
 ///
-/// As [`index::Client::with`] — a key that is not one, or an HTTP client that cannot be built.
-pub fn client(url: &str, public_key: &str, cache_dir: &Path) -> Result<index::Client<Registry>> {
-    index::Client::with(url, public_key, cache_dir)
+/// As [`index::Client::with_transport`] — a key that is not one.
+pub fn client(
+    url: &str,
+    public_key: &str,
+    cache_dir: &Path,
+    http: reqwest::Client,
+) -> Result<index::Client<Registry>> {
+    index::Client::with_transport(url, public_key, cache_dir, http)
 }
 
 /// The registry as a document, for a caller that already has the bytes.

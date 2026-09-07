@@ -83,6 +83,20 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
 /// The signature file sits beside the document, named the way minisign names it.
 const SIGNATURE_SUFFIX: &str = ".minisig";
 
+/// The transport [`Client::with`] builds for itself, exposed for a caller building more than one
+/// [`Client`] that wants them to share it — see [`Client::with_transport`].
+///
+/// # Errors
+///
+/// Whatever `reqwest` raises for a transport it cannot build, which every platform this product
+/// targets has never been observed to raise.
+pub fn default_transport() -> reqwest::Result<reqwest::Client> {
+    reqwest::Client::builder()
+        .timeout(FETCH_TIMEOUT)
+        .user_agent(concat!("mixengine/", env!("CARGO_PKG_VERSION")))
+        .build()
+}
+
 /// How the index in hand was obtained, and whether the caller should say so.
 ///
 /// Returned rather than logged alone because the three cases want different words in three different
@@ -208,19 +222,38 @@ impl<D: Document> Client<D> {
     ///
     /// As [`Client::new`].
     pub fn with(url: &str, public_key: &str, cache_dir: &Path) -> Result<Self> {
-        let key = PublicKey::from_base64(public_key).map_err(|source| Error::IndexKey {
+        let http = default_transport().map_err(|source| Error::IndexTransport {
+            document: D::LABEL,
+            url: url.to_owned(),
             source: Box::new(source),
         })?;
 
-        let http = reqwest::Client::builder()
-            .timeout(FETCH_TIMEOUT)
-            .user_agent(concat!("mixengine/", env!("CARGO_PKG_VERSION")))
-            .build()
-            .map_err(|source| Error::IndexTransport {
-                document: D::LABEL,
-                url: url.to_owned(),
-                source: Box::new(source),
-            })?;
+        Self::with_transport(url, public_key, cache_dir, http)
+    }
+
+    /// The same, against a `reqwest::Client` the caller already built.
+    ///
+    /// **For a daemon that reads more than one signed document.** `Fetcher`'s own comment already
+    /// argues this for the index client and the installer that shares its cache directory: built
+    /// once, handed to everything that needs it, rather than once per namespace. A `reqwest::Client`
+    /// is the same shape of thing — cheap to clone, meant to be reused across every host a process
+    /// talks to — so a daemon reading the package index, the extension registry and the update feed
+    /// builds one transport and hands a clone to each, instead of three independent TLS
+    /// configurations and connection pools that will only ever hold one host's connections apiece.
+    /// Roadmap task **T72b**.
+    ///
+    /// # Errors
+    ///
+    /// The wire error of a public key that is not one.
+    pub fn with_transport(
+        url: &str,
+        public_key: &str,
+        cache_dir: &Path,
+        http: reqwest::Client,
+    ) -> Result<Self> {
+        let key = PublicKey::from_base64(public_key).map_err(|source| Error::IndexKey {
+            source: Box::new(source),
+        })?;
 
         Ok(Self {
             url: url.to_owned(),

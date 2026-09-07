@@ -1867,6 +1867,7 @@ dependencies = [
  "mixengine-supervisor",
  "mixengine-testkit",
  "pem",
+ "reqwest",
  "rustls",
  "serde",
  "serde_json",
