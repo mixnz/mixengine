@@ -488,6 +488,20 @@ pub(crate) fn spawn_shell_child(
     )
 }
 
+/// [`crate::process::program_on_path`], by `execvp`'s rule: a regular file with any execute bit.
+pub(crate) fn find_program(name: &str, path: &std::ffi::OsStr) -> Option<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    std::env::split_paths(path)
+        .filter(|directory| !directory.as_os_str().is_empty())
+        .map(|directory| directory.join(name))
+        .find(|candidate| {
+            candidate
+                .metadata()
+                .is_ok_and(|found| found.is_file() && found.permissions().mode() & 0o111 != 0)
+        })
+}
+
 /// Put the child into `cgroup.procs` **itself**, between the fork and the exec.
 ///
 /// **The child does it, and that is what makes the cap sound.** Writing the child's pid from the

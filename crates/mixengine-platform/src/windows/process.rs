@@ -1098,6 +1098,51 @@ pub(crate) fn spawn_shell_child(
     })
 }
 
+/// What `cmd.exe` appends when `PATHEXT` is unset — its own compiled-in default.
+const DEFAULT_PATHEXT: &[&str] = &[".COM", ".EXE", ".BAT", ".CMD"];
+
+/// The extensions `cmd.exe` would try, in its order.
+fn pathext() -> Vec<String> {
+    std::env::var("PATHEXT")
+        .ok()
+        .map(|held| {
+            held.split(';')
+                .filter(|one| !one.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .filter(|found| !found.is_empty())
+        .unwrap_or_else(|| {
+            DEFAULT_PATHEXT
+                .iter()
+                .map(|one| (*one).to_owned())
+                .collect()
+        })
+}
+
+/// [`crate::process::program_on_path`], by `cmd.exe`'s rule.
+///
+/// A name with an extension of its own is tried as written first; every name is then tried with
+/// each `PATHEXT` extension appended. A bare file with no extension is never a hit — the file a
+/// person copies from a Unix machine, and the one `cmd.exe` says it does not recognise.
+pub(crate) fn find_program(name: &str, path: &std::ffi::OsStr) -> Option<std::path::PathBuf> {
+    let extensions = pathext();
+
+    std::env::split_paths(path)
+        .filter(|directory| !directory.as_os_str().is_empty())
+        .find_map(|directory| {
+            let as_written = name.contains('.').then(|| directory.join(name));
+            let with_extension = extensions
+                .iter()
+                .map(|extension| directory.join(format!("{name}{extension}")));
+
+            as_written
+                .into_iter()
+                .chain(with_extension)
+                .find(|candidate| candidate.is_file())
+        })
+}
+
 /// Where this system's command interpreter is.
 ///
 /// `%SystemRoot%` when the variable is there and the well-known path when it is not — a machine
