@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.0.5
+
+### Fixed
+- probe the helper only after a batch that could have replaced it, and settle two flaky gates
+
 ## v0.0.4
 
 - Every .tar.zst and .tar.gz we publish begins with the ./ entry tar writes,

@@ -4,7 +4,7 @@ slug = "for-agents"
 order = 16
 summary = "Mọi trang của cẩm nang này đều là Markdown thuần tại một địa chỉ dễ đoán, kèm một manifest, một file gộp, và cùng nội dung đó nằm sẵn trong chương trình mix."
 translation_of = "en/for-agents.md"
-source_sha256 = "c37cb6aea1f3d8ffc00ebe2fe1f9b64ca89c44eeb7c1de6a44b9c477d61ef507"
+source_sha256 = "31673fc539dcdd3c65643e8539a6f6576b7c7199e7fb1753b27f12882f938260"
 +++
 
 # Đọc cẩm nang này bằng chương trình
@@ -61,7 +61,7 @@ https://mixnz.github.io/mixengine/index.json
 ```json
 {
   "product": "MixEngine",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "base_url": "https://mixnz.github.io/mixengine/",
   "locales": ["en", "vi"],
   "pages": [
