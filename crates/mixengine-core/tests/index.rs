@@ -88,6 +88,31 @@ async fn a_signed_index_is_fetched_verified_and_read() {
     assert_eq!(chosen.execution, mixengine_proto::Execution::Native);
 }
 
+/// A client built against a transport the caller already had reads exactly what one that built its
+/// own would have — roadmap task **T72b**, [`Client::with_transport`]'s reason for existing.
+#[tokio::test]
+async fn a_client_built_from_a_shared_transport_reads_the_same_document() {
+    let cache = tempfile::tempdir().expect("a cache directory");
+    let registry = MockRegistry::start(&index_at("2026-08-14T06:55:12Z")).await;
+
+    let transport =
+        mixengine_core::index::default_transport().expect("an HTTP client can be built");
+
+    let catalogue = Client::<Index>::with_transport(
+        &registry.url(),
+        registry.public_key(),
+        cache.path(),
+        transport,
+    )
+    .expect("build a client from a shared transport")
+    .catalogue()
+    .await
+    .expect("the index is readable");
+
+    assert_eq!(catalogue.freshness, Freshness::Fetched);
+    assert!(catalogue.index.artifact("php", "8.3.33").is_some());
+}
+
 #[tokio::test]
 async fn a_document_the_signature_does_not_cover_is_refused() {
     let cache = tempfile::tempdir().expect("a cache directory");
