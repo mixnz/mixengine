@@ -48,6 +48,15 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       belong to the user and cannot be batched into a prompt at all, there being no prompt to batch
       them into. Design:
       [T49a spec](../../docs/superpowers/specs/2026-08-24-t49a-system-trust-store-design.md).
+      **Amended after a first macOS install**: the install's "already there" and the probe both
+      checked keychain presence, and `add-trusted-cert -d` had put the certificate there and then
+      been refused the trust setting (*no user interaction was possible* under the elevation
+      prompt) — so the next prompt settled it as done and `mix doctor` called it trusted while
+      `verify-cert` said `CSSMERR_TP_NOT_TRUSTED`. Both now ask `verify-cert` as well, and the
+      helper writes the setting through `launchctl asuser <caller uid>`, which is the session the
+      dialog can be raised in — measured to succeed where the bare command under the elevation
+      prompt failed. A first run on macOS asks twice, and the refusal still names the terminal
+      command for the day it fails.
       **The removal is the direction that can do damage, so it carries no fingerprint.** An install
       is close to harmless — a daemon compromised badly enough to forge one already holds the CA key
       and can sign anything — but a removal naming a certificate by hash could take the root that

@@ -50,7 +50,10 @@ impl TrustStore for Trust {
 
 /// Put MixEngine's authority into `LocalMachine\Root`.
 #[cfg(feature = "elevated")]
-pub(crate) fn apply(plan: &mixengine_proto::privileged::TrustPlan) -> crate::Result<Change> {
+pub(crate) fn apply(
+    plan: &mixengine_proto::privileged::TrustPlan,
+    _caller: &crate::elevated::Owner,
+) -> crate::Result<Change> {
     use mixengine_proto::privileged::TrustPlan;
 
     let der = match plan {

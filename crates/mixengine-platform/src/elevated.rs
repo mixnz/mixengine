@@ -42,6 +42,15 @@ impl Owner {
         }
     }
 
+    /// The account, as this OS names one: a uid on Unix, a SID on Windows.
+    ///
+    /// What the macOS trust install needs to put `security` back into the caller's login session
+    /// — see `macos::trust::apply` — and read from the token, never from the request.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
     /// Is this the account no MixEngine daemon ever runs as?
     ///
     /// `uid 0` on Unix, `SYSTEM` (`S-1-5-18`) on Windows — **and not `BUILTIN\Administrators`**,

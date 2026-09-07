@@ -137,6 +137,30 @@ validates Windows Update out of a machine, through the audited helper and under 
 click. What travels is the eight-character key-id from the CA's subject, and the helper removes only
 certificates that carry it **and** pass the whole shape check an install has to pass.
 
+**On macOS "installed" means trusted, and a probe asks `security verify-cert`.** `add-trusted-cert
+-d` is two writes — the certificate into the keychain, then a trust setting into the admin domain —
+and the second can be refused after the first succeeded: the admin domain's authorization rule is
+*entitled or authenticate-admin*, `authenticate-admin` does not exempt root, and a helper behind the
+OS elevation prompt has no window to authenticate in, so `security` reports *the authorization was
+denied since no user interaction was possible* and leaves the certificate in the keychain untrusted.
+Measured on a first install: `find-certificate` listed the authority, `verify-cert` said
+`CSSMERR_TP_NOT_TRUSTED`, and `mix doctor` said trusted. So the probe lists the keychain for the
+exact DER and then asks `verify-cert -L -p basic` whether the machine trusts it, and the install's
+"already there" needs both answers.
+
+**The helper writes the trust setting through `/bin/launchctl asuser <uid> /usr/bin/security …`**,
+which puts `security` back into the caller's login session — the one that owns the screen — so the
+dialog can be raised. Measured three ways on one machine: `sudo security add-trusted-cert -d` from a
+terminal raised the dialog and succeeded; the same command under `do shell script … with
+administrator privileges` failed with *no user interaction was possible*; the same command under the
+same prompt through `launchctl asuser` raised the dialog and succeeded. The uid comes from the token
+the helper verified, is digits or the command is not run, and everything else on the line is a
+constant. **A first run on macOS therefore asks twice** — the OS elevation prompt, then this dialog
+— and that is the operating system's price for an admin-domain trust setting; there is no cheaper
+one without an Apple entitlement. Should the write still be refused, the failure carries the
+terminal command that finishes it: `sudo security add-trusted-cert -d -r trustRoot -k
+/Library/Keychains/System.keychain <home>/certs/ca/root.crt`.
+
 **The macOS removal named here is not the one that was built**, and the difference was measured
 rather than reasoned about. On a machine with no window server, `security remove-trusted-cert -d`
 never returns — not under plain `sudo`, not under `sudo -H`, not with `HOME` unset, not against a

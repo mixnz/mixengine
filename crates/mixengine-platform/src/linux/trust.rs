@@ -150,7 +150,10 @@ const REDHAT_REFRESH: [&str; 2] = ["update-ca-trust", "extract"];
 
 /// Write the anchor and fold it in.
 #[cfg(feature = "elevated")]
-pub(crate) fn apply(plan: &mixengine_proto::privileged::TrustPlan) -> crate::Result<Change> {
+pub(crate) fn apply(
+    plan: &mixengine_proto::privileged::TrustPlan,
+    _caller: &crate::elevated::Owner,
+) -> crate::Result<Change> {
     use mixengine_proto::privileged::TrustPlan;
 
     let (der, anchors, refresh) = match plan {

@@ -48,14 +48,22 @@ pub enum Change {
 /// before a store is opened at all, so that a refusal costs no privilege and no lock. What is
 /// checked here is only that the plan names this system's mechanism.
 ///
+/// `caller` is whose machine this is — the account that asked, read from the token the helper has
+/// already verified. Two of the three systems ignore it; macOS needs it, because the trust setting
+/// is written by a program that has to be put back into that account's login session to be allowed
+/// to ask for a password. See `macos::trust::apply`.
+///
 /// # Errors
 ///
 /// [`Error::UnsupportedPlatform`](crate::Error::UnsupportedPlatform) when the plan is not this
 /// system's mechanism, [`Error::Io`](crate::Error::Io) when a file cannot be written, and
 /// [`Error::Os`](crate::Error::Os) when a store refuses or the machine-wide lock is held.
 #[cfg(feature = "elevated")]
-pub fn apply(plan: &mixengine_proto::privileged::TrustPlan) -> crate::Result<Change> {
-    crate::sys::trust::apply(plan)
+pub fn apply(
+    plan: &mixengine_proto::privileged::TrustPlan,
+    caller: &crate::elevated::Owner,
+) -> crate::Result<Change> {
+    crate::sys::trust::apply(plan, caller)
 }
 
 /// Take it back out again.

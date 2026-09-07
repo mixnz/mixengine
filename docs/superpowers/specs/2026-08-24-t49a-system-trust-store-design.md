@@ -468,6 +468,23 @@ Both unprivileged reads **succeed**: `test (windows-latest)` and `test (macos-la
 the producer and the doctor check keep the shape this design gives them. Two things nobody had
 thought to ask were answered as well:
 
+- **The macOS install's "already there" was a presence check, and presence is half of what
+  `add-trusted-cert -d` writes.** The certificate goes into the keychain and then a trust setting
+  goes into the admin domain, and the second write is authorized separately — the rule is *entitled
+  or authenticate-admin*, and `authenticate-admin` does not exempt root — so under the OS elevation
+  prompt, where no window can be raised, `security` fails with *the authorization was denied since
+  no user interaction was possible* with the certificate already in the keychain. On the next prompt
+  the presence check answered `Unchanged`, the operation settled as already done, and the probe —
+  the same presence check — told `mix doctor` and `mix cert ca-status` the machine trusted an
+  authority `security verify-cert` called `CSSMERR_TP_NOT_TRUSTED`. Measured on a first install of
+  0.0.4. Both now ask `verify-cert -L -p basic` as well, which exits zero for a trusted anchor and
+  one for a present-but-untrusted one. **And the helper is given the window**: the write runs as
+  `/bin/launchctl asuser <caller uid> /usr/bin/security add-trusted-cert …`, which puts `security`
+  into the session that owns the screen. Measured on the same machine: the bare command under
+  `do shell script … with administrator privileges` failed as above, and the same command through
+  `launchctl asuser` raised the password dialog and succeeded. The uid is read from the verified
+  token and checked to be digits before it is placed on the line; a first run on macOS asks twice,
+  and that is the OS's price. The refusal still names the terminal command, for the day it fails.
 - **The Windows install's "already there" is `CRYPT_E_EXISTS`, not `ERROR_ALREADY_EXISTS`.**
   `CertAddEncodedCertificateToStore` reports through `SetLastError` but sets the crypto layer's
   `HRESULT`, and the two ranges do not overlap. The wrong constant is invisible on a first install

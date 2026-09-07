@@ -19,7 +19,10 @@ use mixengine_platform::trust::{self, Change};
 use mixengine_proto::privileged::{OpOutcome, TrustPlan, TrustTarget};
 
 /// Make this machine trust the authority `plan` carries.
-pub(crate) fn install(plan: &TrustPlan) -> OpOutcome {
+///
+/// `caller` is the account that asked, from the verified token: macOS writes the trust setting
+/// inside that account's login session, because the write needs a window to ask for a password in.
+pub(crate) fn install(plan: &TrustPlan, caller: &mixengine_platform::elevated::Owner) -> OpOutcome {
     let der = match plan {
         TrustPlan::SystemRoot { der }
         | TrustPlan::SystemKeychain { der }
@@ -39,7 +42,7 @@ pub(crate) fn install(plan: &TrustPlan) -> OpOutcome {
         }
     };
 
-    named(outcome(trust::apply(plan)), &authority.subject)
+    named(outcome(trust::apply(plan, caller)), &authority.subject)
 }
 
 /// Take an authority back out of this machine's trust store.
@@ -169,7 +172,7 @@ mod tests {
             vec![0x30, 0x82, 0xff, 0xff],
             vec![0x30; mixengine_platform::trust::MAX_DER + 1],
         ] {
-            let outcome = install(&TrustPlan::SystemRoot { der });
+            let outcome = install(&TrustPlan::SystemRoot { der }, &a_caller());
 
             assert!(matches!(outcome, OpOutcome::Refused { .. }));
         }
@@ -192,7 +195,19 @@ mod tests {
             },
             TrustPlan::CaTrustAnchors { der: rubbish },
         ] {
-            assert!(matches!(install(&plan), OpOutcome::Refused { .. }));
+            assert!(matches!(
+                install(&plan, &a_caller()),
+                OpOutcome::Refused { .. }
+            ));
         }
+    }
+
+    /// Whoever owns a file this test wrote — the only way to make an `Owner`, and the refusals
+    /// above happen before it is looked at.
+    fn a_caller() -> mixengine_platform::elevated::Owner {
+        let directory = tempfile::tempdir().expect("a temporary directory");
+        let file = directory.path().join("asked");
+        std::fs::write(&file, b"").expect("the file");
+        mixengine_platform::elevated::owner_of(&file).expect("its owner")
     }
 }

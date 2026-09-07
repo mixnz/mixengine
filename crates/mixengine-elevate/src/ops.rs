@@ -70,7 +70,7 @@ pub(crate) fn apply(
 
         // Roadmap task T49a. What may be installed, and what may be removed, is decided next door —
         // the T49a design, D4 and D5, on `hosts.rs`' pattern.
-        PrivilegedOp::TrustCaInstall { plan } => crate::trust::install(plan),
+        PrivilegedOp::TrustCaInstall { plan } => crate::trust::install(plan, caller),
         PrivilegedOp::TrustCaRemove { target } => crate::trust::remove(target),
 
         // Roadmap task T74. What ports may be opened is decided next door, on `hosts.rs`' pattern

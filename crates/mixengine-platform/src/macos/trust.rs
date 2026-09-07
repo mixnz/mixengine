@@ -32,6 +32,17 @@ const HANDOFF_FILE: &str = "ca-handoff.pem";
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub(crate) const SECURITY: &str = "/usr/bin/security";
 
+/// Apple's, absolute for the same reason. What puts `security` into the caller's login session for
+/// the one write that needs a window — see [`apply`].
+#[cfg(feature = "elevated")]
+const LAUNCHCTL: &str = "/bin/launchctl";
+
+/// How long the trust-settings write may take, which is how long a person may take to type a
+/// password: macOS raises a dialog for it and `security` waits on the answer. Nothing else in this
+/// module waits on a person, so nothing else gets this.
+#[cfg(feature = "elevated")]
+const DIALOG_PATIENCE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
 /// This system's answer.
 #[cfg(feature = "host")]
 #[derive(Debug, Default)]
@@ -51,16 +62,91 @@ impl TrustStore for Trust {
         // and this deliberately does not consult it: that is a different value from the SHA-256
         // `cert.ca_status` reports, and carrying two hashes for one identity is how they come apart.
         // The hash is there for the removal, which needs a name to hand back, and for nothing else.
-        let installed = listed.iter().any(|found| found.der == der);
+        let present = listed.iter().any(|found| found.der == der);
+
+        if !present {
+            return Ok(TrustState {
+                method: TrustStoreMethod::SystemKeychain,
+                installed: false,
+                missing: Some(format!(
+                    "{SYSTEM_KEYCHAIN} does not hold MixEngine's certificate authority"
+                )),
+            });
+        }
+
+        // **In the keychain is not the same as trusted, and this asks the second question.**
+        // `add-trusted-cert -d` is two writes — the certificate into the keychain, then a trust
+        // setting into the admin domain — and the second can be refused after the first succeeded:
+        // measured on a machine where `security` answered *the authorization was denied since no
+        // user interaction was possible*, left the certificate in the keychain, and every later
+        // probe reported it installed while `verify-cert` said `CSSMERR_TP_NOT_TRUSTED` and every
+        // browser agreed. The daemon has no root-owned directory to hand `security` a path in, so
+        // the file goes where this user's temporary files go, under a name only this process uses.
+        let file =
+            std::env::temp_dir().join(format!("mixengine-ca-probe-{}.pem", std::process::id()));
+        std::fs::write(&file, crate::trust::pem::encode(der)).map_err(|source| {
+            crate::Error::Io {
+                action: "write the certificate for `security verify-cert`",
+                path: file.clone(),
+                source,
+            }
+        })?;
+        let trusted = trusted(&file);
+        let _ = std::fs::remove_file(&file);
+        let trusted = trusted?;
 
         Ok(TrustState {
             method: TrustStoreMethod::SystemKeychain,
-            installed,
-            missing: (!installed).then(|| {
-                format!("{SYSTEM_KEYCHAIN} does not hold MixEngine's certificate authority")
+            installed: trusted,
+            missing: (!trusted).then(|| {
+                format!(
+                    "{SYSTEM_KEYCHAIN} holds MixEngine's certificate authority but this machine \
+                     does not trust it: the trust setting was never written{}",
+                    BY_HAND
+                )
             }),
         })
     }
+}
+
+/// What a person can type when the helper's own write of the trust setting is refused.
+///
+/// The one `security` call in this module that needs more than root: `add-trusted-cert -d` writes
+/// the admin trust domain, whose authorization rule is *entitled or authenticate-admin*, and
+/// `authenticate-admin` on a stock macOS does not exempt root. Under an elevation prompt there is no
+/// window to authenticate in, so the same command from a terminal — where there is — is the honest
+/// thing to offer.
+#[cfg(any(feature = "host", feature = "elevated"))]
+const BY_HAND: &str = "; from a terminal, `sudo security add-trusted-cert -d -r trustRoot -k \
+                       /Library/Keychains/System.keychain <this home>/certs/ca/root.crt` writes it";
+
+/// Does this machine trust the certificate in `file` — as an anchor, in any domain?
+///
+/// `security verify-cert` is the one question that has the same answer a browser gets: it consults
+/// the admin and user trust domains and the system roots together, and exits zero only when the
+/// chain ends at something this machine trusts. Measured: a root in the keychain with no trust
+/// setting exits 1 with `CSSMERR_TP_NOT_TRUSTED`; a trusted one prints *certificate verification
+/// successful*. `-L` keeps it off the network, and `basic` is the X.509 policy with no name or
+/// key-usage demand a root would fail for reasons that are not about trust.
+///
+/// # Errors
+///
+/// When `security` itself cannot be run; a non-zero exit is an answer, not an error.
+#[cfg(any(feature = "host", feature = "elevated"))]
+fn trusted(file: &std::path::Path) -> crate::Result<bool> {
+    let output = security(
+        &[
+            "verify-cert",
+            "-L",
+            "-c",
+            &file.to_string_lossy(),
+            "-p",
+            "basic",
+        ],
+        "run security to ask whether this machine trusts a certificate",
+    )?;
+
+    Ok(output.status.success())
 }
 
 /// A certificate in the System keychain: the DER, and the SHA-1 `security` itself reports for it.
@@ -196,12 +282,23 @@ const GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 /// a job that gets cancelled twenty minutes later having printed nothing at all.
 #[cfg(any(feature = "host", feature = "elevated"))]
 fn security(arguments: &[&str], action: &'static str) -> crate::Result<std::process::Output> {
+    command(SECURITY, arguments, action, PATIENCE)
+}
+
+/// [`security`]'s body, for the one call that is not `security` at the front of its command line.
+#[cfg(any(feature = "host", feature = "elevated"))]
+fn command(
+    program: &str,
+    arguments: &[&str],
+    action: &'static str,
+    patience: std::time::Duration,
+) -> crate::Result<std::process::Output> {
     use std::process::{Command, Stdio};
     use std::time::Instant;
 
     let failed = |source| crate::Error::Os { action, source };
 
-    let mut child = Command::new(SECURITY)
+    let mut child = Command::new(program)
         .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -216,7 +313,7 @@ fn security(arguments: &[&str], action: &'static str) -> crate::Result<std::proc
     let reading_out = read_on_a_thread(child.stdout.take().expect("stdout was piped just above"));
     let reading_err = read_on_a_thread(child.stderr.take().expect("stderr was piped just above"));
 
-    let deadline = Instant::now() + PATIENCE;
+    let deadline = Instant::now() + patience;
     let status = loop {
         if let Some(status) = child.try_wait().map_err(failed)? {
             break status;
@@ -231,9 +328,10 @@ fn security(arguments: &[&str], action: &'static str) -> crate::Result<std::proc
             return Err(failed(std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 format!(
-                    "`security {}` did not answer within {} seconds",
+                    "`{} {}` did not answer within {} seconds",
+                    program,
                     arguments.join(" "),
-                    PATIENCE.as_secs()
+                    patience.as_secs()
                 ),
             )));
         }
@@ -276,8 +374,28 @@ fn read_on_a_thread<R: std::io::Read + Send + 'static>(
 /// **One fixed command, and the file path is the helper's own** — the T49a design, D6. The DER
 /// arrives in the request; the *path* it is written to is chosen here, so the rule T42 set with
 /// `pfctl` holds: no argument comes from the request.
+///
+/// **Run inside the caller's login session, through `launchctl asuser`, and that is what makes it
+/// work at all.** `add-trusted-cert -d` writes the admin trust domain, whose authorization rule is
+/// *entitled or authenticate-admin*, and `authenticate-admin` does not exempt root: macOS raises a
+/// password dialog for it even under `sudo`. A process behind the OS elevation prompt is root but is
+/// not in the session that owns the screen, so the dialog cannot be raised and `security` fails
+/// with *the authorization was denied since no user interaction was possible* — after it has already
+/// put the certificate into the keychain. Measured three ways on one machine: `sudo security
+/// add-trusted-cert -d` from a terminal raised the dialog and succeeded; the same command under
+/// `do shell script … with administrator privileges` failed as above; and the same command under
+/// the same prompt through `/bin/launchctl asuser <uid>` raised the dialog and succeeded. The uid
+/// is the caller's, read from the token the helper verified before it opened the request — it is
+/// digits or the command is not run — and everything else on the line is a constant.
+///
+/// So on macOS a first run asks twice: once at the OS elevation prompt, once at this dialog. That
+/// is the operating system's price for an admin-domain trust setting and there is no cheaper one
+/// without an Apple entitlement; ADR 0005's budget of about two prompts is spent exactly here.
 #[cfg(feature = "elevated")]
-pub(crate) fn apply(plan: &mixengine_proto::privileged::TrustPlan) -> crate::Result<Change> {
+pub(crate) fn apply(
+    plan: &mixengine_proto::privileged::TrustPlan,
+    caller: &crate::elevated::Owner,
+) -> crate::Result<Change> {
     use mixengine_proto::privileged::TrustPlan;
 
     let der = match plan {
@@ -294,23 +412,33 @@ pub(crate) fn apply(plan: &mixengine_proto::privileged::TrustPlan) -> crate::Res
 
     let _lock = crate::trust::held()?;
 
-    // Read before writing, under the lock: a keychain that already holds exactly this is
-    // `Unchanged`, and adding it again would raise a second trust-settings write for nothing.
-    if certificates()?.iter().any(|found| &found.der == der) {
+    let file = written(der)?;
+
+    // Read before writing, under the lock: a keychain that already holds exactly this **and trusts
+    // it** is `Unchanged`, and adding it again would raise a second trust-settings write for
+    // nothing. Both halves, because `add-trusted-cert -d` is two writes and the second can fail
+    // after the first: a certificate that is in the keychain with no trust setting is exactly what
+    // this call exists to finish, and answering `Unchanged` for it was how a refused trust setting
+    // became *already done* on the next prompt and *trusted* in `mix doctor`.
+    let present = certificates()?.iter().any(|found| &found.der == der);
+    let already = present && trusted(&file).unwrap_or(false);
+    if already {
+        let _ = std::fs::remove_file(&file);
         return Ok(Change::Unchanged);
     }
 
-    let file = written(der)?;
-
-    let ran = run(&[
-        "add-trusted-cert",
-        "-d",
-        "-r",
-        "trustRoot",
-        "-k",
-        SYSTEM_KEYCHAIN,
-        &file.to_string_lossy(),
-    ]);
+    let ran = run_in_session(
+        caller,
+        &[
+            "add-trusted-cert",
+            "-d",
+            "-r",
+            "trustRoot",
+            "-k",
+            SYSTEM_KEYCHAIN,
+            &file.to_string_lossy(),
+        ],
+    );
 
     // The handoff file has served its purpose whether or not `security` accepted it, and leaving a
     // certificate lying in a root-owned directory is litter the next run would read.
@@ -425,6 +553,43 @@ fn written(der: &[u8]) -> crate::Result<std::path::PathBuf> {
     Ok(path)
 }
 
+/// Run `security` with a fixed verb and this process's own file path, inside `caller`'s login
+/// session — see [`apply`] for why that session and not this one.
+///
+/// **The uid is checked before it is placed on a command line**, exactly as [`is_hash`] checks
+/// what `security` printed a moment ago: this binary validates what it is about to act on rather
+/// than trusting where it came from. Digits are a uid; anything else is refused by name.
+#[cfg(feature = "elevated")]
+fn run_in_session(caller: &crate::elevated::Owner, arguments: &[&str]) -> crate::Result<()> {
+    let uid = caller.id();
+
+    if uid.is_empty() || !uid.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(crate::Error::Os {
+            action: "change this machine's System keychain",
+            source: std::io::Error::other(format!(
+                "the caller's account {uid:?} is not a uid, so `security` cannot be run in its \
+                 session"
+            )),
+        });
+    }
+
+    let mut line: Vec<&str> = vec!["asuser", uid, SECURITY];
+    line.extend_from_slice(arguments);
+
+    let output = command(
+        LAUNCHCTL,
+        &line,
+        "run security to change the System keychain",
+        DIALOG_PATIENCE,
+    )?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    Err(refused(arguments, &output))
+}
+
 /// Run `security` with a fixed verb and this process's own file path.
 #[cfg(feature = "elevated")]
 fn run(arguments: &[&str]) -> crate::Result<()> {
@@ -434,15 +599,34 @@ fn run(arguments: &[&str]) -> crate::Result<()> {
         return Ok(());
     }
 
+    Err(refused(arguments, &output))
+}
+
+/// What a `security` that exited non-zero said, as the error a person reads.
+#[cfg(feature = "elevated")]
+fn refused(arguments: &[&str], output: &std::process::Output) -> crate::Error {
     // The verb as well as the complaint. `security` says "The specified item could not be found in
     // the keychain" for several different requests, and which one was made is the half of that
     // sentence a person needs.
-    Err(crate::Error::Os {
+    let complaint = String::from_utf8_lossy(&output.stderr);
+    let complaint = complaint.trim();
+
+    // **The refusal this helper cannot get past on its own, named as such.** The admin trust
+    // domain's authorization rule asks root to authenticate too, and a process behind the OS
+    // elevation prompt has no window to do it in — so `security` reports that no user interaction
+    // was possible, having already put the certificate into the keychain. What a person needs from
+    // this message is the command that finishes the job from a terminal, where there is a window.
+    let way_out = if complaint.contains("no user interaction was possible") {
+        BY_HAND
+    } else {
+        ""
+    };
+
+    crate::Error::Os {
         action: "change this machine's System keychain",
         source: std::io::Error::other(format!(
-            "`security {}` failed: {}",
+            "`security {}` failed: {complaint}{way_out}",
             arguments.join(" "),
-            String::from_utf8_lossy(&output.stderr).trim()
         )),
-    })
+    }
 }
