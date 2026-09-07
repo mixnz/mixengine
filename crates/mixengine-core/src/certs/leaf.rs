@@ -65,8 +65,22 @@ pub fn certificate_path(certs: &Path, domain: &str) -> PathBuf {
 /// What is on disk for this site, without changing any of it.
 #[must_use]
 pub fn read(certs: &Path, domain: &str, now: SystemTime) -> CertState {
-    let key = std::fs::read_to_string(key_path(certs, domain)).ok();
-    let certificate = std::fs::read_to_string(certificate_path(certs, domain)).ok();
+    read_pair(
+        &key_path(certs, domain),
+        &certificate_path(certs, domain),
+        now,
+    )
+}
+
+/// What is on disk at these two paths, without changing any of it.
+///
+/// **The body of [`read`], parameterised on the paths** — roadmap task **T99**, which needed the
+/// same reading of a pair that is not a site's. One function rather than two copies, so that what
+/// `Unusable` means is decided once.
+#[must_use]
+pub(super) fn read_pair(key_path: &Path, certificate_path: &Path, now: SystemTime) -> CertState {
+    let key = std::fs::read_to_string(key_path).ok();
+    let certificate = std::fs::read_to_string(certificate_path).ok();
 
     let (key, certificate) = match (key, certificate) {
         (Some(key), Some(certificate)) => (key, certificate),
@@ -234,13 +248,44 @@ pub fn ensure(
 
     let covered = covered(domains, sharing);
 
+    issue_at(
+        certs,
+        &key_path(certs, primary),
+        &certificate_path(certs, primary),
+        &covered,
+        now,
+    )
+}
+
+/// Give the pair at these two paths a certificate covering exactly `names`, if what is there is not
+/// already one.
+///
+/// **The body of [`ensure`], parameterised on the paths** — roadmap task **T99**, for the same
+/// reason [`read_pair`] exists: a service's certificate is a leaf of this authority like a site's
+/// is, asks the same four questions, and is written in the same order. `names[0]` becomes the
+/// common name; `certs` is where the authority is read from.
+///
+/// # Errors
+///
+/// As [`ensure`].
+pub(super) fn issue_at(
+    certs: &Path,
+    key_path: &Path,
+    certificate_path: &Path,
+    names: &[String],
+    now: SystemTime,
+) -> Result<(Issued, CertState)> {
+    let primary = names
+        .first()
+        .ok_or_else(|| refused("no names were given"))?;
+
     let CaState::Present { ca } = ca::read(certs, now) else {
         return Err(refused("this home has no usable certificate authority"));
     };
 
-    let state = read(certs, primary, now);
+    let state = read_pair(key_path, certificate_path, now);
 
-    if reusable(&state, &covered, &ca.subject) {
+    if reusable(&state, names, &ca.subject) {
         return Ok((Issued::Reused, state));
     }
 
@@ -270,7 +315,7 @@ pub fn ensure(
             source: Box::new(source),
         })?;
 
-    let certificate = params(&covered, now)?
+    let certificate = params(names, now)?
         .signed_by(&key, &issuer)
         .map_err(|source| Error::Certificate {
             action: "sign a certificate for",
@@ -278,22 +323,25 @@ pub fn ensure(
             source: Box::new(source),
         })?;
 
-    crate::paths::create_dir(&certs.join(SITES))?;
+    // The directory the pair lives in — `certs/sites/` for a site, `certs/services/` for a service.
+    // Both paths are given with a parent, and the two are siblings by the modules' construction.
+    if let Some(parent) = key_path.parent() {
+        crate::paths::create_dir(parent)?;
+    }
 
     // **The key first**, exactly as `ca::ensure` writes it: a crash between the two leaves a key
     // with no certificate, which `read` names, rather than a certificate with no key, which looks
     // like a certificate whose key was lost.
-    mixengine_platform::write_private(&key_path(certs, primary), key.serialize_pem().as_bytes())?;
+    mixengine_platform::write_private(key_path, key.serialize_pem().as_bytes())?;
 
-    let path = certificate_path(certs, primary);
-    std::fs::write(&path, certificate.pem()).map_err(|source| Error::Io {
+    std::fs::write(certificate_path, certificate.pem()).map_err(|source| Error::Io {
         action: "write",
-        path,
+        path: certificate_path.to_path_buf(),
         source,
     })?;
 
     // Read back rather than describing what was just written — `ca::ensure`'s promise, kept here.
-    Ok((Issued::Written, read(certs, primary, now)))
+    Ok((Issued::Written, read_pair(key_path, certificate_path, now)))
 }
 
 /// Every name this certificate has to cover: the domains, and — when the site is shared — its mDNS
@@ -333,7 +381,9 @@ pub fn covered(domains: &[String], sharing: Option<&crate::sites::Sharing>) -> V
 }
 
 /// The four questions of [`ensure`], asked of what is on disk.
-fn reusable(state: &CertState, domains: &[String], authority: &str) -> bool {
+///
+/// `pub(super)` since **T99**, so a service's leaf answers the same four rather than three of them.
+pub(super) fn reusable(state: &CertState, domains: &[String], authority: &str) -> bool {
     let CertState::Present { cert } = state else {
         // Question one: `Absent` and `Unusable` both fail it.
         return false;

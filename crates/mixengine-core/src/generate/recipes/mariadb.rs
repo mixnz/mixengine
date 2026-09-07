@@ -24,6 +24,10 @@
 //!   so a supervisor reading the process's own output finds an empty file.
 //! - **MariaDB's option parser treats `\` as an escape** and everything after an unquoted `#` as a
 //!   comment, which is why every path in the rendered file is quoted and forward-slashed.
+//! - **From 11.4 a server with no certificate configured generates one at every start** — a
+//!   4096-bit RSA key, four to thirteen seconds on a CI runner — and an 11.4 client with a password
+//!   on its command line refuses a server that has turned TLS off. So the recipe asks for a leaf of
+//!   this home's authority (T99) rather than for `skip-ssl`, which was tried and withdrawn.
 //!
 //! # What this recipe deliberately does not do
 //!
@@ -363,6 +367,14 @@ impl Recipe for Mariadb {
         // restart somebody asked for.
     }
 
+    /// `localhost` and the address this instance binds — roadmap task **T99**.
+    ///
+    /// The one recipe here that asks: see the module note's last bullet for the measurement, and
+    /// `certs::service::names` for why the list is what it is.
+    fn certificate(&self, context: &Context) -> Option<Vec<String>> {
+        Some(crate::certs::service::names(context.bind()))
+    }
+
     /// The data directory, created once, with a root password that exists only in the OS keyring.
     fn ritual(&self) -> Option<Ritual> {
         Some(Ritual {
@@ -660,14 +672,14 @@ fn millis(number: i64) -> Millis {
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use mixengine_proto::ServiceId;
 
     use super::*;
     use crate::generate::Upstream;
     use crate::generate::first_run::FirstRun;
-    use crate::generate::recipe;
+    use crate::generate::recipe::{self, ServiceCertificate};
     use crate::generate::settings::Settings;
 
     /// An absolute path on whichever system this is compiled for.
@@ -844,37 +856,84 @@ mod tests {
         );
     }
 
-    /// **TLS is off, because from 11.4 a server with no certificate generates one at every start.**
-    ///
-    /// A 4096-bit RSA key in `init_ssl`, measured against 11.4.12 as four to thirteen seconds of
-    /// silence in `mariadb.err` between InnoDB coming up and the socket being created — the whole
-    /// of the M3 warm start's spread on `bench (ubuntu-latest)`. A directive on its own line, so the
-    /// assertion cannot be satisfied by the comment that explains it.
+    /// **With a certificate on the context, the file names both halves and the fingerprint** —
+    /// roadmap task **T99**, the design's D5. Backslashes in, forward slashes out, for T33a's
+    /// reason: MariaDB's option parser treats `\` as an escape.
     #[test]
-    fn tls_is_off_because_a_generated_certificate_costs_seconds_per_start() {
-        let rendered = rendered("{}");
+    fn with_a_certificate_the_file_names_both_halves_and_the_fingerprint() {
+        let rendered = recipe::render(
+            &Mariadb,
+            &context("{}").with_certificate(ServiceCertificate {
+                certificate: PathBuf::from(r"C:\MixEngine\certs\services\mariadb@main.crt"),
+                key: PathBuf::from(r"C:\MixEngine\certs\services\mariadb@main.key"),
+                fingerprint: "abc123".to_owned(),
+            }),
+        )
+        .expect("a rendering")
+        .first()
+        .expect("one file")
+        .contents()
+        .to_owned();
 
         assert!(
-            rendered.lines().any(|line| line.trim() == "skip-ssl"),
+            rendered.contains(r#"ssl_cert = "C:/MixEngine/certs/services/mariadb@main.crt""#),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains(r#"ssl_key = "C:/MixEngine/certs/services/mariadb@main.key""#),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("# Rendered for certificate abc123"),
             "{rendered}"
         );
     }
 
-    /// And the escape hatch holds for it: a certificate named in `extra` renders after `skip-ssl`,
-    /// and naming one is what turns the server's TLS back on.
+    /// **Without one, the file says nothing about TLS** — the design's D4: the server then does
+    /// what it did before T99, and a start is never refused for want of a certificate.
     #[test]
-    fn a_user_can_turn_tls_back_on() {
-        let rendered =
-            rendered(r#"{"extra": "ssl_cert = /certs/db.pem\nssl_key = /certs/db.key"}"#);
+    fn without_a_certificate_the_file_says_nothing_about_tls() {
+        let rendered = rendered("{}");
 
-        let off = rendered
-            .find("\nskip-ssl")
-            .expect("the recipe states its own value");
-        let on = rendered
-            .rfind("ssl_cert = /certs/db.pem")
-            .expect("the override reaches the file");
+        for line in rendered.lines().filter(|line| !line.starts_with('#')) {
+            assert!(!line.contains("ssl"), "{line}\n{rendered}");
+        }
+    }
 
-        assert!(on > off, "{rendered}");
+    /// **`skip-ssl` is written on no path.** It was, for one commit, and the real-server suite
+    /// found what it costs: an 11.4 client with a password on its command line is refused.
+    #[test]
+    fn skip_ssl_is_written_on_no_path() {
+        let without = rendered("{}");
+        let with = recipe::render(
+            &Mariadb,
+            &context("{}").with_certificate(ServiceCertificate {
+                certificate: PathBuf::from("/certs/services/mariadb@main.crt"),
+                key: PathBuf::from("/certs/services/mariadb@main.key"),
+                fingerprint: "abc123".to_owned(),
+            }),
+        )
+        .expect("a rendering")
+        .first()
+        .expect("one file")
+        .contents()
+        .to_owned();
+
+        for rendered in [without, with] {
+            assert!(
+                !rendered.lines().any(|line| line.trim() == "skip-ssl"),
+                "{rendered}"
+            );
+        }
+    }
+
+    /// The recipe asks for exactly `localhost` and its bind address, in that order.
+    #[test]
+    fn the_recipe_asks_for_localhost_and_its_bind_address() {
+        assert_eq!(
+            Mariadb.certificate(&context("{}")),
+            Some(vec!["localhost".to_owned(), "127.0.0.1".to_owned()])
+        );
     }
 
     /// **The relaxed flush is the log's, and the page barriers are untouched.**

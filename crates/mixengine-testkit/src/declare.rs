@@ -277,6 +277,16 @@ pub async fn runtime_with_extensions(database: &Path, version: &str) {
 /// rather than left to the daemon's boot-time repair because the tests that need it seed *after*
 /// the daemon is up, which is the only moment the database exists.
 ///
+/// **Both rows in one transaction, because "after the daemon is up" is not after its repair.** The
+/// daemon binds its endpoint early and runs `pools::ensure` — the repair that gives a runtime with
+/// no pool one — some way later, before it starts accepting; and on Windows a bound named pipe
+/// takes one pending connection before `accept`, so `Home::wait_until_listening` returns inside
+/// that gap. Written as two statements, the runtime row could land before the repair and the pool
+/// row after it, and the second then met the row the repair had just made:
+/// `UNIQUE constraint failed: services.runtime_install_id, services.instance_name`, once, on
+/// `test (windows-latest)`. One transaction means the repair sees either no runtime or a runtime
+/// that already has its pool, and has nothing to do either way.
+///
 /// # Panics
 ///
 /// If the database cannot be opened, or a row cannot be written.
@@ -300,6 +310,13 @@ pub async fn php_pool(database: &Path, version: &str) {
         .into_owned();
     let provides = format!(r#"{{"php":"{name}","php-fpm":"{name}","php-cgi":"{name}"}}"#);
 
+    // A deferred `BEGIN` is enough here, unlike the one `services.rs` argues against: the first
+    // statement is an `INSERT`, so the write lock is taken at once and held until the commit.
+    let mut tx = pool
+        .begin()
+        .await
+        .unwrap_or_else(|error| panic!("a transaction: {error}"));
+
     sqlx::query(
         "INSERT INTO runtime_installs
              (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256,
@@ -310,7 +327,7 @@ pub async fn php_pool(database: &Path, version: &str) {
     .bind(version)
     .bind(&install_path)
     .bind(&provides)
-    .execute(&pool)
+    .execute(&mut *tx)
     .await
     .unwrap_or_else(|error| panic!("a runtime row: {error}"));
 
@@ -321,9 +338,13 @@ pub async fn php_pool(database: &Path, version: &str) {
                  ?1, 'stopped', 9000 + (SELECT count(*) FROM services))",
     )
     .bind(version)
-    .execute(&pool)
+    .execute(&mut *tx)
     .await
     .unwrap_or_else(|error| panic!("a pool row: {error}"));
+
+    tx.commit()
+        .await
+        .unwrap_or_else(|error| panic!("the two rows are committed together: {error}"));
 
     pool.close().await;
 }

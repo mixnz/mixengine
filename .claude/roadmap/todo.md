@@ -3,7 +3,7 @@
 Phases are ordered. Work top to bottom — each phase depends on the ones above it. Tick items as they
 land; when new work appears, insert it **where it belongs in the order**, not at the end.
 
-Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T97`) are global and
+Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T99`) are global and
 never reused, so a task keeps its number wherever it is cited — which is why phase 6 is a gap rather
 than a renumbering, and why T56 and T64 keep their numbers in the phases they moved to.
 
@@ -19,7 +19,7 @@ needs verification on Windows + macOS + Linux.
 | [0 — Foundations](phase-0-foundations.md) | Daemon starts, CLI talks to it, state persists | T1–T11 | 16 / 16 | **M0** `mix status` prints a healthy daemon on all three OSes in CI |
 | [1 — Process supervision](phase-1-process-supervision.md) | Run and babysit arbitrary programs correctly | T12–T19c | 15 / 15 | **M1** the daemon adopts what survived a kill and cleans what did not |
 | [2 — Runtimes](phase-2-runtimes.md) | Multiple PHP/Node/Python/Ruby versions, selectable | T20–T29 | 13 / 13 | **M2** `php -v` differs between two directories, no shell hook |
-| [3 — Services](phase-3-services.md) | Web server, databases and caches with generated config | T30–T38 | 15 / 16 | **M3** caddy + mariadb + redis healthy in under 10 s warm |
+| [3 — Services](phase-3-services.md) | Web server, databases and caches with generated config | T30–T38, T99 | 16 / 17 | **M3** caddy + mariadb + redis healthy in under 10 s warm |
 | [4 — Sites & elevation](phase-4-sites-and-elevation.md) | `http://blog.test` works, creating a site prompts for nothing | T39–T47b, T64, T93 | 16 / 17 | **M4** a site opens with zero prompts after first-run setup |
 | [5 — HTTPS](phase-5-https.md) | Green padlock, automatically, forever | T48–T54, T98 | 9 / 9 | **M5** `https://blog.test` trusted in every browser |
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
@@ -205,7 +205,7 @@ deliberately and not while correcting a version literal.
 | --- | --- | --- |
 | **T41a** does an unsigned binary load under Smart App Control, and does the hosts write survive Defender | **the release, and nothing before it.** Deferred to v0.0.1 on 2026-08-23. It needs one thing, and it is not money: a clean machine with SAC enforced. Everything from T42 on is built on the assumption that the answer is yes. Its remedy half left with **T94**, which is now closed, so what is owed here is these two readings and nothing else | [phase 4](phase-4-sites-and-elevation.md) |
 | **T45's fixed link-local address** — `169.254.53.53/32` is not negotiated and nothing detects a machine already using it | nothing; the whole-state shape makes the fix additive | [phase 4](phase-4-sites-and-elevation.md) |
-| **M3's tail** — the warm median is inside ten seconds on all three, and two Linux rounds of five were 11.8 s and 15.1 s | nothing, and it is now explained: MariaDB 11.4 generating a 4096-bit RSA key at every start for a TLS nobody configured, not cold I/O and not the sequential walker. The recipe renders `skip-ssl` since 2026-09-07; the row stays until a `bench (ubuntu-latest)` run confirms the tail is gone | [phase 3](phase-3-services.md) |
+| ~~**M3's tail** — the warm median is inside ten seconds on all three, and two Linux rounds of five were 11.8 s and 15.1 s~~ — **closed by T99**: the tail was MariaDB 11.4 generating a 4096-bit RSA key at every start for a TLS nobody configured, not cold I/O and not the sequential walker; with a leaf of this home's authority the ubuntu warm median is 592 ms, the five rounds within 3 ms of each other | nothing | [phase 3](phase-3-services.md) |
 | **T69's idle shutdown ships switched off** — no recipe offers a default, so nothing is ever stopped unless somebody asks per service | nothing, and it is a choice rather than an omission: a stopped pool has nothing to start it again until **T70**. Turning it on is four `None`s in four recipes | [phase 7](phase-7-efficiency.md) |
 | **Keep-warm reaches a project's PHP pool and not its database** — `kept_warm` joins on `sites.php_service_id` alone | nothing while idle shutdown is off. **Widening it needs no new feature**: `site_service_links` has held the edge since `0006`, which T77 established while reading it for capture — the row used to say the widening waited on T77 | [phase 7](phase-7-efficiency.md) |
 | ~~**No disk-usage-by-category or cleanup method exists**~~ — **closed by T96**: `daemon.disk_usage` and `daemon.cleanup`, reachable as `mix disk` and `mix cleanup` | nothing | [phase 10](phase-10-client-surface.md) |

@@ -124,6 +124,20 @@ generators — and `site.create` and `site.update` issue before their own walk.
 - Browsers reject certs longer than 398 days; even though these are private, staying at 90 days keeps
   us compatible with any future tightening.
 
+## Services
+
+**A managed database gets a leaf from the same authority** — roadmap task **T99**, designed in
+[docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
+From 11.4 MariaDB turns TLS on by default and, given no certificate, generates a 4096-bit RSA key
+at every start — seconds on a laptop, the whole spread of the M3 bench — while an 11.4 client with
+a password on its command line refuses a server that has turned TLS off. So
+`certs/services/<service-id>.{key,crt}` holds a leaf covering `localhost` and the instance's IPv4
+bind address, ninety days like a site's, reissued at a start with under thirty left and on the same
+four questions (including the authority's identity, so a rotation reaches it). The generator issues it
+just before the render; a home with no usable authority renders no `ssl_*` line and the server
+does what it did before. Nothing reloads a running server's certificate — `mix service restart`
+is the renewal — and `mix cert status` lists sites only.
+
 ## Trust store details
 
 | OS | Store | Command / API | Removal |

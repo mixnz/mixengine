@@ -319,6 +319,14 @@ fn without_a_password(root: &Path, port: u16, user: &str) -> String {
 /// succeeds with exactly the password this test chose *is* the proof the daemon stored and used
 /// it, on T77a's D13 reasoning: nothing here ever reads the keyring, because nothing needs to —
 /// the value was never MixEngine's to generate.
+///
+/// **And since T99 it proves a second thing: the connection was encrypted.** An 11.4 client with a
+/// password on its command line verifies the server's certificate by default and refuses a server
+/// that offers no TLS at all (`ERROR 2026`) — which is how this call found `skip-ssl` in the
+/// recipe. The recipe now renders a leaf this home's authority signed, and `Ssl_cipher` is what
+/// separates *the pair was written* from *the pair was served*: the client negotiates TLS on its
+/// own, so the only way the cipher comes back empty is a server that loaded no certificate and fell
+/// back to plaintext — or made its own, which is the seconds-per-start T99 exists to remove.
 fn with_the_password(root: &Path, port: u16, user: &str, password: &str) -> String {
     let client = root.join(format!("bin/mariadb{}", std::env::consts::EXE_SUFFIX));
     let client = if client.is_file() {
@@ -337,7 +345,7 @@ fn with_the_password(root: &Path, port: u16, user: &str, password: &str) -> Stri
             "--batch",
             "--skip-column-names",
             "-e",
-            "SELECT 1;",
+            "SELECT 1; SHOW STATUS LIKE 'Ssl_cipher';",
         ])
         .output()
         .expect("the client in the archive can be run");
@@ -351,6 +359,20 @@ fn with_the_password(root: &Path, port: u16, user: &str, password: &str) -> Stri
     assert!(
         answered.status.success(),
         "the server refused the password this test chose for `{user}`: {said}"
+    );
+
+    // `--batch --skip-column-names` prints `Ssl_cipher<TAB><cipher>` on its own line; a plaintext
+    // connection prints the name and nothing after the tab.
+    let cipher = String::from_utf8_lossy(&answered.stdout)
+        .lines()
+        .find_map(|line| line.strip_prefix("Ssl_cipher\t"))
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_owned();
+    assert!(
+        !cipher.is_empty(),
+        "the login as `{user}` was not encrypted, so the certificate the recipe rendered was not \
+         served: {said}"
     );
 
     said
