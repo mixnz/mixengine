@@ -46,8 +46,17 @@ If the user declines, sites still work over HTTP; `https_enabled` is refused wit
 ## Serving it
 
 **A site with a certificate has two addresses**, `http://` and `https://`, both serving the same
-site. No redirect: a local webhook or an old client pointed at plaintext keeps working, and a POST
-that follows a redirect only sometimes is a bug nobody attributes to their web server.
+site by default. No redirect: a local webhook or an old client pointed at plaintext keeps working,
+and a POST that follows a redirect only sometimes is a bug nobody attributes to their web server.
+
+**A site can opt into one anyway** — `https_redirect`, roadmap task **T98** — for the site that is
+reached from the outside and whose own upstream assumes one. Off by default, per site, refused
+whenever it would leave the plaintext address with nowhere real to send a request: `true` needs
+`https_enabled: true` beside it, enforced by the schema's own `CHECK` as well as by `site.create`
+and `site.update`. The one route a redirect is never allowed to catch is
+`/__mixengine/ca.crt` — a phone that has not yet trusted this home's authority can only reach that
+document over plaintext, and a redirect that caught it too would send the phone into a handshake
+TLS refuses for the one file that would have fixed that.
 
 **A site whose certificate is missing is served over HTTP alone** rather than failing to render.
 Validation judges a whole rendering, so one site with a `tls` line pointing at nothing would cost

@@ -892,6 +892,10 @@ enum SiteCommand {
         #[arg(long)]
         https: Option<bool>,
 
+        /// Redirect the plaintext address to the HTTPS one. Needs `--https true`.
+        #[arg(long)]
+        https_redirect: Option<bool>,
+
         /// Accept a `.local` domain, which belongs to mDNS.
         #[arg(long = "i-know")]
         accept_risky_tld: bool,
@@ -949,6 +953,11 @@ enum SiteCommand {
         /// Whether HTTPS is declared.
         #[arg(long)]
         https: Option<bool>,
+
+        /// Redirect the plaintext address to the HTTPS one. Needs HTTPS enabled, before or with
+        /// this same update.
+        #[arg(long)]
+        https_redirect: Option<bool>,
 
         /// Serve it, or stop serving it.
         #[arg(long, value_enum, value_name = "STATE")]
@@ -3225,6 +3234,7 @@ async fn site(
             pool,
             services,
             https,
+            https_redirect,
             accept_risky_tld,
         } => {
             let create = SiteCreate {
@@ -3234,6 +3244,7 @@ async fn site(
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
                 https,
+                https_redirect,
                 accept_risky_tld,
             };
             let creation: SiteCreation =
@@ -3288,6 +3299,7 @@ async fn site(
             pool,
             services,
             https,
+            https_redirect,
             state,
             accept_risky_tld,
         } => {
@@ -3298,6 +3310,7 @@ async fn site(
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
                 https,
+                https_redirect,
                 state: state.map(|state| match state {
                     SiteStateArg::Enabled => SiteState::Enabled,
                     SiteStateArg::Disabled => SiteState::Disabled,

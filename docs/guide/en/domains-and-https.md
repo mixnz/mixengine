@@ -102,6 +102,27 @@ Issuing is **idempotent**: a certificate that still covers the right names, has 
 days left and was signed by the authority you have now is left exactly as it is. So running it costs
 nothing and is a reasonable thing to do when you are unsure.
 
+## Redirecting to HTTPS
+
+Once a site has a certificate, `http://blog.test` and `https://blog.test` both work and serve the
+same site — nothing redirects by default. That is deliberate: a webhook, an old script, or anything
+else still pointed at plain HTTP keeps working, and a request that gets redirected only sometimes is
+a harder bug than one that never does.
+
+If something reaching this site from outside expects a redirect, turn one on for that site alone:
+
+```bash
+mix site update blog.test --https-redirect true
+```
+
+It needs HTTPS already on — MixEngine refuses to turn on a redirect for a site with nothing to
+redirect *to*. Turning HTTPS back off later carries the redirect off with it, rather than leaving it
+switched on for an address that no longer answers.
+
+One request never redirects, whatever this is set to: a phone that has not yet installed this
+machine's certificate authority still has to reach it over plain HTTP, so `/__mixengine/ca.crt`
+always answers directly.
+
 ## Is the padlock actually green?
 
 ```bash

@@ -415,6 +415,7 @@ mix site create [OPTIONS]
 | `--pool` `<SERVICE>` | The php-fpm pool a `php-fpm` site uses. Defaults to whatever this directory resolves to |
 | `--service` `<SERVICE>` | A service the site declares, as `mariadb@main`. May be given more than once |
 | `--https` `<HTTPS>` | Declare HTTPS for it. Phase 5 is what acts on this |
+| `--https-redirect` `<HTTPS_REDIRECT>` | Redirect the plaintext address to the HTTPS one. Needs `--https true` |
 | `--i-know` | Accept a `.local` domain, which belongs to mDNS |
 
 ### mix site list
@@ -463,6 +464,7 @@ mix site update [DOMAIN] [OPTIONS]
 | `--pool` `<SERVICE>` | The php-fpm pool |
 | `--service` `<SERVICE>` | A service the site declares. Replaces the whole list |
 | `--https` `<HTTPS>` | Whether HTTPS is declared |
+| `--https-redirect` `<HTTPS_REDIRECT>` | Redirect the plaintext address to the HTTPS one. Needs HTTPS enabled, before or with this same update |
 | `--state` `<STATE>` | Serve it, or stop serving it |
 | `--i-know` | Accept a `.local` domain |
 

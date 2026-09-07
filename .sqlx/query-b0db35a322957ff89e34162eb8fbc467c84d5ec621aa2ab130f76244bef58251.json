@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE sites SET https_enabled = 0, https_redirect = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "b0db35a322957ff89e34162eb8fbc467c84d5ec621aa2ab130f76244bef58251"
+}

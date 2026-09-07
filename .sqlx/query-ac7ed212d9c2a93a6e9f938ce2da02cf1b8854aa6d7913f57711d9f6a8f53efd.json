@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, project_id, extension_id, doc_root, kind, php_service_id, https_enabled,\n                config_json, state, shared_interface, shared_address, shared_since, shared_until\n         FROM sites\n         WHERE ?1 IS NULL OR project_id = ?1\n         ORDER BY id",
+  "query": "SELECT id, project_id, extension_id, doc_root, kind, php_service_id, https_enabled,\n                https_redirect, config_json, state, shared_interface, shared_address, shared_since,\n                shared_until\n         FROM sites\n         WHERE ?1 IS NULL OR project_id = ?1\n         ORDER BY id",
   "describe": {
     "columns": [
       {
@@ -81,8 +81,19 @@
         }
       },
       {
-        "name": "config_json",
+        "name": "https_redirect",
         "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "sites",
+            "name": "https_redirect"
+          }
+        }
+      },
+      {
+        "name": "config_json",
+        "ordinal": 8,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -93,7 +104,7 @@
       },
       {
         "name": "state",
-        "ordinal": 8,
+        "ordinal": 9,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -104,7 +115,7 @@
       },
       {
         "name": "shared_interface",
-        "ordinal": 9,
+        "ordinal": 10,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -115,7 +126,7 @@
       },
       {
         "name": "shared_address",
-        "ordinal": 10,
+        "ordinal": 11,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -126,7 +137,7 @@
       },
       {
         "name": "shared_since",
-        "ordinal": 11,
+        "ordinal": 12,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -137,7 +148,7 @@
       },
       {
         "name": "shared_until",
-        "ordinal": 12,
+        "ordinal": 13,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -160,11 +171,12 @@
       false,
       false,
       false,
+      false,
       true,
       true,
       true,
       true
     ]
   },
-  "hash": "4a5f93c4e578caffa21329cad73d6e426aeb074f9c114e943b86079cde4fa11b"
+  "hash": "ac7ed212d9c2a93a6e9f938ce2da02cf1b8854aa6d7913f57711d9f6a8f53efd"
 }

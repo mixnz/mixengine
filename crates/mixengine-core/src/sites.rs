@@ -98,6 +98,13 @@ pub struct SiteRecord {
     /// Whether HTTPS is declared.
     pub https_enabled: bool,
 
+    /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
+    ///
+    /// **Never `true` while [`https_enabled`](Self::https_enabled) is `false`** —
+    /// `0018_site_https_redirect.sql`'s own `CHECK` refuses the row, so this field being `true` is
+    /// itself a guarantee the site declares HTTPS, not a second fact to check it against.
+    pub https_redirect: bool,
+
     /// Whether the web server should serve it.
     pub state: SiteState,
 
@@ -153,6 +160,9 @@ pub struct NewSite {
     pub kind: SiteKind,
     /// Whether HTTPS is declared.
     pub https_enabled: bool,
+    /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**. Refused by
+    /// [`create`] when `true` beside `https_enabled: false`, on the same invariant the schema holds.
+    pub https_redirect: bool,
     /// Ordered; the head becomes the primary. Must not be empty.
     pub domains: Vec<String>,
     /// The services it declares.
@@ -168,6 +178,13 @@ pub struct Change {
     pub kind: Option<SiteKind>,
     /// Whether HTTPS is declared.
     pub https_enabled: Option<bool>,
+    /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
+    ///
+    /// **Not quite "leave it" on its own.** [`update`] turns this off without being asked when
+    /// `https_enabled` is turning off and this is [`None`] and the site's redirect is currently on —
+    /// a stale `true` beside a plaintext-only site is a row the schema's `CHECK` refuses to hold,
+    /// for a reason the caller's own request never mentioned.
+    pub https_redirect: Option<bool>,
     /// Whether the web server should serve it.
     pub state: Option<SiteState>,
     /// The domains, **replacing** the list. The head becomes the primary.
@@ -236,9 +253,18 @@ fn without_dot_segments(path: &Path) -> PathBuf {
 ///
 /// # Errors
 ///
-/// [`Error::DomainTaken`] naming the site already holding one of the domains, and
+/// [`Error::DomainTaken`] naming the site already holding one of the domains,
+/// [`Error::HttpsRedirectNeedsHttps`] for `https_redirect: true` beside `https_enabled: false`, and
 /// [`Error::Database`] when the write cannot be made.
 pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
+    // Checked before anything opens a transaction: this is a fact about the two fields `new` already
+    // carries, not about a row that could change underneath a concurrent writer — roadmap task
+    // **T98**. `0018_site_https_redirect.sql`'s `CHECK` would refuse the `INSERT` below just as
+    // surely, in the words it was written in rather than the ones a caller asked in.
+    if new.https_redirect && !new.https_enabled {
+        return Err(Error::HttpsRedirectNeedsHttps);
+    }
+
     // `BEGIN IMMEDIATE` for `crate::services::transition`'s reason: a deferred `BEGIN` would leave
     // the first `INSERT` to upgrade a read snapshot into a write and fail unrecoverably against a
     // concurrent writer.
@@ -262,14 +288,15 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
 
     let inserted = sqlx::query!(
         "INSERT INTO sites (project_id, extension_id, doc_root, kind, php_service_id, https_enabled,
-                            config_json, state)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'enabled')",
+                            https_redirect, config_json, state)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'enabled')",
         project,
         extension,
         new.doc_root,
         kind,
         pool,
         new.https_enabled,
+        new.https_redirect,
         config,
     )
     .execute(&mut *tx)
@@ -293,6 +320,7 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
         doc_root: new.doc_root.clone(),
         kind: new.kind.clone(),
         https_enabled: new.https_enabled,
+        https_redirect: new.https_redirect,
         state: SiteState::Enabled,
         domains: new.domains.clone(),
         services: new.services.clone(),
@@ -312,7 +340,8 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
 pub async fn records(store: &Store, project: Option<i64>) -> Result<Vec<SiteRecord>> {
     let rows = sqlx::query!(
         "SELECT id, project_id, extension_id, doc_root, kind, php_service_id, https_enabled,
-                config_json, state, shared_interface, shared_address, shared_since, shared_until
+                https_redirect, config_json, state, shared_interface, shared_address, shared_since,
+                shared_until
          FROM sites
          WHERE ?1 IS NULL OR project_id = ?1
          ORDER BY id",
@@ -357,6 +386,7 @@ pub async fn records(store: &Store, project: Option<i64>) -> Result<Vec<SiteReco
             doc_root: row.doc_root,
             kind: read_kind(row.id, &row.kind, row.php_service_id, &row.config_json)?,
             https_enabled: row.https_enabled != 0,
+            https_redirect: row.https_redirect != 0,
             state: read_state(row.id, &row.state)?,
             domains,
             services,
@@ -462,7 +492,9 @@ pub async fn frozen_on(store: &Store, pool: &ServiceId) -> Result<Vec<ExtensionI
 /// # Errors
 ///
 /// [`Error::NotFound`] for a site that is not there, [`Error::DomainTaken`] naming the site holding
-/// a domain being claimed, and [`Error::Database`] when the write cannot be made.
+/// a domain being claimed, [`Error::HttpsRedirectNeedsHttps`] for a `https_redirect: Some(true)`
+/// that would leave the site with `https_enabled: false`, and [`Error::Database`] when the write
+/// cannot be made.
 pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecord> {
     let mut tx = store
         .pool()
@@ -475,8 +507,12 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
     //
     // **The owner is read with it** — roadmap task **T82a** — because the refusal below is about who
     // this site belongs to, and a second read outside the transaction would be a second answer.
-    let owner = sqlx::query_scalar!(
-        r#"SELECT extension_id AS "extension: String" FROM sites WHERE id = ?"#,
+    //
+    // **`https_enabled` is read with it too** — roadmap task **T98** — because whether
+    // `change.https_redirect` is refusable depends on what HTTPS is *left* as by this same call, and
+    // a site this `update` is not touching at all still has to answer that question.
+    let existing = sqlx::query!(
+        r#"SELECT extension_id AS "extension: String", https_enabled FROM sites WHERE id = ?"#,
         id
     )
     .fetch_optional(&mut *tx)
@@ -487,7 +523,8 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
         id: id.to_string(),
     })?;
 
-    let owner = owner
+    let owner = existing
+        .extension
         .map(|value| {
             ExtensionId::parse(value.clone()).map_err(|_| Error::UnreadableSiteRow {
                 site: id,
@@ -496,6 +533,29 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
             })
         })
         .transpose()?;
+
+    // **Resolved together, because the two columns are not independent** — the T98 design, D2.
+    //
+    // `https_redirect: Some(true)` is refused against whatever HTTPS this same call leaves the site
+    // with, whether that comes from `change.https_enabled` turning it off or from the site already
+    // being plaintext-only: either way it is the one combination `0018_site_https_redirect.sql`'s
+    // `CHECK` makes unrepresentable, and the caller is told so in words about the request rather
+    // than about the row.
+    let https_enabled = change.https_enabled.unwrap_or(existing.https_enabled != 0);
+
+    if change.https_redirect == Some(true) && !https_enabled {
+        return Err(Error::HttpsRedirectNeedsHttps);
+    }
+
+    // **The cascade nobody asked for in so many words.** `https_enabled` turning off while the
+    // caller said nothing about the redirect carries it to `false` as well — leaving a stale `true`
+    // on a plaintext-only site is not "leave it", it is a row the `CHECK` refuses to hold, which
+    // would abort this update's every other field for a reason the request never mentioned.
+    let https_redirect = match change.https_redirect {
+        Some(value) => Some(value),
+        None if change.https_enabled == Some(false) => Some(false),
+        None => None,
+    };
 
     // **A pool an extension owns serves that extension and nothing else** — the design's D5. Here
     // as well as in [`create`], because `blueprint.apply` and `site.update` both arrive through this
@@ -527,11 +587,43 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
         .map_err(|source| store.failure("write", source))?;
     }
 
-    if let Some(https) = change.https_enabled {
-        sqlx::query!("UPDATE sites SET https_enabled = ? WHERE id = ?", https, id)
+    // **Written together when HTTPS is turning off, and that is not an optimisation** — roadmap
+    // task **T98**. The schema's `CHECK` is immediate, not deferred: two statements in the obvious
+    // order would set `https_enabled = 0` first, against a row whose `https_redirect` is still `1`
+    // from before this call, and the database would refuse that write outright — the second
+    // statement, the one that would have carried the redirect down with it, is never reached.
+    // Turning HTTPS *on* has no such ordering hazard (`https_enabled = 1` alone always satisfies
+    // the `CHECK`, whatever `https_redirect` still says), so only this one direction needs it.
+    match (change.https_enabled, https_redirect) {
+        (Some(false), Some(redirect)) => {
+            sqlx::query!(
+                "UPDATE sites SET https_enabled = 0, https_redirect = ? WHERE id = ?",
+                redirect,
+                id
+            )
             .execute(&mut *tx)
             .await
             .map_err(|source| store.failure("write", source))?;
+        }
+        (https, redirect) => {
+            if let Some(https) = https {
+                sqlx::query!("UPDATE sites SET https_enabled = ? WHERE id = ?", https, id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|source| store.failure("write", source))?;
+            }
+
+            if let Some(redirect) = redirect {
+                sqlx::query!(
+                    "UPDATE sites SET https_redirect = ? WHERE id = ?",
+                    redirect,
+                    id
+                )
+                .execute(&mut *tx)
+                .await
+                .map_err(|source| store.failure("write", source))?;
+            }
+        }
     }
 
     if let Some(state) = change.state {
@@ -1063,6 +1155,7 @@ mod tests {
                     pool: Some(pool.clone()),
                 },
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1083,6 +1176,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::PhpFpm { pool: Some(pool) },
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1105,6 +1199,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1207,6 +1302,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1257,6 +1353,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: false,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1312,6 +1409,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1350,6 +1448,7 @@ mod tests {
                 doc_root: "public".to_owned(),
                 kind: php(),
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1368,6 +1467,231 @@ mod tests {
         assert_eq!(found.domains[0], "blog.test", "the head is the primary");
     }
 
+    /// **T98.** `https_redirect: true` is refused at `create` when `https_enabled` is `false`,
+    /// before a row is written — the schema's own `CHECK` would refuse it a step later, in words
+    /// about the column rather than the request.
+    #[tokio::test]
+    async fn https_redirect_needs_https_enabled_to_create_a_site() {
+        let (_temp, store, project) = home().await;
+
+        let refusal = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: false,
+                https_redirect: true,
+                domains: vec!["blog.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect_err("a redirect with nothing to redirect to");
+
+        assert!(
+            matches!(refusal, Error::HttpsRedirectNeedsHttps),
+            "{refusal}"
+        );
+        assert!(
+            by_domain(&store, "blog.test")
+                .await
+                .expect("a read")
+                .is_none(),
+            "the refusal left no row behind"
+        );
+    }
+
+    /// **T98, D2.** `https_redirect: Some(true)` is refused whether the `false` it collides with
+    /// comes from this same `update` turning HTTPS off, or from the site already being
+    /// plaintext-only — the two cases the design calls out by name.
+    #[tokio::test]
+    async fn https_redirect_needs_https_enabled_to_update_a_site_either_way_it_arrives() {
+        let (_temp, store, project) = home().await;
+
+        let plaintext = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: false,
+                https_redirect: false,
+                domains: vec!["blog.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect("a plaintext-only site");
+
+        let already_off = update(
+            &store,
+            plaintext.id,
+            &Change {
+                https_redirect: Some(true),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect_err("the site was already plaintext-only");
+        assert!(
+            matches!(already_off, Error::HttpsRedirectNeedsHttps),
+            "{already_off}"
+        );
+
+        let https = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: true,
+                https_redirect: false,
+                domains: vec!["shop.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect("an https site");
+
+        let turned_off_in_the_same_call = update(
+            &store,
+            https.id,
+            &Change {
+                https_enabled: Some(false),
+                https_redirect: Some(true),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect_err("this update turns https off and asks for a redirect in the same breath");
+        assert!(
+            matches!(turned_off_in_the_same_call, Error::HttpsRedirectNeedsHttps),
+            "{turned_off_in_the_same_call}"
+        );
+    }
+
+    /// **T98, D2.** Turning `https_enabled` off while saying nothing about the redirect carries the
+    /// redirect to `false` as well, because leaving it `true` on a plaintext-only site is a row the
+    /// schema's `CHECK` refuses to hold — and the caller asked for neither that refusal nor a
+    /// silent one either.
+    #[tokio::test]
+    async fn turning_https_off_silently_carries_an_untouched_redirect_to_false() {
+        let (_temp, store, project) = home().await;
+
+        let site = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: true,
+                https_redirect: true,
+                domains: vec!["blog.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect("an https site with its redirect on");
+        assert!(site.https_redirect, "the fixture's own precondition");
+
+        let changed = update(
+            &store,
+            site.id,
+            &Change {
+                https_enabled: Some(false),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect("https turns off and the redirect is carried with it, not refused");
+
+        assert!(!changed.https_enabled);
+        assert!(
+            !changed.https_redirect,
+            "a stale redirect on a plaintext-only site is not \"leave it\""
+        );
+    }
+
+    /// **T98.** Turning HTTPS on leaves an untouched redirect exactly where it was — the ordinary
+    /// "leave it" reading, asserted so the cascade above cannot be mistaken for a rule about every
+    /// `https_enabled` change rather than only the one that turns it off.
+    #[tokio::test]
+    async fn turning_https_on_leaves_an_untouched_redirect_alone() {
+        let (_temp, store, project) = home().await;
+
+        let site = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: false,
+                https_redirect: false,
+                domains: vec!["blog.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect("a plaintext-only site");
+
+        let changed = update(
+            &store,
+            site.id,
+            &Change {
+                https_enabled: Some(true),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect("turning https on");
+
+        assert!(changed.https_enabled);
+        assert!(!changed.https_redirect, "nothing asked for a redirect");
+    }
+
+    /// **T98.** Both columns round-trip through `create`, `update` and `records` together, the way
+    /// `https_enabled` alone already does.
+    #[tokio::test]
+    async fn https_redirect_round_trips_through_create_update_and_records() {
+        let (_temp, store, project) = home().await;
+
+        let created = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: true,
+                https_redirect: true,
+                domains: vec!["blog.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect("an https site with its redirect on");
+        assert!(created.https_redirect);
+
+        let found = by_domain(&store, "blog.test")
+            .await
+            .expect("a read")
+            .expect("the site");
+        assert!(found.https_redirect, "created is not the only writer");
+
+        let changed = update(
+            &store,
+            created.id,
+            &Change {
+                https_redirect: Some(false),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect("turning the redirect off alone");
+        assert!(changed.https_enabled, "untouched");
+        assert!(!changed.https_redirect);
+    }
+
     /// **D6.** Replacing the list is how a domain is removed, and the deletes run before the
     /// inserts so a domain can move from one site to another in two calls.
     #[tokio::test]
@@ -1381,6 +1705,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: php(),
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned(), "api.blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1395,6 +1720,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: false,
+                https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1449,6 +1775,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: php(),
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1463,6 +1790,7 @@ mod tests {
                 doc_root: String::new(),
                 kind: SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1501,6 +1829,7 @@ mod tests {
                     doc_root: String::new(),
                     kind: kind.clone(),
                     https_enabled: true,
+                    https_redirect: false,
                     domains: vec![domain.to_owned()],
                     services: Vec::new(),
                 },
@@ -1555,6 +1884,7 @@ mod tests {
             doc_root: String::new(),
             kind: SiteKind::Static,
             https_enabled: false,
+            https_redirect: false,
             state: SiteState::Enabled,
             domains: vec![primary.to_owned()],
             services: Vec::new(),
@@ -1626,6 +1956,7 @@ mod tests {
                 doc_root: "app".to_owned(),
                 kind: SiteKind::Static,
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1695,6 +2026,7 @@ mod tests {
                     pool: Some(pool.clone()),
                 },
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
             },
@@ -1713,6 +2045,7 @@ mod tests {
                     pool: Some(pool.clone()),
                 },
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
             },

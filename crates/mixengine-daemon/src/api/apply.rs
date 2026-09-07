@@ -381,6 +381,9 @@ impl Api {
                         // lose every `[[services]]` entry it should have carried.
                         services: Some(context.ensured.clone()),
                         https: Some(*https),
+                        // A blueprint describes what a site *is*; a redirect is a fact about one
+                        // home's traffic, which no manifest declares — roadmap task **T98**.
+                        https_redirect: None,
                         // A `.local` name is one this plan would have blocked before the job began.
                         accept_risky_tld: false,
                     })

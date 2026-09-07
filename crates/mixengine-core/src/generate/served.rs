@@ -89,6 +89,15 @@ pub struct Served {
     /// none is a site working as asked.
     pub https: bool,
 
+    /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
+    ///
+    /// **Read beside [`certificate`](Self::certificate), not instead of it.** A site can carry this
+    /// as `true` and still have no usable certificate — the same gap `https` above already has a
+    /// name for — and a recipe that redirected anyway would send every request into a TLS listener
+    /// nothing is bound to. The recipes gate the redirect on both being true at once, the same way
+    /// they already gate the `tls` block itself.
+    pub https_redirect: bool,
+
     /// The certificate it is served with, when it has a usable one — roadmap task **T51**.
     ///
     /// [`None`] renders no TLS for this site at all. It keeps working over HTTP, the other sites are
@@ -306,6 +315,7 @@ pub(super) async fn served(
             domains: record.domains,
             kind,
             https: record.https_enabled,
+            https_redirect: record.https_redirect,
         });
     }
 
@@ -625,6 +635,56 @@ mod tests {
             crate::certs::leaf::key_path(&certs, "blog.test")
         );
         assert_eq!(certificate.fingerprint.len(), 64);
+    }
+
+    /// **`https_redirect` mirrors the record, plainly** — roadmap task **T98**. No transformation
+    /// happens between the column and this field, unlike `certificate`, which is why this is its own
+    /// test rather than folded into the certificate ones above: a regression here would not be one a
+    /// missing or present `certificate` would catch.
+    #[tokio::test]
+    async fn https_redirect_mirrors_the_record() {
+        let (home, store) = home().await;
+        site(&store, 1, "blog.test", "", "static", "enabled").await;
+        sqlx::query("UPDATE sites SET https_redirect = 1 WHERE id = 1")
+            .execute(store.pool())
+            .await
+            .expect("the row is updated");
+
+        let served = served(
+            &store,
+            &BTreeMap::new(),
+            &home.path().join("certs"),
+            &BTreeMap::new(),
+        )
+        .await
+        .expect("the sites are read");
+
+        assert!(served[0].https_redirect, "{served:?}");
+    }
+
+    /// **And carries no certificate along with it when there is none to carry** — T98 read beside
+    /// T51's D4. A site can declare the redirect and still have nothing on disk to serve HTTPS
+    /// with; the two recipes gate the redirect on both being true together for exactly this reason.
+    #[tokio::test]
+    async fn a_redirecting_site_with_no_certificate_still_carries_none() {
+        let (home, store) = home().await;
+        site(&store, 1, "blog.test", "", "static", "enabled").await;
+        sqlx::query("UPDATE sites SET https_redirect = 1 WHERE id = 1")
+            .execute(store.pool())
+            .await
+            .expect("the row is updated");
+
+        let served = served(
+            &store,
+            &BTreeMap::new(),
+            &home.path().join("certs"),
+            &BTreeMap::new(),
+        )
+        .await
+        .expect("the sites are read");
+
+        assert!(served[0].https_redirect, "{served:?}");
+        assert!(served[0].certificate.is_none(), "{served:?}");
     }
 
     /// **A site with no certificate is `None` and not an error** — the T51 design, D4. This is the

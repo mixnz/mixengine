@@ -654,6 +654,7 @@ mod tests {
                     pool: Some(id(&extension).expect("a pool id")),
                 },
                 https_enabled: true,
+                https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: vec![ServiceId::parse("mariadb@main").expect("an id")],
             },

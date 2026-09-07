@@ -1483,6 +1483,15 @@ pub enum Error {
         root: String,
     },
 
+    /// A site's `https_redirect` cannot be `true` on a site whose `https_enabled` is, or is
+    /// becoming, `false` — roadmap task **T98**.
+    ///
+    /// `0018_site_https_redirect.sql`'s own `CHECK` already refuses the row; this is the message a
+    /// caller sees before that, in words about what was asked for rather than about the column that
+    /// would have refused it.
+    #[error("https_redirect needs https enabled first")]
+    HttpsRedirectNeedsHttps,
+
     /// A `sites` row this build cannot read.
     #[error("the {column} of site {site} is not something this build can read: {value}")]
     UnreadableSiteRow {

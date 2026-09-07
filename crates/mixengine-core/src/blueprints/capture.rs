@@ -418,6 +418,7 @@ mod tests {
                     pool: Some(pool.clone()),
                 },
                 https_enabled: true,
+                https_redirect: false,
                 domains: domains.iter().map(|domain| (*domain).to_owned()).collect(),
                 services: links
                     .iter()

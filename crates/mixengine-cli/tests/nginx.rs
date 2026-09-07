@@ -120,6 +120,58 @@ async fn nginx_serves_what_an_extension_s_fragment_adds() {
     frontend::serves_what_an_extension_s_fragment_adds(&NGINX).await;
 }
 
+/// **A redirecting site sends a plaintext request straight to HTTPS, against a real nginx** —
+/// roadmap task **T98**. This is the shape the T51 design's D6 did not need: nginx groups a
+/// plaintext and a TLS listener into one `server` block for HTTPS alone, but a redirect cannot
+/// share that block (see the module note this recipe's own source carries), so this suite is what
+/// proves the two-block rendering is a configuration nginx actually accepts and runs — not only one
+/// this repository's unit tests can parse.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+async fn nginx_redirects_a_site_that_asks_for_it() {
+    let (home, _daemon, _registry, site_port, _status) = frontend::declared(&NGINX).await;
+
+    let repository = tempfile::Builder::new()
+        .prefix("mixengine-t98")
+        .tempdir()
+        .expect("a temporary directory");
+    let root = repository.path().display().to_string();
+
+    home.mix(&["project", "create", &root, "--name", "blog"]);
+    home.mix_in(
+        repository.path(),
+        &[],
+        &[
+            "site",
+            "create",
+            "--domain",
+            "blog.test",
+            "--kind",
+            "static",
+            "--https-redirect",
+            "true",
+        ],
+    );
+
+    let started = harness::json(&home.mix(&["service", "start", NGINX.package, "--json"]));
+    assert_eq!(
+        started["complete"],
+        true,
+        "{started}\n{}",
+        home.daemon_log()
+    );
+
+    let answer = frontend::request_as(site_port, "/", "blog.test").unwrap_or_else(|| {
+        panic!(
+            "no answer from nginx on the plaintext port\n{}",
+            home.daemon_log()
+        )
+    });
+
+    assert!(answer.starts_with("HTTP/1.1 307"), "{answer}");
+    assert!(answer.contains("Location: https://blog.test/"), "{answer}");
+}
+
 /// **And a home that has one front end is refused the other** — the rule `Recipe::role` exists for.
 ///
 /// Here rather than in a unit test because what the unit tests know is that

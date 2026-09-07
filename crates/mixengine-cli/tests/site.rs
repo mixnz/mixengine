@@ -101,6 +101,61 @@ async fn a_site_is_created_from_the_current_directory_and_shown_from_a_subdirect
     assert!(removed.contains("free for another site"), "{removed}");
 }
 
+/// **T98, against the real daemon.** `--https-redirect` is accepted at `site create` itself, not
+/// only at `site update` — a person does not have to create a site plaintext and turn the redirect
+/// on afterwards, as long as `--https` is not explicitly refused in the same breath.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_site_is_created_with_its_redirect_already_on() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let repository = repository(None);
+    let root = repository.path().display().to_string();
+
+    home.mix(&["project", "create", &root, "--name", "blog"]);
+
+    // `--https` is not typed at all: it defaults to `true`, which is what lets a bare
+    // `--https-redirect true` succeed on a brand-new site.
+    let created = json(&home.mix(&[
+        "site",
+        "create",
+        "--project",
+        "blog",
+        "--domain",
+        "blog.test",
+        "--kind",
+        "static",
+        "--https-redirect",
+        "true",
+        "--json",
+    ]));
+    assert_eq!(created["site"]["site"]["https_redirect"], true, "{created}");
+
+    let shown = json(&home.mix(&["site", "show", "blog.test", "--json"]));
+    assert_eq!(shown["site"]["https_redirect"], true, "{shown}");
+
+    // The refusal is also live at `create`, and not only at `update` — asked for in the same
+    // request that would have left the site with nothing to redirect to.
+    let refused = home.mix(&[
+        "site",
+        "create",
+        "--project",
+        "blog",
+        "--domain",
+        "shop.test",
+        "--kind",
+        "static",
+        "--https",
+        "false",
+        "--https-redirect",
+        "true",
+    ]);
+    assert!(!refused.status.success(), "{refused:?}");
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("https_redirect needs https enabled"),
+        "{refused:?}"
+    );
+}
+
 /// **D9.** `mix project export` writes the site beside the runtimes, and leaves everything a person
 /// put in the file exactly where it was.
 #[tokio::test(flavor = "multi_thread")]

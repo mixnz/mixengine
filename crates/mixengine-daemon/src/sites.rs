@@ -330,6 +330,11 @@ impl Sites {
             .or_else(|| declared.and_then(|site| site.https))
             .unwrap_or(true);
 
+        // No manifest fall-through, unlike `https` above: a blueprint declares what a site *is*,
+        // and a redirect is a fact about one home's traffic rather than about the site a blueprint
+        // describes — roadmap task **T98**. Off whenever the caller does not ask for it.
+        let https_redirect = create.https_redirect.unwrap_or(false);
+
         let kind = create
             .kind
             .clone()
@@ -347,6 +352,7 @@ impl Sites {
                 .map_err(|error| error.to_wire())?,
             kind: self.settled(&kind, &project).await?,
             https_enabled: https,
+            https_redirect,
             domains: self.checked(&domains, create.accept_risky_tld)?,
             services: self.existing(&services).await?,
         };
@@ -442,6 +448,7 @@ impl Sites {
             kind: None,
             services: None,
             https: None,
+            https_redirect: None,
             state: None,
         })
         .await
@@ -480,6 +487,7 @@ impl Sites {
                 doc_root,
                 kind,
                 https_enabled: update.https,
+                https_redirect: update.https_redirect,
                 state: update.state,
                 domains,
                 services,
@@ -994,6 +1002,7 @@ fn summary(
         kind: site.kind.clone(),
         doc_root: site.doc_root.clone(),
         https: site.https_enabled,
+        https_redirect: site.https_redirect,
         state: site.state,
         sharing: site.sharing.as_ref().map(|sharing| {
             let url = sites::shared_url(sharing.address, web_port);

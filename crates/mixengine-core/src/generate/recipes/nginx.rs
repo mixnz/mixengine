@@ -295,6 +295,7 @@ impl Recipe for Nginx {
                     listen: &listen,
                     listen_tls: &listen_tls,
                     certificate: site.certificate.as_ref().map(Certificate::from),
+                    https_redirect: site.https_redirect,
                     // The LAN listener binds the *bound* port, exactly as loopback's does: a
                     // machine that redirects 80 to 8080 redirects it for every address, and a
                     // listener on the number a browser types would answer nothing at all.
@@ -528,6 +529,14 @@ struct SiteRendering<'a> {
     /// [`None`] renders no TLS at all — the T51 design, D4.
     certificate: Option<Certificate>,
 
+    /// Whether this site renders two `server` blocks — one redirecting, one serving — rather than
+    /// the one T51 shipped — roadmap task **T98**.
+    ///
+    /// **Read beside `certificate`, never alone.** A site can carry this as `true` with no usable
+    /// certificate, and redirecting to a TLS listener nothing is bound to would be worse than the
+    /// plaintext page such a site has always been able to serve.
+    https_redirect: bool,
+
     /// What a shared site's second listener binds, or [`None`] for a site that is not shared —
     /// roadmap task **T74**.
     ///
@@ -724,6 +733,7 @@ mod tests {
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: true,
+            https_redirect: false,
             certificate: None,
         }];
 
@@ -761,6 +771,7 @@ mod tests {
                     activator: None,
                 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
             Served {
@@ -771,6 +782,7 @@ mod tests {
                     upstream: "http://127.0.0.1:4000".to_owned(),
                 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
             Served {
@@ -779,6 +791,7 @@ mod tests {
                 doc_root: doc_root(),
                 kind: ServedKind::NodeApp { port: 3000 },
                 https: true,
+                https_redirect: false,
                 certificate: None,
             },
         ];
@@ -867,6 +880,7 @@ mod tests {
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: true,
+            https_redirect: false,
             certificate: Some(crate::generate::served::SiteCertificate {
                 certificate: PathBuf::from("/home/someone/.mixengine/certs/sites/blog.test.crt"),
                 key: PathBuf::from("/home/someone/.mixengine/certs/sites/blog.test.key"),
@@ -902,6 +916,7 @@ mod tests {
                 activator: Some(Upstream::Tcp("127.0.0.1:9500".parse().expect("an address"))),
             },
             https: false,
+            https_redirect: false,
             certificate: None,
         });
 
@@ -941,6 +956,7 @@ mod tests {
                     activator: activator.clone(),
                 },
                 https: false,
+                https_redirect: false,
                 certificate: None,
             })
             .collect();
@@ -984,6 +1000,7 @@ mod tests {
                 activator: None,
             },
             https: false,
+            https_redirect: false,
             certificate: None,
         });
 
@@ -1106,6 +1123,7 @@ zz
                     doc_root: doc_root(),
                     kind: ServedKind::Static,
                     https: false,
+                    https_redirect: false,
                     certificate: None,
                 }],
             )
@@ -1127,6 +1145,7 @@ zz
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: false,
+            https_redirect: false,
             certificate: None,
         }
     }
@@ -1174,6 +1193,7 @@ zz
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: false,
+            https_redirect: false,
             certificate: None,
         });
 
@@ -1199,6 +1219,7 @@ zz
             doc_root: doc_root(),
             kind: ServedKind::Static,
             https: false,
+            https_redirect: false,
             certificate: None,
         };
 
@@ -1336,6 +1357,102 @@ zz
             "{rendered}"
         );
         assert_eq!(rendered.matches("server {").count(), 1, "{rendered}");
+    }
+
+    /// **Two `server` blocks, where T51's own D6 needed only one** — roadmap task **T98**. The
+    /// block that answers on the plaintext listener returns 307 and carries none of the site's own
+    /// content; everything `an_https_site_listens_on_tls_and_names_its_certificate` asserts about a
+    /// single-block HTTPS site is still true of the *second* block here.
+    #[test]
+    fn a_site_with_redirect_on_renders_a_redirecting_block_and_a_serving_block() {
+        let rendered = render_site(&Served {
+            https_redirect: true,
+            ..a_site_with_a_certificate()
+        });
+
+        assert_eq!(rendered.matches("server {").count(), 2, "{rendered}");
+        assert!(
+            rendered.contains("return 307 https://$host$request_uri;"),
+            "{rendered}"
+        );
+        assert_eq!(
+            rendered.matches("try_files $uri $uri/ =404;").count(),
+            1,
+            "only the serving block has the site's own content: {rendered}"
+        );
+        assert!(
+            rendered.contains(
+                "ssl_certificate \"/home/someone/.mixengine/certs/sites/blog.test.crt\";"
+            ),
+            "{rendered}"
+        );
+    }
+
+    /// **Off by default, and a site that never asked still renders the one block T51 shipped** —
+    /// the regression this whole feature must not be.
+    #[test]
+    fn a_site_with_redirect_off_renders_one_server_block_as_before() {
+        let rendered = render_site(&a_site_with_a_certificate());
+
+        assert_eq!(rendered.matches("server {").count(), 1, "{rendered}");
+        assert!(!rendered.contains("return 307"), "{rendered}");
+    }
+
+    /// **A redirect needs a usable certificate, not only the flag** — the T51 design's D4 applied a
+    /// second time, on nginx's own shape: a site that asked for HTTPS but has nothing on disk to
+    /// serve it with already renders one plaintext listener; asking for a redirect too must not
+    /// turn that into a 307 toward a TLS listener nothing is bound to.
+    #[test]
+    fn a_site_with_redirect_on_but_no_certificate_renders_one_block_as_before() {
+        let mut site = a_site_with_a_certificate();
+        site.https_redirect = true;
+        site.certificate = None;
+
+        let rendered = render_site(&site);
+
+        assert_eq!(rendered.matches("server {").count(), 1, "{rendered}");
+        assert!(!rendered.contains("return 307"), "{rendered}");
+        assert!(
+            rendered.contains("try_files $uri $uri/ =404;"),
+            "{rendered}"
+        );
+    }
+
+    /// **The CA route is reachable over plaintext on a redirecting shared site** — roadmap task
+    /// **T98**, the design's D3, on nginx's own shape: the route lives in the redirecting block
+    /// beside the `location /` that returns 307, and nowhere in the serving block behind it — a
+    /// phone that has not yet trusted this home's authority cannot reach that block at all.
+    #[test]
+    fn a_redirecting_shared_site_still_serves_its_ca_route_over_plaintext() {
+        let context = context("{}").with_authority(Some("-----BEGIN CERTIFICATE-----".to_owned()));
+        let site = Served {
+            https_redirect: true,
+            certificate: Some(crate::generate::served::SiteCertificate {
+                certificate: PathBuf::from("/home/someone/.mixengine/certs/sites/blog.test.crt"),
+                key: PathBuf::from("/home/someone/.mixengine/certs/sites/blog.test.key"),
+                fingerprint: "ab".repeat(32),
+            }),
+            ..a_shared_site([192, 168, 1, 10])
+        };
+
+        let rendered = Nginx.sites(&context, &[site]).expect("one site")[0]
+            .contents()
+            .to_owned();
+
+        assert!(
+            rendered.contains("location = /__mixengine/ca.crt {"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("return 307 https://$host$request_uri;"),
+            "{rendered}"
+        );
+
+        // The CA route has to sit in the *redirecting* block, which a plaintext request actually
+        // reaches — not in the serving block behind the TLS listener a phone cannot get to yet.
+        let ca_route = rendered.find("/__mixengine/ca.crt").expect("the route");
+        let second_server = rendered.rfind("server {").expect("the second block");
+        assert!(ca_route < second_server, "{rendered}");
     }
 
     /// A site with no certificate listens once and names none — the T51 design, D4.

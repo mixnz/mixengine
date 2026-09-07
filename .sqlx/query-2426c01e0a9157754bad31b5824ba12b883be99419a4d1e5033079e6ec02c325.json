@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT extension_id AS \"extension: String\", https_enabled FROM sites WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "extension: String",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sites",
+            "name": "extension_id"
+          }
+        }
+      },
+      {
+        "name": "https_enabled",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "sites",
+            "name": "https_enabled"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "2426c01e0a9157754bad31b5824ba12b883be99419a4d1e5033079e6ec02c325"
+}

@@ -2446,6 +2446,17 @@ pub(crate) fn domain_status(report: &DomainStatusReport) -> String {
     out
 }
 
+/// The `https` line's value, with the redirect folded in rather than given a row of its own —
+/// roadmap task **T98**. A redirect is never reachable without HTTPS already being on, so it is not
+/// a fact worth asking a reader to check two lines to get.
+fn https_word(https: bool, redirect: bool) -> String {
+    match (https, redirect) {
+        (true, true) => "yes (redirect)".to_owned(),
+        (true, false) => "yes".to_owned(),
+        (false, _) => "no".to_owned(),
+    }
+}
+
 /// `mix site show` — one site, and the two answers about its pool.
 ///
 /// The **pool** lines are the whole value of the rendering: a site's pool is frozen at create while
@@ -2465,7 +2476,7 @@ pub(crate) fn site_detail(detail: &SiteDetail) -> String {
         } else {
             "  (not there yet)"
         },
-        detail.site.https,
+        https_word(detail.site.https, detail.site.https_redirect),
         detail.site.state.as_str()
     );
 
@@ -3904,6 +3915,7 @@ mod tests {
                     kind: SiteKind::Static,
                     doc_root: String::new(),
                     https: true,
+                    https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
                     sharing: None,
                 },
@@ -3915,6 +3927,7 @@ mod tests {
                     kind: SiteKind::PhpFpm { pool: None },
                     doc_root: "app".to_owned(),
                     https: true,
+                    https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
                     sharing: None,
                 },

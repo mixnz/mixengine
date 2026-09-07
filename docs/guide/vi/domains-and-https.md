@@ -4,7 +4,7 @@ slug = "domains-and-https"
 order = 7
 summary = "Vì sao blog.test trỏ về máy bạn, ai ký chứng chỉ cho nó, và cách tìm ra vấn đề khi ổ khóa không xanh."
 translation_of = "en/domains-and-https.md"
-source_sha256 = "90c2527c0a658a9455f940d9e78e0b60d4bfdd40405d32b643e72ea210d38eb3"
+source_sha256 = "41b4811b15fc8740a13610b7d997fe1461a88606561a26aee73c16607185998f"
 +++
 
 # Tên miền và ổ khóa
@@ -104,6 +104,27 @@ mix cert issue            # every HTTPS site
 Việc cấp là **idempotent**: chứng chỉ nào vẫn bao đúng các tên, còn hơn ba mươi ngày, và được ký
 bởi CA hiện tại thì được giữ nguyên. Nên chạy lệnh này không tốn gì, và là việc hợp lý khi bạn
 không chắc.
+
+## Chuyển hướng sang HTTPS
+
+Khi site đã có chứng chỉ, cả `http://blog.test` lẫn `https://blog.test` đều chạy và phục vụ cùng
+một site — mặc định không chuyển hướng. Đây là chủ ý: một webhook, một script cũ, hay bất cứ thứ
+gì khác vẫn đang trỏ vào HTTP thuần vẫn tiếp tục hoạt động, và một request lúc bị chuyển hướng lúc
+không là loại lỗi khó chịu hơn nhiều so với việc không bao giờ bị chuyển hướng.
+
+Nếu có thứ gì đó truy cập site này từ bên ngoài mà cần chuyển hướng, bật riêng cho site đó:
+
+```bash
+mix site update blog.test --https-redirect true
+```
+
+Site phải đã bật HTTPS trước — MixEngine từ chối bật chuyển hướng cho site chưa có gì để chuyển
+hướng *đến*. Tắt HTTPS sau đó sẽ tự tắt luôn chuyển hướng, thay vì để nó bật cho một địa chỉ không
+còn trả lời nữa.
+
+Có một request không bao giờ bị chuyển hướng, dù cấu hình thế nào: điện thoại chưa cài certificate
+authority của máy này vẫn phải truy cập được `/__mixengine/ca.crt` qua HTTP thuần, nên đường dẫn
+đó luôn trả lời trực tiếp.
 
 ## Ổ khóa có thật sự xanh không?
 
