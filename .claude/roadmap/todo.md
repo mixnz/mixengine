@@ -356,20 +356,21 @@ shutdown be turned on at all. **T71** is the measuring: two sampling rates in on
 cannot both be true, and the night is the half nobody is watching.
 
 **Both published numbers are now measured rather than promised**, which is what closes M7. **T72**
-gates `mixengined` idle under 36 MB and reports the 60 MB total beside it, because two thirds of
-that total is a Go program this project neither wrote nor tunes. **T72a** gates the cold path at
-1.5 s — met at 108 ms on Linux, 129 ms on macOS and 574 ms on Windows — and the task it took to get
-there is the phase's own lesson twice over: the roadmap entry described work T70 had already done,
-while the thing actually missing was a pool on a socket having no way to be *asked* whether anybody
-was using it. Two defects surfaced only once a real request went through: a counter rule that was
-reading the daemon's own health checks as traffic, and an activator that was bound at boot and
-therefore never for a pool installed afterwards. Neither was visible from reading the code.
-**T73** closed the phase, and it is the one task here that changed no mechanism at all: the three
-database templates were rendering the values their servers would have used with no configuration
-file, under a feature document that said they were tuned. What it refused is worth as much as what
-it changed — `max_connections` saves nothing at idle and buys a new way for a busy afternoon to
-fail, and an idle php-fpm pool is already stopped, so a smaller one would only slow down the machine
-while somebody is using it.
+gates `mixengined` idle under 42 MB — 36 until 2026-09-07, raised when a week of features had put
+five to ten megabytes on it on every system, with **T72b** owing the reason — and reports the 60 MB
+total beside it, because two thirds of that total is a Go program this project neither wrote nor
+tunes. **T72a** gates the cold path at 1.5 s — met at 108 ms on Linux, 129 ms on macOS and 574 ms on
+Windows — and the task it took to get there is the phase's own lesson twice over: the roadmap entry
+described work T70 had already done, while the thing actually missing was a pool on a socket having
+no way to be *asked* whether anybody was using it. Two defects surfaced only once a real request
+went through: a counter rule that was reading the daemon's own health checks as traffic, and an
+activator that was bound at boot and therefore never for a pool installed afterwards. Neither was
+visible from reading the code. **T73** closed the phase, and it is the one task here that changed no
+mechanism at all: the three database templates were rendering the values their servers would have
+used with no configuration file, under a feature document that said they were tuned. What it refused
+is worth as much as what it changed — `max_connections` saves nothing at idle and buys a new way for
+a busy afternoon to fail, and an idle php-fpm pool is already stopped, so a smaller one would only
+slow down the machine while somebody is using it.
 
 **Both promises are kept.** `runtime.uninstall` refuses over a running php-fpm pool (**T32**) and
 over a registered project whose pin the removal would leave with no answer (**T39**), and `--force`

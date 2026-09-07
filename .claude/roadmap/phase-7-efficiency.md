@@ -300,6 +300,20 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       direction for a gate. Restarting the daemon and re-adopting the web server would be closer and
       cannot be done on two of three systems, per
       [ADR 0007](../decisions/0007-supervised-child-owns-a-process-group.md).
+      **The budget was raised to 42 MB on 2026-09-07, and the reason is T72b below.** A week after
+      it was set, the idle daemon measured 31 MB on Windows, 30 MB on Linux and 35 MB on macOS —
+      five to ten more than the day of T72 on every system — and macOS sat within a megabyte of
+      the 36 MB gate for ten runs until a runner's noise took it over on a commit that changed a
+      test file in another crate. Raised by the constant's own rule, a fifth above the new worst;
+      not investigated, which is exactly the failure the constant's comment names, so the
+      investigation is a task with a number rather than a paragraph.
+- [ ] **T72b** Where the five megabytes went: find what the idle daemon holds on 2026-09-07 that it
+      did not on 2026-08-30. The tasks that landed between the two readings are T77b, T83, T84,
+      T88, T88a, T96 and T97; the growth is on all three systems at once, which points at a
+      working set kept warm — a cache, a pool, a loaded runtime — rather than at any one OS. What
+      this task owes is a reading per suspect and either a fix or a sentence saying why the memory
+      is worth holding, after which `DAEMON_BUDGET` in `idle_footprint.rs` is set again from what
+      is measured. Not a licence to raise it a second time.
 - [x] **T72a** The cold path: give a php-fpm pool on a Unix socket the idle probe it never had, and
       gate the published **< 1.5 s** on a real `GET` through the front end. **Split out of T72**,
       which found that the number could not be measured on two of three systems as things stood.
