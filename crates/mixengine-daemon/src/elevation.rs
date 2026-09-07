@@ -230,6 +230,23 @@ impl Elevation {
     ///
     /// The wire error of a row that could not be written.
     pub(crate) async fn require_helper(&self) -> Result<(), Error> {
+        let Some(installed) = self.candidates.installed.as_deref() else {
+            tracing::warn!("this machine will not name a directory for a privileged helper");
+            return Ok(());
+        };
+
+        // **The installed helper is asked first, and whether one is shipped beside this daemon has
+        // nothing to do with it.** macOS's package puts the helper in `/Library/PrivilegedHelperTools`
+        // and nothing in `/usr/local/bin` beside `mixengined`, so a gate on the beside copy — which
+        // is what this used to open with — meant no packaged macOS install ever ran the handshake:
+        // `mix elevation upgrade` reported *no privileged helper installed* on a machine whose
+        // helper had just served two grants, and a daemon restart did not change its mind. The
+        // beside copy is what an *install* is made from, and that is the only question it answers.
+        if installed.is_file() {
+            self.learn_installed_helper().await;
+            return Ok(());
+        }
+
         let beside = self
             .candidates
             .program
@@ -244,49 +261,55 @@ impl Elevation {
             return Ok(());
         }
 
+        self.enqueue(&PrivilegedOp::HelperInstall {}).await
+    }
+
+    /// Ask the installed helper what it is, and remember the answer for `elevation.upgrade`.
+    ///
+    /// **Version and not bytes, and nothing is enqueued** — roadmap task T88a. The bytes beside this
+    /// daemon are *not* the newer helper after a `mix self-update`, which keeps the helper by name;
+    /// and in a development tree they differ on every rebuild, which put a row on `mix status` whose
+    /// only meaning was "you rebuilt". What decides is what the installed helper says it is — and a
+    /// replacement needs a signed candidate, which has to be fetched, which is `mix elevation
+    /// upgrade`'s job. A daemon start that reached the network would be a start an offline machine
+    /// pays for, which `.claude/features/updates.md` forbids in as many words.
+    ///
+    /// Called at start, and again after every prompt that changed the machine: the prompt that
+    /// installs the helper is one of those, and a daemon that learned the helper's version only at
+    /// start went on answering *none installed* until it was restarted.
+    async fn learn_installed_helper(&self) {
         let Some(installed) = self.candidates.installed.as_deref() else {
-            tracing::warn!("this machine will not name a directory for a privileged helper");
-            return Ok(());
+            return;
         };
 
-        if installed.is_file() {
-            if let Err(error) = mixengine_core::elevation::helper(
-                &self.candidates.program,
-                self.candidates.installed.as_deref(),
-            ) {
-                tracing::warn!(
-                    %error,
-                    "the installed helper is not one this daemon will run as an administrator"
-                );
-                return Ok(());
-            }
-
-            // **Version and not bytes, and nothing is enqueued** — roadmap task T88a. The bytes
-            // beside this daemon are *not* the newer helper after a `mix self-update`, which keeps
-            // the helper by name; and in a development tree they differ on every rebuild, which put
-            // a row on `mix status` whose only meaning was "you rebuilt". What decides now is what
-            // the installed helper says it is — and a replacement needs a signed candidate, which
-            // has to be fetched, which is `mix elevation upgrade`'s job. A daemon start that
-            // reached the network would be a start an offline machine pays for, which
-            // `.claude/features/updates.md` forbids in as many words.
-            let facts = crate::helper::handshake(installed, &self.home, &self.elevate).await;
-
-            if let Some(facts) = &facts {
-                tracing::debug!(
-                    helper = %facts.version,
-                    protocol = facts.speaks.0,
-                    "the installed privileged helper answered a probe"
-                );
-            }
-
-            if let Ok(mut held) = self.facts.lock() {
-                *held = facts;
-            }
-
-            return Ok(());
+        if !installed.is_file() {
+            return;
         }
 
-        self.enqueue(&PrivilegedOp::HelperInstall {}).await
+        if let Err(error) = mixengine_core::elevation::helper(
+            &self.candidates.program,
+            self.candidates.installed.as_deref(),
+        ) {
+            tracing::warn!(
+                %error,
+                "the installed helper is not one this daemon will run as an administrator"
+            );
+            return;
+        }
+
+        let facts = crate::helper::handshake(installed, &self.home, &self.elevate).await;
+
+        if let Some(facts) = &facts {
+            tracing::debug!(
+                helper = %facts.version,
+                protocol = facts.speaks.0,
+                "the installed privileged helper answered a probe"
+            );
+        }
+
+        if let Ok(mut held) = self.facts.lock() {
+            *held = facts;
+        }
     }
 
     /// Ask for the hosts file to say what this home's sites say it should — roadmap task **T41**.
@@ -812,6 +835,13 @@ impl Elevation {
                     helper = report.elevate_version,
                     "an elevated batch was applied"
                 );
+
+                // A batch that changed the machine may have installed or replaced the helper, and
+                // the one this daemon knows about is the one it asked at start. One probe, unelevated,
+                // rather than a search of the batch for the operations that could have done it.
+                if settled.applied > 0 {
+                    self.learn_installed_helper().await;
+                }
 
                 (settled.applied, settled.kept)
             }

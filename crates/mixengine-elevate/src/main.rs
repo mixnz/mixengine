@@ -103,7 +103,18 @@ fn run() -> Result<(), Failure> {
 
     // Taken before anything is applied and released by the OS when this process ends — including
     // when it is killed, which is why it is a handle and not a file anybody has to clean up.
-    let _held = hold(&accepted.request.home)?;
+    //
+    // **A batch that changes nothing takes no lock**, and the only such batch is the handshake's
+    // lone `Probe`. It reports facts about this binary and touches no shared file, so it has nothing
+    // to serialise against — and the lock file itself is a shared file, created root-owned the first
+    // time an elevated run makes it, which an unelevated probe then cannot open for writing. Gating
+    // the lock on "does any operation change the machine" is what lets the daemon's start-up probe
+    // succeed on a home whose `run/elevate.lock` an earlier grant left owned by root.
+    let _held = if changes_the_machine(&accepted.request.ops) {
+        Some(hold(&accepted.request.home)?)
+    } else {
+        None
+    };
 
     let results = process(&accepted, elevated, &log)?;
 
@@ -121,6 +132,20 @@ fn run() -> Result<(), Failure> {
     };
 
     write(&accepted.response, &response)
+}
+
+/// Whether any operation in this batch would change the machine, and therefore whether the batch
+/// must hold the exclusive lock.
+///
+/// **A batch of pure `Probe`s is the only one that changes nothing** — every other operation
+/// declares `requires_elevation`, which is the same question by a different name: an operation that
+/// needs an administrative token to run is one that alters shared state, and an operation that needs
+/// none is `Probe`, which alters nothing. An operation this build cannot decode is treated as one
+/// that changes the machine: not knowing what it is is not knowing it is harmless, and the lock is
+/// the safe side to fail to.
+fn changes_the_machine(ops: &[serde_json::Value]) -> bool {
+    ops.iter()
+        .any(|value| ops::decode(value).map_or(true, |op| op.requires_elevation()))
 }
 
 /// Take the lock in `home`, or say who has it.

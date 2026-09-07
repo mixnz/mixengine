@@ -215,6 +215,11 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       excludes it by name and reports it as kept.
 - [x] **T88a** `mixengine-elevate` update path: excluded from auto-update, own elevation prompt,
       minisign verified **inside** the elevated context, daemon↔elevate protocol negotiation.
+      **Amended after a first macOS install**: the start-up handshake was gated on a helper beside
+      the daemon, and the `.pkg` ships none there — so no packaged macOS install ever learned its
+      helper's version, and `mix elevation upgrade` said *none installed* on a machine whose helper
+      had just served two grants. The installed helper is now asked first, whatever is beside the
+      daemon, and asked again after every prompt that changed the machine.
       Design: [2026-09-05-t88a-the-helper-update-path-design.md](../../docs/superpowers/specs/2026-09-05-t88a-the-helper-update-path-design.md),
       and [ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md),
       which extends [ADR 0015](../decisions/0015-the-helper-installs-itself.md) rather than editing
