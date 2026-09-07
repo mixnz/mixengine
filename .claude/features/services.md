@@ -148,6 +148,9 @@ Rules:
   runs, so a machine with no credential store fails with nothing created. There is no fallback to a
   file: it would be a plaintext credential on disk, which is the thing this arrangement exists to
   avoid (ADR 0006).
+  The server's certificate is not the ritual's: it is issued at every render, from this home's
+  authority, so a rotated authority reaches a running home at its next start — see
+  [tls.md](tls.md#services) and T99.
 - **MySQL**: the same job as MariaDB's and none of the same programs, which is why it is a recipe of
   its own (T34c). **Three bootstrap routes, chosen by version and platform** rather than by a version
   test: 5.7 and newer use `mysqld --initialize-insecure`; 5.6 on Unix uses `scripts/mysql_install_db`,

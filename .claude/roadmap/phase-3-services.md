@@ -389,6 +389,28 @@ directory, which is where a generated defaults file and a keyring credential rea
       The suite keeps the two apart by name; the collision itself is real for two users of one
       machine, whose `/tmp` is shared and whose `rm -rf` on each other's directory fails outright.
       The keyring entry is keyed the same way and is the same follow-up.
+- [ ] **T99** MariaDB serves a certificate this home's authority signed — design in
+      [docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
+      **What was measured.** Run 34128004289's `bench (ubuntu-latest)` put the M3 warm median at
+      11.1 s, and every slow round's `mariadb.err` had the same shape: InnoDB up, four to thirteen
+      seconds of nothing, `Server socket created`. Between those lines 11.4 runs `init_ssl`, and
+      since 11.4 `ssl` defaults to on — a server with no certificate configured *generates a
+      4096-bit RSA key at every start*, a prime search whose duration is the spread. The Windows
+      build compiles the same function against bundled wolfSSL and pays too.
+      **What was tried and withdrawn.** `skip-ssl` in the recipe (commit `869927f`), which run
+      34137287084 answered on all three systems with `ERROR 2026: SSL is required, but the server
+      does not support it`: an 11.4 client with a password on its command line verifies the server's
+      certificate by default and refuses a server offering no TLS. The daemon's own clients pass the
+      password in `MYSQL_PWD` and were unaffected, which is why the failure took a second run to
+      appear. A person typing `mariadb -h 127.0.0.1 -p` would have been refused the same way.
+      **What was done.** `certs::service` — `leaf`'s own body behind `certs/services/<id>.{key,crt}`,
+      the same four questions, ninety days — a `Recipe::certificate` hook only MariaDB answers, a
+      `certificate` group on every rendering, issuance in the generator's one step that already
+      writes, and a template that names the pair and its fingerprint or says nothing about TLS. A
+      failed issuance is a warning and the status quo, never a start refused. The real-server suite
+      now asserts `Ssl_cipher` is non-empty on the password login, which is what separates *written*
+      from *served*. **Owed:** the next `bench (ubuntu-latest)` number, which closes the "M3's tail"
+      row in the index.
 - [x] **T34a** A supervised child never inherits Administrators. `postgres` calls `check_root()`
       before it dispatches a mode and refuses a token holding an enabled `BUILTIN\Administrators`;
       this repository's Windows CI leg holds one on purpose (T2b). So every child MixEngine starts to
@@ -705,7 +727,9 @@ four to thirteen seconds of silence, then `Server socket created`. Between those
 a 4096-bit RSA key at every start**, a prime search whose duration is the spread. The recipe now
 renders `skip-ssl` with the measurement beside it; nothing here speaks TLS to a database on loopback,
 and `ssl_cert` in `extra` turns it back on. The "bimodal on ubuntu" the `bench` job's comments
-describe was this, and macOS and Windows were only ever faster at the same key.
+describe was this, and macOS and Windows were only ever faster at the same key. What was done about
+it is **T99**, above: a leaf of this home's authority, because the obvious `skip-ssl` turned out to
+refuse every 11.4 client that logs in with a password.
 
 ---
 
