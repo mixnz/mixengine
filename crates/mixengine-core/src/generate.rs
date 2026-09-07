@@ -937,6 +937,7 @@ impl Generator {
             // does the reading. [`None`] for every service but the pool of a `web-app` extension
             // that declared `signs_in`.
             credential: credentials.get(&service).cloned(),
+            certificate: None,
             service,
         };
 

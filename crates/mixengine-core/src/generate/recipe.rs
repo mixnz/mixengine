@@ -195,6 +195,18 @@ pub struct Context {
     /// [`None`] on every service but the php-fpm pool of a `web-app` extension that declared
     /// `signs_in`.
     pub(super) credential: Option<crate::extensions::pools::Credential>,
+
+    /// The certificate this service presents, when it has one on disk — roadmap task **T99**.
+    ///
+    /// **Filled by [`Generator`](super::Generator), like [`authority`](Self::authority)**, and for
+    /// the same reason: a recipe may not go looking on a disk. The generator reads the pair while
+    /// preparing a row and issues one just before the render for a recipe whose
+    /// [`Recipe::certificate`] asks; either way what arrives here is what `certs::service::read`
+    /// said about the files, never a description of what was just written.
+    ///
+    /// [`None`] on every service whose recipe asks for none, and on one whose issuance failed — the
+    /// template then writes nothing about TLS and the server does what it did before T99.
+    pub(super) certificate: Option<ServiceCertificate>,
 }
 
 impl Context {
@@ -404,6 +416,13 @@ impl Context {
         self.credential.as_ref()
     }
 
+    /// The certificate this service presents, when a usable pair is on disk — roadmap task
+    /// **T99**. See [`Context::certificate`](Self#structfield.certificate).
+    #[must_use]
+    pub fn certificate(&self) -> Option<&ServiceCertificate> {
+        self.certificate.as_ref()
+    }
+
     /// The credential this recipe declared under `key`, or an empty string when there is none.
     ///
     /// Empty rather than [`None`], because the only caller is a ritual's step builder and the only
@@ -454,6 +473,14 @@ impl Context {
             },
             settings: &self.settings,
             extra: self.settings.extra(),
+            certificate: self
+                .certificate
+                .as_ref()
+                .map(|certificate| CertificateView {
+                    path: &certificate.certificate,
+                    key: &certificate.key,
+                    fingerprint: &certificate.fingerprint,
+                }),
         }
     }
 }
@@ -496,6 +523,7 @@ impl Context {
             fragments: Vec::new(),
             secrets: BTreeMap::new(),
             credential: None,
+            certificate: None,
             service,
         }
     }
@@ -511,6 +539,13 @@ impl Context {
         credential: Option<crate::extensions::pools::Credential>,
     ) -> Self {
         self.credential = credential;
+        self
+    }
+
+    /// The certificate a real render would have read off this home's `certs/services/` — roadmap
+    /// task **T99**. A setter for [`with_credential`](Self::with_credential)'s reason.
+    pub(super) fn with_certificate(mut self, certificate: ServiceCertificate) -> Self {
+        self.certificate = Some(certificate);
         self
     }
 
@@ -572,6 +607,27 @@ struct Rendering<'a> {
     settings: &'a Settings,
     /// Also `settings.extra`, and repeated at the top level because every template ends with it.
     extra: &'a str,
+
+    /// The certificate this service presents, or nothing — roadmap task **T99**.
+    ///
+    /// **A fifth group rather than three loose fields on `paths`**, so a template branches on one
+    /// value: `{% if certificate %}`. This is the one `Option` a template *can* branch on safely,
+    /// unlike [`Instance::instance`]: minijinja renders a `None` as a falsy `none`, and nothing
+    /// interpolates this group outside the branch that tests it.
+    certificate: Option<CertificateView<'a>>,
+}
+
+/// The `certificate` group of a [`Rendering`] — roadmap task **T99**.
+#[derive(Debug, Serialize)]
+struct CertificateView<'a> {
+    /// The certificate, absolute.
+    path: &'a Path,
+
+    /// Its private key, absolute.
+    key: &'a Path,
+
+    /// SHA-256 of the certificate's DER, lowercase hex, for the file's header.
+    fingerprint: &'a str,
 }
 
 /// The `service` half of a [`Rendering`].
@@ -633,6 +689,28 @@ struct Layout<'a> {
 
     /// [`Endpoints::includes`], which a template reads by name: `paths.includes['mime.types']`.
     includes: &'a BTreeMap<String, PathBuf>,
+}
+
+/// The pair a service presents, as a template and a spec have to name it — roadmap task **T99**.
+///
+/// The shape of `served::SiteCertificate`, for a leaf that belongs to a server rather than to a
+/// site. **Read off the disk and never described from a write**: the generator fills it from
+/// `certs::service::read`, so the fingerprint here is the one on disk now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServiceCertificate {
+    /// Absolute path to the certificate.
+    pub certificate: PathBuf,
+
+    /// Absolute path to the private key.
+    pub key: PathBuf,
+
+    /// SHA-256 of the certificate's DER, lowercase hex.
+    ///
+    /// **Rendered into the generated file's header, and read back by nothing** — T51's reason,
+    /// restated for a server that does not reload: a reissue to the same path must still change the
+    /// file, so that a rewrite finds a difference and the file says which certificate it was
+    /// rendered for.
+    pub fingerprint: String,
 }
 
 /// Paths a recipe computes that its own template also has to name.
@@ -1118,6 +1196,19 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
         None
     }
 
+    /// The names a certificate for this service must cover, when it wants one — [`None`] for most.
+    /// Roadmap task **T99**.
+    ///
+    /// Opt-in like [`ritual`](Self::ritual). A recipe that answers gets a leaf this home's authority
+    /// signed, under `certs/services/`, issued by the generator just before the render and reachable
+    /// through [`Context::certificate`]; one that answers [`None`] is never asked again. See
+    /// `certs::service` for what the names are and why they are IPv4 only.
+    fn certificate(&self, context: &Context) -> Option<Vec<String>> {
+        let _ = context;
+
+        None
+    }
+
     /// How this package makes a database and an account for one — [`None`] for most.
     ///
     /// See [`databases`](super::databases) for the shape, and for why the daemon rather than the
@@ -1265,6 +1356,84 @@ mod tests {
 
             assert_eq!(recipe.administrator(), expected, "{package}");
         }
+    }
+
+    /// **Only MariaDB asks for a certificate** — roadmap task **T99**.
+    ///
+    /// MySQL writes its own pair once at `--initialize`, PostgreSQL ships with `ssl` off, and
+    /// nothing else here speaks TLS to a client. A recipe that started asking would be a decision
+    /// made in that recipe's own design, and this is the test that notices.
+    #[test]
+    fn only_mariadb_asks_for_a_certificate() {
+        let catalogue = super::super::Catalogue::builtin();
+
+        // MariaDB flips to `true` in the commit that teaches its recipe to ask — T99's fourth task.
+        for (package, wants_one) in [
+            ("mariadb", false),
+            ("mysql", false),
+            ("postgres", false),
+            ("redis", false),
+            ("memcached", false),
+            ("caddy", false),
+            ("nginx", false),
+            ("php-fpm", false),
+        ] {
+            let recipe = catalogue
+                .recipe(package)
+                .unwrap_or_else(|| panic!("{package} is compiled in"));
+            let service = ServiceId::parse(format!("{package}@main")).expect("an id");
+            let settings =
+                Settings::merge(recipe.settings(), "{}", &service).expect("the defaults merge");
+            let context = Context::for_test(
+                service,
+                package,
+                Path::new(root()),
+                BTreeMap::new(),
+                Some(1),
+                settings,
+            );
+
+            assert_eq!(
+                recipe.certificate(&context).is_some(),
+                wants_one,
+                "{package}"
+            );
+        }
+    }
+
+    /// **A template can branch on `certificate` and on nothing else that is optional** — roadmap
+    /// task **T99**. `service.instance` renders the word `none`; this group renders a falsy value.
+    #[test]
+    fn a_context_with_no_certificate_renders_a_falsy_group() {
+        let service = ServiceId::parse("mariadb@main").expect("an id");
+        let settings = Settings::merge(&[], "{}", &service).expect("nothing to merge");
+        let context = Context::for_test(
+            service,
+            "mariadb",
+            Path::new(root()),
+            BTreeMap::new(),
+            Some(3306),
+            settings,
+        );
+
+        let render = |context: &Context| {
+            minijinja::Environment::new()
+                .render_str(
+                    "{% if certificate %}yes {{ certificate.fingerprint }}{% else %}no{% endif %}",
+                    minijinja::Value::from_serialize(context.rendering()),
+                )
+                .expect("the template renders")
+        };
+
+        assert_eq!(render(&context), "no");
+
+        let context = context.with_certificate(ServiceCertificate {
+            certificate: Path::new(root()).join("certs/services/mariadb@main.crt"),
+            key: Path::new(root()).join("certs/services/mariadb@main.key"),
+            fingerprint: "abc123".to_owned(),
+        });
+
+        assert_eq!(render(&context), "yes abc123");
     }
 
     /// An absolute path on whichever system this is compiled for.
