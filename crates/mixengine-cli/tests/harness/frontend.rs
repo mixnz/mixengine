@@ -340,9 +340,14 @@ pub(crate) fn request_at(
     host: &str,
 ) -> Option<String> {
     let mut stream = TcpStream::connect((address, port)).ok()?;
-    stream
-        .set_read_timeout(Some(Duration::from_secs(5)))
-        .expect("a read deadline");
+    // **A deadline that cannot be set is an answer that did not come, not a bug.** Callers poll
+    // this while a front end is reloading, and a connect the kernel accepted into the backlog can
+    // be reset by the listener going away before the next line runs. macOS answers `setsockopt`
+    // on a socket that has already taken that reset with `EINVAL`, where Linux and Windows let it
+    // through and fail the read instead — so an `expect` here turned one lost connection during an
+    // nginx reload into a red `test (macos-latest)`. Treating it like the connect and the read
+    // beside it lets the poll come round again.
+    stream.set_read_timeout(Some(Duration::from_secs(5))).ok()?;
 
     stream
         .write_all(
