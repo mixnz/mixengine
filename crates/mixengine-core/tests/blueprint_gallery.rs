@@ -203,24 +203,18 @@ async fn a_deleted_rendering_is_written_again() {
 
 /// A `PATH` holding exactly these programs, on this system's rule, so that what is asserted is the
 /// gallery's own commands and not what a CI runner happens to have.
+///
+/// Each is a copy of this test binary under the program's name: the copy keeps the execute bit
+/// `execvp` wants, and `EXE_SUFFIX` gives it the extension `cmd.exe` wants — without a `#[cfg]`
+/// naming either system.
 fn a_path_holding(temp: &TempDir, programs: &[&str]) -> std::ffi::OsString {
     let tools = temp.path().join("tools");
     std::fs::create_dir_all(&tools).expect("a tools directory");
+    let itself = std::env::current_exe().expect("this test binary");
 
     for name in programs {
-        let file = tools.join(if cfg!(windows) {
-            format!("{name}.cmd")
-        } else {
-            (*name).to_owned()
-        });
-        std::fs::write(&file, "").expect("a program");
-
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755))
-                .expect("an executable bit");
-        }
+        let file = tools.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+        std::fs::copy(&itself, &file).expect("a program");
     }
 
     tools.into_os_string()
