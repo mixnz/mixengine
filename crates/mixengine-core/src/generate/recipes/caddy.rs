@@ -566,9 +566,17 @@ fn activator(kind: &ServedKind) -> Option<String> {
 }
 
 /// One [`Upstream`] in Caddy's spelling.
+///
+/// **A socket is in backticks, like every other path this recipe writes.** The pool's socket lives
+/// under the home, and on macOS the default home is `~/Library/Application Support/MixEngine` —
+/// with a space, which the Caddyfile lexer reads as the end of one token and the start of the next.
+/// Measured: `php_fastcgi unix//…/Application Support/…/php-fpm-8.3.33.sock` became two upstreams,
+/// the second of them `Support/…`, and every PHP request was a 502 with *dial support: unknown
+/// network support* in Caddy's log while `index.html` beside it served fine. A TCP address has no
+/// space to protect and is left bare.
 fn address(upstream: &Upstream) -> String {
     match upstream {
-        Upstream::Socket(path) => format!("unix/{}", path.display()),
+        Upstream::Socket(path) => format!("`unix/{}`", path.display()),
         Upstream::Tcp(address) => address.to_string(),
     }
 }
@@ -769,7 +777,42 @@ mod tests {
             .to_owned();
 
         assert!(
-            rendered.contains("php_fastcgi unix//home/me/run/php-fpm-8.3.sock"),
+            rendered.contains("php_fastcgi `unix//home/me/run/php-fpm-8.3.sock`"),
+            "{rendered}"
+        );
+    }
+
+    /// The socket sits under the home, and macOS's default home has a space in it. Bare, the
+    /// Caddyfile lexer splits the address at the space and the half after it is read as a network
+    /// called `Support` — measured as a 502 on every PHP request, with `dial support: unknown
+    /// network support` in the log. Backticks make it one token, activator included.
+    #[test]
+    fn a_socket_under_a_home_with_a_space_in_it_is_one_token() {
+        let home = "/Users/me/Library/Application Support/MixEngine/run";
+        let served = vec![Served {
+            shared: None,
+            domains: vec!["php.test".to_owned()],
+            doc_root: doc_root(),
+            kind: ServedKind::PhpFpm {
+                upstream: Upstream::Socket(std::path::PathBuf::from(format!(
+                    "{home}/php-fpm-8.3.sock"
+                ))),
+                activator: Some(Upstream::Socket(std::path::PathBuf::from(format!(
+                    "{home}/php-fpm-8.3.activate.sock"
+                )))),
+            },
+            https: true,
+            certificate: None,
+        }];
+
+        let rendered = Caddy.sites(&context("{}"), &served).expect("one site")[0]
+            .contents()
+            .to_owned();
+
+        assert!(
+            rendered.contains(&format!(
+                "php_fastcgi `unix/{home}/php-fpm-8.3.sock` `unix/{home}/php-fpm-8.3.activate.sock` {{"
+            )),
             "{rendered}"
         );
     }

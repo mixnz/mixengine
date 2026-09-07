@@ -640,9 +640,15 @@ fn activator(kind: &ServedKind) -> Option<String> {
 }
 
 /// One [`Upstream`] in nginx's spelling.
+///
+/// **A socket is in double quotes, like every other path this recipe writes.** The pool's socket
+/// lives under the home, and macOS's default home has a space in it, which nginx's parser reads as
+/// the end of the argument — the same fault Caddy's recipe measured as a 502 on every PHP request.
+/// `forward_slashed` has already removed the one character a double-quoted nginx string would
+/// process. A TCP address has no space to protect and is left bare.
 fn address(upstream: &Upstream) -> String {
     match upstream {
-        Upstream::Socket(path) => format!("unix:{}", forward_slashed(path)),
+        Upstream::Socket(path) => format!("\"unix:{}\"", forward_slashed(path)),
         Upstream::Tcp(address) => address.to_string(),
     }
 }
@@ -788,7 +794,7 @@ mod tests {
 
         let php = documents[0].contents();
         assert!(
-            php.contains("fastcgi_pass unix:/home/me/run/php-fpm-8.3.sock;"),
+            php.contains("fastcgi_pass \"unix:/home/me/run/php-fpm-8.3.sock\";"),
             "a socket is spelled nginx's way, which is not Caddy's: {php}"
         );
         assert!(php.contains("include \""), "{php}");
