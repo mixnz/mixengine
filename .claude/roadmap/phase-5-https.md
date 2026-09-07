@@ -444,13 +444,52 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 **Milestone M5** — `https://blog.test` is trusted in Chrome, Firefox, Safari and Edge on their
 platforms; adding a domain keeps the padlock green.
 
-- [ ] **T98** Opt-in per-site HTTP→HTTPS redirect. T51's D9 decided no redirect, for every site that
+- [x] **T98** Opt-in per-site HTTP→HTTPS redirect. T51's D9 decided no redirect, for every site that
       does not ask for one — that stays the default. This adds a `https_redirect` column a site can
       turn on for itself, enforced against `https_enabled` by a `CHECK` SQLite will hold on its own,
       with the one exemption a redirect cannot be allowed to swallow: a shared site's
       `/__mixengine/ca.crt` route, which a phone that has not yet trusted this home's authority can
       only reach over plaintext — a redirect that caught it would send that phone into a handshake
-      TLS refuses, for a document that would have fixed exactly that. Design:
+      TLS refuses, for a document that would have fixed exactly that.
+      **What it found.** Measured before the migration was written, against a throwaway table:
+      SQLite refuses a table-level `CHECK` added by `ALTER TABLE` (the reason `0012_site_sharing.sql`
+      reaches for a trigger instead), but *does* accept a column-level one that references a column
+      already in the row — so the invariant is one line, no trigger needed. **And a bug the unit
+      suite caught before anything shipped**: `update`'s first draft wrote `https_enabled` and
+      `https_redirect` as two sequential statements, and turning HTTPS off while a stale redirect was
+      still `1` failed the `CHECK` on the *first* statement — SQLite's constraint is immediate, not
+      deferred, so the second statement (the one that would have carried the redirect down with it)
+      was never reached. The two writes are combined into one statement for exactly that
+      case. **And nginx needed a shape T51's own D6 specifically avoided**: one `server` block was
+      enough to carry a plaintext and a TLS listener together for HTTPS alone, but a redirect cannot
+      share a block with the content it redirects away from — nginx picks a block by `listen`
+      address before it looks at anything inside it, so the block is the unit that decides, and two
+      of them is what T98 renders whenever the redirect is on.
+      **Measured against the real programs, not only rendered.** `redir https://{host}{uri} 307`
+      against a real Caddy 2.11.4 and the two-`server` rendering against a real nginx 1.31.3 both
+      validate and both answer a live plaintext request with `307` and the right `Location`, in
+      `tests/caddy.rs` and `tests/nginx.rs`. What is **not** covered by a real server here is the
+      CA-route exemption on a *shared* site with the redirect on — that combination is unit-tested
+      in `generate::recipes::caddy`/`nginx` but would need a live firewall prompt to drive for real,
+      which is T74's kind of fixture and was not built for this task.
+      **And a second draft, over a question no test asked**: the first rendering used a *permanent*
+      redirect — `301` on nginx, `redir … permanent` (Caddy's own name for `301`) — and both
+      templates now say `307` instead, found by re-reading what the toggle actually is rather than by
+      running anything. A permanent code tells a client to stop asking and resolve the redirect on
+      its own from then on, which is wrong for a setting `mix site update --https-redirect false`
+      turns off as freely as it was turned on — a browser that cached the `301` would go on
+      redirecting locally after the site stopped saying so, with nothing here able to reach it. It
+      was also the wrong code for what T98 exists for in the first place: T51's D9 gives "a POST that
+      follows a redirect only sometimes" as the reason no site redirects by default, and `301`/`302`
+      are exactly that ambiguous about whether a `POST` survives the hop — which a webhook or a
+      payment callback, T98's own motivating case, is disproportionately likely to be. `307` answers
+      both: temporary, and unambiguous about carrying the method and body across.
+      **What it deliberately did not do**: no manifest key for a blueprint to declare — a redirect is
+      a fact about this home's traffic and not about the site a blueprint describes, so `blueprint
+      apply` always creates plaintext-redirect-off and a person turns it on afterward if they want
+      it; no front-end-wide setting, only per site; nothing added to `mix doctor`, since a redirect
+      with no usable certificate already renders exactly the plaintext-only gap T51's D4 already
+      reports. Design:
       [T98 spec](../../docs/superpowers/specs/2026-09-07-t98-opt-in-https-redirect-design.md).
 
 ---

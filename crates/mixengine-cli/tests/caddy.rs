@@ -147,6 +147,62 @@ async fn caddy_accepts_a_site_served_over_tls() {
     // at `read_to_string`, with the validator's own words in `daemon.log`.
 }
 
+/// **A redirecting site sends a plaintext request straight to HTTPS, against a real Caddy** —
+/// roadmap task **T98**. Every other T98 assertion is about a rendering; this is the one claim
+/// only the running program can make, on the test above's own precedent — and the `redir` syntax
+/// itself was never run through `caddy validate` until this suite did.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+async fn caddy_redirects_a_site_that_asks_for_it() {
+    let (home, _daemon, _registry, site_port, _control) = frontend::declared(&CADDY).await;
+
+    let repository = tempfile::Builder::new()
+        .prefix("mixengine-t98")
+        .tempdir()
+        .expect("a temporary directory");
+    let root = repository.path().display().to_string();
+
+    home.mix(&["project", "create", &root, "--name", "blog"]);
+    home.mix_in(
+        repository.path(),
+        &[],
+        &[
+            "site",
+            "create",
+            "--domain",
+            "blog.test",
+            "--kind",
+            "static",
+            "--https-redirect",
+            "true",
+        ],
+    );
+
+    let started = harness::json(&home.mix(&["service", "start", CADDY.package, "--json"]));
+    assert_eq!(
+        started["complete"],
+        true,
+        "{started}\n{}",
+        home.daemon_log()
+    );
+
+    let answer = frontend::request_as(site_port, "/", "blog.test").unwrap_or_else(|| {
+        panic!(
+            "no answer from Caddy on the plaintext port\n{}",
+            home.daemon_log()
+        )
+    });
+
+    assert!(answer.starts_with("HTTP/1.1 307"), "{answer}");
+    assert!(answer.contains("Location: https://blog.test/"), "{answer}");
+
+    // **The CA route is not a real claim here** — this site is not shared, so it renders no
+    // `/__mixengine/ca.crt` route at all (T75's own gate). `a_redirecting_shared_site_still_...`
+    // in `generate::recipes::caddy` is the unit test proving the route survives beside the
+    // redirect; the shape needed to prove *that* against a real Caddy is a shared site holding a
+    // firewall prompt, which is `T76`'s sort of fixture and not this suite's.
+}
+
 /// **The first assertion in this repository that measures a green padlock** — roadmap task **T53**.
 ///
 /// Everything phase 5 asserts elsewhere is about a file: that a certificate was written, that a

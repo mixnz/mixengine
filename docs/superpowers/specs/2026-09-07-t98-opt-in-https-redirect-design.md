@@ -128,7 +128,7 @@ http://blog.test {
 		file_server
 	}
 	handle {
-		redir https://{host}{uri} permanent
+		redir https://{host}{uri} 307
 	}
 }
 ```
@@ -144,21 +144,21 @@ The condition this is written under is **`https_redirect` and a usable `certific
 `https_redirect` alone: T51's D4 already renders plaintext-only for a site that declares HTTPS but
 has no usable certificate on disk, and a redirect to a TLS listener nothing is bound to would turn a
 missing-certificate site (which `mix doctor` already reports and repairs without a prompt) into one
-that answers every request with a 301 into nowhere instead of the page it has always been able to
-serve.
+that answers every request with a redirect into nowhere instead of the page it has always been able
+to serve.
 
 A site with no certificate or with the redirect off renders exactly the block it rendered before this
 task — the generic handler's existing four-branch `kind` dispatch (`php_fastcgi`, `file_server`,
 `reverse_proxy`, and the activator trio) is the `else` half of one new `{% if %}`, not something
 moved or rewritten.
 
-**This is the expected shape, not yet measured against the real binary.** `{host}` and `{uri}` are
-documented Caddyfile placeholders and `redir` is an ordinary directive, but T51's own D2 is the
-standing reminder that what looks obvious in a Caddyfile and what `caddy validate` accepts are two
-different claims — that task's first draft was refused outright by the program for a reason no
-amount of reading the documentation surfaced first. `caddy validate` against the pinned version, and
-`tests/caddy.rs`'s real-server suite extended with a redirect-enabled site, are this task's equivalent
-first step, before the template above is taken as final.
+**Measured against the real binary, not left as the expected shape.** T51's own D2 is the standing
+reminder that what looks obvious in a Caddyfile and what `caddy validate` accepts are two different
+claims — that task's first draft was refused outright by the program for a reason no amount of
+reading the documentation surfaced first. `caddy validate` against Caddy 2.11.4, and a live plaintext
+request against a running instance created through `mix site create --https-redirect true`, both
+went well: the request comes back `307` with the right `Location`, in
+`tests/caddy.rs::caddy_redirects_a_site_that_asks_for_it`.
 
 ## D5 — nginx: the redirect needs a second `server` block, which T51's D6 specifically avoided needing
 
@@ -194,7 +194,7 @@ server {
 	}
 
 	location / {
-		return 301 https://$host$request_uri;
+		return 307 https://$host$request_uri;
 	}
 }
 
@@ -225,17 +225,43 @@ A site with the redirect off, or with no usable certificate, renders the single 
 unchanged — the two-block shape is new territory gated behind one condition, not a rewrite of the
 common path.
 
-**Neither snippet above has been run through `nginx -t` yet**, for the same reason Caddy's has not
-been run through `caddy validate`: there is no `nginx` or `caddy` binary on the machine this spec was
-written on, and this codebase's own standard — T51's D6 and D8 both — is that a rendering is judged by
-the program that reads it, not by how closely it resembles that program's documentation. The shape
-above is the best current answer to "how does nginx's own advice against `if` translate into two
-blocks", and implementation's first step is the same one D4 names: validate it, extend
-`tests/nginx.rs`'s real-server suite with a redirect-enabled site and a request for
-`/__mixengine/ca.crt` over plaintext, and let the real program, not this document, settle the exact
-directives.
+**Measured against a real nginx 1.31.3**, for Caddy's reason above: `nginx -t` accepts both blocks,
+and a live plaintext request against a site created with `--https-redirect true` comes back `307`
+with the right `Location` — `tests/nginx.rs::nginx_redirects_a_site_that_asks_for_it`. The CA-route
+exemption on a *shared* redirecting site is unit-tested in `generate::recipes::nginx` rather than
+proved against a running server here; driving that combination for real needs a live firewall
+prompt, which is T74's kind of fixture and was judged worth a separate task rather than folded into
+this one.
 
-## D6 — the shape of the field, end to end
+## D6 — temporary, and never permanent
+
+**Both snippets above say `307`, and the first draft of each said `permanent` — Caddy's alias for
+`301` — instead.** That was wrong, on two counts, and both were found by re-reading what a
+`https_redirect` toggle actually *is* rather than by running anything:
+
+**A permanent redirect is a permanent promise, and this one is not.** `mix site update <domain>
+--https-redirect false` is a normal, supported thing to do — the same command that turns it on. A
+`301`/`308` tells every client that fetched it once, correctly, to stop asking this server at all and
+resolve the redirect on its own from now on; a browser that cached one goes on redirecting locally
+after the site turns the setting back off, silently, with nothing in this codebase able to reach it —
+the browser never asks again, so there is nothing here to answer differently. `307`/`302` carry no
+such instruction, and a client is expected to ask again next time.
+
+**And a permanent redirect is also the wrong tool for the case this feature exists for.** T51's D9 —
+the decision T98 is the opt-in exception to — gives a specific reason no redirect is the default:
+*"a POST that follows a redirect only sometimes is a bug nobody would attribute to their web
+server."* `301` and `302` are exactly that "only sometimes": both predate a firm rule about whether a
+client following one may change the request method, and enough clients rewrite a `POST` into a `GET`
+on either of them that the ambiguity is the reason `307` and `308` exist at all, specifically to
+remove it. A webhook or a payment callback — T98's own motivating case — is disproportionately likely
+to be exactly the `POST` this ambiguity breaks. `307` is the temporary code with the unambiguous
+method-and-body guarantee, which is the whole of why it is the one this task renders.
+
+`308` — permanent, and also unambiguous about the method — was the other candidate and is refused for
+the first reason above: this is not a permanent redirect regardless of which HTTP clients change
+method on which code, because the row it comes from is not permanent either.
+
+## D7 — the shape of the field, end to end
 
 One boolean, named `https_redirect` at every layer it passes through, so that nothing along the path
 has to remember a translation:
@@ -256,7 +282,7 @@ has to remember a translation:
   (redirect)` — rather than a line of its own, because a redirect that is never reachable without
   HTTPS already being on is not a fact worth its own row.
 
-## D7 — what this deliberately does not do
+## D8 — what this deliberately does not do
 
 **It does not change what any existing site serves.** `https_redirect` defaults to `false` on every
 row this migration touches — `ADD COLUMN … DEFAULT 0` backfills every existing site with the exact
@@ -283,7 +309,7 @@ renders plaintext exactly as a site with `https_enabled = true` and no certifica
 `SiteCertificateMissing` already reports and repairs that gap. A redirect with nowhere to send the
 request is D4/D5's condition refusing to fire, not a new failure mode `doctor` has to learn.
 
-## D8 — what has to be true, and how this is proved
+## D9 — what has to be true, and how this is proved
 
 **Unit, in `mixengine-core::sites`:** `create` refuses `https_redirect: true` with `https_enabled:
 false`; `update` refuses the same combination however it arrives at it; `update` turning
@@ -296,13 +322,16 @@ but no usable certificate carries `certificate: None` exactly as an `https_enabl
 which is what D4/D5's renderer condition reads.
 
 **Unit, in `recipes::caddy` and `recipes::nginx`:** a site with `https_redirect` and a certificate
-renders a `redir`/`return 301` and not the site's own handler on the plaintext side; a shared such
+renders a `redir`/`return 307` and not the site's own handler on the plaintext side; a shared such
 site's `/__mixengine/ca.crt` route still answers 200 over plaintext rather than being caught by the
 redirect — the assertion D3 exists for; a site with the flag off, or with no certificate, renders
 byte-identical output to what it rendered before this task landed.
 
 **Against the real programs**, in `crates/mixengine-cli/tests/caddy.rs` and `tests/nginx.rs`,
-`#[ignore]`d and fetched by CI exactly as T51's are: a home with one redirect-enabled HTTPS site
-accepts a plaintext request and receives a redirect response naming the `https://` form of the same
-request, and a request for `/__mixengine/ca.crt` over plaintext on that same home still receives the
-certificate rather than a redirect.
+`#[ignore]`d and fetched by CI exactly as T51's are: `caddy_redirects_a_site_that_asks_for_it` and
+`nginx_redirects_a_site_that_asks_for_it` each create a site through `mix site create
+--https-redirect true` against a real, running instance and assert the plaintext response is `307`
+naming the `https://` form of the same request — run against Caddy 2.11.4 and nginx 1.31.3 while
+writing this task, not left for CI to discover first. The CA-route exemption on a *shared*
+redirecting site stays unit-only: proving it against a running server needs a live firewall prompt,
+which is T74's kind of fixture and was not built here.

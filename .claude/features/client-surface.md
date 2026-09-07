@@ -46,6 +46,14 @@ binaries. What they state is what the daemon **writes** —
    `site.unshare` takes it back; a machine with more than one network refuses rather than choosing,
    and names the candidates so a client can offer them.
 
+   **A second toggle beside HTTPS itself — T98.** `SiteSummary.https_redirect` and the same field on
+   `SiteCreate`/`SiteUpdate` are what a client reads and writes; the one thing worth a client knowing
+   ahead of asking is that the daemon refuses `https_redirect: true` whenever the site's own `https`
+   resolves to `false` in that same request — `invalid_argument`, hinted `` `--https true` first, or
+   leave `--https-redirect` unset ``. A client is free to enforce the same rule client-side (disabling
+   the toggle until HTTPS is on) or to let the refusal surface; either is a legitimate reading of one
+   `invalid_argument` case, and this page states the rule rather than the client's choice about it.
+
    **And the share that ends without anybody ending it — T76.** `site.share` takes an optional
    length (`for_seconds`), `SiteSharing` carries the deadline back, and
    `DaemonEvent::SiteSharingChanged` announces every change in either direction with a

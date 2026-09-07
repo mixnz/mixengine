@@ -1360,7 +1360,7 @@ zz
     }
 
     /// **Two `server` blocks, where T51's own D6 needed only one** — roadmap task **T98**. The
-    /// block that answers on the plaintext listener returns 301 and carries none of the site's own
+    /// block that answers on the plaintext listener returns 307 and carries none of the site's own
     /// content; everything `an_https_site_listens_on_tls_and_names_its_certificate` asserts about a
     /// single-block HTTPS site is still true of the *second* block here.
     #[test]
@@ -1372,7 +1372,7 @@ zz
 
         assert_eq!(rendered.matches("server {").count(), 2, "{rendered}");
         assert!(
-            rendered.contains("return 301 https://$host$request_uri;"),
+            rendered.contains("return 307 https://$host$request_uri;"),
             "{rendered}"
         );
         assert_eq!(
@@ -1395,13 +1395,13 @@ zz
         let rendered = render_site(&a_site_with_a_certificate());
 
         assert_eq!(rendered.matches("server {").count(), 1, "{rendered}");
-        assert!(!rendered.contains("return 301"), "{rendered}");
+        assert!(!rendered.contains("return 307"), "{rendered}");
     }
 
     /// **A redirect needs a usable certificate, not only the flag** — the T51 design's D4 applied a
     /// second time, on nginx's own shape: a site that asked for HTTPS but has nothing on disk to
     /// serve it with already renders one plaintext listener; asking for a redirect too must not
-    /// turn that into a 301 toward a TLS listener nothing is bound to.
+    /// turn that into a 307 toward a TLS listener nothing is bound to.
     #[test]
     fn a_site_with_redirect_on_but_no_certificate_renders_one_block_as_before() {
         let mut site = a_site_with_a_certificate();
@@ -1411,7 +1411,7 @@ zz
         let rendered = render_site(&site);
 
         assert_eq!(rendered.matches("server {").count(), 1, "{rendered}");
-        assert!(!rendered.contains("return 301"), "{rendered}");
+        assert!(!rendered.contains("return 307"), "{rendered}");
         assert!(
             rendered.contains("try_files $uri $uri/ =404;"),
             "{rendered}"
@@ -1420,7 +1420,7 @@ zz
 
     /// **The CA route is reachable over plaintext on a redirecting shared site** — roadmap task
     /// **T98**, the design's D3, on nginx's own shape: the route lives in the redirecting block
-    /// beside the `location /` that returns 301, and nowhere in the serving block behind it — a
+    /// beside the `location /` that returns 307, and nowhere in the serving block behind it — a
     /// phone that has not yet trusted this home's authority cannot reach that block at all.
     #[test]
     fn a_redirecting_shared_site_still_serves_its_ca_route_over_plaintext() {
@@ -1444,7 +1444,7 @@ zz
             "{rendered}"
         );
         assert!(
-            rendered.contains("return 301 https://$host$request_uri;"),
+            rendered.contains("return 307 https://$host$request_uri;"),
             "{rendered}"
         );
 

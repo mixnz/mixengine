@@ -1248,7 +1248,7 @@ zz
         });
 
         assert!(
-            rendered.contains("redir https://{host}{uri} permanent"),
+            rendered.contains("redir https://{host}{uri} 307"),
             "{rendered}"
         );
         assert_eq!(
@@ -1270,7 +1270,7 @@ zz
 
     /// **A redirect needs a usable certificate, not only the flag** — the T51 design's D4 applied a
     /// second time. A site that asked for HTTPS but has nothing on disk to serve it with already
-    /// renders plaintext alone; asking for a redirect too must not turn that into a 301 into a TLS
+    /// renders plaintext alone; asking for a redirect too must not turn that into a 307 into a TLS
     /// listener nothing is bound to.
     #[test]
     fn a_site_with_redirect_on_but_no_certificate_renders_plaintext_exactly_as_before() {
@@ -1314,7 +1314,7 @@ zz
             "{rendered}"
         );
         assert!(
-            rendered.contains("redir https://{host}{uri} permanent"),
+            rendered.contains("redir https://{host}{uri} 307"),
             "{rendered}"
         );
 
