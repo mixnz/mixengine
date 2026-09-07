@@ -937,7 +937,11 @@ impl Generator {
             // does the reading. [`None`] for every service but the pool of a `web-app` extension
             // that declared `signs_in`.
             credential: credentials.get(&service).cloned(),
-            certificate: None,
+            // **The certificate this service presents, when a usable pair is on disk** — roadmap
+            // task T99. Read here rather than issued, on `authority`'s rule and on `drift`'s: a
+            // drift check renders what the last install rendered, so it must see the pair that
+            // install saw. Issuing is `install`'s, just before the render.
+            certificate: Self::certificate_of(self.paths.certs(), &service),
             service,
         };
 
@@ -953,6 +957,60 @@ impl Generator {
         })
     }
 
+    /// What `certs/services/` holds for this service, as the template and the spec name it —
+    /// roadmap task **T99**. [`None`] unless a usable pair is there now.
+    fn certificate_of(
+        certs: &std::path::Path,
+        service: &ServiceId,
+    ) -> Option<recipe::ServiceCertificate> {
+        match crate::certs::service::read(certs, service, std::time::SystemTime::now()) {
+            mixengine_proto::CertState::Present { cert } => Some(recipe::ServiceCertificate {
+                certificate: crate::certs::service::certificate_path(certs, service),
+                key: crate::certs::service::key_path(certs, service),
+                fingerprint: cert.fingerprint,
+            }),
+            _ => None,
+        }
+    }
+
+    /// Give this service a certificate covering `names`, and say what is on disk afterwards —
+    /// roadmap task **T99**.
+    ///
+    /// **Every failure is a warning and a [`None`]**, on the design's D4: a home with no authority,
+    /// a machine that will not make a key, a directory that will not write — each leaves the server
+    /// to generate its own certificate, slowly, and start. What is returned is read back off the
+    /// disk rather than described from the write, so the fingerprint the header carries is the one
+    /// a client will see.
+    fn issue(
+        certs: &std::path::Path,
+        service: &ServiceId,
+        names: &[String],
+    ) -> Option<recipe::ServiceCertificate> {
+        match crate::certs::service::ensure(certs, service, names, std::time::SystemTime::now()) {
+            Ok((_, mixengine_proto::CertState::Present { .. })) => {
+                Self::certificate_of(certs, service)
+            }
+            Ok((_, state)) => {
+                tracing::warn!(
+                    service = service.as_str(),
+                    ?state,
+                    "this service starts without a certificate of its own, and the server will \
+                     generate one"
+                );
+                None
+            }
+            Err(error) => {
+                tracing::warn!(
+                    service = service.as_str(),
+                    %error,
+                    "this service starts without a certificate of its own, and the server will \
+                     generate one"
+                );
+                None
+            }
+        }
+    }
+
     /// A prepared row, all the way to a spec: render, add the sites if it is the front end, install,
     /// build.
     ///
@@ -961,7 +1019,19 @@ impl Generator {
     /// for a service that cannot start. That is the right way round — the config is what a person
     /// reads to work out *why* it will not start, and a spec that does not build is a bug in a
     /// recipe rather than a state anybody has to recover from.
-    async fn install(&self, prepared: Prepared, served: &[Served]) -> Result<Generated> {
+    async fn install(&self, mut prepared: Prepared, served: &[Served]) -> Result<Generated> {
+        // **A certificate for a recipe that asks for one, before anything is rendered** — roadmap
+        // task **T99**, the design's D4. Here rather than in `prepare` because this is the step
+        // that writes: the pair is a file the configuration names and the server will not make,
+        // exactly what the `logs/` and data directories below are. And before `documents`, because
+        // the template reads the fingerprint into its header. A failure here is a warning and a
+        // context carrying `None` — never a start refused: the template then says nothing about
+        // TLS and the server does what it did before this task.
+        if let Some(names) = prepared.recipe.certificate(&prepared.context) {
+            prepared.context.certificate =
+                Self::issue(self.paths.certs(), prepared.context.service(), &names);
+        }
+
         // Rendered before the row is taken apart, and through the helper `drift` uses, so the set
         // that gets installed is the set that gets compared. The role is what selects the recipe, on
         // T37's rule — a home has at most one front end, because `service.create` refuses a second.
@@ -1094,7 +1164,9 @@ mod tests {
         fn files(&self) -> &'static [TemplateFile] {
             &[TemplateFile {
                 path: "fakeservice.conf",
-                source: "say = {{ settings.greeting }}\nport = {{ service.port }}\n{{ extra }}",
+                source: "say = {{ settings.greeting }}\nport = {{ service.port }}\n{% if certificate \
+                         %}cert = {{ certificate.path }}\nkey = {{ certificate.key }}\n# {{ \
+                         certificate.fingerprint }}\n{% endif %}{{ extra }}",
             }]
         }
 
@@ -1134,6 +1206,51 @@ mod tests {
                     .restart(RestartPolicy::Never)
                     .stop(StopBehaviour::Signal { grace: Millis(500) }),
             )
+        }
+    }
+
+    /// [`Fake`], asking for a certificate — roadmap task **T99**.
+    ///
+    /// A second type rather than a flag on [`Fake`], so that every existing fixture keeps proving
+    /// that a recipe which does not ask gets nothing. Everything but the one answer delegates.
+    #[derive(Debug)]
+    struct CertifiedFake;
+
+    impl Recipe for CertifiedFake {
+        fn package(&self) -> &'static str {
+            Fake.package()
+        }
+
+        fn restart_over_memory_default(&self) -> bool {
+            Fake.restart_over_memory_default()
+        }
+
+        fn instancing(&self) -> Instancing {
+            Fake.instancing()
+        }
+
+        fn settings(&self) -> &'static [Setting] {
+            Fake.settings()
+        }
+
+        fn files(&self) -> &'static [TemplateFile] {
+            Fake.files()
+        }
+
+        fn idle_probe(&self, context: &Context) -> Option<mixengine_proto::IdleProbe> {
+            Fake.idle_probe(context)
+        }
+
+        fn held_while_stopped(&self, context: &Context) -> Result<Vec<Upstream>> {
+            Fake.held_while_stopped(context)
+        }
+
+        fn spec(&self, context: &Context) -> Result<ServiceSpecBuilder> {
+            Fake.spec(context)
+        }
+
+        fn certificate(&self, context: &Context) -> Option<Vec<String>> {
+            Some(crate::certs::service::names(context.bind()))
         }
     }
 
@@ -1954,6 +2071,121 @@ mod tests {
             after.iter().all(|one| one.drift.is_empty()),
             "a home that was just rendered still drifts: {after:?}"
         );
+    }
+
+    /// The id [`CertifiedFake`] renders under, and where its pair lands.
+    fn fakeservice() -> ServiceId {
+        ServiceId::parse("fakeservice@main").expect("an id")
+    }
+
+    /// The one file [`Fake`] and [`CertifiedFake`] render, as installed.
+    fn rendered_file(home: &std::path::Path) -> String {
+        std::fs::read_to_string(
+            home.join("etc")
+                .join("fakeservice@main")
+                .join("fakeservice.conf"),
+        )
+        .expect("the rendered file is on disk")
+    }
+
+    /// **A recipe that asks gets a pair this home's authority signed, and the file names it** —
+    /// roadmap task **T99**, the design's D4 and D5.
+    #[tokio::test]
+    async fn a_recipe_that_wants_a_certificate_gets_one_on_a_home_with_an_authority() {
+        let (home, generator) =
+            home_of(Arc::new(CertifiedFake), "fakeservice@main", "main", "{}").await;
+        let certs = generator.paths.certs().to_path_buf();
+        std::fs::create_dir_all(&certs).expect("the certs directory");
+        crate::certs::ca::ensure(&certs, std::time::SystemTime::now()).expect("an authority");
+
+        generator.declared().await.expect("a rendering");
+
+        let key = crate::certs::service::key_path(&certs, &fakeservice());
+        let certificate = crate::certs::service::certificate_path(&certs, &fakeservice());
+        assert!(key.is_file(), "{}", key.display());
+        assert!(certificate.is_file(), "{}", certificate.display());
+
+        let mixengine_proto::CertState::Present { cert } =
+            crate::certs::service::read(&certs, &fakeservice(), std::time::SystemTime::now())
+        else {
+            panic!("the pair on disk is not usable");
+        };
+
+        let file = rendered_file(home.path());
+        assert!(
+            file.contains(&format!("cert = {}", certificate.display())),
+            "{file}"
+        );
+        assert!(file.contains(&format!("key = {}", key.display())), "{file}");
+        assert!(file.contains(&format!("# {}", cert.fingerprint)), "{file}");
+    }
+
+    /// **No authority, no certificate, and still a rendering** — the design's D4: the failure mode
+    /// is the status quo, never a service that will not start.
+    #[tokio::test]
+    async fn a_recipe_that_wants_a_certificate_still_renders_on_a_home_with_none() {
+        let (home, generator) =
+            home_of(Arc::new(CertifiedFake), "fakeservice@main", "main", "{}").await;
+
+        generator.declared().await.expect("a rendering");
+
+        let file = rendered_file(home.path());
+        assert!(!file.contains("cert ="), "{file}");
+        assert!(
+            !generator.paths.certs().join("services").exists(),
+            "something was written under certs/services without an authority"
+        );
+    }
+
+    /// A recipe that does not ask is never issued one, authority or not.
+    #[tokio::test]
+    async fn a_recipe_that_wants_none_gets_none() {
+        let (home, generator) = home("{}").await;
+        let certs = generator.paths.certs().to_path_buf();
+        std::fs::create_dir_all(&certs).expect("the certs directory");
+        crate::certs::ca::ensure(&certs, std::time::SystemTime::now()).expect("an authority");
+
+        generator.declared().await.expect("a rendering");
+
+        assert!(!certs.join("services").exists());
+        assert!(!rendered_file(home.path()).contains("cert ="));
+    }
+
+    /// **Reading in `prepare` is what keeps `drift` honest** — the design's D4. A drift check
+    /// renders without issuing, so it has to see the pair the install saw, or every home with a
+    /// database would drift for ever.
+    #[tokio::test]
+    async fn drift_is_nothing_after_a_render_that_issued() {
+        let (_home, generator) =
+            home_of(Arc::new(CertifiedFake), "fakeservice@main", "main", "{}").await;
+        let certs = generator.paths.certs().to_path_buf();
+        std::fs::create_dir_all(&certs).expect("the certs directory");
+        crate::certs::ca::ensure(&certs, std::time::SystemTime::now()).expect("an authority");
+
+        let before = generator.drift().await.expect("a drift");
+        assert!(before.iter().any(|one| !one.drift.is_empty()), "{before:?}");
+
+        generator.declared().await.expect("a rendering");
+
+        let after = generator.drift().await.expect("a second drift");
+        assert!(after.iter().all(|one| one.drift.is_empty()), "{after:?}");
+    }
+
+    /// The four questions hold across renders: a second one changes neither the pair nor the file.
+    #[tokio::test]
+    async fn a_second_generate_reuses_the_pair() {
+        let (home, generator) =
+            home_of(Arc::new(CertifiedFake), "fakeservice@main", "main", "{}").await;
+        let certs = generator.paths.certs().to_path_buf();
+        std::fs::create_dir_all(&certs).expect("the certs directory");
+        crate::certs::ca::ensure(&certs, std::time::SystemTime::now()).expect("an authority");
+
+        generator.declared().await.expect("a rendering");
+        let first = rendered_file(home.path());
+
+        let again = generator.declared().await.expect("a second rendering");
+        assert!(!again[0].changed(), "a reused pair rewrote the file");
+        assert_eq!(first, rendered_file(home.path()));
     }
 
     /// Asking must not install, or the check would repair what it was sent to report.
