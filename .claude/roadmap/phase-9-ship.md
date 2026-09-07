@@ -219,7 +219,10 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the daemon, and the `.pkg` ships none there — so no packaged macOS install ever learned its
       helper's version, and `mix elevation upgrade` said *none installed* on a machine whose helper
       had just served two grants. The installed helper is now asked first, whatever is beside the
-      daemon, and asked again after every prompt that changed the machine.
+      daemon, and asked again after a prompt that installed or replaced it — and after **only** those,
+      because CI's Windows runner (2026-09-07) read an uninstall as unfinished when a probe after
+      *every* batch ran under the runner's already-elevated token and wrote the audit log the batch
+      had just removed.
       Design: [2026-09-05-t88a-the-helper-update-path-design.md](../../docs/superpowers/specs/2026-09-05-t88a-the-helper-update-path-design.md),
       and [ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md),
       which extends [ADR 0015](../decisions/0015-the-helper-installs-itself.md) rather than editing

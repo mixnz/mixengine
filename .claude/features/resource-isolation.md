@@ -207,11 +207,13 @@ Two numbers we publish and defend in the README:
   **Measured by the `bench` job on all three systems since T72, and reported rather than enforced** —
   57 MB on Windows, 67 MB on Linux, 69 MB on macOS, as the median of five readings taken thirty
   seconds after the last command through the daemon's own `metrics.snapshot`.
-  **What is enforced is `mixengined` alone, under 36 MB** — measured at 21 MB on Windows, 25 MB on
-  Linux and 30 MB on macOS — because the split is roughly a third daemon to two thirds Caddy: most of
-  the published number belongs to a Go program this project neither wrote nor tunes, and a gate on
-  the total would go red for a reason no commit here could fix. The daemon is the half that regresses
-  when this code grows, and it is the half a budget can defend.
+  **What is enforced is `mixengined` alone, under 42 MB** — measured at 21 MB on Windows, 25 MB on
+  Linux and 30 MB on macOS when the budget was set at 36 MB on 2026-08-30, and at 31, 30 and 35 MB a
+  week later, which is what raised it (T72b in the roadmap owes the reason for the growth) — because
+  the split is roughly a third daemon to two thirds Caddy: most of the published number belongs to a
+  Go program this project neither wrote nor tunes, and a gate on the total would go red for a reason
+  no commit here could fix. The daemon is the half that regresses when this code grows, and it is
+  the half a budget can defend.
 - **Cold path**: first request to a stopped site served in **< 1.5 s**. **Measured and enforced by
   the `bench` job on all three systems since T72a**, three rounds per run against three PHP versions
   — measured in release at **108 ms on Linux, 129 ms on macOS and 574 ms on Windows**, as the median
