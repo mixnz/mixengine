@@ -21,6 +21,18 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// What to tell a person who is missing the helper on this system.
+///
+/// **The `.pkg` writes straight to [`HELPER`] and never beside `mixengined`** — it runs as root
+/// during install and can, so there is no bootstrap copy in `/usr/local/bin` for
+/// `mixengine_core::elevation::helper`'s fallback to find once the installed one is gone (a
+/// `mix uninstall`, say). Reinstalling is therefore the only way back, unlike Windows and the
+/// portable archives, where the two live side by side.
+pub(crate) fn missing_helper_advice() -> &'static str {
+    "the .pkg installer writes mixengine-elevate straight into /Library/PrivilegedHelperTools, \
+     never beside mixengined — reinstall the .pkg to put it back"
+}
+
 #[cfg(feature = "elevated")]
 pub(crate) use crate::unix::install::own_as_root;
 

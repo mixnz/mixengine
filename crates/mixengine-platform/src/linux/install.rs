@@ -19,6 +19,19 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// What to tell a person who is missing the helper on this system.
+///
+/// **The `.deb` and the `.rpm` write straight to [`HELPER`] and never beside `mixengined`** — same
+/// reasoning as macOS's sibling function: a distribution package runs as root during install and
+/// writes the final path directly, leaving no bootstrap copy for
+/// `mixengine_core::elevation::helper`'s fallback once the installed one is gone. The AppImage is
+/// the one Linux format where the two do sit together, but it is not the common case this advice is
+/// written for.
+pub(crate) fn missing_helper_advice() -> &'static str {
+    "the .deb or .rpm installer writes mixengine-elevate straight into \
+     /usr/local/libexec/mixengine, never beside mixengined — reinstall the package to put it back"
+}
+
 #[cfg(feature = "elevated")]
 pub(crate) use crate::unix::install::own_as_root;
 

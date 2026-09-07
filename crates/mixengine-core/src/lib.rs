@@ -1613,11 +1613,14 @@ pub enum Error {
         path: PathBuf,
     },
 
-    /// `mixengine-elevate` is not beside the program that went looking for it.
+    /// `mixengine-elevate` is neither installed nor beside the program that went looking for it.
     ///
-    /// [`Error::ShimMissing`]'s sibling and the same broken installation: a release ships
-    /// `mixengined` and `mixengine-elevate` in one directory. It is **not** a reason to refuse to
-    /// start — a daemon with no helper beside it supervises every service in this home perfectly
+    /// [`Error::ShimMissing`]'s sibling, but **not the same guarantee**: the shim always ships
+    /// beside `mixengined`, while the elevate helper only does on some releases (the NSIS installer,
+    /// the portable archives) — a `.pkg`, a `.deb` or an `.rpm` writes it straight to this system's
+    /// protected directory instead, so once that installed copy is gone (a `mix uninstall`, say)
+    /// there is nothing beside the program to fall back to either. It is **not** a reason to refuse
+    /// to start — a daemon with no helper anywhere supervises every service in this home perfectly
     /// well — and it is answered at `elevation.grant`, where somebody can act on it.
     #[error("the elevation helper is missing from {}", path.display())]
     ElevateMissing {

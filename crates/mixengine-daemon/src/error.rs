@@ -520,11 +520,19 @@ impl ToWire for mixengine_core::Error {
             // The one a person can act on, and the reason it is not `internal` like its shim-shaped
             // sibling: nothing can be granted until this file is there, and saying so at the method
             // that needs it is what makes the sentence useful.
+            //
+            // **Per OS and not one sentence copied from `ShimMissing`'s.** The shim really does
+            // always ship beside `mixengined`; the elevate helper does not — a `.pkg`, a `.deb` or
+            // an `.rpm` writes it straight to this system's protected directory and "reinstall" is
+            // the only fix, while the NSIS installer and the portable archives keep a copy beside
+            // the program that survives an uninstall on their own. `missing_helper_advice` is the
+            // one place that distinction is written down, so this arm and its sibling cannot drift
+            // apart again.
             Core::ElevateMissing { .. } => Error::new(ErrorCode::DependencyMissing, chain(self))
-                .with_hint(
-                    "a release ships mixengined and mixengine-elevate in one directory — reinstall \
-                     MixEngine, or build the whole workspace if this is a development tree",
-                ),
+                .with_hint(format!(
+                    "{}, or build the whole workspace if this is a development tree",
+                    mixengine_platform::install::missing_helper_advice()
+                )),
 
             // **Not `dependency_missing`, because nothing is missing** — T85's D5. The file is
             // there and this daemon will not run it as an administrator, which is a state of the

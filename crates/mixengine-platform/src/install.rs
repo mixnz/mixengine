@@ -33,6 +33,20 @@ pub fn helper_path() -> Result<PathBuf> {
     crate::sys::install::helper_path()
 }
 
+/// What to tell a person who ran into `mixengine_core::Error::ElevateMissing` on this machine.
+///
+/// **Per OS and not one sentence**, because "reinstall" is not always the answer and "it ships
+/// beside the program" is not always true. A `.pkg`, a `.deb` or an `.rpm` runs as root during
+/// install and writes [`helper_path`] directly — no bootstrap copy is left beside the program, so
+/// once the installed one is gone (`mix uninstall`, say) reinstalling is the only way back. The NSIS
+/// installer and the portable archives cannot write their OS's protected directory at install time
+/// at all, so they keep a copy beside the program on purpose, and that copy survives an uninstall —
+/// each module argues its own case.
+#[must_use]
+pub fn missing_helper_advice() -> &'static str {
+    crate::sys::install::missing_helper_advice()
+}
+
 /// Make a freshly written file one this machine will execute — roadmap task **T88**.
 ///
 /// **A `.zip` does not carry the executable bit**, and the Windows portable archive is a `.zip`

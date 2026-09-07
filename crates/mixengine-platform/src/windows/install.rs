@@ -20,6 +20,19 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
         .join(HELPER))
 }
 
+/// What to tell a person who is missing the helper on this system.
+///
+/// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in
+/// `%LOCALAPPDATA%\Programs\MixEngine` — `RequestExecutionLevel user` means neither can write
+/// `%ProgramFiles%` directly, so a bootstrap copy has to sit where the rest of the install already
+/// is. That copy survives `mix uninstall`, which leaves the program directory alone, so a plain
+/// `mix elevation grant` re-installs it — unlike macOS and Linux, where reinstalling is the only way
+/// back.
+pub(crate) fn missing_helper_advice() -> &'static str {
+    "a release keeps mixengine-elevate beside mixengined in %LOCALAPPDATA%\\Programs\\MixEngine — \
+     reinstall MixEngine, or re-extract the zip release, to put it back"
+}
+
 /// Nothing to do — roadmap task **T88**.
 ///
 /// There is no execute bit on this system: a file is a program because of its contents and its
