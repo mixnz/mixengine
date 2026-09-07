@@ -11,8 +11,32 @@
 //! is [`Error::UnsupportedPlatform`], which these tests assert instead of skipping silently. That
 //! way the two outcomes are "the store works" and "the OS said, in the typed way, that it has none",
 //! and a *third* one — a store that quietly forgets — cannot pass.
+//!
+//! **One test at a time against the real store, and the reason is Windows.** Cargo runs the tests
+//! in this binary on parallel threads, and the Credential Manager sometimes answers a read on one
+//! thread with *not found* for a credential another thread has just finished writing — CI's Windows
+//! runner read `None` back from a value it had stored three times in one week (2026-09-04, twice,
+//! and 2026-09-07), in two different tests here, and never on the other two systems. `keyring`'s
+//! maintainers measured the same thing and could not fix it in the library
+//! (<https://github.com/open-source-cooperative/keyring-rs/issues/163>): it never happens under
+//! `--test-threads=1`, so the store is treated as something these tests take turns at, through
+//! [`STORE`], rather than something the runner is told to serialise from the command line — a flag
+//! on one job is a fix nobody running `cargo test` at home gets.
+
+use std::sync::{Mutex, MutexGuard};
 
 use mixengine_platform::{Error, Host as _, host, mock};
+
+/// The turn at the real credential store — see the module's own documentation for why there is one.
+static STORE: Mutex<()> = Mutex::new(());
+
+/// Take the turn. A test that panicked while holding it poisons nothing worth keeping: the lock
+/// guards a sequence, not a value.
+fn the_store() -> MutexGuard<'static, ()> {
+    STORE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// A namespace nothing else on this machine is using, and nothing else in this run either.
 ///
@@ -86,6 +110,7 @@ fn chain(error: &Error) -> String {
 
 #[test]
 fn a_stored_credential_comes_back_and_can_be_removed() {
+    let _turn = the_store();
     let host = host();
     let keyring = host.keyring();
     let service = namespace("roundtrip");
@@ -119,6 +144,7 @@ fn a_stored_credential_comes_back_and_can_be_removed() {
 
 #[test]
 fn a_credential_that_was_never_stored_is_absent_rather_than_an_error() {
+    let _turn = the_store();
     let host = host();
     let service = namespace("missing");
 
@@ -136,6 +162,7 @@ fn a_credential_that_was_never_stored_is_absent_rather_than_an_error() {
 
 #[test]
 fn forgetting_a_credential_that_is_not_there_succeeds() {
+    let _turn = the_store();
     let host = host();
     let service = namespace("idempotent");
 
@@ -151,6 +178,7 @@ fn forgetting_a_credential_that_is_not_there_succeeds() {
 /// whole reason the address is a pair.
 #[test]
 fn one_key_under_two_services_is_two_credentials() {
+    let _turn = the_store();
     let host = host();
     let keyring = host.keyring();
     let (mariadb, postgres) = (namespace("mariadb"), namespace("postgres"));
