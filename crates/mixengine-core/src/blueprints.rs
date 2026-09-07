@@ -19,6 +19,7 @@ pub mod capture;
 pub mod gallery;
 pub mod manifest;
 pub mod plan;
+pub mod program;
 pub mod store;
 pub mod trust;
 
