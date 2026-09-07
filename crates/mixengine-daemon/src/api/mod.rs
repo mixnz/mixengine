@@ -16,7 +16,10 @@
 
 // Reachable by name rather than only through the re-export below, because a `Frame` is what a
 // subscriber receives and the registry's tests assert on the ones its transitions produce.
-mod apply;
+// Crate-visible for one name: `blueprints::planned` reads the scaffold's PATH from
+// `api::apply::scaffold`, so that a plan judges a command against the string the shell would be
+// started with (T78b, D3).
+pub(crate) mod apply;
 mod create;
 pub(crate) mod events;
 mod front_end;

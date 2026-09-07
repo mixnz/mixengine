@@ -99,6 +99,22 @@ pub(crate) fn untouched_with_consent(
             }),
         },
 
+        // **Its program is not there, so it is left** — roadmap task **T78b**, its design's D5.
+        // With a consent it was refused before the job existed; without one it was never going to
+        // run. Either way the sentence carries the command and the reason.
+        Disposition::Blocked { reason }
+            if matches!(step.action, PlanAction::RunScaffold { .. }) =>
+        {
+            let command = match &step.action {
+                PlanAction::RunScaffold { command } => command.as_str(),
+                _ => "",
+            };
+
+            Some(StepResult::NotRun {
+                why: format!("`{command}` was not run: {reason}"),
+            })
+        }
+
         // Every one of these was refused before the job existed. Reaching one here means the plan
         // changed underneath this apply, which is a failure and not a step outcome — so it is left
         // to the caller, which turns [`None`] into work and finds there is none to do.
@@ -303,5 +319,48 @@ mod tests {
         let plan = a_plan(vec![a_site(), step(Disposition::Create)]);
 
         assert!(names_after(&plan, 0).is_empty());
+    }
+
+    /// **A scaffold whose program is missing is left with the reason, consent or no consent** —
+    /// roadmap task **T78b**, its design's D5. With a consent it was refused before the job existed;
+    /// reaching here means the plan changed underneath the apply, and not running is the safe
+    /// reading of a command whose program is not there.
+    #[test]
+    fn a_scaffold_whose_program_is_missing_is_left_with_the_reason() {
+        let step = PlanStep {
+            action: PlanAction::RunScaffold {
+                command: "composer install".to_owned(),
+            },
+            disposition: Disposition::Blocked {
+                reason: "`composer` is not on the PATH the command would run with".to_owned(),
+            },
+            elevates: false,
+        };
+        let consent = ScaffoldConsent {
+            command: "composer install".to_owned(),
+            untrusted: false,
+        };
+
+        for consent in [None, Some(&consent)] {
+            let Some(StepResult::NotRun { why }) = untouched_with_consent(&step, consent) else {
+                panic!("a blocked scaffold is left rather than run");
+            };
+            assert!(why.contains("composer install"), "{why}");
+            assert!(why.contains("`composer`"), "{why}");
+        }
+    }
+
+    /// Any other blocked step is still not decided here — it was refused before the job existed.
+    #[test]
+    fn a_blocked_step_that_is_not_a_scaffold_is_not_decided_here() {
+        assert_eq!(
+            untouched_with_consent(
+                &step(Disposition::Blocked {
+                    reason: "in the way".to_owned()
+                }),
+                None
+            ),
+            None
+        );
     }
 }

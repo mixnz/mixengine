@@ -106,14 +106,26 @@ impl Sink for Discarding {
 /// the command with the shims alone, which is the half that matters here.
 pub(crate) fn environment(paths: &Paths) -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
-    let inherited = std::env::var_os("PATH").unwrap_or_default();
 
-    let ahead = std::iter::once(paths.bin().to_path_buf());
-    let joined = std::env::join_paths(ahead.chain(std::env::split_paths(&inherited)))
-        .unwrap_or_else(|_| paths.bin().as_os_str().to_owned());
-
-    env.insert("PATH".to_owned(), joined.to_string_lossy().into_owned());
+    env.insert(
+        "PATH".to_owned(),
+        path(paths).to_string_lossy().into_owned(),
+    );
     env
+}
+
+/// The `PATH` a scaffold command runs with: `<home>/bin` first, then this daemon's own.
+///
+/// One function for both the plan and the shell — roadmap task **T78b**, its design's D3: the plan
+/// judges a command's program against exactly the string the command would be started with, and a
+/// program installed after this daemon started is invisible to both until it restarts. What
+/// [`environment`] says about the shims and about `join_paths` is about this half of it.
+pub(crate) fn path(paths: &Paths) -> std::ffi::OsString {
+    let inherited = std::env::var_os("PATH").unwrap_or_default();
+    let ahead = std::iter::once(paths.bin().to_path_buf());
+
+    std::env::join_paths(ahead.chain(std::env::split_paths(&inherited)))
+        .unwrap_or_else(|_| paths.bin().as_os_str().to_owned())
 }
 
 /// Run one command in `root`, with its output going to `sink` as it arrives.

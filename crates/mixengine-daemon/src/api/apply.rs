@@ -16,7 +16,7 @@
 //! the real run.
 
 mod ledger;
-mod scaffold;
+pub(crate) mod scaffold;
 mod steps;
 
 use std::collections::BTreeMap;
@@ -27,9 +27,9 @@ use mixengine_core::blueprints::manifest::BlueprintManifest;
 use mixengine_proto::{
     AnswerSubject, BlueprintApplied, BlueprintApply, BlueprintApplyResponse, BlueprintPlan,
     DatabaseCreate, Disposition, DomainAdd, Error, ErrorCode, ExtensionChoice, IssueOutcome,
-    JobKind, LogSubject, PackageTarget, PackageVersion, PlanAction, ProjectCreate, ProjectRef,
-    RuntimeKind, RuntimeTarget, ScaffoldConsent, ServiceCreate, ServiceId, SiteCreate, SiteRef,
-    StepOutcome, StepResult, VersionAnswer, rpc,
+    JobKind, LogSubject, PackageTarget, PackageVersion, PlanAction, PlanStep, ProjectCreate,
+    ProjectRef, RuntimeKind, RuntimeTarget, ScaffoldConsent, ServiceCreate, ServiceId, SiteCreate,
+    SiteRef, StepOutcome, StepResult, VersionAnswer, rpc,
 };
 
 use super::Api;
@@ -678,7 +678,11 @@ fn questions(plan: &BlueprintPlan) -> Vec<AnswerSubject> {
 fn consent_refusal(plan: &BlueprintPlan, consent: Option<&ScaffoldConsent>) -> Option<Error> {
     let consent = consent?;
 
-    let planned = plan.steps.iter().find_map(|step| match &step.action {
+    let planned_step = plan
+        .steps
+        .iter()
+        .find(|step| matches!(step.action, PlanAction::RunScaffold { .. }));
+    let planned = planned_step.and_then(|step| match &step.action {
         PlanAction::RunScaffold { command } => Some(command.as_str()),
         _ => None,
     });
@@ -731,6 +735,22 @@ fn consent_refusal(plan: &BlueprintPlan, consent: Option<&ScaffoldConsent>) -> O
         );
     }
 
+    // **Agreed to, and cannot run** — roadmap task **T78b**, its design's D5. Refused here, in the
+    // plan's own words, rather than as a shell's complaint at the end of a job. The hint never says
+    // `bin/`: that directory is swept of strangers at every start (T26).
+    if let Some(PlanStep {
+        disposition: Disposition::Blocked { reason },
+        ..
+    }) = planned_step
+    {
+        return Some(
+            Error::new(ErrorCode::PreconditionFailed, reason.clone()).with_hint(
+                "install it, put it on your PATH and restart the daemon — or apply without \
+                 agreeing to the command, and everything else is still applied",
+            ),
+        );
+    }
+
     None
 }
 
@@ -745,9 +765,12 @@ fn refusal(
     plan: &BlueprintPlan,
     answers: &[VersionAnswer],
 ) -> Option<Error> {
+    // **A blocked scaffold blocks the scaffold and not the apply** (T78b, D5): the one optional
+    // step, whose refusal — when a consent names it — is `consent_refusal`'s.
     let blocked: Vec<String> = plan
         .steps
         .iter()
+        .filter(|step| !matches!(step.action, PlanAction::RunScaffold { .. }))
         .filter_map(|step| match &step.disposition {
             Disposition::Blocked { reason } | Disposition::Unsupported { reason } => {
                 Some(reason.clone())
@@ -820,9 +843,7 @@ fn refusal(
 mod tests {
     use super::*;
 
-    use mixengine_proto::{
-        MismatchAnswer, PackageVersion, PlanStep, RuntimeKind, VersionConstraint,
-    };
+    use mixengine_proto::{MismatchAnswer, PackageVersion, RuntimeKind, VersionConstraint};
 
     fn step(action: PlanAction, disposition: Disposition) -> PlanStep {
         PlanStep {
@@ -850,6 +871,49 @@ mod tests {
         };
 
         plan
+    }
+
+    /// A plan whose command is blocked because its program is not on the PATH.
+    fn a_plan_with_a_blocked_scaffold(command: &str) -> BlueprintPlan {
+        let mut plan = a_plan_with_a_scaffold(command, true);
+        plan.steps[0].disposition = Disposition::Blocked {
+            reason: "`composer` is not on the PATH the command would run with (<home>/bin, then \
+                     the daemon's own PATH)"
+                .to_owned(),
+        };
+        plan
+    }
+
+    /// **A blocked scaffold blocks the scaffold, not the apply** — roadmap task **T78b**, its
+    /// design's D5. Without a consent the plan is work, and the step is left with its reason.
+    #[test]
+    fn a_blocked_scaffold_without_a_consent_is_not_a_refusal() {
+        let plan = a_plan_with_a_blocked_scaffold("composer create-project laravel/laravel .");
+
+        assert!(refusal(&[], &plan, &[]).is_none());
+        assert!(consent_refusal(&plan, None).is_none());
+    }
+
+    /// With a consent it is refused up front, naming the program and what to do about it — and
+    /// never suggesting `bin/`, which is swept at every start.
+    #[test]
+    fn a_blocked_scaffold_with_a_consent_is_refused_naming_the_program() {
+        let plan = a_plan_with_a_blocked_scaffold("composer create-project laravel/laravel .");
+
+        let refused = consent_refusal(
+            &plan,
+            Some(&ScaffoldConsent {
+                command: "composer create-project laravel/laravel .".to_owned(),
+                untrusted: false,
+            }),
+        )
+        .expect("a refusal");
+
+        assert_eq!(refused.code, ErrorCode::PreconditionFailed);
+        assert!(refused.message.contains("`composer`"), "{refused:?}");
+        let hint = refused.hint.as_deref().unwrap_or_default();
+        assert!(hint.contains("restart"), "{hint}");
+        assert!(!hint.contains("bin/"), "{hint}");
     }
 
     /// **A consent naming another command is consent to something else** — roadmap task **T78a**,
