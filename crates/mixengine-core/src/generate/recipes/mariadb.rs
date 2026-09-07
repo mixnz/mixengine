@@ -844,6 +844,39 @@ mod tests {
         );
     }
 
+    /// **TLS is off, because from 11.4 a server with no certificate generates one at every start.**
+    ///
+    /// A 4096-bit RSA key in `init_ssl`, measured against 11.4.12 as four to thirteen seconds of
+    /// silence in `mariadb.err` between InnoDB coming up and the socket being created — the whole
+    /// of the M3 warm start's spread on `bench (ubuntu-latest)`. A directive on its own line, so the
+    /// assertion cannot be satisfied by the comment that explains it.
+    #[test]
+    fn tls_is_off_because_a_generated_certificate_costs_seconds_per_start() {
+        let rendered = rendered("{}");
+
+        assert!(
+            rendered.lines().any(|line| line.trim() == "skip-ssl"),
+            "{rendered}"
+        );
+    }
+
+    /// And the escape hatch holds for it: a certificate named in `extra` renders after `skip-ssl`,
+    /// and naming one is what turns the server's TLS back on.
+    #[test]
+    fn a_user_can_turn_tls_back_on() {
+        let rendered =
+            rendered(r#"{"extra": "ssl_cert = /certs/db.pem\nssl_key = /certs/db.key"}"#);
+
+        let off = rendered
+            .find("\nskip-ssl")
+            .expect("the recipe states its own value");
+        let on = rendered
+            .rfind("ssl_cert = /certs/db.pem")
+            .expect("the override reaches the file");
+
+        assert!(on > off, "{rendered}");
+    }
+
     /// **The relaxed flush is the log's, and the page barriers are untouched.**
     ///
     /// What T73 spends is the last second of committed transactions; what it must never spend is a

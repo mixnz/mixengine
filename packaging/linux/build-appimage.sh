@@ -51,6 +51,18 @@ if [ ! -x "$tool" ]; then
   chmod 755 "$tool"
 fi
 
+# **The runtime the AppImage boots with, fetched here rather than left to the tool.** Given nothing,
+# appimagetool downloads it itself at every run — from type2-runtime's `continuous` build, with no
+# retry, so a GitHub 504 on that one request is a failed release leg (run 34128004289, the aarch64
+# leg). Fetching it here gets the same pin and the same `--retry` as the tool above, and the same
+# per-architecture cache: the runtime is the one part of an AppImage that runs on the *user's*
+# machine, so handing an x86_64 leg an aarch64 runtime would build an image that cannot start.
+runtime="$MIX_OUT/appimage-runtime-$arch"
+if [ ! -s "$runtime" ]; then
+  curl --fail --silent --show-error --location --retry 3 --output "$runtime" \
+    "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$arch"
+fi
+
 name="mixengine-$version-linux-$arch.AppImage"
 rm -f "$dist/$name"
 
@@ -58,7 +70,7 @@ rm -f "$dist/$name"
 # cannot run the tool inside it. The environment variable rather than the `--appimage-extract-and-run`
 # argument, because every type-2 runtime honours the variable and only newer ones parse the flag —
 # and a flag the runtime does not recognise is one it passes through to the program inside.
-ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$tool" "$appdir" "$dist/$name"
+ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --runtime-file "$runtime" "$appdir" "$dist/$name"
 chmod 755 "$dist/$name"
 
 # **Run what was just made rather than reading its table of contents** — the T85 design, D11, and

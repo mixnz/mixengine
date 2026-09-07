@@ -698,6 +698,15 @@ budget "buys concurrency by changing this walker and nothing else" — and it di
 evidence it would not buy the tail either: the two fast services are 300 ms of the twelve seconds.
 Cold I/O in MariaDB's own start is where anybody chasing it should look.
 
+**Found, and it was not I/O.** Once the suite printed `mariadb.err` for a slow round (runs
+33995293561 and 34128004289, both red on the median), every one had the same shape: InnoDB up, then
+four to thirteen seconds of silence, then `Server socket created`. Between those two lines 11.4 runs
+`init_ssl`, and since 11.4 `ssl` defaults to on — a server with no certificate configured **generates
+a 4096-bit RSA key at every start**, a prime search whose duration is the spread. The recipe now
+renders `skip-ssl` with the measurement beside it; nothing here speaks TLS to a database on loopback,
+and `ssl_cert` in `extra` turns it back on. The "bimodal on ubuntu" the `bench` job's comments
+describe was this, and macOS and Windows were only ever faster at the same key.
+
 ---
 
 Previous: [Phase 2 — Runtimes](phase-2-runtimes.md) · Next: [Phase 4 — Sites, domains and on-demand elevation](phase-4-sites-and-elevation.md)

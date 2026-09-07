@@ -633,6 +633,13 @@ async fn three_services_start_together_inside_the_budget() {
         // say is *why* `mariadb-admin ping` went on failing for twelve seconds, because that answer
         // is written by `mariadbd` and not by anything watching it. It goes to `logs/mariadb.err`,
         // named by the `log_error` this recipe renders.
+        //
+        // **And that log did answer.** Every slow round had the same shape: InnoDB up, then four to
+        // thirteen seconds of nothing, then `Server socket created`. Between those two lines 11.4
+        // runs `init_ssl`, and a server with no certificate configured generates a 4096-bit RSA key
+        // there at every start — a prime search, which is why the same runner gave 4 s one round and
+        // 13 s the next. The recipe now renders `skip-ssl`, with the measurement beside it. The two
+        // tails stay printed: the next cause will need the same diagnosis.
         if took > BUDGET {
             eprintln!(
                 "[m3] that round was over the budget — the daemon's own account of it:\n{}",
