@@ -987,7 +987,15 @@ impl Generator {
         names: &[String],
     ) -> Option<recipe::ServiceCertificate> {
         match crate::certs::service::ensure(certs, service, names, std::time::SystemTime::now()) {
-            Ok((_, mixengine_proto::CertState::Present { .. })) => {
+            Ok((issued, mixengine_proto::CertState::Present { cert })) => {
+                if issued == crate::certs::leaf::Issued::Written {
+                    tracing::info!(
+                        service = service.as_str(),
+                        fingerprint = cert.fingerprint,
+                        sans = ?cert.sans,
+                        "a certificate was issued for this service"
+                    );
+                }
                 Self::certificate_of(certs, service)
             }
             Ok((_, state)) => {
