@@ -11,6 +11,7 @@ version = "0.0.1"
 
 [runtimes]
 php = "8.4"
+composer = "2"
 
 [site]
 kind = "php-fpm"
