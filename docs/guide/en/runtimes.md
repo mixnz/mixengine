@@ -53,8 +53,9 @@ nothing for it to say.
 ## Composer
 
 ```bash
-mix runtime install composer 2      # the newest 2.x the index offers
-composer --version                  # runs composer.phar under this directory's PHP
+mix runtime available --kind composer   # the versions the index offers
+mix runtime install composer 2.10.3     # exact, like every install
+composer --version                      # runs composer.phar under this directory's PHP
 mix project update shop --pin composer=2.2
 ```
 

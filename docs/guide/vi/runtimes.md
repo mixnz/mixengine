@@ -4,7 +4,7 @@ slug = "runtimes"
 order = 5
 summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó. Không hook shell, không phải nhớ gì cả."
 translation_of = "en/runtimes.md"
-source_sha256 = "1da36e5339a2f95c8a1b3872d71e752b432114ada27b45c9b78d48150f10ca80"
+source_sha256 = "f55875188eb56fb4df4083ce96721389788822f188f240546a33bd15be18eb36"
 +++
 
 # Phiên bản PHP, Node, Python và Ruby
