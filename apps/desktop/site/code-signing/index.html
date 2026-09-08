@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Signing Policy — MixDB</title>
+<meta name="description" content="How MixDB releases are built, who may authorise a signed release, where the signing key lives, and how to verify a binary you downloaded.">
+<link rel="icon" href="../logo.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header>
+  <a class="brand" href="../">MixDB</a>
+  <div class="switch" role="group" aria-label="Language / Ngôn ngữ">
+    <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+    <button type="button" data-set-lang="vi" aria-pressed="false">Tiếng Việt</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ============================ ENGLISH ============================ -->
+<article class="doc" lang="en">
+
+  <h1>Code Signing Policy</h1>
+  <p class="dates">For the MixDB desktop application · Effective 31 August 2026 · Last updated 31 August 2026</p>
+
+  <div class="lede">
+    <p><strong>Status: not yet in effect.</strong> MixDB releases are currently unsigned, and Windows
+    will warn you on first install. This document states the policy that governs signing from the
+    first signed release onward; this paragraph will be replaced with the version number that
+    signing began at.</p>
+  </div>
+
+  <h2>1. What gets signed</h2>
+  <p>The Windows installer published on the project's releases page, and the executables it contains. Nothing else is signed under this policy — in particular, the macOS and Linux artifacts are covered by their own platforms' mechanisms and are outside its scope.</p>
+
+  <h2>2. Who may authorise a signed release</h2>
+  <p>MixDB is maintained by one person: mixnz (Nguyễn Hải Quang), who is the project's sole author, reviewer and approver. Only that account may tag a release or approve a signing request. Should anyone else be given that authority, this page is updated before they use it.</p>
+  <p>The accounts that hold this authority — the GitHub account that can push tags, and the signing service account — have multi-factor authentication enabled.</p>
+
+  <h2>3. How the binaries are produced</h2>
+  <p>Every released binary is built by GitHub Actions from the public source of this project, from a tagged commit, in a workflow defined in the repository itself: <code>.github/workflows/release.yml</code>. No binary built on a developer's own machine is ever published.</p>
+  <p>This matters more than the signature does. A signature says the file came from us unaltered; a build you can read the recipe for, run from source, and compare against, says <em>what is in it</em>. Both are published, so both can be checked.</p>
+
+  <h2>4. Where the signing key lives</h2>
+  <p>The signing key is held in a hardware security module operated by the signing service, and is never downloaded, exported, or present on any machine belonging to the project. Signing happens as a step in the release workflow, which submits the built artifact to the service and receives the signed one back. No person, the maintainer included, can sign a binary by hand outside that workflow.</p>
+
+  <h2>5. What is not signed with it</h2>
+  <p>MixDB updates itself, and each update carries a second, separate signature made with the project's own updater key. That key is unrelated to the code-signing certificate: it protects the update channel, and is checked by MixDB before an update is installed. Neither signature substitutes for the other.</p>
+
+  <h2>6. How to verify a download</h2>
+  <ul>
+    <li><strong>Windows</strong> — right-click the installer, choose <em>Properties</em>, then the <em>Digital Signatures</em> tab. The signature must be present and valid, and must name this project. If the tab is absent, the file is not one of ours or is an unsigned release predating this policy.</li>
+    <li><strong>Source</strong> — every release is tagged in the repository, and the workflow that built it is in the tree at that tag. A build you produce yourself from that tag is the same program.</li>
+  </ul>
+
+  <h2>7. Reporting a suspicious binary</h2>
+  <p>If you find a binary presented as MixDB whose signature does not check out, or that was not published on the project's own releases page, please report it to <a href="mailto:haiquang9994@outlook.com">haiquang9994@outlook.com</a> rather than posting it publicly. The same address takes any question about this policy.</p>
+
+  <h2>8. Licence</h2>
+  <p>MixDB is free software, released under the GNU General Public License v3.0 or later. A single licence covers the whole project; there is no parallel commercial edition and no dual licensing.</p>
+
+  <h2>9. Changes to this policy</h2>
+  <p>A revised policy appears on this page with a new effective date. Changes to who may authorise a release, or to where the key is held, are announced in the release notes of the version that introduces them.</p>
+
+  <address>
+    mixnz — Nguyễn Hải Quang<br>
+    Cẩm Mỹ, Đồng Nai, Vietnam<br>
+    <a href="mailto:haiquang9994@outlook.com">haiquang9994@outlook.com</a>
+  </address>
+
+</article>
+
+<!-- ============================ TIẾNG VIỆT ============================ -->
+<article class="doc" lang="vi">
+
+  <h1>Chính sách ký mã nguồn</h1>
+  <p class="dates">Cho ứng dụng máy tính MixDB · Hiệu lực 31/08/2026 · Cập nhật lần cuối 31/08/2026</p>
+
+  <div class="lede">
+    <p><strong>Trạng thái: chưa có hiệu lực.</strong> Các bản phát hành MixDB hiện chưa được ký, và
+    Windows sẽ cảnh báo khi bạn cài lần đầu. Tài liệu này nêu chính sách áp dụng kể từ bản phát hành
+    được ký đầu tiên; đoạn này sẽ được thay bằng số phiên bản mà việc ký bắt đầu.</p>
+  </div>
+
+  <h2>1. Những gì được ký</h2>
+  <p>Bộ cài Windows công bố trên trang phát hành của dự án, cùng các tệp thực thi bên trong nó. Ngoài ra không gì khác được ký theo chính sách này — cụ thể là các bản dựng cho macOS và Linux thuộc cơ chế riêng của từng nền tảng, nằm ngoài phạm vi ở đây.</p>
+
+  <h2>2. Ai được phép duyệt một bản phát hành có ký</h2>
+  <p>MixDB do một người duy trì: mixnz (Nguyễn Hải Quang), đồng thời là tác giả, người rà soát và người phê duyệt duy nhất của dự án. Chỉ tài khoản đó mới được tạo tag phát hành hay phê duyệt một yêu cầu ký. Nếu sau này có thêm người được trao quyền ấy, trang này sẽ được cập nhật trước khi họ dùng tới nó.</p>
+  <p>Các tài khoản nắm quyền này — tài khoản GitHub có thể đẩy tag, và tài khoản của dịch vụ ký — đều đã bật xác thực đa yếu tố.</p>
+
+  <h2>3. Các tệp nhị phân được tạo ra thế nào</h2>
+  <p>Mọi tệp nhị phân được phát hành đều do GitHub Actions dựng từ mã nguồn công khai của dự án, từ một commit đã gắn tag, theo một workflow nằm ngay trong repository: <code>.github/workflows/release.yml</code>. Không có tệp nào dựng trên máy cá nhân của lập trình viên mà được đem phát hành.</p>
+  <p>Điều này còn quan trọng hơn bản thân chữ ký. Chữ ký nói rằng tệp đến từ chúng tôi và chưa bị sửa; còn một quy trình dựng mà bạn đọc được công thức, chạy lại được từ mã nguồn và đối chiếu được, mới nói cho bạn biết <em>bên trong nó có gì</em>. Cả hai đều công khai, nên cả hai đều kiểm được.</p>
+
+  <h2>4. Khoá ký nằm ở đâu</h2>
+  <p>Khoá ký được giữ trong một mô-đun bảo mật phần cứng do dịch vụ ký vận hành, không bao giờ được tải về, xuất ra, hay hiện diện trên bất kỳ máy nào của dự án. Việc ký diễn ra như một bước trong workflow phát hành: workflow gửi tệp đã dựng tới dịch vụ và nhận lại tệp đã ký. Không ai, kể cả người duy trì dự án, có thể ký một tệp bằng tay ngoài workflow đó.</p>
+
+  <h2>5. Thứ không được ký bằng khoá này</h2>
+  <p>MixDB tự cập nhật, và mỗi bản cập nhật mang thêm một chữ ký thứ hai, riêng biệt, tạo bằng khoá updater của chính dự án. Khoá đó không liên quan gì tới chứng chỉ ký mã: nó bảo vệ kênh cập nhật, và được MixDB kiểm trước khi cài. Hai chữ ký không thay thế được cho nhau.</p>
+
+  <h2>6. Cách kiểm tra tệp bạn tải về</h2>
+  <ul>
+    <li><strong>Windows</strong> — chuột phải vào bộ cài, chọn <em>Properties</em>, rồi thẻ <em>Digital Signatures</em>. Chữ ký phải có mặt, hợp lệ, và mang tên dự án này. Nếu không thấy thẻ đó, tệp hoặc không phải của chúng tôi, hoặc là một bản phát hành chưa ký có trước chính sách này.</li>
+    <li><strong>Mã nguồn</strong> — mỗi bản phát hành đều có tag trong repository, và workflow đã dựng ra nó nằm ngay trong cây mã tại tag đó. Bản bạn tự dựng lại từ tag ấy chính là cùng một chương trình.</li>
+  </ul>
+
+  <h2>7. Báo một tệp đáng ngờ</h2>
+  <p>Nếu bạn gặp một tệp mạo danh MixDB có chữ ký không hợp lệ, hoặc không được công bố trên trang phát hành của dự án, xin báo tới <a href="mailto:haiquang9994@outlook.com">haiquang9994@outlook.com</a> thay vì công bố công khai. Cũng địa chỉ đó nhận mọi thắc mắc về chính sách này.</p>
+
+  <h2>8. Giấy phép</h2>
+  <p>MixDB là phần mềm tự do, phát hành theo giấy phép GNU General Public License v3.0 hoặc mới hơn. Một giấy phép duy nhất bao trùm toàn bộ dự án; không có bản thương mại song song và không có dual licensing.</p>
+
+  <h2>9. Thay đổi chính sách</h2>
+  <p>Bản sửa đổi sẽ xuất hiện tại trang này kèm ngày hiệu lực mới. Những thay đổi về việc ai được duyệt một bản phát hành, hoặc về nơi giữ khoá, sẽ được nêu trong ghi chú phát hành của phiên bản mang thay đổi đó.</p>
+
+  <address>
+    mixnz — Nguyễn Hải Quang<br>
+    Cẩm Mỹ, Đồng Nai, Việt Nam<br>
+    <a href="mailto:haiquang9994@outlook.com">haiquang9994@outlook.com</a>
+  </address>
+
+</article>
+
+</main>
+
+<footer>
+  <span class="doc" lang="en">MixDB — a desktop client for MySQL, PostgreSQL, MongoDB and Redis. <a href="../">Home</a> · <a href="../privacy/">Privacy policy</a></span>
+  <span class="doc" lang="vi">MixDB — ứng dụng desktop cho MySQL, PostgreSQL, MongoDB và Redis. <a href="../">Trang chủ</a> · <a href="../privacy/">Chính sách quyền riêng tư</a></span>
+</footer>
+
+<script src="../lang.js"></script>
+
+</body>
+</html>

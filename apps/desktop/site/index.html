@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MixDB</title>
+<meta name="description" content="MixDB — a desktop client for MySQL, PostgreSQL, MongoDB and Redis, with a REST client, a terminal and a box of small tools.">
+<!-- Chép vào từ public/logo.svg lúc deploy — xem .github/workflows/pages.yml. Logo chỉ có một bản gốc. -->
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    --font-ui: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+    --page-bg: #f6f6f6;
+    --surface-bg: #ffffff;
+    --text: #0f0f0f;
+    --text-muted: #5a5a5a;
+    --border-soft: rgb(128 128 128 / 0.15);
+    --accent: #23528c;
+    --accent-on: #ffffff;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page-bg: #262626;
+      --surface-bg: #2f2f2f;
+      --text: #ffffff;
+      --text-muted: #b0b0b0;
+      --accent: #6f9fd8;
+      --accent-on: #16283d;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 40rem;
+    width: 100%;
+    margin: 0 auto;
+    padding: 4rem 1.25rem;
+  }
+
+  h1 { font-size: 2.4rem; letter-spacing: -0.03em; margin: 0 0 0.5rem; }
+  .tagline { font-size: 1.1rem; color: var(--text-muted); margin: 0 0 2rem; }
+
+  ul.what { list-style: none; padding: 0; margin: 0 0 2.5rem; }
+  ul.what li {
+    padding: 0.7rem 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  ul.what strong { font-weight: 600; }
+  ul.what span { color: var(--text-muted); }
+
+  .links { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .links a {
+    display: inline-block;
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    background: var(--surface-bg);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    font-size: 14px;
+    text-decoration: none;
+  }
+  .links a:hover { border-color: var(--accent); color: var(--accent); }
+  .links a.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-on); }
+  .links a.primary:hover { color: var(--accent-on); opacity: 0.9; }
+
+  footer {
+    max-width: 40rem;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.25rem 1.25rem 2.5rem;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<main>
+  <h1>MixDB</h1>
+  <p class="tagline">A desktop client for the things you keep open beside your editor.</p>
+
+  <ul class="what">
+    <li><strong>Database</strong> — <span>MySQL, PostgreSQL, MongoDB and Redis, over SSH tunnels when you need them.</span></li>
+    <li><strong>REST</strong> — <span>compose requests, read responses, keep history and per-environment variables.</span></li>
+    <li><strong>Terminal</strong> — <span>a shell on this machine, or on a server over SSH.</span></li>
+    <li><strong>Tools</strong> — <span>the small conversions and generators you reach for mid-task.</span></li>
+    <li><strong>MixEngine</strong> — <span>manage the local dev daemon's services, sites and domains, over its own tab.</span></li>
+  </ul>
+
+  <div class="links">
+    <a class="primary" href="https://github.com/mixnz/mixdb/releases/latest/download/MixDB-windows-x64-setup.exe">Windows (.exe)</a>
+    <a class="primary" href="https://github.com/mixnz/mixdb/releases/latest/download/MixDB-macos-universal.dmg">macOS (.dmg)</a>
+    <a class="primary" href="https://github.com/mixnz/mixdb/releases/latest/download/MixDB-linux-x64.AppImage">Linux (.AppImage)</a>
+    <a class="primary" href="https://github.com/mixnz/mixdb/releases/latest/download/MixDB-linux-x64.deb">Linux (.deb)</a>
+    <a href="https://github.com/mixnz/mixdb/releases">All releases</a>
+    <a href="https://github.com/mixnz/mixdb">Source</a>
+    <a href="privacy/">Privacy Policy</a>
+    <a href="code-signing/">Code Signing</a>
+  </div>
+</main>
+
+<footer>
+  Free software under MIT OR Apache-2.0. Passwords go to your operating system's credential
+  store. Nothing is collected — see the <a href="privacy/">privacy policy</a>.
+</footer>
+
+</body>
+</html>

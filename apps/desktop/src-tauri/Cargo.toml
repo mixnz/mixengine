@@ -1,0 +1,135 @@
+[package]
+name = "mixdb"
+version = "0.0.33"
+# Both are read back out into the installer's metadata, so they are what a user sees in
+# Add/Remove Programs rather than notes to ourselves.
+description = "MixDB - multi-database desktop client (MySQL, PostgreSQL, MongoDB, Redis)"
+authors = ["mixnz"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "tauri_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.53.1", features = ["full"] }
+mongodb = "3.8.0"
+redis = { version = "1.5.0", features = ["tokio-comp", "connection-manager"] }
+sqlx = { version = "0.9.0", features = ["mysql", "postgres", "sqlite", "uuid", "runtime-tokio", "tls-native-tls", "chrono", "json", "rust_decimal"] }
+# Named here only to force `bundled` on. Left to sqlx alone, `libsqlite3-sys` resolves with
+# `pkg-config` and `vcpkg` — it links against whatever SQLite the *build* machine happens to have,
+# and Windows has none. Bundling compiles SQLite from source into the binary, which is the only way
+# the three release targets all get the same engine. The cost is a C compiler at build time, paid
+# twice for the universal macOS bundle.
+libsqlite3-sys = { version = "0.37", features = ["bundled"] }
+# SQL Server speaks TDS, which sqlx has no driver for. `tiberius` is pure Rust and talks TDS over
+# tokio, so nothing has to be installed on the user's machine — an ODBC driver manager plus
+# Microsoft's own driver is not something a packaged app should ask for, least of all on Linux and
+# macOS where neither ships by default. See
+# `docs/superpowers/specs/2026-09-05-mssql-support-design.md`'s D1.
+#
+# `native-tls` matches sqlx, reqwest and the updater rather than pulling a second TLS stack in.
+# `tds73` is not cosmetic: without it the connection negotiates an older protocol and `date`,
+# `time`, `datetime2` and `datetimeoffset` have no `ColumnData` variant to decode into.
+tiberius = { version = "0.12", default-features = false, features = ["tds73", "native-tls", "rust_decimal", "chrono"] }
+# tiberius ships no pool of its own, unlike sqlx. deadpool is the thin one: it recycles a client
+# and nothing more, which is all a TDS session needs.
+deadpool = "0.12"
+rust_decimal = "1.36"
+russh = { version = "0.62.5", default-features = false, features = ["ring", "flate2", "rsa"] }
+tauri-plugin-store = "2.4.4"
+uuid = { version = "1.24.0", features = ["v4"] }
+# Reads the `mixdb://connect?…` URL another program starts MixDB with (`modules/db/handoff.rs`).
+# Already in the tree through the drivers; named here so the parse is ours to call.
+url = "2"
+# The HTTP/1.1 client for MixEngine's local API — a Unix socket or a named pipe, never a TCP port,
+# so `reqwest` cannot be pointed at it. All three are already in `Cargo.lock` through reqwest and
+# tauri, so naming them here adds nothing to the tree; it only makes them ours to call.
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+# Reads `[daemon] ipc_path` out of MixEngine's own `config.toml`, which overrides where its daemon
+# listens. Already in `Cargo.lock` through tauri, so this adds nothing to the tree.
+toml = "1"
+futures-util = "0.3.33"
+async-trait = "0.1.91"
+base64 = "0.23.1"
+sha2 = "0.10"
+chrono = "0.4.45"
+tauri-plugin-dialog = "2.7.2"
+tauri-plugin-log = "2"
+# Đọc clipboard ở phía Rust. `navigator.clipboard.readText()` làm WebView2 bật hộp xin quyền
+# `clipboard-read` của Chromium — một dải hệ thống app không tô vẽ được, hiện đúng một lần rồi nhớ
+# lựa chọn theo origin. Ở đây thì không có webview nào phải xin ai cả.
+tauri-plugin-clipboard-manager = "2"
+keyring = { version = "3.6", features = ["windows-native", "apple-native", "sync-secret-service"] }
+
+# The HTTP client the REST module sends through. `native-tls` rather than rustls, matching sqlx and
+# the updater below. Default features are off to keep the blocking client, cookies and JSON out;
+# the content encodings are on because a body that arrives gzipped and is shown as bytes is a bug
+# report nobody can read.
+#
+# This used to claim the app carries one TLS stack and not two, which was never true: the mongodb
+# driver links rustls and has no native-tls of its own to offer — its only alternative is
+# `openssl-tls`, which would mean carrying OpenSSL on Windows to avoid carrying rustls. So there
+# are two, deliberately, and the choice here is about which one everything that *can* share a stack
+# shares.
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "multipart", "stream", "gzip", "brotli", "deflate", "http2"] }
+# `CancellationToken` for the Cancel button, and `ReaderStream` for sending a file without reading
+# all of it into memory first.
+tokio-util = { version = "0.7", features = ["io", "compat"] }
+
+# Pty cho phiên terminal cục bộ. Dùng ConPTY trên Windows và forkpty ở nơi khác, nên không
+# phải viết một nhánh cho mỗi hệ điều hành. Đây là thư viện WezTerm chạy thật.
+portable-pty = "0.9"
+
+# `getuid`, for the one check the single-instance socket makes before it connects: that the file
+# at its path is this user's. std has the file's owner but not our own id.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# This account's SID, and the owner of a named pipe object — the two halves of the check in
+# `modules/mixengine/transport.rs`. Read through the API rather than by running `whoami`: no child
+# process, nothing to parse, and no console window to hide.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_System_Threading",
+] }
+
+# `test-util` không nằm trong feature `full`, mà bộ gom lô chỉ test được khi tua nhanh được
+# đồng hồ — 5ms thật thì test nào cũng thành test đo thời gian.
+[dev-dependencies]
+tokio = { version = "1.53.1", features = ["full", "test-util"] }
+
+# The updater downloads and runs an installer, and restarting means replacing the running process —
+# neither exists on mobile, so both plugins are desktop-only and `lib.rs` guards them with `cfg`.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+# `native-tls`, not the default `rustls-tls`: on its default the updater pulls a second copy of the
+# rustls machinery — hyper-rustls and rustls-platform-verifier — for the one request it makes a
+# day, on top of the native stack sqlx and reqwest already use. What rustls is left is mongodb's,
+# which is not ours to choose.
+tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls"] }
+tauri-plugin-process = "2"
+# Remembers only whether the window was left maximized; everything else falls back to the
+# default size in `tauri.conf.json`.
+tauri-plugin-window-state = "2"
+# Registers the `mixdb://` scheme with the OS at install time (NSIS, Info.plist, the .desktop
+# file) and hands the app the URLs the OS opens it with. The URL's meaning is `launch.rs`'s.
+tauri-plugin-deep-link = "2"
+

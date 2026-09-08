@@ -1,0 +1,49 @@
+.blueprints {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border, #ddd);
+}
+
+.trusted {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.untrusted {
+  font-size: 11px;
+  color: var(--danger, #c00);
+}
+
+.rowActions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty {
+  opacity: 0.7;
+  padding: 16px;
+  text-align: center;
+}

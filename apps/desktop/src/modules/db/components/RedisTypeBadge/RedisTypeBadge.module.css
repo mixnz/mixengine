@@ -1,0 +1,94 @@
+/* Fixed width, so the names beside them line up whatever their type is. This is also what holds
+   the type labels to three characters: the room the badge takes is room the key names don't get,
+   and at this width a fourth character no longer fits. The classes under it are named after the
+   Redis type itself — the component looks them up by that name. */
+.badge {
+  flex: 0 0 auto;
+  width: var(--redis-badge-width, 1.7rem);
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.1rem;
+  border-radius: var(--radius-sm);
+  background: rgba(128, 128, 128, 0.2);
+  opacity: 0.85;
+  /* A type this app has no abbreviation for falls back to the first letters of its own name;
+     clipping it is better than letting it push the key names out of their column. */
+  overflow: hidden;
+}
+
+.string {
+  background: rgb(var(--accent-rgb) / 0.18);
+  color: var(--accent-text);
+}
+
+.list {
+  background: rgba(60, 150, 170, 0.2);
+  color: #2f8ca3;
+}
+
+.set {
+  background: rgba(190, 118, 30, 0.2);
+  color: #b4761e;
+}
+
+.zset {
+  background: rgba(150, 90, 200, 0.2);
+  color: #8c5ac8;
+}
+
+.hash {
+  background: rgba(40, 160, 120, 0.2);
+  color: #28a078;
+}
+
+.stream {
+  background: rgba(200, 70, 110, 0.2);
+  color: #c8466e;
+}
+
+/* The colours above are fixed picks that read on white, so on a dark surface they have to come
+   back up. `.string` is not among them: it takes `--accent-text`, which is already the theme's
+   own cast of whichever accent the user picked. */
+:root[data-theme="dark"] .list {
+  color: #7fc9dc;
+}
+
+:root[data-theme="dark"] .set {
+  color: #e0a75c;
+}
+
+:root[data-theme="dark"] .zset {
+  color: #bd9ae4;
+}
+
+:root[data-theme="dark"] .hash {
+  color: #5ecfa5;
+}
+
+:root[data-theme="dark"] .stream {
+  color: #e8859f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .list {
+    color: #7fc9dc;
+  }
+
+  :root:not([data-theme]) .set {
+    color: #e0a75c;
+  }
+
+  :root:not([data-theme]) .zset {
+    color: #bd9ae4;
+  }
+
+  :root:not([data-theme]) .hash {
+    color: #5ecfa5;
+  }
+
+  :root:not([data-theme]) .stream {
+    color: #e8859f;
+  }
+}

@@ -1,0 +1,105 @@
+# Runs every check MixDB already has, on every push and every pull request.
+#
+# The tests came long before this file did — 758 vitest cases and 129 cargo ones — and nothing ran
+# them but whoever remembered to. That is what this fixes: it adds no new kind of check, it just
+# stops the existing ones from depending on memory.
+#
+# Two jobs rather than one because they share nothing. The Rust half does not need `dist/` — that
+# was checked rather than assumed, `cargo test` builds and passes with the folder absent — so the
+# frontend's answer arrives in about a minute instead of queueing behind a Rust link.
+#
+# Deliberately not here: a three-OS matrix, databases in service containers, any UI test. Nearly
+# every test is pure logic, so a second OS would mostly re-run the same arithmetic, and the driver
+# and UI tests that would genuinely differ per platform do not exist yet. release.yml is still what
+# proves all three platforms build.
+#
+# None of this blocks a merge until both jobs are made required checks in the repository's branch
+# protection settings. That part is a click, not a file.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [master]
+
+# A second push to a branch makes the first one's answer irrelevant before it arrives.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # 20, matching release.yml, so what passes here is what the released bundle is built on.
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # tsc with strict, noUnusedLocals and noUnusedParameters, then the vite build.
+      - run: npm run build
+
+      - run: npm test
+
+      # What TypeScript cannot say: hook dependencies, and the module boundary — a shared primitive
+      # importing from `modules/db/` compiles perfectly happily. `--max-warnings` is pinned in
+      # package.json, so the backlog of dependency warnings can fall and never grow.
+      - run: npm run lint
+
+  rust:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same list release.yml installs. The Tauri crates link against webkit2gtk, so even
+      # `cargo check` wants it present.
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            curl wget file
+
+      # The version comes from src-tauri/rust-toolchain.toml rather than from here, so CI and a
+      # developer's machine run the same clippy and a lint that fires in one fires in the other.
+      # rustup installs it on the first cargo command in that folder anyway; asking for it here
+      # keeps the download out of the middle of the Clippy step and settles the toolchain before
+      # rust-cache computes its key from it.
+      - name: Install the pinned Rust toolchain
+        working-directory: src-tauri
+        run: rustup show
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      # clippy compiles everything `cargo check` would, so running both pays for the same build
+      # twice. `--locked` fails instead of quietly rewriting Cargo.lock: set-version.mjs bumps the
+      # version in there too, and a forgotten one should stop here rather than at a release.
+      - name: Clippy
+        working-directory: src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      # The five ignored tests stay ignored. Three download from a vendor and belong to
+      # tool-downloads.yml; the fourth wants a real OS credential store, which a headless runner
+      # has no Secret Service for; the fifth is not a test at all but the minute-long child process
+      # `dump::tests` spawns to kill — see `sleeper`.
+      - name: Test
+        working-directory: src-tauri
+        run: cargo test --locked

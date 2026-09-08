@@ -1,0 +1,40 @@
+# Logs
+logs
+# ...but not the mixengine module's Logs screen source, which the pattern above also matches
+# case-insensitively on Windows.
+!src/modules/mixengine/screens/Logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Implementation plans — local working notes, never shared or referenced
+docs/superpowers/plans/
+
+# `tsc -b` writes one of these per project; they are a build cache and say nothing a reader needs.
+*.tsbuildinfo
+
+# Whatever an assistant leaves behind in the working copy.
+.claude/
+
+# Copied in from public/logo.svg by the Pages workflow, never committed — see
+# .github/workflows/pages.yml.
+site/logo.svg

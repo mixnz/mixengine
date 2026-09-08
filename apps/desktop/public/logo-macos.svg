@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7.75 -7.75 79.5 79.5" width="64" height="64" role="img" aria-labelledby="mixdb-logo-title">
+  <title id="mixdb-logo-title">MixDB</title>
+  <!-- The macOS copy of logo.svg: the same drawing, on a canvas with a margin.
+
+       macOS lays its app icons on a 1024pt grid where the rounded square fills 824 of it, and it
+       does not mask third-party icons to match, so an edge-to-edge tile sits visibly larger than
+       every neighbour in the Dock. The tile here is 64 units on a canvas of 79.5, which is that
+       824/1024 ratio. The margin lives in the viewBox alone: every coordinate below is still in
+       the tile's own 0-64 space and is byte for byte the same as in logo.svg.
+
+       Only icon.icns is built from this file. Edit logo.svg, then copy the drawing here and keep
+       this viewBox — scripts/make-icons.mjs refuses to run if the two files drift apart. -->
+  <defs>
+    <linearGradient id="mixdb-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3d8fff"/>
+      <stop offset="1" stop-color="#1e4fc4"/>
+    </linearGradient>
+    <radialGradient id="mixdb-glow" cx=".22" cy=".08" r=".95">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset=".6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mixdb-top-emerald" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7cf5c4"/>
+      <stop offset=".6" stop-color="#3fe3a0"/>
+      <stop offset="1" stop-color="#22c986"/>
+    </linearGradient>
+    <linearGradient id="mixdb-body-emerald" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0d7047"/>
+      <stop offset=".38" stop-color="#23c47f"/>
+      <stop offset="1" stop-color="#0a5e3b"/>
+    </linearGradient>
+    <linearGradient id="mixdb-top-cyan" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b8f3ff"/>
+      <stop offset=".6" stop-color="#7fe7ff"/>
+      <stop offset="1" stop-color="#55d2f5"/>
+    </linearGradient>
+    <linearGradient id="mixdb-body-cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1786a8"/>
+      <stop offset=".38" stop-color="#4fcdee"/>
+      <stop offset="1" stop-color="#127392"/>
+    </linearGradient>
+    <linearGradient id="mixdb-top-white" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".6" stop-color="#f6f7ff"/>
+      <stop offset="1" stop-color="#dfe4f7"/>
+    </linearGradient>
+    <linearGradient id="mixdb-body-white" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#9fa9d0"/>
+      <stop offset=".38" stop-color="#eef1ff"/>
+      <stop offset="1" stop-color="#8e99c4"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="15" fill="url(#mixdb-tile)"/>
+  <rect width="64" height="64" rx="15" fill="url(#mixdb-glow)"/>
+  <!-- Each platter is its shadow, then the cylinder body, then the top face over it. Bottom
+       platter first, so each one above overlaps it. -->
+  <g transform="rotate(10 32 43)">
+    <path d="M13 43a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="#0b2a6e" opacity=".4" transform="translate(.8 2.4)"/>
+    <path d="M13 43a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="url(#mixdb-body-emerald)"/>
+    <ellipse cx="32" cy="43" rx="19" ry="7" fill="url(#mixdb-top-emerald)"/>
+  </g>
+  <g>
+    <path d="M13 30a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="#0b2a6e" opacity=".4" transform="translate(.8 2.4)"/>
+    <path d="M13 30a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="url(#mixdb-body-cyan)"/>
+    <ellipse cx="32" cy="30" rx="19" ry="7" fill="url(#mixdb-top-cyan)"/>
+  </g>
+  <g transform="rotate(-10 32 17)">
+    <path d="M13 17a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="#0b2a6e" opacity=".4" transform="translate(.8 2.4)"/>
+    <path d="M13 17a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z" fill="url(#mixdb-body-white)"/>
+    <ellipse cx="32" cy="17" rx="19" ry="7" fill="url(#mixdb-top-white)"/>
+  </g>
+</svg>

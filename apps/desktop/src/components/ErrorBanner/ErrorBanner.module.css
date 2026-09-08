@@ -1,0 +1,100 @@
+.banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--danger);
+  margin: 0;
+  padding-bottom: 3px;
+  overflow: hidden;
+}
+
+.countdown {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background-color: rgb(var(--danger-rgb) / 0.15);
+}
+
+.countdownBar {
+  display: block;
+  height: 100%;
+  background-color: var(--danger);
+  animation-name: countdown-shrink;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+@keyframes countdown-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.dismiss {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  background-color: rgb(var(--danger-rgb) / 0.15);
+  box-shadow: none;
+  color: var(--danger);
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background-color: rgb(var(--danger-rgb) / 0.3);
+  border-color: transparent;
+}
+
+.dismiss:active {
+  background-color: rgb(var(--danger-rgb) / 0.4);
+  border-color: transparent;
+}
+
+:root[data-theme="dark"] .countdown {
+  background-color: rgb(var(--danger-rgb) / 0.2);
+}
+
+:root[data-theme="dark"] .dismiss {
+  background-color: rgb(var(--danger-rgb) / 0.2);
+}
+
+:root[data-theme="dark"] .dismiss:hover {
+  background-color: rgb(var(--danger-rgb) / 0.35);
+}
+
+:root[data-theme="dark"] .dismiss:active {
+  background-color: rgb(var(--danger-rgb) / 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .countdown {
+    background-color: rgb(var(--danger-rgb) / 0.2);
+  }
+
+  :root:not([data-theme]) .dismiss {
+    background-color: rgb(var(--danger-rgb) / 0.2);
+  }
+
+  :root:not([data-theme]) .dismiss:hover {
+    background-color: rgb(var(--danger-rgb) / 0.35);
+  }
+
+  :root:not([data-theme]) .dismiss:active {
+    background-color: rgb(var(--danger-rgb) / 0.45);
+  }
+}

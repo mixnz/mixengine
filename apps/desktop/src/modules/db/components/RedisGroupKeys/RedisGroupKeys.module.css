@@ -1,0 +1,176 @@
+.groupKeys {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.prefix {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.meta {
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}
+
+.close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  opacity: 0.7;
+}
+
+.close:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+/* The listing is short of the group, because the sidebar's scan was. Deleting from a partial list
+   is still a real delete — it just isn't the whole prefix — so this says so rather than letting
+   the count read as a total. */
+.notice {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.35;
+  color: var(--c-orange-text);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.selectAll {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.filter {
+  flex: 1;
+  min-width: 8rem;
+}
+
+/* Outlined red rather than filled: the one button here that loses data should not be dressed as
+   the button the screen is asking for. */
+.delete {
+  flex: 0 0 auto;
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+/* Button's own `:hover` is more specific than this class, so without restating it the destructive
+   button would drop to a plain grey edge exactly when the pointer is on it. */
+.delete:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: rgb(192 57 43 / 0.1);
+}
+
+.scrollWrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.row:hover {
+  background: var(--hover-bg);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+}
+
+.showMore {
+  padding: 0.3rem 0.8rem;
+  border: 1px dashed rgba(128, 128, 128, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  font-size: 1em;
+}
+
+.showMore:hover:not(:disabled) {
+  background: var(--hover-bg);
+}

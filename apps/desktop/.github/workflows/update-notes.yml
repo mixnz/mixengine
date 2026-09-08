@@ -1,0 +1,76 @@
+# Keeps the `notes` field of `latest.json` in step with the release body.
+#
+# `tauri-action` writes `latest.json` while the build runs, so its notes are a copy of the template
+# in release.yml — including a `## Changes` section that is still empty, because the changes are
+# written by hand on the draft afterwards. Nothing then goes back and fixes the manifest, so every
+# installed copy of MixDB is offered an update described by a placeholder.
+#
+# This runs after the release is published, or whenever its body is edited, and rewrites that one
+# field with the `## Changes` section as it now reads. Only that section: the rest of the body is
+# first-install instructions, and the panel in the corner of the app shows the first line of what it
+# is given.
+
+name: Sync update notes
+
+on:
+  release:
+    types: [published, edited]
+  # For a release whose notes were fixed while this workflow was broken or absent.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag, e.g. v0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+# Publishing a draft fires `published` and `edited` within the same second, so two jobs went for the
+# same asset at once and the loser got `422 ReleaseAsset.name already exists` — `--clobber` deletes
+# before it uploads, and the deleted name was already taken again by then. Queued rather than
+# cancelled: whichever runs second reads the body afresh, finds the notes already match and stops,
+# whereas cancelling mid-upload could leave the release with no manifest at all.
+concurrency:
+  group: sync-notes-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      # The default branch rather than the tag: a release cut before this workflow existed still
+      # gets the current script when its notes are edited.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Rewrite notes in latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if ! gh release download "$TAG" --repo "$REPO" --pattern latest.json --dir .; then
+            echo "No latest.json on $TAG — nothing to sync."
+            exit 0
+          fi
+
+          # Read through the API rather than github.event.release.body: the manual run has no event
+          # payload, and this keeps the body out of the shell's hands entirely.
+          gh release view "$TAG" --repo "$REPO" --json body --jq .body > body.md
+
+          node .github/scripts/sync-notes.mjs latest.json body.md
+
+          if [ ! -f latest.json.changed ]; then
+            echo "Notes already match — not re-uploading."
+            exit 0
+          fi
+
+          gh release upload "$TAG" --repo "$REPO" latest.json --clobber
+
+      # The upload above fires another `release: edited`, which lands here again — and stops at the
+      # "already match" check, because by then it does. Left deliberate rather than filtered: an
+      # edit that changes nothing is one wasted minute, and a filter that guesses wrong is a release
+      # shipped with the wrong notes.

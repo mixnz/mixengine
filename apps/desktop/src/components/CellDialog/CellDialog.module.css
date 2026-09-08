@@ -1,0 +1,106 @@
+/* One cell of a grid, read at a size a cell cannot offer. Here rather than beside a grid because
+   both grids open it: the data tab's table and the query tab's result.
+
+   A band of its own above every other dialog in the app. This is the one dialog that can be opened
+   from a pane already lifted over the window — the query tab's expanded results, which sit at 81.
+   On the shared 80 the veil went behind the very pane it was meant to dim, which also left every
+   click on that pane missing the veil that closes the dialog. */
+.overlay {
+  composes: overlay from "../dialogMotion.module.css";
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+/* Narrower than a dialog holding a list, and taller: what goes in here is a document or a stack
+   trace, which is read down rather than across. Above its own veil, and above the lifted pane for
+   the same reason that veil is. */
+.dialog {
+  composes: dialog from "../dialogMotion.module.css";
+  position: fixed;
+  z-index: 83;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(640px, calc(100vw - 2rem));
+  max-height: min(32rem, calc(100vh - 4rem));
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  /* A column name has nothing to break at, and a long one would otherwise push the close button
+     off the edge it is pinned to. */
+  overflow-wrap: anywhere;
+}
+
+.close {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.close:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Wrapped rather than scrolled sideways: a long single line of text is read by wrapping it, and a
+   horizontal scrollbar under a paragraph is a paragraph nobody finishes. */
+.text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* A webview that refuses the clipboard outright is worth saying out loud — the alternative is a
+   copy that silently did nothing and a paste of whatever was there before. */
+.failed {
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,117 @@
+.input {
+  border-radius: var(--control-radius);
+  border: 1px solid var(--control-border);
+  font-weight: 500;
+  font-family: inherit;
+  /* The app is set in Fira Code, which joins pairs like `//` and `->` into one glyph by blanking
+     the first cell and drawing the pair in the second. In code that reads well; in a box someone
+     is checking character by character it reads as a typo — `https://a` shows as `https: /a`. A
+     field holds literal text, so it is shown literally. Editors keep their ligatures. */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+  color: var(--control-color);
+  background-color: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  outline: none;
+}
+
+/* The lit top edge under the liquid-glass setting — see the note in Button.module.css for why it
+   is written per control rather than into `--control-shadow`. */
+:root[data-glass="on"] .input {
+  box-shadow: var(--glass-control-shadow);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+/* A text box shows focus however it was reached — it marks where typing lands — but only the
+   keyboard gets the ring. */
+.input:focus:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.input:focus-visible:not(:disabled) {
+  box-shadow: var(--focus-ring);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Height is measured and written per keystroke, so the box must count its own padding and
+   border (there is no global border-box reset here) and must never keep a scrollbar of its
+   own until it has actually hit its maximum height. */
+.textarea {
+  box-sizing: border-box;
+  display: block;
+  overflow-y: hidden;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+/* Sizes mirror Button's so an input lines up at equal height with a same-size button. */
+.normal {
+  padding: 0.35em 0.7em;
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+.small {
+  padding: 0.3em 0.6em;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+
+.large {
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+/* Only present when `allowClear` is on — takes the caller's `className` (width, margin, flex) in
+   the bare `<input>`'s place, so those rules keep landing on whichever element actually sizes the
+   field. */
+.clearWrap {
+  position: relative;
+  display: block;
+}
+
+.clearWrap .input {
+  width: 100%;
+}
+
+.clearable {
+  box-sizing: border-box;
+  padding-right: 1.9em;
+}
+
+.clearButton {
+  position: absolute;
+  top: 50%;
+  right: 0.35em;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+  padding: 0.2em;
+  border-radius: var(--radius-sm);
+}
+
+.clearButton:hover {
+  opacity: 0.9;
+  background: var(--hover-bg);
+}
+
+.clearButton:focus-visible {
+  outline: none;
+  opacity: 0.9;
+  box-shadow: var(--focus-ring);
+}

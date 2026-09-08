@@ -1,0 +1,86 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 60rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.name {
+  min-width: 9rem;
+}
+
+.kind {
+  min-width: 9rem;
+}
+
+.locale {
+  min-width: 6rem;
+}
+
+.num {
+  width: 5.5rem;
+}
+
+.value {
+  min-width: 9rem;
+  flex: 1;
+}
+
+.remove {
+  margin-left: auto;
+}
+
+.check {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.count {
+  width: 6rem;
+}
+
+.empty {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.8;
+}

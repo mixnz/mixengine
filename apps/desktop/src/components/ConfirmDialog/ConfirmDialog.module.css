@@ -1,0 +1,58 @@
+.overlay {
+  composes: overlay from "../dialogMotion.module.css";
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dialog {
+  composes: dialog from "../dialogMotion.module.css";
+  position: fixed;
+  z-index: 81;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 2rem));
+  background: var(--surface-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1rem;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.title {
+  margin: 0;
+}
+
+.message {
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  opacity: 0.8;
+  /* The message often quotes a value the user typed, which may have no spaces to break at. */
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.danger {
+  border-color: var(--danger-text);
+  color: var(--danger-text);
+}
+
+/* Button's own `:hover` is more specific than this class, so without restating it here the
+   destructive button would drop to a plain grey edge exactly when the pointer is on it. */
+.danger:hover:not(:disabled) {
+  border-color: var(--danger-text);
+  background: rgb(192 57 43 / 0.1);
+}

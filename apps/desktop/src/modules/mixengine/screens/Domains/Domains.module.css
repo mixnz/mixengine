@@ -1,0 +1,58 @@
+.domains {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Cột duy nhất mang một câu dài (`because` daemon tự viết) — cho nó xuống dòng thay vì kéo cả
+   bảng rộng hơn khung và đẩy cột Actions ra ngoài vùng nhìn thấy. Các cột còn lại ngắn, giữ nowrap
+   của `.table`. */
+.reason {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 12rem;
+}
+
+/* Ôm sát nút của nó, để Reason nhận phần rộng còn lại chứ không phải Actions. */
+.actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+/* Cùng token với `.bad` của Dashboard: một domain có `because` là một domain đang hỏng. */
+.bad {
+  color: var(--danger-text);
+}

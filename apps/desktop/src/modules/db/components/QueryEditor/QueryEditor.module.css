@@ -1,0 +1,1028 @@
+/* The tab opens on a blank editor and no results at all, so everything it can show at that moment
+   is at rest. The colours below are therefore chosen for how the *empty* tab reads: the panels
+   carry the structure (a framed code surface, a framed results area), and only genuinely secondary
+   text is dimmed. Fading every element instead — as this did — left the whole tab looking greyed
+   out on arrival. */
+.queryEditor {
+  /* A card lifted off the page. Light mode has a white surface to lift onto; dark mode has no
+     lighter token to point at, so it mixes its own wash (see the overrides at the foot). */
+  --qe-card-bg: var(--surface-bg);
+  --qe-strip-bg: rgb(128 128 128 / 0.08);
+
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+/* Run is the one thing the tab is asking for, so it keeps more of its colour than a disabled
+   control usually would: at 0.5 it was the faintest thing on an already empty screen. */
+.toolbar button:disabled {
+  opacity: 0.7;
+}
+
+/* Pushed to the far end: which database the script runs against is the one thing here that
+   changes what the SQL means, so it is read where the eye lands last before pressing Run. Drawn
+   as a chip rather than as a line of faint text — it names a thing, and reads as one. */
+.target {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  max-width: 22rem;
+  padding: 0.25em 0.6em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--qe-card-bg);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.targetLabel {
+  opacity: 0.65;
+}
+
+.targetName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+
+/* No database picked: the chip says so instead of naming one, and drops the accent — there is
+   nothing here to point at yet. */
+.targetEmpty {
+  border-style: dashed;
+  background: none;
+  opacity: 0.75;
+}
+
+/* Sits to the left of the target chip and takes the auto margin off it, so the two read as one
+   group at the right-hand end of the toolbar. Amber rather than red: nothing has gone wrong, this
+   is the connection being what it was asked to be. */
+.readOnly {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25em 0.6em;
+  border: 1px solid rgb(var(--c-amber-rgb) / 0.4);
+  border-radius: 999px;
+  background: rgb(var(--c-amber-rgb) / 0.12);
+  color: var(--c-amber-text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The chip after it no longer needs to push itself right — the read-only chip already did. */
+.readOnly + .target {
+  margin-left: 0;
+}
+
+/* The history list. Wider and taller than a confirmation, because it is read rather than answered:
+   the whole point is scanning a page of queries at once. Same z-index band as ConfirmDialog, which
+   never appears at the same time as this. */
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+}
+
+.historyDialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  gap: 0.6rem;
+  width: min(720px, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 4rem));
+  padding: 1rem;
+}
+
+.historyHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.historyTitle {
+  margin: 0;
+}
+
+.historyClose {
+  display: inline-flex;
+  padding: 0.2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.historyClose:hover {
+  background: var(--hover-bg);
+  opacity: 1;
+}
+
+.historyTools {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.historyTools > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.historyList {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+
+.historyList li + li {
+  border-top: 1px solid var(--border-soft);
+}
+
+.historyEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.historyEntry:hover {
+  background: var(--hover-bg);
+}
+
+/* One line, cut off rather than wrapped: the list is scanned down the left-hand edge, and a query
+   that wrapped to four lines would break that. The whole text is the button's tooltip. */
+.historySql {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+.historyFailed {
+  color: var(--danger-text);
+  opacity: 1;
+}
+
+.historyEmpty {
+  margin: 0;
+  padding: 2rem 0;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* Under the save row: the query about to be kept, or why there isn't one. */
+.historyHint {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An entry and the button that forgets it, side by side — a saved query in the snippets list, a
+   past run in the history. The entry takes the room so the delete button sits hard against the
+   right edge of every row alike. */
+.entryRow {
+  display: flex;
+  align-items: stretch;
+}
+
+.entryRow .historyEntry {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.snippetName {
+  font-weight: 600;
+  font-size: var(--text-md);
+}
+
+.entryDelete {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0 0.6rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  opacity: 0.5;
+}
+
+.entryRow:hover .entryDelete {
+  opacity: 0.85;
+}
+
+/* Armed by the first press. Red and named, so the second press is never a surprise. */
+.entryDeleteArmed,
+.entryRow:hover .entryDeleteArmed {
+  background: rgb(var(--danger-rgb) / 0.12);
+  color: var(--danger-text);
+  opacity: 1;
+}
+
+/* One line above the results saying what was done to the script on its way out. It sits beside the
+   scrolling column rather than in it — the margin is its own, since it no longer has that column's
+   gap to separate it from the first card. */
+.note {
+  flex: 0 0 auto;
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--c-amber-rgb) / 0.1);
+  color: var(--c-amber-text);
+  font-size: var(--text-sm);
+}
+
+/* The editor and its title strip as one framed surface. The frame is what makes the empty tab
+   read as a place to type rather than as a blank area of the page. */
+.editorPane {
+  /* Takes whatever the results are not using, which is all of it until something has been run. The
+     divider below sets the results' height; the editor is what is left over, and never less than
+     this. */
+  flex: 1 1 auto;
+  min-height: 6rem;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--control-bg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+/* The focus ring belongs to the frame, not to the textarea inside it — the textarea's own border
+   is turned off below so the two never draw one inside the other. */
+.editorPane:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.editorBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.3rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--qe-strip-bg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The shortcut and what it does, at the far end of the strip and next to the editor it applies
+   to. Not uppercase: it is a sentence, unlike the label it shares the strip with. */
+.editorHints {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: var(--text-lg);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  opacity: 0.75;
+}
+
+.selectionHint {
+  white-space: nowrap;
+}
+
+/* Keycaps rather than the words "Ctrl+R" in dimmed text: a drawn key is legible at this size
+   without leaning on contrast. */
+.key {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--qe-card-bg);
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* What the editor is given to fill: everything the pane has left after its title strip. The height
+   is definite even so — flexbox resolves it — which is what CodeMirror needs to scroll its own
+   content within. Border, background and the focus ring all belong to the pane around this. */
+.editorHost {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* The line between the script and its results, and the handle for moving it.
+   A 1px rule is the right thing to look at and an impossible thing to hit, so the rule is drawn by
+   the pseudo-element and the box around it is the grab area. The negative margins pull that box
+   back into the gap the flex column was already leaving, so the divider costs no height at all and
+   appearing does not shift the editor. */
+.divider {
+  flex: 0 0 auto;
+  position: relative;
+  height: 8px;
+  margin: -0.5rem 0;
+  cursor: row-resize;
+  /* The pointer is being captured for a drag, so the browser must not claim it for a scroll. */
+  touch-action: none;
+}
+
+.divider::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  height: 1px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background-color 0.12s ease, height 0.12s ease, top 0.12s ease;
+}
+
+/* Thickened rather than recoloured on the way in, then accented once it is being dragged: hovering
+   is finding out that the line moves, dragging is moving it. */
+.divider:hover::after,
+.divider:focus-visible::after,
+.dividerHeld::after {
+  top: 3px;
+  height: 3px;
+}
+
+.divider:focus-visible::after,
+.dividerHeld::after {
+  background: var(--accent);
+}
+
+.divider:focus-visible {
+  outline: none;
+}
+
+/* How much room the results are given. The one box here whose height changes — see the panel below
+   for why that costs nothing but a clip.
+
+   Bottom-aligned, and that is the whole mechanism: the panel inside keeps its full height the whole
+   way through, this box closes around it, and what is clipped away is the top. The pane is uncovered
+   from the bottom up because it never moved.
+
+   Short and decelerating rather than long and eased-out at both ends. Every frame of this costs a
+   relayout of the editor above — the one thing here that genuinely does resize — so the movement is
+   over in a few frames instead of creeping through the last tenth of the distance, which is the part
+   that reads as lag rather than as motion. */
+.resultsSlot {
+  flex: 0 0 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  transition: height 170ms cubic-bezier(0.33, 1, 0.68, 1), margin-top 170ms
+      cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+/* Shut, the slot is not there at all: no height, and its share of the column's gap taken back so
+   the bar below sits against the editor rather than below a strip of nothing. The margin travels
+   with the height, so opening does not start with an 8px jolt. */
+.resultsSlotShut {
+  margin-top: -0.5rem;
+}
+
+/* Under the pointer, the height is the pointer's: a transition here would have the divider lagging
+   behind the hand holding it. */
+.resultsSlotHeld {
+  transition: none;
+}
+
+/* The results, laid out once at their full height and held against the bottom edge of the slot.
+
+   A box of its own and not the results pane itself, because that pane is also what the Expand
+   button fixes to the viewport: a height in pixels set on it here would follow it up there and
+   override the `inset` that sizes it.
+
+   This is what makes the pane rising smooth over a result of a thousand rows. Its height is given in
+   pixels and `flex-shrink` is off, so the slot closing has nothing to say about it: the box is laid
+   out once, at the size it will end at, and every frame after that moves it rather than measuring it
+   again. A panel that simply filled the slot would relayout every grid in it on every frame instead.
+
+   A flex child rather than `position: absolute; bottom: 0`, which is the same picture drawn a
+   cheaper way. Pinned to the bottom of the slot, its offset had to be resolved against a containing
+   block that was a different height on every frame, and a grid of a thousand rows is a thousand rows
+   for the layout engine to walk again when it cannot prove the box came out the same. Bottom-aligned
+   in a flex column, nothing about it changes at all.
+
+   Still nothing here that makes a containing block — no `transform`, no `filter`, no `contain`. The
+   Expand button fixes `.resultsWrap` inside this to the viewport, and any of them would leave it
+   fixed to *this* instead. */
+.resultsPanel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* `position: relative` so the running veil covers the results rather than the whole workspace. */
+.resultsWrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.results {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* What the tab shows on arrival, and the reason this file was reworked: a dashed frame filling the
+   results area, with the icon and one line of guidance in it. A single dimmed sentence floating in
+   an empty pane read as an unfinished screen. */
+.emptyState {
+  flex: 1;
+  /* Same reason as the card below: a floor stated in content-box terms plus a border of its own is
+     a box taller than the floor, and in a short pane that difference is a scrollbar. */
+  box-sizing: border-box;
+  min-height: 9rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem 1rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.emptyIcon {
+  margin-bottom: 0.2rem;
+  opacity: 0.45;
+}
+
+.emptyTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.emptyHint {
+  margin: 0;
+  max-width: 34rem;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  opacity: 0.65;
+}
+
+/* One result per statement, each in its own card so a script of several reads as several things
+   and not as one run-on column.
+
+   Two sizing rules matter here, and a grid of a thousand rows is what makes them matter:
+
+   `flex: 0 0 auto` — a card must never be shrunk to fit. Left shrinkable, this column squeezes the
+   cards instead of scrolling, and a grid inside a squeezed card keeps its own height and has its
+   bottom (scrollbar end included) clipped away.
+
+   `max-height: 100%` — nor may a card be taller than the pane it is in. A card that overhangs the
+   bottom edge takes its grid's scrollbar over the edge with it: the thumb hits the window bottom
+   while there is still scrolling left, and the last rows sit in the clipped strip below. */
+.result {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  /* Without this the cap above is a cap on the card's *content*, and the border below is added to
+     it: a single result then stands two pixels taller than the column holding it, and the column
+     shows a scrollbar for those two pixels however little is in it. */
+  box-sizing: border-box;
+  max-height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--qe-card-bg);
+}
+
+/* Rounded by hand rather than by clipping the card: an `overflow: hidden` ancestor with a radius
+   makes the browser clip every frame of the grid's scrolling on the main thread, which on a
+   thousand-row result is the difference between a smooth scroll and a stuttering one. */
+.resultHeader {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: calc(var(--radius-md) - 1px) calc(var(--radius-md) - 1px) 0 0;
+  background: var(--qe-strip-bg);
+}
+
+.resultLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.resultDuration {
+  font-size: var(--text-sm);
+  opacity: 0.65;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* One line of the statement, however many it was written over: it is here to identify the result,
+   and the statement itself is still in the editor above. */
+.resultStatement {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  opacity: 0.6;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Takes what the header leaves, and hands it on to the grid: `min-height: 0` is what lets it be
+   shorter than its content once the card is capped. */
+.resultBody {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.45rem 0.6rem 0.6rem;
+}
+
+.resultSummary {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.resultError {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+.resultError p {
+  margin: 0;
+  /* Server errors quote the SQL that failed, which may have nothing to break at. */
+  overflow-wrap: anywhere;
+}
+
+.resultErrorNote {
+  opacity: 0.75;
+  font-size: var(--text-md);
+}
+
+.error {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* The grid and the strip of controls above it as one block, so the filter box keeps still while the
+   grid scrolls under it — sideways included, which is the case that matters: a wide result would
+   otherwise carry the box off the left edge. It takes the sizing `.gridWrap` used to have, and
+   passes the remainder down. */
+.gridBox {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* One strip above the grid, carrying both the line that says what the result did and the box that
+   narrows it down. They used to be two lines, which is a line of the pane spent on chrome for every
+   result on screen. */
+.gridTools {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Wide enough for an id or a piece of an email, and no wider: the row it sits on is the pane's, and
+   what the pane is for is the rows underneath. Pushed to the far end so the sentence on the left
+   keeps the place the eye already looks for it. */
+.findInput {
+  width: min(18rem, 100%);
+  margin-left: auto;
+}
+
+/* The one thing in a result that scrolls: sideways so a wide set doesn't drag the results column
+   along with it, and downwards within whatever height the card has left. Its height comes from the
+   card (`flex`), never from the viewport — a `max-height` in `vh` is unrelated to how much room
+   this pane actually has, and any part of the box past the pane's bottom edge is simply cut off,
+   scrollbar and last rows together. */
+.gridWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* Off, and this is not a nicety. The browser's scroll anchoring watches for content above the
+     viewport changing height and shifts the scroll offset to keep what you are looking at still —
+     which is exactly what the spacer above a virtualised window does on every block scrolled past.
+     Left on, the browser's correction and the grid's own repositioning fight each other for the
+     length of the scroll, and the pane judders instead of moving. */
+  overflow-anchor: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: auto;
+  font-size: var(--text-md);
+}
+
+.grid th,
+.grid td {
+  /* Stated rather than inherited, and this is what `ROW_HEIGHT` in `ResultGrid.tsx` counts on: a
+     glyph the body font has no room for — the sort arrows are the ones that do it — is drawn from
+     whatever fallback face has it, and that face's own line box would otherwise make the one
+     heading holding it taller than every other. */
+  line-height: 24px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 3px 8px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid tr > *:last-child {
+  border-right: none;
+}
+
+.grid tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+/* Painted with the same fill every other pinned strip in the app takes — the rows pass underneath
+   it, which rules out the card's own surface: that one is a translucent wash in the dark theme. The
+   bottom rule comes from the shared cell border above; a box-shadow here would only be one more
+   thing to repaint on every scrolled frame. */
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+  font-weight: 600;
+}
+
+/* A heading that sorts. The pointer is the whole affordance — a button inside a `th` would bring
+   its own box model into a table whose columns are measured to the pixel.
+
+   Written as `.grid thead th.sortable` rather than as a bare class because the rule above paints
+   the heading's background: a bare `.sortable:hover` is the weaker selector and would never show. */
+.grid thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.grid thead th.sortable:hover {
+  background: var(--hover-bg);
+}
+
+/* Half-lit: it marks the one sorted column, and at full weight it would read as more important
+   than the name beside it. The box is the same size on every heading whether or not it holds a
+   chevron — see the `th` that renders it — and the same shape the data tab gives its own. */
+.sortMark {
+  display: inline-block;
+  width: 1em;
+  margin-left: 0.25em;
+  vertical-align: -0.15em;
+  opacity: 0.6;
+}
+
+.grid tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+/* A grid whose columns have been measured and pinned, which is what a virtualised one has to be:
+   only a few dozen rows are in the DOM, and a self-sizing table would re-divide its columns around
+   whichever rows those happen to be.
+
+   `border-box` is what makes the measured widths mean what they say. A width on a `<col>` sizes the
+   whole column, so the measuring adds a cell's padding and rule to every text width — and the cells
+   have to agree that a width includes them, or each one takes its padding on top and the text is
+   given a column's worth of room minus its own chrome. The `max-width` goes for the same reason:
+   the widths are already capped, and a second cap in content-box terms would clip them again. */
+.gridFixed {
+  table-layout: fixed;
+}
+
+.gridFixed th,
+.gridFixed td {
+  box-sizing: border-box;
+  max-width: none;
+}
+
+/* Every row pinned to exactly the height the grid's arithmetic assumes, which is what makes a
+   window of rows possible at all. Its own class rather than part of the fixed-column one above:
+   the columns are pinned because the rows are windowed, but the rows have to be pinned whenever
+   they are windowed, including in the one case where the columns could not be measured.
+
+   The rows on screen are drawn; the ones above and below are stood in for by a spacer of
+   `count × --row-h`. If a drawn row were even a fraction taller or shorter than that, the table's
+   total height would depend on where it was scrolled — the end of the set would drift away as you
+   scrolled towards it, by a little over a hundred rows and by thousands of pixels over ten
+   thousand. Measuring a row cannot fix that, only make the error smaller; pinning it removes the
+   error, at every size of result.
+
+   So the height is stated rather than discovered, and three declarations hold it:
+
+   - `height` with `border-box` sets the row, rule and padding included;
+   - `line-height` caps what the text inside can ask for. Without it a value in a script the body
+     font has no glyphs for — CJK, an emoji — is laid out by a fallback font with taller metrics,
+     and that one row grows. `height` alone would not stop it: on a table cell height is a minimum;
+   - no vertical padding, since the line box now fills the row and centres the text in it.
+
+   The spacers are excluded, and have to be: they are the one kind of row whose height is whatever
+   the rows they stand in for add up to, and a floor of one row's height under an empty spacer would
+   put a phantom row at each end of the set. */
+.gridRows tbody tr:not(.spacer) > td {
+  /* So the stated height covers the rule and the padding, rather than being added to them. */
+  box-sizing: border-box;
+  height: var(--row-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  /* The rule below the row is the pixel the line box does not get. */
+  line-height: calc(var(--row-h) - 1px);
+  overflow: hidden;
+}
+
+/* Sized by the colgroup like every other column here, rather than by squeezing itself. */
+.gridFixed .rowNumber {
+  width: auto;
+}
+
+/* The two boxes standing in for the rows above and below the visible window of a virtualised grid.
+   They exist to be exactly as tall as the rows they replace, so the scrollbar is the length it
+   would have been — which means no padding, no rule and nothing to light up under the pointer: a
+   spacer that highlighted itself would read as a row hundreds of rows tall. */
+.grid tbody tr.spacer,
+.grid tbody tr.spacer:hover {
+  background: none;
+}
+
+.grid tbody tr.spacer > td {
+  padding: 0;
+  border: 0;
+}
+
+.rowNumber {
+  width: 1%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.5;
+}
+
+.cellNull {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* A chosen row. A wash rather than a border: a border would redraw the grid's own rules a pixel
+   out of place, and a run of rows reads as a block anyway. The same wash and the same deepening on
+   hover the data tab paints its selected rows with — the two grids are chosen in the same gesture
+   and should not be two different colours. */
+.grid tbody tr.rowPicked {
+  background: rgb(var(--accent-rgb) / 0.18);
+}
+
+.grid tbody tr.rowPicked:hover {
+  background: rgb(var(--accent-rgb) / 0.26);
+}
+
+/* The grid holds the keyboard while it is focused; without this there is nothing on screen saying
+   so, and Ctrl+C would work or not work for no visible reason. Inset, because an outline on a box
+   that scrolls is drawn outside it and cut off by whatever the box sits in. */
+.gridWrap:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Said in the same voice as a failed run above the results, because it is the same kind of news. */
+.copyFailed {
+  composes: error;
+}
+
+/* A result set that came back with no rows at all: said inside the frame the rows would have
+   filled, so the empty frame is explained rather than left blank. */
+.noRows {
+  margin: 0;
+  padding: 0.6rem;
+  text-align: center;
+  font-size: var(--text-md);
+  opacity: 0.65;
+}
+
+/* The bar under the results, in the same place and the same shape as the data tab's own — what it
+   acts on is the pane above it, so it reads from the bottom edge of that pane rather than from the
+   top of the tab. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+/* What the lifted results stand on. The one thing here that is portalled to the body — the results
+   themselves never move in the tree, they are only fixed to the viewport by the class below. Same
+   z-index band as the history dialog, which never shares the screen with this. */
+.zoomVeil {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgb(0 0 0 / 0.45);
+  animation: query-zoom-veil-in 220ms ease-out;
+}
+
+.zoomVeilOut {
+  animation: query-zoom-veil-out 190ms ease-in forwards;
+}
+
+@keyframes query-zoom-veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes query-zoom-veil-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/*
+ * The results pane, lifted out of the tab and over the window.
+ *
+ * The same element it was a moment ago — this class is the whole of the difference, so the grids
+ * inside keep their DOM, their scroll position and their React state. `resultsZoom.ts` carries it
+ * between the two rectangles with one transform.
+ *
+ * `transform-origin` is not decoration: the FLIP arithmetic in that file is written for the top
+ * left corner. `will-change` stays on for as long as the box is up rather than only while it moves,
+ * which keeps it on its own compositor layer — the rise, the scrolling in between and the fall are
+ * then all composited rather than repainted.
+ *
+ * Deliberately *not* `overflow: hidden`: a rounded clip around a scrolling grid puts every frame of
+ * that scroll back on the main thread, which is the same reason the result cards round their header
+ * by hand rather than clipping the card.
+ */
+.resultsZoomed {
+  position: fixed;
+  inset: 1.25rem;
+  z-index: 81;
+  padding: 0 0.7rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-lg);
+  transform-origin: top left;
+  will-change: transform;
+}
+
+/* Pulled out to the panel's edges through its padding, so the strip meets the border on both sides
+   and under the rounded top corners. Dressed as the editor's own title strip: this is the same kind
+   of thing, a name for the surface under it. */
+.zoomBar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 -0.7rem 0.6rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--border);
+  border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0;
+  background: var(--qe-strip-bg);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The strip's own font size is set for its label, and an icon inheriting it would be a speck. */
+.zoomBar .historyClose {
+  font-size: var(--text-lg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .zoomVeil,
+  .zoomVeilOut {
+    animation: none;
+  }
+
+  .resultsSlot {
+    transition: none;
+  }
+}
+
+:root[data-theme="dark"] .queryEditor {
+  /* `--surface-bg` is the page colour in the dark theme, so a card painted with it would not be a
+     card. A wash of white over the page is what lifts it. */
+  --qe-card-bg: rgb(255 255 255 / 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .queryEditor {
+    --qe-card-bg: rgb(255 255 255 / 0.05);
+  }
+
+}
+
+/* Xem ghi chú cùng nội dung ở cuối `SqlTable.module.css`: ô mang giá trị từ server nên mono, tên
+   cột là nhãn nên sans. Cả hai trước đây chỉ mono nhờ thừa kế từ `:root`. */
+.grid tbody td {
+  font-family: var(--font-mono);
+}
+
+.grid thead th {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}

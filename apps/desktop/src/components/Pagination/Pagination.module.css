@@ -1,0 +1,27 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--text-md);
+}
+
+.btn {
+  width: 1.8em;
+  height: 1.8em;
+  padding: 0;
+  line-height: 1;
+  font-size: 1em;
+}
+
+.pageSizeSelect {
+  min-width: 6.5em;
+}
+
+/* The same box as the arrows beside it. `.btn` takes its 1.8em having set `font-size: 1em`, while
+   this trigger keeps the `small` size's 0.8em — so a plain `1.8em` here is a fifth shorter than the
+   buttons, which is exactly how it looked. Dividing by that ratio states the height in the buttons'
+   terms rather than as a magic 2.25. */
+.pageSizeSelectTrigger {
+  height: calc(1.8em / 0.8);
+  padding: 0 0.6em;
+}

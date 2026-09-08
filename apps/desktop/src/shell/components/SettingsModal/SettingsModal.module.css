@@ -1,0 +1,307 @@
+.overlay {
+  composes: overlay from "../../../components/Modal/surface.module.css";
+  --dialog-layer: 60;
+}
+
+.dialog {
+  composes: dialog from "../../../components/Modal/surface.module.css";
+  --dialog-layer: 60;
+  /* Wide enough for a tool's full path beside the list of panes — the path is the one thing here
+     that cannot be shortened without hiding what the setting actually points at. */
+  width: min(820px, calc(100vw - 2rem));
+  /* A fixed height rather than one that fits its contents: the panes are of very different
+     lengths, and a dialog that resized under the pointer every time the list was clicked would
+     move the list itself out from under it. Tall enough for the tools pane — both suites, their
+     four tools and the paths under them — to be read without scrolling. */
+  height: min(620px, calc(100vh - 3rem));
+  /* The header, the list and the pane each pad themselves, so their dividing lines can run the
+     full width of the dialog. */
+  padding: 0;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 0.75rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The list of panes and the pane itself, side by side, filling what the header leaves. */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 0 0 172px;
+  padding: 0.6rem;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid transparent;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.5em 0.6em;
+  border-radius: var(--radius-md);
+  font-size: var(--text-md);
+  text-align: left;
+}
+
+.navItem:hover {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.navItemActive,
+.navItemActive:hover {
+  background: rgb(var(--accent-rgb) / 0.15);
+  border-color: transparent;
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.navLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navDot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 1.1rem;
+  padding: 0.9rem 1rem;
+  overflow-y: auto;
+}
+
+/* `hidden` alone loses to the `display: flex` above, and every pane but one is hidden. */
+.panel[hidden] {
+  display: none;
+}
+
+/* Under about 620px the list of panes takes a third of the dialog, so it lies down along the top
+   instead — the same three choices, in the room actually there. */
+@media (max-width: 620px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .nav {
+    flex: none;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .navItem {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .navLabel {
+    flex: 0 1 auto;
+  }
+}
+
+.title {
+  margin: 0;
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  font-size: var(--text-lg);
+}
+
+.close:hover {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sectionLabel {
+  font-size: var(--text-sm);
+  opacity: 0.6;
+}
+
+/* One shortcut: what it does on the left, the chord on the right, so the keys line up as a column
+   the eye can run down. */
+.shortcutRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 1.9rem;
+}
+
+.shortcutKey {
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-bg);
+  font-family: inherit;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.themeOptions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.themeOption {
+  flex: 1;
+  border: 1px solid transparent;
+  box-shadow: none;
+  background: var(--hover-bg);
+  padding: 0.5em 0.8em;
+  font-size: var(--text-md);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+}
+
+.themeOption:hover {
+  border-color: var(--border-strong);
+}
+
+.themeOptionActive {
+  background: rgb(var(--accent-rgb) / 0.15);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* Wraps rather than scrolls: ten swatches don't fit the dialog's width in one line, and two rows
+   of five read as a palette in a way a scrolling strip does not. */
+.accentOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* The swatch paints itself from the accent it stands for, not from the one in force, so the row
+   shows all ten at once: each button carries `--accent-swatch: var(--c-<name>)` inline, and since
+   App.css restates every `--c-*` in the dark theme, the row follows light and dark for free. */
+.accentOption {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-swatch);
+  /* Keeps the palest swatches off the page rather than melting into it. */
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  /* Room for the ring below to sit off the swatch without nudging its neighbours. */
+  outline-offset: 2px;
+}
+
+.accentOption:hover {
+  outline: 2px solid rgb(128 128 128 / 0.4);
+}
+
+/* An outline rather than a border: a border would eat into the 26px and make the chosen swatch
+   read as smaller than the rest. */
+.accentOptionActive,
+.accentOptionActive:hover {
+  outline: 2px solid var(--accent-swatch);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  opacity: 0.65;
+}
+
+/* `.toolButton` and `.toolSuiteActions` keep their names from when the Tools pane was in this file:
+   UpdateSection reuses both for its own row of buttons, and the pane that named them now lives in
+   `modules/db/components/ToolsSection` with a copy of its own. */
+.toolSuiteActions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.3rem;
+}
+
+.toolButton {
+  flex: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  background: var(--hover-bg);
+  padding: 0.3em 0.7em;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+
+.toolButton:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+/* The version line and its buttons. Same shape as a tool's row, so the two sections read alike. */
+.updateRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.updateText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.updateVersion {
+  font-size: var(--text-md);
+}
+
+.updateStatus {
+  font-size: var(--text-sm);
+  opacity: 0.6;
+  overflow-wrap: anywhere;
+}
+
+.updateStatusError {
+  color: var(--danger-text);
+  opacity: 1;
+}

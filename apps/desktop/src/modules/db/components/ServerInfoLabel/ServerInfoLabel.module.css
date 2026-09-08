@@ -1,0 +1,43 @@
+/* Sized only by `.truncated` below — an absolutely positioned child never contributes to this, so
+   `.full` appearing on hover cannot change this box's width and, with it, push the database
+   selector next to it. */
+.label {
+  position: relative;
+  display: inline-block;
+  max-width: 20rem;
+  vertical-align: bottom;
+}
+
+.truncated {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0.6;
+  font-size: var(--text-md);
+}
+
+/* Hidden until hover, then drawn over the same top-left corner `.truncated` already occupies —
+   `width: max-content` lets it grow to fit the full text without touching `.label`'s own size, and
+   the z-index (unmatched by the selector, which is never itself positioned) puts it on top instead
+   of underneath. */
+.full {
+  display: none;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  font-size: var(--text-md);
+  padding: 0.15rem 0.4rem;
+  margin: -0.15rem -0.4rem;
+  background: var(--surface-bg);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 1;
+}
+
+.label:hover .full {
+  display: block;
+}

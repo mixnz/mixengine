@@ -1,0 +1,69 @@
+# Asks RustSec whether anything MixDB depends on has had an advisory published against it.
+#
+# Separate from ci.yml on purpose. Every other check answers a question about the change being
+# pushed; this one answers a question about the world, and the world changes on its own. Wired into
+# ci.yml it would turn somebody's unrelated pull request red for an advisory published overnight
+# against a crate five levels down, which teaches people to ignore a red tick.
+#
+# So it runs on its own schedule, and on any change to what the tree actually depends on. A failure
+# here is never "your change is wrong"; it is "there is something to read about a dependency".
+#
+# `cargo deny` is not here as well. It would add licence and duplicate-version policy on top, and
+# those are decisions nobody has taken yet — a checker enforcing a policy that was never written
+# down is a checker that gets disabled. The advisories are the part that needs no policy.
+#
+# npm is not here either. `npm audit` on this tree reports on the build toolchain — vite, rollup,
+# esbuild — none of which reaches a user's machine, and its noise-to-signal is bad enough that it
+# deserves its own decision rather than being folded in here.
+
+name: Advisories
+
+on:
+  schedule:
+    # Monday, early UTC. Weekly rather than daily: an advisory that lands on Tuesday is not more
+    # urgent for being seen on Wednesday, and a red tick nobody has time for is a red tick nobody
+    # reads.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  push:
+    paths:
+      - "src-tauri/Cargo.lock"
+      - "src-tauri/Cargo.toml"
+      - ".github/workflows/audit.yml"
+  pull_request:
+    paths:
+      - "src-tauri/Cargo.lock"
+      - "src-tauri/Cargo.toml"
+
+permissions:
+  contents: read
+
+# One answer per ref is enough; a second push while the first is still asking makes it irrelevant.
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # A prebuilt binary rather than `cargo install`, which would compile cargo-audit itself on
+      # every run for a job that reads one lock file.
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d # v2.87.0
+        with:
+          tool: cargo-audit
+
+      # Vulnerabilities only, which is the default. Denying "unmaintained", "unsound" and "yanked"
+      # as well was tried and dropped: this tree has 18 of them, nearly all the retired gtk-rs GTK3
+      # bindings Tauri sits on, and none is anyone here's to fix. They stay in the log for whoever
+      # wants to read them. A check that is red every day is a check nobody reads.
+      #
+      # Two real advisories are passed over, each with its reason written down in
+      # `src-tauri/.cargo/audit.toml` — which cargo-audit reads from the working directory. Run
+      # here before this file was committed: it exits 0 today, so the first red tick will mean
+      # something new has arrived rather than something old was never dealt with.
+      - name: Audit the Rust dependency tree
+        working-directory: src-tauri
+        run: cargo audit

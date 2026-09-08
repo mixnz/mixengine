@@ -1,0 +1,1137 @@
+/* Everything the database module draws that is not scoped to one component: the connection form,
+   the saved-connection list, the three workspaces, and the engine colours.
+
+   `shell/App.css` keeps the tokens these read (`--accent`, `--surface-bg`, `--readonly`) and the
+   chrome around them. Where a rule here has to beat one there it does so on specificity, never on
+   order: Vite decides the order from the import graph, and this file is reached through the
+   registry before the shell's own stylesheet is. */
+
+/* The same logo the sidebar row carries, without the tinted tile around it: a tab has no room for
+   a badge, and the mark alone is what has to be recognised. The brand colour still comes from the
+   `.kind-*` class beside this one, so the two places read as one mark. */
+.tab-kind {
+  color: var(--kind);
+}
+
+/* Marked in its own colour rather than the engine's, and kept beside the logo: the lock is about
+   what this tab will let you do, which has nothing to do with which server it is on.
+
+   Nó mang nền và viền của riêng nó, không chỉ là một cái icon đổi màu. Lý do là dấu này sắp phải
+   tự đứng một mình: vạch accent chạy dọc mép trên tab từng nói "read-only" to hơn nó nhiều, và
+   vạch đó sắp biến mất. Một icon khoá 12px lẫn giữa logo engine và tên tab thì không thay thế
+   được điều đó — nó đọc như một icon nữa, không đọc như một trạng thái.
+
+   Amber chứ không phải accent: đây là một sự thật về kết nối — không ghi được — chứ không phải
+   một lựa chọn trang trí, nên nó không được đổi theo màu người dùng chọn. */
+.tab-lock {
+  padding: 0.05rem 0.25rem;
+  border: 1px solid rgb(var(--readonly-rgb) / 0.45);
+  border-radius: var(--radius-sm);
+  background: rgb(var(--readonly-rgb) / 0.16);
+  color: var(--readonly);
+}
+
+/* The bar along the top of the open tab is the app's largest single piece of colour. On a
+   read-only connection it goes amber: the one thing on screen that says so no matter which pane
+   of the workspace is showing.
+
+   `--tab-accent` is the knob `components/TabStrip` puts there for exactly this. Setting it beats
+   nothing and races nothing — the glass rim picks the new colour up on its own, which is why the
+   copy of this rule that used to sit under `@supports` further down is gone. */
+.tab-readonly {
+  --tab-accent: var(--readonly);
+}
+
+.login-view {
+  display: flex;
+  gap: 1.5rem;
+  align-items: stretch;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--view-padding);
+}
+
+.saved-list {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 220px;
+  border-right: 1px solid var(--border);
+  padding-right: 1rem;
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+
+/* The list scrolls inside the sidebar, so the title pins to the top of it and the
+   items pass underneath instead of pushing it out of view.
+
+   A pinned strip like the grids' headers, so it paints the rail rather than the surface: the
+   cards sit on the page, and `--surface-bg` put a white slab over `--page-bg` behind the title —
+   a rectangle that stopped dead at the add button's edge and at the first card. `--rail-bg` is
+   the page's own colour until the glass setting turns it into a tint over a blur, so the strip
+   hides what slides under it without ever being a shape of its own. */
+.saved-list-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+  /* Flush with the cards below on both sides, so the title starts on their left edge and the add
+     button ends on their right. The top padding keeps the title off the edge of the scroll box
+     and stays part of the sticky band. */
+  padding: 0.35rem 0 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.saved-list-new {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.saved-list-new:hover {
+  opacity: 1;
+}
+
+.saved-list-header h3 {
+  /* Nudged in from the cards' edge: the title is a label for the list, not another row in it. */
+  margin: 0 0 0 0.25rem;
+}
+
+.saved-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.saved-list li {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+/* A card in a list, so it carries a real edge rather than floating on the sidebar. */
+.saved-item {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-color: var(--border);
+}
+
+/* The name takes whatever the badge and the pin leave, and gives way before either of them. */
+.saved-item strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quiet: it explains an order the list already shows, so it shouldn't compete with the name it
+   sits beside. Full strength only on the connection currently open in the form, which is drawn
+   in the accent — the mark follows it rather than staying grey against a coloured row. */
+.saved-item-pin {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.55;
+}
+
+.saved-item:hover .saved-item-pin,
+.saved-item-active .saved-item-pin {
+  opacity: 1;
+}
+
+/* The row's own edge, warmed. Enough to pick the connection out of the list before reading a
+   single name, and no more — the edge is all it takes, so the row keeps the same shape and
+   weight as every other one. `--accent` still wins on the open connection: that mark is about
+   where you are, and it is drawn further down the file. */
+.saved-item-readonly {
+  border-color: rgb(var(--readonly-rgb) / 0.45);
+  background: rgb(var(--readonly-rgb) / 0.06);
+}
+
+/* Worded, where the pin beside it is only a shape: a pin explains an order the list is already
+   showing, and this changes what the connection will let you do. Aligned by flex rather than by
+   the baseline, which would hang the lock below the word it sits with. */
+.saved-item-readonly-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.05rem 0.35rem;
+  border: 1px solid rgb(var(--readonly-rgb) / 0.4);
+  border-radius: var(--radius-sm);
+  background: rgb(var(--readonly-rgb) / 0.14);
+  color: var(--readonly);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* The lock is centred in its box already, but reads low beside the word: its ink is the solid body
+   at the bottom, while the shackle above it is a thin arc that weighs almost nothing. A pixel up
+   puts its mass level with the middle of the text — the same nudge the tab's lock takes. */
+.saved-item-readonly-badge svg,
+.tab-lock svg {
+  transform: translateY(-1px);
+}
+
+/* Square, because what sits in it is a logo rather than the two or three letters it used to hold —
+   a shape reads as itself in a box that doesn't stretch one way. */
+.saved-item-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 5px;
+  background: rgb(var(--kind-rgb) / 0.16);
+  color: var(--kind);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Each engine's brand colour, handed over as custom properties rather than set as `background` and
+   `color` here: the same classes dress a tinted tile in the saved list and a bare logo on a form
+   tab, which want that one colour in different places. */
+.kind-mysql {
+  --kind: #00758f;
+  --kind-rgb: 0 117 143;
+}
+
+.kind-postgres {
+  --kind: #336791;
+  --kind-rgb: 51 103 145;
+}
+
+.kind-mongo {
+  --kind: #47a248;
+  --kind-rgb: 71 162 72;
+}
+
+.kind-redis {
+  --kind: #c6302b;
+  --kind-rgb: 198 48 43;
+}
+
+/* SQLite's own blue. */
+.kind-sqlite {
+  --kind: #0f80cc;
+  --kind-rgb: 15 128 204;
+}
+
+/* ClickHouse's brand yellow (#ffcc01) is unreadable as text on the pale tint this colour is also
+   used as a background for — the opposite problem the other four have, whose muted hues go the
+   other way on a dark page. Darkened here for contrast on a light one; the dark theme block below
+   uses the true brand yellow, which is exactly what a dark background wants of it. */
+.kind-clickhouse {
+  --kind: #a8790a;
+  --kind-rgb: 168 121 10;
+}
+
+/* SQL Server's brand red. */
+.kind-mssql {
+  --kind: #cc2927;
+  --kind-rgb: 204 41 39;
+}
+
+/* The brand hues are set for a white page and go muddy on a dark one, so the dark theme carries
+   its own cast of all four — the same lift the accent palette takes further down this file. */
+:root[data-theme="dark"] .kind-mysql {
+  --kind: #5bbfd6;
+  --kind-rgb: 91 191 214;
+}
+
+:root[data-theme="dark"] .kind-postgres {
+  --kind: #7ea9d6;
+  --kind-rgb: 126 169 214;
+}
+
+:root[data-theme="dark"] .kind-mongo {
+  --kind: #6fcf76;
+  --kind-rgb: 111 207 118;
+}
+
+:root[data-theme="dark"] .kind-redis {
+  --kind: #f0665e;
+  --kind-rgb: 240 102 94;
+}
+
+:root[data-theme="dark"] .kind-sqlite {
+  --kind: #58b4ea;
+  --kind-rgb: 88 180 234;
+}
+
+:root[data-theme="dark"] .kind-clickhouse {
+  --kind: #ffcc01;
+  --kind-rgb: 255 204 1;
+}
+
+:root[data-theme="dark"] .kind-mssql {
+  --kind: #f26662;
+  --kind-rgb: 242 102 98;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .kind-mysql {
+    --kind: #5bbfd6;
+    --kind-rgb: 91 191 214;
+  }
+
+  :root:not([data-theme]) .kind-postgres {
+    --kind: #7ea9d6;
+    --kind-rgb: 126 169 214;
+  }
+
+  :root:not([data-theme]) .kind-mongo {
+    --kind: #6fcf76;
+    --kind-rgb: 111 207 118;
+  }
+
+  :root:not([data-theme]) .kind-redis {
+    --kind: #f0665e;
+    --kind-rgb: 240 102 94;
+  }
+
+  :root:not([data-theme]) .kind-sqlite {
+    --kind: #58b4ea;
+    --kind-rgb: 88 180 234;
+  }
+
+  :root:not([data-theme]) .kind-clickhouse {
+    --kind: #ffcc01;
+    --kind-rgb: 255 204 1;
+  }
+
+  :root:not([data-theme]) .kind-mssql {
+    --kind: #f26662;
+    --kind-rgb: 242 102 98;
+  }
+}
+
+/* The one entry in the list that isn't an engine, so it borrows the accent through the same two
+   properties the brand colours are handed over in. */
+.kind-new {
+  --kind: var(--accent-text);
+  --kind-rgb: var(--accent-rgb);
+  font-size: var(--text-md);
+}
+
+.saved-item-active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* How wide a run of fields is allowed to get.
+   
+   Past this a form of three side-by-side fields just spreads out, and Mongo's single full-width
+   connection string turns into one absurdly long input. On a 1440px window, "Host" would be 470px
+   wide while two thirds of the screen below it sat empty. 620px is where Host and Port still stand
+   side by side comfortably, and is the width a form read top-to-bottom should have.
+
+   A measure on the *content*, not on the pane. It used to be `max-width` on `.login-form` itself,
+   which meant the pane stopped at 620px and everything in it — including the database-kind row,
+   which has no business being that narrow — stopped with it. Now the pane fills the space and each
+   run of fields holds this width, so a row that wants the whole pane can have it by simply not
+   opting in. `.choice-row-kind` is the one that does. */
+:root {
+  --form-measure: 620px;
+}
+
+.login-form {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Everything that is a field, a label over one, or a button under them keeps the measure — so the
+   form reads exactly as it did, whatever the pane is now doing around it. */
+.login-form .row,
+.login-form fieldset > legend,
+.login-form .field-warning,
+.login-form .method-tabs {
+  max-width: var(--form-measure);
+}
+
+.workspace {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Where a workspace would be, for a kind that has none — see the fallback at the end of
+   `DbTab.tsx`. Deliberately plain: it is a dead end, and dressing it up would suggest there is
+   something here to work with. */
+.workspace-unavailable {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  /* The same root box every workspace in this file takes — see `.sql-workspace`,
+     `.mongo-workspace`, `.redis-workspace` and
+     [.agent/conventions/workspace-root.md](../../../.agent/conventions/workspace-root.md).
+     `width` is the one that is easy to leave off and looks fine until it doesn't: a column flex
+     item shrinks to its content, so without it this centres inside its own width rather than
+     inside the tab. `box-sizing` is what keeps the padding below inside the 100%. */
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 2rem;
+  /* `opacity`, not a muted colour token: this file has no such token, and the one place that
+     reaches for `--text-muted` is reaching for something nothing defines. Every other dimmed run
+     of text here is an opacity. */
+  opacity: 0.75;
+  text-align: center;
+}
+
+.workspace-unavailable p {
+  max-width: 34rem;
+  margin: 0;
+}
+
+/* `<fieldset>` giữ vai ngữ nghĩa của nó — nó nhóm các control lại, và trình đọc màn hình đọc
+   `<legend>` kèm mỗi field bên trong — nhưng bỏ hết trang trí mặc định của trình duyệt. Cái viền
+   có chữ cắt ngang không phải một quyết định thiết kế, nó là hình dạng HTML sinh ra khi không ai
+   nói gì; và nó lộ ra rõ hơn hẳn từ lúc chrome chuyển sang sans, vì mọi thứ quanh nó đã thôi trông
+   như bản nháp. */
+fieldset {
+  min-width: 0;
+  margin: 0 0 1.4rem;
+  padding: 0;
+  border: none;
+  text-align: left;
+}
+
+/* Tên nhóm, không phải một cái nhãn dán trên viền: nhỏ, in hoa, giãn chữ, mờ đi. Nó xếp hạng
+   dưới mọi label trong nhóm, vì nó nói nhóm này là gì chứ không hỏi người dùng điều gì. */
+fieldset legend {
+  margin-bottom: 0.6rem;
+  padding: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* Vertical gap matches the margin between rows, so a pair that wraps sits exactly as far apart as
+   two fields that were written on separate rows to begin with. */
+fieldset .row {
+  justify-content: flex-start;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+fieldset .row:last-child {
+  align-items: center;
+}
+
+/* Two fields to a row, each taking half of it minus its share of the gap. Fixing the basis is what
+   keeps a field the same width whether it stands beside another or alone on its own row, so the
+   left edges of the inputs line up down the whole form. `min-width: 0` lets a label shrink past
+   the natural width of the input it holds instead of overflowing the form. */
+fieldset .row label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 calc(50% - 0.5rem);
+  min-width: 0;
+}
+
+/* The control fills whatever the caption leaves. Buttons sitting inside a label (the connection
+   string's reveal toggle) keep their own width, and a checkbox is not a field to be stretched. */
+fieldset .row label > *:not(button):not(input[type="checkbox"]) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A checkbox row is a sentence, not a field: it ends where its text ends, and when the sentence is
+   longer than the row it wraps onto a second line rather than running past the edge.
+   `baseline`, not `flex-start`: the top of the box and the top of a line of text are not the same
+   height — the line box is taller than its letters, so aligning the two tops sits the box above the
+   text. Sharing a baseline is how a checkbox and its caption line up when written inline, and a
+   wrapped caption still offers its *first* line's baseline, so the box stays up on line one. */
+fieldset .row label:has(> input[type="checkbox"]) {
+  flex: 0 1 auto;
+  align-items: baseline;
+}
+
+/* The caption is what gives way; a checkbox has one size. */
+fieldset .row label > input[type="checkbox"] {
+  flex: none;
+}
+
+fieldset .row input {
+  max-width: 100%;
+}
+
+/* A note about the values above it, not an error about anything that has happened yet — so it is
+   amber and stays put, rather than the red banner a failed connection puts at the top of the form.
+   The tint carries the same hue as the text, so light and dark are one pair of values. */
+.field-warning {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgb(var(--c-amber-rgb) / 0.35);
+  background: rgb(var(--c-amber-rgb) / 0.1);
+  color: var(--c-amber-text);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* Once the window is this narrow, the saved-connection list has taken its share and half of what
+   is left is narrower than the shortest useful field — so the pairs stack instead of squeezing. */
+@media (max-width: 980px) {
+  fieldset .row label {
+    flex-basis: 100%;
+  }
+}
+
+/* Hai hàng trông giống nhau nhưng làm hai việc khác hẳn, nên chúng thôi dùng chung một hình dạng.
+
+   `.method-tab` là **điều hướng**: Data / Structure / Statistics / Query đưa bạn sang một view khác
+   của cùng một bảng. Nó giữ gạch chân — và giờ nó là tầng duy nhất trong app dùng gạch chân, nên
+   gạch chân lại có nghĩa. Trước đây tab cửa sổ cũng mang một vạch 2px như vậy (ở cạnh trên), và một
+   tín hiệu dùng cho mọi tầng thì không xếp hạng được tầng nào.
+
+   `.choice` bên dưới là **một lựa chọn về form**: chọn MySQL hay Postgres, TCP/IP hay SSH. Đổi nó
+   đổi các ô ở dưới, không đưa bạn đi đâu cả. Nên nó trông như thứ nó là — một segmented control —
+   chứ không như tab. */
+.method-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+/* Một hàng lựa chọn: cả nhóm là một control, ô được chọn nổi lên khỏi nền của nhóm. */
+.choice-row {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.15rem;
+  margin-bottom: 1rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
+}
+
+/* The database-kind row, and only it: full width, and it scrolls instead of wrapping.
+ *
+ * Wrapping was the other option and is worse. A segmented control that breaks onto a second line
+ * stops reading as one control — the shared border ends up around a block rather than a row, and
+ * the selected cell no longer sits in a line of alternatives. So the row keeps its shape and the
+ * cells that do not fit go past the edge, the way the tab strip's do. */
+.choice-row-kind {
+  /* Grows to its choices and stops at the pane, rather than stretching to the pane and standing
+     half empty: it inherits `inline-flex` and `align-self: flex-start` from `.choice-row`, and
+     what changes here is only the ceiling. Below that width it is the control it always was; above
+     it, the scroller inside takes over. This is what "may use the full width" means — may, not
+     must. */
+  max-width: 100%;
+  /* Without this the ceiling is 100% *plus* the border and padding, so the row lands a few pixels
+     wider than the pane and the whole form gets a horizontal scroll — which reads as the form
+     being cut off at the left, not as the row being too wide. This project has no global
+     `box-sizing` reset; see .agent/conventions/workspace-root.md. */
+  box-sizing: border-box;
+  /* The border and the background belong out here, so the mask below fades the *choices* and not
+     the control's own edge — a segmented control whose border dissolves at the ends reads as a
+     rendering fault rather than as "there is more this way". */
+  overflow: hidden;
+}
+
+/* What actually scrolls. No scrollbar: it would sit under the row it belongs to and draw a second
+   edge a hair below the control's real one, which is the same reason the tab strip has none. */
+.choice-scroller {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+.choice-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* Fade only on the side that is hiding something — `ConnectionForm` puts these on and takes them
+   off from `useStripScroll`'s reading, so an end with nothing past it keeps its choice at full
+   strength. Two classes rather than one so a row overrun at both ends fades at both, and a row
+   scrolled hard to one end fades only where there is still something to reach. */
+.choice-row-fade-start .choice-scroller {
+  mask-image: linear-gradient(to right, transparent 0, #000 2rem);
+}
+
+.choice-row-fade-end .choice-scroller {
+  mask-image: linear-gradient(to left, transparent 0, #000 2rem);
+}
+
+.choice-row-fade-start.choice-row-fade-end .choice-scroller {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent 100%
+  );
+}
+
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.3em 0.7em;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.choice:hover {
+  opacity: 1;
+}
+
+.choice-active {
+  opacity: 1;
+  background: var(--choice-active-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Chỉ logo mang màu thương hiệu; tên bên cạnh giữ màu chữ, để một hàng bốn lựa chọn đọc ra một
+   control chứ không phải bốn từ nhiều màu. Giống hệt lý do của `.method-tab-icon`. */
+.choice-icon {
+  color: var(--kind);
+}
+
+.method-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  border-radius: 6px 6px 0 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  /* Tighter than it was: the logo now takes room the four tabs have to share on a narrow window. */
+  padding: 0.5em 0.85em;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  opacity: 0.65;
+}
+
+/* Only the logo is brand-coloured; the name beside it stays in the text colour, so a row of four
+   tabs reads as one control rather than four coloured words. */
+.method-tab-icon {
+  color: var(--kind);
+}
+
+.method-tab:hover {
+  opacity: 1;
+}
+
+.method-tab-active {
+  opacity: 1;
+  border-bottom-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 0.08);
+}
+
+/* The way out of a connection, sitting after the tabs and deliberately not looking like one: the
+   tabs choose which pane is on screen, this takes all of them away. A rule to stand it off the
+   last tab, and square corners where a tab is rounded — enough to read as a different kind of
+   thing before it is hovered, without a colour shouting from a row nobody is looking at yet.
+
+   Later in this file than `.method-tab`, which is how it wins: same specificity, and both rules
+   are here rather than one of them being somewhere Vite decides the order of. */
+.method-tab-disconnect {
+  margin-left: 0.5rem;
+  padding-left: 0.9em;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+}
+
+/* Red only under the pointer, where the click would land — the same bargain the destructive
+   actions in `ActionBar` strike, and the same red, because a user who has learnt it there has
+   learnt it here. Not red at rest: leaving a connection loses nothing, and a row of tabs with a
+   red one on the end would read as a warning about the tabs. */
+.method-tab-disconnect:hover {
+  color: var(--danger);
+  background: rgb(211 47 47 / 0.15);
+}
+
+/* The view's own padding is a hairline — enough for the panes below, but this is the first thing
+   in the form and it would otherwise start hard against the top edge. The sidebar beside it opens
+   with a heading, whose line box gives it that breathing room for free; a bare input has none, so
+   it is written here. `.login-form` scrolls, which makes it a block formatting context, so this
+   margin stays inside it rather than collapsing out through the top. */
+.row-name {
+  margin-top: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.field-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.field-name input {
+  flex: 1;
+}
+
+/* One long value standing in for a whole row of fields, so it takes the row's full width instead
+   of the half every other field is held to. */
+fieldset .row label.field-connection-string {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-basis: 100%;
+}
+
+/* The same bargain as the connection string above, for the same reason: one long value standing in
+   for a whole row of fields. Held to half a row it showed about eight characters of a path, which
+   is not enough to tell two databases apart — let alone read the placeholder that says what goes
+   in it. The two buttons after it keep their own width and the box takes what is left. */
+fieldset .row label.field-file-path {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-basis: 100%;
+}
+
+/* `min-width: 0` is what actually lets it shrink: a flex item defaults to the intrinsic width of
+   its content, so without this a long path pushes the buttons off the end of the row instead of
+   scrolling inside the box. */
+.field-file-path input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.field-file-path button {
+  flex: 0 0 auto;
+}
+
+/* Monospace, but the same box as every other field: the size class already writes this font size,
+   so its `em` padding and line height resolve to the same pixels here and only the typeface
+   changes. */
+.field-connection-string input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+/* Hidden is the field's resting state, so the value is a mask the user can't type over. */
+.field-connection-string input[readonly] {
+  opacity: 0.75;
+  cursor: default;
+}
+
+/* Squared off: the size's horizontal padding is meant for a word, and this one carries a 16px
+   icon, with the wording it would have had in its `title`. Scoped to the field so it outranks the
+   size class regardless of which stylesheet the bundler emits first. */
+.field-connection-string .reveal-toggle {
+  flex: 0 0 auto;
+  padding: 0.35em;
+  /* The size class sizes a button around a line of text; this one holds a 16px icon, which is a
+     shorter box, so it would sit lower than the input beside it. Taking the field's own height
+     instead of computing one keeps the two aligned however the input is sized. */
+  align-self: stretch;
+}
+
+/* The tunnel test answers one of three ways, and which one it is should land before the sentence
+   is read. It shares the row with the button that started it, and a failure carries the server's
+   own words — which can be long — so it takes the rest of the line and wraps inside it rather than
+   pushing the row wider. */
+.tunnel-status {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+/* Nothing has happened yet, so it says so without taking a colour of its own. */
+.tunnel-status-pending {
+  opacity: 0.65;
+}
+
+/* The palette's green rather than a new hue: it already carries a dark cast that clears the page
+   at 4.5:1, which a hard-coded green would have to restate. */
+.tunnel-status-ok {
+  color: var(--c-green-text);
+}
+
+/* The same red every other failure in the app is written in — see ErrorBanner, which pairs these
+   two values. */
+.tunnel-status-error {
+  color: var(--danger);
+}
+
+.sql-workspace {
+  /* What the dump and restore overlay is positioned against — it covers this tab's workspace,
+     and only it, so the tab bar and the other connections stay usable meanwhile. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  padding: var(--view-padding);
+}
+
+.sql-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.sql-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sql-db-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sql-content-tabs {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.sql-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.2rem;
+}
+
+.sql-sidebar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 0.15rem;
+}
+
+.sql-sidebar-search {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-bottom: 0.4rem;
+}
+
+/* Only where the bar sits: the buttons themselves are the shared ActionBar's. */
+/* Two bars: what the list holds on the left, what the database as a whole answers to on the
+   right, pushed apart so the destructive one is nowhere near the everyday ones. */
+.sql-sidebar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding-top: 0.35rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.sql-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A tab panel that stays mounted while another tab is up — all four of them are: the script and
+   results in the Query editor, the figures in Statistics, the page of rows the Data grid has read
+   and the shape Structure has, none of which should have to be fetched again for a look at one of
+   the others. Taking one out of the flow rather than unmounting it is what keeps that state; it
+   costs the layout nothing while hidden. */
+.sql-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sql-panel-hidden {
+  display: none;
+}
+
+.mongo-workspace {
+  /* What the dump and restore overlay is positioned against — it covers this tab's workspace,
+     and only it, so the tab bar and the other connections stay usable meanwhile. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  padding: var(--view-padding);
+}
+
+.mongo-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.mongo-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mongo-db-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Sits inside the header rather than above the content, so it drops the strip's own separator
+   and bottom gap and lets the header's border do that work. */
+.mongo-content-tabs {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.mongo-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.2rem;
+}
+
+.mongo-sidebar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 0.15rem;
+}
+
+.mongo-sidebar-search {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-bottom: 0.4rem;
+}
+
+/* Two bars, as on the MySQL side: the list's own actions, and the database's. */
+.mongo-sidebar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding-top: 0.35rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.mongo-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A tab panel that stays mounted while another tab is up — the Statistics grid, whose figures
+   have to outlive a look at the documents. The MySQL side's own pair, for the same job. */
+.mongo-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mongo-panel-hidden {
+  display: none;
+}
+
+.redis-workspace {
+  /* Chỗ đứng của popup tunnel: nó phủ workspace của tab này, và chỉ nó. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.75rem;
+  box-sizing: border-box;
+  padding: var(--view-padding);
+}
+
+.redis-header {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.redis-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.redis-db-select {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Sits inside the header rather than above the content, so it drops the strip's own separator
+   and bottom gap and lets the header's border do that work. */
+.redis-content-tabs {
+  margin-bottom: 0;
+  border-bottom: none;
+}
+
+.redis-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 0.2rem;
+}
+
+.redis-sidebar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding-right: 0.15rem;
+}
+
+.redis-sidebar-search {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-bottom: 0.4rem;
+}
+
+.redis-key-pattern {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Wide enough for the one word the flat option is written as, and no wider — the pattern box
+   next to it is what should get the sidebar's width. */
+.redis-separator-select {
+  flex: 0 0 auto;
+  width: 3.6rem;
+}
+
+/* Beside it, and for the same reason: wide enough for `200K` and no wider. Both of these say how
+   the keyspace is read, so they sit together at the end of the row. */
+.redis-limit-select {
+  flex: 0 0 auto;
+  width: 4.2rem;
+}
+
+.redis-sidebar-actions {
+  flex: 0 0 auto;
+  padding-top: 0.35rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.redis-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.result {
+  text-align: left;
+  overflow-x: auto;
+  background: rgba(128, 128, 128, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.row {
+  display: flex;
+  justify-content: center;
+}
+
+.row-actions {
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row-actions-left,
+.row-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}

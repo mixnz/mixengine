@@ -1,0 +1,14 @@
+/* A collation and the character set it belongs to, pushed to opposite ends of the row so the names
+   stay in one column and the sets read as the grouping they are. */
+.option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.charset {
+  flex: 0 0 auto;
+  font-size: var(--text-sm);
+  opacity: 0.6;
+}

@@ -1,0 +1,131 @@
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* An icon and its label are two flex items with nothing between them, and touching they read as
+     one crooked shape rather than as a labelled icon. Set here rather than at each call site, since
+     a button with a single child — which is most of them — is unaffected by it. */
+  gap: 0.4em;
+  /* A button squeezed inside a flex row (a table's action cell, a status row) shrinks its own label
+     onto a second line before anything else in the row gives up its space — set here so every
+     caller gets it, not just the ones that happened to notice. Flexible siblings without their own
+     `flex-shrink: 0` still absorb the squeeze by shrinking or wrapping their own text. */
+  white-space: nowrap;
+  border-radius: var(--control-radius);
+  border: 1px solid var(--control-border);
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--control-color);
+  background-color: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease,
+    filter 0.12s ease;
+  cursor: pointer;
+  outline: none;
+}
+
+/* The lit top edge, under the liquid-glass setting only. Written here against the button's own
+   class rather than into `--control-shadow`, which every bare `<button>` in the app also reads —
+   a token would draw a white line across the icon buttons and list rows that carry no surface at
+   all. Above the state rules on purpose: `:focus-visible` shares this specificity and has to keep
+   winning, so the ring still replaces the rim while the keyboard is here. */
+:root[data-glass="on"] .button {
+  box-shadow: var(--glass-control-shadow);
+}
+
+/* Centred on the word beside it rather than on the line box around it. A line box reserves room
+   under the baseline for descenders, and `Clear` has none — so an icon centred in that box sits low
+   against the letters, which is exactly where it looked. A transform rather than a margin: the
+   correction is to what is seen, and nothing about the button's size should move with it.
+
+   Only where there is a word to be centred on. A button that is nothing but an icon — the paging
+   arrows — is already centred by the flexbox above, and lifting it would be putting it off centre
+   to correct for letters that are not there. */
+.button > svg:not(:only-child) {
+  transform: translateY(-0.06em);
+}
+
+/* Weight, not colour — the accent is kept for focus, so a ring means "the keyboard is here". */
+.button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.button:active:not(:disabled) {
+  background-color: var(--control-bg-active);
+}
+
+.button:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* The one action a screen is really asking for. Filled rather than outlined, so it is found
+   without reading: one filled button per screen or dialog, never two. */
+.primary {
+  background-color: var(--accent-solid);
+  border-color: var(--accent-solid);
+  color: var(--accent-on-solid);
+}
+
+/* Hover moves it away from the page it sits on — darker against a light page, and lighter against
+   a dark one (the dark override is at the foot of this file). Brightness rather than a second
+   colour token: it works for all ten accents without ten more values. */
+.primary:hover:not(:disabled) {
+  border-color: var(--accent-solid);
+  filter: brightness(0.92);
+}
+
+.primary:active:not(:disabled) {
+  background-color: var(--accent-solid);
+  filter: brightness(0.85);
+}
+
+/* The shared ring is a wash of the accent, which is invisible on a button already filled with it.
+   This one is drawn in the button's own type colour instead — white on a light theme, near-black
+   on a dark one — so it reads on every accent. */
+.primary:focus-visible {
+  border-color: var(--accent-solid);
+  box-shadow: inset 0 0 0 2px var(--accent-on-solid);
+}
+
+/* Height matches Select's trigger (padding + font-size + line-height). */
+.normal {
+  padding: 0.35em 0.7em;
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+.small {
+  padding: 0.3em 0.6em;
+  font-size: var(--text-sm);
+  line-height: 1.3;
+}
+
+.large {
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  line-height: 1.5;
+}
+
+:root[data-theme="dark"] .primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+:root[data-theme="dark"] .primary:active:not(:disabled) {
+  filter: brightness(1.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  :root:not([data-theme]) .primary:active:not(:disabled) {
+    filter: brightness(1.18);
+  }
+}

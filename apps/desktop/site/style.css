@@ -1,0 +1,137 @@
+/*
+ * Bộ style dùng chung cho các trang tài liệu của MixDB (privacy, code-signing).
+ * Tách khỏi từng trang vì hai trang phải trông giống hệt nhau: một bản sao thứ hai
+ * sẽ lệch đi vào lần sửa đầu tiên mà không ai thấy.
+ */
+  :root {
+    --font-ui: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Fira Code", SFMono-Regular, Menlo, Consolas, monospace;
+    --page-bg: #f6f6f6;
+    --surface-bg: #ffffff;
+    --text: #0f0f0f;
+    --text-muted: #5a5a5a;
+    --border-soft: rgb(128 128 128 / 0.15);
+    --accent: #23528c;
+    --hover-bg: rgb(128 128 128 / 0.12);
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --page-bg: #262626;
+      --surface-bg: #2f2f2f;
+      --text: #ffffff;
+      --text-muted: #b0b0b0;
+      --accent: #6f9fd8;
+      --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  /* Chỉ hiện bản ngôn ngữ đang chọn. Hai bản là hai tài liệu đầy đủ, không phải mảnh ghép. */
+  [data-lang="en"] .doc[lang="vi"],
+  [data-lang="vi"] .doc[lang="en"] { display: none; }
+
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--surface-bg);
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .brand {
+    font-weight: 650;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .brand:hover { color: var(--accent); }
+
+  .switch { display: flex; gap: 2px; padding: 2px; background: var(--hover-bg); border-radius: 8px; }
+  .switch button {
+    font: inherit;
+    font-size: 13px;
+    padding: 0.25rem 0.7rem;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+  .switch button:hover { color: var(--text); }
+  .switch button[aria-pressed="true"] {
+    background: var(--surface-bg);
+    color: var(--text);
+    box-shadow: var(--shadow);
+  }
+
+  main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+
+  h1 { font-size: 1.85rem; line-height: 1.25; letter-spacing: -0.02em; margin: 0 0 0.4rem; }
+  .dates { color: var(--text-muted); font-size: 14px; margin: 0 0 2rem; }
+  h2 {
+    font-size: 1.12rem;
+    letter-spacing: -0.01em;
+    margin: 2.5rem 0 0.6rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-soft);
+  }
+  h3 { font-size: 1rem; margin: 1.5rem 0 0.4rem; }
+  p, li { margin: 0.65rem 0; }
+  ul { padding-left: 1.35rem; }
+  a { color: var(--accent); }
+
+  .lede {
+    font-size: 1.05rem;
+    padding: 1.15rem 1.35rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+  }
+  .lede p:first-child { margin-top: 0; }
+  .lede p:last-child { margin-bottom: 0; }
+
+  code, .path {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    padding: 0.1em 0.35em;
+    background: var(--hover-bg);
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+  }
+  dl.paths { margin: 0.65rem 0; }
+  dl.paths dt { font-size: 13px; color: var(--text-muted); margin-top: 0.7rem; }
+  dl.paths dd { margin: 0.15rem 0 0; }
+
+  address {
+    font-style: normal;
+    padding: 1.15rem 1.35rem;
+    background: var(--surface-bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+  }
+
+  footer {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 3rem;
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-muted);
+    font-size: 13px;
+  }

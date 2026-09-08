@@ -1,0 +1,37 @@
+/* `min-height`, không phải `height`: hai bảng bên dưới dài hơn một màn hình, và một `height: 100%`
+   chốt cứng chiều cao `.runtimes` đúng bằng viewport bất kể nội dung tràn ra ngoài bằng
+   `overflow: visible` mặc định — sticky của `.tabStrip` chỉ dính được trong đúng phạm vi chiều cao
+   containing block của nó, nên với `height: 100%` nó rời khỏi đầu trang gần như ngay khi cuộn.
+   `.packages`/`.languages` (con của `.pane`, không đặt height) tự cao theo đúng nội dung nên dải
+   category bên trong không gặp lỗi này — đây là lý do "cấp 2" từng dính đúng còn "cấp 1" thì không. */
+.runtimes {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* `.runtimes` không tự cuộn — `.mixengine-screen` (ancestor) mới là vùng cuộn thật, xem
+   `mixengine.css`. Sticky ở đây bám theo đúng vùng cuộn đó, dính lại trên đầu khi bảng dài bên
+   dưới trôi qua.
+
+   Đặt `position: sticky` lên chính div bọc (`stripWrapRef`), KHÔNG lên `TabStrip`: containing
+   block của một phần tử sticky là parent trực tiếp của nó, và div bọc kia chỉ cao đúng bằng
+   `TabStrip` — sticky trong một containing block cao bằng chính nó không có khoảng nào để dính,
+   nên rời khỏi đầu trang gần như ngay khi cuộn. Đặt sticky lên div bọc thì containing block của
+   *nó* mới là `.runtimes` (đã `min-height: 100%`, cao suốt theo nội dung), có đủ khoảng để dính. */
+.tabStripWrap {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-bg);
+}
+
+/* Giữ Ngôn ngữ/Gói mount cả hai một khi đã ghé qua — không thêm hộp mới vào layout lúc đang hiện,
+   cùng lý do `.mixengine-screen-pane` đã theo ở `mixengine.css`. */
+.pane {
+  display: contents;
+}
+
+.pane[hidden] {
+  display: none;
+}

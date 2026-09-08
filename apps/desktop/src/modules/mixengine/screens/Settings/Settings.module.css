@@ -1,0 +1,85 @@
+.settings {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.sectionTitle {
+  margin: 0;
+}
+
+/* Khoảng cách trong một section do `gap` của nó quyết định, không phải margin 1em mặc định của
+   `<p>` — hai `<p>` liền nhau (General, Autostart, Updates, Uninstall) từng cách nhau 8px cộng 2em. */
+.section p {
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+/* Cả hai cột đều có thể mang một câu dài (tên một check, câu `because` daemon tự viết) — bọc chữ
+   trong đúng nửa của nó thay vì đẩy tràn khỏi khung. */
+.listItem > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.ok {
+  color: var(--success-text);
+}
+
+.bad {
+  color: var(--danger-text);
+}
+
+.warn {
+  color: var(--warning-text);
+}
+
+.danger {
+  color: var(--danger-text);
+  border-color: var(--danger);
+}

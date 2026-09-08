@@ -1,0 +1,113 @@
+/**
+ * What the terminal module calls things.
+ *
+ * Plain data, importing nothing from `src/i18n/`: `dicts.ts` imports this file, so anything
+ * imported back out of there would close the circle.
+ */
+const terminalEn = {
+  terminal: {
+    newTabTitle: "New terminal",
+    localTitle: "Local shell",
+    shell: "Shell",
+    startIn: "Start in",
+    startInPlaceholder: "Home directory",
+    browse: "Browse\u2026",
+    open: "Open",
+    noShells: "No shell was found on this machine.",
+    pickShell: "Pick a shell",
+    screen: "Terminal screen",
+    shortcutScope: "Terminal",
+    shortcutCopy: "Copy the selection",
+    shortcutDismiss: "Close a session that has ended",
+    shortcutZoomIn: "Bigger text",
+    shortcutZoomOut: "Smaller text",
+    badgeLocal: "Local shell",
+    badgeSsh: "SSH session",
+    badgeEnded: "Session ended",
+    sessionEnded: "The session has ended.",
+    sessionEndedCode: "The session has ended (exit code {{code}}).",
+    reconnect: "Reconnect",
+    closeSession: "Close",
+    targetLocal: "This machine",
+    targetSsh: "SSH",
+    savedTargets: "Saved",
+    noTargets: "Nothing saved yet.",
+    newTarget: "New",
+    targetName: "Name",
+    targetNamePlaceholderLocal: "Frontend",
+    targetNamePlaceholderSsh: "My server",
+    host: "Host",
+    port: "Port",
+    username: "User",
+    authMethod: "Authenticate with",
+    authPassword: "Password",
+    authPrivateKey: "Private key",
+    password: "Password",
+    privateKeyFile: "Private key file",
+    keyPassphrase: "Key passphrase",
+    saveTarget: "Save",
+    updateTarget: "Update",
+    saveAsNew: "Save as new",
+    deleteTarget: "Delete",
+    deleteTargetTitle: "Delete this?",
+    deleteTargetMessage: "Delete \u201c{{name}}\u201d?",
+    deleteTargetMessageSsh:
+      "Delete \u201c{{name}}\u201d? Its password is removed from the credential store too.",
+    connect: "Connect",
+    connecting: "Connecting\u2026",
+    settingsTitle: "Terminal",
+    settingsScreenGroup: "Screen",
+    settingsFontFamily: "Font",
+    settingsFontFamilyHint:
+      "Only the monospaced fonts installed on this machine are listed. They are the kind a terminal can draw straight.",
+    settingsFontSearch: "Search fonts",
+    settingsFontSize: "Text size",
+    settingsScrollback: "Scrollback",
+    settingsScrollbackUnit: "lines",
+    settingsCursorStyle: "Cursor",
+    settingsCursorBlock: "Block",
+    settingsCursorUnderline: "Underline",
+    settingsCursorBar: "Bar",
+    settingsCursorBlink: "Blink the cursor",
+    settingsSessionGroup: "New sessions",
+    settingsDefaultShell: "Shell",
+    settingsDefaultShellAuto: "Whatever this machine offers first",
+    settingsDefaultCwd: "Start in",
+    settingsRightClickPastes: "Right-click pastes instead of opening a menu",
+    settingsRightClickPastesHint:
+      "The way PuTTY behaves. With it off, a right-click opens the terminal's own menu.",
+    settingsTitleShowsTargetName: "Name the tab after the saved target",
+    settingsTitleShowsTargetNameHint:
+      "\"Prod DB\" rather than deploy@example.com or Git Bash. A session that did not come from a saved target keeps the name it has now.",
+    settingsGlobalHint: "These settings apply to every terminal tab, open ones included.",
+    shortcutFind: "Find in the scrollback",
+    findPlaceholder: "Find",
+    findPrevious: "Previous match",
+    findNext: "Next match",
+    findClose: "Close the search bar",
+    findNoMatch: "No match",
+    menuCopy: "Copy",
+    menuPaste: "Paste",
+    menuClear: "Clear the screen",
+    menuSelectAll: "Select all",
+    followLink: "{{modifier}} + click to open this link",
+    linkBlocked: "Only http and https links open from here.",
+    runOnConnect: "Run on connect",
+    runOnConnectPlaceholder: "cd ~/project-a/frontend",
+    runOnConnectHint:
+      "Typed for you once the shell answers, one command per line. It is kept in plain text beside the host — not the place for a password.",
+  },
+  error: {
+    terminalSpawnFailed: "Could not start the shell: {{message}}",
+    terminalShellNotFound: "There is no shell at {{path}}.",
+    terminalUnknownSession: "That terminal session is no longer open.",
+    terminalClipboardRead: "Nothing was pasted. The clipboard refused: {{message}}",
+  },
+};
+
+/** The shape both dictionaries have to have — see `vi.ts`, which is annotated with it, and
+ *  `DbDict`/`RestDict`, which are the same arrangement. English is the source of the shape
+ *  because it is the fallback: a key missing here is a key with nothing to fall back to. */
+export type TerminalDict = typeof terminalEn;
+
+export default terminalEn;

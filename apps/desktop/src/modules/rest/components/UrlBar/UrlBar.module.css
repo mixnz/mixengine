@@ -1,0 +1,48 @@
+.bar {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  /* The response's status bar is set to the same height, which is what the spec asks for. */
+  min-height: 3rem;
+  box-sizing: border-box;
+}
+
+/* As wide as its longest option needs and no wider — and the `min-width` is half of what makes
+   that true. `Select` reserves `8em` for itself, which is the right default for a control naming
+   something a user wrote and far too much for one naming seven fixed words; being a flex item it
+   is the `min-width` that wins over the basis below, so without this line the picker is that 8em
+   and the basis never applies at all.
+
+   The basis is `OPTIONS`, which is the longest of the seven, worked out rather than measured so
+   it follows the size the control is actually drawn at: seven cells of Fira Code at 0.6em each,
+   and the chevron, the gap beside it and the padding around both, all taken at the 0.8em that
+   `size="small"` sets — then the two borders, which are the one part that is not type.
+
+   Fixed rather than sized to content, or the URL box would move sideways every time the method
+   changed. Sized to the longest option rather than to the current one for the same reason. */
+.method {
+  min-width: 0;
+  flex: 0 0 calc(3.36em + 2.4em + 2px);
+  align-self: stretch;
+}
+
+/* The picker is set a size smaller than the URL box, which is what keeps it narrow — so its height
+   is taken from the row instead of from its own text. */
+.methodTrigger {
+  height: 100%;
+}
+
+.url {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+}
+
+.send {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}

@@ -1,0 +1,47 @@
+.languages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  /* `job.message` đổi độ dài liên tục (số MB tăng dần) khi một bản đang tải — auto layout đo lại
+     mọi cột mỗi lần nó đổi, làm cả bảng co giãn theo. Fixed cắt việc đó: cột chốt theo hàng đầu,
+     nội dung dài hơn wrap xuống dòng thay vì kéo rộng cột. */
+  table-layout: fixed;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.versionButton {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

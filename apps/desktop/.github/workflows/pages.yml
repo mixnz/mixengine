@@ -1,0 +1,66 @@
+# Publishes `site/` to GitHub Pages — the landing page and the privacy policy.
+#
+# The privacy policy URL is declared to the Microsoft Store and, later, to Apple. A store listing
+# points at it for as long as the app is listed, which makes this the one page in the project that
+# must not 404: it is worth a workflow rather than a branch somebody remembers to update.
+#
+# `site/` and not `docs/`, which is where GitHub Pages would look by default. docs/ holds the
+# design specs — internal working documents — and pointing Pages at it would publish every one of
+# them. The separate directory is the whole reason this workflow exists instead of a checkbox in
+# the repository settings.
+#
+# Deploying only when `site/` changes keeps an unrelated push from redeploying a page nobody
+# touched. `workflow_dispatch` is there for the first run, and for the day Pages needs prodding.
+#
+# Before the first deploy, Settings → Pages → Source must be set to "GitHub Actions". Without it
+# the deploy step fails with a permissions error that does not explain itself.
+
+name: Pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Both are what `deploy-pages` needs: one to publish, one to prove to Pages that this workflow
+  # run is who it says it is.
+  pages: write
+  id-token: write
+
+# A queued deploy is allowed to wait, not to be cancelled: whichever run is in flight should be
+# allowed to finish publishing a complete site rather than be interrupted half-way.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      # The app's own mark, used as the site's favicon. Copied in rather than committed twice: a
+      # second copy under `site/` would go on serving the old logo, silently, for however long it
+      # took somebody to notice the day the logo is redrawn. This is why `site/logo.svg` is in
+      # .gitignore and does not exist in the tree.
+      - name: Take the favicon from the app's logo
+        run: cp public/logo.svg site/logo.svg
+
+      # Beyond that copy the site is plain HTML with no build step, so what is uploaded is what was
+      # reviewed.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

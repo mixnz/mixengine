@@ -1,0 +1,57 @@
+.packages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+/* Dính ngay dưới dải Ngôn ngữ/Gói của `Runtimes.tsx` — `--tabstrip-height` là chiều cao thật của
+   dải đó, đặt trên `.runtimes` (ancestor) và đo lại bằng ResizeObserver, xem `Runtimes.tsx`. */
+.categoryTabStrip {
+  position: sticky;
+  top: var(--tabstrip-height, 0px);
+  z-index: 1;
+  background: var(--surface-bg);
+  /* `.packages` có `padding: 16px`, nhưng dải dính phải chạy hết bề ngang vùng cuộn, không hở ra
+     một khe hai bên để bảng bên dưới lộ qua lúc cuộn — kéo nó ra lại rìa trái/phải của `.packages`.
+     Không thêm padding ngang riêng: padding có sẵn của `.small`/`.strip` (`TabStrip.module.css`)
+     đã canh đúng cỡ thụt lề của dải Ngôn ngữ/Gói phía trên, cộng thêm vào đây sẽ lệch nhau. */
+  margin: 0 -16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Cùng lý do `Languages.module.css` đã theo: `job.message` đổi độ dài liên tục khi đang tải,
+     auto layout đo lại cột mỗi lần đổi và làm cả bảng co giãn theo. */
+  table-layout: fixed;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.blockedHint {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}

@@ -1,0 +1,77 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 46rem;
+}
+
+.bestEffort {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dialect {
+  min-width: 10rem;
+}
+
+.problems,
+.warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+}
+
+.problems {
+  background: rgb(var(--danger-rgb) / 0.08);
+}
+
+.warnings {
+  background: var(--hover-bg);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+}
+
+.fragment {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: var(--hover-bg);
+  overflow-wrap: anywhere;
+}

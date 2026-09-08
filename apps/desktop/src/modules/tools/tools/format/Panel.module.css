@@ -1,0 +1,48 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.kind {
+  min-width: 9rem;
+}
+
+.indent {
+  min-width: 8rem;
+}
+
+.dialect {
+  min-width: 10rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.guess {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+  margin: 0;
+}
+
+.error {
+  font-size: var(--text-md);
+  color: var(--danger, #d33);
+  margin: 0;
+}

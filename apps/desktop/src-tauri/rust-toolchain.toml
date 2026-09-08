@@ -1,0 +1,14 @@
+# The Rust that builds MixDB — CI's and yours, deliberately the same one.
+#
+# CI used to ask for whatever `stable` meant that day. Its first run went red on a clippy lint that
+# shipped in 1.98, on a machine still holding 1.97: `cargo clippy` was clean locally and failed in
+# CI, for a commit that touched no Rust at all. Floating means every Rust release can turn master
+# red without anyone changing a line, and a check that goes off on its own is one people learn to
+# scroll past.
+#
+# rustup reads this file whenever cargo runs in this folder and installs what it names, so the
+# lints are the same in both places. Bumping it is a deliberate edit, and expects new lints to
+# fix — the same bargain as the pinned `PG_VERSION` in modules/db/drivers/tools.rs.
+[toolchain]
+channel = "1.98.0"
+components = ["clippy"]

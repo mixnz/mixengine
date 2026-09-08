@@ -1,0 +1,70 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.format {
+  min-width: 9rem;
+}
+
+.check {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--danger, #d33);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.fieldRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.name {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  min-width: 12rem;
+}
+
+.kind {
+  min-width: 9rem;
+  margin-left: auto;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.8;
+}

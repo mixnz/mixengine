@@ -1,0 +1,53 @@
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+}
+
+.dialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  padding: 24px;
+  width: min(420px, calc(100vw - 2rem));
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.title {
+  margin: 0 0 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.errors {
+  margin-top: 12px;
+  color: var(--danger, #c00);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

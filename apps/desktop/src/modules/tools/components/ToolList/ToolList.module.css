@@ -1,0 +1,128 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.5rem;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.groupTitle {
+  margin: 0 0 0.25rem;
+  padding: 0 0.5rem;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.item {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--hover-bg);
+}
+
+.item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Beats `.item:hover` on specificity rather than on order — the two stylesheets' order is decided
+   by Vite from the import graph, not by where these rules sit. */
+.item.selected,
+.item.selected:hover {
+  background: rgb(var(--accent-rgb) / 0.16);
+  color: var(--accent-text);
+}
+
+.frequentRow {
+  display: flex;
+  align-items: stretch;
+  border-radius: var(--radius-sm);
+}
+
+/* The highlight lives on the row, not the button — `.item` only reaches partway across (the ×
+   sits after it), so hovering it alone would leave a gap the width of the remove button. */
+.frequentRow:hover {
+  background: var(--hover-bg);
+}
+
+/* Higher specificity than `.frequentRow:hover` (2 classes vs. 1), so a selected row keeps its
+   accent fill on hover instead of being covered by the plain hover background. */
+.frequentRow:has(.item.selected) {
+  background: rgb(var(--accent-rgb) / 0.16);
+}
+
+.frequentRow .item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Left to `.item:hover`, this would stack its own `--hover-bg` on top of the row's, going visibly
+   darker under the label than under the × — `:not(.selected)` so a selected row keeps its accent
+   untouched, same as every other group. */
+.frequentRow .item:not(.selected):hover {
+  background: transparent;
+}
+
+/* The row now paints the accent fill (see `.frequentRow:has` above) — without this, `.item.selected`
+   would still paint its own copy underneath, stacking two tints and leaving a visible seam where the
+   item's background stops short of the × button. */
+.frequentRow .item.selected,
+.frequentRow .item.selected:hover {
+  background: transparent;
+}
+
+/* Dim until the row is worth looking at — hovered, or the button itself has the keyboard — so the
+   sidebar is not five faint × marks wide at rest. */
+.frequentRemove {
+  appearance: none;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.frequentRow:hover .frequentRemove,
+.frequentRemove:focus-visible {
+  opacity: 0.6;
+}
+
+.frequentRemove:hover,
+.frequentRemove:focus-visible {
+  opacity: 1;
+  background: var(--hover-bg);
+}
+
+.frequentRemove:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.empty {
+  margin: 0;
+  padding: 1rem 0.75rem;
+  font-size: var(--text-sm);
+  opacity: 0.6;
+}

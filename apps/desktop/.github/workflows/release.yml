@@ -1,0 +1,290 @@
+# Builds MixDB for Windows, macOS and Linux and attaches the installers to a GitHub release.
+#
+# Push a tag to run it:
+#
+#   npm run set-version 0.2.0
+#   git commit -am "chore(release): 0.2.0" && git push
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# The release is left as a draft. Publishing it is a separate click, which is deliberate: the
+# in-app updater reads `/releases/latest/download/latest.json`, and that only starts pointing at
+# this release once it is published — so the notes can be written, and a bad build thrown away,
+# before a single installed copy of MixDB hears about it.
+#
+# Every bundle is signed with the project's minisign key, which is what installed copies verify
+# before they run an update. That key is not a code-signing certificate: nothing here is signed for
+# Windows or macOS, and the first install still raises their warnings. See docs/RELEASING.md.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  # So a build can be tried out without tagging. Produces a draft against the tag it finds, if any.
+  workflow_dispatch:
+
+# tauri-action creates the release and uploads to it.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      # One platform failing must not throw away the builds that already succeeded — the draft can
+      # be topped up by re-running the failed job.
+      fail-fast: false
+      matrix:
+        include:
+          # A single bundle that runs on both Apple Silicon and Intel. One job instead of two, and
+          # one download that no user can pick wrong.
+          - platform: macos-latest
+            target: universal-apple-darwin
+            args: "--target universal-apple-darwin"
+          # 22.04 rather than latest: the AppImage produced links against the glibc of the machine
+          # that built it, so building on the oldest supported runner is what makes it portable.
+          - platform: ubuntu-22.04
+            target: ""
+            args: ""
+          - platform: windows-latest
+            target: ""
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libssl-dev \
+            build-essential \
+            curl wget file
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # The version comes from src-tauri/rust-toolchain.toml rather than from here, so the bundles
+      # users install are built by the same Rust ci.yml checked them with.
+      - name: Install the pinned Rust toolchain
+        working-directory: src-tauri
+        run: rustup show
+
+      # The universal bundle is two builds stitched together, so both halves need their target.
+      #
+      # This has to run inside src-tauri. rustup reads the pin there and adds the targets to that
+      # toolchain; asked from anywhere else it adds them to `stable`, a separate toolchain cargo
+      # never uses here even when it holds the very same rustc. That is what left v0.0.19's
+      # universal build compiling its aarch64 half for eight minutes and then stopping on
+      # `Target x86_64-apple-darwin is not installed`.
+      - name: Add the macOS targets for the universal bundle
+        if: matrix.target == 'universal-apple-darwin'
+        working-directory: src-tauri
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: "./src-tauri -> target"
+          # Otherwise the three platforms overwrite each other's cache.
+          key: ${{ matrix.platform }}-${{ matrix.target }}
+
+      - run: npm ci
+
+      # The notes for this version, written into CHANGELOG.md as the work was done rather than
+      # reconstructed from memory at release time. `set-version` cut them into a section named
+      # after the version being built, which is what this reads back out.
+      #
+      # A version with no section prints nothing, and the draft's `## Changes` comes out empty —
+      # the same state this step replaced, still fixable by hand on the draft before publishing.
+      - name: Read the changelog section for this version
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          echo "Release notes for $version:"
+          node .github/scripts/changelog-section.mjs CHANGELOG.md "$version" | tee section.md
+          # A random delimiter: the notes are arbitrary markdown, and a fixed one appearing inside
+          # them would end the value early and let the rest of it be read as workflow commands.
+          # Generated with node rather than openssl, which is the one of the two that all three
+          # runners are certain to have.
+          delimiter="EOF_$(node -e "console.log(require('crypto').randomBytes(12).toString('hex'))")"
+          {
+            echo "changes<<$delimiter"
+            cat section.md
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+          rm section.md
+
+      # Pinned to a commit, not to `v0`. This step is handed the updater's signing key, and a
+      # moving tag means whoever can move it can have that key — the tag is a pointer the action's
+      # own repository controls, and `v0` in particular is republished on every release. The three
+      # other third-party actions in these workflows are pinned for the same reason. `actions/*`
+      # stay on major tags: those are GitHub's own, published from the same place the runner is,
+      # and pinning them buys nothing that pinning the rest does not already buy.
+      #
+      # Updating one is a deliberate act: read what changed, then move the SHA and the comment
+      # beside it together.
+      - uses: tauri-apps/tauri-action@84b9d35b5fc46c1e45415bdb6144030364f7ebc5 # v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The AppImage is assembled by linuxdeploy, which is itself an AppImage and wants FUSE
+          # to mount itself. Runners have no FUSE, so it unpacks instead of mounting.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          # Signs the update bundles. Without these the build still succeeds, but produces
+          # unsigned artifacts that no installed copy of MixDB will accept — so if the updater ever
+          # goes quiet after a release, check these two secrets first.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # `latest.json` — the manifest the updater reads — is built by the `merge-manifest` job
+          # below instead, once, from every platform's uploaded `.sig` rather than three matrix
+          # jobs racing to merge their own entry into the same shared file. That race is exactly
+          # what lost v0.0.30's windows and linux entries: the macOS job's write overwrote the file
+          # instead of extending it. Each job here still produces and uploads its own installer and
+          # `.sig` — only the merge into one JSON file moves out.
+          includeUpdaterJson: false
+          tagName: ${{ github.ref_type == 'tag' && github.ref_name || 'v__VERSION__' }}
+          releaseName: "MixDB __VERSION__"
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            ## Install
+
+            Download the file for your machine below, then see the notes for it.
+
+            | Machine | File |
+            | --- | --- |
+            | Windows | `.exe` (installer) |
+            | macOS (Apple Silicon and Intel) | `.dmg` |
+            | Linux | `.AppImage` or `.deb` |
+
+            **MixDB is not code-signed**, so the first launch needs one extra step:
+
+            - **Windows** — SmartScreen says "Windows protected your PC". Click **More info**, then
+              **Run anyway**.
+            - **macOS** — the first open is refused. Right-click MixDB in Applications and choose
+              **Open**, then **Open** again. If macOS calls the app damaged, run
+              `xattr -cr /Applications/MixDB.app` in Terminal once.
+            - **Linux** — mark the AppImage executable: `chmod +x MixDB_*.AppImage`.
+
+            ## Updates
+
+            You only have to do that once. From here on MixDB checks for new versions itself,
+            downloads them in the background and asks before it installs and restarts. Every update
+            is verified against MixDB's signing key first.
+
+            Linux `.deb` is the exception — it does not self-update, so come back here for the next
+            version.
+
+            ## Changes
+
+            ${{ steps.notes.outputs.changes }}
+          args: ${{ matrix.args }}
+
+  # Builds `latest.json` once, here, instead of three matrix jobs each merging their own platform
+  # into a shared copy of the file — see the comment on `includeUpdaterJson` above for the race
+  # that left it broken for v0.0.30.
+  #
+  # `if: always()` so one platform failing (fail-fast is off) still gets the others merged; the
+  # script itself only includes a platform whose `.sig` actually made it onto the release, and
+  # a failed one can be topped up later by re-running its job and then this one.
+  merge-manifest:
+    needs: build
+    if: always() && needs.build.result != 'cancelled'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Resolve the version and release tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+          if [ -z "$tag" ]; then tag="v$version"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Read the changelog section for this version
+        shell: bash
+        run: |
+          set -euo pipefail
+          node .github/scripts/changelog-section.mjs CHANGELOG.md "${{ steps.version.outputs.version }}" > notes.md
+
+      - name: Download every installer's signature
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir sigs
+          gh release download "${{ steps.version.outputs.tag }}" \
+            --repo "${{ github.repository }}" --pattern "*.sig" --dir sigs
+
+      - name: Build latest.json from the signatures actually present
+        run: |
+          set -euo pipefail
+          node .github/scripts/build-manifest.mjs \
+            "${{ steps.version.outputs.version }}" notes.md sigs latest.json
+
+      - name: Upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release upload "${{ steps.version.outputs.tag }}" \
+            --repo "${{ github.repository }}" latest.json --clobber
+
+      # Extra copies of the installers under names with no version in them, uploaded alongside the
+      # versioned ones tauri-action already attached. `releases/latest/download/<name>` resolves
+      # the same fixed name against whichever release is newest, so these four URLs are what
+      # site/index.html links to — one per OS, never needing an edit again.
+      #
+      # The versioned originals are untouched and still what the Microsoft Store submission and
+      # latest.json point at — see the "Store" and "package URL is versioned" notes in
+      # docs/RELEASING.md for why those must stay pinned to one release.
+      #
+      # A platform whose build failed just has nothing to download here; `gh release download`
+      # exits non-zero and the loop skips its alias instead of failing the whole job, the same way
+      # build-manifest.mjs skips a platform with no `.sig`.
+      - name: Publish per-OS "latest" download aliases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ steps.version.outputs.tag }}"
+          mkdir aliases
+
+          publish_alias() {
+            local source_name="$1"
+            local alias_name="$2"
+            if gh release download "$tag" --repo "${{ github.repository }}" \
+                --pattern "$source_name" --dir aliases --clobber; then
+              cp "aliases/$source_name" "aliases/$alias_name"
+              gh release upload "$tag" "aliases/$alias_name" \
+                --repo "${{ github.repository }}" --clobber
+            else
+              echo "::warning::$source_name is missing from $tag — skipping the $alias_name alias"
+            fi
+          }
+
+          publish_alias "MixDB_${version}_x64-setup.exe" "MixDB-windows-x64-setup.exe"
+          publish_alias "MixDB_${version}_universal.dmg" "MixDB-macos-universal.dmg"
+          publish_alias "MixDB_${version}_amd64.AppImage" "MixDB-linux-x64.AppImage"
+          publish_alias "MixDB_${version}_amd64.deb" "MixDB-linux-x64.deb"
