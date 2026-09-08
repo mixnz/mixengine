@@ -6,6 +6,12 @@ License:        MIT OR Apache-2.0
 URL:            https://github.com/mixnz/mixengine
 BuildArch:      @ARCH@
 
+# **`Requires:` exists because of the window** — T105. WebKitGTK is a runtime dependency the four
+# command-line binaries never had, and Tauri 2 links the 4.1 API on libsoup 3. A boolean dependency
+# (rpm 4.13+) rather than one name, because Fedora and RHEL call this package `webkit2gtk4.1` and
+# openSUSE calls it `libwebkit2gtk-4_1-0`, and the install page offers this file to both.
+Requires:       (webkit2gtk4.1 or libwebkit2gtk-4_1-0)
+
 # The binaries are already built and already stripped of debug info by the release profile, so
 # rpmbuild's own build-id links and strip pass have nothing to do and only fail on a static binary
 # it did not compile.
@@ -29,10 +35,26 @@ install -m 0755 %{_sourcedir}/mixengine-shim %{buildroot}/usr/bin/mixengine-shim
 # returns — the T85 design, D3.
 install -m 0755 %{_sourcedir}/mixengine-elevate \
   %{buildroot}/usr/local/libexec/mixengine/mixengine-elevate
+# MixLab, the window — T105.
+install -m 0755 %{_sourcedir}/mixlab %{buildroot}/usr/bin/mixlab
+# Its menu entry and icons. No `%post` runs `update-desktop-database`: this package has no scriptlets
+# on purpose, for the reason `packaging/linux/build-deb.sh`'s header gives.
+mkdir -p %{buildroot}/usr/share/applications \
+  %{buildroot}/usr/share/icons/hicolor/32x32/apps \
+  %{buildroot}/usr/share/icons/hicolor/128x128/apps
+install -m 0644 %{_sourcedir}/mixlab.desktop %{buildroot}/usr/share/applications/mixlab.desktop
+install -m 0644 %{_sourcedir}/mixlab-32.png \
+  %{buildroot}/usr/share/icons/hicolor/32x32/apps/mixlab.png
+install -m 0644 %{_sourcedir}/mixlab-128.png \
+  %{buildroot}/usr/share/icons/hicolor/128x128/apps/mixlab.png
 
 %files
 %defattr(-,root,root,-)
 /usr/bin/mix
 /usr/bin/mixengined
 /usr/bin/mixengine-shim
+/usr/bin/mixlab
 /usr/local/libexec/mixengine/mixengine-elevate
+/usr/share/applications/mixlab.desktop
+/usr/share/icons/hicolor/32x32/apps/mixlab.png
+/usr/share/icons/hicolor/128x128/apps/mixlab.png

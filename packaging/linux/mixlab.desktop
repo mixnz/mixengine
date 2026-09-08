@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MixLab
+Comment=MixEngine's desktop application
+Exec=mixlab %u
+Icon=mixlab
+Terminal=false
+Categories=Development;
+MimeType=x-scheme-handler/mixdb;
