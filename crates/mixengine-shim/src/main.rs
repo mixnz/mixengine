@@ -11,6 +11,9 @@
 //! 3  which file is that?           the `provides` map recorded when it was installed
 //! 4  become it                     exec on Unix, a Job Object child on Windows — carrying `PATH`
 //!                                  and the generated ini set (T28), and nothing else
+//!
+//! For `composer`, steps 2 and 3 run twice — once for the file, once for the PHP that runs it —
+//! and step 4 starts the PHP with the file first (roadmap task T27c).
 //! ```
 //!
 //! # It has no arguments of its own, and cannot have
@@ -92,15 +95,37 @@ fn main() {
 fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
     let command = shims::dispatch(invoked).ok_or_else(unknown_command)?;
 
-    let Resolution {
-        program,
-        root,
-        version,
-    } = resolved(command)?;
+    let own = resolved(command.kind, command.executable)?;
 
-    let environment = surroundings(command, &program, &root, &version);
+    // **A file for another kind's program** — roadmap task **T27c**, its design's D4. The command's
+    // kind named the file; the `via` kind names what runs it, resolved for the same directory and
+    // under its own override variable, so `MIXENGINE_PHP=8.1 composer install` means what it says.
+    // The environment is the program's: PHP's own directory on the PATH, PHP's generated ini set.
+    let (program, root, kind, version, arguments) = match command.via {
+        None => (
+            own.program,
+            own.root,
+            command.kind,
+            own.version,
+            arguments.to_vec(),
+        ),
+        Some(via) => {
+            let runner = resolved(via, via.as_str()).map_err(|refusal| Refusal {
+                said: format!("no {via} to run {} with: {}", command.name, refusal.said),
+                hint: refusal.hint,
+            })?;
 
-    process::hand_over(&program, arguments, &environment).map_err(|error| Refusal {
+            let mut handed = Vec::with_capacity(arguments.len() + 1);
+            handed.push(own.program.into_os_string());
+            handed.extend(arguments.iter().cloned());
+
+            (runner.program, runner.root, via, runner.version, handed)
+        }
+    };
+
+    let environment = surroundings(kind, &program, &root, &version);
+
+    process::hand_over(&program, &arguments, &environment).map_err(|error| Refusal {
         said: explain(&error),
         hint: None,
     })
@@ -128,7 +153,7 @@ struct Resolution {
 /// [`runtimes::extensions`] renders nothing for a runtime whose artifact declares no extension
 /// directory, and a variable pointing at a directory nothing writes is worse than no variable.
 fn surroundings(
-    command: &shims::Command,
+    kind: RuntimeKind,
     program: &Path,
     root: &Path,
     version: &PackageVersion,
@@ -145,7 +170,7 @@ fn surroundings(
 
     // `PathOverrides::default()` for `resolved`'s reason: a shim does not read `config.toml`.
     let paths = Paths::new(root.to_path_buf(), &PathOverrides::default());
-    let conf_d = runtimes::extensions::conf_d(paths.etc(), command.kind, version.as_str());
+    let conf_d = runtimes::extensions::conf_d(paths.etc(), kind, version.as_str());
 
     if conf_d.is_dir() {
         environment.insert(
@@ -162,7 +187,7 @@ fn surroundings(
 /// A `tokio` runtime of its own rather than `#[tokio::main]`, and dropped before the hand-over: what
 /// follows is an `exec` on one system and a wait on the other, and neither wants a reactor thread
 /// still standing behind it.
-fn resolved(command: &shims::Command) -> Result<Resolution, Refusal> {
+fn resolved(kind: RuntimeKind, executable: &str) -> Result<Resolution, Refusal> {
     let home = home_override().map(PathBuf::from);
     let root = paths::resolve_root(home.as_deref(), mixengine_platform::host().as_ref()).map_err(
         |error| Refusal {
@@ -179,7 +204,7 @@ fn resolved(command: &shims::Command) -> Result<Resolution, Refusal> {
         .database_file()
         .to_path_buf();
 
-    let asked = override_version(command.kind)?;
+    let asked = override_version(kind)?;
 
     // A directory that has been deleted out from under this process is `None` rather than a refusal:
     // there is nothing to walk, which is exactly what the default is for. It is also the one shape
@@ -213,7 +238,7 @@ fn resolved(command: &shims::Command) -> Result<Resolution, Refusal> {
         let resolved = resolve::runtime(
             &store,
             &resolve::Question {
-                kind: command.kind,
+                kind,
                 cwd: cwd.as_deref(),
                 explicit: asked.as_ref(),
             },
@@ -224,17 +249,12 @@ fn resolved(command: &shims::Command) -> Result<Resolution, Refusal> {
             said: explain(&error),
         })?;
 
-        let program = runtimes::program(
-            &store,
-            command.kind,
-            &resolved.runtime.version,
-            command.executable,
-        )
-        .await
-        .map_err(|error| Refusal {
-            said: explain(&error),
-            hint: None,
-        })?;
+        let program = runtimes::program(&store, kind, &resolved.runtime.version, executable)
+            .await
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: None,
+            })?;
 
         Ok(Resolution {
             program,
@@ -408,7 +428,7 @@ mod tests {
         std::fs::create_dir_all(&conf_d).expect("a generated set");
 
         let environment = surroundings(
-            command,
+            command.kind,
             &root.join("runtimes/php/8.3.33/bin/php"),
             root,
             &version,
@@ -439,7 +459,7 @@ mod tests {
             .expect("this build fronts node");
 
         let environment = surroundings(
-            command,
+            command.kind,
             &home.path().join("runtimes/node/20.11.0/bin/node"),
             home.path(),
             &version,

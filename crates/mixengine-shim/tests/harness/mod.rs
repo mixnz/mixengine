@@ -297,6 +297,11 @@ pub(crate) struct Recorded {
 }
 
 impl Recorded {
+    /// One variable the program recorded, by name.
+    pub(crate) fn recorded(&self, name: &str) -> Option<&str> {
+        self.environment.get(name).map(String::as_str)
+    }
+
     /// Which runtime really ran: the first entry of the `PATH` the program was given.
     pub(crate) fn ran_from(&self) -> PathBuf {
         let path = self

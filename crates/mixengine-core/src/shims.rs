@@ -18,10 +18,11 @@
 //!
 //! # What is deliberately not in the table
 //!
-//! **`composer`**, and every other tool that is not inside a language's archive. The feature spec
-//! lists it among the commands `bin/` will eventually hold, and it is a `.phar` fetched separately —
-//! so a row here would be a shim that resolves a PHP correctly and then fails to find a file no
-//! artifact was ever going to contain. It arrives with the task that installs it.
+//! Every tool that is neither inside a language's archive nor published as an artifact of its own.
+//! **`composer` used to be the example** — a `.phar` fetched separately, so a row would have been a
+//! shim that resolved a PHP correctly and then failed to find a file no artifact contained. T27c
+//! made it an artifact of its own kind, and its row is the one with a [`Command::via`]: the kind
+//! names the file, `via` names the program that runs it.
 //!
 //! **Only PHP has artifacts today** (T20a), so the other three rows are unexercised until T27
 //! publishes theirs. They are written now because the table is what a shim dispatches on: a row
@@ -66,6 +67,13 @@ pub struct Command {
 
     /// Which of the artifact's executables to run, by the name the index publishes it under.
     pub executable: &'static str,
+
+    /// The kind whose program runs this one, when it is a file rather than a program.
+    ///
+    /// **`composer` and nothing else** — roadmap task **T27c**, its design's D4. A `.phar` is
+    /// handed to a PHP: the command's own kind names the file, this kind names the program, and the
+    /// shim resolves both for the directory it was run in. `None` is a program of its own.
+    pub via: Option<RuntimeKind>,
 }
 
 /// Every command a shim answers to, grouped by language and in the order `bin/` is listed in.
@@ -83,47 +91,56 @@ pub const COMMANDS: &[Command] = &[
         name: "php",
         kind: RuntimeKind::Php,
         executable: "php",
+        via: None,
     },
     Command {
         name: "php-config",
         kind: RuntimeKind::Php,
         executable: "php-config",
+        via: None,
     },
     Command {
         name: "phpize",
         kind: RuntimeKind::Php,
         executable: "phpize",
+        via: None,
     },
     Command {
         name: "pecl",
         kind: RuntimeKind::Php,
         executable: "pecl",
+        via: None,
     },
     Command {
         name: "pear",
         kind: RuntimeKind::Php,
         executable: "pear",
+        via: None,
     },
     // Node.
     Command {
         name: "node",
         kind: RuntimeKind::Node,
         executable: "node",
+        via: None,
     },
     Command {
         name: "npm",
         kind: RuntimeKind::Node,
         executable: "npm",
+        via: None,
     },
     Command {
         name: "npx",
         kind: RuntimeKind::Node,
         executable: "npx",
+        via: None,
     },
     Command {
         name: "corepack",
         kind: RuntimeKind::Node,
         executable: "corepack",
+        via: None,
     },
     // Python. `python3` and `pip3` are the same programs under the names most projects' scripts
     // actually call, which is the whole reason a command and an executable are separate fields.
@@ -131,52 +148,71 @@ pub const COMMANDS: &[Command] = &[
         name: "python",
         kind: RuntimeKind::Python,
         executable: "python",
+        via: None,
     },
     Command {
         name: "python3",
         kind: RuntimeKind::Python,
         executable: "python",
+        via: None,
     },
     Command {
         name: "pip",
         kind: RuntimeKind::Python,
         executable: "pip",
+        via: None,
     },
     Command {
         name: "pip3",
         kind: RuntimeKind::Python,
         executable: "pip",
+        via: None,
     },
     // Ruby.
     Command {
         name: "ruby",
         kind: RuntimeKind::Ruby,
         executable: "ruby",
+        via: None,
     },
     Command {
         name: "gem",
         kind: RuntimeKind::Ruby,
         executable: "gem",
+        via: None,
     },
     Command {
         name: "bundle",
         kind: RuntimeKind::Ruby,
         executable: "bundle",
+        via: None,
     },
     Command {
         name: "bundler",
         kind: RuntimeKind::Ruby,
         executable: "bundle",
+        via: None,
     },
     Command {
         name: "rake",
         kind: RuntimeKind::Ruby,
         executable: "rake",
+        via: None,
     },
     Command {
         name: "irb",
         kind: RuntimeKind::Ruby,
         executable: "irb",
+        via: None,
+    },
+    // Composer. A file and not a program: `composer.phar`, run by the PHP the directory resolves
+    // to (T27c). Its own row so that a version of *Composer* is pinned and defaulted like any
+    // runtime's, and `via` so that the shim knows whose program to start.
+    Command {
+        name: "composer",
+        kind: RuntimeKind::Composer,
+        executable: "composer",
+        via: Some(RuntimeKind::Php),
     },
 ];
 
@@ -538,13 +574,29 @@ mod tests {
 
         // The binary before it is copied into `bin/` under a name that means something.
         assert_eq!(dispatch(Path::new("mixengine-shim")), None);
-        assert_eq!(dispatch(Path::new("composer")), None, "not in an artifact");
+        assert_eq!(dispatch(Path::new("cargo")), None, "not in any artifact");
     }
 
     /// The filesystem's rule, not a courtesy — see [`dispatch`].
     #[test]
     fn case_is_folded_exactly_where_the_filesystem_folds_it() {
         assert_eq!(dispatch(Path::new("PHP")).is_some(), cfg!(windows));
+    }
+
+    /// **One row runs through another kind** — roadmap task **T27c**, its design's D4. `composer`
+    /// is a file for a PHP, and every other row is a program of its own.
+    #[test]
+    fn only_composer_runs_through_another_kind() {
+        for command in COMMANDS {
+            match command.name {
+                "composer" => {
+                    assert_eq!(command.kind, RuntimeKind::Composer);
+                    assert_eq!(command.executable, "composer");
+                    assert_eq!(command.via, Some(RuntimeKind::Php));
+                }
+                _ => assert_eq!(command.via, None, "{}", command.name),
+            }
+        }
     }
 
     /// Two rows with one name would make `bin/` a directory whose entries are decided by the order
