@@ -21,7 +21,7 @@
 //! gone. It is *named* in the answer rather than silently left, because a directory nobody was told
 //! about is a directory nobody ever cleans up.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use mixengine_core::generate::{Instancing, Role};
 use mixengine_core::services::{Declaration, Port};
@@ -321,7 +321,7 @@ impl Api {
 
         let data = column.map_or_else(|| self.data_directory(id), PathBuf::from);
 
-        discard(&self.paths.etc().join(id.as_str()))
+        mixengine_core::runtimes::discard(&self.paths.etc().join(id.as_str()))
             .await
             .map_err(|error| error.to_wire())?;
 
@@ -386,7 +386,11 @@ impl Api {
             );
         }
 
-        if let Err(error) = discard(&self.paths.etc().join(id.as_str())).await {
+        // Called directly rather than through a one-line wrapper: `mixengine_core::Error` is over
+        // 128 bytes, and a frame that only forwards it is what `clippy::result_large_err` flags.
+        if let Err(error) =
+            mixengine_core::runtimes::discard(&self.paths.etc().join(id.as_str())).await
+        {
             tracing::warn!(
                 service = id.as_str(),
                 %error,
@@ -394,9 +398,4 @@ impl Api {
             );
         }
     }
-}
-
-/// Remove a directory, treating one that is not there as the outcome that was wanted.
-async fn discard(path: &Path) -> mixengine_core::Result<()> {
-    mixengine_core::runtimes::discard(path).await
 }

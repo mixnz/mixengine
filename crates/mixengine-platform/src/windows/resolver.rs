@@ -394,9 +394,13 @@ fn dword(key: &Key, name: &str) -> crate::Result<Option<u32>> {
 
 /// The bytes of a registry string value, as UTF-16 was stored in them.
 fn decode(bytes: &[u8]) -> String {
+    // `as_chunks` rather than `chunks_exact(2)`: the pair arrives as `[u8; 2]`, so no index into
+    // it can miss. A trailing odd byte is dropped either way, as it always was.
     let units: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|pair| u16::from_ne_bytes([pair[0], pair[1]]))
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|pair| u16::from_ne_bytes(*pair))
         .collect();
 
     String::from_utf16_lossy(&units)

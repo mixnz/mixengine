@@ -153,13 +153,10 @@ fn sapi() -> &'static str {
     if cfg!(windows) { "php-cgi" } else { "php-fpm" }
 }
 
-/// What the index calls the system these tests are running on.
+/// What the index calls the system these tests are running on — `std`'s own spelling, on all
+/// three of the systems this project ships for.
 fn os() -> &'static str {
-    match std::env::consts::OS {
-        "windows" => "windows",
-        "macos" => "macos",
-        other => other,
-    }
+    std::env::consts::OS
 }
 
 /// And its architecture.

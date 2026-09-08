@@ -137,13 +137,15 @@ pub(crate) async fn spawn(
 /// # Errors
 ///
 /// Whatever asking the generator costs — a home too deeply nested for a derived socket path, or a
-/// row this build cannot read.
+/// row this build cannot read. Boxed at this boundary: `mixengine_core::Error` is over 128 bytes,
+/// both callers only log it, and carrying it through one more frame is what
+/// `clippy::result_large_err` flags.
 pub(crate) async fn hold_all(
     services: Arc<Registry>,
     paths: &mixengine_core::Paths,
     store: &mixengine_core::Store,
     host: &dyn mixengine_platform::Host,
-) -> mixengine_core::Result<Vec<ServiceId>> {
+) -> Result<Vec<ServiceId>, Box<mixengine_core::Error>> {
     let generator = super::spec::generator(paths, store, host);
     let mut holding = HOLDING.lock().await;
     let mut held = Vec::new();

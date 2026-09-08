@@ -1,6 +1,6 @@
 # Pinned so every developer machine and every CI runner build with the same compiler.
 # Bumping this is a deliberate act: update `rust-version` in the workspace manifest too.
 [toolchain]
-channel = "1.97.1"
+channel = "1.98.0"
 components = ["clippy", "rustfmt"]
 profile = "minimal"

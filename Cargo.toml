@@ -16,7 +16,7 @@ members = [
 [workspace.package]
 version = "0.0.6"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.98.0"
 # Dual licensed the way the Rust ecosystem conventionally is: the user picks either one.
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mixnz/mixengine"
