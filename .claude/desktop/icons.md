@@ -56,7 +56,7 @@ The script is `scripts/make-icons.mjs`. It runs Tauri's own icon generator twice
    run's `icon.icns` over the first one. The temporary directory is then deleted.
 
 The generator renders from the vector at each target size rather than scaling one bitmap, which is
-why the 32-pixel icon still reads as three platters instead of a blur.
+why the 32-pixel icon still reads as a ring with a ligature in it instead of a blur.
 
 `tauri icon` also writes `src-tauri/icons/android/` and `src-tauri/icons/ios/`. The app is
 desktop-only, so those are dead weight kept only against a later mobile target; do not spend time
