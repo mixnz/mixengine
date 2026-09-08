@@ -14,21 +14,42 @@ export MIX_ROOT
 MIX_OUT="$MIX_ROOT/target/packaging"
 export MIX_OUT
 
-# The four binaries a release is made of, in the order a reader wants them: the three that install
-# into one directory, then the one that does not.
+# The five binaries a release is made of, in the order a reader wants them: the three that install
+# into one directory, then the one that does not, then the window.
 #
 # **`mixengine-shim` is in this list because `core::shims::source` looks for it beside the running
 # `mixengined` and nowhere else** — T85c. A release without it starts, reports itself healthy, and
 # has an empty `<root>/bin`, which is every runtime command the product exists to provide.
 # `crates/mixengine-core/tests/packaging.rs` reads this line and refuses a build where the two have
 # drifted apart.
-MIX_BINARIES=(mix mixengined mixengine-shim mixengine-elevate)
+#
+# **`mixlab` is MixLab, the window** — T105. One name on every operating system, lower case, because
+# `updates::apply::swap` looks a payload's name up as `directory.join(binary_name(name))` and
+# `binary_name` appends this platform's executable suffix and nothing else: an install file spelled
+# any other way is one every future update would skip without a word. On macOS the *bundle* around
+# it is `MIX_WINDOW_APP`; the executable inside it still has this name.
+MIX_BINARIES=(mix mixengined mixengine-shim mixengine-elevate mixlab)
 export MIX_BINARIES
 
 # The crates that produce them, in the same order. Beside the names rather than inside `stage.sh`,
 # because "what is built" and "what is shipped" disagreeing is exactly what T85c was.
-MIX_CRATES=(mixengine-cli mixengine-daemon mixengine-shim mixengine-elevate)
+#
+# **The last one is not built by `stage.sh`** and cannot be: the desktop application's crate is a
+# workspace of its own that this one excludes (ADR 0027, rule 5), so `cargo build -p mixlab` at the
+# root is an error rather than a build. `packaging/desktop.sh` builds it; this array is what
+# `crates/mixengine-core/tests/packaging.rs` holds against the manifests.
+MIX_CRATES=(mixengine-cli mixengine-daemon mixengine-shim mixengine-elevate mixlab)
 export MIX_CRATES
+
+# The one of the five that is not an ordinary binary, named once so that the several scripts which
+# have to treat it differently do not each spell it — T105.
+MIX_WINDOW=mixlab
+export MIX_WINDOW
+
+# What macOS wraps it in. A webview application there is a directory rather than a file, so this is
+# what `packaging/macos/build.sh` places in `/Applications` and what `mix_window_in` returns.
+MIX_WINDOW_APP=MixLab.app
+export MIX_WINDOW_APP
 
 # macOS ships `shasum -a 256` and no `sha256sum`. Defined once here, so the three scripts do not
 # each discover it.
@@ -91,6 +112,46 @@ mix_arch_label() {
       return 1
       ;;
   esac
+}
+
+# `.exe` on the one shell that needs it. Written here rather than in each script that appends it,
+# because `stage.sh` and `desktop.sh` have to agree about the name of a file one hands the other.
+mix_exe_suffix() {
+  case "$(uname -s)" in
+    MINGW* | MSYS* | CYGWIN*) echo ".exe" ;;
+    *) echo "" ;;
+  esac
+}
+
+# Which staged window a target uses — T105, D2.
+#
+# **macOS is always `universal-apple-darwin`, whatever slice was asked for.**
+# `packaging/macos/build.sh` calls `stage.sh` once per architecture and the window is built once for
+# both, so keying its staging directory by the slice would build it twice and place whichever
+# finished last.
+mix_window_key() {
+  case "$(uname -s)" in
+    Darwin) echo "universal-apple-darwin" ;;
+    *) echo "${1:-$(mix_host_target)}" ;;
+  esac
+}
+
+# The window inside a directory — a bundle on macOS, a file everywhere else. $1 the directory.
+mix_window_in() {
+  case "$(uname -s)" in
+    Darwin) echo "$1/$MIX_WINDOW_APP" ;;
+    *) echo "$1/$MIX_WINDOW$(mix_exe_suffix)" ;;
+  esac
+}
+
+# `MIX_BINARIES` without the window, one per line — what every headless artifact holds, and what
+# `stage.sh` builds from the root workspace. Derived rather than declared as a sixth list: a second
+# hand-kept array of the same names is what T85c was.
+mix_headless_binaries() {
+  local binary
+  for binary in "${MIX_BINARIES[@]}"; do
+    [ "$binary" = "$MIX_WINDOW" ] || printf '%s\n' "$binary"
+  done
 }
 
 # Runs `cmd` inside `container`, with this repository bind-mounted at `/work` and a rustup toolchain

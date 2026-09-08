@@ -37,6 +37,34 @@ fn declared(array: &str) -> BTreeSet<String> {
         .collect()
 }
 
+/// The value of a plain `NAME=value` assignment in `packaging/common.sh`.
+///
+/// Panics rather than returning `None` for the same reason [`declared`] does: a variable that
+/// stopped being declared is a packaging pipeline that stopped working, and every script that reads
+/// it would silently treat the window as one more ordinary binary.
+fn assigned(name: &str) -> String {
+    let opening = format!("{name}=");
+
+    COMMON_SH
+        .lines()
+        .find(|line| line.starts_with(&opening))
+        .map(|line| line[opening.len()..].trim_matches('"').to_owned())
+        .unwrap_or_else(|| panic!("packaging/common.sh assigns {name} on one line"))
+}
+
+/// The `[package].name` of the desktop application's manifest — the name `cargo` gives the
+/// executable, and therefore the name every installer places.
+fn desktop_package_name() -> String {
+    let parsed: toml::Table = DESKTOP_CARGO_TOML
+        .parse()
+        .expect("apps/desktop/src-tauri/Cargo.toml is not TOML");
+
+    parsed["package"]["name"]
+        .as_str()
+        .expect("apps/desktop/src-tauri/Cargo.toml's [package] has no string name")
+        .to_owned()
+}
+
 /// Every name a release has to contain is one the packaging scripts put in it.
 ///
 /// Set equality and not "contains", because the failure being prevented is a list that drifted —
@@ -44,12 +72,17 @@ fn declared(array: &str) -> BTreeSet<String> {
 #[test]
 fn the_release_ships_every_binary_this_code_looks_for() {
     let expected: BTreeSet<String> = [
-        // The CLI. The one of the four with no constant to borrow — nothing in `core` resolves it
+        // The CLI. The one of the five with no constant to borrow — nothing in `core` resolves it
         // by name — so it is spelled here and nowhere else.
         "mix".to_owned(),
         mixengine_core::updates::apply::SMOKE_EXECUTABLE.to_owned(),
         mixengine_core::shims::BINARY.to_owned(),
         mixengine_core::updates::apply::KEPT.to_owned(),
+        // The window — T105. Read out of the manifest that produces the file rather than spelled
+        // here: `cargo` names the executable after `[package].name` and Tauri leaves that alone
+        // (`mainBinaryName` is unset), so this is the one string that cannot drift from the file
+        // the installers place.
+        desktop_package_name(),
     ]
     .into_iter()
     .collect();
@@ -63,19 +96,58 @@ fn the_release_ships_every_binary_this_code_looks_for() {
     );
 }
 
-/// And every crate the stage builds is one that exists.
+/// And every crate the stage builds is one that exists — one of them not where the others are.
 ///
 /// A typo here is otherwise a `cargo build -p` failure seven minutes into a packaging run, on five
 /// runners at once.
+///
+/// **The desktop application's crate is the exception and has to be**: it is a workspace of its own
+/// that this one `exclude`s (ADR 0027, rule 5), so `cargo build -p mixlab` at this root is an error
+/// rather than a build — which is why `packaging/stage.sh` hands it to `packaging/desktop.sh`
+/// instead. What is checked for it is that the root manifest really does exclude that directory and
+/// that the name in `MIX_CRATES` is the one its own manifest gives it.
 #[test]
 fn every_crate_the_stage_builds_is_a_workspace_member() {
+    let desktop = desktop_package_name();
+
     for name in declared("MIX_CRATES") {
+        if name == desktop {
+            assert!(
+                WORKSPACE.contains("\"apps/desktop/src-tauri\""),
+                "packaging/common.sh's MIX_CRATES names {name}, the desktop application's crate, \
+                 which the root Cargo.toml neither includes nor excludes"
+            );
+            continue;
+        }
+
         assert!(
             WORKSPACE.contains(&format!("\"crates/{name}\"")),
             "packaging/common.sh's MIX_CRATES names {name}, which is not a member of this \
              workspace"
         );
     }
+}
+
+/// `MIX_WINDOW` names the fifth entry, and the headless archives are the other four.
+///
+/// **What this stops.** Every headless artifact is `MIX_BINARIES` minus this one name. A
+/// `MIX_WINDOW` that named nothing in the array — a rename on one side only — would make every
+/// headless archive byte-identical to the payload beside it: a file whose whole purpose is not
+/// carrying a webview, quietly carrying one, with no script anywhere in a position to notice.
+#[test]
+fn the_window_is_one_of_the_binaries_and_is_named_as_such() {
+    let window = assigned("MIX_WINDOW");
+
+    assert_eq!(
+        window,
+        desktop_package_name(),
+        "packaging/common.sh's MIX_WINDOW and the desktop application's [package] name have \
+         drifted apart"
+    );
+    assert!(
+        declared("MIX_BINARIES").contains(&window),
+        "packaging/common.sh's MIX_WINDOW is {window}, which is not one of MIX_BINARIES"
+    );
 }
 
 /// The three files the desktop build reads its version out of, read at compile time.
