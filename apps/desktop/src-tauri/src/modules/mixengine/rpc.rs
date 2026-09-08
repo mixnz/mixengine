@@ -20,7 +20,7 @@ use serde_json::{json, Value};
 
 use crate::error::AppError;
 
-use super::transport::{self, Io};
+use super::transport;
 
 /// Gọi một method và giải kết quả của nó.
 pub async fn call<T: DeserializeOwned>(method: &str, params: Value) -> Result<T, AppError> {
@@ -84,12 +84,7 @@ pub async fn request(verb: &str, path: &str, body: Option<Value>) -> Result<Vec<
 
     // `_sender` phải sống tới khi body đọc xong: thả nó ra là đóng kết nối, và body vẫn đang chảy
     // trên đó. Tên có gạch dưới chứ không phải `_` trần — `_` thả ngay tại chỗ.
-    let (_sender, response) = match io {
-        #[cfg(windows)]
-        Io::Pipe(pipe) => send(TokioIo::new(pipe), outgoing).await?,
-        #[cfg(not(windows))]
-        Io::Socket(socket) => send(TokioIo::new(socket), outgoing).await?,
-    };
+    let (_sender, response) = send(TokioIo::new(io), outgoing).await?;
 
     let status = response.status();
     let collected = response
@@ -112,8 +107,9 @@ pub async fn request(verb: &str, path: &str, body: Option<Value>) -> Result<Vec<
 
 /// Bắt tay HTTP/1.1 trên một IO đã mở và gửi một request.
 ///
-/// Tách ra để hai nhánh `#[cfg]` ở trên không phải chép cùng một khối hai lần với hai kiểu IO khác
-/// nhau — generic làm việc đó, `#[cfg]` chỉ chọn kiểu.
+/// Generic trên kiểu IO: từng có hai nhánh `#[cfg]` với hai kiểu (pipe và socket) gọi vào đây;
+/// từ T102 `transport::Io` là một kiểu duy nhất của `mixengine-platform`, và generic vẫn giữ để
+/// hàm này không biết kiểu đó là gì.
 type Sent = (
     hyper::client::conn::http1::SendRequest<Full<Bytes>>,
     hyper::Response<hyper::body::Incoming>,

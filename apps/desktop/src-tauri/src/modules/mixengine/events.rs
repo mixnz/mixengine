@@ -19,7 +19,7 @@ use crate::error::AppError;
 
 use super::sse::Frames;
 use super::state::MixEngineState;
-use super::transport::{self, Io};
+use super::transport;
 
 /// Message MixDB tự phát khi stream đứt. Tên có tiền tố `mixdb_` để không bao giờ đụng một `type`
 /// của MixEngine, kể cả một cái thêm vào ở phiên bản sau.
@@ -42,12 +42,7 @@ pub async fn stream_events(
         .body(Full::new(Bytes::new()))
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
-    match io {
-        #[cfg(windows)]
-        Io::Pipe(pipe) => open(TokioIo::new(pipe), request, on_event, state).await,
-        #[cfg(not(windows))]
-        Io::Socket(socket) => open(TokioIo::new(socket), request, on_event, state).await,
-    }
+    open(TokioIo::new(io), request, on_event, state).await
 }
 
 /// Bắt tay, gửi, rồi giao phần đọc cho một task.

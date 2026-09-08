@@ -14,11 +14,11 @@ use crate::error::AppError;
 
 use super::sse::Frames;
 use super::state::LogsState;
-use super::transport::{self, Io};
+use super::transport;
 
 /// Mở `GET /logs/{subject}/{id}?tail=N&follow=1` và chạy tới khi bị hủy hoặc kết nối đứt.
 ///
-/// `subject` là `"service"` hoặc `"job"` — đúng hai đoạn route `LogSubject` (bindings đã vendor) nói
+/// `subject` là `"service"` hoặc `"job"` — đúng hai đoạn route `LogSubject` (trong `bindings/`) nói
 /// tới, không có đoạn thứ ba. Route tự nói loại nào, nên không cần đoán một job id có phải tên
 /// service hay không.
 pub async fn stream_logs(
@@ -43,12 +43,7 @@ pub async fn stream_logs(
         .body(Full::new(Bytes::new()))
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
-    match io {
-        #[cfg(windows)]
-        Io::Pipe(pipe) => open(TokioIo::new(pipe), request, on_line, state).await,
-        #[cfg(not(windows))]
-        Io::Socket(socket) => open(TokioIo::new(socket), request, on_line, state).await,
-    }
+    open(TokioIo::new(io), request, on_line, state).await
 }
 
 async fn open<I>(

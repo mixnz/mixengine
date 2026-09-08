@@ -61,9 +61,14 @@ url = "2"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 http-body-util = "0.1"
-# Reads `[daemon] ipc_path` out of MixEngine's own `config.toml`, which overrides where its daemon
-# listens. Already in `Cargo.lock` through tauri, so this adds nothing to the tree.
-toml = "1"
+# Where a MixEngine home is and how its daemon is dialled — the same crate `mix` takes for the same
+# two answers, and one of the two ADR 0027 allows this crate (`tests/layering.rs`). What this crate
+# calls is `host` (the default home) and `ipc` (the endpoint and the connection); the feature set
+# named is `default`, as `mixengine-cli` names it, because that crate's `hosts.rs` reaches into
+# `elevated` unconditionally and a narrower set does not compile — a gating debt on that side,
+# not a capability this one uses. This replaced a hand-kept copy of the pipe-name fingerprint, a
+# named-pipe dial and an owner check read through `windows-sys` (phase 11, T102).
+mixengine-platform = { path = "../../../crates/mixengine-platform", default-features = false, features = ["default"] }
 futures-util = "0.3.33"
 async-trait = "0.1.91"
 base64 = "0.23.1"
@@ -101,21 +106,15 @@ portable-pty = "0.9"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
-# This account's SID, and the owner of a named pipe object — the two halves of the check in
-# `modules/mixengine/transport.rs`. Read through the API rather than by running `whoami`: no child
-# process, nothing to parse, and no console window to hide.
-[target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = [
-  "Win32_Foundation",
-  "Win32_Security",
-  "Win32_Security_Authorization",
-  "Win32_System_Threading",
-] }
-
 # `test-util` không nằm trong feature `full`, mà bộ gom lô chỉ test được khi tua nhanh được
 # đồng hồ — 5ms thật thì test nào cũng thành test đo thời gian.
 [dev-dependencies]
 tokio = { version = "1.53.1", features = ["full", "test-util"] }
+# A temporary home for the transport test to bind a real endpoint under.
+tempfile = "3"
+# `tests/layering.rs` reads this crate's own manifest. Nothing shipped parses TOML any more: the
+# `[daemon] ipc_path` reading that used to is a knob the daemon never honoured (T102).
+toml = "1"
 
 # The updater downloads and runs an installer, and restarting means replacing the running process —
 # neither exists on mobile, so both plugins are desktop-only and `lib.rs` guards them with `cfg`.

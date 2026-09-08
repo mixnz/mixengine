@@ -16,7 +16,7 @@ use crate::error::AppError;
 
 use super::sse::Frames;
 use super::state::MetricsState;
-use super::transport::{self, Io};
+use super::transport;
 
 /// Mở `GET /metrics` và chạy tới khi bị hủy hoặc kết nối đứt.
 pub async fn stream_metrics(on_frame: Channel<String>, state: &MetricsState) -> Result<(), AppError> {
@@ -30,12 +30,7 @@ pub async fn stream_metrics(on_frame: Channel<String>, state: &MetricsState) -> 
         .body(Full::new(Bytes::new()))
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
-    match io {
-        #[cfg(windows)]
-        Io::Pipe(pipe) => open(TokioIo::new(pipe), request, on_frame, state).await,
-        #[cfg(not(windows))]
-        Io::Socket(socket) => open(TokioIo::new(socket), request, on_frame, state).await,
-    }
+    open(TokioIo::new(io), request, on_frame, state).await
 }
 
 async fn open<I>(

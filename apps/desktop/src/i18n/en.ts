@@ -145,7 +145,6 @@ const en = {
     // MixEngine — the local daemon this app manages. `message` is the daemon's own words and is
     // never translated: it is what a search engine and MixEngine's own manual both index.
     mixengineNoHome: "Could not work out where MixEngine keeps its files.",
-    mixengineNoSid: "Could not read this account's Windows identifier: {{message}}",
     mixengineUnreachable: "No MixEngine daemon answered at {{endpoint}}.",
     mixenginePipeOwner:
       "The MixEngine pipe at {{endpoint}} is held by {{owner}}, not by this account.",
