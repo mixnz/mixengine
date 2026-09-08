@@ -54,16 +54,18 @@ command = "{command}"
     )
 }
 
-/// Write one into the home and import it, answering with the summary the daemon wrote down.
-fn imported(home: &Home) -> serde_json::Value {
-    let file = home.path().join("borrowed.toml");
-    std::fs::write(
-        &file,
-        a_blueprint_with_a_command(a_command_that_writes_a_file()),
-    )
-    .expect("a blueprint to import");
+/// Write one into the home under `stem` and import it, answering with the summary the daemon wrote
+/// down. The slug is the stem — T79a's rule — so two blueprints in one home take two stems.
+fn imported_running(home: &Home, stem: &str, command: &str) -> serde_json::Value {
+    let file = home.path().join(format!("{stem}.toml"));
+    std::fs::write(&file, a_blueprint_with_a_command(command)).expect("a blueprint to import");
 
     json(&home.mix(&["blueprint", "import", &file.display().to_string(), "--json"]))
+}
+
+/// The usual one: `borrowed`, running the command that writes a file.
+fn imported(home: &Home) -> serde_json::Value {
+    imported_running(home, "borrowed", a_command_that_writes_a_file())
 }
 
 /// **Nothing vouched for it, so it is untrusted** — and it stays that way, because no method in this
@@ -209,4 +211,79 @@ async fn declining_the_question_leaves_the_command_and_keeps_the_project() {
     // And the project it made is there, which is what "declining is not a failure" means.
     let shown = json(&home.mix(&["project", "show", "four", "--json"]));
     assert_eq!(shown["project"]["name"], "four", "{shown}");
+}
+
+/// A program no machine has, spelled so that a shell would have looked it up on `PATH`.
+const A_PROGRAM_NOBODY_HAS: &str = "mixengine-no-such-program-t78b";
+
+/// **A command whose program is missing is blocked in the plan, refused when agreed to, and left
+/// when it is not — and the project is there either way** — roadmap task **T78b**. The whole of
+/// the design's D1, D3 and D5, end to end: the plan says it, the refusal says it in the plan's
+/// words, and an apply without the gesture still applies everything else.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_command_whose_program_is_missing_is_blocked_before_anything_runs() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    imported_running(
+        &home,
+        "missing",
+        &format!("{A_PROGRAM_NOBODY_HAS} --into ."),
+    );
+
+    // The plan says it, naming the program and both halves of the PATH.
+    let directory = repository();
+    let root = directory.path().join("five");
+    let planned = stdout(&home.mix(&[
+        "blueprint",
+        "apply",
+        "missing",
+        "--project",
+        "five",
+        "--path",
+        &root.display().to_string(),
+        "--dry-run",
+    ]));
+    assert!(planned.contains("blocked"), "{planned}");
+    assert!(planned.contains(A_PROGRAM_NOBODY_HAS), "{planned}");
+    assert!(planned.contains("daemon's own PATH"), "{planned}");
+
+    // Agreed to: refused up front, in the plan's words, and nothing was made.
+    let refused = home.mix(&[
+        "blueprint",
+        "apply",
+        "missing",
+        "--project",
+        "five",
+        "--path",
+        &root.display().to_string(),
+        "--run-untrusted-scaffold",
+    ]);
+    assert!(!refused.status.success(), "{}", stdout(&refused));
+    let complaint = stderr(&refused);
+    assert!(complaint.contains(A_PROGRAM_NOBODY_HAS), "{complaint}");
+    assert!(complaint.contains("restart"), "{complaint}");
+    assert!(
+        !home
+            .mix(&["project", "show", "five", "--json"])
+            .status
+            .success(),
+        "a refused apply registers nothing"
+    );
+
+    // Not agreed to: everything else is applied, and the step says why it was left.
+    let applied = stdout(&home.mix(&[
+        "blueprint",
+        "apply",
+        "missing",
+        "--project",
+        "five",
+        "--path",
+        &root.display().to_string(),
+    ]));
+    assert!(applied.contains("not run"), "{applied}");
+    assert!(applied.contains(A_PROGRAM_NOBODY_HAS), "{applied}");
+
+    let shown = json(&home.mix(&["project", "show", "five", "--json"]));
+    assert_eq!(shown["project"]["name"], "five", "{shown}");
 }

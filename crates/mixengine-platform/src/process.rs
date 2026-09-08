@@ -631,6 +631,22 @@ pub fn spawn_shell_supervised(
     })
 }
 
+/// Where the shell would find `name` on `path`, or [`None`].
+///
+/// **For a plan to read a `[scaffold]` command's first word** — roadmap task **T78b**, its design's
+/// D4 — and by the rule the shell that runs it would use, which is the only rule worth asking:
+/// `cmd.exe` appends every `PATHEXT` extension and never runs a bare file, `execvp` wants an
+/// execute bit and does not care what the name ends in. The caller supplies `path` so that the
+/// answer is about the PATH the command would run with and not about this process's, and so that a
+/// test can hand in a temporary directory.
+///
+/// An empty entry means the current directory to both shells and is skipped: the scaffold's current
+/// directory is a project root that holds nothing yet.
+#[must_use]
+pub fn program_on_path(name: &str, path: &std::ffi::OsStr) -> Option<std::path::PathBuf> {
+    sys::find_program(name, path)
+}
+
 /// The half both spawns share: a group, the caps on it before there is anything in it, the child,
 /// and the adoption that can fail with a process already running.
 fn supervise(
@@ -1495,4 +1511,92 @@ pub fn spawn_detached(
             path: program.to_path_buf(),
             source,
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::OsString;
+    use std::path::Path;
+
+    use super::program_on_path;
+
+    /// A `PATH` of exactly these directories, joined the way this system joins one.
+    fn a_path_of(directories: &[&Path]) -> OsString {
+        std::env::join_paths(directories.iter().map(|one| one.to_path_buf())).expect("a PATH")
+    }
+
+    /// A file the shell would run as `name`, on this system.
+    fn a_program_called(directory: &Path, name: &str) {
+        #[cfg(windows)]
+        {
+            std::fs::write(directory.join(format!("{name}.bat")), "@echo hello\r\n")
+                .expect("a batch file");
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let file = directory.join(name);
+            std::fs::write(&file, "#!/bin/sh\necho hello\n").expect("a script");
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755))
+                .expect("an executable bit");
+        }
+    }
+
+    /// **The rule is the shell's** — roadmap task **T78b**, its design's D4. A program the shell
+    /// would run is found; a name nothing answers to is not.
+    #[test]
+    fn a_program_is_found_by_the_rule_the_shell_uses() {
+        let temp = tempfile::tempdir().expect("a temporary directory");
+        a_program_called(temp.path(), "tool");
+
+        let path = a_path_of(&[temp.path()]);
+
+        assert!(program_on_path("tool", &path).is_some());
+        assert!(program_on_path("nothing-of-that-name", &path).is_none());
+    }
+
+    /// **A bare file with no extension is not a program to `cmd.exe`** (D4) — which is exactly the
+    /// file a person copies from a Unix machine, and exactly what `cmd.exe` said about it.
+    #[cfg(windows)]
+    #[test]
+    fn a_bare_name_with_no_extension_is_not_a_program() {
+        let temp = tempfile::tempdir().expect("a temporary directory");
+        std::fs::write(temp.path().join("composer"), "#!/bin/sh\n").expect("a file");
+
+        assert!(program_on_path("composer", &a_path_of(&[temp.path()])).is_none());
+
+        // And an extension of its own is tried as written.
+        std::fs::write(temp.path().join("run.cmd"), "@echo hello\r\n").expect("a file");
+        assert!(program_on_path("run.cmd", &a_path_of(&[temp.path()])).is_some());
+    }
+
+    /// **A file without an execute bit is not a program to `execvp`** (D4).
+    #[cfg(unix)]
+    #[test]
+    fn a_file_without_an_execute_bit_is_not_a_program() {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp = tempfile::tempdir().expect("a temporary directory");
+        let dull = temp.path().join("dull");
+        std::fs::write(&dull, "#!/bin/sh\n").expect("a file");
+        std::fs::set_permissions(&dull, std::fs::Permissions::from_mode(0o644)).expect("no bit");
+
+        assert!(program_on_path("dull", &a_path_of(&[temp.path()])).is_none());
+    }
+
+    /// An empty entry means the current directory to the shell and is skipped here (D4); a
+    /// directory that does not exist is skipped rather than being an error.
+    #[test]
+    fn an_empty_entry_and_a_missing_directory_are_skipped() {
+        let temp = tempfile::tempdir().expect("a temporary directory");
+        a_program_called(temp.path(), "tool");
+        let missing = temp.path().join("nowhere");
+
+        let path = a_path_of(&[Path::new(""), &missing, temp.path()]);
+
+        assert_eq!(
+            program_on_path("tool", &path).and_then(|found| found.parent().map(Path::to_path_buf)),
+            Some(temp.path().to_path_buf())
+        );
+    }
 }

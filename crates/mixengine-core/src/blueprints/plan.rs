@@ -54,6 +54,10 @@ const DATABASE_USER_LIMIT: usize = 32;
 
 /// What applying `manifest` under `project` would do.
 ///
+/// `scaffold_path` is the `PATH` a `[scaffold]` command would run with — `<home>/bin`, then the
+/// daemon's own — handed in rather than read here, so that a dry run and an apply judge the same
+/// string and a test can hand in a directory of its own (roadmap task **T78b**, its design's D3).
+///
 /// # Errors
 ///
 /// [`crate::Error::Database`] when a table cannot be read. Everything a person did wrong is a
@@ -66,6 +70,7 @@ pub async fn plan(
     project: &str,
     root: &Path,
     answers: &[VersionAnswer],
+    scaffold_path: &std::ffi::OsStr,
 ) -> Result<BlueprintPlan> {
     let manifest = &filed.manifest;
     let mut steps = Vec::new();
@@ -177,12 +182,11 @@ pub async fn plan(
         let command = expand(&scaffold.command, project);
 
         steps.push(PlanStep {
-            action: PlanAction::RunScaffold {
-                command: command.clone(),
-            },
             // Arbitrary code from whoever wrote the blueprint. What answers this is the consent in
-            // the apply request (T78a, D4); here it is shown, exactly as it would run.
-            disposition: Disposition::Confirm { what: command },
+            // the apply request (T78a, D4); here it is shown, exactly as it would run — or blocked,
+            // when its program is a bare name the PATH does not hold (T78b, D1).
+            disposition: crate::blueprints::program::disposition(&command, scaffold_path),
+            action: PlanAction::RunScaffold { command },
             elevates: false,
         });
     }
@@ -655,6 +659,29 @@ mod tests {
         (temp, store)
     }
 
+    /// A `PATH` holding these programs and nothing else, on this system's rule.
+    ///
+    /// Each is a copy of this test binary under the program's name: the copy keeps the execute
+    /// bit `execvp` wants, and `EXE_SUFFIX` gives it the extension `cmd.exe` wants — without a
+    /// `#[cfg]` naming either system, which `workspace_layering` keeps out of this crate.
+    fn a_path_holding(temp: &tempfile::TempDir, programs: &[&str]) -> std::ffi::OsString {
+        let tools = temp.path().join("tools");
+        std::fs::create_dir_all(&tools).expect("a tools directory");
+        let itself = std::env::current_exe().expect("this test binary");
+
+        for name in programs {
+            let file = tools.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+            std::fs::copy(&itself, &file).expect("a program");
+        }
+
+        tools.into_os_string()
+    }
+
+    /// A `PATH` holding nothing.
+    fn nowhere() -> &'static std::ffi::OsStr {
+        std::ffi::OsStr::new("")
+    }
+
     fn a_manifest() -> BlueprintManifest {
         BlueprintManifest {
             schema: crate::blueprints::manifest::SCHEMA,
@@ -773,6 +800,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -834,6 +862,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -864,6 +893,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -917,6 +947,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -946,6 +977,7 @@ mod tests {
             &long,
             &temp.path().join("long"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -976,6 +1008,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            &a_path_holding(&temp, &["composer"]),
         )
         .await
         .expect("a plan");
@@ -1020,6 +1053,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1052,6 +1086,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1100,6 +1135,7 @@ mod tests {
             "shop",
             &root,
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1128,6 +1164,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1173,6 +1210,7 @@ mod tests {
             "shop",
             &root,
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1201,6 +1239,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1239,6 +1278,7 @@ mod tests {
                 },
                 answer: MismatchAnswer::UseInstalled,
             }],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1286,6 +1326,7 @@ mod tests {
                 },
                 answer: MismatchAnswer::Install,
             }],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1333,6 +1374,7 @@ mod tests {
                 },
                 answer: MismatchAnswer::Install,
             }],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1369,6 +1411,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            &a_path_holding(&temp, &["composer"]),
         )
         .await
         .expect("a plan");
@@ -1409,6 +1452,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1433,6 +1477,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            &a_path_holding(&temp, &["composer"]),
         )
         .await
         .expect("a plan");
@@ -1445,6 +1490,51 @@ mod tests {
             .disposition,
             Disposition::Confirm { what } if what.contains("composer")
         ));
+    }
+
+    /// **A program the PATH does not hold is blocked here, not at the end of a job** — roadmap task
+    /// **T78b**, its design's D1: the step names the program, and nothing else in the plan changes.
+    #[tokio::test]
+    async fn a_scaffold_whose_program_is_missing_is_blocked_here() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "composer create-project laravel/laravel .".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            "blog-stack",
+            &captured(manifest),
+            "shop",
+            &temp.path().join("shop"),
+            &[],
+            nowhere(),
+        )
+        .await
+        .expect("a plan");
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+        assert!(
+            matches!(
+                &scaffold.disposition,
+                Disposition::Blocked { reason } if reason.contains("`composer`")
+            ),
+            "{scaffold:?}"
+        );
+
+        let blocked = planned
+            .steps
+            .iter()
+            .filter(|step| matches!(step.disposition, Disposition::Blocked { .. }))
+            .count();
+        assert_eq!(
+            blocked, 1,
+            "only the scaffold is blocked: {:?}",
+            planned.steps
+        );
     }
 
     /// **D11.** Adding a domain writes the hosts file, and nothing else in a plan asks for a
@@ -1460,6 +1550,7 @@ mod tests {
             "shop",
             &temp.path().join("shop"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1493,6 +1584,7 @@ mod tests {
             "My Blog",
             &temp.path().join("my blog"),
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");
@@ -1536,6 +1628,7 @@ mod tests {
             "shop",
             &root,
             &[],
+            nowhere(),
         )
         .await
         .expect("a plan");

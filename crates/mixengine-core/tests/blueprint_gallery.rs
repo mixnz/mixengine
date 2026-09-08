@@ -201,10 +201,29 @@ async fn a_deleted_rendering_is_written_again() {
     assert_eq!(again.rendered, vec!["django".to_owned()], "{again:?}");
 }
 
-/// What each gallery blueprint plans on a machine holding nothing at all — which is the ordinary
-/// case for one, since a person applying `laravel` has very often never installed PHP.
-async fn planned(slug: &str) -> mixengine_proto::BlueprintPlan {
-    let (_temp, _paths, store) = home().await;
+/// A `PATH` holding exactly these programs, on this system's rule, so that what is asserted is the
+/// gallery's own commands and not what a CI runner happens to have.
+///
+/// Each is a copy of this test binary under the program's name: the copy keeps the execute bit
+/// `execvp` wants, and `EXE_SUFFIX` gives it the extension `cmd.exe` wants — without a `#[cfg]`
+/// naming either system.
+fn a_path_holding(temp: &TempDir, programs: &[&str]) -> std::ffi::OsString {
+    let tools = temp.path().join("tools");
+    std::fs::create_dir_all(&tools).expect("a tools directory");
+    let itself = std::env::current_exe().expect("this test binary");
+
+    for name in programs {
+        let file = tools.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+        std::fs::copy(&itself, &file).expect("a program");
+    }
+
+    tools.into_os_string()
+}
+
+/// What each gallery blueprint plans on a machine holding nothing at all but `programs` — which is
+/// the ordinary case for one, since a person applying `laravel` has very often never installed PHP.
+async fn planned_with(slug: &str, programs: &[&str]) -> mixengine_proto::BlueprintPlan {
+    let (temp, _paths, store) = home().await;
     let entry = ENTRIES
         .iter()
         .find(|entry| entry.slug == slug)
@@ -224,13 +243,22 @@ async fn planned(slug: &str) -> mixengine_proto::BlueprintPlan {
         "shop",
         std::path::Path::new("/projects/shop"),
         &[],
+        &a_path_holding(&temp, programs),
     )
     .await
     .expect("a plan")
 }
 
+/// The programs the gallery's own commands name, and nothing more.
+const GALLERY_PROGRAMS: &[&str] = &["composer", "npx"];
+
+async fn planned(slug: &str) -> mixengine_proto::BlueprintPlan {
+    planned_with(slug, GALLERY_PROGRAMS).await
+}
+
 /// **Every one of the six plans without a blocked step** — nothing in the gallery asks for
-/// something this build cannot do on a machine that has nothing installed.
+/// something this build cannot do on a machine that has nothing installed but the two programs the
+/// gallery's commands name.
 #[tokio::test]
 async fn every_gallery_blueprint_plans_on_a_machine_with_nothing_installed() {
     for entry in ENTRIES {
@@ -250,6 +278,44 @@ async fn every_gallery_blueprint_plans_on_a_machine_with_nothing_installed() {
             entry.slug,
             planned.steps
         );
+    }
+}
+
+/// **On a machine without `composer`, `laravel` and `symfony` are blocked at exactly one step and
+/// it is the command** — roadmap task **T78b**. The gap the product does not close (T25 keeps
+/// `composer` out of the shims) is on the screen rather than at the end of the job, and the other
+/// four plan clean because `npx` is a shim every home has.
+#[tokio::test]
+async fn without_composer_only_the_two_that_need_it_are_blocked_and_only_at_the_command() {
+    for entry in ENTRIES {
+        let planned = planned_with(entry.slug, &["npx"]).await;
+        let blocked: Vec<_> = planned
+            .steps
+            .iter()
+            .filter(|step| matches!(step.disposition, Disposition::Blocked { .. }))
+            .collect();
+
+        match entry.slug {
+            "laravel" | "symfony" => {
+                assert_eq!(blocked.len(), 1, "{}: {:?}", entry.slug, planned.steps);
+                assert!(
+                    matches!(blocked[0].action, PlanAction::RunScaffold { .. }),
+                    "{}: {:?}",
+                    entry.slug,
+                    blocked[0]
+                );
+                assert!(
+                    matches!(
+                        &blocked[0].disposition,
+                        Disposition::Blocked { reason } if reason.contains("`composer`")
+                    ),
+                    "{}: {:?}",
+                    entry.slug,
+                    blocked[0]
+                );
+            }
+            _ => assert!(blocked.is_empty(), "{}: {blocked:?}", entry.slug),
+        }
     }
 }
 

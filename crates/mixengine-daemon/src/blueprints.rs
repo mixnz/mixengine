@@ -6,9 +6,10 @@
 //! # Applying happens elsewhere
 //!
 //! What is here is the *planning*: [`Blueprints::planned`] is the one path a dry run and a real
-//! apply both take. Carrying the plan out is `crate::api::apply` — a private module, so this is a
-//! name rather than a link — because every action in a plan is a capability `Api` holds and this
-//! type holds none of them (the T78 design, D1).
+//! apply both take. Carrying the plan out is [`crate::api::apply`], because every action in a plan
+//! is a capability `Api` holds and this type holds none of them (the T78 design, D1). The one thing
+//! read back from there is the `PATH` a scaffold command would run with, so that the plan judges the
+//! command's program against the same string (T78b, D3).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -265,6 +266,7 @@ impl Blueprints {
             &asked.project,
             &root,
             &asked.answers,
+            &crate::api::apply::scaffold::path(&self.paths),
         )
         .await
         .map_err(|error| error.to_wire())?;
