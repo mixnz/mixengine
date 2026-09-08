@@ -123,7 +123,9 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
 - **Never runs on import**, only on apply, and never with an elevation: the command runs under the
   user's own account and nothing it does reaches the elevation queue.
 - Runs in the project directory with `<home>/bin` in front of `PATH`, which is how the blueprint's
-  own `[runtimes]` reaches it — the shims resolve a version from the project they are run in.
+  own `[runtimes]` reaches it — the shims resolve a version from the project they are run in — and
+  with `MIXENGINE_HOME` naming the daemon's own root, so those shims read *this* home's database
+  and not the OS default's (T27c found the difference on a daemon started with `--home`).
   Output goes to the job's log (`GET /logs/job/{id}`, `mix job logs <job> -f`), which is the log
   surface a service's output already uses and not the event stream: how much a scaffold prints is
   decided by somebody else's program.

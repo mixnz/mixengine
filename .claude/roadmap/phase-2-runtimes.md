@@ -671,6 +671,11 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       identical cells of one `.phar`, borrowed by `mixengine-packages`' `composer.py` from
       `composer/composer` and checked against getcomposer.org's SHA-256 — P17 there. `laravel` and
       `symfony` pin `composer = "2"`, so what T78b made visible closes.
+      **Found on the way, by the first real `composer create-project`:** a scaffold's environment
+      carried `<home>/bin` on the PATH and nothing else, so every shim it ran read `MIXENGINE_HOME`,
+      found it unset, and fell back to the OS default home — another install's database whenever
+      the daemon was started with `--home`. T78a's suite never saw it because its command is
+      `echo`. The scaffold now carries `MIXENGINE_HOME` naming the daemon's own root.
 - [x] **T28** PHP extensions: `conf.d` model, enable/disable, prebuilt extension artifacts, per-pool
       reload.
       **Both of the things this was waiting for had landed with
