@@ -16,7 +16,7 @@ and *a database client I did not want* — are answered by this phase and the ne
 Phase 11 made the window buildable here; this one makes it *the* window, named MixLab,
 inside MixEngine's installers, replaced by MixEngine's updater.
 
-- [ ] **T104** The application is MixLab. Product name, identifier `io.github.mixnz.mixlab`,
+- [x] **T104** The application is MixLab. Product name, identifier `io.github.mixnz.mixlab`,
       executable names, window title and icon per the design's D6 — and only those: the daemon,
       the CLI, the home and the installers keep MixEngine's name. A mark of MixLab's own replaces
       MixDB's two SVGs, derived from MixEngine's until one is drawn. **And the version becomes the workspace's**: the three fields the desktop
@@ -30,6 +30,19 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       last tab strip are not things a person made. An import found sets the profile to *Everything* once T108
       exists; until then it changes nothing visible. **(P)** — three application-data locations,
       three keyrings.
+      Design: [2026-09-09-t104-the-application-is-mixlab-design.md](../../docs/superpowers/specs/2026-09-09-t104-the-application-is-mixlab-design.md).
+      **Three things this task settled.** The mark is drawn here rather than handed over: the
+      design's D6 expects the owner's SVGs and they have not arrived, so `public/logo.svg` draws
+      D6's description — a ring open at the lower right, an `ML` ligature whose `L` leaves through
+      the gap — in one cut whose weights hold at 16 px, and the second, heavier cut waits for them.
+      The import is Rust on both halves rather than the vitest-and-Rust split the design imagined:
+      the file copy has to run inside `setup()`, before the event loop can deliver the webview's
+      first `Store.load`, and that is the only moment in which it is race-free. And **the version
+      drop was not safe on its own**: D6 argued that the rename moves the application out of
+      MixDB's install directory, which is true only on Windows — on macOS and Linux
+      `tauri-plugin-updater` replaces the *running bundle*, so a window on `0.0.6` offered MixDB
+      `0.0.33` would have overwritten itself with it. The plugin stays wired for T106; the frontend
+      stops calling it.
 
 - [ ] **T105** The window is in every installer, and the headless archive stays (D8).
       `MIX_BINARIES` and `MIX_CRATES` gain the fifth entry and `packaging.rs` holds the list. NSIS

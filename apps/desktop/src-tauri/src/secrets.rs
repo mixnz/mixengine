@@ -670,7 +670,10 @@ mod tests {
         let (found, failed) = super::read_all(&store, false, &["a".into(), "c".into()]);
 
         assert_eq!(found, vec![("a".to_string(), secrets("one"))]);
-        assert!(failed.is_empty(), "an account with no entry is not a failure");
+        assert!(
+            failed.is_empty(),
+            "an account with no entry is not a failure"
+        );
         assert!(
             store.has("a") && store.has("b"),
             "the old entries stay where they are"
