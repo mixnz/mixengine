@@ -193,7 +193,13 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # **45 since phase 11, and it is the line past which waiting stops being the answer, not a
+    # budget.** The Windows leg took 24.5 minutes warm on master (run 34149551423) and was cut off
+    # at 30 on the first branch to change the toolchain pin (run 34235885258): a new pin is a new
+    # cache key, `Build tests` went from 313 s to 602 s with nothing to restore, and every suite ran
+    # a third slower on that runner. Nothing hung — the leg was killed installing PostgreSQL, the
+    # ninth of eleven suites. The same reasoning as `system`'s 45.
+    timeout-minutes: 45
     strategy:
       # One OS failing must not hide the result on the other two — the platform layer is exactly
       # where per-OS divergence shows up.
@@ -233,6 +239,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: test
+          # Saved by a leg that failed or was cut off too — the action's default saves only from a
+          # green job, which is how a cold cache and a timeout feed each other: the first cold leg is
+          # cut off, saves nothing, and the rerun is cold again (run 34235885258, and the two before
+          # it on the same branch). A cache is a record of what compiled, and a red test says nothing
+          # about that.
+          cache-on-failure: true
 
       # Everything the build needs is downloaded here, while the network is still allowed. From this
       # point on cargo runs offline, so a dependency that is not in Cargo.lock fails the job instead
