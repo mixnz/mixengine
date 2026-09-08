@@ -24,7 +24,7 @@ install -m 0755 "$here/AppRun" "$image/AppRun"
 
 # Stand-ins for the four binaries: each says its own name, and `mix` repeats its arguments so the
 # hand-over at the end of `AppRun` can be checked rather than assumed.
-for binary in mixengined mixengine-shim mixengine-elevate; do
+for binary in mixengined mixengine-shim mixengine-elevate mixlab; do
   printf '#!/usr/bin/env bash\necho %s\n' "$binary" >"$image/usr/bin/$binary"
   chmod 755 "$image/usr/bin/$binary"
 done
@@ -40,7 +40,23 @@ test "$printed" = "mix --version" || {
   exit 1
 }
 
-for binary in mix mixengined mixengine-shim mixengine-elevate; do
+# **The hand-over, both ways** — T105. With no arguments the AppImage is a double click and opens
+# MixLab; with any argument it is `./mixengine-<version>-linux-x86_64.AppImage status` and has to
+# stay the CLI it has always been. The AppImage runtime eats its own `--appimage-*` arguments before
+# `AppRun` is reached, so nothing else lands in either branch.
+window="$("$image/AppRun")"
+test "$window" = "mixlab" || {
+  echo "AppRun with no arguments ran '$window' rather than the window" >&2
+  exit 1
+}
+
+forwarded="$("$image/AppRun" status --json)"
+test "$forwarded" = "mix status --json" || {
+  echo "AppRun did not hand its arguments to mix: $forwarded" >&2
+  exit 1
+}
+
+for binary in mix mixengined mixengine-shim mixengine-elevate mixlab; do
   test -x "$cache/$binary" || {
     echo "$binary is not in the cache AppRun filled" >&2
     exit 1

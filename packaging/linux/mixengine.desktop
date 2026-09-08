@@ -5,4 +5,4 @@ Comment=A local web development environment
 Exec=mix
 Icon=mixengine
 Categories=Development;
-Terminal=true
+Terminal=false

@@ -40,4 +40,25 @@ for packed in "$here"/usr/bin/*; do
   fi
 done
 
+# **What this image does when it is given nothing to do** — T105, D6. A double click in a file
+# manager passes no arguments and should open MixLab; `./mixengine-<version>-linux-x86_64.AppImage
+# status` passes one and has to stay the CLI it has always been. The AppImage runtime consumes its
+# own `--appimage-*` arguments before this script is reached, so neither branch ever sees one.
+if [ "$#" -eq 0 ]; then
+  # **This image does not carry WebKitGTK.** appimagetool bundles no libraries, and doing it would
+  # mean linuxdeploy and its GTK plugin — a dependency and a failure mode of a different size, and a
+  # follow-up (T105a) rather than part of T105. What is worth doing here is failing in words:
+  # without this, a person who double-clicks on a machine without the 4.1 API gets a linker message
+  # about a soname, which names no package they could install.
+  if ldd "$cache/mixlab" 2>/dev/null | grep -q "not found"; then
+    echo "MixLab needs WebKitGTK 4.1, which this system does not have." >&2
+    echo "Install it — libwebkit2gtk-4.1-0 on Debian and Ubuntu, webkit2gtk4.1 on Fedora and" >&2
+    echo "RHEL, libwebkit2gtk-4_1-0 on openSUSE — or use the .deb or .rpm, which declare it." >&2
+    echo "The command line is unaffected: run this file with an argument, e.g. '$0 status'." >&2
+    exit 1
+  fi
+
+  exec "$cache/mixlab"
+fi
+
 exec "$cache/mix" "$@"
