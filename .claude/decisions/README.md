@@ -17,7 +17,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0008](0008-no-signal-stop-on-windows.md) | A service is asked to stop with a signal on Unix and with a command on Windows | Accepted |
 | [0009](0009-logs-travel-on-their-own-stream.md) | Log lines travel on their own stream, never on the event stream | Accepted |
 | [0010](0010-supervised-child-never-inherits-administrators.md) | A child started to run a user's software never inherits Administrators | Accepted |
-| [0011](0011-no-gui-in-this-repository.md) | MixEngine ships a CLI; a GUI is a client in another repository | Accepted |
+| [0011](0011-no-gui-in-this-repository.md) | MixEngine ships a CLI; a GUI is a client in another repository | Superseded by 0027 |
 | [0012](0012-a-boot-time-job-enables-the-packet-filter-on-macos.md) | A boot-time job enables the packet filter on macOS | Accepted |
 | [0013](0013-reading-the-d-bus-error-name-to-tell-an-absent-store.md) | The D-Bus error name is what tells an absent credential store from a refusing one | Accepted |
 | [0014](0014-an-extension-is-not-an-api-client.md) | An extension is not an API client, and gets no token | Accepted |
@@ -33,6 +33,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0024](0024-a-build-that-is-not-a-release-keeps-its-own-home.md) | A build that is not a release keeps its own home | Accepted |
 | [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
+| [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted |
 
 ## Template
 

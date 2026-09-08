@@ -192,12 +192,14 @@ effort:
 
 **"Open in MixDB" is a capability, not a button.** This section said *offer it on every database
 service* because it was written while a GUI was still planned inside this workspace, and
-[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) removed that GUI. What **T83** built is
-therefore two daemon methods — `database.client` answering, per service, what a client would speak
-and whether one is here, and `database.open` performing the handoff — and the `mix database`
-commands that ask for them — a gap in the CLI is a gap in the product, and there is no screen here
-to hide one behind. Whichever graphical client renders an actual button does so out of repo, from
-the same methods, which is why the demand is written down in [client-surface.md](client-surface.md)
+[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) removed that GUI — which
+[ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md) has since brought back
+as `apps/desktop/`. What **T83** built is unchanged by either: two daemon methods —
+`database.client` answering, per service, what a client would speak and whether one is here, and
+`database.open` performing the handoff — and the `mix database` commands that ask for them — a gap
+in the CLI is a gap in the product. The desktop application renders the button from the same
+methods — and inside its own window the *open* goes in-process, never through `mixdb://` (the
+design's D10) — which is why the demand is written down in [client-surface.md](client-surface.md)
 rather than assumed. Design:
 [docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../../docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
 

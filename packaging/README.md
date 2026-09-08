@@ -113,9 +113,10 @@ bash packaging/bindings.sh --pack     # archive the committed tree into dist; ru
 
 `bindings/` at the repository root is the MixEngine API as TypeScript: every request, response,
 event and error, generated from `mixengine-proto` with `ts-rs` and committed — roadmap task **T56**,
-[design](../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md). MixEngine
-ships no graphical client ([ADR 0011](../.claude/decisions/0011-no-gui-in-this-repository.md)), so
-that directory *is* the surface such a client is written against.
+[design](../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md). The
+desktop application under `apps/desktop/` is typed against that directory directly
+([ADR 0027](../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md)), and it is
+published as an archive on every release for any other client.
 
 **Every file in it is generated**, the barrel and its README included, which is what lets `--check`
 be a plain `diff -r` with nothing to exclude and what makes a deleted type take its file with it.

@@ -10,8 +10,11 @@ cargo run -p mixengine-daemon -- --log-level debug   # foreground; --detach back
 cargo run -p mixengine-cli -- status
 ```
 
-Rust only — there is no `apps/` and no frontend toolchain
-([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)).
+Rust at the root; the one Node toolchain is `apps/desktop/`, the desktop application, whose Cargo
+workspace is excluded from this one
+([ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)). Its own loop is
+`npm ci && npm run build && npm test && npm run lint` there, and
+`cargo clippy --locked --all-targets -- -D warnings` in `apps/desktop/src-tauri`.
 
 Environment knobs: `MIXENGINE_HOME` (isolated sandbox root — always set this when experimenting),
 `MIXENGINE_LOG_FORMAT=json`, `MIXENGINE_SYSTEM_TESTS=1`, and the pair `MIXENGINE_INDEX_URL` +

@@ -73,7 +73,10 @@ one job:
   [phase-7-efficiency.md](roadmap/phase-7-efficiency.md) ·
   [phase-8-differentiators.md](roadmap/phase-8-differentiators.md) ·
   [phase-9-ship.md](roadmap/phase-9-ship.md) ·
-  [phase-10-client-surface.md](roadmap/phase-10-client-surface.md) · [parked.md](roadmap/parked.md)
+  [phase-10-client-surface.md](roadmap/phase-10-client-surface.md) ·
+  [phase-11-the-desktop-app-comes-home.md](roadmap/phase-11-the-desktop-app-comes-home.md) ·
+  [phase-12-one-product.md](roadmap/phase-12-one-product.md) ·
+  [phase-13-profiles.md](roadmap/phase-13-profiles.md) · [parked.md](roadmap/parked.md)
 
 ### reviews
 - [reviews/README.md](reviews/README.md) — conventions (`R<n>` ids, status legend) and the index

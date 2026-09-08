@@ -5,8 +5,8 @@ JSON-RPC transport. Generated from the `mixengine-proto` crate with
 [ts-rs](https://github.com/Aleph-Alpha/ts-rs); **do not edit** — every file here is rewritten from
 the Rust types by `packaging/bindings.sh`, and CI fails when the two disagree.
 
-MixEngine ships no graphical client. One lives in its own repository and reaches the daemon through
-this contract, which is why it is committed here and published as an archive on every release.
+MixEngine's desktop application is typed against this directory directly, and it is published as
+an archive on every release for any other client.
 
 ## What it says, and what it does not
 

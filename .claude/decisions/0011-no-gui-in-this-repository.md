@@ -1,6 +1,6 @@
 # 0011. MixEngine ships a CLI; a GUI is a client in another repository
 
-**Status**: Accepted — supersedes the GUI tier of [0001](0001-rust-core-daemon-gui-split.md)
+**Status**: Superseded by [0027](0027-the-desktop-client-lives-in-this-repository.md) — was Accepted, superseding the GUI tier of [0001](0001-rust-core-daemon-gui-split.md)
 **Date**: 2026-08-22
 
 ## Context

@@ -8,9 +8,10 @@ with automatic HTTPS — without Docker, without hand-written config files.
 
 Rust core, split into three layers. **`mixengined`** (daemon) owns all state and supervises every
 managed process. **`mix`** (CLI) is a thin client over a JSON-RPC API on a local IPC transport (Unix
-socket / Windows named pipe), and it is the only client this repository ships — a graphical client
-is a separate application in its own repository, over the same API (see
-`.claude/decisions/0011-no-gui-in-this-repository.md`). **Nothing runs as root.** For the few
+socket / Windows named pipe), and the **desktop application** under `apps/desktop/` is a second
+thin client over the same API — typed against the published contract in `bindings/`, and reaching
+no further into this workspace than `mixengine-proto` and `mixengine-platform` (see
+`.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md`). **Nothing runs as root.** For the few
 one-shot operations that need it (hosts file, OS trust store, resolver config, firewall rules), a
 short-lived **`mixengine-elevate`** is spawned through the OS elevation prompt, does the work, and
 exits. Cross-platform (Windows, macOS, Linux) from day one — all
@@ -29,16 +30,28 @@ crates/
   mixengine-cli/         `mix` binary
   mixengine-shim/        the version-resolving shim, copied into `<root>/bin` per command name
   mixengine-testkit/     Shared test fixtures — **dev-dependency only**, never in a shipped binary
+apps/
+  desktop/               the desktop application (MixLab from phase 12): a Vite + React frontend,
+                         and under src-tauri/ a Cargo workspace of its own, excluded from this one
 ```
 
-No `apps/`, no frontend toolchain: this workspace is Rust only.
+`apps/desktop/` carries the one Node toolchain here. `cargo` at the root never sees its crate, and
+`apps/desktop/CLAUDE.md` is that application's own set of rules.
 
 ## Non-negotiable rules
 
 - **No business logic in clients.** A client only renders what the daemon returns.
-- **No client-only capability.** Every mutating API method is reachable from `mix`. Since `mix` is
-  the only client here, a gap in the CLI is a gap in the product — what a graphical client would
-  need is written down in `.claude/features/client-surface.md`, not built here.
+- **No client-only capability.** Every mutating API method is reachable from `mix`. A gap in the
+  CLI is a gap in the product — `.claude/features/client-surface.md` is what any full graphical
+  client must be able to ask for, and the desktop application draws every screen from it.
+- **The desktop application is a client, not a second daemon.** Its `mixengine` module reaches
+  the daemon only through the JSON-RPC API and the streams, typed against `bindings/`; its Rust may
+  depend on `mixengine-proto` and `mixengine-platform` and on nothing else here
+  (`apps/desktop/src-tauri/tests/layering.rs`).
+- **The toolbox modules never touch the daemon.** `db`, `rest`, `terminal` and `tools` run in the
+  application's own process against servers of the user's choosing; nothing in them dials
+  `mixengined`, and nothing in the `mixengine` module imports from them (`npm run lint` in
+  `apps/desktop`).
 - **No direct OS calls outside `mixengine-platform`.** No `#[cfg(windows)]` in core/daemon code.
 - **No persistent root process, ever.** Elevation is one-shot and per-operation.
   `mixengine-elevate` never runs arbitrary commands, validates every request itself rather than
@@ -74,6 +87,8 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-it
 cargo sqlx prepare --workspace -- --all-targets --all-features  # after editing any sqlx::query!
 bash packaging/bindings.sh               # after changing a type in mixengine-proto (T56)
 cargo run -p mixengine-cli -- status      # drive the daemon from the CLI
+cd apps/desktop && npm ci && npm run build && npm test && npm run lint     # the desktop frontend
+cd apps/desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings  # its own workspace
 ```
 
 ## Working agreements
