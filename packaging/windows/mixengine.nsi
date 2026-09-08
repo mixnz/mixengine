@@ -28,6 +28,10 @@ InstallDirRegKey HKCU "Software\MixEngine" "InstallDir"
 ShowInstDetails show
 ShowUninstDetails show
 
+; **A components page, for one optional thing** — T105. The desktop shortcut is the only choice this
+; installer offers, and `/S` (which `packaging/windows/probe.sh` uses) takes the defaults, so an
+; unattended install still writes exactly what it wrote before plus the window itself.
+Page components
 Page directory
 Page instfiles
 UninstPage uninstConfirm
@@ -77,7 +81,8 @@ UninstPage instfiles
   ${Loop}
 !macroend
 
-Section "Install"
+Section "MixEngine" SecCore
+  SectionIn RO
   SetOutPath "$INSTDIR"
   File "${STAGE}\mix.exe"
   File "${STAGE}\mixengined.exe"
@@ -85,6 +90,11 @@ Section "Install"
   ; daemon starts, answers `status`, and `<root>\bin` stays empty — T85c.
   File "${STAGE}\mixengine-shim.exe"
   File "${STAGE}\mixengine-elevate.exe"
+  ; MixLab, the window — T105. One name on every operating system: `updates::apply::swap` looks a
+  ; payload's name up as `directory.join(binary_name(name))` and `binary_name` appends `.exe` and
+  ; nothing else, so an install file spelled `MixLab.exe` is one every future update would skip.
+  ; What a user actually clicks is the shortcut below, and that is named MixLab.
+  File "${STAGE}\mixlab.exe"
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -98,7 +108,30 @@ Section "Install"
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoRepair" 1
 
+  ; **A flat Start Menu entry and not a one-item folder.** `SetShellVarContext` is left at its
+  ; default, which under `RequestExecutionLevel user` is this account's own Start Menu — nothing
+  ; here asks for UAC. The `SetOutPath` at the top of this section is also the shortcut's working
+  ; directory.
+  CreateShortcut "$SMPROGRAMS\MixLab.lnk" "$INSTDIR\mixlab.exe"
+
+  ; `mixdb://`, per user — the merge design's D10. Taking the scheme over from a standalone MixDB
+  ; that is still installed is intended: the merged application is what a `mixdb://` link opens from
+  ; now on. What is *not* intended is taking it away again on uninstall if MixDB has since taken it
+  ; back, which is `un.RemoveScheme` below.
+  WriteRegStr HKCU "Software\Classes\mixdb" "" "URL:MixDB Protocol"
+  WriteRegStr HKCU "Software\Classes\mixdb" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\mixdb\DefaultIcon" "" "$INSTDIR\mixlab.exe,0"
+  WriteRegStr HKCU "Software\Classes\mixdb\shell\open\command" "" '"$INSTDIR\mixlab.exe" "%1"'
+
   Call AddToPath
+SectionEnd
+
+; **Unselected by default**, which is what `/o` means and what makes this optional in the sense the
+; roadmap asks for: a person who wants an icon on their desktop ticks a box, and nobody else grows
+; one. A silent install takes the defaults, so `probe.sh`'s readings are unchanged.
+Section /o "Desktop shortcut for MixLab" SecDesktop
+  SetOutPath "$INSTDIR"
+  CreateShortcut "$DESKTOP\MixLab.lnk" "$INSTDIR\mixlab.exe"
 SectionEnd
 
 ; Append $INSTDIR to this user's PATH — and refuse rather than risk it.
@@ -161,6 +194,29 @@ Function un.RemoveFromPath
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 FunctionEnd
 
+; Take `mixdb://` back — **only if it is still ours**.
+;
+; A standalone MixDB may still be installed and still be in use, and the merge design's D7 rule is
+; that the old copy is never touched. So this reads the command back and looks for our own
+; `$INSTDIR` inside it: a machine where MixDB re-registered itself after us keeps MixDB's handler,
+; which is the correct outcome and the quiet one.
+Function un.RemoveScheme
+  ReadRegStr $0 HKCU "Software\Classes\mixdb\shell\open\command" ""
+
+  ${If} $0 == ""
+    Return
+  ${EndIf}
+
+  StrCpy $1 "$INSTDIR"
+  !insertmacro StrFind
+
+  ${If} $2 == 1
+    DeleteRegKey HKCU "Software\Classes\mixdb"
+  ${Else}
+    DetailPrint "mixdb:// now points somewhere else; leaving it alone."
+  ${EndIf}
+FunctionEnd
+
 Section "Uninstall"
   ; **Only the files this installer wrote.** What MixEngine did to the *machine* — the hosts block,
   ; the resolver wiring, the CA in every store, the port grant, and the helper it installed — is
@@ -170,6 +226,7 @@ Section "Uninstall"
   DetailPrint "What MixEngine changed on this machine is removed by `mix uninstall` (not yet built)."
 
   Call un.RemoveFromPath
+  Call un.RemoveScheme
 
   ; One `Delete` per `File` above, and the pairing is not decoration: `RMDir` below removes an
   ; empty directory and says nothing when it does not, so a binary with no line here would stay on
@@ -178,7 +235,14 @@ Section "Uninstall"
   Delete "$INSTDIR\mixengined.exe"
   Delete "$INSTDIR\mixengine-shim.exe"
   Delete "$INSTDIR\mixengine-elevate.exe"
+  Delete "$INSTDIR\mixlab.exe"
   Delete "$INSTDIR\uninstall.exe"
+
+  ; Both shortcuts. `Delete` says nothing about a file that is not there, so the optional one needs
+  ; no condition — and a condition would need the section state, which an uninstaller does not have.
+  Delete "$SMPROGRAMS\MixLab.lnk"
+  Delete "$DESKTOP\MixLab.lnk"
+
   RMDir "$INSTDIR"
 
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
