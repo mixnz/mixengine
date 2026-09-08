@@ -23,7 +23,7 @@ Sau khi làm xong giai đoạn 1 và 2:
 - Sáu tool chạy được: đổi thời gian, mã hoá & băm, đọc JWT, sinh ID hàng loạt, đổi kiểu chữ, và
   dịch SQL sang truy vấn MongoDB.
 - Không file nào ngoài `src/modules/tools/` biết khái niệm nào của module, trừ đúng hai dòng mà
-  [adding-a-module](../../../.agent/conventions/adding-a-module.md) cho phép.
+  [adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md) cho phép.
 
 ## Phi mục tiêu
 

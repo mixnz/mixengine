@@ -32,15 +32,15 @@ table", Structure tab, Query tab, dump/restore vẫn đóng y như trước — 
 
 | Chỗ | Điều spec dựa vào |
 | --- | --- |
-| [`src-tauri/src/modules/db/drivers/clickhouse.rs`](../../../src-tauri/src/modules/db/drivers/clickhouse.rs) | `Connection` (rẻ, không phải pool), `query_with_params` (bind `{name:Type}` qua URL), `execute_check` (statement không có `FORMAT JSON`), `is_decodable`, `table_columns`, `quote_ident`, `qualified` |
-| [`src-tauri/src/modules/db/commands/clickhouse.rs`](../../../src-tauri/src/modules/db/commands/clickhouse.rs) | Chỉ các lệnh đọc; `clickhouse_connection` helper ở `commands/mod.rs:416` |
-| [`src-tauri/src/modules/db/drivers/mysql.rs:579,697`](../../../src-tauri/src/modules/db/drivers/mysql.rs) | `update_row` (pre-check `matched=1`, `<=>` cho NULL, transaction thật), `delete_rows` (`DELETE...LIMIT 1` per key, `all` → `DELETE` không WHERE) — hợp đồng phải khớp, cơ chế không copy được nguyên vì ClickHouse không có transaction, không có `LIMIT` trên mutation |
-| [`src/modules/db/sql/api.ts`](../../../src/modules/db/sql/api.ts) | `updateRow(id,db,table,updates,key)`, `insertRows(id,db,table,rows)`, `deleteRows(id,db,table,keys,all,resetAutoIncrement)` — chữ ký không đổi |
-| [`src/modules/db/clickhouse/api.ts`](../../../src/modules/db/clickhouse/api.ts) | Ba method hiện `notSupported()` — đổi thành `invoke()` thật |
-| [`src/modules/db/components/SqlTable/SqlTable.tsx:834,950-957`](../../../src/modules/db/components/SqlTable/SqlTable.tsx) | `rowKey`: `primaryKey.length > 0 ? primaryKey : columns` — ClickHouse luôn báo `primaryKey: []` nên đã tự dùng toàn bộ cột làm key, không cần đổi gì ở đây |
-| [`src/modules/db/sql/dialect.ts:131`](../../../src/modules/db/sql/dialect.ts) | `writable: boolean` — một cờ khoá chung DDL + rows + Query tab; cần tách |
-| [`src/modules/db/DbTab.tsx:767`](../../../src/modules/db/DbTab.tsx) | `readOnly={... || !engine.dialect.writable}` — chỗ duy nhất tính cờ này, truyền thẳng vào `SqlWorkspace` |
-| [`src/modules/db/sql/SqlWorkspace.tsx:480,703`](../../../src/modules/db/sql/SqlWorkspace.tsx) | Một `readOnly` prop rẽ tới `SqlTable`, `TableStructure`, `QueryEditor`, sidebar "Add table", `DatabaseActions` — cần rẽ hai nhánh |
+| [`src-tauri/src/modules/db/drivers/clickhouse.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/clickhouse.rs) | `Connection` (rẻ, không phải pool), `query_with_params` (bind `{name:Type}` qua URL), `execute_check` (statement không có `FORMAT JSON`), `is_decodable`, `table_columns`, `quote_ident`, `qualified` |
+| [`src-tauri/src/modules/db/commands/clickhouse.rs`](../../../apps/desktop/src-tauri/src/modules/db/commands/clickhouse.rs) | Chỉ các lệnh đọc; `clickhouse_connection` helper ở `commands/mod.rs:416` |
+| [`src-tauri/src/modules/db/drivers/mysql.rs:579,697`](../../../apps/desktop/src-tauri/src/modules/db/drivers/mysql.rs) | `update_row` (pre-check `matched=1`, `<=>` cho NULL, transaction thật), `delete_rows` (`DELETE...LIMIT 1` per key, `all` → `DELETE` không WHERE) — hợp đồng phải khớp, cơ chế không copy được nguyên vì ClickHouse không có transaction, không có `LIMIT` trên mutation |
+| [`src/modules/db/sql/api.ts`](../../../apps/desktop/src/modules/db/sql/api.ts) | `updateRow(id,db,table,updates,key)`, `insertRows(id,db,table,rows)`, `deleteRows(id,db,table,keys,all,resetAutoIncrement)` — chữ ký không đổi |
+| [`src/modules/db/clickhouse/api.ts`](../../../apps/desktop/src/modules/db/clickhouse/api.ts) | Ba method hiện `notSupported()` — đổi thành `invoke()` thật |
+| [`src/modules/db/components/SqlTable/SqlTable.tsx:834,950-957`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.tsx) | `rowKey`: `primaryKey.length > 0 ? primaryKey : columns` — ClickHouse luôn báo `primaryKey: []` nên đã tự dùng toàn bộ cột làm key, không cần đổi gì ở đây |
+| [`src/modules/db/sql/dialect.ts:131`](../../../apps/desktop/src/modules/db/sql/dialect.ts) | `writable: boolean` — một cờ khoá chung DDL + rows + Query tab; cần tách |
+| [`src/modules/db/DbTab.tsx:767`](../../../apps/desktop/src/modules/db/DbTab.tsx) | `readOnly={... || !engine.dialect.writable}` — chỗ duy nhất tính cờ này, truyền thẳng vào `SqlWorkspace` |
+| [`src/modules/db/sql/SqlWorkspace.tsx:480,703`](../../../apps/desktop/src/modules/db/sql/SqlWorkspace.tsx) | Một `readOnly` prop rẽ tới `SqlTable`, `TableStructure`, `QueryEditor`, sidebar "Add table", `DatabaseActions` — cần rẽ hai nhánh |
 | `docs/superpowers/plans/2026-09-04-clickhouse-db-kind.md` | D7 (whitelist decodable), D13 (paging), Phi mục tiêu gốc — nguồn của mọi giới hạn spec này thừa hưởng |
 
 **Ba điều đo được từ việc đọc `mysql.rs`, quyết định thiết kế:**
@@ -152,7 +152,7 @@ hoá `writingStatements()` sang tập verb — bỏ, quá tay cho phase này. Ch
 - `DbTab.tsx`: thêm `dataReadOnly={(activeSavedConnection?.readOnly ?? false) ||
   !engine.dialect.rowsWritable}` bên cạnh `readOnly` hiện có, cả hai truyền vào `SqlWorkspace`.
 - `SqlWorkspace.tsx`: prop mới `dataReadOnly`, chỉ chuyển vào `SqlTable`'s `readOnly`
-  ([SqlWorkspace.tsx:703](../../../src/modules/db/sql/SqlWorkspace.tsx#L703)). `TableStructure`,
+  ([SqlWorkspace.tsx:703](../../../apps/desktop/src/modules/db/sql/SqlWorkspace.tsx#L703)). `TableStructure`,
   `QueryEditor`, sidebar "Add table", `DatabaseActions` giữ nguyên `readOnly` cũ — không đổi.
 
 Hệ quả đúng như Phi mục tiêu: gõ `UPDATE`/`DELETE` tay trong Query tab trên ClickHouse vẫn bị

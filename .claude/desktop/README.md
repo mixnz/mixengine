@@ -1,7 +1,7 @@
 # .agent
 
 Notes, conventions and decisions for agents (Claude Code) working on this project. Read the file
-covering a topic before making changes in that area. The root [AGENT.md](../AGENT.md) is the short
+covering a topic before making changes in that area. The root [AGENT.md](../../apps/desktop/CLAUDE.md) is the short
 entry point; everything detailed lives here.
 
 ## Structure

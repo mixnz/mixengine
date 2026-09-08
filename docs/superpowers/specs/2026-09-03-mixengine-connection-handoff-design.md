@@ -50,14 +50,14 @@ Spec này là **phía nhận** của hợp đồng đó. Sau khi làm xong:
 
 | Chỗ | Điều spec dựa vào |
 | --- | --- |
-| [`src-tauri/src/lib.rs`](../../../src-tauri/src/lib.rs) | `run()` dựng builder ngay dòng đầu; chưa đọc `argv`, chưa có plugin deep-link hay single-instance |
-| [`src-tauri/src/secrets.rs`](../../../src-tauri/src/secrets.rs) | `Redacted` — cách mọi `Debug` giấu mật khẩu |
-| [`src-tauri/src/modules/db/models.rs`](../../../src-tauri/src/modules/db/models.rs) | `ConnectionConfig` với `Debug` viết tay che `password`/`uri`; `DbKind` serde lowercase |
-| [`src-tauri/src/modules/db/commands/mod.rs`](../../../src-tauri/src/modules/db/commands/mod.rs) | `connect_db(config)` → id; mọi thứ sau đó đi theo id |
-| [`src/shell/App.tsx`](../../../src/shell/App.tsx) | `openTab(moduleId)`; tab mount với `restored={tab.state}` |
-| [`src/shell/module.ts`](../../../src/shell/module.ts) | Khe `restored` / `onStateChange` — thứ duy nhất shell mang cho module, và shell không đọc |
-| [`src/modules/db/tabState.ts`](../../../src/modules/db/tabState.ts) | `parseDbTabState` — nơi validate khe đó, chỉ id |
-| [`src/modules/db/DbTab.tsx`](../../../src/modules/db/DbTab.tsx) | `connect(config, title, savedId)`, `formFrom(config)`, `restoreTried` |
+| [`src-tauri/src/lib.rs`](../../../apps/desktop/src-tauri/src/lib.rs) | `run()` dựng builder ngay dòng đầu; chưa đọc `argv`, chưa có plugin deep-link hay single-instance |
+| [`src-tauri/src/secrets.rs`](../../../apps/desktop/src-tauri/src/secrets.rs) | `Redacted` — cách mọi `Debug` giấu mật khẩu |
+| [`src-tauri/src/modules/db/models.rs`](../../../apps/desktop/src-tauri/src/modules/db/models.rs) | `ConnectionConfig` với `Debug` viết tay che `password`/`uri`; `DbKind` serde lowercase |
+| [`src-tauri/src/modules/db/commands/mod.rs`](../../../apps/desktop/src-tauri/src/modules/db/commands/mod.rs) | `connect_db(config)` → id; mọi thứ sau đó đi theo id |
+| [`src/shell/App.tsx`](../../../apps/desktop/src/shell/App.tsx) | `openTab(moduleId)`; tab mount với `restored={tab.state}` |
+| [`src/shell/module.ts`](../../../apps/desktop/src/shell/module.ts) | Khe `restored` / `onStateChange` — thứ duy nhất shell mang cho module, và shell không đọc |
+| [`src/modules/db/tabState.ts`](../../../apps/desktop/src/modules/db/tabState.ts) | `parseDbTabState` — nơi validate khe đó, chỉ id |
+| [`src/modules/db/DbTab.tsx`](../../../apps/desktop/src/modules/db/DbTab.tsx) | `connect(config, title, savedId)`, `formFrom(config)`, `restoreTried` |
 | `Cargo.lock` | `url 2.5`, `libc`, `tokio` (`full` → có `net`, named pipe trên Windows) đều đã là dep gián tiếp |
 | `tauri.conf.json` | `identifier = io.github.haiquang9994.mixdb` — tên của mutex/socket/pipe bên dưới |
 

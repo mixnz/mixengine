@@ -4,7 +4,7 @@ A module is one kind of thing a tab can hold. There are three — `db`, `rest` a
 the steps below are what each of them did. Read the newest one alongside this: `terminal` is the
 module that has been through the fewest changes of mind.
 
-The shell knows only what [`src/shell/module.ts`](../../src/shell/module.ts) declares, so a module
+The shell knows only what [`src/shell/module.ts`](../../../apps/desktop/src/shell/module.ts) declares, so a module
 is a folder plus a line in the registry — see [overview](../architecture/overview.md) for why the
 contract is as small as it is.
 
@@ -54,13 +54,13 @@ contract is as small as it is.
    - **Ids only.** This is `localStorage`: no host, no password, no URL, no token. Put the shape in
      `modules/<id>/tabState.ts` with a `parseXTabState(value: unknown)` beside it — the shell
      passes the slot through without validating it, so that function is where the checking lives.
-     See [the spec](../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
+     See [the spec](../../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
 
-3. **One line in [`src/shell/registry.ts`](../../src/shell/registry.ts)**, in `MODULES`. This is
+3. **One line in [`src/shell/registry.ts`](../../../apps/desktop/src/shell/registry.ts)**, in `MODULES`. This is
    the only file outside `src/modules/` that may name a module.
 
 4. **Strings** in `src/modules/<id>/i18n/{en,vi}.ts`, added to
-   [`src/i18n/dicts.ts`](../../src/i18n/dicts.ts) — and to the hand-merged `error` group there if
+   [`src/i18n/dicts.ts`](../../../apps/desktop/src/i18n/dicts.ts) — and to the hand-merged `error` group there if
    the module raises errors of its own. Its dictionaries must import nothing from `src/i18n/`; see
    [i18n](i18n.md).
 

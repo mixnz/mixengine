@@ -25,7 +25,7 @@ back — bar the terminal, whose output arrives on a Tauri `Channel` because a s
 ## The shell and its modules
 
 The shell owns the tab bar, the keyboard shortcuts and the Settings dialog, and knows only what
-[`shell/module.ts`](../../src/shell/module.ts) declares:
+[`shell/module.ts`](../../../apps/desktop/src/shell/module.ts) declares:
 
 - `ModuleDefinition` — an id, an icon, a label, and the component a tab renders.
 - `ModuleTabProps` — what that component is handed: `active`, `onTitleChange`, `onBadgesChange`,
@@ -41,9 +41,9 @@ is harder to add to than the thing it replaced.
 The one exception is a single **opaque slot per tab**: the module writes a value through
 `onStateChange`, the shell stores it with the session and hands it back as `restored` next launch,
 and nothing in `src/shell/` ever looks inside it. Ids only — the shape and the reasons are in
-[the spec](../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
+[the spec](../../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
 
-[`shell/registry.ts`](../../src/shell/registry.ts) lists the modules and is the only file outside
+[`shell/registry.ts`](../../../apps/desktop/src/shell/registry.ts) lists the modules and is the only file outside
 `src/modules/` that names one.
 
 ## Tabs and connections
@@ -123,7 +123,7 @@ last:
 events (the Apple Event is the only way a URL reaches a macOS process); on Windows and Linux the
 plugin re-emits `argv`, which `launch.rs` has already handled, and later URLs arrive over the
 channel. The whole design, with the threat model for the variable name, is
-[the spec](../../docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md).
+[the spec](../../../docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md).
 
 ## MongoDB is the odd one
 
@@ -138,13 +138,13 @@ Mongo is configured as a single connection string, not host/port/user/password �
 
 ## Persistence
 
-- **Saved connections** — split in two by [src/modules/db/savedConnections.ts](../../src/modules/db/savedConnections.ts),
+- **Saved connections** — split in two by [src/modules/db/savedConnections.ts](../../../apps/desktop/src/modules/db/savedConnections.ts),
   which is the only module that knows about the split:
   - What a connection *is* (host, port, user, database, sidebar width) — `tauri-plugin-store`,
     file `connections.json`, key `saved`. Plain text on purpose.
   - What lets you connect (`password`, the whole Mongo `uri`, the SSH password and key
     passphrase) — the OS credential store, through the `secrets_*` commands
-    ([src-tauri/src/secrets.rs](../../src-tauri/src/secrets.rs)): Windows Credential Manager, the
+    ([src-tauri/src/secrets.rs](../../../apps/desktop/src-tauri/src/secrets.rs)): Windows Credential Manager, the
     macOS Keychain, the Secret Service on Linux. One JSON entry per connection id, under the
     service name `MixDB`.
 
@@ -168,7 +168,7 @@ and adding one would be the first thing that made two modules care what the othe
 
 ## Security posture
 
-[`ssh/`](../../src-tauri/src/ssh/mod.rs) verifies host keys on a trust-on-first-use basis: a server never seen before is
+[`ssh/`](../../../apps/desktop/src-tauri/src/ssh/mod.rs) verifies host keys on a trust-on-first-use basis: a server never seen before is
 accepted and its SHA-256 fingerprint written to `known_hosts.json` in the app data directory, and
 a later connection offering a different key is refused with both fingerprints in the message. Its
 own file, not OpenSSH's `~/.ssh/known_hosts`. Accepting a rebuilt server's new key means deleting
@@ -188,7 +188,7 @@ Two deliberate tradeoffs, marked in the code:
 
 The webview itself runs under a CSP (`app.security.csp`, with a looser `devCsp` for Vite's HMR):
 everything loads from `'self'`, and `script-src` allows no inline script — which is why the theme
-preload lives in [public/theme-preload.js](../../public/theme-preload.js) rather than in
+preload lives in [public/theme-preload.js](../../../apps/desktop/public/theme-preload.js) rather than in
 `index.html`. Adding a `<script>` to the HTML will silently not run.
 
 That policy reaches further than the app's own document. A frame with no response of its own —

@@ -2,7 +2,7 @@
 
 MixDB fetches `mysqldump`/`mysql`, `pg_dump`/`psql` and `mongodump`/`mongorestore` from their
 vendors when a machine has none. Each download is pinned twice in
-[`src-tauri/src/modules/db/drivers/tools.rs`](../../src-tauri/src/modules/db/drivers/tools.rs): a version constant that builds the
+[`src-tauri/src/modules/db/drivers/tools.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/tools.rs): a version constant that builds the
 URL, and a SHA-256 in `archive_source` that the file has to hash to before anything is unpacked.
 Both change together — a version bumped without its checksum fails every install with
 `error.checksumMismatch`.
@@ -92,7 +92,7 @@ old — see the comment on it.
    ```
 
 5. **Verify on every platform.** Run the
-   [Tool downloads workflow](../../.github/workflows/tool-downloads.yml) — Actions → *Tool
+   the *Tool downloads* workflow (MixDB's `tool-downloads.yml`, not yet wired into this repository's CI — a phase 11 debt) — Actions → *Tool
    downloads* → *Run workflow*, or push to the `ci/tool-downloads` branch:
 
    ```sh

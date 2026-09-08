@@ -14,7 +14,7 @@ Sau khi làm xong:
 - Request lưu lại giữa các lần mở app; request sinh ra do dán thì tự đến tự đi.
 - Biến `{{var}}` theo environment, đổi environment ngay trong giao diện request.
 - Không file nào ngoài `src/modules/rest/` biết khái niệm nào của HTTP, trừ đúng hai dòng mà
-  [adding-a-module](../../../.agent/conventions/adding-a-module.md) cho phép.
+  [adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md) cho phép.
 - Toàn bộ phần dễ sai — parse cURL, nội suy biến, nhận diện kiểu nội dung — là hàm thuần và nằm
   trong `npm test`.
 
@@ -57,7 +57,7 @@ Những gì đã có sẵn và spec này dựa vào:
 
 Hai điều kiểm tra được trong code, quyết định thiết kế bên dưới:
 
-1. **Shell không lưu tab nào.** [`App.tsx:39`](../../../src/shell/App.tsx#L39) là
+1. **Shell không lưu tab nào.** [`App.tsx:39`](../../../apps/desktop/src/shell/App.tsx#L39) là
    `useState<TabInfo[]>([newTab()])`. Không có store, không có khôi phục.
 2. **`Ctrl+V` không bị dispatcher nuốt.** `decide()` chỉ hành động với chord nằm trong catalogue và
    trả `{do:"nothing"}` cho phần còn lại; ngoài ra `isTextEntry` bật `press.typing` trong `<input>`
@@ -132,7 +132,7 @@ bản chép tay gần giống nhau trong `SqlWorkspace` / `MongoWorkspace` / `Re
 
 ### Hai thứ module này là người đầu tiên chạy thật
 
-Theo đúng cảnh báo cuối [adding-a-module](../../../.agent/conventions/adding-a-module.md): nhánh
+Theo đúng cảnh báo cuối [adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md): nhánh
 menu của nút `[+]` (viết rồi nhưng chưa từng chạy vì mới có một module), và `registry.ts` lần đầu
 chứa hai module. Cả hai phải kiểm bằng tay.
 
@@ -197,7 +197,7 @@ trị là map `tên biến -> giá trị`.
 
 Nhờ vậy `rest-environments.json` đọc được và copy được — biết env Dev có biến gì, `baseUrl` trỏ đâu
 — mà token thì nằm trong Windows Credential Manager cạnh mật khẩu MySQL, đúng đường lối
-[`secrets.rs`](../../../src-tauri/src/secrets.rs) tự viết ra cho mình.
+[`secrets.rs`](../../../apps/desktop/src-tauri/src/secrets.rs) tự viết ra cho mình.
 
 ### Cái gì sống qua restart
 
@@ -521,7 +521,7 @@ Phía Rust không có test — repo chưa có văn hoá `cargo test` và spec n�
 mỏng đúng bằng "dựng request, bắn, đo".
 
 Sau mỗi phase: `npm run build`, `npm test`, và hai lệnh grep ranh giới trong
-[adding-a-module](../../../.agent/conventions/adding-a-module.md).
+[adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md).
 
 ## 8. Phase
 
@@ -546,4 +546,4 @@ Hai thứ Phase 1 cần nhưng chưa có nguồn, nên cắm cứng cho tới đ
   nhập. Phase 4 chèn `interpolate` vào giữa và bật hai thứ kia lên cùng lúc.
 
 Mỗi phase kèm một dòng trong `## [Unreleased]` của `CHANGELOG.md` theo
-[.agent/conventions/changelog.md](../../../.agent/conventions/changelog.md).
+[.agent/conventions/changelog.md](../../../.claude/desktop/conventions/changelog.md).

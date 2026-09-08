@@ -17,7 +17,7 @@ Sau khi làm xong:
 - `Ctrl+W` và `Ctrl+R` khi con trỏ ở trong terminal đi xuống đầu xa chứ không đóng tab và reload
   pane; `Ctrl+C` ngắt tiến trình; copy/paste và tìm kiếm trong scrollback có sẵn.
 - Không file nào ngoài `src/modules/terminal/` biết khái niệm nào của terminal, trừ đúng hai dòng
-  mà [adding-a-module](../../../.agent/conventions/adding-a-module.md) cho phép.
+  mà [adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md) cho phép.
 
 ## Phi mục tiêu
 
@@ -55,7 +55,7 @@ Những gì đã có sẵn và spec này dựa vào:
 
 Ba điều kiểm được trong code, quyết định thiết kế bên dưới:
 
-1. **`ssh/mod.rs` đã có phần khó nhất.** `authenticate()` ([dòng 303](../../../src-tauri/src/ssh/mod.rs#L303))
+1. **`ssh/mod.rs` đã có phần khó nhất.** `authenticate()` ([dòng 303](../../../apps/desktop/src-tauri/src/ssh/mod.rs#L303))
    kết nối, kiểm vân tay theo `known_hosts.json`, rồi xác thực bằng mật khẩu hoặc khoá riêng. Đang
    là private vì chỉ tunnel gọi. Phiên shell cần đúng nó.
 2. **Backend đang stream bằng `app.emit`.** Module db bắn sự kiện toàn cục rồi frontend lọc theo
@@ -160,7 +160,7 @@ Một lệnh `yes` bắn từng byte một qua IPC sẽ làm nghẹt webview. B�
   kết nối, xác thực, `request_pty` (`xterm-256color`, cols/rows ban đầu), `request_shell`.
 
 Nằm ở `ssh/` chứ không trong module vì `known_hosts.json` là dữ liệu của app —
-[backend.md](../../../.agent/architecture/backend.md) đã ghi trước điều này từ khi chỉ có module db.
+[backend.md](../../../.claude/desktop/architecture/backend.md) đã ghi trước điều này từ khi chỉ có module db.
 
 Phiên terminal mở **kết nối SSH riêng của nó**, không dùng chung pool của tunnel. Vòng đời một
 terminal là vòng đời cái tab; vòng đời một tunnel là vòng đời kết nối database. Gộp lại thì đóng
@@ -322,7 +322,7 @@ Theo đúng cách module REST đã đi: một spec chung, mỗi đợt một pla
 Đợt 1 và 2 là thứ khiến module dùng được; đợt 3 là thứ khiến nó dùng được lâu.
 
 Mỗi đợt tự viết dòng của nó vào `## [Unreleased]` trong CHANGELOG.md, theo
-[changelog](../../../.agent/conventions/changelog.md).
+[changelog](../../../.claude/desktop/conventions/changelog.md).
 
 ## 7. Rủi ro
 

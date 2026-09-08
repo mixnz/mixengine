@@ -1,6 +1,6 @@
 # Metrics và Settings: phần còn lại của Pha 4, module `mixengine`
 
-Ngày 2026-09-07. Phần cuối của Pha 4 trong [roadmap/mixengine-module.md](../../../roadmap/mixengine-module.md)
+Ngày 2026-09-07. Phần cuối của Pha 4 trong [roadmap/mixengine-module.md](../../../.claude/desktop/roadmap-mixengine-module.md)
 (T4.1, T4.2, T4.6–T4.8) — nối tiếp
 [2026-09-06-mixengine-blueprints-extensions-design.md](2026-09-06-mixengine-blueprints-extensions-design.md)
 (Blueprints/Extensions, đã xong ở `00eed71` #42). Spec đó để lại đúng ba câu hỏi ở mục "Nợ"; spec này
@@ -101,32 +101,32 @@ bằng cách nào" (script hay tay) — chỉ là một lần bump cụ thể; x
 ### CPU %/RSS theo từng service
 
 `/metrics` là một stream SSE riêng, **khác `/events`** mà Dashboard đã mở qua
-[daemonWatch.ts](../../../src/modules/mixengine/daemonWatch.ts) — và khác theo đúng chiều ngược
+[daemonWatch.ts](../../../apps/desktop/src/modules/mixengine/daemonWatch.ts) — và khác theo đúng chiều ngược
 nhau về vòng đời:
 
-- **`/events` mở một lần cho cả đời app, không bao giờ đóng** ([daemonWatch.ts:12](../../../src/modules/mixengine/daemonWatch.ts)) — đúng, vì bus sự kiện tồn tại bất kể ai đang nhìn.
+- **`/events` mở một lần cho cả đời app, không bao giờ đóng** ([daemonWatch.ts:12](../../../apps/desktop/src/modules/mixengine/daemonWatch.ts)) — đúng, vì bus sự kiện tồn tại bất kể ai đang nhìn.
 - **`/metrics` phải đóng khi Dashboard không còn là màn đang xem**, vì mở kết nối **chính là**
   subscribe: daemon lấy mẫu 1 Hz trong lúc có ai giữ stream, 1 lần/phút khi không — `client-surface.md`
   gọi thẳng đây là bất biến T71, và mở stream này theo khuôn `daemonWatch.ts` (mở một lần, không đóng)
   sẽ ép daemon lấy mẫu 1 Hz vĩnh viễn kể cả khi không ai nhìn Dashboard, đúng cái T71 sinh ra để tránh.
 
 **Vì `MixEngineTab.tsx` giữ mọi màn đã-xem-qua ở trong DOM** (`mountedScreens`,
-[MixEngineTab.tsx:53](../../../src/modules/mixengine/MixEngineTab.tsx)) **thay vì unmount lúc đổi
+[MixEngineTab.tsx:53](../../../apps/desktop/src/modules/mixengine/MixEngineTab.tsx)) **thay vì unmount lúc đổi
 tab**, `useEffect` đóng/mở stream không thể khoá theo unmount — phải khoá theo prop `active` Dashboard
 đã nhận sẵn: mở khi `active` chuyển `true`, đóng khi nó chuyển `false` hoặc component unmount, y hệt
-cách `reload()` đã khoá theo `active` ở [Dashboard.tsx:115-117](../../../src/modules/mixengine/screens/Dashboard/Dashboard.tsx).
+cách `reload()` đã khoá theo `active` ở [Dashboard.tsx:115-117](../../../apps/desktop/src/modules/mixengine/screens/Dashboard/Dashboard.tsx).
 
-- **Backend**: một `MetricsState` thứ ba trong [state.rs](../../../src-tauri/src/modules/mixengine/state.rs),
+- **Backend**: một `MetricsState` thứ ba trong [state.rs](../../../apps/desktop/src-tauri/src/modules/mixengine/state.rs),
   cùng hình dạng `keep`/`stop` với `LogsState` — không tái dùng `LogsState` cho việc này dù cùng là
   "một stream": `/events`, `/logs/{id}` và `/metrics` là ba kết nối có thể **cùng mở một lúc** cho
   cùng một tab (Dashboard giữ `/events` lẫn `/metrics`), nên gộp state là một stream giành khoá của
   stream kia. Một file `metrics.rs` mới, mirror gần như nguyên xi
-  [logs.rs](../../../src-tauri/src/modules/mixengine/logs.rs) (`GET /metrics`, không tham số path,
+  [logs.rs](../../../apps/desktop/src-tauri/src/modules/mixengine/logs.rs) (`GET /metrics`, không tham số path,
   cùng `sse::Frames`).
 - **Tauri command**: `mixengine_metrics_watch(onFrame: Channel<string>)` /
   `mixengine_metrics_unwatch()`, cùng khuôn `mixengine_logs_watch`/`unwatch`.
 - **`api.ts`**: `metricsWatch(onFrame)` / `metricsUnwatch()`, cùng khuôn
-  [`logsWatch`/`logsUnwatch`](../../../src/modules/mixengine/api.ts:311-323).
+  [`logsWatch`/`logsUnwatch`](../../../apps/desktop/src/modules/mixengine/api.ts:311-323).
 - **Vẽ**: một cột CPU % và một cột RSS thêm vào bảng Dashboard hiện có, khớp theo
   `subject === \`service:${row.id}\``. **Không có mẫu cho một service không nằm trong frame mới nhất
   là "chưa có số" (`—`), không phải `0%`** — đúng luật "một chỗ thiếu không suy ra bằng 0" áp cho cả
@@ -197,17 +197,17 @@ là một RPC đọc thường, không cần stream: `metrics.history(MetricsHis
 
 ## 3. Settings — màn mới
 
-Bật mục Sidebar đang `disabled` ([Sidebar.tsx:31](../../../src/modules/mixengine/components/Sidebar/Sidebar.tsx)):
+Bật mục Sidebar đang `disabled` ([Sidebar.tsx:31](../../../apps/desktop/src/modules/mixengine/components/Sidebar/Sidebar.tsx)):
 thêm `"settings"` vào `MixEngineScreen`/`SCREENS`
-([tabState.ts:8-16](../../../src/modules/mixengine/tabState.ts)), một `pane("settings", …)` trong
-[MixEngineTab.tsx](../../../src/modules/mixengine/MixEngineTab.tsx), gỡ `disabled`/`screen: null` của
+([tabState.ts:8-16](../../../apps/desktop/src/modules/mixengine/tabState.ts)), một `pane("settings", …)` trong
+[MixEngineTab.tsx](../../../apps/desktop/src/modules/mixengine/MixEngineTab.tsx), gỡ `disabled`/`screen: null` của
 mục đó trong `ITEMS`.
 
 ### Root directory, TLD quản lý — không cần call mới
 
 Cả hai đọc từ `daemon.status()`, cuộc gọi Dashboard đã làm mỗi lần `reload()`: `home` (root) và
 `dns?.wildcards` (TLD có wildcard) trên `DaemonStatus`
-([DaemonStatus.ts](../../../src/modules/mixengine/api/types/DaemonStatus.ts)). Settings tự gọi
+([DaemonStatus.ts](../../../apps/desktop/src/modules/mixengine/api/types/DaemonStatus.ts)). Settings tự gọi
 `api.status()` riêng của nó (một request rẻ, không đáng chia sẻ state với Dashboard) — không cần
 command Tauri mới, chỉ cần vẽ hai field này ra, thứ Dashboard hôm nay đọc mà không vẽ.
 
@@ -242,8 +242,8 @@ lại sau"; `update.apply` cài rồi **daemon tự thoát ngay sau khi trả l�
 riêng.** Doc-comment của `DoctorRepair.grant` nói thẳng: đường thường là hai lượt — gọi với
 `grant: false` để enqueue, rồi `elevation.grant` sửa thật. Đây **chính là** hàng đợi
 `elevation.status`/`ElevationDialog` Dashboard đã dựng ở Pha 1
-([ElevationDialog](../../../src/modules/mixengine/components/ElevationDialog/ElevationDialog.tsx),
-[pendingOps.ts](../../../src/modules/mixengine/pendingOps.ts)) — Settings gọi `doctor_repair` xong thì
+([ElevationDialog](../../../apps/desktop/src/modules/mixengine/components/ElevationDialog/ElevationDialog.tsx),
+[pendingOps.ts](../../../apps/desktop/src/modules/mixengine/pendingOps.ts)) — Settings gọi `doctor_repair` xong thì
 mở lại đúng dialog đó, không viết luồng elevation thứ hai cho riêng Settings (Quyết định D3).
 
 ### Gỡ MixEngine
@@ -273,7 +273,7 @@ tự thoát hay không mà không cần đoán qua trạng thái máy đang ch�
 rời `"running"` tối đa 10 lần trước khi quyết định, nhưng nếu nó không đổi kịp trong 10 giây đó thì
 kẹt luôn ở Settings dù daemon *sẽ* rời). Khi `keep_home: false`, `pollJob` gọi thẳng `onUninstalled()`
 — cùng cơ chế `onApplied` của `UpdatesSection`/`update.apply`
-([MixEngineTab.pollUntilDaemonLeaves](../../../src/modules/mixengine/MixEngineTab.tsx)) — ngay khi
+([MixEngineTab.pollUntilDaemonLeaves](../../../apps/desktop/src/modules/mixengine/MixEngineTab.tsx)) — ngay khi
 job báo `state` khác `"running"`, không dựa vào job `state: "succeeded"` một mình vì đó là thời điểm
 daemon *sắp* thoát chứ chưa chắc đã thoát; `pollUntilDaemonLeaves` ở `MixEngineTab` mới là nơi chờ
 `presence !== "running"` thật sự rồi để gate trên cùng tự vẽ đúng màn. `pollJob` cũng phải bắt lỗi RPC

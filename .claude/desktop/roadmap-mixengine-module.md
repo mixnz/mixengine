@@ -5,25 +5,25 @@ dòng code nào. Năm pha; mỗi pha tự chạy được và để lại một 
 
 **Trạng thái (cập nhật 2026-09-07): Pha 0–4 đã xong**, trừ đúng một hàng — "default web server"
 trong Settings, hoãn tới khi MixEngine phát hành bản mang `service.set_front_end` (T97), xem mục
-"Nợ" cuối [spec Metrics/Settings](../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md).
+"Nợ" cuối [spec Metrics/Settings](../../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md).
 
 - Pha 0 — `91abac3`, `feat(db): save MixEngine handoffs as a keyring reference (#20)`, 2026-09-04,
   từ trước khi roadmap này được viết.
 - Pha 1 — `898f936`, `feat(mixengine): manage the local MixEngine daemon (#38)`, 2026-09-06. Spec:
-  [2026-09-06-mixengine-transport-design.md](../docs/superpowers/specs/2026-09-06-mixengine-transport-design.md).
+  [2026-09-06-mixengine-transport-design.md](../../docs/superpowers/specs/2026-09-06-mixengine-transport-design.md).
 - Pha 2 — `e7e1189`, `feat(mixengine): sites, domains and TLS (#40)`, 2026-09-06. Spec:
-  [2026-09-06-mixengine-sites-domains-design.md](../docs/superpowers/specs/2026-09-06-mixengine-sites-domains-design.md).
+  [2026-09-06-mixengine-sites-domains-design.md](../../docs/superpowers/specs/2026-09-06-mixengine-sites-domains-design.md).
 - Pha 3 — `a83c8ff`, `feat(mixengine): Projects, Runtimes & Packages, Services detail, Logs (#41)`,
   2026-09-06. Spec:
-  [2026-09-06-mixengine-runtimes-services-logs-design.md](../docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md).
+  [2026-09-06-mixengine-runtimes-services-logs-design.md](../../docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md).
 - Pha 4 (một phần) — `00eed71`, `feat(mixengine): add Blueprints and Extensions screens (Phase 4) (#42)`,
   cùng các bản sửa theo sau cùng ngày/hôm sau (`0e30e78`, `bd4a597`, `09ec534`, `7911730`, `eef467a`),
   2026-09-06 → 2026-09-07. Spec:
-  [2026-09-06-mixengine-blueprints-extensions-design.md](../docs/superpowers/specs/2026-09-06-mixengine-blueprints-extensions-design.md).
+  [2026-09-06-mixengine-blueprints-extensions-design.md](../../docs/superpowers/specs/2026-09-06-mixengine-blueprints-extensions-design.md).
   Spec này chỉ phủ Blueprints/Extensions (T4.3–T4.5).
 - Pha 4 (còn lại) — nhánh `spec/mixengine-phase4-outstanding`, 2026-09-07, bảy commit từ vendor
   bindings tới màn Settings (`2b2e398`..`f779a15`). Spec:
-  [2026-09-07-mixengine-metrics-settings-design.md](../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md).
+  [2026-09-07-mixengine-metrics-settings-design.md](../../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md).
   Metrics (T4.1–T4.2) và Settings (T4.6–T4.8) xong, trừ hàng "default web server" — xem "Nợ" cuối
   spec đó.
 
@@ -49,8 +49,8 @@ làm phạm vi, và MixDB là client ấy.
 
 Hai app đã biết nhau một chiều rồi: MixEngine gọi MixDB là extension kiểu `desktop-app`
 (`DesktopClient.name` = `"MixDB"`), và `database.open` bắn `mixdb://connect?…` sang. Phía nhận đã có
-trong repo này — [`handoff.rs`](../src-tauri/src/modules/db/handoff.rs) và
-[spec T83](../docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md). Pha 0 dưới
+trong repo này — [`handoff.rs`](../../apps/desktop/src-tauri/src/modules/db/handoff.rs) và
+[spec T83](../../docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md). Pha 0 dưới
 đây là đường đó, và nó **đã hoàn tất**; ghi lại ở đây vì nó là nền của màn hình Services ở Pha 3,
 không phải vì còn việc.
 
@@ -58,9 +58,9 @@ không phải vì còn việc.
 
 **Một module thứ năm, không phải một tool.** `mixengine` đứng cạnh `db`, `rest`, `terminal`,
 `tools`: một folder dưới `src/modules/` và một dòng trong
-[`src/shell/registry.ts`](../src/shell/registry.ts). Panel của module `tools` là khung một cột, không
+[`src/shell/registry.ts`](../../apps/desktop/src/shell/registry.ts). Panel của module `tools` là khung một cột, không
 đủ cho một dashboard có stream sự kiện và bảng nhiều cột. Quy trình đầy đủ nằm ở
-[adding-a-module](../.agent/conventions/adding-a-module.md).
+[adding-a-module](./conventions/adding-a-module.md).
 
 **JSON-RPC thẳng tới daemon, không gọi `mix`.** Backend Rust nói HTTP/1.1 qua Unix socket
 (`<root>/run/mixengined.sock`) hoặc named pipe Windows
@@ -99,12 +99,12 @@ src-tauri/src/modules/mixengine/
 ```
 
 Ba luật của repo áp nguyên vào đây: không file nào ngoài `src/modules/mixengine/` được biết khái
-niệm của module ([`npm run lint`](../eslint.config.js) là thứ nói không); mọi chuỗi người dùng thấy
+niệm của module ([`npm run lint`](../../apps/desktop/eslint.config.js) là thứ nói không); mọi chuỗi người dùng thấy
 đi qua `t()` trong cả `en.ts` lẫn `vi.ts`; và root của workspace cần đủ khối năm thuộc tính ở
-[workspace-root](../.agent/conventions/workspace-root.md).
+[workspace-root](./conventions/workspace-root.md).
 
 Một luật riêng của module này: **spawn `mixengined --detach` phải đi qua `crate::platform::hide_console`**,
-đúng như [spawning-processes](../.agent/conventions/spawning-processes.md) — nếu không Windows bật một
+đúng như [spawning-processes](./conventions/spawning-processes.md) — nếu không Windows bật một
 cửa sổ console đen trước mặt người dùng.
 
 ## Bảng ánh xạ màn hình → pha
@@ -141,16 +141,16 @@ hai phía, không bao giờ đi trên wire) và `key` = `<service-id>/<user>` (�
 
 | Việc | Đã land ở đâu |
 | --- | --- |
-| Parse `secret_key` | `Handoff::keyring_ref` — [handoff.rs:32](../src-tauri/src/modules/db/handoff.rs) |
-| Cờ "đã xác thực bằng env" đi tới lúc Save | `secret.is_some().then(…)` ở [handoff.rs:118](../src-tauri/src/modules/db/handoff.rs) → `handoff_take` → [DbTab.tsx:512](../src/modules/db/DbTab.tsx) → `form.keyringRef` → payload Save |
-| Định dạng tham chiếu | `SavedConnection.keyringRef` — [types.ts:67](../src/modules/db/types.ts); `connections.json` vẫn là text thuần |
-| Đọc namespace ngoài | `MIXENGINE_SERVICE` + `read_mixengine_entry` — [secrets.rs:296](../src-tauri/src/secrets.rs), đi thẳng `Entry::new`, cố ý không qua `Keeper` |
-| Save không copy mật khẩu sang vault mình | `readSecrets(config, keyringRef)` — [savedConnections.ts:47](../src/modules/db/savedConnections.ts) |
-| Đọc hụt thì hỏi lại, không báo lỗi | `resolveKeyringRef` trả `undefined` — [savedConnections.ts:80](../src/modules/db/savedConnections.ts) |
+| Parse `secret_key` | `Handoff::keyring_ref` — [handoff.rs:32](../../apps/desktop/src-tauri/src/modules/db/handoff.rs) |
+| Cờ "đã xác thực bằng env" đi tới lúc Save | `secret.is_some().then(…)` ở [handoff.rs:118](../../apps/desktop/src-tauri/src/modules/db/handoff.rs) → `handoff_take` → [DbTab.tsx:512](../../apps/desktop/src/modules/db/DbTab.tsx) → `form.keyringRef` → payload Save |
+| Định dạng tham chiếu | `SavedConnection.keyringRef` — [types.ts:67](../../apps/desktop/src/modules/db/types.ts); `connections.json` vẫn là text thuần |
+| Đọc namespace ngoài | `MIXENGINE_SERVICE` + `read_mixengine_entry` — [secrets.rs:296](../../apps/desktop/src-tauri/src/secrets.rs), đi thẳng `Entry::new`, cố ý không qua `Keeper` |
+| Save không copy mật khẩu sang vault mình | `readSecrets(config, keyringRef)` — [savedConnections.ts:47](../../apps/desktop/src/modules/db/savedConnections.ts) |
+| Đọc hụt thì hỏi lại, không báo lỗi | `resolveKeyringRef` trả `undefined` — [savedConnections.ts:80](../../apps/desktop/src/modules/db/savedConnections.ts) |
 
 Hai chi tiết dễ bỏ sót, cả hai đều đã có:
 
-- **Gõ tay vào ô mật khẩu thì xoá `keyringRef`** ([DbTab.tsx:109](../src/modules/db/DbTab.tsx)). Thứ
+- **Gõ tay vào ô mật khẩu thì xoá `keyringRef`** ([DbTab.tsx:109](../../apps/desktop/src/modules/db/DbTab.tsx)). Thứ
   trong ô không còn là thứ tham chiếu trỏ tới nữa, nên giữ tham chiếu lại là nói dối về nguồn.
 - **Một `secret_key` không có `secret` đứng sau thì không thành tham chiếu.** Đây chính là hình dạng
   của một link `mixdb://` bấm từ trình duyệt: nó nêu được `secret_key` tuỳ ý, nhưng không đặt được
@@ -309,7 +309,7 @@ validate đúng ô, và tail được log của nó trong lúc nó khởi độn
 Blueprints (T4.3) và Extensions (T4.4–T4.5) xong ở `00eed71` (#42). Metrics (T4.1–T4.2) và Settings
 (T4.6–T4.8) xong ở nhánh `spec/mixengine-phase4-outstanding`, 2026-09-07 — riêng "default web
 server" trong T4.6 hoãn lại, chưa có method nào lên release (xem chú thích tại T4.6 và mục "Nợ"
-cuối [spec](../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md)).
+cuối [spec](../../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md)).
 
 - **T4.1 — *(đã xong)* Metrics, hai nhịp lấy mẫu.** Mở `GET /metrics` **chính là** subscribe, đóng là hủy — nên
   một client crash không để lại cái laptop bị đo mỗi giây. Không ai xem thì daemon vẫn lấy một mẫu
@@ -327,7 +327,7 @@ cuối [spec](../docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-de
   nửa nào. Output của job đọc ở `GET /logs/job/{id}`.
 - **T4.4 — *(đã xong, `00eed71` #42)* Extensions.** `extension.available` (không phải
   `extension.registry_list` như bản roadmap gốc ghi — tên đó không tồn tại, sửa lại theo
-  [commands.rs](../src-tauri/src/modules/mixengine/commands.rs)) / `install` / `uninstall` /
+  [commands.rs](../../apps/desktop/src-tauri/src/modules/mixengine/commands.rs)) / `install` / `uninstall` /
   `configure`. Trước khi
   cài, `extension.plan` nói quyền, `homepage`, và với `kind = web-app` thì cả php-fpm pool nó chạy
   trên đó lẫn database nó quản. Nếu nó khai `signs_in`, tài khoản đó phải hiện **giữa** danh sách

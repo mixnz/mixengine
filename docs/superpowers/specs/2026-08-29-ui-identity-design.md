@@ -25,7 +25,7 @@ Sau khi làm xong:
 
 Ghi ra để không bị kéo vào:
 
-- **Không bỏ bảng chọn accent.** Cả mười palette ở [`App.css:112-155`](../../../src/shell/App.css#L112-L155)
+- **Không bỏ bảng chọn accent.** Cả mười palette ở [`App.css:112-155`](../../../apps/desktop/src/shell/App.css#L112-L155)
   ở nguyên, cơ chế ba dạng (`--accent` / `--accent-text` / `--accent-rgb`) ở nguyên, pane Appearance
   vẫn cho người dùng đổi màu. Chỉ **giá trị mặc định** của `--c-blue` thay đổi. Cái làm app trông
   như máy sinh ra không phải là việc có picker — nhiều công cụ thật có — mà là màu mặc định lấy
@@ -45,31 +45,31 @@ Ghi ra để không bị kéo vào:
 
 | Chỗ | Sự thật |
 | --- | --- |
-| [`App.css:2`](../../../src/shell/App.css#L2) | `:root` đặt `font-family: "Fira Code", monospace`. Toàn app kế thừa từ đây — kể cả đoạn văn giải thích Liquid glass trong Settings |
-| [`App.css:3-4`](../../../src/shell/App.css#L3-L4) | `font-size: 16px`, `line-height: 24px`. Đây là gốc của mọi `em` bên dưới |
+| [`App.css:2`](../../../apps/desktop/src/shell/App.css#L2) | `:root` đặt `font-family: "Fira Code", monospace`. Toàn app kế thừa từ đây — kể cả đoạn văn giải thích Liquid glass trong Settings |
+| [`App.css:3-4`](../../../apps/desktop/src/shell/App.css#L3-L4) | `font-size: 16px`, `line-height: 24px`. Đây là gốc của mọi `em` bên dưới |
 | — | 31 chỗ viết thẳng `"Fira Code"` trong CSS module; 4 chỗ dùng `var(--font-mono)` |
-| [`HistoryDialog.module.css:183`](../../../src/modules/rest/components/HistoryDialog/HistoryDialog.module.css#L183) | `font-family: var(--font-mono)` — **token này chưa bao giờ được định nghĩa**. Không có fallback, nên rule vô hiệu và chữ kế thừa Fira Code từ `:root`. Nó đúng nhờ tai nạn |
-| [`diff/Panel.module.css:55`](../../../src/modules/tools/tools/diff/Panel.module.css#L55), [`regex/Panel.module.css:19`](../../../src/modules/tools/tools/regex/Panel.module.css#L19) | Cùng token chưa định nghĩa, nhưng có `, monospace` đỡ phía sau |
-| [`TableStructure.module.css:260`](../../../src/modules/db/components/TableStructure/TableStructure.module.css#L260) | `font-family: system-ui, sans-serif` — chỗ **duy nhất** trong app đã là sans |
+| [`HistoryDialog.module.css:183`](../../../apps/desktop/src/modules/rest/components/HistoryDialog/HistoryDialog.module.css#L183) | `font-family: var(--font-mono)` — **token này chưa bao giờ được định nghĩa**. Không có fallback, nên rule vô hiệu và chữ kế thừa Fira Code từ `:root`. Nó đúng nhờ tai nạn |
+| [`diff/Panel.module.css:55`](../../../apps/desktop/src/modules/tools/tools/diff/Panel.module.css#L55), [`regex/Panel.module.css:19`](../../../apps/desktop/src/modules/tools/tools/regex/Panel.module.css#L19) | Cùng token chưa định nghĩa, nhưng có `, monospace` đỡ phía sau |
+| [`TableStructure.module.css:260`](../../../apps/desktop/src/modules/db/components/TableStructure/TableStructure.module.css#L260) | `font-family: system-ui, sans-serif` — chỗ **duy nhất** trong app đã là sans |
 | — | 179 khai báo `font-size` theo `em`, 71 theo `rem`, 1 theo `px`. `em` chồng nhau, nên đổi gốc 16px→13px không phải một phép nhân đều |
-| [`App.css:112`](../../../src/shell/App.css#L112) | `--c-blue: #396cd8` — đúng giá trị accent mặc định của template `create-tauri-app` |
-| [`App.css:109`](../../../src/shell/App.css#L109) | Comment đã ghi luật chọn hue: đạt 4.5:1 trên nền sáng, và **khác với đỏ** vì đỏ nghĩa là xoá — *"which is why there is no red among them"* |
-| [`ToolsSection.module.css:143`](../../../src/modules/db/components/ToolsSection/ToolsSection.module.css#L143) | `--c-green-text` = dump xong |
-| [`db.css:519`](../../../src/modules/db/db.css#L519) | `.tunnel-status-ok` dùng `--c-green-text` |
-| [`TunnelBanner.module.css:48`](../../../src/modules/db/components/TunnelBanner/TunnelBanner.module.css#L48) | `.reconnected` viền trái `#2e7d32` — xanh lá hardcode, không qua palette |
-| [`virtualRows.ts:513`](../../../src/core/virtualRows.ts#L513) | `gridStyle(rowHeight, width)` đặt `--row-h` từ **một số JavaScript** |
-| [`virtualRows.ts:14-16`](../../../src/core/virtualRows.ts#L14-L16) | Bất biến: mọi dòng cao đúng `rowHeight`, vì dòng ngoài khung được thay bằng spacer `count × rowHeight`. Lệch một chút là đáy trang trôi khi cuộn |
-| [`SqlTable.tsx:69`](../../../src/modules/db/components/SqlTable/SqlTable.tsx#L69) | `ROW_HEIGHT = 33`, kèm comment: *"changing the grid's font or padding means changing this with them"* |
-| [`ResultGrid.tsx:68`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx#L68) | `ROW_HEIGHT = 31` — lưới Query, khác 2px với ba lưới kia |
-| [`TableStructure.tsx:71`](../../../src/modules/db/components/TableStructure/TableStructure.tsx#L71) | `ROW_HEIGHT = 33`. Comment ghi thêm: nút trong dòng cũng cao 24px |
-| [`DatabaseStats.tsx:56`](../../../src/modules/db/components/DatabaseStats/DatabaseStats.tsx#L56) | `ROW_HEIGHT = 33` |
-| [`SqlTable.module.css:110-116`](../../../src/modules/db/components/SqlTable/SqlTable.module.css#L110-L116) | Rule ghim dòng: `height: var(--row-h)`, `padding-top/bottom: 0`, `line-height: calc(var(--row-h) - 1px)`. **Padding bị cố tình khử** |
-| [`ConnectionForm.tsx:158`](../../../src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L158), [`:252`](../../../src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L252) | Hai `<fieldset>` + `<legend>` không style — viền có chữ cắt ngang là mặc định trình duyệt |
+| [`App.css:112`](../../../apps/desktop/src/shell/App.css#L112) | `--c-blue: #396cd8` — đúng giá trị accent mặc định của template `create-tauri-app` |
+| [`App.css:109`](../../../apps/desktop/src/shell/App.css#L109) | Comment đã ghi luật chọn hue: đạt 4.5:1 trên nền sáng, và **khác với đỏ** vì đỏ nghĩa là xoá — *"which is why there is no red among them"* |
+| [`ToolsSection.module.css:143`](../../../apps/desktop/src/modules/db/components/ToolsSection/ToolsSection.module.css#L143) | `--c-green-text` = dump xong |
+| [`db.css:519`](../../../apps/desktop/src/modules/db/db.css#L519) | `.tunnel-status-ok` dùng `--c-green-text` |
+| [`TunnelBanner.module.css:48`](../../../apps/desktop/src/modules/db/components/TunnelBanner/TunnelBanner.module.css#L48) | `.reconnected` viền trái `#2e7d32` — xanh lá hardcode, không qua palette |
+| [`virtualRows.ts:513`](../../../apps/desktop/src/core/virtualRows.ts#L513) | `gridStyle(rowHeight, width)` đặt `--row-h` từ **một số JavaScript** |
+| [`virtualRows.ts:14-16`](../../../apps/desktop/src/core/virtualRows.ts#L14-L16) | Bất biến: mọi dòng cao đúng `rowHeight`, vì dòng ngoài khung được thay bằng spacer `count × rowHeight`. Lệch một chút là đáy trang trôi khi cuộn |
+| [`SqlTable.tsx:69`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.tsx#L69) | `ROW_HEIGHT = 33`, kèm comment: *"changing the grid's font or padding means changing this with them"* |
+| [`ResultGrid.tsx:68`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx#L68) | `ROW_HEIGHT = 31` — lưới Query, khác 2px với ba lưới kia |
+| [`TableStructure.tsx:71`](../../../apps/desktop/src/modules/db/components/TableStructure/TableStructure.tsx#L71) | `ROW_HEIGHT = 33`. Comment ghi thêm: nút trong dòng cũng cao 24px |
+| [`DatabaseStats.tsx:56`](../../../apps/desktop/src/modules/db/components/DatabaseStats/DatabaseStats.tsx#L56) | `ROW_HEIGHT = 33` |
+| [`SqlTable.module.css:110-116`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.module.css#L110-L116) | Rule ghim dòng: `height: var(--row-h)`, `padding-top/bottom: 0`, `line-height: calc(var(--row-h) - 1px)`. **Padding bị cố tình khử** |
+| [`ConnectionForm.tsx:158`](../../../apps/desktop/src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L158), [`:252`](../../../apps/desktop/src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L252) | Hai `<fieldset>` + `<legend>` không style — viền có chữ cắt ngang là mặc định trình duyệt |
 | — | `.login-form` không có `max-width`. Ở 1440px, ô "Host" rộng 470px và form trải 1020px |
-| [`TabStrip.module.css:122`](../../../src/components/TabStrip/TabStrip.module.css#L122) | Tab đang mở: `box-shadow: inset 0 2px 0 var(--tab-accent, var(--accent))` — vạch 2px cạnh **trên**. Dùng cho tab cửa sổ, tab request REST và tab pane REST |
-| [`db.css:399`](../../../src/modules/db/db.css#L399) | `.method-tab`: `border-bottom: 2px solid transparent` — vạch 2px cạnh **dưới**. Cùng một class phục vụ ba việc khác hẳn nhau: chọn loại DB, chọn TCP/IP\|SSH, và chuyển Data/Structure/Statistics/Query |
-| [`SqlWorkspace.tsx:575`](../../../src/modules/db/sql/SqlWorkspace.tsx#L575) | `className="method-tabs sql-content-tabs"` — tab nội dung của workspace mượn thẳng class của cái picker chọn loại DB |
-| [`encode/Panel.module.css:38`](../../../src/modules/tools/tools/encode/Panel.module.css#L38) | `box-shadow: inset 0 -2px 0 var(--accent)` — cách viết thứ ba của cùng một vạch |
+| [`TabStrip.module.css:122`](../../../apps/desktop/src/components/TabStrip/TabStrip.module.css#L122) | Tab đang mở: `box-shadow: inset 0 2px 0 var(--tab-accent, var(--accent))` — vạch 2px cạnh **trên**. Dùng cho tab cửa sổ, tab request REST và tab pane REST |
+| [`db.css:399`](../../../apps/desktop/src/modules/db/db.css#L399) | `.method-tab`: `border-bottom: 2px solid transparent` — vạch 2px cạnh **dưới**. Cùng một class phục vụ ba việc khác hẳn nhau: chọn loại DB, chọn TCP/IP\|SSH, và chuyển Data/Structure/Statistics/Query |
+| [`SqlWorkspace.tsx:575`](../../../apps/desktop/src/modules/db/sql/SqlWorkspace.tsx#L575) | `className="method-tabs sql-content-tabs"` — tab nội dung của workspace mượn thẳng class của cái picker chọn loại DB |
+| [`encode/Panel.module.css:38`](../../../apps/desktop/src/modules/tools/tools/encode/Panel.module.css#L38) | `box-shadow: inset 0 -2px 0 var(--accent)` — cách viết thứ ba của cùng một vạch |
 
 ## Quyết định nền: hai tầng font, và mật độ là một con số khai báo
 
@@ -86,13 +86,13 @@ Hệ quả cho sidebar: **tên bảng và tên collection dùng sans.** Chúng l
 đang quét tìm một cái tên, không so ký tự — và sans quét nhanh hơn ở cỡ chữ nhỏ.
 
 **Hai.** Mật độ lưới **không** đi theo font. Vì bất biến ở
-[`virtualRows.ts:14`](../../../src/core/virtualRows.ts#L14), chiều cao dòng là một số khai báo trong
+[`virtualRows.ts:14`](../../../apps/desktop/src/core/virtualRows.ts#L14), chiều cao dòng là một số khai báo trong
 TypeScript mà CSS phải khớp lại. Đổi `:root` font-size không làm dòng thấp đi; nó chỉ làm chữ nhỏ
 lại trong một dòng vẫn cao 33px.
 
 Đây là chỗ đã bị làm sai một lần trong lúc dựng thử: chỉnh `padding` của ô để "nén dòng lại" khiến
 dòng **phồng từ 33px lên 38.8px** và số dòng thấy được **giảm** từ 21 xuống 18 — đúng hỏng mà comment
-ở [`SqlTable.module.css:97`](../../../src/modules/db/components/SqlTable/SqlTable.module.css#L97)
+ở [`SqlTable.module.css:97`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.module.css#L97)
 mô tả. Padding đá nhau với `height: var(--row-h)`.
 
 Nên mật độ lưới là **một task riêng, có rủi ro riêng**, không phải hệ quả miễn phí của đợt token.
@@ -100,13 +100,13 @@ Nên mật độ lưới là **một task riêng, có rủi ro riêng**, không 
 ## Quyết định: vì sao không phải xanh lá
 
 Xanh lá đã mang nghĩa trong app này. Nó là màu của *thành công* ở ba chỗ: dump xong
-([`ToolsSection.module.css:143`](../../../src/modules/db/components/ToolsSection/ToolsSection.module.css#L143)),
-tunnel còn sống ([`db.css:519`](../../../src/modules/db/db.css#L519)),
-tunnel vừa nối lại ([`TunnelBanner.module.css:48`](../../../src/modules/db/components/TunnelBanner/TunnelBanner.module.css#L48)).
+([`ToolsSection.module.css:143`](../../../apps/desktop/src/modules/db/components/ToolsSection/ToolsSection.module.css#L143)),
+tunnel còn sống ([`db.css:519`](../../../apps/desktop/src/modules/db/db.css#L519)),
+tunnel vừa nối lại ([`TunnelBanner.module.css:48`](../../../apps/desktop/src/modules/db/components/TunnelBanner/TunnelBanner.module.css#L48)).
 
 Accent xanh lá làm nút "Connect" và dòng chữ "tunnel OK" nói cùng một thứ bằng mắt trong khi nghĩa
 khác hẳn nhau. Đó chính là lý do palette đã cố tình loại đỏ ra —
-[`App.css:109`](../../../src/shell/App.css#L109) ghi rõ. Xanh lá dính cùng cái bẫy, chỉ là chưa ai
+[`App.css:109`](../../../apps/desktop/src/shell/App.css#L109) ghi rõ. Xanh lá dính cùng cái bẫy, chỉ là chưa ai
 để ý vì nó không đứng trong palette với tư cách "màu trạng thái".
 
 Giá trị chốt: **`--c-blue: #23528c`**, cast chữ `#1d4576`, cast tối `#6f9fd8`. Vẫn là xanh dương
@@ -159,7 +159,7 @@ giai đoạn xấu hơn lúc chưa làm gì.
 
 ### 4. Màu mặc định
 
-Đổi ba giá trị `--c-blue*` ở [`App.css:112-114`](../../../src/shell/App.css#L112-L114) và cast tối
+Đổi ba giá trị `--c-blue*` ở [`App.css:112-114`](../../../apps/desktop/src/shell/App.css#L112-L114) và cast tối
 tương ứng ở cuối file. Không đụng chín palette còn lại.
 
 ### 5. Mật độ lưới — task riêng
@@ -183,7 +183,7 @@ nó thôi xếp hạng được tầng nào — nhìn vạch xanh không biết 
 Và có một lỗi ngữ nghĩa nằm dưới lỗi thẩm mỹ: **MySQL|PostgreSQL|MongoDB|Redis và TCP/IP|SSH không
 phải tab.** Chúng là lựa chọn *về một form* — đổi chúng đổi các ô bên dưới, không đưa bạn sang một
 view khác. Đang trông y hệt Data/Structure/Query là nói sai về việc chúng làm.
-[`SqlWorkspace.tsx:575`](../../../src/modules/db/sql/SqlWorkspace.tsx#L575) cho thấy điều đó thành
+[`SqlWorkspace.tsx:575`](../../../apps/desktop/src/modules/db/sql/SqlWorkspace.tsx#L575) cho thấy điều đó thành
 chữ: tab nội dung mượn thẳng `className="method-tabs"`.
 
 Phân biệt bằng **loại thay đổi, không phải bằng cùng một vạch to nhỏ khác nhau**:
@@ -197,7 +197,7 @@ Phân biệt bằng **loại thay đổi, không phải bằng cùng một vạc
 
 Việc này đụng `TabStrip.module.css`, `db.css` và `encode/Panel.module.css`, và cần tách
 `.method-tabs` thành hai thứ. `--tab-accent` — knob công khai mà `db.css` dùng để tô vạch amber cho
-connection read-only ([`db.css:30`](../../../src/modules/db/db.css#L30)) — **phải sống sót**: khi
+connection read-only ([`db.css:30`](../../../apps/desktop/src/modules/db/db.css#L30)) — **phải sống sót**: khi
 tab cửa sổ bỏ vạch, dấu read-only cần một chỗ khác, không được im lặng biến mất. Xem Rủi ro.
 
 ## Rủi ro
@@ -215,7 +215,7 @@ tab cửa sổ bỏ vạch, dấu read-only cần một chỗ khác, không đư
   không xử lý trong đợt này — nếu thành vấn đề thật thì đó là một tính năng riêng, không phải một
   con số khác.
 - **Dấu read-only mất chỗ đứng (cao, dễ bỏ sót).** `db.css` tô vạch accent của tab thành amber để
-  nói "kết nối này không ghi được" ([`db.css:30`](../../../src/modules/db/db.css#L30)). Bỏ vạch ở
+  nói "kết nối này không ghi được" ([`db.css:30`](../../../apps/desktop/src/modules/db/db.css#L30)). Bỏ vạch ở
   tab cửa sổ mà quên chuyện này là **xoá một cảnh báo về an toàn dữ liệu bằng một thay đổi thẩm mỹ**
   — và nó sẽ biến mất im lặng, không test nào đỏ. Giảm nhẹ: dấu read-only phải có chỗ mới **trước
   khi** vạch bị bỏ, không phải sau; và tab read-only vẫn còn badge chữ, nên chỗ mới có thể là badge

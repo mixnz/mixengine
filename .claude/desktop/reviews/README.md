@@ -2,14 +2,14 @@
 
 Every full review of the repository is one `YYYY-MM-DD.md` file in this folder. The folder records
 **the state of the code at a point in time** — which nothing else here does: a spec in
-[docs/superpowers/specs/](../../docs/superpowers/specs/) says *what to build*, the
-[CHANGELOG](../../CHANGELOG.md) says *what shipped*, this says *how good what was built turned out
+[docs/superpowers/specs/](../../../docs/superpowers/specs/) says *what to build*, the
+[CHANGELOG](../../../apps/desktop/CHANGELOG.md) says *what shipped*, this says *how good what was built turned out
 to be*.
 
 The scope is purely technical, on both sides of the `invoke` boundary: correctness, safety,
 testing, structure, style — in `src/` and in `src-tauri/src/` alike. Anything that belongs to
 releasing or to end users (installers, the updater, the public README, market) is **not recorded
-here** — it has its own place in [docs/RELEASING.md](../../docs/RELEASING.md) and the root
+here** — it has its own place in [build-and-release.md](../../operations/build-and-release.md) and the root
 [README](../../README.md).
 
 ## Conventions

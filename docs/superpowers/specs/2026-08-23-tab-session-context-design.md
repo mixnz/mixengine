@@ -41,17 +41,17 @@ Những gì đã có sẵn và spec này dựa vào:
 
 | Chỗ | Dùng để làm gì |
 | --- | --- |
-| [`shell/session.ts`](../../../src/shell/session.ts) | `StoredTab`, `parseSession`, `readSession`, `writeSession` |
-| [`shell/tabs.ts`](../../../src/shell/tabs.ts) | `TabInfo`, `retitleTab`, `rebadgeTab` — và luật bail-out theo identity |
-| [`shell/module.ts`](../../../src/shell/module.ts) | `ModuleTabProps` |
-| [`shell/App.tsx`](../../../src/shell/App.tsx) | `mounted`, `setTabBadges`, effect ghi session |
-| [`db/DbTab.tsx:563`](../../../src/modules/db/DbTab.tsx#L563) | `openAndConnect(entry)` — áp saved connection vào form rồi nối |
-| [`db/savedConnectionsStore.ts`](../../../src/modules/db/savedConnectionsStore.ts) | `useSavedConnections()` |
-| [`rest/RestTab.tsx:191`](../../../src/modules/rest/RestTab.tsx#L191) | `open(id)`, và `openIds`/`activeId` |
-| [`rest/requestsStore.ts`](../../../src/modules/rest/requestsStore.ts) | `useRequestLists()`, `findRequest(lists, id)` |
-| [`terminal/TerminalTab.tsx`](../../../src/modules/terminal/TerminalTab.tsx) | `start(choice)`, `dismiss()` |
-| [`terminal/savedHostsStore.ts`](../../../src/modules/terminal/savedHostsStore.ts) | `useSavedHosts()` — [`savedHosts.ts`](../../../src/modules/terminal/savedHosts.ts) đã ghép secret từ keyring vào `config` |
-| [`terminal/api.ts:13`](../../../src/modules/terminal/api.ts#L13) | `localShells()` → `LocalShell[]`, `name` là định danh bền |
+| [`shell/session.ts`](../../../apps/desktop/src/shell/session.ts) | `StoredTab`, `parseSession`, `readSession`, `writeSession` |
+| [`shell/tabs.ts`](../../../apps/desktop/src/shell/tabs.ts) | `TabInfo`, `retitleTab`, `rebadgeTab` — và luật bail-out theo identity |
+| [`shell/module.ts`](../../../apps/desktop/src/shell/module.ts) | `ModuleTabProps` |
+| [`shell/App.tsx`](../../../apps/desktop/src/shell/App.tsx) | `mounted`, `setTabBadges`, effect ghi session |
+| [`db/DbTab.tsx:563`](../../../apps/desktop/src/modules/db/DbTab.tsx#L563) | `openAndConnect(entry)` — áp saved connection vào form rồi nối |
+| [`db/savedConnectionsStore.ts`](../../../apps/desktop/src/modules/db/savedConnectionsStore.ts) | `useSavedConnections()` |
+| [`rest/RestTab.tsx:191`](../../../apps/desktop/src/modules/rest/RestTab.tsx#L191) | `open(id)`, và `openIds`/`activeId` |
+| [`rest/requestsStore.ts`](../../../apps/desktop/src/modules/rest/requestsStore.ts) | `useRequestLists()`, `findRequest(lists, id)` |
+| [`terminal/TerminalTab.tsx`](../../../apps/desktop/src/modules/terminal/TerminalTab.tsx) | `start(choice)`, `dismiss()` |
+| [`terminal/savedHostsStore.ts`](../../../apps/desktop/src/modules/terminal/savedTargets.ts) | `useSavedHosts()` — [`savedHosts.ts`](../../../apps/desktop/src/modules/terminal/savedTargets.ts) đã ghép secret từ keyring vào `config` |
+| [`terminal/api.ts:13`](../../../apps/desktop/src/modules/terminal/api.ts#L13) | `localShells()` → `LocalShell[]`, `name` là định danh bền |
 
 Bốn điều kiểm được trong code, quyết định thiết kế bên dưới:
 
@@ -126,7 +126,7 @@ badges, hoặc chỉ gọi `onStateChange` trong event handler chứ không tron
 **`restored` là ảnh chụp lúc mount, không phải prop sống.** Module đọc *giá trị* đúng một lần —
 initializer của `useState` — rồi từ đó làm việc với bản đã chụp. Đọc reactive thì module tự ghi đè
 chính nó ngay sau khi ghi. Shell không ép được điều này bằng kiểu, nên nó là một dòng doc comment
-trên field và một dòng trong [adding-a-module](../../../.agent/conventions/adding-a-module.md).
+trên field và một dòng trong [adding-a-module](../../../.claude/desktop/conventions/adding-a-module.md).
 
 Đọc một lần không có nghĩa là *hành động* một lần ngay lúc mount: hai trong ba module còn phải chờ
 store của mình đọc xong file (mục 3). Cái chạy một lần là việc chụp giá trị và việc thử khôi phục,
@@ -288,8 +288,8 @@ Mỗi đợt là một commit chạy được và `npm test` xanh.
 4. **rest.** `tabState.ts` + test, khôi phục và ghi trong `RestTab`.
 5. **terminal.** `tabState.ts` + test, khôi phục và ghi trong `TerminalTab`.
 6. **Docs.** Đoạn mở đầu `session.ts` và comment `ModuleDefinition` đang hứa điều ngược lại; bảng
-   contract trong [frontend.md](../../../.agent/architecture/frontend.md);
-   [adding-a-module.md](../../../.agent/conventions/adding-a-module.md) mục 2 liệt kê `ModuleTabProps`;
+   contract trong [frontend.md](../../../.claude/desktop/architecture/frontend.md);
+   [adding-a-module.md](../../../.claude/desktop/conventions/adding-a-module.md) mục 2 liệt kê `ModuleTabProps`;
    CHANGELOG.
 
 Đợt 1 và 2 độc lập nhau; 3, 4, 5 độc lập nhau nhưng đều cần 1 và 2.

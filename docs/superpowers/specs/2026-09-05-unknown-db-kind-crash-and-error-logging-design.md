@@ -31,13 +31,13 @@ Ngày: 2026-09-05
 
 | Chỗ | Sự thật |
 | --- | --- |
-| [`src/modules/db/icons.tsx:80`](../../../src/modules/db/icons.tsx#L80) | `DatabaseIcon` làm `BRAND_MARKS[kind]` không có fallback. `BRAND_MARKS` là `Record<DbKind, ...>` do **bản build đó** liệt kê — một kind mới hơn cho ra `mark = undefined`, dòng kế `mark.viewBox` ném `TypeError` ngay trong lúc render |
-| [`src/modules/db/DbTab.tsx:627-670`](../../../src/modules/db/DbTab.tsx#L627) | Màn hình mặc định lúc mở app (chưa connect) render `<DatabaseIcon kind={c.config.kind} .../>` cho **từng connection đã lưu** — đây là màn hình đầu tiên người dùng thấy, nên là đường crash chắc chắn gặp nhất |
-| [`src/i18n/index.tsx:24-30`](../../../src/i18n/index.tsx#L24) | `resolve()` gọi thẳng `key.split(".")`. `KIND_LABEL[kind]` với kind lạ trả `undefined`, và `t(undefined)` ném `TypeError: Cannot read properties of undefined (reading 'split')` — **crash thứ hai, độc lập với cái trên**, cũng nổ ngay tại `DbTab.tsx:645` |
+| [`src/modules/db/icons.tsx:80`](../../../apps/desktop/src/modules/db/icons.tsx#L80) | `DatabaseIcon` làm `BRAND_MARKS[kind]` không có fallback. `BRAND_MARKS` là `Record<DbKind, ...>` do **bản build đó** liệt kê — một kind mới hơn cho ra `mark = undefined`, dòng kế `mark.viewBox` ném `TypeError` ngay trong lúc render |
+| [`src/modules/db/DbTab.tsx:627-670`](../../../apps/desktop/src/modules/db/DbTab.tsx#L627) | Màn hình mặc định lúc mở app (chưa connect) render `<DatabaseIcon kind={c.config.kind} .../>` cho **từng connection đã lưu** — đây là màn hình đầu tiên người dùng thấy, nên là đường crash chắc chắn gặp nhất |
+| [`src/i18n/index.tsx:24-30`](../../../apps/desktop/src/i18n/index.tsx#L24) | `resolve()` gọi thẳng `key.split(".")`. `KIND_LABEL[kind]` với kind lạ trả `undefined`, và `t(undefined)` ném `TypeError: Cannot read properties of undefined (reading 'split')` — **crash thứ hai, độc lập với cái trên**, cũng nổ ngay tại `DbTab.tsx:645` |
 | Toàn `src/` | Không có React Error Boundary nào — đã grep xác nhận. Một lỗi render không bắt được làm React unmount toàn bộ cây, ra màn hình trắng |
-| [`src/shell/update.ts:183`](../../../src/shell/update.ts#L183) | `useUpdateCheck` là một hook sống *bên trong* `App`; effect kiểm tra update chỉ chạy sau khi `App` mount xong (`STARTUP_CHECK_DELAY_MS` = 6s sau đó). App crash trước khi mount xong thì cơ chế tự cập nhật **không bao giờ chạy** — đúng như quan sát "không tự cập nhật được để hết lỗi" |
+| [`src/shell/update.ts:183`](../../../apps/desktop/src/shell/update.ts#L183) | `useUpdateCheck` là một hook sống *bên trong* `App`; effect kiểm tra update chỉ chạy sau khi `App` mount xong (`STARTUP_CHECK_DELAY_MS` = 6s sau đó). App crash trước khi mount xong thì cơ chế tự cập nhật **không bao giờ chạy** — đúng như quan sát "không tự cập nhật được để hết lỗi" |
 | Toàn app | Không có `tauri-plugin-log`, không Sentry, không try/catch ghi file nào — không có gì để mở lên xem khi có crash, không riêng bug này |
-| [`src-tauri/src/modules/db/models.rs:7-8`](../../../src-tauri/src/modules/db/models.rs#L7) | `DbKind` phía Rust là `#[serde(rename_all = "lowercase")]` enum kín, không có `#[serde(other)]`. Một `kind` lạ khiến `connect_db` (và mọi command nhận `ConnectionConfig`) **lỗi ngay ở bước deserialize**, trước khi chạm code nghiệp vụ — nghĩa là các chỗ đọc `KIND_LABEL[...]` *sau khi đã connect* (badge của tab, tiêu đề mặc định) không thực sự reachable với kind lạ; chỉ sửa cho nhất quán, không phải vì chúng tự crash được |
+| [`src-tauri/src/modules/db/models.rs:7-8`](../../../apps/desktop/src-tauri/src/modules/db/models.rs#L7) | `DbKind` phía Rust là `#[serde(rename_all = "lowercase")]` enum kín, không có `#[serde(other)]`. Một `kind` lạ khiến `connect_db` (và mọi command nhận `ConnectionConfig`) **lỗi ngay ở bước deserialize**, trước khi chạm code nghiệp vụ — nghĩa là các chỗ đọc `KIND_LABEL[...]` *sau khi đã connect* (badge của tab, tiêu đề mặc định) không thực sự reachable với kind lạ; chỉ sửa cho nhất quán, không phải vì chúng tự crash được |
 
 Hai crash (icon và label) độc lập nhau — sửa một cái không hết bug, phải sửa cả hai.
 
@@ -83,10 +83,10 @@ export function kindLabel(kind: DbKind): TranslationKey {
 Thêm khoá `connection.kindUnknown` vào `src/modules/db/i18n/{en,vi}.ts` (`"Unknown"` / `"Không rõ"`).
 
 Đổi cả 6 chỗ đang đọc `KIND_LABEL[...]` trực tiếp sang gọi `kindLabel(...)`
-([`DbTab.tsx:203,448,645`](../../../src/modules/db/DbTab.tsx#L203),
-[`SqlWorkspace.tsx:556`](../../../src/modules/db/sql/SqlWorkspace.tsx#L556),
-[`ConnectionForm.tsx:235`](../../../src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L235),
-[`QueryEditor.tsx:314`](../../../src/modules/db/components/QueryEditor/QueryEditor.tsx#L314)) — kể
+([`DbTab.tsx:203,448,645`](../../../apps/desktop/src/modules/db/DbTab.tsx#L203),
+[`SqlWorkspace.tsx:556`](../../../apps/desktop/src/modules/db/sql/SqlWorkspace.tsx#L556),
+[`ConnectionForm.tsx:235`](../../../apps/desktop/src/modules/db/components/ConnectionForm/ConnectionForm.tsx#L235),
+[`QueryEditor.tsx:314`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryEditor.tsx#L314)) — kể
 cả ba chỗ không thực sự reachable với kind lạ (xem bảng Hiện trạng), để không còn *chỗ nào trong
 repo* đọc thẳng `KIND_LABEL[kind đến từ dữ liệu]` nữa. Một hàm, mọi nơi, giống cách `isSqlKind` đã
 là nguồn sự thật duy nhất cho "kind này có phải SQL không".
@@ -111,7 +111,7 @@ function resolve(dict: TranslationDict, key: TranslationKey): string {
 }
 ```
 
-Đúng tinh thần đã ghi trong [i18n.md](../../../.agent/conventions/i18n.md): *"An unknown key
+Đúng tinh thần đã ghi trong [i18n.md](../../../.claude/desktop/conventions/i18n.md): *"An unknown key
 resolves to the key string itself rather than throwing"* — chỉ là quy tắc đó chưa tính tới trường
 hợp bản thân `key` không phải string.
 
@@ -119,7 +119,7 @@ hợp bản thân `key` không phải string.
 
 `src/components/ErrorBoundary/ErrorBoundary.tsx` — component class (bắt buộc phải là class,
 `componentDidCatch`/`getDerivedStateFromError` không có bản hook), theo đúng
-[component-structure](../../../.agent/conventions/component-structure.md):
+[component-structure](../../../.claude/desktop/conventions/component-structure.md):
 
 ```tsx
 interface Props {
@@ -260,7 +260,7 @@ Hai khoá mới trong `src/i18n/{en,vi}.ts`: `settings.logHint`, `settings.openL
 | `src/modules/db/i18n/{en,vi}.ts` | `connection.kindUnknown` |
 | `src/modules/db/DbTab.tsx`, `sql/SqlWorkspace.tsx`, `components/ConnectionForm/ConnectionForm.tsx`, `components/QueryEditor/QueryEditor.tsx` | Đổi `KIND_LABEL[x]` → `kindLabel(x)`, 6 chỗ |
 | `src/i18n/index.tsx` | `resolve()` chịu được `key` không phải string |
-| `src/components/ErrorBoundary/` | `ErrorBoundary.tsx`, `ErrorFallback.tsx` (hoặc gộp chung file), `.module.css`, `index.ts` — theo [component-structure](../../../.agent/conventions/component-structure.md) |
+| `src/components/ErrorBoundary/` | `ErrorBoundary.tsx`, `ErrorFallback.tsx` (hoặc gộp chung file), `.module.css`, `index.ts` — theo [component-structure](../../../.claude/desktop/conventions/component-structure.md) |
 | `src/i18n/{en,vi}.ts` | `error.crashedTab`, `error.crashedApp`, `error.tryAgain`, `settings.logHint`, `settings.openLogFolder` |
 | `src/core/log.ts` | `logError()` |
 | `src/main.tsx` | Boundary ngoài cùng, hai `window` listener của mục 4 |
@@ -303,7 +303,7 @@ Hai khoá mới trong `src/i18n/{en,vi}.ts`: `settings.logHint`, `settings.openL
 2. `feat(shell): add an error boundary around each tab` — mục 3.
 3. `feat(shell): log uncaught errors and crashes to a file` — mục 4, 5, 6.
 
-Mỗi commit một dòng CHANGELOG theo [quy ước](../../../.agent/conventions/changelog.md), cả ba dưới
+Mỗi commit một dòng CHANGELOG theo [quy ước](../../../.claude/desktop/conventions/changelog.md), cả ba dưới
 `### Fixed` (commit 1, bug có thật ở bản đã phát hành) và `### Added` (commit 2, 3, khả năng mới).
 
 ## Rủi ro và đánh đổi

@@ -32,7 +32,7 @@ Extracting **after** the second use exists rather than in anticipation of it is 
 drift between the copies is what shows which parts were essential. `Splitter` is the exception that
 proves it — a primitive with one user so far, kept here because nothing in it knows what it splits.
 
-The contract itself is [`shell/module.ts`](../../src/shell/module.ts) — `ModuleDefinition`,
+The contract itself is [`shell/module.ts`](../../../apps/desktop/src/shell/module.ts) — `ModuleDefinition`,
 `ModuleTabProps`, `TabBadge`, `ModuleSettingsSection` — and it deliberately has no lifecycle hooks
 and no event bus. It keeps exactly one thing for a module: an opaque per-tab slot, `restored` and
 `onStateChange`, which the shell writes to `localStorage` with the session and never reads. See
@@ -107,7 +107,7 @@ file. See [component-structure](../conventions/component-structure.md) and
 
 ### `Ctrl+R` belongs to the pane, not to the app
 
-[`src/core/reload.ts`](../../src/core/reload.ts) takes the key off the webview. Reloading the webview drops
+[`src/core/reload.ts`](../../../apps/desktop/src/core/reload.ts) takes the key off the webview. Reloading the webview drops
 every open connection, every unsaved draft and every staged edit, so a pane that carries a reload
 button claims the key for that button instead through `useReloadShortcut`.
 
@@ -126,12 +126,12 @@ in both, so what is developed against is what ships; `F5` and the hard reload st
 `npm run dev:app` and are swallowed too in a packaged build.
 
 > **Unverified**, and worth checking the day someone has a packaged build open: the blocking is a
-> DOM `preventDefault` in [`shell/App.tsx`](../../src/shell/App.tsx), and WebView2 handles reload as a browser
+> DOM `preventDefault` in [`shell/App.tsx`](../../../apps/desktop/src/shell/App.tsx), and WebView2 handles reload as a browser
 > accelerator. If the key gets through anyway, the fix is Tauri-side rather than more JavaScript.
 
 ### Every Ctrl/Cmd chord goes through one listener
 
-[`src/core/shortcuts/`](../../src/core/shortcuts/) is the whole of it: a command is a line of data
+[`src/core/shortcuts/`](../../../apps/desktop/src/core/shortcuts/) is the whole of it: a command is a line of data
 — an id, a default chord, a label key, a group — and a pane answers one by calling `useShortcut(id,
 handler, enabled)`. There is exactly one `keydown` listener on the window, installed by the shell.
 Settings draws its shortcut table from the same catalogue the dispatcher resolves against, so the
@@ -140,7 +140,7 @@ table cannot describe an app that does not exist.
 - **Ctrl/Cmd chords only.** `Escape`, the arrow keys, `Enter` and `Delete` in a grid or a dialog
   are the widget's own and stay where they are. Nobody remaps those.
 - **A chord names no modifier.** `{ key: "a", shift: true }` and nothing else — which of `Ctrl` and
-  `⌘` counts is [`platform.ts`](../../src/core/platform.ts)'s single answer, and a registry that
+  `⌘` counts is [`platform.ts`](../../../apps/desktop/src/core/platform.ts)'s single answer, and a registry that
   let a chord override it would be the first place that answer got broken.
 - **`preventDefault` is central.** Whatever runs or is swallowed, the dispatcher takes the key. On
   a Mac that is what keeps `⌘W` on the tab instead of the AppKit menu bar.
@@ -149,12 +149,12 @@ table cannot describe an app that does not exist.
   `Ctrl+A` from painting the app blue behind an open dialog, which is what `App.tsx` used to do
   unconditionally.
 - **Context comes from three places, none of them a guess:** `enabled` is the pane's own React
-  state, `modalDepth` is counted by [`dialogMotion`](../../src/components/dialogMotion.ts) and
-  [`ContextMenu`](../../src/components/ContextMenu.tsx), and `typing` is
-  [`textEntry`](../../src/core/textEntry.ts). No component scans the document for `[role="dialog"]`
+  state, `modalDepth` is counted by [`dialogMotion`](../../../apps/desktop/src/components/dialogMotion.ts) and
+  [`ContextMenu`](../../../apps/desktop/src/components/ContextMenu.tsx), and `typing` is
+  [`textEntry`](../../../apps/desktop/src/core/textEntry.ts). No component scans the document for `[role="dialog"]`
   any more.
 - **A module contributes chords the way it contributes a Settings pane** —
-  `ModuleDefinition.shortcuts`, collected in [`shell/shortcuts.ts`](../../src/shell/shortcuts.ts).
+  `ModuleDefinition.shortcuts`, collected in [`shell/shortcuts.ts`](../../../apps/desktop/src/shell/shortcuts.ts).
   `core/shortcuts/` holds no catalogue of its own; it may not import from `shell/` or `modules/` at
   all.
 
@@ -170,17 +170,17 @@ touches it.
 
 ### The webview's right-click menu is refused
 
-[`src/core/nativeContextMenu.ts`](../../src/core/nativeContextMenu.ts), called once from `main.tsx`, closes
+[`src/core/nativeContextMenu.ts`](../../../apps/desktop/src/core/nativeContextMenu.ts), called once from `main.tsx`, closes
 the other way to the same Reload — and to Back, Save as and View source, none of which mean
 anything in a database client. It is one listener on the `document`, so the panes that answer a
 right-click themselves see the event first and are untouched by it: the sidebar's connections
-([`DbTab`](../../src/modules/db/DbTab.tsx)), the Redis key groups, the item lists. A new menu
+([`DbTab`](../../../apps/desktop/src/modules/db/DbTab.tsx)), the Redis key groups, the item lists. A new menu
 is added the same way as those — an `onContextMenu` that calls `preventDefault` and opens
-[`ContextMenu`](../../src/components/ContextMenu.tsx); nothing has to be registered here.
+[`ContextMenu`](../../../apps/desktop/src/components/ContextMenu.tsx); nothing has to be registered here.
 
 Text fields keep the native menu, because cut, copy and paste on a right-click are the webview's to
 give and no part of the app replaces them. Both this and `Ctrl+A` ask
-[`src/core/textEntry.ts`](../../src/core/textEntry.ts) which elements those are — one answer, so the two
+[`src/core/textEntry.ts`](../../../apps/desktop/src/core/textEntry.ts) which elements those are — one answer, so the two
 gestures cannot come to disagree about the same field.
 
 The cost, and it is a real one: text selected outside a text field — a grid cell, an error message —
@@ -188,10 +188,10 @@ has no Copy on a right-click any more. A pane that wants one owns it, the same a
 
 ## Styling
 
-- Two global stylesheets, one per owner. [`src/shell/App.css`](../../src/shell/App.css) has the
+- Two global stylesheets, one per owner. [`src/shell/App.css`](../../../apps/desktop/src/shell/App.css) has the
   resets, the scrollbars, the tab chrome, the classes any module may use (`.visually-hidden`,
   `.context-menu`, `.select-*`, `.muted`) and the custom properties everything builds on;
-  [`src/modules/db/db.css`](../../src/modules/db/db.css) has the connection form, the saved list,
+  [`src/modules/db/db.css`](../../../apps/desktop/src/modules/db/db.css) has the connection form, the saved list,
   the three workspaces and the engine colours. `glass.css` is the shell's too — `glass`,
   `glass-pill`, `glass-sheet` and `glass-scrim` are a material it offers every module.
 - **Order between them is not guaranteed.** Vite decides it from the import graph, and `db.css` is

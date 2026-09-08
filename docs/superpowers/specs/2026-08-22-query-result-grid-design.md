@@ -20,7 +20,7 @@ Sau khi làm xong:
 
 Ghi ra để không bị kéo vào:
 
-- **Không đụng vào selection của [`SqlTable`](../../../src/modules/db/components/SqlTable/SqlTable.tsx).**
+- **Không đụng vào selection của [`SqlTable`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.tsx).**
   Nó chọn theo **dòng** (`selectedRows: Set<number>`, `anchorRowRef`) vì mọi việc nó làm sau đó —
   chép ra `INSERT`, xoá, clone — là việc trên cả dòng. Lưới này chọn theo **ô** vì ở đây không có
   dòng nào có danh tính: một `SELECT` tuỳ ý không có khoá chính, không có bảng để ghi lại, và thứ
@@ -38,16 +38,16 @@ Ghi ra để không bị kéo vào:
 
 | Chỗ | Sự thật |
 | --- | --- |
-| [`ResultGrid.tsx`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx) | 228 dòng. Props đúng ba thứ: `columns`, `rows`, `emptyLabel`. Không selection, không sort, không copy |
-| [`ResultGrid.tsx:116`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx#L116) | Rows là **positional** `unknown[][]`, cố ý: một `SELECT` được phép đặt trùng tên cột hai lần, nên `<th key={c}>` cũng đánh theo vị trí |
-| [`ResultGrid.tsx:90`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx#L90) | `ResultRow` memo theo `row` / `index` / `columns`. Comment ghi rõ: mất memo này thì mỗi lần cửa sổ trượt là dựng lại cả nghìn ô |
-| [`ResultGrid.tsx:148`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx#L148) | `measureLayout` chạy trong `useLayoutEffect` phụ thuộc `[virtual, columns, rows]` — đo bề rộng cột từ **toàn bộ** rows |
-| [`ResultGrid.tsx:22`](../../../src/modules/db/components/QueryEditor/ResultGrid.tsx#L22) | `VIRTUAL_FROM = 60`: từ 60 dòng trở lên thì `tbody` chỉ giữ cửa sổ đang nhìn thấy |
-| [`QueryResults.tsx:55-64`](../../../src/modules/db/components/QueryEditor/QueryResults.tsx#L55-L64) | Dòng `limitAdded` nằm **ngoài** `.results`, kèm comment giải thích: một dòng chữ chung cột cuộn với card đầu tiên sẽ đẩy đáy card ra khỏi pane |
-| [`rowText.ts:172-201`](../../../src/modules/db/components/SqlTable/rowText.ts#L172-L201) | `delimitedCell` / `csvText` / `spreadsheetText` nhận `Record<string, unknown>` — không dùng lại thẳng cho row positional được |
-| [`rowText.ts:1-7`](../../../src/modules/db/components/SqlTable/rowText.ts#L1-L7) | Comment đầu file: phần escape là "thứ dễ sai âm thầm và không thể thấy sai trên màn hình". Đó là lý do không nhân bản nó |
-| [`QueryEditor.tsx:412`](../../../src/modules/db/components/QueryEditor/QueryEditor.tsx#L412) | `requestRun` đã có `statements` trong tay trước khi gọi `run()` — **M** của dòng tóm tắt lấy ở đây |
-| [`mysql_script.rs:320`](../../../src-tauri/src/modules/db/drivers/mysql_script.rs#L320) | Một câu lệnh lỗi **dừng cả script**. Nên `results.length` có thể nhỏ hơn số câu lệnh đã gửi, và không có gì trên màn hình nói ra điều đó — đây là lý do dòng tóm tắt tồn tại |
+| [`ResultGrid.tsx`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx) | 228 dòng. Props đúng ba thứ: `columns`, `rows`, `emptyLabel`. Không selection, không sort, không copy |
+| [`ResultGrid.tsx:116`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx#L116) | Rows là **positional** `unknown[][]`, cố ý: một `SELECT` được phép đặt trùng tên cột hai lần, nên `<th key={c}>` cũng đánh theo vị trí |
+| [`ResultGrid.tsx:90`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx#L90) | `ResultRow` memo theo `row` / `index` / `columns`. Comment ghi rõ: mất memo này thì mỗi lần cửa sổ trượt là dựng lại cả nghìn ô |
+| [`ResultGrid.tsx:148`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx#L148) | `measureLayout` chạy trong `useLayoutEffect` phụ thuộc `[virtual, columns, rows]` — đo bề rộng cột từ **toàn bộ** rows |
+| [`ResultGrid.tsx:22`](../../../apps/desktop/src/modules/db/components/QueryEditor/ResultGrid.tsx#L22) | `VIRTUAL_FROM = 60`: từ 60 dòng trở lên thì `tbody` chỉ giữ cửa sổ đang nhìn thấy |
+| [`QueryResults.tsx:55-64`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryResults.tsx#L55-L64) | Dòng `limitAdded` nằm **ngoài** `.results`, kèm comment giải thích: một dòng chữ chung cột cuộn với card đầu tiên sẽ đẩy đáy card ra khỏi pane |
+| [`rowText.ts:172-201`](../../../apps/desktop/src/modules/db/components/SqlTable/rowText.ts#L172-L201) | `delimitedCell` / `csvText` / `spreadsheetText` nhận `Record<string, unknown>` — không dùng lại thẳng cho row positional được |
+| [`rowText.ts:1-7`](../../../apps/desktop/src/modules/db/components/SqlTable/rowText.ts#L1-L7) | Comment đầu file: phần escape là "thứ dễ sai âm thầm và không thể thấy sai trên màn hình". Đó là lý do không nhân bản nó |
+| [`QueryEditor.tsx:412`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryEditor.tsx#L412) | `requestRun` đã có `statements` trong tay trước khi gọi `run()` — **M** của dòng tóm tắt lấy ở đây |
+| [`mysql_script.rs:320`](../../../apps/desktop/src-tauri/src/modules/db/drivers/mysql_script.rs#L320) | Một câu lệnh lỗi **dừng cả script**. Nên `results.length` có thể nhỏ hơn số câu lệnh đã gửi, và không có gì trên màn hình nói ra điều đó — đây là lý do dòng tóm tắt tồn tại |
 
 ## Quyết định nền: view là một mảng chỉ số
 
@@ -73,8 +73,8 @@ Ba module thuần, không cái nào biết React, mỗi cái một file test:
 
 ## 1. `src/core/gridText.ts`
 
-Đặt cạnh [`virtualRows.ts`](../../../src/core/virtualRows.ts) và
-[`clipboard.ts`](../../../src/core/clipboard.ts) — cùng một hạng: chuyện của lưới nói chung, không
+Đặt cạnh [`virtualRows.ts`](../../../apps/desktop/src/core/virtualRows.ts) và
+[`clipboard.ts`](../../../apps/desktop/src/core/clipboard.ts) — cùng một hạng: chuyện của lưới nói chung, không
 có khái niệm nào của module db trong đó.
 
 ```ts
@@ -85,14 +85,14 @@ export function uniqueNames(columns: string[]): string[];
 ```
 
 `delimitedCell`, `TAB_SEPARATOR`, `COMMA_SEPARATOR`, `ROW_SEPARATOR` **chuyển nguyên vẹn** từ
-[`rowText.ts`](../../../src/modules/db/components/SqlTable/rowText.ts) xuống đây, kèm nguyên các
+[`rowText.ts`](../../../apps/desktop/src/modules/db/components/SqlTable/rowText.ts) xuống đây, kèm nguyên các
 comment giải thích vì sao CRLF và vì sao NULL thành ô rỗng. Không sửa một ký tự nào của phần escape.
 
 `rowText.ts` giữ nguyên API cũ: `spreadsheetText` và `csvText` của nó thành wrapper mỏng, map
 `Record<string, unknown>` sang mảng theo `columns` rồi gọi xuống. `quoteIdentifier`, `sqlLiteral`,
 `insertStatements` ở nguyên chỗ cũ — chúng là MySQL và chỉ tab Data dùng.
 
-[`rowText.test.ts`](../../../src/modules/db/components/SqlTable/rowText.test.ts) hiện có **là lưới
+[`rowText.test.ts`](../../../apps/desktop/src/modules/db/components/SqlTable/rowText.test.ts) hiện có **là lưới
 an toàn của bước dời này**: nó phải xanh mà không sửa một dòng nào. Nếu phải sửa nó, tức là bước dời
 đã đổi hành vi, và đó là lỗi chứ không phải là cập nhật.
 
@@ -116,7 +116,7 @@ danh sách giảm dần là thứ không ai muốn nhìn. Hai số so theo số,
 lại `String()` rồi `localeCompare` với `numeric: true`, để `item2` đứng trước `item10`.
 
 **`rowMatches`**: so trên chính chuỗi mà lưới hiển thị — `displayValue(row[c])` của
-[`virtualRows.ts`](../../../src/core/virtualRows.ts) — không phân biệt hoa thường, khớp chuỗi con,
+[`virtualRows.ts`](../../../apps/desktop/src/core/virtualRows.ts) — không phân biệt hoa thường, khớp chuỗi con,
 không regex. Người ta gõ vào đây một cái id hoặc một mẩu email, không gõ regex.
 
 **`nextSort`**: cùng cột thì `asc` → `desc` → `null`. Cột khác thì bắt đầu lại ở `asc`.
@@ -170,8 +170,8 @@ State thêm vào: `sort`, `query` (chuỗi trong ô lọc), `selection`, `expand
   nguyên toạ độ cũ trong khi các dòng vừa đổi chỗ dưới chân nó thì tệ hơn là mất nó.
 - Bàn phím trên `.gridWrap` (`tabIndex={0}`): `Ctrl+A` chọn hết, `Ctrl+C` chép TSV, `Enter` mở rộng
   ô đang focus, `Escape` bỏ chọn, phím mũi tên dời ô (Shift+mũi tên nới vùng).
-- Chuột phải mở [`ContextMenu`](../../../src/components/ContextMenu.tsx) như
-  [`SqlTable`](../../../src/modules/db/components/SqlTable/SqlTable.tsx#L1602) đang làm: nếu ô dưới
+- Chuột phải mở [`ContextMenu`](../../../apps/desktop/src/components/ContextMenu.tsx) như
+  [`SqlTable`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.tsx#L1602) đang làm: nếu ô dưới
   chuột nằm ngoài vùng đang chọn thì vùng chọn thu về ô đó trước, đúng cách `SqlTable` xử lý.
 
 Thanh find là một hàng mảnh trên lưới, **chỉ hiện từ `FIND_FROM = 20` dòng trở lên**. Dưới mức đó
@@ -184,7 +184,7 @@ handler.
 
 ## 5. `CellDialog.tsx`
 
-Dialog đọc một ô. Dùng [`JsonView`](../../../src/components/JsonView/JsonView.tsx) khi giá trị là
+Dialog đọc một ô. Dùng [`JsonView`](../../../apps/desktop/src/components/JsonView/JsonView.tsx) khi giá trị là
 object, hoặc là chuỗi mà `JSON.parse` nuốt được và cho ra object/array; còn lại là `<pre>` chọn được
 chữ. Header nói tên cột và số dòng, có nút chép, đóng bằng `Escape` hoặc bấm ra ngoài. Theo đúng
 `dialogMotion` mà các dialog khác trong app đang dùng.
@@ -193,10 +193,10 @@ chữ. Header nói tên cột và số dòng, có nút chép, đóng bằng `Esc
 
 `QueryResults` nhận thêm một prop: `statementsSent: number`. `QueryEditor` giữ nó trong state, đặt
 trong `run()` từ `statements.length` — con số nó đã có ở
-[dòng 412](../../../src/modules/db/components/QueryEditor/QueryEditor.tsx#L412).
+[dòng 412](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryEditor.tsx#L412).
 
 Dòng này đặt **cạnh dòng `limitAdded`**, ngoài `.results`, đúng vì lý do comment ở
-[`QueryResults.tsx:58-61`](../../../src/modules/db/components/QueryEditor/QueryResults.tsx#L58-L61)
+[`QueryResults.tsx:58-61`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryResults.tsx#L58-L61)
 đã ghi.
 
 Chỉ hiện khi `statementsSent > 1`. Một câu lệnh thì thời gian của nó đã nằm trong header của chính
@@ -213,8 +213,8 @@ số này, và đó là thứ làm cho dòng này đọc được.
 
 ## 7. i18n
 
-Thêm vào `query.*` của [`en.ts`](../../../src/modules/db/i18n/en.ts) và
-[`vi.ts`](../../../src/modules/db/i18n/vi.ts):
+Thêm vào `query.*` của [`en.ts`](../../../apps/desktop/src/modules/db/i18n/en.ts) và
+[`vi.ts`](../../../apps/desktop/src/modules/db/i18n/vi.ts):
 
 | Khoá | en |
 | --- | --- |
@@ -261,5 +261,5 @@ thứ này sẽ được liệt kê lại ở cuối, không được báo là �
 6. Thanh find.
 7. Vùng chọn + `Ctrl+A` / `Ctrl+C` + context menu chép TSV/CSV/JSON.
 8. `CellDialog.tsx`.
-9. CHANGELOG, và ghi lại vào [`query-editor-roadmap.md`](../../../.agent/notes/query-editor-roadmap.md)
+9. CHANGELOG, và ghi lại vào [`query-editor-roadmap.md`](../../../.claude/desktop/notes/query-editor-roadmap.md)
    những gì còn nợ: ẩn cột, xuất ra file, và việc gộp selection của hai lưới.

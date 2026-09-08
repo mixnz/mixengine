@@ -53,9 +53,9 @@ Nguồn: mục "Những gì để lại" của
 ## Hiện trạng liên quan
 
 - `clickhouseDialect.writable` là `false` — gác DDL/dump-restore/toàn bộ Query tab (xem doc comment
-  của `SqlDialect.writable` tại [`dialect.ts:126-140`](../../../src/modules/db/sql/dialect.ts)).
+  của `SqlDialect.writable` tại [`dialect.ts:126-140`](../../../apps/desktop/src/modules/db/sql/dialect.ts)).
 - `clickhouseDialect.rowsWritable` **đã là `true`** — và doc comment của field này (viết từ phase
-  row-writes, [`dialect.ts:154-161`](../../../src/modules/db/sql/dialect.ts)) đã nói đúng ý của
+  row-writes, [`dialect.ts:154-161`](../../../apps/desktop/src/modules/db/sql/dialect.ts)) đã nói đúng ý của
   phase này: *"the Query tab may send INSERT/UPDATE/DELETE/TRUNCATE — independent of writable...
   the Query tab is not wired to this flag yet"*. Phase này nối dây đúng như đã dự tính, không cần
   field mới trên `SqlDialect`.
@@ -82,7 +82,7 @@ Nguồn: mục "Những gì để lại" của
   (`written_rows: 2` khớp đúng số dòng vừa chèn), luôn `0` cho mutation lúc submit (như trên).
 - `guard.ts::unguardedWrites` hiện **bỏ qua hoàn toàn** `ALTER TABLE t UPDATE ... WHERE ...`: nhánh
   `verb === "ALTER"` chỉ gọi `dropTarget()` khi `clauses` có từ `DROP`
-  ([`guard.ts:216-220`](../../../src/modules/db/sql/guard.ts)); không có `DROP` → `continue`, không
+  ([`guard.ts:216-220`](../../../apps/desktop/src/modules/db/sql/guard.ts)); không có `DROP` → `continue`, không
   báo gì. Nghĩa là gõ `ALTER TABLE users UPDATE status = 'x'` thiếu `WHERE` sẽ **không** hỏi xác
   nhận nếu không sửa — lỗ hổng thật, phải vá trong phase này (D3). `DELETE FROM ... WHERE ...` đã
   đúng ngay từ đầu qua nhánh chung (kiểm `WHERE`/`LIMIT` trong `clauses`), không cần sửa.
@@ -141,7 +141,7 @@ khi `dialect.writable = false`, nếu lý do là dialect chứ không phải con
 Không đổi chữ ký `writingStatements(statements, dialect)` thành một tham số options mới — thay vào
 đó, `SqlWorkspace`/`QueryEditor` chuyển từ truyền một `readOnly: boolean` đã gộp OR sẵn, sang thêm
 **một prop mới** song song ba prop đã có (`readOnly`/`schemaReadOnly`/`dataReadOnly` ở
-[`DbTab.tsx:767-772`](../../../src/modules/db/DbTab.tsx)):
+[`DbTab.tsx:767-772`](../../../apps/desktop/src/modules/db/DbTab.tsx)):
 
 ```ts
 // DbTab.tsx — thêm dòng thứ tư, cùng khuôn với ba dòng đã có
@@ -149,7 +149,7 @@ dmlEvenIfReadOnly={!(activeSavedConnection?.readOnly ?? false) && engine.dialect
 ```
 
 `true` chỉ khi: connection **không** bị đánh dấu read-only tay, **và** dialect cho phép rows-DML.
-`QueryEditor`'s gate (hiện ở [`QueryEditor.tsx:428`](../../../src/modules/db/components/QueryEditor/QueryEditor.tsx))
+`QueryEditor`'s gate (hiện ở [`QueryEditor.tsx:428`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryEditor.tsx))
 đổi thành:
 
 ```ts
@@ -183,7 +183,7 @@ theo có/không từ `UPDATE`/`DROP` ngay sau tên bảng.
 **D7 — Badge "Chỉ đọc" trên Query tab đổi thành "Chỉ khoá DDL" khi lý do là D5's ngoại lệ đang áp
 dụng.**
 
-Badge hiện tại ([`QueryEditor.tsx:638-641`](../../../src/modules/db/components/QueryEditor/QueryEditor.tsx))
+Badge hiện tại ([`QueryEditor.tsx:638-641`](../../../apps/desktop/src/modules/db/components/QueryEditor/QueryEditor.tsx))
 hiện ra bất cứ khi nào `readOnly === true`, dùng chung `query.readOnly`/`common.readOnlyConnection`
 cho mọi lý do. Sau phase này, với ClickHouse (`writable=false`, `rowsWritable=true`, connection
 không khoá tay), giữ nguyên chữ "Chỉ đọc" sẽ sai — INSERT/UPDATE/DELETE/TRUNCATE chạy thật. Thêm:

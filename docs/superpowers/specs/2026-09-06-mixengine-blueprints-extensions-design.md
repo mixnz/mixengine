@@ -1,6 +1,6 @@
 # Blueprints và Extensions: hai màn hình đầu của Pha 4, module `mixengine`
 
-Ngày 2026-09-06. Một phần của Pha 4 trong [roadmap/mixengine-module.md](../../../roadmap/mixengine-module.md)
+Ngày 2026-09-06. Một phần của Pha 4 trong [roadmap/mixengine-module.md](../../../.claude/desktop/roadmap-mixengine-module.md)
 (T4.3, T4.4) — **không phải cả Pha 4**. Metrics và Settings bị giữ lại, xem "Nợ" ở cuối: ba câu hỏi
 gửi MixEngine chưa có trả lời, và cả hai màn hình đó phụ thuộc câu trả lời theo cách Blueprints/
 Extensions không phụ thuộc. Khi cả bốn màn hình xong, header của roadmap nên sửa thành "Pha 4 đã
@@ -34,7 +34,7 @@ của spec này.
 ### từ `mixnz/mixengine@master`, không tin lời kể của hai file `.md`)
 
 Bài học pha trước ("đừng viết code dựa một mình vào tài liệu") đẩy thêm một bước: `rpc.rs` phía
-*client* trong chính repo này ([src-tauri/.../rpc.rs](../../../src-tauri/src/modules/mixengine/rpc.rs))
+*client* trong chính repo này ([src-tauri/.../rpc.rs](../../../apps/desktop/src-tauri/src/modules/mixengine/rpc.rs))
 chỉ là một hàm gọi JSON-RPC chung, không biết method nào tồn tại — spec pha trước ghi "xác nhận qua
 `rpc.rs`" nhưng không nói rõ *file nào*. Spec này tải thẳng `crates/mixengine-proto/src/rpc.rs` (bảng
 hằng số method) và `crates/mixengine-daemon/src/api/rpc.rs` (nơi chúng được đăng ký) từ
@@ -55,7 +55,7 @@ bằng chứng tương đương cho `extension.configure`, nhưng sự vắng m�
 bindings đã vendor (không type `ExtensionConfigure` nào) là hai nguồn độc lập cùng nói không.
 
 **Toàn bộ type cần cho hai màn hình này đã vendor sẵn** trong
-[api/types/](../../../src/modules/mixengine/api/types/) — không method nào ở đây cần
+[api/types/](../../../apps/desktop/src/modules/mixengine/api/types/) — không method nào ở đây cần
 `npm run bindings` trước khi viết `commands.rs`, khác Pha 3 (nơi `package.*` còn phải đối chiếu).
 
 ## 1. Blueprints
@@ -84,7 +84,7 @@ cho CLI đứng trong thư mục project, MixDB luôn biết tên qua danh sách
 
 `blueprint.import` (`BlueprintImport { path, signature?, name?, overwrite }`). `path` qua dialog chọn
 file `.toml` (tái dùng `@tauri-apps/plugin-dialog`, đúng cách `ProjectForm.tsx` chọn thư mục —
-[ProjectForm.tsx:2](../../../src/modules/mixengine/screens/Projects/ProjectForm.tsx)). `signature`
+[ProjectForm.tsx:2](../../../apps/desktop/src/modules/mixengine/screens/Projects/ProjectForm.tsx)). `signature`
 để trống — daemon tự tìm `<path>.minisig` cạnh file. **Method này không bao giờ trả lỗi vì chữ ký
 sai**: một file không ký hoặc ký sai vẫn nhập được, chỉ đổi `BlueprintSummary.signature` thành
 `"missing"`/`"rejected"` và `trusted: false`. UI không hiện toast lỗi cho trường hợp này — hiện đúng
@@ -123,12 +123,12 @@ một câu trả lời**:
 
 **Lượt 2 — `dry_run: false`, `answers`/`scaffold` đã gom.** Trả `BlueprintApplyResponse::Started {
 job: JobSummary }`. **Không viết hạ tầng job mới** — tái dùng đúng `applyJob`/`JobRow` từ
-[daemonState.ts:90](../../../src/modules/mixengine/daemonState.ts), cùng cách
-[Languages.tsx](../../../src/modules/mixengine/screens/Runtimes/Languages.tsx)/
-[Packages.tsx](../../../src/modules/mixengine/screens/Runtimes/Packages.tsx) đã vẽ tiến độ
+[daemonState.ts:90](../../../apps/desktop/src/modules/mixengine/daemonState.ts), cùng cách
+[Languages.tsx](../../../apps/desktop/src/modules/mixengine/screens/Runtimes/Languages.tsx)/
+[Packages.tsx](../../../apps/desktop/src/modules/mixengine/screens/Runtimes/Packages.tsx) đã vẽ tiến độ
 `runtime.install`/`package.install` ở Pha 3: màn hình Apply tự mở `api.watch()`, áp `applyJob` lên
 `JobRow[]` cục bộ, giữ `job.id` từ response để tra đúng hàng bằng `jobFor` (đã có ở
-[runtimeState.ts:27](../../../src/modules/mixengine/runtimeState.ts)).
+[runtimeState.ts:27](../../../apps/desktop/src/modules/mixengine/runtimeState.ts)).
 
 Khi job xong, `JobFinish` mang `BlueprintApplied { blueprint, project, root, steps: StepOutcome[] }`
 — vẽ **mọi** step kể cả `already_true` (đúng nguyên tắc T78 để lại: một apply chạy lại toàn dòng
@@ -239,7 +239,7 @@ Phần thuần, không cần daemon:
 
 - **Tên `extension.*`/`ExtensionChoice`/`ExtensionChange` trùng tiền tố với `runtime.*` (Pha 3) —
   nhắc lại đúng bẫy spec Pha 3 đã tự mắc một lần.** `ExtensionsPanel.tsx` đã tồn tại ở
-  [screens/Runtimes/ExtensionsPanel.tsx](../../../src/modules/mixengine/screens/Runtimes/ExtensionsPanel.tsx)
+  [screens/Runtimes/ExtensionsPanel.tsx](../../../apps/desktop/src/modules/mixengine/screens/Runtimes/ExtensionsPanel.tsx)
   — đó là PHP extension theo từng bản (`runtime.list_extensions`/`set_extension`), **không liên quan
   gì** tới màn hình Extensions (sản phẩm: Mailpit, phpMyAdmin, MixDB, `extension.*`) spec này dựng.
   Đặt tên component mới (`screens/Extensions/`) để không ai đọc lướt tưởng hai thứ là một, và một dòng

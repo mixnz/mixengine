@@ -1,6 +1,6 @@
 # Sites, Domains & TLS: màn hình thứ hai và thứ ba của module `mixengine`
 
-Ngày 2026-09-06. Pha 2 của [roadmap/mixengine-module.md](../../../roadmap/mixengine-module.md).
+Ngày 2026-09-06. Pha 2 của [roadmap/mixengine-module.md](../../../.claude/desktop/roadmap-mixengine-module.md).
 
 ## Mục tiêu
 
@@ -35,7 +35,7 @@ Ba thứ Pha 1 để lại và Pha 2 dựng lên trên:
 - **Khuôn lệnh đã có, và nó rất mỏng.** `api.ts` là nơi duy nhất gọi `invoke()`; mỗi hàm bọc một
   lệnh Tauri, lệnh Tauri gọi `rpc::call(method, params)`, và phần lớn trả thẳng `serde_json::Value`
   — Rust không giải vào struct riêng, vì "types là thứ đi mượn" (xem
-  [commands.rs](../../../src-tauri/src/modules/mixengine/commands.rs)). Lỗi đã có ánh xạ chung
+  [commands.rs](../../../apps/desktop/src-tauri/src/modules/mixengine/commands.rs)). Lỗi đã có ánh xạ chung
   (`error.mixengineRefused` mang `code`/`message`/`hint`) cho **mọi** RPC thất bại — Pha 2 không cần
   thêm mã lỗi nào mới, chỉ thêm lệnh.
 - **`bindings/` đã vendor toàn bộ, không phải theo pha.** Cả `Site*`, `Domain*`, `Ca*`, `Cert*`,

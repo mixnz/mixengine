@@ -1,6 +1,6 @@
 # Projects, Runtimes & Packages, Services chi tiết và Logs: bốn màn hình mới của module `mixengine`
 
-Ngày 2026-09-06. Pha 3 của [roadmap/mixengine-module.md](../../../roadmap/mixengine-module.md) — mở
+Ngày 2026-09-06. Pha 3 của [roadmap/mixengine-module.md](../../../.claude/desktop/roadmap-mixengine-module.md) — mở
 rộng hơn ba màn hình roadmap gốc liệt kê, xem mục "Projects" và "Packages" dưới đây vì sao.
 
 **Roadmap ghi "Pha 2–4 chưa bắt đầu", nhưng Pha 2 đã land** — `e7e1189`,
@@ -117,7 +117,7 @@ giống hệt Runtimes. Xem mục 2.
   `port`, `depends_on`. Không cần gọi gì thêm để vẽ hàng có thể bấm vào; `service.limits`/
   `service.logs` chỉ gọi khi đã vào trang chi tiết.
 - **`readSecrets`/`resolveKeyringRef` của module `db`** (Pha 0,
-  [savedConnections.ts:47,80](../../../src/modules/db/savedConnections.ts)) đã biết đọc một mật khẩu
+  [savedConnections.ts:47,80](../../../apps/desktop/src/modules/db/savedConnections.ts)) đã biết đọc một mật khẩu
   từ namespace `mixengine` bằng đúng cặp `service`/`key` một `SecretAddress` mang. Mục 3 dùng lại
   nguyên hàm này, không viết đường đọc keyring thứ hai.
 
@@ -156,7 +156,7 @@ lực hay chưa), `keep_warm`.
 
 Tích hợp với Sites (Pha 2, đã xong): `SiteForm.tsx` không đổi cách gọi (vẫn `api.projects()` →
 `project.list`), chỉ đổi nội dung gợi ý khi rỗng — trỏ sang tab Projects thay vì bảo gõ lệnh CLI. Xem
-[i18n/vi.ts:69](../../../src/modules/mixengine/i18n/vi.ts).
+[i18n/vi.ts:69](../../../apps/desktop/src/modules/mixengine/i18n/vi.ts).
 
 ## 2. Runtimes & Packages
 
@@ -292,7 +292,7 @@ chọn "n phút", không một checkbox.
   nhầm `shell/launch.rs`/`launch.ts` là "chỉ dành cho OS-handoff", trong khi đọc lại code thì
   `crate::launch::request` là một hàm Rust bình thường, gọi được từ bất kỳ command nào, không chỉ từ
   chỗ nhận URL `mixdb://`.** Pha 0 đã dùng đúng nó cho việc này: `handoff::accept()`
-  ([handoff.rs:189-206](../../../src-tauri/src/modules/db/handoff.rs)) dựng một `Handoff`, gọi
+  ([handoff.rs:189-206](../../../apps/desktop/src-tauri/src/modules/db/handoff.rs)) dựng một `Handoff`, gọi
   `HandoffState::keep()` lấy một id, rồi gọi thẳng `crate::launch::request(app, TabRequest { module_id:
   "db", state: json!({"handoffId": id}) })` — không có gì trong hàm đó nhắc tới nguồn gốc URL. Pha 3
   chỉ cần lặp lại đúng ba bước đó **từ phía trong**, không qua URL:
@@ -305,7 +305,7 @@ chọn "n phút", không một checkbox.
      <ServiceId>, keyring_ref: Some(secret.key) }`, `HandoffState::keep()`, rồi
      `crate::launch::request(..., TabRequest { module_id: "db", state: json!({"handoffId": id}) })`.
 
-  `DbTab.tsx` đã biết đọc `{"handoffId": ...}` từ Pha 0 ([DbTab.tsx:506-525](../../../src/modules/db/DbTab.tsx))
+  `DbTab.tsx` đã biết đọc `{"handoffId": ...}` từ Pha 0 ([DbTab.tsx:506-525](../../../apps/desktop/src/modules/db/DbTab.tsx))
   — không sửa gì bên `db`. Mật khẩu không đi qua frontend một lần nào, kể cả tạm thời: nó chỉ sống
   trong tiến trình Rust từ lúc đọc keyring tới lúc nằm trong `Handoff` đang chờ `db` lấy. Đây là quyết
   định của Pha này — xem **Quyết định D2** (thay cho hai hướng spec bản trước còn để ngỏ).
@@ -377,7 +377,7 @@ project mà site đang trỏ tới có bị refuse hay để lại site mồ cô
   bên ngoài `modules/db/` — hợp lệ (đã `pub`, đã `.manage()` một lần ở `modules/db/mod.rs`), nhưng là
   chỗ duy nhất module `mixengine` chạm vào state của module khác. Đáng một dòng comment tại chỗ gọi
   giải thích tại sao, để không ai tưởng nhầm là vi phạm luật "không module nào biết khái niệm của
-  module khác" ([`eslint.config.js`](../../../eslint.config.js) chỉ canh phía TypeScript, không canh
+  module khác" ([`eslint.config.js`](../../../apps/desktop/eslint.config.js) chỉ canh phía TypeScript, không canh
   phía Rust).
 
 ## Quyết định
@@ -409,7 +409,7 @@ cùng lý do tồn tại (cache không refresh được vẫn dùng được, im
 
 **D4 — Projects là mục sidebar thứ hai, ngay sau Dashboard, trước Sites.** Site cần chọn Project lúc
 tạo, nên thứ tự sidebar nên đi trước thứ nó phục vụ. Đây là mục **ngoài** 9 màn hình `client-surface.md`
-liệt kê — comment ở [Sidebar.tsx:6](../../../src/modules/mixengine/components/Sidebar/Sidebar.tsx)
+liệt kê — comment ở [Sidebar.tsx:6](../../../apps/desktop/src/modules/mixengine/components/Sidebar/Sidebar.tsx)
 ("Chín mục cố định của `client-surface.md`") phải sửa lại, ghi rõ Projects là một mục MixDB tự thêm và
 vì sao (Sites không dùng được nếu không có project nào, và `project.*` đã đủ method cho một màn hình
 đầy đủ chứ không phải nửa vời).

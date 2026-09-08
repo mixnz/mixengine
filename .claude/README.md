@@ -19,6 +19,7 @@ one job:
 | [decisions/](decisions/) | *Why it is this way* | Questioning an existing choice |
 | [roadmap/](roadmap/) | *What to build next, in order* | Picking up work |
 | [reviews/](reviews/) | *How good what is built actually is, at a date* | Reviewing the codebase, or checking whether a past finding was fixed |
+| [desktop/](desktop/) | *How the desktop application under `apps/desktop/` is put together, and its conventions* | Touching anything under `apps/desktop/` |
 
 ## Reading order for a newcomer
 
@@ -81,3 +82,7 @@ one job:
 ### reviews
 - [reviews/README.md](reviews/README.md) — conventions (`R<n>` ids, status legend) and the index
 - one file per full review, dated: [2026-08-27.md](reviews/2026-08-27.md)
+
+### desktop
+- [desktop/README.md](desktop/README.md) — the application's architecture, conventions, decisions and
+  reviews, as MixDB kept them; `apps/desktop/CLAUDE.md` is the short entry point

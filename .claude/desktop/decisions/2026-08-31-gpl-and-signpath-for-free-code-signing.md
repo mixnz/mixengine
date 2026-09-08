@@ -63,8 +63,8 @@ put the listing in breach.
 ## Where the rest lives
 
 The operational half — how signing is wired into the release, and the ordering trap that will break
-the updater if it is got wrong — is in [`docs/RELEASING.md`](../../docs/RELEASING.md) under
-*Signing*, because that is what someone cutting a release has open.
-
-The public statements are [`site/code-signing/`](../../site/code-signing/) (required by SignPath)
-and [`site/privacy/`](../../site/privacy/).
+the updater if it is got wrong — was in `docs/RELEASING.md` under *Signing*, and the public
+statements were `site/code-signing/` (required by SignPath) and `site/privacy/`. All three stayed
+behind in the archived `mixnz/mixdb` repository when the application moved here
+(ADR 0027, phase 11): this decision was never enacted — the licence stayed MIT OR Apache-2.0 —
+and code signing remains parked for MixEngine as a whole.

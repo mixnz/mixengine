@@ -43,14 +43,14 @@ Những gì đọc được trong code, và chỗ nào thật sự hỏng:
 
 | Chỗ | Sự thật |
 | --- | --- |
-| [`ssh/mod.rs:163`](../../../src-tauri/src/ssh/mod.rs#L163) | `client::Config` chỉ đặt `nodelay` và `window_size`. russh mặc định `keepalive_interval: None` — không gói nào giữ phiên, và không gì phát hiện phiên đã chết |
-| [`ssh/mod.rs:248`](../../../src-tauri/src/ssh/mod.rs#L248) | `open_tunnel` xác thực **một lần**, gói `Handle` vào `Arc` và chia cho mọi kết nối bridge. Phiên chết là handle chết vĩnh viễn |
-| [`ssh/mod.rs:289`](../../../src-tauri/src/ssh/mod.rs#L289) | `bridge_connection` gặp `channel_open_direct_tcpip` lỗi thì `return` — socket local đóng ngay, driver đọc được EOF |
+| [`ssh/mod.rs:163`](../../../apps/desktop/src-tauri/src/ssh/mod.rs#L163) | `client::Config` chỉ đặt `nodelay` và `window_size`. russh mặc định `keepalive_interval: None` — không gói nào giữ phiên, và không gì phát hiện phiên đã chết |
+| [`ssh/mod.rs:248`](../../../apps/desktop/src-tauri/src/ssh/mod.rs#L248) | `open_tunnel` xác thực **một lần**, gói `Handle` vào `Arc` và chia cho mọi kết nối bridge. Phiên chết là handle chết vĩnh viễn |
+| [`ssh/mod.rs:289`](../../../apps/desktop/src-tauri/src/ssh/mod.rs#L289) | `bridge_connection` gặp `channel_open_direct_tcpip` lỗi thì `return` — socket local đóng ngay, driver đọc được EOF |
 | vòng `accept` | Vẫn chạy, cổng local vẫn mở. Nên mọi kết nối pool mở mới đều thất bại y hệt, mãi mãi. Đây chính là "xem các bảng thì không thấy data nữa, giống như đã mất kết nối" |
 | sqlx 0.9 `pool/options.rs:149-162` | Mặc định đã là `test_before_acquire: true`, `idle_timeout` 10 phút, `max_lifetime` 30 phút, `acquire_timeout` 30 giây |
 | sqlx 0.9 `net/socket/buffered.rs:290` | Câu "expected to read N bytes, got 0 bytes at EOF" là `io::ErrorKind::UnexpectedEof`, tới `AppError` qua `sqlx::Error::Io` |
-| [`drivers/redis.rs:60`](../../../src-tauri/src/modules/db/drivers/redis.rs#L60) | Redis đi qua `ConnectionManager`, tự quay số lại |
-| [`drivers/mongo.rs`](../../../src-tauri/src/modules/db/drivers/mongo.rs) | Mongo `Client` tự dựng lại topology, và mặc định `retryReads` là bật |
+| [`drivers/redis.rs:60`](../../../apps/desktop/src-tauri/src/modules/db/drivers/redis.rs#L60) | Redis đi qua `ConnectionManager`, tự quay số lại |
+| [`drivers/mongo.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/mongo.rs) | Mongo `Client` tự dựng lại topology, và mặc định `retryReads` là bật |
 
 Kết luận rút ra từ bảng trên, và là điều làm cho công việc này nhỏ hơn vẻ ngoài của nó: **chỉ có
 đúng một chỗ hỏng thật — phiên SSH nằm sau listener.** Cả bốn driver đều đã biết tự quay số lại;
@@ -63,7 +63,7 @@ Kết luận rút ra từ bảng trên, và là điều làm cho công việc n�
 
 Vì sao đây là quyết định đáng đặt lên đầu: cổng local là thứ duy nhất mà `ActiveConnection.endpoint`,
 mọi pool đang mở, mọi client và cả hai công cụ dump/restore đã ghi nhớ. Giữ nó nguyên nghĩa là
-[`state.rs`](../../../src-tauri/src/modules/db/state.rs), `connect_db` và toàn bộ các file lệnh
+[`state.rs`](../../../apps/desktop/src-tauri/src/modules/db/state.rs), `connect_db` và toàn bộ các file lệnh
 không cần đổi một dòng nào cho việc hồi phục — driver thấy "socket bị từ chối" rồi "socket lại chấp
 nhận", đúng thứ chúng đã biết xử lý.
 
@@ -207,13 +207,13 @@ pub type TunnelNotify = Arc<dyn Fn(TunnelEvent) + Send + Sync>;
 ```
 
 **Một thay đổi nhỏ nhưng bắt buộc trong `connect_db`:** id của connection hiện được sinh ở
-[`commands/mod.rs:187`](../../../src-tauri/src/modules/db/commands/mod.rs#L187), tức là *sau*
+[`commands/mod.rs:187`](../../../apps/desktop/src-tauri/src/modules/db/commands/mod.rs#L187), tức là *sau*
 `resolve_endpoint`. Closure cần id, nên `Uuid::new_v4()` chuyển lên đầu hàm và `resolve_endpoint`
 nhận thêm tham số `notify`.
 
 Nút *Thử lại* của banner gọi một lệnh mới `tunnel_reconnect(id)`: nó xoá `failed_at` rồi gọi
 `session()`, để người dùng không phải chờ hết nhịp backoff. Đây là chỗ đầu tiên đọc tới
-`ActiveConnection.tunnel`, nên `#[allow(dead_code)]` ở [`state.rs`](../../../src-tauri/src/modules/db/state.rs)
+`ActiveConnection.tunnel`, nên `#[allow(dead_code)]` ở [`state.rs`](../../../apps/desktop/src-tauri/src/modules/db/state.rs)
 bỏ đi được.
 
 ## 4. Pool: vì sao không đổi gì
@@ -254,7 +254,7 @@ ngay, và chỗ đó giữ nguyên `err!` cũ.
 
 `error.connectionLost` cố ý **không mang** `message`: nguyên văn của sqlx ở đây là chuyện nội bộ
 của thư viện ("expected to read 4 bytes…"), không phải máy chủ nói, nên không thuộc diện được giữ
-nguyên như quy ước ở [`error.rs`](../../../src-tauri/src/error.rs) mô tả.
+nguyên như quy ước ở [`error.rs`](../../../apps/desktop/src-tauri/src/error.rs) mô tả.
 
 Chạy lại lệnh đọc, trong `commands/mod.rs`:
 
@@ -287,8 +287,8 @@ Mongo và Redis không cần gì thêm: driver của chúng đã tự thử lạ
 
 | File | Việc |
 | --- | --- |
-| `src/modules/db/tunnel.ts` | `TunnelState`, `onTunnelState(id, cb)` — bản sao đúng khuôn của [`transfer.ts`](../../../src/modules/db/transfer.ts) |
-| `src/modules/db/components/TunnelBanner/` | Component + CSS Module + `index.ts`, theo [component-structure](../../../.agent/conventions/component-structure.md) |
+| `src/modules/db/tunnel.ts` | `TunnelState`, `onTunnelState(id, cb)` — bản sao đúng khuôn của [`transfer.ts`](../../../apps/desktop/src/modules/db/transfer.ts) |
+| `src/modules/db/components/TunnelBanner/` | Component + CSS Module + `index.ts`, theo [component-structure](../../../.claude/desktop/conventions/component-structure.md) |
 | `src/modules/db/components/TunnelBanner/state.ts` | `nextBannerState(current, event)` — hàm thuần, chỗ duy nhất có gì để test |
 | `sql/SqlWorkspace.tsx`, `mongo/MongoWorkspace.tsx`, `redis/RedisWorkspace.tsx` | Một dòng, ngay trên `<ErrorBanner>` sẵn có |
 | `src/modules/db/i18n/{en,vi}.ts` | `tunnel.reconnecting`, `tunnel.reconnected`, `tunnel.failed`, `tunnel.retry`, `error.connectionLost`, `error.sshUnavailable` |
@@ -341,7 +341,7 @@ Connection không có tunnel thì không có sự kiện nào, nên không có b
 3. `feat(db): retry a read after the tunnel comes back` — mục 5 phần `retry_read!`.
 4. `feat(db): say when the SSH tunnel is being reopened` — mục 6, cộng `tunnel_reconnect`.
 
-Mỗi commit một dòng CHANGELOG theo [quy ước](../../../.agent/conventions/changelog.md); cả bốn nằm
+Mỗi commit một dòng CHANGELOG theo [quy ước](../../../.claude/desktop/conventions/changelog.md); cả bốn nằm
 dưới `### Added`/`### Changed` chứ không phải `### Fixed` — bản có lỗi này chưa phát hành.
 
 ## Rủi ro và đánh đổi

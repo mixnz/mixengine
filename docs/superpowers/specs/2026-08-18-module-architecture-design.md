@@ -45,7 +45,7 @@ Verification hiện có: `npm run build` (`tsc` với `strict`, `noUnusedLocals`
 `noUnusedParameters` + `vite build`), `npm test` (vitest — `virtualRows`, `sql/guard`,
 `sql/statements`, `mysql/columns`), `cargo check` trong `src-tauri`.
 
-> [AGENT.md](../../../AGENT.md) hiện viết "There is no test suite". Câu đó đã sai — `npm test` tồn
+> [AGENT.md](../../../apps/desktop/CLAUDE.md) hiện viết "There is no test suite". Câu đó đã sai — `npm test` tồn
 > tại. Sửa nó là một phần của đợt 7.
 
 ## 1. Contract giữa shell và module
@@ -321,12 +321,12 @@ bảng → chạy một câu query → mở tab thứ hai sang PostgreSQL → đ
 nguyên. Đây là phần `tsc` không nói được gì: nó xác nhận đường dẫn đúng chứ không xác nhận app còn
 chạy.
 
-**Đợt 7 sửa:** [AGENT.md](../../../AGENT.md) (mục Layout, và câu "There is no test suite"),
-[.agent/architecture/overview.md](../../../.agent/architecture/overview.md),
-[.agent/architecture/frontend.md](../../../.agent/architecture/frontend.md),
-[.agent/architecture/backend.md](../../../.agent/architecture/backend.md),
-[.agent/conventions/adding-a-command.md](../../../.agent/conventions/adding-a-command.md),
-[.agent/conventions/i18n.md](../../../.agent/conventions/i18n.md), và thêm
+**Đợt 7 sửa:** [AGENT.md](../../../apps/desktop/CLAUDE.md) (mục Layout, và câu "There is no test suite"),
+[.agent/architecture/overview.md](../../../.claude/desktop/architecture/overview.md),
+[.agent/architecture/frontend.md](../../../.claude/desktop/architecture/frontend.md),
+[.agent/architecture/backend.md](../../../.claude/desktop/architecture/backend.md),
+[.agent/conventions/adding-a-command.md](../../../.claude/desktop/conventions/adding-a-command.md),
+[.agent/conventions/i18n.md](../../../.claude/desktop/conventions/i18n.md), và thêm
 `.agent/conventions/adding-a-module.md`.
 
 ## 6. Rủi ro
@@ -346,5 +346,5 @@ chạy.
 ## 7. CHANGELOG
 
 **Không có entry.** Mục tiêu là người dùng không nhận ra gì đã đổi, nên theo
-[.agent/conventions/changelog.md](../../../.agent/conventions/changelog.md) thì không có dòng nào.
+[.agent/conventions/changelog.md](../../../.claude/desktop/conventions/changelog.md) thì không có dòng nào.
 Nếu có, tức là đã làm sai gì đó.

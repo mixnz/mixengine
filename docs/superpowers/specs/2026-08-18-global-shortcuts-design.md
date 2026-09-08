@@ -54,7 +54,7 @@ Toàn bộ chord `Ctrl/Cmd` trong app:
 Ba vấn đề:
 
 1. **Ngữ cảnh bị đoán, mỗi nơi một kiểu.** Dòng `document.querySelector('[role="dialog"]')` trong
-   [`SqlTable.tsx`](../../../src/modules/db/components/SqlTable/SqlTable.tsx) là chỗ lộ rõ nhất —
+   [`SqlTable.tsx`](../../../apps/desktop/src/modules/db/components/SqlTable/SqlTable.tsx) là chỗ lộ rõ nhất —
    comment ngay tại đó thừa nhận "component này không có state nào biết về các dialog đó".
 2. **Không liệt kê được.** Không làm được bảng phím tắt, không phát hiện được chord trùng.
 3. **Thứ tự chạy ngầm định.** `Mod+A` đúng nhờ `App.tsx` mount trước `SqlTable`, không nhờ luật nào.
@@ -103,7 +103,7 @@ export interface ShortcutGroup {
 
 ### Vì sao `Chord` không có `ctrl`/`meta`
 
-[`core/platform.ts`](../../../src/core/platform.ts) tồn tại để giữ đúng một luật: chord là `⌘` trên
+[`core/platform.ts`](../../../apps/desktop/src/core/platform.ts) tồn tại để giữ đúng một luật: chord là `⌘` trên
 Mac và `Ctrl` ở nơi khác, và **modifier còn lại đang giữ là thứ loại chord đó ra**. `e.ctrlKey ||
 e.metaKey` là câu trả lời rộng rãi và sai — nó khiến `Ctrl+A` chọn mọi dòng trên Mac, nơi `Ctrl` là
 phím mở menu chuột phải.
@@ -248,7 +248,7 @@ function onKeyDown(e: KeyboardEvent) {
 ```
 
 `preventDefault` gọi tập trung là một cải thiện an toàn thật, không chỉ là gọn hơn.
-[`platform.ts`](../../../src/core/platform.ts) ghi rõ: trên Mac, chính `preventDefault` là thứ giữ
+[`platform.ts`](../../../apps/desktop/src/core/platform.ts) ghi rõ: trên Mac, chính `preventDefault` là thứ giữ
 `⌘W` ở lại tab thay vì để menu AppKit đóng cửa sổ. Hôm nay mỗi handler phải tự nhớ; quên một chỗ là
 mất phím vào hệ điều hành. Sau refactor thì không quên được.
 
@@ -269,7 +269,7 @@ Tham số thứ tư `when?: () => boolean` **chưa viết trong đợt này** �
 **`enabled`** — component tự biết mình có đang hiển thị hay không. Giữ nguyên như hôm nay:
 `active && mode === "data"`. React state, đúng thứ React giỏi.
 
-**`modalDepth`** — [`useDialogExit`](../../../src/components/dialogMotion.ts) thêm một `useEffect`
+**`modalDepth`** — [`useDialogExit`](../../../apps/desktop/src/components/dialogMotion.ts) thêm một `useEffect`
 tăng khi mount, giảm khi unmount. **Cả 10 dialog trong app đều gọi hook này**, nên không file dialog
 nào phải sửa. `ContextMenu.tsx` thêm một dòng tương tự, và `menu !== null` trong `SqlTable` biến mất
 theo.
@@ -340,22 +340,22 @@ export const ALL_SHORTCUTS = [...SHELL_SHORTCUTS, ...MODULES.flatMap((m) => m.sh
 
 **`core/shortcuts/` không có danh mục của riêng nó.** Nó là cơ chế thuần; shell bơm dữ liệu xuống khi
 dựng dispatcher. Đây không phải chi tiết vụn: luật tầng ở
-[frontend.md](../../../.agent/architecture/frontend.md) cho `core/` import `components/` và `i18n/`
+[frontend.md](../../../.claude/desktop/architecture/frontend.md) cho `core/` import `components/` và `i18n/`
 mà thôi, nên `core/shortcuts` tự đi lấy danh sách là phá ranh giới ngay. Và đây cũng không phải event
 bus giữa các module — nó là dịch vụ dùng chung ở `core/`, đúng loại mà `core/reload.ts` đã là.
 
 ### Pane Settings
 
 Thêm một mục `shortcuts` vào `SECTIONS` của
-[`SettingsModal`](../../../src/shell/components/SettingsModal/SettingsModal.tsx), **sau Appearance,
+[`SettingsModal`](../../../apps/desktop/src/shell/components/SettingsModal/SettingsModal.tsx), **sau Appearance,
 trước phần của module** — nó nói về toàn app, không về một module.
 
 Cần `KeyboardIcon` mới trong `src/icons/icons.tsx` (chưa có), theo
-[quy ước icon](../../../.agent/conventions/icons.md): nét vẽ trên lưới 24×24, export theo thứ tự chữ
+[quy ước icon](../../../.claude/desktop/conventions/icons.md): nét vẽ trên lưới 24×24, export theo thứ tự chữ
 cái trong `index.ts`.
 
 Mỗi nhóm một tiêu đề; mỗi dòng là nhãn cộng chord vẽ bằng
-[`shortcutLabel()`](../../../src/core/platform.ts) trong `<kbd>`. Chính hàm đang sinh tooltip hôm
+[`shortcutLabel()`](../../../apps/desktop/src/core/platform.ts) trong `<kbd>`. Chính hàm đang sinh tooltip hôm
 nay, nên bảng và tooltip không thể nói khác nhau về cùng một phím.
 
 Dòng `owner: "editor"` hiện **y như mọi dòng khác**, không dấu hiệu riêng. Cờ `owner` vẫn nằm trong
@@ -364,7 +364,7 @@ Bảng đợt này chỉ để đọc, nên phân biệt chúng là vẽ thứ c
 
 ### i18n
 
-[`dicts.ts`](../../../src/i18n/dicts.ts) có một kiểm tra ở tầng type: ngoài `error`, **không hai từ
+[`dicts.ts`](../../../apps/desktop/src/i18n/dicts.ts) có một kiểm tra ở tầng type: ngoài `error`, **không hai từ
 điển nào được đặt trùng tên nhóm cấp một** — trùng là hỏng build. Nên:
 
 - Shell sở hữu nhóm mới `shortcuts`: tiêu đề pane, nhãn nhóm `app`, nhãn lệnh của shell.
@@ -441,7 +441,7 @@ thoát, nên `Escape` rồi `Mod+R` ngay lập tức thì phím thứ hai bị n
 ## 9. CHANGELOG
 
 Một dòng ngắn dưới `### Changed`, theo
-[quy ước changelog](../../../.agent/conventions/changelog.md):
+[quy ước changelog](../../../.claude/desktop/conventions/changelog.md):
 
 ```
 - Phím tắt Ctrl/Cmd gom về một nơi, và Settings có bảng liệt kê chúng

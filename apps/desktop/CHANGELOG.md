@@ -1,5 +1,8 @@
 # Changelog
 
+> **Frozen at 0.0.33.** MixDB became MixEngine's desktop application on 2026-09-08 (ADR 0027).
+> Everything after that is in the root `CHANGELOG.md`; this file is history.
+
 What changed in each released version of MixDB, newest first.
 
 This file is written for the people who *use* MixDB, not for the people who write it. A change

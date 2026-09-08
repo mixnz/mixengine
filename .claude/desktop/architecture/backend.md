@@ -108,7 +108,7 @@ pub async fn mysql_list_tables(
 Conventions baked into that shape:
 
 - **Errors are `AppError`**, a translation key plus its parameters — see
-  [error.rs](../../src-tauri/src/error.rs). Write `err!("error.tableNameRequired")`, or
+  [error.rs](../../../apps/desktop/src-tauri/src/error.rs). Write `err!("error.tableNameRequired")`, or
   `err!("error.cannotWriteFile", path = path.display(), message = e)`, and add the key under
   `error.*` in **both** halves of whichever dictionary owns it: `src/modules/db/i18n/{en,vi}.ts`
   for a module's failures, `src/i18n/{en,vi}.ts` for the shared layers' — see

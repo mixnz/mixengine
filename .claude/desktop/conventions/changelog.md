@@ -1,7 +1,10 @@
 # Changelog entries
 
-A change a user would notice gets a line in [CHANGELOG.md](../../CHANGELOG.md) **as part of the
-work**, not at release time. It goes under `## [Unreleased]`, and under one of three headings.
+A change a user would notice gets a line in the repository's root [CHANGELOG.md](../../../CHANGELOG.md)
+**as part of the work**, not at release time — under the root's own rule,
+[standards/changelog.md](../../standards/changelog.md), which this page agrees with. It goes under
+`## [Unreleased]`, and under one of three headings. (`apps/desktop/CHANGELOG.md` is MixDB's history,
+frozen at 0.0.33; nothing is added there.)
 
 ```markdown
 ## [Unreleased]
@@ -59,18 +62,9 @@ The same test decides it every time: *which released version had this bug?* No a
 `Fixed` entry — including the shared interface-fix line at the foot of the section, which is a
 `Fixed` entry like any other and is where the test is skipped most often.
 
-## What the tooling expects
+## What the tooling expected, and no longer does
 
-- `npm run notes` prints the commits since the last tag already grouped under these three headings
-  — `feat` → Added, `fix` → Fixed, `perf`/`refactor`/`style` → Changed. That is a **draft**: it
-  knows what was done, not which of it a user would notice. Edit it down.
-- `###` headings are safe. Both
-  [`scripts/set-version.mjs`](../../scripts/set-version.mjs) and
-  [`.github/scripts/changelog-section.mjs`](../../.github/scripts/changelog-section.mjs) split the
-  file on `## [` headings only, so the subheadings travel with their section into the release notes.
-- `set-version` refuses to bump when `## [Unreleased]` is empty — but it only checks for text, so a
-  heading left behind with nothing under it passes the check and ships as the release notes. Never
-  stub the three headings out in advance; add each one with its first entry.
-
-Released sections are never edited. See [docs/RELEASING.md](../../docs/RELEASING.md) for where the
-notes go from here.
+MixDB had `npm run notes` to draft this section from commits, and `set-version` to cut it into a
+release; both left with the merge into MixEngine (phase 11, T101), whose release is cut from the
+root `Cargo.toml` and whose notes come from the root changelog —
+[build-and-release.md](../../operations/build-and-release.md). Released sections are never edited.

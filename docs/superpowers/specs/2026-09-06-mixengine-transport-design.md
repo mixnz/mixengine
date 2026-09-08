@@ -1,6 +1,6 @@
 # Nói chuyện với MixEngine: transport, và màn hình đầu tiên của module `mixengine`
 
-Ngày 2026-09-06. Pha 1 của [roadmap/mixengine-module.md](../../../roadmap/mixengine-module.md).
+Ngày 2026-09-06. Pha 1 của [roadmap/mixengine-module.md](../../../.claude/desktop/roadmap-mixengine-module.md).
 
 MixEngine là môi trường web dev cục bộ chạy dưới dạng một daemon (`mixengined`) và **cố ý không có
 GUI** — ADR 0011 bên đó. `mix` chỉ là client mỏng trên cùng một API. Repo này dựng client đồ họa ấy.
@@ -27,7 +27,7 @@ GUI** — ADR 0011 bên đó. `mix` chỉ là client mỏng trên cùng một AP
 
 Ba thứ trong repo này đã sẵn và spec dựa lên cả ba.
 
-**Repo đã biết nói named pipe và Unix socket.** [`instance.rs`](../../../src-tauri/src/instance.rs)
+**Repo đã biết nói named pipe và Unix socket.** [`instance.rs`](../../../apps/desktop/src-tauri/src/instance.rs)
 làm kênh giữa hai bản MixDB: `ClientOptions`/`ServerOptions` trên Windows,
 `UnixStream`/`UnixListener` ở nơi khác, cả hai qua tokio. **Không tái sử dụng nó** — nó chở một dòng
 text mỗi chiều tới endpoint của chính mình, còn đây là HTTP/1.1 tới endpoint của người khác, có
@@ -137,7 +137,7 @@ process_failed · io · internal
 
 ### Ánh xạ sang `AppError`
 
-[`error.rs`](../../../src-tauri/src/error.rs) chở `{ code, params }` và frontend dịch. Bốn code mới,
+[`error.rs`](../../../apps/desktop/src-tauri/src/error.rs) chở `{ code, params }` và frontend dịch. Bốn code mới,
 thêm vào cả `en.ts` lẫn `vi.ts`:
 
 | Code | Khi nào | Params |
@@ -185,7 +185,7 @@ Khởi động: `mixengined --detach`. Nó **chỉ trả về khi daemon đã tr
 endpoint ra stdout — nên **không viết vòng lặp backoff ở client**; việc chờ thuộc về tiến trình biết
 con nó còn sống hay không.
 
-**Bắt buộc đi qua `crate::platform::hide_console`** — [spawning-processes](../../../.agent/conventions/spawning-processes.md).
+**Bắt buộc đi qua `crate::platform::hide_console`** — [spawning-processes](../../../.claude/desktop/conventions/spawning-processes.md).
 Thiếu nó Windows bật một cửa sổ console đen trước mặt người dùng.
 
 Tìm `mixengined` ở đâu: installer của MixEngine đặt thư mục của nó lên `PATH` người dùng, nên
@@ -218,9 +218,9 @@ src/modules/mixengine/
   components/ i18n/ mixengine.css
 ```
 
-Một dòng trong [`registry.ts`](../../../src/shell/registry.ts), một dòng trong
-[`dicts.ts`](../../../src/i18n/dicts.ts). Root của workspace cần đủ khối năm thuộc tính ở
-[workspace-root](../../../.agent/conventions/workspace-root.md).
+Một dòng trong [`registry.ts`](../../../apps/desktop/src/shell/registry.ts), một dòng trong
+[`dicts.ts`](../../../apps/desktop/src/i18n/dicts.ts). Root của workspace cần đủ khối năm thuộc tính ở
+[workspace-root](../../../.claude/desktop/conventions/workspace-root.md).
 
 **Sidebar dựng sẵn cho chín màn hình, Pha này bật một.** Tám mục còn lại không hiện — một mục xám
 không bấm được là một lời hứa UI không giữ được.

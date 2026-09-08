@@ -55,17 +55,17 @@ trang lọc được, sửa/thêm/xoá dòng, mở Query tab gõ T-SQL nhiều c
 
 | Chỗ | Điều spec dựa vào |
 | --- | --- |
-| [`src-tauri/src/modules/db/models.rs`](../../../src-tauri/src/modules/db/models.rs) | `DbKind` enum, `ConnectionConfig` (đã đủ field cho MSSQL: host/port/username/password/database/ssh/use_ssl — không cần field mới), `ServerInfo`, `StatementResult`, `SqlProblem` |
-| [`src-tauri/src/modules/db/state.rs`](../../../src-tauri/src/modules/db/state.rs) | `DbHandle` enum (thêm biến thể `Mssql`), `ActiveConnection` |
-| [`src-tauri/src/modules/db/commands/mod.rs`](../../../src-tauri/src/modules/db/commands/mod.rs) | `connect_db`/`disconnect_db` match theo `DbKind`, `resolve_endpoint` (SSH tunnel — dùng lại nguyên, không đổi), `sql_endpoint` (địa chỉ cho dump/restore), `retry_read!` macro |
-| [`src-tauri/src/modules/db/drivers/postgres.rs`](../../../src-tauri/src/modules/db/drivers/postgres.rs) | Mẫu gần MSSQL nhất: `qualify`/`resolve`/`quote_ident` cho tên có schema, `build_where`, `column_value` (decode theo thứ tự thử kiểu), `update_row`/`insert_rows`/`delete_rows` với transaction + pre-check `matched=1` |
-| [`src-tauri/src/modules/db/drivers/mysql.rs`](../../../src-tauri/src/modules/db/drivers/mysql.rs) | Mẫu gần MSSQL nhất cho **connection model**: một pool cho cả server (không phải một pool/database như Postgres), `thread_id`/`kill_query` cho cancel |
-| [`src-tauri/src/modules/db/drivers/postgres_structure.rs`](../../../src-tauri/src/modules/db/drivers/postgres_structure.rs), `postgres_ddl.rs`, `postgres_script.rs` | Shape `TableStructure`/`StructureColumn`/`TableIndex`/`Collation`/`TableStats` dùng chung cho mọi engine — MSSQL điền vào, không đổi shape |
-| [`src-tauri/src/modules/db/drivers/dump.rs`](../../../src-tauri/src/modules/db/drivers/dump.rs), `tools.rs` | Cơ chế tìm/tải tool ngoài (`Tool`/`Suite`) — xem D10 vì sao MSSQL đi khác |
-| [`src/modules/db/sql/api.ts`](../../../src/modules/db/sql/api.ts), `sql/dialect.ts`, `types.ts` | `SqlApi`/`SqlDialect`/`SqlEditing` — hợp đồng chung mọi engine SQL phải điền vào, không đổi shape trừ D4 (mở rộng `identifierQuote`) |
-| [`src/modules/db/postgres/`](../../../src/modules/db/postgres) (`api.ts`, `dialect.ts`, `columns.ts`, `editing.ts`, `system.ts`) | Bộ file mẫu để copy cấu trúc cho `src/modules/db/mssql/` |
-| [`src/modules/db/engines.ts`](../../../src/modules/db/engines.ts), `connectionForm.ts`, `types.ts` | Nơi một `DbKind` mới phải đăng ký: `SQL_ENGINES`, `DEFAULT_PORTS`, `KIND_LABEL`, `hasTls` |
-| [`src/modules/db/sql/syntax.ts`](../../../src/modules/db/sql/syntax.ts) | `SqlSyntax` — lexing rules dùng chung cho statement splitter (JS) và bộ tương đương phía Rust; xem D4/D9 vì sao MSSQL cần mở rộng shape này |
+| [`src-tauri/src/modules/db/models.rs`](../../../apps/desktop/src-tauri/src/modules/db/models.rs) | `DbKind` enum, `ConnectionConfig` (đã đủ field cho MSSQL: host/port/username/password/database/ssh/use_ssl — không cần field mới), `ServerInfo`, `StatementResult`, `SqlProblem` |
+| [`src-tauri/src/modules/db/state.rs`](../../../apps/desktop/src-tauri/src/modules/db/state.rs) | `DbHandle` enum (thêm biến thể `Mssql`), `ActiveConnection` |
+| [`src-tauri/src/modules/db/commands/mod.rs`](../../../apps/desktop/src-tauri/src/modules/db/commands/mod.rs) | `connect_db`/`disconnect_db` match theo `DbKind`, `resolve_endpoint` (SSH tunnel — dùng lại nguyên, không đổi), `sql_endpoint` (địa chỉ cho dump/restore), `retry_read!` macro |
+| [`src-tauri/src/modules/db/drivers/postgres.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/postgres.rs) | Mẫu gần MSSQL nhất: `qualify`/`resolve`/`quote_ident` cho tên có schema, `build_where`, `column_value` (decode theo thứ tự thử kiểu), `update_row`/`insert_rows`/`delete_rows` với transaction + pre-check `matched=1` |
+| [`src-tauri/src/modules/db/drivers/mysql.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/mysql.rs) | Mẫu gần MSSQL nhất cho **connection model**: một pool cho cả server (không phải một pool/database như Postgres), `thread_id`/`kill_query` cho cancel |
+| [`src-tauri/src/modules/db/drivers/postgres_structure.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/postgres_structure.rs), `postgres_ddl.rs`, `postgres_script.rs` | Shape `TableStructure`/`StructureColumn`/`TableIndex`/`Collation`/`TableStats` dùng chung cho mọi engine — MSSQL điền vào, không đổi shape |
+| [`src-tauri/src/modules/db/drivers/dump.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/dump.rs), `tools.rs` | Cơ chế tìm/tải tool ngoài (`Tool`/`Suite`) — xem D10 vì sao MSSQL đi khác |
+| [`src/modules/db/sql/api.ts`](../../../apps/desktop/src/modules/db/sql/api.ts), `sql/dialect.ts`, `types.ts` | `SqlApi`/`SqlDialect`/`SqlEditing` — hợp đồng chung mọi engine SQL phải điền vào, không đổi shape trừ D4 (mở rộng `identifierQuote`) |
+| [`src/modules/db/postgres/`](../../../apps/desktop/src/modules/db/postgres) (`api.ts`, `dialect.ts`, `columns.ts`, `editing.ts`, `system.ts`) | Bộ file mẫu để copy cấu trúc cho `src/modules/db/mssql/` |
+| [`src/modules/db/engines.ts`](../../../apps/desktop/src/modules/db/engines.ts), `connectionForm.ts`, `types.ts` | Nơi một `DbKind` mới phải đăng ký: `SQL_ENGINES`, `DEFAULT_PORTS`, `KIND_LABEL`, `hasTls` |
+| [`src/modules/db/sql/syntax.ts`](../../../apps/desktop/src/modules/db/sql/syntax.ts) | `SqlSyntax` — lexing rules dùng chung cho statement splitter (JS) và bộ tương đương phía Rust; xem D4/D9 vì sao MSSQL cần mở rộng shape này |
 | `node_modules/@codemirror/lang-sql` | Đã có sẵn dialect `MSSQL` export riêng, và `SQLConfig.identifierQuotes` đã hỗ trợ `[` cho bracket identifier — không cần tự viết CodeMirror dialect |
 
 ## Quyết định kiến trúc chung (áp dụng mọi plan)
@@ -280,8 +280,8 @@ catalog views (Plan 2 đã có sẵn code đọc structure để tái dùng) và
 liệu theo trang (giống cách Plan 2 đã đọc).
 
 Đây **không** phải chuyện chưa có tiền lệ trong repo này:
-[`clickhouse_dump.rs`](../../../src-tauri/src/modules/db/drivers/clickhouse_dump.rs) và
-[`sqlite_dump.rs`](../../../src-tauri/src/modules/db/drivers/sqlite_dump.rs) đã tự sinh dump không
+[`clickhouse_dump.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/clickhouse_dump.rs) và
+[`sqlite_dump.rs`](../../../apps/desktop/src-tauri/src/modules/db/drivers/sqlite_dump.rs) đã tự sinh dump không
 tool ngoài. `mssql_dump.rs` lấy `clickhouse_dump.rs` làm khuôn — cùng `dump::Tracker`, cùng
 `TRANSFER_PROGRESS_EVENT` — chứ không phát minh lại cách báo tiến độ.
 
