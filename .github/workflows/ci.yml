@@ -1,5 +1,8 @@
-# The seven jobs described in .claude/operations/build-and-release.md: `lint`, `test`, `system`,
-# `bench`, `bindings`, `docs` and `build`.
+# The eight jobs described in .claude/operations/build-and-release.md: `lint`, `test`, `system`,
+# `bench`, `bindings`, `docs`, `desktop` and `build`.
+#
+# `desktop` arrived with T103, the task that brought the desktop application into this repository
+# (ADR 0027).
 #
 # `system` arrived with the first `#[ignore]`d system test (T40), `build` with T85, the task that
 # produced something to install, `bindings` with T56, the task that produced a contract to check, and
@@ -1751,6 +1754,69 @@ jobs:
   # Each script also opens what it just made and checks the three binaries are in it, which is where
   # this job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with
   # no helper in it installs cleanly and leaves the machine one file short of being able to elevate.
+  # T103, ADR 0027: the desktop application under apps/desktop. Its frontend's build, tests and
+  # lint, then its own Cargo workspace's clippy and tests — on one OS, because nearly all of it is
+  # pure logic (MixDB's own CI made the same choice), and `build` is what proves the window links
+  # on all three. It gates `release` the way `bindings` does, and for the same reason: a type
+  # reshaped in `mixengine-proto` fails `tsc` here, in the same run — the check ADR 0011 gave up.
+  #
+  # `cargo audit` is here rather than on a schedule of its own: this workflow only runs when
+  # somebody asks, so an advisory published overnight turns red at the moment somebody is looking.
+  # Its documented ignores are `apps/desktop/src-tauri/.cargo/audit.toml`'s.
+  desktop:
+    name: desktop
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Frontend — install, typecheck and build, test, lint
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build
+          npm test
+          npm run lint
+
+      # The Tauri crates link against webkit2gtk, so even `cargo check` wants it present.
+      - name: Install the libraries the window links against
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # The root's rust-toolchain.toml is the nearest pin walking up from apps/desktop.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop
+          workspaces: "apps/desktop/src-tauri -> target"
+
+      - name: clippy
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: test
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Advisories against the window's dependency tree
+        working-directory: apps/desktop/src-tauri
+        run: cargo audit
+
   build:
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -1758,8 +1824,9 @@ jobs:
     # from scratch inside a container for both Linux legs — T85a, D3: nothing in this job's cache
     # reaches a location inside a container's bind mount, so those two legs pay for a cold `cargo
     # build --release` on every run. Accepted there rather than solved, until it is measured to cost
-    # more than this timeout allows.
-    timeout-minutes: 60
+    # more than this timeout allows. T103 added a Tauri release build of the window to every leg,
+    # which is roughly ten more minutes; the timeout moved from 60 to 75 for it.
+    timeout-minutes: 75
     strategy:
       # An artifact that failed to build on one system is not a reason to stop producing the other
       # four — the same rule `test` and `bench` state one job up.
@@ -1783,10 +1850,15 @@ jobs:
           # architecture as the runner in both rows below — never cross-compilation, only an older
           # sysroot. The tag is pinned and dated for the reason every other toolchain in this product
           # is: "whatever the runner has" is not reproducible.
-          - os: ubuntu-latest
+          #
+          # T103: the window is built on the host of these two legs, not in the container — the
+          # manylinux image is AlmaLinux 8, whose WebKitGTK is the 4.0 API on libsoup 2, and Tauri 2
+          # links 4.1 on libsoup 3. The container step does not care what its host runs, so the host
+          # is pinned to 22.04 to give the window the glibc 2.35 floor MixDB's own releases had.
+          - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
-          - os: ubuntu-24.04-arm
+          - os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
     steps:
@@ -1805,10 +1877,65 @@ jobs:
         if: matrix.container == ''
         with:
           key: build
+          workspaces: |
+            . -> target
+            apps/desktop/src-tauri -> target
 
       - name: Fetch dependencies
         if: matrix.container == ''
         run: cargo fetch --locked
+
+      # T103: the desktop application, on every leg, on the runner itself.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install the libraries the window links against
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # The two Linux legs install Rust inside the container for the four binaries; the window is
+      # built out here and needs a toolchain of its own.
+      - name: Install pinned toolchain for the window
+        if: matrix.container != ''
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - name: The window's second slice (macOS is universal)
+        if: runner.os == 'macOS'
+        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      # `tauri build` runs `npm run build` itself (tauri.conf.json's beforeBuildCommand). No
+      # bundle: packaging is `packaging/`'s and arrives with T105; macOS is the exception because
+      # a webview application there is a `.app` directory, and that is what T105 will stage.
+      - name: Build the window
+        shell: bash
+        working-directory: apps/desktop
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          npm ci
+          if [ "$RUNNER_OS" = macOS ]; then
+            npm run tauri -- build --bundles app --target universal-apple-darwin
+          else
+            npm run tauri -- build --no-bundle --target "$MIX_TARGET"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: |
+            apps/desktop/src-tauri/target/*/release/mixdb
+            apps/desktop/src-tauri/target/*/release/mixdb.exe
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          if-no-files-found: error
+          retention-days: 14
 
       # Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
       # quietly not built is a release that is quietly missing one.
@@ -1979,7 +2106,7 @@ jobs:
   release:
     name: release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [preflight, lint, test, bindings, build]
+    needs: [preflight, lint, test, bindings, desktop, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
