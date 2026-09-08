@@ -1,4 +1,4 @@
-//! The vocabulary a runtime is described in: which language it is.
+//! The vocabulary a runtime is described in: which language it is, or which tool is managed like one.
 //!
 //! The same split [`crate::job`] draws over [`crate::job_api`] — this module is what a runtime *is*,
 //! and the shapes a client asks and renders with are next door in [`crate::runtime_api`].
@@ -13,13 +13,14 @@
 
 use std::fmt;
 
-/// Which language runtime something is a version of.
+/// Which language runtime something is a version of — or, since T27c, which tool that is installed
+/// the way a language is.
 ///
 /// **Closed, unlike [`JobKind`](crate::JobKind) and like [`JobState`](crate::JobState).** The set
-/// grows only when MixEngine learns to manage another language, which is a release of ours and a
-/// migration of the `runtime_installs.kind` `CHECK` — never something a package index gets to
-/// extend by publishing. An index naming a fifth one is describing something this build could not
-/// install a shim for anyway.
+/// grows only when MixEngine learns to manage another language, or a tool it installs like one,
+/// which is a release of ours and a migration of the `runtime_installs.kind` `CHECK` — never
+/// something a package index gets to extend by publishing. An index naming a sixth one is
+/// describing something this build could not install a shim for anyway.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -34,11 +35,20 @@ pub enum RuntimeKind {
     Python,
     /// Ruby.
     Ruby,
+    /// Composer — not a language, and installed like one (roadmap task **T27c**): a `.phar` the
+    /// `composer` shim hands to the project's PHP. Last, because it runs under another kind.
+    Composer,
 }
 
 impl RuntimeKind {
     /// Every kind, in the order a listing shows them.
-    pub const ALL: [Self; 4] = [Self::Php, Self::Node, Self::Python, Self::Ruby];
+    pub const ALL: [Self; 5] = [
+        Self::Php,
+        Self::Node,
+        Self::Python,
+        Self::Ruby,
+        Self::Composer,
+    ];
 
     /// The word this is stored, published and typed as.
     ///
@@ -51,6 +61,7 @@ impl RuntimeKind {
             Self::Node => "node",
             Self::Python => "python",
             Self::Ruby => "ruby",
+            Self::Composer => "composer",
         }
     }
 
@@ -75,6 +86,7 @@ impl RuntimeKind {
             Self::Node => "MIXENGINE_NODE",
             Self::Python => "MIXENGINE_PYTHON",
             Self::Ruby => "MIXENGINE_RUBY",
+            Self::Composer => "MIXENGINE_COMPOSER",
         }
     }
 }
@@ -99,6 +111,16 @@ mod tests {
                 "the wire spelling and the stored one have to be the same word"
             );
         }
+    }
+
+    /// **Composer is the fifth kind** — roadmap task **T27c**, its design's D1 — last in the
+    /// order, because it is the one that runs under another.
+    #[test]
+    fn composer_is_a_kind_and_the_last_one() {
+        assert_eq!(RuntimeKind::ALL.len(), 5);
+        assert_eq!(RuntimeKind::ALL[4], RuntimeKind::Composer);
+        assert_eq!(RuntimeKind::Composer.as_str(), "composer");
+        assert_eq!(RuntimeKind::Composer.override_env(), "MIXENGINE_COMPOSER");
     }
 
     #[test]

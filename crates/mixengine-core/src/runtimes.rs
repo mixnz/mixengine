@@ -43,7 +43,8 @@ pub fn directory(paths: &Paths, kind: RuntimeKind, version: &PackageVersion) -> 
     paths.runtimes().join(kind.as_str()).join(version.as_str())
 }
 
-/// What to run once a runtime is unpacked, to find out whether it runs *here*.
+/// What to run once a runtime is unpacked, to find out whether it runs *here* — or [`None`] for a
+/// kind whose artifact starts nothing.
 ///
 /// The executable is named as a key of the artifact's `provides` map rather than as a path, because
 /// the path inside the archive is the publisher's and the name is ours.
@@ -52,8 +53,13 @@ pub fn directory(paths: &Paths, kind: RuntimeKind, version: &PackageVersion) -> 
 /// property that makes the check worth its second: `php -v` loads every extension the ini names, so
 /// a build whose extension directory is wrong fails here rather than in the middle of somebody's
 /// afternoon. `--version` is the same thing for the other three.
+///
+/// **Composer answers [`None`]** — roadmap task **T27c**, its design's D3. Its artifact is a `.phar`,
+/// which a PHP runs; the PHP may not be installed yet, and asking for one here would make
+/// `mix runtime install composer` fail on the machine a gallery blueprint is about to install PHP
+/// on. What the download proved by hash is the whole of what can be proved without one.
 #[must_use]
-pub fn smoke_test(kind: RuntimeKind) -> SmokeTest {
+pub fn smoke_test(kind: RuntimeKind) -> Option<SmokeTest> {
     let (executable, flag) = match kind {
         // Not `php-win.exe`, which answers `-v` with nothing at all — one of the four bugs T20a
         // found, and the reason the index publishes both under names of ours.
@@ -61,12 +67,13 @@ pub fn smoke_test(kind: RuntimeKind) -> SmokeTest {
         RuntimeKind::Node => ("node", "--version"),
         RuntimeKind::Python => ("python", "--version"),
         RuntimeKind::Ruby => ("ruby", "--version"),
+        RuntimeKind::Composer => return None,
     };
 
-    SmokeTest {
+    Some(SmokeTest {
         executable: executable.to_owned(),
         args: vec![flag.to_owned()],
-    }
+    })
 }
 
 /// Everything a finished install has to write down.
@@ -921,6 +928,20 @@ mod tests {
             assert!(
                 matches!(&error, Error::UnreadableRuntimeRow { column: named, .. } if *named == column),
                 "{error:?} should have named {column}"
+            );
+        }
+    }
+
+    /// **A phar has nothing to start** — roadmap task **T27c**, its design's D3: the installer's
+    /// check runs the artifact's executable, and Composer's is a file for a PHP that may not be
+    /// installed yet. Every language still proves it starts.
+    #[test]
+    fn only_composer_has_no_smoke_test() {
+        for kind in RuntimeKind::ALL {
+            assert_eq!(
+                smoke_test(kind).is_none(),
+                kind == RuntimeKind::Composer,
+                "{kind}"
             );
         }
     }
