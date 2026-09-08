@@ -86,6 +86,9 @@ fn every_crate_the_stage_builds_is_a_workspace_member() {
 /// the two constants above: a file that moved is a build error rather than a test that reads
 /// nothing and passes.
 const DESKTOP_PACKAGE_JSON: &str = include_str!("../../../apps/desktop/package.json");
+/// The fourth: `npm ci` is what CI installs with, and it reads this file rather than the manifest
+/// beside it.
+const DESKTOP_PACKAGE_LOCK: &str = include_str!("../../../apps/desktop/package-lock.json");
 const DESKTOP_TAURI_CONF: &str = include_str!("../../../apps/desktop/src-tauri/tauri.conf.json");
 const DESKTOP_CARGO_TOML: &str = include_str!("../../../apps/desktop/src-tauri/Cargo.toml");
 
@@ -138,6 +141,10 @@ fn the_desktop_application_carries_the_workspace_version() {
         (
             "apps/desktop/package.json",
             json_version(DESKTOP_PACKAGE_JSON, "apps/desktop/package.json"),
+        ),
+        (
+            "apps/desktop/package-lock.json",
+            json_version(DESKTOP_PACKAGE_LOCK, "apps/desktop/package-lock.json"),
         ),
         (
             "apps/desktop/src-tauri/tauri.conf.json",
