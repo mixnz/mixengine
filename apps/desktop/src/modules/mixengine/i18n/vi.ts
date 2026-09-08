@@ -204,7 +204,7 @@ const vi: typeof en = {
         create: "Tạo",
         createdNew: "Đã tạo.",
         createdExisting: "Đã có từ trước — không đổi gì.",
-        open: "Open trong MixDB",
+        open: "Open trong MixLab",
         secretLine: "Mật khẩu lưu trong credential store dưới tên {{key}}.",
       },
     },

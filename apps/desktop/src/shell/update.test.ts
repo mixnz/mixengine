@@ -3,6 +3,7 @@ import { holdsUpdate, isPending, type UpdateStatus } from "./update";
 
 const EVERY: UpdateStatus[] = [
   "idle",
+  "unavailable",
   "checking",
   "upToDate",
   "available",
@@ -51,5 +52,19 @@ describe("isPending", () => {
 
   it("says nothing about a version the user has skipped", () => {
     for (const status of EVERY) expect(isPending(status, true, true)).toBe(false);
+  });
+});
+
+/* Between T104 and T106 there is no feed to dial: the one still wired in `tauri.conf.json`
+   publishes MixDB, and this application is MixLab on MixEngine's lower version number. The plugin
+   stays where it is and is simply never called — see the T104 design, D6. */
+describe("unavailable", () => {
+  it("holds no handle, so nothing is waiting to be installed", () => {
+    expect(holdsUpdate("unavailable")).toBe(false);
+  });
+
+  it("never announces, with or without a release to announce", () => {
+    expect(isPending("unavailable", false, false)).toBe(false);
+    expect(isPending("unavailable", true, false)).toBe(false);
   });
 });

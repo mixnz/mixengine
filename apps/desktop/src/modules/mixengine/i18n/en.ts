@@ -206,7 +206,7 @@ export default {
         create: "Create",
         createdNew: "Created.",
         createdExisting: "Already existed — nothing changed.",
-        open: "Open in MixDB",
+        open: "Open in MixLab",
         secretLine: "Password stored in your credential store as {{key}}.",
       },
     },

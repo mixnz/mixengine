@@ -56,7 +56,7 @@ pub async fn dump_structure(
     /* No `CREATE DATABASE` and no `USE`, matching what the other engines' dumps carry: the file
        restores into whichever database it is pointed at rather than insisting on the one it came
        from. For SQLite that is the file the connection is open on. */
-    out.push_str("-- MixDB structure dump\n\n");
+    out.push_str("-- MixLab structure dump\n\n");
     for row in &rows {
         if (watch.cancel)() {
             return Err(err!("error.transferCancelled", tool = "SQLite dump"));

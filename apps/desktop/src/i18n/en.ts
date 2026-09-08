@@ -89,7 +89,7 @@ const en = {
     languageVietnamese: "Ti\u1ebfng Vi\u1ec7t",
     privacyPolicy: "Privacy policy",
     privacyHint:
-      "MixDB collects nothing about you and has no server of its own. What it keeps, it keeps on this machine.",
+      "MixLab collects nothing about you and has no server of its own. What it keeps, it keeps on this machine.",
     logHint: "A file on this machine records crashes and errors, in case something needs a closer look.",
     openLogFolder: "Open log folder",
   },
@@ -109,19 +109,20 @@ const en = {
     prevTab: "Previous tab",
     reload: "Reload the pane on screen",
   },
-  // Finding, fetching and installing a newer MixDB. The download runs in the background; the
+  // Finding, fetching and installing a newer MixLab. The download runs in the background; the
   // install closes the app, so it never happens without the user pressing the button for it.
   update: {
     title: "Updates",
-    available: "MixDB {{version}} is out",
+    unavailable: "MixLab is updated with MixEngine.",
+    available: "MixLab {{version}} is out",
     runningNow: "You are running {{version}}",
     updateNow: "Update now",
     downloading: "Downloading\u2026 {{percent}}%",
     downloadingUnknown: "Downloading\u2026",
-    downloaded: "MixDB {{version}} is ready to install.",
+    downloaded: "MixLab {{version}} is ready to install.",
     restartNow: "Install and restart",
     installing: "Installing\u2026",
-    restartHint: "MixDB will close for a moment and reopen on the new version.",
+    restartHint: "MixLab will close for a moment and reopen on the new version.",
     later: "Later",
     skip: "Skip this one",
     skipped: "{{version}} is being skipped.",
@@ -136,7 +137,7 @@ const en = {
     openPage: "Open the download page",
     moreChanges: "and {{count}} more",
     autoHint:
-      "MixDB updates itself. Each update is checked against MixDB's signing key before it is installed, so nothing unsigned by this project can reach you this way.",
+      "MixLab arrives and is replaced with MixEngine — its installer puts the window in place, and MixEngine's own updater keeps it current. There is nothing to check for here.",
   },
   // What a failed backend command says. The keys here are the `code` an `AppError` carries \u2014 see
   // src-tauri/src/error.rs \u2014 and `{{message}}` is where a driver's own words go, untranslated
@@ -160,15 +161,15 @@ const en = {
     sshAuthRejected:
       "The SSH server rejected the login (partial success: {{partialSuccess}}). It accepts: {{methods}}.",
     sshHostKeyChanged:
-      "The SSH server at {{endpoint}} is offering a different key than the one MixDB saw before ({{fingerprint}} now, {{known}} before). Either the server was rebuilt, or something is standing between you and it. If the change was expected, remove its entry from {{file}} and connect again.",
+      "The SSH server at {{endpoint}} is offering a different key than the one MixLab saw before ({{fingerprint}} now, {{known}} before). Either the server was rebuilt, or something is standing between you and it. If the change was expected, remove its entry from {{file}} and connect again.",
     cannotReadPrivateKey: "Cannot read the private key file: {{message}}",
-    invalidPrivateKey: "That is not a private key MixDB can read: {{message}}",
+    invalidPrivateKey: "That is not a private key MixLab can read: {{message}}",
     cannotBindTunnelPort: "Cannot open a local port for the tunnel: {{message}}",
     tunnelAcceptFailed:
-      "The tunnel's local port has stopped taking connections: {{message}}. MixDB keeps trying — if it does not come back, close the tab and connect again.",
+      "The tunnel's local port has stopped taking connections: {{message}}. MixLab keeps trying — if it does not come back, close the tab and connect again.",
     cannotSaveKnownHost: "Cannot remember the server's key: {{message}}",
     sshUnavailable:
-      "The SSH tunnel is not open at the moment \u2014 MixDB is trying to open it again.",
+      "The SSH tunnel is not open at the moment \u2014 MixLab is trying to open it again.",
     // Saved passwords
     credentialStoreUnreachable: "Cannot reach the system credential store: {{message}}",
     cannotSavePassword: "Cannot save the password: {{message}}",
@@ -182,16 +183,16 @@ const en = {
     // The one error in here the webview raises rather than the backend. Said out loud because the
     // alternative is a copy that did nothing and a paste, somewhere else, of what was there before.
     clipboard: "Nothing was copied — the clipboard refused: {{message}}",
-    /** An error shape MixDB doesn't recognise \u2014 shown as-is rather than swallowed. */
+    /** An error shape MixLab doesn't recognise \u2014 shown as-is rather than swallowed. */
     unknown: "{{message}}",
     /** The Error Boundary around one tab \u2014 the rest of the app (other tabs, the update check) is
      *  still alive. */
-    crashedTab: "This tab hit a bug and could not go on. The rest of MixDB is unaffected.",
+    crashedTab: "This tab hit a bug and could not go on. The rest of MixLab is unaffected.",
     /** The outermost Error Boundary \u2014 the whole App failed to render. No "Try again": there is
      *  nothing left to try it into, only a restart. */
-    crashedApp: "MixDB hit a bug it could not recover from.",
+    crashedApp: "MixLab hit a bug it could not recover from.",
     tryAgain: "Try again",
-    restartApp: "Restart MixDB",
+    restartApp: "Restart MixLab",
   },
 };
 

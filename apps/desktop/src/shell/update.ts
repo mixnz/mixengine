@@ -22,7 +22,23 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check as checkForUpdate, type Update } from "@tauri-apps/plugin-updater";
 
-const REPO = "mixnz/mixdb";
+const REPO = "mixnz/mixengine";
+
+/**
+ * Whether this build has a release feed of its own to dial.
+ *
+ * It has not. `tauri.conf.json` still points the updater at `mixnz/mixdb`'s `latest.json`, which
+ * offers MixDB 0.0.33 — a higher number than the workspace version this window now carries — and
+ * on macOS and Linux the plugin replaces the *running bundle*, so accepting that offer would write
+ * standalone MixDB over MixLab. T106 takes the plugin out and puts MixEngine's own updater in its
+ * place; until then the plugin stays wired and nothing here calls it.
+ *
+ * Annotated `boolean` rather than left to infer `false`, so nothing below it is narrowed into
+ * unreachable code that a linter would then ask to be deleted.
+ *
+ * See the T104 design, D6.
+ */
+const SELF_UPDATE_FEED: boolean = false;
 
 /** Where a user is sent when the automatic path fails them — a `.deb` install, a locked-down
  *  machine, a download that will not complete. */
@@ -65,6 +81,8 @@ export interface Release {
  */
 export type UpdateStatus =
   | "idle"
+  /** There is no feed to ask, and no button that would ask it — see `SELF_UPDATE_FEED`. */
+  | "unavailable"
   | "checking"
   | "upToDate"
   | "available"
@@ -182,7 +200,9 @@ export interface UpdateCheck {
  */
 export function useUpdateCheck(): UpdateCheck {
   const [current, setCurrent] = useState("");
-  const [status, setStatus] = useState<UpdateStatus>("idle");
+  const [status, setStatus] = useState<UpdateStatus>(
+    SELF_UPDATE_FEED ? "idle" : "unavailable",
+  );
   const [release, setRelease] = useState<Release | null>(null);
   const [error, setError] = useState("");
   const [lastChecked, setLastChecked] = useState<number | null>(readLastChecked);
@@ -214,6 +234,10 @@ export function useUpdateCheck(): UpdateCheck {
   }, []);
 
   const check = useCallback(() => {
+    if (!SELF_UPDATE_FEED) {
+      setStatus("unavailable");
+      return;
+    }
     generation.current += 1;
     const mine = generation.current;
     setStatus("checking");
@@ -263,6 +287,7 @@ export function useUpdateCheck(): UpdateCheck {
   /* The startup check, delayed so it does not land on top of the connection form. In development
      StrictMode mounts twice; the cleanup cancels the first timer, so only one check goes out. */
   useEffect(() => {
+    if (!SELF_UPDATE_FEED) return;
     const timer = window.setTimeout(check, STARTUP_CHECK_DELAY_MS);
     return () => {
       window.clearTimeout(timer);
@@ -335,7 +360,7 @@ export function useUpdateCheck(): UpdateCheck {
     progress: total > 0 ? Math.min(downloaded / total, 1) : -1,
     pending,
     announcing: pending && !dismissed,
-    canCheck: status !== "checking" && !holdsUpdate(status),
+    canCheck: SELF_UPDATE_FEED && status !== "checking" && !holdsUpdate(status),
     check,
     download,
     install,

@@ -1,9 +1,9 @@
 [package]
-name = "mixdb"
-version = "0.0.33"
+name = "mixlab"
+version = "0.0.6"
 # Both are read back out into the installer's metadata, so they are what a user sees in
 # Add/Remove Programs rather than notes to ourselves.
-description = "MixDB - multi-database desktop client (MySQL, PostgreSQL, MongoDB, Redis)"
+description = "MixLab - MixEngine's desktop application: the daemon's dashboard, a database client, an HTTP client, a terminal and the tools"
 authors = ["mixnz"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
@@ -21,6 +21,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# `tauri-plugin-log` routes this crate's macros into the log file the Settings pane opens. Named
+# here so the import (`import.rs`) can say what it skipped and why: it runs before any window is
+# drawn, and there is nowhere else for it to say it.
+log = "0.4"
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }

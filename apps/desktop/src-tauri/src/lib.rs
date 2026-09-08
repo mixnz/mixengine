@@ -2,6 +2,7 @@
 #[macro_use]
 mod error;
 
+mod import;
 mod instance;
 mod launch;
 mod modules;
@@ -66,6 +67,13 @@ pub fn run() {
 
     builder
         .setup(move |app| {
+            /* Before anything else: a MixDB user's stores, copied while nothing else can touch
+               the directory. `setup` runs inside `build()`, before the event loop that would
+               deliver the webview's first `Store.load` — which is the only moment in which that
+               copy is race-free. The credentials follow on a thread of their own; the module's
+               own documentation is where both halves are argued. */
+            import::on_first_launch(app.handle());
+
             launch::start(app.handle(), opening);
 
             /* Housekeeping rather than startup work. A tool download that the app never came back

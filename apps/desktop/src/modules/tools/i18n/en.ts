@@ -152,7 +152,7 @@ const toolsEn = {
       portInput: "Port",
       byPid: "By PID",
       byPort: "By port",
-      note: "MixDB never runs these. Copy one and run it yourself.",
+      note: "MixLab never runs these. Copy one and run it yourself.",
     },
 
     cheatsheet: {
@@ -169,13 +169,13 @@ const toolsEn = {
       noParams: "This command takes no parameters.",
       empty: "Pick a command.",
       result: "Command",
-      note: "Quoting is up to the template. MixDB does not add quotes around what you type.",
+      note: "Quoting is up to the template. MixLab does not add quotes around what you type.",
     },
 
     connection: {
       label: "Connection string",
       paste: "Paste a connection string",
-      unreadable: "That is not a connection string MixDB knows.",
+      unreadable: "That is not a connection string MixLab knows.",
       kind: "Database",
       host: "Host",
       port: "Port",

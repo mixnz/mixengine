@@ -1951,8 +1951,8 @@ jobs:
         with:
           name: desktop-${{ matrix.os }}
           path: |
-            apps/desktop/src-tauri/target/*/release/mixdb
-            apps/desktop/src-tauri/target/*/release/mixdb.exe
+            apps/desktop/src-tauri/target/*/release/mixlab
+            apps/desktop/src-tauri/target/*/release/mixlab.exe
             apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
           if-no-files-found: error
           retention-days: 14

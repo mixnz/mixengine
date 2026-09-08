@@ -1,11 +1,11 @@
 # AGENT.md
 
-Short orientation for agents working on MixDB. Details live in [.agent/](../../.claude/desktop/) — read the
+Short orientation for agents working on MixLab, MixEngine's desktop application. Details live in [.agent/](../../.claude/desktop/) — read the
 relevant file there before changing anything in that area.
 
 ## What this is
 
-MixDB is a desktop app built with **Tauri 2 + React 19 + TypeScript** (frontend) and **Rust**
+MixLab is a desktop app built with **Tauri 2 + React 19 + TypeScript** (frontend) and **Rust**
 (backend). It is a **shell** — a tab bar, keyboard shortcuts and a Settings dialog — plus one
 **module** per kind of thing a tab can hold. There are three:
 

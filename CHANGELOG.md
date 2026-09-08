@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+- MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
+  their passwords across — once, leaving the MixDB install and its credentials untouched.
+
+### Changed
+- The desktop window is **MixLab**: its own name, identifier, executable and mark, and MixEngine's
+  version rather than one of its own. The daemon, `mix`, the home, the keyring namespace and the
+  installers keep MixEngine's name and are unchanged.
+
 ## v0.0.6
 
 ### Added

@@ -152,7 +152,7 @@ const toolsVi = {
       portInput: "Cổng",
       byPid: "Theo PID",
       byPort: "Theo cổng",
-      note: "MixDB không bao giờ chạy các lệnh này. Chép ra rồi tự chạy.",
+      note: "MixLab không bao giờ chạy các lệnh này. Chép ra rồi tự chạy.",
     },
 
     cheatsheet: {
@@ -169,13 +169,13 @@ const toolsVi = {
       noParams: "Lệnh này không có tham số nào.",
       empty: "Chọn một lệnh.",
       result: "Lệnh",
-      note: "Ngoặc là việc của template. MixDB không tự bọc ngoặc quanh thứ bạn gõ.",
+      note: "Ngoặc là việc của template. MixLab không tự bọc ngoặc quanh thứ bạn gõ.",
     },
 
     connection: {
       label: "Chuỗi kết nối",
       paste: "Dán một chuỗi kết nối vào đây",
-      unreadable: "Đây không phải chuỗi kết nối MixDB đọc được.",
+      unreadable: "Đây không phải chuỗi kết nối MixLab đọc được.",
       kind: "Loại DB",
       host: "Host",
       port: "Cổng",
