@@ -47,7 +47,7 @@
     "publisher": "mixnz",
     "copyright": "Copyright © 2026 mixnz (Nguyễn Hải Quang). MIT OR Apache-2.0.",
     "targets": ["nsis", "app", "dmg", "appimage", "deb"],
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
