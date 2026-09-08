@@ -10,6 +10,12 @@ have each project use the right one without the user thinking about it.
 - A **runtime kind** has one *global default* and any number of *project pins*.
 - PHP is special: each installed PHP version also owns a long-running `php-fpm@<version>` service
   ([services.md](services.md)). Node/Python/Ruby are invoked per-command, not supervised.
+- **Composer is a kind, not a language** — T27c. It installs, pins, lists and defaults like the four
+  above, into `runtimes/composer/<version>/composer.phar`, and the `composer` shim runs that file
+  under the PHP the same directory resolves to. Composer 2.3+ needs PHP 7.2.5 or newer; a project on
+  an older PHP pins `composer = "2.2"`. No service, no smoke test at install (nothing starts on its
+  own), no `conf.d`. Design:
+  [docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../../docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
 
 ## Version resolution
 
@@ -42,6 +48,9 @@ is resolved against installed versions — **never** silently against downloadab
 3. `exec`s the real binary with the correct `PATH`, `PHPRC`, `GEM_HOME`, etc. prepended.
    On Windows there is no `exec`: spawn the child in the same Job Object and proxy the exit code and
    console signals.
+4. **A row may name a `via` kind** (T27c): `composer` resolves a Composer for the file and a PHP for
+   the program — each under its own override variable — and hands the PHP `composer.phar` as its
+   first argument, with the PHP's own environment.
 
 Only `<root>/bin` goes on the user's PATH — one entry, never per-version directories. The directory
 is filled by the daemon at every start, one shim per row in `core::shims::COMMANDS` — a hard link to

@@ -135,6 +135,16 @@ struct Args {
     #[arg(long, value_name = "PATH")]
     child: Option<PathBuf>,
 
+    /// A script this program was asked to run.
+    ///
+    /// **What makes this fixture usable as the PHP behind `composer`** — roadmap task **T27c**. A
+    /// shim fronting a `.phar` starts the resolved PHP with the phar as its first argument, so a
+    /// stand-in PHP has to accept a positional it never asked for. It is recorded into `--dump-env`
+    /// as `FAKESERVICE_SCRIPT` and otherwise ignored. Not `trailing_var_arg`: the recording flags
+    /// arrive *after* the positional and have to keep being parsed as flags.
+    #[arg(value_name = "SCRIPT", num_args = 0..)]
+    script: Vec<std::ffi::OsString>,
+
     /// Leave a child holding this process's own streams open for this many milliseconds after it
     /// has exited.
     ///
@@ -285,7 +295,7 @@ async fn main() {
     }
 
     if let Some(path) = &args.dump_env {
-        dump_env(path);
+        dump_env(path, args.script.first().map(std::ffi::OsString::as_os_str));
     }
 
     // Before the `--touch` below, because the whole point of the pair is a one-shot that has already
@@ -563,7 +573,7 @@ fn hold(path: &Path) -> mixengine_platform::lock::Lock {
 /// does anything that could add to it.
 ///
 /// Sorted, so a failure prints a diff a person can read rather than the hash order of the day.
-fn dump_env(path: &Path) {
+fn dump_env(path: &Path, script: Option<&std::ffi::OsStr>) {
     let mut variables: Vec<String> = std::env::vars_os()
         .map(|(name, value)| {
             format!(
@@ -573,6 +583,9 @@ fn dump_env(path: &Path) {
             )
         })
         .collect();
+    if let Some(script) = script {
+        variables.push(format!("FAKESERVICE_SCRIPT={}", script.to_string_lossy()));
+    }
     variables.sort();
 
     std::fs::write(path, variables.join("\n"))

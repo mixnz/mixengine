@@ -111,6 +111,17 @@ pub(crate) fn environment(paths: &Paths) -> BTreeMap<String, String> {
         "PATH".to_owned(),
         path(paths).to_string_lossy().into_owned(),
     );
+
+    // **The shims in that directory have to know which home they belong to** — found by T27c's
+    // first real `composer create-project`, on a daemon started with `--home`. A shim reads
+    // `MIXENGINE_HOME` and otherwise falls back to the OS default, which is *another* home's
+    // database whenever this daemon's is not the default one: every `php`, `npx` or `composer` a
+    // scaffold ran there resolved against the wrong install. Set to this daemon's root, so the
+    // shim and the daemon that put it on the PATH agree about what "here" is.
+    env.insert(
+        "MIXENGINE_HOME".to_owned(),
+        paths.root().to_string_lossy().into_owned(),
+    );
     env
 }
 
@@ -414,6 +425,22 @@ mod tests {
         assert!(
             path.starts_with(&paths.bin().display().to_string()),
             "{path}"
+        );
+    }
+
+    /// **And the shims are told which home they belong to** — roadmap task **T27c**, found on the
+    /// way: a daemon started with `--home` put its `bin/` on the PATH and the shim in it looked up
+    /// the OS default home's database instead.
+    #[test]
+    fn the_command_is_told_which_home_the_shims_belong_to() {
+        let home = tempfile::tempdir().expect("a directory");
+        let paths = Paths::new(home.path().to_path_buf(), &Default::default());
+
+        let env = environment(&paths);
+
+        assert_eq!(
+            env.get("MIXENGINE_HOME").map(String::as_str),
+            Some(paths.root().to_string_lossy().as_ref())
         );
     }
 }

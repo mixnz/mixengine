@@ -368,3 +368,69 @@ fn a_home_with_no_database_is_refused_rather_than_created() {
         "the message names the file it looked for: {said}"
     );
 }
+
+/// **A command run through another kind hands its file to that kind's program** — roadmap task
+/// **T27c**, its design's D4. `composer` resolves a Composer for the file and a PHP for the program,
+/// each on its own, and the PHP is what runs — from the directory the manifest pinned.
+#[test]
+fn a_command_run_through_another_kind_hands_its_file_to_that_kinds_program() {
+    let home = Home::with(&["8.1.30", "8.3.33"]);
+    home.install(
+        RuntimeKind::Composer,
+        "2.10.3",
+        [("composer".to_owned(), "composer.phar".to_owned())]
+            .into_iter()
+            .collect(),
+    );
+
+    let project = home.project(
+        "shop",
+        Some("[runtimes]\nphp = \"8.3\"\ncomposer = \"2\"\n"),
+    );
+
+    let ran = home.record_command("composer", &project, &BTreeMap::new(), 0);
+    assert_eq!(ran.run.code(), 0, "{}", ran.run.stderr());
+    assert!(ran.reached, "{}", ran.run.stderr());
+    assert_eq!(
+        ran.ran_from(),
+        home.runtime_directory("8.3.33").join("bin"),
+        "the PHP the manifest pinned is what ran"
+    );
+    assert_eq!(
+        ran.recorded("FAKESERVICE_SCRIPT")
+            .map(std::path::PathBuf::from),
+        Some(
+            home.path()
+                .join("runtimes")
+                .join("composer")
+                .join("2.10.3")
+                .join("composer.phar")
+        ),
+        "and the phar was its first argument"
+    );
+}
+
+/// The kind that is missing is the one named: a person who typed `composer` and lacks a PHP is
+/// told to install a PHP.
+#[test]
+fn a_command_run_through_a_kind_that_is_not_installed_names_that_kinds_install_command() {
+    let home = Home::with(&[]);
+    home.install(
+        RuntimeKind::Composer,
+        "2.10.3",
+        [("composer".to_owned(), "composer.phar".to_owned())]
+            .into_iter()
+            .collect(),
+    );
+    let project = home.project("shop", Some("[runtimes]\ncomposer = \"2\"\n"));
+
+    let ran = home.record_command("composer", &project, &BTreeMap::new(), 0);
+    assert_eq!(ran.run.code(), 127, "{}", ran.run.stderr());
+    assert!(!ran.reached);
+    let said = ran.run.stderr();
+    assert!(said.contains("composer:"), "{said}");
+    assert!(
+        said.contains("mix runtime") && said.contains("php"),
+        "{said}"
+    );
+}

@@ -655,6 +655,27 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       were caught the same way and closed: one runner had GMP installed and its sibling did not, and
       `/opt/homebrew` is not a compiler search path where `/usr/local` is, so the second attempt at
       evenness was still half wrong until Homebrew was asked where it had put the thing.
+- [x] **T27c** Composer through the runtime pipeline — design in
+      [docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../../docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
+      T25 kept `composer` out of the shim table because it is inside no artifact and said it would
+      arrive with the task that installs it; this is that task. **A fifth `RuntimeKind` rather than a
+      tool of its own**, because everything the pipeline does — signed index, resumable download,
+      pins, defaults, `mix runtime *`, blueprint `[runtimes]`, capture — is keyed on the kind, and the
+      one thing it could not do was the shim's hand-over. So `shims::Command` gained `via`: the
+      `composer` row resolves a Composer for the file and a PHP for the program, each under its own
+      override variable, and starts the PHP with `composer.phar` first. **Two things it does not
+      do**: smoke-test at install (a phar starts nothing without a PHP, which the gallery is about to
+      install) and encode Composer's PHP floor (the pin says `2.2` for a PHP older than 7.2.5, and
+      Composer's own message says the rest). The `CHECK` on `runtime_installs.kind` is the one
+      place the set was closed by hand, rebuilt by `0019` on 0016's pattern. The artifact is six
+      identical cells of one `.phar`, borrowed by `mixengine-packages`' `composer.py` from
+      `composer/composer` and checked against getcomposer.org's SHA-256 — P17 there. `laravel` and
+      `symfony` pin `composer = "2"`, so what T78b made visible closes.
+      **Found on the way, by the first real `composer create-project`:** a scaffold's environment
+      carried `<home>/bin` on the PATH and nothing else, so every shim it ran read `MIXENGINE_HOME`,
+      found it unset, and fell back to the OS default home — another install's database whenever
+      the daemon was started with `--home`. T78a's suite never saw it because its command is
+      `echo`. The scaffold now carries `MIXENGINE_HOME` naming the daemon's own root.
 - [x] **T28** PHP extensions: `conf.d` model, enable/disable, prebuilt extension artifacts, per-pool
       reload.
       **Both of the things this was waiting for had landed with

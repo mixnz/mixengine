@@ -16,7 +16,8 @@ MixEngine installs language runtimes into its own directory, one immutable folde
 never touches whatever your operating system already has. Installing a version never modifies a
 version already installed, so nothing you have working can be broken by adding something new.
 
-Four languages are managed: **PHP**, **Node.js**, **Python** and **Ruby**.
+Four languages are managed: **PHP**, **Node.js**, **Python** and **Ruby** — and one tool,
+**Composer**, which installs the same way and runs under whichever PHP the directory uses.
 
 ## Installing a version
 
@@ -48,6 +49,27 @@ You are never left to guess which is which. `mix runtime available` and `mix pac
 a `RUNS` column on that machine, saying `native` or `emulated` per version, and the install says so
 before it starts downloading. On every other machine the column is not there, because there is
 nothing for it to say.
+
+## Composer
+
+```bash
+mix runtime available --kind composer   # the versions the index offers
+mix runtime install composer 2.10.3     # exact, like every install
+composer --version                      # runs composer.phar under this directory's PHP
+mix project update shop --pin composer=2.2
+```
+
+Composer is a file, not a program: the `composer` command starts the PHP your directory resolves
+to and hands it `composer.phar`. So `MIXENGINE_PHP=8.1 composer install` uses PHP 8.1, and a
+directory pinned to PHP 7.4 needs the 2.2 line — Composer 2.3 and later want PHP 7.2.5 or newer.
+
+| Your PHP | Pin |
+| --- | --- |
+| 7.2.5 and newer | `composer = "2"` |
+| 5.3 – 7.2.4 | `composer = "2.2"` |
+
+Installing Composer creates no service and runs nothing; `mix runtime list` shows it beside the
+languages.
 
 ## Choosing which one a directory uses
 

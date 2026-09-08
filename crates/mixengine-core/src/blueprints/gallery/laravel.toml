@@ -12,6 +12,7 @@ version = "0.0.1"
 [runtimes]
 php = "8.4"
 node = "24"
+composer = "2"
 
 [site]
 kind = "php-fpm"

@@ -319,6 +319,31 @@ async fn without_composer_only_the_two_that_need_it_are_blocked_and_only_at_the_
     }
 }
 
+/// **The two that run Composer ask for it** — roadmap task **T27c**, its design's D6 — so a machine
+/// without one reads `create composer 2` where T78b had it read `blocked`.
+#[tokio::test]
+async fn laravel_and_symfony_ask_for_composer_and_nothing_else_does() {
+    for entry in ENTRIES {
+        let planned = planned(entry.slug).await;
+        let asks = planned.steps.iter().any(|step| {
+            matches!(
+                &step.action,
+                PlanAction::InstallRuntime {
+                    kind: RuntimeKind::Composer,
+                    ..
+                }
+            )
+        });
+        assert_eq!(
+            asks,
+            matches!(entry.slug, "laravel" | "symfony"),
+            "{}: {:?}",
+            entry.slug,
+            planned.steps
+        );
+    }
+}
+
 /// **`{project}` is expanded everywhere it appears, and nowhere is it left as a token** — the T78a
 /// D6 property, held for the shipped set: a gallery blueprint that planned the literal `{project}`
 /// would create a database called `{project}` on somebody's machine.

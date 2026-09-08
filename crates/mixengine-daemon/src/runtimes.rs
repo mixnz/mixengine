@@ -443,7 +443,7 @@ impl Runtimes {
             .install(
                 selection.artifact,
                 &into,
-                Some(&smoke),
+                smoke.as_ref(),
                 mixengine_core::install::NotAnArchive::Refuse,
                 handle,
             )
