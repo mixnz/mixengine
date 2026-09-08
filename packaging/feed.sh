@@ -69,11 +69,20 @@ fi
 # Every payload archive, and never an installer. Matched by name rather than by extension: a `.zip`
 # is the Windows payload and an `.rpm` is not a payload at all, and the difference is the shape of
 # the name the build scripts give them.
+#
+# **And never a headless archive** — T105, D7. Those are named
+# `mixengine-<version>-<os>-<arch>-headless.<ext>`, which matches the globs below, and an updater has
+# no use for one: an install with no window has nothing an update would replace, which
+# `updates::apply`'s rule 2 already guarantees. Left in, each would produce a second row for an
+# (os, arch) pair that already has one, and a client takes the first row it matches.
 shopt -s nullglob
 payloads=()
 for file in "$dist/mixengine-$version-windows-"*.zip \
   "$dist/mixengine-$version-linux-"*.tar.gz \
   "$dist/mixengine-$version-macos-"*.tar.gz; do
+  case "$file" in
+    *-headless.zip | *-headless.tar.gz) continue ;;
+  esac
   [ -f "$file" ] && payloads+=("$file")
 done
 

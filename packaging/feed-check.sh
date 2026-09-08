@@ -38,6 +38,24 @@ with zipfile.ZipFile(os.environ["MIX_CHECK_ZIP"], "w") as archive:
         archive.writestr(f"mixengine/{name}.exe", "not a binary\n")
 PY
 
+# **The headless archives, which this feed must ignore** — T105, D7. They match the same name globs
+# `feed.sh` collects payloads with, and without an exclusion the script reaches its `*)` arm and
+# stops the whole `release` job with "is not a payload name this script recognises". An install with
+# no window has nothing an update would replace, which `updates::apply`'s own rule 2 already
+# guarantees; the feed never needs to describe one.
+tar -czf "$work/dist/mixengine-$version-linux-x86_64-headless.tar.gz" -C "$work/payload" mixengine
+
+export MIX_CHECK_HEADLESS_ZIP="$work/dist/mixengine-$version-windows-x86_64-headless.zip"
+
+python3 - <<'PY'
+import os
+import zipfile
+
+with zipfile.ZipFile(os.environ["MIX_CHECK_HEADLESS_ZIP"], "w") as archive:
+    for name in os.environ["MIX_CHECK_NAMES"].split():
+        archive.writestr(f"mixengine/{name}.exe", "not a binary\n")
+PY
+
 # The two privileged-helper assets a release publishes beside its payloads — roadmap task T88a.
 # `feed.sh` refuses a distribution with none, so this is also what proves the fixture is a release
 # shape rather than half of one.
@@ -69,6 +87,18 @@ for artifact in document["artifacts"]:
     for name, path in provides.items():
         if not path.startswith("mixengine/"):
             problems.append(f"{name} points at {path}, which is not under mixengine/")
+
+# T105. Two payloads went into the fixture and two headless archives beside them; a feed that
+# collected all four would list this pair of (os, arch) twice, and `mixengine_core::index` takes the
+# first row it matches — so the artifact a machine downloaded would depend on the order a glob
+# happened to return.
+seen = [(artifact["os"], artifact["arch"]) for artifact in document["artifacts"]]
+if len(seen) != len(set(seen)):
+    problems.append(f"the feed lists an (os, arch) pair more than once: {sorted(seen)}")
+
+for url in [artifact["url"] for artifact in document["artifacts"]]:
+    if "headless" in url:
+        problems.append(f"the feed lists a headless archive as an update payload: {url}")
 
 # T88a. The helper is its own asset, so the row that names it is the only thing standing between a
 # release and a `mix elevation upgrade` that answers "no privileged helper for this machine" for
