@@ -1,5 +1,5 @@
-import type { SiteOwner } from "./api/types/SiteOwner";
-import type { SiteSummary } from "./api/types/SiteSummary";
+import type { SiteOwner } from "@mixengine/api";
+import type { SiteSummary } from "@mixengine/api";
 
 export type SiteRow = SiteSummary;
 

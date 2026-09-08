@@ -1,4 +1,4 @@
-import type { MetricsMinute } from "./api/types/MetricsMinute";
+import type { MetricsMinute } from "@mixengine/api";
 
 const MINUTE_MS = 60_000;
 

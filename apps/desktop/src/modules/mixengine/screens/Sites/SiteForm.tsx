@@ -8,8 +8,8 @@ import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { SiteDetail } from "../../api/types/SiteDetail";
-import type { SiteKind } from "../../api/types/SiteKind";
+import type { SiteDetail } from "@mixengine/api";
+import type { SiteKind } from "@mixengine/api";
 import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
 import styles from "./SiteForm.module.css";
 

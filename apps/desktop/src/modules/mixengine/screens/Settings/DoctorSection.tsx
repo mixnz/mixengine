@@ -4,7 +4,7 @@ import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DoctorReport } from "../../api/types/DoctorReport";
+import type { DoctorReport } from "@mixengine/api";
 import ElevationDialog from "../../components/ElevationDialog";
 import { isJobFinished, needsResync } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";

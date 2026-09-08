@@ -5,7 +5,7 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DiskUsage } from "../../api/types/DiskUsage";
+import type { DiskUsage } from "@mixengine/api";
 import { cleanupFlagFor, isCleanupReclaimable } from "../../diskUsageState";
 import styles from "./CleanupDialog.module.css";
 

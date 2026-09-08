@@ -1,4 +1,4 @@
-import type { Enforcement } from "./api/types/Enforcement";
+import type { Enforcement } from "@mixengine/api";
 
 export type EnforcementDisplay = "hard" | "unsupported" | "unavailable" | "advisory";
 

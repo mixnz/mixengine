@@ -1,5 +1,5 @@
-import type { MetricsFrame } from "./api/types/MetricsFrame";
-import type { MetricsSample } from "./api/types/MetricsSample";
+import type { MetricsFrame } from "@mixengine/api";
+import type { MetricsSample } from "@mixengine/api";
 
 /**
  * Ghép một `ServiceId` với đúng chuỗi `MetricsSubject` bên MixEngine dùng trên dây.

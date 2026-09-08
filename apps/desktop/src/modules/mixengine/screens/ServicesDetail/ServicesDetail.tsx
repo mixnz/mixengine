@@ -6,7 +6,7 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { ServiceCreation } from "../../api/types/ServiceCreation";
+import type { ServiceCreation } from "@mixengine/api";
 import ServiceForm from "../../components/ServiceForm";
 import DatabasePanel from "./DatabasePanel";
 import IdlePanel from "./IdlePanel";

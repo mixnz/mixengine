@@ -5,7 +5,7 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DomainStatus } from "../../api/types/DomainStatus";
+import type { DomainStatus } from "@mixengine/api";
 import { isJobFinished, needsResync } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
 import AddDomainDialog from "./AddDomainDialog";

@@ -6,7 +6,7 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { SiteSharing } from "../../api/types/SiteSharing";
+import type { SiteSharing } from "@mixengine/api";
 import styles from "./ShareDialog.module.css";
 
 interface Props {

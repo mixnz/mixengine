@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { AutostartReport } from "../../api/types/AutostartReport";
+import type { AutostartReport } from "@mixengine/api";
 import { autostartPresentation } from "../../settingsState";
 import styles from "./Settings.module.css";
 

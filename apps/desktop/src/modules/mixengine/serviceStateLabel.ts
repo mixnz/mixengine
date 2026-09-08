@@ -1,4 +1,4 @@
-import type { ServiceState } from "./api/types/ServiceState";
+import type { ServiceState } from "@mixengine/api";
 
 /**
  * Khoá dịch cho một `ServiceState`, hoặc `null` nếu không có khoá nào.

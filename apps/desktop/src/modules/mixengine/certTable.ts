@@ -1,5 +1,5 @@
-import type { CertIssueReport } from "./api/types/CertIssueReport";
-import type { IssueOutcome } from "./api/types/IssueOutcome";
+import type { CertIssueReport } from "@mixengine/api";
+import type { IssueOutcome } from "@mixengine/api";
 
 export interface CertRow {
   domain: string;

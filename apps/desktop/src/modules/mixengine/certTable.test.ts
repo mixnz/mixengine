@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildCertRows } from "./certTable";
-import type { CertIssueReport } from "./api/types/CertIssueReport";
+import type { CertIssueReport } from "@mixengine/api";
 
 describe("buildCertRows", () => {
   it("reads sans and days_left from a present certificate", () => {

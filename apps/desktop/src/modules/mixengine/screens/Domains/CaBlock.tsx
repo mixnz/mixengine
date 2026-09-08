@@ -4,9 +4,9 @@ import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { Browsers } from "../../api/types/Browsers";
-import type { CaStatus } from "../../api/types/CaStatus";
-import type { Trust } from "../../api/types/Trust";
+import type { Browsers } from "@mixengine/api";
+import type { CaStatus } from "@mixengine/api";
+import type { Trust } from "@mixengine/api";
 import ElevationDialog from "../../components/ElevationDialog";
 import styles from "./CaBlock.module.css";
 

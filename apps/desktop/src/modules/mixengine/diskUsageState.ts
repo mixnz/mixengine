@@ -1,5 +1,5 @@
-import type { CategoryUsage } from "./api/types/CategoryUsage";
-import type { DiskCategory } from "./api/types/DiskCategory";
+import type { CategoryUsage } from "@mixengine/api";
+import type { DiskCategory } from "@mixengine/api";
 
 /** Tên field `CleanupQuery` ứng với một hạng mục, hoặc `null` cho ba hạng mục không dọn được qua
  *  `daemon.cleanup` (`runtimes`/`data`/`certs`) — chỉ `logs`/`cache` từng có `reclaim: "by_cleanup"`

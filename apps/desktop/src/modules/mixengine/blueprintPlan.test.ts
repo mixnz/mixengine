@@ -10,9 +10,9 @@ import {
   jobFailureMessage,
   scaffoldStepIndex,
 } from "./blueprintPlan";
-import type { PlanStep } from "./api/types/PlanStep";
-import type { BlueprintPlan } from "./api/types/BlueprintPlan";
-import type { JobSummary } from "./api/types/JobSummary";
+import type { PlanStep } from "@mixengine/api";
+import type { BlueprintPlan } from "@mixengine/api";
+import type { JobSummary } from "@mixengine/api";
 
 function step(partial: Partial<PlanStep> & Pick<PlanStep, "action" | "disposition">): PlanStep {
   return { elevates: false, ...partial };

@@ -1,12 +1,19 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react()],
+
+  resolve: {
+    alias: {
+      // bindings/ at the repository root — see the note on `paths` in tsconfig.json.
+      "@mixengine/api": fileURLToPath(new URL("../../bindings/index.ts", import.meta.url)),
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
@@ -16,6 +23,11 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
+    fs: {
+      // Vite refuses to serve anything above the project root by default; the contract sits two
+      // levels up. Allowing the repository root, not "/", keeps the refusal for everything else.
+      allow: [fileURLToPath(new URL("../../", import.meta.url))],
+    },
     host: host || false,
     hmr: host
       ? {

@@ -7,10 +7,10 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { BlueprintApplied } from "../../api/types/BlueprintApplied";
-import type { BlueprintPlan } from "../../api/types/BlueprintPlan";
-import type { BlueprintSummary } from "../../api/types/BlueprintSummary";
-import type { MismatchAnswer } from "../../api/types/MismatchAnswer";
+import type { BlueprintApplied } from "@mixengine/api";
+import type { BlueprintPlan } from "@mixengine/api";
+import type { BlueprintSummary } from "@mixengine/api";
+import type { MismatchAnswer } from "@mixengine/api";
 import {
   answerSubjectFor,
   blueprintAppliedFrom,

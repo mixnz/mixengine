@@ -1,5 +1,5 @@
-import type { AutostartReport } from "./api/types/AutostartReport";
-import type { DoctorReport } from "./api/types/DoctorReport";
+import type { AutostartReport } from "@mixengine/api";
+import type { DoctorReport } from "@mixengine/api";
 
 /**
  * Bốn trạng thái một công tắc tự khởi động có thể ở, không phải hai — T85b.

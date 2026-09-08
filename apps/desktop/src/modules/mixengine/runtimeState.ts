@@ -1,5 +1,5 @@
 import type { AppError } from "../../core/errors";
-import type { PoolOutcome } from "./api/types/PoolOutcome";
+import type { PoolOutcome } from "@mixengine/api";
 import type { JobRow } from "./daemonState";
 
 /** `"php@8.3.12"` — cùng một chuỗi làm key React lẫn key tra `installingJob`. */

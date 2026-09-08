@@ -5,7 +5,7 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { BlueprintSummary } from "../../api/types/BlueprintSummary";
+import type { BlueprintSummary } from "@mixengine/api";
 import CaptureDialog from "./CaptureDialog";
 import ImportDialog from "./ImportDialog";
 import ApplyDialog from "./ApplyDialog";

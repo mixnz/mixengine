@@ -6,7 +6,7 @@ import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { ServiceLimitsReport } from "../../api/types/ServiceLimitsReport";
+import type { ServiceLimitsReport } from "@mixengine/api";
 import { enforcementKind, enforcementReason } from "../../limitsState";
 import styles from "./LimitsPanel.module.css";
 

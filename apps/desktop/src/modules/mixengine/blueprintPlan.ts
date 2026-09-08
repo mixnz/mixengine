@@ -1,12 +1,12 @@
-import type { AnswerSubject } from "./api/types/AnswerSubject";
-import type { BlueprintApplied } from "./api/types/BlueprintApplied";
-import type { BlueprintPlan } from "./api/types/BlueprintPlan";
-import type { JobSummary } from "./api/types/JobSummary";
-import type { MismatchAnswer } from "./api/types/MismatchAnswer";
-import type { PlanAction } from "./api/types/PlanAction";
-import type { PlanStep } from "./api/types/PlanStep";
-import type { ScaffoldConsent } from "./api/types/ScaffoldConsent";
-import type { VersionAnswer } from "./api/types/VersionAnswer";
+import type { AnswerSubject } from "@mixengine/api";
+import type { BlueprintApplied } from "@mixengine/api";
+import type { BlueprintPlan } from "@mixengine/api";
+import type { JobSummary } from "@mixengine/api";
+import type { MismatchAnswer } from "@mixengine/api";
+import type { PlanAction } from "@mixengine/api";
+import type { PlanStep } from "@mixengine/api";
+import type { ScaffoldConsent } from "@mixengine/api";
+import type { VersionAnswer } from "@mixengine/api";
 import type { TranslationKey } from "../../i18n";
 
 /**

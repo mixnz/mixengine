@@ -1,5 +1,5 @@
-import type { ProjectPin } from "./api/types/ProjectPin";
-import type { RuntimeKind } from "./api/types/RuntimeKind";
+import type { ProjectPin } from "@mixengine/api";
+import type { RuntimeKind } from "@mixengine/api";
 
 /**
  * Một `ProjectPin` thành thứ vẽ được — không suy ra `resolvedVersion` từ `constraint` phía client,

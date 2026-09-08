@@ -5,7 +5,7 @@ import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { MetricsHistory } from "../../api/types/MetricsHistory";
+import type { MetricsHistory } from "@mixengine/api";
 import { segmentsFor } from "../../metricsHistoryState";
 import { DAEMON_SUBJECT, metricsSubjectFor } from "../../metricsState";
 import Chart from "./Chart";

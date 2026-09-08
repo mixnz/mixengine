@@ -9,13 +9,16 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { ChevronRightIcon } from "../../../../icons";
 import * as api from "../../api";
-import type { ProjectDetail } from "../../api/types/ProjectDetail";
-import type { RuntimeKind } from "../../api/types/RuntimeKind";
-import type { SiteKind } from "../../api/types/SiteKind";
+import type { ProjectDetail } from "@mixengine/api";
+import type { RuntimeKind } from "@mixengine/api";
+import type { SiteKind } from "@mixengine/api";
 import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
 import styles from "./ProjectForm.module.css";
 
-const RUNTIME_KINDS: readonly RuntimeKind[] = ["php", "node", "python", "ruby"];
+// Every kind the contract knows, in the order the form shows them. `composer` arrived with
+// MixEngine's T27c and was the first thing the alias onto `bindings/` caught (phase 11, T102): a
+// project pinned to a Composer version would otherwise have lost that pin on its next save here.
+const RUNTIME_KINDS: readonly RuntimeKind[] = ["php", "node", "python", "ruby", "composer"];
 type Kind = SiteKind["kind"];
 
 /**
@@ -81,7 +84,13 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
   // thêm `project.update` nếu ô này vẫn đang tick.
   const [keepWarm, setKeepWarm] = useState(editing ? initial.project.keep_warm : true);
   const [pins, setPins] = useState<Record<RuntimeKind, string>>(() => {
-    const initialPins: Record<RuntimeKind, string> = { php: "", node: "", python: "", ruby: "" };
+    const initialPins: Record<RuntimeKind, string> = {
+      php: "",
+      node: "",
+      python: "",
+      ruby: "",
+      composer: "",
+    };
     if (editing) {
       for (const pin of initial.pins) initialPins[pin.kind] = pin.constraint;
     }

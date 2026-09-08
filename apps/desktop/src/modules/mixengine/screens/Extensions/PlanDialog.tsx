@@ -5,8 +5,8 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { ExtensionOrigin } from "../../api/types/ExtensionOrigin";
-import type { ExtensionPlan } from "../../api/types/ExtensionPlan";
+import type { ExtensionOrigin } from "@mixengine/api";
+import type { ExtensionPlan } from "@mixengine/api";
 import styles from "./PlanDialog.module.css";
 
 interface Props {

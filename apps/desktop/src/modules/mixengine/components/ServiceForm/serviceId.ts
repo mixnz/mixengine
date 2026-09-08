@@ -1,4 +1,4 @@
-import type { ServiceId } from "../../api/types/ServiceId";
+import type { ServiceId } from "@mixengine/api";
 
 /**
  * Dựng `ServiceId` từ package người dùng chọn và cái tên instance họ gõ thêm.

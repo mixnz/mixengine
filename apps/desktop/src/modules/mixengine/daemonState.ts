@@ -1,5 +1,5 @@
-import type { ServiceState } from "./api/types/ServiceState";
-import type { ServiceSummary } from "./api/types/ServiceSummary";
+import type { ServiceState } from "@mixengine/api";
+import type { ServiceSummary } from "@mixengine/api";
 
 /**
  * Rút gọn stream sự kiện thành state của bảng.
@@ -80,7 +80,7 @@ export function applyEvent(
       /* `service`, **không phải** `id`. Bản phác Rust trong `daemon-and-ipc.md` của MixEngine viết
          `ServiceStateChanged { id, .. }`, nhưng thứ daemon thật sự gửi là `ServiceTransition`, và
          nó gọi field đó là `service`. Đọc nhầm tên thì mọi sự kiện rơi vào im lặng và bảng không
-         bao giờ đổi — hợp đồng đã sinh ở `api/types/` là sự thật, tài liệu kiến trúc thì không. */
+         bao giờ đổi — hợp đồng đã sinh ở `bindings/` (alias `@mixengine/api`) là sự thật, tài liệu kiến trúc thì không. */
       const id = typeof event.service === "string" ? event.service : null;
       const to = typeof event.to === "string" ? (event.to as ServiceState) : null;
       if (id === null || to === null) return { rows, resync: false };

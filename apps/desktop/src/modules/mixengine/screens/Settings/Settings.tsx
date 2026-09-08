@@ -4,7 +4,7 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DaemonStatus } from "../../api/types/DaemonStatus";
+import type { DaemonStatus } from "@mixengine/api";
 import AutostartSection from "./AutostartSection";
 import DiagnosticsSection from "./DiagnosticsSection";
 import DoctorSection from "./DoctorSection";

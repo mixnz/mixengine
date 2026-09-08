@@ -6,7 +6,7 @@ import Input from "../../../../components/Input";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DatabaseClientReport } from "../../api/types/DatabaseClientReport";
+import type { DatabaseClientReport } from "@mixengine/api";
 import styles from "./DatabasePanel.module.css";
 
 export default function DatabasePanel({ service }: { service: string }) {

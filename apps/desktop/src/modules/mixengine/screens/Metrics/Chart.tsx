@@ -1,4 +1,4 @@
-import type { MetricsMinute } from "../../api/types/MetricsMinute";
+import type { MetricsMinute } from "@mixengine/api";
 import styles from "./Chart.module.css";
 
 const WIDTH = 640;

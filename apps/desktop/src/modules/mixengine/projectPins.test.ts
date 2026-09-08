@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { formatPins } from "./projectPins";
-import type { ProjectPin } from "./api/types/ProjectPin";
+import type { ProjectPin } from "@mixengine/api";
 
 describe("formatPins", () => {
   it("labels a manifest-sourced pin with its path", () => {

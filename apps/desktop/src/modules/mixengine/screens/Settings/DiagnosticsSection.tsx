@@ -5,7 +5,7 @@ import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { BundleReport } from "../../api/types/BundleReport";
+import type { BundleReport } from "@mixengine/api";
 import { formatBytes } from "../../metricsState";
 import styles from "./Settings.module.css";
 

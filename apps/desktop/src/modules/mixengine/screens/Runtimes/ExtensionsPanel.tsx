@@ -4,8 +4,8 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { RuntimeExtension } from "../../api/types/RuntimeExtension";
-import type { RuntimeTarget } from "../../api/types/RuntimeTarget";
+import type { RuntimeExtension } from "@mixengine/api";
+import type { RuntimeTarget } from "@mixengine/api";
 import { poolBanner, type PoolBanner } from "../../runtimeState";
 import styles from "./ExtensionsPanel.module.css";
 

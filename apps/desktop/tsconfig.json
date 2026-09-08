@@ -18,7 +18,14 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* The MixEngine API contract, straight from the repository it is generated in — the design's
+       D4. A vendored copy was how the two drifted apart; a path alias is what makes a type reshaped
+       in mixengine-proto fail *this* typecheck in the same CI run. */
+    "paths": {
+      "@mixengine/api": ["../../bindings/index.ts"]
+    }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

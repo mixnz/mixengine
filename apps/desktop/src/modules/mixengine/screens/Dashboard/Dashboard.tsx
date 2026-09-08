@@ -5,8 +5,8 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { DaemonStatus } from "../../api/types/DaemonStatus";
-import type { DiskUsage } from "../../api/types/DiskUsage";
+import type { DaemonStatus } from "@mixengine/api";
+import type { DiskUsage } from "@mixengine/api";
 import ElevationDialog from "../../components/ElevationDialog";
 import ServiceForm from "../../components/ServiceForm";
 import {
@@ -19,7 +19,7 @@ import {
   type ServiceRow,
 } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
-import type { MetricsFrame } from "../../api/types/MetricsFrame";
+import type { MetricsFrame } from "@mixengine/api";
 import {
   DAEMON_SUBJECT,
   formatBytes,

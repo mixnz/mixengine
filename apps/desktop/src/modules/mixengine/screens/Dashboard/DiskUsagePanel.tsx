@@ -1,6 +1,6 @@
 import { useTranslation } from "../../../../i18n";
-import type { CategoryUsage } from "../../api/types/CategoryUsage";
-import type { DiskUsage } from "../../api/types/DiskUsage";
+import type { CategoryUsage } from "@mixengine/api";
+import type { DiskUsage } from "@mixengine/api";
 import { isCleanupReclaimable } from "../../diskUsageState";
 import { formatBytes } from "../../metricsState";
 import styles from "./DiskUsagePanel.module.css";

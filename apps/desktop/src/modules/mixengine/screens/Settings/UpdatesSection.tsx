@@ -4,7 +4,7 @@ import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { UpdateStatus } from "../../api/types/UpdateStatus";
+import type { UpdateStatus } from "@mixengine/api";
 import styles from "./Settings.module.css";
 import { useRunningDots } from "./useRunningDots";
 
