@@ -106,6 +106,7 @@ const vi: SharedDict = {
   // ra khi người dùng tự bấm nút.
   update: {
     title: "Cập nhật",
+    unavailable: "MixLab được cập nhật cùng MixEngine.",
     available: "Đã có MixLab {{version}}",
     runningNow: "Bạn đang dùng bản {{version}}",
     updateNow: "Cập nhật ngay",
@@ -129,7 +130,7 @@ const vi: SharedDict = {
     openPage: "Mở trang tải về",
     moreChanges: "và {{count}} thay đổi khác",
     autoHint:
-      "MixLab tự cập nhật. Mỗi bản cập nhật đều được đối chiếu với khóa ký của MixLab trước khi cài, nên không thứ gì không do dự án này ký có thể đến với bạn bằng đường này.",
+      "MixLab đi cùng MixEngine — bộ cài đặt cửa sổ này vào máy, và trình cập nhật của MixEngine giữ nó luôn mới. Ở đây không có gì để kiểm tra.",
   },
   // Thông báo khi một lệnh ở backend thất bại. Khóa ở đây chính là `code` mà `AppError` mang theo
   // — xem src-tauri/src/error.rs. `{{message}}` là nguyên văn lời của driver, không dịch: đó là

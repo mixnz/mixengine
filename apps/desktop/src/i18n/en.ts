@@ -113,6 +113,7 @@ const en = {
   // install closes the app, so it never happens without the user pressing the button for it.
   update: {
     title: "Updates",
+    unavailable: "MixLab is updated with MixEngine.",
     available: "MixLab {{version}} is out",
     runningNow: "You are running {{version}}",
     updateNow: "Update now",
@@ -136,7 +137,7 @@ const en = {
     openPage: "Open the download page",
     moreChanges: "and {{count}} more",
     autoHint:
-      "MixLab updates itself. Each update is checked against MixLab's signing key before it is installed, so nothing unsigned by this project can reach you this way.",
+      "MixLab arrives and is replaced with MixEngine — its installer puts the window in place, and MixEngine's own updater keeps it current. There is nothing to check for here.",
   },
   // What a failed backend command says. The keys here are the `code` an `AppError` carries \u2014 see
   // src-tauri/src/error.rs \u2014 and `{{message}}` is where a driver's own words go, untranslated

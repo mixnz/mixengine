@@ -28,6 +28,7 @@ function UpdateSection({ update }: Props) {
   const busy = status === "checking";
 
   function statusLine(): string {
+    if (status === "unavailable") return t("update.unavailable");
     if (busy) return t("update.checking");
     if (status === "error") return release === null
       ? t("update.checkFailed", { message: error })
