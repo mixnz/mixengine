@@ -106,6 +106,20 @@ build step; the arrangement here keeps it true.
 | Linux | `mixengine-<v>-linux-<arch>.AppImage` | the five in the AppDir; `AppRun` opens the window with no arguments |
 | Linux | `mixengine-<v>-linux-<arch>-headless.tar.gz` | the four |
 
+**One thing the macOS package has to switch off.** `pkgbuild` turns any `.app` under `--root` into a
+*component* and makes it **relocatable** by default, and a relocatable component is not installed at
+the path the package names: at install time the installer asks Launch Services where a bundle with
+this identifier already lives and writes it there instead. Measured on run 34274920375, where
+`installer(8)` reported success, every other path was written, and `/Applications/MixLab.app` did not
+exist — Launch Services had indexed the copy `packaging/desktop.sh` had built minutes earlier inside
+the work tree. On a user's machine the same rule would quietly install MixLab wherever an older copy
+had been dragged. So `build.sh` runs `pkgbuild --analyze`, sets `BundleIsRelocatable` and
+`BundleIsVersionChecked` to false on the one component, reads both back, and passes the result as
+`--component-plist`. Version checking goes with relocation for a plainer reason: left on, a machine
+that already has this version keeps the copy it has and the package writes nothing, which is fine
+while the bytes are identical and wrong the moment they are not. The other four paths are plain
+files and are always written; the window is now the same.
+
 ### D4. NSIS: two shortcuts, one scheme, and an uninstaller that takes back only its own
 
 `packaging/windows/mixengine.nsi` gains, in the install section, `File "${STAGE}\mixlab.exe"` and a

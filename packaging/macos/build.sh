@@ -92,10 +92,52 @@ esac
 name="mixengine-$version-macos-universal.pkg"
 rm -f "$dist/$name"
 
+# **The component list, with relocation turned off — and that is not a nicety.**
+#
+# `pkgbuild` turns any `.app` it finds under `--root` into a *component* (it says so:
+# "Adding component at Applications/MixLab.app") and makes it **relocatable** by default. A
+# relocatable component is not installed at the path the package names: at install time the
+# installer asks Launch Services where a bundle with this identifier already lives and writes it
+# *there* instead. Measured on run 34274920375 — `installer(8)` reported success, every other path
+# was written, and `/Applications/MixLab.app` did not exist, because Launch Services had indexed the
+# copy `packaging/desktop.sh` had just built inside the work tree. On a user's machine the same rule
+# would quietly install MixLab wherever an older one had been dragged.
+#
+# `BundleIsVersionChecked` goes with it. Left on, a machine that already has this version keeps the
+# copy it has and the package writes nothing — which is fine when the bytes are identical and wrong
+# the moment they are not. The other four paths are plain files and are always written; the window
+# is now the same.
+components="$MIX_OUT/components.plist"
+rm -f "$components"
+pkgbuild --analyze --root "$root" "$components"
+
+# Exactly one bundle, so the index below is a fact rather than a guess. A second `.app` appearing
+# here is a packaging change that has to decide this question again, and it should not do so by
+# silently keeping the default for the one this loop did not reach.
+if /usr/libexec/PlistBuddy -c 'Print :1' "$components" >/dev/null 2>&1; then
+  echo "the package root holds more than one bundle; this script assumes exactly one" >&2
+  /usr/libexec/PlistBuddy -c 'Print :' "$components" >&2
+  exit 1
+fi
+
+/usr/libexec/PlistBuddy -c 'Set :0:BundleIsRelocatable false' "$components"
+/usr/libexec/PlistBuddy -c 'Set :0:BundleIsVersionChecked false' "$components"
+
+# Read back, because the two lines above are the whole of what stops the failure described there and
+# `PlistBuddy` reports a key it did not find on stdout rather than by failing.
+for key in BundleIsRelocatable BundleIsVersionChecked; do
+  value="$(/usr/libexec/PlistBuddy -c "Print :0:$key" "$components")"
+  test "$value" = "false" || {
+    echo "$key is '$value' in the component list, and this package needs it false" >&2
+    exit 1
+  }
+done
+
 # `--ownership recommended`: the payload is installed as `root:wheel` whatever the account that
 # built it happened to be, which is the whole reason the helper can be shipped in here at all.
 pkgbuild \
   --root "$root" \
+  --component-plist "$components" \
   --identifier dev.mixengine.cli \
   --version "$version" \
   --ownership recommended \

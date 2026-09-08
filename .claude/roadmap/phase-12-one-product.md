@@ -62,11 +62,17 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       shortcut, and that is named MixLab. And **the AppImage does not carry WebKitGTK**, contrary to
       one line of D8: appimagetool bundles no libraries, and doing it means `linuxdeploy` and its
       GTK plugin — a dependency and a failure mode of a different size. `AppRun` fails in words
-      naming the package to install instead, and bundling is T105a below. Two smaller things fell
-      out: the window is built by a script of its own (`packaging/desktop.sh`) because `stage.sh`
-      builds with `cargo -p` from a root that excludes that crate, and `feed.sh` had to learn to
-      skip `*-headless.*` — the new archives match its payload globs, and one left in would have
-      stopped the whole `release` job at "is not a payload name this script recognises".
+      naming the package to install instead, and bundling is T105a below. And **a `.app` in a
+      `.pkg` is relocatable unless you say otherwise**: `pkgbuild` made `MixLab.app` a component,
+      and `installer(8)` then asked Launch Services where that bundle identifier already lived and
+      wrote it *there* — into the work tree's own build output on the runner. Green package, green
+      `pkgutil --payload-files`, no `/Applications/MixLab.app`; caught by `macos/probe.sh`, which
+      installs for real, on run 34274920375. `--component-plist` with `BundleIsRelocatable` and
+      `BundleIsVersionChecked` false is the fix. Two smaller things fell out: the window is built by
+      a script of its own (`packaging/desktop.sh`) because `stage.sh` builds with `cargo -p` from a
+      root that excludes that crate, and `feed.sh` had to learn to skip `*-headless.*` — the new
+      archives match its payload globs, and one left in would have stopped the whole `release` job
+      at "is not a payload name this script recognises".
 
 - [ ] **T105a** The AppImage carries the libraries the window needs (D8). `linuxdeploy` and its GTK
       plugin, or the measurement that says a distribution floor is cheaper than carrying WebKitGTK.
