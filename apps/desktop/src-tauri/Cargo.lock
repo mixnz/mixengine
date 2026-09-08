@@ -3578,6 +3578,7 @@ dependencies = [
  "keyring",
  "libc",
  "libsqlite3-sys",
+ "log",
  "mixengine-platform",
  "mongodb",
  "portable-pty",

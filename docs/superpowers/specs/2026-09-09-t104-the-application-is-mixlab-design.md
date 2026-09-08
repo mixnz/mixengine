@@ -210,9 +210,10 @@ installed, and finds nothing if none is, exactly as it does today.
   of the import carries on.
 - **A file that is not JSON** — copied anyway (it matched the pattern and it is the user's), but it
   contributes no accounts and the parse failure is named.
-- **The credential store unreachable, or its dialog refused** — the whole credential phase stops,
-  the marker records it, and every imported connection is one MixLab renders as *ask again*.
-- **A single account that cannot be read** — skipped and named; the others still come across.
+- **The credential store unreachable, or its dialog refused** — every account fails in turn, the
+  marker records how many, and each imported connection is one MixLab renders as *ask again*.
+- **A single account that cannot be read** — skipped, named and counted; the others still come
+  across.
 - **Anything at all in the import** — never propagates out of `setup()`. The window opens.
 
 ## Testing

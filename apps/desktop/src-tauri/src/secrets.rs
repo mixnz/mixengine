@@ -46,8 +46,15 @@ impl std::fmt::Debug for Redacted {
     }
 }
 
-/// The name MixDB's entries appear under in the OS credential store.
-const SERVICE: &str = "MixDB";
+/// The name this application's entries appear under in the OS credential store.
+const SERVICE: &str = "MixLab";
+
+/// The name they appeared under while this application was MixDB.
+///
+/// Read once, by the import on the first launch after the rename (`crate::import`), and never
+/// written to or deleted from: a standalone MixDB may still be installed and still be in use, and
+/// those entries are its own. See the T104 design, D4.
+pub const LEGACY_SERVICE: &str = "MixDB";
 
 /// The account the vault is stored under. Every other account name in the service is a leftover
 /// from before the vault, and is a connection id — a uuid, so nothing can collide with this.
@@ -75,12 +82,21 @@ trait Store {
     fn forget(&self, account: &str) -> Result<(), AppError>;
 }
 
-/// The credential store of the machine MixDB is running on.
-struct OsStore;
+/// The credential store of the machine this is running on, under one service name.
+///
+/// The name is a field rather than the constant it used to be because three of them are addressed
+/// from here: this application's own, MixEngine's, and — read-only — the one MixDB used.
+struct OsStore {
+    service: &'static str,
+}
 
 impl OsStore {
+    const fn new(service: &'static str) -> Self {
+        Self { service }
+    }
+
     fn entry(&self, account: &str) -> Result<Entry, AppError> {
-        Entry::new(SERVICE, account)
+        Entry::new(self.service, account)
             .map_err(|e| err!("error.credentialStoreUnreachable", message = e))
     }
 }
@@ -252,7 +268,7 @@ impl<S: Store> Keeper<S> {
 
 fn keeper() -> &'static Keeper<OsStore> {
     static KEEPER: OnceLock<Keeper<OsStore>> = OnceLock::new();
-    KEEPER.get_or_init(|| Keeper::new(OsStore))
+    KEEPER.get_or_init(|| Keeper::new(OsStore::new(SERVICE)))
 }
 
 /// Writes a saved connection's secrets, replacing whatever was there. An empty set deletes them.
@@ -304,14 +320,79 @@ const MIXENGINE_SERVICE: &str = "mixengine";
 /// is gone, and a reference outliving its credential is that account's normal end, not a failure —
 /// the caller shows the same empty-password form a connection that was never saved would.
 fn read_mixengine_entry(key: &str) -> Result<Option<String>, AppError> {
-    match Entry::new(MIXENGINE_SERVICE, key)
-        .map_err(|e| err!("error.credentialStoreUnreachable", message = e))?
-        .get_password()
-    {
-        Ok(value) => Ok(Some(value)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(err!("error.cannotReadPassword", message = e)),
+    OsStore::new(MIXENGINE_SERVICE).read(key)
+}
+
+/// Every account's secrets as MixDB left them, and the accounts that could not be read.
+///
+/// Reads and nothing else — no write, no delete, no move into a vault. MixDB may still be
+/// installed and in use, and its entries are its own (T104, D5).
+///
+/// Two shapes, because MixDB wrote two: one entry per account on Windows and Linux, and on macOS a
+/// single `vault` account holding every account's secrets in one object — with a per-account entry
+/// still possible beside it for a connection saved before the vault existed. Generic over the
+/// store so both are tested against a `HashMap` rather than against the developer's keychain.
+fn read_all<S: Store>(
+    store: &S,
+    vaulted: bool,
+    accounts: &[String],
+) -> (Vec<(String, Secrets)>, Vec<String>) {
+    let vault: Vault = if vaulted {
+        match store.read(VAULT) {
+            Ok(Some(json)) => serde_json::from_str(&json).unwrap_or_else(|e| {
+                log::warn!("import: {LEGACY_SERVICE}'s vault could not be parsed: {e}");
+                Vault::new()
+            }),
+            Ok(None) => Vault::new(),
+            Err(e) => {
+                log::warn!("import: {LEGACY_SERVICE}'s vault could not be read: {e:?}");
+                Vault::new()
+            }
+        }
+    } else {
+        Vault::new()
+    };
+
+    let mut found = Vec::new();
+    let mut failed = Vec::new();
+    for account in accounts {
+        if let Some(secrets) = vault.get(account) {
+            if !secrets.is_empty() {
+                found.push((account.clone(), secrets.clone()));
+            }
+            continue;
+        }
+        match store.read(account) {
+            Ok(Some(json)) => match serde_json::from_str::<Secrets>(&json) {
+                Ok(secrets) if !secrets.is_empty() => found.push((account.clone(), secrets)),
+                Ok(_) => {}
+                Err(e) => {
+                    log::warn!(
+                        "import: what {LEGACY_SERVICE} stored for an account is not readable: {e}"
+                    );
+                    failed.push(account.clone());
+                }
+            },
+            // Nothing stored is the ordinary case, not a gap: a connection that never had a
+            // password, and the `rest-env:` form of every id that is not a REST environment.
+            Ok(None) => {}
+            Err(e) => {
+                log::warn!("import: an account could not be read from {LEGACY_SERVICE}: {e:?}");
+                failed.push(account.clone());
+            }
+        }
     }
+    (found, failed)
+}
+
+/// The same, against the machine's own credential store under the name this application used to
+/// have. The vault is macOS's, exactly as it is for this application's own entries.
+pub fn read_legacy(accounts: &[String]) -> (Vec<(String, Secrets)>, Vec<String>) {
+    read_all(
+        &OsStore::new(LEGACY_SERVICE),
+        cfg!(target_os = "macos"),
+        accounts,
+    )
 }
 
 /// The password a `SavedConnection.keyringRef` points at, or `None` when MixEngine no longer has
@@ -576,6 +657,80 @@ mod tests {
 
         assert_eq!(store.reads_of("a"), 2);
         assert_eq!(store.reads_of(VAULT), 0);
+    }
+
+    /// MixDB on Windows and Linux: an entry per account. The reader takes what the store files
+    /// name and leaves everything else, the entries themselves included.
+    #[test]
+    fn the_legacy_reader_takes_per_account_entries_and_writes_nothing() {
+        let store = Arc::new(MemoryStore::default());
+        store.seed("a", &serde_json::to_string(&secrets("one")).unwrap());
+        store.seed("b", &serde_json::to_string(&secrets("two")).unwrap());
+
+        let (found, failed) = super::read_all(&store, false, &["a".into(), "c".into()]);
+
+        assert_eq!(found, vec![("a".to_string(), secrets("one"))]);
+        assert!(failed.is_empty(), "an account with no entry is not a failure");
+        assert!(
+            store.has("a") && store.has("b"),
+            "the old entries stay where they are"
+        );
+    }
+
+    /// MixDB on macOS: one `vault` entry holding every account. Read once, and left alone.
+    #[test]
+    fn the_legacy_reader_takes_the_vault() {
+        let store = Arc::new(MemoryStore::default());
+        let mut vault = HashMap::new();
+        vault.insert("a".to_string(), secrets("one"));
+        vault.insert("b".to_string(), secrets("two"));
+        store.seed(VAULT, &serde_json::to_string(&vault).unwrap());
+
+        let (found, failed) = super::read_all(&store, true, &["b".into(), "zz".into()]);
+
+        assert_eq!(found, vec![("b".to_string(), secrets("two"))]);
+        assert!(failed.is_empty());
+        assert_eq!(
+            store.reads_of(VAULT),
+            1,
+            "the vault is read once, not once per account"
+        );
+        assert!(store.has(VAULT));
+    }
+
+    /// A connection MixDB saved before the vault existed keeps an entry of its own beside it. The
+    /// reader looks there second, and still moves nothing.
+    #[test]
+    fn the_legacy_reader_falls_back_to_a_pre_vault_entry() {
+        let store = Arc::new(MemoryStore::default());
+        let mut vault = HashMap::new();
+        vault.insert("a".to_string(), secrets("one"));
+        store.seed(VAULT, &serde_json::to_string(&vault).unwrap());
+        store.seed("old", &serde_json::to_string(&secrets("legacy")).unwrap());
+
+        let (found, _) = super::read_all(&store, true, &["a".into(), "old".into()]);
+
+        assert_eq!(
+            found,
+            vec![
+                ("a".to_string(), secrets("one")),
+                ("old".to_string(), secrets("legacy")),
+            ]
+        );
+        assert!(store.has("old"), "the pre-vault entry is read, never moved");
+    }
+
+    /// What could not be read is counted rather than swallowed: the marker the import writes says
+    /// how many accounts it did not reach.
+    #[test]
+    fn the_legacy_reader_counts_what_it_could_not_read() {
+        let store = Arc::new(MemoryStore::default());
+        store.seed("a", "this is not json");
+
+        let (found, failed) = super::read_all(&store, false, &["a".into()]);
+
+        assert!(found.is_empty());
+        assert_eq!(failed, vec!["a".to_string()]);
     }
 
     /// Ignored by default: it writes to the machine's real credential store, which a headless
