@@ -1,0 +1,8 @@
+.icon {
+  /* Icons sit inline next to text (a check before "Saved") as often as they sit alone in a
+   * flex-centered button, so they have to behave in both: never squeezed by a flex parent,
+   * and optically centred on the text baseline when there is one. */
+  display: inline-block;
+  flex-shrink: 0;
+  vertical-align: -0.125em;
+}

@@ -3,9 +3,11 @@
 **Goal**: prove, on paper, that the API is sufficient for a full graphical client — before a client
 finds out by hitting a wall.
 
-MixEngine ships no GUI ([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)). A graphical
-client lives in its own repository and reaches the daemon through the same JSON-RPC API and event
-stream the CLI uses, with TypeScript types generated from `mixengine-proto`. This page is not that
+The desktop application under `apps/desktop/` is that client
+([ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)), and it reaches the
+daemon through the same JSON-RPC API and event stream the CLI uses, typed against `bindings/`.
+Since ADR 0027 the list below is checked by a compiler as well as by reading: a type reshaped in
+`mixengine-proto` fails the desktop typecheck in the same CI run. This page is not that
 client's design; it is the list of things such a client must be able to *ask for*. Every line below
 is a claim about the API, and each one is either satisfied by a method in
 [architecture/daemon-and-ipc.md](../architecture/daemon-and-ipc.md) or it is a gap.

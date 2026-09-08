@@ -1,0 +1,22 @@
+/* Một dải trên đầu màn hình chứ không phải một lớp phủ ở góc: màn hình terminal vẽ tới sát mép và
+   một hộp nổi trên nó luôn che mất đúng dòng người ta đang đọc. */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--page-bg);
+}
+
+.field {
+  flex: 1;
+  min-width: 0;
+}
+
+.status {
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}

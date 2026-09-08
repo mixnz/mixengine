@@ -1,0 +1,152 @@
+/* The variables CodeMirror is painted from. They live here, not in `theme.ts`: the extension list
+   is built once and kept for the life of the editor, while the app's theme and accent change under
+   it — only a CSS variable follows that.
+
+   Light values first, as everywhere else in the app; the blocks at the foot restate the ones that
+   need lifting in the dark theme. The string, number and identifier colours are the ones `JsonView`
+   already paints JSON with, so a script and a JSON value in the same window are coloured by one
+   scheme; the rest extends that palette in the same key. */
+.editor {
+  --sql-text: inherit;
+  --sql-keyword: #7c3aed;
+  --sql-type: #267f99;
+  --sql-builtin: #795e26;
+  --sql-string: #a31515;
+  --sql-identifier: #0451a5;
+  --sql-number: #098658;
+  --sql-comment: #6a737d;
+  --sql-operator: #57606a;
+  --sql-punctuation: #57606a;
+
+  /* Structural colours, all of them derived from tokens so the accent carries through. */
+  --sql-selection: rgb(var(--accent-rgb) / 0.22);
+  --sql-match: rgb(var(--accent-rgb) / 0.16);
+  --sql-match-selected: rgb(var(--accent-rgb) / 0.34);
+  --sql-bracket: rgb(128 128 128 / 0.3);
+  --sql-bracket-bad: rgb(211 47 47 / 0.28);
+  --sql-gutter: rgb(128 128 128 / 0.75);
+  --sql-gutter-active: var(--accent-text);
+  /* What the line numbers are painted on, and it has to be opaque: the gutter is pinned to the left
+     edge of the scroller, so a script wider than the editor slides underneath it. The pane's colour
+     is two layers — `--control-bg` over the page — and the top one is translucent in the dark theme
+     and in glass, so naming it alone would tint the code passing behind rather than hide it. */
+  --sql-gutter-bg: linear-gradient(var(--control-bg), var(--control-bg)), var(--page-bg);
+  --sql-statement-bg: rgb(var(--accent-rgb) / 0.06);
+  --sql-statement-bar: rgb(var(--accent-rgb) / 0.55);
+
+  /* The two error-check colours. The red is the one the results column already reports a failed
+     statement in, so a squiggle and the message it turns into are the same red. The amber is
+     visibly not that red: almost everything the checker says is a warning, and a warning that
+     looks like an error would have the whole editor reading as broken. */
+  --sql-error: var(--danger-text);
+  --sql-warning: #9c7000;
+
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* The lines the statement under the caret covers, i.e. where the script gets cut. Marked with a bar
+   down the left rather than a filled band: it is on screen the whole time the editor is being
+   typed in, so it has to be readable as background and never as a selection. */
+.statementLine {
+  background: var(--sql-statement-bg);
+  box-shadow: inset 2px 0 0 var(--sql-statement-bar);
+}
+
+/* What the pointer resting on a name puts on screen. The tooltip's frame is CodeMirror's own and
+   is dressed in `theme.ts`; everything inside it is here.
+
+   Nothing sets a face: CodeMirror hangs its tooltips inside `.cm-editor` itself, so this inherits
+   the editor's monospace — which is the app's own, the one font `:root` in `App.css` names. There
+   is no second face to ask for. */
+.hover {
+  max-width: 26rem;
+  padding: 0.4rem 0.55rem;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* In the colour a name is written in: the first line of the tooltip is a piece of SQL — a table's
+   name, a column's, a function's signature — not a sentence about one. */
+.hoverTitle {
+  color: var(--sql-identifier);
+  overflow-wrap: anywhere;
+}
+
+.hoverSubtitle {
+  margin-top: 0.1rem;
+  font-size: var(--text-md);
+  opacity: 0.65;
+}
+
+/* Capped and scrollable: a wide table would otherwise run the tooltip off the bottom of the
+   window, and the first columns are the ones being looked for. */
+.hoverList {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  max-height: 11rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.hoverRow {
+  display: flex;
+  gap: 1.25rem;
+  justify-content: space-between;
+}
+
+.hoverName {
+  color: var(--sql-identifier);
+}
+
+/* Never wrapped: a type folding onto a second line would break the column of them down the
+   right-hand side, which is what makes the list readable at a glance. */
+.hoverDetail {
+  white-space: nowrap;
+  opacity: 0.6;
+}
+
+.hoverFooter {
+  margin-top: 0.4rem;
+  font-size: var(--text-sm);
+  opacity: 0.55;
+}
+
+/* A name `Ctrl+Click` would follow, while the modifier is held. Underlined and no more: the word
+   keeps its syntax colour, so what is being offered is a link to it rather than a change of it. */
+.jumpTarget {
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+:root[data-theme="dark"] .editor {
+  --sql-error: var(--danger-text);
+  --sql-warning: #e2b93d;
+  --sql-keyword: #c586c0;
+  --sql-type: #4ec9b0;
+  --sql-builtin: #dcdcaa;
+  --sql-string: #ce9178;
+  --sql-identifier: #9cdcfe;
+  --sql-number: #b5cea8;
+  --sql-comment: #6a9955;
+  --sql-operator: #8b949e;
+  --sql-punctuation: #8b949e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .editor {
+    --sql-error: var(--danger-text);
+    --sql-warning: #e2b93d;
+    --sql-keyword: #c586c0;
+    --sql-type: #4ec9b0;
+    --sql-builtin: #dcdcaa;
+    --sql-string: #ce9178;
+    --sql-identifier: #9cdcfe;
+    --sql-number: #b5cea8;
+    --sql-comment: #6a9955;
+    --sql-operator: #8b949e;
+    --sql-punctuation: #8b949e;
+  }
+}

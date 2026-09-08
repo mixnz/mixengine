@@ -163,8 +163,10 @@ compile_error!(
 
 /// Whether this binary came out of the packaging pipeline.
 ///
-/// **`packaging/stage.sh` sets `MIXENGINE_RELEASE` and nothing else in this repository does**, so
-/// this is false for every `cargo build`, `cargo run` and `cargo test` — which is the point. A
+/// **`packaging/stage.sh` sets `MIXENGINE_RELEASE`, and so does the CI step that builds the
+/// desktop window for the same release** (`Build the window` in `ci.yml`, since phase 11); nothing
+/// else in this repository does, so this is false for every `cargo build`, `cargo run`, `cargo
+/// test` and `tauri dev` — which is the point. A
 /// working tree carries migrations that have not shipped, and a daemon built from one will migrate
 /// whatever database it opens; if that is the home a person keeps real projects in, their data ends
 /// up on a schema no release can read, and editing that migration afterwards — normal, while it is

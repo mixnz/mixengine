@@ -10,8 +10,11 @@ cargo run -p mixengine-daemon -- --log-level debug   # foreground; --detach back
 cargo run -p mixengine-cli -- status
 ```
 
-Rust only — there is no `apps/` and no frontend toolchain
-([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)).
+Rust at the root; the one Node toolchain is `apps/desktop/`, the desktop application, whose Cargo
+workspace is excluded from this one
+([ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)). Its own loop is
+`npm ci && npm run build && npm test && npm run lint` there, and
+`cargo clippy --locked --all-targets -- -D warnings` in `apps/desktop/src-tauri`.
 
 Environment knobs: `MIXENGINE_HOME` (isolated sandbox root — always set this when experimenting),
 `MIXENGINE_LOG_FORMAT=json`, `MIXENGINE_SYSTEM_TESTS=1`, and the pair `MIXENGINE_INDEX_URL` +
@@ -93,7 +96,8 @@ the same branch cancels the first, because by then you have stopped caring about
 | `bench` | windows / macos / ubuntu | performance budgets from [../standards/testing.md](../standards/testing.md), in a **release** build |
 | `bindings` | ubuntu | regenerates ts-rs bindings and fails if the committed output differs |
 | `docs` | ubuntu | builds the user handbook's site and fails if the committed command reference is not what `mix` prints |
-| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts |
+| `desktop` | ubuntu-22.04 | the desktop application: `npm run build`, `npm test`, `npm run lint`, then its own workspace's `clippy -D warnings`, `cargo test` and `cargo audit` |
+| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application's executable on every leg, built on the runner (never in the container), uploaded as `desktop-<os>` |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
 **One workflow is not in that table**: `.github/workflows/pages.yml`, which builds the handbook and
@@ -109,10 +113,11 @@ set to GitHub Actions. `actions/configure-pages` is asked to enable it through t
 token may not, the job fails saying so — deliberately, because a deploy that skipped itself quietly
 would leave a green tick over a site nobody published.
 
-**All seven exist since T90**: `lint`, `test`, `bench`, `system` — which arrived with T40, the first
+**All eight exist since T103**: `lint`, `test`, `bench`, `system` — which arrived with T40, the first
 `#[ignore]`d system test — `build`, which arrived with T85, the task that produced something to
-install, `bindings`, which arrived with T56, the task that produced a contract to check, and `docs`,
-which arrived with T90, the task that produced a site to build. Until `bindings` existed, a `ts-rs`
+install, `bindings`, which arrived with T56, the task that produced a contract to check, `docs`,
+which arrived with T90, the task that produced a site to build, and `desktop`, which arrived with
+T103, the task that brought the desktop application here. Until `bindings` existed, a `ts-rs`
 type whose committed output had drifted was caught by a person or by nobody. `bindings` also gates
 `release`: a tag whose committed contract had drifted would otherwise publish the drift, signed.
 

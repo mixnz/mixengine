@@ -1,0 +1,174 @@
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+  --dialog-layer: 70;
+}
+
+.dialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  --dialog-layer: 70;
+  width: min(46rem, calc(100vw - 2rem));
+  height: min(30rem, calc(100vh - 4rem));
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.headerClose {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.headerClose:hover {
+  opacity: 1;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.list {
+  flex: 0 0 12rem;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-right: 0.75rem;
+  border-right: 1px solid var(--border);
+  overflow: auto;
+}
+
+.item {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item:hover {
+  background: var(--hover-bg);
+}
+
+.itemActive {
+  background: var(--hover-bg);
+  font-weight: 600;
+}
+
+.add {
+  margin-top: 0.35rem;
+  align-self: flex-start;
+}
+
+.detail {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  overflow: auto;
+}
+
+.nameRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.label {
+  flex: none;
+  opacity: 0.7;
+  font-size: var(--text-md);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+}
+
+.delete,
+.remove,
+.reveal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.delete:hover,
+.remove:hover,
+.reveal:hover {
+  opacity: 1;
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-md);
+}
+
+/* Name, value, the Secret tick, the remove button. */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr auto auto;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.head {
+  opacity: 0.7;
+  font-size: var(--text-sm);
+  padding: 0 0.15rem;
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.value > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.draft {
+  opacity: 0.85;
+}
+
+.empty {
+  margin: 0;
+  padding: 0.4rem 0.15rem;
+}

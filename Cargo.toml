@@ -12,11 +12,15 @@ members = [
     "crates/mixengine-shim",
     "crates/mixengine-testkit",
 ]
+# The desktop application's crate is a workspace of its own and never a member here — ADR 0027,
+# rule 5: its tree (Tauri, a webview, four database drivers, an SSH client, a pty) would defeat
+# deny.toml's duplicate-version ban and the elevated helper's dependency budget in one move.
+exclude = ["apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.0.6"
 edition = "2024"
-rust-version = "1.97.1"
+rust-version = "1.98.0"
 # Dual licensed the way the Rust ecosystem conventionally is: the user picks either one.
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/mixnz/mixengine"

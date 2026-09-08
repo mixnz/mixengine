@@ -389,6 +389,27 @@ directory, which is where a generated defaults file and a keyring credential rea
       The suite keeps the two apart by name; the collision itself is real for two users of one
       machine, whose `/tmp` is shared and whose `rm -rf` on each other's directory fails outright.
       The keyring entry is keyed the same way and is the same follow-up.
+- [x] **T33c** Every instance of the MySQL family keeps its temporary tables in a directory of its
+      own, `data/<package>/<instance>.tmp`, rather than in the machine's `/tmp`. **Found by CI run
+      34220602983**, where T33's test failed with `[ERROR] Aborting` while T83's ran beside it under
+      a *different* id — so not T33b's view. The reason is upstream's own: at every start `mysqld`
+      deletes every `#sql*` file in its temporary directory whoever made it (`mysql_rm_tmp_tables`),
+      and a bootstrap starting a quarter second after another deletes the temporary tables the
+      first's system-table load is in the middle of — `Could not remove temporary table … error:
+      2`, `Unknown table 'mysql.tmp_proxies_priv'`, `Aborting`. Reproduced in WSL against 11.4.12
+      with the recipe's own two steps: one failure in six rounds, none in ten with `TMPDIR` set per
+      ritual, and the temporary tables seen landing in the private directory. Two of our services
+      starting together, or a user's own MariaDB restarting beside one of ours, meet the same
+      deletion, which is why the running server's `my.cnf` names the directory too. The recipe
+      declares it through `Endpoints::scratch`, the generator creates it beside `logs/` and the data
+      directory, and every first-run step carries `TMPDIR` — read by the server whichever of
+      upstream's four programs spawned it, on both systems, where an option would have to survive
+      two scripts that pass unknown options on and two programs that do not. T33b's own WSL
+      measurement ran two rituals of one id, which meet this deletion as well as the view's
+      `rm -rf`; its `Aborting` is at least as likely this one's. The view collision remains T33b's.
+      **And a step that fails now leaves everything it said in `daemon.log`** — the failure carried
+      the last line only, which for this server is `Aborting` and no diagnosis; the whole stream is
+      logged, capped at forty lines, from the steps handed no credential to quote back.
 - [x] **T99** MariaDB serves a certificate this home's authority signed — design in
       [docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
       **What was measured.** Run 34128004289's `bench (ubuntu-latest)` put the M3 warm median at

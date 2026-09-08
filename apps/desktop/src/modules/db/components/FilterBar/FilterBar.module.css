@@ -1,0 +1,99 @@
+/* Full width, so a condition's value box gets all the room the window has left over and the
+   actions row underneath sits its two buttons at the far edges of the grid. */
+.bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+/* A filter list can grow past what the grid can spare, so it scrolls instead of pushing the
+   rows off screen.
+   The padding is what the scroll costs: an overflow container clips at its padding box, and the
+   controls inside carry a drop shadow that would be shaved off at every edge without it. The
+   matching negative margin puts the rows back in line with the actions row below. (The focus ring
+   needs nothing here — it is drawn inside the control.) */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 30vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 3px 4px;
+  margin: -3px -4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* The app-wide `input` rule dresses every input as a text field; a checkbox wants none of it. */
+.toggle {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* The field box and the operator select hold their width so the rows stay in columns, but may
+   still be squeezed on a narrow window rather than pushing the row wider than the grid. */
+.field {
+  flex: 0 1 12em;
+  width: 12em;
+}
+
+/* Wide enough for the longest operator label spelled out — the Vietnamese ones read as a phrase
+   plus the query syntax it stands for — so the selected operator never has to be ellipsised away. */
+.operator {
+  flex: 0 1 17em;
+  width: 17em;
+}
+
+/* Takes whatever the row has left: the value is the one part of a condition with no length to
+   speak of in advance. */
+.value {
+  flex: 1 1 8em;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+/* The bar's own +/− buttons: the same quiet square the action bars use, so they read as part of
+   the row rather than as two more form controls competing with the selects. */
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

@@ -1,0 +1,90 @@
+.layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(480px, 100%);
+  margin: 48px auto;
+  padding: 0 16px;
+}
+
+.kinds {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.kind {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.kind:hover {
+  background: var(--hover-bg);
+}
+
+.kindActive {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.columns {
+  display: flex;
+  gap: 8px;
+}
+
+.columns .row {
+  flex: 1;
+}
+
+.narrow {
+  flex: 0 0 90px;
+}
+
+.withButton {
+  display: flex;
+  gap: 8px;
+}
+
+.withButton input {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Logo rồi mới tới tên. `inline-flex` chứ không `flex`: nhãn này còn được vẽ trong nút của
+   `Select`, cạnh mũi tên xuống, và một khối chiếm cả dòng sẽ đẩy mũi tên ra khỏi chỗ của nó. */
+.shellOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Dòng chú thích dưới ô *Chạy khi kết nối*. Nhỏ và mờ: nó là điều đáng biết trước khi gõ vào ô,
+   không phải một phần của nhãn. */
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  opacity: 0.65;
+}

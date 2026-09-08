@@ -3,9 +3,12 @@
 Phases are ordered. Work top to bottom — each phase depends on the ones above it. Tick items as they
 land; when new work appears, insert it **where it belongs in the order**, not at the end.
 
-Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T99`) are global and
+Each phase lives in its own file; this page is the index. Task numbers (`T1`…`T110`) are global and
 never reused, so a task keeps its number wherever it is cited — which is why phase 6 is a gap rather
-than a renumbering, and why T56 and T64 keep their numbers in the phases they moved to.
+than a renumbering, and why T56 and T64 keep their numbers in the phases they moved to. Phase 6's
+gap is now the shape of a decision reversed rather than a task abandoned: the desktop application
+it planned is arriving as phases 11–13, from the repository that built it in the meantime
+([ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)).
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** = has a platform-layer component and
 needs verification on Windows + macOS + Linux.
@@ -19,7 +22,7 @@ needs verification on Windows + macOS + Linux.
 | [0 — Foundations](phase-0-foundations.md) | Daemon starts, CLI talks to it, state persists | T1–T11 | 16 / 16 | **M0** `mix status` prints a healthy daemon on all three OSes in CI |
 | [1 — Process supervision](phase-1-process-supervision.md) | Run and babysit arbitrary programs correctly | T12–T19c | 15 / 15 | **M1** the daemon adopts what survived a kill and cleans what did not |
 | [2 — Runtimes](phase-2-runtimes.md) | Multiple PHP/Node/Python/Ruby versions, selectable, and Composer | T20–T29 | 14 / 14 | **M2** `php -v` differs between two directories, no shell hook |
-| [3 — Services](phase-3-services.md) | Web server, databases and caches with generated config | T30–T38, T99 | 16 / 17 | **M3** caddy + mariadb + redis healthy in under 10 s warm |
+| [3 — Services](phase-3-services.md) | Web server, databases and caches with generated config | T30–T38, T99 | 17 / 18 | **M3** caddy + mariadb + redis healthy in under 10 s warm |
 | [4 — Sites & elevation](phase-4-sites-and-elevation.md) | `http://blog.test` works, creating a site prompts for nothing | T39–T47b, T64, T93 | 16 / 17 | **M4** a site opens with zero prompts after first-run setup |
 | [5 — HTTPS](phase-5-https.md) | Green padlock, automatically, forever | T48–T54, T98 | 9 / 9 | **M5** `https://blog.test` trusted in every browser |
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
@@ -27,6 +30,9 @@ needs verification on Windows + macOS + Linux.
 | [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b | 20 / 20 | **M8** capture, apply, open in MixDB, test from a phone |
 | [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.0.1** |
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
+| [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
+| [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 0 / 4 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
+| [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 0 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -36,6 +42,17 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 11 is done — 4 of 4 — and M11 is reached; phase 12 is next.** Phases 0 to 10 are done and
+v0.0.1 shipped. [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
+reverses ADR 0011, and MixDB — already a complete client of this API — now lives under
+`apps/desktop/`, builds and tests in this repository's CI on three operating systems, and opens
+against a running daemon as MixDB 0.0.33 did ([phase 11](phase-11-the-desktop-app-comes-home.md)).
+What comes now makes it MixEngine's window, named MixLab (phase 12), and makes its database client
+optional to look at (phase 13). The design for all three is one document,
+[2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md).
+Two debts phase 11 left where they were found: `[daemon] ipc_path` in `config.toml` is parsed and
+used by nothing, and MixDB's `tool-downloads.yml` is not wired into this CI.
 
 **Phase 0 is done**, and **M0 is reached**: `mix status` starts a daemon if there is none, talks to
 it over the local endpoint and prints what it says, in both renderings, proved end to end by

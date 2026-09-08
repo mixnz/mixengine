@@ -5,8 +5,8 @@
 ```
 ┌──────────────┐   ┌──────────────┐
 │  mix (CLI)   │   │  any other   │      thin clients, no business logic.
-│              │   │   client     │      Only `mix` ships from this repo;
-└──────┬───────┘   └──────┬───────┘      a GUI is a client elsewhere (ADR 0011)
+│              │   │   client     │      `mix` and the desktop app under
+└──────┬───────┘   └──────┬───────┘      apps/desktop/ ship from here (ADR 0027)
        │ JSON-RPC over IPC │
        └─────────┬─────────┘
                  ▼
@@ -75,9 +75,9 @@ Rationale for the tier split in
   binary supervision is tested against, and the one way this workspace stops a process by pid. A
   **dev-dependency and never anything else**, which `mixengine-proto/tests/workspace_layering.rs`
   enforces rather than trusts — see [../standards/testing.md](../standards/testing.md).
-There is no graphical client here and no frontend toolchain
-([decisions/0011-no-gui-in-this-repository.md](../decisions/0011-no-gui-in-this-repository.md)).
-What one would need from the API is written down in
+The desktop application lives under `apps/desktop/` as a Cargo workspace of its own
+([decisions/0027-the-desktop-client-lives-in-this-repository.md](../decisions/0027-the-desktop-client-lives-in-this-repository.md)).
+It is a client like `mix`, and what it needs from the API is written down in
 [../features/client-surface.md](../features/client-surface.md).
 
 Dependency direction is strictly downward: `cli` → `proto` → (nothing); `shim` → `core`,

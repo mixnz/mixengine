@@ -1,0 +1,29 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.frame {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  /* The page inside is the server's, not the app's — its own background, not ours showing through. */
+  background: #fff;
+}

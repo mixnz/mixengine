@@ -1,0 +1,187 @@
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+  --dialog-layer: 70;
+}
+
+.dialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  --dialog-layer: 70;
+  width: min(50rem, calc(100vw - 2rem));
+  height: min(32rem, calc(100vh - 4rem));
+  padding: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.headerClose {
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.headerClose:hover {
+  opacity: 1;
+}
+
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.tools > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  border-bottom: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+}
+
+.row:hover {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+}
+
+.entry {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Only the column width belongs here; how a method looks is `.rest-method` in `rest.css`. */
+.method {
+  flex: 0 0 3.2rem;
+}
+
+.url {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  padding-left: 3.7rem;
+  font-size: var(--text-sm);
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.s2xx { color: #2f9e44; }
+.s3xx { color: #1971c2; }
+.s4xx { color: #f08c00; }
+.s5xx { color: #e03131; }
+
+.failed {
+  color: #e03131;
+}
+
+.drop {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.4rem;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.row:hover .drop,
+.drop:focus-visible,
+.drop:hover {
+  opacity: 1;
+}
+
+.dropArmed {
+  opacity: 1;
+  color: #e03131;
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem 0.6rem 3.7rem;
+}
+
+.body {
+  align-self: stretch;
+  margin: 0;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--code-bg, rgba(127, 127, 127, 0.08));
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error {
+  margin: 0;
+  color: #e03131;
+}
+
+.note {
+  margin: 0;
+  padding: 0.4rem 0.15rem;
+}
+
+.openRequest {
+  flex: none;
+}

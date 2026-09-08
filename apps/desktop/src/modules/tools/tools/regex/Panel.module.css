@@ -1,0 +1,67 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.flag {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.count,
+.note {
+  font-size: var(--text-sm);
+  opacity: 0.8;
+  margin: 0;
+}
+
+.error {
+  font-size: var(--text-md);
+  color: var(--danger, #d33);
+  margin: 0;
+}
+
+.highlight {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  padding: 0.5rem;
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.hit {
+  background: color-mix(in srgb, orange 30%, transparent);
+  border-radius: 2px;
+}
+
+.groups {
+  font-size: var(--text-sm);
+  margin: 0;
+  padding-left: 1.25rem;
+}

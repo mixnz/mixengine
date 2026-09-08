@@ -1,0 +1,29 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  /* Level with the method/URL/Send row across the split, which is what the spec asks for. */
+  min-height: 3rem;
+  box-sizing: border-box;
+  font-size: var(--text-md);
+}
+
+.status {
+  font-weight: 600;
+}
+
+.s2xx { color: #2f9e44; }
+.s3xx { color: #1971c2; }
+.s4xx { color: #f08c00; }
+.s5xx { color: #e03131; }
+
+.figure {
+  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
+}
+
+.redirect {
+  opacity: 0.8;
+}

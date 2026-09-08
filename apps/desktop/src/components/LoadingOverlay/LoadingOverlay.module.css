@@ -1,0 +1,82 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  /* Above whatever the covered content stacks on top of itself — a sticky table
+     header, for one, which would otherwise paint through the veil. */
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 1rem;
+  background: rgba(128, 128, 128, 0.08);
+  backdrop-filter: blur(0.5px);
+  /* Held invisible for the first tenth of a second, then faded up. A refetch off a warm connection
+     is often quicker than that, and a veil that flashed on and off again read as a glitch rather
+     than as a wait. `both` is what keeps it hidden through the delay. */
+  animation: loading-veil-in 180ms ease-out 100ms both;
+}
+
+/* The veil gives up its own blur while the glass is on. Any element carrying a `backdrop-filter`
+   becomes the backdrop root for its descendants, so the pill would have sampled *this* layer —
+   already blurred, already greyed — instead of the table underneath, and the lensing would have had
+   nothing with edges in it to bend. This is the one place the glass reaches outside `glass.css`,
+   because it is the one surface with a veil of its own between it and the content. */
+:root[data-glass="on"] .overlay {
+  backdrop-filter: none;
+}
+
+@keyframes loading-veil-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay {
+    animation: none;
+  }
+}
+
+/* A pill that floats over the content, so it takes the radius and the shadow everything else
+   floating does — or, with liquid glass on, the capsule and the rim `glass-pill` gives it. Sized in
+   `rem` rather than `em`: the panels it covers set their own font sizes, and the same wait should
+   look the same everywhere it is shown. It used to be 0.85em at 75% opacity — small, grey, and easy
+   to take for a piece of the table underneath. */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 0.6rem 1.15rem;
+  border-radius: var(--radius-lg, 12px);
+  background: var(--surface-bg, #fff);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+/* Turning, because a wait with no moving part in it reads as a screen that has stopped rather than
+   one that is working. Drawn in the accent against a ring of itself at a quarter strength. */
+.spinner {
+  flex: none;
+  width: 0.95em;
+  height: 0.95em;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--accent-rgb) / 0.25);
+  border-top-color: var(--accent);
+  animation: loading-spin 700ms linear infinite;
+}
+
+@keyframes loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The ring stays — it is part of the shape of the pill — but it stops turning. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -1,0 +1,43 @@
+/* `width` cùng với `height`, vì cái ôm nó là một flex container.
+ *
+ * `.tab-panel` được `App.tsx` đặt `display: flex` khi tab đang mở, nên fallback là một flex item:
+ * chiều cao được `align-items: stretch` lo hộ, còn chiều ngang thì co theo nội dung. Đo được 576px
+ * trong một pane rộng 1280px — nội dung căn giữa của một hộp nằm nép bên trái. `border-box` đi kèm
+ * vì app này **không** đặt `box-sizing` toàn cục (chỉ `textarea` có), và hộp này có `padding: 2rem`. */
+.fallback {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  color: var(--danger);
+}
+
+.message {
+  max-width: 32rem;
+  font-size: var(--text-md);
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.button {
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius-lg, 12px);
+  border: 1px solid var(--border);
+  background: var(--surface-bg, #fff);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: rgb(var(--danger-rgb) / 0.08);
+}

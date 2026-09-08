@@ -1,0 +1,116 @@
+/*
+ * One arrival and one departure, worn by every modal in the app — and, with them, the glass skin
+ * from `glass.css`, which is inert unless the setting is on.
+ *
+ * The glass rides here rather than being added dialog by dialog because there is no such thing as a
+ * modal that should be left out: the material is the layer, not the contents. Ten dialogs opting in
+ * by hand is ten chances to forget, and the eleventh would be written without it.
+ *
+ * Otherwise kept as motion alone — no colour, no box, no position — so a dialog composes these into
+ * its own `.overlay` and `.dialog` without giving up a pixel of its own layout:
+ *
+ *   .overlay { composes: overlay from "../dialogMotion.module.css"; ... }
+ *   .dialog  { composes: dialog  from "../dialogMotion.module.css"; ... }
+ *
+ * The `.dialog` keyframes assume a panel centred with `top/left: 50%` and
+ * `transform: translate(-50%, -50%)`, which is how every modal here centres itself. A surface
+ * anchored somewhere else — a toast, a context menu — wants `.pop` below instead.
+ */
+
+.overlay {
+  /* Deepened to a proper frost while the glass is on, which is the whole of the effect for a
+     modal: the sheet above has no filter of its own and reads what this leaves behind it. */
+  composes: glass-scrim from global;
+  /* A touch of blur pushes the page back a step, so the dialog reads as the only live thing. */
+  backdrop-filter: blur(3px);
+  animation: overlay-in 180ms ease-out both;
+}
+
+.dialog {
+  composes: glass-sheet from global;
+  /* Decelerating curve with no overshoot: the dialog arrives fast and settles, which reads as
+     confident. A bounce here would make every destructive prompt feel playful. */
+  animation: dialog-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Leaving is quicker than arriving — a dismissal the user already decided on shouldn't be
+   something they wait through. */
+.closing.overlay {
+  animation: overlay-out 130ms ease-in both;
+}
+
+.closing.dialog {
+  animation: dialog-out 130ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/* Once the answer is in, the dialog is a picture of itself: no second click can change it. */
+.closing.overlay,
+.closing.dialog {
+  pointer-events: none;
+}
+
+/* Applied once `dialog-in` has run — see `useDialogExit`'s `onEntered`. Taking the animation off
+   the element entirely, rather than merely letting `animation-fill-mode: both` hold its endpoint,
+   is what keeps `transform: translate(-50%, -50%)` (declared once, plainly, in
+   `surface.module.css`) live: some WebKit builds do not re-resolve a transform's percentages
+   against a later layout change while an animation — even a finished one held by fill-mode — is
+   still the thing supplying the value. */
+.settled.dialog {
+  animation: none;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    /* The centring translate has to be restated in every keyframe: an animated `transform`
+       replaces the base one outright rather than composing with it. */
+    transform: translate(-50%, calc(-50% + 12px)) scale(0.96);
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 6px)) scale(0.98);
+  }
+}
+
+/*
+ * For surfaces that open *at* something rather than in the middle of the window — a context menu
+ * at the pointer, a dropdown under its trigger, a tooltip beside its anchor. It grows from the
+ * corner it is pinned by, so the eye is led back to whatever was clicked. Faster than a dialog:
+ * these are a step in a gesture, not a stop in one.
+ */
+.pop {
+  transform-origin: top left;
+  animation: pop-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .dialog,
+  .pop,
+  .closing.overlay,
+  .closing.dialog {
+    animation: none;
+  }
+}

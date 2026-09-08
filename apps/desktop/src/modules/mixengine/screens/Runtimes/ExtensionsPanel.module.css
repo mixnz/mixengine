@@ -1,0 +1,26 @@
+.panel {
+  border-top: 1px solid var(--border);
+  padding: 12px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 4px 8px;
+}
+
+.static {
+  opacity: 0.6;
+}
+
+.banner {
+  margin-top: 8px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--accent-rgb) / 0.12);
+}

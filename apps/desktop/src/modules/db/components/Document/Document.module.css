@@ -1,0 +1,208 @@
+.docCard {
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius, 6px);
+  padding: 0.4rem 0.5rem;
+  background: var(--surface-bg, transparent);
+  position: relative;
+  /* A page holds up to 200 of these, each a deep tree of rows: skip layout and paint for
+   * the ones scrolled out of view. `auto` on the intrinsic size makes the browser reuse
+   * each card's last measured height, so the scrollbar doesn't jump as cards go by. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+.docCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.collapseToggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0 2px;
+  opacity: 0.6;
+  cursor: pointer;
+  line-height: 1;
+  font-size: var(--text-md);
+}
+
+.collapseToggle:hover {
+  opacity: 1;
+}
+
+.docIndex {
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  opacity: 0.55;
+}
+
+.docIdPreview {
+  font-size: var(--text-xs);
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+  min-width: 0;
+}
+
+/* A draft with no _id of its own: the slot still says what will happen, rather than going blank. */
+.docIdMissing {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.docHeaderSpacer {
+  flex: 1;
+}
+
+.addRootRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 4px;
+  margin-top: 2px;
+}
+
+.addRootButton {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--accent-text);
+  font-size: var(--text-sm);
+  padding: 4px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.addRootButton:hover {
+  text-decoration: underline;
+}
+
+.unsaved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: var(--text-xs);
+  color: rgb(190, 140, 0);
+  white-space: nowrap;
+}
+
+.saveBtn,
+.discardBtn {
+  flex-shrink: 0;
+  border: none;
+  box-shadow: none;
+  font-size: var(--text-xs);
+  padding: 2px 8px;
+  border-radius: var(--control-radius, 6px);
+  cursor: pointer;
+}
+
+.saveBtn {
+  background: rgba(46, 158, 79, 0.15);
+  color: #2e9e4f;
+}
+
+.saveBtn:hover {
+  background: rgba(46, 158, 79, 0.28);
+}
+
+.discardBtn {
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.discardBtn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.savedFlash {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: var(--text-xs);
+  color: #2e9e4f;
+  white-space: nowrap;
+}
+
+.confirmDelete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-xs);
+  color: #c94a4a;
+  white-space: nowrap;
+}
+
+.confirmDeleteYes,
+.confirmDeleteNo {
+  border: none;
+  box-shadow: none;
+  font-size: 1em;
+  padding: 1px 7px;
+  border-radius: var(--control-radius, 6px);
+  cursor: pointer;
+}
+
+.confirmDeleteYes {
+  background: rgba(201, 74, 74, 0.15);
+  color: #c94a4a;
+}
+
+.confirmDeleteYes:hover {
+  background: rgba(201, 74, 74, 0.28);
+}
+
+.confirmDeleteNo {
+  background: transparent;
+  color: inherit;
+  opacity: 0.6;
+}
+
+.confirmDeleteNo:hover {
+  opacity: 1;
+}
+
+.deleteDocButton,
+.cloneDocButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 2px 4px;
+  opacity: 0.5;
+  cursor: pointer;
+  line-height: 1;
+  font-size: var(--text-md);
+}
+
+.deleteDocButton:hover {
+  opacity: 1;
+  color: #c94a4a;
+  background: rgba(201, 74, 74, 0.15);
+  border-radius: var(--radius-sm);
+}
+
+.cloneDocButton:hover {
+  opacity: 1;
+  color: var(--accent-text);
+  background: rgb(var(--accent-rgb) / 0.15);
+  border-radius: var(--radius-sm);
+}

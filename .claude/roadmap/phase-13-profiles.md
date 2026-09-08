@@ -1,0 +1,41 @@
+# Phase 13 — Profiles
+
+*Goal: a person who never wanted a database client never sees one; a person who does turns it on.*
+
+Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
+has a platform-layer component and needs verification on Windows + macOS + Linux.
+
+Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
+on [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md).
+
+---
+
+**One build, one artifact, and what differs is a setting.** ADR 0027's rule 4. This phase adds
+no screen to any module and changes no API; everything here lives in `src/shell/`, which is the
+one place that is allowed to know the modules exist. Redesigning the window *for* the MixEngine
+profile — a sidebar instead of a tab strip, say — is not this phase and has no spec yet.
+
+- [ ] **T108** A module visibility setting with three presets (D11). `enabledModules` in the shell
+      settings store; `visibleModules()` is what the `[+]` menu, `Ctrl/Cmd+T`, `Ctrl/Cmd+1…N`, the
+      Settings dialog's per-module panes and session restore all read. *MixEngine* is `mixengine`
+      alone; *Everything* is all five with `mixengine` first; *Database tools* is the four toolbox
+      modules. The Settings pane shows the presets and the five checkboxes underneath them. Turning
+      a module off closes its tabs after a confirmation. A **first-run screen** — one question,
+      three presets, one click — appears when there are no settings; T104's import skips it and
+      picks *Everything*. A fresh machine that skips it gets *MixEngine*.
+
+- [ ] **T109** The default tab follows the profile. *MixEngine* and *Everything* open on the
+      Dashboard, *Database tools* on a Database tab; `DEFAULT_MODULE_ID` becomes a function of the
+      setting. Session restore still wins when there is a session, so the default only ever decides
+      the very first tab and the tab after the last one is closed.
+
+- [ ] **T110** The bridge when a module is hidden (D11, last paragraph). The Services screen's
+      *open* button, drawn from `database.client` as today, offers two things when `db` is off:
+      enable the built-in client and open the tab, or hand off to an external client through
+      `database.open` where one is installed. A `mixdb://` handoff that arrives with `db` hidden
+      enables it for that tab and says so in the tab. Nothing the daemon answers changes.
+
+**Milestone M13** — a fresh install shows the first-run screen; choosing *MixEngine* leaves a
+window whose every tab, shortcut and Settings pane is about the daemon; turning *Database tools*
+on in Settings brings the four modules back with everything a MixDB user had saved; turning them
+off again closes their tabs and hides them without deleting anything.

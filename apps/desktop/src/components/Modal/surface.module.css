@@ -1,0 +1,47 @@
+/*
+ * Cái một dialog trông như, ở đúng một chỗ.
+ *
+ * `Modal` nhận hai class làm prop vì **hành vi** dùng chung được còn **chiều rộng** thì không —
+ * đọc doc của nó. Nhưng giữa hai thứ đó có một mảng không caller nào thật sự tự quyết: nằm giữa
+ * màn hình, nổi trên nền mờ, mang màu bề mặt của theme. Hai mươi hai file đã chép tay lại y hệt
+ * chín dòng đó, và bốn file chép sai — không `z-index`, không animation, và
+ * `var(--surface, #fff)` gọi một token app này chưa bao giờ định nghĩa, nên chúng trắng bệch
+ * trong theme tối. `surface.test.ts` là chỗ canh để không có file thứ hai mươi ba làm lại.
+ *
+ * Caller còn phải tự khai: **chiều rộng** (và chiều cao, nếu có), **padding/gap** của riêng nó, và
+ * `--dialog-layer` nếu nó không thuộc tầng mặc định. Đó là những thứ khác nhau có lý do.
+ *
+ * Motion tới từ `dialogMotion.module.css` và ở lại bên đó: file này là hình dạng, file kia là
+ * chuyển động, và `.pop` bên đó phục vụ cả những mặt phẳng không phải dialog.
+ */
+
+/*
+ * Tầng của dialog trong thang z-index của app: 60/61 Settings, 70/71 REST, 80/81 mặc định, rồi
+ * 82/83 CellDialog, 85 context menu, 90 tooltip. Overlay lấy đúng số này, tấm dialog lấy số kế
+ * tiếp — nên một caller đổi tầng chỉ khai một con số, không phải hai con số phải khớp nhau.
+ */
+.overlay {
+  composes: overlay from "../dialogMotion.module.css";
+  position: fixed;
+  inset: 0;
+  z-index: var(--dialog-layer, 80);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.dialog {
+  composes: dialog from "../dialogMotion.module.css";
+  position: fixed;
+  z-index: calc(var(--dialog-layer, 80) + 1);
+  /* Keyframes của `dialogMotion` giả định đúng ba dòng này — xem comment đầu file đó. */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  /* Dialog được portal ra `body`, nên nó không thừa hưởng canh lề của chỗ đã mở nó. */
+  text-align: left;
+}

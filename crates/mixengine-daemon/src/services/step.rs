@@ -14,9 +14,17 @@ use crate::error::ToWire as _;
 
 /// Run one step, and fail if it did not succeed.
 ///
-/// **What it printed goes into the failure and nowhere else.** A step's output can hold a bootstrap
-/// server's own SQL error, which is the only thing that says why a data directory would not be made
-/// — `mariadb-install-db`'s own summary never contains it, and the runner it ran on is thrown away.
+/// **What it printed goes into the failure, and — for a step handed no credential — into the log in
+/// full.** A step's output can hold a bootstrap server's own SQL error, which is the only thing that
+/// says why a data directory would not be made — `mariadb-install-db`'s own summary never contains
+/// it, and the runner it ran on is thrown away. The failure carries the last line, which is what a
+/// client shows; but a `mariadbd` that would not start ends on `[ERROR] Aborting` and says why on
+/// the line above, and CI run 34220602983 is where that one line proved to be no diagnosis at all.
+/// The whole stream goes to `daemon.log`, capped, from the steps that were given nothing to leak: a
+/// step fed a statement on `stdin` or through a [`SecretFile`] can have the server quote that
+/// statement back, credential included, and stays at the one line ADR 0006 already tolerates.
+///
+/// [`SecretFile`]: mixengine_core::generate::first_run::SecretFile
 pub(crate) async fn run(step: &Step) -> Result<Ran, Error> {
     let args: Vec<std::ffi::OsString> = step.args.iter().map(std::ffi::OsString::from).collect();
     let patience = step.timeout.as_duration();
@@ -80,6 +88,15 @@ pub(crate) async fn run(step: &Step) -> Result<Ran, Error> {
         return Ok(ran);
     }
 
+    if step.stdin.is_none() && step.secret_file.is_none() {
+        tracing::error!(
+            step = %step.label,
+            program = %step.program.display(),
+            said = %last_lines(ran.complaints(), SAID_AT_MOST),
+            "a first-run step did not succeed; this is the end of what it said"
+        );
+    }
+
     Err(Error::new(
         ErrorCode::Internal,
         format!(
@@ -94,6 +111,24 @@ pub(crate) async fn run(step: &Step) -> Result<Ran, Error> {
                 .map_or_else(String::new, |said| format!(" — {said}")),
         ),
     ))
+}
+
+/// How many lines of a failed step's output the log keeps.
+///
+/// Forty is more than a `mariadbd` prints between its first `[ERROR]` and `Aborting` — measured at
+/// nine for the InnoDB failures of T33a — and less than a system-table load that fails on every
+/// statement, which would otherwise be a thousand lines in a log read by eye.
+const SAID_AT_MOST: usize = 40;
+
+/// The last `count` lines of `text`, as one string.
+///
+/// Whole lines from the end rather than a byte count from the end, because the line a reader wants
+/// is the *first* of the interesting ones and a cut through the middle of it is the cut that loses
+/// the error code.
+fn last_lines(text: &str, count: usize) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let from = lines.len().saturating_sub(count);
+    lines[from..].join("\n")
 }
 
 #[cfg(test)]

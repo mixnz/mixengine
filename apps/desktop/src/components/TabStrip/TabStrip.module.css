@@ -1,0 +1,290 @@
+/* How a strip of tabs is drawn, anywhere in the app.
+ *
+ * These rules used to live in `shell/App.css` and were then restated, with small drifts, in the
+ * REST module's request strip and again in its pane strips. Three strips two rows apart answering
+ * to three sets of rules read as three different apps. They answer to this one now. */
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0.4rem 0.5rem 0;
+  background: rgb(128 128 128 / 0.08);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  /* Nothing here scrolls. The strip is the band across the window; what moves is the box below,
+     and what is held at either end of it — the settings button, `[+]`, the two arrows — is held
+     because it is out here rather than in there. */
+  min-width: 0;
+}
+
+/* The tabs, and only the tabs.
+ *
+ * No scrollbar: a bar under the tabs would sit between them and the pane they open, drawing a
+ * second edge a finger's width above the real one. The two arrows outside this box say what it
+ * would have said, and say it where there is room for it. */
+.scroller {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* So a tab's `offsetLeft` is measured from the box it scrolls in, which is the one coordinate
+     space both halves of a reorder agree on — see `useTabReorder.ts` and `slide.ts`. */
+  position: relative;
+}
+
+.scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* Where the tabs run off the edge. Drawn like `.action` below — it is an action on the strip, not
+   another tab on it — and greyed out rather than taken away at either end, so the strip does not
+   change width the moment it is scrolled to one.
+
+   Narrow on purpose, and this is the one rule here that another file depends on: the two arrows
+   together have to be wider than whatever the caller puts in `trailing`, which for both strips that
+   have one is a `.action` holding a single icon. `TabStrip.tsx` says why — the two appear and
+   disappear against each other, and a `trailing` wider than both arrows would leave a band of
+   widths the strip could flicker in. A chevron beside an icon with twice its side padding clears
+   that comfortably: two of these are around 58px with the gaps between them, against 40px for an
+   action holding one icon. */
+.arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.3em 0.4em;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.arrow:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+
+.arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  /* Less on the left than on the right: what leads a tab is a mark — a badge, a method — and a
+     mark reads better close to the edge than a word would. */
+  padding: 0.45rem 0.5rem 0.45rem 0.65rem;
+  border: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+  /* Background only. The active tab's `box-shadow` is where its hairline and the glass rim land,
+     and neither is something to watch slide into place. */
+  transition: background-color 120ms ease;
+}
+
+/* A tab that can be dragged is a tab you take hold of, and taking hold of a word in a browser
+   selects it. `data-tab-id` is what a reorderable tab carries — see `useTabReorder.ts`. Only
+   those: a pane tab is still text on a page. */
+.tab[data-tab-id] {
+  user-select: none;
+}
+
+.tab:hover:not(.tabActive) {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+/* Tab đang mở, nói bằng ba thứ cùng lúc — và không thứ nào trong ba làm nó đổi bề rộng.
+
+   Trước đây nó nói bằng một vạch accent 2px ở cạnh trên, cộng `font-weight: 600`. Cả hai đều phải
+   đi:
+
+   - Vạch 2px từng là thứ **duy nhất** app dùng để nói "cái này đang được chọn", ở bốn tầng lồng
+     nhau cùng lúc: tab cửa sổ, tab nội dung của workspace, picker chọn loại DB, picker TCP/IP|SSH
+     — và trên hai cạnh đối nhau mà sự khác nhau đó không mang nghĩa gì. Một tín hiệu đánh dấu mọi
+     tầng thì thôi xếp hạng được tầng nào. Vạch giờ chỉ còn ở một tầng (`.method-tab` trong
+     `modules/db/db.css`), nên ở đó nó lấy lại được nghĩa.
+   - Chữ đậm rộng hơn chữ thường, nên bật nó theo trạng thái làm tab đổi bề rộng khi được chọn và
+     đẩy mọi tab phía sau sang chỗ khác. Trên một dải tab, thứ duy nhất được phép dịch chuyển là
+     thứ người dùng đang kéo.
+
+   Cái thay thế chúng vẫn là accent — màu người dùng chọn vẫn ở đây, và vẫn là mảng màu lớn nhất
+   trên khung app — nhưng nó **vẽ hình của tab** thay vì gắn thêm một thanh vào tab: một viền chạy
+   quanh cả bốn cạnh. Cùng một màu, khác hẳn một hình, nên nó không lặp lại tín hiệu mà ba tầng bên
+   dưới đang dùng.
+
+   `--tab-accent` vẫn là knob công khai của component và không bị bỏ; nó chỉ thôi được rule này
+   dùng. Dấu read-only, thứ từng dựa vào vạch amber, giờ tự đứng bằng nền và viền của chính badge —
+   xem `.tab-lock` trong `modules/db/db.css`. */
+.tabActive {
+  background: var(--surface-bg);
+  /* Viền accent chạy quanh cả tab, không phải một vạch ở một cạnh. Nó vẫn là màu người dùng chọn —
+     nhưng nó vẽ *hình* của tab thay vì gắn thêm một thanh vào tab, nên nó không lặp lại tín hiệu
+     mà ba tầng bên dưới đang dùng. */
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55);
+}
+
+/* Ở đây từng có `margin-bottom: -1px` cộng `padding-bottom: calc(0.45rem + 1px)`, để tab đang mở
+   đè lên đường kẻ đáy của dải và liền mặt với pane bên dưới.
+ *
+ * **Nó không bao giờ vẽ ra được, và nó đẻ ra một thanh cuộn.** Tab nằm trong `.scroller`, và
+ * `.scroller` phải clip để cuộn ngang — nên 1px thò xuống bị cắt trước khi tới màn hình. Đo được:
+ * đáy border box của tab đang mở nằm đúng 1px dưới đáy hộp của `.scroller`, ngoài vùng clip.
+ *
+ * Cái 1px đó vẫn nằm trong *vùng cuộn* của `.scroller`, và vì `.scroller` chỉ khai `overflow-x`
+ * nên trục dọc bị CSS tính thành `auto` — thành ra dải tab cuộn dọc được 1px. Đo được:
+ * `scrollHeight` 31 với `clientHeight` 30 khi có tab đang mở, 30/30 khi không có.
+ *
+ * Khai thêm `overflow-y` không cứu được: `hidden` chỉ giấu thanh cuộn, và `clip` bị tính thành
+ * `hidden` khi trục kia đang cuộn — cả hai đều để nguyên 1px thừa. Đường duy nhất là đừng sinh ra
+ * nó. Muốn seam đó chạy thật thì phải để dải tab tự ngắt đường kẻ đáy của nó dưới tab đang mở,
+ * chứ không phải để tab thò ra khỏi một cái hộp đang clip. */
+
+/* ---------------------------------------------------------------------------------------------
+   IN HAND
+
+   This is the tab itself, not a picture of it: `useTabReorder` translates the real element under
+   the pointer, and the strip reorders live around it. So there is no line to draw showing where it
+   would go, and no ghost to explain — the only thing left to say is that it has been picked up.
+
+   Which needs a surface of its own. An unselected tab is transparent, and a transparent thing
+   passing over the tabs it is being carried across shows both at once. Raised out of the strip
+   with the surface colour, a shadow and a layer above its neighbours; the transform that moves it
+   is set on the element, and must not be transitioned or it would lag behind the hand. */
+
+.tab[data-dragging] {
+  position: relative;
+  z-index: 1;
+  background: var(--surface-bg);
+  box-shadow: 0 0 12px rgb(0 0 0 / 0.24);
+  cursor: grabbing;
+  transition: none;
+}
+
+/* Tab đang mở giữ nguyên hình khối của nó khi được nhấc lên; chỉ có bóng đổ nói rằng nó đang ở
+   trên tay. */
+.tabActive[data-dragging] {
+  box-shadow:
+    inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55),
+    0 0 12px rgb(0 0 0 / 0.24);
+}
+
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.2em 0.3em;
+  border-radius: 4px;
+  line-height: 1;
+  font-size: var(--text-md);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--hover-bg);
+}
+
+/* No surface of its own, so it reads as an action on the strip rather than as another tab on it. */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  color: inherit;
+  padding: 0.3em 0.7em;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--hover-bg);
+}
+
+/* ---------------------------------------------------------------------------------------------
+   THE SMALL STRIP
+
+   A strip inside a pane — Params/Body/Headers, Preview/Source/Raw. Same shape as the strips above
+   it, quieter: it sits two levels down and must not compete with the tab that says which request
+   you are reading. Every difference is on the strip, so a tab never has to know its own size. */
+
+.small {
+  padding: 0.35rem 0.5rem 0;
+  background: rgb(128 128 128 / 0.05);
+}
+
+.small .tab {
+  padding: 0.35rem 0.6rem;
+  font-size: var(--text-md);
+  opacity: 0.75;
+  transition: background-color 120ms ease, opacity 120ms ease;
+}
+
+.small .tab:hover:not(.tabActive),
+.small .tabActive {
+  opacity: 1;
+}
+
+/* ---------------------------------------------------------------------------------------------
+   GLASS
+
+   The strip's share of the glass look, which used to sit in `shell/glass.css` and reached in by
+   the old global class names. It lives with the thing it draws now: the shell's stylesheet has no
+   way to name a hashed class, and that is the right pressure — how a component looks in a theme is
+   the component's business.
+
+   Only the full-size strip. A pane strip is two levels down and takes no rim: the material is for
+   the window's chrome, not for every row of words inside it. */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  /* Neither the strip nor its tabs has anything behind it but the page, so neither takes a filter;
+     what they take is the direction — the strip was a *darker* band on the page, which is the one
+     thing the material never is. Turned around, the strip becomes the ground and the open tab a
+     pane raised out of it. */
+  :global(:root[data-glass="on"]) .strip:not(.small) {
+    background: var(--glass-chrome-tint);
+  }
+
+  /* The open tab, lifted: the rim that says the surface it is drawn on is the same one the menus
+     and dialogs are cut from. Dưới glass, chính cái rim này là hình khối phân biệt tab đang mở —
+     không cần thêm vạch nào. */
+  :global(:root[data-glass="on"]) .strip:not(.small) .tabActive {
+    box-shadow:
+      inset 1px 1px 1.5px -0.5px var(--glass-rim-lit),
+      inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55);
+  }
+
+  /* The same rim, plus the shadow of a tab in hand — restated because the rule above out-names the
+     plain one, and a tab that lost its lift the moment it was picked up would be the wrong way
+     round. */
+  :global(:root[data-glass="on"]) .strip:not(.small) .tabActive[data-dragging] {
+    box-shadow:
+      inset 1px 1px 1.5px -0.5px var(--glass-rim-lit),
+      inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55),
+      0 0 12px rgb(0 0 0 / 0.24);
+  }
+}

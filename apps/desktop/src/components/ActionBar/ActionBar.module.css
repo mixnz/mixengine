@@ -1,0 +1,49 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+}
+
+.action:hover:not(:disabled) {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Only on hover: at rest a destructive action sits in the bar as quietly as the others, and
+   turns red once the pointer is on it — where the click would actually land. */
+.danger:hover:not(:disabled) {
+  background: rgb(var(--danger-rgb) / 0.15);
+  color: var(--danger);
+}
+
+.spinning {
+  animation: action-bar-spin 0.8s linear infinite;
+}
+
+@keyframes action-bar-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

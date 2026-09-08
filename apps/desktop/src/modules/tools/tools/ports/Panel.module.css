@@ -1,0 +1,121 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* 18rem chứ không phải 10rem: placeholder dài nhất là bản tiếng Việt "Lọc theo cổng hoặc tiến
+   trình", đo được 270px ở font của ô (Fira Code 14.4px) kể cả padding và viền. Ô 10rem cắt mất
+   nửa câu, và một placeholder cụt thì không nói được là ô này lọc theo những gì. */
+.filter {
+  width: 18rem;
+}
+
+/* Ô số cổng thì ngược lại — nội dung dài nhất là năm chữ số, nên rộng bằng ô lọc chỉ tổ trống. */
+.port {
+  width: 8rem;
+}
+
+.os {
+  min-width: 9rem;
+}
+
+.table {
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 22rem;
+}
+
+.row {
+  display: grid;
+  /* Địa chỉ rộng hơn hẳn ba cột kia: một IPv6 như `fe80::1ff:fe23:4567` dài gấp mấy lần
+     `0.0.0.0`, và cột 9rem cũ cắt cụt nó. */
+  grid-template-columns: 4.5rem 15rem 4.5rem 1fr;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  /* `<button>` mặc định là `content-box`, nên `width: 100%` cộng thêm 0.5rem padding mỗi bên và
+     đẩy hàng rộng hơn bảng đúng 16px — vừa đủ để đẻ ra một thanh cuộn ngang không ai cần. */
+  box-sizing: border-box;
+}
+
+/* Ô nào dài quá thì cắt bằng dấu ba chấm chứ không đẩy cột bên cạnh đi. Giá trị đầy đủ nằm ở
+   `title`, và một IPv6 dài vẫn chép được từ ô kết quả bên dưới. */
+.row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row:hover {
+  background: var(--hover-bg);
+}
+
+.row.selected,
+.row.selected:hover {
+  background: rgb(var(--accent-rgb) / 0.16);
+  color: var(--accent-text);
+}
+
+/* `--surface-bg` chứ không phải `--bg`: biến kia không tồn tại trong repo, nên nền của hàng tiêu
+   đề dính lại là trong suốt, và các hàng cuộn qua bên dưới thì đọc lẫn vào nó. */
+.head {
+  font-weight: 600;
+  opacity: 0.6;
+  cursor: default;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-bg);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.head:hover {
+  background: var(--surface-bg);
+}
+
+.dim {
+  opacity: 0.5;
+}
+
+.kill {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.75rem;
+}
+
+.killTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.note {
+  font-size: var(--text-sm);
+  opacity: 0.8;
+  margin: 0;
+}
+
+.error {
+  font-size: var(--text-md);
+  color: var(--danger, #d33);
+  margin: 0;
+}

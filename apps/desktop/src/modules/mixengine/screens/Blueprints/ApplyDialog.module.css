@@ -1,0 +1,120 @@
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+}
+
+.dialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  padding: 24px;
+  width: min(520px, calc(100vw - 2rem));
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.title {
+  margin: 0 0 16px;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.rootRow {
+  display: flex;
+  gap: 8px;
+}
+
+.rootRow > *:first-child {
+  flex: 1;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.step {
+  border: 1px solid var(--border, #ddd);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.blocked {
+  color: var(--danger, #c00);
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.scaffold {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.running {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log {
+  max-height: 200px;
+  overflow-y: auto;
+  /* Lõm xuống dưới mặt dialog. `--page-bg`, không phải `--surface-bg`: bề mặt dialog đã là
+     `--surface-bg`, nên khối log phải là màu nằm sau nó mới đọc ra là thụt vào. */
+  background: var(--page-bg);
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.logLine {
+  white-space: pre-wrap;
+}
+
+.gap {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.errors {
+  margin-top: 12px;
+  color: var(--danger, #c00);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

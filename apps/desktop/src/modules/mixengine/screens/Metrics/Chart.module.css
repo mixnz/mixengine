@@ -1,0 +1,14 @@
+.chart {
+  width: 100%;
+  height: 8rem;
+  display: block;
+}
+
+.avg {
+  stroke: var(--accent);
+}
+
+.peak {
+  stroke: var(--accent);
+  opacity: 0.3;
+}

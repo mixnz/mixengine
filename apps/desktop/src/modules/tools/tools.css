@@ -1,0 +1,43 @@
+/* Bố cục của một tab Tools. Quy tắc phạm vi component sống trong CSS Module của component đó;
+   ở đây chỉ có ba khối chia đôi màn hình. */
+
+/* `width: 100%` chứ không chỉ `height`: khung chứa tab là flex, nên không có nó thì tab co lại
+   vừa đúng nội dung thay vì trải hết bề ngang — `.terminal-tab` cũng phải khai đúng hai dòng này. */
+.tools-tab {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 260px chứ không phải 220px: font của app là Fira Code, và ở 16px thì nhãn dài nhất
+   ("Environment variables") rộng 202px, tiêu đề nhóm dài nhất ("Connection & infrastructure")
+   rộng 194px. Trừ hai lớp padding 0.5rem của `.list` và `.item` là 32px, cộng chỗ cho thanh cuộn
+   ~15px, thì 250px mới vừa đủ một hàng — 260px để nhãn dài thêm chút nữa vẫn không xuống dòng. */
+.tools-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 260px;
+  flex: none;
+  border-right: 1px solid var(--border-soft);
+  min-height: 0;
+}
+
+.tools-sidebar-search {
+  flex: none;
+  margin: 0.5rem 0.5rem 0;
+}
+
+.tools-sidebar-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tools-pane {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 1rem;
+}

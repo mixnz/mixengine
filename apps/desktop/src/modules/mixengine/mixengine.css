@@ -1,0 +1,46 @@
+/* Root của workspace cần đủ khối năm thuộc tính: `.tab-panel` là flex hàng ngang, nên một root
+   thiếu `width` chỉ rộng bằng nội dung và dính vào mép trái —
+   xem .agent/conventions/workspace-root.md. */
+.mixengine-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Cổng đứng trước một daemon chưa trả lời: một câu và, khi có việc để làm, một nút. */
+.mixengine-gate {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+/* Sidebar + màn hình đang chọn, cạnh nhau. `.mixengine-root` là flex column ở trên nên phải nói lại
+   `flex-direction: row` ở đây thay vì đổi luật của root. */
+.mixengine-layout {
+  flex-direction: row;
+}
+
+.mixengine-screen {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Một màn hình đã xem qua ở lại trong DOM để không mất state của nó — `display: contents` là để
+   nó không thêm một hộp mới vào layout (một số màn tự đặt `height: 100%` mong chờ là con trực tiếp
+   của `.mixengine-screen`, số khác không) khi đang hiện; `[hidden]` mới thật sự ẩn nó đi. */
+.mixengine-screen-pane {
+  display: contents;
+}
+
+.mixengine-screen-pane[hidden] {
+  display: none;
+}

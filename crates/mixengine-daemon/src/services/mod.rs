@@ -428,15 +428,19 @@ impl Recovery {
 /// Not an [`std::error::Error`] itself: nothing wraps it, and the one caller matches it and hands
 /// each half to the mapping that already exists for it — [`crate::error::ToWire`], where the
 /// `service.*` handlers meet it.
+///
+/// Both halves are boxed: `mixengine_core::Error` is over 128 bytes, and the two `async fn`s that
+/// answer with this type would otherwise carry it through one more frame, which is what
+/// `clippy::result_large_err` flags. Every reader only displays it or hands it to `to_wire`.
 #[derive(Debug)]
 pub(crate) enum Undeclarable {
     /// The source could not produce them: a package that is not installed, a template that does not
     /// render, a database that cannot be read.
-    Unavailable(mixengine_core::Error),
+    Unavailable(Box<mixengine_core::Error>),
 
     /// They are not a graph: a cycle, a dependency on something that is not declared, two services
     /// with the same id.
-    Invalid(mixengine_core::Error),
+    Invalid(Box<mixengine_core::Error>),
 }
 
 impl Registry {
@@ -566,7 +570,7 @@ impl Registry {
             .specs
             .declared()
             .await
-            .map_err(Undeclarable::Unavailable)?;
+            .map_err(|error| Undeclarable::Unavailable(Box::new(error)))?;
 
         self.hand_over(&generated);
         self.remember_rituals(&generated);
@@ -578,7 +582,7 @@ impl Registry {
                 .map(|one| one.spec)
                 .collect::<Vec<_>>(),
         )
-        .map_err(|error| Undeclarable::Invalid(mixengine_core::Error::Graph(error)))
+        .map_err(|error| Undeclarable::Invalid(Box::new(mixengine_core::Error::Graph(error))))
     }
 
     /// The absolute path of the program this home's front end runs, or [`None`].
@@ -1433,11 +1437,12 @@ impl Registry {
     ///
     /// # Errors
     ///
-    /// Whatever rendering this home's declarations costs.
+    /// Whatever rendering this home's declarations costs — boxed, because the one caller only logs
+    /// it and `mixengine_core::Error` is over 128 bytes (`clippy::result_large_err`).
     pub(crate) async fn wakeable_at(
         &self,
         service: &ServiceId,
-    ) -> mixengine_core::Result<Vec<mixengine_platform::activation::Listen>> {
+    ) -> Result<Vec<mixengine_platform::activation::Listen>, Box<mixengine_core::Error>> {
         let generator = spec::generator(&self.paths, &self.store, self.host.as_ref());
 
         Ok(generator
@@ -4191,8 +4196,8 @@ mod tests {
 
         assert!(
             matches!(
-                error,
-                Undeclarable::Invalid(mixengine_core::Error::Graph(_))
+                &error,
+                Undeclarable::Invalid(inner) if matches!(**inner, mixengine_core::Error::Graph(_))
             ),
             "{error:?}"
         );

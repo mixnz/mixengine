@@ -46,7 +46,6 @@
 //! is a task of its own; what is recorded is the version that performed the bootstrap, in
 //! [`READY_MARKER`](crate::generate::first_run::READY_MARKER).
 
-use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 
@@ -233,12 +232,16 @@ impl Recipe for Mysql {
     /// assumed.
     fn endpoints(&self, context: &Context) -> Result<Endpoints> {
         if cfg!(windows) {
-            return Ok(Endpoints::default());
+            return Ok(Endpoints {
+                scratch: Some(super::scratch_dir(context)),
+                ..Endpoints::default()
+            });
         }
 
         Ok(Endpoints {
             socket: Some(socket_path(context)?),
             plugins: None,
+            scratch: Some(super::scratch_dir(context)),
             ..Endpoints::default()
         })
     }
@@ -441,7 +444,7 @@ pub(super) fn steps_for(context: &Context, route: Route, windows: bool) -> Resul
                 super::link_a_space_free_view(context, &view),
                 install_db(context, &view)?,
                 bootstrap(context, password)?,
-                super::remove_the_space_free_view(&view),
+                super::remove_the_space_free_view(context, &view),
             ])
         }
 
@@ -470,7 +473,7 @@ fn initialize(context: &Context) -> Result<Step> {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::new(),
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -526,7 +529,7 @@ fn set_the_password(context: &Context, password: &str, windows: bool) -> Result<
                 "ALTER USER '{ROOT}'@'localhost' IDENTIFIED BY '{password}';\nSHUTDOWN;\n"
             ),
         }),
-        env: BTreeMap::new(),
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -571,13 +574,17 @@ fn install_db(context: &Context, view: &Path) -> Result<Step> {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::from([(
-            "PATH".to_owned(),
-            format!(
-                "{}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                basedir.join("bin").display()
-            ),
-        )]),
+        env: {
+            let mut env = super::scratch_environment(context);
+            env.insert(
+                "PATH".to_owned(),
+                format!(
+                    "{}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    basedir.join("bin").display()
+                ),
+            );
+            env
+        },
         cwd: PathBuf::from("/tmp"),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -604,7 +611,9 @@ fn copy_the_shipped_data(context: &Context) -> Result<Step> {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::new(),
+        // A copy needs no scratch directory; it carries the variable so that every step of every
+        // route does, which is the one shape the recipe's test holds them all to.
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -642,7 +651,7 @@ fn bootstrap(context: &Context, password: &str) -> Result<Step> {
              FLUSH PRIVILEGES;\n"
         )),
         secret_file: None,
-        env: BTreeMap::new(),
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -832,6 +841,49 @@ mod tests {
         let mut context = context_of(version, provides, "{}");
         context.put_secret(ROOT, "abcd1234abcd1234abcd1234abcd1234");
         context
+    }
+
+    /// **Every step of every route, and the file, name one scratch directory of this instance's
+    /// own** — roadmap task **T33c**, on MariaDB's measurement: the deletion is the same code in
+    /// this server, and 5.6's installer loads the same system tables through the same temporary
+    /// ones.
+    #[test]
+    fn every_first_run_step_and_the_file_name_this_instances_own_scratch_directory() {
+        use crate::generate::recipes::{TMPDIR, scratch_dir};
+
+        for (version, provides, route, windows) in [
+            ("8.4.10", provides(), Route::Initialize, false),
+            ("5.7.44", provides(), Route::Initialize, true),
+            ("5.6.51", provides_5_6(), Route::Script, false),
+            ("5.6.51", provides(), Route::ShippedData, true),
+        ] {
+            let context = initialised(version, provides);
+            let scratch = context
+                .scratch()
+                .expect("this recipe asks for a scratch directory");
+            assert_eq!(scratch, scratch_dir(&context));
+            assert_eq!(scratch.parent(), context.data().parent(), "{scratch:?}");
+
+            let expected = scratch.display().to_string();
+            for step in steps_for(&context, route, windows).expect("the steps") {
+                assert_eq!(
+                    step.env.get(TMPDIR),
+                    Some(&expected),
+                    "{version} {route:?}: {step:?}"
+                );
+            }
+        }
+
+        let context = context("{}");
+        let expected = context
+            .scratch()
+            .expect("a scratch directory")
+            .display()
+            .to_string()
+            .replace('\\', "/");
+        let rendered = rendered("{}");
+        let line = format!("tmpdir = \"{expected}\"");
+        assert!(rendered.contains(&line), "no `{line}` in:\n{rendered}");
     }
 
     /// Two instances of one server, so its id carries an `@`.

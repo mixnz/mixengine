@@ -1,0 +1,231 @@
+.redisValue {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.keyName {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: var(--text-sm);
+  opacity: 0.65;
+  flex-wrap: wrap;
+}
+
+.type {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.scrollWrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.stringValue {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  text-align: left;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  text-align: left;
+}
+
+.table th,
+.table td {
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+/* The sticky header has to hide the rows scrolling under it, so it takes the page's own colour
+   rather than a wash of the card's — `--rail-bg` is that colour in either theme, and a frosted
+   tint over them once the glass setting is on. */
+.table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.table tbody tr:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+.numberColumn {
+  width: 4rem;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.scoreColumn {
+  width: 8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.fieldColumn {
+  width: 30%;
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.valueCell {
+  font-family: var(--font-mono);
+  word-break: break-word;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+/* A JSON cell, unformatted: the chip that opens it, then as much of the raw text as the column
+   has room for. One line, so a hundred JSON items still read as a hundred rows. */
+.jsonCollapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.jsonPreview {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.jsonExpanded {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.jsonChipButton {
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+.jsonChip {
+  flex: 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--accent-rgb) / 0.16);
+  color: var(--accent-text);
+}
+
+.jsonCollapsed:hover .jsonChip,
+.jsonChipButton:hover .jsonChip {
+  background: rgb(var(--accent-rgb) / 0.3);
+}
+
+/* Switches the whole-key string view between its JSON form and the bytes actually stored. */
+.formatToggle {
+  padding: 0.05rem 0.35rem;
+  border: 1px solid rgba(128, 128, 128, 0.35);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-md);
+  color: inherit;
+  opacity: 0.9;
+}
+
+.formatToggle:hover {
+  background: var(--hover-bg);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+}
+
+.loadMore {
+  padding: 0.3rem 0.8rem;
+  border: 1px dashed rgba(128, 128, 128, 0.4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  font-size: 1em;
+}
+
+.loadMore:hover:not(:disabled) {
+  background: var(--hover-bg);
+}
+

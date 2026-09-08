@@ -1,0 +1,51 @@
+/* The thing the pointer rests on. Inline and stated outright, because the alternative breaks
+   something: an `inline-block` here is an atomic box, and a cell that truncates with
+   `text-overflow: ellipsis` drops such a box whole rather than cutting it — a long column name
+   would go from ending in `…` to being nothing but `…`. Inline, the wrapper changes no layout at
+   all, which is the point of it. */
+.anchor {
+  display: inline;
+}
+
+/* Fixed to the window and portalled into `body`, for one reason: every cell of the grid this is
+   used from is `overflow: hidden` inside a scroller that is `overflow: auto`, so a bubble drawn
+   inside the cell would be cut off twice over.
+
+   Above the dialogs' 81 — a tooltip belongs to whatever is under the pointer, and if that is a
+   dialog it still has to be readable. Placed by `Tooltip.tsx` once it has been measured, and
+   hidden until then so nothing is seen at the top-left corner first. */
+.bubble {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  visibility: hidden;
+  max-width: 22rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  /* The pointer must pass straight through: the bubble is drawn a few pixels from the anchor, and
+     one that could be hovered would take the pointer off the anchor and close itself. */
+  pointer-events: none;
+  /* Its own fade rather than the shared `.pop`: this one is drawn either above or below its
+     anchor, so it has no fixed corner to grow from — and after a third of a second of waiting,
+     what is wanted is the text, not a flourish. */
+  animation: tooltip-in 110ms ease-out both;
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble {
+    animation: none;
+  }
+}

@@ -376,6 +376,13 @@ impl Context {
         self.endpoints.plugins.as_deref()
     }
 
+    /// This instance's own directory for temporary files, when its recipe asked for one —
+    /// [`Endpoints::scratch`].
+    #[must_use]
+    pub fn scratch(&self) -> Option<&Path> {
+        self.endpoints.scratch.as_deref()
+    }
+
     /// Where a credential of this service's lives inside the keyring's `mixengine` namespace.
     ///
     /// `<service-id>/<key>` — `mariadb@main/root`. The service id rather than the package name,
@@ -469,6 +476,7 @@ impl Context {
                 logs: &self.logs,
                 socket: self.endpoints.socket.as_deref(),
                 plugins: self.endpoints.plugins.as_deref(),
+                scratch: self.endpoints.scratch.as_deref(),
                 includes: &self.endpoints.includes,
             },
             settings: &self.settings,
@@ -687,6 +695,9 @@ struct Layout<'a> {
     /// [`Endpoints::plugins`], likewise.
     plugins: Option<&'a Path>,
 
+    /// [`Endpoints::scratch`], for a template whose server takes a `tmpdir`.
+    scratch: Option<&'a Path>,
+
     /// [`Endpoints::includes`], which a template reads by name: `paths.includes['mime.types']`.
     includes: &'a BTreeMap<String, PathBuf>,
 }
@@ -715,11 +726,19 @@ pub struct ServiceCertificate {
 
 /// Paths a recipe computes that its own template also has to name.
 ///
-/// Three so far — two MariaDB's, one nginx's — and all of them here for one reason: the alternative
-/// is a template joining a path itself, and the failure when the file and the daemon's own check
-/// disagree is a service that starts perfectly and is reported as never having come up.
+/// Four so far — two MariaDB's, one nginx's, and one the MySQL family shares — and all of them here
+/// for one reason: the alternative is a template joining a path itself, and the failure when the
+/// file and the daemon's own check disagree is a service that starts perfectly and is reported as
+/// never having come up.
 #[derive(Debug, Clone, Default)]
 pub struct Endpoints {
+    /// A directory of this instance's own for its temporary files, for a server that would otherwise
+    /// use the machine's — and *clean* the machine's, at every start, of every file that looks like
+    /// its own, whoever made it. [`None`] for a service that keeps no temporary files or keeps them
+    /// where nobody else looks. The generator creates it beside the log and data directories, so a
+    /// first-run step and the service itself can both count on it being there.
+    pub scratch: Option<PathBuf>,
+
     /// Where this service listens on a Unix socket — [`None`] on a system without them, and for
     /// every service that listens on a port alone.
     ///

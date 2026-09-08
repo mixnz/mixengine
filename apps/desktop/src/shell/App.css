@@ -1,0 +1,835 @@
+:root {
+  /* Chữ có hai vai, không phải một giá trị. `--font-ui` là thứ app tự nói ra — nhãn, nút, tab,
+     menu, tiêu đề. `--font-mono` là thứ đến từ database.
+
+     Ranh giới không phải "chỗ nào trông hợp", mà là: mono khi việc so từng ký tự là thật. Một giá
+     trị `varchar` cần thấy được khoảng trắng cuối và phân biệt được `l` với `1`; nhãn "Save
+     connection" thì không, và sans quét nhanh hơn ở cỡ chữ nhỏ.
+
+     Trước đây chỉ có một vai, nên mọi thứ mang vai đó — kể cả đoạn văn sáu dòng giải thích Liquid
+     glass trong Settings, vốn đang được đọc bằng một font lập trình. */
+  --font-ui: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Fira Code", ui-monospace, monospace;
+
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+
+  /* Bốn bậc, và không có bậc thứ năm.
+
+     Trước đợt này app có 179 khai báo `font-size` theo `em` và 71 theo `rem` — nghĩa là không có
+     thang nào cả, chỉ có những lần điều chỉnh cục bộ chồng lên nhau, và một `0.9em` nằm trong một
+     `0.9em` khác ra một cỡ chữ không ai định. Bốn con số này là thang; một cỡ chữ ngoài chúng là
+     một sai sót, không phải một lựa chọn.
+
+     14px chứ không phải 16px vì đây là công cụ người ta mở tám tiếng một ngày để làm việc, không
+     phải một trang để ngắm: chữ nhỏ hơn nghĩa là nhiều dòng dữ liệu hơn trên một màn, và đó là
+     thứ đáng đánh đổi ở đây. */
+  --text-xs: 12px; /* badge, caption, chú thích */
+  --text-sm: 13px; /* label phụ, dòng trạng thái */
+  --text-md: 14px; /* thân, mọi control */
+  --text-lg: 16px; /* tiêu đề pane, tiêu đề dialog */
+
+  color: #0f0f0f;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+
+  /* Three steps, used everywhere. Anything smaller than a control (badge, chip, swatch ring) takes
+     `sm`, a control or a row takes `md`, and anything that floats above the page (dialog, menu,
+     panel) takes `lg`. A radius outside this set is a mistake, not a choice. */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* The gap between a tab's view and the window. Held by the view rather than by the tab that
+     holds it, so a veil over the view can still cover the gap — see `.tab-content`. */
+  --view-padding: 0.25rem;
+
+  /* Grey at three weights, so the twenty-odd `rgba(128, 128, 128, …)` these replaced can't drift
+     apart. Grey rather than a tinted neutral: it sits under every accent without arguing. */
+  --border-soft: rgb(128 128 128 / 0.15);
+  --border: rgb(128 128 128 / 0.25);
+  --border-strong: rgb(128 128 128 / 0.45);
+  --hover-bg: rgb(128 128 128 / 0.12);
+
+  /* Height above the page. A control is *on* the page and casts almost nothing; only what floats
+     gets a real shadow. The old control shadow was `0 2px 2px rgb(0 0 0 / 0.2)` — a hard dark bar
+     under every input, which is most of what made the app look heavy. */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.12);
+  --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.18);
+
+  /* Shared visual language for form controls (input/button/textarea/select
+     trigger) — referenced from here and from Button/Input/Select's own CSS
+     modules so the two layers can't drift out of sync. */
+  --control-radius: var(--radius-md);
+  --control-shadow: var(--shadow-sm);
+  --control-color: #0f0f0f;
+  --control-bg: #ffffff;
+  --control-bg-active: #e8e8e8;
+  --control-border: var(--border);
+  --control-border-focus: var(--accent);
+  --surface-bg: #ffffff;
+  --page-bg: #f6f6f6;
+
+  /* Nền của ô đang được chọn trong một segmented control — `.choice-active` bên `modules/db/db.css`,
+     `.tab.active` bên `modules/tools/.../encode`. Riêng ra khỏi `--surface-bg` vì cả nhóm quanh nó
+     đã tô `--hover-bg`: trong theme tối `--surface-bg` đúng bằng màu trang, nên ô đang chọn hoá ra
+     *tối hơn* nhóm và đọc ra như một lỗ thủng, còn những ô không được chọn mới là cái trông nổi
+     lên. Ô được chọn phải nổi khỏi nhóm ở cả hai theme, nên nó có token riêng. */
+  --choice-active-bg: var(--surface-bg);
+
+  /* What a *pinned* strip paints with: a grid's header, its totals, the column of buttons held
+     against the right edge. These are the one part of the app proper that live content passes
+     behind, so they are the one part that can be real glass — but only when the setting is on, and
+     only if the engine has the property. Both are decided in `glass.css`; here they resolve to the
+     opaque page colour every one of these strips used to name directly, so with the setting off
+     nothing about them has changed.
+
+     Carried as variables rather than as a class because a `<th>` cannot compose one: the rules that
+     pin these strips are descendant selectors (`.grid thead th`), and CSS Modules' `composes` only
+     works on a bare class. */
+  --rail-bg: var(--page-bg);
+  --rail-filter: none;
+
+  /* One ring, one meaning: keyboard focus.
+
+     Drawn *inside* the border box. A ring painted outside is at the mercy of every ancestor that
+     clips — this app nests scroll panes inside `overflow: hidden` workspaces several deep, and the
+     filter bar sits flush against the top edge of one, so an outset ring lost its top edge with no
+     padding that could be added locally to bring it back. Inset costs nothing: the controls carry
+     enough padding that 2px never reaches the text. */
+  --focus-ring: inset 0 0 0 2px rgb(var(--accent-rgb) / 0.5);
+
+  /* The accent as a filled surface — the primary button. Light mode fills with the darker text
+     cast so white type on it clears 4.5:1 (the plain `--accent` is too light for that on the
+     greener hues); dark mode fills with `--accent` and puts near-black type on top. */
+  --accent-solid: var(--accent-text);
+  --accent-on-solid: #ffffff;
+
+  /* The accent, in the three forms the app actually uses it in: solid for borders and icons, a
+     darker (light mode) or lighter (dark mode) cast for text that has to stay readable against the
+     page, and bare channels so a rule can mix its own wash with `rgb(var(--accent-rgb) / a)`
+     instead of every wash needing a token of its own. Nothing outside this block should name a
+     hue: an accent the user can change means these three are the only handles the rest of the app
+     may hold. */
+  --accent: var(--c-blue);
+  --accent-text: var(--c-blue-text);
+  --accent-rgb: var(--c-blue-rgb);
+
+  /* Destructive, in the same three forms the accent has: solid for a border, an icon or a filled
+     bar; a darker cast for text that has to stay readable against the page; and bare channels so
+     a rule can mix its own wash with `rgb(var(--danger-rgb) / a)`.
+
+     Not one of the ten accent palettes and never chosen by the user: red is what *delete* means
+     here, and an accent that could also be red would leave a Delete button reading as the
+     recommended one. Which is why the accents are picked to stay distinct from it — see above.
+
+     Before these existed the same red was written out by hand in sixty-odd places, in two casts
+     that had drifted a little (`#d32f2f` against `#c0392b`) and two more for dark. */
+  --danger: #d32f2f;
+  --danger-text: #c0392b;
+  --danger-rgb: 211 47 47;
+
+  /* Hai màu còn lại của bộ "trạng thái", cùng hai dạng như `--danger`: một bản đặc cho viền và
+     icon, một bản đọc được trên nền trang cho chữ.
+
+     Chúng ra đời vì `.waiting` bên Dashboard đã viết `var(--warning, #b45309)` từ lâu — một token
+     app này chưa bao giờ định nghĩa, nên nó luôn rơi về mã cứng và không đổi theo theme. Đúng
+     loại lỗi `var(--surface, #fff)` đã để lại ở bốn dialog. Bản sáng của `--warning` giữ nguyên
+     đúng `#b45309` đó, nên không màn hình nào đổi màu vì lần thêm này. */
+  --success: #2e7d32;
+  --success-text: #1b5e20;
+  --warning: #b45309;
+  --warning-text: #92400e;
+
+  /* All ten palettes stay defined whichever one is in force, rather than only the chosen one, so
+     the swatches in Settings can each paint themselves from their own `--c-<name>` and show the
+     whole set at once. Their dark casts sit with the rest of the dark theme at the foot of the
+     file — a swatch tracks the theme for free that way, no second set of values to keep in step.
+
+     A hue lands here only if it reads at 4.5:1 against this page in its `-text` cast and stays
+     distinct from the red that means destructive, which is why there is no red among them. */
+  /* Xanh dương đậm, và là một lựa chọn. Giá trị cũ `#396cd8` là accent mặc định của template
+     `create-tauri-app` — nó chưa bao giờ được ai chọn, chỉ là thứ còn sót lại từ lúc dựng dự án,
+     và là dấu vết dễ nhận ra nhất ở một app chưa ai ngồi xuống nhìn. Tối hơn và bớt bão hoà hơn,
+     nên nó đọc ra "công cụ" chứ không phải "trang web". */
+  --c-blue: #23528c;
+  --c-blue-text: #1d4576;
+  --c-blue-rgb: 35 82 140;
+
+  --c-indigo: #5457d6;
+  --c-indigo-text: #4245b5;
+  --c-indigo-rgb: 84 87 214;
+
+  --c-violet: #7c4dcc;
+  --c-violet-text: #6740ab;
+  --c-violet-rgb: 124 77 204;
+
+  --c-magenta: #c2418f;
+  --c-magenta-text: #a23577;
+  --c-magenta-rgb: 194 65 143;
+
+  --c-orange: #c2620f;
+  --c-orange-text: #a1520d;
+  --c-orange-rgb: 194 98 15;
+
+  /* Held well below a bright yellow: at full chroma this hue cannot reach 4.5:1 against the light
+     page, and the accent carries text. It comes back up in the dark half. */
+  --c-amber: #9c7000;
+  --c-amber-text: #805c00;
+  --c-amber-rgb: 156 112 0;
+
+  --c-green: #2f8f46;
+  --c-green-text: #27753a;
+  --c-green-rgb: 47 143 70;
+
+  --c-teal: #0f8a86;
+  --c-teal-text: #0d726f;
+  --c-teal-rgb: 15 138 134;
+
+  --c-cyan: #0b7ea8;
+  --c-cyan-text: #09688a;
+  --c-cyan-rgb: 11 126 168;
+
+  --c-slate: #5a6b7c;
+  --c-slate-text: #4a5866;
+  --c-slate-rgb: 90 107 124;
+
+  /* The mark on a connection MixDB will not write to. The one colour besides the destructive red
+     that the accent may not decide: the accent is the user's choice of decoration and can be
+     changed at will, and this states a fact about the connection that has to keep meaning the same
+     thing afterwards. Amber because caution is what it means — and borrowed from the palette's own
+     amber, so it follows the theme without a second pair of values to keep in step. (An accent of
+     amber puts the two hues side by side; the badge is still the only worded mark in the row.) */
+  --readonly: var(--c-amber-text);
+  --readonly-rgb: var(--c-amber-rgb);
+}
+
+/* Which of the ten the accent points at. Blue is the default and is set on `:root` above, so it
+   needs no attribute — `applyAccent` in theme.ts leaves the attribute off for it. */
+:root[data-accent="indigo"] {
+  --accent: var(--c-indigo);
+  --accent-text: var(--c-indigo-text);
+  --accent-rgb: var(--c-indigo-rgb);
+}
+
+:root[data-accent="violet"] {
+  --accent: var(--c-violet);
+  --accent-text: var(--c-violet-text);
+  --accent-rgb: var(--c-violet-rgb);
+}
+
+:root[data-accent="magenta"] {
+  --accent: var(--c-magenta);
+  --accent-text: var(--c-magenta-text);
+  --accent-rgb: var(--c-magenta-rgb);
+}
+
+:root[data-accent="orange"] {
+  --accent: var(--c-orange);
+  --accent-text: var(--c-orange-text);
+  --accent-rgb: var(--c-orange-rgb);
+}
+
+:root[data-accent="amber"] {
+  --accent: var(--c-amber);
+  --accent-text: var(--c-amber-text);
+  --accent-rgb: var(--c-amber-rgb);
+}
+
+:root[data-accent="green"] {
+  --accent: var(--c-green);
+  --accent-text: var(--c-green-text);
+  --accent-rgb: var(--c-green-rgb);
+}
+
+:root[data-accent="teal"] {
+  --accent: var(--c-teal);
+  --accent-text: var(--c-teal-text);
+  --accent-rgb: var(--c-teal-rgb);
+}
+
+:root[data-accent="cyan"] {
+  --accent: var(--c-cyan);
+  --accent-text: var(--c-cyan-text);
+  --accent-rgb: var(--c-cyan-rgb);
+}
+
+:root[data-accent="slate"] {
+  --accent: var(--c-slate);
+  --accent-text: var(--c-slate-text);
+  --accent-rgb: var(--c-slate-rgb);
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+@supports not (selector(::-webkit-scrollbar)) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgba(128, 128, 128, 0.35);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  min-height: 40px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(128, 128, 128, 0.55);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+#root {
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  text-align: left;
+}
+
+/* The name of the app, and the only way into its settings. It used to be flat text at 70% opacity,
+   which is how a label looks, not how a button looks — nobody had a reason to click it. It now
+   carries its own surface, a hairline and a gear, so what it is stays legible from across the
+   window and what it does is legible from a foot away. */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: none;
+  font-family: inherit;
+  font-size: var(--text-md);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  /* Sits a little off the bottom of the bar: the tabs beside it run down to the edge, and the
+     button is not one of them. */
+  margin: 0 0.5rem 0.3rem 0.1rem;
+  padding: 0.3rem 0.5rem;
+  border: none;
+  background: var(--hover-bg);
+  box-shadow: inset 0 0 0 1px var(--border);
+  color: inherit;
+  opacity: 0.9;
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--radius-md);
+  transition: background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.brand:hover {
+  opacity: 1;
+  background: rgb(var(--accent-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.45);
+  color: var(--accent-text);
+}
+
+/* The press itself, since the button has no travel of its own. */
+.brand:active {
+  background: rgb(var(--accent-rgb) / 0.2);
+}
+
+.brand-gear {
+  flex: none;
+  opacity: 0.7;
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms ease;
+}
+
+/* An eighth of a turn on hover: the gear is eight-toothed, so it lands where it started and the
+   movement reads as the thing turning rather than as the icon being swapped. */
+.brand:hover .brand-gear {
+  opacity: 1;
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand,
+  .brand-gear {
+    transition: none;
+  }
+
+  .brand:hover .brand-gear {
+    transform: none;
+  }
+}
+
+/* An update is out and the user has not dealt with it yet. The name goes to full strength and
+   takes the accent, so the button reads as changed even for someone who cannot see the dot. */
+.brand-update {
+  position: relative;
+  opacity: 1;
+  color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.5);
+}
+
+/* Outside the chip's corner rather than inside it, which is where a notification dot goes and
+   which keeps it off the gear it would otherwise sit on top of. */
+.brand-update::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  /* Three slow pulses, then still: enough to catch the eye on arrival without a corner of the
+     window blinking for the rest of the session. */
+  animation: brand-update-pulse 1.6s ease-out 3;
+}
+
+@keyframes brand-update-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(var(--accent-rgb) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-update::after {
+    animation: none;
+  }
+}
+
+/* One mark on a tab, whatever it says. The layout is all the shell knows about it: what colour it
+   takes, and whether it takes one, is the module's own class beside this one. */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+/* The one mark the shell draws for itself: the module's icon, on a tab that has no badge of its
+   own yet. Held back from the name beside it, which is the thing to read — this says no more than
+   which of the app's modules the tab belongs to, and a mark at full strength would be claiming to
+   say something about the tab in particular. */
+.tab-module {
+  opacity: 0.55;
+}
+
+/* Deliberately unpadded: each view below pads itself instead (`--view-padding`), so that a veil
+   covering a whole view reaches the window's edges rather than stopping at a frame of padding. */
+.tab-content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-panel {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Read aloud, never drawn — a word that a shape is already saying to anyone who can see it.
+   Clipped to nothing rather than `display: none`, which would take it out of the accessibility
+   tree along with the layout. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The entry that creates something rather than selecting one, at the head of a picker's list. Set
+   apart by colour alone: it reads as an action while sitting in the same rows as the names. */
+.select-new-option {
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+/* The entry at the foot of a picker that reloads the list it sits in. Kept quieter than the create
+   entry above: it changes nothing on the server, so it shouldn't compete with the names. */
+.select-reload-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  opacity: 0.75;
+}
+
+.select-reload-option-spinning {
+  animation: select-reload-spin 0.8s linear infinite;
+}
+
+@keyframes select-reload-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.context-menu {
+  position: fixed;
+  /* Over everything a menu can be opened from, which is the only rule that holds here: a menu is
+     always asked for by right-clicking something, and that something can be a dialog or the results
+     pane lifted over the window (both 80/81). It sat at 50 and was drawn underneath the lifted pane
+     — rendered, positioned, and invisible. Under the tooltip at 90, which belongs to whatever is on
+     top of all of it. */
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  /* Sized by its entries rather than by the room left to the window edge: without this a menu
+     opened near the right edge is squeezed thin and its labels wrap, and the measurement that
+     places it (`components/contextMenuPosition.ts`) would be of that squeezed shape. */
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  /* The last resort for a menu with more entries than the window is tall — it is placed to fit
+     wherever it can first, and only scrolls when nowhere fits. */
+  max-height: calc(100vh - 1rem);
+  overflow-y: auto;
+  background: var(--surface-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 0.25rem;
+  gap: 0.1rem;
+  /* Grows from the corner it is pinned by, so the eye is led back to what was right-clicked.
+     Short: this is a step in a gesture, not a stop in one. Matches `.pop` in
+     `components/dialogMotion.module.css`, which does the same for the dropdowns. The corner is
+     overridden inline when the menu had to flip up or left to stay in the window. */
+  transform-origin: top left;
+  animation: context-menu-in 120ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes context-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-menu {
+    animation: none;
+  }
+}
+
+/* A row, not a line of text: an entry that leads with a mark — the module icons in the `[+]` menu —
+   needs the gap between mark and word set here, or the two run together. An entry that is only
+   words is laid out the same way and reads no differently for it. */
+.context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 6px;
+  padding: 0.5em 0.8em;
+}
+
+.context-menu button:hover {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.context-menu button:disabled,
+.context-menu button:disabled:hover {
+  background: transparent;
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Between groups of entries in a menu long enough to have them — what the cell was, what the rows
+   are, what the grid does. A rule rather than a gap: the eye reads three short lists faster than
+   one list of six, and a gap alone at this size reads as a mistake. */
+.context-menu-separator {
+  height: 1px;
+  margin: 0.2rem 0.4rem;
+  background: var(--border);
+}
+
+.context-menu-delete {
+  color: var(--danger);
+}
+
+.muted {
+  opacity: 0.6;
+  font-size: var(--text-md);
+}
+
+textarea {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  box-sizing: border-box;
+}
+
+a {
+  font-weight: 500;
+  color: var(--accent-text);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: var(--accent);
+}
+
+/* The border stays transparent here because most `<button>`s in this app are chrome — tabs, icon
+   buttons, list rows — and each turns its own border off. The ones that read as controls (Button's
+   own class, inputs, the Select trigger) opt into a visible border just below. */
+input,
+button,
+textarea {
+  border-radius: var(--control-radius);
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--control-color);
+  background-color: var(--control-bg);
+  /* Fast enough to feel like a response rather than an animation. The old 0.25s on hover read as
+     the interface lagging behind the pointer. */
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+  box-shadow: var(--control-shadow);
+}
+
+input,
+textarea {
+  border-color: var(--control-border);
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Hover is not selection: it gets weight, not colour. Reserving the accent for focus is what makes
+   the focus ring mean something — before, hover and focus were the same accent border and neither
+   told you where the keyboard was. */
+button:hover:not(:disabled),
+input:hover:not(:disabled),
+textarea:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+button:active:not(:disabled) {
+  background-color: var(--control-bg-active);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* `:focus-visible`, not `:focus`: a ring after a mouse click is noise, a ring after a Tab press is
+   the only way to know where you are. The app previously set `outline: none` with nothing in its
+   place, so keyboard focus was invisible everywhere. */
+input,
+button,
+textarea,
+select,
+[tabindex] {
+  outline: none;
+}
+
+input:focus-visible,
+button:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+/* A text box is the one control whose focus should show even when reached by mouse — it marks
+   where typing will land. */
+input:focus,
+textarea:focus {
+  border-color: var(--accent);
+}
+
+:root[data-theme="dark"] {
+  color: #f6f6f6;
+  background-color: #2f2f2f;
+
+  --control-color: #ffffff;
+  --control-bg: #0f0f0f98;
+  --control-bg-active: #0f0f0f69;
+  --surface-bg: #2f2f2f;
+  --page-bg: #2f2f2f;
+  /* Một lớp trắng, dày hơn `--hover-bg` mà cả nhóm đang tô — cùng cách `--qe-card-bg`
+     nâng một card lên khỏi trang. */
+  --choice-active-bg: rgb(255 255 255 / 0.16);
+
+  /* A control casts nothing here — a dark shadow on a dark page only muddies it — while what
+     floats needs a heavier one to separate at all. */
+  --shadow-sm: none;
+  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+  --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.55);
+
+  /* The reverse of the light rule above: fill with the lighter cast, set near-black on it. */
+  --accent-solid: var(--accent);
+  --accent-on-solid: #16181c;
+
+  /* Lighter, so it reads against a dark page — the light casts are close enough to the
+     background here to be hard work. `--danger-text` is the softer of the two, matching the
+     roles they have in the light theme. */
+  --danger: #ff6b6b;
+  --danger-text: #ff8a80;
+  --danger-rgb: 255 99 99;
+
+  --success: #6bcf7f;
+  --success-text: #8ce09c;
+  --warning: #f0a54a;
+  --warning-text: #f5bd74;
+
+  /* The dark cast of all ten. Only the palettes are restated — which one `--accent` points at was
+     settled by `[data-accent]` above and holds through the theme, so a swatch and the accent both
+     follow the theme without a second selector per colour. */
+  --c-blue: #6f9fd8;
+  --c-blue-text: #8fb6e4;
+  --c-blue-rgb: 111 159 216;
+
+  --c-indigo: #8b8df0;
+  --c-indigo-text: #a5a7f5;
+  --c-indigo-rgb: 139 141 240;
+
+  --c-violet: #a887f5;
+  --c-violet-text: #bda3f7;
+  --c-violet-rgb: 168 135 245;
+
+  --c-magenta: #ec78bb;
+  --c-magenta-text: #f095cb;
+  --c-magenta-rgb: 236 120 187;
+
+  --c-orange: #f0913f;
+  --c-orange-text: #f5a866;
+  --c-orange-rgb: 240 145 63;
+
+  --c-amber: #e0ac2b;
+  --c-amber-text: #e8bd57;
+  --c-amber-rgb: 224 172 43;
+
+  --c-green: #5fc97a;
+  --c-green-text: #84d69a;
+  --c-green-rgb: 95 201 122;
+
+  --c-teal: #3fc7c0;
+  --c-teal-text: #6bd5d0;
+  --c-teal-rgb: 63 199 192;
+
+  --c-cyan: #40b8e0;
+  --c-cyan-text: #6cc9e8;
+  --c-cyan-rgb: 64 184 224;
+
+  --c-slate: #93a4b5;
+  --c-slate-text: #adbac7;
+  --c-slate-rgb: 147 164 181;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color: #f6f6f6;
+    background-color: #2f2f2f;
+
+    --control-color: #ffffff;
+    --control-bg: #0f0f0f98;
+    --control-bg-active: #0f0f0f69;
+    --surface-bg: #2f2f2f;
+    --page-bg: #2f2f2f;
+    /* Một lớp trắng, dày hơn `--hover-bg` mà cả nhóm đang tô — cùng cách `--qe-card-bg`
+       nâng một card lên khỏi trang. */
+    --choice-active-bg: rgb(255 255 255 / 0.16);
+
+    --shadow-sm: none;
+    --shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
+    --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.55);
+
+    --accent-solid: var(--accent);
+    --accent-on-solid: #16181c;
+
+    --danger: #ff6b6b;
+    --danger-text: #ff8a80;
+    --danger-rgb: 255 99 99;
+
+    --success: #6bcf7f;
+    --success-text: #8ce09c;
+    --warning: #f0a54a;
+    --warning-text: #f5bd74;
+
+    --c-blue: #6f9fd8;
+    --c-blue-text: #8fb6e4;
+    --c-blue-rgb: 111 159 216;
+
+    --c-indigo: #8b8df0;
+    --c-indigo-text: #a5a7f5;
+    --c-indigo-rgb: 139 141 240;
+
+    --c-violet: #a887f5;
+    --c-violet-text: #bda3f7;
+    --c-violet-rgb: 168 135 245;
+
+    --c-magenta: #ec78bb;
+    --c-magenta-text: #f095cb;
+    --c-magenta-rgb: 236 120 187;
+
+    --c-orange: #f0913f;
+    --c-orange-text: #f5a866;
+    --c-orange-rgb: 240 145 63;
+
+    --c-amber: #e0ac2b;
+    --c-amber-text: #e8bd57;
+    --c-amber-rgb: 224 172 43;
+
+    --c-green: #5fc97a;
+    --c-green-text: #84d69a;
+    --c-green-rgb: 95 201 122;
+
+    --c-teal: #3fc7c0;
+    --c-teal-text: #6bd5d0;
+    --c-teal-rgb: 63 199 192;
+
+    --c-cyan: #40b8e0;
+    --c-cyan-text: #6cc9e8;
+    --c-cyan-rgb: 64 184 224;
+
+    --c-slate: #93a4b5;
+    --c-slate-text: #adbac7;
+    --c-slate-rgb: 147 164 181;
+  }
+}

@@ -1,0 +1,256 @@
+.dashboard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Đẩy CPU/RSS daemon sát mép phải của header, dù `waiting` (nút chờ quyền) có mặt hay không. */
+.daemonUsage {
+  margin-left: auto;
+}
+
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Đẩy hai nút Stop all/New service sát mép phải của hàng riêng của chúng. */
+.headerButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.home {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Bảng có thể rộng hơn pane; nó cuộn trong khung của nó chứ không đẩy cả trang. */
+.tableWrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+/*
+ * **`fixed`, vì cột State đổi chữ mỗi lần một service chuyển trạng thái.**
+ *
+ * Với `auto` — mặc định — bề rộng cột tính từ nội dung ở mỗi lần render, và `width: 100%` chia lại
+ * phần chênh cho *mọi* cột. Nên bấm Bật một service làm cả bảng nhảy: đo được cột State đu 131.7px
+ * giữa "Đã dừng" và "Đang khởi động lại…", kéo theo cột Service 44.4px và cột Hành động 68.7px —
+ * hai cột không hề đổi nội dung. Với `fixed`, bề rộng do `<colgroup>` quyết, và chữ trong ô đổi
+ * không resize gì nữa.
+ *
+ * `min-width` là tổng bề rộng nội tại đo được của bốn cột (503px) làm tròn lên: hẹp hơn thế thì
+ * `.tableWrap` cuộn ngang, chứ không bóp cột cho tới khi phải cắt chữ.
+ */
+.table {
+  width: 100%;
+  min-width: 36rem;
+  table-layout: fixed;
+  border-collapse: collapse;
+  white-space: nowrap;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--border);
+  /* Một cột cố định không nới ra cho nội dung dài được, nên nội dung dài phải tự nói là nó bị cắt.
+     Ô service mang `title`, nên tên đầy đủ vẫn đọc được khi rê chuột. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Tiến độ vẽ ngay tại chỗ, không phủ spinner lên cả màn hình: một job đang chạy không làm phần
+   còn lại của bảng ngừng đọc được. */
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jobs li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Trạng thái đang chuyển: nghiêng, để phân biệt với một trạng thái daemon đã xác nhận. Màu tới
+   từ `.busy` bên dưới — nó cũng là một trạng thái đang chuyển, chỉ khác là chưa có sự kiện nào
+   xác nhận. */
+.pending {
+  font-style: italic;
+}
+
+/* Cùng bộ màu với ba nút hành động, và cùng lý do: đọc được trước cả chữ. Ba sắc thái chứ không
+   phải bảy — xem `serviceStateTone`. */
+.ok {
+  color: var(--success-text);
+}
+
+.bad {
+  color: var(--danger-text);
+}
+
+.busy {
+  color: var(--warning-text);
+}
+
+/* Hổ phách: có việc cần người quyết, nhưng chưa có gì hỏng. */
+.waiting {
+  color: var(--warning-text);
+}
+
+/* Màu là thứ đọc được trước cả chữ. Chỉ tô chữ và viền — nền đặc sẽ biến các nút vận hành thành
+   nút "chính", mà một hàng không có ba việc chính. Bật/Tắt sống ở `.toggle` bên dưới, vì chúng
+   đổi màu theo trạng thái chứ không cố định như nút này. */
+.restart {
+  color: var(--warning-text);
+  border-color: var(--warning);
+}
+
+/* Nút xám thì thôi mang màu của việc nó không làm được. */
+.restart:disabled {
+  color: inherit;
+  border-color: var(--control-border);
+}
+
+/*
+ * Công tắc của một hàng: nghỉ thì nó là một cái đèn, chạm vào thì nó là một cái nút.
+ *
+ * **Bề rộng cố định cho cả ba chế độ.** Chấm hẹp hơn chữ, nên nếu để nội dung quyết thì mỗi lần rê
+ * chuột vào là nút Khởi động lại và nút ⋮ bên cạnh nhảy sang ngang — đúng cái giật vừa dẹp xong ở
+ * cột State, chỉ là trong phạm vi một ô.
+ */
+.toggle {
+  width: 5.5rem;
+  /* Không khai `height`: `.actions` là flex và để `align-items` mặc định là `stretch`, nên nút này
+     tự cao bằng các nút chữ bên cạnh. Một con số cứng ở đây từng làm nó lùn hơn hàng xóm, và sẽ
+     lệch lại mỗi lần padding của nút đổi. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Chữ chỉ hiện khi con trỏ hoặc bàn phím tới. `:focus-visible` là nửa dễ quên và là nửa người
+   dùng bàn phím cần: Tab tới một cái chấm câm thì không biết bấm vào được gì. */
+.toggle .label {
+  display: none;
+}
+
+.toggle:hover .dot,
+.toggle:focus-visible .dot {
+  display: none;
+}
+
+.toggle:hover .label,
+.toggle:focus-visible .label {
+  display: inline;
+}
+
+/* Màu lúc nghỉ là màu của *trạng thái* (`.ok`/`.bad`/`.busy` ở trên, cùng bảng với cột State);
+   màu lúc hover là màu của *việc sắp làm*. Hai câu khác nhau, nên hai màu khác nhau. */
+.up:hover,
+.up:focus-visible {
+  color: var(--danger-text);
+  border-color: var(--danger);
+}
+
+.down:hover,
+.down:focus-visible {
+  color: var(--success-text);
+  border-color: var(--success);
+}
+
+/* Đang chuyển: không có việc nào để bấm, nên nó không đổi khi hover và không nhận con trỏ. */
+.moving {
+  color: var(--warning-text);
+  border-color: var(--warning);
+  cursor: default;
+}
+
+.dots {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+.dots i {
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dashboard-wave 1s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes dashboard-wave {
+  0%,
+  60%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* Cùng luật `LoadingOverlay`, `Tooltip` và `dialogMotion` đang theo: tắt hẳn, chứ không làm chậm
+   lại. Ba chấm đứng yên vẫn nói đủ rằng có gì đó đang chạy. */
+@media (prefers-reduced-motion: reduce) {
+  .dots i {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Ba chấm dọc: một nút icon, không phải một nút chữ. */
+.more {
+  padding-inline: 0.5em;
+  line-height: 1;
+}

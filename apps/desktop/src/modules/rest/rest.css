@@ -1,0 +1,151 @@
+/* This module's layout. Component-scoped rules live in each component's CSS Module instead. */
+
+.rest-tab {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.rest-sidebar {
+  flex: 0 0 auto;
+  min-width: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+}
+
+.rest-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rest-panes {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.rest-request-pane,
+.rest-response-pane {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rest-response-pane {
+  flex: 1;
+}
+
+.rest-pane-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.rest-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+}
+
+/* What a method is called and what colour it is, wherever it is named — the sidebar's rows and the
+   tab strip both. Module-global rather than copied into each component's CSS Module: the two were
+   already drifting, and a GET that is green in one list and grey in the other is a bug you cannot
+   see until they are side by side. */
+.rest-method {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+
+.rest-method-GET { color: #2f9e44; }
+.rest-method-POST { color: #f08c00; }
+.rest-method-PUT { color: #1971c2; }
+.rest-method-PATCH { color: #7048e8; }
+.rest-method-DELETE { color: #e03131; }
+.rest-method-HEAD,
+.rest-method-OPTIONS { color: #868e96; }
+
+/* The tab strip and the environment dropdown share one edge.
+ *
+ * The strip scrolls sideways when the tabs run past its width. The dropdown must not go with them:
+ * it belongs to the workspace rather than to any one request, and it has to stay reachable
+ * whatever is scrolled where. So it is a sibling of the strip, not a child of it.
+ *
+ * The row draws the background and the bottom border, and the strip inside it is told to draw
+ * neither. Two class names beat the one in `TabStrip.module.css`, which is how a module's own
+ * stylesheet wins here without a knob being added to the shared component. */
+.rest-tabs-row {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  background: rgb(128 128 128 / 0.08);
+  border-bottom: 1px solid var(--border);
+}
+
+.rest-tabs-row .rest-tabs-strip {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border-bottom: none;
+}
+
+.rest-env {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0.4rem 0.5rem 0.4rem 0.35rem;
+}
+
+/* The list inside the dialog a pasted cURL raises: which variable, what it matched on, and how
+   many places carry it. Three columns so the names line up and the eye can run down them; the
+   value gives way first, because a long token is the one thing here nobody needs to read. */
+.rest-swap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 40vh;
+  overflow-y: auto;
+  font-size: var(--text-md);
+}
+
+.rest-swap-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.rest-swap-name {
+  flex: none;
+  font-family: var(--font-mono);
+  color: var(--accent-text);
+}
+
+.rest-swap-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
+.rest-swap-count {
+  flex: none;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}

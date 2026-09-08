@@ -1,0 +1,178 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pair {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.pair > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.check {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: var(--text-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fieldLabel {
+  font-size: var(--text-sm);
+  opacity: 0.7;
+}
+
+.resultHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.counts {
+  font-size: var(--text-sm);
+  opacity: 0.8;
+  margin: 0;
+}
+
+/* Cùng hình dạng segmented control với `.tabs` trong tool encode: đây là một lựa chọn (Gộp hay
+   Song song), không phải điều hướng, nên không dùng TabStrip dùng cho các tab tài liệu. */
+.tabs {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
+}
+
+.tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  opacity: 1;
+}
+
+.tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.tab.active {
+  opacity: 1;
+  background: var(--choice-active-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.error {
+  font-size: var(--text-md);
+  color: var(--danger, #d33);
+  margin: 0;
+}
+
+.result {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 28rem;
+}
+
+.line {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  white-space: pre-wrap;
+}
+
+.no {
+  flex: none;
+  width: 3rem;
+  text-align: right;
+  opacity: 0.5;
+  user-select: none;
+}
+
+.add {
+  background: color-mix(in srgb, green 14%, transparent);
+}
+
+.remove {
+  background: color-mix(in srgb, red 14%, transparent);
+}
+
+/* Đoạn khác nhau bên trong một dòng đã đổi (từ `diffSegments`/`computeLineSegments`) — đậm hơn hẳn
+   nền `.add`/`.remove` của cả dòng, cộng thêm in đậm để không chỉ dựa vào màu sắc. */
+.seg {
+  font-weight: 600;
+}
+
+.add .seg {
+  background: color-mix(in srgb, green 38%, transparent);
+}
+
+.remove .seg {
+  background: color-mix(in srgb, red 38%, transparent);
+}
+
+/* Kiểu Split của GitHub: một CSS Grid 4 cột (số/nội dung x trái/phải). `.splitRow` và các span do
+   `SplitHalf` trả về không tạo box riêng (`display: contents`), nên chính các span đó mới là ô của
+   Grid — nhờ vậy một hàng dài phải xuống dòng thì Grid tự canh chiều cao hai bên bằng nhau, không
+   cần đo bằng JS như khi dùng hai khối `.result` tách rời. */
+.splitGrid {
+  display: grid;
+  grid-template-columns: 3rem 1fr 3rem 1fr;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 28rem;
+}
+
+.splitRow {
+  display: contents;
+}
+
+.splitText {
+  padding: 0 0.5rem;
+  white-space: pre-wrap;
+}
+
+/* Vạch ngăn cách nửa trái/phải, đặt trên cột số dòng bên phải (cột thứ 3 trong 4 cột của Grid). */
+.splitRight {
+  border-left: 1px solid var(--border-soft);
+}
+
+.blank {
+  background: var(--hover-bg);
+}

@@ -1,0 +1,60 @@
+import type { SqlEditing, SqlTypeSpec } from "../sql/dialect";
+
+/** The types a MySQL column can be declared as, each family in the order it is usually reached for.
+ * Every MySQL version in the app's reach has all of these; what differs between versions is the
+ * collation list, which is read from the server instead. */
+const TYPES: SqlTypeSpec[] = [
+  { name: "int", arg: "", numeric: true },
+  { name: "bigint", arg: "", numeric: true },
+  { name: "tinyint", arg: "1", numeric: true },
+  { name: "smallint", arg: "", numeric: true },
+  { name: "mediumint", arg: "", numeric: true },
+  { name: "decimal", arg: "10,2", numeric: true },
+  { name: "float", arg: "", numeric: true },
+  { name: "double", arg: "", numeric: true },
+  { name: "bit", arg: "1" },
+  { name: "varchar", arg: "255", required: true },
+  { name: "char", arg: "36" },
+  { name: "text", arg: null },
+  { name: "mediumtext", arg: null },
+  { name: "longtext", arg: null },
+  { name: "tinytext", arg: null },
+  { name: "enum", arg: "'a','b'", required: true, list: true },
+  { name: "set", arg: "'a','b'", required: true, list: true },
+  { name: "date", arg: null },
+  { name: "datetime", arg: "" },
+  { name: "timestamp", arg: "" },
+  { name: "time", arg: "" },
+  { name: "year", arg: null },
+  { name: "json", arg: null },
+  { name: "binary", arg: "16" },
+  { name: "varbinary", arg: "255", required: true },
+  { name: "blob", arg: null },
+  { name: "mediumblob", arg: null },
+  { name: "longblob", arg: null },
+  { name: "tinyblob", arg: null },
+  { name: "geometry", arg: null },
+  { name: "point", arg: null },
+  { name: "linestring", arg: null },
+  { name: "polygon", arg: null },
+  { name: "multipoint", arg: null },
+  { name: "multilinestring", arg: null },
+  { name: "multipolygon", arg: null },
+  { name: "geometrycollection", arg: null },
+];
+
+/** What the Structure tab's dialogs offer on MySQL. */
+export const mysqlEditing: SqlEditing = {
+  columnTypes: TYPES,
+  unsigned: true,
+  columnPosition: true,
+  onUpdateCurrentTimestamp: true,
+  autoIncrement: true,
+  databaseCollation: true,
+  tableCollation: true,
+  markExpressionDefaults: true,
+  indexKinds: ["index", "unique", "primary", "fulltext", "spatial"],
+  indexMethods: ["BTREE", "HASH"],
+  indexPrefix: true,
+  primaryKeyName: "PRIMARY",
+};

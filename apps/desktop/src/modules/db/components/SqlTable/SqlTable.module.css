@@ -1,0 +1,285 @@
+.sqlTable table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: auto;
+  font-size: var(--text-md);
+}
+
+/* `var(--border)` rather than the `#ccc` this grid used to draw itself in — the one grid in the app
+   that named a colour instead of taking the shared one. `#ccc` is an opaque light grey, so it was a
+   hard line on a light page and a *bright* one on a dark page, where every other grid draws a soft
+   grey at a quarter strength. It is the reason this table read as heavier than the rest of them. */
+.sqlTable th,
+.sqlTable td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+/* The rows pass underneath, so the header has to hide them — `--rail-bg` is the page colour until
+   the glass setting turns it into a tint over a blur of whatever is behind it. */
+.scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+}
+
+/* Every header cell is the control that sorts by its column, so it takes the pointer the whole
+   way across. `user-select` off because clicking one repeatedly — cycling its sort — would
+   otherwise start selecting the column names. */
+.headerCell {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* The lift goes *over* the header's own fill rather than replacing it. Written as a gradient of one
+   flat colour because that is the only way to stack a wash on a background colour in one property —
+   and it has to be one property, since the fill is what stops the rows scrolling underneath from
+   showing straight through the column name under the pointer. */
+.headerCell:hover {
+  background: linear-gradient(rgb(128 128 128 / 0.14), rgb(128 128 128 / 0.14)), var(--rail-bg);
+}
+
+/* Kept in the flow even while empty, so a column doesn't change width as its sort comes and
+   goes — see the note where it is rendered. */
+.sortIcon {
+  display: inline-block;
+  width: 1em;
+  margin-left: 0.25em;
+  vertical-align: -0.15em;
+}
+
+/* Marks a foreign key column. Set apart from the column name rather than styled into it: it is
+   a fact about the column, and the name has to stay readable as itself. */
+.fkBadge {
+  margin-left: 0.4em;
+  padding: 0 0.3em;
+  border: 1px solid rgb(var(--accent-rgb) / 0.5);
+  border-radius: 3px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-text);
+  background: rgb(var(--accent-rgb) / 0.12);
+  vertical-align: 0.05em;
+  cursor: help;
+}
+
+/* The grid holds only the rows on screen once there are enough of them to be worth it, and these
+   are the two things that has to be true for (see `src/virtualRows.ts`).
+
+   Columns first: a table left to size itself would size itself around whichever few dozen rows are
+   in the DOM, so every scroll would find new widest values and shuffle the columns sideways. The
+   widths are measured over the whole page instead and set on a colgroup, which only a fixed layout
+   obeys. `border-box` is what makes those widths mean what they say — a width on a `<col>` sizes
+   the whole column, so the measuring adds the cell's padding and rule to the text and the cell has
+   to agree that its width includes them. The `max-width` goes for the same reason: the widths are
+   already capped. */
+.gridFixed {
+  table-layout: fixed;
+}
+
+.gridFixed th,
+.gridFixed td {
+  box-sizing: border-box;
+  max-width: none;
+}
+
+/* Rows second, and this is the one that has to be exact. The rows above and below the window are
+   stood in for by a spacer of `count × --row-h`, so a drawn row that is even a fraction taller or
+   shorter makes the table's height depend on where it is scrolled — and then the end of the page
+   drifts away as you scroll towards it. The height is therefore stated by the component and pinned
+   here rather than measured: `height` sets the row, `line-height` stops a fallback font's taller
+   metrics from growing one row of it, and the vertical padding goes because the line box now fills
+   the row and centres the text in it.
+
+   Two kinds of cell are left out. The spacers, whose height is the whole point of them. And the
+   cell being edited, which is a textarea that grows with its content — the one row that is meant
+   to change height, and one row's worth of difference is not what this rule is guarding against. */
+.gridRows tbody tr:not(.spacer) > td:not(.cellEditing) {
+  box-sizing: border-box;
+  height: var(--row-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--row-h) - 1px);
+  overflow: hidden;
+}
+
+/* The two boxes standing in for the rows outside the window. They are there to be exactly as tall
+   as the rows they replace, so the scrollbar is the length it would have been — which means no
+   padding, no rules, and nothing to light up under the pointer: a spacer that highlighted itself
+   would read as a row hundreds of rows tall. */
+.sqlTable tbody tr.spacer,
+.sqlTable tbody tr.spacer:hover {
+  background: none;
+}
+
+.sqlTable tbody tr.spacer > td {
+  padding: 0;
+  border: 0;
+}
+
+/* Painted on the row, not on its cells: a `td` with a background of its own — a NULL or a
+   staged edit — then still shows through, which is the point of those markers. */
+.sqlTable tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+.sqlTable tbody tr.rowSelected {
+  background: rgb(var(--accent-rgb) / 0.18);
+}
+
+.sqlTable tbody tr.rowSelected:hover {
+  background: rgb(var(--accent-rgb) / 0.26);
+}
+
+/* The grid takes focus on a click so that ctrl+A reaches it; the selected rows are what shows
+   that, so the ring the browser would draw around the whole scroll area adds nothing. */
+.scroll:focus,
+.scroll:focus-visible {
+  outline: none;
+}
+
+.cellNull {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+.cellDirty {
+  background: rgba(255, 179, 0, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 179, 0, 0.55);
+}
+
+.sqlTable td.cellEditing {
+  padding: 0;
+  overflow: visible;
+  white-space: normal;
+  box-sizing: border-box;
+  vertical-align: top;
+}
+
+.cellInput,
+.cellTextarea {
+  display: block;
+  width: 100%;
+  min-width: 240px;
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font: inherit;
+}
+
+.cellTextarea {
+  resize: none;
+  overflow-y: auto;
+  max-height: 300px;
+  white-space: pre-wrap;
+}
+
+.sqlTable {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 0.5rem;
+}
+
+.scrollWrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The frame is this box's, not the cells'. This grid is the only one in the app that closes itself
+   in on all four sides — the others are full-width and draw interior rules only — and a box made
+   out of the first column's left border and the header's top border is a box that cannot be
+   rounded: its four corners belong to four different cells, and the two at the bottom belong to a
+   virtualiser's spacer, which has no borders at all. Drawn instead by the element that already
+   clips the content, it is one box with one radius, and the header and the rows are cut to it. */
+.scroll {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* Off, and not as a nicety. Scroll anchoring watches for content above the viewport changing
+     height and shifts the scroll offset to keep what you are looking at still — which is exactly
+     what the spacer above a window of rows does every time the window moves. Left on, the browser's
+     correction and the grid's own repositioning fight for the length of the scroll. */
+  overflow-anchor: none;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+/* Options inside the delete dialog, which owns everything around them. */
+.deleteOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.deleteOption {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: var(--text-md);
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+/* The app-wide `input` rule dresses every input as a text field; a checkbox wants none of it. */
+.deleteOption input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin: 0.15em 0 0;
+  padding: 0;
+  box-shadow: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* No dark overrides here any more: the sticky header takes `--page-bg` and the FK badge is written
+   in `--accent-*`, and both of those already carry the theme's own values. */
+
+/* Hai vai của chữ, nói tường minh ở chỗ trước đây không ai nói gì.
+   Trước đợt token font, cả ô lẫn header đều mono vì thừa kế từ `:root` — không phải vì có ai chọn
+   thế. Đổi `:root` sang sans là cả hai lặng lẽ thành sans, và ô dữ liệu mất đúng thứ khiến mono
+   đáng giá: khoảng trắng cuối một `varchar` nhìn thấy được, `l` phân biệt được với `1`, và các cột
+   số thẳng hàng nhau.
+
+   Header thì ngược lại: tên cột là nhãn app viết ra, không phải giá trị để so từng ký tự. */
+.sqlTable tbody td {
+  font-family: var(--font-mono);
+}
+
+.scroll thead th {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}

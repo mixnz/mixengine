@@ -230,13 +230,10 @@ fn feed(url: &str, packed: &mixengine_testkit::Packed) -> serde_json::Value {
     })
 }
 
-/// This machine's operating system, as the feed spells it.
+/// This machine's operating system, as the feed spells it — which is how `std` spells it too, on
+/// all three of the systems this project ships for.
 fn os_name() -> &'static str {
-    match std::env::consts::OS {
-        "windows" => "windows",
-        "macos" => "macos",
-        other => other,
-    }
+    std::env::consts::OS
 }
 
 /// This machine's architecture, as the feed spells it.

@@ -1,0 +1,219 @@
+/* One grid filling the tab, scrolling inside its own frame. `position: relative` so the loading
+   veil covers the tab rather than the whole workspace — the same arrangement as the Structure
+   tab, which this sits beside. */
+.stats {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 0.35rem;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--text-md);
+  opacity: 0.8;
+}
+
+/* How many of the database's tables the search left, beside the heading that names it. */
+.matchCount {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.55;
+}
+
+/* Beside the heading, over the column of names it searches, and carrying the header's slack on its
+   right — which is what puts the reload button after it against the far edge. It never grows past
+   what a table name needs, and shrinks rather than pushing the button off a narrow pane. */
+.filter {
+  flex: 0 1 14rem;
+  min-width: 5rem;
+  margin-right: auto;
+  box-sizing: border-box;
+}
+
+.gridWrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  /* Off, and not as a nicety. Scroll anchoring shifts the scroll offset when content above the
+     viewport changes height — which is exactly what the spacer above a window of rows does every
+     time the window moves, so the browser's correction and the grid's own fight each other. */
+  overflow-anchor: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Past a few dozen tables the grid holds only the rows on screen, and these are the two things
+   that has to be true for (see `src/virtualRows.ts`).
+
+   Rows first, and this one has to be exact: the rows outside the window are stood in for by a
+   spacer of `count × --row-h`, so a drawn row that is a fraction taller or shorter makes the
+   table's height depend on where it is scrolled, and then the end of the list drifts away as you
+   scroll towards it. The height is stated by the component and pinned here rather than measured:
+   `height` sets the row, `line-height` stops a fallback font's taller metrics from growing one row
+   of it, and the vertical padding goes because the line box now fills the row. */
+.gridRows tbody tr:not(.spacer):not(.sizerRow) > td {
+  box-sizing: border-box;
+  height: var(--row-h);
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: calc(var(--row-h) - 1px);
+  overflow: hidden;
+}
+
+/* Columns second, and this grid asks the browser rather than measuring: one row of no height,
+   always present, holding the widest value of every column. The table then sizes itself as it
+   always did — around a row that cannot scroll out of it. Its cells keep their horizontal padding
+   and right-hand rule, since those are part of what a column has to hold; everything that would
+   give it height goes. */
+.sizerRow > td {
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+/* The values themselves: clipped to nothing so the row is invisible, while still counting for how
+   wide its column has to be. One per line, so the column comes out as wide as the widest of them
+   rather than as wide as all of them laid end to end. */
+.sizer {
+  height: 0;
+  overflow: hidden;
+}
+
+/* The two boxes standing in for the rows outside the window: exactly as tall as the rows they
+   replace, so the scrollbar is the length it would have been, and nothing else at all. */
+.grid tbody tr.spacer,
+.grid tbody tr.spacer:hover {
+  background: none;
+}
+
+.grid tbody tr.spacer > td {
+  padding: 0;
+  border: 0;
+}
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: var(--text-md);
+}
+
+.grid th,
+.grid td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.grid tr > *:last-child {
+  border-right: none;
+}
+
+.grid tbody tr:last-child > * {
+  border-bottom: none;
+}
+
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+  cursor: pointer;
+  user-select: none;
+}
+
+.grid tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+/* Over the header's own fill rather than in place of it — see the same rule in SqlTable: replacing
+   it lets the rows scrolling underneath show through the column name under the pointer. */
+.headerCell:hover {
+  background: linear-gradient(rgb(128 128 128 / 0.18), rgb(128 128 128 / 0.18)), var(--rail-bg);
+}
+
+.name {
+  font-weight: 600;
+}
+
+/* Every number in the grid: right-aligned and tabular, so the digits of one row line up with the
+   digits of the next and two sizes can be compared by their length alone.
+
+   Qualified by the cell, not by the class alone: the `text-align: left` above is set through
+   `.grid th, .grid td`, which outweighs a bare class and would keep the numbers on the left. */
+.grid th.numeric,
+.grid td.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.grid th.rowNumber,
+.grid td.rowNumber {
+  width: 1%;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.5;
+}
+
+.sortIcon {
+  display: inline-block;
+  width: 1em;
+  margin-left: 0.25em;
+  vertical-align: -0.15em;
+}
+
+/* The totals, pinned to the bottom of the frame so they stay in view however far the list of
+   tables is scrolled. Filled for the same reason the header is: the rows pass underneath it. */
+.grid tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--rail-bg);
+  -webkit-backdrop-filter: var(--rail-filter);
+  backdrop-filter: var(--rail-filter);
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  font-weight: 600;
+}
+
+.note {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.55;
+}
+
+@media (prefers-color-scheme: dark) {
+}
+
+/* Cột số ở đây chỉ so sánh được khi chúng thẳng hàng, và đó là việc mono làm. Header là nhãn. */
+.grid tbody td {
+  font-family: var(--font-mono);
+}
+
+.grid thead th {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}

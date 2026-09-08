@@ -131,11 +131,14 @@ impl Fixture {
             .collect()
     }
 
+    /// Boxed at this boundary: `mixengine_core::Error` is over 128 bytes, and a helper frame
+    /// that only forwards it is what `clippy::result_large_err` flags. A test that inspects the
+    /// refusal matches on `*refusal`.
     async fn install(
         &self,
         artifact: &Artifact,
         watcher: &Recorder,
-    ) -> mixengine_core::Result<Installed> {
+    ) -> Result<Installed, Box<mixengine_core::Error>> {
         self.installer
             .install(
                 artifact,
@@ -145,6 +148,7 @@ impl Fixture {
                 watcher,
             )
             .await
+            .map_err(Box::new)
     }
 }
 
@@ -193,7 +197,7 @@ async fn the_package_index_still_refuses_an_artifact_that_is_not_an_archive() {
         .expect_err("the index publishes archives");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::ArtifactFormat { .. }),
+        matches!(*refusal, mixengine_core::Error::ArtifactFormat { .. }),
         "{refusal:?}"
     );
 }
@@ -347,7 +351,7 @@ async fn an_artifact_that_is_not_what_the_index_promised_is_refused_and_deleted(
         .expect_err("a hash that does not match is not this artifact");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::ArtifactChecksum { .. }),
+        matches!(*refusal, mixengine_core::Error::ArtifactChecksum { .. }),
         "{refusal:?}"
     );
     assert!(!fixture.target().exists(), "nothing was installed");
@@ -377,7 +381,7 @@ async fn an_archive_that_names_a_path_outside_the_install_is_refused() {
             .expect_err("an entry names somewhere else");
 
         assert!(
-            matches!(refusal, mixengine_core::Error::UnsafeArchiveEntry { .. }),
+            matches!(*refusal, mixengine_core::Error::UnsafeArchiveEntry { .. }),
             "{packing:?}: {refusal:?}"
         );
         assert!(
@@ -492,7 +496,7 @@ async fn a_cancelled_install_leaves_nothing_installed_and_keeps_what_was_downloa
         .expect_err("it was asked to stop");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::InstallCancelled),
+        matches!(*refusal, mixengine_core::Error::InstallCancelled),
         "{refusal:?}"
     );
     assert!(!fixture.target().exists(), "nothing was installed");
@@ -520,7 +524,7 @@ async fn installing_over_a_version_that_is_already_there_is_refused() {
         .expect_err("an install never mutates a version that exists");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::AlreadyInstalled { .. }),
+        matches!(*refusal, mixengine_core::Error::AlreadyInstalled { .. }),
         "{refusal:?}"
     );
     assert!(
@@ -548,7 +552,7 @@ async fn an_archive_shape_this_build_cannot_unpack_is_refused_before_anything_is
         .expect_err("nothing here unpacks a 7z");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::ArtifactFormat { .. }),
+        matches!(*refusal, mixengine_core::Error::ArtifactFormat { .. }),
         "{refusal:?}"
     );
     assert!(
@@ -572,7 +576,7 @@ async fn a_body_longer_than_the_index_declares_is_refused_during_the_transfer() 
         .expect_err("the server offered more than the index declares");
 
     assert!(
-        matches!(refusal, mixengine_core::Error::ArtifactTooLarge { .. }),
+        matches!(*refusal, mixengine_core::Error::ArtifactTooLarge { .. }),
         "{refusal:?}"
     );
     assert!(!fixture.target().exists());
@@ -597,7 +601,7 @@ async fn an_archive_missing_what_its_index_entry_lists_is_refused() {
 
     assert!(
         matches!(
-            &refusal,
+            &*refusal,
             mixengine_core::Error::MissingFromArtifact { executable, .. } if executable == "php"
         ),
         "{refusal:?}"

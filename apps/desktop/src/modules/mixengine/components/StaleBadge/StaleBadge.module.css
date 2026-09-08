@@ -1,0 +1,6 @@
+.badge {
+  margin-left: 8px;
+  font-size: var(--text-xs);
+  /* Hổ phách: có việc cần người quyết (làm mới danh sách), nhưng chưa có gì hỏng. */
+  color: var(--warning, #b45309);
+}

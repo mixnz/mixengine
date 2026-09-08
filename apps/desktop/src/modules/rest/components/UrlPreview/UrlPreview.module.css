@@ -1,0 +1,77 @@
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0 0.5rem 0.4rem;
+  font-size: var(--text-sm);
+}
+
+.line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  min-width: 0;
+  /* Written down rather than left to the font, so the button beside the text can be exactly one
+     row tall and land on the middle of the first line whatever the URL wraps to. */
+  line-height: 1.5;
+}
+
+.label {
+  flex: none;
+  opacity: 0.6;
+}
+
+.url {
+  min-width: 0;
+  opacity: 0.85;
+  overflow: hidden;
+}
+
+/* The default. One row, whatever the URL costs — the chevron beside it is how the rest is asked
+   for, and it is only there when there is a rest. */
+.clamped {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.expanded {
+  /* A URL has no spaces to break at, and a preview that widened the pane would move the Send
+     button out from under the pointer. */
+  overflow-wrap: anywhere;
+}
+
+.toggle {
+  flex: none;
+  /* Top, not centre. Expanded, the line beside it is a paragraph, and a chevron halfway down it is
+     nowhere near where it was clicked. Exactly one row tall with the chevron centred inside it, so
+     it sits on the middle of the first line whether there is one line or ten. */
+  align-self: flex-start;
+  height: 1.5em;
+  align-items: center;
+  display: flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.toggle:hover {
+  opacity: 1;
+}
+
+.missing {
+  font-style: normal;
+  color: #e03131;
+}
+
+.blocked {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0;
+  color: #e03131;
+}

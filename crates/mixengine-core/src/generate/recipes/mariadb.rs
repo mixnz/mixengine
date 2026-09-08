@@ -42,7 +42,6 @@
 //! one is a task of its own; what is recorded here is the version that performed the bootstrap, in
 //! [`READY_MARKER`](crate::generate::first_run::READY_MARKER), so that task has something to read.
 
-use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 
@@ -234,6 +233,7 @@ impl Recipe for Mariadb {
             return Ok(Endpoints {
                 socket: None,
                 plugins: Some(context.install_path().join("lib").join("plugin")),
+                scratch: Some(super::scratch_dir(context)),
                 ..Endpoints::default()
             });
         }
@@ -241,6 +241,7 @@ impl Recipe for Mariadb {
         Ok(Endpoints {
             socket: Some(socket_path(context)?),
             plugins: None,
+            scratch: Some(super::scratch_dir(context)),
             ..Endpoints::default()
         })
     }
@@ -431,7 +432,7 @@ fn steps(context: &Context) -> Result<Vec<Step>> {
         steps.push(super::link_a_space_free_view(context, &view));
         steps.push(unix_install_db(context, &view)?);
         steps.push(bootstrap(context, password)?);
-        steps.push(super::remove_the_space_free_view(&view));
+        steps.push(super::remove_the_space_free_view(context, &view));
     }
 
     Ok(steps)
@@ -456,6 +457,10 @@ fn steps(context: &Context) -> Result<Vec<Step>> {
 /// and cannot be reached by whoever MixEngine runs as. The Windows program answers `unknown
 /// variable` and exits 7. **`--service` is never passed**: a first-run job that registered a system
 /// service would have installed something the daemon cannot see.
+///
+/// And a fourth, in the environment rather than on the line: `TMPDIR`, so the server this script
+/// starts keeps its temporary tables out of the `/tmp` every other server on the machine cleans at
+/// startup — [`super::scratch_dir`], and roadmap task **T33c**.
 fn unix_install_db(context: &Context, view: &Path) -> Result<Step> {
     // Named from the map so a series that spells it `mysql_install_db` is found too — and taken
     // relative to the view rather than to the install, because the script resolves its own helpers
@@ -482,13 +487,17 @@ fn unix_install_db(context: &Context, view: &Path) -> Result<Step> {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::from([(
-            "PATH".to_owned(),
-            format!(
-                "{}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                basedir.join("bin").display()
-            ),
-        )]),
+        env: {
+            let mut env = super::scratch_environment(context);
+            env.insert(
+                "PATH".to_owned(),
+                format!(
+                    "{}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                    basedir.join("bin").display()
+                ),
+            );
+            env
+        },
         cwd: PathBuf::from("/tmp"),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -505,7 +514,7 @@ fn windows_install_db(context: &Context) -> Result<Step> {
         args: vec![format!("--datadir={}", context.data().display())],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::new(),
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -562,7 +571,7 @@ fn bootstrap(context: &Context, password: &str) -> Result<Step> {
              DROP DATABASE IF EXISTS test;\n"
         )),
         secret_file: None,
-        env: BTreeMap::new(),
+        env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
     })
@@ -791,7 +800,14 @@ mod tests {
     #[test]
     fn every_path_in_the_configuration_is_quoted_and_forward_slashed() {
         let rendered = rendered("{}");
-        let named = ["basedir", "datadir", "log_error", "socket", "plugin-dir"];
+        let named = [
+            "basedir",
+            "datadir",
+            "tmpdir",
+            "log_error",
+            "socket",
+            "plugin-dir",
+        ];
 
         let mut seen = 0;
         for line in rendered
@@ -820,6 +836,7 @@ mod tests {
         let rendered = rendered("{}");
 
         assert!(rendered.contains("log_error"), "{rendered}");
+        assert!(rendered.contains("tmpdir = \""), "{rendered}");
         assert!(rendered.contains("skip-name-resolve"), "{rendered}");
         assert!(rendered.contains("bind-address = 127.0.0.1"), "{rendered}");
         assert!(rendered.contains("port = 3306"), "{rendered}");
@@ -1115,6 +1132,47 @@ mod tests {
         context.put_secret(ROOT, secret);
 
         context
+    }
+
+    /// **Every step of the ritual, and the file, name one scratch directory of this instance's
+    /// own** — roadmap task **T33c**, measured in [`crate::generate::recipes::scratch_dir`]'s note.
+    ///
+    /// In the environment rather than as an argument, and on every step rather than on the two
+    /// that start a server: `TMPDIR` reaches the server whichever of upstream's programs spawned
+    /// it, and one shape across all the steps is what a test can hold the recipe to. Beside the
+    /// data directory and named after the instance, so two instances of one package cannot share
+    /// it any more than they share their data.
+    #[test]
+    fn every_first_run_step_and_the_file_name_this_instances_own_scratch_directory() {
+        use crate::generate::recipes::{TMPDIR, scratch_dir};
+
+        let context = initialised("hunter2");
+        let scratch = context
+            .scratch()
+            .expect("this recipe asks for a scratch directory");
+
+        assert_eq!(scratch, scratch_dir(&context));
+        assert_eq!(scratch.parent(), context.data().parent(), "{scratch:?}");
+        // The fixture's data directory is flat; a real home's is `data/mariadb/main`, and what holds
+        // in both is that the scratch directory is the data directory's name with `.tmp` after it.
+        let expected_name = format!(
+            "{}.tmp",
+            context.data().file_name().unwrap().to_string_lossy()
+        );
+        assert_eq!(
+            scratch.file_name().and_then(|name| name.to_str()),
+            Some(expected_name.as_str()),
+            "{scratch:?}"
+        );
+
+        let expected = scratch.display().to_string();
+        for step in steps(&context).expect("steps") {
+            assert_eq!(step.env.get(TMPDIR), Some(&expected), "{step:?}");
+        }
+
+        let rendered = rendered("{}");
+        let line = format!("tmpdir = \"{}\"", expected.replace('\\', "/"));
+        assert!(rendered.contains(&line), "no `{line}` in:\n{rendered}");
     }
 
     /// The keyring entry the spec names and the one the ritual is stored under are one address.

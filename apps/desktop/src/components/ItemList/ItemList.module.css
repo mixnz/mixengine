@@ -1,0 +1,78 @@
+/* A column of two parts: whatever is pinned, held still at the top, and the list itself scrolling
+   under it. The scrolling is the inner list's rather than this one's, or a pinned row would be the
+   first thing to leave the sidebar as the list is scrolled. */
+.list {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+/* Set off from the list by a line rather than by a colour of its own: it is one of these items,
+   held where it can be found again, not a different kind of thing. */
+.pinned {
+  flex: 0 0 auto;
+  padding-bottom: 0.35rem;
+  margin-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.pinnedItem {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pinnedIcon {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.pinnedName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 0.5rem 0.6rem;
+}
+
+.item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item:hover {
+  background: var(--hover-bg);
+  border-color: transparent;
+}
+
+.itemActive {
+  background: rgb(var(--accent-rgb) / 0.15);
+  color: var(--accent-text);
+  font-weight: 600;
+}

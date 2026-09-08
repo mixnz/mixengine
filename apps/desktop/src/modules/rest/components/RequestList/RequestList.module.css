@@ -1,0 +1,163 @@
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.headerRow {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.newButton {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.historyButton {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0.3rem 0.4rem;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.historyButton:hover,
+.historyButton:focus-visible {
+  opacity: 1;
+}
+
+.groups {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.groupHead {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.groupHead:hover {
+  opacity: 1;
+}
+
+/* The row and what acts on it, side by side. The hover lives here rather than on the row, so the
+   strip the pin sits in lights up with it instead of looking like a gap. */
+.rowWrap {
+  display: flex;
+  align-items: center;
+}
+
+.rowWrap:hover {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+}
+
+.row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Which key deletes this row, said only where it can be acted on: the row has the keyboard and the
+   pointer is on it. `display: none` rather than a hidden opacity, so an invisible icon is never
+   sitting there catching the pointer and opening a tooltip over nothing. */
+.keyHint {
+  display: none;
+  flex: none;
+  align-items: center;
+  padding: 0.25rem 0.35rem;
+  opacity: 0.6;
+}
+
+.rowWrap:hover .row:focus ~ .keyHint {
+  display: flex;
+}
+
+.keyHint:hover {
+  opacity: 1;
+}
+
+/* Out of the way until the pointer or the keyboard is on the row: the list is read far more often
+   than it is pinned. */
+.pin {
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0.25rem 0.4rem;
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rowWrap:hover .pin {
+  opacity: 0.7;
+}
+
+.pin:focus-visible,
+.pin:hover {
+  opacity: 1;
+}
+
+.rowActive {
+  background: var(--surface-active, rgba(127, 127, 127, 0.2));
+}
+
+/* Only the column width belongs to this list; how a method looks is `.rest-method` in `rest.css`,
+   shared with the tab strip. */
+.method {
+  flex: 0 0 3.2rem;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: 0.4rem 0.75rem 0.8rem;
+  font-size: var(--text-sm);
+}

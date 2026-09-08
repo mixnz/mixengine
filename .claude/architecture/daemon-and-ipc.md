@@ -171,9 +171,10 @@ Rules:
   failed, what was blocked behind it — is what gives `mix` an exit code. A job would put that verdict
   behind a second round trip and make every client re-derive "is it finished" for itself. `wait:
   false` is the same answer a job id would have been, for the client that wants it.
-- **Every mutating method is expressible in the CLI.** No client-only capabilities — and since
-  `mix` is the only client this repository ships, a gap in the CLI is a gap in the product
-  ([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)).
+- **Every mutating method is expressible in the CLI.** No client-only capabilities — a gap in the
+  CLI is a gap in the product, and the desktop application under `apps/desktop/` draws every screen
+  from the same methods ([ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md),
+  which kept this rule from [ADR 0011](../decisions/0011-no-gui-in-this-repository.md)).
 - **A method that writes outside `MIXENGINE_HOME` is never called on the daemon's own initiative**
   (T26). `path.*` is the first of them: the daemon fills `<root>/bin` at every start, because that is
   inside the root and is a projection of a table it compiles in, and it puts that directory on the

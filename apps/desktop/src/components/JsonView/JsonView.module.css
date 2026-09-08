@@ -1,0 +1,64 @@
+.json {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--hover-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  text-align: left;
+}
+
+/* Light-theme values first; the dark set below only restates the four that need lifting. */
+.key {
+  color: #0451a5;
+}
+
+.string {
+  color: #a31515;
+}
+
+.number {
+  color: #098658;
+}
+
+.keyword {
+  color: #7c3aed;
+}
+
+:root[data-theme="dark"] .key {
+  color: #9cdcfe;
+}
+
+:root[data-theme="dark"] .string {
+  color: #ce9178;
+}
+
+:root[data-theme="dark"] .number {
+  color: #b5cea8;
+}
+
+:root[data-theme="dark"] .keyword {
+  color: #c586c0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .key {
+    color: #9cdcfe;
+  }
+
+  :root:not([data-theme]) .string {
+    color: #ce9178;
+  }
+
+  :root:not([data-theme]) .number {
+    color: #b5cea8;
+  }
+
+  :root:not([data-theme]) .keyword {
+    color: #c586c0;
+  }
+}

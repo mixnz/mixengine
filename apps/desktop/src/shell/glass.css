@@ -1,0 +1,260 @@
+/* Liquid glass, off by default and turned on under Settings › Appearance.
+ *
+ * Nothing here applies unless the root carries `data-glass="on"` (see `theme.ts`), so switching the
+ * setting off is a return to the original surfaces rather than an approximation of them, and no
+ * component has to undo anything.
+ *
+ * THREE MATERIALS, BY WHAT IS BEHIND THEM
+ *
+ * `glass` / `glass-pill` — the *lens*. A small thing floating directly over live content: the
+ * loading pill, a context menu, a dropdown, a tooltip, the update toast. It bends what is behind
+ * its rim, because at that size the bend is an edge. The lens does not scale up: the map is
+ * stretched to whatever wears it, so on a 700px dialog the same rim becomes a fairground mirror
+ * around the border.
+ *
+ * `glass-scrim` + `glass-sheet` — the *sheet*, for the modals and the transfer card. The frost is
+ * done once, by the full-window scrim, and the card is a brighter pane of that same material laid
+ * on top: translucent, rimmed, but with no filter of its own. Nothing is bent, which is the point —
+ * a form full of inputs and labels is the worst possible thing to read off a moving surface, and
+ * two blurred layers over each other would cost twice for a wash that already has no detail left
+ * in it.
+ *
+ * `--rail-bg` + `--rail-filter` — the *rail*, for the strips the app pins in place: a grid's
+ * header, its totals, the column of buttons held against the right edge. Live content passes
+ * behind these too, but they are attached to the window rather than floating over it, so they take
+ * the frost without the cast shadow, the rim or the bend — a lit edge on something that never
+ * leaves the surface only reads as a mistake. They are the one part of the app *proper*, rather
+ * than of the layers over it, that can honestly be glass.
+ *
+ * The three are told apart by what is behind them, not by taste. The lens has a live table under
+ * it; the sheet has its own scrim; the rail has the rows it is holding still.
+ *
+ * WHAT IS BEHIND EVERYTHING ELSE
+ *
+ * Nothing. The tab bar, the sidebars, the cards and the controls sit on the page, and a blur of a
+ * flat colour is that same flat colour — so none of them is glass, and none of them gets a filter
+ * it would spend a compositing pass to achieve nothing with. What they get instead is the ground
+ * to make the glass legible in the first place: the page goes a shade deeper and cooler, and the
+ * controls go translucent over it with a lit top edge. Glass is *lighter than what it sits on*, and
+ * against `#f6f6f6` a 28%-white pane has nowhere to be lighter than — which is why, with the
+ * setting on, the panes read as flat cards until the page underneath them gives way.
+ *
+ * HOW IT IS BUILT
+ *
+ * One class, no pseudo-elements: `backdrop-filter` bends and frosts what is behind the box,
+ * `background` tints it, and the rim is `inset` box-shadow — which paints over the background but
+ * under the content, so text is never touched by it. Surfaces opt in by adding the class alongside
+ * their own; the modals get theirs through `dialogMotion.module.css`, which every one of them
+ * already composes, so a new dialog is glass without being asked.
+ *
+ * The `-webkit-` line and the unprefixed one beside it are the same plain frost, which is all the
+ * material any engine is promised. The bend is added on top of it, further down and only where an
+ * engine resolves a reference filter on a backdrop — the two are not a fallback pair, and writing
+ * them as one is what left the Mac with no frost at all. The note on that rule has the details.
+ *
+ * The whole thing is guarded on `backdrop-filter` as well as on the setting: without the property a
+ * 14%-white pane over a table is unreadable, so an engine that lacks it keeps the opaque surface no
+ * matter what the setting says. */
+
+:root[data-glass="on"] {
+  /* The tint carried over the bent backdrop. Glass is lighter than what it sits on, in both themes
+     — a dark tint here would just read as a shadow. This is the knob to turn if a dense grid ever
+     shows through the text, and it is most of what separates glass from a smeared window: at 0.14
+     a table's rows stayed legible *through* the pane, which reads as dirt rather than as depth.
+     Raised from 0.28 once the effect had been seen on a second engine — where, it turned out, the
+     pane had no frost under the tint at all. One number for both engines again now that it does;
+     what the two make of the same alpha is the frost's business, and both are running one. */
+  --glass-tint: rgb(255 255 255 / 0.36);
+  /* The lit rim. Bright on the top-left where the light comes from, weaker on the return edge. */
+  --glass-rim-lit: rgb(255 255 255 / 0.7);
+  --glass-rim-return: rgb(255 255 255 / 0.45);
+  --glass-rim-hairline: rgb(255 255 255 / 0.14);
+  /* The outline that separates the pane from what is behind it. Doing nothing on a dark table and
+     everything on a white one: a white-tinted pane over white rows has a lit rim nothing can see,
+     and without this it reads as a plain opaque surface rather than as something transparent. */
+  --glass-contour: rgb(0 0 0 / 0.12);
+
+  /* The sheet. Kept in the app's own surface colour rather than in white: a dialog is read for
+     minutes at a time and its labels have to hold the contrast the theme promised them. The
+     quarter that is let through is what makes it a pane rather than a card. */
+  --glass-sheet-tint: color-mix(in srgb, var(--surface-bg) 74%, transparent);
+  /* The frost the sheet stands on, and the wash that pushes the window back behind it. Lighter
+     than the 0.35 the modals dim with on their own, because the blur over a light page lifts it
+     and the two would otherwise stack into something nearly black. */
+  --glass-scrim-blur: 10px;
+  --glass-scrim-tint: rgb(0 0 0 / 0.28);
+
+  /* The app's own chrome, which is not glass and is not pretending to be: the tab bar, the brand
+     chip, a control at rest. No filter — there is nothing behind any of them but the page — only
+     the same lighter-than-the-ground tint and lit top edge the real glass has, so the two read as
+     one material rather than as an effect laid over a different app. */
+  --glass-chrome-tint: rgb(255 255 255 / 0.45);
+  --glass-control-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6), 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+/* On #2f2f2f a white rim at 70% is a chrome outline, not a highlight, and the tint at 36% turns the
+   pane into a light box. Both come down; the glass stays lighter than its surroundings, just by
+   less. */
+:root[data-glass="on"][data-theme="dark"] {
+  --glass-tint: rgb(255 255 255 / 0.22);
+  --glass-rim-lit: rgb(255 255 255 / 0.32);
+  --glass-rim-return: rgb(255 255 255 / 0.16);
+  --glass-rim-hairline: rgb(255 255 255 / 0.08);
+  --glass-contour: rgb(0 0 0 / 0.3);
+
+  --glass-chrome-tint: rgb(255 255 255 / 0.05);
+  --glass-control-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-glass="on"]:not([data-theme]) {
+    --glass-tint: rgb(255 255 255 / 0.22);
+    --glass-rim-lit: rgb(255 255 255 / 0.32);
+    --glass-rim-return: rgb(255 255 255 / 0.16);
+    --glass-rim-hairline: rgb(255 255 255 / 0.08);
+    --glass-contour: rgb(0 0 0 / 0.3);
+
+    --glass-chrome-tint: rgb(255 255 255 / 0.05);
+    --glass-control-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09);
+  }
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-glass="on"] .glass,
+  :root[data-glass="on"] .glass-pill,
+  :root[data-glass="on"] .glass-sheet {
+    background: var(--glass-tint);
+    /* Dropped rather than recoloured: every surface here draws its own 1px border, and a border
+       plus a lit rim is two edges where the eye expects one. The rim below replaces it. */
+    border: none;
+    box-shadow:
+      /* Cast, not depth: a floating lens throws a wide soft shadow plus a tight contact one. */
+      0 0 0 0.5px var(--glass-contour),
+      0 10px 28px rgb(0 0 0 / 0.16),
+      0 2px 6px rgb(0 0 0 / 0.1),
+      /* The specular rim: the lit edge, the dimmer return edge, and a hairline closing the ring
+         around the sides neither of the first two reach. The negative spread is what keeps them a
+         rim rather than a glow bleeding into the middle of the pane. */
+      inset 1px 1px 1.5px -0.5px var(--glass-rim-lit),
+      inset -1px -1px 1.5px -0.5px var(--glass-rim-return),
+      inset 0 0 0 1px var(--glass-rim-hairline);
+  }
+
+  :root[data-glass="on"] .glass {
+    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+    backdrop-filter: blur(20px) saturate(1.7);
+  }
+
+  /* A lens rim reads as a lens when it is continuous, and a rounded rectangle breaks it into four
+     straights and four corners. Only the loading pill is short enough for that to be an option. */
+  :root[data-glass="on"] .glass-pill {
+    border-radius: 999px;
+    -webkit-backdrop-filter: blur(16px) saturate(1.7);
+    backdrop-filter: blur(16px) saturate(1.7);
+  }
+
+  /* THE BEND, WHERE AN ENGINE DRAWS IT
+   *
+   * The frost above is the whole material on its own; this replaces it with the frost *and* the
+   * lensing, out of the filters in `components/GlassFilter`, and it is asked for by name because
+   * only Blink resolves a reference filter on a backdrop. WebKit accepts the declaration and then
+   * paints nothing for it (WebKit bug 245510) — and since Safari 18 `-webkit-backdrop-filter` is
+   * an alias of the same property rather than a second one, an unguarded `url()` written after it
+   * does not sit beside the frost as its fallback, it overwrites it. That is a lens with no frost
+   * at all, which is exactly how the menus read on a Mac: a film over a live table.
+   *
+   * So the bend is a thing Windows is given rather than a thing the others are denied. An engine
+   * this file has not been looked at on keeps the plain frost, which is the half that works
+   * everywhere; `data-platform` is written on the root at load, in `theme.ts`. */
+  :root[data-glass="on"][data-platform="windows"] .glass {
+    backdrop-filter: url(#mixdb-glass-panel);
+  }
+
+  :root[data-glass="on"][data-platform="windows"] .glass-pill {
+    backdrop-filter: url(#mixdb-glass-pill);
+  }
+
+  /* The sheet, and the scrim it stands on. Applied to the modals through `dialogMotion`, which all
+     of them compose, and to the transfer card by hand. */
+  :root[data-glass="on"] .glass-scrim {
+    background: var(--glass-scrim-tint);
+    -webkit-backdrop-filter: blur(var(--glass-scrim-blur)) saturate(1.4);
+    backdrop-filter: blur(var(--glass-scrim-blur)) saturate(1.4);
+  }
+
+  /* The one surface here with no filter of its own. The scrim is its sibling rather than its
+     parent, so what shows through the tint is already frosted; a second blur on top would spend a
+     full-screen filter pass to soften a wash with nothing left in it to soften. Tint, rim, and the
+     radius the dialogs already carry are the whole material. */
+  :root[data-glass="on"] .glass-sheet {
+    background: var(--glass-sheet-tint);
+  }
+
+  /* ------------------------------------------------------------------------------------------
+     THE GROUND
+
+     Everything above is lighter than what it sits on — that is the whole trick, and it is why a
+     pane over `#f6f6f6` looked like a flat card: white at 28% over near-white has nowhere to go.
+     The page drops a step and cools slightly so that every tint in this file has something to be
+     lighter *than*, and so the frost has a colour to lift. `--surface-bg` is deliberately left
+     where it is: the cards, the dialogs and the active tab are the things that should now read as
+     raised, and they read that way for free once the ground moves.
+
+     Inside the `@supports` guard with the rest of it, so an engine without `backdrop-filter` keeps
+     the app exactly as the setting-off version draws it rather than a darker page with no glass on
+     it to explain why. */
+  :root[data-glass="on"] {
+    --page-bg: #e9ebef;
+    background-color: var(--page-bg);
+
+    /* A control at rest is a small pane of the same material: a light fill over the ground rather
+       than a solid slab on it, a softer edge, and a lit top. Pressing it takes the fill *down*
+       towards the page, which is the light-theme direction for "pushed in".
+
+       Only the fill and the edge are set here. The lit top is written by Button, Input and Select
+       against their own class, because plenty of `<button>`s in this app are chrome — tabs, icon
+       buttons, list rows — and a token would draw a white line across every one of them. */
+    --control-bg: rgb(255 255 255 / 0.7);
+    --control-bg-active: rgb(255 255 255 / 0.3);
+    --control-border: rgb(128 128 128 / 0.22);
+
+    /* The rail: enough of the page's own colour to keep a header's text off the rows sliding
+       under it, over a blur that turns those rows into a wash rather than a moving pattern. No
+       displacement — a strip the width of the window is the shape the map handles worst — and no
+       rim, because it never leaves the surface. */
+    --rail-bg: color-mix(in srgb, var(--page-bg) 85%, transparent);
+    --rail-filter: blur(14px) saturate(1.5);
+  }
+
+  /* `#2f2f2f` is already dark, so the ground moves less far here than in the light theme — far
+     enough for the 16%-white panes to separate from it, not so far that the app turns black. */
+  :root[data-glass="on"][data-theme="dark"] {
+    --page-bg: #242527;
+
+    --control-bg: rgb(255 255 255 / 0.08);
+    --control-bg-active: rgb(255 255 255 / 0.14);
+    --control-border: rgb(255 255 255 / 0.14);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-glass="on"]:not([data-theme]) {
+      --page-bg: #242527;
+
+      --control-bg: rgb(255 255 255 / 0.08);
+      --control-bg-active: rgb(255 255 255 / 0.14);
+      --control-border: rgb(255 255 255 / 0.14);
+    }
+  }
+
+  /* ------------------------------------------------------------------------------------------
+     THE CHROME
+
+     The brand chip. The tab strip beside it used to be here too and is now in
+     `components/TabStrip/TabStrip.module.css`, with the rest of how a tab is drawn: a hashed class
+     is not a name this file can reach, and a component's look in a theme belongs to the
+     component. */
+  :root[data-glass="on"] .brand {
+    background: var(--control-bg);
+    box-shadow: inset 0 0 0 1px var(--control-border), var(--glass-control-shadow);
+  }
+}
