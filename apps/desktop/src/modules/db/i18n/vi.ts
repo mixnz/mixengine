@@ -27,7 +27,7 @@ const dbVi: DbDict = {
     kindClickhouse: "ClickHouse",
     kindMssql: "SQL Server",
     workspaceUnavailable:
-      "Đã kết nối {{kind}}. Bản MixDB này chưa duyệt được — chưa có workspace cho loại cơ sở dữ liệu này.",
+      "Đã kết nối {{kind}}. Bản MixLab này chưa duyệt được — chưa có workspace cho loại cơ sở dữ liệu này.",
     kindUnknown: "Không rõ",
     sqlitePathLabel: "File database",
     sqlitePathPlaceholder: "Đường dẫn tới file .db hoặc .sqlite",
@@ -68,7 +68,7 @@ const dbVi: DbDict = {
     newConnection: "Kết nối mới",
     pin: "Ghim lên đầu",
     unpin: "Bỏ ghim",
-    // Đánh dấu kết nối là nơi MixDB sẽ không gửi câu lệnh ghi xuống. Đây là lời nhắc mình đang ở
+    // Đánh dấu kết nối là nơi MixLab sẽ không gửi câu lệnh ghi xuống. Đây là lời nhắc mình đang ở
     // máy chủ nào, không phải quyền — máy chủ cho phép gì là chuyện của tài khoản đăng nhập.
     markReadOnly: "Đánh dấu chỉ đọc",
     allowWrites: "Cho phép ghi",
@@ -166,7 +166,7 @@ const dbVi: DbDict = {
     dropSkipIndexMessage:
       'Thao tác này xóa skip index "{{index}}". Nó chỉ giúp scan nhanh hơn — không mất dữ liệu nào.',
     rebuildEngineNotAllowed:
-      "MixDB mới verify việc đổi sorting key trên MergeTree, ReplacingMergeTree, SummingMergeTree và AggregatingMergeTree — engine của bảng này là {{engine}}.",
+      "MixLab mới verify việc đổi sorting key trên MergeTree, ReplacingMergeTree, SummingMergeTree và AggregatingMergeTree — engine của bảng này là {{engine}}.",
   },
   // Tab Thống kê, dùng chung cho cả hai workspace: mỗi bảng/collection của database đang chọn
   // chiếm bao nhiêu dung lượng. MySQL đếm dòng trong bảng, MongoDB đếm document trong collection,
@@ -819,12 +819,12 @@ const dbVi: DbDict = {
     confirmTitle: "Xóa các key?",
     confirmMessage: "Xóa {{n}} key thuộc {{prefix}}? Thao tác này không thể hoàn tác.",
   },
-  // Các công cụ dòng lệnh lo việc dump/restore. MixDB không đóng gói kèm: nó dùng công cụ có sẵn
+  // Các công cụ dòng lệnh lo việc dump/restore. MixLab không đóng gói kèm: nó dùng công cụ có sẵn
   // trên máy, bản tự tải về, hoặc đường dẫn bạn chọn ở đây.
   tools: {
     title: "Công cụ dump",
     intro:
-      "Việc dump và restore do chính công cụ của MySQL/PostgreSQL/MongoDB đảm nhiệm. MixDB dùng bản nào tìm được, và có thể tự tải một bản riêng.",
+      "Việc dump và restore do chính công cụ của MySQL/PostgreSQL/MongoDB đảm nhiệm. MixLab dùng bản nào tìm được, và có thể tự tải một bản riêng.",
     mysqlSuite: "MySQL — mysqldump và mysql",
     postgresSuite: "PostgreSQL — pg_dump và psql",
     mongoSuite: "MongoDB — mongodump và mongorestore",
@@ -849,11 +849,11 @@ const dbVi: DbDict = {
     sourceSystem: "có sẵn",
     // Hiện thay cho nút tải, ở máy nào mà nhà cung cấp không phát hành bản tải được.
     noDownload:
-      "Không có bản tải nào cho máy này. Hãy cài bằng trình quản lý gói — mysql-client hoặc mariadb-client — hoặc chỉ cho MixDB một bản có sẵn ở dưới.",
+      "Không có bản tải nào cho máy này. Hãy cài bằng trình quản lý gói — mysql-client hoặc mariadb-client — hoặc chỉ cho MixLab một bản có sẵn ở dưới.",
     // EDB có build binaries cho Windows và macOS, nhưng đã ngừng build cho Linux từ sau
     // PostgreSQL 10, nên đây là câu Linux thấy thay cho nút tải.
     noDownloadPostgres:
-      "Không có bản tải PostgreSQL client tools nào cho máy này. Hãy cài postgresql-client bằng trình quản lý gói, hoặc chỉ cho MixDB một bản có sẵn ở dưới.",
+      "Không có bản tải PostgreSQL client tools nào cho máy này. Hãy cài postgresql-client bằng trình quản lý gói, hoặc chỉ cho MixLab một bản có sẵn ở dưới.",
   },
   // Dump, restore và xóa cả một cơ sở dữ liệu — nhóm nút bên phải của thanh action trong sidebar.
   dump: {
@@ -875,26 +875,26 @@ const dbVi: DbDict = {
     restoring: "Đang restore vào {{database}}...",
     dropping: "Đang xóa {{database}}...",
     installing: "Đang tải công cụ...",
-    transferHint: "Cơ sở dữ liệu lớn có thể mất vài phút. Hãy để MixDB mở cho tới khi xong.",
+    transferHint: "Cơ sở dữ liệu lớn có thể mất vài phút. Hãy để MixLab mở cho tới khi xong.",
     cancelTransfer: "Dừng",
     progressTables: "Bảng {{at}}/{{total}}",
     installTitle: "Tải công cụ về?",
     installMysql:
-      "Dump cần mysqldump, máy này chưa có. MixDB có thể tải bộ MySQL client tools từ dev.mysql.com — bản tải nặng từ vài chục tới vài trăm MB, nhưng chỉ giữ lại vài file cần thiết. Chỉ tải một lần.",
+      "Dump cần mysqldump, máy này chưa có. MixLab có thể tải bộ MySQL client tools từ dev.mysql.com — bản tải nặng từ vài chục tới vài trăm MB, nhưng chỉ giữ lại vài file cần thiết. Chỉ tải một lần.",
     noDownload:
-      "Dump cần bộ MySQL client tools, máy này chưa có mà nhà cung cấp chỉ phát hành dạng gói cài đặt cho nền tảng này. Hãy cài mysql-client hoặc mariadb-client bằng trình quản lý gói, hoặc chỉ cho MixDB một bản có sẵn trong phần Cài đặt.",
+      "Dump cần bộ MySQL client tools, máy này chưa có mà nhà cung cấp chỉ phát hành dạng gói cài đặt cho nền tảng này. Hãy cài mysql-client hoặc mariadb-client bằng trình quản lý gói, hoặc chỉ cho MixLab một bản có sẵn trong phần Cài đặt.",
     installPostgres:
-      "Dump cần pg_dump, máy này chưa có. MixDB có thể tải bộ PostgreSQL binaries từ enterprisedb.com — bản tải nặng vài trăm MB, nhưng chỉ giữ lại vài file cần thiết. Chỉ tải một lần.",
+      "Dump cần pg_dump, máy này chưa có. MixLab có thể tải bộ PostgreSQL binaries từ enterprisedb.com — bản tải nặng vài trăm MB, nhưng chỉ giữ lại vài file cần thiết. Chỉ tải một lần.",
     noDownloadPostgres:
-      "Dump cần pg_dump và psql, máy này chưa có mà cũng không có bản tải nào cho nền tảng này. Hãy cài postgresql-client bằng trình quản lý gói, hoặc chỉ cho MixDB một bản có sẵn trong phần Cài đặt.",
+      "Dump cần pg_dump và psql, máy này chưa có mà cũng không có bản tải nào cho nền tảng này. Hãy cài postgresql-client bằng trình quản lý gói, hoặc chỉ cho MixLab một bản có sẵn trong phần Cài đặt.",
     installMongo:
-      "Dump cần mongodump, máy này chưa có. MixDB có thể tải bộ MongoDB Database Tools từ mongodb.com — khoảng 60MB, chỉ một lần.",
+      "Dump cần mongodump, máy này chưa có. MixLab có thể tải bộ MongoDB Database Tools từ mongodb.com — khoảng 60MB, chỉ một lần.",
     installConfirm: "Tải về",
     restoreTitle: "Restore vào {{database}}?",
     restoreMysql:
-      "Nạp {{file}} vào {{database}}? Các bảng trong file sẽ ghi đè bảng trùng tên đang có. Riêng file nào tự chứa lệnh USE thì nó vào database ghi trong đó. MixDB không hoàn tác được.",
+      "Nạp {{file}} vào {{database}}? Các bảng trong file sẽ ghi đè bảng trùng tên đang có. Riêng file nào tự chứa lệnh USE thì nó vào database ghi trong đó. MixLab không hoàn tác được.",
     restoreMongo:
-      "Restore {{file}} vào {{database}}? Các collection sẽ vào đây bất kể archive được dump từ cơ sở dữ liệu nào, và document trùng _id sẽ được giữ nguyên. MixDB không hoàn tác được.",
+      "Restore {{file}} vào {{database}}? Các collection sẽ vào đây bất kể archive được dump từ cơ sở dữ liệu nào, và document trùng _id sẽ được giữ nguyên. MixLab không hoàn tác được.",
     restoreConfirm: "Restore",
     dropTitle: "Xóa cơ sở dữ liệu?",
     dropMysqlMessage:
@@ -930,7 +930,7 @@ const dbVi: DbDict = {
     connectTimeout:
       "Kết nối {{kind}} quá hạn sau {{seconds}} giây — kiểm tra host, cổng và tường lửa.",
     connectionLost:
-      "Mất kết nối tới máy chủ. Nếu kết nối này đi qua SSH tunnel, MixDB đang mở lại — thử lại sau giây lát.",
+      "Mất kết nối tới máy chủ. Nếu kết nối này đi qua SSH tunnel, MixLab đang mở lại — thử lại sau giây lát.",
     noTunnel: "Kết nối này không đi qua SSH tunnel.",
     mongoUriRequired: "Cần có chuỗi kết nối MongoDB.",
     sqlitePathRequired: "Hãy chọn file database SQLite cần mở.",
@@ -938,7 +938,7 @@ const dbVi: DbDict = {
     sqliteFileExists: "Đã có file ở {{path}}. Hãy dùng Duyệt để mở nó, hoặc chọn tên khác.",
     sqliteNoDatabases:
       "Một database SQLite là một file. Tạo hay xóa nó là việc của trình quản lý file, không phải ở đây.",
-    clickhouseReadOnly: "MixDB hiện chỉ đọc ClickHouse — chưa có gì ở đây ghi vào nó.",
+    clickhouseReadOnly: "MixLab hiện chỉ đọc ClickHouse — chưa có gì ở đây ghi vào nó.",
     clickhouseOnlyFeature: "Cái này chỉ áp dụng cho kết nối ClickHouse.",
     clickhouseMutationTimeout:
       "Thao tác vẫn đang chạy trên server sau 30 giây — tải lại bảng để xem đã xong chưa.",
@@ -947,16 +947,16 @@ const dbVi: DbDict = {
     clickhouseHeterogeneousInsert:
       "Các dòng này không khai báo cùng một tập cột, nên không thể chèn chung thành một câu lệnh nguyên tử trên ClickHouse.",
     clickhouseUnknownEngine:
-      "MixDB không tạo bảng với engine {{engine}} — hãy chọn một engine thuộc họ MergeTree.",
+      "MixLab không tạo bảng với engine {{engine}} — hãy chọn một engine thuộc họ MergeTree.",
     clickhouseTypeChangeFailed:
       "Đổi kiểu cột {{column}} thất bại, và bảng {{table}} không đọc được cho tới khi kiểu cũ được đặt lại: hãy sửa kiểu của cột về như trước. Server báo: {{cause}}",
     clickhouseSkipIndexExprRequired: "Skip index cần một biểu thức để lọc theo.",
     clickhouseOrderByColumnsRequired: "Sorting key cần ít nhất một cột.",
     clickhouseRebuildParse:
-      "MixDB không đọc lại được định nghĩa của bảng này từ server — chưa thử rebuild.",
+      "MixLab không đọc lại được định nghĩa của bảng này từ server — chưa thử rebuild.",
     clickhouseRebuildCountMismatch:
       "Số dòng bị lệch trong lúc copy bảng {{table}} (có ghi đồng thời?). Đã huỷ rebuild, bảng gốc không hề bị đụng — thử lại.",
-    handoffInvalid: "Không đọc được kết nối MixDB được mở cùng: {{message}}",
+    handoffInvalid: "Không đọc được kết nối MixLab được mở cùng: {{message}}",
     handoffExpired: "Kết nối được chuyển sang này đã được mở rồi.",
     mongoNoTcpHost: "Chuỗi kết nối không chỉ ra host TCP nào để mở tunnel.",
     emptyRedisCommand: "Không có lệnh nào để chạy.",
@@ -1012,7 +1012,7 @@ const dbVi: DbDict = {
     bsonInt32Range: "Số này nằm ngoài phạm vi của Int32.",
     bsonDate: "Ngày giờ phải viết theo RFC 3339, ví dụ 2024-01-31T09:00:00.000Z.",
     bsonInvalidValue: "Đây không phải giá trị {{type}} hợp lệ.",
-    bsonInvalidNumber: "Đây không phải số mà MixDB lưu được.",
+    bsonInvalidNumber: "Đây không phải số mà MixLab lưu được.",
     bsonMissingField: "Giá trị {{type}} cần có {{field}}.",
     bsonReadOnlyType: "{{type}} chỉ đọc được, không ghi được.",
     bsonUnknownType: "Kiểu BSON {{type}} không hợp lệ.",
@@ -1022,7 +1022,7 @@ const dbVi: DbDict = {
     srvOverTunnel:
       "Dump qua SSH tunnel cần chuỗi kết nối mongodb:// thường — chuỗi mongodb+srv:// tự phân giải host của nó, mà tunnel không tới được những host đó.",
     notMongoArchive:
-      "{{path}} không phải archive của mongodump — MixDB chỉ restore được archive một file do chính nó dump ra.",
+      "{{path}} không phải archive của mongodump — MixLab chỉ restore được archive một file do chính nó dump ra.",
     archiveDatabaseUnreadable:
       "Không xác định được {{path}} chứa cơ sở dữ liệu nào — có thể file đã bị nén: {{message}}",
     archiveNamesNoDatabase: "{{path}} không ghi cơ sở dữ liệu nào để restore.",
@@ -1036,28 +1036,28 @@ const dbVi: DbDict = {
     unknownTool: "Công cụ {{tool}} không hợp lệ.",
     unknownToolSuite: "Bộ công cụ {{suite}} không hợp lệ.",
     mysqlToolNotFound:
-      "Không tìm thấy {{tool}}. Hãy cài MySQL client tools, trỏ MixDB tới một bản có sẵn trong Cài đặt, hoặc để MixDB tự tải về.",
-    // Dùng thay ở nơi MixDB không có gì để tải, nên mời tải là vô ích.
+      "Không tìm thấy {{tool}}. Hãy cài MySQL client tools, trỏ MixLab tới một bản có sẵn trong Cài đặt, hoặc để MixLab tự tải về.",
+    // Dùng thay ở nơi MixLab không có gì để tải, nên mời tải là vô ích.
     mysqlToolNotInstalled:
-      "Không tìm thấy {{tool}}. Hãy cài MySQL client tools bằng trình quản lý gói (mysql-client hoặc mariadb-client), hoặc trỏ MixDB tới một bản có sẵn trong Cài đặt.",
+      "Không tìm thấy {{tool}}. Hãy cài MySQL client tools bằng trình quản lý gói (mysql-client hoặc mariadb-client), hoặc trỏ MixLab tới một bản có sẵn trong Cài đặt.",
     postgresToolNotFound:
-      "Không tìm thấy {{tool}}. Hãy cài PostgreSQL client tools, trỏ MixDB tới một bản có sẵn trong Cài đặt, hoặc để MixDB tự tải về.",
+      "Không tìm thấy {{tool}}. Hãy cài PostgreSQL client tools, trỏ MixLab tới một bản có sẵn trong Cài đặt, hoặc để MixLab tự tải về.",
     // Dùng thay ở nơi không có gì để tải, nên mời tải là vô ích.
     postgresToolNotInstalled:
-      "Không tìm thấy {{tool}}. Hãy cài PostgreSQL client tools (postgresql-client), hoặc trỏ MixDB tới một bản có sẵn trong Cài đặt.",
+      "Không tìm thấy {{tool}}. Hãy cài PostgreSQL client tools (postgresql-client), hoặc trỏ MixLab tới một bản có sẵn trong Cài đặt.",
     mongoToolNotFound:
-      "Không tìm thấy {{tool}}. Hãy cài MongoDB Database Tools, trỏ MixDB tới một bản có sẵn trong Cài đặt, hoặc để MixDB tự tải về.",
+      "Không tìm thấy {{tool}}. Hãy cài MongoDB Database Tools, trỏ MixLab tới một bản có sẵn trong Cài đặt, hoặc để MixLab tự tải về.",
     noFileAt: "Không có file nào ở {{path}}.",
     noMysqlArchive:
-      "MySQL không phát hành bản nén nào của client tools cho nền tảng này — hãy cài qua trình quản lý gói (mysql-client / mariadb-client), MixDB sẽ tự tìm thấy trên PATH.",
+      "MySQL không phát hành bản nén nào của client tools cho nền tảng này — hãy cài qua trình quản lý gói (mysql-client / mariadb-client), MixLab sẽ tự tìm thấy trên PATH.",
     noPostgresArchive:
-      "EnterpriseDB không phát hành bản PostgreSQL binaries nào cho nền tảng này — hãy cài client tools qua trình quản lý gói (postgresql-client), MixDB sẽ tự tìm thấy trên PATH.",
+      "EnterpriseDB không phát hành bản PostgreSQL binaries nào cho nền tảng này — hãy cài client tools qua trình quản lý gói (postgresql-client), MixLab sẽ tự tìm thấy trên PATH.",
     downloadFailed: "Tải về thất bại: {{message}}",
     unpackFailed: "Giải nén bản tải về thất bại: {{message}}",
     downloadIncomplete:
-      "Bản tải về không chứa các công cụ cần có — có thể phiên bản MixDB yêu cầu đã bị gỡ khỏi máy chủ.",
+      "Bản tải về không chứa các công cụ cần có — có thể phiên bản MixLab yêu cầu đã bị gỡ khỏi máy chủ.",
     checksumMismatch:
-      "Bản tải về không đúng file MixDB mong đợi (checksum là {{actual}}, không phải {{expected}}). Có thể bản phát hành đã bị gỡ hoặc thay thế — hãy tự cài công cụ rồi trỏ MixDB tới chúng trong Cài đặt.",
+      "Bản tải về không đúng file MixLab mong đợi (checksum là {{actual}}, không phải {{expected}}). Có thể bản phát hành đã bị gỡ hoặc thay thế — hãy tự cài công cụ rồi trỏ MixLab tới chúng trong Cài đặt.",
     cannotReadDownload: "Không đọc lại được bản tải về: {{message}}",
     cannotCopyTool: "Không đặt được {{tool}} vào {{path}}: {{message}}",
     cannotSaveToolPath: "Không ghi nhớ được vị trí công cụ đó: {{message}}",
@@ -1068,9 +1068,9 @@ const dbVi: DbDict = {
     sqliteRestoreFailed: "Khôi phục dừng lại ở {{statement}} — {{message}}",
     mssqlRestoreFailed: "Khôi phục dừng lại ở {{statement}} — {{message}}",
     sqliteRebuildParseFailed:
-      "MixDB không đọc được cấu trúc CREATE TABLE của {{table}} đủ rõ để dựng lại — đây là một cú pháp app chưa nhận ra.",
+      "MixLab không đọc được cấu trúc CREATE TABLE của {{table}} đủ rõ để dựng lại — đây là một cú pháp app chưa nhận ra.",
     cannotRemoveDirectory: "Không xóa được {{path}}: {{message}}",
-    noAppDataDir: "MixDB không có chỗ nào để lưu file riêng của nó: {{message}}",
+    noAppDataDir: "MixLab không có chỗ nào để lưu file riêng của nó: {{message}}",
   },
 };
 

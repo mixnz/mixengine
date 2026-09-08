@@ -193,7 +193,7 @@ function App() {
             title={update.pending && update.release ? t("update.available", { version: update.release.version }) : t("app.settings")}
             aria-label={t("app.settings")}
           >
-            MixDB
+            MixLab
             <SettingsIcon className="brand-gear" size={14} />
           </button>
         }

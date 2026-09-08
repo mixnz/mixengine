@@ -1,6 +1,6 @@
-# MixDB
+# MixLab
 
-MixDB là ứng dụng desktop (Tauri 2 + React 19 + TypeScript). Cửa sổ app là một thanh tab, mỗi tab thuộc về một **module**:
+MixLab là ứng dụng desktop của MixEngine (Tauri 2 + React 19 + TypeScript). Cửa sổ app là một thanh tab, mỗi tab thuộc về một **module**:
 
 - **Database** — client cho MySQL, PostgreSQL, MongoDB và Redis.
 - **REST** — soạn và gửi HTTP request, đọc response, giữ lịch sử và biến theo environment.
@@ -18,7 +18,7 @@ Các loại database đều có workspace riêng:
 
 ## Tính năng
 
-Phiên bản mới nhất: **0.0.33** (2026-09-08). Phần dưới mô tả app hiện làm được những gì —
+Phiên bản đi theo MixEngine — xem [CHANGELOG.md](../../CHANGELOG.md) ở gốc kho. Phần dưới mô tả app hiện làm được những gì —
 *không* phải danh sách thay đổi: **cái gì đổi ở bản nào thì đọc [CHANGELOG.md](CHANGELOG.md)**,
 nơi duy nhất ghi điều đó.
 

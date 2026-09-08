@@ -30,7 +30,7 @@ pub async fn first_endpoint(uri: &str) -> Result<(String, u16), AppError> {
 /// port, so the address written in the connection string is no longer the one to dial.
 pub async fn connect(uri: &str, endpoint: Option<(String, u16)>) -> Result<Client, AppError> {
     let mut opts = ClientOptions::parse(uri).await.map_err(|e| err!("error.mongo", message = e))?;
-    opts.app_name = Some("MixDB".to_string());
+    opts.app_name = Some("MixLab".to_string());
     if let Some((host, port)) = endpoint {
         opts.hosts = vec![ServerAddress::Tcp { host, port: Some(port) }];
         // Only that one host is forwarded, so topology discovery would hand back the replica

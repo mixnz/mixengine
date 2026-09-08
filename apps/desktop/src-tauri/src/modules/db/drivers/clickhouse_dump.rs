@@ -238,7 +238,7 @@ pub async fn dump_structure(
 
     let mut file = std::fs::File::create(path)
         .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))?;
-    write!(file, "-- MixDB structure dump\n\n")
+    write!(file, "-- MixLab structure dump\n\n")
         .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))?;
 
     for table in &tables {

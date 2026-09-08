@@ -1,9 +1,9 @@
 [package]
-name = "mixdb"
+name = "mixlab"
 version = "0.0.33"
 # Both are read back out into the installer's metadata, so they are what a user sees in
 # Add/Remove Programs rather than notes to ourselves.
-description = "MixDB - multi-database desktop client (MySQL, PostgreSQL, MongoDB, Redis)"
+description = "MixLab - MixEngine's desktop application: the daemon's dashboard, a database client, an HTTP client, a terminal and the tools"
 authors = ["mixnz"]
 license = "MIT OR Apache-2.0"
 edition = "2021"

@@ -84,7 +84,7 @@ const vi: SharedDict = {
     languageVietnamese: "Tiếng Việt",
     privacyPolicy: "Chính sách quyền riêng tư",
     privacyHint:
-      "MixDB không thu thập bất cứ thông tin nào về bạn và không có máy chủ nào của riêng nó. Những gì app ghi nhớ đều nằm lại trên máy này.",
+      "MixLab không thu thập bất cứ thông tin nào về bạn và không có máy chủ nào của riêng nó. Những gì app ghi nhớ đều nằm lại trên máy này.",
     logHint: "Một file trên máy ghi lại các lỗi và crash, phòng khi cần xem kỹ hơn.",
     openLogFolder: "Mở thư mục log",
   },
@@ -102,19 +102,19 @@ const vi: SharedDict = {
     prevTab: "Tab liền trước",
     reload: "Tải lại pane đang xem",
   },
-  // Tìm, tải và cài bản MixDB mới. Việc tải chạy ngầm; việc cài thì đóng ứng dụng, nên nó chỉ xảy
+  // Tìm, tải và cài bản MixLab mới. Việc tải chạy ngầm; việc cài thì đóng ứng dụng, nên nó chỉ xảy
   // ra khi người dùng tự bấm nút.
   update: {
     title: "Cập nhật",
-    available: "Đã có MixDB {{version}}",
+    available: "Đã có MixLab {{version}}",
     runningNow: "Bạn đang dùng bản {{version}}",
     updateNow: "Cập nhật ngay",
     downloading: "Đang tải… {{percent}}%",
     downloadingUnknown: "Đang tải…",
-    downloaded: "Bản MixDB {{version}} đã sẵn sàng để cài.",
+    downloaded: "Bản MixLab {{version}} đã sẵn sàng để cài.",
     restartNow: "Cài và khởi động lại",
     installing: "Đang cài đặt…",
-    restartHint: "MixDB sẽ đóng lại trong chốc lát rồi tự mở lên bản mới.",
+    restartHint: "MixLab sẽ đóng lại trong chốc lát rồi tự mở lên bản mới.",
     later: "Để sau",
     skip: "Bỏ qua bản này",
     skipped: "Đang bỏ qua bản {{version}}.",
@@ -129,7 +129,7 @@ const vi: SharedDict = {
     openPage: "Mở trang tải về",
     moreChanges: "và {{count}} thay đổi khác",
     autoHint:
-      "MixDB tự cập nhật. Mỗi bản cập nhật đều được đối chiếu với khóa ký của MixDB trước khi cài, nên không thứ gì không do dự án này ký có thể đến với bạn bằng đường này.",
+      "MixLab tự cập nhật. Mỗi bản cập nhật đều được đối chiếu với khóa ký của MixLab trước khi cài, nên không thứ gì không do dự án này ký có thể đến với bạn bằng đường này.",
   },
   // Thông báo khi một lệnh ở backend thất bại. Khóa ở đây chính là `code` mà `AppError` mang theo
   // — xem src-tauri/src/error.rs. `{{message}}` là nguyên văn lời của driver, không dịch: đó là
@@ -153,14 +153,14 @@ const vi: SharedDict = {
     sshAuthRejected:
       "Máy chủ SSH từ chối đăng nhập (partial success: {{partialSuccess}}). Máy chủ chấp nhận: {{methods}}.",
     sshHostKeyChanged:
-      "Máy chủ SSH tại {{endpoint}} đang đưa ra khóa khác với khóa MixDB từng thấy ({{fingerprint}} bây giờ, trước đó là {{known}}). Hoặc máy chủ vừa được dựng lại, hoặc có ai đó đang đứng giữa. Nếu thay đổi này là mong đợi, hãy xóa mục tương ứng trong {{file}} rồi kết nối lại.",
+      "Máy chủ SSH tại {{endpoint}} đang đưa ra khóa khác với khóa MixLab từng thấy ({{fingerprint}} bây giờ, trước đó là {{known}}). Hoặc máy chủ vừa được dựng lại, hoặc có ai đó đang đứng giữa. Nếu thay đổi này là mong đợi, hãy xóa mục tương ứng trong {{file}} rồi kết nối lại.",
     cannotReadPrivateKey: "Không đọc được file khóa riêng: {{message}}",
-    invalidPrivateKey: "Đây không phải khóa riêng mà MixDB đọc được: {{message}}",
+    invalidPrivateKey: "Đây không phải khóa riêng mà MixLab đọc được: {{message}}",
     cannotBindTunnelPort: "Không mở được cổng cục bộ cho tunnel: {{message}}",
     tunnelAcceptFailed:
-      "Cổng cục bộ của tunnel đã ngừng nhận kết nối: {{message}}. MixDB vẫn đang thử lại — nếu không trở lại, hãy đóng tab và kết nối lại.",
+      "Cổng cục bộ của tunnel đã ngừng nhận kết nối: {{message}}. MixLab vẫn đang thử lại — nếu không trở lại, hãy đóng tab và kết nối lại.",
     cannotSaveKnownHost: "Không ghi nhớ được khóa của máy chủ: {{message}}",
-    sshUnavailable: "Tunnel SSH hiện không mở — MixDB đang thử mở lại.",
+    sshUnavailable: "Tunnel SSH hiện không mở — MixLab đang thử mở lại.",
     // Mật khẩu đã lưu
     credentialStoreUnreachable: "Không truy cập được kho mật khẩu của hệ điều hành: {{message}}",
     cannotSavePassword: "Không lưu được mật khẩu: {{message}}",
@@ -174,12 +174,12 @@ const vi: SharedDict = {
     // Lỗi duy nhất ở đây do webview báo chứ không phải backend. Phải nói rõ, vì nếu im lặng thì
     // người dùng dán ở chỗ khác và nhận đúng thứ đang có sẵn trong clipboard từ trước.
     clipboard: "Chưa sao chép được — clipboard từ chối: {{message}}",
-    /** Dạng lỗi MixDB không nhận ra — hiển thị nguyên trạng thay vì nuốt mất. */
+    /** Dạng lỗi MixLab không nhận ra — hiển thị nguyên trạng thay vì nuốt mất. */
     unknown: "{{message}}",
-    crashedTab: "Tab này gặp lỗi và không thể tiếp tục. Phần còn lại của MixDB không bị ảnh hưởng.",
-    crashedApp: "MixDB gặp lỗi không thể tự phục hồi.",
+    crashedTab: "Tab này gặp lỗi và không thể tiếp tục. Phần còn lại của MixLab không bị ảnh hưởng.",
+    crashedApp: "MixLab gặp lỗi không thể tự phục hồi.",
     tryAgain: "Thử lại",
-    restartApp: "Khởi động lại MixDB",
+    restartApp: "Khởi động lại MixLab",
   },
 };
 
