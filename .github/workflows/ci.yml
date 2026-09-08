@@ -1930,6 +1930,14 @@ jobs:
         working-directory: apps/desktop
         env:
           MIX_TARGET: ${{ matrix.target }}
+          # The same switch `packaging/stage.sh` sets for the four binaries, and for the same
+          # reason read from the client's side: `mixengine-platform` names the home
+          # `MixEngine-dev` in a build without it (ADR 0024), so a window built here without it
+          # dials the pipe of a daemon nobody installed and reports the one at `MixEngine` as
+          # not running. Measured on run 34244691840's `desktop-windows-latest`, against a
+          # daemon `mix status` reached fine. A `tauri dev` window keeps the dev home, which is
+          # where a working tree's daemon lives.
+          MIXENGINE_RELEASE: "1"
         run: |
           set -euo pipefail
           npm ci
