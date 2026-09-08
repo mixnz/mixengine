@@ -30,7 +30,7 @@ needs verification on Windows + macOS + Linux.
 | [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b | 20 / 20 | **M8** capture, apply, open in MixDB, test from a phone |
 | [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.0.1** |
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
-| [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 0 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
+| [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
 | [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 0 / 4 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 0 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 
@@ -43,14 +43,16 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 11 is next, and nothing in it has started.** Phases 0 to 10 are done and v0.0.1 shipped.
-What comes now is not a feature of the daemon: [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
-reverses ADR 0011 and brings MixDB — already a complete client of this API — into `apps/desktop/`,
-then makes it MixEngine's window, named MixLab (phase 12), and makes its database client optional to look at
-(phase 13). The design for all three is one document,
+**Phase 11 is done — 4 of 4 — and M11 is reached; phase 12 is next.** Phases 0 to 10 are done and
+v0.0.1 shipped. [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
+reverses ADR 0011, and MixDB — already a complete client of this API — now lives under
+`apps/desktop/`, builds and tests in this repository's CI on three operating systems, and opens
+against a running daemon as MixDB 0.0.33 did ([phase 11](phase-11-the-desktop-app-comes-home.md)).
+What comes now makes it MixEngine's window, named MixLab (phase 12), and makes its database client
+optional to look at (phase 13). The design for all three is one document,
 [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md).
-The order matters: 11 moves code and changes no behaviour, so the import commit needs no review as
-code; 12 is the phase users asked for; 13 is cheap once 12 exists and pointless before it.
+Two debts phase 11 left where they were found: `[daemon] ipc_path` in `config.toml` is parsed and
+used by nothing, and MixDB's `tool-downloads.yml` is not wired into this CI.
 
 **Phase 0 is done**, and **M0 is reached**: `mix status` starts a daemon if there is none, talks to
 it over the local endpoint and prints what it says, in both renderings, proved end to end by
