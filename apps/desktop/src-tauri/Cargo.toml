@@ -133,3 +133,8 @@ tauri-plugin-window-state = "2"
 # file) and hands the app the URLs the OS opens it with. The URL's meaning is `launch.rs`'s.
 tauri-plugin-deep-link = "2"
 
+
+# A workspace of its own, and deliberately empty: without this section cargo would walk up to the
+# repository root, find the workspace there, and refuse a package that is not one of its members.
+# The root excludes this directory on purpose — ADR 0027, rule 5, and the design's D1.
+[workspace]

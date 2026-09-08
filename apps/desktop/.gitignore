@@ -26,15 +26,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Implementation plans — local working notes, never shared or referenced
-docs/superpowers/plans/
-
 # `tsc -b` writes one of these per project; they are a build cache and say nothing a reader needs.
 *.tsbuildinfo
-
-# Whatever an assistant leaves behind in the working copy.
-.claude/
-
-# Copied in from public/logo.svg by the Pages workflow, never committed — see
-# .github/workflows/pages.yml.
-site/logo.svg
