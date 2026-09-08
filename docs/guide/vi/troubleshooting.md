@@ -4,15 +4,15 @@ slug = "troubleshooting"
 order = 14
 summary = "Chạy mix doctor trước, rồi bốn lệnh trả lời đúng những câu hỏi người dùng hay gặp, và một file gom đủ mọi thứ một báo cáo lỗi cần."
 translation_of = "en/troubleshooting.md"
-source_sha256 = "d247f5fee1a1e68095e79fa749632921e65dd42b6bffd85ef0eac0df6ac854bb"
+source_sha256 = "389095d22a8cf486ef084062d4d41943e94839c1b71212664f6bd5ceacb69ba6"
 +++
 
 # Khi có gì đó không ổn
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 ## Bắt đầu từ đây
 

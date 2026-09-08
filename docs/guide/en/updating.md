@@ -7,10 +7,10 @@ summary = "Updates are opt-in, checked against a signature, and rehearsed before
 
 # Keeping MixEngine current
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 ```bash
 mix self-update --check

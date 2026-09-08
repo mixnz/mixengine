@@ -7,10 +7,10 @@ summary = "The installer for your system, what it touches, what it deliberately 
 
 # Installing MixEngine
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 Every build is published on the project's GitHub releases page, with a checksum and a signature
 beside it. Pick the file for your system below. Installing changes as little as it can: nothing is
@@ -25,7 +25,7 @@ links go live with no edit to this page. Until then, get the newest pre-release 
 
 ## What you are installing
 
-Four programs, and it is worth knowing what each is before one of them surprises you.
+Five programs, and it is worth knowing what each is before one of them surprises you.
 
 | Program | What it does |
 | --- | --- |
@@ -33,25 +33,37 @@ Four programs, and it is worth knowing what each is before one of them surprises
 | `mix` | The command you type. It asks the daemon and prints the answer. |
 | `mixengine-shim` | The stand-in for `php`, `node`, `python` and `ruby` that picks the right version. |
 | `mixengine-elevate` | The one program that runs as an administrator, for a few seconds at a time. |
+| **MixLab** | The window: a dashboard for the daemon, plus a database client, an HTTP client and a terminal. |
 
-The first three are installed together, as you. The fourth is not placed by the installer at all on
-most systems — MixEngine installs it itself, the first time something needs an administrator, inside
-a prompt you were going to see anyway.
+The first three and MixLab are installed together, as you. `mixengine-elevate` is not placed by the
+installer at all on most systems — MixEngine installs it itself, the first time something needs an
+administrator, inside a prompt you were going to see anyway.
+
+**If you do not want the window, there is a download without it.** Every system publishes a
+**headless** archive holding the four command-line programs and nothing else — no window, and on
+Linux no WebKitGTK to install. It is linked in each section below and is what a server, a container
+image, or any machine with no display wants.
 
 ## Windows
 
 [**Download the installer**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
 · [portable zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
+· [headless zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-headless.zip)
 · Windows ARM: [installer](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip)
+[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip),
+[headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-headless.zip)
 
-Two files are published, and either is a complete install.
+Three files are published, and any of them is a complete install.
 
 - **`mixengine-<version>-windows-x86_64-setup.exe`** — a per-user installer. It writes into your own
   profile and puts its directory on your `PATH`, so no administrator prompt is involved and neither
-  is anybody else's account on the machine.
+  is anybody else's account on the machine. It also adds **MixLab** to your Start Menu, offers a
+  desktop shortcut on the components page, and makes MixLab the program that opens a `mixdb://`
+  link.
 - **`mixengine-<version>-windows-x86_64.zip`** — the same programs in a folder. Extract it wherever
-  you like and run `mix.exe` from there.
+  you like and run `mix.exe`, or `mixlab.exe` for the window.
+- **`mixengine-<version>-windows-x86_64-headless.zip`** — the same folder without MixLab: the four
+  command-line programs and nothing else.
 
 Windows ARM builds are published beside them, named `aarch64`.
 
@@ -64,8 +76,15 @@ release, because reputation with no publisher identity accrues to a file rather 
 ## macOS
 
 [**Download the package**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
+· [headless archive](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
 
-**`mixengine-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon.
+**`mixengine-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon. It puts
+the command-line programs in `/usr/local/bin` and **MixLab** in `/Applications`, so the window is in
+Spotlight and the Launchpad the moment the install finishes.
+
+**`mixengine-<version>-macos-universal-headless.tar.gz`** is the same four command-line programs
+without MixLab, for a machine that wants no window. Extract it and put the folder wherever you like;
+nothing about it is installed for you.
 
 MixEngine has no Apple Developer ID either, so double-clicking the package in Finder gets you a
 Gatekeeper dialog and, on macOS 15 and later, a trip through **System Settings → Privacy & Security
@@ -86,18 +105,33 @@ it also places the privileged helper for you.
 · arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
 [`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
 [`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
+· headless: [`x86_64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
+[`aarch64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
 
-Three files, each a complete install:
+Four files, each a complete install:
 
 - **`.deb`** for Debian, Ubuntu and their relatives
 - **`.rpm`** for Fedora, RHEL and openSUSE
 - **`.AppImage`**, which needs no package manager and no root at all
+- **`-headless.tar.gz`**, the four command-line programs with no window and no dependencies
 
 ```bash
 sudo dpkg -i mixengine_*_amd64.deb
 sudo rpm -i mixengine-*.x86_64.rpm
-chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage
+chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage status
+tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
 ```
+
+**The `.deb` and the `.rpm` require WebKitGTK 4.1**, because MixLab is a webview application —
+`libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora and RHEL,
+`libwebkit2gtk-4_1-0` on openSUSE. Your package manager pulls it in. They also add a **MixLab** menu
+entry and its icon. If the machine has no display and you would rather not install a webview at all,
+take the headless archive: it declares nothing.
+
+**The AppImage does both jobs.** Run it with an argument and it is the command line —
+`./mixengine-*-linux-x86_64.AppImage status`. Run it with none, or double-click it, and it opens
+MixLab. The image does not carry WebKitGTK, so the window needs your system's; it says so by name if
+it is missing, and the command line is unaffected either way.
 
 Both packages are built against glibc 2.28, so they run on the long-term-support distributions they
 are aimed at rather than only on something as new as the machine that built them. `aarch64` builds
@@ -113,8 +147,9 @@ cd mixengine
 cargo build --release
 ```
 
-The binaries land in `target/release/`. This is the fourth way of installing that runs entirely as
-you, which is why placing the privileged helper is never a packager's job.
+The binaries land in `target/release/`. MixLab is built separately — it is a workspace of its own
+under `apps/desktop/` — and a source build is one more way of installing that runs entirely as you,
+which is why placing the privileged helper is never a packager's job.
 
 ## Checking what you downloaded
 
@@ -154,6 +189,9 @@ mix path install
 
 That fills `<root>/bin` with the shims that make `php`, `node`, `python` and `ruby` resolve to the
 version each directory asks for, rather than to one version for the whole machine.
+
+If you installed the window, open **MixLab** — from the Start Menu, `/Applications`, your desktop's
+application menu, or by running `mixlab`. It shows the same daemon `mix status` just answered.
 
 ## What the installer did not do
 

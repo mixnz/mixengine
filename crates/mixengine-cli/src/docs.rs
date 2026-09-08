@@ -117,11 +117,12 @@ pub(crate) fn reference(command: &clap::Command) -> String {
     // the corpus, which keeps the generation non-circular — see the doc comment above.
     out.push_str(
         "> **This handbook covers MixEngine through the `mix` command line.** If you would rather \
-         work in\n\
-         > a graphical interface, download the **MixDB** app at\n\
-         > [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same \
-         MixEngine,\n\
-         > so everything in this handbook still applies.\n\n",
+         work in a\n\
+         > graphical interface, you already have one: every installer places **MixLab**, \
+         MixEngine's desktop\n\
+         > application, beside the command line. MixLab drives the same MixEngine, so everything \
+         in this\n\
+         > handbook still applies.\n\n",
     );
     out.push_str(&format!(
         "Every command `mix` accepts, in version {VERSION}. This page is **generated** from the\n\

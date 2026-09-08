@@ -7,10 +7,10 @@ summary = "The two nouns MixEngine is built on, what each one owns, and how a ch
 
 # Projects and sites
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 MixEngine has two nouns and they are worth keeping apart.
 

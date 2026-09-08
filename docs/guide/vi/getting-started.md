@@ -4,15 +4,15 @@ slug = "getting-started"
 order = 3
 summary = "Từ máy vừa cài xong tới https://blog.test với ổ khóa xanh, mất khoảng năm phút."
 translation_of = "en/getting-started.md"
-source_sha256 = "64e315a8bd96323e454a312ece56e906785168785eb8d9ea043663c14a02b1e6"
+source_sha256 = "d3bca98a35c2b2e2a85c4cfd7ccb8c534646c79b3c988e784cf5e9ebb21a2cd3"
 +++
 
 # Site đầu tiên của bạn
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Trang này dẫn bạn đi trọn một vòng: cài một phiên bản PHP, một web server, tạo một project, một
 site, và có chứng chỉ mà trình duyệt chấp nhận. Trang giả định bạn đã cài MixEngine, nếu chưa thì

@@ -4,15 +4,15 @@ slug = "index"
 order = 1
 summary = "Chạy PHP, Node, Python và Ruby ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
 translation_of = "en/index.md"
-source_sha256 = "1746d75fba44141728cffe386739e92668ef9e2ee5eeedd0e86e127b46ffdc21"
+source_sha256 = "83fbf09210bc295d1c7a75d5f166b449d4612f03000ad59384ba26cb0755fc22"
 +++
 
 # MixEngine
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 MixEngine là môi trường phát triển web chạy ngay trên máy bạn. Bạn có thể cài nhiều phiên bản PHP,
 Node.js, Python và Ruby cùng lúc, rồi để mỗi thư mục dự án tự chọn phiên bản mình dùng. MixEngine

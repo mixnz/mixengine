@@ -4,15 +4,15 @@ slug = "sharing"
 order = 8
 summary = "Đưa đúng một site ra mạng nội bộ, quét mã QR, rồi rút nó về. Một site, một cổng, một luật."
 translation_of = "en/sharing.md"
-source_sha256 = "2d14ee84cd99cb074e66340722c8560f9ea11b1e79e04daffb09ba54e19791c6"
+source_sha256 = "133a99422047a329b0af6f33d4d8402f3969ec8b9b5cbf63cad0fa844718522c"
 +++
 
 # Cho điện thoại xem site của bạn
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Mọi thứ MixEngine phục vụ đều chỉ trả lời trên loopback, không ở đâu khác. Muốn thử trên điện thoại
 thật thì phải tạo một ngoại lệ, và ngoại lệ này áp dụng cho từng site, do bạn chủ động, và có thể

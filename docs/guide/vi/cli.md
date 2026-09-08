@@ -9,9 +9,9 @@ untranslated_reason = "The reference is generated from the binary's own English 
 # Tham chiếu lệnh
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Đây là trang duy nhất trong cẩm nang **không** có bản tiếng Việt, và đó là cố ý.
 

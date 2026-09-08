@@ -97,7 +97,7 @@ the same branch cancels the first, because by then you have stopped caring about
 | `bindings` | ubuntu | regenerates ts-rs bindings and fails if the committed output differs |
 | `docs` | ubuntu | builds the user handbook's site and fails if the committed command reference is not what `mix` prints |
 | `desktop` | ubuntu-22.04 | the desktop application: `npm run build`, `npm test`, `npm run lint`, then its own workspace's `clippy -D warnings`, `cargo test` and `cargo audit` |
-| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application's executable on every leg, built on the runner (never in the container), uploaded as `desktop-<os>` |
+| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
 **One workflow is not in that table**: `.github/workflows/pages.yml`, which builds the handbook and
@@ -242,9 +242,15 @@ measured, because the suite was still starting the daemon from before the fix.
 
 | OS | Targets | Installer |
 | --- | --- | --- |
-| Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer + a portable zip |
-| macOS | `x86_64-apple-darwin`, `aarch64-apple-darwin` → universal binary | `.pkg` |
-| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, both against glibc 2.28 | AppImage + `.deb` + `.rpm` |
+| Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer + a portable zip + a headless zip |
+| macOS | `x86_64-apple-darwin`, `aarch64-apple-darwin` → universal binary | `.pkg` + a headless `.tar.gz` |
+| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, both against glibc 2.28 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
+
+**Every installer in that column places five binaries** since T105 — the four command-line programs
+and MixLab, the window ([the design](../../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md)).
+The **headless** archive beside each is the same release without the window: four binaries, no
+WebKitGTK dependency, for the machine that has no display. It is a download and never an update
+payload — `packaging/feed.sh` skips it by name.
 
 **What T85 built is the host architecture of each row, natively; T85a built the rest, also
 natively.** GitHub's own arm64-hosted runners (`windows-11-arm`, `ubuntu-24.04-arm`) — free and GA for
@@ -257,9 +263,12 @@ than on whatever glibc the `build` job's runner happens to ship this month.
 
 **macOS ships a `.pkg` and not the `.dmg` this table used to name.** A disk image is a carrier for
 something you drag out of it, and the thing that used to be dragged was an application bundle
-[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) deleted; what is left to ship there is
+[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) deleted; what was left to ship there was
 four command-line binaries. A `.pkg` also runs as root, which is what lets it place the privileged
-helper at install time — see [ADR 0015](../decisions/0015-the-helper-installs-itself.md).
+helper at install time — see [ADR 0015](../decisions/0015-the-helper-installs-itself.md). An
+application bundle came back with [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
+and T105, and none of that reasoning changed: `MixLab.app` is placed in `/Applications` by the
+package rather than dragged out of an image.
 
 ## What the installer does
 
@@ -300,12 +309,21 @@ The scripts live in [`packaging/`](../../packaging/), one directory per OS, each
 there is no cross-packaging, which is why the `build` job is three legs.
 
 ```bash
-bash packaging/windows/build.sh         # a per-user installer and a portable zip
-bash packaging/macos/build.sh           # one universal .pkg
+bash packaging/desktop.sh               # MixLab, once per leg — see below
+bash packaging/windows/build.sh         # a per-user installer, a portable zip and a headless zip
+bash packaging/macos/build.sh           # one universal .pkg and a headless .tar.gz
 bash packaging/linux/build-deb.sh       # .deb
 bash packaging/linux/build-rpm.sh       # .rpm
 bash packaging/linux/build-appimage.sh  # AppImage
+bash packaging/linux/build-tarball.sh   # the update payload and a headless .tar.gz
 ```
+
+**The first line is optional and is there for speed.** `packaging/stage.sh` runs `desktop.sh` itself
+when nothing has staged the window, so any one of the lines below works on its own — but the four
+Linux scripts each call `stage.sh`, and running it once up front means one of them is not paying for
+a ten-minute webview build inside a packaging run. The window's crate is a workspace of its own that
+this one excludes (ADR 0027, rule 5), which is why `stage.sh` cannot build it with `cargo -p` like
+the other four.
 
 Everything lands in `target/packaging/dist/` with a `.sha256` beside it. **A checksum is not a
 signature** and is not offered as one: it is what lets a person who downloaded twice tell whether
@@ -313,10 +331,16 @@ they got the same file. The signature is `packaging/sign.sh`, which T86 added an
 job runs over that same directory — `.sha256` files are not signed, because a signature over a
 checksum is a weaker way of saying what the signature over the artifact already says.
 
-Each script ends by opening the artifact it just made and asserting the four binaries are in it —
+Each script ends by opening the artifact it just made and asserting the five binaries are in it —
 `unzip -l`, `7z l`, `pkgutil --payload-files`, `dpkg-deb -c`, `rpm -qlp`, and for the AppImage a run
 of the thing itself. A packaging script that silently produced an empty archive is the failure this
 whole job exists to prevent, and it is not one CI notices by itself.
+
+**A headless archive is checked for four, and for the absence of the fifth.** Counting would not
+catch an archive that quietly grew a webview; only asking about the window by name does, which is
+what `MIX_WINDOW` in `packaging/common.sh` is for. The `.deb` and the `.rpm` additionally assert
+their own dependency field — `dpkg-deb -f … Depends`, `rpm -qp --requires` — because a control file
+written by a heredoc and read by nothing else is one an editing mistake can quietly empty.
 
 **One artifact in `dist/` is not a binary.** `packaging/bindings.sh --pack` archives the committed
 TypeScript contract as `mixengine-api-<version>-typescript.tar.gz` — roadmap task **T56**,

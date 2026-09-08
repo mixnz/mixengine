@@ -7,10 +7,10 @@ summary = "Caddy or Nginx, MariaDB, MySQL, PostgreSQL, Redis and Memcached — i
 
 # Servers, databases and caches
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 Two words, kept apart the way MixEngine keeps them apart.
 

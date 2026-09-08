@@ -7,10 +7,10 @@ summary = "Undo everything MixEngine wrote outside its own directory, see the li
 
 # Removing MixEngine
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 MixEngine writes almost everything inside one directory. The exceptions are the handful of
 privileged changes it asked permission for, and taking those back is what `mix uninstall` is for.
@@ -72,11 +72,13 @@ depends on how you installed it:
 ```bash
 sudo dpkg -r mixengine
 sudo rpm -e mixengine
-sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim
+sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim \
+  /Applications/MixLab.app
 ```
 
 On Windows, use Apps & Features for the installer, or delete the folder for the portable zip. On
-macOS, the third line above is what the `.pkg` placed. An AppImage is one file you delete.
+macOS, the third line above is what the `.pkg` placed — **MixLab** included. An AppImage is one file
+you delete.
 
 ## What is deliberately not automatic
 

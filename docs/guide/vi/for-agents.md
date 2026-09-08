@@ -4,15 +4,15 @@ slug = "for-agents"
 order = 16
 summary = "Mọi trang của cẩm nang này đều là Markdown thuần tại một địa chỉ dễ đoán, kèm một manifest, một file gộp, và cùng nội dung đó nằm sẵn trong chương trình mix."
 translation_of = "en/for-agents.md"
-source_sha256 = "b413d38a5d09555116a7b3c3cee304a4b5932fda154904cc923a19d01d891a68"
+source_sha256 = "3a1c9194988c3462e32490d96eb062d302a9d31f1fab97fb80fa77e0b6f90a8b"
 +++
 
 # Đọc cẩm nang này bằng chương trình
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Trang web này viết cho người đọc và phát hành cho chương trình đọc. Không có gì ở đây được render
 bằng JavaScript, không trang nào là bản tóm tắt của một trang thật nằm ở chỗ khác, và mọi địa chỉ

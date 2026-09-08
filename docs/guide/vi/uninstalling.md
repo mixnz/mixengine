@@ -4,15 +4,15 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixEngine đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "4d43c190c8f39b1f40bf0d067e5469e0e78057aa6a3e1ab15b0a6e972bb9c2bc"
+source_sha256 = "4a1bbff93bf5eb3a145d273ef2d790b5253078e23ff9e55b15d885966f1c195f"
 +++
 
 # Gỡ MixEngine
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 MixEngine ghi gần như mọi thứ vào một thư mục duy nhất. Ngoại lệ là vài thay đổi đặc quyền mà nó
 đã xin phép bạn, và `mix uninstall` chính là để thu hồi những thay đổi đó.
@@ -72,12 +72,13 @@ gói, và tùy vào cách bạn đã cài:
 ```bash
 sudo dpkg -r mixengine
 sudo rpm -e mixengine
-sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim
+sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim \
+  /Applications/MixLab.app
 ```
 
 Trên Windows, dùng Apps & Features nếu cài bằng bộ cài, hoặc xóa thư mục nếu dùng bản zip portable.
-Trên macOS, dòng thứ ba ở trên xóa những gì `.pkg` đã đặt vào. AppImage chỉ là một file, xóa đi là
-xong.
+Trên macOS, dòng thứ ba ở trên xóa những gì `.pkg` đã đặt vào, **MixLab** cũng nằm trong đó.
+AppImage chỉ là một file, xóa đi là xong.
 
 ## Những gì cố ý không tự động
 
