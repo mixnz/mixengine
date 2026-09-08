@@ -4,15 +4,15 @@ slug = "extensions"
 order = 10
 summary = "Những công cụ đi kèm stack như phpMyAdmin, Mailpit, MinIO. Cài từ một registry có chữ ký, và cho bạn xem mỗi cái được phép làm gì trước khi đồng ý."
 translation_of = "en/extensions.md"
-source_sha256 = "1832ed973ed067f3cdd49db998aa0cdec4c5688ea742f2eca5dfdda1a83dbb6b"
+source_sha256 = "a1b54453396561f06fc04a61241614983fa3f44320436fba5036062264a0adbe"
 +++
 
 # Extension
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Extension là công cụ nằm bên cạnh stack của bạn chứ không phải bên trong: giao diện quản trị cơ sở
 dữ liệu, công cụ bắt mail, object store, search engine. MixEngine cài nó, giám sát nó, và cấp cho

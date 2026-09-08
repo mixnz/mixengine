@@ -7,10 +7,10 @@ summary = "Install as many versions as you need, and let each directory choose i
 
 # PHP, Node, Python and Ruby versions
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 MixEngine installs language runtimes into its own directory, one immutable folder per version, and
 never touches whatever your operating system already has. Installing a version never modifies a

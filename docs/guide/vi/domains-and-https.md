@@ -4,15 +4,15 @@ slug = "domains-and-https"
 order = 7
 summary = "Vì sao blog.test trỏ về máy bạn, ai ký chứng chỉ cho nó, và cách tìm ra vấn đề khi ổ khóa không xanh."
 translation_of = "en/domains-and-https.md"
-source_sha256 = "41b4811b15fc8740a13610b7d997fe1461a88606561a26aee73c16607185998f"
+source_sha256 = "4c9d8a8528b2373ca1d7057e758e29efde589ee6cb80979fd92f1df1006e48f6"
 +++
 
 # Tên miền và ổ khóa
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Để `https://blog.test` mở lên không có cảnh báo, cần hai điều. Tên miền phải trỏ về đúng máy bạn,
 và trình duyệt phải chấp nhận chứng chỉ mà server đưa ra. MixEngine lo cả hai, và trang này nói về

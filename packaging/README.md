@@ -10,13 +10,23 @@ Release process: [`.claude/operations/build-and-release.md`](../.claude/operatio
 ## Running it
 
 ```bash
-bash packaging/windows/build.sh      # on Windows: a per-user installer and a portable zip
-bash packaging/macos/build.sh        # on macOS:   one universal .pkg
+bash packaging/desktop.sh            # anywhere:   MixLab, the window — see below
+bash packaging/windows/build.sh      # on Windows: a per-user installer, a portable zip, a headless zip
+bash packaging/macos/build.sh        # on macOS:   one universal .pkg and a headless .tar.gz
 bash packaging/linux/build-deb.sh    # on Linux:   .deb
 bash packaging/linux/build-rpm.sh    #             .rpm
 bash packaging/linux/build-appimage.sh  #          AppImage
-bash packaging/linux/build-tarball.sh   #          the update payload
+bash packaging/linux/build-tarball.sh   #          the update payload and a headless .tar.gz
 ```
+
+**The first line is optional and is there for speed.** `stage.sh` runs `desktop.sh` itself when
+nothing has staged the window, so any one of the lines below it works on its own — but the four
+Linux scripts each call `stage.sh`, and running it once up front means one of them is not paying for
+a ten-minute webview build inside a packaging run. It is a script of its own because the window's
+crate is a workspace this one `exclude`s (ADR 0027, rule 5): `cargo build -p mixlab` at the root is
+an error rather than a build, so `stage.sh` copies what `desktop.sh` produced instead of compiling
+it. Roadmap task **T105**,
+[design](../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md).
 
 Every leg additionally publishes its **`mixengine-elevate` on its own** —
 `mixengine-elevate-<version>-<os>-<arch>` — which is the one artifact here that exists for a program
@@ -27,15 +37,17 @@ learn which version and which machine the bytes are for. Roadmap task **T88a**, 
 [ADR 0018](../.claude/decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md).
 
 Everything lands in `target/packaging/dist/`, with a `.sha256` beside each artifact. Each script
-opens what it just made and checks the four binaries are in it before it exits — an empty archive
-is a perfectly valid archive, and nothing else in the pipeline would notice.
+opens what it just made and checks the five binaries are in it before it exits — four for a headless
+archive, which is additionally checked for *not* holding the window. An empty archive is a perfectly
+valid archive, and nothing else in the pipeline would notice.
 
 **`mixengine-shim` goes beside `mixengined` in every one of them**, because that is the only place
 `core::shims::source` looks. An artifact without it installs cleanly, starts, reports itself healthy,
 and leaves `<root>/bin` empty — which is every runtime command the product exists to provide
-(roadmap task **T85c**). `packaging/common.sh` names the four binaries and the four crates that
+(roadmap task **T85c**). `packaging/common.sh` names the five binaries and the five crates that
 produce them, in one place, and `crates/mixengine-core/tests/packaging.rs` fails the build when that
-list and the names the code looks for drift apart.
+list and the names the code looks for drift apart. `MIX_WINDOW` there names the fifth — the one
+entry several scripts have to treat differently, and the one a headless archive leaves out.
 
 Two pieces here have checks that need no packaging tools and run on any of the three systems, because
 what they get wrong is invisible until a release is in somebody's hands:
@@ -48,21 +60,22 @@ bash packaging/bindings.sh --check    # the committed API contract is what the c
 
 | OS | Artifacts |
 | --- | --- |
-| Windows | `mixengine-<version>-windows-x86_64-setup.exe`, `mixengine-<version>-windows-x86_64.zip` |
-| macOS | `mixengine-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal.tar.gz` |
-| Linux | `mixengine-<version>-linux-x86_64.AppImage`, `mixengine_<version>-1_amd64.deb`, `mixengine-<version>-1.x86_64.rpm`, `mixengine-<version>-linux-x86_64.tar.gz` |
+| Windows | `mixengine-<version>-windows-x86_64-setup.exe`, `mixengine-<version>-windows-x86_64.zip`, `mixengine-<version>-windows-x86_64-headless.zip` |
+| macOS | `mixengine-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal.tar.gz`, `mixengine-<version>-macos-universal-headless.tar.gz` |
+| Linux | `mixengine-<version>-linux-x86_64.AppImage`, `mixengine_<version>-1_amd64.deb`, `mixengine-<version>-1.x86_64.rpm`, `mixengine-<version>-linux-x86_64.tar.gz`, `mixengine-<version>-linux-x86_64-headless.tar.gz` |
 
 In the `.deb` and the `.rpm` alone, `<version>` is `mix_native_version` rather than the version as
 written: neither format can hold the `-` of a pre-release, so `0.0.1-beta.1` is named
 `0.0.1~beta.1` there and as written everywhere else. `common.sh` says why.
 
-**Every installer in the table above is published a second time under a name with no version in
-it** — `mixengine-windows-x86_64-setup.exe` beside `mixengine-<version>-windows-x86_64-setup.exe`,
-and so on for the other five — through `mix_publish_alias` in `common.sh`. That is what lets the
-handbook's install page link `.../releases/latest/download/<name>` and never need editing again:
-GitHub resolves that URL to whichever release is newest and not a pre-release, the same mechanism
-`latest.json` already relies on (T88). The update payloads and `latest.json` itself are not
-aliased — nothing downloads those by hand.
+**Every installer in the table above, and every headless archive, is published a second time under a
+name with no version in it** — `mixengine-windows-x86_64-setup.exe` beside
+`mixengine-<version>-windows-x86_64-setup.exe`, and so on for each of the others — through
+`mix_publish_alias` in `common.sh`. That is what lets the handbook's install page link
+`.../releases/latest/download/<name>` and never need editing again: GitHub resolves that URL to
+whichever release is newest and not a pre-release, the same mechanism `latest.json` already relies
+on (T88). The update payloads and `latest.json` itself are not aliased — nothing downloads those by
+hand.
 
 ## The update payload, and the feed
 
@@ -74,7 +87,16 @@ already was one; on the other two it is the `.tar.gz` in the table above.
 
 All three hold **one top-level `mixengine/` directory**, which is what lets one `provides` shape in
 the feed describe every artifact this project ships — and what stops a zip extracted into `Downloads`
-scattering four binaries there.
+scattering five binaries there.
+
+**The headless archives are downloads, never payloads.** They match the same name globs `feed.sh`
+collects payloads with, so that script skips `*-headless.*` by name — left in, each would produce a
+second row for an (os, arch) pair that already has one, and a client takes the first row it matches.
+An install with no window has nothing an update would replace anyway, which `updates::apply`'s own
+rule already guarantees. On macOS the payload and the headless archive hold the same four binaries
+today: `feed.sh` builds `provides` only from plain files directly under `mixengine/`, so the `.app`
+would be forty megabytes nothing looks up. Putting it there is T106's, with the feed change that
+makes it readable.
 
 ```bash
 bash packaging/feed.sh --tag v0.2.0 --repo mixnz/mixengine

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Linux: an `.rpm`, from the same three staged binaries the `.deb` uses.
+# Linux: an `.rpm`, from the same staged binaries the `.deb` uses.
 #
 # No maintainer scripts here either, for `build-deb.sh`'s reason.
 
@@ -23,6 +23,14 @@ rm -rf "$build"
 mkdir -p "$build/SOURCES" "$build/SPECS" "$build/RPMS" "$build/BUILD" "$build/BUILDROOT"
 cp "$stage"/* "$build/SOURCES/"
 
+# The three files the spec installs that are not binaries — T105. `%{_sourcedir}` is the only
+# directory an `-bb` build reads from, and the line above brings the five executables and nothing
+# else. Renamed on the way in because rpm's `%{_sourcedir}` is flat and `32x32.png` says nothing
+# about which application it belongs to.
+cp "$MIX_ROOT/packaging/linux/mixlab.desktop" "$build/SOURCES/mixlab.desktop"
+cp "$MIX_ROOT/apps/desktop/src-tauri/icons/32x32.png" "$build/SOURCES/mixlab-32.png"
+cp "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" "$build/SOURCES/mixlab-128.png"
+
 sed -e "s/@VERSION@/$version/" -e "s/@ARCH@/$arch/" "$MIX_ROOT/packaging/linux/mixengine.spec.in" \
   >"$build/SPECS/mixengine.spec"
 
@@ -38,12 +46,27 @@ for expected in \
   /usr/bin/mix \
   /usr/bin/mixengined \
   /usr/bin/mixengine-shim \
-  /usr/local/libexec/mixengine/mixengine-elevate; do
+  /usr/bin/mixlab \
+  /usr/local/libexec/mixengine/mixengine-elevate \
+  /usr/share/applications/mixlab.desktop \
+  /usr/share/icons/hicolor/32x32/apps/mixlab.png \
+  /usr/share/icons/hicolor/128x128/apps/mixlab.png; do
   printf '%s\n' "$contents" | grep -qx "$expected" || {
     echo "$expected is not in the package" >&2
     exit 1
   }
 done
+
+# **And the dependency really is declared**, for `build-deb.sh`'s reason one package format along.
+requires="$(rpm -qp --requires "$dist/$name" 2>/dev/null)"
+case "$requires" in
+  *webkit2gtk4.1*) ;;
+  *)
+    echo "the package's Requires does not name WebKitGTK 4.1:" >&2
+    printf '%s\n' "$requires" >&2
+    exit 1
+    ;;
+esac
 
 mix_checksum "$dist/$name"
 

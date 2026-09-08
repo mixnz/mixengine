@@ -4,15 +4,15 @@ slug = "permissions"
 order = 11
 summary = "Mọi hộp thoại quyền quản trị mà MixEngine có thể hiện lên, mỗi cái thay đổi chính xác điều gì, và vì sao không có gì của MixEngine chạy thường trực với quyền root."
 translation_of = "en/permissions.md"
-source_sha256 = "54d6555f30ab6103bc0e64b0ff5ce087abfda787656fd83ac7fb0747ace568f7"
+source_sha256 = "d891f5f31a787935e198e3d3ca782e74e0fab9f174d766cb8ececfb253ecb42c"
 +++
 
 # MixEngine xin quyền để làm gì
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Một môi trường phát triển cục bộ buộc phải đụng vào vài thứ thuộc về cả máy: tên `blog.test` phải
 phân giải được, trình duyệt phải tin một chứng chỉ, phải có gì đó lắng nghe trên cổng 80. Luật của

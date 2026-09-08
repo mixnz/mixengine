@@ -30,6 +30,12 @@ for binary in "${MIX_BINARIES[@]}"; do
 done
 
 install -m 0755 "$here/AppRun" "$appdir/AppRun"
+
+# The AppDir's own entry, read by whatever integrates this image into a menu. **`Terminal=false`
+# since T105**: with no arguments `AppRun` opens MixLab, so a launcher must not wrap it in a
+# terminal. Its `Name` stays MixEngine — the image is the whole product, not the window — and its
+# `Exec` stays `mix` with no `%u`, because with an argument `AppRun` runs the CLI. `mixdb://` is not
+# offered from an AppImage; the `.deb` and the `.rpm` install `mixlab.desktop` for that.
 install -m 0644 "$here/mixengine.desktop" "$appdir/mixengine.desktop"
 
 # A 16x16 placeholder, because appimagetool refuses an AppDir with no icon and this product has no
@@ -103,9 +109,15 @@ case "$printed" in
     ;;
 esac
 
-# And the helper really is in there, since nothing above would have run it.
+# And the two nothing above would have run really are in there. `mix --version` proved the CLI, the
+# extraction and the AppRun; neither of these is on that path — and the window least of all, since
+# running it would want a display this runner does not have.
 test -x "$appdir/usr/bin/mixengine-elevate" || {
   echo "mixengine-elevate is not in the AppDir" >&2
+  exit 1
+}
+test -x "$appdir/usr/bin/$MIX_WINDOW" || {
+  echo "$MIX_WINDOW is not in the AppDir" >&2
   exit 1
 }
 

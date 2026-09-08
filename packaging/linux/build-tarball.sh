@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Linux: the update payload — roadmap task T88, the design's D6.
+# Linux: the update payload — roadmap task T88, the design's D6 — and, since T105, the headless
+# archive beside it: the same directory without the window, for the machine that has no display.
 #
 # **A plain archive of the release's binaries, and not an installer.** None of the five installers is
 # a thing an updater can apply: the `.deb`, the `.rpm` and the `.pkg` need root, and the AppImage is
@@ -54,10 +55,47 @@ done
 
 mix_checksum "$dist/$name"
 
+# **The archive the CLI-only user downloads** — T105, D7. The payload above carries the window
+# because it is assembled from `MIX_BINARIES`; this one carries the four and nothing else, which is
+# what a server, a container image or a machine with no display wants — and it declares nothing,
+# which is its point.
+headless="mixengine-$version-linux-$arch-headless.tar.gz"
+
+headless_root="$MIX_OUT/tar-headless"
+rm -rf "$headless_root"
+mkdir -p "$headless_root/mixengine"
+for binary in $(mix_headless_binaries); do
+  install -m 0755 "$stage/$binary" "$headless_root/mixengine/$binary"
+done
+
+rm -f "$dist/$headless"
+tar -czf "$dist/$headless" -C "$headless_root" mixengine
+
+# Checked for what is in it **and for what is not**: an archive that quietly grew a webview is the
+# one failure this artifact exists to prevent, and counting four would not catch a fifth entry.
+headless_entries="$(tar -tzf "$dist/$headless")"
+for binary in $(mix_headless_binaries); do
+  grep -qx "mixengine/$binary" <<<"$headless_entries" || {
+    echo "$binary is not in the headless archive" >&2
+    exit 1
+  }
+done
+if grep -qx "mixengine/$MIX_WINDOW" <<<"$headless_entries"; then
+  echo "the headless archive carries $MIX_WINDOW, which is the one thing it must not" >&2
+  exit 1
+fi
+
+mix_checksum "$dist/$headless"
+
+# The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
+alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-linux-$arch-headless.tar.gz")"
+
 # T88a: the privileged helper on its own, so the `release` job can sign it and `mix elevation
 # upgrade` can fetch it. Published here rather than by `build-deb.sh` for this script's own reason —
 # the updater's business belongs beside the updater's payload.
 helper_name="$(mix_publish_helper "$stage/mixengine-elevate" linux "$arch")"
 
 echo "$dist/$name"
+echo "$dist/$headless"
+echo "$alias_headless"
 echo "$helper_name"

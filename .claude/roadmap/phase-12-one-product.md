@@ -44,7 +44,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       `0.0.33` would have overwritten itself with it. The plugin stays wired for T106; the frontend
       stops calling it.
 
-- [ ] **T105** The window is in every installer, and the headless archive stays (D8).
+- [x] **T105** The window is in every installer, and the headless archive stays (D8).
       `MIX_BINARIES` and `MIX_CRATES` gain the fifth entry and `packaging.rs` holds the list. NSIS
       gets a Start Menu shortcut, an optional desktop shortcut and the `mixdb://` registration;
       the `.pkg` places `MixLab.app` in `/Applications`; `.deb` and `.rpm` add a `.desktop` file
@@ -53,6 +53,31 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       `mixengine-<version>-<os>-<arch>-headless` archive carries the four binaries and nothing
       else. Each script's own check — *the binaries are really in there* — counts five, or four
       for the headless one. **(P)**
+      Design: [2026-09-09-t105-the-window-in-every-installer-design.md](../../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md).
+      **Two things this task settled.** The executable is `mixlab` on every operating system and not
+      D6's `MixLab.exe` on Windows: `updates::apply::swap` looks a payload's name up as
+      `directory.join(binary_name(name))` and `binary_name` appends `EXE_SUFFIX` and nothing else,
+      so a capitalised install file is one T106's updater would skip for ever without a word — no
+      error anywhere, just a window that never updates. What a Windows user clicks is a Start Menu
+      shortcut, and that is named MixLab. And **the AppImage does not carry WebKitGTK**, contrary to
+      one line of D8: appimagetool bundles no libraries, and doing it means `linuxdeploy` and its
+      GTK plugin — a dependency and a failure mode of a different size. `AppRun` fails in words
+      naming the package to install instead, and bundling is T105a below. And **a `.app` in a
+      `.pkg` is relocatable unless you say otherwise**: `pkgbuild` made `MixLab.app` a component,
+      and `installer(8)` then asked Launch Services where that bundle identifier already lived and
+      wrote it *there* — into the work tree's own build output on the runner. Green package, green
+      `pkgutil --payload-files`, no `/Applications/MixLab.app`; caught by `macos/probe.sh`, which
+      installs for real, on run 34274920375. `--component-plist` with `BundleIsRelocatable` and
+      `BundleIsVersionChecked` false is the fix. Two smaller things fell out: the window is built by
+      a script of its own (`packaging/desktop.sh`) because `stage.sh` builds with `cargo -p` from a
+      root that excludes that crate, and `feed.sh` had to learn to skip `*-headless.*` — the new
+      archives match its payload globs, and one left in would have stopped the whole `release` job
+      at "is not a payload name this script recognises".
+
+- [ ] **T105a** The AppImage carries the libraries the window needs (D8). `linuxdeploy` and its GTK
+      plugin, or the measurement that says a distribution floor is cheaper than carrying WebKitGTK.
+      Until then the AppImage's window uses the system's WebKitGTK 4.1 and `AppRun` says so by name
+      when it is missing; the command line inside the same image is unaffected either way. **(P)**
 
 - [ ] **T106** One updater (D9). `tauri-plugin-updater`, `tauri-plugin-process`, MixDB's key, its
       `latest.json` and `update-notes.yml` are gone. The feed's `provides` and the payload carry

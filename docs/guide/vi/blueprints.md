@@ -4,15 +4,15 @@ slug = "blueprints"
 order = 9
 summary = "Ghi lại một dự án gồm những gì, rồi dựng lại y hệt ở nơi khác, hoặc trên máy của người khác."
 translation_of = "en/blueprints.md"
-source_sha256 = "2e55952379978471af5dd9c8e3ca6a4db07648a96bbfe2a520c9c798e5beb661"
+source_sha256 = "0dbd49b2169824294027f8b56d173130c15f80ac72dd8543192443988fd979c7"
 +++
 
 # Blueprint
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Blueprint là bản ghi mô tả một project gồm những gì: cần PHP nào, dùng service nào, site trông ra
 sao, và tùy chọn thêm một lệnh để scaffold ra một bản mới. Đây là cách bạn dựng cùng một môi trường

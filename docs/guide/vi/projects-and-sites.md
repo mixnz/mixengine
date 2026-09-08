@@ -4,15 +4,15 @@ slug = "projects-and-sites"
 order = 4
 summary = "Hai khái niệm cốt lõi của MixEngine, mỗi cái quản những gì, và cách một bản checkout mang theo cấu hình của chính nó."
 translation_of = "en/projects-and-sites.md"
-source_sha256 = "56b7dd0910fb458a5e7f716e7c777c72a5e8679b65e35543fe2118ea96aaa407"
+source_sha256 = "7264ecc269b00a1115ab0558a6f05f3e0617c7a6000eca2b116e3e215b15072c"
 +++
 
 # Dự án và site
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 MixEngine có hai khái niệm chính, và bạn nên phân biệt rõ chúng.
 

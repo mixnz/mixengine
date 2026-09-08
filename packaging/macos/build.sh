@@ -3,13 +3,21 @@
 #
 # **A `.pkg` and not the `.dmg` the roadmap first asked for** — the T85 design, D8. A disk image is a
 # carrier for something you drag out of it, and the thing that used to be dragged was an application
-# bundle ADR 0011 deleted; what is left to ship here is four command-line binaries. A `.pkg` also
+# bundle ADR 0011 deleted; what was left to ship here was four command-line binaries. A `.pkg` also
 # runs as root, which is what lets it place the privileged helper at install time instead of leaving
 # it to the first elevation prompt.
+#
+# **An application bundle is back, and it changes none of that** — T105. ADR 0027 brought a window
+# into this repository and D8 puts it in every installer, so this package now places `MixLab.app` in
+# `/Applications` beside the four. It is still not a thing anybody drags: `installer(8)` and a
+# double-clicked `.pkg` both place it, and the reasons for the format are the ones above.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../common.sh"
 
-mix_require lipo pkgbuild pkgutil
+# `ditto` is what copies an application bundle on this system; `PlistBuddy` is how the bundle is
+# asked what it will launch. Both are in the box on every macOS, and named here on this file's own
+# rule that a missing tool says which.
+mix_require lipo pkgbuild pkgutil ditto
 
 version="$(mix_version)"
 dist="$MIX_OUT/dist"
@@ -24,7 +32,7 @@ arm="$(bash "$MIX_ROOT/packaging/stage.sh" --target aarch64-apple-darwin | tail 
 
 root="$MIX_OUT/pkgroot"
 rm -rf "$root"
-mkdir -p "$root/usr/local/bin" "$root/Library/PrivilegedHelperTools"
+mkdir -p "$root/usr/local/bin" "$root/Library/PrivilegedHelperTools" "$root/Applications"
 
 lipo -create "$intel/mix" "$arm/mix" -output "$root/usr/local/bin/mix"
 lipo -create "$intel/mixengined" "$arm/mixengined" -output "$root/usr/local/bin/mixengined"
@@ -40,11 +48,30 @@ lipo -create "$intel/mixengine-shim" "$arm/mixengine-shim" \
 lipo -create "$intel/mixengine-elevate" "$arm/mixengine-elevate" \
   -output "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate"
 
+# MixLab, the window — T105. **Copied and never `lipo`d**: `packaging/desktop.sh` built it with
+# `--target universal-apple-darwin`, so the binary inside is already both slices, and `lipo -create`
+# on a directory is not a thing. `ditto` rather than `cp -R` because this is an application bundle
+# and `ditto` is what preserves one.
+#
+# From the Intel stage rather than from the ARM one only because a choice had to be made: both
+# stages hold the same universal bundle, which is what `mix_window_key` arranges.
+ditto "$(mix_window_in "$intel")" "$root/Applications/$MIX_WINDOW_APP"
+
+# What macOS will actually launch, read out of the bundle rather than assumed — so a Tauri release
+# that changes `CFBundleExecutable` is caught here and not by a user double-clicking nothing.
+window_exe="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' \
+  "$root/Applications/$MIX_WINDOW_APP/Contents/Info.plist")"
+test -n "$window_exe" || {
+  echo "$MIX_WINDOW_APP has no CFBundleExecutable" >&2
+  exit 1
+}
+
 chmod 755 \
   "$root/usr/local/bin/mix" \
   "$root/usr/local/bin/mixengined" \
   "$root/usr/local/bin/mixengine-shim" \
-  "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate"
+  "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
+  "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"
 
 # **T95: a release must not admit to being a development build.** `mixengine_platform::RELEASE` is
 # compiled in from `MIXENGINE_RELEASE`, which `packaging/stage.sh` exports; if that ever stops
@@ -65,10 +92,52 @@ esac
 name="mixengine-$version-macos-universal.pkg"
 rm -f "$dist/$name"
 
+# **The component list, with relocation turned off — and that is not a nicety.**
+#
+# `pkgbuild` turns any `.app` it finds under `--root` into a *component* (it says so:
+# "Adding component at Applications/MixLab.app") and makes it **relocatable** by default. A
+# relocatable component is not installed at the path the package names: at install time the
+# installer asks Launch Services where a bundle with this identifier already lives and writes it
+# *there* instead. Measured on run 34274920375 — `installer(8)` reported success, every other path
+# was written, and `/Applications/MixLab.app` did not exist, because Launch Services had indexed the
+# copy `packaging/desktop.sh` had just built inside the work tree. On a user's machine the same rule
+# would quietly install MixLab wherever an older one had been dragged.
+#
+# `BundleIsVersionChecked` goes with it. Left on, a machine that already has this version keeps the
+# copy it has and the package writes nothing — which is fine when the bytes are identical and wrong
+# the moment they are not. The other four paths are plain files and are always written; the window
+# is now the same.
+components="$MIX_OUT/components.plist"
+rm -f "$components"
+pkgbuild --analyze --root "$root" "$components"
+
+# Exactly one bundle, so the index below is a fact rather than a guess. A second `.app` appearing
+# here is a packaging change that has to decide this question again, and it should not do so by
+# silently keeping the default for the one this loop did not reach.
+if /usr/libexec/PlistBuddy -c 'Print :1' "$components" >/dev/null 2>&1; then
+  echo "the package root holds more than one bundle; this script assumes exactly one" >&2
+  /usr/libexec/PlistBuddy -c 'Print :' "$components" >&2
+  exit 1
+fi
+
+/usr/libexec/PlistBuddy -c 'Set :0:BundleIsRelocatable false' "$components"
+/usr/libexec/PlistBuddy -c 'Set :0:BundleIsVersionChecked false' "$components"
+
+# Read back, because the two lines above are the whole of what stops the failure described there and
+# `PlistBuddy` reports a key it did not find on stdout rather than by failing.
+for key in BundleIsRelocatable BundleIsVersionChecked; do
+  value="$(/usr/libexec/PlistBuddy -c "Print :0:$key" "$components")"
+  test "$value" = "false" || {
+    echo "$key is '$value' in the component list, and this package needs it false" >&2
+    exit 1
+  }
+done
+
 # `--ownership recommended`: the payload is installed as `root:wheel` whatever the account that
 # built it happened to be, which is the whole reason the helper can be shipped in here at all.
 pkgbuild \
   --root "$root" \
+  --component-plist "$components" \
   --identifier dev.mixengine.cli \
   --version "$version" \
   --ownership recommended \
@@ -81,7 +150,8 @@ for expected in \
   ./usr/local/bin/mix \
   ./usr/local/bin/mixengined \
   ./usr/local/bin/mixengine-shim \
-  ./Library/PrivilegedHelperTools/dev.mixengine.elevate; do
+  ./Library/PrivilegedHelperTools/dev.mixengine.elevate \
+  "./Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"; do
   printf '%s\n' "$files" | grep -qx "$expected" || {
     echo "$expected is not in the package" >&2
     exit 1
@@ -99,6 +169,17 @@ for binary in mix mixengined mixengine-shim; do
   done
 done
 
+# The window too. A `.pkg` that is universal in four of five binaries is not universal, and this one
+# is built by a different command from the other four — `cargo tauri build --target
+# universal-apple-darwin` rather than two `stage.sh` runs and a `lipo`.
+architectures="$(lipo -archs "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe")"
+for slice in x86_64 arm64; do
+  printf '%s\n' "$architectures" | grep -qw "$slice" || {
+    echo "$MIX_WINDOW_APP is missing the $slice slice: $architectures" >&2
+    exit 1
+  }
+done
+
 mix_checksum "$dist/$name"
 
 # **The update payload** — roadmap task T88, the design's D6. None of the five installers is a thing
@@ -109,10 +190,15 @@ mix_checksum "$dist/$name"
 # shape in `latest.json` describe six artifacts.
 #
 # Universal, like the `.pkg` above, so `packaging/feed.sh` lists it under both architectures.
+#
+# **The four, and not the window** — T105, D8. `packaging/feed.sh` builds `provides` only from
+# entries directly under `mixengine/` that are not directories, and a `.app` is a directory: putting
+# one in here would add forty megabytes that no reader of this feed would ever look up. Describing a
+# bundle in `latest.json` is T106's, and so is putting one in this file.
 payload="mixengine-$version-macos-universal.tar.gz"
 rm -rf "$MIX_OUT/tar"
 mkdir -p "$MIX_OUT/tar/mixengine"
-for binary in "${MIX_BINARIES[@]}"; do
+for binary in $(mix_headless_binaries); do
   lipo -create "$intel/$binary" "$arm/$binary" -output "$MIX_OUT/tar/mixengine/$binary"
   chmod 755 "$MIX_OUT/tar/mixengine/$binary"
 done
@@ -126,7 +212,7 @@ tar -czf "$dist/$payload" -C "$MIX_OUT/tar" mixengine
 # the moment the match was found and — under `pipefail` — report the payload as broken for holding
 # exactly what was looked for. See the note in `packaging/linux/build-tarball.sh`.
 entries="$(tar -tzf "$dist/$payload")"
-for binary in "${MIX_BINARIES[@]}"; do
+for binary in $(mix_headless_binaries); do
   grep -qx "mixengine/$binary" <<<"$entries" || {
     echo "$binary is not in the update payload" >&2
     exit 1
@@ -134,6 +220,29 @@ for binary in "${MIX_BINARIES[@]}"; do
 done
 
 mix_checksum "$dist/$payload"
+
+# **The archive the CLI-only user downloads** — T105, D7. The same four binaries as the payload
+# above, under a name a person can recognise as the one without a window. It is byte-for-byte the
+# payload's contents today and stops being so at T106, when the payload gains the bundle.
+headless="mixengine-$version-macos-universal-headless.tar.gz"
+rm -f "$dist/$headless"
+tar -czf "$dist/$headless" -C "$MIX_OUT/tar" mixengine
+
+# Checked for what is in it **and for what is not**: an archive that quietly grew a webview is the
+# one failure this artifact exists to prevent, and counting four would not catch a fifth entry.
+headless_entries="$(tar -tzf "$dist/$headless")"
+for binary in $(mix_headless_binaries); do
+  grep -qx "mixengine/$binary" <<<"$headless_entries" || {
+    echo "$binary is not in the headless archive" >&2
+    exit 1
+  }
+done
+if grep -q "mixengine/$MIX_WINDOW_APP" <<<"$headless_entries"; then
+  echo "the headless archive carries $MIX_WINDOW_APP, which is the one thing it must not" >&2
+  exit 1
+fi
+
+mix_checksum "$dist/$headless"
 
 # T88a: the privileged helper on its own, so the `release` job can sign it and `mix elevation
 # upgrade` can fetch it. **The `lipo`d one the `.pkg` installs**, byte for byte, and not a slice —
@@ -144,8 +253,11 @@ helper_name="$(mix_publish_helper \
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
 alias_pkg="$(mix_publish_alias "$dist/$name" "mixengine-macos-universal.pkg")"
+alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-macos-universal-headless.tar.gz")"
 
 echo "$dist/$name"
 echo "$dist/$payload"
+echo "$dist/$headless"
 echo "$helper_name"
 echo "$alias_pkg"
+echo "$alias_headless"

@@ -1763,9 +1763,10 @@ jobs:
   # and the minisign signature that actually protects an update is T86's. Each script writes a
   # `.sha256` beside its artifact, which is not the same thing and is not offered as one.
   #
-  # Each script also opens what it just made and checks the three binaries are in it, which is where
-  # this job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with
-  # no helper in it installs cleanly and leaves the machine one file short of being able to elevate.
+  # Each script also opens what it just made and checks the five binaries are in it — four for the
+  # headless archives T105 added, which additionally refuse a webview they find. That is where this
+  # job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with no
+  # helper in it installs cleanly and leaves the machine one file short of being able to elevate.
   # T103, ADR 0027: the desktop application under apps/desktop. Its frontend's build, tests and
   # lint, then its own Cargo workspace's clippy and tests — on one OS, because nearly all of it is
   # pure logic (MixDB's own CI made the same choice), and `build` is what proves the window links
@@ -1918,42 +1919,26 @@ jobs:
           rustup toolchain install --no-self-update
           rustup show active-toolchain
 
-      - name: The window's second slice (macOS is universal)
-        if: runner.os == 'macOS'
-        run: rustup target add x86_64-apple-darwin aarch64-apple-darwin
-
-      # `tauri build` runs `npm run build` itself (tauri.conf.json's beforeBuildCommand). No
-      # bundle: packaging is `packaging/`'s and arrives with T105; macOS is the exception because
-      # a webview application there is a `.app` directory, and that is what T105 will stage.
+      # T105: the window, through `packaging/desktop.sh` — which runs `npm ci`, `cargo tauri build`
+      # (`--bundles app` on macOS, where a webview application is a `.app` directory), adds the two
+      # macOS slices itself, exports `MIXENGINE_RELEASE` and asserts what it produced. It also sets
+      # up both slices on macOS, which is why the `rustup target add` step that used to be here is
+      # gone.
+      #
+      # **A step of its own rather than left to `packaging/stage.sh`**, which calls the same script
+      # when nothing has staged the window: the four Linux packaging scripts each call `stage.sh`,
+      # and a step here means one of them is not paying for a ten-minute build inside a packaging
+      # run — and that a failure to build the window is its own red step.
       - name: Build the window
         shell: bash
-        working-directory: apps/desktop
         env:
           MIX_TARGET: ${{ matrix.target }}
-          # The same switch `packaging/stage.sh` sets for the four binaries, and for the same
-          # reason read from the client's side: `mixengine-platform` names the home
-          # `MixEngine-dev` in a build without it (ADR 0024), so a window built here without it
-          # dials the pipe of a daemon nobody installed and reports the one at `MixEngine` as
-          # not running. Measured on run 34244691840's `desktop-windows-latest`, against a
-          # daemon `mix status` reached fine. A `tauri dev` window keeps the dev home, which is
-          # where a working tree's daemon lives.
-          MIXENGINE_RELEASE: "1"
-        run: |
-          set -euo pipefail
-          npm ci
-          if [ "$RUNNER_OS" = macOS ]; then
-            npm run tauri -- build --bundles app --target universal-apple-darwin
-          else
-            npm run tauri -- build --no-bundle --target "$MIX_TARGET"
-          fi
+        run: bash packaging/desktop.sh
 
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
-          path: |
-            apps/desktop/src-tauri/target/*/release/mixlab
-            apps/desktop/src-tauri/target/*/release/mixlab.exe
-            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app
+          path: target/packaging/window/*
           if-no-files-found: error
           retention-days: 14
 

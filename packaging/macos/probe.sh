@@ -60,12 +60,14 @@ cli=/usr/local/bin/mix
 daemon=/usr/local/bin/mixengined
 shim=/usr/local/bin/mixengine-shim
 helper=/Library/PrivilegedHelperTools/dev.mixengine.elevate
+# MixLab, the window — T105. A directory rather than a file, which is why `cleanup` below is `rm -rf`.
+window="/Applications/$MIX_WINDOW_APP"
 
 # **One array, walked by the occupied check, by `cleanup` and by M5.** Three separate lists of the
 # same paths is what T85c was; and here the cost of one going stale is concrete — a path missing
 # from `cleanup` is a file this probe leaves on the machine, and the same path missing from the
 # occupied check is the next run failing to notice it and then deleting it as its own.
-paths=("$cli" "$daemon" "$shim" "$helper")
+paths=("$cli" "$daemon" "$shim" "$helper" "$window")
 
 receipt=dev.mixengine.cli
 
@@ -151,7 +153,9 @@ fi
 installed_here=0
 cleanup() {
   if [ "$installed_here" = "1" ]; then
-    sudo rm -f "${paths[@]}"
+    # `-rf`: since T105 one of these is an application bundle, and `rm -f` would leave this probe's
+    # own installation on the machine.
+    sudo rm -rf "${paths[@]}"
     sudo pkgutil --forget "$receipt" >/dev/null 2>&1 || true
   fi
 }

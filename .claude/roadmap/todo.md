@@ -31,7 +31,7 @@ needs verification on Windows + macOS + Linux.
 | [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.0.1** |
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
-| [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 0 / 4 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
+| [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 2 / 5 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 0 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
@@ -51,6 +51,11 @@ against a running daemon as MixDB 0.0.33 did ([phase 11](phase-11-the-desktop-ap
 What comes now makes it MixEngine's window, named MixLab (phase 12), and makes its database client
 optional to look at (phase 13). The design for all three is one document,
 [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md).
+**Phase 12 is two tasks in.** T104 gave the application MixLab's name, identity and this
+workspace's version, and brings a MixDB user's data across once; T105 put it in all six installers
+and added a **headless** archive per OS/arch for the machine that has no display — one download now
+installs five binaries. What is left is the updater (T106) and where each of the five is found
+(T107).
 Two debts phase 11 left where they were found: `[daemon] ipc_path` in `config.toml` is parsed and
 used by nothing, and MixDB's `tool-downloads.yml` is not wired into this CI.
 

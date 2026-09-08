@@ -7,10 +7,10 @@ summary = "Put one site on the local network, scan a QR code, and take it back o
 
 # Showing a site to your phone
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in
-> a graphical interface, download the **MixDB** app at
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB drives the same MixEngine,
-> so everything in this handbook still applies.
+> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
+> application, beside the command line. MixLab drives the same MixEngine, so everything in this
+> handbook still applies.
 
 Everything MixEngine serves answers on loopback and nowhere else. Testing on a real phone means
 making an exception, and the exception is per site, deliberate, and reversible.

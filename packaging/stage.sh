@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Build the release binaries and put the four of them in one directory.
+# Build the release binaries and put the five of them in one directory.
+#
+# Four of the five are built here from the workspace root; the fifth, the window, is built by
+# `packaging/desktop.sh` — its crate is a workspace of its own that this one excludes (ADR 0027,
+# rule 5) — and copied in below. See the T105 design, D2.
 #
 # Every per-OS script starts here, so "what is in a release" is written once and not three times.
 # Prints the staging directory on its last line; callers read it with `| tail -1`.
@@ -35,12 +39,16 @@ if [ -n "$container" ] && [ -z "$target" ]; then
   exit 64
 fi
 
-# `-p` per crate, from the one list in `common.sh`. Two shapes of the same thing: an array for the
-# two branches that invoke cargo directly, and a string for the one that passes a command into a
-# container.
+# `-p` per crate, from the one list in `common.sh` — **minus the window's**, which is a workspace of
+# its own that this root excludes (ADR 0027, rule 5) and which `packaging/desktop.sh` builds
+# instead. Two shapes of the same thing: an array for the two branches that invoke cargo directly,
+# and a string for the one that passes a command into a container.
 packages=()
 packages_string=""
 for crate in "${MIX_CRATES[@]}"; do
+  if [ "$crate" = "$MIX_WINDOW" ]; then
+    continue
+  fi
   packages+=(-p "$crate")
   packages_string="$packages_string -p $crate"
 done
@@ -73,23 +81,41 @@ fi
 rm -rf "$stage"
 mkdir -p "$stage"
 
-suffix=""
-case "$(uname -s)" in
-  MINGW* | MSYS* | CYGWIN*) suffix=".exe" ;;
-esac
+suffix="$(mix_exe_suffix)"
 
-for binary in "${MIX_BINARIES[@]}"; do
+for binary in $(mix_headless_binaries); do
   cp "$built/$binary$suffix" "$stage/$binary$suffix"
 done
+
+# The window, from wherever this leg built it — T105, D2. **Built here only if nothing staged it**:
+# CI runs `packaging/desktop.sh` as a step of its own, and the four Linux packaging scripts each
+# call this file, so without the guard one leg would build a webview application four times.
+window="$MIX_OUT/window/$(mix_window_key "$target")"
+if [ ! -e "$(mix_window_in "$window")" ]; then
+  if [ -n "$target" ]; then
+    bash "$MIX_ROOT/packaging/desktop.sh" --target "$target" >/dev/null
+  else
+    bash "$MIX_ROOT/packaging/desktop.sh" >/dev/null
+  fi
+fi
+
+# `-R`, because on macOS this is a directory.
+cp -R "$(mix_window_in "$window")" "$(mix_window_in "$stage")"
 
 # **A stage missing a binary is the failure this whole job exists to notice**, and it is not one any
 # wrapper below would report: a zip of two files is a perfectly good zip, and a `.deb` with no helper
 # in it installs cleanly and leaves the machine one file short of being able to elevate.
-for binary in "${MIX_BINARIES[@]}"; do
+for binary in $(mix_headless_binaries); do
   test -f "$stage/$binary$suffix" || {
     echo "missing from the stage: $binary$suffix" >&2
     exit 1
   }
 done
+
+# `-e` and not `-f`: on macOS the window is a bundle directory.
+test -e "$(mix_window_in "$stage")" || {
+  echo "missing from the stage: $(basename "$(mix_window_in "$stage")")" >&2
+  exit 1
+}
 
 echo "$stage"

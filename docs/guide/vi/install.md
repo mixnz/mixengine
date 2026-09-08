@@ -4,15 +4,15 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "6f256081b2bd3fe7ef869a9d026cf864f2a76aaceed9c70ab97ad3676902332b"
+source_sha256 = "7c2a1ae97576f4d28cc0dac8f26137874908039754063b233409ac33f0986b5e"
 +++
 
 # Cài đặt MixEngine
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn, hãy tải ứng dụng **MixDB** tại
-> [https://lab.mixnz.com/#mixdb](https://lab.mixnz.com/#mixdb). MixDB làm việc trên cùng một
-> MixEngine, nên mọi khái niệm trong cẩm nang này vẫn áp dụng.
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
+> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
+> trong cẩm nang này vẫn áp dụng.
 
 Mọi bản build đều được phát hành trên trang releases của dự án trên GitHub, kèm theo checksum và
 chữ ký. Bạn chọn file đúng với hệ điều hành của mình ở bên dưới. Bộ cài thay đổi máy bạn ít nhất
@@ -26,7 +26,7 @@ tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tạ
 
 ## Bạn đang cài những gì
 
-Có bốn chương trình. Nên biết mỗi cái làm gì trước khi một trong số chúng làm bạn bất ngờ.
+Có năm chương trình. Nên biết mỗi cái làm gì trước khi một trong số chúng làm bạn bất ngờ.
 
 | Chương trình | Nhiệm vụ |
 | --- | --- |
@@ -34,25 +34,38 @@ Có bốn chương trình. Nên biết mỗi cái làm gì trước khi một tr
 | `mix` | Lệnh bạn gõ. Nó hỏi daemon rồi in câu trả lời ra. |
 | `mixengine-shim` | Chương trình thế chỗ cho `php`, `node`, `python` và `ruby`, chọn đúng phiên bản cần chạy. |
 | `mixengine-elevate` | Chương trình duy nhất chạy với quyền quản trị, mỗi lần chỉ vài giây. |
+| **MixLab** | Cửa sổ: bảng điều khiển cho daemon, kèm một client cơ sở dữ liệu, một client HTTP và một terminal. |
 
-Ba chương trình đầu được cài chung một lượt, dưới tài khoản của bạn. Chương trình thứ tư thì trên
-hầu hết hệ điều hành bộ cài không đặt vào máy. MixEngine sẽ tự cài nó vào lần đầu tiên có việc cần
-quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ thấy.
+Ba chương trình đầu và MixLab được cài chung một lượt, dưới tài khoản của bạn.
+`mixengine-elevate` thì trên hầu hết hệ điều hành bộ cài không đặt vào máy. MixEngine sẽ tự cài nó
+vào lần đầu tiên có việc cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ
+thấy.
+
+**Nếu bạn không cần cửa sổ, có bản tải không kèm nó.** Mỗi hệ điều hành đều phát hành một bản
+**headless** chỉ chứa bốn chương trình dòng lệnh và không gì khác — không có cửa sổ, và trên Linux
+cũng không cần cài WebKitGTK. Link nằm trong từng mục bên dưới, và đó là bản dành cho máy chủ, image
+container, hay bất kỳ máy nào không có màn hình.
 
 ## Windows
 
 [**Tải bộ cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
 · [bản zip portable](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
+· [bản zip headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-headless.zip)
 · Windows ARM: [bộ cài](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip)
+[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip),
+[headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-headless.zip)
 
-Có hai file được phát hành, file nào cũng là một bản cài đầy đủ.
+Có ba file được phát hành, file nào cũng là một bản cài đầy đủ.
 
 - **`mixengine-<version>-windows-x86_64-setup.exe`**: bộ cài theo từng người dùng. Nó ghi vào
   profile của bạn và thêm thư mục cài vào `PATH`, nên không cần hộp thoại quản trị, và cũng không
-  đụng tới tài khoản của người khác trên cùng máy.
+  đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho bạn
+  chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
+  `mixdb://`.
 - **`mixengine-<version>-windows-x86_64.zip`**: cùng bộ chương trình đó, đóng gói trong một thư
-  mục. Giải nén ở đâu tùy bạn rồi chạy `mix.exe` từ đó.
+  mục. Giải nén ở đâu tùy bạn rồi chạy `mix.exe`, hoặc `mixlab.exe` nếu muốn mở cửa sổ.
+- **`mixengine-<version>-windows-x86_64-headless.zip`**: cũng thư mục đó nhưng không có MixLab, chỉ
+  bốn chương trình dòng lệnh và không gì khác.
 
 Bản cho Windows ARM được phát hành bên cạnh, đặt tên `aarch64`.
 
@@ -66,8 +79,15 @@ gắn với từng file chứ không gắn với dự án.
 ## macOS
 
 [**Tải gói cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
+· [bản headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
 
-**`mixengine-<version>-macos-universal.pkg`**: một gói dùng chung cho cả Intel lẫn Apple silicon.
+**`mixengine-<version>-macos-universal.pkg`**: một gói dùng chung cho cả Intel lẫn Apple silicon. Nó
+đặt các chương trình dòng lệnh vào `/usr/local/bin` và **MixLab** vào `/Applications`, nên cửa sổ có
+mặt trong Spotlight và Launchpad ngay khi cài xong.
+
+**`mixengine-<version>-macos-universal-headless.tar.gz`** là đúng bốn chương trình dòng lệnh đó
+nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Giải nén rồi đặt thư mục ở đâu tùy bạn;
+không có gì được cài sẵn cho bạn cả.
 
 MixEngine cũng chưa có Apple Developer ID, nên nếu bạn nhấp đúp gói cài trong Finder thì sẽ gặp hộp
 thoại Gatekeeper. Trên macOS 15 trở lên còn phải vào **System Settings → Privacy & Security → Open
@@ -88,18 +108,33 @@ cũng đặt luôn chương trình phụ trợ cần quyền quản trị vào m
 · arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
 [`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
 [`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
+· headless: [`x86_64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
+[`aarch64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
 
-Ba file, file nào cũng là một bản cài đầy đủ:
+Bốn file, file nào cũng là một bản cài đầy đủ:
 
 - **`.deb`** cho Debian, Ubuntu và các bản phái sinh
 - **`.rpm`** cho Fedora, RHEL và openSUSE
 - **`.AppImage`**, không cần trình quản lý gói và không cần quyền root
+- **`-headless.tar.gz`**, bốn chương trình dòng lệnh, không cửa sổ và không phụ thuộc gì thêm
 
 ```bash
 sudo dpkg -i mixengine_*_amd64.deb
 sudo rpm -i mixengine-*.x86_64.rpm
-chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage
+chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage status
+tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
 ```
+
+**`.deb` và `.rpm` yêu cầu WebKitGTK 4.1**, vì MixLab là một ứng dụng webview —
+`libwebkit2gtk-4.1-0` trên Debian và Ubuntu, `webkit2gtk4.1` trên Fedora và RHEL,
+`libwebkit2gtk-4_1-0` trên openSUSE. Trình quản lý gói sẽ tự kéo về. Hai gói này cũng thêm một mục
+menu **MixLab** kèm icon. Nếu máy không có màn hình và bạn không muốn cài webview, hãy lấy bản
+headless: nó không khai báo phụ thuộc nào cả.
+
+**AppImage làm được cả hai việc.** Chạy kèm tham số thì nó là dòng lệnh —
+`./mixengine-*-linux-x86_64.AppImage status`. Chạy không tham số, hoặc nhấp đúp, thì nó mở MixLab.
+File image không mang sẵn WebKitGTK, nên cửa sổ dùng bản có trên máy bạn; nếu thiếu, nó báo đúng tên
+gói cần cài, và dòng lệnh thì không bị ảnh hưởng.
 
 Cả hai gói đều được build với glibc 2.28, nên chạy được trên các bản phân phối hỗ trợ dài hạn mà
 chúng nhắm tới, chứ không chỉ trên máy mới ngang với máy đã build ra chúng. Bản `aarch64` được phát
@@ -115,7 +150,8 @@ cd mixengine
 cargo build --release
 ```
 
-Các file thực thi nằm trong `target/release/`. Đây là cách cài thứ tư chạy hoàn toàn dưới tài khoản
+Các file thực thi nằm trong `target/release/`. MixLab được build riêng — nó là một workspace độc lập
+nằm dưới `apps/desktop/` — và build từ mã nguồn là thêm một cách cài chạy hoàn toàn dưới tài khoản
 của bạn. Cũng vì thế mà việc đặt chương trình phụ trợ cần quyền quản trị không bao giờ là việc của
 người đóng gói.
 
@@ -157,6 +193,9 @@ mix path install
 
 Lệnh này điền vào `<root>/bin` các shim, để `php`, `node`, `python` và `ruby` trỏ tới đúng phiên
 bản mà từng thư mục yêu cầu, thay vì một phiên bản chung cho cả máy.
+
+Nếu bạn có cài cửa sổ, hãy mở **MixLab** — từ Start Menu, `/Applications`, menu ứng dụng của
+desktop, hoặc chạy `mixlab`. Nó hiển thị đúng daemon mà `mix status` vừa trả lời.
 
 ## Những gì bộ cài không làm
 

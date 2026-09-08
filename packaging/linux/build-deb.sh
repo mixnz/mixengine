@@ -24,7 +24,10 @@ mkdir -p "$dist"
 
 root="$MIX_OUT/debroot"
 rm -rf "$root"
-mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/local/libexec/mixengine"
+mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/local/libexec/mixengine" \
+  "$root/usr/share/applications" \
+  "$root/usr/share/icons/hicolor/32x32/apps" \
+  "$root/usr/share/icons/hicolor/128x128/apps"
 
 install -m 0755 "$stage/mix" "$root/usr/bin/mix"
 install -m 0755 "$stage/mixengined" "$root/usr/bin/mixengined"
@@ -45,12 +48,38 @@ install -m 0755 "$stage/mixengine-shim" "$root/usr/bin/mixengine-shim"
 install -m 0755 "$stage/mixengine-elevate" \
   "$root/usr/local/libexec/mixengine/mixengine-elevate"
 
+# MixLab, the window — T105. `/usr/bin` beside the CLI, under the one name every artifact of this
+# release spells it with.
+install -m 0755 "$stage/$MIX_WINDOW" "$root/usr/bin/$MIX_WINDOW"
+
+# The menu entry and its icon. **No maintainer script updates any cache**, which is this package's
+# oldest rule (see the header): a menu reads `/usr/share/applications` directly and works at once,
+# and `xdg-open mixdb://…` reaches MixLab the next time anything on the machine runs
+# `update-desktop-database` — which every desktop environment's own packages do routinely. Buying
+# the rest of that would cost the invariant that nothing runs at install time.
+install -m 0644 "$MIX_ROOT/packaging/linux/mixlab.desktop" \
+  "$root/usr/share/applications/mixlab.desktop"
+
+# The window's own icons, already committed for the Tauri bundle. `packaging/linux/mixengine.png` is
+# a 16x16 placeholder that exists because appimagetool refuses an AppDir without one, and is
+# deliberately not reused here.
+install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/32x32.png" \
+  "$root/usr/share/icons/hicolor/32x32/apps/mixlab.png"
+install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" \
+  "$root/usr/share/icons/hicolor/128x128/apps/mixlab.png"
+
+# **`Depends:` exists because of the window** — T105. WebKitGTK is a runtime dependency the four
+# command-line binaries never had, and Tauri 2 links the 4.1 API on libsoup 3. A distribution old
+# enough to carry only 4.0 cannot run this window at all, so a package that refuses to install there
+# says the true thing at the moment a person can still act on it. The headless archive
+# `build-tarball.sh` publishes is what that person downloads instead, and it declares nothing.
 cat >"$root/DEBIAN/control" <<EOF
 Package: mixengine
 Version: $version
 Section: devel
 Priority: optional
 Architecture: $deb_arch
+Depends: libwebkit2gtk-4.1-0, libgtk-3-0
 Maintainer: MixEngine <noreply@mixengine.dev>
 Homepage: https://github.com/mixnz/mixengine
 Description: A local web development environment
@@ -72,12 +101,28 @@ for expected in \
   ./usr/bin/mix \
   ./usr/bin/mixengined \
   ./usr/bin/mixengine-shim \
-  ./usr/local/libexec/mixengine/mixengine-elevate; do
+  ./usr/bin/mixlab \
+  ./usr/local/libexec/mixengine/mixengine-elevate \
+  ./usr/share/applications/mixlab.desktop \
+  ./usr/share/icons/hicolor/32x32/apps/mixlab.png \
+  ./usr/share/icons/hicolor/128x128/apps/mixlab.png; do
   printf '%s\n' "$contents" | grep -q " $expected\$" || {
     echo "$expected is not in the package" >&2
     exit 1
   }
 done
+
+# **And the dependency really is declared.** The control file is written by a heredoc a few lines
+# above and read by nothing else here; a field lost to an editing mistake would produce a package
+# that installs happily onto a machine whose window cannot start.
+depends="$(dpkg-deb -f "$dist/$name" Depends)"
+case "$depends" in
+  *libwebkit2gtk-4.1-0*) ;;
+  *)
+    echo "the package declares Depends: $depends, which does not name WebKitGTK 4.1" >&2
+    exit 1
+    ;;
+esac
 
 mix_checksum "$dist/$name"
 
