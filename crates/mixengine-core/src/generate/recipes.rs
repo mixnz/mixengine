@@ -100,6 +100,52 @@ pub(super) fn space_free_view(context: &Context) -> PathBuf {
     PathBuf::from("/tmp").join(format!("mixengine-init-{}", context.service().as_str()))
 }
 
+/// The variable a MySQL-family server reads its temporary directory from when no option names one.
+///
+/// `init_tmpdir` in `mysys` reads it on every system — before `TEMP` and `TMP` on Windows — and
+/// whichever program spawned the server: upstream's two `mariadb-install-db`s, 5.6's Perl
+/// `mysql_install_db` and `mysqld --initialize` all inherit their environment into the server they
+/// run. An option would have to be threaded through four programs, two of which pass unknown
+/// options on and two of which do not.
+pub(super) const TMPDIR: &str = "TMPDIR";
+
+/// Where an instance of the MySQL family keeps its temporary files: `<data>.tmp`, beside its data.
+///
+/// **Its own rather than `/tmp`, and this is a measurement** — roadmap task **T33c**. The server's
+/// default is the machine's temporary directory, and at every start it deletes every `#sql*` file
+/// it finds there, whoever made it (`mysql_rm_tmp_tables`). Two bootstraps in two homes starting a
+/// quarter second apart — `tests/mariadb.rs`'s two tests on one CI runner — is the second one
+/// deleting the temporary tables the first's system-table load is in the middle of: `Could not
+/// remove temporary table … error: 2`, `Unknown table 'mysql.tmp_proxies_priv'`, `[ERROR] Aborting`.
+/// Reproduced in WSL against 11.4.12, one failure in six rounds; none in ten once each ritual had a
+/// directory of its own. Two services of this family starting together, or a user's own MariaDB
+/// restarting beside one of ours, meet the same deletion.
+///
+/// **Beside the data directory rather than inside it**, on the started marker's pattern: a
+/// directory inside is a schema to this server, and the installer refuses a data directory that is
+/// not empty. Named after the instance rather than after the service id, because it lives with the
+/// instance's data — under `data/<package>/`, where two instances cannot collide. A data directory
+/// with no parent or no name — a filesystem root — falls back to a directory inside, the marker's
+/// own answer for a path nothing should be bootstrapping into anyway.
+pub(super) fn scratch_dir(context: &Context) -> PathBuf {
+    let data = context.data();
+
+    let (Some(parent), Some(name)) = (data.parent(), data.file_name()) else {
+        return data.join(".tmp");
+    };
+
+    parent.join(format!("{}.tmp", name.to_string_lossy()))
+}
+
+/// The environment every first-run step of the MySQL family runs with: [`TMPDIR`] pointing at
+/// [`scratch_dir`]. A step that sets more starts from this and adds to it.
+pub(super) fn scratch_environment(context: &Context) -> BTreeMap<String, String> {
+    BTreeMap::from([(
+        TMPDIR.to_owned(),
+        scratch_dir(context).display().to_string(),
+    )])
+}
+
 /// Make that view: a fresh directory with a link to the install and a link to the data directory.
 ///
 /// One `sh -c` rather than four steps, and **the quoting is ours rather than upstream's** — the
@@ -125,14 +171,16 @@ pub(super) fn link_a_space_free_view(context: &Context, view: &Path) -> Step {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::new(),
+        // A shell needs no scratch directory; it carries the variable so that *every* step of a
+        // ritual does, which is the one shape a test can hold every recipe to.
+        env: scratch_environment(context),
         cwd: PathBuf::from("/tmp"),
         timeout: Millis(30_000),
     }
 }
 
 /// And take it away again once the bootstrap is done with it.
-pub(super) fn remove_the_space_free_view(view: &Path) -> Step {
+pub(super) fn remove_the_space_free_view(context: &Context, view: &Path) -> Step {
     Step {
         label: "remove the space-free view".to_owned(),
         program: PathBuf::from("/bin/sh"),
@@ -144,7 +192,7 @@ pub(super) fn remove_the_space_free_view(view: &Path) -> Step {
         ],
         stdin: None,
         secret_file: None,
-        env: BTreeMap::new(),
+        env: scratch_environment(context),
         cwd: PathBuf::from("/tmp"),
         timeout: Millis(30_000),
     }

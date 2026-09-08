@@ -1074,6 +1074,13 @@ impl Generator {
         // [`DataDirectory::Empty`]: first_run::DataDirectory::Empty
         crate::paths::create_dir(&context.data)?;
 
+        // And the scratch directory a recipe asked for, before the ritual that is the first thing
+        // to need it: a `mysqld` pointed at a temporary directory that is not there refuses to
+        // start, in bootstrap mode as in any other.
+        if let Some(scratch) = context.scratch() {
+            crate::paths::create_dir(scratch)?;
+        }
+
         let installed = document::install(
             &context.etc,
             &documents,
