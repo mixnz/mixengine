@@ -31,6 +31,13 @@ const PID: u32 = 4242;
 pub(super) struct Apps {
     /// The one application this machine has, for every hint — or none.
     program: Option<PathBuf>,
+
+    /// The window this install has — or none.
+    ///
+    /// **Separate from `program`**, because a test has to be able to say *MixLab and not MixDB*,
+    /// *MixDB and not MixLab*, and *both*: that is the whole of what the daemon's ordering rule is
+    /// made of — roadmap task **T107**.
+    window: Option<PathBuf>,
     launches: Mutex<Vec<Launched>>,
 }
 
@@ -38,7 +45,22 @@ impl Apps {
     pub(super) fn installing(program: PathBuf) -> Self {
         Self {
             program: Some(program),
-            launches: Mutex::default(),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn with_window(window: PathBuf) -> Self {
+        Self {
+            window: Some(window),
+            ..Self::default()
+        }
+    }
+
+    pub(super) fn installing_both(program: PathBuf, window: PathBuf) -> Self {
+        Self {
+            program: Some(program),
+            window: Some(window),
+            ..Self::default()
         }
     }
 
@@ -59,6 +81,18 @@ impl DesktopApps for Apps {
             }),
             None => Located::NotInstalled {
                 searched: "the mock's empty table of applications".to_owned(),
+            },
+        })
+    }
+
+    fn locate_window(&self, _executable: &str, _bundle: &str) -> Result<Located> {
+        Ok(match &self.window {
+            Some(program) => Located::Installed(InstalledApp {
+                program: program.clone(),
+                args: Vec::new(),
+            }),
+            None => Located::NotInstalled {
+                searched: "the mock's install, which has no window".to_owned(),
             },
         })
     }

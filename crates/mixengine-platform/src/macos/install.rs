@@ -21,6 +21,47 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// The one directory the `.pkg` installs the command line into.
+///
+/// `packaging/common.sh`'s `MIX_INSTALL_MACOS`. `/usr/local/bin` and not `/usr/bin`: the `.pkg` is
+/// not a system package manager's, and `/usr/local` is where a Mac expects one that is not.
+const BIN: &str = "/usr/local/bin";
+
+/// Where the `.pkg` and the portable tarball put MixEngine's programs — roadmap task **T107**.
+///
+/// **The window is not here**: a `.pkg` puts `MixLab.app` in `/Applications`, which is
+/// [`window_dirs`]'s whole reason for existing.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    vec![PathBuf::from(BIN)]
+}
+
+/// Where `packaging/macos/build.sh` places the bundle.
+const APPLICATIONS: &str = "/Applications";
+
+/// `/Applications`, for an install whose programs are in [`program_dirs`] — roadmap task **T107**.
+///
+/// **The one system where an installer splits the two.** The `.pkg` puts the four command-line
+/// binaries in [`BIN`] and `MixLab.app` in [`APPLICATIONS`], so a daemon that found nothing beside
+/// itself has one more place to look — and exactly one.
+///
+/// **Only for an install**, which is what the guard says. A `cargo run` out of `target/debug` is not
+/// an installed MixEngine, and a `/Applications/MixLab.app` some other install put there is not its
+/// window: answering it would make `mix database open` a property of the machine rather than of the
+/// install, and would turn the command-line suite red on any developer's Mac that has MixLab on it.
+pub(crate) fn window_dirs(directory: Option<&std::path::Path>) -> Vec<PathBuf> {
+    let installed = directory.is_some_and(|directory| {
+        program_dirs()
+            .iter()
+            .any(|candidate| candidate.as_path() == directory)
+    });
+
+    if installed {
+        vec![PathBuf::from(APPLICATIONS)]
+    } else {
+        Vec::new()
+    }
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.pkg` writes straight to [`HELPER`] and never beside `mixengined`** — it runs as root
@@ -76,6 +117,25 @@ pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathB
         .map_or_else(|| executable.to_path_buf(), std::path::Path::to_path_buf)
 }
 
+/// The program inside a bundle: `Contents/MacOS/<executable>`, the layout every `.app` has.
+///
+/// A path that is not a bundle answers itself — `cargo tauri dev` and every `cargo run` produce a
+/// bare executable, and a lookup that refused those would be one that only works on a machine with
+/// an installer's output on it.
+pub(crate) fn application_executable(
+    placed: &std::path::Path,
+    executable: &str,
+) -> std::path::PathBuf {
+    if placed
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+    {
+        return placed.join("Contents").join("MacOS").join(executable);
+    }
+
+    placed.to_path_buf()
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -104,6 +164,30 @@ mod tests {
     fn an_unbundled_executable_is_its_own_root() {
         assert_eq!(
             super::application_root(Path::new("/work/target/release/mixlab")),
+            PathBuf::from("/work/target/release/mixlab")
+        );
+    }
+
+    /// The split the `.pkg` makes, and the guard that keeps it from applying to a build directory.
+    #[test]
+    fn only_an_installed_daemon_looks_in_applications() {
+        assert_eq!(
+            super::window_dirs(Some(Path::new("/usr/local/bin"))),
+            vec![PathBuf::from("/Applications")]
+        );
+        assert!(super::window_dirs(Some(Path::new("/work/target/debug"))).is_empty());
+        assert!(super::window_dirs(None).is_empty());
+    }
+
+    /// The bundle's own layout, spelled out on the one system where it is not the identity.
+    #[test]
+    fn the_program_inside_a_bundle_is_three_components_down() {
+        assert_eq!(
+            super::application_executable(Path::new("/Applications/MixLab.app"), "mixlab"),
+            PathBuf::from("/Applications/MixLab.app/Contents/MacOS/mixlab")
+        );
+        assert_eq!(
+            super::application_executable(Path::new("/work/target/release/mixlab"), "mixlab"),
             PathBuf::from("/work/target/release/mixlab")
         );
     }

@@ -20,6 +20,34 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
         .join(HELPER))
 }
 
+/// The per-user directory every Windows artifact installs into, under `%LOCALAPPDATA%`.
+///
+/// `packaging/common.sh`'s `MIX_INSTALL_WINDOWS`, and `crates/mixengine-core/tests/packaging.rs`
+/// holds the two together.
+const PROGRAMS: &str = r"Programs\MixEngine";
+
+/// Where the NSIS installer and the portable archive put MixEngine's programs — roadmap task
+/// **T107**.
+///
+/// One directory, and per user: `RequestExecutionLevel user` means an update needs no UAC, which is
+/// the reason the whole install lives under this profile rather than under Program Files.
+///
+/// Empty when the shell will not name the folder, which is a machine with no install location this
+/// crate can state rather than an error: [`crate::install::program_path`] has `PATH` left to try.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    super::known_folder::local_app_data()
+        .map(|base| vec![base.join(PROGRAMS)])
+        .unwrap_or_default()
+}
+
+/// Nowhere beyond the directory the programs are in — roadmap task **T107**.
+///
+/// This system's installer places the window beside the other four, so the step in front of this
+/// one has already looked. Present rather than absent so the three systems keep one signature.
+pub(crate) fn window_dirs(_directory: Option<&std::path::Path>) -> Vec<PathBuf> {
+    Vec::new()
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in
@@ -153,6 +181,14 @@ pub(crate) fn application_file_name(executable: &str, _bundle: &str) -> String {
 /// The executable itself: there is nothing wrapped around it to find.
 pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
     executable.to_path_buf()
+}
+
+/// The program is what was placed: there is nothing wrapped around it to look inside.
+pub(crate) fn application_executable(
+    placed: &std::path::Path,
+    _executable: &str,
+) -> std::path::PathBuf {
+    placed.to_path_buf()
 }
 
 #[cfg(test)]

@@ -10,11 +10,15 @@ import type { ExtensionId } from "./ExtensionId";
  */
 export type DesktopClient = { "state": "installed", 
 /**
- * The extension.
+ * The extension, when one named it.
+ *
+ * **[`None`] for MixEngine's own window**, which is not an extension and never was: a
+ * merged install has a database client before anybody installs anything. Skipped when
+ * absent, so the document an extension produces is unchanged.
  */
-extension: ExtensionId, 
+extension?: ExtensionId | null, 
 /**
- * Its display name — `MixDB`.
+ * Its display name — `MixLab`, or `MixDB`.
  */
 name: string, 
 /**

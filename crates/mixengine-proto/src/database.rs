@@ -152,11 +152,17 @@ impl std::fmt::Display for DatabaseProtocol {
 #[serde(tag = "state", rename_all = "snake_case")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 pub enum DesktopClient {
-    /// A `desktop-app` extension is installed and this machine has the application.
+    /// This machine has an application that opens databases: a `desktop-app` extension's, or —
+    /// roadmap task **T107** — the window this MixEngine install came with.
     Installed {
-        /// The extension.
-        extension: crate::ExtensionId,
-        /// Its display name — `MixDB`.
+        /// The extension, when one named it.
+        ///
+        /// **[`None`] for MixEngine's own window**, which is not an extension and never was: a
+        /// merged install has a database client before anybody installs anything. Skipped when
+        /// absent, so the document an extension produces is unchanged.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        extension: Option<crate::ExtensionId>,
+        /// Its display name — `MixLab`, or `MixDB`.
         name: String,
         /// The executable this machine would start.
         program: String,
@@ -476,6 +482,35 @@ mod tests {
         assert_eq!(none["state"], "no_client");
     }
 
+    /// A client that is not an extension carries no extension, and the key is simply absent —
+    /// roadmap task **T107**.
+    ///
+    /// **Absent and not `null`**, so the document an extension produces is byte-for-byte what it
+    /// was: every reader of `mix database client --json` written before this release keeps working,
+    /// and the one new case is a key that is not there rather than a value of a new shape.
+    #[test]
+    fn the_windows_installed_state_names_no_extension() {
+        let window = serde_json::to_value(DesktopClient::Installed {
+            extension: None,
+            name: "MixLab".to_owned(),
+            program: "/usr/bin/mixlab".to_owned(),
+        })
+        .expect("it encodes");
+
+        assert_eq!(window["state"], "installed");
+        assert_eq!(window["name"], "MixLab");
+        assert!(window.get("extension").is_none(), "{window}");
+
+        let extension = serde_json::to_value(DesktopClient::Installed {
+            extension: Some(crate::ExtensionId::parse("mixdb").expect("an id")),
+            name: "MixDB".to_owned(),
+            program: "/usr/bin/mixdb".to_owned(),
+        })
+        .expect("it encodes");
+
+        assert_eq!(extension["extension"], "mixdb");
+    }
+
     /// A handoff carries where the password was read from and never the password — D2, and
     /// [`DatabaseAccount`]'s rule at the next address.
     #[test]
@@ -487,7 +522,7 @@ mod tests {
             database: None,
             secret: Some(SecretAddress::of("mariadb@main/root")),
             client: DesktopClient::Installed {
-                extension: crate::ExtensionId::parse("mixdb").expect("an id"),
+                extension: Some(crate::ExtensionId::parse("mixdb").expect("an id")),
                 name: "MixDB".to_owned(),
                 program: "/Applications/MixDB.app/Contents/MacOS/mixdb".to_owned(),
             },

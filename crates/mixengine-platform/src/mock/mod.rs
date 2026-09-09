@@ -562,6 +562,30 @@ impl Host {
         }
     }
 
+    /// A host whose MixEngine install has a window at `program`, and no other desktop application
+    /// — roadmap task **T107**. The merged product on a machine that never had MixDB.
+    #[must_use]
+    pub fn with_window(home: impl Into<PathBuf>, program: impl Into<PathBuf>) -> Self {
+        Self {
+            desktop: desktop::Apps::with_window(program.into()),
+            ..Self::with_home(home)
+        }
+    }
+
+    /// A host with both: a window of its own, and an application every hint locates — roadmap task
+    /// **T107**. The machine a MixDB user upgrades on, and the one the ordering rule is for.
+    #[must_use]
+    pub fn with_window_and_desktop_app(
+        home: impl Into<PathBuf>,
+        window: impl Into<PathBuf>,
+        program: impl Into<PathBuf>,
+    ) -> Self {
+        Self {
+            desktop: desktop::Apps::installing_both(program.into(), window.into()),
+            ..Self::with_home(home)
+        }
+    }
+
     /// Every path [`DirectoryAccess::restrict_to_owner`](crate::DirectoryAccess::restrict_to_owner)
     /// was called with, in order.
     #[must_use]

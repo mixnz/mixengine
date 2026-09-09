@@ -32,15 +32,15 @@ arm="$(bash "$MIX_ROOT/packaging/stage.sh" --target aarch64-apple-darwin | tail 
 
 root="$MIX_OUT/pkgroot"
 rm -rf "$root"
-mkdir -p "$root/usr/local/bin" "$root/Library/PrivilegedHelperTools" "$root/Applications"
+mkdir -p "$root$MIX_INSTALL_MACOS" "$root/Library/PrivilegedHelperTools" "$root/Applications"
 
-lipo -create "$intel/mix" "$arm/mix" -output "$root/usr/local/bin/mix"
-lipo -create "$intel/mixengined" "$arm/mixengined" -output "$root/usr/local/bin/mixengined"
+lipo -create "$intel/mix" "$arm/mix" -output "$root$MIX_INSTALL_MACOS/mix"
+lipo -create "$intel/mixengined" "$arm/mixengined" -output "$root$MIX_INSTALL_MACOS/mixengined"
 
 # Beside `mixengined`, which is the only place `core::shims::source` looks — T85c. Universal like
 # its neighbours, because a `.pkg` that is universal in three of four binaries is not universal.
 lipo -create "$intel/mixengine-shim" "$arm/mixengine-shim" \
-  -output "$root/usr/local/bin/mixengine-shim"
+  -output "$root$MIX_INSTALL_MACOS/mixengine-shim"
 
 # The one file that goes somewhere only root can write, at exactly the path
 # `mixengine_platform::install::helper_path()` returns — so a machine installed from this package
@@ -67,9 +67,9 @@ test -n "$window_exe" || {
 }
 
 chmod 755 \
-  "$root/usr/local/bin/mix" \
-  "$root/usr/local/bin/mixengined" \
-  "$root/usr/local/bin/mixengine-shim" \
+  "$root$MIX_INSTALL_MACOS/mix" \
+  "$root$MIX_INSTALL_MACOS/mixengined" \
+  "$root$MIX_INSTALL_MACOS/mixengine-shim" \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
   "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"
 
@@ -81,7 +81,7 @@ chmod 755 \
 #
 # Asked of the universal binary rather than of either slice, because that is the file this package
 # installs and the one a user ends up running.
-printed="$("$root/usr/local/bin/mix" --version)"
+printed="$("$root$MIX_INSTALL_MACOS/mix" --version)"
 case "$printed" in
   *"(development build)"*)
     echo "the staged mix says '$printed' — MIXENGINE_RELEASE did not reach the build" >&2
@@ -147,9 +147,9 @@ pkgbuild \
 # **Open what was just made and check the binaries are in it** — the T85 design, D11.
 files="$(pkgutil --payload-files "$dist/$name")"
 for expected in \
-  ./usr/local/bin/mix \
-  ./usr/local/bin/mixengined \
-  ./usr/local/bin/mixengine-shim \
+  .$MIX_INSTALL_MACOS/mix \
+  .$MIX_INSTALL_MACOS/mixengined \
+  .$MIX_INSTALL_MACOS/mixengine-shim \
   ./Library/PrivilegedHelperTools/dev.mixengine.elevate \
   "./Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"; do
   printf '%s\n' "$files" | grep -qx "$expected" || {
@@ -160,7 +160,7 @@ done
 
 # And that "universal" is true rather than asserted by the file name.
 for binary in mix mixengined mixengine-shim; do
-  architectures="$(lipo -archs "$root/usr/local/bin/$binary")"
+  architectures="$(lipo -archs "$root$MIX_INSTALL_MACOS/$binary")"
   for slice in x86_64 arm64; do
     printf '%s\n' "$architectures" | grep -qw "$slice" || {
       echo "$binary is missing the $slice slice: $architectures" >&2

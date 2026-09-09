@@ -9,7 +9,6 @@
 //! định có tự khởi động daemon không.
 
 use std::ffi::OsString;
-use std::path::PathBuf;
 use std::process::Command;
 use std::time::Duration;
 
@@ -19,43 +18,24 @@ use crate::error::AppError;
 
 use super::rpc;
 
-/// Tên trần của daemon, để `PATH` phân giải.
+/// Tên trần của daemon — một entry của `MIX_BINARIES`, đúng dạng
+/// `mixengine_platform::install::program_path` nhận, không đuôi thực thi.
 const DAEMON: &str = "mixengined";
 
-/// Những chỗ MixEngine được cài vào, ngoài `PATH`.
+/// Chương trình để khởi động một daemon: chỗ máy này thật sự có, không thì tên trần cho `PATH`.
 ///
-/// **`PATH` một mình là không đủ, và đây là chuyện đo được chứ không phải phòng xa.** Trên máy
-/// dựng module này MixEngine nằm ở `%LOCALAPPDATA%\Programs\MixEngine\mixengined.exe` và
-/// **không** có trên `PATH`: installer Windows là bản per-user và sửa `PATH` của người dùng, còn
-/// một tiến trình đang chạy — hay một app GUI Explorer khởi động — mang theo `PATH` nó thừa kế lúc
-/// mở. Chỉ hỏi `PATH` là trả lời "chưa cài MixEngine" cho một máy đã cài, và đẩy người dùng đi tải
-/// lại thứ họ đang có.
+/// **Danh sách module này từng tự giữ nay là của `mixengine-platform`** — roadmap task **T107**.
+/// Phép đo biện minh cho nó vẫn đúng và đã đi cùng nó sang bên kia: trên máy viết module này
+/// MixEngine nằm ở `%LOCALAPPDATA%\Programs\MixEngine` và **không** có trên `PATH` của tiến trình
+/// này, vì installer Windows là bản per-user sửa `PATH` của người dùng, còn một tiến trình đang
+/// chạy mang theo `PATH` nó thừa kế lúc mở. Cái mới là daemon, các script đóng gói và cửa sổ này
+/// giờ đọc **một** câu trả lời thay vì ba.
 ///
-/// macOS và Linux không cần danh sách này — `.pkg`, `.deb` và `.rpm` đặt vào `/usr/local/bin` hoặc
-/// `/usr/bin`, vốn đã trên `PATH` — nhưng hai đường đó rẻ và không sai ở đâu cả.
-fn well_known() -> Vec<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var_os("LOCALAPPDATA")
-            .map(|base| vec![PathBuf::from(base).join(r"Programs\MixEngine\mixengined.exe")])
-            .unwrap_or_default()
-    }
-    #[cfg(not(windows))]
-    {
-        vec![
-            PathBuf::from("/usr/local/bin/mixengined"),
-            PathBuf::from("/usr/bin/mixengined"),
-        ]
-    }
-}
-
-/// Chương trình để khởi động một daemon: đường cài đã biết nếu có, không thì tên trần cho `PATH`.
+/// Tên trần vẫn ở lại làm nước cuối: một entry `PATH` xuất hiện sau khi tiến trình này khởi động
+/// vẫn đáng một lần spawn, và một lần spawn hỏng thì nói ra bằng lời.
 fn program() -> OsString {
-    well_known()
-        .into_iter()
-        .find(|path| path.is_file())
-        .map(OsString::from)
-        .unwrap_or_else(|| DAEMON.into())
+    mixengine_platform::install::program_path(DAEMON)
+        .map_or_else(|| DAEMON.into(), OsString::from)
 }
 
 /// Daemon đang ở trạng thái nào, nhìn từ đây.
@@ -86,7 +66,7 @@ pub async fn presence() -> Presence {
         Ok(Ok(_)) => Presence::Running,
         // Không tới được endpoint: chưa chạy, hoặc chưa cài. Đó là hai câu khác nhau.
         Ok(Err(error)) if error.code == "error.mixengineUnreachable" => {
-            if installed().await {
+            if installed() {
                 Presence::NotRunning
             } else {
                 Presence::NotInstalled
@@ -99,20 +79,12 @@ pub async fn presence() -> Presence {
 
 /// `mixengined` có trên máy này không. Chỉ hỏi khi đã biết không dial được.
 ///
-/// Một lần đọc đĩa trước, vì nó không tốn tiến trình nào; chỉ khi không thấy mới thử `PATH`.
-async fn installed() -> bool {
-    if well_known().iter().any(|path| path.is_file()) {
-        return true;
-    }
-    tauri::async_runtime::spawn_blocking(|| {
-        let mut command = Command::new(DAEMON);
-        command.arg("--version");
-        // Mã thoát không quan trọng: câu hỏi là chương trình có chạy được không, và một phiên bản
-        // không hiểu `--version` vẫn là một MixEngine đã cài.
-        crate::platform::hide_console(&mut command).output().is_ok()
-    })
-    .await
-    .unwrap_or(false)
+/// **Vài lần đọc đĩa, không phải một tiến trình** — roadmap task **T107**. Bản trước chạy
+/// `mixengined --version` rồi vứt output đi: một lần tạo tiến trình, một cửa sổ console phải giấu
+/// bằng tay, và tới cả giây trong lúc mở tab, để trả lời câu hỏi mà một lần `stat` đã trả lời — và
+/// `program_path` hỏi `PATH` bằng cách đọc nó, chứ không bằng cách chạy một chương trình trên đó.
+fn installed() -> bool {
+    mixengine_platform::install::program_path(DAEMON).is_some()
 }
 
 /// Khởi động daemon và trả về endpoint nó in ra.
@@ -143,21 +115,21 @@ pub async fn start_daemon() -> Result<String, AppError> {
 mod tests {
     use super::*;
 
-    /// Có tìm ra một chương trình để chạy: đường cài đã biết, hoặc tên trần cho `PATH`.
+    /// Daemon được tìm ở đúng chỗ platform nói MixEngine nằm, và câu trả lời trên máy này hoặc là
+    /// một đường dẫn thật, hoặc là tên trần — không bao giờ là một chương trình rỗng.
+    ///
+    /// **Nửa per-OS của khẳng định này đã chuyển đi.** Trước đây nó viết thẳng
+    /// `programs\mixengine\mixengined.exe` ở đây, cạnh một danh sách module này tự giữ; từ T107
+    /// danh sách ấy là `mixengine_platform::install::program_dirs`, và test nêu tên nó cũng vậy.
     #[test]
-    fn there_is_always_a_program_to_try() {
-        assert!(!program().is_empty());
-    }
+    fn the_daemon_is_looked_for_where_the_platform_says_mixengine_is() {
+        let program = program();
 
-    /// Trên Windows, danh sách phải nêu đúng chỗ installer per-user đặt daemon vào — đó là chỗ
-    /// `PATH` không nêu, và là toàn bộ lý do danh sách này tồn tại.
-    #[test]
-    #[cfg(windows)]
-    fn the_windows_install_location_is_looked_at() {
-        let looked = well_known();
-        assert!(!looked.is_empty(), "LOCALAPPDATA is set on every Windows machine");
-        let shown = looked[0].to_string_lossy().to_lowercase();
-        assert!(shown.ends_with(r"programs\mixengine\mixengined.exe"), "{shown}");
+        assert!(!program.is_empty());
+        match mixengine_platform::install::program_path(DAEMON) {
+            Some(found) => assert_eq!(program, OsString::from(found)),
+            None => assert_eq!(program, OsString::from(DAEMON)),
+        }
     }
 
     /// Bốn trạng thái đi qua wire dạng camelCase — frontend so chuỗi với chúng, nên đổi cách viết

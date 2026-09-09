@@ -89,8 +89,9 @@ binaries. What they state is what the daemon **writes** —
    installed to hand the connection to, and the handoff itself, answered per service so a client
    draws the affordance from data instead of probing the filesystem for an application
    ([extensions.md](extensions.md)). `database.client` answers
-   `DatabaseClientReport { protocol, secret, client }` — `installed` with the executable,
-   `not_installed` with where this system looked and the homepage, or `no_client` — and
+   `DatabaseClientReport { protocol, secret, client }` — `installed` with the executable and, when
+   an extension named it rather than this install's own window, that extension (T107);
+   `not_installed` with where this system looked and the homepage; or `no_client` — and
    `protocol: null` for a service no client opens, all of them states. `database.open` answers
    `DatabaseHandoff` with `launched: running | handed_on` and `secret`, the keyring address the
    password was read from, never the password: it went into the started process's environment and

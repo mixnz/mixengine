@@ -57,6 +57,7 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
   "-DVERSION=$version" \
   "-DSTAGE=$(cygpath -w "$stage")" \
   "-DOUTFILE=$(cygpath -w "$dist/$setup_name")" \
+  "-DINSTALL_SUBDIR=$MIX_INSTALL_WINDOWS" \
   "$(cygpath -w "$MIX_ROOT/packaging/windows/mixengine.nsi")"
 
 # **Open what was just made and check the binaries are in it** — the T85 design, D11. An empty

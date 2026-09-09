@@ -141,13 +141,37 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       are what keep that from being a release-day discovery, and the second of those runs in `lint`
       on every CI run.
 
-- [ ] **T107** Where the daemon is, and where the window is, are both the platform's to answer
+- [x] **T107** Where the daemon is, and where the window is, are both the platform's to answer
       (D9, D10). `health.rs`'s hand-kept `well_known()` is replaced by one `mixengine-platform`
       function — the executable's own directory, then the OS's install location, then `PATH` —
       that packaging reads too. `mixengine-platform`'s desktop-application lookup learns the merged
       application's location beside standalone MixDB's, so `mix database open` from a terminal
       opens a tab in the running window, password in the environment and nowhere else, exactly as
       T83 specified. `mixdb://`, `launch.rs` and `instance.rs` stay. **(P)**
+      Design: [2026-09-09-t107-where-the-daemon-and-the-window-are-design.md](../../docs/superpowers/specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md).
+      **Four things this task settled.** **The window is looked for where this install is, and
+      nowhere else** — not on `PATH`, not in App Paths, not through Spotlight, which is the opposite
+      of how the same crate finds standalone MixDB. Two reasons, and the second is the one that
+      would have been found late: a `mixlab` first on somebody's `PATH` may belong to a *different*
+      install of MixEngine, so which window a database opened in would depend on the order of a
+      `PATH`; and a lookup that reads the machine rather than the install turns
+      `crates/mixengine-cli/tests/database.rs` red on every developer's machine that has MixLab on
+      it — those two tests assert *no client*, and the machine this was written on already has
+      MixEngine installed and on `PATH`. What is left is beside the running program, plus
+      `/Applications` on macOS alone, and only for a daemon that is itself in `/usr/local/bin`:
+      that is the one system whose installer splits the binaries from the bundle. **The window
+      answers before the extension, but only for its own scheme.** `desktop-app` is a general
+      mechanism, and a future entry naming some other client for some other scheme must not be
+      shadowed by a window that cannot read its URLs — so the condition is `scheme == mixdb`, which
+      is also what leaves T83's `nowhere` fixture answering exactly what it answered before. **A
+      client that is not an extension is an optional field and not a third arm**:
+      `DesktopClient::Installed.extension` became `Option<ExtensionId>`, skipped when absent, so the
+      document an extension produces is byte-for-byte what it was and the one new case is a key that
+      is not there. And `Databases::scheme()` went with it — it was a second read of the extension
+      store, carrying an `Internal` error for *the desktop client vanished between two reads*; the
+      client is resolved once now and that race is gone. Last: the daemon's presence check in the
+      window **stopped running `mixengined --version`** to answer *is it installed*, which was a
+      process creation and a hidden console for a question three `stat`s answer.
 
 **Milestone M12** — on a clean machine of each OS, one installer installs the daemon, the CLI, the
 helper, the shim and the window; the window's Update button and `mix self-update` each replace all

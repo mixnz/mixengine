@@ -229,8 +229,10 @@ snapshots of the data dir). Browsing and querying data is **out of scope** — t
 account that reaches it on a running instance, generating the account's password and storing it in
 the OS keyring at `<service-id>/<user>`. Nothing prints it or puts it on the wire *by default*: what
 a caller is told is the address, and handing a credential to a program that needs one is
-`database.open` — `mix database open mariadb@main --user blog` — which starts the installed desktop
-client with the password in that process's environment alone (T83, [extensions.md](extensions.md)).
+`database.open` — `mix database open mariadb@main --user blog` — which starts the desktop client
+with the password in that process's environment alone (T83, [extensions.md](extensions.md)). That
+client is MixLab, the window this MixEngine installed, when the install has one, and a `desktop-app`
+extension's otherwise (T107).
 
 **A person can still read it, and can still choose it** — T77b. Neither of the two calls above
 reaches the one case they leave uncovered: a project's own `.env`. `mix database credentials

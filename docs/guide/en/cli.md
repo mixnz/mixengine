@@ -744,6 +744,10 @@ mix database create <SERVICE> [OPTIONS]
 
 Where this instance could be opened, and with what.
 
+MixLab, the window this MixEngine installed, when the install has one. A `desktop-app` extension's
+client otherwise — MixDB, say — which is what a headless install and an install from before MixLab
+answer with.
+
 Reads only: starts nothing, opens nothing. "Not installed" is an answer, not a failure.
 
 ```
@@ -773,11 +777,15 @@ mix database credentials <SERVICE> [OPTIONS]
 
 ### mix database open
 
-Open this instance in the installed desktop database client.
+Open this instance in the desktop database client — MixLab, or whatever `mix database client` names.
+
+MixLab need not be running: a copy already open takes the connection as a new tab and this command
+says so, and one that is not open is started.
 
 The instance is started if it is not running. The account's password is read from this machine's
 credential store at that moment and handed to the client in its own environment — never printed,
-never put in an argument. Exits 1 when no client is installed, and says what to install.
+never put in an argument. Exits 1 when there is no client at all — a headless install, say — and
+says what to install.
 
 ```
 mix database open <SERVICE> [OPTIONS]

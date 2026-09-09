@@ -76,6 +76,26 @@ pub trait DesktopApps: std::fmt::Debug + Send + Sync {
     /// "not installed", which is a [`Located`] and not an error.
     fn locate(&self, hint: &str) -> Result<Located>;
 
+    /// The desktop application **this MixEngine install** has, if it has one — roadmap task
+    /// **T107**.
+    ///
+    /// `executable` and `bundle` are what `packaging/common.sh` declares as `MIX_WINDOW` and
+    /// `MIX_WINDOW_APP`; two arguments and not zero, for
+    /// [`crate::install::application_file_name`]'s reason — a name packaging owns is not one this
+    /// crate may hold.
+    ///
+    /// **Not [`locate`](Self::locate), and the difference is the point.** That method looks an
+    /// application up in the tables an operating system publishes, by a hint somebody else's
+    /// installer wrote. This one looks where MixEngine's own installer writes, relative to the
+    /// program that is asking — so the answer is *this install's window* and never some other
+    /// install's.
+    ///
+    /// # Errors
+    ///
+    /// The same shapes as [`locate`](Self::locate). "Not installed" is a [`Located`] and not an
+    /// error.
+    fn locate_window(&self, executable: &str, bundle: &str) -> Result<Located>;
+
     /// Start `app` with `args` after its own, `env` added to this process's environment, detached,
     /// and judged for one second.
     ///

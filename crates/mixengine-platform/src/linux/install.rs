@@ -19,6 +19,31 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// What the `.deb` and the `.rpm` write — `packaging/common.sh`'s `MIX_INSTALL_LINUX`.
+const BIN: &str = "/usr/bin";
+
+/// Where a copy placed by hand conventionally goes.
+const LOCAL_BIN: &str = "/usr/local/bin";
+
+/// Where the `.deb`, the `.rpm` and a hand-placed copy put MixEngine's programs — roadmap task
+/// **T107**.
+///
+/// [`BIN`] first, because that is what both native packages write and what `packaging/common.sh`
+/// declares; [`LOCAL_BIN`] after it, for a copy somebody placed themselves. The AppImage and the
+/// tarball are neither — their programs are found beside the one that is running, which is the step
+/// in front of this one.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    vec![PathBuf::from(BIN), PathBuf::from(LOCAL_BIN)]
+}
+
+/// Nowhere beyond the directory the programs are in — roadmap task **T107**.
+///
+/// This system's installer places the window beside the other four, so the step in front of this
+/// one has already looked. Present rather than absent so the three systems keep one signature.
+pub(crate) fn window_dirs(_directory: Option<&std::path::Path>) -> Vec<PathBuf> {
+    Vec::new()
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.deb` and the `.rpm` write straight to [`HELPER`] and never beside `mixengined`** — same
@@ -56,6 +81,14 @@ pub(crate) fn application_file_name(executable: &str, _bundle: &str) -> String {
 /// The executable itself: there is nothing wrapped around it to find.
 pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
     executable.to_path_buf()
+}
+
+/// The program is what was placed: there is nothing wrapped around it to look inside.
+pub(crate) fn application_executable(
+    placed: &std::path::Path,
+    _executable: &str,
+) -> std::path::PathBuf {
+    placed.to_path_buf()
 }
 
 #[cfg(test)]
