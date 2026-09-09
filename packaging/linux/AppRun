@@ -40,21 +40,100 @@ for packed in "$here"/usr/bin/*; do
   fi
 done
 
+# What `ldd` says about a window this system cannot load, in the words of the person who has to fix
+# it. Empty output means nothing is in the way.
+#
+# **Three answers and not one** — T105a, D3. What T105 shipped was `grep -q "not found"` and a
+# message that always named WebKitGTK, and that is the wrong package to name on a distribution whose
+# glibc is too old: `ldd` reports that case as "version `GLIBC_2.35' not found", out of the very same
+# command, and the person is sent to install something they already have. ADR 0028 makes this
+# message the product's whole answer to a machine below the floor, so it has to name the floor that
+# was actually missed.
+#
+# `ldd` absent is not a refusal: the check is skipped and the dynamic loader gets to speak for
+# itself.
+window_refusal() {
+  command -v ldd >/dev/null 2>&1 || return 0
+
+  local binary="$1" report glibc missing others soname
+  report="$(ldd "$binary" 2>&1 || true)"
+
+  glibc="$(printf '%s\n' "$report" \
+    | sed -n "s/.*version \`GLIBC_\([0-9][0-9.]*\)' not found.*/\1/p" \
+    | sort -V \
+    | tail -1)"
+  missing="$(printf '%s\n' "$report" \
+    | sed -n 's/^[[:space:]]*\([^[:space:]][^[:space:]]*\) => not found.*/\1/p' \
+    | sort -u)"
+
+  if [ -z "$glibc" ] && [ -z "$missing" ]; then
+    return 0
+  fi
+
+  echo "MixLab cannot start on this system."
+  echo
+
+  if printf '%s\n' "$missing" | grep -q '^libwebkit2gtk-4\.1\.so'; then
+    echo "WebKitGTK 4.1 is missing. Install it — libwebkit2gtk-4.1-0 on Debian and Ubuntu,"
+    echo "webkit2gtk4.1 on Fedora and RHEL, libwebkit2gtk-4_1-0 on openSUSE."
+    echo
+  fi
+
+  if [ -n "$glibc" ]; then
+    echo "This distribution is older than MixLab: the window needs glibc $glibc, which arrived in"
+    echo "Ubuntu 22.04, Debian 12, Fedora 38 and openSUSE Leap 15.6."
+    echo
+  fi
+
+  others="$(printf '%s\n' "$missing" | grep -v '^libwebkit2gtk-4\.1\.so' | grep -v '^$' || true)"
+  if [ -n "$others" ]; then
+    echo "These libraries are missing:"
+    printf '%s\n' "$others" | while read -r soname; do
+      echo "  $soname"
+    done
+    echo
+  fi
+
+  echo "The .deb and the .rpm declare what MixLab needs, and your package manager installs it."
+  echo "The command line inside this same file is unaffected: run it with an argument, e.g."
+  echo "  $0 status"
+}
+
+# The same words, where a double click can read them.
+#
+# **A person who double-clicked an AppImage in a file manager has no terminal attached** — T105a,
+# D3. Everything above goes to stderr, which for exactly the person this message was written for
+# goes nowhere: what they see is a window that never appears. Nothing here is downloaded and nothing
+# becomes a dependency — whichever of the three is already installed is used, the text is passed as
+# one argument and never through a shell, and none of them being installed is stderr only.
+show_refusal_dialog() {
+  local text="$1"
+  [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] || return 0
+
+  if command -v zenity >/dev/null 2>&1; then
+    zenity --error --title="MixLab" --text="$text" >/dev/null 2>&1 || true
+  elif command -v kdialog >/dev/null 2>&1; then
+    kdialog --title "MixLab" --error "$text" >/dev/null 2>&1 || true
+  elif command -v xmessage >/dev/null 2>&1; then
+    xmessage -center "$text" >/dev/null 2>&1 || true
+  fi
+}
+
 # **What this image does when it is given nothing to do** — T105, D6. A double click in a file
 # manager passes no arguments and should open MixLab; `./mixengine-<version>-linux-x86_64.AppImage
 # status` passes one and has to stay the CLI it has always been. The AppImage runtime consumes its
 # own `--appimage-*` arguments before this script is reached, so neither branch ever sees one.
 if [ "$#" -eq 0 ]; then
-  # **This image does not carry WebKitGTK.** appimagetool bundles no libraries, and doing it would
-  # mean linuxdeploy and its GTK plugin — a dependency and a failure mode of a different size, and a
-  # follow-up (T105a) rather than part of T105. What is worth doing here is failing in words:
-  # without this, a person who double-clicks on a machine without the 4.1 API gets a linker message
-  # about a soname, which names no package they could install.
-  if ldd "$cache/mixlab" 2>/dev/null | grep -q "not found"; then
-    echo "MixLab needs WebKitGTK 4.1, which this system does not have." >&2
-    echo "Install it — libwebkit2gtk-4.1-0 on Debian and Ubuntu, webkit2gtk4.1 on Fedora and" >&2
-    echo "RHEL, libwebkit2gtk-4_1-0 on openSUSE — or use the .deb or .rpm, which declare it." >&2
-    echo "The command line is unaffected: run this file with an argument, e.g. '$0 status'." >&2
+  # **This image does not carry WebKitGTK, and since ADR 0028 that is a decision rather than an
+  # interim.** Every distribution new enough to run this window already packages the library; the
+  # one family that does not is one whose glib is too old for it as well, so carrying WebKitGTK
+  # there would mean carrying the platform. What is worth doing here is refusing in words: without
+  # this, a person below the floor gets a linker message about a soname, which names no package they
+  # could install — and, from a file manager, gets nothing at all.
+  refusal="$(window_refusal "$cache/mixlab")"
+  if [ -n "$refusal" ]; then
+    printf '%s\n' "$refusal" >&2
+    show_refusal_dialog "$refusal"
     exit 1
   fi
 
