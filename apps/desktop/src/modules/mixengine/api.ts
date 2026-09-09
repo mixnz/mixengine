@@ -479,6 +479,23 @@ export function updateApply(input: UpdateApply): Promise<UpdateApplied> {
   return invoke<UpdateApplied>("mixengine_update_apply", { params: input });
 }
 
+/** Bản cập nhật vừa rồi có thay chính cửa sổ này không — `src-tauri/src/relaunch.rs`. */
+export type Relaunch = "relaunching" | "notReplaced" | "elsewhere";
+
+/**
+ * Sau `update.apply`: cửa sổ này có phải thứ vừa bị thay không, và nếu phải thì khởi động lại — T106.
+ *
+ * Lệnh của chính ứng dụng chứ không phải của daemon, nhưng vẫn khai báo ở đây: `api.ts` là chỗ duy
+ * nhất module này gọi `invoke()`. Chỉ đưa sang hai trường mà phía Rust đọc, vì `UpdateApplied` là
+ * kiểu của `bindings/` và bên kia không phụ thuộc `mixengine-proto`.
+ */
+export function relaunchAfterUpdate(applied: UpdateApplied): Promise<Relaunch> {
+  return invoke<Relaunch>("relaunch_after_update", {
+    directory: applied.directory,
+    replaced: applied.replaced,
+  });
+}
+
 export function doctor(): Promise<DoctorReport> {
   return invoke<DoctorReport>("mixengine_doctor");
 }

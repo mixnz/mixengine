@@ -329,6 +329,8 @@ export default {
         none: "You are on the latest version.",
         applying: "Installing — MixEngine will exit when this finishes",
         managed: "This copy cannot update itself: {{because}}",
+        windowKept:
+          "MixEngine was updated; the MixLab window was not, because it is not installed beside the binaries. Run the installer to update the window.",
       },
       doctor: {
         title: "Diagnostics",

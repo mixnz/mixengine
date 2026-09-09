@@ -28,6 +28,12 @@ export default function UpdatesSection({
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
+  /* Cửa sổ này có được bản cập nhật vừa rồi thay hay không — T106. `"notReplaced"` là trạng thái một
+     bản cài `.pkg` trên macOS luôn ở: bốn binary nằm ở `/usr/local/bin`, còn `MixLab.app` ở
+     `/Applications`, nên cú swap không thấy cửa sổ nào cạnh `mixengined` và giữ nguyên nó — đúng
+     luật "không thêm gì". Daemon mới, cửa sổ cũ; và điều duy nhất tệ hơn chuyện đó là nó xảy ra mà
+     không ai nói gì. */
+  const [windowKept, setWindowKept] = useState(false);
   const dots = useRunningDots(applying);
   const { t } = useTranslation();
 
@@ -67,10 +73,15 @@ export default function UpdatesSection({
     if (status?.available == null) return;
     setApplying(true);
     try {
-      await api.updateApply({ version: status.available.version });
+      const applied = await api.updateApply({ version: status.available.version });
       // Không setApplying(false) ở đây: daemon vừa tự thoát, và "đang cài đặt" là câu đúng cho tới
       // khi gate ở MixEngineTab phát hiện presence rời "running" và thay hẳn màn hình này.
       onApplied();
+      /* Và cửa sổ tự khởi động lại nếu chính nó vừa bị thay — T106. `"relaunching"` nghĩa là tiến
+         trình này sắp kết thúc nên không còn gì phải vẽ; `"elsewhere"` là một bản cài khác trên cùng
+         máy, và im lặng mới đúng ở đó. */
+      const outcome = await api.relaunchAfterUpdate(applied);
+      setWindowKept(outcome === "notReplaced");
     } catch (e) {
       onError(errorMessage(t, e));
       setApplying(false);
@@ -112,6 +123,8 @@ export default function UpdatesSection({
           {t("mixengine.settings.updates.managed", { because: status.placement.because })}
         </p>
       )}
+
+      {windowKept && <p className={styles.muted}>{t("mixengine.settings.updates.windowKept")}</p>}
 
       <div className={styles.row}>
         <Button onClick={() => void check()} disabled={checking}>

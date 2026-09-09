@@ -327,6 +327,8 @@ const vi: typeof en = {
         none: "Bạn đang dùng bản mới nhất.",
         applying: "Đang cài đặt — MixEngine sẽ thoát khi xong",
         managed: "Bản này không tự cập nhật được: {{because}}",
+        windowKept:
+          "MixEngine đã được cập nhật, còn cửa sổ MixLab thì chưa: nó không nằm cạnh các binary. Chạy bộ cài để cập nhật cửa sổ.",
       },
       doctor: {
         title: "Chẩn đoán",
