@@ -126,7 +126,7 @@ in both, so what is developed against is what ships; `F5` and the hard reload st
 `npm run dev:app` and are swallowed too in a packaged build.
 
 > **Unverified**, and worth checking the day someone has a packaged build open: the blocking is a
-> DOM `preventDefault` in [`shell/App.tsx`](../../../apps/desktop/src/shell/App.tsx), and WebView2 handles reload as a browser
+> DOM `preventDefault` in [`shell/Workspace.tsx`](../../../apps/desktop/src/shell/Workspace.tsx), and WebView2 handles reload as a browser
 > accelerator. If the key gets through anyway, the fix is Tauri-side rather than more JavaScript.
 
 ### Every Ctrl/Cmd chord goes through one listener
@@ -146,7 +146,7 @@ table cannot describe an app that does not exist.
   a Mac that is what keeps `⌘W` on the tab instead of the AppKit menu bar.
 - **A modal decides who acts, not what the webview may have.** `inModal` is asked when choosing a
   handler; `unhandled: "swallow"` is asked of every candidate regardless. That is what keeps
-  `Ctrl+A` from painting the app blue behind an open dialog, which is what `App.tsx` used to do
+  `Ctrl+A` from painting the app blue behind an open dialog, which is what the shell used to do
   unconditionally.
 - **Context comes from three places, none of them a guess:** `enabled` is the pane's own React
   state, `modalDepth` is counted by [`dialogMotion`](../../../apps/desktop/src/components/dialogMotion.ts) and

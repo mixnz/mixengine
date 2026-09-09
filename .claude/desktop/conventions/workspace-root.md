@@ -2,7 +2,7 @@
 
 Every pane a module tab renders as its whole body — a workspace, or anything standing in for one —
 sits in `.tab-panel`, and `.tab-panel` is a **row-direction flex container** (`shell/App.css`, with
-`display: flex` set inline by `App.tsx` on the active tab). That one fact is the whole of this
+`display: flex` set inline by `Workspace.tsx` on the active tab). That one fact is the whole of this
 convention.
 
 Give the root element this block:

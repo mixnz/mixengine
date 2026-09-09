@@ -125,7 +125,8 @@ already lives.
 All three are settled now, and all three are worth knowing before adding a fourth:
 
 - **The `[+]` menu.** With one module the button opens a tab outright; with more it opens a menu.
-  Both branches are live in `shell/App.tsx`.
+  Both branches are live in `shell/Workspace.tsx`, and they count the modules a profile leaves
+  **visible** rather than every module in the registry — see `shell/profiles.ts`.
 - **Shortcuts are contributed, not registered centrally.** A module's chords go in
   `src/modules/<id>/shortcuts.ts` and reach the dispatcher through `ModuleDefinition.shortcuts`;
   `src/core/shortcuts/` may not import from `shell/` or `modules/` at all. See

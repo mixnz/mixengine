@@ -6,7 +6,8 @@ touches a network or a disk.
 ```
 React webview                              Rust process
 ─────────────                              ────────────
-shell/App.tsx    tab bar, no module        lib.rs           plugins, per-module state
+shell/App.tsx    profile gate              lib.rs           plugins, per-module state
+shell/Workspace  tab bar, no module
   └─ registry ──► modules/db/DbTab.tsx     modules/mod.rs   handler(): every command
   │     └─ <db>/api.ts ──invoke─────────► modules/db/commands/<engine>.rs
   │                    ◄─JSON result────    └─► drivers/{mysql,postgres,mongo,redis}.rs ──► server
@@ -48,12 +49,18 @@ and nothing in `src/shell/` ever looks inside it. Ids only — the shape and the
 
 ## Tabs and connections
 
-`shell/App.tsx` owns a list of tabs — `{ id, moduleId, title, badges, state }`. Each renders the `Tab`
-component its module supplies, and a tab that has been on screen is kept mounted (hidden with
-`display: none`) so switching tabs never loses a connection or scroll position. `Ctrl/Cmd+T` opens
-a tab of `DEFAULT_MODULE_ID`, `Ctrl/Cmd+W` closes one, `Ctrl+Tab` and `Ctrl+Shift+Tab` move along
-the strip; closing the last tab spawns a fresh one. With more than one module registered, `[+]`
-opens a menu instead of a tab.
+`shell/Workspace.tsx` owns a list of tabs — `{ id, moduleId, title, badges, state }`. Each renders
+the `Tab` component its module supplies, and a tab that has been on screen is kept mounted (hidden
+with `display: none`) so switching tabs never loses a connection or scroll position. `Ctrl/Cmd+T`
+opens a tab of the default module, `Ctrl/Cmd+W` closes one, `Ctrl+Tab` and `Ctrl+Shift+Tab` move
+along the strip; closing the last tab spawns a fresh one. With more than one module **visible**,
+`[+]` opens a menu instead of a tab.
+
+Which modules are visible is a setting, and `shell/App.tsx` is the gate that settles it before the
+workspace mounts: `shell/profiles.ts` holds `enabledModules`, and everything above that enumerates
+modules — the `[+]` menu, the number chords, the Settings panes, session restore — reads
+`visibleModules()`. See
+[the T108 design](../../../docs/superpowers/specs/2026-09-09-t108-a-module-visibility-setting-design.md).
 
 The strip survives a restart, and so does what each tab had open: `shell/session.ts` keeps
 `{ id, moduleId, title, state }` per tab and which one was active in `localStorage`. `state` is the
