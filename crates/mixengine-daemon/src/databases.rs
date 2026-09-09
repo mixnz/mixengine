@@ -15,10 +15,11 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use mixengine_core::Store;
-use mixengine_core::extensions::manifest::Body;
+use mixengine_core::extensions::manifest::{Body, DesktopApp};
 use mixengine_core::extensions::store::{self as extension_store, Installed};
 use mixengine_core::generate::databases::{Ask, validated_identifier};
 use mixengine_core::services::handoff::{self, CREDENTIAL_ENV, Connection};
+use mixengine_core::window;
 use mixengine_platform::{InstalledApp, Located, Started};
 use mixengine_proto::{
     DatabaseAccount, DatabaseClientQuery, DatabaseClientReport, DatabaseCreate,
@@ -28,6 +29,24 @@ use mixengine_proto::{
 use tokio::sync::Mutex;
 
 use crate::error::ToWire as _;
+
+/// What a database will be handed to: which state to report, what to start, and under which scheme
+/// — roadmap task **T107**.
+///
+/// **One value and not a tuple**, because it grew a third member the day the window stopped being an
+/// extension: a `(DesktopClient, Option<InstalledApp>)` with a scheme bolted on is three things a
+/// caller has to keep in step by hand, and the scheme is the one of the three that used to be read
+/// separately and could disagree.
+struct Client {
+    /// What `mix database client` prints, and what a refused `open` carries back.
+    state: DesktopClient,
+
+    /// How to start it, when this machine has it.
+    app: Option<InstalledApp>,
+
+    /// The scheme its handoff URL is written under, when there is something to start.
+    scheme: Option<String>,
+}
 
 /// The `database.*` half of the API.
 #[derive(Debug)]
@@ -157,7 +176,7 @@ impl Databases {
         let address = handoff::address(&self.store, &asked.service)
             .await
             .map_err(|error| error.to_wire())?;
-        let (client, _) = self.locate_client().await?;
+        let client = self.locate_client().await?.state;
 
         // **Composed, not looked up** — roadmap task **T84**, the design's D6. This method still
         // touches the credential store not at all: the address is what the recipe's administrator
@@ -286,18 +305,19 @@ impl Databases {
             .with_hint("leave `--user` off: the client connects without one"));
         }
 
-        let (client, located) = self.locate_client().await?;
-        let Some(app) = located else {
+        let located = self.locate_client().await?;
+        let (Some(app), Some(scheme)) = (located.app, located.scheme) else {
             return Ok(DatabaseHandoff {
                 service: asked.service.clone(),
                 protocol: address.protocol,
                 user: None,
                 database,
                 secret: None,
-                client,
+                client: located.state,
                 launched: None,
             });
         };
+        let client = located.state;
 
         self.services.ensure_running(&asked.service).await?;
 
@@ -323,7 +343,6 @@ impl Databases {
             None => (None, BTreeMap::new()),
         };
 
-        let scheme = self.scheme().await?;
         let url = handoff::url(&Connection {
             scheme: &scheme,
             label: asked.service.as_str(),
@@ -346,44 +365,68 @@ impl Databases {
         })
     }
 
-    /// The first installed `desktop-app` extension, by id.
-    async fn desktop_client(&self) -> Result<Option<Installed>, Error> {
+    /// The first installed `desktop-app` extension, by id, with the body already unwrapped.
+    async fn desktop_extension(&self) -> Result<Option<(Installed, DesktopApp)>, Error> {
         let installed = extension_store::all(&self.store)
             .await
             .map_err(|error| error.to_wire())?;
 
         Ok(installed
             .into_iter()
-            .find(|one| matches!(one.manifest.body, Body::DesktopApp(_))))
+            .find_map(|one| match &one.manifest.body {
+                Body::DesktopApp(app) => {
+                    let app = app.clone();
+                    Some((one, app))
+                }
+                _ => None,
+            }))
     }
 
-    /// The scheme the installed client reads its URL under.
-    async fn scheme(&self) -> Result<String, Error> {
-        match self.desktop_client().await?.map(|one| one.manifest.body) {
-            Some(Body::DesktopApp(app)) => Ok(app.scheme),
-            _ => Err(Error::new(
-                ErrorCode::Internal,
-                "the desktop client vanished between two reads".to_owned(),
-            )),
+    /// The client as a state, how to start it, and the scheme it reads — roadmap task **T107**.
+    ///
+    /// **The window answers first, and the condition is the scheme.** MixLab is MixEngine's client
+    /// *for `mixdb://`*: on a machine that also has standalone MixDB it is the one MixEngine
+    /// installs, updates and supports, and after this phase `mixnz/mixdb` is archived. But
+    /// `desktop-app` is a general mechanism, and an entry naming some other client for some other
+    /// scheme must not be shadowed by a window that cannot read its URLs — so the window answers
+    /// when there is no extension, or when the installed one's scheme is the window's own.
+    ///
+    /// **One read of the store and not two.** `scheme()` used to be a second read, with an
+    /// `Internal` error for *the desktop client vanished between two reads* standing in for the race
+    /// between them; the client is resolved once here and the race is gone with it.
+    async fn locate_client(&self) -> Result<Client, Error> {
+        let extension = self.desktop_extension().await?;
+        let ours = extension
+            .as_ref()
+            .is_none_or(|(_, app)| app.scheme == window::SCHEME);
+
+        if ours && let Located::Installed(app) = self.locate_window().await? {
+            return Ok(Client {
+                state: DesktopClient::Installed {
+                    extension: None,
+                    name: window::NAME.to_owned(),
+                    program: app.program.display().to_string(),
+                },
+                app: Some(app),
+                scheme: Some(window::SCHEME.to_owned()),
+            });
         }
-    }
 
-    /// The client as a state, and — when it is installed — how to start it.
-    async fn locate_client(&self) -> Result<(DesktopClient, Option<InstalledApp>), Error> {
-        let Some(installed) = self.desktop_client().await? else {
-            return Ok((DesktopClient::NoClient, None));
+        let Some((installed, app)) = extension else {
+            return Ok(Client {
+                state: DesktopClient::NoClient,
+                app: None,
+                scheme: None,
+            });
         };
-        let Body::DesktopApp(app) = &installed.manifest.body else {
-            return Ok((DesktopClient::NoClient, None));
-        };
-        let extension = installed.id.clone();
+        let id = installed.id.clone();
         let name = installed.name().to_owned();
         let homepage = installed.manifest.extension.homepage.clone();
 
         let Some(hint) = app.detect.here().map(str::to_owned) else {
-            return Ok((
-                DesktopClient::NotInstalled {
-                    extension,
+            return Ok(Client {
+                state: DesktopClient::NotInstalled {
+                    extension: id,
                     name,
                     searched: format!(
                         "nowhere — the manifest names no way to find it on {}",
@@ -391,8 +434,9 @@ impl Databases {
                     ),
                     homepage,
                 },
-                None,
-            ));
+                app: None,
+                scheme: None,
+            });
         };
 
         // Off the runtime: a registry walk, a Spotlight query.
@@ -408,24 +452,48 @@ impl Databases {
             .map_err(|error| error.to_wire())?;
 
         Ok(match located {
-            Located::Installed(app) => (
-                DesktopClient::Installed {
-                    extension: Some(extension),
+            Located::Installed(found) => Client {
+                state: DesktopClient::Installed {
+                    extension: Some(id),
                     name,
-                    program: app.program.display().to_string(),
+                    program: found.program.display().to_string(),
                 },
-                Some(app),
-            ),
-            Located::NotInstalled { searched } => (
-                DesktopClient::NotInstalled {
-                    extension,
+                app: Some(found),
+                scheme: Some(app.scheme),
+            },
+            Located::NotInstalled { searched } => Client {
+                state: DesktopClient::NotInstalled {
+                    extension: id,
                     name,
                     searched,
                     homepage,
                 },
-                None,
-            ),
+                app: None,
+                scheme: None,
+            },
         })
+    }
+
+    /// This install's own window, off the runtime — roadmap task **T107**.
+    ///
+    /// A handful of `stat`s rather than a registry walk, and still through `spawn_blocking`: the two
+    /// lookups are asked the same way because a caller reading this should not have to know which of
+    /// them is cheap this month.
+    async fn locate_window(&self) -> Result<Located, Error> {
+        let host = Arc::clone(&self.host);
+
+        tokio::task::spawn_blocking(move || {
+            host.desktop_apps()
+                .locate_window(window::EXECUTABLE, window::BUNDLE)
+        })
+        .await
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "the task locating the window did not finish".to_owned(),
+            )
+        })?
+        .map_err(|error| error.to_wire())
     }
 
     /// The account's password, read now — the moment of the handoff and no earlier.
@@ -587,6 +655,37 @@ mod tests {
         .expect("the row");
     }
 
+    /// The same fixture reading a scheme of its own — roadmap task **T107**.
+    ///
+    /// One string apart from [`a_mixdb`], because one string is the whole of what the ordering rule
+    /// turns on: the window answers for its own scheme and stands aside for any other.
+    async fn a_desktop_app(store: &Store, id: &str, scheme: &str) {
+        let body = mixengine_testkit::extension::MIXDB
+            .replace("id = \"mixdb\"", &format!("id = \"{id}\""))
+            .replace("scheme = \"mixdb\"", &format!("scheme = \"{scheme}\""));
+        let manifest = mixengine_core::extensions::manifest::read(
+            std::path::Path::new("extension.toml"),
+            &body,
+        )
+        .expect("the fixture parses");
+
+        remember(
+            store,
+            &Installed {
+                id: ExtensionId::parse(id).expect("an id"),
+                manifest,
+                install_dir: std::path::PathBuf::from("/extensions/other"),
+                data_dir: std::path::PathBuf::from("/data/extensions/other"),
+                source: Source::Path,
+                signed: false,
+                installed_at: Timestamp(0),
+                ports: BTreeMap::new(),
+            },
+        )
+        .await
+        .expect("the row");
+    }
+
     fn open(service: &str, user: Option<&str>, database: Option<&str>) -> DatabaseOpen {
         DatabaseOpen {
             service: id(service),
@@ -616,6 +715,131 @@ mod tests {
             .expect("a state");
         assert_eq!(handoff.client, DesktopClient::NoClient);
         assert_eq!(handoff.launched, None);
+    }
+
+    /// **The merged product's client, on a machine that never had MixDB** — roadmap task **T107**.
+    /// No extension is installed, and `mix database open` still lands somewhere.
+    #[tokio::test]
+    async fn the_window_is_the_client_when_no_extension_is_installed() {
+        let host = Arc::new(MockHost::with_window(
+            std::env::temp_dir(),
+            "/opt/mixengine/mixlab",
+        ));
+        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
+
+        let report = databases
+            .client(&DatabaseClientQuery {
+                service: id("redis@main"),
+            })
+            .await
+            .expect("answers");
+
+        match report.client {
+            DesktopClient::Installed {
+                extension,
+                name,
+                program,
+            } => {
+                assert_eq!(extension, None, "the window is not an extension");
+                assert_eq!(name, mixengine_core::window::NAME);
+                assert!(program.contains("mixlab"), "{program}");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// **The window wins over a standalone MixDB.** A MixDB user who installs MixEngine has both;
+    /// the one MixEngine installs, updates and supports is the one a database opens in.
+    #[tokio::test]
+    async fn the_window_answers_before_the_mixdb_extension() {
+        let host = Arc::new(MockHost::with_window_and_desktop_app(
+            std::env::temp_dir(),
+            "/opt/mixengine/mixlab",
+            "/opt/mixdb/mixdb",
+        ));
+        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
+        a_mixdb(&databases.store).await;
+
+        match databases
+            .client(&DatabaseClientQuery {
+                service: id("redis@main"),
+            })
+            .await
+            .expect("answers")
+            .client
+        {
+            DesktopClient::Installed { name, .. } => {
+                assert_eq!(name, mixengine_core::window::NAME);
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// **A client for some other scheme is not shadowed.** `desktop-app` is a general mechanism, and
+    /// the window is MixEngine's client for `mixdb://` and for nothing else — roadmap task **T107**.
+    #[tokio::test]
+    async fn an_extension_for_another_scheme_still_answers() {
+        let host = Arc::new(MockHost::with_window_and_desktop_app(
+            std::env::temp_dir(),
+            "/opt/mixengine/mixlab",
+            "/opt/elsewhere/elsewhere",
+        ));
+        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
+        a_desktop_app(&databases.store, "elsewhere", "elsewhere").await;
+
+        match databases
+            .client(&DatabaseClientQuery {
+                service: id("redis@main"),
+            })
+            .await
+            .expect("answers")
+            .client
+        {
+            DesktopClient::Installed { extension, .. } => {
+                assert_eq!(
+                    extension.as_ref().map(ExtensionId::as_str),
+                    Some("elsewhere"),
+                    "the extension named this client"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    /// The URL a window handoff produces carries the window's own scheme, and it is the window that
+    /// is started — T83's rule, on the new path.
+    #[tokio::test]
+    async fn a_window_handoff_carries_the_scheme_and_starts_the_window() {
+        let host = Arc::new(MockHost::with_window(
+            std::env::temp_dir(),
+            "/opt/mixengine/mixlab",
+        ));
+        let (_home, databases) =
+            databases(Arc::clone(&host), &[("redis@main", "redis", 6379)]).await;
+
+        let handoff = databases
+            .open(&open("redis@main", None, None))
+            .await
+            .expect("opened");
+        assert_eq!(handoff.launched, Some(Launch::Running { pid: 4242 }));
+
+        let launched = host.launched();
+        assert_eq!(launched.len(), 1, "{launched:?}");
+        assert!(
+            launched[0].program.ends_with("mixlab"),
+            "{:?}",
+            launched[0].program
+        );
+        let url = launched[0]
+            .args
+            .last()
+            .expect("the URL")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            url.starts_with(&format!("{}://connect?", mixengine_core::window::SCHEME)),
+            "{url}"
+        );
     }
 
     /// The extension without the application is the other state, and it says where it looked and
