@@ -400,28 +400,41 @@ mod tests {
         (root, staged, installed)
     }
 
-    /// A staged payload and an install directory in which the named entry is a *directory* rather
-    /// than a file — the shape a macOS application bundle takes.
+    /// A staged payload and an install directory in which one entry is a *directory* rather than a
+    /// file — the shape a macOS application bundle takes. `file` is the name that entry has on disk.
     ///
-    /// **Named with the ordinary binary name and not `MixLab.app`**, deliberately: [`replace`]
-    /// branches on `source.is_dir()` and never on the operating system, so this exercises the whole
-    /// tree path on Windows and Linux too. What *is* per-OS is
-    /// `mixengine_platform::install::application_file_name`, and that is tested where it lives.
-    fn tree_layout(name: &str) -> (tempfile::TempDir, PathBuf, PathBuf) {
+    /// **The on-disk name and not a payload key**, because the two are the same for four of the five
+    /// names and are not for the fifth: the window is `MixLab.app` on macOS and `binary_name` never
+    /// produces that. Taking the name already resolved is what lets the tree tests below use an
+    /// ordinary binary — [`replace`] branches on `source.is_dir()` and never on the operating system,
+    /// so they exercise the whole tree path on all three — and lets the window's own test ask
+    /// `mixengine_platform::install::application_file_name` for its name, which is the question this
+    /// helper must not answer for it.
+    fn tree_layout(file: &str) -> (tempfile::TempDir, PathBuf, PathBuf) {
         let root = tempfile::tempdir().expect("a temporary directory");
         let staged = root.path().join("staged");
         let installed = root.path().join("installed");
 
-        let inside = staged.join("mixengine").join(binary_name(name));
+        let inside = staged.join("mixengine").join(file);
         std::fs::create_dir_all(inside.join("Contents/MacOS")).expect("a staged bundle");
-        std::fs::write(inside.join("Contents/MacOS/mixlab"), b"new").expect("its executable");
+        std::fs::write(inside.join("Contents/MacOS/window"), b"new").expect("its executable");
         std::fs::write(inside.join("Contents/Info.plist"), b"new plist").expect("its plist");
 
-        let here = installed.join(binary_name(name));
+        let here = installed.join(file);
         std::fs::create_dir_all(here.join("Contents/MacOS")).expect("an installed bundle");
-        std::fs::write(here.join("Contents/MacOS/mixlab"), b"old").expect("its executable");
+        std::fs::write(here.join("Contents/MacOS/window"), b"old").expect("its executable");
 
         (root, staged, installed)
+    }
+
+    /// One `provides` row: the payload's key, and the path that key sits at inside the archive.
+    ///
+    /// Beside [`provides`], which derives the path from the key with [`binary_name`] — true of the
+    /// four ordinary binaries and false of the window, whose archive entry is its bundle.
+    fn provides_at(name: &str, file: &str) -> BTreeMap<String, String> {
+        [(name.to_owned(), format!("mixengine/{file}"))]
+            .into_iter()
+            .collect()
     }
 
     /// The map the feed carries, as `packaging/feed.sh` computes it from the archive.
@@ -534,16 +547,21 @@ mod tests {
 
     /// T106. macOS's window is a directory, and an update that could only replace files would leave
     /// a new daemon beside a window from the release before it.
+    ///
+    /// Staged under an ordinary binary's name so this runs the same way on all three systems: what
+    /// is being tested is [`replace`]'s branch on `source.is_dir()`, and that branch has no `cfg`.
+    /// Which *name* the window is looked up under is the test after next.
     #[test]
     fn the_swap_replaces_a_directory_as_a_tree() {
-        let (_root, staged, installed) = tree_layout("mixlab");
+        let file = binary_name("mixengined");
+        let (_root, staged, installed) = tree_layout(&file);
 
-        let swapped = swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+        let swapped = swap(&staged, &provides_at("mixengined", &file), &installed).expect("a swap");
 
-        assert_eq!(swapped.replaced, vec!["mixlab".to_owned()]);
-        let here = installed.join(binary_name("mixlab"));
+        assert_eq!(swapped.replaced, vec!["mixengined".to_owned()]);
+        let here = installed.join(&file);
         assert_eq!(
-            std::fs::read(here.join("Contents/MacOS/mixlab")).expect("the new executable"),
+            std::fs::read(here.join("Contents/MacOS/window")).expect("the new executable"),
             b"new"
         );
         assert!(
@@ -551,10 +569,33 @@ mod tests {
             "a file the old bundle did not have is part of the new one"
         );
         assert_eq!(
-            std::fs::read(with_old_suffix(&here).join("Contents/MacOS/mixlab"))
+            std::fs::read(with_old_suffix(&here).join("Contents/MacOS/window"))
                 .expect("the old executable"),
             b"old",
             "the bundle that was replaced is kept beside the one that replaced it"
+        );
+    }
+
+    /// **The window is looked up under the name this system installs it as** — [`installed_name`],
+    /// and not [`binary_name`].
+    ///
+    /// The fixture asks `mixengine_platform::install::application_file_name` for that name, which is
+    /// the only way to write this test once for three systems — and it is the question that matters:
+    /// a `swap` that appended an executable suffix here would look for `mixlab` in a directory
+    /// holding `MixLab.app`, find nothing, and report the window as *kept* on every macOS update
+    /// for ever, with no error and no log line.
+    #[test]
+    fn the_window_is_looked_up_by_the_name_this_system_installs_it_under() {
+        let file = mixengine_platform::install::application_file_name(WINDOW, WINDOW_BUNDLE);
+        let (_root, staged, installed) = tree_layout(&file);
+
+        let swapped = swap(&staged, &provides_at(WINDOW, &file), &installed).expect("a swap");
+
+        assert_eq!(swapped.replaced, vec![WINDOW.to_owned()]);
+        assert_eq!(
+            std::fs::read(installed.join(&file).join("Contents/MacOS/window"))
+                .expect("the new executable"),
+            b"new"
         );
     }
 
@@ -562,18 +603,19 @@ mod tests {
     /// worse outcome than the update that was refused.
     #[test]
     fn a_swap_that_fails_on_a_tree_puts_everything_back() {
-        let (_root, staged, installed) = tree_layout("mixlab");
+        let file = binary_name("mixengined");
+        let (_root, staged, installed) = tree_layout(&file);
         // A second name the payload promises and does not carry. `provides` is a BTreeMap, so "mix"
-        // is walked before "mixlab": the failure comes first and the tree is never touched, which is
-        // the unwind's *other* half. The tree's own rename is undone by the case below it.
+        // is walked before "mixengined": the failure comes first and the tree is never touched,
+        // which is the unwind's *other* half. The tree's own rename is undone by the case below it.
         std::fs::write(installed.join(binary_name("mix")), b"old").expect("an installed file");
 
-        swap(&staged, &provides(&["mix", "mixlab"]), &installed)
+        swap(&staged, &provides(&["mix", "mixengined"]), &installed)
             .expect_err("the payload has no mix to copy");
 
-        let here = installed.join(binary_name("mixlab"));
+        let here = installed.join(&file);
         assert_eq!(
-            std::fs::read(here.join("Contents/MacOS/mixlab"))
+            std::fs::read(here.join("Contents/MacOS/window"))
                 .expect("the old executable, untouched"),
             b"old"
         );
@@ -586,16 +628,17 @@ mod tests {
     /// The unwind's own half: a tree that *was* replaced, and a name after it that fails.
     #[test]
     fn a_replaced_tree_is_put_back_when_a_later_name_fails() {
-        let (_root, staged, installed) = tree_layout("mixlab");
-        // "mixlab" sorts before "zzz", so the tree is swapped and then the walk fails.
+        let file = binary_name("mixengined");
+        let (_root, staged, installed) = tree_layout(&file);
+        // "mixengined" sorts before "zzz", so the tree is swapped and then the walk fails.
         std::fs::write(installed.join(binary_name("zzz")), b"old").expect("an installed file");
 
-        swap(&staged, &provides(&["mixlab", "zzz"]), &installed)
+        swap(&staged, &provides(&["mixengined", "zzz"]), &installed)
             .expect_err("the payload has no zzz to copy");
 
-        let here = installed.join(binary_name("mixlab"));
+        let here = installed.join(&file);
         assert_eq!(
-            std::fs::read(here.join("Contents/MacOS/mixlab")).expect("the old executable, back"),
+            std::fs::read(here.join("Contents/MacOS/window")).expect("the old executable, back"),
             b"old"
         );
         assert!(
@@ -609,29 +652,31 @@ mod tests {
     /// that updated twice would keep every bundle it had ever run.
     #[test]
     fn the_old_tree_of_a_finished_update_is_discarded() {
-        let (_root, staged, installed) = tree_layout("mixlab");
-        let swapped = swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+        let file = binary_name("mixengined");
+        let (_root, staged, installed) = tree_layout(&file);
+        let swapped = swap(&staged, &provides_at("mixengined", &file), &installed).expect("a swap");
 
         assert_eq!(discard_old(&installed, &swapped.replaced), 1);
-        assert!(!with_old_suffix(&installed.join(binary_name("mixlab"))).exists());
+        assert!(!with_old_suffix(&installed.join(&file)).exists());
     }
 
     /// A leftover `.old` tree from an update whose daemon never came up must not refuse the next.
     #[test]
     fn a_leftover_old_tree_does_not_refuse_the_next_swap() {
-        let (_root, staged, installed) = tree_layout("mixlab");
-        let old = with_old_suffix(&installed.join(binary_name("mixlab")));
+        let file = binary_name("mixengined");
+        let (_root, staged, installed) = tree_layout(&file);
+        let old = with_old_suffix(&installed.join(&file));
         std::fs::create_dir_all(&old).expect("a leftover");
         std::fs::write(old.join("stale"), b"older").expect("something in it");
 
-        swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+        swap(&staged, &provides_at("mixengined", &file), &installed).expect("a swap");
 
         assert!(
             !old.join("stale").exists(),
             "the tree replaced by this swap, not the one left by the last"
         );
         assert!(
-            old.join("Contents/MacOS/mixlab").is_file(),
+            old.join("Contents/MacOS/window").is_file(),
             "and what is there is the bundle this swap moved aside"
         );
     }
