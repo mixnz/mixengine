@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
 import GlassFilter from "./components/GlassFilter";
@@ -15,17 +15,34 @@ import type { TabBadge } from "./module";
 import { onTabRequest, takeTabRequests } from "./launch";
 import { readSession, writeSession } from "./session";
 import { rebadgeTab, restateTab, retitleTab, tabIdAtOffset, type TabInfo } from "./tabs";
-import { DEFAULT_MODULE_ID, MODULES, moduleById } from "./registry";
-import { ALL_SHORTCUTS, MODULE_TAB_SHORTCUTS } from "./shortcuts";
+import { MODULES, moduleById } from "./registry";
+import { defaultModuleId, visibleModules } from "./profiles";
+import { newModuleTabId, shortcutsFor } from "./shortcuts";
 import "./App.css";
 /* After App.css, so the glass surfaces override the plain ones they replace rather than the other
    way round. */
 import "./glass.css";
 
-function App() {
+interface WorkspaceProps {
+  /** The module ids this window draws — `shell/profiles.ts`. */
+  enabled: string[];
+  onEnabledChange: (enabled: string[]) => void;
+}
+
+function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const { t } = useTranslation();
 
-  function newTab(moduleId: string = DEFAULT_MODULE_ID, state?: unknown): TabInfo {
+  /* Which modules this window has, and everything derived from that. Memoized on the ids flattened
+     to a string rather than on the array, because the array is a fresh one whenever the setting is
+     written: the dispatcher rebinds its listener on identity, and the Settings table is handed the
+     very same `shortcuts` value so the two cannot come to disagree. */
+  const enabledKey = enabled.join(",");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `enabledKey` is `enabled` flattened; depending on the array itself is the thing this exists to avoid.
+  const visible = useMemo(() => visibleModules(enabled), [enabledKey]);
+  const visibleIds = useMemo(() => visible.map((m) => m.id), [visible]);
+  const shortcuts = useMemo(() => shortcutsFor(visible), [visible]);
+
+  function newTab(moduleId: string = defaultModuleId(visible), state?: unknown): TabInfo {
     const def = moduleById(moduleId);
     return { id: crypto.randomUUID(), moduleId, title: t(def.defaultTitleKey), badges: [], state };
   }
@@ -34,7 +51,7 @@ function App() {
      one opaque value the module behind it asked to have kept — the shell carries it and does not
      read it. What a module does with its own is up to the module, and it does not do it until the
      tab is first looked at. See `shell/session.ts`. */
-  const [restored] = useState(readSession);
+  const [restored] = useState(() => readSession(visibleIds));
   const [tabs, setTabs] = useState<TabInfo[]>(() =>
     // Badges are never stored; the module reports its own the moment it mounts.
     restored ? restored.tabs.map((tab) => ({ ...tab, badges: [] })) : [newTab()],
@@ -54,19 +71,25 @@ function App() {
   const [moduleMenu, setModuleMenu] = useState<{ x: number; y: number } | null>(null);
 
   useScrollAcceleration();
-  useShortcutDispatcher(ALL_SHORTCUTS);
+  useShortcutDispatcher(shortcuts);
   // Always listening — the tab bar is there on every screen the app has.
   useShortcut("app.newTab", () => openTab(), true);
   useShortcut("app.closeTab", () => closeTab(activeId), true);
   useShortcut("app.nextTab", () => setActiveId(tabIdAtOffset(tabs, activeId, 1)), true);
   useShortcut("app.prevTab", () => setActiveId(tabIdAtOffset(tabs, activeId, -1)), true);
-  /* One number key per module — `Ctrl/Cmd+1` for the first in the registry, `2` for the second.
-     Hooks in a loop, which is safe here and only here: `MODULE_TAB_SHORTCUTS` is a module-level
-     constant, so the count and the order are fixed for the life of the app. Reading the list rather
-     than naming the modules is what keeps this file from being the second place that knows them. */
-  for (const { moduleId, def } of MODULE_TAB_SHORTCUTS) {
+  /* One number key per **visible** module — `Ctrl/Cmd+1` for the first one on the strip, `2` for
+     the second. Hooks in a loop, which is safe here and only here: the loop is over `MODULES`, a
+     module-level constant, so the count and the order are fixed for the life of the app.
+
+     Over the registry and not over the visible list, and that is not a detail: hooks may not change
+     in number between renders, and the visible list shrinks with the profile. So all five
+     registrations are made on every render and a hidden module's simply passes `false`, which
+     registers nothing. Which *chord* each one carries is `shortcuts`' business — see
+     `moduleTabShortcuts`. Reading the list rather than naming the modules is what keeps this file
+     from being the second place that knows them. */
+  for (const module of MODULES) {
     // eslint-disable-next-line react-hooks/rules-of-hooks -- module-level constant, see above: same count, same order, every render, for the life of the app.
-    useShortcut(def.id, () => openTab(moduleId), true);
+    useShortcut(newModuleTabId(module.id), () => openTab(module.id), visibleIds.includes(module.id));
   }
 
   /* `state` is only ever given by the backend's tab requests below: it is what the module behind
@@ -118,6 +141,31 @@ function App() {
     setMounted((prev) => (prev.includes(activeId) ? prev : [...prev, activeId]));
   }, [activeId]);
 
+  /* A module turned off takes its tabs with it. An effect on the visible list rather than a branch
+     inside the Settings handler, because there is more than one way that list changes — the three
+     presets, the five checkboxes, and later T110's handoff — and a rule enforced at one call site
+     is a rule the second call site breaks. The confirmation happens before the setting changes, in
+     the Settings pane; by the time this runs the answer was yes.
+
+     Both updaters return their input unchanged when there is nothing to drop, so this does not
+     rewrite the session on every render it happens to run in. Closing the last tab opens a fresh
+     one, exactly as `closeTab` does. `activeId` needs nothing: the layout effect above already
+     keeps it pointing at a tab that exists. */
+  useEffect(() => {
+    setTabs((prev) => {
+      const kept = prev.filter((tab) => visibleIds.includes(tab.moduleId));
+      if (kept.length === prev.length) return prev;
+      return kept.length > 0 ? kept : [newTab()];
+    });
+    setMounted((prev) => {
+      const kept = prev.filter((id) =>
+        tabs.some((tab) => tab.id === id && visibleIds.includes(tab.moduleId)),
+      );
+      return kept.length === prev.length ? prev : kept;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `newTab` is rebuilt every render and closes over `visible`, which is in the list already.
+  }, [visibleIds, tabs]);
+
   /* Written as it changes rather than on the way out: a desktop app is closed by the window
      manager, by a crash, or by an update restarting it, and only the first of those would ever
      reach a handler. Badge changes bring this round too — they cost a `JSON.stringify` of three
@@ -131,6 +179,11 @@ function App() {
      backend's queue is gone from it, and a request dropped because StrictMode remounted this
      component between the call and its answer would be a tab that never opens. */
   useEffect(() => {
+    /* All five ids, not the visible ones: what has been taken from the backend's queue is gone from
+       it, and filtering here would leave a `mixdb://` handoff for a hidden module rotting in a queue
+       nothing ever drains again. Such a tab opens and draws — `MODULES` is unchanged, so
+       `moduleById` finds it. What the tab should *say*, and what the Services screen's *open* button
+       should offer instead, is T110. */
     const ids = MODULES.map((m) => m.id);
     async function drain() {
       const requests = await takeTabRequests(ids).catch(() => []);
@@ -194,8 +247,9 @@ function App() {
           <TabAction
             onClick={(e) => {
               // One module and a menu would be a list of one, so the button just opens it — which
-              // is what it did before there was a registry at all.
-              if (MODULES.length < 2) {
+              // is what it did before there was a registry at all, and what the *MixEngine* profile
+              // does every time.
+              if (visible.length < 2) {
                 openTab();
                 return;
               }
@@ -259,12 +313,11 @@ function App() {
         })}
       </TabStrip>
 
-      {/* Unreachable while `MODULES` holds one entry, and here so that adding the second is a line
-          in `registry.ts` rather than a tab bar to rewrite. Which also means it has never run: the
-          module that lands beside `db` is the first thing that will exercise it. */}
+      {/* The modules this profile draws, in the registry's order. Unreachable while there is one of
+          them — the button above opens it outright rather than showing a menu of one. */}
       {moduleMenu && (
         <ContextMenu x={moduleMenu.x} y={moduleMenu.y} onClose={() => setModuleMenu(null)}>
-          {MODULES.map((m) => (
+          {visible.map((m) => (
             <button
               key={m.id}
               type="button"
@@ -322,6 +375,12 @@ function App() {
           onAccentChange={setAccent}
           glass={glass}
           onGlassChange={setGlass}
+          shortcuts={shortcuts}
+          modules={{
+            enabled,
+            onChange: onEnabledChange,
+            openIds: [...new Set(tabs.map((tab) => tab.moduleId))],
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       )}
@@ -329,4 +388,4 @@ function App() {
   );
 }
 
-export default App;
+export default Workspace;
