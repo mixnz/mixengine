@@ -1,0 +1,70 @@
+/* The colour and the ground come from `:root` in App.css, which sets `color` and `background-color`
+   outright and swaps both under the dark theme — so this screen inherits them and sets neither.
+   Dim text is `opacity`, the way SettingsModal.module.css does it. */
+.screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 1.5rem;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 34rem;
+}
+
+.question {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  text-align: center;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-bg);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.choice:hover,
+.choice:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.choiceName {
+  font-weight: 600;
+}
+
+.choiceAbout {
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}
+
+.hint {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}

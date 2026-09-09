@@ -50,8 +50,11 @@ every tag, and its `build` legs are what prove the window links on all three pla
 src/                 React frontend
   main.tsx           Entry point
   shell/             Tab bar, [+] menu, shortcuts, Settings — knows no module
+    App.tsx          The gate: which modules this window draws, decided before anything is drawn
+    Workspace.tsx    The tab bar itself, and everything that reads the visible module list
     module.ts        ModuleDefinition, ModuleTabProps, TabBadge — what a module is
-    registry.ts      MODULES, DEFAULT_MODULE_ID — the only file outside modules/ that names one
+    registry.ts      MODULES, DEFAULT_MODULE_ID, MODULE_PRESETS — the only file outside modules/ that names one
+    profiles.ts      enabledModules and visibleModules() — the setting behind the gate
     launch.ts        Tabs the backend asks for — the only other way a tab opens
     App.css          Tokens + chrome + the classes any module may use
   core/              Helpers no module owns and any module may use

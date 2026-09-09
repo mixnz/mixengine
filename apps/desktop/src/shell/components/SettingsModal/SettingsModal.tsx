@@ -3,10 +3,12 @@ import type { ComponentType } from "react";
 import type { AccentColor, ThemeMode } from "../../theme";
 import type { TranslationKey } from "../../../i18n";
 import type { IconProps } from "../../../icons";
-import { CloseIcon, DownloadIcon, KeyboardIcon, PaletteIcon } from "../../../icons";
+import type { ShortcutGroup } from "../../../core/shortcuts";
+import { CloseIcon, DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
-import { MODULES } from "../../registry";
+import { visibleModules } from "../../profiles";
 import AppearanceSection from "./AppearanceSection";
+import ModulesSection, { type ModuleSettings } from "./ModulesSection";
 import ShortcutsSection from "./ShortcutsSection";
 import UpdateSection from "./UpdateSection";
 import styles from "./SettingsModal.module.css";
@@ -19,27 +21,15 @@ interface SettingsModalProps {
   onAccentChange: (accent: AccentColor) => void;
   glass: boolean;
   onGlassChange: (glass: boolean) => void;
+  /** The catalogue the dispatcher was handed — see {@link ShortcutsSection}. */
+  shortcuts: ShortcutGroup[];
+  /** Which modules this window draws, and how to change it. */
+  modules: ModuleSettings;
   onClose: () => void;
 }
 
 /** A module's pane is identified by its module id, so this cannot be a closed union. */
 type SectionId = string;
-
-/** The panes, in the order they are listed: the one a user changes often first, then whatever the
- *  modules contribute, then the errands.
- *
- *  A module names its own pane, and every one of them names itself after the module — so the
- *  column reads as the app's parts, and a reader can tell before clicking which entries are the
- *  dialog's own and which belong to something they opened a tab of. What is *inside* a pane is
- *  that module's business and carries its own headings; the shell never sees them. */
-const SECTIONS: { id: SectionId; labelKey: TranslationKey; icon: ComponentType<IconProps> }[] = [
-  { id: "appearance", labelKey: "settings.appearance", icon: PaletteIcon },
-  { id: "shortcuts", labelKey: "shortcuts.title", icon: KeyboardIcon },
-  ...MODULES.flatMap((m) =>
-    m.settings ? [{ id: m.id, labelKey: m.settings.labelKey, icon: m.settings.Icon }] : [],
-  ),
-  { id: "update", labelKey: "update.title", icon: DownloadIcon },
-];
 
 /**
  * Everything about the app rather than about a connection.
@@ -56,10 +46,40 @@ function SettingsModal({
   onAccentChange,
   glass,
   onGlassChange,
+  shortcuts,
+  modules,
   onClose,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<SectionId>("appearance");
+  const [section, setSection] = useState<SectionId>("modules");
+
+  const visible = visibleModules(modules.enabled);
+
+  /* The panes, in the order they are listed: which parts of the app this window has at all, then
+     the one a user changes often, then whatever the visible modules contribute, then the errands.
+     Modules leads because it is the setting that decides which of the panes below it exist.
+
+     Rebuilt on every render rather than held as a module-level constant — T108 — because the module
+     panes come and go with the setting the first one carries.
+
+     A module names its own pane, and every one of them names itself after the module — so the
+     column reads as the app's parts, and a reader can tell before clicking which entries are the
+     dialog's own and which belong to something they opened a tab of. What is *inside* a pane is
+     that module's business and carries its own headings; the shell never sees them. */
+  const sections: { id: SectionId; labelKey: TranslationKey; icon: ComponentType<IconProps> }[] = [
+    { id: "modules", labelKey: "profiles.title", icon: ModulesIcon },
+    { id: "appearance", labelKey: "settings.appearance", icon: PaletteIcon },
+    { id: "shortcuts", labelKey: "shortcuts.title", icon: KeyboardIcon },
+    ...visible.flatMap((m) =>
+      m.settings ? [{ id: m.id, labelKey: m.settings.labelKey, icon: m.settings.Icon }] : [],
+    ),
+    { id: "update", labelKey: "update.title", icon: DownloadIcon },
+  ];
+
+  /* Turning a module off while its own pane is on screen would leave `section` pointing at nothing.
+     Derived rather than repaired in an effect, so there is no frame in which the dialog has no pane
+     at all. */
+  const shown = sections.some((s) => s.id === section) ? section : "modules";
 
   return (
     <Modal
@@ -79,15 +99,15 @@ function SettingsModal({
 
           <div className={styles.body}>
             <div className={styles.nav} role="tablist" aria-orientation="vertical">
-              {SECTIONS.map(({ id, labelKey, icon: Icon }) => (
+              {sections.map(({ id, labelKey, icon: Icon }) => (
                 <button
                   key={id}
                   type="button"
                   role="tab"
                   id={`settings-tab-${id}`}
-                  aria-selected={id === section}
+                  aria-selected={id === shown}
                   aria-controls={`settings-panel-${id}`}
-                  className={id === section ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
+                  className={id === shown ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
                   onClick={() => setSection(id)}
                 >
                   <Icon size={15} />
@@ -102,9 +122,18 @@ function SettingsModal({
             <div
               className={styles.panel}
               role="tabpanel"
+              id="settings-panel-modules"
+              aria-labelledby="settings-tab-modules"
+              hidden={shown !== "modules"}
+            >
+              <ModulesSection {...modules} />
+            </div>
+            <div
+              className={styles.panel}
+              role="tabpanel"
               id="settings-panel-appearance"
               aria-labelledby="settings-tab-appearance"
-              hidden={section !== "appearance"}
+              hidden={shown !== "appearance"}
             >
               <AppearanceSection
                 theme={theme}
@@ -120,11 +149,11 @@ function SettingsModal({
               role="tabpanel"
               id="settings-panel-shortcuts"
               aria-labelledby="settings-tab-shortcuts"
-              hidden={section !== "shortcuts"}
+              hidden={shown !== "shortcuts"}
             >
-              <ShortcutsSection />
+              <ShortcutsSection shortcuts={shortcuts} />
             </div>
-            {MODULES.map((m) =>
+            {visible.map((m) =>
               m.settings ? (
                 <div
                   key={m.id}
@@ -132,7 +161,7 @@ function SettingsModal({
                   role="tabpanel"
                   id={`settings-panel-${m.id}`}
                   aria-labelledby={`settings-tab-${m.id}`}
-                  hidden={section !== m.id}
+                  hidden={shown !== m.id}
                 >
                   <m.settings.Section />
                 </div>
@@ -143,7 +172,7 @@ function SettingsModal({
               role="tabpanel"
               id="settings-panel-update"
               aria-labelledby="settings-tab-update"
-              hidden={section !== "update"}
+              hidden={shown !== "update"}
             >
               <UpdateSection />
             </div>

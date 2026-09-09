@@ -39,6 +39,27 @@ const en = {
     moduleTools: "Tools",
     moduleMixEngine: "MixEngine",
   },
+  /* Which modules this window draws — T108. The first-run screen and the Settings pane share these
+     words on purpose: a person meets the three presets once at the start and finds the same three
+     names when they go looking for them again. */
+  profiles: {
+    title: "Modules",
+    question: "What will you use MixLab for?",
+    changeLater: "You can change this in Settings at any time.",
+    presetMixengine: "MixEngine",
+    presetMixengineAbout: "Sites, runtimes and services. The window MixEngine ships with.",
+    presetEverything: "Everything",
+    presetEverythingAbout: "MixEngine, and the database, REST and terminal tools.",
+    presetDatabaseTools: "Database tools",
+    presetDatabaseToolsAbout: "The database client, REST client, terminal and tools.",
+    presets: "Presets",
+    shown: "Modules shown",
+    lastOne: "At least one module has to stay on.",
+    confirmTitle: "Close these tabs?",
+    confirmMessage:
+      "Tabs open in {{modules}} will be closed. Nothing you have saved is deleted, and turning the module back on finds it where it was.",
+    confirmAction: "Turn off and close",
+  },
   pagination: {
     previousPage: "Previous page",
     nextPage: "Next page",

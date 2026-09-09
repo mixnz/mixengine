@@ -1,4 +1,3 @@
-import { MODULES } from "./registry";
 import type { TabInfo } from "./tabs";
 
 /**
@@ -101,29 +100,18 @@ export function parseSession(raw: string | null, knownModuleIds: string[]): Stor
   return { tabs, activeId };
 }
 
-/** The session as stored, or `null` on the first launch — and on any launch after one that wrote
- *  something this version cannot read. */
-export function readSession(): StoredSession | null {
-  return parseSession(
-    localStorage.getItem(STORAGE_KEY),
-    MODULES.map((m) => m.id),
-  );
+/**
+ * The session as stored, or `null` on the first launch — and on any launch after one that wrote
+ * something this version cannot read.
+ *
+ * `knownModuleIds` is the **visible** list and not the registry's: a tab of a module the profile
+ * hides is dropped rather than mounted blind, which is the same treatment a tab of a module that no
+ * longer exists already gets. One code path, one behaviour — T108.
+ */
+export function readSession(knownModuleIds: string[]): StoredSession | null {
+  return parseSession(localStorage.getItem(STORAGE_KEY), knownModuleIds);
 }
 
-/**
- * Writes the session down, or gives up quietly.
- *
- * Nothing here is worth an error: the session is a convenience, and the app it would fail is one
- * the user is in the middle of using. Two things can fail. `localStorage` throws
- * `QuotaExceededError` once the origin is full — a tab whose module keeps a large `state` is
- * enough — and `JSON.stringify` throws on a module slot holding something that is not JSON, a
- * cycle or a `BigInt`. Uncaught, either one comes out of an effect that runs on every tab and
- * badge change, which is to say it takes the whole window down over and over.
- *
- * The read side has always been this defensive — `parseSession` treats anything it cannot
- * understand as no session at all. This is the same answer on the way out: the next launch opens a
- * fresh tab, which is what the first launch does.
- */
 /**
  * Writes the session down, or gives up quietly.
  *

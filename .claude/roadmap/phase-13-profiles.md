@@ -15,7 +15,7 @@ no screen to any module and changes no API; everything here lives in `src/shell/
 one place that is allowed to know the modules exist. Redesigning the window *for* the MixEngine
 profile — a sidebar instead of a tab strip, say — is not this phase and has no spec yet.
 
-- [ ] **T108** A module visibility setting with three presets (D11). `enabledModules` in the shell
+- [x] **T108** A module visibility setting with three presets (D11). `enabledModules` in the shell
       settings store; `visibleModules()` is what the `[+]` menu, `Ctrl/Cmd+T`, `Ctrl/Cmd+1…N`, the
       Settings dialog's per-module panes and session restore all read. *MixEngine* is `mixengine`
       alone; *Everything* is all five with `mixengine` first; *Database tools* is the four toolbox
@@ -23,6 +23,17 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       a module off closes its tabs after a confirmation. A **first-run screen** — one question,
       three presets, one click — appears when there are no settings; T104's import skips it and
       picks *Everything*. A fresh machine that skips it gets *MixEngine*.
+      Design: [2026-09-09-t108-a-module-visibility-setting-design.md](../../docs/superpowers/specs/2026-09-09-t108-a-module-visibility-setting-design.md).
+      **Two things this task settled.** The order is the registry's and never the stored set's —
+      `MODULES` leads with `mixengine` and `visibleModules()` is a filter over it, which is what
+      keeps a checkbox from moving `Ctrl/Cmd+1` and makes a hand-edited value able to be wrong about
+      which modules but never about their order. And "no settings" turned out to be three questions
+      rather than one: a MixLab install from before this task has a session and no `enabledModules`,
+      and answering it *MixEngine* would have made its database tabs disappear on an upgrade — so
+      any other shell key means *Everything*, and only a profile with nothing at all in it reaches
+      the import marker and then the screen. The number chords are a function of the visible list
+      now, but the loop that registers them is still over `MODULES` and passes `enabled` instead:
+      hooks may not change in number between renders.
 
 - [ ] **T109** The default tab follows the profile. *MixEngine* and *Everything* open on the
       Dashboard, *Database tools* on a Database tab; `DEFAULT_MODULE_ID` becomes a function of the

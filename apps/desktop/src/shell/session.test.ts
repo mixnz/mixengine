@@ -108,6 +108,22 @@ describe("parseSession", () => {
     };
     expect(parseSession(stored(session), MODULE_IDS)?.tabs).toEqual([SESSION.tabs[0]]);
   });
+
+  /* T108: a tab of a module the profile hides is dropped on the way in, exactly as a tab of a
+     module that no longer exists is. One code path, one behaviour — `readSession` is simply handed
+     the visible ids instead of every id. */
+  it("drops a tab whose module is hidden", () => {
+    const raw = JSON.stringify({
+      tabs: [
+        { id: "a", moduleId: "mixengine", title: "Dashboard" },
+        { id: "b", moduleId: "db", title: "MariaDB" },
+      ],
+      activeId: "b",
+    });
+    const session = parseSession(raw, ["mixengine"]);
+    expect(session?.tabs.map((tab) => tab.moduleId)).toEqual(["mixengine"]);
+    expect(session?.activeId).toBe("a");
+  });
 });
 
 /** A `localStorage` that can be told to refuse, which is the case worth testing. */
