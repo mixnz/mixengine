@@ -714,12 +714,20 @@ fn staging_for(into: &Path) -> Result<PathBuf> {
     Ok(parent.join(staging))
 }
 
-/// Everything the artifact said it provides is in the tree, and is a file.
+/// Everything the artifact said it provides is in the tree.
 ///
 /// Checked before the smoke test rather than trusted, because the failure it catches is a *packaging*
 /// bug — an archive repacked without a binary the index still lists — and the message it produces
 /// names the file, while the same bug found later is a runtime that is missing something at the
 /// moment somebody needs it.
+///
+/// **A directory is a legitimate answer, and it has to be** — roadmap task **T106**. macOS wraps a
+/// windowed application in one, `packaging/feed.sh` names that directory in the macOS payload's
+/// `provides`, and a check demanding a file would refuse the whole payload — taking the four ordinary
+/// binaries with it and reporting the window. An *empty* directory is still refused: that is the
+/// shape a bundle copied by something that did not follow it takes, and it is what the strictness
+/// here was really buying. The one entry whose shape matters beyond existing is the smoke-test
+/// executable, and that one is proved by being run.
 fn present(artifact: &Artifact, staging: &Path) -> Result<()> {
     for (executable, relative) in &artifact.provides {
         let path = Path::new(relative);
@@ -735,7 +743,14 @@ fn present(artifact: &Artifact, staging: &Path) -> Result<()> {
         if !archive::safe(path) {
             return Err(missing());
         }
-        if !staging.join(path).is_file() {
+
+        let staged = staging.join(path);
+        let carried = if staged.is_dir() {
+            std::fs::read_dir(&staged).is_ok_and(|mut entries| entries.next().is_some())
+        } else {
+            staged.is_file()
+        };
+        if !carried {
             return Err(missing());
         }
     }
@@ -970,5 +985,74 @@ mod tests {
             "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
             "the published vector for SHA-256 of \"abc\""
         );
+    }
+
+    /// A payload row, of the shape `packaging/feed.sh` writes one.
+    fn a_payload() -> Artifact {
+        Artifact {
+            os: crate::index::Os::Macos,
+            arch: crate::index::Arch::X86_64,
+            url: "https://example.invalid/payload.tar.gz".to_owned(),
+            sha256: "00".to_owned(),
+            size: 1,
+            provides: std::collections::BTreeMap::new(),
+            requires: crate::index::Requires::default(),
+            extension_dir: None,
+            extensions: crate::index::Extensions::default(),
+        }
+    }
+
+    /// The macOS window, as that payload carries it: one entry, and it is a directory.
+    fn a_bundle_payload() -> Artifact {
+        let mut artifact = a_payload();
+        artifact.provides = [("mixlab".to_owned(), "mixengine/MixLab.app".to_owned())]
+            .into_iter()
+            .collect();
+        artifact
+    }
+
+    /// T106. macOS wraps a windowed application in a directory, and `packaging/feed.sh` names that
+    /// directory in the payload's `provides` — so an artifact carrying one must stage rather than be
+    /// refused, and being refused would take the four ordinary binaries down with it.
+    #[test]
+    fn a_provides_entry_may_name_a_directory() {
+        let staging = tempfile::tempdir().expect("a temporary directory");
+        std::fs::create_dir_all(staging.path().join("mixengine/MixLab.app/Contents/MacOS"))
+            .expect("a bundle");
+        std::fs::write(
+            staging
+                .path()
+                .join("mixengine/MixLab.app/Contents/MacOS/mixlab"),
+            b"not a binary",
+        )
+        .expect("the executable inside it");
+
+        present(&a_bundle_payload(), staging.path())
+            .expect("a bundle is what this payload provides");
+    }
+
+    /// And the teeth are kept: an entry that resolves to an empty directory is the shape a bundle
+    /// copied by something that did not follow it takes, and it is not a payload anybody can use.
+    #[test]
+    fn a_provides_entry_naming_an_empty_directory_is_refused() {
+        let staging = tempfile::tempdir().expect("a temporary directory");
+        std::fs::create_dir_all(staging.path().join("mixengine/MixLab.app")).expect("an empty one");
+
+        assert!(matches!(
+            present(&a_bundle_payload(), staging.path()),
+            Err(Error::MissingFromArtifact { .. })
+        ));
+    }
+
+    /// The ordinary case, unchanged: a name the payload does not carry at all is refused, which is
+    /// the packaging bug this check exists for.
+    #[test]
+    fn a_provides_entry_that_is_not_there_is_refused() {
+        let staging = tempfile::tempdir().expect("a temporary directory");
+
+        assert!(matches!(
+            present(&a_bundle_payload(), staging.path()),
+            Err(Error::MissingFromArtifact { .. })
+        ));
     }
 }
