@@ -3,7 +3,6 @@ import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
 import GlassFilter from "./components/GlassFilter";
 import SettingsModal from "./components/SettingsModal";
-import UpdateToast from "./components/UpdateToast";
 import ContextMenu from "../components/ContextMenu";
 import { moveTab, Tab, TabAction, tabKeyDown, TabStrip, TabTitle, useTabReorder } from "../components/TabStrip";
 import { PlusIcon, SettingsIcon } from "../icons";
@@ -11,7 +10,6 @@ import { isBlockedReload } from "../core/reload";
 import { useScrollAcceleration } from "../core/scroll";
 import { useShortcut, useShortcutDispatcher } from "../core/shortcuts";
 import { useAccent, useGlass, useTheme } from "./theme";
-import { useUpdateCheck } from "./update";
 import { useTranslation } from "../i18n";
 import type { TabBadge } from "./module";
 import { onTabRequest, takeTabRequests } from "./launch";
@@ -54,7 +52,6 @@ function App() {
   /* Where the `[+]` menu was asked for, while it is open. Never set with one module: the button
      opens a tab outright then, exactly as it did before there was a registry. */
   const [moduleMenu, setModuleMenu] = useState<{ x: number; y: number } | null>(null);
-  const update = useUpdateCheck();
 
   useScrollAcceleration();
   useShortcutDispatcher(ALL_SHORTCUTS);
@@ -179,18 +176,14 @@ function App() {
            opacity said — so it wears a surface, a border and a gear, and reads as something to
            press before it is hovered.
 
-           Once an update is out, this is also the way back to it after the panel in the corner is
-           gone, so it carries a dot until the user installs or skips that version. A download
-           waved away mid-flight goes on, and finishes behind this dot.
-
            In `leading`, so that a window full of tabs cannot scroll the way into Settings off the
            left-hand edge — it is the one control that is there on every screen the app has. */
         leading={
           <button
             type="button"
-            className={update.pending ? "brand brand-update" : "brand"}
+            className="brand"
             onClick={() => setSettingsOpen(true)}
-            title={update.pending && update.release ? t("update.available", { version: update.release.version }) : t("app.settings")}
+            title={t("app.settings")}
             aria-label={t("app.settings")}
           >
             MixLab
@@ -302,8 +295,8 @@ function App() {
                   One boundary per tab and not one around the list: a tab still loading must not
                   take the panes beside it off screen while it does. The Error Boundary follows
                   the same rule, and for the same reason: a tab that crashes must not take the
-                  panes beside it, the tab strip, or useUpdateCheck (living in App, outside every
-                  boundary) down with it. Keyed on tab.id so closing a crashed tab and opening a
+                  panes beside it, the tab strip, or the Settings dialog (all of them in App,
+                  outside every boundary) down with it. Keyed on tab.id so closing a crashed tab and opening a
                   new one is a fresh boundary, not the old one still remembering the error. */}
               <ErrorBoundary key={tab.id}>
                 <Suspense fallback={<LoadingOverlay />}>
@@ -329,13 +322,9 @@ function App() {
           onAccentChange={setAccent}
           glass={glass}
           onGlassChange={setGlass}
-          update={update}
           onClose={() => setSettingsOpen(false)}
         />
       )}
-
-      {/* Settings says the same thing in more detail, so the corner steps out of the way of it. */}
-      {update.announcing && !settingsOpen && <UpdateToast update={update} />}
     </main>
   );
 }

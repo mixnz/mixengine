@@ -5,7 +5,6 @@ import type { TranslationKey } from "../../../i18n";
 import type { IconProps } from "../../../icons";
 import { CloseIcon, DownloadIcon, KeyboardIcon, PaletteIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
-import type { UpdateCheck } from "../../update";
 import { MODULES } from "../../registry";
 import AppearanceSection from "./AppearanceSection";
 import ShortcutsSection from "./ShortcutsSection";
@@ -20,7 +19,6 @@ interface SettingsModalProps {
   onAccentChange: (accent: AccentColor) => void;
   glass: boolean;
   onGlassChange: (glass: boolean) => void;
-  update: UpdateCheck;
   onClose: () => void;
 }
 
@@ -47,7 +45,7 @@ const SECTIONS: { id: SectionId; labelKey: TranslationKey; icon: ComponentType<I
  * Everything about the app rather than about a connection.
  *
  * It is a list of panes rather than one long scroll: theme, accent and language are settings, the
- * dump tools are a downloader, and the updater is a downloader of another kind — three things that
+ * dump tools are a downloader, and the last one is about the application itself — three things that
  * happen to live behind the same door, and reading as one column made the door look busier than
  * what is behind it.
  */
@@ -58,13 +56,10 @@ function SettingsModal({
   onAccentChange,
   glass,
   onGlassChange,
-  update,
   onClose,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  /* Opened while an update is waiting, this dialog is almost always being opened *for* the update —
-     the brand button's dot is what the user just clicked. */
-  const [section, setSection] = useState<SectionId>(update.pending ? "update" : "appearance");
+  const [section, setSection] = useState<SectionId>("appearance");
 
   return (
     <Modal
@@ -97,14 +92,6 @@ function SettingsModal({
                 >
                   <Icon size={15} />
                   <span className={styles.navLabel}>{t(labelKey)}</span>
-                  {/* The same dot the brand button carries, so whichever of the two brought the user
-                      here, the thing waiting for them is marked the same way. */}
-                  {id === "update" && update.pending && (
-                    <span
-                      className={styles.navDot}
-                      title={update.release ? t("update.available", { version: update.release.version }) : undefined}
-                    />
-                  )}
                 </button>
               ))}
             </div>
@@ -158,7 +145,7 @@ function SettingsModal({
               aria-labelledby="settings-tab-update"
               hidden={section !== "update"}
             >
-              <UpdateSection update={update} />
+              <UpdateSection />
             </div>
           </div>
         </>
