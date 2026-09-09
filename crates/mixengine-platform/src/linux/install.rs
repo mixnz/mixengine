@@ -75,6 +75,14 @@ pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathB
     executable.to_path_buf()
 }
 
+/// The program is what was placed: there is nothing wrapped around it to look inside.
+pub(crate) fn application_executable(
+    placed: &std::path::Path,
+    _executable: &str,
+) -> std::path::PathBuf {
+    placed.to_path_buf()
+}
+
 #[cfg(test)]
 mod application_tests {
     use std::path::{Path, PathBuf};

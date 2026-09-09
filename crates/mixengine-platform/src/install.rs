@@ -163,6 +163,21 @@ pub fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
     crate::sys::install::application_root(executable)
 }
 
+/// The program inside the thing an installer placed — roadmap task **T107**.
+///
+/// `…/MixLab.app/Contents/MacOS/mixlab` for `…/MixLab.app`; the path itself on Windows and Linux,
+/// and on a macOS build with no bundle around it. The exact inverse of [`application_root`], and
+/// the third of the trio [`application_file_name`] began: *what is it called*, *what was placed*,
+/// *what runs*.
+///
+/// **What this is for** is a lookup that has just joined [`application_file_name`] onto a directory
+/// and now has to say whether the result is really there — on macOS the join is a directory, and
+/// `is_file()` on a directory is false however installed the application is.
+#[must_use]
+pub fn application_executable(placed: &std::path::Path, executable: &str) -> std::path::PathBuf {
+    crate::sys::install::application_executable(placed, executable)
+}
+
 /// Make a freshly copied file root's, and one the elevation prompt can start.
 ///
 /// The other half of [`helper_path`], and the reason this module has a write at all: putting a
@@ -359,5 +374,26 @@ mod tests {
             .into_owned();
 
         assert_eq!(program_path(&name).as_deref(), Some(running.as_path()));
+    }
+
+    /// The inverse of [`application_root`], on every system: what an installer placed, back to the
+    /// program inside it, and back again.
+    ///
+    /// **Tested as a round trip rather than by path**, so the macOS rule — a bundle is a directory
+    /// and the program is three components inside it — is asserted on all three systems rather than
+    /// on the one that would notice it broken.
+    #[test]
+    fn what_an_installer_placed_and_the_program_inside_it_are_inverses() {
+        let placed =
+            PathBuf::from("/opt/mixengine").join(application_file_name("mixlab", "MixLab.app"));
+
+        let program = application_executable(&placed, "mixlab");
+
+        assert!(
+            program.ends_with(format!("mixlab{}", std::env::consts::EXE_SUFFIX)),
+            "{} does not end in the executable",
+            program.display()
+        );
+        assert_eq!(application_root(&program), placed);
     }
 }

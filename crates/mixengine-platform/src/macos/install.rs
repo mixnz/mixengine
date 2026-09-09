@@ -90,6 +90,25 @@ pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathB
         .map_or_else(|| executable.to_path_buf(), std::path::Path::to_path_buf)
 }
 
+/// The program inside a bundle: `Contents/MacOS/<executable>`, the layout every `.app` has.
+///
+/// A path that is not a bundle answers itself — `cargo tauri dev` and every `cargo run` produce a
+/// bare executable, and a lookup that refused those would be one that only works on a machine with
+/// an installer's output on it.
+pub(crate) fn application_executable(
+    placed: &std::path::Path,
+    executable: &str,
+) -> std::path::PathBuf {
+    if placed
+        .extension()
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+    {
+        return placed.join("Contents").join("MacOS").join(executable);
+    }
+
+    placed.to_path_buf()
+}
+
 #[cfg(test)]
 mod tests {
     use std::path::{Path, PathBuf};
@@ -118,6 +137,19 @@ mod tests {
     fn an_unbundled_executable_is_its_own_root() {
         assert_eq!(
             super::application_root(Path::new("/work/target/release/mixlab")),
+            PathBuf::from("/work/target/release/mixlab")
+        );
+    }
+
+    /// The bundle's own layout, spelled out on the one system where it is not the identity.
+    #[test]
+    fn the_program_inside_a_bundle_is_three_components_down() {
+        assert_eq!(
+            super::application_executable(Path::new("/Applications/MixLab.app"), "mixlab"),
+            PathBuf::from("/Applications/MixLab.app/Contents/MacOS/mixlab")
+        );
+        assert_eq!(
+            super::application_executable(Path::new("/work/target/release/mixlab"), "mixlab"),
             PathBuf::from("/work/target/release/mixlab")
         );
     }
