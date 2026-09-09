@@ -40,6 +40,14 @@ pub(crate) fn program_dirs() -> Vec<PathBuf> {
         .unwrap_or_default()
 }
 
+/// Nowhere beyond the directory the programs are in — roadmap task **T107**.
+///
+/// This system's installer places the window beside the other four, so the step in front of this
+/// one has already looked. Present rather than absent so the three systems keep one signature.
+pub(crate) fn window_dirs(_directory: Option<&std::path::Path>) -> Vec<PathBuf> {
+    Vec::new()
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in

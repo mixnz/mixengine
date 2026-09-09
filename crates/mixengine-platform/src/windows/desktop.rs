@@ -183,6 +183,10 @@ impl DesktopApps for Apps {
         })
     }
 
+    fn locate_window(&self, executable: &str, bundle: &str) -> Result<Located> {
+        crate::desktop::locate_window(executable, bundle)
+    }
+
     fn launch(
         &self,
         app: &InstalledApp,
