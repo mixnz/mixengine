@@ -46,8 +46,9 @@ pub const SMOKE_EXECUTABLE: &str = "mixengined";
 /// through it. Held to that file by `crates/mixengine-core/tests/packaging.rs`.
 ///
 /// **The one payload entry that is not resolved by appending an executable suffix.** On macOS a
-/// windowed application is a directory called [`WINDOW_BUNDLE`], which no suffix produces — see
-/// [`installed_name`].
+/// windowed application is a directory called [`WINDOW_BUNDLE`], which no suffix produces, so this
+/// name alone is looked up through
+/// [`mixengine_platform::install::application_file_name`] — `installed_name` below.
 pub const WINDOW: &str = "mixlab";
 
 /// What macOS wraps [`WINDOW`] in: `packaging/common.sh`'s `MIX_WINDOW_APP`.
