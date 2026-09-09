@@ -1,6 +1,14 @@
 import FirstRun from "./components/FirstRun";
 import Workspace from "./Workspace";
 import { useStartupProfile } from "./profiles";
+/* Here rather than in `Workspace`, which is where they were until T108: the first-run screen is
+   drawn *instead of* the workspace and wants the same tokens, the same ground and the same theme.
+   Loading them from a component that may not mount would work only for as long as nobody makes
+   `Workspace` a lazy import. */
+import "./App.css";
+/* After App.css, so the glass surfaces override the plain ones they replace rather than the other
+   way round. */
+import "./glass.css";
 
 /**
  * Which modules this window draws, decided before anything is drawn.

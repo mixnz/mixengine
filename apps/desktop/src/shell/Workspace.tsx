@@ -18,10 +18,6 @@ import { rebadgeTab, restateTab, retitleTab, tabIdAtOffset, type TabInfo } from 
 import { MODULES, moduleById } from "./registry";
 import { defaultModuleId, visibleModules } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
-import "./App.css";
-/* After App.css, so the glass surfaces override the plain ones they replace rather than the other
-   way round. */
-import "./glass.css";
 
 interface WorkspaceProps {
   /** The module ids this window draws — `shell/profiles.ts`. */
