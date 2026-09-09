@@ -191,17 +191,23 @@ mix_checksum "$dist/$name"
 #
 # Universal, like the `.pkg` above, so `packaging/feed.sh` lists it under both architectures.
 #
-# **The four, and not the window** — T105, D8. `packaging/feed.sh` builds `provides` only from
-# entries directly under `mixengine/` that are not directories, and a `.app` is a directory: putting
-# one in here would add forty megabytes that no reader of this feed would ever look up. Describing a
-# bundle in `latest.json` is T106's, and so is putting one in this file.
+# **And the window, since T106.** `packaging/feed.sh` now emits one `provides` row for
+# `mixengine/$MIX_WINDOW_APP` and `updates::apply::swap` replaces what it names as a tree, so this is
+# where a `mix self-update` on macOS gets its window from. `ditto` and not `cp -R`: this is an
+# application bundle and `ditto` is what preserves one on this system.
+#
+# **Two roots and not one.** The headless archive below used to be built from this same directory,
+# which was correct while both held the same four files and is a bug the moment one of them gains a
+# fifth — a machine with no display would download a webview it cannot use.
 payload="mixengine-$version-macos-universal.tar.gz"
-rm -rf "$MIX_OUT/tar"
-mkdir -p "$MIX_OUT/tar/mixengine"
+rm -rf "$MIX_OUT/tar" "$MIX_OUT/tar-headless"
+mkdir -p "$MIX_OUT/tar/mixengine" "$MIX_OUT/tar-headless/mixengine"
 for binary in $(mix_headless_binaries); do
   lipo -create "$intel/$binary" "$arm/$binary" -output "$MIX_OUT/tar/mixengine/$binary"
   chmod 755 "$MIX_OUT/tar/mixengine/$binary"
+  cp "$MIX_OUT/tar/mixengine/$binary" "$MIX_OUT/tar-headless/mixengine/$binary"
 done
+ditto "$root/Applications/$MIX_WINDOW_APP" "$MIX_OUT/tar/mixengine/$MIX_WINDOW_APP"
 rm -f "$dist/$payload"
 tar -czf "$dist/$payload" -C "$MIX_OUT/tar" mixengine
 
@@ -219,14 +225,24 @@ for binary in $(mix_headless_binaries); do
   }
 done
 
+# T106. The window is what makes this payload able to replace a window, and a `ditto` that copied
+# nothing is a silent four-binary archive under a five-binary name. Asked for the executable inside
+# the bundle rather than for the bundle's own entry: a directory entry proves a directory was
+# created, and this proves something is in it.
+grep -qx "mixengine/$MIX_WINDOW_APP/Contents/MacOS/$window_exe" <<<"$entries" || {
+  echo "$MIX_WINDOW_APP is not in the update payload" >&2
+  exit 1
+}
+
 mix_checksum "$dist/$payload"
 
 # **The archive the CLI-only user downloads** — T105, D7. The same four binaries as the payload
-# above, under a name a person can recognise as the one without a window. It is byte-for-byte the
-# payload's contents today and stops being so at T106, when the payload gains the bundle.
+# above, under a name a person can recognise as the one without a window. Since T106 it is built from
+# a root of its own: the payload carries `$MIX_WINDOW_APP` and this one must not, and one shared
+# directory is how it would.
 headless="mixengine-$version-macos-universal-headless.tar.gz"
 rm -f "$dist/$headless"
-tar -czf "$dist/$headless" -C "$MIX_OUT/tar" mixengine
+tar -czf "$dist/$headless" -C "$MIX_OUT/tar-headless" mixengine
 
 # Checked for what is in it **and for what is not**: an archive that quietly grew a webview is the
 # one failure this artifact exists to prevent, and counting four would not catch a fifth entry.

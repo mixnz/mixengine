@@ -21,10 +21,19 @@ for binary in mix mixengined mixengine-elevate; do
   echo "not really $binary" >"$work/payload/mixengine/$binary"
 done
 
+# T106. The macOS payload carries the window, and on that system the window is an application
+# bundle — a directory. `feed.sh` builds `provides` by walking the archive, and every arm it had
+# skipped a directory: without this fixture, a release could ship a macOS payload that promises four
+# binaries and no window, and the only sign of it would be a window that is never updated again.
+mkdir -p "$work/macos/mixengine/MixLab.app/Contents/MacOS"
+cp "$work/payload/mixengine/"* "$work/macos/mixengine/"
+echo "not really a window" >"$work/macos/mixengine/MixLab.app/Contents/MacOS/mixlab"
+echo "not really a plist" >"$work/macos/mixengine/MixLab.app/Contents/Info.plist"
+
 linux="mixengine-$version-linux-x86_64.tar.gz"
 macos="mixengine-$version-macos-universal.tar.gz"
 tar -czf "$dist/$linux" -C "$work/payload" mixengine
-tar -czf "$dist/$macos" -C "$work/payload" mixengine
+tar -czf "$dist/$macos" -C "$work/macos" mixengine
 
 # One with a `.sha256` beside it and one without, because both happen: every packaging script writes
 # one, and a hand-assembled directory may not.
@@ -84,7 +93,20 @@ assert (
     by_pair[("macos", "x86_64")]["url"] == by_pair[("macos", "aarch64")]["url"]
 ), "the two macOS rows must name one archive"
 
-for pair, path in [(("linux", "x86_64"), linux_path), (("macos", "x86_64"), macos_path)]:
+binaries = {
+    "mix": "mixengine/mix",
+    "mixengined": "mixengine/mixengined",
+    "mixengine-elevate": "mixengine/mixengine-elevate",
+}
+
+for pair, path, provides in [
+    (("linux", "x86_64"), linux_path, binaries),
+    # T106. macOS additionally provides the window, and the window there is a directory — the one
+    # `provides` value in this product that is not a file. `updates::apply::swap` looks it up by the
+    # key and replaces the tree it names; a row without it is a release whose window is never
+    # updated, with nothing anywhere to say so.
+    (("macos", "x86_64"), macos_path, {**binaries, "mixlab": "mixengine/MixLab.app"}),
+]:
     row = by_pair[pair]
 
     with open(path, "rb") as handle:
@@ -98,11 +120,12 @@ for pair, path in [(("linux", "x86_64"), linux_path), (("macos", "x86_64"), maco
 
     # Read out of the archive rather than assumed: this is the field `core::install` uses to find
     # each binary inside the payload, and a wrong one is an update that fails after the download.
-    assert row["provides"] == {
-        "mix": "mixengine/mix",
-        "mixengined": "mixengine/mixengined",
-        "mixengine-elevate": "mixengine/mixengine-elevate",
-    }, row["provides"]
+    assert row["provides"] == provides, row["provides"]
+
+# And the bundle is named once, however many entries it holds inside it.
+assert len(by_pair[("macos", "aarch64")]["provides"]) == 4, by_pair[("macos", "aarch64")][
+    "provides"
+]
 
 # T88a. Three helper rows out of two files, on the same rule the archives follow: macOS publishes one
 # universal helper and is listed under both architectures. A release missing these is one where
