@@ -24,13 +24,13 @@ mkdir -p "$dist"
 
 root="$MIX_OUT/debroot"
 rm -rf "$root"
-mkdir -p "$root/DEBIAN" "$root/usr/bin" "$root/usr/local/libexec/mixengine" \
+mkdir -p "$root/DEBIAN" "$root$MIX_INSTALL_LINUX" "$root/usr/local/libexec/mixengine" \
   "$root/usr/share/applications" \
   "$root/usr/share/icons/hicolor/32x32/apps" \
   "$root/usr/share/icons/hicolor/128x128/apps"
 
-install -m 0755 "$stage/mix" "$root/usr/bin/mix"
-install -m 0755 "$stage/mixengined" "$root/usr/bin/mixengined"
+install -m 0755 "$stage/mix" "$root$MIX_INSTALL_LINUX/mix"
+install -m 0755 "$stage/mixengined" "$root$MIX_INSTALL_LINUX/mixengined"
 
 # Beside `mixengined`, which is the only place `core::shims::source` looks — T85c. `/usr/bin` and
 # not the helper's `/usr/local/libexec/mixengine/`: the daemon does not look there, and this file is
@@ -38,7 +38,7 @@ install -m 0755 "$stage/mixengined" "$root/usr/bin/mixengined"
 #
 # It is therefore a name on the user's PATH they can type. `shims::dispatch` answers `None` for it,
 # so it exits 127 saying what it is and listing what it does answer to.
-install -m 0755 "$stage/mixengine-shim" "$root/usr/bin/mixengine-shim"
+install -m 0755 "$stage/mixengine-shim" "$root$MIX_INSTALL_LINUX/mixengine-shim"
 
 # **`/usr/local` from a package is against Debian policy and is on purpose** — the T85 design, D3.
 # One lookup path per system, whatever put the file there: a daemon that had to look in two places
@@ -50,7 +50,7 @@ install -m 0755 "$stage/mixengine-elevate" \
 
 # MixLab, the window — T105. `/usr/bin` beside the CLI, under the one name every artifact of this
 # release spells it with.
-install -m 0755 "$stage/$MIX_WINDOW" "$root/usr/bin/$MIX_WINDOW"
+install -m 0755 "$stage/$MIX_WINDOW" "$root$MIX_INSTALL_LINUX/$MIX_WINDOW"
 
 # The menu entry and its icon. **No maintainer script updates any cache**, which is this package's
 # oldest rule (see the header): a menu reads `/usr/share/applications` directly and works at once,
@@ -98,10 +98,10 @@ dpkg-deb --build --root-owner-group "$root" "$dist/$name"
 # **Open what was just made and check the binaries are in it** — the T85 design, D11.
 contents="$(dpkg-deb -c "$dist/$name")"
 for expected in \
-  ./usr/bin/mix \
-  ./usr/bin/mixengined \
-  ./usr/bin/mixengine-shim \
-  ./usr/bin/mixlab \
+  .$MIX_INSTALL_LINUX/mix \
+  .$MIX_INSTALL_LINUX/mixengined \
+  .$MIX_INSTALL_LINUX/mixengine-shim \
+  .$MIX_INSTALL_LINUX/mixlab \
   ./usr/local/libexec/mixengine/mixengine-elevate \
   ./usr/share/applications/mixlab.desktop \
   ./usr/share/icons/hicolor/32x32/apps/mixlab.png \

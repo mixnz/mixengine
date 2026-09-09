@@ -31,7 +31,11 @@ cp "$MIX_ROOT/packaging/linux/mixlab.desktop" "$build/SOURCES/mixlab.desktop"
 cp "$MIX_ROOT/apps/desktop/src-tauri/icons/32x32.png" "$build/SOURCES/mixlab-32.png"
 cp "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" "$build/SOURCES/mixlab-128.png"
 
-sed -e "s/@VERSION@/$version/" -e "s/@ARCH@/$arch/" "$MIX_ROOT/packaging/linux/mixengine.spec.in" \
+# `@BINDIR@` is `packaging/common.sh`'s `MIX_INSTALL_LINUX`, which
+# `mixengine_platform::install::program_dirs` reads too — T107. A `%` delimiter for that one, since
+# the value is a path.
+sed -e "s/@VERSION@/$version/" -e "s/@ARCH@/$arch/" -e "s%@BINDIR@%$MIX_INSTALL_LINUX%g" \
+  "$MIX_ROOT/packaging/linux/mixengine.spec.in" \
   >"$build/SPECS/mixengine.spec"
 
 rpmbuild --define "_topdir $build" --target "$arch" -bb "$build/SPECS/mixengine.spec"
@@ -43,10 +47,10 @@ cp "$build/RPMS/$arch/$name" "$dist/$name"
 # **Open what was just made and check the binaries are in it** — the T85 design, D11.
 contents="$(rpm -qlp "$dist/$name")"
 for expected in \
-  /usr/bin/mix \
-  /usr/bin/mixengined \
-  /usr/bin/mixengine-shim \
-  /usr/bin/mixlab \
+  $MIX_INSTALL_LINUX/mix \
+  $MIX_INSTALL_LINUX/mixengined \
+  $MIX_INSTALL_LINUX/mixengine-shim \
+  $MIX_INSTALL_LINUX/mixlab \
   /usr/local/libexec/mixengine/mixengine-elevate \
   /usr/share/applications/mixlab.desktop \
   /usr/share/icons/hicolor/32x32/apps/mixlab.png \

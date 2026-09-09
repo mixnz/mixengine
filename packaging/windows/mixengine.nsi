@@ -5,7 +5,9 @@
 ; `mixengine-elevate.exe`, is *not* placed by this installer — MixEngine installs it itself, inside
 ; the elevation prompt first-run setup already costs. See ADR 0015 and the T85 design, D1.
 ;
-; Driven by packaging/windows/build.sh, which defines VERSION, STAGE and OUTFILE.
+; Driven by packaging/windows/build.sh, which defines VERSION, STAGE, OUTFILE and INSTALL_SUBDIR —
+; the last of them packaging/common.sh's MIX_INSTALL_WINDOWS, which mixengine-platform's
+; `install::program_dirs` reads too, so the daemon and the window look where this writes (T107).
 
 Unicode true
 RequestExecutionLevel user
@@ -23,7 +25,7 @@ SetCompressor /SOLID lzma
 
 Name "${NAME} ${VERSION}"
 OutFile "${OUTFILE}"
-InstallDir "$LOCALAPPDATA\Programs\MixEngine"
+InstallDir "$LOCALAPPDATA\${INSTALL_SUBDIR}"
 InstallDirRegKey HKCU "Software\MixEngine" "InstallDir"
 ShowInstDetails show
 ShowUninstDetails show

@@ -51,7 +51,9 @@ fn assigned(name: &str) -> String {
     COMMON_SH
         .lines()
         .find(|line| line.starts_with(&opening))
-        .map(|line| line[opening.len()..].trim_matches('"').to_owned())
+        // Both quotation marks: `MIX_INSTALL_WINDOWS` is single-quoted so bash leaves its
+        // backslashes alone, and every other assignment here is bare or double-quoted.
+        .map(|line| line[opening.len()..].trim_matches(['"', '\'']).to_owned())
         .unwrap_or_else(|| panic!("packaging/common.sh assigns {name} on one line"))
 }
 
@@ -175,6 +177,38 @@ fn the_window_is_named_the_same_on_both_sides() {
         assigned("MIX_WINDOW_APP"),
         "updates::apply::WINDOW_BUNDLE and packaging/common.sh's MIX_WINDOW_APP have drifted apart; \
          on macOS that name is the whole of what the swap replaces"
+    );
+}
+
+/// This system's install location is the one its packaging script writes to — roadmap task
+/// **T107**.
+///
+/// **What this stops.** An installer that moved and a lookup that did not is a window whose Start
+/// Menu shortcut works and whose `mix database open` says *MixLab is not installed*, on the machine
+/// it is installed on — and a daemon the window offers to install for somebody who already has it.
+/// The same failure [`the_window_is_named_the_same_on_both_sides`] was written for, one directory
+/// up.
+///
+/// **`ends_with` and not equality on Windows**, where the base is a folder each side asks its own
+/// operating system for: what can drift is the sub-path under it, and that is what is compared.
+#[test]
+fn this_systems_install_location_is_the_one_packaging_writes_to() {
+    let dirs = mixengine_platform::install::program_dirs();
+    let first = dirs.first().expect("every supported system names one");
+
+    let declared = assigned(if cfg!(windows) {
+        "MIX_INSTALL_WINDOWS"
+    } else if cfg!(target_os = "macos") {
+        "MIX_INSTALL_MACOS"
+    } else {
+        "MIX_INSTALL_LINUX"
+    });
+
+    assert!(
+        first.ends_with(declared.replace('\\', std::path::MAIN_SEPARATOR_STR)),
+        "mixengine-platform installs into {} and packaging/common.sh declares {declared}; a \
+         release that moved one without the other is a MixEngine every lookup misses",
+        first.display()
     );
 }
 

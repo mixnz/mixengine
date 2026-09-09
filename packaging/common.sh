@@ -51,6 +51,32 @@ export MIX_WINDOW
 MIX_WINDOW_APP=MixLab.app
 export MIX_WINDOW_APP
 
+# Where each operating system's installer puts MixEngine — T107.
+#
+# **Read by the packaging scripts and by `mixengine-platform`, and held together by
+# `crates/mixengine-core/tests/packaging.rs`.** `install::program_dirs` is what the daemon, the CLI
+# and the window all ask *where is MixEngine*; these three lines are what actually put it there. An
+# installer that moved without the lookup following is a machine that has MixEngine and is told it
+# does not — no error anywhere, just an install page offered to somebody already past it.
+#
+# Windows is the sub-path and not the whole one, because the base is a folder each side spells in
+# its own language: `$LOCALAPPDATA` to NSIS, `%LOCALAPPDATA%` to a person, `SHGetKnownFolderPath` to
+# the platform crate. Only what comes after it is a decision. Single-quoted so bash leaves both
+# backslashes alone; `packaging/windows/build.sh` hands it to `makensis` as `INSTALL_SUBDIR`.
+MIX_INSTALL_WINDOWS='Programs\MixEngine'
+export MIX_INSTALL_WINDOWS
+
+# `/usr/local/bin` and not `/usr/bin`: the `.pkg` is not a system package manager's, and
+# `/usr/local` is where a Mac expects one that is not. The window is not here — `MIX_WINDOW_APP`
+# goes to `/Applications`, which is the split `install::window_dirs` exists for.
+MIX_INSTALL_MACOS=/usr/local/bin
+export MIX_INSTALL_MACOS
+
+# What the `.deb` and the `.rpm` write, the window included. The AppImage and the tarball install
+# nowhere at all: their programs are found beside the one that is running.
+MIX_INSTALL_LINUX=/usr/bin
+export MIX_INSTALL_LINUX
+
 # The oldest glibc the window runs on, and the WebKitGTK soname it links — T105a, ADR 0028. The
 # AppImage does not carry WebKitGTK, so both of these are a promise made to a person rather than an
 # implementation detail: `packaging/linux/window-floor.sh` holds the binary to them on every Linux
