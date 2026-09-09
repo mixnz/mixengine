@@ -23,6 +23,7 @@ export {
   KeyboardIcon,
   LockIcon,
   MinusIcon,
+  ModulesIcon,
   PaletteIcon,
   PencilIcon,
   PinIcon,

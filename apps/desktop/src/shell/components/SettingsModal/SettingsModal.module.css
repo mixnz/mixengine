@@ -155,6 +155,22 @@
   opacity: 0.6;
 }
 
+/* One module the window can draw: its checkbox, its own mark, its own name. */
+.moduleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+}
+
+/* The last module left on — see `ModulesSection`, which disables it rather than letting a window
+   end up with nothing in it. */
+.moduleRow:has(input:disabled) {
+  cursor: default;
+  opacity: 0.75;
+}
+
 /* One shortcut: what it does on the left, the chord on the right, so the keys line up as a column
    the eye can run down. */
 .shortcutRow {

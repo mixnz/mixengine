@@ -1,8 +1,15 @@
 import { keyLabel, shortcutLabel } from "../../../core/platform";
-import type { Chord, ShortcutDef } from "../../../core/shortcuts";
+import type { Chord, ShortcutDef, ShortcutGroup } from "../../../core/shortcuts";
 import { useTranslation } from "../../../i18n";
-import { ALL_SHORTCUTS } from "../../shortcuts";
 import styles from "./SettingsModal.module.css";
+
+interface Props {
+  /** The catalogue the dispatcher was handed, passed rather than imported — T108 made it a function
+   *  of the visible modules, and a constant beside a catalogue that changes is exactly the
+   *  disagreement this table exists not to have. Not read back from `currentCatalogue()` either:
+   *  the dispatcher writes that in an effect, one render later than this wants it. */
+  shortcuts: ShortcutGroup[];
+}
 
 /** The chord as this platform spells it — `⌘A` on a Mac, `Ctrl+A` elsewhere. The same function
  *  names the reload button, so the table and the tooltips cannot come to disagree about a key. */
@@ -21,7 +28,7 @@ function chordLabel(chord: Chord): string {
  *
  * Read-only. The keys are not remappable yet, and a control that does nothing is worse than none.
  */
-function ShortcutsSection() {
+function ShortcutsSection({ shortcuts }: Props) {
   const { t } = useTranslation();
 
   /** The row's words. A chord may name its label's blanks after other strings — a module's own name
@@ -34,7 +41,7 @@ function ShortcutsSection() {
 
   return (
     <>
-      {ALL_SHORTCUTS.map((group) => (
+      {shortcuts.map((group) => (
         <div key={group.scope} className={styles.section}>
           <span className={styles.sectionLabel}>{t(group.labelKey)}</span>
           {group.defs.map((def) => (
