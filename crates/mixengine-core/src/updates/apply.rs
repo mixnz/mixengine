@@ -40,23 +40,21 @@ pub const KEPT: &str = "mixengine-elevate";
 /// `crates/mixengine-core/tests/packaging.rs` checks the release list against.
 pub const SMOKE_EXECUTABLE: &str = "mixengined";
 
-/// The window's key in a payload's `provides` — roadmap task **T106**.
-///
-/// `packaging/common.sh`'s `MIX_WINDOW`, and `apps/desktop/src-tauri/Cargo.toml`'s `[package].name`
-/// through it. Held to that file by `crates/mixengine-core/tests/packaging.rs`.
+/// The window's key in a payload's `provides`, and what macOS wraps it in — roadmap tasks **T106**
+/// and **T107**.
 ///
 /// **The one payload entry that is not resolved by appending an executable suffix.** On macOS a
-/// windowed application is a directory called [`WINDOW_BUNDLE`], which no suffix produces, so this
-/// name alone is looked up through
-/// [`mixengine_platform::install::application_file_name`] — `installed_name` below.
-pub const WINDOW: &str = "mixlab";
-
-/// What macOS wraps [`WINDOW`] in: `packaging/common.sh`'s `MIX_WINDOW_APP`.
+/// windowed application is a directory called [`WINDOW_BUNDLE`], which no suffix produces, so
+/// [`WINDOW`] alone is looked up through
+/// [`mixengine_platform::install::application_file_name`] — `installed_name` below — and
+/// [`WINDOW_BUNDLE`] is the second argument that call takes.
 ///
-/// Not a macOS-only constant hidden behind a `cfg`: it is one of the two arguments
-/// [`mixengine_platform::install::application_file_name`] takes, and the platform is what decides
-/// whether it is the answer.
-pub const WINDOW_BUNDLE: &str = "MixLab.app";
+/// Published under these two names because that is what this module has published since T106 and
+/// what `crates/mixengine-core/tests/packaging.rs` pins to `packaging/common.sh`; **defined in
+/// [`crate::window`]**, which holds all four of the window's names — a display name and a URL
+/// scheme are not an updater's business, and four names in two places is the drift this indirection
+/// removes.
+pub use crate::window::{BUNDLE as WINDOW_BUNDLE, EXECUTABLE as WINDOW};
 
 /// What is renamed onto a binary before its replacement is written.
 ///

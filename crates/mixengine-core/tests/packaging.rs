@@ -17,6 +17,9 @@ const COMMON_SH: &str = include_str!("../../../packaging/common.sh");
 /// The workspace manifest, for the membership check below.
 const WORKSPACE: &str = include_str!("../../../Cargo.toml");
 
+/// The desktop entry the `.deb` and the `.rpm` install, which is what registers `mixdb://` on Linux.
+const MIXLAB_DESKTOP: &str = include_str!("../../../packaging/linux/mixlab.desktop");
+
 /// The entries of a one-line bash array declared in `packaging/common.sh`.
 ///
 /// Panics rather than returning an empty set when the declaration is not there: an array that
@@ -172,6 +175,47 @@ fn the_window_is_named_the_same_on_both_sides() {
         assigned("MIX_WINDOW_APP"),
         "updates::apply::WINDOW_BUNDLE and packaging/common.sh's MIX_WINDOW_APP have drifted apart; \
          on macOS that name is the whole of what the swap replaces"
+    );
+}
+
+/// The desktop entry that makes a `mixdb://` link reach the window names the scheme the daemon
+/// writes into every handoff URL — roadmap task **T107**.
+///
+/// **What this stops.** The daemon composes `<scheme>://connect?…` and starts the window with it;
+/// the `.desktop` file is what makes the operating system hand a link over at all; `handoff.rs`
+/// refuses any other scheme. Renaming one of the three leaves a URL nobody answers — and on the two
+/// paths that matter it fails silently, as a window that opens with no tab in it.
+#[test]
+fn the_window_answers_the_scheme_its_desktop_entry_registers() {
+    let entry = MIXLAB_DESKTOP
+        .lines()
+        .find_map(|line| line.strip_prefix("MimeType=x-scheme-handler/"))
+        .expect("packaging/linux/mixlab.desktop declares one scheme handler")
+        .trim()
+        .trim_end_matches(';');
+
+    assert_eq!(
+        mixengine_core::window::SCHEME,
+        entry,
+        "window::SCHEME and packaging/linux/mixlab.desktop have drifted apart; the constant is what \
+         the daemon writes into a handoff URL, and the entry is what makes the system hand that URL \
+         to the window"
+    );
+}
+
+/// The window's display name is the product name the application is built under.
+#[test]
+fn the_window_is_called_what_it_is_built_as() {
+    let parsed: serde_json::Value =
+        serde_json::from_str(DESKTOP_TAURI_CONF).expect("tauri.conf.json is not JSON");
+
+    assert_eq!(
+        Some(mixengine_core::window::NAME),
+        parsed
+            .get("productName")
+            .and_then(serde_json::Value::as_str),
+        "window::NAME and tauri.conf.json's productName have drifted apart; the constant is what \
+         `mix database client` prints and the manifest is what the title bar says"
     );
 }
 
