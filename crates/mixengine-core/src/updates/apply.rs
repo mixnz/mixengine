@@ -40,6 +40,23 @@ pub const KEPT: &str = "mixengine-elevate";
 /// `crates/mixengine-core/tests/packaging.rs` checks the release list against.
 pub const SMOKE_EXECUTABLE: &str = "mixengined";
 
+/// The window's key in a payload's `provides` — roadmap task **T106**.
+///
+/// `packaging/common.sh`'s `MIX_WINDOW`, and `apps/desktop/src-tauri/Cargo.toml`'s `[package].name`
+/// through it. Held to that file by `crates/mixengine-core/tests/packaging.rs`.
+///
+/// **The one payload entry that is not resolved by appending an executable suffix.** On macOS a
+/// windowed application is a directory called [`WINDOW_BUNDLE`], which no suffix produces — see
+/// [`installed_name`].
+pub const WINDOW: &str = "mixlab";
+
+/// What macOS wraps [`WINDOW`] in: `packaging/common.sh`'s `MIX_WINDOW_APP`.
+///
+/// Not a macOS-only constant hidden behind a `cfg`: it is one of the two arguments
+/// [`mixengine_platform::install::application_file_name`] takes, and the platform is what decides
+/// whether it is the answer.
+pub const WINDOW_BUNDLE: &str = "MixLab.app";
+
 /// What is renamed onto a binary before its replacement is written.
 ///
 /// Removed by the next daemon start that succeeds, which gives the property that matters for free:
@@ -155,7 +172,7 @@ pub fn swap(
             continue;
         }
 
-        let target = directory.join(binary_name(name));
+        let target = directory.join(installed_name(name));
 
         if !target.exists() {
             swapped.kept.push(name.clone());
@@ -167,7 +184,7 @@ pub fn swap(
 
         // A `.old` from an update whose daemon never came up. Removed rather than refused: it is
         // the one thing in the way, and the copy about to be made is the way back from here.
-        let _ = std::fs::remove_file(&old);
+        remove_any(&old);
 
         if let Err(error) = replace(&source, &target, &old) {
             unwind(&renamed);
@@ -186,20 +203,37 @@ pub fn swap(
 /// Called by the **next daemon start that succeeds**, which is what makes it safe: a daemon that is
 /// answering has proved the binaries beside these are the ones this machine runs. Failures are
 /// reported as a count and never as an error — on Windows a `mix.exe.old` is still held open by the
-/// `mix` that ran the update, and it goes at the start after that one.
+/// `mix` that ran the update, and a `mixlab.exe.old` by the window still running the image it started
+/// from; both go at the start after that one.
+///
+/// **A `.old` may be a directory** — roadmap task **T106**. macOS's window is an application bundle,
+/// and `remove_file` does not remove one: left as it was, a machine that updated twice would keep
+/// every bundle it had ever run.
 #[must_use]
 pub fn discard_old(directory: &Path, names: &[String]) -> usize {
     names
         .iter()
         .filter(|name| {
-            let old = with_old_suffix(&directory.join(binary_name(name)));
+            let old = with_old_suffix(&directory.join(installed_name(name)));
 
-            old.exists() && std::fs::remove_file(&old).is_ok()
+            if !old.exists() {
+                return false;
+            }
+            if old.is_dir() {
+                std::fs::remove_dir_all(&old).is_ok()
+            } else {
+                std::fs::remove_file(&old).is_ok()
+            }
         })
         .count()
 }
 
-/// One binary's swap: rename the installed file out of the way, then write the new one.
+/// One entry's swap: rename what is installed out of the way, then write the new one.
+///
+/// **A file or a tree** — roadmap task **T106**. The window is a directory on macOS
+/// ([`WINDOW_BUNDLE`]), and a bundle half written is an application the operating system refuses to
+/// start, which is worse than the update that was refused. So a tree that cannot be finished is
+/// removed and the rename undone, exactly as the file path already did.
 fn replace(source: &Path, target: &Path, old: &Path) -> Result<()> {
     std::fs::rename(target, old).map_err(|source| Error::Io {
         action: "rename the installed binary out of the way",
@@ -207,17 +241,30 @@ fn replace(source: &Path, target: &Path, old: &Path) -> Result<()> {
         source,
     })?;
 
-    let copied = std::fs::copy(source, target).map_err(|error| Error::Io {
-        action: "copy the staged binary into place",
-        path: target.to_path_buf(),
-        source: error,
-    });
+    let copied = if source.is_dir() {
+        copy_tree(source, target)
+    } else {
+        std::fs::copy(source, target)
+            .map(|_| ())
+            .map_err(|error| Error::Io {
+                action: "copy the staged binary into place",
+                path: target.to_path_buf(),
+                source: error,
+            })
+    };
 
     if let Err(error) = copied {
         // The rename this function made, undone by this function: the caller's unwind covers the
         // ones made before it, and leaving a half-done name for it to guess at would be worse.
+        remove_any(target);
         let _ = std::fs::rename(old, target);
         return Err(error);
+    }
+
+    // A directory needs no bit set: what has to be executable is the file inside it, and the archive
+    // carried its mode across. On Windows this is a no-op either way.
+    if target.is_dir() {
+        return Ok(());
     }
 
     mixengine_platform::install::make_executable(target).map_err(|error| Error::Io {
@@ -227,11 +274,63 @@ fn replace(source: &Path, target: &Path, old: &Path) -> Result<()> {
     })
 }
 
+/// Copy a directory into `target`, file by file, creating what it needs.
+///
+/// **`std::fs::copy` per file rather than a rename of the tree**: the staging directory is inside
+/// `MIXENGINE_HOME` and the install directory need not be on the same volume, which is the same
+/// reason the file path copies. `copy` carries the mode across on Unix, so a bundle's executable
+/// arrives executable — the tarball preserved the bit and this preserves it again.
+///
+/// # Errors
+///
+/// [`Error::Io`] for the first directory or file that cannot be written. The caller removes what was
+/// written before it.
+fn copy_tree(source: &Path, target: &Path) -> Result<()> {
+    let io = |action: &'static str, path: &Path| {
+        let path = path.to_path_buf();
+        move |error: std::io::Error| Error::Io {
+            action,
+            path,
+            source: error,
+        }
+    };
+
+    std::fs::create_dir_all(target).map_err(io("create the replacement directory", target))?;
+
+    for entry in std::fs::read_dir(source).map_err(io("read the staged directory", source))? {
+        let entry = entry.map_err(io("read the staged directory", source))?;
+        let from = entry.path();
+        let to = target.join(entry.file_name());
+
+        if from.is_dir() {
+            copy_tree(&from, &to)?;
+        } else {
+            std::fs::copy(&from, &to).map_err(io("copy the staged file into place", &to))?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Remove a path whichever shape it is, and say nothing when there was nothing there.
+///
+/// `remove_file` does not remove a directory and `remove_dir_all` does not remove a file, and the
+/// window is one shape on macOS and the other everywhere else. Both failures are ignorable by
+/// construction here: every caller is either clearing something out of the way or abandoning
+/// something half-written, and there is a rename behind each of them that is the real report.
+fn remove_any(path: &Path) {
+    if path.is_dir() {
+        let _ = std::fs::remove_dir_all(path);
+    } else {
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 /// Put back everything a failed swap had already moved.
 fn unwind(renamed: &[(PathBuf, PathBuf)]) {
     for (target, old) in renamed.iter().rev() {
         // The new file is in the way of its own predecessor, and it is the thing being abandoned.
-        let _ = std::fs::remove_file(target);
+        remove_any(target);
 
         if let Err(error) = std::fs::rename(old, target) {
             // Nothing left to try, and a warning is the only honest thing: the caller is about to
@@ -249,6 +348,19 @@ fn unwind(renamed: &[(PathBuf, PathBuf)]) {
 /// What a binary is called on this system.
 fn binary_name(name: &str) -> String {
     format!("{name}{}", std::env::consts::EXE_SUFFIX)
+}
+
+/// What one payload name is called on this machine's disk — roadmap task **T106**.
+///
+/// Four of the five are [`binary_name`]. The fifth is [`WINDOW`], and asking the platform is the
+/// whole point: on macOS it is a bundle directory, and this crate may not hold that fact itself
+/// (`CLAUDE.md`). One special case, stated once, rather than every caller remembering it.
+fn installed_name(name: &str) -> String {
+    if name == WINDOW {
+        mixengine_platform::install::application_file_name(WINDOW, WINDOW_BUNDLE)
+    } else {
+        binary_name(name)
+    }
 }
 
 /// `mix.exe` → `mix.exe.old`.
@@ -283,6 +395,30 @@ mod tests {
         for name in installed_names {
             std::fs::write(installed.join(binary_name(name)), b"old").expect("an installed file");
         }
+
+        (root, staged, installed)
+    }
+
+    /// A staged payload and an install directory in which the named entry is a *directory* rather
+    /// than a file — the shape a macOS application bundle takes.
+    ///
+    /// **Named with the ordinary binary name and not `MixLab.app`**, deliberately: [`replace`]
+    /// branches on `source.is_dir()` and never on the operating system, so this exercises the whole
+    /// tree path on Windows and Linux too. What *is* per-OS is
+    /// `mixengine_platform::install::application_file_name`, and that is tested where it lives.
+    fn tree_layout(name: &str) -> (tempfile::TempDir, PathBuf, PathBuf) {
+        let root = tempfile::tempdir().expect("a temporary directory");
+        let staged = root.path().join("staged");
+        let installed = root.path().join("installed");
+
+        let inside = staged.join("mixengine").join(binary_name(name));
+        std::fs::create_dir_all(inside.join("Contents/MacOS")).expect("a staged bundle");
+        std::fs::write(inside.join("Contents/MacOS/mixlab"), b"new").expect("its executable");
+        std::fs::write(inside.join("Contents/Info.plist"), b"new plist").expect("its plist");
+
+        let here = installed.join(binary_name(name));
+        std::fs::create_dir_all(here.join("Contents/MacOS")).expect("an installed bundle");
+        std::fs::write(here.join("Contents/MacOS/mixlab"), b"old").expect("its executable");
 
         (root, staged, installed)
     }
@@ -392,6 +528,110 @@ mod tests {
                 .expect("the old file"),
             b"old",
             "the file replaced by this swap, not the one left by the last"
+        );
+    }
+
+    /// T106. macOS's window is a directory, and an update that could only replace files would leave
+    /// a new daemon beside a window from the release before it.
+    #[test]
+    fn the_swap_replaces_a_directory_as_a_tree() {
+        let (_root, staged, installed) = tree_layout("mixlab");
+
+        let swapped = swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+
+        assert_eq!(swapped.replaced, vec!["mixlab".to_owned()]);
+        let here = installed.join(binary_name("mixlab"));
+        assert_eq!(
+            std::fs::read(here.join("Contents/MacOS/mixlab")).expect("the new executable"),
+            b"new"
+        );
+        assert!(
+            here.join("Contents/Info.plist").is_file(),
+            "a file the old bundle did not have is part of the new one"
+        );
+        assert_eq!(
+            std::fs::read(with_old_suffix(&here).join("Contents/MacOS/mixlab"))
+                .expect("the old executable"),
+            b"old",
+            "the bundle that was replaced is kept beside the one that replaced it"
+        );
+    }
+
+    /// And it comes back. A tree half copied is a bundle macOS would refuse to start, which is a
+    /// worse outcome than the update that was refused.
+    #[test]
+    fn a_swap_that_fails_on_a_tree_puts_everything_back() {
+        let (_root, staged, installed) = tree_layout("mixlab");
+        // A second name the payload promises and does not carry. `provides` is a BTreeMap, so "mix"
+        // is walked before "mixlab": the failure comes first and the tree is never touched, which is
+        // the unwind's *other* half. The tree's own rename is undone by the case below it.
+        std::fs::write(installed.join(binary_name("mix")), b"old").expect("an installed file");
+
+        swap(&staged, &provides(&["mix", "mixlab"]), &installed)
+            .expect_err("the payload has no mix to copy");
+
+        let here = installed.join(binary_name("mixlab"));
+        assert_eq!(
+            std::fs::read(here.join("Contents/MacOS/mixlab"))
+                .expect("the old executable, untouched"),
+            b"old"
+        );
+        assert!(
+            !with_old_suffix(&here).exists(),
+            "nothing was renamed, so nothing is left for somebody to find"
+        );
+    }
+
+    /// The unwind's own half: a tree that *was* replaced, and a name after it that fails.
+    #[test]
+    fn a_replaced_tree_is_put_back_when_a_later_name_fails() {
+        let (_root, staged, installed) = tree_layout("mixlab");
+        // "mixlab" sorts before "zzz", so the tree is swapped and then the walk fails.
+        std::fs::write(installed.join(binary_name("zzz")), b"old").expect("an installed file");
+
+        swap(&staged, &provides(&["mixlab", "zzz"]), &installed)
+            .expect_err("the payload has no zzz to copy");
+
+        let here = installed.join(binary_name("mixlab"));
+        assert_eq!(
+            std::fs::read(here.join("Contents/MacOS/mixlab")).expect("the old executable, back"),
+            b"old"
+        );
+        assert!(
+            !here.join("Contents/Info.plist").exists(),
+            "the tree that was abandoned was removed rather than merged into the one it replaced"
+        );
+        assert!(!with_old_suffix(&here).exists(), "the rename was undone");
+    }
+
+    /// The `.old` of a bundle is a directory, and `remove_file` does not remove one — so a machine
+    /// that updated twice would keep every bundle it had ever run.
+    #[test]
+    fn the_old_tree_of_a_finished_update_is_discarded() {
+        let (_root, staged, installed) = tree_layout("mixlab");
+        let swapped = swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+
+        assert_eq!(discard_old(&installed, &swapped.replaced), 1);
+        assert!(!with_old_suffix(&installed.join(binary_name("mixlab"))).exists());
+    }
+
+    /// A leftover `.old` tree from an update whose daemon never came up must not refuse the next.
+    #[test]
+    fn a_leftover_old_tree_does_not_refuse_the_next_swap() {
+        let (_root, staged, installed) = tree_layout("mixlab");
+        let old = with_old_suffix(&installed.join(binary_name("mixlab")));
+        std::fs::create_dir_all(&old).expect("a leftover");
+        std::fs::write(old.join("stale"), b"older").expect("something in it");
+
+        swap(&staged, &provides(&["mixlab"]), &installed).expect("a swap");
+
+        assert!(
+            !old.join("stale").exists(),
+            "the tree replaced by this swap, not the one left by the last"
+        );
+        assert!(
+            old.join("Contents/MacOS/mixlab").is_file(),
+            "and what is there is the bundle this swap moved aside"
         );
     }
 
