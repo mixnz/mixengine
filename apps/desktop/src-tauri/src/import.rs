@@ -293,9 +293,29 @@ pub fn on_first_launch<R: tauri::Runtime>(app: &AppHandle<R>) {
     std::thread::spawn(move || copy_credentials(plan));
 }
 
+/// Whether the marker is in `dir`.
+///
+/// A free function over a path so it can be checked without a Tauri runtime, the way the rest of
+/// this module is.
+fn marker_in(dir: &Path) -> bool {
+    dir.join(MARKER).exists()
+}
+
+/// Whether a MixDB user's data was brought across on this machine.
+///
+/// T108's third question. The window asks it on exactly one launch — a webview profile with no
+/// shell settings at all — to tell a fresh install from an imported one: the import copies store
+/// files and deliberately copies no `localStorage`, so those two look identical from up there and
+/// want opposite answers. A machine whose application-data directory cannot even be named has
+/// nothing imported in it, which is `false` and not an error worth showing anyone.
+#[tauri::command]
+pub fn import_happened(app: AppHandle) -> bool {
+    crate::platform::app_data_dir(&app).is_ok_and(|dir| marker_in(&dir))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{accounts_of, copy_stores, ids_in, is_store_file, legacy_dir, MARKER};
+    use super::{accounts_of, copy_stores, ids_in, is_store_file, legacy_dir, marker_in, MARKER};
     use serde_json::json;
     use std::collections::BTreeSet;
     use std::path::Path;
@@ -415,5 +435,16 @@ mod tests {
         std::fs::create_dir_all(&new).unwrap();
 
         assert!(copy_stores(&new).is_none());
+    }
+
+    /// T108 asks one question of this module: did a MixDB user's data come across on this machine?
+    /// The marker is the whole answer, and it is written inside `setup()` — before the event loop
+    /// that carries the question — so by the time the window can ask, the answer is final.
+    #[test]
+    fn the_marker_is_the_whole_answer() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!marker_in(dir.path()));
+        std::fs::write(dir.path().join(MARKER), "{}").unwrap();
+        assert!(marker_in(dir.path()));
     }
 }
