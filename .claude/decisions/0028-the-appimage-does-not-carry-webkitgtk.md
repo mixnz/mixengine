@@ -24,7 +24,9 @@ Below them, carrying buys nothing either: Ubuntu 20.04, Debian 11 and RHEL 8 are
 older, and the window is built on `ubuntu-22.04` because it cannot be built in the
 `manylinux_2_28` container the other four binaries come from (T103, D12) — a library bundle does not
 lower a binary's own glibc floor. That leaves one family: enterprise Linux 9, at glibc 2.34, with
-WebKitGTK 4.0 and no 4.1 planned before its end of life.
+WebKitGTK 4.0 and no 4.1 planned before its end of life. Measured on run 34298077029, the window
+requires `GLIBC_2.34` exactly — so that family clears the binary's own floor and fails on the webview
+alone, which is what makes the next measurement the one that decides.
 
 **Whether carrying would be enough there.** It would not. Enterprise Linux 9's glib is older than
 the 2.70 WebKitGTK 4.1 requires, which is why the package was never backported to it — so an image
@@ -41,7 +43,9 @@ when the process exits, so `mix`, which starts `mixengined --detach` and returns
 filesystem out from under the daemon it had just started. A carried library tree is therefore copied
 onto every machine that runs the image — including the one running
 `./mixengine-…-linux-x86_64.AppImage status` on a headless server, which is a large share of this
-artifact's users and would gain nothing.
+artifact's users and would gain nothing. Measured on the same run: the closure is 205 MB across 133
+files on `x86_64` and 200 MB on `aarch64`, of which WebKitGTK and JavaScriptCore alone are 117 MB and
+113 MB. The AppImage that carries all five binaries today is 33 MB.
 
 ## Decision
 
