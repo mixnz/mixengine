@@ -410,7 +410,7 @@ impl Databases {
         Ok(match located {
             Located::Installed(app) => (
                 DesktopClient::Installed {
-                    extension,
+                    extension: Some(extension),
                     name,
                     program: app.program.display().to_string(),
                 },
