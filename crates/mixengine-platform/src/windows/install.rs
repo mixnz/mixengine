@@ -141,3 +141,39 @@ fn schedule(path: &std::path::Path) -> Result<()> {
 
     Ok(())
 }
+
+/// What a desktop application is called on disk here — roadmap task **T106**.
+///
+/// `std::env::consts::EXE_SUFFIX` and nothing else: Windows has no application bundle, so the window
+/// is one more file beside the other four and the NSIS installer places it as such.
+pub(crate) fn application_file_name(executable: &str, _bundle: &str) -> String {
+    format!("{executable}{}", std::env::consts::EXE_SUFFIX)
+}
+
+/// The executable itself: there is nothing wrapped around it to find.
+pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
+    executable.to_path_buf()
+}
+
+#[cfg(test)]
+mod application_tests {
+    use std::path::{Path, PathBuf};
+
+    /// Windows has no bundle: the application is the `.exe`, which is what the NSIS installer places
+    /// beside the other four binaries.
+    #[test]
+    fn an_application_is_an_exe() {
+        assert_eq!(
+            super::application_file_name("mixlab", "MixLab.app"),
+            "mixlab.exe"
+        );
+    }
+
+    #[test]
+    fn an_executable_is_its_own_root() {
+        assert_eq!(
+            super::application_root(Path::new(r"C:\Users\me\MixEngine\mixlab.exe")),
+            PathBuf::from(r"C:\Users\me\MixEngine\mixlab.exe")
+        );
+    }
+}

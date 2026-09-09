@@ -44,3 +44,38 @@ pub(crate) fn remove_helper() -> Result<crate::install::HelperRemoval> {
 
 /// The executable bit an archive may not have carried — roadmap task **T88**.
 pub(crate) use crate::unix::install::make_executable;
+
+/// What a desktop application is called on disk here — roadmap task **T106**.
+///
+/// The bare name. Linux has no application bundle and no executable suffix; a `.desktop` file points
+/// at this file and the packaging scripts place it beside the other four.
+pub(crate) fn application_file_name(executable: &str, _bundle: &str) -> String {
+    executable.to_owned()
+}
+
+/// The executable itself: there is nothing wrapped around it to find.
+pub(crate) fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
+    executable.to_path_buf()
+}
+
+#[cfg(test)]
+mod application_tests {
+    use std::path::{Path, PathBuf};
+
+    /// Linux has no bundle and no suffix: the application is the file `MIX_BINARIES` names.
+    #[test]
+    fn an_application_is_the_bare_name() {
+        assert_eq!(
+            super::application_file_name("mixlab", "MixLab.app"),
+            "mixlab"
+        );
+    }
+
+    #[test]
+    fn an_executable_is_its_own_root() {
+        assert_eq!(
+            super::application_root(Path::new("/opt/mixengine/mixlab")),
+            PathBuf::from("/opt/mixengine/mixlab")
+        );
+    }
+}
