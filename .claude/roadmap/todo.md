@@ -32,7 +32,7 @@ needs verification on Windows + macOS + Linux.
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
 | [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 5 / 5 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
-| [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 0 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
+| [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 1 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 

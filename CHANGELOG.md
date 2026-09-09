@@ -5,11 +5,16 @@
 ### Added
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
+- MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database
+  tools — and Settings has a Modules pane that changes the answer. Turning a module off closes its
+  tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Changed
 - The desktop window is **MixLab**: its own name, identifier, executable and mark, and MixEngine's
   version rather than one of its own. The daemon, `mix`, the home, the keyring namespace and the
   installers keep MixEngine's name and are unchanged.
+- MixLab's tab menu and its `Ctrl/Cmd+1 … N` shortcuts lead with MixEngine, and the number keys
+  count across the modules you have turned on rather than across all five.
 
 ## v0.0.6
 
