@@ -68,6 +68,36 @@ pub fn make_executable(path: &std::path::Path) -> Result<()> {
     crate::sys::install::make_executable(path)
 }
 
+/// What a desktop application named `executable` is called on disk here — roadmap task **T106**.
+///
+/// `mixlab.exe` on Windows, `mixlab` on Linux, `MixLab.app` on macOS, where a windowed application
+/// is a directory rather than a file.
+///
+/// **Two arguments and not one**, because the bundle's name is not derivable from the executable's:
+/// `cargo` names the binary after `[package].name` and Tauri names the bundle after `productName`,
+/// and `packaging/common.sh` declares both — `MIX_WINDOW` and `MIX_WINDOW_APP`. The caller holding
+/// them is `mixengine_core::updates::apply`, which may not ask this question with a `cfg!` of its
+/// own (`CLAUDE.md`) and whose two constants `crates/mixengine-core/tests/packaging.rs` keeps in step
+/// with that file. Named in prose and not linked: that crate depends on this one, so a link would
+/// point the wrong way down the graph and rustdoc would refuse it.
+#[must_use]
+pub fn application_file_name(executable: &str, bundle: &str) -> String {
+    crate::sys::install::application_file_name(executable, bundle)
+}
+
+/// The thing an installer placed, given the executable inside it — roadmap task **T106**.
+///
+/// `…/MixLab.app` for `…/MixLab.app/Contents/MacOS/mixlab`; the executable itself on Windows and
+/// Linux, and on a macOS build with no bundle around it.
+///
+/// **What this is for** is a window asking whether the file an update just replaced is the file it is
+/// running from: the daemon answers the directory it swapped in, and the name to join onto it is this
+/// path's last component rather than a second copy of the rule above.
+#[must_use]
+pub fn application_root(executable: &std::path::Path) -> std::path::PathBuf {
+    crate::sys::install::application_root(executable)
+}
+
 /// Make a freshly copied file root's, and one the elevation prompt can start.
 ///
 /// The other half of [`helper_path`], and the reason this module has a write at all: putting a

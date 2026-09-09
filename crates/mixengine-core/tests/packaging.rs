@@ -150,6 +150,31 @@ fn the_window_is_one_of_the_binaries_and_is_named_as_such() {
     );
 }
 
+/// The two names `updates::apply` holds for the window are the two `packaging/common.sh` declares.
+///
+/// **What this stops.** `swap` resolves every other payload name by appending this platform's
+/// executable suffix; the window is the one entry whose on-disk name that rule does not produce, so
+/// it is looked up by these two constants instead. A rename on the packaging side alone would give a
+/// feed whose `provides` names something no installed copy ever looks for — no error, no log line,
+/// and a window that is never updated again. It is the failure T105 argued the executable's spelling
+/// out of, one layer down.
+#[test]
+fn the_window_is_named_the_same_on_both_sides() {
+    assert_eq!(
+        mixengine_core::updates::apply::WINDOW,
+        assigned("MIX_WINDOW"),
+        "updates::apply::WINDOW and packaging/common.sh's MIX_WINDOW have drifted apart; the \
+         constant is what an installed MixEngine looks for beside its binaries, and the variable is \
+         what every packaging script stages under"
+    );
+    assert_eq!(
+        mixengine_core::updates::apply::WINDOW_BUNDLE,
+        assigned("MIX_WINDOW_APP"),
+        "updates::apply::WINDOW_BUNDLE and packaging/common.sh's MIX_WINDOW_APP have drifted apart; \
+         on macOS that name is the whole of what the swap replaces"
+    );
+}
+
 /// The three files the desktop build reads its version out of, read at compile time.
 ///
 /// None of them can inherit from `[workspace.package]`: the desktop application's crate is a

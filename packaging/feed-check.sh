@@ -28,6 +28,10 @@ tar -czf "$work/dist/mixengine-$version-linux-x86_64.tar.gz" -C "$work/payload" 
 # The Windows payload, whose entries carry `.exe` — the whole point of the check.
 export MIX_CHECK_ZIP="$work/dist/mixengine-$version-windows-x86_64.zip"
 export MIX_CHECK_NAMES="${MIX_BINARIES[*]}"
+# T106. The window's two names, so the check below can ask about the one payload entry that is a
+# directory without spelling either of them a second time.
+export MIX_CHECK_WINDOW="$MIX_WINDOW"
+export MIX_CHECK_WINDOW_APP="$MIX_WINDOW_APP"
 
 python3 - <<'PY'
 import os
@@ -37,6 +41,17 @@ with zipfile.ZipFile(os.environ["MIX_CHECK_ZIP"], "w") as archive:
     for name in os.environ["MIX_CHECK_NAMES"].split():
         archive.writestr(f"mixengine/{name}.exe", "not a binary\n")
 PY
+
+# **The macOS payload, whose window is a bundle** — T106. `feed.sh` reads `provides` out of the
+# archive, and every arm it had skipped a directory: without this leg, the one artifact in this
+# product whose window is not a file is the one artifact this script never looks at.
+mkdir -p "$work/macos/mixengine/$MIX_WINDOW_APP/Contents/MacOS"
+for binary in $(mix_headless_binaries); do
+  printf 'not a binary\n' >"$work/macos/mixengine/$binary"
+done
+printf 'not a binary\n' >"$work/macos/mixengine/$MIX_WINDOW_APP/Contents/MacOS/$MIX_WINDOW"
+printf 'not a plist\n' >"$work/macos/mixengine/$MIX_WINDOW_APP/Contents/Info.plist"
+tar -czf "$work/dist/mixengine-$version-macos-universal.tar.gz" -C "$work/macos" mixengine
 
 # **The headless archives, which this feed must ignore** — T105, D7. They match the same name globs
 # `feed.sh` collects payloads with, and without an exclusion the script reaches its `*)` arm and
@@ -74,19 +89,29 @@ with open(sys.argv[1], encoding="utf-8") as handle:
     document = json.load(handle)
 
 expected = set(os.environ["MIX_CHECK_NAMES"].split())
+window = os.environ["MIX_CHECK_WINDOW"]
+bundle = os.environ["MIX_CHECK_WINDOW_APP"]
 problems = []
 
 for artifact in document["artifacts"]:
     provides = artifact["provides"]
     names = set(provides)
+    where = artifact["os"] + "/" + artifact["arch"]
 
     if names != expected:
-        where = artifact["os"] + "/" + artifact["arch"]
         problems.append(f"{where} provides {sorted(names)}, not {sorted(expected)}")
 
     for name, path in provides.items():
         if not path.startswith("mixengine/"):
             problems.append(f"{name} points at {path}, which is not under mixengine/")
+
+    # T106. On macOS the window is an application bundle, and the value has to name the directory
+    # itself: `updates::apply::swap` replaces what that path names as a tree, and a value pointing at
+    # the executable inside it would leave the plist, the icon and the version behind.
+    if artifact["os"] == "macos" and provides.get(window) != f"mixengine/{bundle}":
+        problems.append(
+            f"{where} provides {window} as {provides.get(window)}, not mixengine/{bundle}"
+        )
 
 # T105. Two payloads went into the fixture and two headless archives beside them; a feed that
 # collected all four would list this pair of (os, arch) twice, and `mixengine_core::index` takes the

@@ -109,33 +109,14 @@ const en = {
     prevTab: "Previous tab",
     reload: "Reload the pane on screen",
   },
-  // Finding, fetching and installing a newer MixLab. The download runs in the background; the
-  // install closes the app, so it never happens without the user pressing the button for it.
+  // Which version is running, and where a newer one comes from. MixEngine's updater is the one that
+  // replaces this window \u2014 T106 \u2014 so this block is a signpost and not a downloader.
   update: {
     title: "Updates",
     unavailable: "MixLab is updated with MixEngine.",
-    available: "MixLab {{version}} is out",
     runningNow: "You are running {{version}}",
-    updateNow: "Update now",
-    downloading: "Downloading\u2026 {{percent}}%",
-    downloadingUnknown: "Downloading\u2026",
-    downloaded: "MixLab {{version}} is ready to install.",
-    restartNow: "Install and restart",
-    installing: "Installing\u2026",
-    restartHint: "MixLab will close for a moment and reopen on the new version.",
-    later: "Later",
-    skip: "Skip this one",
-    skipped: "{{version}} is being skipped.",
-    unskip: "Tell me again",
-    checkNow: "Check now",
-    checking: "Checking...",
-    upToDate: "This is the newest version.",
     notCheckedYet: "Not checked yet.",
-    checkFailed: "The check failed: {{message}}",
-    failed: "The update failed: {{message}}",
-    lastChecked: "Last checked {{at}}.",
     openPage: "Open the download page",
-    moreChanges: "and {{count}} more",
     autoHint:
       "MixLab arrives and is replaced with MixEngine — its installer puts the window in place, and MixEngine's own updater keeps it current. There is nothing to check for here.",
   },
@@ -145,6 +126,11 @@ const en = {
   error: {
     // MixEngine — the local daemon this app manages. `message` is the daemon's own words and is
     // never translated: it is what a search engine and MixEngine's own manual both index.
+    // Restarting the window — T106, `src-tauri/src/relaunch.rs`. The first is a machine whose
+    // operating system will not name this process's own executable; the second is one that would
+    // not start it.
+    relaunchNoExecutable: "MixLab could not work out which program to start again.",
+    relaunchFailed: "MixLab could not start itself again: {{message}}",
     mixengineNoHome: "Could not work out where MixEngine keeps its files.",
     mixengineUnreachable: "No MixEngine daemon answered at {{endpoint}}.",
     mixenginePipeOwner:

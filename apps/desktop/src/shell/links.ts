@@ -1,10 +1,10 @@
 /**
  * Pages of MixDB's own that the app sends a user out to.
  *
- * Not in `update.ts`, which owns the release URLs: those are addresses the updater *fetches* and
- * are part of how updating works, while this is a document a user goes to read. They also live on
- * different hosts — the releases are on github.com, this is the project's Pages site — so a reader
- * who assumed one constant could be derived from the other would be wrong.
+ * Not in `version.ts`, which owns the release page: that is where a person goes to fetch a build,
+ * and part of how the product is installed, while this is a document a user goes to read. They also
+ * live on different hosts — the releases are on github.com, this is the project's Pages site — so a
+ * reader who assumed one constant could be derived from the other would be wrong.
  */
 
 /**

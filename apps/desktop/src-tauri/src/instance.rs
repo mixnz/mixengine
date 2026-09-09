@@ -59,6 +59,17 @@ pub async fn forward(endpoint: &Endpoint, line: &str) -> bool {
     sys::forward(&endpoint.path, line).await
 }
 
+/// Whether somebody is answering on `endpoint`, without saying anything to them — roadmap task
+/// **T106**.
+///
+/// **The one question a relaunched copy asks.** It has to wait for the copy it is replacing to go
+/// before it can take the endpoint itself, and [`forward`] is not the way to ask: that delivers a
+/// line, which brings a window on its way out to the front and asks it to open a tab. This opens the
+/// transport and drops it — the listener's `answer` reads EOF, replies `no`, and nothing happens.
+pub async fn listening(endpoint: &Endpoint) -> bool {
+    sys::listening(&endpoint.path).await
+}
+
 /// Listens on `endpoint` for as long as the future is polled, calling `on_line` with each line
 /// received. Returns early, after a line on stderr, when the endpoint cannot be taken — another
 /// copy holds it, or the place it lives in is not this user's.
@@ -140,6 +151,15 @@ mod sys {
         false
     }
 
+    pub async fn listening(path: &Path) -> bool {
+        // `PIPE_BUSY` means every instance of the name is taken this instant, which is a listener
+        // rather than the absence of one — the same reading `forward` gives it.
+        match ClientOptions::new().open(path) {
+            Ok(_) => true,
+            Err(e) => e.raw_os_error() == Some(PIPE_BUSY),
+        }
+    }
+
     pub async fn serve(path: PathBuf, on_line: impl Fn(String) + Send + Sync + 'static) {
         // `first_pipe_instance` is the whole of the "is another copy running" question: creating
         // the first instance of a name somebody else owns is refused.
@@ -210,6 +230,12 @@ mod sys {
             Ok(stream) => super::ask(stream, line).await,
             Err(_) => false,
         }
+    }
+
+    pub async fn listening(path: &Path) -> bool {
+        // A socket file another user owns is not a copy of this app, and one left behind by a copy
+        // that crashed is a file nobody answers on — `connect` says so by failing.
+        ours(path) && tokio::net::UnixStream::connect(path).await.is_ok()
     }
 
     pub async fn serve(path: PathBuf, on_line: impl Fn(String) + Send + Sync + 'static) {
@@ -302,6 +328,43 @@ mod tests {
             "{:?}",
             started.elapsed()
         );
+    }
+
+    /// T106. A relaunched copy has to know when the copy it is replacing has gone, and asking must
+    /// not do anything to it on the way: `forward` would bring a dying window to the front and hand
+    /// it a start it is in no position to serve.
+    #[tokio::test]
+    async fn listening_answers_without_saying_anything() {
+        let endpoint = test_endpoint();
+        assert!(
+            !listening(&endpoint).await,
+            "nobody is there yet, and the answer is no rather than a wait"
+        );
+
+        let taken = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = taken.clone();
+        tokio::spawn(serve(endpoint.clone(), move |_| {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }));
+
+        // The listener binds on a task of its own and may not be there on the first attempt.
+        let mut answered = false;
+        for _ in 0..100 {
+            if listening(&endpoint).await {
+                answered = true;
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+
+        assert!(answered, "a listener is listening");
+        assert_eq!(
+            taken.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "the probe delivered no line, so nothing was brought to the front"
+        );
+
+        cleanup(&endpoint);
     }
 
     /// A line longer than the cap, or one with a line break in it, is not a message and is never

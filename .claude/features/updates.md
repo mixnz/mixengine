@@ -76,6 +76,22 @@ too.
   directory, published beside the installers — `packaging/README.md`. None of the five installers is
   a thing an updater can apply: three need root, one needs a Finder dialog, and an AppImage is a file
   the user placed. The updater applies the archive and never runs an installer.
+- **The payload carries the window, and an update never adds one** — roadmap task **T106**. Since
+  T105 every payload holds `mixlab` beside the four command-line binaries, and on macOS that entry is
+  `MixLab.app`, a *directory*: `packaging/feed.sh` emits one `provides` row for the bundle and
+  `mixengine_core::updates::apply::swap` replaces what such a value names as a tree. What has not
+  changed is the rule that decides whether it is replaced at all — a name this install does not have
+  is skipped and reported as kept. A headless install stays headless; a `.pkg` install, whose binaries
+  are in `/usr/local/bin` and whose window is in `/Applications`, keeps its window, and MixLab says so
+  rather than leaving a new daemon beside an old window in silence. The window arrives by installer,
+  and only by installer.
+- **The window relaunches itself, and the daemon does not do it for it.** After `update.apply`
+  answers, MixLab asks whether the file that was replaced is the file it is running from — the
+  directory the daemon reports, joined with the name of whatever an installer placed — and if it is,
+  it starts that file again and exits. On Windows a running executable can be renamed and not
+  overwritten, which is what the swap already relies on. On Linux the window must have read its own
+  path *before* the swap: `/proc/self/exe` follows the inode, so a window asking afterwards is told
+  its own path is `…/mixlab.old` and would relaunch the version the user had just replaced.
 - **A copy of MixEngine a package manager installed is refused in words, before anything is
   downloaded** (T88, D7). `mix self-update` write-probes the directory holding `mixengined`; a
   directory this account cannot write means something else put MixEngine there and something else

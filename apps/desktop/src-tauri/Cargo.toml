@@ -120,15 +120,15 @@ tempfile = "3"
 # `[daemon] ipc_path` reading that used to is a knob the daemon never honoured (T102).
 toml = "1"
 
-# The updater downloads and runs an installer, and restarting means replacing the running process —
-# neither exists on mobile, so both plugins are desktop-only and `lib.rs` guards them with `cfg`.
+# Window state and the URL scheme are desktop-only, and `lib.rs` guards them with `cfg`.
+#
+# **`tauri-plugin-updater` and `tauri-plugin-process` were here and are not** — T106. MixEngine's
+# updater is the only updater: one signed feed, one key, one payload, and `update.apply` on the
+# daemon. Restarting this window is `crate::relaunch`, which the process plugin could not have done
+# — after a swap the running executable's own path names the file that was renamed out of the way,
+# not the one that replaced it. Going with the updater is the second minisign key this application
+# used to compile in, belonging to a repository that is about to be archived.
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-# `native-tls`, not the default `rustls-tls`: on its default the updater pulls a second copy of the
-# rustls machinery — hyper-rustls and rustls-platform-verifier — for the one request it makes a
-# day, on top of the native stack sqlx and reqwest already use. What rustls is left is mongodb's,
-# which is not ours to choose.
-tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls"] }
-tauri-plugin-process = "2"
 # Remembers only whether the window was left maximized; everything else falls back to the
 # default size in `tauri.conf.json`.
 tauri-plugin-window-state = "2"

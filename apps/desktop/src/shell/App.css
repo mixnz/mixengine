@@ -383,49 +383,6 @@ body {
   }
 }
 
-/* An update is out and the user has not dealt with it yet. The name goes to full strength and
-   takes the accent, so the button reads as changed even for someone who cannot see the dot. */
-.brand-update {
-  position: relative;
-  opacity: 1;
-  color: var(--accent-text);
-  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.5);
-}
-
-/* Outside the chip's corner rather than inside it, which is where a notification dot goes and
-   which keeps it off the gear it would otherwise sit on top of. */
-.brand-update::after {
-  content: "";
-  position: absolute;
-  top: -3px;
-  right: -3px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent);
-  /* Three slow pulses, then still: enough to catch the eye on arrival without a corner of the
-     window blinking for the rest of the session. */
-  animation: brand-update-pulse 1.6s ease-out 3;
-}
-
-@keyframes brand-update-pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0.5);
-  }
-  70% {
-    box-shadow: 0 0 0 6px rgb(var(--accent-rgb) / 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgb(var(--accent-rgb) / 0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .brand-update::after {
-    animation: none;
-  }
-}
-
 /* One mark on a tab, whatever it says. The layout is all the shell knows about it: what colour it
    takes, and whether it takes one, is the module's own class beside this one. */
 .tab-badge {

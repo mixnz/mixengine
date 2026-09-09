@@ -118,7 +118,21 @@ for file in "${payloads[@]}"; do
   esac
 
   provides=""
+  bundled=""
   for entry in $entries; do
+    # **The window on macOS is a directory** — roadmap task T106. Every arm below skips one: a
+    # trailing-slash entry is a directory and `mixengine/*/*` is something inside one, so a payload
+    # carrying `MixLab.app` would be described as four binaries and no window — and `updates::apply`
+    # would go on keeping a window it was never offered, silently, for every release after it.
+    # Emitted once however many entries the bundle holds, and keyed on `MIX_WINDOW_APP` rather than
+    # on the operating system: only the macOS payload ever contains that directory.
+    case "$entry" in
+      "mixengine/$MIX_WINDOW_APP" | "mixengine/$MIX_WINDOW_APP/" | "mixengine/$MIX_WINDOW_APP/"*)
+        bundled=yes
+        continue
+        ;;
+    esac
+
     case "$entry" in
       mixengine/*/* | */) continue ;;
       mixengine/*) ;;
@@ -136,6 +150,10 @@ for file in "${payloads[@]}"; do
     binary="${binary%.exe}"
     provides="$provides$binary=$entry"$'\n'
   done
+
+  if [ -n "$bundled" ]; then
+    provides="$provides$MIX_WINDOW=mixengine/$MIX_WINDOW_APP"$'\n'
+  fi
 
   if [ -z "$provides" ]; then
     echo "$name holds no binaries under mixengine/" >&2

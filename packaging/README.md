@@ -115,6 +115,13 @@ what `updates::apply` reads: it appends this platform's executable suffix itself
 runs the script over a fixture distribution and asserts exactly that, because the only sign of
 getting it wrong is a `mix self-update` that refuses the release it was offered.
 
+**On macOS one `provides` value names a directory** — roadmap task **T106**. A windowed application
+there is a bundle, `MixLab.app`, so the macOS payload carries `mixengine/MixLab.app/…` and its rows
+read `"mixlab": "mixengine/MixLab.app"`. `feed.sh` emits that row once however many entries the bundle
+holds inside it, and `updates::apply::swap` renames the installed bundle aside and copies the new one
+in as a tree. The headless archive is built from a root of its own for exactly this reason: one
+shared staging directory is how a machine with no display would end up downloading a webview.
+
 macOS is universal, so its one archive is listed under **both** architectures. The notes are the
 tag's own commit subjects, read from `git` — the feed is signed before the draft release exists, so
 GitHub's generated notes cannot reach it — with `notes_url` pointing at the page somebody may have
