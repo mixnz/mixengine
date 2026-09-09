@@ -7,6 +7,7 @@ mod instance;
 mod launch;
 mod modules;
 mod platform;
+mod relaunch;
 mod secrets;
 mod ssh;
 
@@ -16,11 +17,24 @@ pub fn run() {
     // started with, and the credential for it out of the environment. Everything the builder
     // starts — threads, webview helpers, later a shell in a terminal tab — inherits what is left.
     let opening = launch::Opening::from_process();
+    // And, in the same breath and for the same reason, whether this copy was started by the copy it
+    // is replacing — T106. Read and removed here: left in the environment it would be inherited by
+    // every child this process ever starts, the next relaunch's included. `remember` goes with it,
+    // because after an update `/proc/self/exe` names the file that was renamed out of the way rather
+    // than the one that replaced it — so the only safe moment to ask is before an update can have
+    // happened.
+    let taking_over = relaunch::taking_over();
+    relaunch::remember();
     let context = tauri::generate_context!();
 
-    // A copy already running takes it and opens the tab. This process is then done, and exiting 0
-    // is what tells the program that started it that the connection was handed on.
-    if launch::forward(&context.config().identifier, &opening) {
+    if taking_over {
+        // The predecessor is still winding down, and handing it this start would be handing a start
+        // to a window that is closing. Wait for its endpoint instead, then carry on as the only copy
+        // — `relaunch::wait_for_predecessor` says what happens when it does not let go.
+        relaunch::wait_for_predecessor(&context.config().identifier);
+    } else if launch::forward(&context.config().identifier, &opening) {
+        // A copy already running takes it and opens the tab. This process is then done, and exiting
+        // 0 is what tells the program that started it that the connection was handed on.
         return;
     }
 
@@ -40,12 +54,12 @@ pub fn run() {
                 .build(),
         );
 
-    // Self-update: fetching the release, checking its minisign signature and running the installer
-    // all happen here, in Rust, which is why the front end needs no network permission for it.
+    // **No updater plugin and no process plugin** — T106. MixEngine's updater is the only one:
+    // `update.status | check | decide | apply` on the daemon, one signed feed, one key, one payload.
+    // What the process plugin was here for — restarting this window — is `crate::relaunch`, which has
+    // to know rather more than that plugin did about which executable is the right one to start.
     #[cfg(desktop)]
     let builder = builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         // Only the maximized flag is persisted: leave the window maximized and it comes back
         // maximized, restore it down and the next launch uses the default size from the config.
         .plugin(

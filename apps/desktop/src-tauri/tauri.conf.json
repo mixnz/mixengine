@@ -31,15 +31,6 @@
       "desktop": {
         "schemes": ["mixdb"]
       }
-    },
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBODYzQ0E0Mzg0QUI5Q0EKUldUS3VVbzRwRHlHbXNUY3A3OUFOVWprR2VOMUV3N0RYYng0dzExVEdPOVNJaGhPUGVyOHZEWlcK",
-      "endpoints": [
-        "https://github.com/mixnz/mixdb/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
-      }
     }
   },
   "bundle": {
@@ -47,7 +38,6 @@
     "publisher": "mixnz",
     "copyright": "Copyright © 2026 mixnz (Nguyễn Hải Quang). MIT OR Apache-2.0.",
     "targets": ["nsis", "app", "dmg", "appimage", "deb"],
-    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

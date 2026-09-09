@@ -102,33 +102,14 @@ const vi: SharedDict = {
     prevTab: "Tab liền trước",
     reload: "Tải lại pane đang xem",
   },
-  // Tìm, tải và cài bản MixLab mới. Việc tải chạy ngầm; việc cài thì đóng ứng dụng, nên nó chỉ xảy
-  // ra khi người dùng tự bấm nút.
+  // Bản nào đang chạy, và bản mới đến từ đâu. Trình cập nhật của MixEngine mới là thứ thay cửa sổ
+  // này — T106 — nên khối này là một tấm biển chỉ đường chứ không phải một trình tải về.
   update: {
     title: "Cập nhật",
     unavailable: "MixLab được cập nhật cùng MixEngine.",
-    available: "Đã có MixLab {{version}}",
     runningNow: "Bạn đang dùng bản {{version}}",
-    updateNow: "Cập nhật ngay",
-    downloading: "Đang tải… {{percent}}%",
-    downloadingUnknown: "Đang tải…",
-    downloaded: "Bản MixLab {{version}} đã sẵn sàng để cài.",
-    restartNow: "Cài và khởi động lại",
-    installing: "Đang cài đặt…",
-    restartHint: "MixLab sẽ đóng lại trong chốc lát rồi tự mở lên bản mới.",
-    later: "Để sau",
-    skip: "Bỏ qua bản này",
-    skipped: "Đang bỏ qua bản {{version}}.",
-    unskip: "Nhắc lại",
-    checkNow: "Kiểm tra ngay",
-    checking: "Đang kiểm tra...",
-    upToDate: "Đây là bản mới nhất.",
     notCheckedYet: "Chưa kiểm tra lần nào.",
-    checkFailed: "Kiểm tra thất bại: {{message}}",
-    failed: "Cập nhật thất bại: {{message}}",
-    lastChecked: "Kiểm tra lần cuối {{at}}.",
     openPage: "Mở trang tải về",
-    moreChanges: "và {{count}} thay đổi khác",
     autoHint:
       "MixLab đi cùng MixEngine — bộ cài đặt cửa sổ này vào máy, và trình cập nhật của MixEngine giữ nó luôn mới. Ở đây không có gì để kiểm tra.",
   },
@@ -138,6 +119,10 @@ const vi: SharedDict = {
   error: {
     // MixEngine — daemon cục bộ mà app này quản lý. `message` là lời của chính daemon và không
     // bao giờ được dịch: đó là chuỗi người ta tra cứu được.
+    // Khởi động lại cửa sổ — T106, `src-tauri/src/relaunch.rs`. Cái đầu là máy mà hệ điều hành
+    // không chịu cho biết executable của chính tiến trình này; cái sau là máy không chạy nổi nó.
+    relaunchNoExecutable: "MixLab không xác định được chương trình nào cần khởi động lại.",
+    relaunchFailed: "MixLab không tự khởi động lại được: {{message}}",
     mixengineNoHome: "Không xác định được MixEngine để file ở đâu.",
     mixengineUnreachable: "Không có daemon MixEngine nào trả lời ở {{endpoint}}.",
     mixenginePipeOwner:

@@ -1,7 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
 import { logError } from "../../core/log";
 import { useTranslation } from "../../i18n";
 import styles from "./ErrorBoundary.module.css";
@@ -44,7 +44,10 @@ function Fallback({ variant, onReset }: FallbackProps) {
             >
               {t("settings.openLogFolder")}
             </button>
-            <button type="button" className={styles.button} onClick={() => void relaunch()}>
+            {/* MixLab's own restart and not a plugin's — T106 took `tauri-plugin-process` out with
+                the updater it arrived for. `relaunch_app` starts the executable this process was
+                started from, which after an update is the one that replaced it. */}
+            <button type="button" className={styles.button} onClick={() => void invoke("relaunch_app")}>
               {t("error.restartApp")}
             </button>
           </>
