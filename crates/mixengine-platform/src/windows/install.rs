@@ -20,6 +20,26 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
         .join(HELPER))
 }
 
+/// The per-user directory every Windows artifact installs into, under `%LOCALAPPDATA%`.
+///
+/// `packaging/common.sh`'s `MIX_INSTALL_WINDOWS`, and `crates/mixengine-core/tests/packaging.rs`
+/// holds the two together.
+const PROGRAMS: &str = r"Programs\MixEngine";
+
+/// Where the NSIS installer and the portable archive put MixEngine's programs — roadmap task
+/// **T107**.
+///
+/// One directory, and per user: `RequestExecutionLevel user` means an update needs no UAC, which is
+/// the reason the whole install lives under this profile rather than under Program Files.
+///
+/// Empty when the shell will not name the folder, which is a machine with no install location this
+/// crate can state rather than an error: [`crate::install::program_path`] has `PATH` left to try.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    super::known_folder::local_app_data()
+        .map(|base| vec![base.join(PROGRAMS)])
+        .unwrap_or_default()
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in

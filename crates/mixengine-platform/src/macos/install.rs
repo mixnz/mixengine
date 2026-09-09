@@ -21,6 +21,20 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// The one directory the `.pkg` installs the command line into.
+///
+/// `packaging/common.sh`'s `MIX_INSTALL_MACOS`. `/usr/local/bin` and not `/usr/bin`: the `.pkg` is
+/// not a system package manager's, and `/usr/local` is where a Mac expects one that is not.
+const BIN: &str = "/usr/local/bin";
+
+/// Where the `.pkg` and the portable tarball put MixEngine's programs — roadmap task **T107**.
+///
+/// **The window is not here**: a `.pkg` puts `MixLab.app` in `/Applications`, which is
+/// [`window_dirs`]'s whole reason for existing.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    vec![PathBuf::from(BIN)]
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.pkg` writes straight to [`HELPER`] and never beside `mixengined`** — it runs as root

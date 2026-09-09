@@ -68,6 +68,71 @@ pub fn make_executable(path: &std::path::Path) -> Result<()> {
     crate::sys::install::make_executable(path)
 }
 
+/// Every directory an installer of this operating system puts MixEngine's programs in, in the order
+/// they are consulted — roadmap task **T107**.
+///
+/// `%LOCALAPPDATA%\Programs\MixEngine` on Windows, `/usr/local/bin` on macOS, `/usr/bin` and then
+/// `/usr/local/bin` on Linux — each argued in its own module, and each held to
+/// `packaging/common.sh` by `crates/mixengine-core/tests/packaging.rs`.
+///
+/// Empty is a possible answer and not a fault: a Windows profile whose shell will not name Local
+/// AppData has no install location this crate can state, and [`program_path`] still has `PATH`.
+#[must_use]
+pub fn program_dirs() -> Vec<PathBuf> {
+    crate::sys::install::program_dirs()
+}
+
+/// Where `name` is on this machine — roadmap task **T107**.
+///
+/// `name` is a bare name out of `packaging/common.sh`'s `MIX_BINARIES` — `mixengined`, `mix` — and
+/// this platform's executable suffix is appended here, so no caller spells `.exe`.
+///
+/// **Three steps, in decreasing order of certainty.**
+///
+/// 1. *The running executable's own directory.* The portable archive, the AppImage and every
+///    `cargo run`; the one step that cannot be wrong, because a program started out of a directory
+///    belongs to the install in that directory.
+/// 2. *[`program_dirs`].* The measured case: a per-user NSIS install edits the **user's** `PATH`,
+///    and a process — or a window the file manager started — carries the `PATH` it inherited when
+///    it opened. Asking `PATH` alone answers "MixEngine is not installed" on a machine that has it.
+/// 3. *`PATH`*, for a distribution package or an arrangement somebody made themselves.
+///
+/// **Empty `PATH` entries are dropped**, and that is not tidiness: an empty entry means the current
+/// directory on every system that has a `PATH`, and what this returns is executed.
+#[must_use]
+pub fn program_path(name: &str) -> Option<PathBuf> {
+    let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+    let mut dirs = Vec::new();
+
+    if let Some(directory) = std::env::current_exe()
+        .ok()
+        .as_deref()
+        .and_then(std::path::Path::parent)
+    {
+        dirs.push(directory.to_path_buf());
+    }
+    dirs.extend(program_dirs());
+    if let Some(listed) = std::env::var_os("PATH") {
+        dirs.extend(split_path(&listed));
+    }
+
+    first_file(&dirs, &file)
+}
+
+/// A `PATH` as directories, without the empty entries that mean "here".
+fn split_path(listed: &std::ffi::OsStr) -> Vec<PathBuf> {
+    std::env::split_paths(listed)
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .collect()
+}
+
+/// The first of `dirs` holding a file called `file`.
+fn first_file(dirs: &[PathBuf], file: &str) -> Option<PathBuf> {
+    dirs.iter()
+        .map(|dir| dir.join(file))
+        .find(|candidate| candidate.is_file())
+}
+
 /// What a desktop application named `executable` is called on disk here — roadmap task **T106**.
 ///
 /// `mixlab.exe` on Windows, `mixlab` on Linux, `MixLab.app` on macOS, where a windowed application
@@ -229,5 +294,70 @@ mod tests {
             "{} is not named after the helper",
             path.display()
         );
+    }
+
+    /// The search is the list, in order, and the first file wins. A directory that does not exist
+    /// is skipped rather than ending the walk: `program_dirs` names an install location whether or
+    /// not this machine has one.
+    #[test]
+    fn the_first_directory_holding_the_file_answers() {
+        let first = tempfile::tempdir().expect("a directory");
+        let second = tempfile::tempdir().expect("a directory");
+        let name = format!("mixengine-test{}", std::env::consts::EXE_SUFFIX);
+        std::fs::write(second.path().join(&name), b"x").expect("a file");
+
+        let dirs = vec![
+            PathBuf::from("/mixengine-nothing-is-here"),
+            first.path().to_path_buf(),
+            second.path().to_path_buf(),
+        ];
+
+        assert_eq!(
+            first_file(&dirs, &name),
+            Some(second.path().join(&name)),
+            "the second directory is the only one holding it"
+        );
+        assert_eq!(first_file(&dirs, "mixengine-test-absent"), None);
+    }
+
+    /// An empty `PATH` entry is the current directory on both systems that have a `PATH`, and what
+    /// this module returns is executed. Dropping it is the whole of the check.
+    #[test]
+    fn an_empty_path_entry_is_not_a_directory_to_search() {
+        let listed = std::env::join_paths([
+            std::ffi::OsString::from(""),
+            std::ffi::OsString::from("/usr/bin"),
+        ])
+        .expect("a PATH");
+
+        assert_eq!(split_path(&listed), vec![PathBuf::from("/usr/bin")]);
+    }
+
+    /// Every install location this system names is absolute, and there is at least one.
+    ///
+    /// The value is per OS and pinned to `packaging/common.sh` in `mixengine-core`'s packaging
+    /// test; what is asserted here is the property all three share.
+    #[test]
+    fn this_system_names_an_install_location() {
+        let dirs = program_dirs();
+
+        assert!(!dirs.is_empty(), "every supported system has one");
+        for dir in &dirs {
+            assert!(dir.is_absolute(), "{} is not absolute", dir.display());
+        }
+    }
+
+    /// There is always somewhere to look for a program, and the running test binary's own
+    /// directory is the first of them — the step that cannot be wrong.
+    #[test]
+    fn the_running_executables_directory_is_looked_at_first() {
+        let running = std::env::current_exe().expect("this test has a path");
+        let name = running
+            .file_stem()
+            .expect("and a name")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(program_path(&name).as_deref(), Some(running.as_path()));
     }
 }

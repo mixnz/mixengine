@@ -19,6 +19,23 @@ pub(crate) fn helper_path() -> Result<PathBuf> {
     Ok(PathBuf::from(HELPER))
 }
 
+/// What the `.deb` and the `.rpm` write — `packaging/common.sh`'s `MIX_INSTALL_LINUX`.
+const BIN: &str = "/usr/bin";
+
+/// Where a copy placed by hand conventionally goes.
+const LOCAL_BIN: &str = "/usr/local/bin";
+
+/// Where the `.deb`, the `.rpm` and a hand-placed copy put MixEngine's programs — roadmap task
+/// **T107**.
+///
+/// [`BIN`] first, because that is what both native packages write and what `packaging/common.sh`
+/// declares; [`LOCAL_BIN`] after it, for a copy somebody placed themselves. The AppImage and the
+/// tarball are neither — their programs are found beside the one that is running, which is the step
+/// in front of this one.
+pub(crate) fn program_dirs() -> Vec<PathBuf> {
+    vec![PathBuf::from(BIN), PathBuf::from(LOCAL_BIN)]
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.deb` and the `.rpm` write straight to [`HELPER`] and never beside `mixengined`** — same
