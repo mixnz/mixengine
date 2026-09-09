@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "7c2a1ae97576f4d28cc0dac8f26137874908039754063b233409ac33f0986b5e"
+source_sha256 = "880a5cc1c82d0f154802666bdf4106134e540c383582241ab180e9a4a421af28"
 +++
 
 # Cài đặt MixEngine
@@ -125,20 +125,24 @@ chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImag
 tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
 ```
 
-**`.deb` và `.rpm` yêu cầu WebKitGTK 4.1**, vì MixLab là một ứng dụng webview —
-`libwebkit2gtk-4.1-0` trên Debian và Ubuntu, `webkit2gtk4.1` trên Fedora và RHEL,
-`libwebkit2gtk-4_1-0` trên openSUSE. Trình quản lý gói sẽ tự kéo về. Hai gói này cũng thêm một mục
-menu **MixLab** kèm icon. Nếu máy không có màn hình và bạn không muốn cài webview, hãy lấy bản
-headless: nó không khai báo phụ thuộc nào cả.
+**Cửa sổ cần WebKitGTK 4.1 và glibc 2.35** — Ubuntu 22.04, Debian 12, Fedora 38, openSUSE Leap 15.6
+trở lên. MixLab là ứng dụng webview, và thư viện nó vẽ lên là thư viện của bản phân phối bạn đang
+dùng: `libwebkit2gtk-4.1-0` trên Debian và Ubuntu, `webkit2gtk4.1` trên Fedora và RHEL,
+`libwebkit2gtk-4_1-0` trên openSUSE. `.deb` và `.rpm` khai báo phụ thuộc này nên trình quản lý gói
+tự kéo về; hai gói đó cũng thêm một mục menu **MixLab** kèm icon.
 
-**AppImage làm được cả hai việc.** Chạy kèm tham số thì nó là dòng lệnh —
-`./mixengine-*-linux-x86_64.AppImage status`. Chạy không tham số, hoặc nhấp đúp, thì nó mở MixLab.
-File image không mang sẵn WebKitGTK, nên cửa sổ dùng bản có trên máy bạn; nếu thiếu, nó báo đúng tên
-gói cần cài, và dòng lệnh thì không bị ảnh hưởng.
+**Dòng lệnh thì không cần gì trong số đó.** Bốn chương trình dòng lệnh được build với glibc 2.28,
+nên chạy được trên các bản phân phối hỗ trợ dài hạn mà chúng nhắm tới, chứ không chỉ trên máy mới
+ngang với máy đã build ra chúng — và không cần webview. Máy không có màn hình thì lấy bản headless:
+nó không khai báo phụ thuộc nào cả.
 
-Cả hai gói đều được build với glibc 2.28, nên chạy được trên các bản phân phối hỗ trợ dài hạn mà
-chúng nhắm tới, chứ không chỉ trên máy mới ngang với máy đã build ra chúng. Bản `aarch64` được phát
-hành bên cạnh bản `x86_64`.
+**AppImage làm được cả hai việc, và mỗi nửa giữ mức sàn của riêng nó.** Chạy kèm tham số thì nó là
+dòng lệnh — `./mixengine-*-linux-x86_64.AppImage status` — trên mọi hệ thống từ glibc 2.28 trở lên.
+Chạy không tham số, hoặc nhấp đúp, thì nó mở MixLab, và MixLab cần đúng những gì đoạn đầu nói. File
+image không mang sẵn WebKitGTK; nếu máy bạn thấp hơn mức sàn của cửa sổ, nó báo đúng tên gói cần
+cài — hiện thành hộp thoại nếu bạn nhấp đúp — còn dòng lệnh vẫn chạy bình thường.
+
+Bản `aarch64` được phát hành bên cạnh bản `x86_64`.
 
 ## Build từ mã nguồn
 

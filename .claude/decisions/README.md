@@ -34,6 +34,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
 | [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted |
+| [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Accepted |
 
 ## Template
 

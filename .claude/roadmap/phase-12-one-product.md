@@ -74,10 +74,41 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       archives match its payload globs, and one left in would have stopped the whole `release` job
       at "is not a payload name this script recognises".
 
-- [ ] **T105a** The AppImage carries the libraries the window needs (D8). `linuxdeploy` and its GTK
-      plugin, or the measurement that says a distribution floor is cheaper than carrying WebKitGTK.
-      Until then the AppImage's window uses the system's WebKitGTK 4.1 and `AppRun` says so by name
-      when it is missing; the command line inside the same image is unaffected either way. **(P)**
+- [x] **T105a** The AppImage does not carry the libraries the window needs, and that is now a
+      decision rather than an interim (D8). The fork was `linuxdeploy` and its GTK plugin, or the
+      measurement that says a distribution floor is cheaper than carrying WebKitGTK; the measurement
+      won, and it is [ADR 0028](../decisions/0028-the-appimage-does-not-carry-webkitgtk.md). The
+      AppImage's window uses the system's WebKitGTK 4.1, `AppRun` says which floor was missed rather
+      than always naming the webview, and the command line inside the same image is unaffected either
+      way. **(P)**
+      Design: [2026-09-09-t105a-the-appimage-and-webkitgtk-design.md](../../docs/superpowers/specs/2026-09-09-t105a-the-appimage-and-webkitgtk-design.md).
+      **Three measurements settled it, on run 34298077029.** *What carrying would buy*: every
+      distribution new enough to run the window already packages WebKitGTK 4.1, and the ones that do
+      not are below the window's own glibc floor, which no bundle lowers — the window is built on
+      `ubuntu-22.04` because it cannot be built in the container the other four come from (D12).
+      Exactly one family is left, enterprise Linux 9, and the reading is closer than the table looks:
+      the window requires `GLIBC_2.34`, which that release has, so it fails on the webview alone.
+      *Whether carrying would be enough there*: no — its glib is older than the 2.70 WebKitGTK 4.1
+      needs, which is why the package was never backported, so carrying the webview there means
+      carrying glib, GIO and libsoup 3, the libraries that break when bundled. *Who would pay*: the
+      closure is **205 MB across 133 files** on `x86_64` and 200 MB on `aarch64`, 117 MB of it
+      WebKitGTK and JavaScriptCore, against an AppImage that is **33 MB** today — and `AppRun`
+      extracts into a per-version cache before running anything, so all of it would land on the
+      machine of the person running `… status` on a headless server.
+      **And three things fell out of it.** The floor is **two floors in one artifact** — the window at
+      glibc 2.35 with the distribution's WebKitGTK, the four command-line binaries at 2.28 in the same
+      file — and both install pages now say so; `MIX_WINDOW_GLIBC` stays the *build machine's* 2.35
+      rather than the measured 2.34, because no distribution sits between the two, and
+      `packaging/linux/window-floor.sh` holds the binary under it (`<=`, so a toolchain that needs
+      less is not a red build) and asserts the soname, from which
+      `crates/mixengine-core/tests/packaging.rs` derives the three package names the pages promise.
+      **`AppRun`'s old check named the wrong thing**: it grepped for a missing library and always
+      blamed WebKitGTK, while the same `ldd` reports a too-old distribution as `` version `GLIBC_…'
+      not found `` — so that person was told to install a package they already had. And it said it
+      **where nobody was listening**, since a double click in a file manager has no terminal; the
+      refusal is now shown in `zenity`, `kdialog` or `xmessage` when there is a display. Last:
+      `packaging/linux/apprun-check.sh` had been in this repository since T85c and **nothing had ever
+      run it** — it is a step of `lint` from here on.
 
 - [ ] **T106** One updater (D9). `tauri-plugin-updater`, `tauri-plugin-process`, MixDB's key, its
       `latest.json` and `update-notes.yml` are gone. The feed's `provides` and the payload carry

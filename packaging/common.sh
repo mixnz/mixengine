@@ -51,6 +51,28 @@ export MIX_WINDOW
 MIX_WINDOW_APP=MixLab.app
 export MIX_WINDOW_APP
 
+# The oldest glibc the window runs on, and the WebKitGTK soname it links — T105a, ADR 0028. The
+# AppImage does not carry WebKitGTK, so both of these are a promise made to a person rather than an
+# implementation detail: `packaging/linux/window-floor.sh` holds the binary to them on every Linux
+# build leg, `packaging/linux/AppRun` says which of them a machine failed, and
+# `crates/mixengine-core/tests/packaging.rs` holds both install pages to them.
+#
+# **2.35 is the glibc of `ubuntu-22.04`, the runner both Linux legs build the window on.** It cannot
+# be built in the `manylinux_2_28` container the other four binaries come from, whose WebKitGTK is
+# the 4.0 API on libsoup 2 (T103, D12). The binary itself usually needs less than the machine that
+# built it, and `window-floor.sh` prints what it really needs; the number *promised* is the build
+# machine's, because no distribution sits between the two that would gain from a lower one —
+# enterprise Linux 9 is at 2.34 and has no WebKitGTK 4.1 at all.
+#
+# The command line is unaffected by either. The four binaries keep the container's glibc 2.28 floor
+# in every artifact, the AppImage included, which is why one file can be below the window's floor and
+# still be a complete MixEngine.
+MIX_WINDOW_GLIBC=2.35
+export MIX_WINDOW_GLIBC
+
+MIX_WINDOW_WEBKIT=libwebkit2gtk-4.1.so.0
+export MIX_WINDOW_WEBKIT
+
 # macOS ships `shasum -a 256` and no `sha256sum`. Defined once here, so the three scripts do not
 # each discover it.
 if ! command -v sha256sum >/dev/null 2>&1; then

@@ -244,13 +244,21 @@ measured, because the suite was still starting the daemon from before the fix.
 | --- | --- | --- |
 | Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer + a portable zip + a headless zip |
 | macOS | `x86_64-apple-darwin`, `aarch64-apple-darwin` → universal binary | `.pkg` + a headless `.tar.gz` |
-| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, both against glibc 2.28 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
+| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, the four binaries against glibc 2.28 and the window against glibc 2.35 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
 
 **Every installer in that column places five binaries** since T105 — the four command-line programs
 and MixLab, the window ([the design](../../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md)).
 The **headless** archive beside each is the same release without the window: four binaries, no
 WebKitGTK dependency, for the machine that has no display. It is a download and never an update
 payload — `packaging/feed.sh` skips it by name.
+
+**The window's floor is not the other four's, and T105a is why the row above writes them
+separately.** The four command-line binaries are built in the `manylinux_2_28` container; the window
+cannot be, so it is built on the leg's own `ubuntu-22.04` host and carries that machine's glibc 2.35,
+with WebKitGTK 4.1 from the distribution — which the AppImage deliberately does not carry
+([ADR 0028](../decisions/0028-the-appimage-does-not-carry-webkitgtk.md)).
+`packaging/linux/window-floor.sh` reads the floor off the binary on every Linux leg and fails the
+build if it has risen past `MIX_WINDOW_GLIBC`, which is the number both install pages promise.
 
 **What T85 built is the host architecture of each row, natively; T85a built the rest, also
 natively.** GitHub's own arm64-hosted runners (`windows-11-arm`, `ubuntu-24.04-arm`) — free and GA for

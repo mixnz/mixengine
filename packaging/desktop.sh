@@ -97,4 +97,13 @@ test -e "$(mix_window_in "$window")" || {
   exit 1
 }
 
+# **And what it will need from the machine it runs on** — T105a, ADR 0028. Read here rather than at
+# packaging time because this is where the binary is newest and the machine that built it is still
+# the one being asked; the four Linux packaging scripts downstream all copy this same file.
+#
+# Linux only: the floors a macOS or a Windows build clears are neither glibc nor WebKitGTK.
+if [ "$(uname -s)" = "Linux" ]; then
+  bash "$MIX_ROOT/packaging/linux/window-floor.sh" "$(mix_window_in "$window")"
+fi
+
 echo "$window"

@@ -190,6 +190,19 @@ jobs:
       - name: The feed describes the archives beside it
         run: bash .github/scripts/test-feed.sh
 
+      # T105a. `AppRun` is the first thing a person who downloaded the AppImage meets, and since
+      # ADR 0028 its refusal is this product's whole answer to a machine below the window's floor —
+      # which distributions those are is a promise on the install page. `apprun-check.sh` has been in
+      # this repository since T85c and nothing has ever run it: it was written to be run by hand by
+      # whoever was editing `AppRun`, and a fixture nothing runs is not a test. Same reasoning as the
+      # two steps above it — the only other thing that would ever exercise this script is somebody
+      # downloading a release.
+      #
+      # No AppImage and no `appimagetool` is involved: the fixture is a directory, five shell scripts
+      # standing in for the five binaries, and a stubbed `ldd`. It costs seconds.
+      - name: The AppImage's AppRun fills its cache and refuses in the right words
+        run: bash packaging/linux/apprun-check.sh
+
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

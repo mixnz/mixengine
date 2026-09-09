@@ -239,3 +239,64 @@ fn the_desktop_application_carries_the_workspace_version() {
         );
     }
 }
+
+/// The Linux install page, in each language, and the operations page that states the same floors.
+const INSTALL_EN: &str = include_str!("../../../docs/guide/en/install.md");
+const INSTALL_VI: &str = include_str!("../../../docs/guide/vi/install.md");
+const BUILD_AND_RELEASE: &str = include_str!("../../../.claude/operations/build-and-release.md");
+
+/// Every document that promises the window's floor promises the one `packaging/common.sh` declares.
+///
+/// **T105a, and the reason this is a test rather than a habit.** ADR 0028 settled that the AppImage
+/// does not carry WebKitGTK, which turns the floor into a promise to a person rather than an
+/// implementation detail: three documents name a glibc version, two of them name three package
+/// names, `packaging/linux/window-floor.sh` holds the binary to the first of those on every Linux
+/// build leg — and nothing but this connects the two ends. A floor raised in `common.sh` without the
+/// documents following is somebody told their distribution is supported by a page, and told
+/// otherwise by a window that does not open.
+#[test]
+fn every_document_promises_the_floor_the_packaging_declares() {
+    let glibc = format!("glibc {}", assigned("MIX_WINDOW_GLIBC"));
+
+    for (what, text) in [
+        ("docs/guide/en/install.md", INSTALL_EN),
+        ("docs/guide/vi/install.md", INSTALL_VI),
+        (".claude/operations/build-and-release.md", BUILD_AND_RELEASE),
+    ] {
+        assert!(
+            text.contains(&glibc),
+            "{what} does not say '{glibc}', which is the floor packaging/common.sh declares"
+        );
+    }
+
+    // The three package names are one fact spelled three ways, and the fact is the API version in
+    // the soname the window links. The day a Tauri release moves to the `webkitgtk-6.0` API, every
+    // one of those names is wrong — silently, in a document, on the one page a person reads when
+    // nothing works. `window-floor.sh` refuses the build; this refuses the documents.
+    let soname = assigned("MIX_WINDOW_WEBKIT");
+    let api = soname
+        .strip_prefix("libwebkit2gtk-")
+        .and_then(|rest| rest.split(".so").next())
+        .unwrap_or_else(|| {
+            panic!("MIX_WINDOW_WEBKIT is {soname}, which is not a webkit2gtk soname")
+        });
+
+    let packages = [
+        format!("libwebkit2gtk-{api}-0"),
+        format!("webkit2gtk{api}"),
+        format!("libwebkit2gtk-{}-0", api.replace('.', "_")),
+    ];
+
+    for (what, text) in [
+        ("docs/guide/en/install.md", INSTALL_EN),
+        ("docs/guide/vi/install.md", INSTALL_VI),
+    ] {
+        for package in &packages {
+            assert!(
+                text.contains(package),
+                "{what} does not name the package {package}, which MIX_WINDOW_WEBKIT says is what \
+                 the window needs"
+            );
+        }
+    }
+}

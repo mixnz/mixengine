@@ -122,20 +122,24 @@ chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImag
 tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
 ```
 
-**The `.deb` and the `.rpm` require WebKitGTK 4.1**, because MixLab is a webview application —
-`libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora and RHEL,
-`libwebkit2gtk-4_1-0` on openSUSE. Your package manager pulls it in. They also add a **MixLab** menu
-entry and its icon. If the machine has no display and you would rather not install a webview at all,
-take the headless archive: it declares nothing.
+**The window needs WebKitGTK 4.1 and glibc 2.35** — Ubuntu 22.04, Debian 12, Fedora 38, openSUSE
+Leap 15.6 or newer. MixLab is a webview application, and the library it draws with is your
+distribution's: `libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora and RHEL,
+`libwebkit2gtk-4_1-0` on openSUSE. The `.deb` and the `.rpm` declare it, so your package manager
+pulls it in; they also add a **MixLab** menu entry and its icon.
 
-**The AppImage does both jobs.** Run it with an argument and it is the command line —
-`./mixengine-*-linux-x86_64.AppImage status`. Run it with none, or double-click it, and it opens
-MixLab. The image does not carry WebKitGTK, so the window needs your system's; it says so by name if
-it is missing, and the command line is unaffected either way.
+**The command line asks for none of that.** The four command-line programs are built against glibc
+2.28, so they run on the long-term-support distributions they are aimed at rather than only on
+something as new as the machine that built them — and they need no webview at all. If the machine
+has no display, take the headless archive: it declares nothing.
 
-Both packages are built against glibc 2.28, so they run on the long-term-support distributions they
-are aimed at rather than only on something as new as the machine that built them. `aarch64` builds
-are published beside the `x86_64` ones.
+**The AppImage does both jobs, and each half keeps its own floor.** Run it with an argument and it
+is the command line — `./mixengine-*-linux-x86_64.AppImage status` — on any system back to glibc
+2.28. Run it with none, or double-click it, and it opens MixLab, which needs what the first
+paragraph says. The image does not carry WebKitGTK; below the window's floor it says so by name, in
+a dialog if you double-clicked it, and the command line goes on working.
+
+`aarch64` builds are published beside the `x86_64` ones.
 
 ## From source
 
