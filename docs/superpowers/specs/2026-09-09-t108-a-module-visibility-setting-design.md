@@ -218,8 +218,9 @@ Two things happen and they happen in this order: the setting changes, and then t
 
 **The confirmation gates the setting**, in the Settings pane, before `onEnabledChange` is called —
 it is the only moment at which the answer can still be "no". It appears only when a module being
-turned *off* has at least one open tab, and it says how many and of what. Turning a module *on*
-never asks.
+turned *off* has at least one open tab, it names those modules, and it says that nothing saved is
+deleted — which is the question a person actually has at that moment. Turning a module *on* never
+asks.
 
 **The closing is an effect** on the visible id list, in `Workspace`:
 
