@@ -451,6 +451,13 @@ design are linked decisions.
 4. Smoke-test each installer *from that draft* on a clean VM: install → create site → HTTPS →
    uninstall → verify nothing left behind. Then edit the notes and publish the draft by hand.
 
+   **Say in the notes what the updater will and will not replace** — roadmap task **T106**. From the
+   release that lands it, the payload carries MixLab and `mix self-update` replaces it — but only
+   where it is installed beside the binaries. An install from before that release has no window at
+   all, and a macOS `.pkg` install keeps its window in `/Applications`, where no update reaches it.
+   Both cases are "run the installer to get the window", and the notes are the only place a person is
+   told: the feed's own notes are the tag's commit subjects, written before the draft exists.
+
    **And take the two readings no machine can take** — roadmap task **T86a**, whose other half is
    measured by `packaging/*/probe.sh` on every run of the `build` job. Both need a *browser* download
    of the *published* asset, because that is what applies the mark the operating system reads; a file

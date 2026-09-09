@@ -110,13 +110,36 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       `packaging/linux/apprun-check.sh` had been in this repository since T85c and **nothing had ever
       run it** — it is a step of `lint` from here on.
 
-- [ ] **T106** One updater (D9). `tauri-plugin-updater`, `tauri-plugin-process`, MixDB's key, its
+- [x] **T106** One updater (D9). `tauri-plugin-updater`, `tauri-plugin-process`, MixDB's key, its
       `latest.json` and `update-notes.yml` are gone. The feed's `provides` and the payload carry
       the desktop executable; `feed-check.sh` asserts it. **`updates::apply` replaces what the
       install has and adds nothing** — a headless install stays headless, and an install from
       before this release is told in the release notes that the window arrives by installer. After
       `UpdateApplied` the window relaunches itself the way the daemon does. **(P)** — on Windows a
       running executable is renamed, never overwritten, and the window is the running one.
+      Design: [2026-09-09-t106-one-updater-design.md](../../docs/superpowers/specs/2026-09-09-t106-one-updater-design.md).
+      **Three things this task settled.** **The window's payload entry is a directory on macOS, and
+      three layers had to learn it.** `feed.sh` skipped every directory entry it saw, so a payload
+      carrying `MixLab.app` would have been described as four binaries and no window;
+      `install::present` demanded `is_file()`, which would have refused the whole macOS payload —
+      reporting the window and taking the four binaries with it; and `swap` resolved every name by
+      appending an executable suffix, which no bundle name is. The name is now
+      `mixengine_platform::install::application_file_name`, and the two constants it is asked with
+      are held to `packaging/common.sh` beside `MIX_BINARIES`. The tree path is tested on all three
+      systems rather than on macOS alone, because `replace` branches on `is_dir()` and never on the
+      operating system. **A window cannot ask where it is after it has been replaced**: on Linux
+      `/proc/self/exe` follows the inode, so a window calling `current_exe()` after the swap is told
+      its own path is `…/mixlab.old` and would relaunch the version the user had just replaced —
+      silently, reporting the old number in Settings for ever. The path is read on the first line of
+      `run()` instead. And **a relaunch is not a start**: `launch::forward` would have handed the new
+      copy's start to the copy it was replacing and exited, leaving no window at all, so the child
+      waits for its predecessor's endpoint to go quiet — `instance::listening`, a probe that delivers
+      no line and so brings no dying window to the front — before taking it. The one thing D9 asked
+      for that this task could not do is the desktop application *refusing* a feed with no window in
+      it: it is not the thing that reads the feed, and a release that built no window is still one a
+      server should be able to install. `packaging/feed-check.sh` and `.github/scripts/test-feed.sh`
+      are what keep that from being a release-day discovery, and the second of those runs in `lint`
+      on every CI run.
 
 - [ ] **T107** Where the daemon is, and where the window is, are both the platform's to answer
       (D9, D10). `health.rs`'s hand-kept `well_known()` is replaced by one `mixengine-platform`
