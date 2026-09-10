@@ -50,11 +50,21 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       default outside `enabled` would have `Workspace` open a tab its own effect drops and reopen
       it forever, so the guards stay at T108's three edges.
 
-- [ ] **T110** The bridge when a module is hidden (D11, last paragraph). The Services screen's
+- [x] **T110** The bridge when a module is hidden (D11, last paragraph). The Services screen's
       *open* button, drawn from `database.client` as today, offers two things when `db` is off:
       enable the built-in client and open the tab, or hand off to an external client through
       `database.open` where one is installed. A `mixdb://` handoff that arrives with `db` hidden
       enables it for that tab and says so in the tab. Nothing the daemon answers changes.
+      Design: [2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md](../../docs/superpowers/specs/2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md).
+      **Two things this task settled.** The enabling belongs at the tab-request queue and not at
+      either caller: the *open* button and a `mixdb://` URL already push through the same queue, so
+      one step in `Workspace`'s drain covers both, generically, for any module — and it fixes what
+      T108 left, where a handoff to a hidden module opened a tab the visibility effect dropped on
+      the same commit. And "enables it for that tab" is the setting and not a second, tab-scoped
+      notion of visible: two notions would have the tab strip, the number chords and the Settings
+      checkbox saying three different things about one question, so what belongs to the tab is the
+      *reason* — one line saying the module was turned on, which earns its place because turning
+      one on renumbers `Ctrl/Cmd+1 … N`.
 
 **Milestone M13** — a fresh install shows the first-run screen; choosing *MixEngine* leaves a
 window whose every tab, shortcut and Settings pane is about the daemon; turning *Database tools*

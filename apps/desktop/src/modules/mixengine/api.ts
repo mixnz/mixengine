@@ -46,6 +46,7 @@ import type { ServiceRemoval } from "@mixengine/api";
 import type { DatabaseCreate } from "@mixengine/api";
 import type { DatabaseAccount } from "@mixengine/api";
 import type { DatabaseClientReport } from "@mixengine/api";
+import type { DatabaseHandoff } from "@mixengine/api";
 import type { DomainStatusReport } from "@mixengine/api";
 import type { CaStatus } from "@mixengine/api";
 import type { CertIssueReport } from "@mixengine/api";
@@ -327,6 +328,13 @@ export function databaseCreate(input: DatabaseCreate): Promise<DatabaseAccount> 
 
 export function databaseClient(service: string): Promise<DatabaseClientReport> {
   return invoke<DatabaseClientReport>("mixengine_database_client", { service });
+}
+
+/** Hand a service to the desktop client MixEngine found — the one *open* path that leaves this
+ *  process. The password goes into the launched client's environment on the daemon's side and
+ *  never crosses this API. */
+export function databaseOpen(service: string, database?: string): Promise<DatabaseHandoff> {
+  return invoke<DatabaseHandoff>("mixengine_database_open", { params: { service, database } });
 }
 
 /** Không trả gì — thành công nghĩa là một tab `db` mới đã được xếp hàng mở, xem

@@ -37,6 +37,23 @@ export function normalizeModules(stored: unknown, knownIds: string[]): string[] 
   return kept.length > 0 ? kept : null;
 }
 
+/**
+ * `enabled` with `moduleId` in it, or `enabled` itself when it is already there or is not a module
+ * this build has.
+ *
+ * **The same array back means nothing changed** — the caller writes no setting and says nothing in
+ * a notice. Appended rather than inserted in the registry's order: order never comes out of the
+ * stored set (T108's D1), `visibleModules` is a filter over `MODULES`, and a second place that
+ * knew the order would be a second place that could be wrong about it.
+ *
+ * This is how a tab request for a hidden module turns it on — T110's D1. Visibility, not
+ * capability: the module's commands were registered either way.
+ */
+export function withModule(enabled: string[], moduleId: string, knownIds: string[]): string[] {
+  if (enabled.includes(moduleId) || !knownIds.includes(moduleId)) return enabled;
+  return [...enabled, moduleId];
+}
+
 /** Which preset `enabled` is, or `null` for a set of someone's own. Set equality — the presets
  *  carry no order either. */
 export function presetOf(enabled: string[]): PresetId | null {

@@ -51,6 +51,8 @@ const vi: SharedDict = {
     confirmMessage:
       "Các tab đang mở của {{modules}} sẽ bị đóng. Không xoá gì đã lưu — bật lại là thấy nguyên chỗ cũ.",
     confirmAction: "Tắt và đóng tab",
+    turnedOn: "{{module}} vừa được bật để mở tab này. Tắt lại trong Cài đặt → Mô-đun.",
+    turnedOnDismiss: "Ẩn thông báo",
   },
   pagination: {
     previousPage: "Trang trước",

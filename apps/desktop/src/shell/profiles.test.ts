@@ -7,6 +7,7 @@ import {
   presetOf,
   resolveStoredModules,
   visibleModules,
+  withModule,
   type ShellStorage,
 } from "./profiles";
 
@@ -67,6 +68,39 @@ describe("visibleModules", () => {
 
   it("ignores an id this build does not have", () => {
     expect(visibleModules(["mixengine", "gopher"]).map((m) => m.id)).toEqual(["mixengine"]);
+  });
+});
+
+describe("withModule", () => {
+  it("appends an id the set does not have", () => {
+    expect(withModule(["mixengine"], "db", KNOWN)).toEqual(["mixengine", "db"]);
+  });
+
+  /* The very same array, not an equal one: it is how the caller knows there is nothing to write
+     and nothing to say in a notice. */
+  it("answers the set it was given when the id is already in it", () => {
+    const enabled = ["mixengine", "db"];
+    expect(withModule(enabled, "db", KNOWN)).toBe(enabled);
+  });
+
+  it("answers the set it was given for an id this build does not have", () => {
+    const enabled = ["mixengine"];
+    expect(withModule(enabled, "gopher", KNOWN)).toBe(enabled);
+  });
+
+  it("never touches the set it was given", () => {
+    const enabled = ["mixengine"];
+    withModule(enabled, "db", KNOWN);
+    expect(enabled).toEqual(["mixengine"]);
+  });
+
+  /* Order is the registry's, always — T108's D1 — so the stored set is free to carry any order at
+     all and `visibleModules` still draws MixEngine first. */
+  it("appends rather than sorting, because nothing reads an order out of the set", () => {
+    expect(visibleModules(withModule(["db"], "mixengine", KNOWN)).map((m) => m.id)).toEqual([
+      "mixengine",
+      "db",
+    ]);
   });
 });
 

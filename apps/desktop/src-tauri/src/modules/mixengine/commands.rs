@@ -370,6 +370,21 @@ pub async fn mixengine_database_client(service: String) -> Result<Value, AppErro
     rpc::call("database.client", json!({ "service": service })).await
 }
 
+/// `database.open` — hand a service to the desktop client MixEngine found on this machine.
+///
+/// **The one path that is not this window.** Inside the window, *open* goes through
+/// `open_in_mixdb`, in-process and never through the OS. This exists for the Services screen's
+/// second offer when the built-in client is hidden and the daemon named an application that is not
+/// this process — see
+/// `docs/superpowers/specs/2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md`.
+///
+/// The password never enters this process: the daemon reads it and puts it in the launched
+/// client's environment (T83). `params` is shaped `DatabaseOpen { service, user?, database? }`.
+#[tauri::command]
+pub async fn mixengine_database_open(params: Value) -> Result<Value, AppError> {
+    rpc::call("database.open", params).await
+}
+
 /// Mở stream log của một service. Mở lại (một service khác, hay cùng service với `tail` khác) đóng
 /// cái đang mở — đúng luật `LogsState::keep` đã theo cho `MixEngineState`.
 #[tauri::command]

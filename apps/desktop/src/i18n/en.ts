@@ -59,6 +59,9 @@ const en = {
     confirmMessage:
       "Tabs open in {{modules}} will be closed. Nothing you have saved is deleted, and turning the module back on finds it where it was.",
     confirmAction: "Turn off and close",
+    turnedOn:
+      "{{module}} was turned on so this tab could open. Turn it off again in Settings → Modules.",
+    turnedOnDismiss: "Dismiss this notice",
   },
   pagination: {
     previousPage: "Previous page",

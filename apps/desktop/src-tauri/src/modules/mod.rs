@@ -252,6 +252,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         mixengine::commands::mixengine_service_delete,
         mixengine::commands::mixengine_database_create,
         mixengine::commands::mixengine_database_client,
+        mixengine::commands::mixengine_database_open,
         mixengine::open_in_mixdb::mixengine_database_open_in_mixdb,
         mixengine::commands::mixengine_logs_watch,
         mixengine::commands::mixengine_job_logs_watch,
