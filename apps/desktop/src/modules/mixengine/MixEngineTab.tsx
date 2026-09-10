@@ -138,11 +138,19 @@ export default function MixEngineTab({
     return (
       <div className="mixengine-root mixengine-gate">
         {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-        <p>
-          {presence === "notInstalled"
-            ? t("mixengine.gate.notInstalled", { searched: report.searched.join(", ") })
-            : t(`mixengine.gate.${presence}`)}
-        </p>
+        <p>{t(`mixengine.gate.${presence}`)}</p>
+        {presence === "notInstalled" && report.searched.length > 0 && (
+          <>
+            <p className="mixengine-gate-looked">{t("mixengine.gate.lookedIn")}</p>
+            {/* Khoá theo cả chỉ số: một `PATH` thật hay có cùng một thư mục hai lần, và hai `li`
+                cùng khoá là một cảnh báo React cho thứ vốn là dữ liệu hợp lệ. */}
+            <ul className="mixengine-gate-searched">
+              {report.searched.map((dir, index) => (
+                <li key={`${index}-${dir}`}>{dir}</li>
+              ))}
+            </ul>
+          </>
+        )}
         {presence === "notRunning" && (
           <button onClick={() => void run(api.startDaemon)} disabled={busy}>
             {busy ? t("mixengine.gate.starting") : t("mixengine.gate.start")}

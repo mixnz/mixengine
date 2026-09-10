@@ -22,7 +22,8 @@ export default {
     gate: {
       notRunning: "MixEngine is installed but not running.",
       notAnswering: "The MixEngine daemon is not answering.",
-      notInstalled: "mixengined was not found beside MixLab. Looked in: {{searched}}",
+      notInstalled: "mixengined was not found beside MixLab.",
+      lookedIn: "Looked in, in this order:",
       start: "Start MixEngine",
       starting: "Starting\u2026",
       retry: "Try again",

@@ -191,8 +191,12 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       its own**: `t("mixengine.gate.notInstalled", { searched })` interpolates `{{searched}}`, and a
       translation that dropped the placeholder would compile, pass every other test, and silently
       hide the one answer that screen exists to give — `i18n/gate.test.ts` is what says no.
-      The window itself was not opened on this machine while this landed: another MixLab dev window
-      held the single-instance channel, so a second `tauri dev` would have forwarded to it.
+      **And opening the window is what found the fourth.** The searched directories were first
+      interpolated into the sentence, which reads fine with the three entries a design discusses and
+      not at all with the forty-five a real `PATH` has: the paragraph filled the window and pushed
+      the *Reinstall* button off the bottom edge, so the screen lost the one control it exists to
+      offer. They are a bounded, scrollable list now, and every entry is kept — naming two while the
+      lookup walked forty-seven would be a shorter lie. Nothing but a screenshot was going to say so.
 
 **Milestone M12** — on a clean machine of each OS, one installer installs the daemon, the CLI, the
 helper, the shim and the window; the window's Update button and `mix self-update` each replace all

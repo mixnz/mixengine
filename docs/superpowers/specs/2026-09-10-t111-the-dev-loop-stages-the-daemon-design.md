@@ -120,13 +120,24 @@ had it:
 
 | Key | Was | Becomes |
 | --- | --- | --- |
-| `gate.notInstalled` | MixEngine was not found on this machine. | `mixengined` was not found beside MixLab. Looked in: {{searched}} |
+| `gate.notInstalled` | MixEngine was not found on this machine. | `mixengined` was not found beside MixLab. |
+| `gate.lookedIn` | — | Looked in, in this order: |
 | `gate.getIt` | Install MixEngine | Reinstall MixEngine |
 
 The button still opens the install page for the current language; reinstalling is the only thing
 that puts the four binaries back for a person who has a window and nothing beside it, and the page
-is where the installers are. `vi.ts` gets both lines. This is the one user-visible change of the
+is where the installers are. `vi.ts` gets all three lines. This is the one user-visible change of the
 task and takes a line under `### Changed` in the root `CHANGELOG.md`.
+
+**The directories are a list and not a clause inside that sentence**, which is what the first
+build of this screen tried. A real machine's `PATH` carries dozens of entries — the machine this was
+written on produced forty-five — so a centred paragraph of them filled the window and pushed the
+*Reinstall* button off the bottom edge: the screen lost the one control it exists to offer. What is
+drawn instead is the sentence, a quiet label, and a bounded, scrollable `<ul>` in the monospace face,
+one directory per line. The first two lines are the ones a person can act on — beside the program,
+then where this operating system's installer puts MixEngine — and the `PATH` tail is below the fold
+rather than in the way. Keeping every entry rather than trimming to those two is deliberate: a
+message that named two directories while the lookup had walked forty-seven would be a shorter lie.
 
 **Why the list, and not a development-only hint.** The person who will read this line most is a
 contributor whose `npm run dev:app` was bypassed — `tauri dev` run by hand, or a window started out

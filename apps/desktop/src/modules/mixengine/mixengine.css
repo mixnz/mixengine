@@ -21,6 +21,35 @@
   text-align: center;
 }
 
+.mixengine-gate-looked {
+  margin: 0;
+  opacity: 0.6;
+  font-size: var(--text-xs);
+}
+
+/* Chỗ đã tìm `mixengined` — một danh sách đường dẫn, không phải một câu (T111).
+   `PATH` của một máy thật có vài chục mục, nên nối tất cả vào một đoạn văn căn giữa đẩy chính cái
+   nút xuống dưới đáy cửa sổ: màn hình mất đúng thứ nó tồn tại để đưa ra. Trần chiều cao và tự cuộn
+   giữ nút ở yên, mỗi dòng một đường dẫn, và mấy dòng đầu — chỗ cạnh chương trình, rồi chỗ installer
+   của hệ điều hành này đặt MixEngine — là mấy dòng người đọc làm được gì đó với chúng. */
+.mixengine-gate-searched {
+  margin: 0;
+  padding: 8px 12px;
+  max-width: min(720px, 100%);
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  list-style: none;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  /* Một đường dẫn Windows không có chỗ nào để ngắt dòng "đẹp", nên cho nó ngắt ở bất kỳ đâu thay vì
+     để nó tràn ngang ra khỏi khung. */
+  overflow-wrap: anywhere;
+}
+
 /* Sidebar + màn hình đang chọn, cạnh nhau. `.mixengine-root` là flex column ở trên nên phải nói lại
    `flex-direction: row` ở đây thay vì đổi luật của root. */
 .mixengine-layout {
