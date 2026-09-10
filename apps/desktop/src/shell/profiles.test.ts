@@ -70,15 +70,23 @@ describe("visibleModules", () => {
   });
 });
 
+/* Named per preset rather than positional, on purpose: with T109 the default is implicit in the
+   registry's order, and a module inserted at the head of `MODULES` would move it silently. These
+   three cases are what say so out loud. */
 describe("defaultModuleId", () => {
-  it("is the registry's default while that module is visible", () => {
-    expect(defaultModuleId(visibleModules(MODULE_PRESETS.everything))).toBe("db");
+  it("opens MixEngine for the profiles that lead with it", () => {
+    expect(defaultModuleId(visibleModules(MODULE_PRESETS.mixengine))).toBe("mixengine");
+    expect(defaultModuleId(visibleModules(MODULE_PRESETS.everything))).toBe("mixengine");
   });
 
-  /* Without the clamp, hiding the database module would leave `Ctrl/Cmd+T` opening a tab of the
-     module the user just turned off. T109 makes the choice itself follow the profile. */
-  it("falls back to the first visible module when the default is hidden", () => {
-    expect(defaultModuleId(visibleModules(MODULE_PRESETS.mixengine))).toBe("mixengine");
+  it("opens the database client for the toolbox profile", () => {
+    expect(defaultModuleId(visibleModules(MODULE_PRESETS.databaseTools))).toBe("db");
+  });
+
+  /* The *first* visible module, not merely a visible one — `visibleModules` has already put the
+     set into the registry's order by the time this sees it. */
+  it("takes the first module the registry lists, whatever order the set arrived in", () => {
+    expect(defaultModuleId(visibleModules(["terminal", "db"]))).toBe("db");
   });
 });
 

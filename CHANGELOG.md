@@ -15,6 +15,10 @@
   installers keep MixEngine's name and are unchanged.
 - MixLab's tab menu and its `Ctrl/Cmd+1 … N` shortcuts lead with MixEngine, and the number keys
   count across the modules you have turned on rather than across all five.
+- A new MixLab tab opens whichever module your profile leads with — the MixEngine dashboard for
+  *MixEngine* and *Everything*, a database connection for *Database tools* — so `Ctrl/Cmd+T` no
+  longer always opens the database client. What was open when you last closed the window is
+  restored first, as before.
 
 ## v0.0.6
 

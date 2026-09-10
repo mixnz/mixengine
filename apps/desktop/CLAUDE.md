@@ -53,7 +53,7 @@ src/                 React frontend
     App.tsx          The gate: which modules this window draws, decided before anything is drawn
     Workspace.tsx    The tab bar itself, and everything that reads the visible module list
     module.ts        ModuleDefinition, ModuleTabProps, TabBadge — what a module is
-    registry.ts      MODULES, DEFAULT_MODULE_ID, MODULE_PRESETS — the only file outside modules/ that names one
+    registry.ts      MODULES, MODULE_PRESETS — the only file outside modules/ that names one
     profiles.ts      enabledModules and visibleModules() — the setting behind the gate
     launch.ts        Tabs the backend asks for — the only other way a tab opens
     App.css          Tokens + chrome + the classes any module may use

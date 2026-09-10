@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ModuleDefinition } from "./module";
-import {
-  DEFAULT_MODULE_ID,
-  MODULES,
-  MODULE_PRESETS,
-  PRESET_IDS,
-  type PresetId,
-} from "./registry";
+import { MODULES, MODULE_PRESETS, PRESET_IDS, type PresetId } from "./registry";
 
 /**
  * Which modules this window draws.
@@ -61,15 +55,26 @@ export function visibleModules(enabled: string[]): ModuleDefinition[] {
 }
 
 /**
- * What `Ctrl/Cmd+T` and a plain `[+]` open.
+ * What the window opens when nothing has named a module: the very first tab of a profile with no
+ * session, the tab that replaces the last one closed, the tab that replaces the last one when a
+ * module is turned off, `Ctrl/Cmd+T`, and the `[+]` button while there is only one module to offer.
  *
- * The registry's default while it is visible, and the first visible module when it is not —
- * without the clamp, the *MixEngine* profile would open a tab of the database module it just
- * turned off. Which module a *profile* prefers is T109's, and it changes this one function.
+ * **The first module the profile shows** — and since `visible` is in the registry's order, that is
+ * MixEngine for the *MixEngine* and *Everything* profiles and the database client for *Database
+ * tools*, which is the whole of T109. There is no constant and no table of preferences per preset:
+ * a second hand-written list of module ids could only ever restate the order this one already
+ * carries, and would one day contradict it.
+ *
+ * Session restore wins over this, always: `Workspace` reads the session in a `useState`
+ * initializer and only reaches here when there is nothing to restore.
+ *
+ * `visible` must not be empty. Deliberately unguarded — a default that is not in `enabled` would
+ * make `Workspace` open a tab its own visibility effect drops and then reopen it, which is a render
+ * loop where this is a crash. The three guards that make an empty set unreachable are T108's, at
+ * the edges where such a value arrives: `normalizeModules`, the last checkbox, `useStartupProfile`.
  */
 export function defaultModuleId(visible: ModuleDefinition[]): string {
-  const listed = visible.find((module) => module.id === DEFAULT_MODULE_ID);
-  return (listed ?? visible[0]).id;
+  return visible[0].id;
 }
 
 /** Where the set is kept. `localStorage`, beside `mixdb-theme`, `mixdb-accent`, `mixdb-glass` and

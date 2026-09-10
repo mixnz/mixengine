@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MODULE_ID, MODULES, MODULE_PRESETS, PRESET_IDS } from "./registry";
+import { MODULES, MODULE_PRESETS, PRESET_IDS } from "./registry";
 
 /* The presets are the only place in the app that names a module by hand, so what is worth pinning
    down is that every name is one the registry actually has, and that the order the tab bar draws —
    which is the registry's, never the stored set's — puts MixEngine at the front. */
 describe("the registry", () => {
-  it("leads with MixEngine", () => {
+  /* The head of the list is also the tab this window opens by default — `defaultModuleId` is the
+     first *visible* module, and MixEngine is visible in two of the three presets. */
+  it("leads with MixEngine, which is also the default tab", () => {
     expect(MODULES[0].id).toBe("mixengine");
-  });
-
-  it("has a default module it also lists", () => {
-    expect(MODULES.map((m) => m.id)).toContain(DEFAULT_MODULE_ID);
   });
 
   it("names only modules it has, in every preset", () => {
