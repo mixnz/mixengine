@@ -400,6 +400,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
               <Suspense fallback={<LoadingOverlay />}>
                 <Tab
                   active={tab.id === activeId}
+                  isModuleVisible={(id) => visibleIds.includes(id)}
                   onTitleChange={(title) => renameTab(tab.id, title)}
                   onBadgesChange={(badges) => setTabBadges(tab.id, badges)}
                   restored={tab.state}

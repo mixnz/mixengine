@@ -33,6 +33,19 @@ export interface ModuleTabProps {
    *  see `shell/session.ts`. Nothing a module writes can tell the difference: its first render is
    *  its first render either way.) */
   active: boolean;
+  /**
+   * Whether this window is drawing the module with this id.
+   *
+   * For a screen that offers a way *into* another module and must not offer it as though it were
+   * already there — T110. A question about what is **drawn**, not about what exists: every
+   * module's backend commands are registered in every build, and a hidden module's files are on
+   * disk (T108's D8).
+   *
+   * A predicate rather than the visible list, because a module has no business enumerating the
+   * others. Which id to ask about is the asking module's own, and it says so out loud — see
+   * `modules/mixengine/screens/ServicesDetail/openChoices.ts`.
+   */
+  isModuleVisible: (moduleId: string) => boolean;
   onTitleChange: (title: string) => void;
   onBadgesChange: (badges: TabBadge[]) => void;
   /**

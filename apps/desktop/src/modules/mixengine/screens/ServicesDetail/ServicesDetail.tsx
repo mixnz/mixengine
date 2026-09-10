@@ -13,7 +13,14 @@ import IdlePanel from "./IdlePanel";
 import LimitsPanel from "./LimitsPanel";
 import styles from "./ServicesDetail.module.css";
 
-export default function ServicesDetail({ active }: { active: boolean }) {
+export default function ServicesDetail({
+  active,
+  isModuleVisible,
+}: {
+  active: boolean;
+  /** Straight through to `DatabasePanel`, which is what asks — see `ModuleTabProps`. */
+  isModuleVisible: (moduleId: string) => boolean;
+}) {
   const [ids, setIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -131,7 +138,7 @@ export default function ServicesDetail({ active }: { active: boolean }) {
             )}
             <LimitsPanel service={selected} />
             <IdlePanel service={selected} />
-            <DatabasePanel service={selected} />
+            <DatabasePanel service={selected} isModuleVisible={isModuleVisible} />
           </>
         )}
       </div>

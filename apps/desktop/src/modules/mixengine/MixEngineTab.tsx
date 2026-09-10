@@ -40,7 +40,12 @@ const INSTALL_PAGE_BY_LANG: Partial<Record<Language, string>> = {
  * đang tìm nhầm tab; khởi động một daemon đang giám sát database thì không rẻ như vậy. Nút nói rõ
  * nó sắp làm gì.
  */
-export default function MixEngineTab({ onTitleChange, onStateChange, restored }: ModuleTabProps) {
+export default function MixEngineTab({
+  isModuleVisible,
+  onTitleChange,
+  onStateChange,
+  restored,
+}: ModuleTabProps) {
   // Đọc một lần, lúc mount — đọc reactively là module tự ghi đè chính nó ngay khi nó ghi.
   const [screen, setScreen] = useState<MixEngineScreen>(
     () => parseMixEngineTabState(restored)?.screen ?? "dashboard",
@@ -189,7 +194,9 @@ export default function MixEngineTab({ onTitleChange, onStateChange, restored }:
         {pane("sites", (active) => <Sites active={active} />)}
         {pane("domains", (active) => <Domains active={active} />)}
         {pane("runtimes", (active) => <Runtimes active={active} />)}
-        {pane("servicesDetail", (active) => <ServicesDetail active={active} />)}
+        {pane("servicesDetail", (active) => (
+          <ServicesDetail active={active} isModuleVisible={isModuleVisible} />
+        ))}
         {pane("logs", (active) => <Logs active={active} />)}
         {pane("blueprints", (active) => <Blueprints active={active} />)}
         {pane("extensions", (active) => <Extensions active={active} />)}
