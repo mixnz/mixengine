@@ -507,8 +507,16 @@ pub(crate) enum Trust {
 /// [`mixengine_platform::install`], threaded through as an argument so that a test can state which
 /// machine it is describing rather than inheriting whichever one it happens to run on.
 ///
-/// The second candidate is the same directory D9 already accepted, and is what a `cargo build` and
-/// a machine before its first elevation prompt both use.
+/// **The second candidate is a list rather than a path** — roadmap task **T88d**. Where a copy of
+/// the helper ships is a fact about install formats, so it is
+/// [`mixengine_platform::install::helper_sources`]'s to answer; what is decided here is the
+/// preference between an installed helper and a shipped one, which has not changed. Every system's
+/// list ends with the directory D9 already accepted, which is what a `cargo build` and a machine
+/// before its first elevation prompt both use — and on the three formats an installer writes as
+/// root it now holds one more entry, so that `mix uninstall` is no longer a one-way door.
+///
+/// The list is built **only when there is no installed helper to prefer**, because this function is
+/// on the path of every `mix status`.
 ///
 /// # Errors
 ///
@@ -521,14 +529,16 @@ pub fn helper(program: &Path, installed: Option<&Path>) -> Result<PathBuf> {
         .filter(|path| path.is_file())
         .map(|path| (path.to_path_buf(), trust_of(path)));
 
-    let beside = program
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX));
+    choose(installed, || {
+        mixengine_platform::install::helper_sources(program, crate::window::BUNDLE)
+            .into_iter()
+            .map(|path| {
+                let exists = path.is_file();
 
-    let exists = beside.is_file();
-
-    choose(installed, beside, exists)
+                (path, exists)
+            })
+            .collect()
+    })
 }
 
 /// D5's table, over facts rather than over a filesystem.
@@ -536,31 +546,68 @@ pub fn helper(program: &Path, installed: Option<&Path>) -> Result<PathBuf> {
 /// Separated so that the table is a unit test: the row that matters most — an installed helper that
 /// is **not** an administrator's — cannot be produced on a machine where the person running the
 /// tests is not root, and a rule nobody can exercise is a rule nobody can trust.
+///
+/// **The sources arrive as a closure** — roadmap task **T88d** — so that *an installed helper is
+/// preferred and nothing else is even looked at* is a property a test can hold by passing one that
+/// panics, rather than a sentence in a comment. Each entry is a path and whether it is there.
 pub(crate) fn choose(
     installed: Option<(PathBuf, Trust)>,
-    beside: PathBuf,
-    beside_exists: bool,
+    sources: impl FnOnce() -> Vec<(PathBuf, bool)>,
 ) -> Result<PathBuf> {
     match installed {
-        Some((path, Trust::Administrative)) => Ok(path),
+        Some((path, Trust::Administrative)) => return Ok(path),
 
         // **Refused rather than downgraded.** Falling back here would quietly run the weaker
         // configuration at exactly the moment somebody has arranged for it — and that arrangement
         // is the one the root-owned directory exists to prevent. `elevation.status` reports this
         // through its `reason`, so it is on the screen before anybody clicks Allow.
-        Some((path, Trust::Writable(why))) => Err(Error::ElevateUntrusted { path, why }),
+        Some((path, Trust::Writable(why))) => return Err(Error::ElevateUntrusted { path, why }),
 
         // Not knowing is not knowing it is safe. A daemon that cannot find out whether the file it
         // is about to run as root belongs to root has not learned that it does.
-        Some((path, Trust::Unknown(why))) => Err(Error::ElevateUntrusted {
-            path,
-            why: format!("this machine would not say who owns it: {why}"),
-        }),
+        Some((path, Trust::Unknown(why))) => {
+            return Err(Error::ElevateUntrusted {
+                path,
+                why: format!("this machine would not say who owns it: {why}"),
+            });
+        }
 
-        None if beside_exists => Ok(beside),
+        None => {}
+    }
 
-        // The path is still named, because this message's whole job is to say where it looked.
-        None => Err(Error::ElevateMissing { path: beside }),
+    let sources = sources();
+
+    // Named before the search consumes the list, because this message's whole job is to say where
+    // it looked. The platform's **first** entry rather than the last one tried: that is the place
+    // this system's installer is supposed to have left a copy.
+    let looked = sources.first().map_or_else(
+        || PathBuf::from("mixengine-elevate"),
+        |(path, _)| path.clone(),
+    );
+
+    sources
+        .into_iter()
+        .find_map(|(path, exists)| exists.then_some(path))
+        .ok_or(Error::ElevateMissing { path: looked })
+}
+
+/// Why a file about to be handed to an elevation prompt is not an administrator's, or [`None`] when
+/// it is — roadmap task **T88d**.
+///
+/// **For the one caller that asks before spending a prompt**, which is the daemon deciding to
+/// enqueue `HelperInstall {}`. What it reports is the residual
+/// `.claude/architecture/security-model.md` states for a machine with nothing installed: on Windows,
+/// on the portable archives and — since T88d — inside a macOS bundle, the copy MixEngine would
+/// install from sits where an ordinary account can arrange it.
+///
+/// **Deliberately not called by [`helper`]**, which every `mix status` and every poll a window makes
+/// goes through: four ownership reads a second, with a warning line for each, is what *a source is
+/// used and said out loud* must not cost.
+#[must_use]
+pub fn source_trust(path: &Path) -> Option<String> {
+    match trust_of(path) {
+        Trust::Administrative => None,
+        Trust::Writable(why) | Trust::Unknown(why) => Some(why),
     }
 }
 
@@ -730,27 +777,37 @@ mod tests {
         );
     }
 
-    /// T85's D5, as its own table. Every row, including the two no machine running this test could
-    /// produce: an installed helper somebody else owns, and one the machine will not answer about.
+    /// T85's D5, as its own table, with T88d's source list in place of the single fallback. Every
+    /// row, including the two no machine running this test could produce: an installed helper
+    /// somebody else owns, and one the machine will not answer about.
     #[test]
     fn which_helper_is_run_and_when_nothing_is() {
         let installed = PathBuf::from("/system/mixengine-elevate");
+        let bundle = PathBuf::from("/Applications/MixLab.app/Contents/Resources/mixengine-elevate");
         let beside = PathBuf::from("/app/mixengine-elevate");
 
-        // Nothing installed: a development tree, or a machine before its first prompt.
+        let both = || vec![(bundle.clone(), true), (beside.clone(), true)];
+        let only_beside = || vec![(bundle.clone(), false), (beside.clone(), true)];
+        let neither = || vec![(bundle.clone(), false), (beside.clone(), false)];
+        let unread = || panic!("the sources must not be built when a helper is installed");
+
+        // Nothing installed: a development tree, a machine before its first prompt, or one whose
+        // helper an uninstall removed. The platform's order decides, and nothing re-sorts it.
         assert_eq!(
-            choose(None, beside.clone(), true).expect("the copy beside the program"),
+            choose(None, both).expect("the first source that exists"),
+            bundle
+        );
+
+        // A source that is not there is skipped for one that is.
+        assert_eq!(
+            choose(None, only_beside).expect("the source that exists"),
             beside
         );
 
-        // Installed and an administrator's: that one, and the copy beside is not consulted.
+        // Installed and an administrator's: that one, and no source is consulted.
         assert_eq!(
-            choose(
-                Some((installed.clone(), Trust::Administrative)),
-                beside.clone(),
-                true
-            )
-            .expect("the installed copy"),
+            choose(Some((installed.clone(), Trust::Administrative)), unread)
+                .expect("the installed copy"),
             installed
         );
 
@@ -761,8 +818,7 @@ mod tests {
                 installed.clone(),
                 Trust::Writable("/system belongs to 501".to_owned()),
             )),
-            beside.clone(),
-            true,
+            unread,
         )
         .expect_err("a helper somebody else can rewrite is not run as root");
         assert!(matches!(error, Error::ElevateUntrusted { .. }), "{error}");
@@ -774,19 +830,41 @@ mod tests {
         // Installed and unreadable: the same answer, a different sentence.
         let error = choose(
             Some((installed, Trust::Unknown("permission denied".to_owned()))),
-            beside.clone(),
-            true,
+            unread,
         )
         .expect_err("a helper whose owner cannot be read is not run as root");
         assert!(matches!(error, Error::ElevateUntrusted { .. }), "{error}");
 
-        // Nothing anywhere, and the message still names where it looked.
-        let error = choose(None, beside.clone(), false).expect_err("there is no helper at all");
+        // Nothing anywhere, and the message names the platform's first entry — the place this
+        // system's installer is supposed to have left one.
+        let error = choose(None, neither).expect_err("there is no helper at all");
         assert!(matches!(error, Error::ElevateMissing { .. }), "{error}");
         assert!(
-            error.to_string().contains(&beside.display().to_string()),
+            error.to_string().contains(&bundle.display().to_string()),
             "{error}"
         );
+    }
+
+    /// A system that offered no source at all still answers, rather than indexing an empty list. No
+    /// shipped system does this — every `helper_sources` ends with the copy beside the program —
+    /// and the row exists so that one which stopped doing it fails here rather than in a prompt.
+    #[test]
+    fn a_system_with_no_sources_at_all_is_still_a_refusal() {
+        let error = choose(None, Vec::new).expect_err("there is nothing to install from");
+
+        assert!(matches!(error, Error::ElevateMissing { .. }), "{error}");
+    }
+
+    /// T88d. `helper` on a directory with nothing beside it and nothing installed keeps the shape
+    /// every caller already handles.
+    #[test]
+    fn nothing_installed_and_nothing_shipped_is_elevate_missing() {
+        let empty = tempfile::tempdir().expect("a temporary directory");
+
+        let error = helper(&empty.path().join("mixengined"), None)
+            .expect_err("there is no helper anywhere");
+
+        assert!(matches!(error, Error::ElevateMissing { .. }), "{error}");
     }
 
     /// D5's table, one row at a time. Four outcomes delete and exactly one is kept — the only one
