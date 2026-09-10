@@ -409,28 +409,28 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
               </Suspense>
             </ErrorBoundary>
           );
-          /* The module this tab was opened by turning on, if it was — T110. Wrapped only when
-             there is something to say, so the ordinary panel is what it always was. */
+          /* The module this tab was opened by turning on, if it was — T110. The two wrappers are
+             always here and are boxes only while there is a notice: a pane that changed depth when
+             one appeared or was dismissed would be a fresh mount, and a database tab would drop the
+             connection it was holding. `App.css` is where the rest of that is written down. */
           const noticeModuleId = enabledFor[tab.id];
           return (
             <div
               key={tab.id}
-              className="tab-panel"
+              className={noticeModuleId ? "tab-panel tab-panel-noticed" : "tab-panel"}
               style={{ display: tab.id === activeId ? "flex" : "none" }}
             >
-              {noticeModuleId ? (
-                <div className="tab-panel-stack">
+              <div className="tab-panel-stack">
+                {noticeModuleId && (
                   <TabNotice
                     message={t("profiles.turnedOn", {
                       module: t(moduleById(noticeModuleId).labelKey),
                     })}
                     onDismiss={() => setEnabledFor((prev) => forgetNotice(prev, tab.id))}
                   />
-                  <div className="tab-panel-body">{pane}</div>
-                </div>
-              ) : (
-                pane
-              )}
+                )}
+                <div className="tab-panel-body">{pane}</div>
+              </div>
             </div>
           );
         })}

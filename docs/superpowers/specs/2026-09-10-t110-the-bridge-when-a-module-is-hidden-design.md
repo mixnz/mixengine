@@ -145,27 +145,34 @@ a fact about the window that stays true until the person acts on it.
 **It is drawn by the shell**, from the module's own `labelKey`, and no module learns anything. The
 one place the shell already renders per tab is the panel, so that is where it goes.
 
-**The layout is opt-in.** `.tab-panel` is a flex container in row direction whose single child is a
-module root sized `width: 100%; height: 100%`; putting a second child in it unconditionally would
-change every module's layout for a line that is almost never there. So the panel's children are
-wrapped only when there is a notice:
+**The wrappers are always in the tree and are boxes only when there is a notice.** Two constraints
+pull against each other, and one declaration satisfies both.
+
+They have to be *always there*, because React tells one element from another by its position: a
+pane that gained a wrapper when the notice appeared, or lost one when it was dismissed, would be
+unmounted and mounted again — and for a database tab that means dropping the connection it was
+holding. Dismissing a line of text must not close a connection.
+
+They have to be *nothing* when there is no notice, because `.tab-panel` is a flex container in row
+direction whose single child is a module root sized `width: 100%; height: 100%`; two real boxes
+between them would change every module's layout for a line that is almost never there.
 
 ```tsx
-<div className="tab-panel" style={{ display: tab.id === activeId ? "flex" : "none" }}>
-  {notice ? (
-    <div className="tab-panel-stack">
-      <TabNotice … />
-      <div className="tab-panel-body">{pane}</div>
-    </div>
-  ) : (
-    pane
-  )}
+<div
+  className={notice ? "tab-panel tab-panel-noticed" : "tab-panel"}
+  style={{ display: tab.id === activeId ? "flex" : "none" }}
+>
+  <div className="tab-panel-stack">
+    {notice && <TabNotice … />}
+    <div className="tab-panel-body">{pane}</div>
+  </div>
 </div>
 ```
 
-with `.tab-panel-stack { width: 100%; height: 100%; min-width: 0; min-height: 0; display: flex;
-flex-direction: column; }` and `.tab-panel-body { flex: 1; min-height: 0; display: flex; }`. The
-no-notice path is byte-for-byte what it is today.
+`display: contents` on `.tab-panel-stack` and `.tab-panel-body` is both things at once — the
+element keeps its place in the React tree and produces no box at all, so the module root is the
+flex item of `.tab-panel` exactly as it has always been. `.tab-panel-noticed` then turns the pair
+into a column and a body that fills what the notice leaves.
 
 ## D4 — The Services screen offers rather than acts
 
