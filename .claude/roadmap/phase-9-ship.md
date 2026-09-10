@@ -253,6 +253,44 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       What this did **not** close is the first prompt on a machine with nothing installed: there the
       elevated binary is the copy beside the daemon and it installs its own image, unchecked. See
       [../architecture/security-model.md](../architecture/security-model.md).
+- [x] **T88d** A privileged helper the machine can put back. `mix uninstall` removes the installed
+      helper on every system, and on the three formats an installer writes as root there was nothing
+      left to install another from: `mixengine_core::elevation::helper` derived one fallback — the
+      copy beside the program — and the `.pkg`, the `.deb` and the `.rpm` place none there. Both
+      other ways back were closed too: `elevation.upgrade` refuses `Placement::Managed`, and
+      `HelperReplace {}` is applied by the helper that has just gone. So a machine that had
+      uninstalled could never elevate anything again — a state MixLab reaches **by default**, since
+      its uninstall ticks *keep my home* and the daemon then does not exit.
+      `mixengine_platform::install::helper_sources` now answers a list, every format ships at least
+      one entry of it (`/usr/bin` on Linux, inside `MixLab.app` on macOS, unchanged on Windows), and
+      the four `require_*` producers ask for the installation rather than only a daemon start does.
+      **Lettered after T88c and ordered before it**: it follows T88a's subject, and nothing after it
+      is renumbered.
+      Design: [2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md](../../docs/superpowers/specs/2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md),
+      and [ADR 0029](../decisions/0029-every-install-format-carries-a-helper-to-install-from.md),
+      which extends [ADR 0015](../decisions/0015-the-helper-installs-itself.md) rather than editing
+      it: `HelperInstall {}` still carries no field, and what changed is where the image it copies is
+      allowed to have come from.
+      **Two things this task decided against, and both are in the ADR.** A bootstrap in
+      `/Library/PrivilegedHelperTools` is the most tamper-resistant place on a Mac and outlives the
+      application, which is the half of "residue" that matters after somebody trashes the bundle; and
+      a repair that fetches the signed helper T88a publishes would hand a compromised daemon
+      arbitrary root behind one Allow click, on the two systems that do not have that today.
+      What this task did **not** do is stop `mix uninstall` deleting a file the system package
+      manager owns — that is **T88e**.
+
+- [ ] **T88e** `mix uninstall` removes a file `dpkg` and `rpm` believe they own. The `.deb`, the
+      `.rpm` and the `.pkg` write `mixengine-elevate` to the installed path themselves — T85's D3,
+      so that `HelperInstall {}` answers `AlreadyDone` there — which makes the file T87 removes the
+      package's rather than MixEngine's, and removing it leaves the package database describing a
+      file that is gone. The answer is a packaging decision rather than a daemon one, and there are
+      two shapes of it: either those formats ship only the source T88d added and let
+      `HelperInstall {}` place the installed copy at first run, or the uninstall reports that row as
+      kept where the placement was a package manager's. The first costs the property that a packaged
+      machine never elevates anything but a root-owned file; the second costs `mix uninstall`'s
+      promise on a `.pkg`, which has no uninstaller to hand the file to. Not folded into T88d, which
+      is about the way back rather than about who owns what.
+
 - [x] **T88c** `daemon.status` is not backwards compatible within one protocol version, and the
       sentence written for exactly that case no longer reaches anybody. Every field added to
       `DaemonStatus` since protocol 1 was fixed is **required** — `elevation` (T40b), `dns` (T44) —

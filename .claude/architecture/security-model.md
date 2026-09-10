@@ -69,6 +69,15 @@ so a compromised daemon gains no *copy this file as root* primitive from its exi
 at every daemon start and applied inside the single first-run prompt, so the budget above does not
 change.
 
+**Where the image it copies comes from is `mixengine_platform::install::helper_sources`** —
+[ADR 0029](../decisions/0029-every-install-format-carries-a-helper-to-install-from.md), roadmap task
+T88d. Every install format ships at least one copy MixEngine may install *from*, so `mix uninstall`
+removing the installed helper is no longer a machine that can never elevate anything again: the
+`.deb` and the `.rpm` keep one in `/usr/bin` beside `mixengined`, the `.pkg` keeps one inside
+`MixLab.app`, and the other three formats always had one beside the program. The four `require_*`
+producers ask for the installation when a machine with none needs something done as root, so the
+recovery does not wait for a daemon restart — which a `keep_home` uninstall does not cause.
+
 **Replacing it across an upgrade is `PrivilegedOp::HelperReplace {}`, and that is not
 auto-update**: nothing is copied until a person allows a batch, which is what "its own explicit
 elevation prompt" means. **The minisign check in front of it is built** — T88a,
@@ -249,6 +258,19 @@ deciding that outcome are the borrowed runtimes, which are not ours to sign. The
 about **one** image — the helper — and a signature on it would still be checked before a prompt is
 raised. Whether that alone is worth buying a certificate for is untouched by T94 and by T88a, and
 remains open.
+
+**T88d widened where that residual can be reached, and by exactly one system.** Until it, a `.pkg`, a
+`.deb` or an `.rpm` installed the helper as root and `HelperInstall {}` answered `AlreadyDone`, so
+those machines never elevated anything but a root-owned file — at the price of being unable to
+elevate anything at all once `mix uninstall` removed it, which is the hole
+[ADR 0029](../decisions/0029-every-install-format-carries-a-helper-to-install-from.md) closes. Each
+format now ships a copy MixEngine installs *from*. On Linux that copy is in `/usr/bin` and is root's,
+so nothing changes there. On macOS it is inside `MixLab.app`, whose contents the installer writes as
+root but whose `/Applications` an account in `admin` — the first account on a Mac — can replace
+wholesale; so on a machine with **no installed helper**, that account can arrange what the next
+prompt elevates, exactly as it can today on Windows and on the portable archives. An installed helper
+is still preferred, and an installed helper that is writable is still refused outright. The daemon
+warns, naming the file, whenever the source it would install from is not an administrator's.
 
 **A second account on the machine is a different matter, and is defended against where it costs
 little.** "Single-user" describes the machine MixEngine is built for, not a licence to hand a

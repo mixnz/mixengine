@@ -69,6 +69,13 @@ window="/Applications/$MIX_WINDOW_APP"
 # occupied check is the next run failing to notice it and then deleting it as its own.
 paths=("$cli" "$daemon" "$shim" "$helper" "$window")
 
+# The copy MixEngine installs the helper *from* — roadmap task T88d. **Inside `$window`, and
+# deliberately not in `paths`**: that array is also what `cleanup` removes and what the occupied
+# check refuses a machine for, and a second entry under a directory it already holds would remove
+# nothing twice and refuse a machine for holding one thing. M5 reads it on its own, because a
+# quarantined source is a source the elevation prompt would be gated on.
+source_helper="$window/Contents/Resources/mixengine-elevate"
+
 receipt=dev.mixengine.cli
 
 # ---------------------------------------------------------------------------------------------
@@ -209,7 +216,7 @@ else
     # at all. The payload is written by the install daemon, and quarantine is applied by a
     # downloader rather than by a write.
     carried=""
-    for path in "${paths[@]}"; do
+    for path in "${paths[@]}" "$source_helper"; do
       if [ ! -e "$path" ]; then
         fail "the package did not write $path"
         continue
@@ -219,7 +226,7 @@ else
       fi
     done
     carried="${carried# }"
-    record M5 "installed files carrying the package's quarantine attribute" "${carried:-none of ${#paths[@]}}"
+    record M5 "installed files carrying the package's quarantine attribute" "${carried:-none of $((${#paths[@]} + 1))}"
     test -z "$carried" ||
       fail "the package passed its quarantine attribute on to $carried — the first run of each of those is now gated, which updates.md says it is not"
 

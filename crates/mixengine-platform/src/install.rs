@@ -33,6 +33,38 @@ pub fn helper_path() -> Result<PathBuf> {
     crate::sys::install::helper_path()
 }
 
+/// Every copy of `mixengine-elevate` an install format on this system leaves behind that MixEngine
+/// may install *from*, most trustworthy first — roadmap task **T88d**.
+///
+/// **A source is not [`helper_path`].** That one is the file this machine runs as root; these are
+/// copies that ship with the product, and the only thing one is ever used for is being handed to an
+/// elevation prompt on a machine with no installed helper — a development tree, a machine before
+/// its first prompt, and, since T88d, a machine whose helper `mix uninstall` has removed.
+/// `mixengine_core::elevation::helper` prefers the installed copy and never reads this list when
+/// there is one.
+///
+/// **Never empty**: every system answers at least the file beside the program, which is what the
+/// fallback was before this list existed.
+///
+/// **Two arguments and not one**, on [`application_file_name`]'s precedent and for its reason: the
+/// window bundle's name is not derivable from anything this crate holds — `mixengine_core::window`
+/// declares it, and that crate is the caller. Windows and Linux ignore it.
+#[must_use]
+pub fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<PathBuf> {
+    crate::sys::install::helper_sources(program, bundle)
+}
+
+/// The helper as it is named beside a program: all three systems use this, and two use only this.
+///
+/// `.` when the program has no parent, which is the answer `mixengine_core::elevation::helper` gave
+/// before the question moved here.
+pub(crate) fn beside(program: &std::path::Path) -> PathBuf {
+    program
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX))
+}
+
 /// What to tell a person who ran into `mixengine_core::Error::ElevateMissing` on this machine.
 ///
 /// **Per OS and not one sentence**, because "reinstall" is not always the answer and "it ships

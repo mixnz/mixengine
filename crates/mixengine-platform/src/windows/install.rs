@@ -48,14 +48,27 @@ pub(crate) fn window_dirs(_directory: Option<&std::path::Path>) -> Vec<PathBuf> 
     Vec::new()
 }
 
+/// Beside the program, and nowhere else — roadmap task **T88d**.
+///
+/// `RequestExecutionLevel user` means neither the NSIS installer nor the portable zip can write
+/// `%ProgramFiles%` at install time, so both keep their copy where the rest of the install is —
+/// which is also where `mix uninstall` leaves it, since it does not touch the program directory.
+///
+/// `bundle` is macOS' question: this system's window is a file beside the other four.
+pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<PathBuf> {
+    let _ = bundle;
+
+    vec![crate::install::beside(program)]
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in
 /// `%LOCALAPPDATA%\Programs\MixEngine` — `RequestExecutionLevel user` means neither can write
 /// `%ProgramFiles%` directly, so a bootstrap copy has to sit where the rest of the install already
 /// is. That copy survives `mix uninstall`, which leaves the program directory alone, so a plain
-/// `mix elevation grant` re-installs it — unlike macOS and Linux, where reinstalling is the only way
-/// back.
+/// `mix elevation grant` re-installs it — as it now does on macOS and Linux too, since **T88d** gave
+/// those two systems a source of their own.
 pub(crate) fn missing_helper_advice() -> &'static str {
     "a release keeps mixengine-elevate beside mixengined in %LOCALAPPDATA%\\Programs\\MixEngine — \
      reinstall MixEngine, or re-extract the zip release, to put it back"
@@ -210,6 +223,21 @@ mod application_tests {
         assert_eq!(
             super::application_root(Path::new(r"C:\Users\me\MixEngine\mixlab.exe")),
             PathBuf::from(r"C:\Users\me\MixEngine\mixlab.exe")
+        );
+    }
+
+    /// T88d. Unchanged behaviour, stated as a fact so the list cannot quietly gain an entry: this
+    /// system's installer and its portable zip both keep the source where the programs are.
+    #[test]
+    fn windows_offers_the_copy_beside_the_program_and_nothing_else() {
+        assert_eq!(
+            super::helper_sources(
+                Path::new(r"C:\Users\x\AppData\Local\Programs\MixEngine\mixengined.exe"),
+                "MixLab.app"
+            ),
+            vec![PathBuf::from(
+                r"C:\Users\x\AppData\Local\Programs\MixEngine\mixengine-elevate.exe"
+            )]
         );
     }
 }

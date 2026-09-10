@@ -2,6 +2,9 @@
 
 **Status**: Accepted
 **Date**: 2026-09-04
+**Extended by** [0029](0029-every-install-format-carries-a-helper-to-install-from.md), which gives
+the three root-installed formats a copy to install *from* — this decision's mechanism is untouched,
+and `HelperInstall {}` still carries no field.
 
 ## Context
 

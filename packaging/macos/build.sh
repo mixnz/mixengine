@@ -66,11 +66,25 @@ test -n "$window_exe" || {
   exit 1
 }
 
+# **The copy MixEngine installs *from*, inside the bundle** — roadmap task T88d. `mix uninstall`
+# removes `/Library/PrivilegedHelperTools/dev.mixengine.elevate`; until this copy existed there was
+# nothing left on the machine for `HelperInstall {}` to copy, so reinstalling this package was the
+# only way back to a Mac that could elevate anything at all.
+#
+# Inside `MixLab.app` rather than beside `mixengined`, because a source has to survive an uninstall
+# and **not** survive removing the application — one of the app's own files is the only thing here
+# that does both. `/usr/local/bin` is refused for the reason the helper is not installed there
+# either: Homebrew on an Intel Mac owns that directory.
+mkdir -p "$root/Applications/$MIX_WINDOW_APP/Contents/Resources"
+cp "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
+  "$root/Applications/$MIX_WINDOW_APP/Contents/Resources/mixengine-elevate"
+
 chmod 755 \
   "$root$MIX_INSTALL_MACOS/mix" \
   "$root$MIX_INSTALL_MACOS/mixengined" \
   "$root$MIX_INSTALL_MACOS/mixengine-shim" \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" \
+  "$root/Applications/$MIX_WINDOW_APP/Contents/Resources/mixengine-elevate" \
   "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"
 
 # **T95: a release must not admit to being a development build.** `mixengine_platform::RELEASE` is
@@ -151,6 +165,7 @@ for expected in \
   .$MIX_INSTALL_MACOS/mixengined \
   .$MIX_INSTALL_MACOS/mixengine-shim \
   ./Library/PrivilegedHelperTools/dev.mixengine.elevate \
+  "./Applications/$MIX_WINDOW_APP/Contents/Resources/mixengine-elevate" \
   "./Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe"; do
   printf '%s\n' "$files" | grep -qx "$expected" || {
     echo "$expected is not in the package" >&2
