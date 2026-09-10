@@ -35,10 +35,20 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       now, but the loop that registers them is still over `MODULES` and passes `enabled` instead:
       hooks may not change in number between renders.
 
-- [ ] **T109** The default tab follows the profile. *MixEngine* and *Everything* open on the
+- [x] **T109** The default tab follows the profile. *MixEngine* and *Everything* open on the
       Dashboard, *Database tools* on a Database tab; `DEFAULT_MODULE_ID` becomes a function of the
       setting. Session restore still wins when there is a session, so the default only ever decides
       the very first tab and the tab after the last one is closed.
+      Design: [2026-09-10-t109-the-default-tab-follows-the-profile-design.md](../../docs/superpowers/specs/2026-09-10-t109-the-default-tab-follows-the-profile-design.md).
+      **What this settled.** There is no `DEFAULT_MODULE_ID` any more, and no table of a preferred
+      module per preset either: the default is the first module the profile shows, which the
+      registry's order already decides, and all three rows of D11 fall out of that one line. The
+      five places a tab opens without a module named — the first tab, the tab after the last one is
+      closed, the tab after a module is turned off, `Ctrl/Cmd+T` and a one-module `[+]` — move
+      together, because a window whose first tab is the Dashboard while `Ctrl/Cmd+T` opens a
+      database client has two defaults. And the empty visible list stays unguarded on purpose: a
+      default outside `enabled` would have `Workspace` open a tab its own effect drops and reopen
+      it forever, so the guards stay at T108's three edges.
 
 - [ ] **T110** The bridge when a module is hidden (D11, last paragraph). The Services screen's
       *open* button, drawn from `database.client` as today, offers two things when `db` is off:
