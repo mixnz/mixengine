@@ -35,6 +35,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
 | [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted |
 | [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Accepted |
+| [0029](0029-every-install-format-carries-a-helper-to-install-from.md) | Every install format carries a helper to install from | Accepted |
 
 ## Template
 
