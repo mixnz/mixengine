@@ -32,7 +32,17 @@ serde_json = "1"
 tokio = { version = "1.53.1", features = ["full"] }
 mongodb = "3.8.0"
 redis = { version = "1.5.0", features = ["tokio-comp", "connection-manager"] }
-sqlx = { version = "0.9.0", features = ["mysql", "postgres", "sqlite", "uuid", "runtime-tokio", "tls-native-tls", "chrono", "json", "rust_decimal"] }
+# `mysql-rsa` is what makes a MySQL connection with SSL off work reliably rather than sometimes.
+# MySQL 8's default plugin, `caching_sha2_password`, only accepts the cheap scramble when the
+# server already holds that account's password hash in its in-memory cache. On a miss it demands
+# the password in the clear, which a client may send only over TLS or encrypted with the server's
+# RSA public key — and sqlx 0.9 moved that RSA backend behind this feature, off by default. Without
+# it the first connection to a freshly started server fails at authentication, and the next one
+# succeeds, because a single connection with SSL on was enough to warm the cache. The
+# intermittence is the whole problem: the cache is emptied again by a restart, a password change or
+# `FLUSH PRIVILEGES`. `rsa` is already in the tree at exactly the version sqlx-mysql asks for, so
+# this costs a compile of `sqlx-mysql`, not a new dependency.
+sqlx = { version = "0.9.0", features = ["mysql", "mysql-rsa", "postgres", "sqlite", "uuid", "runtime-tokio", "tls-native-tls", "chrono", "json", "rust_decimal"] }
 # Named here only to force `bundled` on. Left to sqlx alone, `libsqlite3-sys` resolves with
 # `pkg-config` and `vcpkg` — it links against whatever SQLite the *build* machine happens to have,
 # and Windows has none. Bundling compiles SQLite from source into the binary, which is the only way

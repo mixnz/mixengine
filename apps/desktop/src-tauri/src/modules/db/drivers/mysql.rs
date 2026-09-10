@@ -62,9 +62,27 @@ pub async fn connect(
         .max_connections(5)
         .connect_with(opts)
         .await
-        // Không đi qua `map_error`: hỏng ở đây là "không kết nối được", không phải "mất kết nối",
-        // và lý do thật (connection refused, tên máy không phân giải được) nằm trong `message`.
-        .map_err(|e| err!("error.mysql", message = e))
+        .map_err(connect_error)
+}
+
+/// What a failed `connect` says, which is not what a failed query says.
+///
+/// It does not go through `map_error`: a failure here is "could not connect", never "the
+/// connection was lost", and the real reason (connection refused, a host name that does not
+/// resolve) is in `message`.
+///
+/// `Configuration` is the one variant worth its own sentence. sqlx-mysql raises it when the server
+/// asks for full authentication — `caching_sha2_password` on a cache miss — over a link that is
+/// neither encrypted nor able to encrypt the password with the server's RSA key. The `mysql-rsa`
+/// feature in `Cargo.toml` is what keeps that second path open, so this should now be unreachable;
+/// it is mapped anyway because the day that feature is dropped from the dependency line, what the
+/// user reads is a sentence about a Cargo feature flag with the way out — tick Use SSL — nowhere
+/// in it.
+fn connect_error(e: sqlx::Error) -> AppError {
+    match e {
+        sqlx::Error::Configuration(_) => err!("error.mysqlSecureAuthRequired"),
+        e => err!("error.mysql", message = e),
+    }
 }
 
 pub async fn query(
@@ -837,7 +855,7 @@ pub(super) fn column_value(row: &MySqlRow, i: usize) -> Value {
 /// statement text. Both are what stands between user input and the SQL that reaches MySQL.
 #[cfg(test)]
 mod tests {
-    use super::{build_where, lost_connection, map_error, quote_ident, Filter};
+    use super::{build_where, connect_error, lost_connection, map_error, quote_ident, Filter};
 
     fn filter(column: &str, operator: &str, value: Option<&str>) -> Filter {
         Filter {
@@ -976,5 +994,33 @@ mod tests {
         let other = map_error(sqlx::Error::RowNotFound);
         assert_eq!(other.code, "error.mysql");
         assert!(other.params.contains_key("message"));
+    }
+
+    /// The failure a server asking for full authentication produces on a link that can neither
+    /// encrypt the channel nor encrypt the password. The `mysql-rsa` feature should keep it from
+    /// ever being raised — this pins what the user reads if it is raised anyway, because the
+    /// driver's own words there name a Cargo feature and not the checkbox that gets them
+    /// connected.
+    #[test]
+    fn an_unauthenticatable_link_names_the_ssl_checkbox_not_the_driver() {
+        let error = connect_error(sqlx::Error::Configuration(
+            "RSA auth backend disabled; enable feature `mysql-rsa` (or `rsa` if using sqlx-mysql \
+             directly) or use TLS."
+                .into(),
+        ));
+        assert_eq!(error.code, "error.mysqlSecureAuthRequired");
+        assert!(error.params.is_empty());
+    }
+
+    /// Everything else a failed connect can be — refused, unresolved, rejected credentials — still
+    /// travels with the driver's own text, which is the part worth searching for.
+    #[test]
+    fn every_other_connect_failure_keeps_the_drivers_words() {
+        let error = connect_error(sqlx::Error::Io(std::io::Error::new(
+            std::io::ErrorKind::ConnectionRefused,
+            "connection refused",
+        )));
+        assert_eq!(error.code, "error.mysql");
+        assert!(error.params.contains_key("message"));
     }
 }

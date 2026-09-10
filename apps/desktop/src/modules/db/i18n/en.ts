@@ -943,6 +943,11 @@ const dbEn = {
     sqlite: "SQLite: {{message}}",
     clickhouse: "ClickHouse: {{message}}",
     mssql: "SQL Server: {{message}}",
+    /** MySQL wanted the password in the clear and the link could carry it neither encrypted by
+     *  TLS nor encrypted with the server's own key. See `connect_error` in
+     *  `src-tauri/src/modules/db/drivers/mysql.rs` for why this should not happen any more. */
+    mysqlSecureAuthRequired:
+      "This MySQL server asked to check the password in full, and will only do that over a secure connection. Tick Use SSL and connect again.",
     /** A binary cell's text was not valid base64 — it did not come out of this app's own grid. */
     mssqlInvalidBinary: "This value is not valid base64 and cannot be written: {{message}}",
     /** SQL Server's string-to-money conversion silently drops a comma as a thousands separator

@@ -922,6 +922,8 @@ const dbVi: DbDict = {
     sqlite: "SQLite: {{message}}",
     clickhouse: "ClickHouse: {{message}}",
     mssql: "SQL Server: {{message}}",
+    mysqlSecureAuthRequired:
+      "Máy chủ MySQL này yêu cầu kiểm tra mật khẩu đầy đủ, và chỉ chấp nhận điều đó trên kết nối đã mã hóa. Hãy bật Use SSL rồi kết nối lại.",
     mssqlInvalidBinary: "Giá trị này không phải base64 hợp lệ, không ghi được: {{message}}",
     mssqlAmbiguousMoney: "Dùng dấu chấm, không dùng dấu phẩy, cho phần thập phân của giá trị tiền tệ.",
     // Kết nối
