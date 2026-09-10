@@ -1947,6 +1947,40 @@ mod tests {
         );
     }
 
+    /// T88d, and the other half of the rule above: a helper installation already waiting is
+    /// dropped before an uninstall asks for the removal, so the batch does not install the file it
+    /// is about to remove.
+    ///
+    /// **Here rather than in `crate::uninstall`'s own test module**, which has no fixture holding a
+    /// queue and a machine — this one does, and building a second would be two answers to what a
+    /// pending operation is.
+    #[tokio::test]
+    async fn an_uninstall_drops_a_helper_installation_that_is_already_waiting() {
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+
+        elevation
+            .require_helper()
+            .await
+            .expect("the installation is asked for");
+
+        crate::uninstall::drop_helper_installations(&elevation)
+            .await
+            .expect("the row goes");
+
+        elevation
+            .enqueue(&PrivilegedOp::HelperRemove {})
+            .await
+            .expect("the removal is asked for");
+
+        let waiting = mixengine_core::elevation::pending(&elevation.store)
+            .await
+            .unwrap();
+
+        assert_eq!(waiting.len(), 1, "{waiting:?}");
+        assert_eq!(waiting[0].op, PrivilegedOp::HelperRemove {});
+    }
+
     /// **The uninstall's own door is untouched by T88d's rule.** `crate::uninstall` enqueues
     /// directly, so a batch that removes the helper never first installs one.
     #[tokio::test]

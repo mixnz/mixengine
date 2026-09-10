@@ -303,6 +303,9 @@ impl Uninstall {
     /// none of this home's wiring, asks for nothing — a row whose only possible outcome is
     /// `AlreadyDone` is a row that makes a dialog longer for no reason.
     async fn ask_for_the_rest(&self, planned: &[Residue]) -> Result<usize, Error> {
+        // T88d, and before anything else this asks for.
+        drop_helper_installations(&self.elevation).await?;
+
         let mut asked = 0;
 
         for id in [
@@ -445,6 +448,43 @@ impl Uninstall {
     async fn rows(&self, query: &UninstallQuery) -> Result<Vec<Residue>, Error> {
         inventory::take(self, query).await
     }
+}
+
+/// Forget any waiting helper installation before an uninstall asks for the removal — roadmap task
+/// **T88d**.
+///
+/// `Elevation::require_helper` puts `HelperInstall {}` in the queue at every daemon start, and
+/// T88d's bootstrap adds one whenever a producer on a machine with no installed helper asks for
+/// anything. Either can still be waiting when somebody presses Uninstall, and the batch would then
+/// install the helper and remove it — the right end state, reached by doing and undoing work in
+/// front of a person reading the list.
+///
+/// `HelperReplace {}` for the same reason: it exists to put a newer helper on a machine that is
+/// about to have none.
+///
+/// **`pub(crate)` for its test**, which lives in [`crate::elevation`]'s test module because that is
+/// where the fixture holding a queue and a machine is.
+///
+/// # Errors
+///
+/// The wire error of a queue that could not be read or written.
+pub(crate) async fn drop_helper_installations(
+    elevation: &crate::elevation::Elevation,
+) -> Result<(), Error> {
+    for waiting in elevation.status().await?.pending {
+        if matches!(
+            waiting.op,
+            PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
+        ) {
+            elevation
+                .drop_pending(&mixengine_proto::ElevationDrop {
+                    op: Some(waiting.id),
+                })
+                .await?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Is this one of the rows the elevated helper answers for?
