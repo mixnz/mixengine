@@ -183,9 +183,18 @@ enqueues `HelperRemove {}`. `mixengine_core::elevation::discard` is the existing
 
 **The platform's order is the preference order and nothing re-sorts it.** Each system's list is
 authored most-trustworthy-first — that is a fact about where installers put files, known when the
-list is written, and a sort at run time would only ever agree with it. What the run time does add is
-one reading: when a source is chosen, `trust_of` is asked about it once, and a source that is not an
-administrator's is used and **logged as a warning naming the file**.
+list is written, and a sort at run time would only ever agree with it.
+
+What the run time adds is one reading, in one place: **when the daemon decides to ask for a helper
+installation** — at start, or at D4's hook — it reads the chosen source's trust once and logs a
+warning naming the file when it is not an administrator's. `mixengine_core::elevation` grows
+`source_trust(path) -> Option<String>` for it, a thin public face on the `trust_of` that already
+exists.
+
+**Not on the reading path**, which is D7's constraint: `helper` is called by every `mix status` and
+every poll MixLab makes, and a machine with no helper would otherwise pay four ownership reads a
+second and write a warning line for each. `choose` stays a function over facts with no filesystem in
+it, which is the property that makes its table a unit test.
 
 A reading and not a refusal, deliberately. Refusing a writable source would refuse the portable
 archive, the AppImage and every development tree, which is where three of the six formats live.
@@ -238,8 +247,8 @@ should be, and that granting the next elevation prompt is what puts the helper b
 | Unit | Changes | Depends on |
 | --- | --- | --- |
 | `mixengine-platform::install` | new `helper_sources(program, bundle) -> Vec<PathBuf>`; three per-OS implementations; `missing_helper_advice` rewritten ×3 | the per-OS constants it already holds, `window_dirs` |
-| `mixengine-core::elevation` | `choose` takes the sources as a closure over facts; `helper` asks the platform for them and passes `window::BUNDLE`; the chosen source's trust is read once, to warn | `mixengine-platform`, `mixengine_core::window` |
-| `mixengine-daemon::elevation` | `enqueue` applies D4; a second door for the uninstall | `mixengine-core::elevation` |
+| `mixengine-core::elevation` | `choose` takes the sources as a closure over facts; `helper` asks the platform for them and passes `window::BUNDLE`; new `source_trust` | `mixengine-platform`, `mixengine_core::window` |
+| `mixengine-daemon::elevation` | `enqueue` applies D4 and warns per D6; a second door for the uninstall | `mixengine-core::elevation` |
 | `mixengine-daemon::uninstall` | D5: discard pending installs first; enqueue through the second door | `Elevation` |
 | `packaging/linux/build-deb.sh`, `mixengine.spec.in` | ship `/usr/bin/mixengine-elevate`; assert it in the payload check | — |
 | `packaging/macos/build.sh` | ship `<MixLab.app>/Contents/Resources/mixengine-elevate`; assert it in the payload check | — |
