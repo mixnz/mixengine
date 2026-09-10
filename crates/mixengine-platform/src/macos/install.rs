@@ -62,16 +62,47 @@ pub(crate) fn window_dirs(directory: Option<&std::path::Path>) -> Vec<PathBuf> {
     }
 }
 
+/// Where a macOS application bundle keeps the files that are not its executable.
+const RESOURCES: &str = "Contents/Resources";
+
+/// What the source inside the bundle is called — the name every other system's copy has.
+const HELPER_FILE: &str = "mixengine-elevate";
+
+/// The copy inside the window's bundle, then the copy beside the program — roadmap task **T88d**.
+///
+/// **The one system whose installer leaves nothing beside `mixengined`.** The `.pkg` splits the
+/// install — the command-line binaries into [`BIN`], the bundle into [`APPLICATIONS`] — so the
+/// source it ships travels *inside* the bundle, where it is one of the application's own files. A
+/// source has to survive `mix uninstall` and **not** survive removing the application, and one of
+/// the application's own files is the only thing here that does both: a copy in [`HELPER`]'s own
+/// directory would outlive a bundle somebody dragged to the Trash, and `/usr/local/bin` is refused
+/// for the reason [`HELPER`] is not there either.
+///
+/// The bundle first because the installer wrote its contents as root.
+///
+/// [`window_dirs`] is what decides whether there is a bundle to name, and its guard is the one that
+/// matters: a `/Applications/MixLab.app` beside a `cargo run` belongs to a different install.
+pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<PathBuf> {
+    let mut sources: Vec<PathBuf> = window_dirs(program.parent())
+        .into_iter()
+        .map(|root| root.join(bundle).join(RESOURCES).join(HELPER_FILE))
+        .collect();
+
+    sources.push(crate::install::beside(program));
+
+    sources
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
-/// **The `.pkg` writes straight to [`HELPER`] and never beside `mixengined`** — it runs as root
-/// during install and can, so there is no bootstrap copy in `/usr/local/bin` for
-/// `mixengine_core::elevation::helper`'s fallback to find once the installed one is gone (a
-/// `mix uninstall`, say). Reinstalling is therefore the only way back, unlike Windows and the
-/// portable archives, where the two live side by side.
+/// **The `.pkg` ships a source inside the bundle** — roadmap task T88d — so the answer is no longer
+/// "reinstall". A machine that still has `MixLab.app` installs the helper from it at the next
+/// elevation prompt; one that has lost the bundle as well has lost the application, and then
+/// reinstalling is the answer again.
 pub(crate) fn missing_helper_advice() -> &'static str {
-    "the .pkg installer writes mixengine-elevate straight into /Library/PrivilegedHelperTools, \
-     never beside mixengined — reinstall the .pkg to put it back"
+    "the .pkg keeps a copy of mixengine-elevate inside MixLab.app, in Contents/Resources — \
+     granting the next elevation prompt installs it from there; reinstall the .pkg if the bundle \
+     is gone too"
 }
 
 #[cfg(feature = "elevated")]
@@ -190,6 +221,40 @@ mod tests {
             super::application_executable(Path::new("/work/target/release/mixlab"), "mixlab"),
             PathBuf::from("/work/target/release/mixlab")
         );
+    }
+
+    /// T88d. The `.pkg` leaves nothing beside `mixengined`, so the source it ships is the copy
+    /// inside the bundle — and it comes first, because the installer wrote it as root while
+    /// `/usr/local/bin` on an Intel Mac may be Homebrew's.
+    #[test]
+    fn an_installed_mac_offers_the_bundle_before_the_copy_beside_the_program() {
+        assert_eq!(
+            super::helper_sources(Path::new("/usr/local/bin/mixengined"), "MixLab.app"),
+            vec![
+                PathBuf::from("/Applications/MixLab.app/Contents/Resources/mixengine-elevate"),
+                PathBuf::from("/usr/local/bin/mixengine-elevate"),
+            ]
+        );
+    }
+
+    /// A `cargo run` is not an installed MixEngine, and `/Applications/MixLab.app` is somebody
+    /// else's — the same guard [`window_dirs`](super::window_dirs) already applies.
+    #[test]
+    fn a_development_tree_offers_only_the_copy_beside_the_program() {
+        assert_eq!(
+            super::helper_sources(Path::new("/work/target/debug/mixengined"), "MixLab.app"),
+            vec![PathBuf::from("/work/target/debug/mixengine-elevate")]
+        );
+    }
+
+    /// The advice has to name the place this system's source belongs, or it is telling somebody to
+    /// reinstall over a file that is already there.
+    #[test]
+    fn the_advice_names_the_bundle() {
+        let said = super::missing_helper_advice();
+
+        assert!(said.contains("MixLab.app"), "{said}");
+        assert!(said.contains("Contents/Resources"), "{said}");
     }
 
     /// The nearest bundle and not the outermost: an application inside another application's

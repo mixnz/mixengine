@@ -44,17 +44,33 @@ pub(crate) fn window_dirs(_directory: Option<&std::path::Path>) -> Vec<PathBuf> 
     Vec::new()
 }
 
+/// Beside the program, and nowhere else — roadmap task **T88d**.
+///
+/// **The `.deb` and the `.rpm` ship their source into [`BIN`], which is where `mixengined` is**, so
+/// this system needs no candidate the beside rule does not already produce. That directory is
+/// root-owned on every Linux, so nothing running as the user can rewrite the file an elevation
+/// prompt would run — which is the property `/usr/local/bin` does not have on a Mac, and is why
+/// macOS' sibling has an entry this one does not. The AppImage and the tarball put theirs beside
+/// the program they were unpacked to, which is the same rule reaching a different directory.
+///
+/// `bundle` is macOS' question: this system's window is a file beside the other four.
+pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<PathBuf> {
+    let _ = bundle;
+
+    vec![crate::install::beside(program)]
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
-/// **The `.deb` and the `.rpm` write straight to [`HELPER`] and never beside `mixengined`** — same
-/// reasoning as macOS's sibling function: a distribution package runs as root during install and
-/// writes the final path directly, leaving no bootstrap copy for
-/// `mixengine_core::elevation::helper`'s fallback once the installed one is gone. The AppImage is
-/// the one Linux format where the two do sit together, but it is not the common case this advice is
-/// written for.
+/// **The `.deb` and the `.rpm` ship a source into [`BIN`]** — roadmap task T88d — so the answer is
+/// no longer "reinstall the package": the file the next elevation prompt installs from is already
+/// on the machine, and `mix uninstall` does not touch the directory it is in. The AppImage and the
+/// tarball keep theirs beside the program they were unpacked to, which is the same sentence with a
+/// different directory in it.
 pub(crate) fn missing_helper_advice() -> &'static str {
-    "the .deb or .rpm installer writes mixengine-elevate straight into \
-     /usr/local/libexec/mixengine, never beside mixengined — reinstall the package to put it back"
+    "the .deb and the .rpm keep a copy of mixengine-elevate beside mixengined in /usr/bin, and the \
+     AppImage and the tarball keep theirs beside the program — granting the next elevation prompt \
+     installs it from there"
 }
 
 #[cfg(feature = "elevated")]
@@ -110,5 +126,22 @@ mod application_tests {
             super::application_root(Path::new("/opt/mixengine/mixlab")),
             PathBuf::from("/opt/mixengine/mixlab")
         );
+    }
+
+    /// T88d. [`BIN`](super::BIN) is `MIX_INSTALL_LINUX`, so the copy the `.deb` and the `.rpm` ship
+    /// beside `mixengined` **is** the beside candidate — this system needs no second one.
+    #[test]
+    fn linux_offers_the_copy_beside_the_program_and_nothing_else() {
+        assert_eq!(
+            super::helper_sources(Path::new("/usr/bin/mixengined"), "MixLab.app"),
+            vec![PathBuf::from("/usr/bin/mixengine-elevate")]
+        );
+    }
+
+    #[test]
+    fn the_advice_names_the_directory_beside_the_daemon() {
+        let said = super::missing_helper_advice();
+
+        assert!(said.contains("/usr/bin"), "{said}");
     }
 }
