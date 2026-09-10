@@ -50,7 +50,8 @@ export default function MixEngineTab({
   const [screen, setScreen] = useState<MixEngineScreen>(
     () => parseMixEngineTabState(restored)?.screen ?? "dashboard",
   );
-  const [presence, setPresence] = useState<api.Presence | null>(null);
+  const [report, setReport] = useState<api.PresenceReport | null>(null);
+  const presence = report === null ? null : report.presence;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { t, lang } = useTranslation();
@@ -69,13 +70,13 @@ export default function MixEngineTab({
   }, [screen]);
 
   const look = useCallback(async () => {
-    setPresence(await api.presence());
+    setReport(await api.presence());
   }, []);
 
   useEffect(() => {
     let live = true;
     void api.presence().then((answer) => {
-      if (live) setPresence(answer);
+      if (live) setReport(answer);
     });
     return () => {
       live = false;
@@ -87,15 +88,16 @@ export default function MixEngineTab({
      khởi động daemon" ở đầu file). Settings gọi `pollUntilDaemonLeaves` ngay khi một trong hai xong
      (`onUpdateApplied`/`onUninstalled`, cùng một hàm) để nghe đúng lúc `presence` rời khỏi
      `"running"`, rồi để gate phía trên tự vẽ màn đúng — "Start" nếu chương trình vẫn còn trên đĩa mà
-     chỉ tiến trình dừng, "Get it" nếu đã gỡ sạch (`notInstalled`), hoặc màn hình bình thường nếu
+     chỉ tiến trình dừng, "Cài lại" kèm danh sách thư mục đã tìm nếu đã gỡ sạch (`notInstalled`),
+     hoặc màn hình bình thường nếu
      daemon đã tự lên lại trước khi ai kịp thấy gate đó. */
   const pollTimer = useRef<number | null>(null);
   const pollUntilDaemonLeaves = useCallback(() => {
     if (pollTimer.current !== null) return;
     pollTimer.current = window.setInterval(() => {
       void api.presence().then((answer) => {
-        setPresence(answer);
-        if (answer !== "running" && pollTimer.current !== null) {
+        setReport(answer);
+        if (answer.presence !== "running" && pollTimer.current !== null) {
           window.clearInterval(pollTimer.current);
           pollTimer.current = null;
         }
@@ -130,13 +132,25 @@ export default function MixEngineTab({
 
   // Chưa hỏi xong: một khung trống, không phải một thông báo. Câu trả lời tới trong vài mili giây
   // và một dòng "đang kiểm tra" nhấp nháy thì tệ hơn là không có gì.
-  if (presence === null) return <div className="mixengine-root" />;
+  if (report === null || presence === null) return <div className="mixengine-root" />;
 
   if (presence !== "running") {
     return (
       <div className="mixengine-root mixengine-gate">
         {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
         <p>{t(`mixengine.gate.${presence}`)}</p>
+        {presence === "notInstalled" && report.searched.length > 0 && (
+          <>
+            <p className="mixengine-gate-looked">{t("mixengine.gate.lookedIn")}</p>
+            {/* Khoá theo cả chỉ số: một `PATH` thật hay có cùng một thư mục hai lần, và hai `li`
+                cùng khoá là một cảnh báo React cho thứ vốn là dữ liệu hợp lệ. */}
+            <ul className="mixengine-gate-searched">
+              {report.searched.map((dir, index) => (
+                <li key={`${index}-${dir}`}>{dir}</li>
+              ))}
+            </ul>
+          </>
+        )}
         {presence === "notRunning" && (
           <button onClick={() => void run(api.startDaemon)} disabled={busy}>
             {busy ? t("mixengine.gate.starting") : t("mixengine.gate.start")}

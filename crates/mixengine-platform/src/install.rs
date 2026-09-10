@@ -99,9 +99,25 @@ pub fn program_dirs() -> Vec<PathBuf> {
 ///
 /// **Empty `PATH` entries are dropped**, and that is not tidiness: an empty entry means the current
 /// directory on every system that has a `PATH`, and what this returns is executed.
+///
+/// The list itself is [`program_search_dirs`].
 #[must_use]
 pub fn program_path(name: &str) -> Option<PathBuf> {
     let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+
+    first_file(&program_search_dirs(), &file)
+}
+
+/// Every directory [`program_path`] consults, in the order it consults them — roadmap task
+/// **T111**.
+///
+/// The running executable's own directory, then [`program_dirs`], then `PATH` without its empty
+/// entries — the three steps [`program_path`] argues for, as a list rather than as a search.
+///
+/// **Public so that a window which found nothing can say where it looked**, with the directories
+/// the lookup really walked rather than a second description of them that could drift from it.
+#[must_use]
+pub fn program_search_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
     if let Some(directory) = std::env::current_exe()
@@ -116,7 +132,7 @@ pub fn program_path(name: &str) -> Option<PathBuf> {
         dirs.extend(split_path(&listed));
     }
 
-    first_file(&dirs, &file)
+    dirs
 }
 
 /// A `PATH` as directories, without the empty entries that mean "here".
@@ -374,6 +390,27 @@ mod tests {
             .into_owned();
 
         assert_eq!(program_path(&name).as_deref(), Some(running.as_path()));
+    }
+
+    /// The list a window shows when it found nothing is the list the lookup walked — the same
+    /// function, not a second description of it — and it begins where [`program_path`] begins.
+    ///
+    /// Roadmap task **T111**: MixLab prints this when `mixengined` is nowhere, so a person can see
+    /// which directory to look in rather than being told only that something is missing.
+    #[test]
+    fn the_search_list_begins_beside_the_running_executable_and_has_no_empty_entry() {
+        let dirs = program_search_dirs();
+        let running = std::env::current_exe().expect("this test has a path");
+
+        assert_eq!(dirs.first().map(PathBuf::as_path), running.parent());
+        assert!(dirs.iter().all(|dir| !dir.as_os_str().is_empty()));
+        for dir in program_dirs() {
+            assert!(
+                dirs.contains(&dir),
+                "{} is an install location and is not searched",
+                dir.display()
+            );
+        }
     }
 
     /// The inverse of [`application_root`], on every system: what an installer placed, back to the

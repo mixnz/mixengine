@@ -13,9 +13,9 @@ use crate::error::AppError;
 use super::state::MixEngineState;
 use super::{events, health, rpc};
 
-/// Daemon đang chạy, đang câm, chưa chạy, hay chưa được cài.
+/// Daemon đang chạy, đang câm, chưa chạy, hay chưa được cài — và nếu chưa cài thì đã tìm ở đâu.
 #[tauri::command]
-pub async fn mixengine_presence() -> health::Presence {
+pub async fn mixengine_presence() -> health::PresenceReport {
     health::presence().await
 }
 

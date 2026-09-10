@@ -19,6 +19,8 @@
   *MixEngine* and *Everything*, a database connection for *Database tools* — so `Ctrl/Cmd+T` no
   longer always opens the database client. What was open when you last closed the window is
   restored first, as before.
+- When MixLab cannot find `mixengined` beside itself, the MixEngine tab now lists the directories it
+  looked in and offers to reinstall MixEngine, instead of inviting a first install.
 - With the database client turned off, MixLab's Services screen offers rather than acts: *open* on
   a database service says it will turn the client on first, and offers another installed database
   application where MixEngine found one. A `mixdb://` link or `mix database open` turns the client
