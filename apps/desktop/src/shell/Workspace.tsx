@@ -1,8 +1,9 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
 import GlassFilter from "./components/GlassFilter";
 import SettingsModal from "./components/SettingsModal";
+import TabNotice from "./components/TabNotice";
 import ContextMenu from "../components/ContextMenu";
 import { moveTab, Tab, TabAction, tabKeyDown, TabStrip, TabTitle, useTabReorder } from "../components/TabStrip";
 import { PlusIcon, SettingsIcon } from "../icons";
@@ -16,13 +17,22 @@ import { onTabRequest, takeTabRequests } from "./launch";
 import { readSession, writeSession } from "./session";
 import { rebadgeTab, restateTab, retitleTab, tabIdAtOffset, type TabInfo } from "./tabs";
 import { MODULES, moduleById } from "./registry";
-import { defaultModuleId, visibleModules } from "./profiles";
+import { defaultModuleId, visibleModules, withModule } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
 
 interface WorkspaceProps {
   /** The module ids this window draws — `shell/profiles.ts`. */
   enabled: string[];
   onEnabledChange: (enabled: string[]) => void;
+}
+
+/** `notices` without `tabId`, or `notices` itself when there was nothing under it — so a close
+ *  that had no notice to forget does not make React re-render the world. */
+function forgetNotice(notices: Record<string, string>, tabId: string): Record<string, string> {
+  if (!(tabId in notices)) return notices;
+  const next = { ...notices };
+  delete next[tabId];
+  return next;
 }
 
 function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
@@ -66,6 +76,17 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
      opens a tab outright then, exactly as it did before there was a registry. */
   const [moduleMenu, setModuleMenu] = useState<{ x: number; y: number } | null>(null);
 
+  /* Tabs that were opened by turning their module on — tab id to module id. `Workspace` state and
+     not the session's per-tab slot: that slot belongs to the module (`shell/module.ts`), and by
+     the next launch the sentence is false anyway — the module is simply enabled, and was when the
+     session was written. T110's D2. */
+  const [enabledFor, setEnabledFor] = useState<Record<string, string>>({});
+
+  /* The drain below listens once, on purpose, so the `enabled` array in its closure is the one
+     from mount. A ref written every render is the only thing in that closure that is current. */
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+
   useScrollAcceleration();
   useShortcutDispatcher(shortcuts);
   // Always listening — the tab bar is there on every screen the app has.
@@ -90,10 +111,11 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
 
   /* `state` is only ever given by the backend's tab requests below: it is what the module behind
      the tab reads on mount, through the same `restored` prop a tab from the last session gets. */
-  function openTab(moduleId?: string, state?: unknown) {
+  function openTab(moduleId?: string, state?: unknown): TabInfo {
     const tab = newTab(moduleId, state);
     setTabs((prev) => [...prev, tab]);
     setActiveId(tab.id);
+    return tab;
   }
 
   function closeTab(id: string) {
@@ -102,6 +124,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
       return next.length > 0 ? next : [newTab()];
     });
     setMounted((prev) => prev.filter((mountedId) => mountedId !== id));
+    setEnabledFor((prev) => forgetNotice(prev, id));
   }
 
   /* Dragging a tab along the strip. The order is the tab list itself, so a move is a new list and
@@ -159,6 +182,15 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
       );
       return kept.length === prev.length ? prev : kept;
     });
+    // A notice belongs to a tab; a tab that went with its module takes it along.
+    setEnabledFor((prev) => {
+      const kept = Object.fromEntries(
+        Object.entries(prev).filter(([tabId]) =>
+          tabs.some((tab) => tab.id === tabId && visibleIds.includes(tab.moduleId)),
+        ),
+      );
+      return Object.keys(kept).length === Object.keys(prev).length ? prev : kept;
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `newTab` is rebuilt every render and closes over `visible`, which is in the list already.
   }, [visibleIds, tabs]);
 
@@ -178,19 +210,41 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
     /* All five ids, not the visible ones: what has been taken from the backend's queue is gone from
        it, and filtering here would leave a `mixdb://` handoff for a hidden module rotting in a queue
        nothing ever drains again. Such a tab opens and draws — `MODULES` is unchanged, so
-       `moduleById` finds it. What the tab should *say*, and what the Services screen's *open* button
-       should offer instead, is T110. */
+       `moduleById` finds it — and its module is turned on below so that the visibility effect above
+       does not drop it on the same commit. */
     const ids = MODULES.map((m) => m.id);
     async function drain() {
       const requests = await takeTabRequests(ids).catch(() => []);
-      for (const request of requests) openTab(request.moduleId, request.state);
+      if (requests.length === 0) return;
+
+      /* A module this window is not drawing is turned on for the tab that arrived — T110's D1.
+         One union across the whole batch and one call: two requests for two hidden modules would
+         otherwise each compute their next set from the same stale `enabled`, and the second would
+         undo the first.
+
+         Before the tabs are opened, and in the same synchronous block: `enabled` is `App`'s state
+         and `tabs` is this component's, and React batches every update made in one tick — after an
+         `await` included — into one commit, so `visibleIds` and `tabs` reach the visibility effect
+         together and the new tab is never a tab of a hidden module. */
+      const before = enabledRef.current;
+      let next = before;
+      for (const request of requests) next = withModule(next, request.moduleId, ids);
+      if (next !== before) onEnabledChange(next);
+
+      for (const request of requests) {
+        const tab = openTab(request.moduleId, request.state);
+        // Hidden when the request arrived — which is the whole of what the notice says.
+        if (!before.includes(request.moduleId)) {
+          setEnabledFor((prev) => ({ ...prev, [tab.id]: request.moduleId }));
+        }
+      }
     }
     const unlisten = onTabRequest(() => void drain());
     void drain();
     return () => {
       void unlisten.then((stop) => stop());
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `openTab` is rebuilt every render and only ever calls the two stable setters; listening once is the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `openTab` is rebuilt every render and only ever calls the two stable setters, `onEnabledChange` is a `useState` setter, and the current profile is read through `enabledRef`; listening once is the point.
   }, []);
 
   useEffect(() => {
@@ -334,30 +388,48 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
             the strip above and has no pane down here until it is picked. */}
         {tabs.filter((tab) => mounted.includes(tab.id)).map((tab) => {
           const { Tab } = moduleById(tab.moduleId);
+          /* Each module's workspace arrives on first use — see the note beside its `Tab`.
+             One boundary per tab and not one around the list: a tab still loading must not
+             take the panes beside it off screen while it does. The Error Boundary follows
+             the same rule, and for the same reason: a tab that crashes must not take the
+             panes beside it, the tab strip, or the Settings dialog (all of them in App,
+             outside every boundary) down with it. Keyed on tab.id so closing a crashed tab and
+             opening a new one is a fresh boundary, not the old one still remembering the error. */
+          const pane = (
+            <ErrorBoundary key={tab.id}>
+              <Suspense fallback={<LoadingOverlay />}>
+                <Tab
+                  active={tab.id === activeId}
+                  onTitleChange={(title) => renameTab(tab.id, title)}
+                  onBadgesChange={(badges) => setTabBadges(tab.id, badges)}
+                  restored={tab.state}
+                  onStateChange={(state) => setTabState(tab.id, state)}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          );
+          /* The module this tab was opened by turning on, if it was — T110. Wrapped only when
+             there is something to say, so the ordinary panel is what it always was. */
+          const noticeModuleId = enabledFor[tab.id];
           return (
             <div
               key={tab.id}
               className="tab-panel"
               style={{ display: tab.id === activeId ? "flex" : "none" }}
             >
-              {/* Each module's workspace arrives on first use — see the note beside its `Tab`.
-                  One boundary per tab and not one around the list: a tab still loading must not
-                  take the panes beside it off screen while it does. The Error Boundary follows
-                  the same rule, and for the same reason: a tab that crashes must not take the
-                  panes beside it, the tab strip, or the Settings dialog (all of them in App,
-                  outside every boundary) down with it. Keyed on tab.id so closing a crashed tab and opening a
-                  new one is a fresh boundary, not the old one still remembering the error. */}
-              <ErrorBoundary key={tab.id}>
-                <Suspense fallback={<LoadingOverlay />}>
-                  <Tab
-                    active={tab.id === activeId}
-                    onTitleChange={(title) => renameTab(tab.id, title)}
-                    onBadgesChange={(badges) => setTabBadges(tab.id, badges)}
-                    restored={tab.state}
-                    onStateChange={(state) => setTabState(tab.id, state)}
+              {noticeModuleId ? (
+                <div className="tab-panel-stack">
+                  <TabNotice
+                    message={t("profiles.turnedOn", {
+                      module: t(moduleById(noticeModuleId).labelKey),
+                    })}
+                    onDismiss={() => setEnabledFor((prev) => forgetNotice(prev, tab.id))}
                   />
-                </Suspense>
-              </ErrorBoundary>
+                  <div className="tab-panel-body">{pane}</div>
+                </div>
+              ) : (
+                pane
+              )}
             </div>
           );
         })}

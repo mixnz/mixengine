@@ -1,0 +1,29 @@
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 6px var(--view-padding);
+  border-bottom: 1px solid var(--border-soft);
+  background-color: var(--hover-bg);
+  font-size: 0.85rem;
+}
+
+.dismiss {
+  display: flex;
+  align-items: center;
+  flex: none;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.dismiss:hover {
+  background-color: var(--hover-bg);
+  opacity: 1;
+}
