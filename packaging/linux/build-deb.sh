@@ -48,6 +48,18 @@ install -m 0755 "$stage/mixengine-shim" "$root$MIX_INSTALL_LINUX/mixengine-shim"
 install -m 0755 "$stage/mixengine-elevate" \
   "$root/usr/local/libexec/mixengine/mixengine-elevate"
 
+# **And a second copy beside `mixengined`, which is the one MixEngine installs *from*** — roadmap
+# task T88d. `mix uninstall` removes the file above; until this copy existed there was nothing left
+# on the machine for `HelperInstall {}` to copy, so reinstalling this package was the only way back
+# to a machine that could elevate anything at all.
+#
+# `MIX_INSTALL_LINUX` and not `libexec`: `mixengine_platform::install::helper_sources` looks beside
+# the running `mixengined`, and this is that directory. It is root-owned on every Linux, so the file
+# an elevation prompt would run cannot be rewritten by the account MixEngine runs as — which is why
+# this system needs no candidate beyond the beside rule where macOS needs one inside its bundle.
+install -m 0755 "$stage/mixengine-elevate" \
+  "$root$MIX_INSTALL_LINUX/mixengine-elevate"
+
 # MixLab, the window — T105. `/usr/bin` beside the CLI, under the one name every artifact of this
 # release spells it with.
 install -m 0755 "$stage/$MIX_WINDOW" "$root$MIX_INSTALL_LINUX/$MIX_WINDOW"
@@ -101,6 +113,7 @@ for expected in \
   .$MIX_INSTALL_LINUX/mix \
   .$MIX_INSTALL_LINUX/mixengined \
   .$MIX_INSTALL_LINUX/mixengine-shim \
+  .$MIX_INSTALL_LINUX/mixengine-elevate \
   .$MIX_INSTALL_LINUX/mixlab \
   ./usr/local/libexec/mixengine/mixengine-elevate \
   ./usr/share/applications/mixlab.desktop \
