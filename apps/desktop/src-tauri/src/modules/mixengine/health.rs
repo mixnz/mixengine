@@ -48,6 +48,18 @@ pub enum Presence {
     NotInstalled,
 }
 
+/// Cổng vào tab vẽ gì, và khi không tìm thấy gì thì đã tìm ở đâu — roadmap task **T111**.
+///
+/// `searched` là danh sách [`mixengine_platform::install::program_path`] đã đi qua, đúng thứ tự, và
+/// chỉ được điền cho [`Presence::NotInstalled`]: ba trạng thái kia không tìm gì cả, nên một danh
+/// sách rỗng nói đúng điều đó thay vì một danh sách mà phía kia phải nhớ bỏ qua.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresenceReport {
+    pub presence: Presence,
+    pub searched: Vec<String>,
+}
+
 /// Bao lâu thì coi như daemon không trả lời.
 ///
 /// `/health` là một lần đọc không chạm đĩa ở đầu kia; hai giây là rộng rãi tới mức chỉ một daemon
@@ -61,20 +73,39 @@ const HEALTH_TIMEOUT: Duration = Duration::from_secs(2);
 /// nên lần thứ hai gặp một daemon chưa kịp dựng cái thay thế. Kết quả là "daemon không trả lời" ở
 /// một máy daemon đang chạy bình thường. Câu hỏi "có ai ở đó không" đã nằm sẵn trong câu trả lời
 /// của `/health`, nên hỏi riêng nó không thêm gì ngoài một lỗi.
-pub async fn presence() -> Presence {
-    match tokio::time::timeout(HEALTH_TIMEOUT, rpc::request("GET", "/health", None)).await {
-        Ok(Ok(_)) => Presence::Running,
-        // Không tới được endpoint: chưa chạy, hoặc chưa cài. Đó là hai câu khác nhau.
-        Ok(Err(error)) if error.code == "error.mixengineUnreachable" => {
-            if installed() {
-                Presence::NotRunning
-            } else {
-                Presence::NotInstalled
+///
+/// **Từ T111 câu trả lời mang theo chỗ đã tìm daemon**, khi không tìm thấy nó.
+pub async fn presence() -> PresenceReport {
+    let presence =
+        match tokio::time::timeout(HEALTH_TIMEOUT, rpc::request("GET", "/health", None)).await {
+            Ok(Ok(_)) => Presence::Running,
+            // Không tới được endpoint: chưa chạy, hoặc chưa cài. Đó là hai câu khác nhau.
+            Ok(Err(error)) if error.code == "error.mixengineUnreachable" => {
+                if installed() {
+                    Presence::NotRunning
+                } else {
+                    Presence::NotInstalled
+                }
             }
-        }
-        // Tới được nhưng không xong: một daemon đang kẹt, hoặc một pipe của tài khoản khác.
-        _ => Presence::NotAnswering,
-    }
+            // Tới được nhưng không xong: một daemon đang kẹt, hoặc một pipe của tài khoản khác.
+            _ => Presence::NotAnswering,
+        };
+
+    let searched = if presence == Presence::NotInstalled {
+        searched()
+    } else {
+        Vec::new()
+    };
+
+    PresenceReport { presence, searched }
+}
+
+/// Những thư mục lần tìm đã đi qua, đúng dạng cổng vào tab sẽ in ra.
+fn searched() -> Vec<String> {
+    mixengine_platform::install::program_search_dirs()
+        .iter()
+        .map(|dir| dir.display().to_string())
+        .collect()
 }
 
 /// `mixengined` có trên máy này không. Chỉ hỏi khi đã biết không dial được.
@@ -141,5 +172,34 @@ mod tests {
         assert_eq!(json(Presence::NotAnswering), "\"notAnswering\"");
         assert_eq!(json(Presence::NotRunning), "\"notRunning\"");
         assert_eq!(json(Presence::NotInstalled), "\"notInstalled\"");
+    }
+
+    /// Báo cáo đi qua wire dạng một object hai field camelCase — frontend đọc cả hai theo tên, nên
+    /// đổi cách viết ở đây là làm hỏng cổng vào tab mà không gì lúc build nói ra.
+    #[test]
+    fn the_report_is_camel_cased_for_the_shell() {
+        let report = PresenceReport {
+            presence: Presence::NotInstalled,
+            searched: vec!["/somewhere".to_owned()],
+        };
+
+        assert_eq!(
+            serde_json::to_string(&report).unwrap(),
+            r#"{"presence":"notInstalled","searched":["/somewhere"]}"#
+        );
+    }
+
+    /// Chỗ đã tìm bắt đầu ngay cạnh chương trình này — bước đầu tiên của T107, và cũng đúng thư mục
+    /// `npm run dev:app` chép daemon vào (T111).
+    #[test]
+    fn where_it_looked_begins_beside_this_program() {
+        let running = std::env::current_exe().expect("this test has a path");
+        let beside = running
+            .parent()
+            .expect("and a directory")
+            .display()
+            .to_string();
+
+        assert_eq!(searched().first(), Some(&beside));
     }
 }
