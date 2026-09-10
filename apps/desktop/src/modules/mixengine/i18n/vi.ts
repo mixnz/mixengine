@@ -20,11 +20,11 @@ const vi: typeof en = {
     gate: {
       notRunning: "MixEngine đã cài nhưng chưa chạy.",
       notAnswering: "Daemon MixEngine không trả lời.",
-      notInstalled: "Không tìm thấy MixEngine trên máy này.",
+      notInstalled: "Không tìm thấy mixengined bên cạnh MixLab. Đã tìm ở: {{searched}}",
       start: "Khởi động MixEngine",
       starting: "Đang khởi động\u2026",
       retry: "Thử lại",
-      getIt: "Cài MixEngine",
+      getIt: "Cài lại MixEngine",
     },
     dashboard: {
       service: "Service",

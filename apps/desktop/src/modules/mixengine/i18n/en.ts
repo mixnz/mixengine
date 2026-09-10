@@ -17,14 +17,16 @@ export default {
     },
     // The three states in front of a daemon that is not answering. Each says what to do next,
     // because "error" alone leaves somebody guessing whether to install, to start, or to wait.
+    // Since ADR 0027 the third has one meaning \u2014 this install is missing a file it shipped with \u2014
+    // so it names where it looked and offers a reinstall rather than a first download (T111).
     gate: {
       notRunning: "MixEngine is installed but not running.",
       notAnswering: "The MixEngine daemon is not answering.",
-      notInstalled: "MixEngine was not found on this machine.",
+      notInstalled: "mixengined was not found beside MixLab. Looked in: {{searched}}",
       start: "Start MixEngine",
       starting: "Starting\u2026",
       retry: "Try again",
-      getIt: "Install MixEngine",
+      getIt: "Reinstall MixEngine",
     },
     dashboard: {
       service: "Service",

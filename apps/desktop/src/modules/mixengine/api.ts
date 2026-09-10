@@ -87,8 +87,15 @@ import type { BundleReport } from "@mixengine/api";
 /** Daemon đang ở trạng thái nào, nhìn từ máy này. */
 export type Presence = "running" | "notAnswering" | "notRunning" | "notInstalled";
 
-export function presence(): Promise<Presence> {
-  return invoke<Presence>("mixengine_presence");
+/**
+ * Trạng thái, kèm những thư mục đã tìm `mixengined` — đúng thứ tự đã tìm (T111).
+ *
+ * `searched` chỉ có nội dung khi `presence` là `notInstalled`; ba trạng thái kia không tìm gì cả.
+ */
+export type PresenceReport = { presence: Presence; searched: string[] };
+
+export function presence(): Promise<PresenceReport> {
+  return invoke<PresenceReport>("mixengine_presence");
 }
 
 /** Khởi động daemon; trả về endpoint nó in ra khi đã sẵn sàng. */
