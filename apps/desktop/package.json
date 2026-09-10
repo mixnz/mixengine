@@ -14,7 +14,7 @@
     "lint": "eslint . --max-warnings 47",
     "preview": "vite preview",
     "tauri": "tauri",
-    "dev:app": "tauri dev",
+    "dev:app": "node scripts/stage-daemon.mjs",
     "build:app": "tauri build",
     "icons": "node scripts/make-icons.mjs"
   },
