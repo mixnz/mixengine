@@ -11,7 +11,11 @@ import { toolsModule } from "../modules/tools";
  *  **The order is the app's order.** The `[+]` menu, `Ctrl/Cmd+1 … N` and the Settings dialog's
  *  pane column all draw the visible modules in this order and never in the order a stored setting
  *  happens to carry — see `shell/profiles.ts`. MixEngine leads because this is MixEngine's window;
- *  the four that follow are in the order MixDB listed them. */
+ *  the four that follow are in the order MixDB listed them.
+ *
+ *  **The first entry a profile shows is the tab it opens by default** — T109. There is no constant
+ *  for it: `defaultModuleId` is a filter's first element, so the default is a module this list has
+ *  by construction, and a preset that hides MixEngine leads with whatever it does show. */
 export const MODULES: ModuleDefinition[] = [
   mixengineModule,
   dbModule,
@@ -19,10 +23,6 @@ export const MODULES: ModuleDefinition[] = [
   terminalModule,
   toolsModule,
 ];
-
-/** What `Ctrl+T`, and a plain click on `[+]`, opens — when it is one of the visible ones. The
- *  clamp, and T109's plan to make this a function of the profile, are in `shell/profiles.ts`. */
-export const DEFAULT_MODULE_ID = "db";
 
 /** The three answers to "what will you use MixLab for?" — T108, the desktop client design's D11. */
 export type PresetId = "mixengine" | "everything" | "databaseTools";
