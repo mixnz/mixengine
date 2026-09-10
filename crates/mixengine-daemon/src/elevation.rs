@@ -188,6 +188,77 @@ impl Elevation {
         Ok(())
     }
 
+    /// Ask for `op`, and for a privileged helper in front of it when this machine has none —
+    /// roadmap task **T88d**.
+    ///
+    /// **The four `require_*` producers use this and nothing else does.** They are where *this
+    /// machine needs something done as root* is decided, which is the question a missing helper is
+    /// an answer to; [`enqueue`](Self::enqueue) itself is also how the uninstall's rows and the
+    /// helper's own two get in, and a batch that installed a helper in order to remove it would be
+    /// doing and undoing work in front of a person reading the list.
+    ///
+    /// **At the enqueue and not at the top of the producer**, so a machine that already agrees is
+    /// still asked for nothing: a helper row raised by a site creation that needed no hosts entry
+    /// would be a prompt with no work behind it.
+    ///
+    /// # Errors
+    ///
+    /// The wire error of a row that could not be written.
+    async fn enqueue_needing_a_helper(&self, op: &PrivilegedOp) -> Result<(), Error> {
+        self.bootstrap_the_helper().await?;
+
+        self.enqueue(op).await
+    }
+
+    /// Ask for a helper when this machine has none installed and ships one to install from —
+    /// roadmap task **T88d**.
+    ///
+    /// **Because [`require_helper`](Self::require_helper) runs at start and nowhere else**, and a
+    /// `mix uninstall` that kept the home does not restart the daemon: until this, a person who
+    /// removed MixEngine's footprint and went on using it met `dependency_missing` at every prompt
+    /// for as long as that daemon lived, and on the three formats an installer writes as root there
+    /// was no way back at all.
+    ///
+    /// **Silent when there is nothing to install from.** A row whose only possible outcome is a
+    /// refusal is worse than the refusal `elevation.grant` already gives, and it would sit on
+    /// `mix status` for ever.
+    ///
+    /// **And it says so when the source is not an administrator's**, which is the whole of what
+    /// `.claude/architecture/security-model.md`'s residual is observable as. Read here, once per
+    /// row asked for, rather than in `mixengine_core::elevation::helper` — which every `mix status`
+    /// and every poll a window makes goes through.
+    ///
+    /// # Errors
+    ///
+    /// The wire error of a row that could not be written.
+    async fn bootstrap_the_helper(&self) -> Result<(), Error> {
+        if self
+            .candidates
+            .installed
+            .as_deref()
+            .is_some_and(Path::is_file)
+        {
+            return Ok(());
+        }
+
+        let Ok(source) = mixengine_core::elevation::helper(
+            &self.candidates.program,
+            self.candidates.installed.as_deref(),
+        ) else {
+            return Ok(());
+        };
+
+        if let Some(why) = mixengine_core::elevation::source_trust(&source) {
+            tracing::warn!(
+                source = %source.display(),
+                %why,
+                "the privileged helper would be installed from a file an ordinary account can rewrite"
+            );
+        }
+
+        self.enqueue(&PrivilegedOp::HelperInstall {}).await
+    }
+
     /// This machine, for the one other thing in this daemon that reads it — roadmap task **T46**.
     ///
     /// **Reached through here rather than built again.** A `Host` is a handful of trait objects and
@@ -352,14 +423,14 @@ impl Elevation {
         match self.host.hosts_file().managed() {
             // Not a pattern guard: `present` is a `Vec` and a guard cannot move out of one.
             Ok(present) if PrivilegedOp::hosts_apply(present.clone()) == wanted => Ok(()),
-            Ok(_) => self.enqueue(&wanted).await,
+            Ok(_) => self.enqueue_needing_a_helper(&wanted).await,
             Err(error) => {
                 tracing::warn!(
                     %error,
                     "the hosts file cannot be read; asking for permission to write it anyway"
                 );
 
-                self.enqueue(&wanted).await
+                self.enqueue_needing_a_helper(&wanted).await
             }
         }
     }
@@ -413,8 +484,10 @@ impl Elevation {
 
         match state.plan(&want, port) {
             Some(plan) => {
-                self.enqueue(&mixengine_proto::privileged::PrivilegedOp::ResolverApply { plan })
-                    .await
+                self.enqueue_needing_a_helper(
+                    &mixengine_proto::privileged::PrivilegedOp::ResolverApply { plan },
+                )
+                .await
             }
             None => Ok(()),
         }
@@ -463,8 +536,10 @@ impl Elevation {
 
         match state.plan(der) {
             Some(plan) => {
-                self.enqueue(&mixengine_proto::privileged::PrivilegedOp::TrustCaInstall { plan })
-                    .await
+                self.enqueue_needing_a_helper(
+                    &mixengine_proto::privileged::PrivilegedOp::TrustCaInstall { plan },
+                )
+                .await
             }
             None => Ok(()),
         }
@@ -527,7 +602,8 @@ impl Elevation {
             tracing::info!(%missing, "asking for permission to answer on 80 and 443");
         }
 
-        self.enqueue(&PrivilegedOp::PortAccessGrant { plan }).await
+        self.enqueue_needing_a_helper(&PrivilegedOp::PortAccessGrant { plan })
+            .await
     }
 
     /// Everything that has to be true before a prompt can be raised, and the one slot, taken.
@@ -1127,6 +1203,27 @@ mod tests {
         (home, elevation, events, machine)
     }
 
+    /// Put a helper at the path the fixture calls installed — roadmap task **T88d**.
+    ///
+    /// **The ordinary machine, and the one every test about a *producer* means.** The fixtures
+    /// above describe a machine with nothing installed and a copy beside the daemon, because that
+    /// is the state T85's D5 needs stated rather than inherited; on such a machine every producer
+    /// now asks for the helper as well as for its own work, which would put a second row into
+    /// assertions written about the first. Calling this makes the bootstrap return early, so the
+    /// queue holds exactly what the producer asked for.
+    ///
+    /// Nothing runs the file and nothing reads who owns it: `helper` asks that only when somebody
+    /// wants a path to hand a prompt, and no test that calls this does.
+    fn with_an_installed_helper(home: &tempfile::TempDir) {
+        let directory = home.path().join("system");
+        std::fs::create_dir_all(&directory).expect("the directory this OS would install into");
+        std::fs::write(
+            directory.join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX)),
+            b"not run",
+        )
+        .expect("an installed helper");
+    }
+
     /// Wait for a job to end, so a test can assert on the row rather than on a race.
     async fn finished(jobs: &Arc<crate::jobs::Jobs>, job: JobId) -> mixengine_proto::JobSummary {
         jobs.wait(job, mixengine_proto::Millis(5_000))
@@ -1447,8 +1544,9 @@ mod tests {
     /// And when it disagrees, exactly one operation is waiting and one event was published.
     #[tokio::test]
     async fn a_machine_that_disagrees_is_asked_once() {
-        let (_home, elevation, events, _machine) =
+        let (home, elevation, events, _machine) =
             registry(mock::Host::with_hosts("/tmp/mixengine", [])).await;
+        with_an_installed_helper(&home);
         let mut watching = events.subscribe();
         a_site_named(&elevation.store, "blog.test").await;
 
@@ -1478,11 +1576,12 @@ mod tests {
     /// This is the test that stops D4 being tidied into "if DNS is on, do nothing".
     #[tokio::test]
     async fn a_home_on_dns_asks_for_an_empty_block_rather_than_for_nothing() {
-        let (_home, elevation, _events, _machine) = registry_resolving(
+        let (home, elevation, _events, _machine) = registry_resolving(
             mock::Host::with_hosts("/tmp/mixengine", ["127.0.0.1 blog.test"]),
             crate::dns::Dns::wired_for_tests(),
         )
         .await;
+        with_an_installed_helper(&home);
         a_site_named(&elevation.store, "blog.test").await;
 
         elevation.require_hosts().await.unwrap();
@@ -1506,11 +1605,12 @@ mod tests {
     /// The same home, resolving the way every machine does until T45: the entry is asked for.
     #[tokio::test]
     async fn a_home_on_the_hosts_file_asks_for_the_names_its_sites_declare() {
-        let (_home, elevation, _events, _machine) = registry_resolving(
+        let (home, elevation, _events, _machine) = registry_resolving(
             mock::Host::with_hosts("/tmp/mixengine", []),
             crate::dns::Dns::hosts_only_for_tests(),
         )
         .await;
+        with_an_installed_helper(&home);
         a_site_named(&elevation.store, "blog.test").await;
 
         elevation.require_hosts().await.unwrap();
@@ -1527,8 +1627,9 @@ mod tests {
     /// the *second* state, and one event per change rather than one row per change.
     #[tokio::test]
     async fn two_sites_before_a_grant_are_one_row_holding_the_second_state() {
-        let (_home, elevation, events, _machine) =
+        let (home, elevation, events, _machine) =
             registry(mock::Host::with_hosts("/tmp/mixengine", [])).await;
+        with_an_installed_helper(&home);
         let mut watching = events.subscribe();
 
         a_site_named(&elevation.store, "blog.test").await;
@@ -1567,10 +1668,11 @@ mod tests {
     /// has two BEGIN markers" than a site creation's error.
     #[tokio::test]
     async fn a_hosts_file_that_cannot_be_read_is_still_asked_about() {
-        let (_home, elevation, _events, _machine) = registry(
+        let (home, elevation, _events, _machine) = registry(
             mock::Host::unable_to_read_the_hosts_file("/tmp/mixengine", "two BEGIN markers"),
         )
         .await;
+        with_an_installed_helper(&home);
         a_site_named(&elevation.store, "blog.test").await;
 
         elevation.require_hosts().await.unwrap();
@@ -1625,12 +1727,13 @@ mod tests {
     /// announces it once.
     #[tokio::test]
     async fn a_front_end_on_a_machine_with_no_grant_asks_for_one() {
-        let (_home, elevation, events, _machine) = registry(mock::Host::without_port_access(
+        let (home, elevation, events, _machine) = registry(mock::Host::without_port_access(
             "/tmp/mixengine",
             mixengine_platform::PortAccessMethod::Capability,
             "the binary holds no capability",
         ))
         .await;
+        with_an_installed_helper(&home);
         let mut watching = events.subscribe();
 
         elevation
@@ -1764,6 +1867,104 @@ mod tests {
             1,
             "{pending:?}"
         );
+    }
+
+    /// T88d. A machine whose helper an uninstall removed still ships a source, so the next thing
+    /// that needs root puts the installation in front of itself — without the daemon restart
+    /// `require_helper` alone would have needed.
+    #[tokio::test]
+    async fn a_producer_on_a_machine_with_no_installed_helper_asks_for_one() {
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::with_hosts("/tmp/mixengine", [])).await;
+        a_site_named(&elevation.store, "blog.test").await;
+
+        elevation.require_hosts().await.unwrap();
+
+        let waiting = mixengine_core::elevation::pending(&elevation.store)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            waiting
+                .iter()
+                .filter(|row| row.op == PrivilegedOp::HelperInstall {})
+                .count(),
+            1,
+            "{waiting:?}"
+        );
+    }
+
+    /// **And a machine that already agrees is still asked for nothing.** The bootstrap sits at the
+    /// enqueue rather than at the top of the producer, so a site creation that needed no hosts
+    /// entry raises no prompt — which is the promise `.claude/architecture/security-model.md` makes
+    /// about creating a site, and the reason this row is here beside the one above.
+    #[tokio::test]
+    async fn a_producer_that_asks_for_nothing_asks_for_no_helper_either() {
+        let (_home, elevation, _events, _machine) = registry(mock::Host::with_hosts(
+            "/tmp/mixengine",
+            ["127.0.0.1 blog.test"],
+        ))
+        .await;
+        a_site_named(&elevation.store, "blog.test").await;
+
+        elevation.require_hosts().await.unwrap();
+
+        assert!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .is_empty(),
+            "nothing to do is not something to ask about"
+        );
+    }
+
+    /// Nothing installed **and** nothing to install from: a row that could never be applied is
+    /// worse than the refusal `elevation.grant` already gives, so none is written.
+    #[tokio::test]
+    async fn a_producer_with_no_helper_anywhere_asks_for_no_install() {
+        let (home, elevation, _events, _machine) =
+            registry(mock::Host::with_hosts("/tmp/mixengine", [])).await;
+        a_site_named(&elevation.store, "blog.test").await;
+
+        std::fs::remove_file(
+            home.path()
+                .join(format!("mixengine-elevate{}", std::env::consts::EXE_SUFFIX)),
+        )
+        .expect("the helper goes");
+
+        elevation.require_hosts().await.unwrap();
+
+        let waiting = mixengine_core::elevation::pending(&elevation.store)
+            .await
+            .unwrap();
+
+        assert_eq!(waiting.len(), 1, "{waiting:?}");
+        assert!(
+            !waiting
+                .iter()
+                .any(|row| row.op == PrivilegedOp::HelperInstall {}),
+            "{waiting:?}"
+        );
+    }
+
+    /// **The uninstall's own door is untouched by T88d's rule.** `crate::uninstall` enqueues
+    /// directly, so a batch that removes the helper never first installs one.
+    #[tokio::test]
+    async fn enqueueing_directly_asks_for_no_helper() {
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+
+        elevation
+            .enqueue(&PrivilegedOp::HelperRemove {})
+            .await
+            .expect("the row is written");
+
+        let waiting = mixengine_core::elevation::pending(&elevation.store)
+            .await
+            .unwrap();
+
+        assert_eq!(waiting.len(), 1, "{waiting:?}");
+        assert_eq!(waiting[0].op, PrivilegedOp::HelperRemove {});
     }
 
     /// D6's first row: a daemon with no helper beside it has nothing to install, so it asks for
