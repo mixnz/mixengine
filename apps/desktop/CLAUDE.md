@@ -23,7 +23,7 @@ a line in `src/shell/registry.ts` — see
 | Command | What it does |
 | --- | --- |
 | `npm install` | Install frontend dependencies |
-| `npm run dev:app` | Run the full desktop app (Vite + Rust, hot reload) — the normal dev loop |
+| `npm run dev:app` | Stage the four headless binaries beside the window, built from the root workspace, then run the full desktop app (Vite + Rust, hot reload) — the normal dev loop. `node scripts/stage-daemon.mjs --stage-only` is the first half alone |
 | `npm run dev` | Frontend only in a browser; every `invoke` fails, UI-only work |
 | `npm run build` | Typecheck + build frontend (`tsc && vite build`) — the fastest check |
 | `npm test` | Run the vitest suite (`vitest run`) |

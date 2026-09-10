@@ -173,6 +173,27 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       window **stopped running `mixengined --version`** to answer *is it installed*, which was a
       process creation and a hidden console for a question three `stat`s answer.
 
+- [x] **T111** The dev loop stages the daemon beside the window. `npm run dev:app` builds the four
+      headless crates at the root and copies them into `src-tauri/target/debug/` before `tauri dev`,
+      so T107's first step finds a daemon built from the same tree — and never, on a machine with a
+      release installed, the release daemon at its second step, started against the wrong home.
+      `MIXENGINE_HOME` is set to the repository's `.mixengine-home` for the window unless it is
+      already set. The *not installed* gate says which directories it looked in and offers a
+      reinstall rather than a first download, which is what that state has meant since ADR 0027.
+      **(P)** — the executable suffix, the copy refusal and the home path.
+      Design: [2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md](../../docs/superpowers/specs/2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md).
+      **Three things this task settled.** The script **starts `tauri dev` itself** rather than
+      standing in front of it behind `&&`: two commands joined that way are two processes, and the
+      home the daemon must share would not survive the first one ending. The list is read out of
+      `packaging/common.sh` by a Node parser rather than by sourcing it — `npm run` is typed into
+      PowerShell, where a bare `bash` on a machine with WSL is WSL's, and the two scripts already in
+      `apps/desktop/scripts/` are Node for that same reason. And **the gate's copy needed a test of
+      its own**: `t("mixengine.gate.notInstalled", { searched })` interpolates `{{searched}}`, and a
+      translation that dropped the placeholder would compile, pass every other test, and silently
+      hide the one answer that screen exists to give — `i18n/gate.test.ts` is what says no.
+      The window itself was not opened on this machine while this landed: another MixLab dev window
+      held the single-instance channel, so a second `tauri dev` would have forwarded to it.
+
 **Milestone M12** — on a clean machine of each OS, one installer installs the daemon, the CLI, the
 helper, the shim and the window; the window's Update button and `mix self-update` each replace all
 five; a MixDB user's saved connections open in the new window with their passwords; `mix database

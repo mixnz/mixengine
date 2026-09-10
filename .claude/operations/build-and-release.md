@@ -16,6 +16,20 @@ workspace is excluded from this one
 `npm ci && npm run build && npm test && npm run lint` there, and
 `cargo clippy --locked --all-targets -- -D warnings` in `apps/desktop/src-tauri`.
 
+**`npm run dev:app` builds the daemon too** — roadmap task **T111**. The window looks for
+`mixengined` beside itself first ([T107](../../docs/superpowers/specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md)),
+and `tauri dev` starts it out of `apps/desktop/src-tauri/target/debug/`, where nothing else ever put
+a daemon — so the MixEngine tab either showed *not installed*, or, on a machine with a release
+installed, found **that** daemon at the second step and started it against the release home while
+the window kept dialling `MixEngine-dev`. `apps/desktop/scripts/stage-daemon.mjs` builds the four
+headless crates at the root, copies them there, and then starts `tauri dev` itself with
+`MIXENGINE_HOME` pointed at `.mixengine-home` — the same home `.cargo/config.toml` gives
+`cargo run -p mixengine-daemon`, so a terminal and the window see one daemon. It starts the window
+rather than sitting in front of it behind `&&` because that environment has to reach it. The list it
+stages is `packaging/common.sh`'s `MIX_BINARIES` minus the window; it carries none of its own. A copy
+refused because that daemon is running is reported as such, with the `mix daemon stop` to run, rather
+than as os error 5.
+
 Environment knobs: `MIXENGINE_HOME` (isolated sandbox root — always set this when experimenting),
 `MIXENGINE_LOG_FORMAT=json`, `MIXENGINE_SYSTEM_TESTS=1`, and the pair `MIXENGINE_INDEX_URL` +
 `MIXENGINE_INDEX_KEY` (`--index-url` / `--index-key`), which point `mixengined` at another package
