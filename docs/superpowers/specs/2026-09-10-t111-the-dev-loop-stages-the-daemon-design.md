@@ -47,11 +47,13 @@ same tree as the window.
 
 ## D1 — A script stages the four headless binaries before `tauri dev`
 
-`apps/desktop/scripts/stage-daemon.mjs`, run by `npm run dev:app`, which becomes
-`node scripts/stage-daemon.mjs && tauri dev`. `npm run dev` — the frontend alone, in a browser —
-is untouched: it has no window to put a daemon beside.
+`apps/desktop/scripts/stage-daemon.mjs`, which `npm run dev:app` becomes. The script stages and
+then **starts `tauri dev` itself** rather than leaving that to `&&`: two commands joined by `&&`
+are two processes, and the home D2 sets for the second would not survive the end of the first.
+`--stage-only` stops after the copy, which is how the step is checked without a window. `npm run
+dev` — the frontend alone, in a browser — is untouched: it has no window to put a daemon beside.
 
-The script does three things, in order:
+The script does four things, in order, the last being `tauri dev` with D2's environment:
 
 1. **Reads the list.** It opens `packaging/common.sh` and takes `MIX_BINARIES` and `MIX_CRATES` off
    their two `name=(…)` lines, pairs them by index, and drops the `MIX_WINDOW` entry. It does not
@@ -176,8 +178,8 @@ contributor sees `src-tauri/target/debug` and knows which command they skipped.
 
 ## What lands where
 
-- `apps/desktop/scripts/stage-daemon.mjs`, `apps/desktop/package.json` (`dev:app`), and a vitest
-  case beside the script's parser.
+- `apps/desktop/scripts/stage-daemon.mjs`, its parser `apps/desktop/scripts/packaging-lists.mjs`
+  with a vitest case beside it, and `apps/desktop/package.json` (`dev:app`).
 - `crates/mixengine-platform/src/install.rs`: the searched-list function, `program_path` over it.
 - `apps/desktop/src-tauri/src/modules/mixengine/health.rs` and `commands.rs`: `PresenceReport`.
 - `apps/desktop/src/modules/mixengine/api.ts`, `MixEngineTab.tsx`, `i18n/en.ts`, `i18n/vi.ts`.
