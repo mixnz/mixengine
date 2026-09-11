@@ -333,14 +333,19 @@ The switch in `screens/ServicesDetail`, in one panel with the idle timeout and t
 between them; the value in the Dashboard's service table so the answer to "what comes back after a
 reboot" is visible without opening anything. Strings in `en.ts` and `vi.ts`.
 
-### T115 — A blueprint with a site ensures there is something to serve it
+### T115 — A blueprint with a site can be asked for something to serve it
 
-The planner rule of D6, in the daemon's blueprint planner, expressed with `InstallPackage` and
-`EnsureService`.
+The planner rule of D6, in `core::blueprints::plan`, expressed with `InstallPackage` and
+`EnsureService`, behind `BlueprintApply.front_end` and `mix blueprint apply --with-front-end`. The
+instance name comes from the recipe's `Instancing`, which for a front end is `Single` — so the id is
+`caddy` and not `caddy@main`.
 
-Tests: applying `static` to a home with no front end plans two more actions and ends with one
-running-capable Caddy; applying it to a home that already has one plans neither; `--dry-run` output
-still matches the real run exactly, which is one of this feature's own acceptance criteria.
+Tests: `--with-front-end --dry-run` on a home with no front end plans two more actions; the same
+command without the flag plans neither; `--dry-run` output still matches the real run exactly, which
+is one of this feature's own acceptance criteria. What a home that *has* a front end plans is left
+to a suite that has a real web server: `blueprint.rs` is offline by construction and a fake Caddy is
+not a Caddy — `core::sites` renders and reloads a front end when a site is created, and what it runs
+has to be the real program.
 
 ### T116 — An apply can hand on the autostart flag
 
@@ -393,13 +398,16 @@ no privileged operation: **a service that needed an elevation to start would nee
 person or a clock asked**, and none of the eight recipes does. `mixengine-elevate` is untouched by
 this phase.
 
-**A blueprint that now installs Caddy on a machine that did not want one.** T115 changes what an
-apply does on a home with no front end, and somebody who deliberately runs their own Nginx outside
-MixEngine would get a second web server planned. Two things hold: the plan is shown before anything
-happens and `--dry-run` prints it, which is what plan-then-execute is for; and a home that has
-chosen a front end through `service.set_front_end` — including Nginx, which T37 ships — plans
-`Satisfied`. What remains is the home that serves its sites from a server MixEngine does not manage
-at all, which is a configuration MixEngine cannot see and does not claim to support.
+**A blueprint that installs Caddy on a machine that did not want one.** This was the risk that
+changed the design rather than being mitigated by it. T115 was written to change what an apply does
+on *every* home with no front end, and the first thing to notice was `crates/mixengine-cli/tests/
+blueprint.rs`, which is offline by construction: every apply in it suddenly reached the package
+index for a web server none of those tests is about. A person deliberately running their own Nginx
+outside MixEngine is the same case with a worse consequence. So the rule is opt-in —
+`BlueprintApply.front_end`, `--with-front-end`, defaulted off — and the two mitigations that were
+going to carry it on their own now only have to carry the caller who asked: the plan is shown before
+anything happens and `--dry-run` prints it, and a home that has chosen a front end through
+`service.set_front_end` — Nginx included — plans `Satisfied` whatever the flag says.
 
 **Two settings that look like they contradict each other.** D5, deliberately not resolved by making
 one win.
@@ -421,8 +429,9 @@ the column.
 3. A daemon whose autostart service cannot bind its port answers `daemon.status` immediately and
    reports the service failed with the name of the process holding the port.
 4. A home with no service carrying the flag starts exactly what it starts today: nothing.
-5. `mix blueprint apply static --dry-run` on a home with no front end names installing and creating
-   one; on a home that has one, it does not; and the dry run matches the real run action for action.
+5. `mix blueprint apply static --with-front-end --dry-run` on a home with no front end names
+   installing and creating one; the same command without the flag names neither; and the dry run
+   matches the real run action for action, the flag included.
 6. On a fresh install: open MixLab, press one button on the Dashboard, answer the elevation prompt
    once, and a browser opens on a working `https://<name>.test`.
 7. That machine is restarted, MixLab is opened, and the site is serving with nothing pressed.
