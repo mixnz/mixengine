@@ -16,6 +16,7 @@
 //! [`StateReason::DependencyFailed`] rather than spawned against a dependency that is not there.
 
 pub(crate) mod activate;
+pub(crate) mod autostart;
 pub(crate) mod databases;
 // `fakeservice` is a supervised program this build ships only in a debug binary — the gate belongs
 // to it and to nothing above it.
@@ -1118,7 +1119,12 @@ impl Registry {
 
         let stopped = match (spec, resumable) {
             (Some(spec), true) => {
-                self.supervise(spec, &mut lock(&self.running), Some(adopted));
+                self.supervise(
+                    spec,
+                    &mut lock(&self.running),
+                    Some(adopted),
+                    StateReason::Requested,
+                );
                 recovery.adopted.push(service.clone());
 
                 return;
@@ -1281,6 +1287,23 @@ impl Registry {
     /// of the plan and left its dependencies sitting out their backoffs would fail, and tell them to
     /// go and start `db` by hand.
     pub(crate) async fn start(&self, graph: &ServiceGraph, plan: &Plan) -> Walk {
+        self.start_because(graph, plan, StateReason::Requested)
+            .await
+    }
+
+    /// [`Registry::start`], naming why — roadmap task **T113**.
+    ///
+    /// The one caller that passes anything else is the boot walk, which starts what a home's
+    /// `autostart` settings asked for: nobody requested those, and an event saying somebody did
+    /// would make the setting a way to forge a request. Everything else about the walk is
+    /// identical, including that a service already up is counted as reached without being
+    /// restarted — so a service recovery adopted is not re-explained.
+    pub(crate) async fn start_because(
+        &self,
+        graph: &ServiceGraph,
+        plan: &Plan,
+        because: StateReason,
+    ) -> Walk {
         let mut walk = Walk::default();
 
         for id in plan.flat() {
@@ -1296,7 +1319,7 @@ impl Registry {
                 break;
             };
 
-            match self.begin(spec).await {
+            match self.begin(spec, because.clone()).await {
                 Start::Ready => walk.reached.push(id.clone()),
 
                 Start::Failed(reason) => {
@@ -1537,7 +1560,9 @@ impl Registry {
     /// arguably be answered [`Start::Ready`]. A shutdown that has begun is going to stop that
     /// service too, and answering a client that it is up — moments before the daemon takes it
     /// down — would be true for less time than it takes to render.
-    async fn begin(&self, spec: &ServiceSpec) -> Start {
+    /// `because` is why this start is happening, and reaches the move into `Starting` — roadmap
+    /// task **T113**.
+    async fn begin(&self, spec: &ServiceSpec, because: StateReason) -> Start {
         let id = spec.id().clone();
 
         // **Before the ritual and before the lock, on every path into a start** — roadmap task
@@ -1614,7 +1639,7 @@ impl Registry {
                     }
                 }
             } else {
-                (self.supervise(spec, &mut running, None), None)
+                (self.supervise(spec, &mut running, None, because), None)
             }
         };
 
@@ -1635,11 +1660,16 @@ impl Registry {
     /// itself, and [`Some`] takes over one that survived the daemon that started it (roadmap task
     /// T18). Everything after the first life of the process is the same code either way, which is
     /// the reason this is one function and not two.
+    ///
+    /// `because` is why this service's first life is beginning, and is the reason published with its
+    /// move into `Starting` — roadmap task **T113**. It is ignored on the `adopted` path, where
+    /// there is no first life to explain: the process was already running when this daemon started.
     fn supervise(
         &self,
         spec: &ServiceSpec,
         running: &mut HashMap<ServiceId, Running>,
         adopted: Option<Adopted>,
+        because: StateReason,
     ) -> watch::Receiver<Readiness> {
         let id = spec.id().clone();
         let cancel = self.shutdown.child_token();
@@ -1694,7 +1724,7 @@ impl Registry {
         let task = tokio::spawn(async move {
             match adopted {
                 Some(adopted) => runner.adopt(adopted).await,
-                None => runner.run().await,
+                None => runner.run(because).await,
             }
 
             let mut running = lock(&deregister);

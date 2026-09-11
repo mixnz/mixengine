@@ -212,6 +212,20 @@ pub enum StateReason {
     /// did on their behalf at boot.
     Requested,
 
+    /// The daemon started this because its `autostart` setting said to — roadmap task **T113**.
+    ///
+    /// **Its own variant rather than [`Requested`](Self::Requested)**, because the difference is the
+    /// whole of what somebody reading an event at login wants to know: nobody asked, a setting did.
+    /// Collapsing the two would make `service.set_autostart` a way to forge a request.
+    ///
+    /// **It is carried by everything the boot walk starts, not only by what carries the flag.** The
+    /// walk is a start plan over the flagged services, so a database brought up by a pool that is
+    /// set reaches `Starting` for this reason as well — which is true: nobody asked for it either.
+    ///
+    /// The enum is `#[non_exhaustive]`, so a build that predates this word reads it as no reason
+    /// recorded rather than failing to parse the event.
+    Autostart,
+
     /// The [`crate::ReadyCheck`] passed.
     Ready,
 
@@ -439,6 +453,7 @@ impl std::fmt::Display for StateReason {
         // crates: a variant added here without a sentence should not compile.
         match self {
             Self::Requested => f.write_str("somebody asked for it"),
+            Self::Autostart => f.write_str("it is set to start with MixEngine"),
             Self::Ready => f.write_str("the ready check passed"),
             Self::ReadyTimeout { after } => write!(f, "not ready within {after}"),
             // Three shapes rather than one, because the useless one has to stay useful: a port

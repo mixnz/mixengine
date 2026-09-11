@@ -38,12 +38,20 @@ readable, writable setting since it was written, and nothing has ever read the c
       `mixengine_testkit::call` became public here, on `create`'s own reasoning: a suite that wants
       a method with no fixture helper should send the call a person sends.
 
-- [ ] **T113** The daemon starts what asked to start (D2, D3, D4). `crate::services::autostart`:
+- [x] **T113** The daemon starts what asked to start (D2, D3, D4). `crate::services::autostart`:
       `start_plan` over the flagged ids, so a dependency without the flag is brought up by a
       dependent with it. Spawned in `serve` after `services.recover()` **and after the endpoint is
       serving** — the one member of the sweeper family that starts last, because it runs real
       programs and a daemon that will not answer `daemon.status` until MariaDB's first run has
       finished looks hung. One attempt, no retry; `StateReason::Autostart`.
+      **What this task settled.** The reason belongs to the *first life* and to nothing else, which
+      is what kept the change out of the supervision hot path: `Registry::start_because` is a thin
+      wrapper over the existing walk, and the parameter reaches `begin`, `supervise` and
+      `Runner::run` and stops there — every life after the first one has a reason the restart
+      policy decides, and the caller does not get to name those. The `adopt` path takes no reason at
+      all, because there is no first life to explain. And each *read* failure ends the walk rather
+      than starting the part it could work out: a home whose rows or graph cannot be read has no
+      answer to "what asked to start", and starting a guess at it is worse than starting nothing.
 
 - [ ] **T114** The desktop shows it and sets it (D5). The switch in `screens/ServicesDetail`, in one
       panel with the idle timeout and one line between them saying the two answer different

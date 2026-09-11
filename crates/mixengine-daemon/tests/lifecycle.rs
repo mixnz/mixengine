@@ -637,3 +637,119 @@ async fn listed(home: &Home, id: &str) -> serde_json::Value {
         .unwrap_or_else(|| panic!("`{id}` is in the listing: {answer}"))
         .clone()
 }
+
+/// **The next daemon starts what the last one was told to start** — roadmap task T113.
+///
+/// The whole of the task from the end a person is at: a service is flagged, the daemon holding the
+/// home is stopped, and the daemon that takes the home over leaves that service running with nobody
+/// having asked it to. The reason on the row is the walk's own, not `Requested`: an event saying
+/// somebody asked would make the setting a way to forge a request.
+#[tokio::test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+async fn the_next_daemon_starts_what_the_last_one_was_told_to_start() {
+    let home = Home::new();
+
+    let first = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@flagged")],
+    )
+    .await;
+
+    let set = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@flagged", "autostart": true }),
+    )
+    .await;
+    assert!(set.get("error").is_none(), "setting autostart: {set}");
+
+    // Stopped rather than killed: what this test is about is the *next* start, and a home whose
+    // last daemon was killed reaches the recovery path instead, which is a different task's claim.
+    stop(first.0.id());
+    home.wait_until_gone().await;
+    drop(first);
+
+    let second = start(&home).await;
+    home.wait_until_daemon_log_says("starting what asked to start with the daemon")
+        .await;
+
+    assert!(
+        reaches(&home, "fakeservice@flagged", ServiceState::Running).await,
+        "a service set to start with the daemon is not running after one started"
+    );
+
+    stop(second.0.id());
+    home.wait_until_gone().await;
+}
+
+/// **A home where nothing carries the flag starts nothing** — roadmap task T113.
+///
+/// The default, and the one every existing home and every fixture has: the walk is built from the
+/// flagged rows, so an empty set is an empty plan and the daemon does what it has always done.
+#[tokio::test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+async fn a_home_where_nothing_is_flagged_starts_nothing() {
+    let home = Home::new();
+
+    let first = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@unflagged")],
+    )
+    .await;
+
+    stop(first.0.id());
+    home.wait_until_gone().await;
+    drop(first);
+
+    let second = start(&home).await;
+    home.wait_until_daemon_log_says("listening for clients")
+        .await;
+
+    // Given a moment rather than read the instant the endpoint opens: a walk that wrongly started
+    // this service would take one to do it, and an assertion made immediately would pass either
+    // way. Two seconds and not the twenty `reaches` waits — this is a window for something to go
+    // wrong in, not a wait for something to arrive, so its length is about how long a wrong walk
+    // takes to get going and every second past that is a second of nothing.
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    assert_eq!(
+        record(&home, "fakeservice@unflagged").await.state,
+        ServiceState::Stopped,
+        "a service nobody flagged was started by the daemon"
+    );
+
+    stop(second.0.id());
+    home.wait_until_gone().await;
+}
+
+/// Whether `id` reaches `wanted` within the window a loaded runner needs, reading the row.
+///
+/// `false` rather than a panic when it does not, so both callers above can assert in their own
+/// direction — one waits for a state to arrive and the other waits to be sure it does not.
+async fn reaches(home: &Home, id: &str, wanted: ServiceState) -> bool {
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+
+    loop {
+        if record(home, id).await.state == wanted {
+            return true;
+        }
+
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}

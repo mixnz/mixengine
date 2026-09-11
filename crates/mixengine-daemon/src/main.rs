@@ -1632,6 +1632,19 @@ async fn serve(
 
     tracing::info!(endpoint = %endpoint, "listening for clients");
 
+    // **And what asked to start, starts** — roadmap task T113. The fifth member of the family of
+    // background loops above and the only one that runs *after* this line rather than before it:
+    // those four are sweeps whose first pass must not race the first client, and this one starts
+    // real programs. A daemon that will not answer `daemon.status` until MariaDB's first run has
+    // finished looks hung at exactly the moment somebody is looking at it, and what fills a
+    // dashboard in as it goes is the event stream this walk announces on — which needs a client
+    // able to connect to it.
+    //
+    // After recovery for `recover`'s own reason, which is satisfied by everything above: a service
+    // recovery adopted is already up, and a walk counts one that is up as reached rather than
+    // restarting it.
+    crate::services::autostart::start(Arc::clone(&services), store.clone(), shutdown.clone());
+
     // Connections are tracked rather than detached, because `.claude/standards/rust.md` forbids a
     // task that outlives shutdown and because a `/events` stream would otherwise be cut mid-frame.
     let mut connections = tokio::task::JoinSet::new();

@@ -14,7 +14,7 @@ import type { ServiceId } from "./ServiceId";
  * anything the code that would emit it does not exist for yet — which is why [`StateReason::Idle`]
  * arrived with T69 and not before, rather than being declared as a promise the build did not keep.
  */
-export type StateReason = { "kind": "requested" } | { "kind": "ready" } | { "kind": "ready_timeout", 
+export type StateReason = { "kind": "requested" } | { "kind": "autostart" } | { "kind": "ready" } | { "kind": "ready_timeout", 
 /**
  * How long it was given, so the message can be "no TCP connect within 10 s" rather than
  * "timed out" — the number is what tells the user whether to raise it or fix the service.

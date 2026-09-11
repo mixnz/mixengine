@@ -505,10 +505,14 @@ impl Runner {
     /// ready, a service that does not come up stops the walk rather than leaving it waiting for a
     /// process that is not coming, and a service being put back by a policy with no ceiling is
     /// answered after the first attempt rather than after a `Failed` that is never coming either.
-    pub(super) async fn run(mut self) {
+    /// `because` is why this first life began: [`StateReason::Requested`] for every start a person
+    /// or a client asked for, and [`StateReason::Autostart`] for the walk the daemon performs at
+    /// boot — roadmap task **T113**. Every life *after* the first one has a reason of its own,
+    /// decided by the restart policy, so this is the one move the caller gets to name.
+    pub(super) async fn run(mut self, because: StateReason) {
         let mut restarts = Restarts::under(self.spec.restart());
 
-        self.live(&mut restarts, StateReason::Requested).await;
+        self.live(&mut restarts, because).await;
     }
 
     /// Supervise a process that was **already running** when this daemon started — roadmap task
