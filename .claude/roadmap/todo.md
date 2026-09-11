@@ -32,7 +32,8 @@ needs verification on Windows + macOS + Linux.
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
 | [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 5 / 5 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
-| [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 1 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
+| [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
+| [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T119 | 0 / 8 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -42,6 +43,15 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 13 is done — 3 of 3 — and phase 14 is next.** The window has a profile (T108), a first tab
+that follows it (T109) and a bridge for a handoff to a module somebody turned off (T110). What
+phase 14 is about is the first ten minutes after an install rather than what the window *is*:
+[phase 14](phase-14-a-window-a-new-user-can-start-from.md) is written against four complaints from
+somebody using the finished product, and only one of them — a service's `autostart`, claimed by
+[client-surface.md](../features/client-surface.md) §4 and never read by anything — is a missing
+method rather than a missing affordance.
+Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../../docs/superpowers/specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
 
 **Phase 11 is done — 4 of 4 — and M11 is reached; phase 12 is next.** Phases 0 to 10 are done and
 v0.0.1 shipped. [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)

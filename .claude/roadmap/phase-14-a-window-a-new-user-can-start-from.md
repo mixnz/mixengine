@@ -1,0 +1,78 @@
+# Phase 14 — A window a new user can start from
+
+*Goal: somebody who has just installed MixEngine gets a working website from one button, keeps it
+after a reboot, and can find the settings they need without being told where they are.*
+
+Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
+has a platform-layer component and needs verification on Windows + macOS + Linux.
+
+Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../../docs/superpowers/specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
+
+---
+
+**One API hole, one planner that stops an action short, and two affordances.** The phase is written
+against four complaints from somebody using the finished product: a new user cannot get a site
+without six manual actions, PHP extensions cannot be found, nothing comes back after a reboot, and
+the sidebar is eleven flat items. Only the third is a missing method —
+[client-surface.md](../features/client-surface.md) §4 has claimed a service's `autostart` was a
+readable, writable setting since it was written, and nothing has ever read the column.
+
+## The API hole
+
+- [ ] **T112** A service says whether it starts with MixEngine, and can be told to (D1).
+      `ServiceRecord.autostart` from one more column in `core::services::record` and `records`;
+      `ServiceSummary.autostart`; `service.set_autostart` beside `service.set_idle`.
+      `mix service autostart <id> --on|--off` — not `mix autostart`, which is T85b's and is about
+      the daemon — and an `AUTOSTART` column in `mix service list`. Bindings regenerated.
+
+- [ ] **T113** The daemon starts what asked to start (D2, D3, D4). `crate::services::autostart`:
+      `start_plan` over the flagged ids, so a dependency without the flag is brought up by a
+      dependent with it. Spawned in `serve` after `services.recover()` **and after the endpoint is
+      serving** — the one member of the sweeper family that starts last, because it runs real
+      programs and a daemon that will not answer `daemon.status` until MariaDB's first run has
+      finished looks hung. One attempt, no retry; `StateReason::Autostart`.
+
+- [ ] **T114** The desktop shows it and sets it (D5). The switch in `screens/ServicesDetail`, in one
+      panel with the idle timeout and one line between them saying the two answer different
+      questions; the value in the Dashboard's service table.
+
+## The first site
+
+- [ ] **T115** A blueprint with a site ensures there is something to serve it (D6). `core::sites` is
+      explicit that "a home with no front end renders nothing and this succeeds", so
+      `blueprint.apply wordpress` on a fresh machine ends with a project, a database, a site row, a
+      domain, a certificate — and nothing listening. The planner learns one rule, expressed with the
+      `InstallPackage` and `EnsureService` variants that already exist: no new `PlanAction`, no new
+      manifest key, and every blueprint already on every machine gains it.
+
+- [ ] **T116** An apply can hand on the autostart flag (D7). `BlueprintApply.autostart`, defaulted
+      **false** — the default is a constraint and not a taste, because `warm_start.rs` times a
+      single `mix service start` and a boot walk racing it would make the `bench` job meaningless.
+      Set on every service the apply creates, on nothing it finds.
+
+- [ ] **T117** One action gets a new user a website (D8, D9). The Quick Start card on the Dashboard,
+      drawn only when `site.list` is empty, over the `ApplyDialog` that already renders a plan, the
+      version questions and the scaffold consent. `mix blueprint apply --start` for parity. Both say
+      the true thing about what "start" means — `service.start` with no target, *everything this
+      home declares* — because deriving the apply's own service set in a client is business logic in
+      a client, and would be wrong on the second apply anyway.
+
+## The affordances
+
+- [ ] **T118** PHP extensions get a screen, and the add-ons get their name back (D10). No API
+      changes: `runtime.list_extensions` and `runtime.set_extension` have existed since T28 and
+      `ExtensionsPanel` has rendered them since the Runtimes screen did. What was missing was a way
+      to find them — four rows below a sidebar entry called *Extensions* that means something else
+      entirely. The panel becomes a screen with a version selector, rendered in both places, and the
+      add-ons screen's **label** becomes *Add-ons*. The screen id, the module, the `extension.*`
+      methods and every document keep the word.
+
+- [ ] **T119** The sidebar is grouped (D11). Five static headings — Overview, Websites, Environment,
+      Library — with Settings pinned below them. Not collapsible: a section that collapses is a
+      place for the thing somebody is looking for to hide, and its state is something to persist,
+      migrate and get wrong.
+
+**Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
+a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
+with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are
+called the same thing.
