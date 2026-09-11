@@ -248,6 +248,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         mixengine::commands::mixengine_service_idle,
         mixengine::commands::mixengine_service_set_idle,
         mixengine::commands::mixengine_service_set_autostart,
+        mixengine::commands::mixengine_service_start_all,
         mixengine::commands::mixengine_service_set_front_end,
         mixengine::commands::mixengine_service_create,
         mixengine::commands::mixengine_service_delete,

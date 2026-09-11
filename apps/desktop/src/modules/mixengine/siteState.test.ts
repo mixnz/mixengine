@@ -6,6 +6,7 @@ import {
   formatRemaining,
   joinDocRoot,
   relativeToRoot,
+  siteUrl,
   type SiteRow,
 } from "./siteState";
 
@@ -103,5 +104,15 @@ describe("joinDocRoot", () => {
 
   it("tolerates a trailing separator on the root", () => {
     expect(joinDocRoot(`${root}/`, "public")).toBe(`${root}/public`);
+  });
+});
+
+describe("siteUrl", () => {
+  it("uses https when the site declares it", () => {
+    expect(siteUrl({ domain: "blog.test", https: true })).toBe("https://blog.test");
+  });
+
+  it("and plain http when it does not", () => {
+    expect(siteUrl({ domain: "blog.test", https: false })).toBe("http://blog.test");
   });
 });

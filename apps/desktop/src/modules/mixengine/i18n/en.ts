@@ -29,6 +29,19 @@ export default {
       retry: "Try again",
       getIt: "Reinstall MixEngine",
     },
+      quickStart: {
+        title: "Build your first site",
+        intro:
+          "Pick a stack, name it, and MixEngine installs what it needs, configures it and starts it.",
+        stack: "Stack",
+        name: "Project name",
+        folder: "Folder",
+        browse: "Choose…",
+        create: "Create it",
+        starting: "Starting everything MixEngine manages…",
+        done: "Your site is ready.",
+        open: "Open {{url}}",
+      },
     dashboard: {
       service: "Service",
       state: "State",

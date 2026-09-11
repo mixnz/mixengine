@@ -121,6 +121,11 @@ export function serviceAction(id: string, action: ServiceAction): Promise<unknow
   return invoke("mixengine_service_action", { id, action });
 }
 
+/** `service.start` không có target — *mọi service home này khai*, theo thứ tự phụ thuộc (T117). */
+export function serviceStartAll(): Promise<unknown> {
+  return invoke("mixengine_service_start_all");
+}
+
 /**
  * Mở stream sự kiện.
  *

@@ -27,6 +27,19 @@ const vi: typeof en = {
       retry: "Thử lại",
       getIt: "Cài lại MixEngine",
     },
+      quickStart: {
+        title: "Dựng site đầu tiên",
+        intro:
+          "Chọn một stack, đặt tên, và MixEngine cài những gì nó cần, cấu hình rồi khởi động giúp bạn.",
+        stack: "Stack",
+        name: "Tên project",
+        folder: "Thư mục",
+        browse: "Chọn…",
+        create: "Tạo ngay",
+        starting: "Đang khởi động mọi thứ MixEngine quản lý…",
+        done: "Site của bạn đã sẵn sàng.",
+        open: "Mở {{url}}",
+      },
     dashboard: {
       service: "Service",
       state: "Trạng thái",

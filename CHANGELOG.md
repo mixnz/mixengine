@@ -14,6 +14,10 @@
   Caddy or nginx — is left alone.
 - `mix blueprint apply --autostart` marks the services it creates to start with MixEngine. Services
   the apply found already there keep whatever their owner set.
+- MixLab's Dashboard offers to build your first site while the machine has none: pick a stack, name
+  it, and one button installs, configures and starts everything it needs, then opens it.
+- `mix blueprint apply --start` starts this home's services once the apply is done, after the one
+  elevation prompt rather than before it.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database

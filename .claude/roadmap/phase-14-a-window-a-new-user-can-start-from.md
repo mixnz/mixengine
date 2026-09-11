@@ -104,12 +104,20 @@ readable, writable setting since it was written, and nothing has ever read the c
       there from `declare::package`, so the install plans `Satisfied` and the instance is the one
       thing created.
 
-- [ ] **T117** One action gets a new user a website (D8, D9). The Quick Start card on the Dashboard,
+- [x] **T117** One action gets a new user a website (D8, D9). The Quick Start card on the Dashboard,
       drawn only when `site.list` is empty, over the `ApplyDialog` that already renders a plan, the
       version questions and the scaffold consent. `mix blueprint apply --start` for parity. Both say
       the true thing about what "start" means — `service.start` with no target, *everything this
       home declares* — because deriving the apply's own service set in a client is business logic in
       a client, and would be wrong on the second apply anyway.
+      **What this task settled.** The order is the whole of it, and it is the order the feature
+      document already implied: apply → spend the elevation → start → open. A `PlanAction` that
+      started services at the end of the job reads better and is unshippable, because an apply never
+      raises a prompt — it queues what needs one — so a front end started inside the job would serve
+      the new site at a name this machine does not resolve and with a certificate no store trusts,
+      which is a browser error at the end of a progress bar. `mixengine_service_start_all` is its
+      own command rather than `mixengine_service_action` with an empty id, because *one service* and
+      *all of them* are two sentences and an empty id is where a typo becomes a machine-wide start.
 
 ## The affordances
 

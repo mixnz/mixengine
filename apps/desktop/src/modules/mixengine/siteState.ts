@@ -81,3 +81,18 @@ export function formatRemaining(untilMs: number, nowMs: number = Date.now()): st
   const pad = (n: number) => String(n).padStart(2, "0");
   return hours > 0 ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
 }
+
+/**
+ * Địa chỉ mở được của một site — T117.
+ *
+ * `SiteSummary` mang domain và một cờ `https`, không mang URL: daemon trả *site là gì*, còn ghép
+ * thành một địa chỉ là việc hiển thị. Ở đúng một chỗ vì hai chỗ sẽ lệch nhau đúng vào ngày một
+ * trong hai được sửa.
+ *
+ * **`https` là *khai báo*, không phải chứng chỉ đã cấp xong.** Một site vừa tạo có `https: true`
+ * trước khi ai kịp cho phép cài CA; link này vẫn là link đúng để mở, còn trình duyệt cảnh báo gì
+ * thì là câu chuyện của lượt elevation chưa chi.
+ */
+export function siteUrl(site: { domain: string; https: boolean }): string {
+  return `${site.https ? "https" : "http"}://${site.domain}`;
+}

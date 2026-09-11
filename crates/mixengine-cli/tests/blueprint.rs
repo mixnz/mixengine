@@ -507,3 +507,64 @@ async fn an_apply_sets_no_autostart_unless_it_is_asked_to() {
         "an apply nobody asked set nothing: {listed}"
     );
 }
+
+/// **`--start` leaves this home's services running** — roadmap task T117.
+///
+/// The last step of *get me a working site*, and the one the apply itself may not take: an apply
+/// never raises an elevation prompt, so a front end started inside the job would serve the new site
+/// at a name this machine does not resolve. What `--start` means is *every service this home
+/// declares* — the same sentence `mix service start` with no argument has answered since phase 1 —
+/// and this asserts it on the two services this home has: the one the apply made and the one it did
+/// not.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_can_start_what_this_home_declares() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@already")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    let applied = home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--start",
+        "--json",
+    ]);
+    assert!(
+        applied.status.success(),
+        "the apply and the start: {}",
+        stdout(&applied)
+    );
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+    let services = listed["services"].as_array().expect("a list of services");
+
+    for id in ["fakeservice@shop", "fakeservice@already"] {
+        let found = services
+            .iter()
+            .find(|service| service["id"] == id)
+            .unwrap_or_else(|| panic!("`{id}` is declared: {listed}"));
+
+        assert_eq!(
+            found["state"], "running",
+            "`--start` starts every service this home declares, not only what the apply made: \
+             {listed}"
+        );
+    }
+}

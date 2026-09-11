@@ -718,6 +718,17 @@ enum BlueprintCommand {
         #[arg(long)]
         autostart: bool,
 
+        /// Start every service this home declares once the apply is done.
+        ///
+        /// **Every service this home declares**, and not only the ones this apply made: working out
+        /// which those were would be this command deciding something the daemon answers, and on a
+        /// second apply the servers it needs are the ones it found rather than the ones it made.
+        ///
+        /// Runs after the elevation, because a site served at a name the hosts file does not
+        /// resolve is a browser error with a progress bar in front of it.
+        #[arg(long)]
+        start: bool,
+
         /// Answer every version question by using what this machine already has.
         #[arg(long)]
         use_installed: bool,
@@ -3760,6 +3771,7 @@ async fn blueprint(
             // autostarter every command carries — `mix autostart` is about the daemon and this flag
             // is about the services an apply creates.
             autostart: services_autostart,
+            start,
             run_scaffold,
             run_untrusted_scaffold,
             grant,
@@ -3871,7 +3883,39 @@ async fn blueprint(
             // **The client is what spends the prompt** (D10): the apply queued the hosts entries and
             // the daemon never raises a dialog on its own initiative, so the last thing this command
             // does is offer the one prompt that makes the new site reachable.
-            return granted(&mut client, grant, json).await;
+            let spent = granted(&mut client, grant, json).await?;
+
+            if !start || spent != ExitCode::SUCCESS {
+                return Ok(spent);
+            }
+
+            // **After the elevation and not inside the job** — roadmap task **T117**. An apply never
+            // raises a prompt; it queues what needs one and the client spends it above. A front end
+            // started before that would serve the new site at a name this machine does not resolve
+            // and with a certificate no store trusts — a browser error at the end of a progress bar.
+            //
+            // **No target**, which is *every service this home declares*, in dependency order. The
+            // alternative is deriving this apply's own service set from the finished plan, which is
+            // business logic in a client — and wrong on a second apply anyway, where the front end
+            // the site needs is one the plan found rather than one it made.
+            let walk: ServiceWalk = ask(
+                &mut client,
+                rpc::method::SERVICE_START,
+                encode(&ServiceTarget {
+                    service: None,
+                    wait: true,
+                }),
+            )
+            .await?;
+
+            emit(&rendered(json, &walk, || {
+                render::service_walk(render::Walked::Start, &walk)
+            }))?;
+
+            return Ok(match walk.failed {
+                None => ExitCode::SUCCESS,
+                Some(_) => ExitCode::FAILURE,
+            });
         }
     }
 
