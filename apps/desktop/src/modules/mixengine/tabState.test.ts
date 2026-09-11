@@ -21,6 +21,12 @@ describe("parseMixEngineTabState", () => {
     expect(parseMixEngineTabState({ screen: "extensions" })?.screen).toBe("extensions");
   });
 
+  /* T118. Một session viết bởi bản này rồi đọc bởi bản cũ hơn rơi về `dashboard` chứ không vỡ —
+     đó là toàn bộ phần tương thích của việc thêm một màn hình. */
+  it("accepts the PHP extensions screen", () => {
+    expect(parseMixEngineTabState({ screen: "phpExtensions" })?.screen).toBe("phpExtensions");
+  });
+
   it("accepts metrics", () => {
     expect(parseMixEngineTabState({ screen: "metrics" })?.screen).toBe("metrics");
   });

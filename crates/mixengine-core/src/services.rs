@@ -113,6 +113,18 @@ pub struct ServiceRecord {
 
     /// What its process exited with the last time one ended.
     pub last_exit_code: Option<i32>,
+
+    /// Whether this service starts when the daemon does — roadmap task **T112**.
+    ///
+    /// **Read here rather than through [`declaration`]**, which also carries it. A *listing* wants
+    /// this: `declaration` is a four-table join per service, and paying for one per row to report
+    /// one boolean would make `service.list` quadratic in the number of services it reports.
+    ///
+    /// It is a setting and not a reading, which is the one thing in this struct that is: everything
+    /// else here is what a supervisor wrote about a process. It travels with them because they are
+    /// read in the same statement and answered in the same summary, and splitting it out would buy
+    /// a second query per listing to keep a distinction nothing acts on.
+    pub autostart: bool,
 }
 
 /// Where the binary a service runs comes from.
@@ -469,6 +481,68 @@ pub async fn set_idle(store: &Store, service: &ServiceId, minutes: Option<u32>) 
     Ok(())
 }
 
+/// Replace whether this service starts when the daemon does — roadmap task **T112**.
+///
+/// [`set_idle`]'s shape, and for its reason: the column is the whole of the setting, and what reads
+/// it is a walk that has not happened yet. **Nothing is started or stopped by this call.**
+///
+/// **A `bool` and not an `Option<bool>`.** `set_idle` takes three states because an absent value
+/// restores the recipe's own default; no recipe declares an autostart, so there is no third state
+/// for one to restore.
+///
+/// # Errors
+///
+/// [`Error::NotFound`] when no row has that id — the same refusal [`set_idle`] gives, and for the
+/// same reason: a setting accepted for a name nobody has is a row nobody can read back.
+/// [`Error::Database`] when the file cannot be written.
+pub async fn set_autostart(store: &Store, service: &ServiceId, autostart: bool) -> Result<()> {
+    let id = service.as_str();
+    let column = i64::from(autostart);
+
+    let changed = sqlx::query!("UPDATE services SET autostart = ? WHERE id = ?", column, id)
+        .execute(store.pool())
+        .await
+        .map_err(|source| store.failure("write", source))?
+        .rows_affected();
+
+    if changed == 0 {
+        return Err(Error::NotFound {
+            kind: "service",
+            id: id.to_owned(),
+        });
+    }
+
+    tracing::info!(%id, autostart, "a service's autostart setting was replaced");
+
+    Ok(())
+}
+
+/// The services whose `autostart` column is set — roadmap task **T113**.
+///
+/// **The ids and not the rows**, because what the caller does with them is build a
+/// [`ServiceGraph::start_plan`](crate::services::graph::ServiceGraph::start_plan): the plan pulls in
+/// what each one depends on, so a walk built from a filtered *listing* would be a walk that starts a
+/// pool before its database.
+///
+/// A row holding an id this build cannot parse is passed over rather than failing the read, on
+/// [`records`]'s reasoning: a hand-edited row gets to describe a service nobody starts, not to stop
+/// every other service on the machine from starting.
+///
+/// # Errors
+///
+/// [`Error::Database`] when the table cannot be read.
+pub async fn autostart_ids(store: &Store) -> Result<Vec<ServiceId>> {
+    let rows = sqlx::query_scalar!("SELECT id FROM services WHERE autostart != 0 ORDER BY id")
+        .fetch_all(store.pool())
+        .await
+        .map_err(|source| store.failure("read", source))?;
+
+    Ok(rows
+        .iter()
+        .filter_map(|id| ServiceId::parse(id).ok())
+        .collect())
+}
+
 /// What `services.idle_minutes` holds for this service — roadmap task **T69**.
 ///
 /// The raw column rather than a resolved duration, because resolving it needs the recipe's default
@@ -582,7 +656,8 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
     let id = service.as_str();
 
     let row = sqlx::query!(
-        "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped
+        "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,
+                autostart
          FROM services WHERE id = ?",
         id
     )
@@ -602,6 +677,7 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
         last_started_at: row.last_started_at.map(Timestamp),
         last_exit_code: exit_code(row.last_exit_code),
         port: listening_port(row.port),
+        autostart: row.autostart != 0,
     })
 }
 
@@ -721,7 +797,8 @@ pub async fn declaration(store: &Store, service: &ServiceId) -> Result<Declarati
 /// services has no rows, which is an answer and not a failure.
 pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
     let rows = sqlx::query!(
-        "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped
+        "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,
+                autostart
          FROM services"
     )
     .fetch_all(store.pool())
@@ -746,6 +823,7 @@ pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
                     last_started_at: row.last_started_at.map(Timestamp),
                     last_exit_code: exit_code(row.last_exit_code),
                     port: listening_port(row.port),
+                    autostart: row.autostart != 0,
                 },
             ))
         })

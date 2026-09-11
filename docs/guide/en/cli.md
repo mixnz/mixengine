@@ -604,6 +604,9 @@ mix blueprint apply <BLUEPRINT> [OPTIONS]
 | `--path` `<DIR>` | Where it goes. Defaults to `<current directory>/<project>` |
 | `--dry-run` | Stop after planning, and print the plan. Sent as it is typed rather than insisted on here: whether this build can carry an apply out is the daemon's to say, and a client that refused to ask would be holding a rule of its own. |
 | `--install-missing` | Answer every version question by installing what the blueprint asks for |
+| `--with-front-end` | Install a web server too, where this home has none. A home with no front end serves no site, and nothing installs one by itself. With this, a blueprint that declares a site plans the default web server as well — and a home that already has one, Caddy or nginx, is left alone. |
+| `--autostart` | Start the services this apply creates whenever MixEngine starts. Only what it creates: a server this home already had is left as its owner set it. Read and changed afterwards with `mix service autostart`. |
+| `--start` | Start every service this home declares once the apply is done. **Every service this home declares**, and not only the ones this apply made: working out which those were would be this command deciding something the daemon answers, and on a second apply the servers it needs are the ones it found rather than the ones it made. Runs after the elevation, because a site served at a name the hosts file does not resolve is a browser error with a progress bar in front of it. |
 | `--use-installed` | Answer every version question by using what this machine already has |
 | `--run-scaffold` | Run the blueprint's own `[scaffold]` command without asking first. For a blueprint the gallery signed. An unsigned one takes the other flag, and neither covers the other: a script that runs somebody's unsigned command should say so on the line that does it. |
 | `--run-untrusted-scaffold` | Run an **untrusted** blueprint's own `[scaffold]` command without asking first. Nothing vouches for what this runs. The command is still printed before it starts. |
@@ -1078,6 +1081,28 @@ mix service idle <SERVICE> [OPTIONS]
 | `--after` `<DURATION>` | Stop it once nothing has used it for this long — `30m`, `2h`, `90m` |
 | `--never` | Never stop it for being unused, whatever a later release makes the default |
 | `--default` | Go back to whatever its recipe wants, which in this build is never |
+
+### mix service autostart
+
+Whether this service starts when MixEngine does.
+
+With no flag: read it. `mix autostart` is a different question — whether this *machine* starts a
+daemon for this home when you log in.
+
+A service that something set here depends on is started too, whether or not it is set itself: a pool
+whose database is missing is a pool that fails its health check.
+
+Setting this starts and stops nothing. What it changes is what the next daemon start walks.
+
+```
+mix service autostart <SERVICE> [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `<SERVICE>` | The service to read or set |
+| `--on` | Start it when MixEngine starts |
+| `--off` | Do not |
 
 ### mix service create
 

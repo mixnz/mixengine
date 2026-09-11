@@ -1,0 +1,25 @@
+schema = 1
+
+# A blueprint whose stack is one `fakeservice` instance and no site — roadmap task **T116**.
+#
+# **No `[site]`**, deliberately: T115 plans a front end for a manifest that has one, and this suite
+# is offline by construction. What this fixture is for is the one question T116 asks — whether the
+# service an apply *creates* carries the autostart setting the request asked for — and a site would
+# drag a web server into a test that is not about one.
+#
+# `fakeservice` is the supervision fixture, and `mixengine_testkit::declare::package` has already
+# written its `packages` row by the time a suite applies this, so the install step plans `Satisfied`
+# and nothing reaches the package index.
+
+[blueprint]
+name = "with-a-service"
+description = "One fixture service, and nothing else"
+created_at = "2026-09-11T00:00:00Z"
+
+[blueprint.created_on]
+os = "windows"
+version = "0.0.6"
+
+[[services]]
+name = "fakeservice"
+instance = "per-project"

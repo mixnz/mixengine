@@ -12,6 +12,32 @@
   gap: 2px;
 }
 
+/* Một nhóm là các mục của nó cộng một tiêu đề. `margin-top: auto` trên nhóm cuối đẩy Settings
+   xuống đáy — nhóm đó không có tiêu đề, nên `:last-child` là cách nói "cái không thuộc nhóm nào". */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.group:last-child {
+  margin-top: auto;
+}
+
+.heading {
+  margin: 10px 0 2px;
+  padding: 0 10px;
+  font-size: var(--text-xs, 11px);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.group:first-child .heading {
+  margin-top: 0;
+}
+
 .item {
   text-align: left;
   padding: 6px 10px;

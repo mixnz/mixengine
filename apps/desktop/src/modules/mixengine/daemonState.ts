@@ -14,6 +14,11 @@ export interface ServiceRow {
   id: string;
   state: ServiceState | null;
   port: number | null;
+  /** Có khởi động cùng daemon không — T112. Chỉ là **cài đặt**, không phải dự đoán: nó nói cột
+   *  trong database, không nói service này sẽ chạy sau lần đăng nhập tới (còn tuỳ cổng có rảnh và
+   *  chương trình còn đó không). Sự kiện `service_state_changed` không đổi nó, nên `applyEvent`
+   *  giữ nguyên giá trị cũ và chỉ một lần đọc lại `service.list` mới đổi được. */
+  autostart: boolean;
 }
 
 /** Một câu trả lời `service.list`, thành các dòng. */
@@ -22,6 +27,7 @@ export function rowsFrom(list: ServiceSummary[]): ServiceRow[] {
     id: service.id,
     state: service.state ?? null,
     port: service.port ?? null,
+    autostart: service.autostart,
   }));
 }
 

@@ -78,7 +78,16 @@ pub fn create_blocking(endpoint: &Endpoint, database: &Path, services: &[Service
 }
 
 /// One JSON-RPC call, and the whole response object.
-async fn call(endpoint: &Endpoint, method: &str, params: Value) -> Value {
+///
+/// **Public since T112**, for the same reason this module exists at all: a suite that wants to drive
+/// a method the fixtures have no helper for should send the call a person sends rather than write
+/// the row a person's call would have written. The whole response and not the `result`, because a
+/// test asserting a *refusal* needs the `error` member.
+///
+/// # Panics
+///
+/// If the daemon cannot be reached, does not speak HTTP/1.1, or answers something that is not JSON.
+pub async fn call(endpoint: &Endpoint, method: &str, params: Value) -> Value {
     let connection = Connection::connect(endpoint)
         .await
         .unwrap_or_else(|error| panic!("the daemon is listening on {endpoint}: {error}"));

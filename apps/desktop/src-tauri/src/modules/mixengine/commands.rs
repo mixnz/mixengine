@@ -85,6 +85,21 @@ pub async fn mixengine_service_action(id: String, action: String) -> Result<Valu
     rpc::call(method, params).await
 }
 
+/// `service.start` **không có target**, nghĩa là *mọi service home này khai*, theo đúng thứ tự phụ
+/// thuộc — T117.
+///
+/// Lệnh riêng chứ không phải `mixengine_service_action` với `id` rỗng: "một service" và "tất cả" là
+/// hai câu khác nhau, và một `id` rỗng là chỗ để một lỗi chính tả trở thành một lượt khởi động cả
+/// máy.
+///
+/// **Frontend không được tự suy ra tập service của một apply.** Đó là business logic trong client
+/// (`CLAUDE.md`), và ở lần apply thứ hai nó còn sai: web server site cần là cái plan *tìm thấy*,
+/// không phải cái nó tạo ra.
+#[tauri::command]
+pub async fn mixengine_service_start_all() -> Result<Value, AppError> {
+    rpc::call("service.start", json!({ "wait": true })).await
+}
+
 /// Mở stream sự kiện. Mở lại là đóng cái đang mở.
 #[tauri::command]
 pub async fn mixengine_watch(
@@ -330,6 +345,16 @@ pub async fn mixengine_service_idle(service: String) -> Result<Value, AppError> 
 #[tauri::command]
 pub async fn mixengine_service_set_idle(params: Value) -> Result<Value, AppError> {
     rpc::call("service.set_idle", params).await
+}
+
+/// `params` đúng hình `ServiceAutostartSet { service, autostart }` — T112. Hai trạng thái, không
+/// ba: `service.set_idle` có ba vì vắng mặt nghĩa là "theo recipe", còn ở đây không recipe nào khai
+/// autostart. Trả `ServiceSummary` — chính service đó, như nó vừa thành ra.
+///
+/// **Không khởi động và không dừng gì cả.** Thứ nó đổi là cái walk ở lần daemon khởi động *sau*.
+#[tauri::command]
+pub async fn mixengine_service_set_autostart(params: Value) -> Result<Value, AppError> {
+    rpc::call("service.set_autostart", params).await
 }
 
 /// `service.set_front_end` — T97 / ADR 0026. `params` đúng hình `FrontEndSwitch { server, version?,

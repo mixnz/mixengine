@@ -4,14 +4,36 @@ import {
   applyEvent,
   applyJob,
   needsResync,
+  rowsFrom,
   type JobRow,
   type ServiceRow,
 } from "./daemonState";
 
 const rows: ServiceRow[] = [
-  { id: "mariadb@main", state: "running", port: 3306 },
-  { id: "caddy@main", state: "stopped", port: null },
+  { id: "mariadb@main", state: "running", port: 3306, autostart: true },
+  { id: "caddy@main", state: "stopped", port: null, autostart: false },
 ];
+
+describe("rowsFrom", () => {
+  /* Cột `autostart` là **cài đặt**, không phải trạng thái: nó tới từ `service.list` và không có sự
+     kiện nào đổi nó. Test này là chỗ giữ nó không bị bỏ quên khi ai đó thêm field vào `ServiceRow`. */
+  it("carries a service's autostart setting onto its row", () => {
+    const made = rowsFrom([
+      {
+        id: "redis@main",
+        state: "stopped",
+        supervised: false,
+        pid: null,
+        last_started_at: null,
+        last_exit_code: null,
+        depends_on: [],
+        autostart: true,
+      },
+    ]);
+
+    expect(made).toEqual([{ id: "redis@main", state: "stopped", port: null, autostart: true }]);
+  });
+});
 
 describe("applyEvent", () => {
   /* Trạng thái được thông báo, không bao giờ được suy ra: hàng đổi vì stream nói, không vì ai bấm. */

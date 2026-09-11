@@ -71,6 +71,13 @@ impl Home {
         self.0.database_file()
     }
 
+    /// The endpoint itself, for a test that drives the API rather than `mix`.
+    ///
+    /// Beside [`Home::endpoint`], which renders it: `mixengine_testkit::create` takes the value.
+    pub(crate) fn endpoint_ref(&self) -> &mixengine_platform::ipc::Endpoint {
+        self.0.endpoint()
+    }
+
     /// Give these services a `services` row, which is what makes them startable.
     ///
     /// The daemon renders each one into a configuration and a spec through its `fakeservice` recipe

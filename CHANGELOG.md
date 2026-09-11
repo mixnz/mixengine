@@ -3,6 +3,21 @@
 ## Unreleased
 
 ### Added
+- `mix service autostart <service> --on|--off` reads and sets whether a service starts with
+  MixEngine, and `mix service list` has an `AUTOSTART` column.
+- Services set that way now start when MixEngine does, in dependency order — so a machine that was
+  restarted comes back with the same things running, without anybody starting them by hand.
+- MixLab's Services screen has that switch, beside the idle timeout, and its Dashboard has an
+  Autostart column — so what comes back after a reboot is visible without opening anything.
+- `mix blueprint apply --with-front-end` installs a web server too where the machine has none, so a
+  blueprint with a site no longer ends with a site nothing serves. A machine that already has one —
+  Caddy or nginx — is left alone.
+- `mix blueprint apply --autostart` marks the services it creates to start with MixEngine. Services
+  the apply found already there keep whatever their owner set.
+- MixLab's Dashboard offers to build your first site while the machine has none: pick a stack, name
+  it, and one button installs, configures and starts everything it needs, then opens it.
+- `mix blueprint apply --start` starts this home's services once the apply is done, after the one
+  elevation prompt rather than before it.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database
@@ -10,6 +25,11 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Changed
+- MixLab has a **PHP Extensions** screen: pick an installed PHP and turn `redis`, `mongodb`,
+  `xdebug` and the rest on or off. The same panel is still inside Runtimes, and MixEngine's own
+  add-ons are now labelled *Add-ons* so the two stop colliding.
+- MixLab's MixEngine sidebar is grouped into Overview, Websites, Environment and Library, with
+  Settings at the bottom.
 - The desktop window is **MixLab**: its own name, identifier, executable and mark, and MixEngine's
   version rather than one of its own. The daemon, `mix`, the home, the keyring namespace and the
   installers keep MixEngine's name and are unchanged.

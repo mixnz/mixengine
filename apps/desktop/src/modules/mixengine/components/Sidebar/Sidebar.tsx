@@ -3,37 +3,71 @@ import type { MixEngineScreen } from "../../tabState";
 import styles from "./Sidebar.module.css";
 
 /**
- * Chín mục cố định của `client-surface.md`, cộng hai mục MixDB tự thêm (`projects`, `metrics`).
+ * Mười hai màn hình, năm nhóm — T119, quyết định D11.
  *
- * **`projects` không nằm trong 9 màn hình `client-surface.md` liệt kê.** `client-surface.md` không
- * dựng Projects thành một màn hình riêng — nó giả định một client hỏi `project.list` cho đúng một
- * dropdown. MixDB dựng hẳn một màn hình quản lý vì `project.*` đã có đủ method
- * (`list, create, show, update, delete, export`) cho một màn hình đầy đủ, và vì Sites (mục ngay sau)
- * không dùng được nếu chưa có project nào — xem Quyết định D4,
- * `docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`. Đặt ngay sau
- * Dashboard vì nó là thứ Sites cần trước.
+ * **Thứ tự theo việc người ta làm, không theo hình dạng của API.** Mười một mục phẳng là thứ phải
+ * đọc hết mới tìm được, và hai trong số đó từng tên gần giống nhau — T118 đổi nhãn *Extensions*
+ * thành *Add-ons* để PHP Extensions có chỗ đứng tên nó.
  *
- * **`metrics` cũng không nằm trong 9 màn hình đó** — `client-surface.md` gộp CPU%/RSS "bây giờ" vào
- * Dashboard, không đòi một màn riêng. MixDB tách lịch sử 24 giờ ra một mục sidebar của riêng nó (D1,
- * `docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md`) vì đây là dữ liệu khác
- * hình dạng (biểu đồ theo thời gian, không phải một hàng trong bảng service).
+ * **Tiêu đề tĩnh, không gập lại được.** Một nhóm gập được là một chỗ để đúng thứ người ta đang tìm
+ * trốn vào, và trạng thái gập là thứ phải lưu, migrate rồi làm sai. Danh sách có mười hai mục; nó
+ * vừa màn hình.
  *
- * **Không còn mục nào xám.** Cả 11 mục đều dựng được — riêng bên trong Settings, hàng "default web
- * server" vẫn để trống có chú thích (T97 chưa lên bản release nào), cùng lý do cả mục Settings từng
- * để xám trước khi màn hình này tồn tại.
+ * **`projects` và `metrics` không nằm trong 9 màn hình `client-surface.md` liệt kê**, và lý do giữ
+ * nguyên như khi bảng này còn phẳng: `client-surface.md` giả định một client hỏi `project.list` cho
+ * đúng một dropdown, trong khi `project.*` đã đủ method (`list, create, show, update, delete,
+ * export`) cho một màn quản lý — và Sites không dùng được nếu chưa có project nào (Quyết định D4,
+ * `docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`). `metrics` thì là
+ * dữ liệu khác hình dạng: biểu đồ 24 giờ, không phải một hàng trong bảng service (D1,
+ * `docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md`).
+ *
+ * **`phpExtensions` cũng không nằm trong đó** — `client-surface.md` đặt công tắc extension bên
+ * trong màn Runtimes, và nó vẫn ở đó: cùng một component, vẽ ở hai nơi (T118). Nhóm *Môi trường* là
+ * chỗ thứ hai, vì đó là nơi người ta đi tìm nó.
+ *
+ * Bảng này vẫn là chỗ **duy nhất** quyết định thứ tự, đúng như khi nó còn phẳng.
  */
-const ITEMS: readonly { screen: MixEngineScreen; labelKey: TranslationKey }[] = [
-  { screen: "dashboard", labelKey: "mixengine.sidebar.dashboard" },
-  { screen: "projects", labelKey: "mixengine.sidebar.projects" },
-  { screen: "sites", labelKey: "mixengine.sidebar.sites" },
-  { screen: "domains", labelKey: "mixengine.sidebar.domains" },
-  { screen: "runtimes", labelKey: "mixengine.sidebar.runtimes" },
-  { screen: "servicesDetail", labelKey: "mixengine.sidebar.servicesDetail" },
-  { screen: "logs", labelKey: "mixengine.sidebar.logs" },
-  { screen: "blueprints", labelKey: "mixengine.sidebar.blueprints" },
-  { screen: "extensions", labelKey: "mixengine.sidebar.extensions" },
-  { screen: "metrics", labelKey: "mixengine.sidebar.metrics" },
-  { screen: "settings", labelKey: "mixengine.sidebar.settings" },
+const GROUPS: readonly {
+  labelKey: TranslationKey | null;
+  items: readonly { screen: MixEngineScreen; labelKey: TranslationKey }[];
+}[] = [
+  {
+    labelKey: "mixengine.sidebar.groupOverview",
+    items: [
+      { screen: "dashboard", labelKey: "mixengine.sidebar.dashboard" },
+      { screen: "metrics", labelKey: "mixengine.sidebar.metrics" },
+      { screen: "logs", labelKey: "mixengine.sidebar.logs" },
+    ],
+  },
+  {
+    labelKey: "mixengine.sidebar.groupWebsites",
+    items: [
+      { screen: "projects", labelKey: "mixengine.sidebar.projects" },
+      { screen: "sites", labelKey: "mixengine.sidebar.sites" },
+      { screen: "domains", labelKey: "mixengine.sidebar.domains" },
+    ],
+  },
+  {
+    labelKey: "mixengine.sidebar.groupEnvironment",
+    items: [
+      { screen: "runtimes", labelKey: "mixengine.sidebar.runtimes" },
+      { screen: "phpExtensions", labelKey: "mixengine.sidebar.phpExtensions" },
+      { screen: "servicesDetail", labelKey: "mixengine.sidebar.servicesDetail" },
+    ],
+  },
+  {
+    labelKey: "mixengine.sidebar.groupLibrary",
+    items: [
+      { screen: "blueprints", labelKey: "mixengine.sidebar.blueprints" },
+      { screen: "extensions", labelKey: "mixengine.sidebar.extensions" },
+    ],
+  },
+  // Không tiêu đề, và `margin-top: auto` trong CSS đẩy nó xuống đáy: Settings không thuộc nhóm nào
+  // và là mục người ta tìm ở chỗ nó vẫn luôn ở.
+  {
+    labelKey: null,
+    items: [{ screen: "settings", labelKey: "mixengine.sidebar.settings" }],
+  },
 ];
 
 export default function Sidebar({
@@ -47,16 +81,21 @@ export default function Sidebar({
 
   return (
     <nav className={styles.sidebar} aria-label={t("mixengine.sidebar.label")}>
-      {ITEMS.map((item) => (
-        <button
-          key={item.labelKey}
-          type="button"
-          className={styles.item}
-          aria-current={item.screen === screen ? "page" : undefined}
-          onClick={() => onSelect(item.screen)}
-        >
-          {t(item.labelKey)}
-        </button>
+      {GROUPS.map((group, index) => (
+        <div key={group.labelKey ?? `group-${index}`} className={styles.group}>
+          {group.labelKey !== null && <h3 className={styles.heading}>{t(group.labelKey)}</h3>}
+          {group.items.map((item) => (
+            <button
+              key={item.labelKey}
+              type="button"
+              className={styles.item}
+              aria-current={item.screen === screen ? "page" : undefined}
+              onClick={() => onSelect(item.screen)}
+            >
+              {t(item.labelKey)}
+            </button>
+          ))}
+        </div>
       ))}
     </nav>
   );

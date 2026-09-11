@@ -32,6 +32,9 @@ import { pendingFrom } from "../../pendingOps";
 import { serviceStateKey, serviceStateTone, toggleMode } from "../../serviceStateLabel";
 import CleanupDialog from "./CleanupDialog";
 import DiskUsagePanel from "./DiskUsagePanel";
+import QuickStart from "./QuickStart";
+import { shouldOfferQuickStart } from "../../quickStart";
+import type { SiteSummary } from "@mixengine/api";
 import styles from "./Dashboard.module.css";
 
 /* Bảng tra tường minh chứ không ghép `${action}ing`: "stop" + "ing" ra "stoping", và một khoá dịch
@@ -63,6 +66,8 @@ export default function Dashboard({ active }: { active: boolean }) {
   /** Frame mới nhất của `/metrics`, hoặc `null` khi chưa có (stream chưa mở, hay chưa nhận frame nào). */
   const [frame, setFrame] = useState<MetricsFrame | null>(null);
   const [disk, setDisk] = useState<DiskUsage | null>(null);
+  /** `site.list`, hay `null` khi chưa đọc xong — điều kiện vẽ thẻ Quick Start (T117). */
+  const [sites, setSites] = useState<SiteSummary[] | null>(null);
   const [refreshingDisk, setRefreshingDisk] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState("");
@@ -92,6 +97,23 @@ export default function Dashboard({ active }: { active: boolean }) {
       setError(errorMessage(t, e));
     }
   }, [t]);
+
+  /**
+   * Home này đã có site nào chưa — điều kiện vẽ thẻ Quick Start (T117).
+   *
+   * Đọc riêng khỏi `reload()` chứ không gộp vào `Promise.all` của nó: `reload()` chạy lại mỗi lần
+   * quay lại tab và mỗi lần stream nói có gì đổi, còn câu hỏi này chỉ đổi khi một site được tạo
+   * hoặc xoá. Thất bại thì để nguyên giá trị cũ và không dựng banner lỗi: một Dashboard đỏ vì
+   * không hỏi được "đã có site chưa" là một Dashboard đỏ vì một câu trang trí.
+   */
+  const readSites = useCallback(async () => {
+    try {
+      const listed = await api.sites();
+      setSites(listed.sites);
+    } catch {
+      // Để nguyên: `null` vẫn là "chưa biết", và `shouldOfferQuickStart` không mời trên `null`.
+    }
+  }, []);
 
   /** Nút "Làm mới" của bảng disk usage — `refresh: true` đi bộ đĩa lại, khác `reload()` ở trên vốn
    *  đọc bản daemon giữ sẵn (tới một phút) để không biến mỗi lần quay lại tab thành một lần đi bộ. */
@@ -157,6 +179,11 @@ export default function Dashboard({ active }: { active: boolean }) {
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
+
+  // Cùng nhịp, riêng call: xem `readSites`.
+  useEffect(() => {
+    if (active) void readSites();
+  }, [active, readSites]);
 
   /**
    * `/metrics` khoá vòng đời theo `active`, không theo mount/unmount như `/events`.
@@ -252,6 +279,11 @@ export default function Dashboard({ active }: { active: boolean }) {
     <div className={styles.dashboard}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
+      {/* Trên bảng service, và chỉ khi home này chưa có site nào — T117. Điều kiện là trạng thái
+          của home chứ không phải một cờ "đã bỏ qua": không có gì để lưu, migrate hay sửa tay sai,
+          và một máy vừa xoá hết site thì thấy lời mời quay lại, đúng như nó nên. */}
+      {shouldOfferQuickStart(sites) && <QuickStart onCreated={() => void readSites()} />}
+
       {status && (
         <header className={styles.header}>
           <strong>MixEngine {status.version}</strong>
@@ -335,6 +367,9 @@ export default function Dashboard({ active }: { active: boolean }) {
             <tr>
               <th>{t("mixengine.dashboard.service")}</th>
               <th>{t("mixengine.dashboard.state")}</th>
+              {/* Cạnh State và không ở cuối bảng — T114. Hai cột này là câu người đang quét bảng
+                  thật sự hỏi: cái gì đang chạy, và cái gì sẽ chạy sau lần đăng nhập tới. */}
+              <th>{t("mixengine.dashboard.autostart")}</th>
               <th>{t("mixengine.dashboard.port")}</th>
               <th>{t("mixengine.dashboard.cpu")}</th>
               <th>{t("mixengine.dashboard.rss")}</th>
@@ -357,6 +392,13 @@ export default function Dashboard({ active }: { active: boolean }) {
                     </span>
                   ) : (
                     <span className={toneClass(row.state)}>{stateLabel(row.state)}</span>
+                  )}
+                </td>
+                <td>
+                  {t(
+                    row.autostart
+                      ? "mixengine.dashboard.autostartYes"
+                      : "mixengine.dashboard.autostartNo",
                   )}
                 </td>
                 <td>{row.port ?? "—"}</td>

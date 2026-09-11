@@ -12,6 +12,8 @@
 mod harness;
 
 use harness::{Home, json, stdout};
+use mixengine_testkit::Service;
+use serde_json::Value;
 
 /// A directory to register.
 fn repository() -> tempfile::TempDir {
@@ -297,4 +299,272 @@ async fn a_blueprint_captured_on_windows_applies_on_this_system() {
         listed.iter().any(|site| site["domain"] == "shop.test"),
         "{sites}"
     );
+}
+
+/// **A manifest with a `[site]` plans a front end on a home that has none** — roadmap task T115.
+///
+/// `core::sites` is explicit that "a home with no front end renders nothing and this succeeds", so
+/// an apply that stopped at the site row left a project nothing serves — which is the whole of the
+/// complaint this phase is written against. `--dry-run` so the suite stays offline: what is
+/// asserted is the plan, and installing Caddy is what the plan *says* rather than what this test
+/// does.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_site_blueprint_plans_a_front_end_for_a_home_that_has_none() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let first = repository();
+    a_project_with_a_site(&home, first.path(), "blog", "blog.test");
+
+    home.mix(&["blueprint", "capture", "blog-stack", "--project", "blog"]);
+
+    let second = repository();
+    let into = second.path().join("shop").display().to_string();
+
+    let planned = json(&home.mix(&[
+        "blueprint",
+        "apply",
+        "blog-stack",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--with-front-end",
+        "--dry-run",
+        "--json",
+    ]));
+
+    let steps = planned["steps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a plan has steps: {planned}"));
+
+    let front_end: Vec<&serde_json::Value> = steps
+        .iter()
+        .filter(|step| step["action"]["package"] == "caddy")
+        .collect();
+
+    assert_eq!(
+        front_end.len(),
+        2,
+        "a home with no front end gets an install and an ensure: {planned}"
+    );
+    assert!(
+        front_end
+            .iter()
+            .all(|step| step["disposition"]["disposition"] == "create"),
+        "both are work on a home that has neither: {planned}"
+    );
+}
+
+/// **And plans nothing without the flag** — roadmap task T115.
+///
+/// The other half, and the one that keeps an apply from provisioning a machine nobody asked it to:
+/// the same blueprint on the same home, planned twice, differs only by `--with-front-end`. What a
+/// home that *has* a front end plans is asserted where a real web server is available — this suite
+/// is offline by construction and has none.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_site_blueprint_plans_no_front_end_unless_it_is_asked_to() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let first = repository();
+    a_project_with_a_site(&home, first.path(), "blog", "blog.test");
+
+    home.mix(&["blueprint", "capture", "blog-stack", "--project", "blog"]);
+
+    let second = repository();
+    let into = second.path().join("shop").display().to_string();
+
+    let planned = json(&home.mix(&[
+        "blueprint",
+        "apply",
+        "blog-stack",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--dry-run",
+        "--json",
+    ]));
+
+    let steps = planned["steps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a plan has steps: {planned}"));
+
+    assert!(
+        steps
+            .iter()
+            .all(|step| step["action"]["package"] != "caddy"),
+        "an apply nobody asked for a web server plans none: {planned}"
+    );
+}
+
+/// **`--autostart` reaches the service the apply creates, and nothing it found** — roadmap task T116.
+///
+/// The whole of what the flag claims, from the end a person is at. The fixture declares one
+/// `fakeservice` instance and no site, so this stays offline: the package row is already there from
+/// `home.declare`, the install step plans `Satisfied`, and the instance is the one thing created.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_hands_the_autostart_setting_to_what_it_creates() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    // Writes the `fakeservice` package row, which is what keeps the install step offline — and a
+    // service of its own, which is the one this apply must *not* re-decide. The async form, because
+    // `Home::declare` builds a runtime of its own and this test already is one.
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@untouched")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    let applied = stdout(&home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--autostart",
+        "--json",
+    ]));
+    assert!(!applied.contains("\"failed\""), "a step failed: {applied}");
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+    let services = listed["services"].as_array().expect("a list of services");
+
+    let made = services
+        .iter()
+        .find(|service| service["id"] == "fakeservice@shop")
+        .unwrap_or_else(|| panic!("the apply made an instance: {listed}"));
+    assert_eq!(
+        made["autostart"],
+        Value::Bool(true),
+        "what the apply made carries the setting: {listed}"
+    );
+
+    let found = services
+        .iter()
+        .find(|service| service["id"] == "fakeservice@untouched")
+        .unwrap_or_else(|| panic!("the service that was already here: {listed}"));
+    assert_eq!(
+        found["autostart"],
+        Value::Bool(false),
+        "a service this apply did not make is not re-decided: {listed}"
+    );
+}
+
+/// **And without the flag, nothing carries it** — roadmap task T116.
+///
+/// The default is a constraint rather than a taste: `warm_start.rs` is the `bench` job and times a
+/// single `mix service start`, so an apply that quietly set this would put a boot walk beside that
+/// measurement.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_sets_no_autostart_unless_it_is_asked_to() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@untouched")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--json",
+    ]);
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+
+    assert!(
+        listed["services"]
+            .as_array()
+            .expect("a list of services")
+            .iter()
+            .all(|service| service["autostart"] == Value::Bool(false)),
+        "an apply nobody asked set nothing: {listed}"
+    );
+}
+
+/// **`--start` leaves this home's services running** — roadmap task T117.
+///
+/// The last step of *get me a working site*, and the one the apply itself may not take: an apply
+/// never raises an elevation prompt, so a front end started inside the job would serve the new site
+/// at a name this machine does not resolve. What `--start` means is *every service this home
+/// declares* — the same sentence `mix service start` with no argument has answered since phase 1 —
+/// and this asserts it on the two services this home has: the one the apply made and the one it did
+/// not.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_can_start_what_this_home_declares() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@already")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    let applied = home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--start",
+        "--json",
+    ]);
+    assert!(
+        applied.status.success(),
+        "the apply and the start: {}",
+        stdout(&applied)
+    );
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+    let services = listed["services"].as_array().expect("a list of services");
+
+    for id in ["fakeservice@shop", "fakeservice@already"] {
+        let found = services
+            .iter()
+            .find(|service| service["id"] == id)
+            .unwrap_or_else(|| panic!("`{id}` is declared: {listed}"));
+
+        assert_eq!(
+            found["state"], "running",
+            "`--start` starts every service this home declares, not only what the apply made: \
+             {listed}"
+        );
+    }
 }

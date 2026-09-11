@@ -238,12 +238,16 @@ async fn planned_with(slug: &str, programs: &[&str]) -> mixengine_proto::Bluepri
 
     plan(
         &store,
-        slug,
-        &filed,
-        "shop",
-        std::path::Path::new("/projects/shop"),
-        &[],
-        &a_path_holding(&temp, programs),
+        &mixengine_core::generate::Catalogue::builtin(),
+        &mixengine_core::blueprints::plan::Wanted {
+            blueprint: slug,
+            filed: &filed,
+            project: "shop",
+            root: std::path::Path::new("/projects/shop"),
+            answers: &[],
+            scaffold_path: &a_path_holding(&temp, programs),
+            front_end: false,
+        },
     )
     .await
     .expect("a plan")

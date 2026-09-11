@@ -542,3 +542,214 @@ async fn a_daemon_waits_for_a_holder_that_is_leaving_and_then_takes_the_home() {
         "the daemon that waited is the one holding the home now"
     );
 }
+
+/// **`service.set_autostart` writes the column and every reading reports it** — roadmap task T112.
+///
+/// Against a real socket rather than against `core::services::set_autostart`, because what this
+/// task added is a *method*: the column and the writer behind it are unit-tested where they live,
+/// and the thing that could be wrong here is the dispatcher arm, the refusal for a service nothing
+/// declares, and whether `service.list` carries the answer back.
+#[tokio::test]
+async fn a_service_is_told_to_start_with_the_daemon_and_says_so_afterwards() {
+    let home = Home::new();
+    let daemon = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@flagged")],
+    )
+    .await;
+
+    assert!(
+        !record(&home, "fakeservice@flagged").await.autostart,
+        "nothing carries the flag until somebody sets it"
+    );
+    assert_eq!(
+        listed(&home, "fakeservice@flagged").await["autostart"],
+        serde_json::json!(false),
+        "a listing reports the column rather than omitting it"
+    );
+
+    let answer = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@flagged", "autostart": true }),
+    )
+    .await;
+
+    assert!(
+        answer.get("error").is_none(),
+        "setting autostart was refused: {answer}"
+    );
+    assert_eq!(
+        answer["result"]["autostart"],
+        serde_json::json!(true),
+        "the answer is the service as it now is"
+    );
+
+    assert!(
+        record(&home, "fakeservice@flagged").await.autostart,
+        "the column was not written"
+    );
+    assert_eq!(
+        listed(&home, "fakeservice@flagged").await["autostart"],
+        serde_json::json!(true),
+        "a listing does not agree with the row it is made of"
+    );
+
+    stop(daemon.0.id());
+    home.wait_until_gone().await;
+}
+
+/// **A setting accepted for a service nobody declares is a row nobody can read back** — T112.
+#[tokio::test]
+async fn setting_autostart_on_a_service_that_does_not_exist_is_refused() {
+    let home = Home::new();
+    let daemon = start(&home).await;
+
+    let answer = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@absent", "autostart": true }),
+    )
+    .await;
+
+    assert!(
+        answer.get("error").is_some(),
+        "a service nothing declares was accepted: {answer}"
+    );
+
+    stop(daemon.0.id());
+    home.wait_until_gone().await;
+}
+
+/// One service out of `service.list`, as the daemon writes it.
+async fn listed(home: &Home, id: &str) -> serde_json::Value {
+    let answer =
+        mixengine_testkit::call(home.endpoint(), "service.list", serde_json::json!(null)).await;
+
+    answer["result"]["services"]
+        .as_array()
+        .unwrap_or_else(|| panic!("`service.list` answers a list: {answer}"))
+        .iter()
+        .find(|summary| summary["id"] == serde_json::json!(id))
+        .unwrap_or_else(|| panic!("`{id}` is in the listing: {answer}"))
+        .clone()
+}
+
+/// **The next daemon starts what the last one was told to start** — roadmap task T113.
+///
+/// The whole of the task from the end a person is at: a service is flagged, the daemon holding the
+/// home is stopped, and the daemon that takes the home over leaves that service running with nobody
+/// having asked it to. The reason on the row is the walk's own, not `Requested`: an event saying
+/// somebody asked would make the setting a way to forge a request.
+#[tokio::test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+async fn the_next_daemon_starts_what_the_last_one_was_told_to_start() {
+    let home = Home::new();
+
+    let first = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@flagged")],
+    )
+    .await;
+
+    let set = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@flagged", "autostart": true }),
+    )
+    .await;
+    assert!(set.get("error").is_none(), "setting autostart: {set}");
+
+    // Stopped rather than killed: what this test is about is the *next* start, and a home whose
+    // last daemon was killed reaches the recovery path instead, which is a different task's claim.
+    stop(first.0.id());
+    home.wait_until_gone().await;
+    drop(first);
+
+    let second = start(&home).await;
+    home.wait_until_daemon_log_says("starting what asked to start with the daemon")
+        .await;
+
+    assert!(
+        reaches(&home, "fakeservice@flagged", ServiceState::Running).await,
+        "a service set to start with the daemon is not running after one started"
+    );
+
+    stop(second.0.id());
+    home.wait_until_gone().await;
+}
+
+/// **A home where nothing carries the flag starts nothing** — roadmap task T113.
+///
+/// The default, and the one every existing home and every fixture has: the walk is built from the
+/// flagged rows, so an empty set is an empty plan and the daemon does what it has always done.
+#[tokio::test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+async fn a_home_where_nothing_is_flagged_starts_nothing() {
+    let home = Home::new();
+
+    let first = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@unflagged")],
+    )
+    .await;
+
+    stop(first.0.id());
+    home.wait_until_gone().await;
+    drop(first);
+
+    let second = start(&home).await;
+    home.wait_until_daemon_log_says("listening for clients")
+        .await;
+
+    // Given a moment rather than read the instant the endpoint opens: a walk that wrongly started
+    // this service would take one to do it, and an assertion made immediately would pass either
+    // way. Two seconds and not the twenty `reaches` waits — this is a window for something to go
+    // wrong in, not a wait for something to arrive, so its length is about how long a wrong walk
+    // takes to get going and every second past that is a second of nothing.
+    tokio::time::sleep(Duration::from_secs(2)).await;
+
+    assert_eq!(
+        record(&home, "fakeservice@unflagged").await.state,
+        ServiceState::Stopped,
+        "a service nobody flagged was started by the daemon"
+    );
+
+    stop(second.0.id());
+    home.wait_until_gone().await;
+}
+
+/// Whether `id` reaches `wanted` within the window a loaded runner needs, reading the row.
+///
+/// `false` rather than a panic when it does not, so both callers above can assert in their own
+/// direction — one waits for a state to arrive and the other waits to be sure it does not.
+async fn reaches(home: &Home, id: &str, wanted: ServiceState) -> bool {
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+
+    loop {
+        if record(home, id).await.state == wanted {
+            return true;
+        }
+
+        if std::time::Instant::now() >= deadline {
+            return false;
+        }
+
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}

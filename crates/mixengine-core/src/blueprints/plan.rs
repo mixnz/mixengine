@@ -40,10 +40,23 @@ use mixengine_proto::{
 
 use crate::blueprints::manifest::PER_PROJECT;
 use crate::blueprints::store::Filed;
+use crate::generate::{Catalogue, recipe::Instancing};
 use crate::{Result, Store, projects, runtimes, services, sites};
 
 /// The token a manifest writes where the project's own name went.
 const TOKEN: &str = "{project}";
+
+/// The front end a `[site]` gets on a home that has none — roadmap task **T115**.
+///
+/// **Caddy, and not a manifest key.** A blueprint may not name a front end: exactly one runs at a
+/// time per home (T37), the choice is the home's and lives in `service.set_front_end`, and a
+/// manifest that named one would apply differently on a machine that had already chosen. What
+/// travels between machines is *this project is served over HTTP*, which `[site]` already says.
+///
+/// Caddy because it is this product's documented default and the server the warm-start budget was
+/// measured against. A home that has chosen Nginx keeps it: the rule only fires where there is no
+/// front end at all.
+const FRONT_END: &str = "caddy";
 
 /// The longest name MySQL and MariaDB accept for an account.
 ///
@@ -52,11 +65,45 @@ const TOKEN: &str = "{project}";
 /// halfway through an apply is finding it out too late.
 const DATABASE_USER_LIMIT: usize = 32;
 
+/// What one apply is being planned for: everything the caller decided, in one value.
+///
+/// **A struct and not nine parameters**, which is what it was until T115 added the ninth. The
+/// grouping is not arbitrary: `store` and the [`Catalogue`] are *this machine*, and everything here
+/// is *this request* — which is also the split that decides what a second caller would have to
+/// supply.
+#[derive(Debug, Clone, Copy)]
+pub struct Wanted<'a> {
+    /// The slug this plan is for, carried through to [`BlueprintPlan::blueprint`].
+    pub blueprint: &'a str,
+
+    /// The manifest and how it arrived — its source, and whether anything vouched for it.
+    pub filed: &'a Filed,
+
+    /// What the new project is called, and what `{project}` expands to.
+    pub project: &'a str,
+
+    /// Where it would live. Absolute.
+    pub root: &'a Path,
+
+    /// The answers to the version questions this plan raises — roadmap task **T78**.
+    pub answers: &'a [VersionAnswer],
+
+    /// The `PATH` a `[scaffold]` command would run with — `<home>/bin`, then the daemon's own.
+    ///
+    /// Handed in rather than read here, so that a dry run and an apply judge the same string and a
+    /// test can hand in a directory of its own (roadmap task **T78b**, its design's D3).
+    pub scaffold_path: &'a std::ffi::OsStr,
+
+    /// Whether to plan a front end where this home has none — roadmap task **T115**.
+    ///
+    /// Off is the default everywhere: an apply is about a project, and provisioning the machine it
+    /// runs on is a wider thing that is asked for rather than assumed.
+    pub front_end: bool,
+}
+
 /// What applying `manifest` under `project` would do.
 ///
-/// `scaffold_path` is the `PATH` a `[scaffold]` command would run with — `<home>/bin`, then the
-/// daemon's own — handed in rather than read here, so that a dry run and an apply judge the same
-/// string and a test can hand in a directory of its own (roadmap task **T78b**, its design's D3).
+/// What the caller decided is [`Wanted`]; `store` and `catalogue` are this machine.
 ///
 /// # Errors
 ///
@@ -65,13 +112,19 @@ const DATABASE_USER_LIMIT: usize = 32;
 /// plan that could not tell you *why*.
 pub async fn plan(
     store: &Store,
-    blueprint: &str,
-    filed: &Filed,
-    project: &str,
-    root: &Path,
-    answers: &[VersionAnswer],
-    scaffold_path: &std::ffi::OsStr,
+    catalogue: &Catalogue,
+    wanted: &Wanted<'_>,
 ) -> Result<BlueprintPlan> {
+    let &Wanted {
+        blueprint,
+        filed,
+        project,
+        root,
+        answers,
+        scaffold_path,
+        front_end,
+    } = wanted;
+
     let manifest = &filed.manifest;
     let mut steps = Vec::new();
 
@@ -91,6 +144,52 @@ pub async fn plan(
     let (registered, mine) = register(store, project, root, pins).await?;
     steps.push(registered);
     steps.extend(runtimes);
+
+    // **A site needs something to serve it, when the caller asked for one** — roadmap task T115.
+    // `core::sites` is explicit that "a home with no front end renders nothing and this succeeds",
+    // so a manifest with a `[site]` applied to a fresh machine ends with a project, a database, a
+    // site row, a domain, a certificate — and nothing listening. That is the whole of the complaint
+    // this phase is written against, and `services.md` already names it: *"a first run that offers
+    // to do it for them is not built"*.
+    //
+    // **Asked for, and not always**, which is the correction this task made to its own design. An
+    // apply is about a project; provisioning the machine it runs on is a wider thing, and doing it
+    // unasked would make every apply on a home with no web server download one — including the ones
+    // that were deliberately about something else. So `front_end` travels in the request, defaulted
+    // off, and the caller that sets it is the caller whose sentence is *get me a working site*.
+    //
+    // Expressed with the two actions a `[[services]]` entry already produces, so the plan gains two
+    // familiar lines, the wire gains nothing, and the version question — where the package is not
+    // installed — is asked through the machinery a client can already answer. A home that has
+    // chosen a front end, Nginx included, plans `Satisfied` for both and is left alone.
+    //
+    // **Here and not beside the `[site]` step**, which is where it reads: the order of a plan is by
+    // *kind* — project, runtimes, packages, services, databases, site, domains — and it is asserted
+    // by `the_steps_are_in_dependency_order`, so an install and an ensure pushed after the database
+    // steps would be a plan out of order. First among the services rather than last, because it is
+    // the one every site on the machine is reached through and nothing here depends on it.
+    if front_end
+        && manifest.site.is_some()
+        && services::front_end::held_by(store, catalogue)
+            .await?
+            .is_none()
+    {
+        // **The instance name comes from the recipe, never from a convention here.** A front end is
+        // `Instancing::Single` — there is one Caddy, and `service.create` refuses `caddy@main` in as
+        // many words — so a hardcoded `"main"` would plan a step the executor is guaranteed to be
+        // refused on. Asked of the catalogue so that a future front end which is *not* a singleton
+        // is planned correctly without this line being revisited.
+        let instance = match catalogue
+            .recipe(FRONT_END)
+            .map(|recipe| recipe.instancing())
+        {
+            Some(Instancing::Single) | None => FRONT_END,
+            Some(Instancing::Named) => "main",
+        };
+
+        steps.push(package(store, FRONT_END, None).await?);
+        steps.push(ensure(store, FRONT_END, instance, None, false, answers).await?);
+    }
 
     for service in &manifest.services {
         let instance =
@@ -785,6 +884,39 @@ mod tests {
             .expect("the step")
     }
 
+    /// The `InstallPackage` or `EnsureService` step for one package.
+    ///
+    /// **Since T115 a plan holds more than one of each.** A manifest with a `[site]` applied to a
+    /// home with no front end plans Caddy as well, so a test asking for "the install step" would
+    /// get whichever came first and assert about the wrong service.
+    fn for_package<'a>(planned: &'a BlueprintPlan, name: &str) -> Vec<&'a PlanStep> {
+        planned
+            .steps
+            .iter()
+            .filter(|step| match &step.action {
+                PlanAction::InstallPackage { package, .. }
+                | PlanAction::EnsureService { package, .. } => package == name,
+                _ => false,
+            })
+            .collect()
+    }
+
+    /// That package's `InstallPackage` step.
+    fn install_of<'a>(planned: &'a BlueprintPlan, name: &str) -> &'a PlanStep {
+        for_package(planned, name)
+            .into_iter()
+            .find(|step| matches!(step.action, PlanAction::InstallPackage { .. }))
+            .expect("an install step for this package")
+    }
+
+    /// And its `EnsureService` step.
+    fn ensure_of<'a>(planned: &'a BlueprintPlan, name: &str) -> &'a PlanStep {
+        for_package(planned, name)
+            .into_iter()
+            .find(|step| matches!(step.action, PlanAction::EnsureService { .. }))
+            .expect("an ensure step for this package")
+    }
+
     /// Everything the blueprint needs is already here, so only the new project's own things are
     /// created — and `{project}` is expanded exactly once, into the domain.
     #[tokio::test]
@@ -795,12 +927,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -814,11 +950,7 @@ mod tests {
             Disposition::Satisfied
         );
         assert_eq!(
-            step_of(&planned, |action| matches!(
-                action,
-                PlanAction::EnsureService { .. }
-            ))
-            .disposition,
+            ensure_of(&planned, "mariadb").disposition,
             Disposition::Satisfied
         );
         assert_eq!(
@@ -857,12 +989,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -888,12 +1024,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -942,12 +1082,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -972,12 +1116,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            &long,
-            &temp.path().join("long"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: &long,
+                root: &temp.path().join("long"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1003,40 +1151,73 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(manifest),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            &a_path_holding(&temp, &["composer"]),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: true,
+            },
         )
         .await
         .expect("a plan");
 
-        let rank = |action: &PlanAction| match action {
+        // **Tiers, not one rank per action kind** — and the correction is the point. Install,
+        // ensure and create-database are *one* tier because the planner walks a service at a time:
+        // a manifest with two `[[services]]` has always produced install, ensure, install, ensure,
+        // and a rank per kind only looked monotonic because this fixture had one service. T115 made
+        // that visible by adding a front end ahead of them, and what it broke was the assertion and
+        // never the order.
+        let tier = |action: &PlanAction| match action {
             PlanAction::RegisterProject { .. } => 0,
             PlanAction::InstallRuntime { .. } => 1,
-            PlanAction::InstallPackage { .. } => 2,
-            PlanAction::EnsureService { .. } => 3,
-            PlanAction::CreateDatabase { .. } => 4,
-            PlanAction::CreateSite { .. } => 5,
-            PlanAction::AddDomain { .. } => 6,
-            PlanAction::IssueCertificate { .. } => 7,
-            PlanAction::SetPhpExtension { .. } => 8,
-            PlanAction::RunScaffold { .. } => 9,
-            _ => 10,
+            PlanAction::InstallPackage { .. }
+            | PlanAction::EnsureService { .. }
+            | PlanAction::CreateDatabase { .. } => 2,
+            PlanAction::CreateSite { .. } => 3,
+            PlanAction::AddDomain { .. } => 4,
+            PlanAction::IssueCertificate { .. } => 5,
+            PlanAction::SetPhpExtension { .. } => 6,
+            PlanAction::RunScaffold { .. } => 7,
+            _ => 8,
         };
 
-        let ranks: Vec<_> = planned
+        let tiers: Vec<_> = planned
             .steps
             .iter()
-            .map(|step| rank(&step.action))
+            .map(|step| tier(&step.action))
             .collect();
 
         assert!(
-            ranks.windows(2).all(|pair| pair[0] <= pair[1]),
-            "{ranks:?} is not dependency order"
+            tiers.windows(2).all(|pair| pair[0] <= pair[1]),
+            "{tiers:?} is not dependency order"
         );
+
+        // And inside that tier, each service is still install → ensure → database, which is the
+        // half the tiers above no longer say. Read per package, so two services interleaving
+        // cannot hide one of them being out of order.
+        for package in ["caddy", "mariadb"] {
+            let positions: Vec<usize> = planned
+                .steps
+                .iter()
+                .enumerate()
+                .filter(|(_, step)| match &step.action {
+                    PlanAction::InstallPackage { package: named, .. }
+                    | PlanAction::EnsureService { package: named, .. }
+                    | PlanAction::CreateDatabase { package: named, .. } => named == package,
+                    _ => false,
+                })
+                .map(|(position, _)| position)
+                .collect();
+
+            assert!(
+                positions.windows(2).all(|pair| pair[0] < pair[1]),
+                "{package}'s steps are out of order: {positions:?}"
+            );
+        }
     }
 
     /// **D8.** A machine with no MariaDB at all is the ordinary case for the feature's headline
@@ -1048,19 +1229,21 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
 
-        let step = step_of(&planned, |action| {
-            matches!(action, PlanAction::InstallPackage { .. })
-        });
+        let step = install_of(&planned, "mariadb");
         assert_eq!(step.disposition, Disposition::Create);
 
         let PlanAction::InstallPackage { package, wanted } = &step.action else {
@@ -1081,22 +1264,22 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
 
         assert_eq!(
-            step_of(&planned, |action| matches!(
-                action,
-                PlanAction::InstallPackage { .. }
-            ))
-            .disposition,
+            install_of(&planned, "mariadb").disposition,
             Disposition::Satisfied
         );
     }
@@ -1130,12 +1313,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &root,
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1159,12 +1346,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1205,12 +1396,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &root,
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1234,12 +1429,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1268,17 +1467,21 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[VersionAnswer {
-                subject: AnswerSubject::Runtime {
-                    kind: RuntimeKind::Php,
-                },
-                answer: MismatchAnswer::UseInstalled,
-            }],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[VersionAnswer {
+                    subject: AnswerSubject::Runtime {
+                        kind: RuntimeKind::Php,
+                    },
+                    answer: MismatchAnswer::UseInstalled,
+                }],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1316,17 +1519,21 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[VersionAnswer {
-                subject: AnswerSubject::Runtime {
-                    kind: RuntimeKind::Php,
-                },
-                answer: MismatchAnswer::Install,
-            }],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[VersionAnswer {
+                    subject: AnswerSubject::Runtime {
+                        kind: RuntimeKind::Php,
+                    },
+                    answer: MismatchAnswer::Install,
+                }],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1364,28 +1571,28 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[VersionAnswer {
-                subject: AnswerSubject::Service {
-                    id: ServiceId::parse("mariadb@main").expect("an id"),
-                },
-                answer: MismatchAnswer::Install,
-            }],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[VersionAnswer {
+                    subject: AnswerSubject::Service {
+                        id: ServiceId::parse("mariadb@main").expect("an id"),
+                    },
+                    answer: MismatchAnswer::Install,
+                }],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
 
         assert!(
             matches!(
-                &step_of(&planned, |action| matches!(
-                    action,
-                    PlanAction::EnsureService { .. }
-                ))
-                .disposition,
+                &ensure_of(&planned, "mariadb").disposition,
                 Disposition::Blocked { reason } if reason.contains("use_installed")
             ),
             "{planned:?}"
@@ -1406,12 +1613,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(manifest),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            &a_path_holding(&temp, &["composer"]),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1447,12 +1658,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "borrowed",
-            &imported(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "borrowed",
+                filed: &imported(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1472,12 +1687,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(manifest),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            &a_path_holding(&temp, &["composer"]),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1504,12 +1723,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(manifest),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1545,12 +1768,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &temp.path().join("shop"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
@@ -1579,23 +1806,23 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(manifest),
-            "My Blog",
-            &temp.path().join("my blog"),
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "My Blog",
+                root: &temp.path().join("my blog"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");
 
         assert!(
             matches!(
-                &step_of(&planned, |action| matches!(
-                    action,
-                    PlanAction::EnsureService { .. }
-                ))
-                .disposition,
+                &ensure_of(&planned, "mariadb").disposition,
                 Disposition::Blocked { reason } if reason.contains("mariadb@My Blog")
             ),
             "{planned:?}"
@@ -1623,12 +1850,16 @@ mod tests {
 
         let planned = plan(
             &store,
-            "blog-stack",
-            &captured(a_manifest()),
-            "shop",
-            &root,
-            &[],
-            nowhere(),
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
         )
         .await
         .expect("a plan");

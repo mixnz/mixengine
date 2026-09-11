@@ -83,7 +83,14 @@ binaries. What they state is what the daemon **writes** —
    site's domain — and says the same three things `mix` says: which account, that the password comes
    from the OS keyring when the pool starts, and that nothing writes it to disk.
 4. **Services** — the settings a service accepts (port, bind, data dir, limits, autostart, idle
-   timeout) as data, not as a rendered form; the generated config readable back for display only;
+   timeout) as data, not as a rendered form;
+   **and `autostart` is one of them since T112, which it was not when this line was written.** The
+   column existed from `0001_initial.sql`, `service.create` wrote it, and nothing read it: no
+   member on `ServiceSummary`, no method to change it, and no caller in the boot path. It is now
+   `ServiceSummary::autostart` and `service.set_autostart`, and **T113** is what acts on it — a
+   start plan over the flagged services, walked once after the endpoint is serving, so a service
+   something flagged depends on comes up too. That is the one thing in this page that a client
+   could not draw, found by a person using the product rather than by reading; the generated config readable back for display only;
    credentials fetched on demand; validation failures returned per field, not as one string. **And,
    for a database service, where it can be opened — T83**: whether a desktop database client is
    installed to hand the connection to, and the handoff itself, answered per service so a client

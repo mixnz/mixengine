@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped\n         FROM services WHERE id = ?",
+  "query": "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,\n                autostart\n         FROM services WHERE id = ?",
   "describe": {
     "columns": [
       {
@@ -79,6 +79,17 @@
             "name": "idle_stopped"
           }
         }
+      },
+      {
+        "name": "autostart",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "autostart"
+          }
+        }
       }
     ],
     "parameters": {
@@ -91,8 +102,9 @@
       true,
       true,
       true,
+      false,
       false
     ]
   },
-  "hash": "fff574e11c2cd7a62e1f4535ec4a7f904df940006396121984eefc9da0612544"
+  "hash": "4f97e44bf2229bcbd7f754d2fc31b083e1706111e783f96d95c380e4c518d008"
 }

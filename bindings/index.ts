@@ -245,6 +245,7 @@ export * from "./RuntimeTarget";
 export * from "./RuntimeUninstall";
 export * from "./ScaffoldConsent";
 export * from "./SecretAddress";
+export * from "./ServiceAutostartSet";
 export * from "./ServiceCreate";
 export * from "./ServiceCreation";
 export * from "./ServiceDelete";

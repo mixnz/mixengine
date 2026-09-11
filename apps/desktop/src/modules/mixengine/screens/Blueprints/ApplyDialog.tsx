@@ -31,6 +31,24 @@ interface Props {
   blueprint: BlueprintSummary;
   onCancel: () => void;
   onDone: () => void;
+
+  /** Điền sẵn tên project. Quick Start đã hỏi rồi, người dùng không phải gõ lại — T117. */
+  initialProject?: string;
+
+  /** Điền sẵn thư mục, cùng lý do. */
+  initialRoot?: string;
+
+  /**
+   * Cài luôn web server nếu home này chưa có — `BlueprintApply.front_end`, T115.
+   *
+   * Mặc định **tắt**: một apply là chuyện của một project, còn dựng sẵn cái máy nó chạy trên là
+   * chuyện rộng hơn và phải được hỏi. Quick Start là chỗ duy nhất bật nó, vì câu của nó đúng là
+   * *cho tôi một site chạy được*.
+   */
+  withFrontEnd?: boolean;
+
+  /** Đánh dấu service apply này **tạo ra** là khởi động cùng MixEngine — T116. Mặc định tắt. */
+  autostart?: boolean;
 }
 
 type Phase =
@@ -44,10 +62,18 @@ type Phase =
  * Một method (`blueprint.apply`), gọi hai lượt. Lượt 1 (`dry_run: true`) chỉ đọc; lượt 2
  * (`dry_run: false`) là lượt duy nhất thật sự làm gì, và chỉ gửi được sau khi `canApply` đồng ý.
  */
-export default function ApplyDialog({ blueprint, onCancel, onDone }: Props) {
+export default function ApplyDialog({
+  blueprint,
+  onCancel,
+  onDone,
+  initialProject = "",
+  initialRoot = "",
+  withFrontEnd = false,
+  autostart = false,
+}: Props) {
   const { t } = useTranslation();
-  const [project, setProject] = useState("");
-  const [root, setRoot] = useState("");
+  const [project, setProject] = useState(initialProject);
+  const [root, setRoot] = useState(initialRoot);
   const [phase, setPhase] = useState<Phase>({ kind: "form" });
   const [choices, setChoices] = useState<Record<number, MismatchAnswer>>({});
   const [scaffoldAgreed, setScaffoldAgreed] = useState(false);
@@ -71,6 +97,8 @@ export default function ApplyDialog({ blueprint, onCancel, onDone }: Props) {
         project,
         root,
         dry_run: true,
+        front_end: withFrontEnd,
+        autostart,
       });
       if (response.outcome === "planned") {
         setChoices({});
@@ -100,6 +128,10 @@ export default function ApplyDialog({ blueprint, onCancel, onDone }: Props) {
         dry_run: false,
         answers: buildAnswers(plan.steps, choices),
         scaffold: scaffold ?? undefined,
+        // Gửi ở cả hai lượt: kế hoạch người ta đọc phải là kế hoạch chạy, nên một cờ đổi kế hoạch
+        // không được thêm vào sau lượt dry run.
+        front_end: withFrontEnd,
+        autostart,
       });
       if (response.outcome === "started") {
         setPhase({ kind: "running", jobId: response.job.id });
