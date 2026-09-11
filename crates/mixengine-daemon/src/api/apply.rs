@@ -81,11 +81,14 @@ impl Api {
             .expect("`blueprint.apply` is a method name, which is what a job kind is");
         let api = Arc::clone(self);
         let consent = asked.scaffold.clone();
+        let autostart = asked.autostart;
 
         let started = self
             .jobs
             .begin(&kind, move |handle| async move {
-                let applied = api.perform(&plan, &manifest, consent, &handle).await?;
+                let applied = api
+                    .perform(&plan, &manifest, consent, autostart, &handle)
+                    .await?;
 
                 serde_json::to_value(applied).map_err(|error| {
                     Error::new(
@@ -108,6 +111,7 @@ impl Api {
         plan: &BlueprintPlan,
         manifest: &BlueprintManifest,
         consent: Option<ScaffoldConsent>,
+        autostart: bool,
         handle: &JobHandle,
     ) -> Result<BlueprintApplied, Error> {
         let mut context = Context {
@@ -116,6 +120,7 @@ impl Api {
             ensured: Vec::new(),
             ledger: ledger::Ledger::default(),
             consent,
+            autostart,
             // **Nothing is written until every version is known** (D9). A plan holds constraints,
             // and only the index can say which release satisfies one — so it is asked here, where a
             // failure costs nothing because the ledger is still empty.
@@ -269,7 +274,10 @@ impl Api {
                     port: None,
                     bind_addr: None,
                     data_dir: None,
-                    autostart: None,
+                    // **T116.** Only reached for an instance this apply is creating — a step that
+                    // planned `Satisfied` never gets here — so the flag cannot re-decide a service
+                    // somebody else's project left stopped on purpose.
+                    autostart: Some(context.autostart),
                     overrides: None,
                 })
                 .await?;

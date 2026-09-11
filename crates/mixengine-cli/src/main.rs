@@ -711,6 +711,13 @@ enum BlueprintCommand {
         #[arg(long)]
         with_front_end: bool,
 
+        /// Start the services this apply creates whenever MixEngine starts.
+        ///
+        /// Only what it creates: a server this home already had is left as its owner set it. Read
+        /// and changed afterwards with `mix service autostart`.
+        #[arg(long)]
+        autostart: bool,
+
         /// Answer every version question by using what this machine already has.
         #[arg(long)]
         use_installed: bool,
@@ -3749,6 +3756,10 @@ async fn blueprint(
             install_missing,
             use_installed,
             with_front_end,
+            // Bound under another name: `autostart` in this function is already the daemon
+            // autostarter every command carries — `mix autostart` is about the daemon and this flag
+            // is about the services an apply creates.
+            autostart: services_autostart,
             run_scaffold,
             run_untrusted_scaffold,
             grant,
@@ -3773,6 +3784,7 @@ async fn blueprint(
                 // feature's own acceptance criterion true: `--dry-run` prints the actions the real
                 // run performs, so a flag that changed the plan may not be added afterwards.
                 front_end: with_front_end,
+                autostart: services_autostart,
             };
 
             // **The plan comes first either way** (the T78 design, D6). A dry run stops here; a real

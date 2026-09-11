@@ -12,6 +12,8 @@
 - `mix blueprint apply --with-front-end` installs a web server too where the machine has none, so a
   blueprint with a site no longer ends with a site nothing serves. A machine that already has one —
   Caddy or nginx — is left alone.
+- `mix blueprint apply --autostart` marks the services it creates to start with MixEngine. Services
+  the apply found already there keep whatever their owner set.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database

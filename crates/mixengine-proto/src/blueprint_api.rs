@@ -131,6 +131,21 @@ pub struct BlueprintApply {
     /// Defaulted, so a request written before this task still decodes and still means what it did.
     #[serde(default)]
     pub front_end: bool,
+
+    /// Whether the services this apply **creates** start with the daemon — roadmap task **T116**.
+    ///
+    /// **Only what it creates.** A shared MariaDB somebody deliberately leaves stopped is not
+    /// something a second project gets to re-decide, so a step that plans
+    /// [`Satisfied`](crate::Disposition::Satisfied) is untouched — which also means a second apply
+    /// of the same blueprint sets nothing, and the flag is a statement about the machine this apply
+    /// is building rather than a repair of one it found.
+    ///
+    /// **Defaulted to `false`, and the default is a constraint rather than a taste.**
+    /// `crates/mixengine-cli/tests/warm_start.rs` is the `bench` job and times a single
+    /// `mix service start`; a fixture that quietly turned this on would put a boot walk beside that
+    /// measurement and make the number mean something else.
+    #[serde(default)]
+    pub autostart: bool,
 }
 
 /// Agreement to run one command, naming the command.

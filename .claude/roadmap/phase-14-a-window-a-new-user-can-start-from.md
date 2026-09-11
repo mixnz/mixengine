@@ -91,10 +91,18 @@ readable, writable setting since it was written, and nothing has ever read the c
       now asserted per package. `plan()` took its parameters as a `Wanted` struct in the same
       stroke, because the ninth argument is where clippy stops counting.
 
-- [ ] **T116** An apply can hand on the autostart flag (D7). `BlueprintApply.autostart`, defaulted
+- [x] **T116** An apply can hand on the autostart flag (D7). `BlueprintApply.autostart`, defaulted
       **false** — the default is a constraint and not a taste, because `warm_start.rs` times a
       single `mix service start` and a boot walk racing it would make the `bench` job meaningless.
-      Set on every service the apply creates, on nothing it finds.
+      Set on every service the apply creates, on nothing it finds. `mix blueprint apply --autostart`.
+      **Two things this task settled.** "Only what this apply made" is true by construction rather
+      than by a check: the flag is read on the `EnsureService` branch that *creates* an instance,
+      and a step that planned `Satisfied` never reaches `service.create` at all — which also makes a
+      second apply of the same blueprint set nothing. And the flag needed a fixture with a service
+      and **no** `[site]` (`tests/fixtures/with-a-service.toml`), because T115 plans a front end for
+      a manifest that has one and this suite is offline: `fakeservice`'s package row is already
+      there from `declare::package`, so the install plans `Satisfied` and the instance is the one
+      thing created.
 
 - [ ] **T117** One action gets a new user a website (D8, D9). The Quick Start card on the Dashboard,
       drawn only when `site.list` is empty, over the `ApplyDialog` that already renders a plan, the

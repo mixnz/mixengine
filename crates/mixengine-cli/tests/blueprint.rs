@@ -12,6 +12,8 @@
 mod harness;
 
 use harness::{Home, json, stdout};
+use mixengine_testkit::Service;
+use serde_json::Value;
 
 /// A directory to register.
 fn repository() -> tempfile::TempDir {
@@ -392,5 +394,116 @@ async fn a_site_blueprint_plans_no_front_end_unless_it_is_asked_to() {
             .iter()
             .all(|step| step["action"]["package"] != "caddy"),
         "an apply nobody asked for a web server plans none: {planned}"
+    );
+}
+
+/// **`--autostart` reaches the service the apply creates, and nothing it found** — roadmap task T116.
+///
+/// The whole of what the flag claims, from the end a person is at. The fixture declares one
+/// `fakeservice` instance and no site, so this stays offline: the package row is already there from
+/// `home.declare`, the install step plans `Satisfied`, and the instance is the one thing created.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_hands_the_autostart_setting_to_what_it_creates() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    // Writes the `fakeservice` package row, which is what keeps the install step offline — and a
+    // service of its own, which is the one this apply must *not* re-decide. The async form, because
+    // `Home::declare` builds a runtime of its own and this test already is one.
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@untouched")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    let applied = stdout(&home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--autostart",
+        "--json",
+    ]));
+    assert!(!applied.contains("\"failed\""), "a step failed: {applied}");
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+    let services = listed["services"].as_array().expect("a list of services");
+
+    let made = services
+        .iter()
+        .find(|service| service["id"] == "fakeservice@shop")
+        .unwrap_or_else(|| panic!("the apply made an instance: {listed}"));
+    assert_eq!(
+        made["autostart"],
+        Value::Bool(true),
+        "what the apply made carries the setting: {listed}"
+    );
+
+    let found = services
+        .iter()
+        .find(|service| service["id"] == "fakeservice@untouched")
+        .unwrap_or_else(|| panic!("the service that was already here: {listed}"));
+    assert_eq!(
+        found["autostart"],
+        Value::Bool(false),
+        "a service this apply did not make is not re-decided: {listed}"
+    );
+}
+
+/// **And without the flag, nothing carries it** — roadmap task T116.
+///
+/// The default is a constraint rather than a taste: `warm_start.rs` is the `bench` job and times a
+/// single `mix service start`, so an apply that quietly set this would put a boot walk beside that
+/// measurement.
+#[tokio::test(flavor = "multi_thread")]
+async fn an_apply_sets_no_autostart_unless_it_is_asked_to() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    mixengine_testkit::create(
+        home.endpoint_ref(),
+        &home.database_file(),
+        &[Service::new("fakeservice@untouched")],
+    )
+    .await;
+
+    let fixture =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    home.mix(&["blueprint", "import", &fixture.display().to_string()]);
+
+    let directory = repository();
+    let into = directory.path().join("shop").display().to_string();
+
+    home.mix(&[
+        "blueprint",
+        "apply",
+        "with-a-service",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--json",
+    ]);
+
+    let listed = json(&home.mix(&["service", "list", "--json"]));
+
+    assert!(
+        listed["services"]
+            .as_array()
+            .expect("a list of services")
+            .iter()
+            .all(|service| service["autostart"] == Value::Bool(false)),
+        "an apply nobody asked set nothing: {listed}"
     );
 }

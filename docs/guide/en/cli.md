@@ -605,6 +605,7 @@ mix blueprint apply <BLUEPRINT> [OPTIONS]
 | `--dry-run` | Stop after planning, and print the plan. Sent as it is typed rather than insisted on here: whether this build can carry an apply out is the daemon's to say, and a client that refused to ask would be holding a rule of its own. |
 | `--install-missing` | Answer every version question by installing what the blueprint asks for |
 | `--with-front-end` | Install a web server too, where this home has none. A home with no front end serves no site, and nothing installs one by itself. With this, a blueprint that declares a site plans the default web server as well — and a home that already has one, Caddy or nginx, is left alone. |
+| `--autostart` | Start the services this apply creates whenever MixEngine starts. Only what it creates: a server this home already had is left as its owner set it. Read and changed afterwards with `mix service autostart`. |
 | `--use-installed` | Answer every version question by using what this machine already has |
 | `--run-scaffold` | Run the blueprint's own `[scaffold]` command without asking first. For a blueprint the gallery signed. An unsigned one takes the other flag, and neither covers the other: a script that runs somebody's unsigned command should say so on the line that does it. |
 | `--run-untrusted-scaffold` | Run an **untrusted** blueprint's own `[scaffold]` command without asking first. Nothing vouches for what this runs. The command is still printed before it starts. |

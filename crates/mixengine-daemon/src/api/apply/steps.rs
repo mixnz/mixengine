@@ -41,6 +41,13 @@ pub(crate) struct Context {
     /// The agreement to run the blueprint's own command, if the request carried one — roadmap task
     /// **T78a**. Already checked against this plan before the job began.
     pub(crate) consent: Option<ScaffoldConsent>,
+
+    /// Whether the services this apply creates start with the daemon — roadmap task **T116**.
+    ///
+    /// Read by the `EnsureService` step and by nothing else, and only on the branch that *creates*
+    /// an instance: a step that planned `Satisfied` never reaches `service.create`, which is what
+    /// makes "only what this apply made" true by construction rather than by a check.
+    pub(crate) autostart: bool,
 }
 
 impl Context {
