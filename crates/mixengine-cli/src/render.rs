@@ -738,17 +738,15 @@ pub(crate) fn service_list(list: &ServiceList) -> String {
         return "no services are declared in this home\n".to_owned();
     }
 
-    let rows: Vec<[String; 5]> = list
+    let rows: Vec<[String; 6]> = list
         .services
         .iter()
         .map(|service| {
             [
                 service.id.to_string(),
                 state(service),
-                match service.supervised {
-                    true => "yes".to_owned(),
-                    false => "no".to_owned(),
-                },
+                yes_no(service.autostart),
+                yes_no(service.supervised),
                 service
                     .pid
                     .map_or_else(|| MISSING.to_owned(), |pid| pid.to_string()),
@@ -757,9 +755,46 @@ pub(crate) fn service_list(list: &ServiceList) -> String {
         })
         .collect();
 
+    // `AUTOSTART` beside `STATE` rather than out at the end — roadmap task T112. The two are the
+    // question somebody scanning this table is actually asking: what is running, and what will be
+    // running after the next login.
     table(
-        ["SERVICE", "STATE", "SUPERVISED", "PID", "DEPENDS ON"],
+        [
+            "SERVICE",
+            "STATE",
+            "AUTOSTART",
+            "SUPERVISED",
+            "PID",
+            "DEPENDS ON",
+        ],
         &rows,
+    )
+}
+
+/// A boolean as a table cell.
+fn yes_no(value: bool) -> String {
+    match value {
+        true => "yes".to_owned(),
+        false => "no".to_owned(),
+    }
+}
+
+/// `mix service autostart <service>`, for a person — roadmap task **T112**.
+///
+/// **Two sentences and not one word.** The setting alone would leave somebody reading `no` beside a
+/// service that does start at every login, because a start plan pulls in what the flagged services
+/// depend on — so the second line says that out loud rather than leaving it to the help text of a
+/// command they have already run.
+pub(crate) fn service_autostart(service: &ServiceSummary) -> String {
+    let answer = match service.autostart {
+        true => "starts with MixEngine",
+        false => "does not start with MixEngine",
+    };
+
+    format!(
+        "{} — {answer}\n  note        anything a service that does start depends on is started too, \
+         whether or not it is set here\n",
+        service.id
     )
 }
 
@@ -772,6 +807,7 @@ pub(crate) fn service_status(service: &ServiceSummary) -> String {
     };
 
     field("supervised", if service.supervised { "yes" } else { "no" });
+    field("autostart", if service.autostart { "yes" } else { "no" });
 
     if let Some(pid) = service.pid {
         field("pid", &pid.to_string());
@@ -4882,6 +4918,7 @@ mod tests {
             last_exit_code: None,
             depends_on: Vec::new(),
             role: Some(mixengine_proto::ServiceRole::Other {}),
+            autostart: false,
         }
     }
 
@@ -4968,12 +5005,15 @@ mod tests {
 
         assert_eq!(
             lines[0],
-            "SERVICE       STATE    SUPERVISED  PID   DEPENDS ON"
+            "SERVICE       STATE    AUTOSTART  SUPERVISED  PID   DEPENDS ON"
         );
-        assert_eq!(lines[1], "mariadb@main  running  yes         4123  —");
+        assert_eq!(
+            lines[1],
+            "mariadb@main  running  no         yes         4123  —"
+        );
         assert_eq!(
             lines[2],
-            "php           stopped  no          —     mariadb@main"
+            "php           stopped  no         no          —     mariadb@main"
         );
     }
 

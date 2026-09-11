@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- `mix service autostart <service> --on|--off` reads and sets whether a service starts with
+  MixEngine, and `mix service list` has an `AUTOSTART` column.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database

@@ -1079,6 +1079,28 @@ mix service idle <SERVICE> [OPTIONS]
 | `--never` | Never stop it for being unused, whatever a later release makes the default |
 | `--default` | Go back to whatever its recipe wants, which in this build is never |
 
+### mix service autostart
+
+Whether this service starts when MixEngine does.
+
+With no flag: read it. `mix autostart` is a different question — whether this *machine* starts a
+daemon for this home when you log in.
+
+A service that something set here depends on is started too, whether or not it is set itself: a pool
+whose database is missing is a pool that fails its health check.
+
+Setting this starts and stops nothing. What it changes is what the next daemon start walks.
+
+```
+mix service autostart <SERVICE> [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `<SERVICE>` | The service to read or set |
+| `--on` | Start it when MixEngine starts |
+| `--off` | Do not |
+
 ### mix service create
 
 Create a service from an installed package.

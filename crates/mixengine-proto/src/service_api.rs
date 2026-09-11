@@ -184,6 +184,42 @@ pub struct ServiceSummary {
     /// behind this already gives such a row when it passes over it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub role: Option<ServiceRole>,
+
+    /// Whether this service starts when the daemon does — roadmap task **T112**.
+    ///
+    /// **The setting and not a prediction**: it says what the column holds, not whether the service
+    /// will in fact be running after the next login, which depends on a port being free and a
+    /// program still being there.
+    ///
+    /// `false` for a service that is declared and has no row, on the same rule `state` and `port`
+    /// follow: a service with no row has no setting to report, exactly as it has no state.
+    ///
+    /// **Defaulted**, on [ADR 0020]'s rule that the published contract is the shape the daemon
+    /// writes: a client older than T112 keeps parsing what a newer daemon says, and one newer than
+    /// a daemon that predates this member reads `false` — which is what every home had before
+    /// anybody could set it.
+    ///
+    /// [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
+    #[serde(default)]
+    pub autostart: bool,
+}
+
+/// What `service.set_autostart` takes: one service, and whether it starts with the daemon.
+///
+/// **A `bool` and not an `Option<bool>`.** [`ServiceIdleSet`] has three states because an absent
+/// value restores the recipe's own default; no recipe declares an autostart, so there is no third
+/// state for one to restore and an option would be a case every client had to decide about for
+/// nothing.
+///
+/// Roadmap task **T112**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct ServiceAutostartSet {
+    /// The service to change.
+    pub service: ServiceId,
+
+    /// What it should be.
+    pub autostart: bool,
 }
 
 /// What a service is *for*, where two packages can be for the same thing — roadmap task **T97**.
@@ -471,6 +507,7 @@ mod tests {
             last_exit_code: None,
             depends_on: Vec::new(),
             role: Some(ServiceRole::Other {}),
+            autostart: false,
         }
     }
 
@@ -681,6 +718,7 @@ mod tests {
             last_exit_code: None,
             depends_on: Vec::new(),
             role: None,
+            autostart: false,
         };
 
         let encoded = serde_json::to_value(&summary).unwrap();

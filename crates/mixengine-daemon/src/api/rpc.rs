@@ -21,10 +21,11 @@ use mixengine_proto::{
     JobQuery, JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
     MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery,
     ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall,
-    ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec, ServiceSummary,
-    ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare, SiteUpdate,
-    UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
+    ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet,
+    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec,
+    ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare,
+    SiteUpdate, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
+    UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -739,6 +740,11 @@ async fn call_method(
                 rpc::method::SERVICE_SET_IDLE => {
                     let asked: ServiceIdleSet = arguments(params)?;
                     encode_result(&api.service_set_idle(&asked).await.map_err(refused)?)
+                }
+
+                rpc::method::SERVICE_SET_AUTOSTART => {
+                    let asked: ServiceAutostartSet = arguments(params)?;
+                    encode_result(&api.service_set_autostart(&asked).await.map_err(refused)?)
                 }
 
                 rpc::method::SERVICE_SET_FRONT_END => {
@@ -1590,6 +1596,33 @@ impl Api {
         .await
     }
 
+    /// `service.set_autostart` — replace whether this service starts when the daemon does.
+    ///
+    /// **Nothing is applied here**, on [`Self::service_set_idle`]'s reasoning: what this changes is
+    /// what the walk at the next daemon start covers, and starting the service now would answer a
+    /// different question than the one asked.
+    ///
+    /// Answers the service as it now is rather than a report of its own, unlike `set_idle` beside
+    /// it: an idle policy has four readings that all look alike from outside and needs a type to
+    /// tell them apart, where this one is a column with two values and a [`ServiceSummary`] already
+    /// carries it. Roadmap task **T112**.
+    async fn service_set_autostart(
+        &self,
+        asked: &ServiceAutostartSet,
+    ) -> Result<ServiceSummary, Error> {
+        let id = asked.service.clone();
+
+        // Refused for a service nothing declares before anything is written, on `set_idle`'s
+        // reasoning: a setting accepted for a name nobody has is a row nobody can read back.
+        let _ = self.spec_of(&id).await?;
+
+        mixengine_core::services::set_autostart(&self.store, &id, asked.autostart)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        self.service_status(&id).await
+    }
+
     /// What is holding `id` open right now, whatever its policy says.
     ///
     /// **Reads the same two things the sweeper reads, through the same function**, so the report
@@ -1983,6 +2016,10 @@ pub(super) fn summary(
             .map(|dependencies| dependencies.iter().cloned().collect())
             .unwrap_or_default(),
         role: Some(role_of(catalogue, id)),
+        // The row's column, on `port`'s rule: a service with no row has no setting to report,
+        // exactly as it has no state — and `false` is the reading that cannot be acted on, which is
+        // the safer of the two for something a boot walk reads.
+        autostart: record.is_some_and(|record| record.autostart),
     }
 }
 

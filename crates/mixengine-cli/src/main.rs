@@ -46,8 +46,8 @@ use mixengine_proto::{
     ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
     ProjectUpdate, Reclaim, Removal, RepairReport, ResolvedRuntime, ResourceLimits,
     RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
-    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceCreate,
-    ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceAutostartSet,
+    ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
     ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary,
     ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind,
     SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare, SiteSharing, SiteState,
@@ -1558,6 +1558,29 @@ enum ServiceCommand {
         /// Go back to whatever its recipe wants, which in this build is never.
         #[arg(long, group = "idle_change")]
         default: bool,
+    },
+
+    /// Whether this service starts when MixEngine does.
+    ///
+    /// With no flag: read it. `mix autostart` is a different question — whether this *machine*
+    /// starts a daemon for this home when you log in.
+    ///
+    /// A service that something set here depends on is started too, whether or not it is set
+    /// itself: a pool whose database is missing is a pool that fails its health check.
+    ///
+    /// Setting this starts and stops nothing. What it changes is what the next daemon start walks.
+    Autostart {
+        /// The service to read or set.
+        #[arg(value_name = "SERVICE", value_parser = service_id)]
+        service: ServiceId,
+
+        /// Start it when MixEngine starts.
+        #[arg(long, group = "autostart_change")]
+        on: bool,
+
+        /// Do not.
+        #[arg(long, group = "autostart_change")]
+        off: bool,
     },
 
     /// Create a service from an installed package.
@@ -5225,6 +5248,38 @@ async fn service(
             };
 
             emit(&rendered(json, &report, || render::service_idle(&report)))?;
+            return Ok(ExitCode::SUCCESS);
+        }
+
+        ServiceCommand::Autostart { service, on, off } => {
+            // The two flags are one `clap` group, so at most one is set and neither means read.
+            let summary: ServiceSummary = match (*on, *off) {
+                (false, false) => {
+                    let query = ServiceQuery {
+                        service: service.clone(),
+                    };
+
+                    ask(&mut client, rpc::method::SERVICE_STATUS, encode(&query)).await?
+                }
+
+                (wanted, _) => {
+                    let asked = ServiceAutostartSet {
+                        service: service.clone(),
+                        autostart: wanted,
+                    };
+
+                    ask(
+                        &mut client,
+                        rpc::method::SERVICE_SET_AUTOSTART,
+                        encode(&asked),
+                    )
+                    .await?
+                }
+            };
+
+            emit(&rendered(json, &summary, || {
+                render::service_autostart(&summary)
+            }))?;
             return Ok(ExitCode::SUCCESS);
         }
 

@@ -19,11 +19,24 @@ readable, writable setting since it was written, and nothing has ever read the c
 
 ## The API hole
 
-- [ ] **T112** A service says whether it starts with MixEngine, and can be told to (D1).
+- [x] **T112** A service says whether it starts with MixEngine, and can be told to (D1).
       `ServiceRecord.autostart` from one more column in `core::services::record` and `records`;
       `ServiceSummary.autostart`; `service.set_autostart` beside `service.set_idle`.
       `mix service autostart <id> --on|--off` — not `mix autostart`, which is T85b's and is about
       the daemon — and an `AUTOSTART` column in `mix service list`. Bindings regenerated.
+      **Three things this task settled.** The column is read in `ServiceRecord` and not in
+      `Declaration`, which also carries it: `declaration` is a four-table join per service, and a
+      listing that paid for one per row to report one boolean would be quadratic in what it
+      reports — so the one *setting* in that struct travels with the readings a supervisor wrote,
+      because they come out of the same statement. The method answers a `ServiceSummary` rather
+      than a report of its own, unlike `service.set_idle` beside it, and the asymmetry is the
+      point: an idle policy has four readings that all look alike from outside and needs a type to
+      tell them apart, where this is a column with two values that a summary already carries.
+      And `render::service_autostart` prints two lines rather than one word — a person reading
+      `no` beside a service that does start at every login is a person the setting has misled, so
+      the second line says that a start plan pulls in what the flagged services depend on.
+      `mixengine_testkit::call` became public here, on `create`'s own reasoning: a suite that wants
+      a method with no fixture helper should send the call a person sends.
 
 - [ ] **T113** The daemon starts what asked to start (D2, D3, D4). `crate::services::autostart`:
       `start_plan` over the flagged ids, so a dependency without the flag is brought up by a

@@ -79,4 +79,22 @@ depends_on: Array<ServiceId>,
  * [`ServiceRole::Other`], decided rather than absent — which is the same answer the refusal
  * behind this already gives such a row when it passes over it.
  */
-role?: ServiceRole | null, };
+role?: ServiceRole | null, 
+/**
+ * Whether this service starts when the daemon does — roadmap task **T112**.
+ *
+ * **The setting and not a prediction**: it says what the column holds, not whether the service
+ * will in fact be running after the next login, which depends on a port being free and a
+ * program still being there.
+ *
+ * `false` for a service that is declared and has no row, on the same rule `state` and `port`
+ * follow: a service with no row has no setting to report, exactly as it has no state.
+ *
+ * **Defaulted**, on [ADR 0020]'s rule that the published contract is the shape the daemon
+ * writes: a client older than T112 keeps parsing what a newer daemon says, and one newer than
+ * a daemon that predates this member reads `false` — which is what every home had before
+ * anybody could set it.
+ *
+ * [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
+ */
+autostart: boolean, };

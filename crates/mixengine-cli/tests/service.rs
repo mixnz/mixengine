@@ -505,3 +505,75 @@ fn a_walk_nobody_waits_for_is_reported_as_accepted_rather_than_as_finished() {
         std::thread::sleep(std::time::Duration::from_millis(50));
     }
 }
+
+/// **`mix service autostart` reads it, writes it, and `mix service list` carries it** — T112.
+///
+/// The whole of what a client can do with the setting, from the end a person is at: nothing carries
+/// it until somebody says so, `--on` writes it, the reading afterwards agrees, and the column is in
+/// the table rather than only in `--json`.
+#[test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+fn a_service_is_told_to_start_with_mixengine_and_every_reading_agrees() {
+    let (home, _daemon) = running(&[Service::new("fakeservice@flagged")]);
+
+    let before = json(&home.mix(&["service", "autostart", "fakeservice@flagged", "--json"]));
+    assert_eq!(
+        before["autostart"],
+        Value::Bool(false),
+        "nothing carries the flag until somebody sets it: {before}"
+    );
+
+    let written = json(&home.mix(&[
+        "service",
+        "autostart",
+        "fakeservice@flagged",
+        "--on",
+        "--json",
+    ]));
+    assert_eq!(
+        written["autostart"],
+        Value::Bool(true),
+        "the answer is the service as it now is: {written}"
+    );
+
+    let read_back = stdout(&home.mix(&["service", "autostart", "fakeservice@flagged"]));
+    assert!(
+        read_back.contains("starts with MixEngine"),
+        "a reading afterwards does not agree with the write: {read_back}"
+    );
+
+    let listed = stdout(&home.mix(&["service", "list"]));
+    assert!(
+        listed.contains("AUTOSTART"),
+        "the column is in the table a person sees, not only in --json: {listed}"
+    );
+
+    let off = json(&home.mix(&[
+        "service",
+        "autostart",
+        "fakeservice@flagged",
+        "--off",
+        "--json",
+    ]));
+    assert_eq!(
+        off["autostart"],
+        Value::Bool(false),
+        "the setting goes back the other way too: {off}"
+    );
+}
+
+/// **`--on` and `--off` are one group**, so asking for both is a refusal and not a coin toss — T112.
+#[test]
+fn asking_for_both_autostart_answers_at_once_is_refused() {
+    let home = Home::new();
+
+    let both = home.mix(&["service", "autostart", "fakeservice@any", "--on", "--off"]);
+
+    assert!(
+        !both.status.success(),
+        "two contradictory flags were accepted"
+    );
+}

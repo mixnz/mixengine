@@ -37,7 +37,7 @@ pub mod service;
 pub mod signing;
 pub mod upgrade;
 
-pub use create::{create, create_blocking};
+pub use create::{call, create, create_blocking};
 pub use declare::{Service, VERSION};
 pub use home::Home;
 pub use package::{FakePackage, Packed, Packing};

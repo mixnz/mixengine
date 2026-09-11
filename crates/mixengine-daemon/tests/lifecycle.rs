@@ -542,3 +542,98 @@ async fn a_daemon_waits_for_a_holder_that_is_leaving_and_then_takes_the_home() {
         "the daemon that waited is the one holding the home now"
     );
 }
+
+/// **`service.set_autostart` writes the column and every reading reports it** — roadmap task T112.
+///
+/// Against a real socket rather than against `core::services::set_autostart`, because what this
+/// task added is a *method*: the column and the writer behind it are unit-tested where they live,
+/// and the thing that could be wrong here is the dispatcher arm, the refusal for a service nothing
+/// declares, and whether `service.list` carries the answer back.
+#[tokio::test]
+async fn a_service_is_told_to_start_with_the_daemon_and_says_so_afterwards() {
+    let home = Home::new();
+    let daemon = start(&home).await;
+
+    mixengine_testkit::create(
+        home.endpoint(),
+        &home.database_file(),
+        &[Service::new("fakeservice@flagged")],
+    )
+    .await;
+
+    assert!(
+        !record(&home, "fakeservice@flagged").await.autostart,
+        "nothing carries the flag until somebody sets it"
+    );
+    assert_eq!(
+        listed(&home, "fakeservice@flagged").await["autostart"],
+        serde_json::json!(false),
+        "a listing reports the column rather than omitting it"
+    );
+
+    let answer = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@flagged", "autostart": true }),
+    )
+    .await;
+
+    assert!(
+        answer.get("error").is_none(),
+        "setting autostart was refused: {answer}"
+    );
+    assert_eq!(
+        answer["result"]["autostart"],
+        serde_json::json!(true),
+        "the answer is the service as it now is"
+    );
+
+    assert!(
+        record(&home, "fakeservice@flagged").await.autostart,
+        "the column was not written"
+    );
+    assert_eq!(
+        listed(&home, "fakeservice@flagged").await["autostart"],
+        serde_json::json!(true),
+        "a listing does not agree with the row it is made of"
+    );
+
+    stop(daemon.0.id());
+    home.wait_until_gone().await;
+}
+
+/// **A setting accepted for a service nobody declares is a row nobody can read back** — T112.
+#[tokio::test]
+async fn setting_autostart_on_a_service_that_does_not_exist_is_refused() {
+    let home = Home::new();
+    let daemon = start(&home).await;
+
+    let answer = mixengine_testkit::call(
+        home.endpoint(),
+        "service.set_autostart",
+        serde_json::json!({ "service": "fakeservice@absent", "autostart": true }),
+    )
+    .await;
+
+    assert!(
+        answer.get("error").is_some(),
+        "a service nothing declares was accepted: {answer}"
+    );
+
+    stop(daemon.0.id());
+    home.wait_until_gone().await;
+}
+
+/// One service out of `service.list`, as the daemon writes it.
+async fn listed(home: &Home, id: &str) -> serde_json::Value {
+    let answer =
+        mixengine_testkit::call(home.endpoint(), "service.list", serde_json::json!(null)).await;
+
+    answer["result"]["services"]
+        .as_array()
+        .unwrap_or_else(|| panic!("`service.list` answers a list: {answer}"))
+        .iter()
+        .find(|summary| summary["id"] == serde_json::json!(id))
+        .unwrap_or_else(|| panic!("`{id}` is in the listing: {answer}"))
+        .clone()
+}

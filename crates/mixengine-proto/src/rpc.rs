@@ -481,6 +481,21 @@ pub mod method {
     /// call itself. Roadmap task **T69**.
     pub const SERVICE_SET_IDLE: &str = "service.set_idle";
 
+    /// Replace whether this service starts when the daemon does. Takes
+    /// [`ServiceAutostartSet`](crate::ServiceAutostartSet), answers
+    /// [`ServiceSummary`](crate::ServiceSummary).
+    ///
+    /// **Nothing is started or stopped by the call**, on [`SERVICE_SET_IDLE`]'s reasoning: what this
+    /// changes is what the walk at the *next* daemon start covers, and starting the service now
+    /// would answer a different question than the one asked.
+    ///
+    /// **What the walk covers is not only what carries the flag.** It is built as a start plan over
+    /// the flagged services, so a pool that is set brings up the database it depends on whether or
+    /// not that database is set — the same rule `service.start` on one service already follows.
+    ///
+    /// Roadmap task **T112**.
+    pub const SERVICE_SET_AUTOSTART: &str = "service.set_autostart";
+
     /// Make a database and the account that reaches it, on one running instance. Takes
     /// [`DatabaseCreate`](crate::DatabaseCreate), answers
     /// [`DatabaseAccount`](crate::DatabaseAccount).
