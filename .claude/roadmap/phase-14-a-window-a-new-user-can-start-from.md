@@ -53,9 +53,18 @@ readable, writable setting since it was written, and nothing has ever read the c
       than starting the part it could work out: a home whose rows or graph cannot be read has no
       answer to "what asked to start", and starting a guess at it is worse than starting nothing.
 
-- [ ] **T114** The desktop shows it and sets it (D5). The switch in `screens/ServicesDetail`, in one
+- [x] **T114** The desktop shows it and sets it (D5). The switch in `screens/ServicesDetail`, in one
       panel with the idle timeout and one line between them saying the two answer different
       questions; the value in the Dashboard's service table.
+      **Two things this task settled.** The panel has no *Save* button, where `IdlePanel` beside it
+      does, and the difference is what each is: idle is three states and a number somebody types,
+      so it needs one confirmation; this is one column with two values, and a switch you have to
+      press Save after is a switch people think they have already set. And it reads its value from
+      `service.list` rather than from a read method of its own — `ServiceSummary` carries the column
+      since T112, so a second backend command asking about one service would only be a second place
+      for the answer to drift. The Dashboard's column sits beside `State` and not at the end, on
+      `mix service list`'s reasoning: the two together are the question somebody scanning the table
+      is asking.
 
 ## The first site
 

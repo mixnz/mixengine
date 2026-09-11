@@ -8,6 +8,7 @@ import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { ServiceCreation } from "@mixengine/api";
 import ServiceForm from "../../components/ServiceForm";
+import AutostartPanel from "./AutostartPanel";
 import DatabasePanel from "./DatabasePanel";
 import IdlePanel from "./IdlePanel";
 import LimitsPanel from "./LimitsPanel";
@@ -137,6 +138,10 @@ export default function ServicesDetail({
               </p>
             )}
             <LimitsPanel service={selected} />
+            {/* Cạnh nhau và theo thứ tự này: autostart nói "khi tôi ngồi xuống thì cái gì đang
+                chạy", idle nói "khi tôi không dùng thì cái gì còn chạy". Hai câu hỏi khác nhau về
+                cùng một service, và một người bật cả hai phải thấy cả hai cùng lúc. */}
+            <AutostartPanel service={selected} />
             <IdlePanel service={selected} />
             <DatabasePanel service={selected} isModuleVisible={isModuleVisible} />
           </>

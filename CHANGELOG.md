@@ -7,6 +7,8 @@
   MixEngine, and `mix service list` has an `AUTOSTART` column.
 - Services set that way now start when MixEngine does, in dependency order — so a machine that was
   restarted comes back with the same things running, without anybody starting them by hand.
+- MixLab's Services screen has that switch, beside the idle timeout, and its Dashboard has an
+  Autostart column — so what comes back after a reboot is visible without opening anything.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database

@@ -30,6 +30,9 @@ const vi: typeof en = {
     dashboard: {
       service: "Service",
       state: "Trạng thái",
+      autostart: "Tự khởi động",
+      autostartYes: "có",
+      autostartNo: "không",
       port: "Cổng",
       cpu: "CPU",
       rss: "RSS",
@@ -186,6 +189,14 @@ const vi: typeof en = {
         watchdogWarnsOnly: "Chỉ cảnh báo sau {{minutes}} phút vượt ngưỡng, vẫn để chạy.",
         save: "Lưu",
         saved: "Đã lưu.",
+      },
+      autostart: {
+        title: "Khởi động cùng MixEngine",
+        toggle: "Khởi động service này khi MixEngine khởi động",
+        dependencies:
+          "Mọi thứ service này phụ thuộc vào cũng được khởi động theo, dù có bật ở đây hay không.",
+        versusIdle:
+          "Cái này quyết định lúc bạn ngồi xuống thì cái gì đang chạy. Thời gian rảnh bên dưới quyết định lúc bạn không dùng thì cái gì còn chạy — một service có thể bật cả hai.",
       },
       idle: {
         title: "Tự dừng khi rảnh",

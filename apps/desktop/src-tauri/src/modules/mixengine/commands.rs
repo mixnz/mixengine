@@ -332,6 +332,16 @@ pub async fn mixengine_service_set_idle(params: Value) -> Result<Value, AppError
     rpc::call("service.set_idle", params).await
 }
 
+/// `params` đúng hình `ServiceAutostartSet { service, autostart }` — T112. Hai trạng thái, không
+/// ba: `service.set_idle` có ba vì vắng mặt nghĩa là "theo recipe", còn ở đây không recipe nào khai
+/// autostart. Trả `ServiceSummary` — chính service đó, như nó vừa thành ra.
+///
+/// **Không khởi động và không dừng gì cả.** Thứ nó đổi là cái walk ở lần daemon khởi động *sau*.
+#[tauri::command]
+pub async fn mixengine_service_set_autostart(params: Value) -> Result<Value, AppError> {
+    rpc::call("service.set_autostart", params).await
+}
+
 /// `service.set_front_end` — T97 / ADR 0026. `params` đúng hình `FrontEndSwitch { server, version?,
 /// grant }`; trả một `JobSummary` (dừng server cũ, dựng server mới là một job), kết quả job là
 /// `FrontEndReport`. Không có method đọc riêng: server đang active đọc từ `ServiceSummary.role`.

@@ -335,6 +335,9 @@ export default function Dashboard({ active }: { active: boolean }) {
             <tr>
               <th>{t("mixengine.dashboard.service")}</th>
               <th>{t("mixengine.dashboard.state")}</th>
+              {/* Cạnh State và không ở cuối bảng — T114. Hai cột này là câu người đang quét bảng
+                  thật sự hỏi: cái gì đang chạy, và cái gì sẽ chạy sau lần đăng nhập tới. */}
+              <th>{t("mixengine.dashboard.autostart")}</th>
               <th>{t("mixengine.dashboard.port")}</th>
               <th>{t("mixengine.dashboard.cpu")}</th>
               <th>{t("mixengine.dashboard.rss")}</th>
@@ -357,6 +360,13 @@ export default function Dashboard({ active }: { active: boolean }) {
                     </span>
                   ) : (
                     <span className={toneClass(row.state)}>{stateLabel(row.state)}</span>
+                  )}
+                </td>
+                <td>
+                  {t(
+                    row.autostart
+                      ? "mixengine.dashboard.autostartYes"
+                      : "mixengine.dashboard.autostartNo",
                   )}
                 </td>
                 <td>{row.port ?? "—"}</td>

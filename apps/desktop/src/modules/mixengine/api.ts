@@ -38,7 +38,9 @@ import type { PackageRemoval } from "@mixengine/api";
 import type { ServiceLimitsReport } from "@mixengine/api";
 import type { ResourceLimits } from "@mixengine/api";
 import type { FrontEndSwitch } from "@mixengine/api";
+import type { ServiceAutostartSet } from "@mixengine/api";
 import type { ServiceIdleSet } from "@mixengine/api";
+import type { ServiceSummary } from "@mixengine/api";
 import type { ServiceCreate } from "@mixengine/api";
 import type { ServiceCreation } from "@mixengine/api";
 import type { ServiceDelete } from "@mixengine/api";
@@ -312,6 +314,12 @@ export function serviceIdle(service: string): Promise<unknown> {
 
 export function serviceSetIdle(params: ServiceIdleSet): Promise<unknown> {
   return invoke("mixengine_service_set_idle", { params });
+}
+
+/** `service.set_autostart` — service này có khởi động cùng MixEngine không (T112).
+ *  Không khởi động và không dừng gì: thứ nó đổi là walk ở lần daemon khởi động sau. */
+export function serviceSetAutostart(params: ServiceAutostartSet): Promise<ServiceSummary> {
+  return invoke<ServiceSummary>("mixengine_service_set_autostart", { params });
 }
 
 /** Đổi web server mặc định — một job (theo dõi qua `jobStatus`), kết quả là `FrontEndReport`.

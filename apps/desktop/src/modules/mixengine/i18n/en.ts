@@ -32,6 +32,9 @@ export default {
     dashboard: {
       service: "Service",
       state: "State",
+      autostart: "Autostart",
+      autostartYes: "yes",
+      autostartNo: "no",
       port: "Port",
       cpu: "CPU",
       rss: "RSS",
@@ -190,6 +193,14 @@ export default {
         watchdogWarnsOnly: "Warned after {{minutes}} minutes over the line, left running.",
         save: "Save",
         saved: "Saved.",
+      },
+      autostart: {
+        title: "Starts with MixEngine",
+        toggle: "Start this service when MixEngine starts",
+        dependencies:
+          "Anything this service depends on starts too, whether or not it is set here.",
+        versusIdle:
+          "This decides what is running when you sit down. The idle timeout below decides what stays running while you are not using it — a service can have both.",
       },
       idle: {
         title: "Idle shutdown",
