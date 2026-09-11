@@ -261,12 +261,19 @@ impl Blueprints {
 
         let plan = plan::plan(
             &self.store,
-            &asked.blueprint,
-            &filed,
-            &asked.project,
-            &root,
-            &asked.answers,
-            &crate::api::apply::scaffold::path(&self.paths),
+            // This daemon's own set and not `Catalogue::builtin()` — T115 asks it which packages
+            // are front ends, and what a home can install and what it can run have to be one
+            // answer, which is the rule `services::spec::catalogue` is written around.
+            &crate::services::catalogue(),
+            &plan::Wanted {
+                blueprint: &asked.blueprint,
+                filed: &filed,
+                project: &asked.project,
+                root: &root,
+                answers: &asked.answers,
+                scaffold_path: &crate::api::apply::scaffold::path(&self.paths),
+                front_end: asked.front_end,
+            },
         )
         .await
         .map_err(|error| error.to_wire())?;

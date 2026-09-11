@@ -73,6 +73,9 @@ Written down first so that nothing below is built twice.
   `blueprint.apply wordpress` on a fresh machine ends with a project, a database, a site row, a
   domain and a certificate — and nothing listening. **This is the exact shape of complaint 1 and it
   is not a missing feature; it is a planner that stops one action short.**
+  [services.md](../../../.claude/features/services.md) already names the gap in its own words:
+  *"Nothing installs a front end … a first run that offers to do it for them is not built and has no
+  task of its own yet."* T115 is that task.
 - **An apply starts nothing.** No `PlanAction` variant starts a service, and this is correct — see
   D3 — but it means the last step of "get me a website" is still manual.
 
@@ -165,12 +168,27 @@ are not merged, they are not made to override one another, and no rule is added 
 autostart service from the sweeper. Making one setting quietly cancel the other is how a product
 ends up with two switches that each only work sometimes.
 
-### D6 — A blueprint with a `[site]` plans a front end, with the actions that already exist
+### D6 — A blueprint with a `[site]` can be asked for a front end, with the actions that already exist
 
 The planner learns one rule: **a manifest that declares a `[site]` needs a front end, and a home
-with none gets one planned.** It is expressed with `PlanAction::InstallPackage` and
-`PlanAction::EnsureService` — the two variants a `[[services]]` entry already produces — so the
-plan a person reads gains two familiar lines and the proto gains nothing.
+with none gets one planned — when the caller asks.** It is expressed with
+`PlanAction::InstallPackage` and `PlanAction::EnsureService` — the two variants a `[[services]]`
+entry already produces — so the plan a person reads gains two familiar lines and the proto gains one
+defaulted boolean, `BlueprintApply.front_end`.
+
+**This paragraph said "always" until the task was built, and the suite is what corrected it.**
+`crates/mixengine-cli/tests/blueprint.rs` is offline by construction — its module note says so and
+says why — and an unconditional rule made every apply in it reach the package index for a web server
+none of those tests is about. The finding generalises past the suite: an apply is about a *project*,
+and provisioning the machine it runs on is a wider thing that should be asked for. So `front_end`
+travels in the request, defaulted off, and the caller that sets it is the one whose sentence is *get
+me a working site* — the Quick Start, and `mix blueprint apply --with-front-end`. The flag travels
+on the dry run as well, which is what keeps `--dry-run` matching the real run.
+
+**And the instance name comes from the recipe.** A front end is `Instancing::Single` — there is one
+Caddy, and `service.create` refuses `caddy@main` in as many words — so a hardcoded `"main"` planned
+a step the executor was guaranteed to be refused on. Asked of the catalogue, so a future front end
+that is not a singleton is planned correctly without the line being revisited.
 
 **No new `PlanAction` variant, and no new manifest key.** A front end is not something a blueprint
 should be able to *choose*: exactly one runs at a time per home (T37), the choice is the home's and

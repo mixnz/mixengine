@@ -110,6 +110,25 @@ behind and the question would be theatre.
 does, and the client spends the single prompt afterwards — `mix blueprint apply --grant`, or the
 question it asks at the end.
 
+**A manifest with a `[site]` can ask for a front end too** — T115, and it is asked for rather than
+always. `core::sites` renders nothing for a home with no front end and succeeds while doing it, so
+an apply that stopped at the site row left a project nothing serves — and nothing in MixEngine
+installs a web server by itself ([services.md](services.md): *"a first run that offers to do it for
+them is not built"*). `BlueprintApply.front_end`, `mix blueprint apply --with-front-end`: where this
+home has no front end at all, the plan gains the two actions a `[[services]]` entry already produces
+— install the package, ensure the instance — for this build's default, Caddy.
+
+**Defaulted off, because an apply is about a project.** Provisioning the machine it runs on is a
+wider thing, and doing it unasked would make every apply on a home with no web server download one,
+including the ones deliberately about something else. The flag travels on the dry run as well, so
+`--dry-run` keeps matching the real run action for action.
+
+**A blueprint may not name which front end.** Exactly one runs at a time per home (T37), the choice
+is the home's and lives in `service.set_front_end`, and a manifest that named one would apply
+differently on a machine that had already chosen. A home that has one — nginx as much as Caddy — is
+left alone whatever the flag says. The instance name comes from the recipe's own `Instancing`, which
+is why it is `caddy` and not `caddy@main`.
+
 ## Scaffold commands
 
 `[scaffold]` runs an arbitrary command in the new project directory, which is a real execution of

@@ -298,3 +298,99 @@ async fn a_blueprint_captured_on_windows_applies_on_this_system() {
         "{sites}"
     );
 }
+
+/// **A manifest with a `[site]` plans a front end on a home that has none** — roadmap task T115.
+///
+/// `core::sites` is explicit that "a home with no front end renders nothing and this succeeds", so
+/// an apply that stopped at the site row left a project nothing serves — which is the whole of the
+/// complaint this phase is written against. `--dry-run` so the suite stays offline: what is
+/// asserted is the plan, and installing Caddy is what the plan *says* rather than what this test
+/// does.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_site_blueprint_plans_a_front_end_for_a_home_that_has_none() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let first = repository();
+    a_project_with_a_site(&home, first.path(), "blog", "blog.test");
+
+    home.mix(&["blueprint", "capture", "blog-stack", "--project", "blog"]);
+
+    let second = repository();
+    let into = second.path().join("shop").display().to_string();
+
+    let planned = json(&home.mix(&[
+        "blueprint",
+        "apply",
+        "blog-stack",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--with-front-end",
+        "--dry-run",
+        "--json",
+    ]));
+
+    let steps = planned["steps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a plan has steps: {planned}"));
+
+    let front_end: Vec<&serde_json::Value> = steps
+        .iter()
+        .filter(|step| step["action"]["package"] == "caddy")
+        .collect();
+
+    assert_eq!(
+        front_end.len(),
+        2,
+        "a home with no front end gets an install and an ensure: {planned}"
+    );
+    assert!(
+        front_end
+            .iter()
+            .all(|step| step["disposition"]["disposition"] == "create"),
+        "both are work on a home that has neither: {planned}"
+    );
+}
+
+/// **And plans nothing without the flag** — roadmap task T115.
+///
+/// The other half, and the one that keeps an apply from provisioning a machine nobody asked it to:
+/// the same blueprint on the same home, planned twice, differs only by `--with-front-end`. What a
+/// home that *has* a front end plans is asserted where a real web server is available — this suite
+/// is offline by construction and has none.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_site_blueprint_plans_no_front_end_unless_it_is_asked_to() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let first = repository();
+    a_project_with_a_site(&home, first.path(), "blog", "blog.test");
+
+    home.mix(&["blueprint", "capture", "blog-stack", "--project", "blog"]);
+
+    let second = repository();
+    let into = second.path().join("shop").display().to_string();
+
+    let planned = json(&home.mix(&[
+        "blueprint",
+        "apply",
+        "blog-stack",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--dry-run",
+        "--json",
+    ]));
+
+    let steps = planned["steps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a plan has steps: {planned}"));
+
+    assert!(
+        steps
+            .iter()
+            .all(|step| step["action"]["package"] != "caddy"),
+        "an apply nobody asked for a web server plans none: {planned}"
+    );
+}

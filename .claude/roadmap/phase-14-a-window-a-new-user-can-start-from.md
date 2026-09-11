@@ -68,12 +68,28 @@ readable, writable setting since it was written, and nothing has ever read the c
 
 ## The first site
 
-- [ ] **T115** A blueprint with a site ensures there is something to serve it (D6). `core::sites` is
+- [x] **T115** A blueprint with a site can be asked for something to serve it (D6). `core::sites` is
       explicit that "a home with no front end renders nothing and this succeeds", so
       `blueprint.apply wordpress` on a fresh machine ends with a project, a database, a site row, a
-      domain, a certificate — and nothing listening. The planner learns one rule, expressed with the
-      `InstallPackage` and `EnsureService` variants that already exist: no new `PlanAction`, no new
-      manifest key, and every blueprint already on every machine gains it.
+      domain, a certificate — and nothing listening;
+      [services.md](../features/services.md) already named the gap — *"a first run that offers to do
+      it for them is not built and has no task of its own yet"*. The planner learns one rule,
+      expressed with the `InstallPackage` and `EnsureService` variants that already exist: no new
+      `PlanAction`, no new manifest key.
+      **Three things this task settled, and the first is a correction to its own design.** The rule
+      was written as *always* and is shipped as *asked for* — `BlueprintApply.front_end`,
+      `mix blueprint apply --with-front-end`, defaulted off. What said so was
+      `crates/mixengine-cli/tests/blueprint.rs`, which is offline by construction and whose every
+      apply suddenly reached the package index for a web server none of those tests is about; the
+      finding generalises past the suite, because an apply is about a *project* and provisioning the
+      machine it runs on is a wider thing. Second, the instance name comes from the recipe's own
+      `Instancing` and not from a convention here: a front end is `Single`, so a hardcoded `"main"`
+      planned a step `service.create` was guaranteed to refuse — *there is one caddy, so its id
+      carries no `@`*. Third, `the_steps_are_in_dependency_order` was asserting one rank per action
+      *kind* and only looked right because its fixture had one service: install, ensure and
+      create-database are one tier, walked a service at a time, and the ordering inside that tier is
+      now asserted per package. `plan()` took its parameters as a `Wanted` struct in the same
+      stroke, because the ninth argument is where clippy stops counting.
 
 - [ ] **T116** An apply can hand on the autostart flag (D7). `BlueprintApply.autostart`, defaulted
       **false** — the default is a constraint and not a taste, because `warm_start.rs` times a

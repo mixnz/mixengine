@@ -703,6 +703,14 @@ enum BlueprintCommand {
         #[arg(long, conflicts_with = "use_installed")]
         install_missing: bool,
 
+        /// Install a web server too, where this home has none.
+        ///
+        /// A home with no front end serves no site, and nothing installs one by itself. With this,
+        /// a blueprint that declares a site plans the default web server as well — and a home that
+        /// already has one, Caddy or nginx, is left alone.
+        #[arg(long)]
+        with_front_end: bool,
+
         /// Answer every version question by using what this machine already has.
         #[arg(long)]
         use_installed: bool,
@@ -3740,6 +3748,7 @@ async fn blueprint(
             dry_run,
             install_missing,
             use_installed,
+            with_front_end,
             run_scaffold,
             run_untrusted_scaffold,
             grant,
@@ -3760,6 +3769,10 @@ async fn blueprint(
                 // Filled in below, once the plan says whether there is a command to agree to and
                 // who wrote it — roadmap task **T78a**.
                 scaffold: None,
+                // Carried on the dry run as well as on the real one, which is what keeps the
+                // feature's own acceptance criterion true: `--dry-run` prints the actions the real
+                // run performs, so a flag that changed the plan may not be added afterwards.
+                front_end: with_front_end,
             };
 
             // **The plan comes first either way** (the T78 design, D6). A dry run stops here; a real

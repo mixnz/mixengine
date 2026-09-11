@@ -112,6 +112,25 @@ pub struct BlueprintApply {
     /// the plan, and the apply is refused before anything happens.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scaffold: Option<ScaffoldConsent>,
+
+    /// Whether to plan a front end where this home has none — roadmap task **T115**.
+    ///
+    /// `core::sites` renders nothing for a home with no front end and succeeds while doing it, so a
+    /// manifest with a `[site]` applied to a fresh machine ends with a project, a database, a site
+    /// row, a domain, a certificate — and nothing listening.
+    ///
+    /// **Asked for rather than always.** An apply is about a project; provisioning the machine it
+    /// runs on is a wider thing, and doing it unasked would make every apply on a home with no web
+    /// server download one — including the ones deliberately about something else. The caller that
+    /// sets this is the one whose sentence is *get me a working site*.
+    ///
+    /// A home that has already chosen a front end — Nginx as much as Caddy — is left alone whatever
+    /// this says: the question is whether there is one at all, and a blueprint may not name which,
+    /// because exactly one runs per home and the choice is the home's.
+    ///
+    /// Defaulted, so a request written before this task still decodes and still means what it did.
+    #[serde(default)]
+    pub front_end: bool,
 }
 
 /// Agreement to run one command, naming the command.

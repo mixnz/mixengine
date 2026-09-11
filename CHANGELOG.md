@@ -9,6 +9,9 @@
   restarted comes back with the same things running, without anybody starting them by hand.
 - MixLab's Services screen has that switch, beside the idle timeout, and its Dashboard has an
   Autostart column — so what comes back after a reboot is visible without opening anything.
+- `mix blueprint apply --with-front-end` installs a web server too where the machine has none, so a
+  blueprint with a site no longer ends with a site nothing serves. A machine that already has one —
+  Caddy or nginx — is left alone.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database
