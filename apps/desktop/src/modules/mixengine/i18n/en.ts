@@ -3,15 +3,23 @@ export default {
     newTabTitle: "MixEngine",
     sidebar: {
       label: "MixEngine screens",
+      groupOverview: "Overview",
+      groupWebsites: "Websites",
+      groupEnvironment: "Environment",
+      groupLibrary: "Library",
       dashboard: "Dashboard",
       projects: "Projects",
       sites: "Sites",
       domains: "Domains & TLS",
       runtimes: "Runtimes",
+      phpExtensions: "PHP Extensions",
       servicesDetail: "Services",
       logs: "Logs",
       blueprints: "Blueprints",
-      extensions: "Extensions",
+      // **The label, and not the word.** MixEngine's own add-ons are `extension.*` everywhere —
+      // the methods, the module, every document — and this is the one place the two meanings
+      // collided: four rows below *Runtimes*, where PHP's extensions were hiding (T118).
+      extensions: "Add-ons",
       metrics: "Metrics",
       settings: "Settings",
     },
@@ -29,6 +37,15 @@ export default {
       retry: "Try again",
       getIt: "Reinstall MixEngine",
     },
+      phpExtensions: {
+        title: "PHP Extensions",
+        intro:
+          "Turn an extension on or off for one installed PHP. A running pool is told about it; one that is not running reads the new set when it starts.",
+        version: "PHP version",
+        isDefault: "default",
+        noPhp: "No PHP is installed yet, so there is nothing to turn on.",
+        installPhp: "Install a PHP",
+      },
       quickStart: {
         title: "Build your first site",
         intro:

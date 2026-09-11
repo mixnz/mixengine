@@ -5,15 +5,23 @@ const vi: typeof en = {
     newTabTitle: "MixEngine",
     sidebar: {
       label: "Màn hình MixEngine",
+      groupOverview: "Tổng quan",
+      groupWebsites: "Website",
+      groupEnvironment: "Môi trường",
+      groupLibrary: "Thư viện",
       dashboard: "Dashboard",
       projects: "Projects",
       sites: "Sites",
       domains: "Domains & TLS",
       runtimes: "Runtimes",
+      phpExtensions: "PHP Extensions",
       servicesDetail: "Services",
       logs: "Logs",
       blueprints: "Blueprints",
-      extensions: "Extensions",
+      // Chỉ đổi **nhãn**: add-on của MixEngine vẫn là `extension.*` ở mọi method, mọi tài liệu.
+      // Đây là chỗ duy nhất hai nghĩa đụng nhau — bốn hàng dưới *Runtimes*, nơi extension của PHP
+      // đang trốn (T118).
+      extensions: "Add-ons",
       metrics: "Metrics",
       settings: "Settings",
     },
@@ -27,6 +35,15 @@ const vi: typeof en = {
       retry: "Thử lại",
       getIt: "Cài lại MixEngine",
     },
+      phpExtensions: {
+        title: "PHP Extensions",
+        intro:
+          "Bật hoặc tắt một extension cho một bản PHP đã cài. Pool đang chạy sẽ được báo; pool chưa chạy sẽ đọc bộ mới khi khởi động.",
+        version: "Phiên bản PHP",
+        isDefault: "mặc định",
+        noPhp: "Chưa có bản PHP nào được cài, nên chưa có gì để bật.",
+        installPhp: "Cài một bản PHP",
+      },
       quickStart: {
         title: "Dựng site đầu tiên",
         intro:

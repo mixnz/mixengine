@@ -11,6 +11,7 @@ export type MixEngineScreen =
   | "sites"
   | "domains"
   | "runtimes"
+  | "phpExtensions"
   | "servicesDetail"
   | "logs"
   | "blueprints"
@@ -28,6 +29,7 @@ const SCREENS: readonly MixEngineScreen[] = [
   "sites",
   "domains",
   "runtimes",
+  "phpExtensions",
   "servicesDetail",
   "logs",
   "blueprints",

@@ -121,18 +121,28 @@ readable, writable setting since it was written, and nothing has ever read the c
 
 ## The affordances
 
-- [ ] **T118** PHP extensions get a screen, and the add-ons get their name back (D10). No API
+- [x] **T118** PHP extensions get a screen, and the add-ons get their name back (D10). No API
       changes: `runtime.list_extensions` and `runtime.set_extension` have existed since T28 and
       `ExtensionsPanel` has rendered them since the Runtimes screen did. What was missing was a way
       to find them — four rows below a sidebar entry called *Extensions* that means something else
       entirely. The panel becomes a screen with a version selector, rendered in both places, and the
       add-ons screen's **label** becomes *Add-ons*. The screen id, the module, the `extension.*`
       methods and every document keep the word.
+      **What this task settled.** The version the screen opens on is the home's **default** PHP and
+      not the first installed one, because the default is the `php` a terminal in this home runs —
+      somebody looking for *why is `redis` not loaded* is looking at that one. And a home with no
+      PHP gets one sentence and a button to Runtimes rather than an empty table: an empty table
+      makes a person guess which step they are missing.
 
-- [ ] **T119** The sidebar is grouped (D11). Five static headings — Overview, Websites, Environment,
+- [x] **T119** The sidebar is grouped (D11). Five static headings — Overview, Websites, Environment,
       Library — with Settings pinned below them. Not collapsible: a section that collapses is a
       place for the thing somebody is looking for to hide, and its state is something to persist,
       migrate and get wrong.
+      **What this task settled.** `GROUPS` is still the one place the order is decided, exactly as
+      the flat `ITEMS` was — which is what kept this change out of `tabState.ts` for anything except
+      the one new screen id. Settings sits at the bottom by being the one group with no heading, and
+      `.group:last-child { margin-top: auto }` is the whole of it: a position rather than a special
+      case in the table.
 
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving

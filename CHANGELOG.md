@@ -25,6 +25,11 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Changed
+- MixLab has a **PHP Extensions** screen: pick an installed PHP and turn `redis`, `mongodb`,
+  `xdebug` and the rest on or off. The same panel is still inside Runtimes, and MixEngine's own
+  add-ons are now labelled *Add-ons* so the two stop colliding.
+- MixLab's MixEngine sidebar is grouped into Overview, Websites, Environment and Library, with
+  Settings at the bottom.
 - The desktop window is **MixLab**: its own name, identifier, executable and mark, and MixEngine's
   version rather than one of its own. The daemon, `mix`, the home, the keyring namespace and the
   installers keep MixEngine's name and are unchanged.

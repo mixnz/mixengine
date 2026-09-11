@@ -14,6 +14,7 @@ import Extensions from "./screens/Extensions";
 import Logs from "./screens/Logs";
 import Metrics from "./screens/Metrics";
 import Projects from "./screens/Projects";
+import PhpExtensions from "./screens/PhpExtensions";
 import Runtimes from "./screens/Runtimes";
 import ServicesDetail from "./screens/ServicesDetail";
 import Settings from "./screens/Settings";
@@ -208,6 +209,9 @@ export default function MixEngineTab({
         {pane("sites", (active) => <Sites active={active} />)}
         {pane("domains", (active) => <Domains active={active} />)}
         {pane("runtimes", (active) => <Runtimes active={active} />)}
+        {/* `onGoTo` chứ không phải một liên kết: một home chưa có PHP nào thì màn này không có gì để
+            vẽ, và chỗ cài PHP là màn Runtimes ngay bên trên. */}
+        {pane("phpExtensions", () => <PhpExtensions onGoTo={setScreen} />)}
         {pane("servicesDetail", (active) => (
           <ServicesDetail active={active} isModuleVisible={isModuleVisible} />
         ))}
