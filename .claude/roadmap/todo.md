@@ -13,6 +13,17 @@ it planned is arriving as phases 11–13, from the repository that built it in t
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** = has a platform-layer component and
 needs verification on Windows + macOS + Linux.
 
+**Done** is how many `[x]` the phase's own file holds and **Tasks** is every entry in it, `[~]` and
+`[ ]` counted too. Both are *derived*, so read them off the files rather than remembering them —
+five rows of this table had drifted by 2026-09-13, each one a follow-up filed into a phase by
+somebody who did not then come back here:
+
+```bash
+for f in .claude/roadmap/phase-*.md; do
+  echo "$f  $(grep -c '^- \[x\]' "$f") / $(grep -c '^- \[.\]' "$f")"
+done
+```
+
 ---
 
 ## Phases
@@ -26,14 +37,14 @@ needs verification on Windows + macOS + Linux.
 | [4 — Sites & elevation](phase-4-sites-and-elevation.md) | `http://blog.test` works, creating a site prompts for nothing | T39–T47b, T64, T93 | 16 / 17 | **M4** a site opens with zero prompts after first-run setup |
 | [5 — HTTPS](phase-5-https.md) | Green padlock, automatically, forever | T48–T54, T98 | 9 / 9 | **M5** `https://blog.test` trusted in every browser |
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
-| [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 9 / 9 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
-| [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b | 20 / 20 | **M8** capture, apply, open in MixDB, test from a phone |
-| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 17 / 18 | **M9 — v0.0.1** |
+| [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 10 / 10 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
+| [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b, T125–T125a | 24 / 24 | **M8** capture, apply, open in MixDB, test from a phone |
+| [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 19 / 21 | **M9 — v0.0.1** |
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
-| [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107 | 5 / 5 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
+| [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107, T111 | 6 / 6 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
-| [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T119 | 8 / 8 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
+| [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T124a | 14 / 14 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -44,7 +55,7 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 14's tasks are done — 8 of 8 — and what M14 still wants is the clean-machine smoke on each
+**Phase 14's tasks are done, and what M14 still wants is the clean-machine smoke on each
 OS**: a fresh install, one button, one prompt, a browser on a working `https://<name>.test`, and
 then a restart that leaves it serving. Everything below that line is automated and green.
 
@@ -184,7 +195,8 @@ a switch rather than a second download path. An installed PHP now carries a gene
 `etc/php/<version>/conf.d/` that both its pool and the `php` on a terminal read, and
 `mix runtime ext enable xdebug` moves one line in it and says what that did to the pool.
 
-**Phase 3 is done — 15 of 15 — and M3 is reached.** The number the milestone asks for exists, is held
+**M3 is reached**, and what phase 3 still holds open is T33b, which the milestone does not ask
+for. The number the milestone asks for exists, is held
 to, and was taken on all three systems: `crates/mixengine-cli/tests/warm_start.rs` installs a real
 Caddy, MariaDB and Redis into one home and times a single `mix service start`, in the `bench` job,
 gating the **median** of five warm rounds at ten seconds. 875 ms on macOS, 2133 ms on Windows,
