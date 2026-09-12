@@ -601,7 +601,7 @@ mix blueprint apply <BLUEPRINT> [OPTIONS]
 | --- | --- |
 | `<BLUEPRINT>` | Which blueprint |
 | `--project` `<NAME>` | What the new project is called, and what `{project}` becomes |
-| `--path` `<DIR>` | Where it goes. Defaults to `<current directory>/<project>` |
+| `--path` `<DIR>` | Where it goes. Defaults to a directory named for the project, in the current one |
 | `--dry-run` | Stop after planning, and print the plan. Sent as it is typed rather than insisted on here: whether this build can carry an apply out is the daemon's to say, and a client that refused to ask would be holding a rule of its own. |
 | `--install-missing` | Answer every version question by installing what the blueprint asks for |
 | `--with-front-end` | Install a web server too, where this home has none. A home with no front end serves no site, and nothing installs one by itself. With this, a blueprint that declares a site plans the default web server as well — and a home that already has one, Caddy or nginx, is left alone. |

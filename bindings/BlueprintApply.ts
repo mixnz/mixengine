@@ -19,6 +19,27 @@ project: string,
  */
 root: string, 
 /**
+ * Whether [`root`](Self::root) is the project's directory or the place to make one in.
+ *
+ * `false` — the default, and what a path somebody typed means — takes `root` exactly as
+ * spelled. A folder a person named is a folder a person named, and re-spelling it quietly
+ * would be worse than the failure this field exists to answer.
+ *
+ * `true` says *make one under here*, and the daemon names it with the project's handle —
+ * `domains::slug`, the rule `{project}` already expands through. **The naming happens at that
+ * end and not in a client**, because a client may not hold that rule: `mix` cannot depend on
+ * `mixengine-core` (`mixengine-proto/tests/workspace_layering.rs`), and the desktop
+ * deliberately holds no naming rule at all. A client knows where it is standing; the daemon
+ * knows what things are called.
+ *
+ * The composed path is not a surprise: it comes back in
+ * [`PlanAction::RegisterProject`](crate::PlanAction), which every client renders before
+ * anything is created.
+ *
+ * Roadmap task **T120a**.
+ */
+root_is_parent: boolean, 
+/**
  * Whether to stop after planning.
  *
  * `true` answers [`BlueprintApplyResponse::Planned`](crate::BlueprintApplyResponse) and touches

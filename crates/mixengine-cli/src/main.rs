@@ -687,7 +687,7 @@ enum BlueprintCommand {
         #[arg(long, value_name = "NAME")]
         project: String,
 
-        /// Where it goes. Defaults to `<current directory>/<project>`.
+        /// Where it goes. Defaults to a directory named for the project, in the current one.
         #[arg(long, value_name = "DIR")]
         path: Option<PathBuf>,
 
@@ -3776,17 +3776,25 @@ async fn blueprint(
             run_untrusted_scaffold,
             grant,
         } => {
-            // `<cwd>/<project>` when nobody named a directory: the new project is a new directory,
-            // and the one this process is in is where a person expects it to appear.
-            let root = match path {
-                Some(path) => here(Some(path))?,
-                None => here(None)?.join(&project),
+            // **Where it goes, and who names it** — roadmap task **T120a**. A path somebody typed
+            // is sent as typed; with none, the daemon is told to make one *under* this directory,
+            // and it names that directory with the project's handle.
+            //
+            // The naming is deliberately not done here. This binary may not depend on
+            // `mixengine-core` (`mixengine-proto/tests/workspace_layering.rs`), so it cannot call
+            // `domains::slug` — and restating the charset would be a second copy of the rule T120
+            // spent a task consolidating, in the client the ban on business logic is about. A
+            // client knows where it is standing; the daemon knows what things are called.
+            let (root, root_is_parent) = match path {
+                Some(path) => (here(Some(path))?, false),
+                None => (here(None)?, true),
             };
 
             let mut apply = BlueprintApply {
                 blueprint,
                 project,
                 root: root.display().to_string(),
+                root_is_parent,
                 dry_run: true,
                 answers: Vec::new(),
                 // Filled in below, once the plan says whether there is a command to agree to and

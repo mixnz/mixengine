@@ -35,12 +35,22 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Fixed
+- Applying the Next.js blueprint no longer fails on the last step over an empty folder. A project
+  named `Next.js 1` now gets the directory `next-js-1`, because `create-next-app` takes its package
+  name from the folder it is run in and npm refuses capitals and spaces. A folder you name yourself
+  is still used exactly as you spelled it.
+- A scaffold command that fails says so in a sentence you can read: colour codes from tools like
+  `create-next-app` no longer arrive as `[31m` in the middle of the message, and a multi-line
+  explanation keeps its lines instead of being run together with slashes.
 - A site whose PHP pool is not running now starts it from the request that needed it, whatever left
   it stopped. Before, only a pool the idle sweeper had stopped could be woken — so after a reboot or
   a `mix daemon restart` every PHP site on the machine answered 502 until somebody ran `mix service
   start` by hand. A service you stopped yourself is still left alone.
 
 ### Changed
+- MixLab's *Build your first site* card asks where to **put** the project rather than which folder
+  is the project: pick a parent, and MixEngine makes and names the folder inside it. The name it
+  chooses is shown in the plan before anything is created.
 - MixLab stops offering a second MixEngine tab: one tab is the whole of it, so a window showing
   MixEngine alone has no `[+]` button, and `Ctrl/Cmd+1` goes to the tab rather than opening another.
   The close button on the last tab there is now reads *Reload module* — closing it puts a fresh one

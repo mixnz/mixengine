@@ -44,7 +44,7 @@ done
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
 | [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107, T111 | 6 / 6 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
-| [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T124a | 14 / 14 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
+| [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T124a | 15 / 15 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
