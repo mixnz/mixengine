@@ -161,13 +161,18 @@ readable, writable setting since it was written, and nothing has ever read the c
       charset"; it had not, and the assertion is true only now that what is substituted is the
       handle. An apply narrates each step into its job's log as well — until this task
       `LogSubject::Job` was written by the `[scaffold]` step alone, so a failure before it left a
-      log a client could only render as blank — and the ring is forgotten when the job ends, closing
-      a leak T78a opened.
+      log a client could only render as blank — and the ring is dropped when the job ends, for every
+      job nobody was reading.
       **What it deliberately did not do.** It did not tighten `projects::validated_name`: a project's
       name is a label a person reads, spaces have been legal in one since phase 0, and narrowing it
       would invalidate names already registered to fix a problem belonging to the four name spaces
       the token lands in. And it added no `database.drop`, so a database an apply made is still
       never taken back — the ledger names it instead.
+      **The debt it leaves.** A job whose log somebody watched to the end keeps its ring: the drop
+      is `forget_if_unwatched`, and a reader still connected is the one case it must not fire on.
+      `services::logs` has the same shape for a service whose last reader disconnects after the
+      runner has gone, so what closes it is one sweep over that shared surface rather than anything
+      in `api::apply`.
 
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving

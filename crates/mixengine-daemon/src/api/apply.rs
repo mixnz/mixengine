@@ -90,14 +90,23 @@ impl Api {
                     .perform(&plan, &manifest, consent, autostart, &handle)
                     .await;
 
-                // **The ring does not outlive the job** — roadmap task **T120**, its design's D5.
-                // One two-hundred-line ring per apply, in a map nothing prunes, is growth nothing
-                // bounds; the leak has been there for scaffold jobs since T78a, and narrating every
-                // step would make it universal. A client already following holds its own
-                // `broadcast::Receiver`, which outlives this entry, so an open stream loses nothing.
+                // **The ring does not outlive the job it was opened for** — roadmap task **T120**,
+                // its design's D5. One two-hundred-line ring per apply, in a map nothing prunes, is
+                // growth nothing bounds; the entry has been left behind for scaffold jobs since
+                // T78a, and narrating every step would make that universal.
                 //
                 // Both paths, which is why the `?` is below rather than above: a failed apply is
                 // exactly the one somebody reads the log of.
+                //
+                // **`if_unwatched` is the whole of the rule, and its limit.** A client still
+                // following at this moment keeps the entry — which is right, because its own
+                // `broadcast::Receiver` is what the stream is reading from and nothing should be
+                // taken out from under it — and nothing sweeps that entry once the stream does
+                // close. So a job somebody watched to the end still leaves one ring behind, exactly
+                // as `services::logs` does for a service whose last reader disconnects after the
+                // runner has gone. Bounded by the number of jobs a person watches in one run of the
+                // daemon; the sweep that would close it belongs with that shared surface rather
+                // than here.
                 api.services()
                     .logs()
                     .forget_if_unwatched(&LogSubject::Job { id: handle.id() });
