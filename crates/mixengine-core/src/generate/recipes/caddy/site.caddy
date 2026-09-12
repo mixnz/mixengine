@@ -165,6 +165,22 @@
 	}
 {%- else %}
 	reverse_proxy {{ upstream }}
+
+	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
+	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
+	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
+	# What cannot be removed is the 502; what can be removed is the silence around it.
+	#
+	# **Every path, unlike the `handle /` the file kinds get.** A 502 Caddy generated means nothing
+	# was listening, so there is no application whose answer this could be overwriting — and the
+	# matcher names the two statuses rather than catching everything, so an upstream that is up and
+	# said 404 still says 404.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- endif %}
 {%- endif %}
 {%- if authority %}
@@ -266,6 +282,22 @@
 	}
 {%- else %}
 	reverse_proxy {{ upstream }}
+
+	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
+	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
+	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
+	# What cannot be removed is the 502; what can be removed is the silence around it.
+	#
+	# **Every path, unlike the `handle /` the file kinds get.** A 502 Caddy generated means nothing
+	# was listening, so there is no application whose answer this could be overwriting — and the
+	# matcher names the two statuses rather than catching everything, so an upstream that is up and
+	# said 404 still says 404.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- endif %}
 {%- if authority %}
 	}

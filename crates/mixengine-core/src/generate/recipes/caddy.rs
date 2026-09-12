@@ -1159,6 +1159,48 @@ zz
         assert_eq!(Caddy.swept(), &["sites", "extensions", "welcome"]);
     }
 
+    /// **A dead upstream is answered, at every path** — the T124 design, D4. Wide is safe here in
+    /// a way it is not for the file kinds: a 502 the front end generated means nothing was
+    /// listening, so there is no application whose answer is being overwritten.
+    #[test]
+    fn a_proxy_site_answers_a_dead_upstream_with_the_welcome_page() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::ReverseProxy {
+                upstream: "http://127.0.0.1:8000".to_owned(),
+            },
+            ..a_site_with_a_certificate()
+        });
+
+        assert_eq!(
+            rendered.matches("handle_errors 502 504 {").count(),
+            2,
+            "one handler per block, plaintext and TLS:
+{rendered}"
+        );
+        assert!(rendered.contains("/blog.test.html"), "{rendered}");
+        assert!(
+            rendered.contains("header Cache-Control \"no-store\""),
+            "{rendered}"
+        );
+    }
+
+    /// **And `handle /` is not how a proxy site does it.** The root-only rule belongs to the kinds
+    /// that serve files; a proxy site with a working upstream serves `/` from that upstream, and a
+    /// handler in front of it would take the site's own home page away.
+    #[test]
+    fn a_proxy_site_has_no_root_only_welcome_handler() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_site_with_a_certificate()
+        });
+
+        assert!(
+            !rendered.contains("handle / {"),
+            "a proxy site's `/` belongs to its upstream:
+{rendered}"
+        );
+    }
+
     /// A static site at `blog.test` with a certificate — roadmap task **T51**.
     ///
     /// Paths that do not exist, deliberately: this module renders text and never reads a disk.
