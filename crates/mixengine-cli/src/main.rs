@@ -3787,6 +3787,9 @@ async fn blueprint(
                 blueprint,
                 project,
                 root: root.display().to_string(),
+                // Unchanged behaviour for now: this binary still composes the directory itself.
+                // T120a's next step moves that to the daemon.
+                root_is_parent: false,
                 dry_run: true,
                 answers: Vec::new(),
                 // Filled in below, once the plan says whether there is a command to agree to and

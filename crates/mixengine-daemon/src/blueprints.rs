@@ -250,7 +250,7 @@ impl Blueprints {
         &self,
         asked: &BlueprintApply,
     ) -> Result<(BlueprintManifest, BlueprintPlan), Error> {
-        let root = absolute(&asked.root)?;
+        let root = root_for(asked)?;
         let filed = filed::filed_of(&self.store, &asked.blueprint)
             .await
             .map_err(|error| {
@@ -342,5 +342,113 @@ fn absolute(given: &str) -> Result<PathBuf, Error> {
             format!("{given} is not an absolute path"),
         )
         .with_hint("the client resolves a root against its own directory before sending it")),
+    }
+}
+
+/// Where the project goes: the path as sent, or one named under it — roadmap task **T120a**.
+///
+/// **The handle is composed here rather than in a client**, which is the whole of why
+/// [`BlueprintApply::root_is_parent`] exists on the wire: `mix` may not depend on `mixengine-core`
+/// and `domains::slug` may not move to `mixengine-proto`, so a client that composed this would be
+/// holding a second copy of the slug charset — the fragmentation T120 spent a task undoing.
+///
+/// **One function, reached from [`Blueprints::planned`]**, which is called twice for one apply —
+/// once with the answers and once without. A root composed differently between those two would be
+/// two plans for one apply, which is the same reason `planned` is one function rather than two.
+fn root_for(asked: &BlueprintApply) -> Result<PathBuf, Error> {
+    let given = absolute(&asked.root)?;
+
+    if !asked.root_is_parent {
+        return Ok(given);
+    }
+
+    let handle = mixengine_core::domains::slug(&asked.project).ok_or_else(|| {
+        Error::new(
+            ErrorCode::InvalidArgument,
+            format!(
+                "there is nothing in the project's name `{}` a directory name can be made of",
+                asked.project
+            ),
+        )
+        .with_hint("name the directory outright instead — `--path` on the command line")
+    })?;
+
+    Ok(given.join(handle))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// An absolute path for this OS, so the assertions below say nothing about which one they are
+    /// running on.
+    fn absolute_for_test(last: &str) -> String {
+        std::env::temp_dir().join(last).display().to_string()
+    }
+
+    /// The fields these tests are not about.
+    fn a_request() -> BlueprintApply {
+        BlueprintApply {
+            blueprint: "nextjs".to_owned(),
+            project: String::new(),
+            root: String::new(),
+            root_is_parent: false,
+            dry_run: true,
+            answers: Vec::new(),
+            scaffold: None,
+            front_end: false,
+            autostart: false,
+        }
+    }
+
+    /// A request that names its own directory is taken at its word — the default, and what an
+    /// explicit `--path` means.
+    #[test]
+    fn a_root_somebody_named_is_used_as_spelled() {
+        let asked = BlueprintApply {
+            root: absolute_for_test("Next.js 1"),
+            project: "Next.js 1".to_owned(),
+            root_is_parent: false,
+            ..a_request()
+        };
+
+        assert_eq!(
+            root_for(&asked).unwrap(),
+            PathBuf::from(absolute_for_test("Next.js 1"))
+        );
+    }
+
+    /// **The fifth name space.** A parent plus a project whose name is not a slug gives a directory
+    /// that is — the same rule `{project}` already expands through (ADR 0030).
+    #[test]
+    fn a_parent_is_joined_with_the_projects_handle() {
+        let asked = BlueprintApply {
+            root: absolute_for_test("work"),
+            project: "Next.js 1".to_owned(),
+            root_is_parent: true,
+            ..a_request()
+        };
+
+        assert_eq!(
+            root_for(&asked).unwrap(),
+            PathBuf::from(absolute_for_test("work")).join("next-js-1")
+        );
+    }
+
+    /// A name with no ASCII in it has no handle, so there is no directory to compose. Refused here,
+    /// where nothing has been created — T120's D3 position, applied to the directory.
+    #[test]
+    fn a_name_with_nothing_to_slug_is_refused_rather_than_guessed_at() {
+        let asked = BlueprintApply {
+            root: absolute_for_test("work"),
+            project: "プロジェクト".to_owned(),
+            root_is_parent: true,
+            ..a_request()
+        };
+
+        let error = root_for(&asked).expect_err("no handle, no directory");
+
+        assert_eq!(error.code, ErrorCode::InvalidArgument);
+        assert!(error.message.contains("プロジェクト"), "{}", error.message);
     }
 }
