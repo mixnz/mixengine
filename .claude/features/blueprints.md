@@ -276,10 +276,20 @@ or editing a manifest leaves it holding the previous set — nothing here can no
 release lives on the other side. Re-run `publish-blueprints` in `mixengine-packages` with `ref` set
 to the **full** commit SHA of this repository (`actions/checkout` refuses an abbreviated one) and
 `publish` on; the tag is moved rather than added to, and the run removes what the gallery no longer
-holds. `check-blueprints` there is the backstop rather than the mechanism: it compares the published
-set against `mixengine@master` on a weekly clock, so forgetting is found — a week later, in another
-repository's Actions tab, by whoever happens to look. That latency is the whole reason this
-paragraph exists.
+holds.
+
+**What is automatic is the reminder, not the release.** Pushing a gallery change to `master` fires
+[.github/workflows/gallery.yml](../../.github/workflows/gallery.yml), which sends one
+`repository_dispatch` to `mixengine-packages`; its `check-blueprints` compares the published set
+against `mixengine@master` and goes red within a minute of the push that caused it, naming the
+commit that asked. It also watches `blueprints/trust.rs`, because rotating that key invalidates
+every signature already published without touching a manifest. Nothing there publishes on its own —
+cutting the release names a ref and prunes what the gallery dropped, and `master` being ahead of a
+published set is a state somebody is allowed to choose. Two things a person owns once:
+`PACKAGES_DISPATCH_TOKEN` in this repository's secrets, a token with write access to
+`mixnz/mixengine-packages` — a repository's own `GITHUB_TOKEN` cannot reach another repository at
+all — and the weekly cron on the other side, which stays because a dispatch that was never sent
+looks exactly like a gallery nobody touched.
 
 **A count written in prose is a count that goes stale.** Three places in this file said "six" and one
 in the packaging repository's `tools/blueprints.py` did too, and all four were wrong the moment the

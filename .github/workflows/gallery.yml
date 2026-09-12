@@ -1,0 +1,94 @@
+name: gallery
+
+# **The gallery lives here and is published from somewhere else**, and until now nothing joined the
+# two. `mixengine-packages` cuts `crates/mixengine-core/src/blueprints/gallery` into a signed release
+# (T79a) by checking this repository out at a ref, so every edit on this side leaves that release
+# holding the previous set — and the repository able to notice is the one nobody has open at the
+# time.
+#
+# `check-blueprints.yml` over there has always been that obligation, and it ran on a clock: a gallery
+# edited on a Tuesday afternoon was reported the following Tuesday, in another repository's Actions
+# tab, to whoever happened to look. This workflow closes that week. It sends one
+# `repository_dispatch` and the check runs against the push that caused it.
+#
+# That is the rule the packaging repository already applies to its own roster — `check-extensions.yml`
+# fires on a push to `data/extensions/**` "because unlike the gallery this input is local, and a
+# stale document can be caught on the branch that caused it". The gallery was left on the clock alone
+# for the one reason a dispatch removes: its input is not local over there. It is local **here**.
+#
+# **It asks for a check, not for a publish**, and that is settled rather than unfinished. Cutting the
+# release names a ref and prunes what the gallery no longer holds, and `master` being ahead of a
+# published set is a legitimate state somebody chose. `release/publish-blueprints.sh` is how a person
+# does it; this only makes sure a person knows they have to.
+#
+# **This fires on a push, which `ci.yml` refuses to do.** The difference is what the runner is being
+# spent on: that workflow compiles a workspace for three operating systems and is worth a person
+# asking for, while this one checks nothing out, builds nothing and is over in seconds. And it is the
+# one job here that *cannot* wait to be asked for, because being forgotten is the whole failure it
+# exists to prevent. `pages.yml` follows `master` on the same kind of reasoning.
+on:
+  push:
+    branches: [master]
+    paths:
+      # The manifests themselves — the bytes the release is cut from.
+      - 'crates/mixengine-core/src/blueprints/gallery/**'
+      # And the key the check proves that release's signatures against. It is compiled into this
+      # binary and only mirrored over there, so a rotation on this side invalidates every file
+      # published under the old one without touching a single manifest.
+      - 'crates/mixengine-core/src/blueprints/trust.rs'
+      # A workflow that stopped working should say so on the commit that broke it.
+      - '.github/workflows/gallery.yml'
+  workflow_dispatch:
+
+# Nothing is checked out and nothing in this repository is read. The token that does the work is a
+# secret rather than `GITHUB_TOKEN`, because a repository's own token cannot reach another
+# repository at all — no permission here can grant that.
+permissions: {}
+
+jobs:
+  tell-the-packaging-repository:
+    name: ask mixengine-packages to check what it published
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: send the dispatch
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGES_DISPATCH_TOKEN }}
+          PACKAGES: mixnz/mixengine-packages
+          # Through the environment and never interpolated into the script: a `${{ }}` inside `run`
+          # is pasted as source before bash ever sees it.
+          COMPARE: ${{ github.event.compare }}
+        run: |
+          set -euo pipefail
+
+          # **Loud rather than skipped.** A notifier that quietly does nothing is worse than no
+          # notifier: it is the same silence as before, now with a green tick over it.
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::error::PACKAGES_DISPATCH_TOKEN is not set, so ${PACKAGES} was not told that the"
+            echo "::error::gallery changed. It needs a token with write access to that repository —"
+            echo "::error::see .claude/features/blueprints.md. Until it is set, the weekly"
+            echo "::error::check-blueprints run over there is the only thing still catching this,"
+            echo "::error::and it catches it up to a week late."
+            exit 1
+          fi
+
+          # `jq` rather than a printf'd string: the payload is JSON and a URL is not something to
+          # hand-quote into one.
+          jq -nc \
+            --arg sha "$GITHUB_SHA" \
+            --arg compare "${COMPARE:-}" \
+            '{event_type: "gallery-changed", client_payload: {sha: $sha, compare: $compare}}' \
+          | gh api --method POST "repos/${PACKAGES}/dispatches" --input -
+
+          {
+            echo "## Asked \`${PACKAGES}\` to check the published gallery"
+            echo
+            echo "Against this commit: \`${GITHUB_SHA}\`"
+            echo
+            echo "The run is in the other repository — a \`repository_dispatch\` hands back no id:"
+            echo
+            echo "<https://github.com/${PACKAGES}/actions/workflows/check-blueprints.yml>"
+            echo
+            echo "A failure there means the published set is no longer this gallery, and the fix is"
+            echo "to cut it again with \`release/publish-blueprints.sh\` over there."
+          } >> "$GITHUB_STEP_SUMMARY"

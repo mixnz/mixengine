@@ -114,7 +114,19 @@ the same branch cancels the first, because by then you have stopped caring about
 | `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
-**One workflow is not in that table**: `.github/workflows/pages.yml`, which builds the handbook and
+**Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
+their own, which is the thing that file will not do.
+
+`.github/workflows/gallery.yml` sends one `repository_dispatch` to `mixengine-packages` when a push
+to `master` touches `crates/mixengine-core/src/blueprints/gallery/**` or `blueprints/trust.rs`, so
+the check that compares the published signed gallery with this one runs against the commit that
+changed it instead of on that repository's weekly cron. It checks nothing out and builds nothing —
+what `ci.yml` is protecting is a three-OS compile, not a runner-minute — and it is the one job here
+that cannot wait to be asked for, because being forgotten is the failure it exists to prevent. It
+needs `PACKAGES_DISPATCH_TOKEN`, a secret with write access to the other repository, and fails loudly
+when it is missing: see [../features/blueprints.md](../features/blueprints.md).
+
+`.github/workflows/pages.yml` builds the handbook and
 deploys it to GitHub Pages on every push to `master`. It is separate because deploying needs
 `pages: write` and `id-token: write` and a `github-pages` environment, and `ci.yml` is
 `contents: read` and stays that way. It carries no `paths:` filter — filtering to the corpus would
@@ -122,10 +134,13 @@ leave the site claiming the previous version after a release bumped `Cargo.toml`
 follows `master` rather than a tag, because a handbook that only updated when a version was cut would
 describe the previous release for as long as the next one took.
 
-**One setting is a person's, once.** GitHub Pages must be enabled for the repository with the source
-set to GitHub Actions. `actions/configure-pages` is asked to enable it through the API, and where the
-token may not, the job fails saying so — deliberately, because a deploy that skipped itself quietly
-would leave a green tick over a site nobody published.
+**Two settings are a person's, once.** GitHub Pages must be enabled for the repository with the
+source set to GitHub Actions. `actions/configure-pages` is asked to enable it through the API, and
+where the token may not, the job fails saying so — deliberately, because a deploy that skipped itself
+quietly would leave a green tick over a site nobody published. And `PACKAGES_DISPATCH_TOKEN` must
+hold a token with write access to `mixnz/mixengine-packages`; nothing can create it from inside a
+run, because the whole point is reaching a repository this one's `GITHUB_TOKEN` has no claim on.
+Both fail loudly for one reason: the failure they guard against is silence.
 
 **All eight exist since T103**: `lint`, `test`, `bench`, `system` — which arrived with T40, the first
 `#[ignore]`d system test — `build`, which arrived with T85, the task that produced something to

@@ -327,6 +327,28 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **The packaging repository needed no change.** `publish-blueprints.yml` globs the gallery
       directory and reconciles the release against what it just signed, so the five arrive by
       re-running it at a ref — an operation, not an edit.
+- [x] **T125a** Tell the packaging repository when the gallery changes —
+      `.github/workflows/gallery.yml`, one `repository_dispatch` on a push to `master` that touches
+      `blueprints/gallery/**` or `blueprints/trust.rs`, and `repository_dispatch` added to
+      `check-blueprints.yml` over there. Publishing the signed gallery is done by hand and stays
+      that way; what was automatic was only the *discovery* that it had not been, and that ran on a
+      weekly cron in a repository nobody had open. **The rule was already written down over there**:
+      `check-extensions.yml` fires on a push "because unlike the gallery this input is local", which
+      is the one thing a dispatch changes.
+      **`ci.yml` could not host it**, and finding that out is what shaped the task: this repository's
+      CI fires on a `v*` tag and on nothing else, on the standing rule that a three-OS compile is
+      worth a runner only when a person is asking. That rule is about the compile — this job checks
+      nothing out and is over in seconds — and it is also the one job here that must not wait to be
+      asked for, since being forgotten is the whole failure. `pages.yml` was the precedent for a
+      workflow of this repository's own that follows `master`.
+      **The cron stays**, because a dispatch that was never sent looks exactly like a gallery nobody
+      touched, and only a clock separates those. And the check still reads `mixengine@master` rather
+      than the commit in the payload: the claim is "what people can download is what this build
+      ships", so a gallery edit reverted a minute later is correctly green. The commit that asked is
+      recorded in the summary instead.
+      **One thing a person owns**: `PACKAGES_DISPATCH_TOKEN`, since a repository's `GITHUB_TOKEN`
+      cannot reach another repository at all. The job fails loudly without it — a notifier that
+      quietly does nothing is the same silence as before with a green tick over it.
 - [x] **T81a** Publish `extensions.json` from the packaging repository, on T79a's shape: the
       workflow checks this repository out at a ref, renders each `data/extensions/<id>.toml` through
       the reader that verifies it, signs with the index key, and proves the committed `minisign.pub`
