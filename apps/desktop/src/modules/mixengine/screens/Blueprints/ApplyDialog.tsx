@@ -49,6 +49,19 @@ interface Props {
   initialRoot?: string;
 
   /**
+   * Thư mục ở trên là **nơi chứa** project chứ không phải project — `BlueprintApply.root_is_parent`,
+   * T120a.
+   *
+   * Mặc định `false`: một root gõ tay là một root gõ tay, daemon nhận nguyên văn. Quick Start bật
+   * nó, vì ở đó người dùng chọn *chỗ để đặt* — và bên đặt tên là daemon, không phải thẻ này: luật
+   * slug không có bản sao nào ở client (xem `quickStart.ts`).
+   *
+   * Đường dẫn daemon ghép ra không phải điều bất ngờ — nó nằm trong bước `register_project` của
+   * plan, tức là hiện ra trước khi bấm Apply.
+   */
+  rootIsParent?: boolean;
+
+  /**
    * Cài luôn web server nếu home này chưa có — `BlueprintApply.front_end`, T115.
    *
    * Mặc định **tắt**: một apply là chuyện của một project, còn dựng sẵn cái máy nó chạy trên là
@@ -78,6 +91,7 @@ export default function ApplyDialog({
   onDone,
   initialProject = "",
   initialRoot = "",
+  rootIsParent = false,
   withFrontEnd = false,
   autostart = false,
 }: Props) {
@@ -107,6 +121,7 @@ export default function ApplyDialog({
         blueprint: blueprint.slug,
         project,
         root,
+        root_is_parent: rootIsParent,
         dry_run: true,
         front_end: withFrontEnd,
         autostart,
@@ -136,6 +151,9 @@ export default function ApplyDialog({
         blueprint: blueprint.slug,
         project,
         root,
+        // Gửi ở cả hai lượt, cùng lý do với `front_end` phía dưới: kế hoạch người ta đọc phải là
+        // kế hoạch chạy, nên thứ quyết định thư mục không được đổi sau lượt dry run.
+        root_is_parent: rootIsParent,
         dry_run: false,
         answers: buildAnswers(plan.steps, choices),
         scaffold: scaffold ?? undefined,

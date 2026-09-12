@@ -50,7 +50,7 @@ const vi: typeof en = {
           "Chọn một stack, đặt tên, và MixEngine cài những gì nó cần, cấu hình rồi khởi động giúp bạn.",
         stack: "Stack",
         name: "Tên project",
-        folder: "Thư mục",
+        folder: "Đặt vào thư mục",
         browse: "Chọn…",
         create: "Tạo ngay",
         starting: "Đang khởi động mọi thứ MixEngine quản lý…",

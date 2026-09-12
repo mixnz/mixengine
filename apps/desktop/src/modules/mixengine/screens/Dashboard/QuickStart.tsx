@@ -135,6 +135,10 @@ export default function QuickStart({ onCreated }: { onCreated: () => void }) {
           blueprint={phase.blueprint}
           initialProject={project}
           initialRoot={root}
+          // Thư mục người dùng chọn ở trên là **chỗ để đặt** project, không phải project — T120a.
+          // Daemon đặt tên thư mục bằng handle của project, và tên đó hiện trong plan trước khi
+          // bấm Apply.
+          rootIsParent
           withFrontEnd
           autostart
           onCancel={() => setPhase({ kind: "form" })}
