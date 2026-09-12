@@ -173,18 +173,24 @@ export default function ApplyDialog({
     };
   }, [phase, jobs, t]);
 
+  // Mở stream **ngay khi apply bắt đầu chạy**, không đợi bấm nút — T120, D6. Trước đây stream chỉ
+  // mở khi `showLog` bật, nên mọi dòng in ra trước cú bấm là mất hẳn: một apply hỏng ở bước thứ hai
+  // rồi mới được bấm "Xem output" hiển thị một panel trắng. Nút giờ chỉ bật/tắt **hiển thị**, còn
+  // việc thu thập thì chạy suốt phase "running" — và `logEntries` ở lại sau khi phase đổi, nên đọc
+  // được cả khi apply đã hỏng.
   useEffect(() => {
-    if (!showLog || phase.kind !== "running") return;
+    if (phase.kind !== "running") return;
+    const job = phase.jobId;
     setLogEntries([]);
     api
-      .jobLogsWatch(phase.jobId, 200, true, (raw) => {
+      .jobLogsWatch(job, 200, true, (raw) => {
         setLogEntries((current) => applyLogFrame(current, raw, 2000));
       })
       .catch((e: unknown) => setError(errorMessage(t, e)));
     return () => {
       void api.jobLogsUnwatch();
     };
-  }, [showLog, phase, t]);
+  }, [phase, t]);
 
   const running = phase.kind === "running" ? jobFor(jobs, phase.jobId) : undefined;
 
@@ -294,6 +300,13 @@ export default function ApplyDialog({
               <p>{t("mixengine.blueprints.apply.running")}</p>
               <progress value={running?.percent ?? 0} max={100} />
               <p>{running?.message ?? ""}</p>
+            </div>
+          )}
+
+          {/* Sống lâu hơn phase "running" — T120, D6. Một apply hỏng là lúc output đáng đọc nhất,
+              mà trước đây nút nằm trong khối trên nên biến mất đúng lúc đó. */}
+          {(phase.kind === "running" || logEntries.length > 0) && (
+            <div className={styles.output}>
               <Button onClick={() => setShowLog((v) => !v)}>
                 {showLog
                   ? t("mixengine.blueprints.apply.hideLog")

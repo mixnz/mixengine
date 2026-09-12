@@ -81,6 +81,14 @@
   gap: 8px;
 }
 
+/* Khối output đứng riêng khỏi `.running` — T120. Nút và panel log sống lâu hơn phase "running":
+   một apply hỏng là lúc người ta cần đọc output nhất, mà đó đúng là lúc khối `.running` biến mất. */
+.output {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .log {
   max-height: 200px;
   overflow-y: auto;
