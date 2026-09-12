@@ -287,3 +287,92 @@ async fn a_command_whose_program_is_missing_is_blocked_before_anything_runs() {
     let shown = json(&home.mix(&["project", "show", "five", "--json"]));
     assert_eq!(shown["project"]["name"], "five", "{shown}");
 }
+
+/// **A project named the way people name things gets a directory a tool will accept** — roadmap
+/// task **T120a**.
+///
+/// The whole of D1 in one apply: no `--path`, a name carrying a capital, a space and a dot, and the
+/// directory that appears is the *handle*. The scaffold's own file is what proves the command ran
+/// **in** that directory rather than somewhere a plan merely mentioned.
+///
+/// Offline, and deliberately not a `create-next-app` run: what is under test is which directory
+/// MixEngine composes, and a test that downloaded Next.js to find that out would be measuring npm.
+/// The real thing is measured by hand — the design's acceptance list.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_project_name_that_is_not_a_slug_still_gets_a_directory_a_tool_accepts() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    imported(&home);
+
+    // **From a directory of its own**, because what is under test is the default `mix` sends when
+    // nobody names a path, and that default is relative to where `mix` was run.
+    let repository = repository();
+    let ran = stdout(&home.mix_in(
+        repository.path(),
+        &[],
+        &[
+            "blueprint",
+            "apply",
+            "borrowed",
+            "--project",
+            "Next.js 1",
+            "--run-untrusted-scaffold",
+        ],
+    ));
+
+    assert!(ran.contains("done"), "{ran}");
+
+    let root = repository.path().join("next-js-1");
+    assert!(root.is_dir(), "the apply made {}: {ran}", root.display());
+    assert!(
+        !repository.path().join("Next.js 1").exists(),
+        "a project's name must not become a directory name: {ran}"
+    );
+
+    // And the command ran inside it, which is the half a plan cannot promise.
+    assert!(
+        root.join("made.txt").is_file(),
+        "the command ran somewhere else: {:?}",
+        std::fs::read_dir(repository.path())
+            .expect("the parent directory")
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name())
+            .collect::<Vec<_>>()
+    );
+}
+
+/// **A path somebody typed is used as typed** — the design's D2, and the other half of the decision
+/// above. A folder a person named is a folder a person named.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_path_somebody_named_is_not_respelled() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    imported(&home);
+
+    let repository = repository();
+    let named = repository.path().join("Next.js 2");
+
+    let ran = stdout(&home.mix_in(
+        repository.path(),
+        &[],
+        &[
+            "blueprint",
+            "apply",
+            "borrowed",
+            "--project",
+            "Next.js 2",
+            "--path",
+            &named.display().to_string(),
+            "--run-untrusted-scaffold",
+        ],
+    ));
+
+    assert!(ran.contains("done"), "{ran}");
+    assert!(named.is_dir(), "the directory keeps its spelling: {ran}");
+    assert!(
+        !repository.path().join("next-js-2").exists(),
+        "nothing composes a handle when a path was given: {ran}"
+    );
+}
