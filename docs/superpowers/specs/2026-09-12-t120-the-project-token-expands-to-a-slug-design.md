@@ -102,26 +102,19 @@ plan — database, account, domain, alias, per-project instance, scaffold comman
 **A handle is computed once**, at the top of `plan()`, and passed down. Nothing below re-derives it,
 for the same reason `expand` exists at all: a second place to compute it is a second answer.
 
-Concretely, `expand(value, project)` becomes a method on a small `Handle` value:
+Concretely, `expand(value, project)` keeps its signature and changes what it substitutes:
 
 ```rust
-/// What `{project}` becomes, and the name it was made from.
-struct Handle<'a> {
-    /// What the person typed. Only `RegisterProject` gets this.
-    name: &'a str,
-    /// The same name as something a database, a domain and a service id can all hold.
-    /// `None` when the name has no ASCII in it at all.
-    slug: Option<String>,
-}
-
-impl Handle<'_> {
-    /// `value` with `{project}` expanded, or the reason it cannot be.
-    fn expand(&self, value: &str) -> Result<String, String>;
-}
+/// `{project}` becomes the project's **handle** — its name as `domains::slug` makes it.
+///
+/// `handle` is `None` for a name with no ASCII in it to slug, and then the token is **left where it
+/// is**: every name space below refuses `{project}` on its own rule (D3), and leaving it visible is
+/// what makes the refusal say which token could not be expanded.
+fn expand(value: &str, handle: Option<&str>) -> String;
 ```
 
-`expand` answers `Err` **only** when `value` actually contains the token and `slug` is `None`. A
-manifest that never mentions `{project}` is unaffected by a name nothing can be slugged from.
+The handle is computed once at the top of `plan()` — `let handle = domains::slug(project);` — and
+passed to every `expand` call. Nothing below re-derives it.
 
 ### D2 — every expanded name is validated at plan time
 
@@ -143,14 +136,27 @@ project, a blueprint carrying `{project}.dev`).
 A step being blocked is enough: `canApply` refuses an apply while any step is blocked, so a blocked
 domain does not need the certificate step blocked as well.
 
-### D3 — a name with nothing to slug is blocked where it is used
+### D3 — a name with nothing to slug is blocked where the token is used, and nowhere else
 
-`domains::slug("日本")` is `None`: there is no ASCII to make a label from. Rather than blocking the
-project registration — a manifest that uses no `{project}` would then be refused for no reason —
-each step that *needs* the token blocks itself, with the sentence `domains::default_for` already
-uses:
+`domains::slug("日本")` is `None`: there is no ASCII to make a label from. Blocking the project
+registration would refuse a manifest that never mentions `{project}` for no reason, so instead the
+token is left unexpanded and each step that *uses* it blocks itself.
 
-> there is nothing in the project's name a domain label can be made of
+That falls out of D2 almost entirely: `{project}` is not a legal database identifier, `{project}.test`
+is not a legal domain (`bad_label` refuses `{`), and `{project}` is not a legal `ServiceId`
+instance. Each validator refuses it with its own sentence.
+
+Two things make it deliberate rather than incidental:
+
+- A shared helper gives those three steps a **better** sentence when the refused name still holds
+  the token, instead of "only lower-case letters, digits and hyphens are allowed" about a string the
+  person never typed:
+
+  > there is nothing in the project's name to expand `{project}` into
+
+- **`[scaffold]` has no validator**, because its name space is a shell. So the scaffold step blocks
+  explicitly when its expanded command still contains the token. This is the one place D2 does not
+  already cover, and leaving it out would run a command with a literal `{project}` in it.
 
 ### D4 — the security comment becomes true
 
