@@ -144,6 +144,31 @@ readable, writable setting since it was written, and nothing has ever read the c
       `.group:last-child { margin-top: auto }` is the whole of it: a position rather than a special
       case in the table.
 
+- [x] **T120** `{project}` expands to a slug, and a plan says so before an apply finds out
+      ([ADR 0030](../decisions/0030-the-project-token-expands-to-a-slug.md)). Found by this phase's
+      own Quick Start, which is the first place somebody who has never read a naming rule types a
+      project name: `laravel 1` is a legal project name and is legal in none of the four name spaces
+      T77 substituted it into — a database identifier, a DNS label, a `ServiceId` instance and a
+      shell command. The token now expands to `domains::slug`, the handle `project.create` has
+      derived a default domain with since T39a, and every expanded name is validated at plan time by
+      the function that owns its name space.
+      **What this task settled.** T77's D10 was a promise the code did not keep: the database step
+      checked the account's *length* and the domain step checked only who held the name, so both
+      planned green and failed mid-apply — after a directory had been made and three packages
+      downloaded. The rule is enforced by its owner now, and `DATABASE_USER_LIMIT`, which restated
+      `IDENTIFIER_LIMIT`'s number here, is gone. It also retired a comment that justified
+      interpolating into a shell by asserting a project name "has already been through the slug
+      charset"; it had not, and the assertion is true only now that what is substituted is the
+      handle. An apply narrates each step into its job's log as well — until this task
+      `LogSubject::Job` was written by the `[scaffold]` step alone, so a failure before it left a
+      log a client could only render as blank — and the ring is forgotten when the job ends, closing
+      a leak T78a opened.
+      **What it deliberately did not do.** It did not tighten `projects::validated_name`: a project's
+      name is a label a person reads, spaces have been legal in one since phase 0, and narrowing it
+      would invalidate names already registered to fix a problem belonging to the four name spaces
+      the token lands in. And it added no `database.drop`, so a database an apply made is still
+      never taken back — the ledger names it instead.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are
