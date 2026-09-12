@@ -408,10 +408,15 @@ async fn a_fresh_home_holds_the_gallery() {
         slugs,
         [
             "django",
+            "drupal",
             "laravel",
             "nextjs",
+            "php-mysql",
+            "rails",
             "static",
+            "strapi",
             "symfony",
+            "vite",
             "wordpress"
         ],
         "{answer}"

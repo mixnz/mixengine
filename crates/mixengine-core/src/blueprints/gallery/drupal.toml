@@ -1,0 +1,30 @@
+schema = 1
+
+[blueprint]
+name = "Drupal"
+description = "Drupal on PHP-FPM with MariaDB, served from web/"
+created_at = "2026-09-13T00:00:00Z"
+
+[blueprint.created_on]
+os = "any"
+version = "0.0.1"
+
+[runtimes]
+php = "8.4"
+composer = "2"
+
+[site]
+kind = "php-fpm"
+doc_root = "web"
+https = true
+domain_pattern = "{project}.test"
+
+[[services]]
+name = "mariadb"
+instance = "main"
+database = "{project}"
+user = "{project}"
+
+[scaffold]
+command = "composer create-project drupal/recommended-project . --no-interaction"
+needs_empty_dir = true

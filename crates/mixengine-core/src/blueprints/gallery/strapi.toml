@@ -1,0 +1,26 @@
+schema = 1
+
+[blueprint]
+name = "Strapi"
+description = "A Strapi server on port 1337, with PostgreSQL - create or clone your app here first"
+created_at = "2026-09-13T00:00:00Z"
+
+[blueprint.created_on]
+os = "any"
+version = "0.0.1"
+
+[runtimes]
+node = "24"
+
+[site]
+kind = "node-app"
+port = 1337
+doc_root = ""
+https = true
+domain_pattern = "{project}.test"
+
+[[services]]
+name = "postgres"
+instance = "main"
+database = "{project}"
+user = "{project}"

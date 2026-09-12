@@ -1,0 +1,26 @@
+schema = 1
+
+[blueprint]
+name = "Ruby on Rails"
+description = "Rails behind a reverse proxy, with PostgreSQL - run bundle install, then rails server"
+created_at = "2026-09-13T00:00:00Z"
+
+[blueprint.created_on]
+os = "any"
+version = "0.0.1"
+
+[runtimes]
+ruby = "3.4"
+
+[site]
+kind = "reverse-proxy"
+upstream = "http://127.0.0.1:3000"
+doc_root = ""
+https = true
+domain_pattern = "{project}.test"
+
+[[services]]
+name = "postgres"
+instance = "main"
+database = "{project}"
+user = "{project}"

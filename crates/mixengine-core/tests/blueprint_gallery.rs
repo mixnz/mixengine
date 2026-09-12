@@ -1,7 +1,7 @@
 //! The blueprints this build ships — roadmap task **T79**.
 //!
 //! Out here rather than beside the code because these are assertions about the *shipped set*: that
-//! the six files are readable, that each one is its own rendering, and that seeding a real home
+//! the eleven files are readable, that each one is its own rendering, and that seeding a real home
 //! with them is idempotent.
 
 use mixengine_core::blueprints::gallery::{self, ENTRIES};
@@ -34,17 +34,22 @@ fn every_gallery_blueprint_is_its_own_rendering() {
 
 /// The set the roadmap names, spelled the way a person types it on a command line.
 #[test]
-fn the_gallery_is_the_six_the_roadmap_names() {
+fn the_gallery_is_the_eleven_the_roadmap_names() {
     let slugs: Vec<_> = ENTRIES.iter().map(|entry| entry.slug).collect();
 
     assert_eq!(
         slugs,
         [
             "django",
+            "drupal",
             "laravel",
             "nextjs",
+            "php-mysql",
+            "rails",
             "static",
+            "strapi",
             "symfony",
+            "vite",
             "wordpress"
         ],
         "the gallery is listed in slug order, which is the order a listing shows it in"
@@ -56,14 +61,22 @@ fn the_gallery_is_the_six_the_roadmap_names() {
     }
 }
 
-/// **Three carry a command and three do not** — D8. Asserted rather than left to a reading of the
+/// **Four carry a command and seven do not** — D8. Asserted rather than left to a reading of the
 /// files, because a scaffold added to `wordpress` or `django` by a later edit is exactly the change
 /// this task decided against.
+///
+/// The seven without one are not a shortfall. A gallery command has to be non-interactive — there is
+/// no timeout, so a prompt hangs a job for good — spelled the same for `cmd.exe` and `sh`, with a
+/// program for its first word, and it may not write into a shared runtime: that last rule is what
+/// removes Django's `pip install django` and Rails' `gem install rails`, both of which reach every
+/// project using that runtime. `vite` and `strapi` are kept out by the first: `create-vite` and
+/// `create-strapi-app` ask questions no flag reliably silences. And `php-mysql` is the kind of
+/// project that has no initialiser at all, which is the point of it.
 #[test]
-fn only_the_three_that_can_run_a_command_carry_one() {
+fn only_the_four_that_can_run_a_command_carry_one() {
     for entry in ENTRIES {
         let manifest = manifest::read(entry.manifest).expect("a gallery blueprint");
-        let expected = matches!(entry.slug, "laravel" | "symfony" | "nextjs");
+        let expected = matches!(entry.slug, "laravel" | "symfony" | "nextjs" | "drupal");
 
         assert_eq!(
             manifest.scaffold.is_some(),
@@ -138,7 +151,7 @@ async fn a_fresh_home_is_seeded_with_the_whole_gallery() {
 }
 
 /// **The second start writes nothing at all** — D4. This is the assertion the decision exists for:
-/// every CLI test in this workspace starts a daemon, and six file writes on each of those is a cost
+/// every CLI test in this workspace starts a daemon, and eleven file writes on each of those is a cost
 /// with nothing on the other side of it.
 #[tokio::test]
 async fn seeding_a_home_that_is_already_seeded_writes_nothing() {
@@ -298,7 +311,7 @@ async fn planned(slug: &str) -> mixengine_proto::BlueprintPlan {
     planned_with(slug, GALLERY_PROGRAMS).await
 }
 
-/// **Every one of the six plans without a blocked step** — nothing in the gallery asks for
+/// **Every one of the eleven plans without a blocked step** — nothing in the gallery asks for
 /// something this build cannot do on a machine that has nothing installed but the two programs the
 /// gallery's commands name.
 #[tokio::test]
@@ -323,12 +336,12 @@ async fn every_gallery_blueprint_plans_on_a_machine_with_nothing_installed() {
     }
 }
 
-/// **On a machine without `composer`, `laravel` and `symfony` are blocked at exactly one step and
+/// **On a machine without `composer`, the three that run it are blocked at exactly one step and
 /// it is the command** — roadmap task **T78b**. The gap the product does not close (T25 keeps
 /// `composer` out of the shims) is on the screen rather than at the end of the job, and the other
-/// four plan clean because `npx` is a shim every home has.
+/// eight plan clean because `npx` is a shim every home has.
 #[tokio::test]
-async fn without_composer_only_the_two_that_need_it_are_blocked_and_only_at_the_command() {
+async fn without_composer_only_the_three_that_need_it_are_blocked_and_only_at_the_command() {
     for entry in ENTRIES {
         let planned = planned_with(entry.slug, &["npx"]).await;
         let blocked: Vec<_> = planned
@@ -338,7 +351,7 @@ async fn without_composer_only_the_two_that_need_it_are_blocked_and_only_at_the_
             .collect();
 
         match entry.slug {
-            "laravel" | "symfony" => {
+            "laravel" | "symfony" | "drupal" => {
                 assert_eq!(blocked.len(), 1, "{}: {:?}", entry.slug, planned.steps);
                 assert!(
                     matches!(blocked[0].action, PlanAction::RunScaffold { .. }),
@@ -361,10 +374,10 @@ async fn without_composer_only_the_two_that_need_it_are_blocked_and_only_at_the_
     }
 }
 
-/// **The two that run Composer ask for it** — roadmap task **T27c**, its design's D6 — so a machine
+/// **The three that run Composer ask for it** — roadmap task **T27c**, its design's D6 — so a machine
 /// without one reads `create composer 2` where T78b had it read `blocked`.
 #[tokio::test]
-async fn laravel_and_symfony_ask_for_composer_and_nothing_else_does() {
+async fn the_three_composer_blueprints_ask_for_it_and_nothing_else_does() {
     for entry in ENTRIES {
         let planned = planned(entry.slug).await;
         let asks = planned.steps.iter().any(|step| {
@@ -378,7 +391,7 @@ async fn laravel_and_symfony_ask_for_composer_and_nothing_else_does() {
         });
         assert_eq!(
             asks,
-            matches!(entry.slug, "laravel" | "symfony"),
+            matches!(entry.slug, "laravel" | "symfony" | "drupal"),
             "{}: {:?}",
             entry.slug,
             planned.steps

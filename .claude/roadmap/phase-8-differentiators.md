@@ -309,6 +309,24 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `sites.php_service_id` is SET NULL, `site_service_links.service_id` is CASCADE and deletes
       rows leaving nothing about a site to look wrong. `PRAGMA foreign_keys` is a no-op inside a
       transaction, so 0016 is a `-- no-transaction` migration that opens its own.
+- [x] **T125** Five more blueprints — `drupal`, `php-mysql`, `rails`, `strapi` and `vite`, taking
+      the gallery to eleven. **Chosen by coverage rather than by popularity.** Each closes a gap
+      between what this build can run and what the gallery ever asked for: Ruby had six shims and no
+      entry, MySQL had a recipe and no entry, and no entry had a `doc_root` that was a build output
+      — which is the question this product is asked most often and had no answer for. `memcached`
+      stays uncovered on purpose: it is added after a performance problem, never when a project is
+      made, and an entry that existed to complete a table is the change the gallery is defined
+      against.
+      **Only `drupal` carries a command**, which makes it four of eleven. `rails` cannot: `gem
+      install rails` writes into a shared runtime, the same rule that removed Django's. `vite` and
+      `strapi` cannot either, on the first rule instead of the last — `create-vite` and
+      `create-strapi-app` ask questions no flag reliably silences, and a scaffold has no timeout, so
+      a job waiting on a prompt waits for good. `php-mysql` has no initialiser to run at all.
+      **T124 is what makes a scaffold-free entry complete**: an apply that writes no source code now
+      ends at a page that says what is missing, rather than at a 404.
+      **The packaging repository needed no change.** `publish-blueprints.yml` globs the gallery
+      directory and reconciles the release against what it just signed, so the five arrive by
+      re-running it at a ref — an operation, not an edit.
 - [x] **T81a** Publish `extensions.json` from the packaging repository, on T79a's shape: the
       workflow checks this repository out at a ref, renders each `data/extensions/<id>.toml` through
       the reader that verifies it, signs with the index key, and proves the committed `minisign.pub`
