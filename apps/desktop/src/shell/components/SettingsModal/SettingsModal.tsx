@@ -51,24 +51,25 @@ function SettingsModal({
   onClose,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<SectionId>("modules");
+  const [section, setSection] = useState<SectionId>("appearance");
 
   const visible = visibleModules(modules.enabled);
 
-  /* The panes, in the order they are listed: which parts of the app this window has at all, then
-     the one a user changes often, then whatever the visible modules contribute, then the errands.
-     Modules leads because it is the setting that decides which of the panes below it exist.
+  /* The panes, in the order they are listed: the one a user changes often, then which parts of the
+     app this window has at all, then whatever the visible modules contribute, then the errands.
+     Appearance leads because it is the pane a user opens this dialog for most; Modules sits right
+     under it because it is the setting that decides which of the panes below it exist.
 
      Rebuilt on every render rather than held as a module-level constant — T108 — because the module
-     panes come and go with the setting the first one carries.
+     panes come and go with the setting the Modules pane carries.
 
      A module names its own pane, and every one of them names itself after the module — so the
      column reads as the app's parts, and a reader can tell before clicking which entries are the
      dialog's own and which belong to something they opened a tab of. What is *inside* a pane is
      that module's business and carries its own headings; the shell never sees them. */
   const sections: { id: SectionId; labelKey: TranslationKey; icon: ComponentType<IconProps> }[] = [
-    { id: "modules", labelKey: "profiles.title", icon: ModulesIcon },
     { id: "appearance", labelKey: "settings.appearance", icon: PaletteIcon },
+    { id: "modules", labelKey: "profiles.title", icon: ModulesIcon },
     { id: "shortcuts", labelKey: "shortcuts.title", icon: KeyboardIcon },
     ...visible.flatMap((m) =>
       m.settings ? [{ id: m.id, labelKey: m.settings.labelKey, icon: m.settings.Icon }] : [],
@@ -79,7 +80,7 @@ function SettingsModal({
   /* Turning a module off while its own pane is on screen would leave `section` pointing at nothing.
      Derived rather than repaired in an effect, so there is no frame in which the dialog has no pane
      at all. */
-  const shown = sections.some((s) => s.id === section) ? section : "modules";
+  const shown = sections.some((s) => s.id === section) ? section : "appearance";
 
   return (
     <Modal
@@ -122,15 +123,6 @@ function SettingsModal({
             <div
               className={styles.panel}
               role="tabpanel"
-              id="settings-panel-modules"
-              aria-labelledby="settings-tab-modules"
-              hidden={shown !== "modules"}
-            >
-              <ModulesSection {...modules} />
-            </div>
-            <div
-              className={styles.panel}
-              role="tabpanel"
               id="settings-panel-appearance"
               aria-labelledby="settings-tab-appearance"
               hidden={shown !== "appearance"}
@@ -143,6 +135,15 @@ function SettingsModal({
                 glass={glass}
                 onGlassChange={onGlassChange}
               />
+            </div>
+            <div
+              className={styles.panel}
+              role="tabpanel"
+              id="settings-panel-modules"
+              aria-labelledby="settings-tab-modules"
+              hidden={shown !== "modules"}
+            >
+              <ModulesSection {...modules} />
             </div>
             <div
               className={styles.panel}
