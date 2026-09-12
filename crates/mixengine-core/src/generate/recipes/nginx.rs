@@ -1077,34 +1077,125 @@ mod tests {
         );
     }
 
-    /// **A php-fpm site renders no welcome route here, and that is asserted rather than noticed** —
-    /// roadmap task T124.
+    /// **A php-fpm site is answered through the index module, never through `try_files`** — roadmap
+    /// task **T124a**, and the assertion that keeps T124's source leak out.
     ///
-    /// nginx's `try_files` serves the first file it finds *in the current context*, so a
-    /// `location = /` naming `/index.php` before the fallback serves that file with no
-    /// `fastcgi_pass` behind it: the site's source code, as text, on its own home page. Caddy's
-    /// `not file` matcher asks the disk without serving and has no equivalent here. This test is
-    /// what stops the obvious rendering coming back.
+    /// `try_files` serves the first file it finds *in the current context*, and this location has no
+    /// `fastcgi_pass`, so a `location = /` naming `/index.php` would answer the site's home page
+    /// with the site's own source, as text. The index module makes an **internal redirect** instead,
+    /// so the same file is re-matched by `location ~ \.php$` and runs as PHP.
     #[test]
-    fn a_php_site_renders_no_welcome_route_until_one_cannot_leak_its_source() {
-        let rendered = render_site(&Served {
+    fn a_php_site_is_answered_through_the_index_module_and_never_through_try_files() {
+        let rendered = render_site(&a_php_site());
+
+        assert!(
+            rendered.contains("location = / {"),
+            "the welcome route is nginx's exact match on the root:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("error_page 403 404 = @mixengine_welcome;"),
+            "both statuses the index module reports when it finds nothing:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("location @mixengine_welcome"),
+            "{rendered}"
+        );
+    }
+
+    /// **The leak, asserted as an absence** — roadmap task **T124a**. This is the rendering T124
+    /// shipped and had to take back, and the failure it causes is a disclosure rather than a wrong
+    /// page, so it is worth a test of its own rather than a clause in the one above.
+    #[test]
+    fn no_try_files_in_this_rendering_ever_names_a_php_file() {
+        let rendered = render_site(&a_php_site());
+
+        let offending = rendered.lines().map(str::trim_start).find(|line| {
+            line.starts_with("try_files") && line.contains(".php") && {
+                // The front controller is the *last* element, which try_files reaches by internal
+                // redirect — that one is correct and is what `location /` has always rendered.
+                let items: Vec<_> = line
+                    .trim_end_matches(';')
+                    .split_whitespace()
+                    .skip(1)
+                    .collect();
+                items
+                    .iter()
+                    .take(items.len().saturating_sub(1))
+                    .any(|item| item.contains(".php"))
+            }
+        });
+
+        assert!(
+            offending.is_none(),
+            "a .php file before the last element of try_files is served in place, as text: {offending:?}"
+        );
+    }
+
+    /// **An application's own 404 is still its own** — the T124 design, D3. The `error_page` above
+    /// lives in an exact-match location on `/`, so it cannot be reached by any other path, and once
+    /// the index module has redirected, the location answering the request is another one.
+    #[test]
+    fn the_error_page_is_scoped_to_the_root_and_not_to_the_php_handler() {
+        let rendered = render_site(&a_php_site());
+
+        let php_block = rendered
+            .split(r"location ~ \.php$ {")
+            .nth(1)
+            .expect("a php location");
+
+        assert!(
+            !php_block.contains("error_page"),
+            "the php handler must answer with whatever the application said:
+{php_block}"
+        );
+        assert!(
+            !rendered.contains("fastcgi_intercept_errors"),
+            "this directive would capture an error the application sent:
+{rendered}"
+        );
+    }
+
+    /// **`alias` is refused inside a named location, and nginx refuses the whole file over it** —
+    /// roadmap task **T124a**, measured against nginx 1.31.3: *the "alias" directive cannot be used
+    /// inside the named location*. One page's mistake would take every site on the machine down
+    /// with it, which is why this is asserted here rather than left to the serving suite.
+    #[test]
+    fn the_welcome_location_is_served_with_root_and_never_with_alias() {
+        for site in [a_static_site(), a_php_site()] {
+            let rendered = render_site(&site);
+            let named = rendered
+                .split("location @mixengine_welcome {")
+                .nth(1)
+                .expect("the welcome location");
+            let body = named
+                .split(
+                    "
+    }",
+                )
+                .next()
+                .expect("its body");
+
+            assert!(
+                !body.contains("alias "),
+                "nginx refuses this configuration outright:
+{body}"
+            );
+            assert!(body.contains("root \""), "{body}");
+            assert!(body.contains("try_files /blog.test.html =404;"), "{body}");
+        }
+    }
+
+    /// A php-fpm site at `blog.test`, on the static fixture's domain and certificate.
+    fn a_php_site() -> Served {
+        Served {
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                 activator: None,
             },
             ..a_static_site()
-        });
-
-        assert!(
-            !rendered.contains("location @mixengine_welcome"),
-            "a php-fpm site has no welcome route on nginx:
-{rendered}"
-        );
-        assert!(
-            !rendered.contains("try_files /index.php"),
-            "naming index.php in a try_files that serves in place is the source leak:
-{rendered}"
-        );
+        }
     }
 
     /// A static site at `blog.test` with a certificate, so both shapes of the template are

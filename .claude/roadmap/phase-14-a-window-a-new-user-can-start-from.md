@@ -283,17 +283,24 @@ readable, writable setting since it was written, and nothing has ever read the c
       504 at every path, because a gateway error the front end produced means nothing was listening
       and there is no application answer to overwrite — while an upstream's *own* 502 passes through,
       which is why nginx renders `error_page` and never `proxy_intercept_errors`.
-      **What it deliberately did not do.** It did not cover the php-fpm kind on nginx. `try_files`
-      serves the first file it finds in the current context, so a `location = /` naming `/index.php`
-      before the fallback would serve that file with no `fastcgi_pass` behind it — the site's source,
-      as text, on its home page. That rendering was written, measured against the leak and removed
-      again; `a_php_site_renders_no_welcome_route_until_one_cannot_leak_its_source` is what stops it
-      coming back, and a mechanism that cannot leak is the follow-up below.
-- [ ] **T124a** The welcome page reaches a php-fpm site on nginx. What is needed is a check that asks
-      the disk without serving what it finds — Caddy's `not file` has no nginx equivalent, and
-      `error_page 404` is what T124's design refuses, since it would replace the application's own.
-      Until this lands, a php-fpm site on nginx answers 404 exactly as it did before T124, and the
-      same site on Caddy answers the page.
+      **What it got wrong on the way.** Its nginx rendering for the php-fpm kind named `/index.php`
+      in a `try_files` inside a location with no `fastcgi_pass`, which serves that file in place —
+      a site's own source, as text, on its own home page. **T124a** is what found and replaced it.
+- [x] **T124a** The welcome page reaches a php-fpm site on nginx, through the index module rather
+      than through `try_files`. **What this task settled.** nginx has no `not file` matcher, so the
+      question "is there an index here" cannot be asked the way Caddy asks it; the index module
+      answers it as a side effect, because it makes an *internal redirect* when it finds a file —
+      `/index.php` is re-matched by `location ~ \.php$` and runs as PHP — and reports 403 (or 404
+      for a document root that does not exist yet) when it finds nothing. `error_page 403 404` in
+      an exact-match location on `/` is therefore reached only in the case this page is for, and an
+      application's own status, at this path or any other, is never what is replaced. **And `alias`
+      may not appear in a named location**: nginx refuses the whole configuration over it, so one
+      page's mistake would have taken every site on the machine down — measured, and the welcome
+      location uses `root` with `try_files` instead.
+      **What it also did.** `welcome.rs` became one sequence driven through both front ends, and
+      `NGINX` moved from `tests/nginx.rs` into the shared harness to make that possible: a claim
+      about what a site answers is a claim about both servers, and the rendering that had to be
+      written twice is the one a Caddy-only suite would never have served.
 
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving

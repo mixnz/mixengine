@@ -158,14 +158,39 @@ impl FrontEnd {
         }
     }
 
-    /// An index offering exactly this server, for this machine.
-    fn index(&self, packed: &Packed, url: &str) -> Value {
+    /// What this front end names the per-site file it renders — roadmap task **T124a**.
+    ///
+    /// Derived from [`config`](Self::config)'s own extension rather than declared beside it: a
+    /// front end that renders `nginx.conf` renders `sites/<domain>.conf`, and two fields could
+    /// disagree.
+    pub(crate) fn site_extension(&self) -> &'static str {
+        match self.config.rsplit_once('.') {
+            Some((_, extension)) => extension,
+            // Caddy's is `Caddyfile`, which has no extension and whose site files are `.caddy`.
+            None => "caddy",
+        }
+    }
+
+    /// What this server's artifact publishes, by the names a recipe asks for them by.
+    ///
+    /// **Out here rather than inside [`index`](Self::index)** since roadmap task **T124a**: a suite
+    /// that publishes a front end *beside* other packages — `php_site`, which needs a PHP in the
+    /// same index — builds its own entry and would otherwise carry a second copy of this map. One
+    /// forgotten `fastcgi_params` is an nginx that renders and will not start.
+    pub(crate) fn provides(&self) -> serde_json::Map<String, Value> {
         let mut provides = serde_json::Map::new();
         provides.insert(self.package.to_owned(), Value::String(self.binary()));
 
         for (name, relative) in self.data_files {
             provides.insert((*name).to_owned(), Value::String((*relative).to_owned()));
         }
+
+        provides
+    }
+
+    /// An index offering exactly this server, for this machine.
+    fn index(&self, packed: &Packed, url: &str) -> Value {
+        let provides = self.provides();
 
         serde_json::json!({
             "schema": 1,
@@ -367,6 +392,67 @@ pub(crate) fn request_at(
 /// with a real Caddy running in it and nothing else, which is this const and `declared` and
 /// nothing more. A second copy of it would be a second answer to what version the index
 /// publishes and what file the recipe renders.
+/// The other program a site can be reached through — roadmap task **T37**, moved here by **T124a**.
+///
+/// **Beside `CADDY` rather than in `tests/nginx.rs`**, because it stopped being that suite's alone:
+/// `welcome.rs` drives the same arc through both front ends, and a second copy of this table is a
+/// second answer to which files an nginx artifact publishes — one forgotten `fastcgi_params` is an
+/// nginx that renders and will not start.
+pub(crate) const NGINX: FrontEnd = FrontEnd {
+    package: "nginx",
+    // Where an unpacked nginx is, as the CI step and a developer both set it: the directory holding
+    // the binary, which for this package is also the root of the tree `conf/` sits in.
+    variable: "MIXENGINE_NGINX_PACKAGE",
+    version: "1.x",
+    config: "nginx.conf",
+    archive: Archive::WholeTree,
+    // The data files a generated configuration reaches into the archive for, under the names the
+    // recipe asks for them by.
+    data_files: &[
+        ("mime.types", "conf/mime.types"),
+        ("fastcgi_params", "conf/fastcgi_params"),
+    ],
+    alone: |status| nginx_overrides(status, None),
+    serving: |status, port, says| {
+        nginx_overrides(
+            status,
+            // Inside `http { }`, which is where this template renders `extra` — a `server` block at
+            // the top level of an nginx configuration is a parse error, and that difference from
+            // Caddy is the reason the free-form override is rendered where each format wants it.
+            Some(format!(
+                "server {{\n        listen 127.0.0.1:{port};\n        \
+                 location / {{\n            return 200 \"{says}\";\n        }}\n    }}\n"
+            )),
+        )
+    },
+    broken: |status| nginx_overrides(status, Some("this is not nginx {".to_owned())),
+    // Inside `http { }`, which is where `include extensions/*.conf;` puts it — roadmap task T81c,
+    // and the same difference from Caddy the free-form override above is written around.
+    fragment: "server {\n    listen {listen}:{fragment_port};\n    location / {\n        \
+               return 200 \"from the fragment\";\n    }\n}\n",
+    broken_fragment: "notadirective {\n",
+    control_line: |status| format!("listen 127.0.0.1:{status};"),
+    // The endpoint this recipe renders *because* nginx has no admin one. See the module note on
+    // `mixengine_core::generate::recipes::nginx`: a TCP accept cannot tell a serving nginx from one
+    // whose workers have all died, because the master holds the listening socket either way.
+    control_path: "/mixengine/health",
+};
+
+/// The whole overrides document for an nginx on `status`, with `extra` pasted in if there is any.
+///
+/// **The whole document and not a patch**, which is what `config_overrides_json` is: a setting that
+/// is not in it is not set. So every override this suite writes repeats the status port, and one
+/// that forgot would move the endpoint back to the recipe's default under a server listening on the
+/// one this home chose — a readiness check and a health probe pointed at a port nothing answers on.
+fn nginx_overrides(status: u16, extra: Option<String>) -> String {
+    serde_json::json!({
+        "status_port": status,
+        "https_port": free_tls_port(),
+        "extra": extra.unwrap_or_default(),
+    })
+    .to_string()
+}
+
 pub(crate) const CADDY: FrontEnd = FrontEnd {
     package: "caddy",
     // Where an unpacked Caddy is, as the CI step and a developer both set it: the directory holding

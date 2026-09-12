@@ -112,8 +112,15 @@ API that mounts nothing at `/` but everything under `/api` — a shape this prod
 since a `php-fpm` site serving a JSON API is ordinary. `location = /` in nginx and an exact-path
 matcher in Caddy cost one block each and cannot reach a path the application owns.
 
-The order inside that block matters and is the whole safety argument: the site's own `index.php` and
-`index.html` are tried **first**, so a working site never renders this page even once.
+**The condition is asked of the disk and never of the ordering** — which is what T124 got wrong and
+T124a corrected, twice over. In Caddy, `php_fastcgi` and `file_server` are not in the mutually
+exclusive group `handle` blocks form, so a route placed after them is not reliably reached; the whole
+question moves into a `not file` matcher. In nginx there is no such matcher, and the obvious
+`try_files /index.php … @welcome` is worse than wrong: `try_files` serves what it finds *in the
+current context*, and that location has no `fastcgi_pass`, so a site with an `index.php` answers its
+home page with its own source. What nginx uses instead is the index module, whose internal redirect
+sends `/index.php` back through `location ~ \.php$` — and whose failure, 403 for a document root
+that exists and 404 for one that does not, is what `error_page` picks up.
 
 ### D4 — For `reverse-proxy` and `node-app`: 502 and 504, at any path, and never an upstream's own
 

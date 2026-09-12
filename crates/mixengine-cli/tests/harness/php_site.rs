@@ -184,7 +184,8 @@ fn packing() -> Packing {
     }
 }
 
-/// A home with Caddy and every given PHP installed in it, a site per PHP, and the front end running.
+/// A home with `front` and every given PHP installed in it, a site per PHP, and the front end
+/// running.
 ///
 /// **One registry publishing everything**, rather than a registry per artifact: a daemon reads one
 /// index, and two would mean restarting it between installs.
@@ -192,12 +193,17 @@ fn packing() -> Packing {
 /// The front end is left **running** and the pools are left **started**, which is the state both
 /// callers need: one is about to ask a site for something, and the other is about to wait for the
 /// sweeper to stop the pools.
-pub(crate) async fn served(roots: &[PathBuf]) -> Served {
+///
+/// **Which front end is an argument since roadmap task T124a.** The claim a caller makes about what
+/// a site answers is a claim about both servers, and the two render that answer with different
+/// directives — nginx's is the one that had to be written twice before it stopped leaking. A fixture
+/// that could only be Caddy would have left the second rendering asserted and never served.
+pub(crate) async fn served(front: &'static FrontEnd, roots: &[PathBuf]) -> Served {
     assert!(!roots.is_empty(), "a home with no PHP serves nothing");
 
     let (port, control) = (free_port(), free_port());
 
-    let caddy = CADDY.pack();
+    let caddy = front.pack();
     let registry = MockRegistry::start(&serde_json::json!({
         "schema": 1, "generated_at": "2026-08-30T06:55:12Z", "packages": []
     }))
@@ -205,18 +211,16 @@ pub(crate) async fn served(roots: &[PathBuf]) -> Served {
 
     let mut packages = vec![{
         let url = registry.publish_asset(&caddy.path(), caddy.bytes.clone());
-        let mut provides = serde_json::Map::new();
-        provides.insert(
-            CADDY.package.to_owned(),
-            Value::String(format!("{}{}", CADDY.package, std::env::consts::EXE_SUFFIX)),
-        );
 
+        // **The fixture's own map and never a second copy of it** — T124a. nginx's artifact
+        // publishes `mime.types` and `fastcgi_params` beside the binary, and a recipe that cannot
+        // find them renders a configuration nginx refuses to start.
         entry(
-            CADDY.package,
-            CADDY.version,
+            front.package,
+            front.version,
             &caddy,
             &url,
-            Value::Object(provides),
+            Value::Object(front.provides()),
         )
     }];
 
@@ -249,7 +253,7 @@ pub(crate) async fn served(roots: &[PathBuf]) -> Served {
     let daemon = home.start_daemon_reading_index(&registry.url(), registry.public_key());
 
     let installed =
-        json(&home.mix(&["package", "install", CADDY.package, CADDY.version, "--json"]));
+        json(&home.mix(&["package", "install", front.package, front.version, "--json"]));
     assert_eq!(
         installed["state"],
         "succeeded",
@@ -260,15 +264,15 @@ pub(crate) async fn served(roots: &[PathBuf]) -> Served {
     let created = json(&home.mix(&[
         "service",
         "create",
-        CADDY.package,
-        CADDY.version,
+        front.package,
+        front.version,
         "--port",
         &port.to_string(),
         "--json",
     ]));
     assert_eq!(
         created["service"]["id"],
-        CADDY.package,
+        front.package,
         "{created}\n{}",
         home.daemon_log()
     );
@@ -277,8 +281,8 @@ pub(crate) async fn served(roots: &[PathBuf]) -> Served {
     // have a Caddy of their own on 2019, and a suite that took it over is one that stops their work.
     mixengine_testkit::declare::reconfigure(
         &home.database_file(),
-        CADDY.package,
-        &(CADDY.alone)(control),
+        front.package,
+        &(front.alone)(control),
     )
     .await;
 
@@ -296,7 +300,7 @@ pub(crate) async fn served(roots: &[PathBuf]) -> Served {
         sites.push(site(&home, &version));
     }
 
-    let started = json(&home.mix(&["service", "start", CADDY.package, "--json"]));
+    let started = json(&home.mix(&["service", "start", front.package, "--json"]));
     assert_eq!(
         started["complete"],
         true,

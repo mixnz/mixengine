@@ -77,7 +77,7 @@ fn state(served: &php_site::Served, pool: &str) -> String {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "a budget, measured by the bench job — see the module note and ci.yml"]
 async fn a_first_request_to_a_sleeping_site_is_served_inside_the_budget() {
-    let served = php_site::served(&php_site::runtimes()).await;
+    let served = php_site::served(php_site::FRONT, &php_site::runtimes()).await;
 
     for site in &served.sites {
         let set = json(

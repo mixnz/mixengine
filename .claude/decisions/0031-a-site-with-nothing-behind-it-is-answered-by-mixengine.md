@@ -32,8 +32,9 @@ and the page is served rather than written.**
   whichever front end is running and swept with it. Nothing is ever written into a project directory:
   a rollback keeps that directory, `project.delete` keeps it, and the apply ledger records it as
   `Kept::Directory` on the standing rule that *the files were never ours*.
-- **The condition is a matcher's, never an ordering's.** The route matches one exact path and only
-  while the disk holds none of the index files the site would have served. An application's own 404
+- **The condition is asked of the disk, never of the ordering.** The route matches one exact path
+  and only while the disk holds none of the index files the site would have served — a `not file`
+  matcher on Caddy, the index module's own failure on nginx. An application's own 404
   is an answer, and replacing it would be MixEngine lying about somebody else's program.
 - **A dead upstream is answered at every path**, on 502 and 504 only. There a gateway error means
   nothing was listening, so there is no application answer being overwritten — but an upstream's
@@ -53,18 +54,23 @@ and the page is served rather than written.**
   drift check must see the same rendering an install writes, which is why the switch reaches the
   generator rather than being read inside a recipe.
 - A browser is told `no-store`, so the page cannot outlive the index that replaces it.
-- **The php-fpm kind is not covered on nginx**, and that is recorded here rather than left to be
-  discovered. nginx's `try_files` serves the first file it finds *in the current context*, so a
-  `location = /` naming `/index.php` ahead of the fallback would serve that file with no
-  `fastcgi_pass` behind it — the site's own source, as text, on its home page. Caddy's `not file`
-  matcher asks the disk without serving anything and nginx has no equivalent; `error_page 404` is
-  what the decision above refuses. A static site and a proxied one get the page on both front ends;
-  a php-fpm site gets it on Caddy and waits, on nginx, for a mechanism that cannot leak.
-  `a_php_site_renders_no_welcome_route_until_one_cannot_leak_its_source` is what stops the obvious
-  rendering coming back.
-- What is measured rather than argued is in `crates/mixengine-cli/tests/welcome.rs`, against Caddy
-  2.11.4 and PHP 8.4.24: 200 and the page at `/`, 404 at `/missing` and `/api/anything`, and the
-  site's own index answering the moment it is written, with no reload and no re-render.
+- **The two front ends ask the disk with different primitives, and only one of them is safe to
+  write the obvious way.** Caddy has a `not file` matcher, which asks without serving. nginx does
+  not, and its `try_files` serves the first file it finds *in the current context* — so the obvious
+  `location = /` naming `/index.php` ahead of a fallback answers a php-fpm site's home page with
+  that site's own source, as text. **T124 shipped exactly that and T124a took it back.** What nginx
+  uses instead is the index module, which makes an *internal redirect* when it finds a file, so
+  `/index.php` is re-matched by `location ~ \.php$` and runs as PHP; `error_page 403 404` in that
+  exact-match location is reached only when the index module found nothing at all. Two tests hold
+  the line: one that no `try_files` in the rendering names a `.php` file before its last element,
+  and one that a site's home page is never its own source.
+- **`alias` may not appear in a named location**, and nginx refuses the whole configuration over it
+  — so one page's mistake would take every site on the machine down. The welcome location uses
+  `root` with `try_files`.
+- What is measured rather than argued is in `crates/mixengine-cli/tests/welcome.rs`, one sequence
+  driven through both front ends — Caddy 2.11.4, nginx 1.31.3, PHP 8.4.24: 200 and the page at `/`,
+  404 at `/missing` and `/api/anything`, the site's own index answering the moment it is written
+  with no reload and no re-render, and its source never served.
 
 ## Alternatives rejected
 
