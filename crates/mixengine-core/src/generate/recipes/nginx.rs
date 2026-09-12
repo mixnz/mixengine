@@ -1077,6 +1077,36 @@ mod tests {
         );
     }
 
+    /// **A php-fpm site renders no welcome route here, and that is asserted rather than noticed** —
+    /// roadmap task T124.
+    ///
+    /// nginx's `try_files` serves the first file it finds *in the current context*, so a
+    /// `location = /` naming `/index.php` before the fallback serves that file with no
+    /// `fastcgi_pass` behind it: the site's source code, as text, on its own home page. Caddy's
+    /// `not file` matcher asks the disk without serving and has no equivalent here. This test is
+    /// what stops the obvious rendering coming back.
+    #[test]
+    fn a_php_site_renders_no_welcome_route_until_one_cannot_leak_its_source() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::PhpFpm {
+                upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
+                activator: None,
+            },
+            ..a_static_site()
+        });
+
+        assert!(
+            !rendered.contains("location @mixengine_welcome"),
+            "a php-fpm site has no welcome route on nginx:
+{rendered}"
+        );
+        assert!(
+            !rendered.contains("try_files /index.php"),
+            "naming index.php in a try_files that serves in place is the source leak:
+{rendered}"
+        );
+    }
+
     /// A static site at `blog.test` with a certificate, so both shapes of the template are
     /// reachable from one fixture.
     fn a_static_site() -> Served {
