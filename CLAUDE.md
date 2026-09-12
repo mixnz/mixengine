@@ -104,5 +104,10 @@ cd apps/desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings 
   see [.claude/standards/plans-and-specs.md](.claude/standards/plans-and-specs.md).
 - When splitting a batch of fixes across subagents, group the work by the invariant the findings
   share, not by the file they sit in — two agents editing around one invariant undo each other.
+- Adding to or editing the **blueprint gallery** leaves a second repository stale: `mixengine-packages`
+  publishes the same manifests as signed files, and its `publish-blueprints` workflow has to be
+  re-run at the new ref. Its weekly `check-blueprints` does catch a gallery that drifted, but it
+  reports on the other side and up to a week later — see
+  [.claude/features/blueprints.md](.claude/features/blueprints.md).
 - CI is asked for, not automatic: `master` builds itself, any other branch is pushed and then
   requested — see [.claude/operations/build-and-release.md](.claude/operations/build-and-release.md).

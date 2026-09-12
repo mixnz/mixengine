@@ -271,6 +271,21 @@ good. Replacing one of the eleven needs `mix blueprint import <file> --overwrite
 slug its builtin refresh — seeding leaves a row whose source is not `builtin` alone, so the imported
 copy is that machine's `laravel` from then on, even when the bytes were identical.
 
+**A gallery change is not finished in this repository.** The release above is cut by hand, so adding
+or editing a manifest leaves it holding the previous set — nothing here can notice, because the
+release lives on the other side. Re-run `publish-blueprints` in `mixengine-packages` with `ref` set
+to the **full** commit SHA of this repository (`actions/checkout` refuses an abbreviated one) and
+`publish` on; the tag is moved rather than added to, and the run removes what the gallery no longer
+holds. `check-blueprints` there is the backstop rather than the mechanism: it compares the published
+set against `mixengine@master` on a weekly clock, so forgetting is found — a week later, in another
+repository's Actions tab, by whoever happens to look. That latency is the whole reason this
+paragraph exists.
+
+**A count written in prose is a count that goes stale.** Three places in this file said "six" and one
+in the packaging repository's `tools/blueprints.py` did too, and all four were wrong the moment the
+gallery grew. Where a number is not the point of the sentence, leave it out; where it is, `ENTRIES`
+is what a test reads and prose is not.
+
 **A file is filed under its own name.** `blueprint.import` with no `--name` takes the file's stem,
 not `[blueprint] name`: the manifest's name is display text — the gallery says `Static site` and
 `Next.js` — and every rendering this product writes is `<slug>.toml`, so the stem is what carries a
