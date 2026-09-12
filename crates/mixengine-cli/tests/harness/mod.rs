@@ -62,6 +62,26 @@ impl Home {
     }
 
     /// Whatever the daemon for this home has written to its own log.
+    /// The configuration this front end rendered for one site — roadmap task **T124a**.
+    ///
+    /// For a failure message: what goes wrong in a serving test is usually a rendering, and a bare
+    /// status line does not say which. The extension is the front end's own, which is why it is
+    /// asked rather than spelled here.
+    pub(crate) fn site_file(
+        &self,
+        front: &crate::harness::frontend::FrontEnd,
+        domain: &str,
+    ) -> String {
+        std::fs::read_to_string(
+            self.path()
+                .join("etc")
+                .join(front.package)
+                .join("sites")
+                .join(format!("{domain}.{}", front.site_extension())),
+        )
+        .unwrap_or_else(|error| format!("(no site file: {error})"))
+    }
+
     pub(crate) fn daemon_log(&self) -> String {
         self.0.daemon_log()
     }

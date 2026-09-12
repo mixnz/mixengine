@@ -166,6 +166,16 @@ pub(crate) struct Registry {
     /// The OS, for the credentials a spec names and cannot carry.
     host: Arc<dyn Host>,
 
+    /// Whether a site with nothing behind it answers with MixEngine's page — roadmap task **T124**.
+    ///
+    /// **Here rather than beside every generator that needs it.** `config.sites.welcome_page` is
+    /// read once at boot, and four call sites build a generator from `paths`, `store` and `host` —
+    /// `doctor`, `repair`, the activator walk and an extension's `would_serve`. Every one of them
+    /// already holds this registry, and `Doctor::new` is at the seven arguments clippy allows, so a
+    /// parameter beside the other three would have been the one that broke it. A drift check must
+    /// render exactly what an install renders, so all five must read one answer.
+    welcome: bool,
+
     /// Where a persisted transition is published.
     events: Events,
 
@@ -445,6 +455,17 @@ pub(crate) enum Undeclarable {
 }
 
 impl Registry {
+    /// What `config.toml` says about the welcome page — roadmap task **T124**.
+    ///
+    /// A setter rather than an eighth argument to [`new`](Self::new), which is at the seven
+    /// `clippy::too_many_arguments` allows. The daemon calls it once with
+    /// `config.sites.welcome_page`; everything else keeps the default, which is the same answer a
+    /// home with no `[sites]` section gives.
+    pub(crate) fn with_welcome(mut self, welcome: bool) -> Self {
+        self.welcome = welcome;
+        self
+    }
+
     /// A registry with nothing running.
     pub(crate) fn new(
         paths: &Paths,
@@ -459,6 +480,10 @@ impl Registry {
             paths: paths.clone(),
             store: store.clone(),
             host,
+            // **On unless this home said otherwise** — roadmap task T124, and a setter rather than
+            // an eighth argument: `new` is at the seven clippy allows. The default is the product's
+            // own, so a fixture that never mentions it renders what a home renders.
+            welcome: true,
             events,
             specs,
             shutdown,
@@ -1486,7 +1511,7 @@ impl Registry {
         &self,
         service: &ServiceId,
     ) -> Result<Vec<mixengine_platform::activation::Listen>, Box<mixengine_core::Error>> {
-        let generator = spec::generator(&self.paths, &self.store, self.host.as_ref());
+        let generator = spec::generator(&self.paths, &self.store, self.host.as_ref(), self.welcome);
 
         Ok(generator
             .held_while_stopped()
@@ -1507,6 +1532,14 @@ impl Registry {
     /// answered by that mock and not by whatever is listening on the runner.
     pub(crate) fn host(&self) -> &dyn Host {
         self.host.as_ref()
+    }
+
+    /// Whether this home answers a site with nothing behind it — roadmap task **T124**.
+    ///
+    /// Read by every caller that builds a generator of its own, so that the drift check and the
+    /// install render the same thing.
+    pub(crate) fn welcome(&self) -> bool {
+        self.welcome
     }
 
     /// Which services have a task supervising them right now.

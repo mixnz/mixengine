@@ -45,6 +45,7 @@ pub mod recipes;
 pub mod served;
 pub mod settings;
 pub mod step;
+pub mod welcome;
 
 pub use databases::{Ask, Credentials, DatabaseAdmin, Found, Provisioning};
 pub use document::{Document, Reason, Validator, Written};
@@ -81,6 +82,13 @@ pub struct Generator {
     /// Asked once, when the generator is built, because the mapping is a constant of the operating
     /// system — `PortAccess::bindings` is pure for exactly this reason.
     bindings: Vec<PortBinding>,
+
+    /// Whether a site with nothing behind it answers with MixEngine's page — roadmap task **T124**.
+    ///
+    /// `config.sites.welcome_page`, carried for [`bindings`](Self::bindings)' reason: `config.toml`
+    /// is read once at boot, and a generator that re-read it per render would be a second place this
+    /// home's preferences are decided.
+    welcome: bool,
 }
 
 /// One service, generated: what it will run, and what changed on the way.
@@ -320,12 +328,14 @@ impl Generator {
         store: Store,
         catalogue: Catalogue,
         bindings: Vec<PortBinding>,
+        welcome: bool,
     ) -> Self {
         Self {
             paths,
             store,
             catalogue,
             bindings,
+            welcome,
         }
     }
 
@@ -916,6 +926,12 @@ impl Generator {
                 self.paths.certs(),
             ))
             .ok(),
+
+            // **Whether a site with nothing behind it answers with a page of ours** — roadmap task
+            // T124, `config.sites.welcome_page`. A value on the generator for `bindings`' reason: a
+            // recipe is a function of its context, and `config.toml` is read once at boot and not
+            // once per render.
+            welcome: self.welcome,
 
             // **What this home's extensions add to this front end** — roadmap task T81c. On the
             // front end's context and on nothing else, and already filtered to the fragments
@@ -1688,7 +1704,7 @@ mod tests {
 
         (
             directory,
-            Generator::new(paths, store, catalogue, Vec::new()),
+            Generator::new(paths, store, catalogue, Vec::new(), true),
         )
     }
 
@@ -1742,7 +1758,7 @@ mod tests {
         .await
         .expect("a services row");
 
-        let generator = Generator::new(paths, store, Catalogue::builtin(), Vec::new());
+        let generator = Generator::new(paths, store, Catalogue::builtin(), Vec::new(), true);
 
         let generated = generator
             .generate(&ServiceId::parse("mailpit").expect("an id"))
@@ -2044,6 +2060,7 @@ mod tests {
             store,
             Catalogue::default().with(Arc::new(Fake)),
             Vec::new(),
+            true,
         );
 
         let generated = generator.declared().await.expect("one rendered service");

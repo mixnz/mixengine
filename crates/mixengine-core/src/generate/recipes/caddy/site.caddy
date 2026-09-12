@@ -87,6 +87,42 @@
 	# the parse error names the line after it.
 	root * `{{ doc_root }}`
 {%- if kind == "php-fpm" %}
+{%- if welcome %}
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **A matcher that asks the disk, and never ordering alone.** `php_fastcgi` expands to a
+	# `try_files` whose last entry is a fallback to `index.php`, so `/` can reach the pool whether
+	# or not that file is there; and `php_fastcgi` is not in the mutually exclusive group `handle`
+	# blocks form, so a route placed after it is not reliably reached either. Both are removed by
+	# putting the whole condition in the matcher and the route first. What is measured is the
+	# outcome rather than the mechanism — `crates/mixengine-cli/tests/welcome.rs`, against Caddy
+	# 2.11.4 and PHP 8.4.24: 200 and this page at `/`, 404 at `/missing` and `/api/anything`, and
+	# the site's own index answering the moment it is written, with no reload.
+	#
+	# **`path /` and `not file`, together.** An application's own 404 is an answer, and replacing
+	# it would be MixEngine lying about somebody else's program — a site serving a JSON API under
+	# `/api` and nothing at `/` is ordinary. This matches one exact path, and only while the disk
+	# holds none of the index files the site would have served, so a site with one never renders
+	# this page even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.php index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
 
 	# The pool this site's project resolves to, at the address that pool's own recipe says it
 	# listens on. `php_fastcgi` sets every `fastcgi_param` PHP needs itself, which is why this
@@ -119,10 +155,50 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
+	}
 {%- elif kind == "static" %}
-	file_server
+{%- if welcome %}
+	# The same route a php-fpm site gets, with the index files a static site would have
+	# served — roadmap task T124. `file_server` has the same shape of problem `php_fastcgi`
+	# does: it is not in the group `handle` blocks form, so the condition has to be the
+	# matcher's rather than the ordering's.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
+
+{%- if welcome %}
+	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
+	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
+	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
+	# What cannot be removed is the 502; what can be removed is the silence around it.
+	#
+	# **Every path, unlike the `handle /` the file kinds get.** A 502 Caddy generated means nothing
+	# was listening, so there is no application whose answer this could be overwriting — and the
+	# matcher names the two statuses rather than catching everything, so an upstream that is up and
+	# said 404 still says 404.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
 {%- endif %}
 {%- endif %}
 {%- if authority %}
@@ -165,6 +241,42 @@
 {%- endif %}
 	root * `{{ doc_root }}`
 {%- if kind == "php-fpm" %}
+{%- if welcome %}
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **A matcher that asks the disk, and never ordering alone.** `php_fastcgi` expands to a
+	# `try_files` whose last entry is a fallback to `index.php`, so `/` can reach the pool whether
+	# or not that file is there; and `php_fastcgi` is not in the mutually exclusive group `handle`
+	# blocks form, so a route placed after it is not reliably reached either. Both are removed by
+	# putting the whole condition in the matcher and the route first. What is measured is the
+	# outcome rather than the mechanism — `crates/mixengine-cli/tests/welcome.rs`, against Caddy
+	# 2.11.4 and PHP 8.4.24: 200 and this page at `/`, 404 at `/missing` and `/api/anything`, and
+	# the site's own index answering the moment it is written, with no reload.
+	#
+	# **`path /` and `not file`, together.** An application's own 404 is an answer, and replacing
+	# it would be MixEngine lying about somebody else's program — a site serving a JSON API under
+	# `/api` and nothing at `/` is ordinary. This matches one exact path, and only while the disk
+	# holds none of the index files the site would have served, so a site with one never renders
+	# this page even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.php index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
 
 {%- if activator %}
 	# The pool first and the activator second, under the policy the block above explains.
@@ -178,10 +290,50 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
+	}
 {%- elif kind == "static" %}
-	file_server
+{%- if welcome %}
+	# The same route a php-fpm site gets, with the index files a static site would have
+	# served — roadmap task T124. `file_server` has the same shape of problem `php_fastcgi`
+	# does: it is not in the group `handle` blocks form, so the condition has to be the
+	# matcher's rather than the ordering's.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
+
+{%- if welcome %}
+	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
+	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
+	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
+	# What cannot be removed is the 502; what can be removed is the silence around it.
+	#
+	# **Every path, unlike the `handle /` the file kinds get.** A 502 Caddy generated means nothing
+	# was listening, so there is no application whose answer this could be overwriting — and the
+	# matcher names the two statuses rather than catching everything, so an upstream that is up and
+	# said 404 still says 404.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
 {%- endif %}
 {%- if authority %}
 	}

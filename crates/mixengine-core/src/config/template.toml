@@ -106,6 +106,19 @@
 # 0 is refused — that is a loop with no pause in it rather than a schedule.
 #check_seconds = 30
 
+[sites]
+# A site you have just made has nothing in it yet, and a web server's answer to that is a 404 — or,
+# for a site that forwards to a program you run yourself, a 502 before that program is started.
+# MixEngine answers with a page of its own instead: which site this is, what kind it is, and the one
+# thing that is missing.
+#
+# It appears only where there is genuinely nothing. A site with an index at "/" never renders it, an
+# application's own 404 at any other path is never replaced, and a gateway error your own program
+# sent is passed through untouched.
+#
+# false gives you the bare error back.
+#welcome_page = true
+
 [updates]
 # MixEngine looks for a newer MixEngine when the daemon starts and once a day after that. Finding
 # one changes nothing on its own: it becomes a line in "mix status", and "mix self-update" is what

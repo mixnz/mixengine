@@ -105,6 +105,17 @@ const AUTHORITY: &str = "public/ca.crt";
 /// place this layout is decided.
 const AUTHORITY_DIR: &str = "public";
 
+/// Where the page a site with nothing behind it answers with is rendered — roadmap task **T124**.
+///
+/// **A directory of its own, and never [`AUTHORITY_DIR`].** That one holds this home's authority and
+/// is asserted to hold exactly one file, because the front end is pointed at the *directory* and so
+/// what else is in it is what else is published. The assertion is about the authority and should
+/// stay about the authority.
+///
+/// Outside `nginx.conf`'s own `include sites/*.conf;` as well, which is the second reason it is not
+/// `sites/`: a rendered HTML page is not a configuration fragment and must never be read as one.
+const WELCOME_DIR: &str = "welcome";
+
 /// The port a front end answers on when its row names none.
 ///
 /// nginx's own configuration carries no listen for sites, so unlike Caddy there is no server default
@@ -250,7 +261,7 @@ impl Recipe for Nginx {
 
     /// Exactly `sites/`, and only because this recipe is a front end — D4.
     fn swept(&self) -> &'static [&'static str] {
-        &[SITES, EXTENSIONS]
+        &[SITES, EXTENSIONS, WELCOME_DIR]
     }
 
     /// One file per site, named after its primary domain — D12.
@@ -317,6 +328,13 @@ impl Recipe for Nginx {
                         .as_ref()
                         .and(context.authority())
                         .map(|_| forward_slashed(&context.config(AUTHORITY_DIR))),
+
+                    // **Every site gets one** — roadmap task T124. Unlike `authority` above this is
+                    // never conditional on the site: what a page is *for* is a site nobody has put
+                    // anything into yet, which is every site at the moment it is made.
+                    welcome: context
+                        .welcome()
+                        .then(|| forward_slashed(&context.config(WELCOME_DIR))),
                 };
 
                 let contents = crate::generate::served::render(
@@ -332,6 +350,31 @@ impl Recipe for Nginx {
                 ))
             })
             .collect::<Result<Vec<Document>>>()?;
+
+        // **Every site's welcome page, after every site's configuration** — roadmap task T124.
+        // Appended in a second pass rather than returned two at a time from the map above, so that
+        // `documents[n]` goes on meaning the nth site: the authority below already depends on that
+        // and says so, and interleaving would have made it depend on the stride instead.
+        //
+        // **Nothing at all on a home that turned it off** (D6), which is the same answer the
+        // rendering gives: a page with no route is a file nothing reads, and a route with no page
+        // would be a 404 on top of the 404 this feature exists to replace.
+        if context.welcome() {
+            documents.reserve(served.len());
+
+            for site in served {
+                let page = crate::generate::welcome::page(
+                    site.primary(),
+                    &site.kind,
+                    &site.doc_root_relative,
+                );
+
+                documents.push(Document::new(
+                    format!("{WELCOME_DIR}/{}.html", site.primary()),
+                    crate::generate::welcome::render(context.service(), &page)?,
+                ));
+            }
+        }
 
         // **This home's authority, appended last** — roadmap task T75. Last so that a caller
         // naming `documents[0]` still means the first site, and unconditional so that the file's
@@ -560,6 +603,16 @@ struct SiteRendering<'a> {
     /// becomes a property of the rendering rather than a promise made about it. It is also [`None`]
     /// on a home with no authority to serve.
     authority: Option<String>,
+
+    /// The directory this site's welcome page was rendered into — roadmap task **T124**.
+    ///
+    /// **[`None`] on a home that turned the page off** — the T124 design, D6. The key is always
+    /// present, for [`upstream`](Self::upstream)'s reason: `Strict` makes a missing key an error
+    /// rather than a falsy value, and `None` serialises to `null`, which `{% if %}` reads as false.
+    ///
+    /// Forward-slashed like every other path this template writes: nginx reads a backslash in a
+    /// quoted string as an escape, so a Windows path spelled natively ends the string early.
+    welcome: Option<String>,
 }
 
 /// A certificate as the template writes it — roadmap task **T51**.
@@ -731,6 +784,7 @@ mod tests {
             shared: None,
             domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: true,
             https_redirect: false,
@@ -766,6 +820,7 @@ mod tests {
                 shared: None,
                 domains: vec!["php.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
                     upstream: Upstream::Socket(PathBuf::from("/home/me/run/php-fpm-8.3.sock")),
                     activator: None,
@@ -778,6 +833,7 @@ mod tests {
                 shared: None,
                 domains: vec!["proxy.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::ReverseProxy {
                     upstream: "http://127.0.0.1:4000".to_owned(),
                 },
@@ -789,6 +845,7 @@ mod tests {
                 shared: None,
                 domains: vec!["node.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::NodeApp { port: 3000 },
                 https: true,
                 https_redirect: false,
@@ -849,10 +906,315 @@ mod tests {
         );
     }
 
-    /// One site per file and one fragment per extension, and both directories are swept.
+    /// One site per file and one fragment per extension, and all three directories are swept —
+    /// `welcome/` since roadmap task **T124**, because a deleted site that kept its page would be a
+    /// page served for a site that no longer exists.
     #[test]
     fn the_front_end_sweeps_the_directories_that_follow_a_table() {
-        assert_eq!(Nginx.swept(), &["sites", "extensions"]);
+        assert_eq!(Nginx.swept(), &["sites", "extensions", "welcome"]);
+    }
+
+    /// **Two documents per site now** — roadmap task T124: the site's configuration, and the page
+    /// it answers with when it has nothing to serve.
+    #[test]
+    fn a_site_renders_a_welcome_page_beside_its_configuration() {
+        let documents = Nginx
+            .sites(&context("{}"), &[a_static_site()])
+            .expect("a rendering");
+
+        let names: Vec<_> = documents
+            .iter()
+            .map(|document| {
+                document
+                    .relative()
+                    .to_string_lossy()
+                    .replace(std::path::MAIN_SEPARATOR, "/")
+            })
+            .collect();
+
+        assert!(
+            names.contains(&"sites/blog.test.conf".to_owned()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"welcome/blog.test.html".to_owned()),
+            "{names:?}"
+        );
+    }
+
+    /// **The root path only, and after the site's own index files** — the T124 design, D3. A
+    /// catch-all `error_page 404` would replace an application's own 404, which is MixEngine lying
+    /// about somebody else's program.
+    #[test]
+    fn a_static_site_falls_back_to_the_welcome_page_only_at_the_root() {
+        let rendered = render_site(&a_static_site());
+
+        assert!(
+            rendered.contains("location = / {"),
+            "the welcome route must be nginx's exact match:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("try_files /index.html /index.htm @mixengine_welcome;"),
+            "the site's own index files must be named before the fallback:
+{rendered}"
+        );
+        assert!(
+            !rendered.contains("error_page 404 ="),
+            "a file-serving site never replaces an application's own 404:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("add_header Cache-Control \"no-store\""),
+            "{rendered}"
+        );
+    }
+
+    /// **Both `server` blocks carry it.** `site.conf` renders the serving locations twice — once in
+    /// the block `https_redirect` splits out and once in the combined one — and the copy that is
+    /// missed is the one a user with the redirect turned on meets, with both suites still green.
+    #[test]
+    fn both_server_blocks_fall_back_to_the_welcome_page() {
+        let combined = render_site(&a_static_site());
+        let redirecting = render_site(&Served {
+            https_redirect: true,
+            ..a_static_site()
+        });
+
+        assert_eq!(
+            combined.matches("location @mixengine_welcome").count(),
+            1,
+            "one serving block, one fallback:
+{combined}"
+        );
+        assert_eq!(
+            redirecting.matches("location @mixengine_welcome").count(),
+            1,
+            "the redirecting block serves nothing, so only the TLS block gets it:
+{redirecting}"
+        );
+    }
+
+    /// **A dead upstream is answered, at every path** — the T124 design, D4. Wide is safe here in
+    /// a way it is not for the file kinds: a 502 nginx generated means nothing was listening, so
+    /// there is no application whose answer is being overwritten.
+    #[test]
+    fn a_proxy_site_answers_a_dead_upstream_with_the_welcome_page() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_static_site()
+        });
+
+        assert!(
+            rendered.contains("error_page 502 504 = @mixengine_welcome;"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("location @mixengine_welcome"),
+            "{rendered}"
+        );
+    }
+
+    /// **And an upstream's own 502 passes through untouched** — D4's negative half, asserted
+    /// because the failure it guards against is a directive somebody adds later believing it
+    /// belongs. With `proxy_intercept_errors on;` a user's own gateway reporting its own upstream
+    /// would be replaced by MixEngine's page, which is this feature overwriting an application's
+    /// answer — the exact thing D3 refuses to do to a 404.
+    ///
+    /// **The directive and not the word**, on `two_sites_on_one_pool_declare_two_differently_named_groups`'
+    /// rule: the comment above it in `site.conf` names it too, and a search for the word would be
+    /// green forever whatever the configuration said.
+    #[test]
+    fn an_upstreams_own_gateway_error_is_not_intercepted() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_static_site()
+        });
+
+        let directive = rendered
+            .lines()
+            .find(|line| line.trim_start().starts_with("proxy_intercept_errors"));
+
+        assert!(
+            directive.is_none(),
+            "this directive would capture a 502 the application sent: {directive:?}"
+        );
+    }
+
+    /// **The root-only rule belongs to the kinds that serve files.** A proxy site with a working
+    /// upstream serves `/` from that upstream, and an exact-match location in front of it would
+    /// take the site's own home page away.
+    #[test]
+    fn a_proxy_site_has_no_root_only_welcome_location() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::ReverseProxy {
+                upstream: "http://127.0.0.1:8000".to_owned(),
+            },
+            ..a_static_site()
+        });
+
+        assert!(
+            !rendered.contains("location = / {"),
+            "a proxy site's `/` belongs to its upstream:
+{rendered}"
+        );
+    }
+
+    /// **Off renders neither the page nor the route** — the T124 design, D6. Either half alone is
+    /// worse than neither: a page nothing routes to is a file nobody reads, and a route with no
+    /// page behind it is a 404 on top of the 404 this feature exists to replace.
+    #[test]
+    fn the_switch_turned_off_renders_no_welcome_at_all() {
+        let documents = Nginx
+            .sites(&context("{}").with_welcome(false), &[a_static_site()])
+            .expect("a rendering");
+
+        assert_eq!(documents.len(), 1, "only the site's own configuration");
+        assert!(
+            !documents[0].contents().contains("location = / {"),
+            "{}",
+            documents[0].contents()
+        );
+    }
+
+    /// **A php-fpm site is answered through the index module, never through `try_files`** — roadmap
+    /// task **T124a**, and the assertion that keeps T124's source leak out.
+    ///
+    /// `try_files` serves the first file it finds *in the current context*, and this location has no
+    /// `fastcgi_pass`, so a `location = /` naming `/index.php` would answer the site's home page
+    /// with the site's own source, as text. The index module makes an **internal redirect** instead,
+    /// so the same file is re-matched by `location ~ \.php$` and runs as PHP.
+    #[test]
+    fn a_php_site_is_answered_through_the_index_module_and_never_through_try_files() {
+        let rendered = render_site(&a_php_site());
+
+        assert!(
+            rendered.contains("location = / {"),
+            "the welcome route is nginx's exact match on the root:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("error_page 403 404 = @mixengine_welcome;"),
+            "both statuses the index module reports when it finds nothing:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("location @mixengine_welcome"),
+            "{rendered}"
+        );
+    }
+
+    /// **The leak, asserted as an absence** — roadmap task **T124a**. This is the rendering T124
+    /// shipped and had to take back, and the failure it causes is a disclosure rather than a wrong
+    /// page, so it is worth a test of its own rather than a clause in the one above.
+    #[test]
+    fn no_try_files_in_this_rendering_ever_names_a_php_file() {
+        let rendered = render_site(&a_php_site());
+
+        let offending = rendered.lines().map(str::trim_start).find(|line| {
+            line.starts_with("try_files") && line.contains(".php") && {
+                // The front controller is the *last* element, which try_files reaches by internal
+                // redirect — that one is correct and is what `location /` has always rendered.
+                let items: Vec<_> = line
+                    .trim_end_matches(';')
+                    .split_whitespace()
+                    .skip(1)
+                    .collect();
+                items
+                    .iter()
+                    .take(items.len().saturating_sub(1))
+                    .any(|item| item.contains(".php"))
+            }
+        });
+
+        assert!(
+            offending.is_none(),
+            "a .php file before the last element of try_files is served in place, as text: {offending:?}"
+        );
+    }
+
+    /// **An application's own 404 is still its own** — the T124 design, D3. The `error_page` above
+    /// lives in an exact-match location on `/`, so it cannot be reached by any other path, and once
+    /// the index module has redirected, the location answering the request is another one.
+    #[test]
+    fn the_error_page_is_scoped_to_the_root_and_not_to_the_php_handler() {
+        let rendered = render_site(&a_php_site());
+
+        let php_block = rendered
+            .split(r"location ~ \.php$ {")
+            .nth(1)
+            .expect("a php location");
+
+        assert!(
+            !php_block.contains("error_page"),
+            "the php handler must answer with whatever the application said:
+{php_block}"
+        );
+        assert!(
+            !rendered.contains("fastcgi_intercept_errors"),
+            "this directive would capture an error the application sent:
+{rendered}"
+        );
+    }
+
+    /// **`alias` is refused inside a named location, and nginx refuses the whole file over it** —
+    /// roadmap task **T124a**, measured against nginx 1.31.3: *the "alias" directive cannot be used
+    /// inside the named location*. One page's mistake would take every site on the machine down
+    /// with it, which is why this is asserted here rather than left to the serving suite.
+    #[test]
+    fn the_welcome_location_is_served_with_root_and_never_with_alias() {
+        for site in [a_static_site(), a_php_site()] {
+            let rendered = render_site(&site);
+            let named = rendered
+                .split("location @mixengine_welcome {")
+                .nth(1)
+                .expect("the welcome location");
+            let body = named
+                .split(
+                    "
+    }",
+                )
+                .next()
+                .expect("its body");
+
+            assert!(
+                !body.contains("alias "),
+                "nginx refuses this configuration outright:
+{body}"
+            );
+            assert!(body.contains("root \""), "{body}");
+            assert!(body.contains("try_files /blog.test.html =404;"), "{body}");
+        }
+    }
+
+    /// A php-fpm site at `blog.test`, on the static fixture's domain and certificate.
+    fn a_php_site() -> Served {
+        Served {
+            kind: ServedKind::PhpFpm {
+                upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
+                activator: None,
+            },
+            ..a_static_site()
+        }
+    }
+
+    /// A static site at `blog.test` with a certificate, so both shapes of the template are
+    /// reachable from one fixture.
+    fn a_static_site() -> Served {
+        Served {
+            shared: None,
+            domains: vec!["blog.test".to_owned()],
+            doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
+            kind: ServedKind::Static,
+            https: true,
+            https_redirect: false,
+            certificate: Some(crate::generate::served::SiteCertificate {
+                certificate: std::path::PathBuf::from("/certs/blog.test.crt"),
+                key: std::path::PathBuf::from("/certs/blog.test.key"),
+                fingerprint: "ab".repeat(32),
+            }),
+        }
     }
 
     /// An absolute path on whichever system this is compiled for.
@@ -878,6 +1240,7 @@ mod tests {
             shared: None,
             domains: vec!["blog.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: true,
             https_redirect: false,
@@ -911,6 +1274,7 @@ mod tests {
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                 activator: Some(Upstream::Tcp("127.0.0.1:9500".parse().expect("an address"))),
@@ -951,6 +1315,7 @@ mod tests {
                 shared: None,
                 domains: vec![domain.to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
                     upstream: pool.clone(),
                     activator: activator.clone(),
@@ -967,6 +1332,9 @@ mod tests {
 
         let names: Vec<String> = documents
             .iter()
+            // Site configurations only: since T124 a welcome page is rendered beside each of them,
+            // and an HTML file declares no `upstream` group.
+            .filter(|document| document.relative().starts_with(SITES))
             .map(|document| {
                 // The *directive* and not the word: this file explains itself in prose that says
                 // "upstream" too, and a search that found the comment would compare two identical
@@ -995,6 +1363,7 @@ mod tests {
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                 activator: None,
@@ -1121,6 +1490,7 @@ zz
                     shared: None,
                     domains: vec!["shop.test".to_owned()],
                     doc_root: doc_root(),
+                    doc_root_relative: "public".to_owned(),
                     kind: ServedKind::Static,
                     https: false,
                     https_redirect: false,
@@ -1143,6 +1513,7 @@ zz
             }),
             domains: vec!["blog.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: false,
             https_redirect: false,
@@ -1191,6 +1562,7 @@ zz
             shared: None,
             domains: vec!["shop.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: false,
             https_redirect: false,
@@ -1217,6 +1589,7 @@ zz
             }),
             domains: vec!["shop.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: false,
             https_redirect: false,

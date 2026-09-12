@@ -130,6 +130,14 @@ differently on a machine that had already chosen. A home that has one — nginx 
 left alone whatever the flag says. The instance name comes from the recipe's own `Instancing`, which
 is why it is `caddy` and not `caddy@main`.
 
+**An apply that writes no source code still ends at a page.** Three of the six gallery blueprints
+carry no `[scaffold]` on purpose, so the ordinary outcome of applying one is a configured site over
+an empty directory — which a web server answers with a 404, or with a 502 for a kind that forwards to
+a program the user runs. Since **T124** the front end answers with MixEngine's own page instead,
+naming the site and the one thing that is missing, so a blueprint with no scaffold is a complete
+blueprint rather than half of one. Nothing is written into the project: the page is served, and it
+stops appearing the moment the site answers for itself.
+
 ## Scaffold commands
 
 `[scaffold]` runs an arbitrary command in the new project directory, which is a real execution of

@@ -31,7 +31,7 @@ use harness::php_site;
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in ci.yml"]
 async fn a_site_is_served_by_the_pool_behind_it() {
-    let served = php_site::served(&php_site::runtimes()[..1]).await;
+    let served = php_site::served(php_site::FRONT, &php_site::runtimes()[..1]).await;
     let site = &served.sites[0];
 
     let answer = request_as(served.port, "/", &site.domain).unwrap_or_else(|| {
@@ -64,7 +64,7 @@ async fn a_site_is_served_by_the_pool_behind_it() {
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in ci.yml"]
 async fn a_site_cannot_be_asked_for_the_pools_status_page() {
-    let served = php_site::served(&php_site::runtimes()[..1]).await;
+    let served = php_site::served(php_site::FRONT, &php_site::runtimes()[..1]).await;
     let site = &served.sites[0];
 
     for path in ["/mixengine-status", "/mixengine-status?json"] {

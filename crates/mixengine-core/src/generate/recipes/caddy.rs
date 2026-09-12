@@ -127,6 +127,15 @@ const AUTHORITY: &str = "public/ca.crt";
 /// place this layout is decided.
 const AUTHORITY_DIR: &str = "public";
 
+/// Where the page a site with nothing behind it answers with is rendered — roadmap task **T124**.
+///
+/// **A directory of its own, and never [`AUTHORITY_DIR`].** That one holds this home's authority and
+/// is asserted to hold exactly one file, because the front end is pointed at the *directory* and so
+/// what else is in it is what else is published. The assertion is about the authority and should
+/// stay about the authority; a second feature moving in weakens it to nothing, and the next person
+/// reading it cannot tell which file the rule was for.
+const WELCOME_DIR: &str = "welcome";
+
 /// Where the admin endpoint listens. Loopback always — see the template.
 const ADMIN_HOST: &str = "127.0.0.1";
 
@@ -266,7 +275,7 @@ impl Recipe for Caddy {
     /// left open in as many words. Nothing sweeps `etc/caddy/` itself: a directory belonging to a
     /// *deleted service* is `service.delete`'s problem.
     fn swept(&self) -> &'static [&'static str] {
-        &[SITES, EXTENSIONS]
+        &[SITES, EXTENSIONS, WELCOME_DIR]
     }
 
     /// One file per site, named after its primary domain — D12.
@@ -300,6 +309,13 @@ impl Recipe for Caddy {
                         .as_ref()
                         .and(context.authority())
                         .map(|_| context.config(AUTHORITY_DIR).to_string_lossy().into_owned()),
+
+                    // **Every site gets one** — roadmap task T124. Unlike `authority` above this is
+                    // never conditional on the site: what a page is *for* is a site nobody has put
+                    // anything into yet, which is every site at the moment it is made.
+                    welcome: context
+                        .welcome()
+                        .then(|| context.config(WELCOME_DIR).to_string_lossy().into_owned()),
                 };
 
                 let contents = crate::generate::served::render(
@@ -315,6 +331,31 @@ impl Recipe for Caddy {
                 ))
             })
             .collect::<Result<Vec<Document>>>()?;
+
+        // **Every site's welcome page, after every site's configuration** — roadmap task T124.
+        // Appended in a second pass rather than returned two at a time from the map above, so that
+        // `documents[n]` goes on meaning the nth site: the authority below already depends on that
+        // and says so, and interleaving would have made it depend on the stride instead.
+        //
+        // **Nothing at all on a home that turned it off** (D6), which is the same answer the
+        // rendering gives: a page with no route is a file nothing reads, and a route with no page
+        // would be a 404 on top of the 404 this feature exists to replace.
+        if context.welcome() {
+            documents.reserve(served.len());
+
+            for site in served {
+                let page = crate::generate::welcome::page(
+                    site.primary(),
+                    &site.kind,
+                    &site.doc_root_relative,
+                );
+
+                documents.push(Document::new(
+                    format!("{WELCOME_DIR}/{}.html", site.primary()),
+                    crate::generate::welcome::render(context.service(), &page)?,
+                ));
+            }
+        }
 
         // **This home's authority, appended last** — roadmap task T75. Last so that a caller
         // naming `documents[0]` still means the first site, and unconditional so that the file's
@@ -502,6 +543,13 @@ struct SiteRendering<'a> {
     /// becomes a property of the rendering rather than a promise made about it. It is also [`None`]
     /// on a home with no authority to serve.
     authority: Option<String>,
+
+    /// The directory this site's welcome page was rendered into, absolute — roadmap task **T124**.
+    ///
+    /// **[`None`] on a home that turned the page off** — the T124 design, D6. The key is always
+    /// present, for [`upstream`](Self::upstream)'s reason: `Strict` makes a missing key an error
+    /// rather than a falsy value, and `None` serialises to `null`, which `{% if %}` reads as false.
+    welcome: Option<String>,
 }
 
 /// What this site's listeners bind: loopback always, and the interface address when shared.
@@ -680,6 +728,7 @@ mod tests {
                 shared: None,
                 domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::Static,
                 https: true,
                 https_redirect: false,
@@ -689,6 +738,7 @@ mod tests {
                 shared: None,
                 domains: vec!["php.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
                     upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                     activator: None,
@@ -701,6 +751,7 @@ mod tests {
                 shared: None,
                 domains: vec!["proxy.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::ReverseProxy {
                     upstream: "http://127.0.0.1:4000".to_owned(),
                 },
@@ -712,6 +763,7 @@ mod tests {
                 shared: None,
                 domains: vec!["node.test".to_owned()],
                 doc_root: doc_root(),
+                doc_root_relative: "public".to_owned(),
                 kind: ServedKind::NodeApp { port: 3000 },
                 https: true,
                 https_redirect: false,
@@ -723,7 +775,8 @@ mod tests {
             .sites(&context("{}"), &served)
             .expect("four site files");
 
-        assert_eq!(documents.len(), 4);
+        // Four configurations, then the four welcome pages T124 appends after them.
+        assert_eq!(documents.len(), 8);
         assert_eq!(
             documents[0].relative(),
             Path::new("sites").join("blog.test.caddy")
@@ -775,6 +828,7 @@ mod tests {
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Socket(std::path::PathBuf::from(
                     "/home/me/run/php-fpm-8.3.sock",
@@ -807,6 +861,7 @@ mod tests {
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Socket(std::path::PathBuf::from(format!(
                     "{home}/php-fpm-8.3.sock"
@@ -939,6 +994,7 @@ zz
                     shared: None,
                     domains: vec!["shop.test".to_owned()],
                     doc_root: doc_root(),
+                    doc_root_relative: "public".to_owned(),
                     kind: ServedKind::Static,
                     https: false,
                     https_redirect: false,
@@ -961,6 +1017,7 @@ zz
             }),
             domains: vec!["blog.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: false,
             https_redirect: false,
@@ -1106,11 +1163,75 @@ zz
         );
     }
 
-    /// The front end is the only recipe that sweeps, and it sweeps the two directories whose
-    /// contents follow a table: `sites/` the `sites` one and `extensions/` the `extensions` one.
+    /// The front end is the only recipe that sweeps, and it sweeps the three directories whose
+    /// contents follow a table: `sites/` the `sites` one, `extensions/` the `extensions` one, and
+    /// `welcome/` the `sites` one a second time — roadmap task **T124**. A deleted site that kept
+    /// its welcome page would be a page served for a site that no longer exists.
     #[test]
     fn the_front_end_sweeps_the_directories_that_follow_a_table() {
-        assert_eq!(Caddy.swept(), &["sites", "extensions"]);
+        assert_eq!(Caddy.swept(), &["sites", "extensions", "welcome"]);
+    }
+
+    /// **A dead upstream is answered, at every path** — the T124 design, D4. Wide is safe here in
+    /// a way it is not for the file kinds: a 502 the front end generated means nothing was
+    /// listening, so there is no application whose answer is being overwritten.
+    #[test]
+    fn a_proxy_site_answers_a_dead_upstream_with_the_welcome_page() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::ReverseProxy {
+                upstream: "http://127.0.0.1:8000".to_owned(),
+            },
+            ..a_site_with_a_certificate()
+        });
+
+        assert_eq!(
+            rendered.matches("handle_errors 502 504 {").count(),
+            2,
+            "one handler per block, plaintext and TLS:
+{rendered}"
+        );
+        assert!(rendered.contains("/blog.test.html"), "{rendered}");
+        assert!(
+            rendered.contains("header Cache-Control \"no-store\""),
+            "{rendered}"
+        );
+    }
+
+    /// **And `handle /` is not how a proxy site does it.** The root-only rule belongs to the kinds
+    /// that serve files; a proxy site with a working upstream serves `/` from that upstream, and a
+    /// handler in front of it would take the site's own home page away.
+    #[test]
+    fn a_proxy_site_has_no_root_only_welcome_handler() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_site_with_a_certificate()
+        });
+
+        assert!(
+            !rendered.contains("handle @mixengine_welcome {"),
+            "a proxy site's `/` belongs to its upstream:
+{rendered}"
+        );
+    }
+
+    /// **Off renders neither the page nor the route** — the T124 design, D6. Either half alone is
+    /// worse than neither: a page nothing routes to is a file nobody reads, and a route with no
+    /// page behind it is a 404 on top of the 404 this feature exists to replace.
+    #[test]
+    fn the_switch_turned_off_renders_no_welcome_at_all() {
+        let documents = Caddy
+            .sites(
+                &context("{}").with_welcome(false),
+                &[a_site_with_a_certificate()],
+            )
+            .expect("a rendering");
+
+        assert_eq!(documents.len(), 1, "only the site's own configuration");
+        assert!(
+            !documents[0].contents().contains("@mixengine_welcome"),
+            "{}",
+            documents[0].contents()
+        );
     }
 
     /// A static site at `blog.test` with a certificate — roadmap task **T51**.
@@ -1118,11 +1239,116 @@ zz
     /// Paths that do not exist, deliberately: this module renders text and never reads a disk.
     /// Whether the pair is there was decided in `generate::served`, and asking again here would be a
     /// second answer to one question.
+    /// **Two documents per site now** — roadmap task T124: the site's configuration, and the page
+    /// it answers with when it has nothing to serve.
+    #[test]
+    fn a_site_renders_a_welcome_page_beside_its_configuration() {
+        let documents = Caddy
+            .sites(&context("{}"), &[a_site_with_a_certificate()])
+            .expect("a rendering");
+
+        let names: Vec<_> = documents
+            .iter()
+            .map(|document| {
+                document
+                    .relative()
+                    .to_string_lossy()
+                    .replace(std::path::MAIN_SEPARATOR, "/")
+            })
+            .collect();
+
+        assert!(
+            names.contains(&"sites/blog.test.caddy".to_owned()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"welcome/blog.test.html".to_owned()),
+            "{names:?}"
+        );
+    }
+
+    /// **A site's own configuration stays first** — the authority below depends on `documents[n]`
+    /// meaning the nth site and says so, so the pages are appended after every site rather than
+    /// interleaved with them.
+    #[test]
+    fn the_welcome_pages_come_after_every_site() {
+        let documents = Caddy
+            .sites(
+                &context("{}"),
+                &[a_site_with_a_certificate(), a_shared_site([192, 0, 2, 10])],
+            )
+            .expect("a rendering");
+
+        for (position, document) in documents.iter().take(2).enumerate() {
+            assert!(
+                document.relative().starts_with("sites"),
+                "document {position} is not a site file: {:?}",
+                document.relative()
+            );
+        }
+    }
+
+    /// **The root path only, and after the site's own handlers** — the T124 design, D3. A
+    /// catch-all error handler would replace an application's own 404, which is MixEngine lying
+    /// about somebody else's program.
+    #[test]
+    fn a_static_site_falls_back_to_the_welcome_page_only_at_the_root() {
+        let rendered = render_site(&a_site_with_a_certificate());
+
+        assert!(
+            rendered.contains("handle @mixengine_welcome {"),
+            "the welcome route must match one exact path:
+{rendered}"
+        );
+        assert!(
+            !rendered.contains("handle_errors 502"),
+            "a file-serving site never replaces an application's own error:
+{rendered}"
+        );
+        assert!(rendered.contains("/blog.test.html"), "{rendered}");
+        assert!(
+            rendered.contains("header Cache-Control \"no-store\""),
+            "without no-store a cached welcome page outlives the index that replaced it:
+{rendered}"
+        );
+
+        // **The condition is the matcher's, not the ordering's** — measured against Caddy 2.11.4:
+        // `file_server` and `php_fastcgi` are not in the mutually exclusive group `handle` blocks
+        // form, so a route placed after them is never reached. `not file` is what keeps a site with
+        // its own index from ever rendering this page.
+        assert!(
+            rendered.contains("not file {"),
+            "the welcome route must ask the disk:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("try_files index.html index.htm"),
+            "and it must ask about the index files this kind would have served:
+{rendered}"
+        );
+    }
+
+    /// **Both blocks carry it.** A site with a certificate renders two — plaintext and TLS, the T51
+    /// design's D2 — and the one that was missed is the one whichever scheme the developer typed
+    /// happens to reach.
+    #[test]
+    fn both_blocks_carry_the_welcome_route() {
+        let rendered = render_site(&a_site_with_a_certificate());
+
+        assert_eq!(
+            rendered.matches("handle @mixengine_welcome {").count(),
+            2,
+            "one route per block, plaintext and TLS:
+{rendered}"
+        );
+    }
+
     fn a_site_with_a_certificate() -> Served {
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
             https: true,
             https_redirect: false,
@@ -1158,6 +1384,7 @@ zz
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                 activator: Some(Upstream::Tcp("127.0.0.1:9500".parse().expect("an address"))),
@@ -1191,6 +1418,7 @@ zz
             shared: None,
             domains: vec!["php.test".to_owned()],
             doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
                 upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
                 activator: None,
