@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Tab, TabStrip, tabKeyDown } from "../../../../components/TabStrip";
 import { useTranslation } from "../../../../i18n";
+import { peekPendingRuntimesFilter } from "../../runtimesNavigation";
 import Languages from "./Languages";
 import Packages from "./Packages";
 import { PACKAGE_CATEGORY_ORDER, packageCategory, type PackageCategory } from "./packageCategories";
@@ -23,6 +24,18 @@ export default function Runtimes({ active }: { active: boolean }) {
   // State của `package.*` sống ở đây, không trong từng nhóm — xem `usePackages`. Đọc kể cả khi
   // đang ở tab Ngôn ngữ: dải tab dưới đây cần biết có package nào rơi vào nhóm "Khác" không.
   const packages = usePackages(active);
+
+  // Somebody sent the user here to install a runtime — "Install a PHP" on the PHP extensions
+  // screen, via `runtimesNavigation.ts`. This screen stays mounted between visits and keeps
+  // whichever tab was last open, so a visit that arrives with a request pending has to be put back
+  // on Languages; `Languages` itself takes the request and fills its search box.
+  //
+  // Peek, never take: consuming the token here would leave the search box empty. Running only on
+  // an `active` edge is what keeps it from fighting the user — once they are on this screen the
+  // token is already gone, and a manual switch to another tab stays switched.
+  useEffect(() => {
+    if (active && peekPendingRuntimesFilter() !== null) setTab("languages");
+  }, [active]);
 
   // Đổi tab không được unmount Ngôn ngữ: một job đang cài ở đó vẫn phải còn được theo dõi
   // (`installingJob`/`jobs` cục bộ của nó) khi người dùng ghé qua một nhóm package rồi quay lại —

@@ -11,6 +11,7 @@ import type { RuntimeRelease } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
+import { takePendingRuntimesFilter } from "../../runtimesNavigation";
 import { formatInstalledAt, jobFinished, jobFor, versionKey } from "../../runtimeState";
 import StaleBadge from "../../components/StaleBadge";
 import { matchesAvailable } from "./availableFilter";
@@ -62,6 +63,16 @@ export default function Languages({ active }: { active: boolean }) {
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
+
+  // A navigation request from `runtimesNavigation.ts` — "Install a PHP" on the PHP extensions
+  // screen means "open Runtimes already searching for php", and the search box lives here. Read on
+  // the `active` edge rather than on mount: this component stays mounted between visits, so mount
+  // happens once while the request can arrive any number of times afterwards.
+  useEffect(() => {
+    if (!active) return;
+    const requested = takePendingRuntimesFilter();
+    if (requested !== null) setFilter(requested);
+  }, [active]);
 
   useEffect(() => {
     return subscribeDaemonWatch((raw) => {

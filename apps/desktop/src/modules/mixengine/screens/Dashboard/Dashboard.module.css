@@ -57,6 +57,11 @@
  * hai cột không hề đổi nội dung. Với `fixed`, bề rộng do `<colgroup>` quyết, và chữ trong ô đổi
  * không resize gì nữa.
  *
+ * The intrinsic width of a header is the width of its *longest translation*, not of its English
+ * one: at this `min-width` a column tuned to "Autostart" is ~25px short of "Tự khởi động", and a
+ * header clipped to an ellipsis is the one cell here that carries no `title` to recover it from.
+ * So re-measure every header in every locale before moving a percentage below.
+ *
  * `min-width` là tổng bề rộng nội tại đo được của cả bảy cột (787px, ứng với bảy tỉ lệ % trong
  * `<colgroup>`) làm tròn lên: hẹp hơn thế thì `.tableWrap` cuộn ngang, chứ không bóp cột cho tới
  * khi phải cắt chữ. `<colgroup>` từng chỉ có sáu `<col>` cho một bảng bảy cột — cột Hành động
