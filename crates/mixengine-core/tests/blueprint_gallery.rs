@@ -223,6 +223,19 @@ fn a_path_holding(temp: &TempDir, programs: &[&str]) -> std::ffi::OsString {
 /// What each gallery blueprint plans on a machine holding nothing at all but `programs` — which is
 /// the ordinary case for one, since a person applying `laravel` has very often never installed PHP.
 async fn planned_with(slug: &str, programs: &[&str]) -> mixengine_proto::BlueprintPlan {
+    planned_for(slug, programs, "shop").await
+}
+
+/// The same, for a project called something in particular.
+///
+/// **A parameter since roadmap task T120**, which is about what a project's name may be: every
+/// caller before it wanted `shop`, a name that is already a slug and therefore says nothing about
+/// what happens to one that is not.
+async fn planned_for(
+    slug: &str,
+    programs: &[&str],
+    project: &str,
+) -> mixengine_proto::BlueprintPlan {
     let (temp, _paths, store) = home().await;
     let entry = ENTRIES
         .iter()
@@ -242,7 +255,7 @@ async fn planned_with(slug: &str, programs: &[&str]) -> mixengine_proto::Bluepri
         &mixengine_core::blueprints::plan::Wanted {
             blueprint: slug,
             filed: &filed,
-            project: "shop",
+            project,
             root: std::path::Path::new("/projects/shop"),
             answers: &[],
             scaffold_path: &a_path_holding(&temp, programs),
@@ -362,6 +375,52 @@ async fn no_gallery_plan_carries_an_unexpanded_token() {
             entry.slug,
             planned.steps
         );
+    }
+}
+
+/// **Every blueprint this build ships works for a name a person would actually type** — roadmap
+/// task **T120**.
+///
+/// Before it, `{project}` was substituted verbatim, so `My Project 1` produced the database name
+/// `My Project 1` and the domain `My Project 1.test`: a green dry run, and then an apply that failed
+/// on the first of those after the directory had been made and three packages downloaded. Every
+/// entry in the gallery uses the token, so every entry was affected — which is why this is asserted
+/// over the shipped set rather than over one fixture.
+#[tokio::test]
+async fn every_gallery_blueprint_plans_for_a_name_that_is_not_already_a_slug() {
+    for entry in ENTRIES {
+        let planned = planned_for(entry.slug, GALLERY_PROGRAMS, "My Project 1").await;
+
+        assert!(
+            !planned
+                .steps
+                .iter()
+                .any(|step| matches!(step.disposition, Disposition::Blocked { .. })),
+            "{} blocks a step for a name with a space and a capital in it: {:?}",
+            entry.slug,
+            planned.steps
+        );
+
+        for step in &planned.steps {
+            match &step.action {
+                PlanAction::CreateDatabase { database, user, .. } => {
+                    assert_eq!(database, "my-project-1", "{}", entry.slug);
+                    assert_eq!(user, "my-project-1", "{}", entry.slug);
+                }
+                PlanAction::AddDomain { domain, .. } => {
+                    assert!(
+                        domain.starts_with("my-project-1."),
+                        "{}: {domain}",
+                        entry.slug
+                    );
+                }
+                // The name the person typed, untouched — it is a label they read, not an identifier.
+                PlanAction::RegisterProject { name, .. } => {
+                    assert_eq!(name, "My Project 1", "{}", entry.slug);
+                }
+                _ => {}
+            }
+        }
     }
 }
 

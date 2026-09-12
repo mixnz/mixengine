@@ -58,13 +58,6 @@ const TOKEN: &str = "{project}";
 /// front end at all.
 const FRONT_END: &str = "caddy";
 
-/// The longest name MySQL and MariaDB accept for an account.
-///
-/// A limit belonging to somebody else, enforced here because that is the whole point of D10: a
-/// 40-character project name produces a `CREATE USER` the server refuses, and finding that out
-/// halfway through an apply is finding it out too late.
-const DATABASE_USER_LIMIT: usize = 32;
-
 /// What one apply is being planned for: everything the caller decided, in one value.
 ///
 /// **A struct and not nine parameters**, which is what it was until T115 added the ninth. The
@@ -127,6 +120,19 @@ pub async fn plan(
 
     let manifest = &filed.manifest;
     let mut steps = Vec::new();
+
+    // **What `{project}` becomes** — roadmap task **T120**, its design's D1. A project's *name* is a
+    // label a person reads, and `projects::validated_name` admits a space, a capital and a `;` into
+    // it; a database identifier, a DNS label, a `ServiceId` instance and a shell command each have a
+    // narrower charset than that. [`crate::domains::slug`] is the one rule that crosses all four,
+    // and `project.create` has derived a project's default domain with it since T39a — so this is
+    // that same handle, derived once, rather than a second answer to a question with one.
+    //
+    // [`None`] is a name with no ASCII in it to slug. The token is then left unexpanded and each
+    // step that uses it refuses it (D3), which is why that is not an error here: a manifest that
+    // never mentions `{project}` is unaffected by a name nothing can be made of.
+    let handle = crate::domains::slug(project);
+    let handle = handle.as_deref();
 
     // **Decided before the project step, because the pins it registers are what these answers
     // settle** (D7). The order of the steps themselves is unchanged: the runtimes are pushed
@@ -214,8 +220,8 @@ pub async fn plan(
             steps.push(database_step(
                 &service.name,
                 &instance,
-                &expand(database, project),
-                &expand(&user, project),
+                &expand(database, handle),
+                &expand(&user, handle),
             ));
         }
     }
@@ -246,8 +252,8 @@ pub async fn plan(
         });
 
         let mut names = Vec::new();
-        names.push(expand(&site.domain_pattern, project));
-        names.extend(site.aliases.iter().map(|alias| expand(alias, project)));
+        names.push(expand(&site.domain_pattern, handle));
+        names.extend(site.aliases.iter().map(|alias| expand(alias, handle)));
 
         for (position, domain) in names.iter().enumerate() {
             steps.push(domain_step(store, domain, position == 0, mine).await?);
@@ -275,16 +281,29 @@ pub async fn plan(
 
     if let Some(scaffold) = &manifest.scaffold {
         // **Expanded here, with everything else** — roadmap task **T78a**, its design's D6. The
-        // command a person is shown is the command that runs, and the substitution is safe in front
-        // of a shell because a project name has already been through the slug charset, which holds
-        // no shell metacharacter.
-        let command = expand(&scaffold.command, project);
+        // command a person is shown is the command that runs.
+        //
+        // **The substitution is safe in front of a shell because what is substituted is the
+        // handle** — roadmap task **T120**, its design's D4. [`crate::domains::slug`] answers in
+        // `[a-z0-9-]` and nothing else, which holds no shell metacharacter. This line used to say
+        // that the *project's name* had been through that charset. It had not, and
+        // `projects::validated_name` admits `;`, `$` and a backtick to this day — so a project
+        // called `a; rm -rf $HOME` reached the shell as two commands.
+        let command = expand(&scaffold.command, handle);
 
         steps.push(PlanStep {
             // Arbitrary code from whoever wrote the blueprint. What answers this is the consent in
             // the apply request (T78a, D4); here it is shown, exactly as it would run — or blocked,
-            // when its program is a bare name the PATH does not hold (T78b, D1).
-            disposition: crate::blueprints::program::disposition(&command, scaffold_path),
+            // when its program is a bare name the PATH does not hold (T78b, D1), or when the token
+            // did not expand (T120, D3).
+            //
+            // **A shell is the one name space with no validator**, so this check is the whole of
+            // what stands between a handle that could not be made and a command carrying a literal
+            // `{project}` into somebody's project directory.
+            disposition: match unexpanded(&command) {
+                Some(reason) => Disposition::Blocked { reason },
+                None => crate::blueprints::program::disposition(&command, scaffold_path),
+            },
             action: PlanAction::RunScaffold { command },
             elevates: false,
         });
@@ -602,6 +621,13 @@ async fn ensure(
 }
 
 /// The database and the account, or the reason neither can be made under this name.
+///
+/// **Asks the function that owns the rule** — roadmap task **T120**, its design's D2. This used to
+/// check the account's length against a copy of MySQL's limit and nothing else, so a name the server
+/// would refuse outright planned as `Create` and failed after the directory, the runtimes and the
+/// packages were already on disk. [`crate::generate::databases::validated_identifier`] is the same
+/// call `database.create` makes, so a plan and an apply now agree by construction rather than by two
+/// people keeping two rules in step.
 fn database_step(package: &str, instance: &str, database: &str, user: &str) -> PlanStep {
     let action = PlanAction::CreateDatabase {
         package: package.to_owned(),
@@ -610,14 +636,18 @@ fn database_step(package: &str, instance: &str, database: &str, user: &str) -> P
         user: user.to_owned(),
     };
 
-    match user.len() > DATABASE_USER_LIMIT {
-        true => blocked(
-            action,
-            format!(
-                "{user} is longer than the {DATABASE_USER_LIMIT} characters a database account may have"
-            ),
-        ),
-        false => PlanStep {
+    let refusal = unexpanded(database)
+        .or_else(|| unexpanded(user))
+        .or_else(|| {
+            [database, user]
+                .into_iter()
+                .find_map(|name| crate::generate::databases::validated_identifier(name).err())
+                .map(|error| error.to_string())
+        });
+
+    match refusal {
+        Some(reason) => blocked(action, reason),
+        None => PlanStep {
             action,
             disposition: Disposition::Create,
             elevates: false,
@@ -636,6 +666,17 @@ async fn domain_step(
         domain: domain.to_owned(),
         primary,
     };
+
+    // **A domain is checked before it is looked up** — roadmap task **T120**, its design's D2.
+    // Asking who holds a name that is not a name at all answers "nobody", and the step then plans as
+    // `Create` for something `site.create` will refuse — a plan promising what it has not checked.
+    if let Some(reason) = unexpanded(domain).or_else(|| {
+        crate::domains::normalised(domain, false)
+            .err()
+            .map(|error| error.to_string())
+    }) {
+        return Ok(blocked(action, reason));
+    }
 
     Ok(match sites::by_domain(store, domain).await? {
         // Already ours, which is what a resumed apply looks like from here (D2). Narrower than "the
@@ -713,10 +754,19 @@ async fn newest(store: &Store, kind: RuntimeKind) -> Result<Option<PackageVersio
         .map(|record| record.version))
 }
 
-/// `{project}` becomes the new project's name. **Once, here**, so no later branch can expand it
-/// differently.
-fn expand(value: &str, project: &str) -> String {
-    value.replace(TOKEN, project)
+/// `{project}` becomes the project's **handle** — its name as [`crate::domains::slug`] makes it.
+/// **Once, here**, so no later branch can expand it differently.
+///
+/// A `handle` of [`None`] is a project name with no ASCII in it to slug, and the token is then left
+/// exactly where it is. That is deliberate — roadmap task **T120**, its design's D3: every name
+/// space this value reaches refuses `{project}` on its own rule, so the refusal happens at plan time
+/// and names the token that could not be expanded, rather than a substitution nobody asked for
+/// reaching a shell.
+fn expand(value: &str, handle: Option<&str>) -> String {
+    match handle {
+        Some(handle) => value.replace(TOKEN, handle),
+        None => value.to_owned(),
+    }
 }
 
 /// A step that needs nothing done.
@@ -726,6 +776,18 @@ fn satisfied(action: PlanAction) -> PlanStep {
         disposition: Disposition::Satisfied,
         elevates: false,
     }
+}
+
+/// The reason a name still holding `{project}` cannot be used, or [`None`] when it holds no token.
+///
+/// **A better sentence than the charset's** — roadmap task **T120**, its design's D3. A name that
+/// could not be expanded fails [`crate::generate::databases::validated_identifier`] and
+/// [`crate::domains::normalised`] too, but on a character the person never typed: telling somebody
+/// that `{` is not allowed in a database name sends them looking for a `{` in their own. This says
+/// what actually happened.
+fn unexpanded(name: &str) -> Option<String> {
+    name.contains(TOKEN)
+        .then(|| format!("there is nothing in the project's name to expand {TOKEN} into"))
 }
 
 /// A step that cannot be done, and why.
@@ -1109,6 +1171,9 @@ mod tests {
 
     /// **D10 again**: a name whose expansion cannot be a database account is refused at dry-run,
     /// not five actions into an apply.
+    ///
+    /// **T120** moved the rule itself: the limit is enforced by the function that owns it rather
+    /// than by a copy of its number here, so the sentence is now `validated_identifier`'s own.
     #[tokio::test]
     async fn a_project_name_too_long_for_a_database_account_is_blocked_here() {
         let (temp, store) = home().await;
@@ -1130,14 +1195,15 @@ mod tests {
         .await
         .expect("a plan");
 
-        assert!(matches!(
-            step_of(&planned, |action| matches!(
-                action,
-                PlanAction::CreateDatabase { .. }
-            ))
-            .disposition,
-            Disposition::Blocked { .. }
-        ));
+        let Disposition::Blocked { reason } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::CreateDatabase { .. })
+        })
+        .disposition
+        else {
+            panic!("the database step should be blocked: {planned:?}");
+        };
+
+        assert!(reason.contains("thirty-two"), "{reason}");
     }
 
     /// **D8.** The order is what T78 executes, so it is asserted rather than left to chance.
@@ -1875,5 +1941,231 @@ mod tests {
             ),
             "{planned:?}"
         );
+    }
+
+    /// **D1.** A project's name is a label a person reads; a database, a domain and a service id
+    /// each have a charset it does not have to satisfy. `{project}` expands to the handle between
+    /// them — `domains::slug`, which is the rule `project.create` has derived a domain with since
+    /// T39a.
+    #[tokio::test]
+    async fn the_token_expands_to_the_projects_slug_and_not_its_name() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "composer create-project laravel/laravel {project}".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "My Blog 1",
+                root: &temp.path().join("my-blog-1"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        // The name the person typed is what gets registered, untouched.
+        let PlanAction::RegisterProject { name, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RegisterProject { .. })
+        })
+        .action
+        else {
+            panic!("a register step");
+        };
+        assert_eq!(name, "My Blog 1");
+
+        // Everywhere else, the handle.
+        let PlanAction::CreateDatabase { database, user, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::CreateDatabase { .. })
+        })
+        .action
+        else {
+            panic!("a database step");
+        };
+        assert_eq!(database, "my-blog-1");
+        assert_eq!(user, "my-blog-1");
+
+        let PlanAction::AddDomain { domain, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::AddDomain { .. })
+        })
+        .action
+        else {
+            panic!("a domain step");
+        };
+        assert_eq!(domain, "my-blog-1.test");
+
+        let PlanAction::RunScaffold { command } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        })
+        .action
+        else {
+            panic!("a scaffold step");
+        };
+        assert_eq!(command, "composer create-project laravel/laravel my-blog-1");
+    }
+
+    /// **D1, and the reason the comment above the scaffold expansion is now true.** A slug holds no
+    /// shell metacharacter, so a project name full of them reaches the shell as a handle rather
+    /// than as a second command.
+    #[tokio::test]
+    async fn a_name_holding_shell_metacharacters_reaches_the_shell_as_a_slug() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "echo {project}".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "a; rm -rf $HOME",
+                root: &temp.path().join("a"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["echo"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let PlanAction::RunScaffold { command } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        })
+        .action
+        else {
+            panic!("a scaffold step");
+        };
+
+        assert_eq!(command, "echo a-rm-rf-home");
+        assert!(!command.contains(';'), "{command}");
+        assert!(!command.contains('$'), "{command}");
+    }
+
+    /// **D2.** The planner's whole promise is that an apply does not get five actions into a
+    /// project directory before discovering the sixth was impossible. Before T120 the database step
+    /// checked only the account's *length*, so a name the server would refuse outright was a green
+    /// dry run and a failure after three packages had been downloaded.
+    #[tokio::test]
+    async fn a_database_name_the_server_would_refuse_is_blocked_at_plan_time() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.services[0].database = Some("Not A Name".to_owned());
+        manifest.services[0].user = Some("Not A Name".to_owned());
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let Disposition::Blocked { reason } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::CreateDatabase { .. })
+        })
+        .disposition
+        else {
+            panic!("the database step should be blocked: {planned:?}");
+        };
+
+        assert!(reason.contains("lower-case"), "{reason}");
+    }
+
+    /// **D2 again, for the other name space.** A blueprint from somebody else's machine can name a
+    /// TLD this home does not answer for, and finding that out from `site.create` is finding it out
+    /// after the database exists.
+    #[tokio::test]
+    async fn a_domain_that_is_not_one_is_blocked_at_plan_time() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.site.as_mut().expect("a site").domain_pattern = "{project}.example.com".to_owned();
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        assert!(
+            matches!(
+                step_of(&planned, |action| matches!(
+                    action,
+                    PlanAction::AddDomain { .. }
+                ))
+                .disposition,
+                Disposition::Blocked { .. }
+            ),
+            "{planned:?}"
+        );
+    }
+
+    /// **D3.** A name with no ASCII in it cannot be slugged, so the token stays where it is — and
+    /// every step that uses it says *that*, rather than complaining about a character set the
+    /// person never typed a character of.
+    #[tokio::test]
+    async fn a_name_with_nothing_to_slug_blocks_the_steps_that_need_the_token() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "echo {project}".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "日本",
+                root: &temp.path().join("x"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["echo"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let using_the_token: [fn(&PlanAction) -> bool; 3] = [
+            |action| matches!(action, PlanAction::CreateDatabase { .. }),
+            |action| matches!(action, PlanAction::AddDomain { .. }),
+            |action| matches!(action, PlanAction::RunScaffold { .. }),
+        ];
+
+        for matcher in using_the_token {
+            let Disposition::Blocked { reason } = &step_of(&planned, matcher).disposition else {
+                panic!("every step using the token is blocked: {planned:?}");
+            };
+
+            assert!(reason.contains(TOKEN), "{reason}");
+        }
     }
 }
