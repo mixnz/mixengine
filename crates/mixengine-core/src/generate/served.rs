@@ -78,6 +78,17 @@ pub struct Served {
     /// (roadmap task **T81b**) — joined to the row's relative doc root.
     pub doc_root: PathBuf,
 
+    /// The row's own spelling of it, before the join above — roadmap task **T124**.
+    ///
+    /// **Carried rather than recovered.** The welcome page names where a site's files are looked
+    /// for, and it may not name an absolute path: a shared site's page is reachable from the local
+    /// network (T74, T75), and where this machine keeps its projects is a fact about the machine.
+    /// Recovering it with `strip_prefix` afterwards would be undoing the join two lines below, and
+    /// would answer differently for the one doc root that is not under its own root.
+    ///
+    /// Empty for a site served from the owner's root itself, which is what the column holds.
+    pub doc_root_relative: String,
+
     /// What it serves, and what that kind needs to know.
     pub kind: ServedKind,
 
@@ -312,6 +323,7 @@ pub(super) async fn served(
                     .and_then(|primary| crate::sites::shared_name(primary)),
             }),
             doc_root: under(&root, &record.doc_root),
+            doc_root_relative: record.doc_root.clone(),
             domains: record.domains,
             kind,
             https: record.https_enabled,

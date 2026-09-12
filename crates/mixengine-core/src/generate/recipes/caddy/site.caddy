@@ -119,8 +119,50 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
+
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
+	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
+	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
+	# cannot reach one the application owns.
+	#
+	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
+	# mutually exclusive and taken in order, so a site with its own index never renders this page
+	# even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	handle / {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- elif kind == "static" %}
 	file_server
+
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
+	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
+	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
+	# cannot reach one the application owns.
+	#
+	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
+	# mutually exclusive and taken in order, so a site with its own index never renders this page
+	# even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	handle / {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
 {%- endif %}
@@ -178,8 +220,50 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
+
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
+	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
+	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
+	# cannot reach one the application owns.
+	#
+	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
+	# mutually exclusive and taken in order, so a site with its own index never renders this page
+	# even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	handle / {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- elif kind == "static" %}
 	file_server
+
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
+	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
+	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
+	# cannot reach one the application owns.
+	#
+	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
+	# mutually exclusive and taken in order, so a site with its own index never renders this page
+	# even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	handle / {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
 {%- endif %}
