@@ -355,14 +355,22 @@ export default function Dashboard({ active }: { active: boolean }) {
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           {/* Bề rộng khai ở đây chứ không để nội dung quyết — xem `table-layout: fixed` bên CSS.
-              Tỉ lệ lấy từ bề rộng nội tại đo được của từng cột, không phải ước lượng. */}
+              Tỉ lệ lấy từ bề rộng nội tại đo được của từng cột, không phải ước lượng.
+
+              Measured against the *longest translation of each header*, not against English. At the
+              table's own `min-width` (57rem, and `1rem` is 14px here) Autostart's old 9% came to
+              72px, 12px of which is the cell's padding — enough for "Autostart" (57px) and not for
+              "Tự khởi động" (82px), so the Vietnamese header sat there clipped to an ellipsis. The
+              three points it needed came off Service (an id already carries `title` and is the one
+              cell meant to elide) and off CPU and RSS, whose widest readings are "100.0%" and
+              "128.4 MB". */}
           <colgroup>
-            <col style={{ width: "18%" }} />
             <col style={{ width: "16%" }} />
-            <col style={{ width: "9%" }} />
+            <col style={{ width: "16%" }} />
+            <col style={{ width: "13%" }} />
             <col style={{ width: "6%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "10%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "9%" }} />
             <col style={{ width: "31%" }} />
           </colgroup>
           <thead>

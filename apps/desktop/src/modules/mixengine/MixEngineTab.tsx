@@ -20,6 +20,7 @@ import Runtimes from "./screens/Runtimes";
 import ServicesDetail from "./screens/ServicesDetail";
 import Settings from "./screens/Settings";
 import Sites from "./screens/Sites";
+import { requestRuntimesLanguageFilter } from "./runtimesNavigation";
 import { requestSitesFilter } from "./sitesNavigation";
 import { parseMixEngineTabState, type MixEngineScreen } from "./tabState";
 import "./mixengine.css";
@@ -210,9 +211,18 @@ export default function MixEngineTab({
         {pane("sites", (active) => <Sites active={active} />)}
         {pane("domains", (active) => <Domains active={active} />)}
         {pane("runtimes", (active) => <Runtimes active={active} />)}
-        {/* `onGoTo` chứ không phải một liên kết: một home chưa có PHP nào thì màn này không có gì để
-            vẽ, và chỗ cài PHP là màn Runtimes ngay bên trên. */}
-        {pane("phpExtensions", () => <PhpExtensions onGoTo={setScreen} />)}
+        {/* A callback rather than a link: a home with no PHP on it has nothing for this screen to
+            draw, and the place to install one is Runtimes right above. The request carried along
+            with the jump is what lands it on Languages with `php` already typed — same shape as
+            Projects → Sites above, and `selectScreen` so the jump is remembered like any other. */}
+        {pane("phpExtensions", () => (
+          <PhpExtensions
+            onInstallPhp={() => {
+              requestRuntimesLanguageFilter("php");
+              selectScreen("runtimes");
+            }}
+          />
+        ))}
         {pane("servicesDetail", (active) => (
           <ServicesDetail active={active} isModuleVisible={isModuleVisible} />
         ))}

@@ -8,7 +8,6 @@ import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { RuntimeSummary } from "@mixengine/api";
 import ExtensionsPanel from "../Runtimes/ExtensionsPanel";
-import type { MixEngineScreen } from "../../tabState";
 import styles from "./PhpExtensions.module.css";
 
 /**
@@ -25,7 +24,7 @@ import styles from "./PhpExtensions.module.css";
  * **Không có PHP thì một câu và một nút**, không phải một bảng rỗng: bảng rỗng bắt người ta đoán
  * xem họ thiếu bước nào.
  */
-export default function PhpExtensions({ onGoTo }: { onGoTo: (screen: MixEngineScreen) => void }) {
+export default function PhpExtensions({ onInstallPhp }: { onInstallPhp: () => void }) {
   const [installed, setInstalled] = useState<RuntimeSummary[] | null>(null);
   const [version, setVersion] = useState("");
   const [error, setError] = useState("");
@@ -61,7 +60,7 @@ export default function PhpExtensions({ onGoTo }: { onGoTo: (screen: MixEngineSc
       {installed !== null && installed.length === 0 ? (
         <div className={styles.empty}>
           <p>{t("mixengine.phpExtensions.noPhp")}</p>
-          <Button variant="primary" onClick={() => onGoTo("runtimes")}>
+          <Button variant="primary" onClick={onInstallPhp}>
             {t("mixengine.phpExtensions.installPhp")}
           </Button>
         </div>
