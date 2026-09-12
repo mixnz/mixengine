@@ -1208,7 +1208,7 @@ zz
         });
 
         assert!(
-            !rendered.contains("handle / {"),
+            !rendered.contains("handle @mixengine_welcome {"),
             "a proxy site's `/` belongs to its upstream:
 {rendered}"
         );
@@ -1228,7 +1228,7 @@ zz
 
         assert_eq!(documents.len(), 1, "only the site's own configuration");
         assert!(
-            !documents[0].contents().contains("handle / {"),
+            !documents[0].contents().contains("@mixengine_welcome"),
             "{}",
             documents[0].contents()
         );
@@ -1296,7 +1296,7 @@ zz
         let rendered = render_site(&a_site_with_a_certificate());
 
         assert!(
-            rendered.contains("handle / {"),
+            rendered.contains("handle @mixengine_welcome {"),
             "the welcome route must match one exact path:
 {rendered}"
         );
@@ -1312,11 +1312,18 @@ zz
 {rendered}"
         );
 
-        let welcome_at = rendered.find("handle / {").expect("the welcome route");
-        let serving_at = rendered.find("file_server").expect("the file server");
+        // **The condition is the matcher's, not the ordering's** — measured against Caddy 2.11.4:
+        // `file_server` and `php_fastcgi` are not in the mutually exclusive group `handle` blocks
+        // form, so a route placed after them is never reached. `not file` is what keeps a site with
+        // its own index from ever rendering this page.
         assert!(
-            serving_at < welcome_at,
-            "the site's own files must be tried before the welcome page:
+            rendered.contains("not file {"),
+            "the welcome route must ask the disk:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("try_files index.html index.htm"),
+            "and it must ask about the index files this kind would have served:
 {rendered}"
         );
     }
@@ -1329,7 +1336,7 @@ zz
         let rendered = render_site(&a_site_with_a_certificate());
 
         assert_eq!(
-            rendered.matches("handle / {").count(),
+            rendered.matches("handle @mixengine_welcome {").count(),
             2,
             "one route per block, plaintext and TLS:
 {rendered}"

@@ -87,6 +87,42 @@
 	# the parse error names the line after it.
 	root * `{{ doc_root }}`
 {%- if kind == "php-fpm" %}
+{%- if welcome %}
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **A matcher that asks the disk, and never ordering alone.** `php_fastcgi` expands to a
+	# `try_files` whose last entry is a fallback to `index.php`, so `/` can reach the pool whether
+	# or not that file is there; and `php_fastcgi` is not in the mutually exclusive group `handle`
+	# blocks form, so a route placed after it is not reliably reached either. Both are removed by
+	# putting the whole condition in the matcher and the route first. What is measured is the
+	# outcome rather than the mechanism — `crates/mixengine-cli/tests/welcome.rs`, against Caddy
+	# 2.11.4 and PHP 8.4.24: 200 and this page at `/`, 404 at `/missing` and `/api/anything`, and
+	# the site's own index answering the moment it is written, with no reload.
+	#
+	# **`path /` and `not file`, together.** An application's own 404 is an answer, and replacing
+	# it would be MixEngine lying about somebody else's program — a site serving a JSON API under
+	# `/api` and nothing at `/` is ordinary. This matches one exact path, and only while the disk
+	# holds none of the index files the site would have served, so a site with one never renders
+	# this page even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.php index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
 
 	# The pool this site's project resolves to, at the address that pool's own recipe says it
 	# listens on. `php_fastcgi` sets every `fastcgi_param` PHP needs itself, which is why this
@@ -119,54 +155,30 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
-
-{%- if welcome %}
-	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
-	#
-	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
-	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
-	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
-	# cannot reach one the application owns.
-	#
-	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
-	# mutually exclusive and taken in order, so a site with its own index never renders this page
-	# even once.
-	#
-	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
-	# that replaced it was written — the site looking broken in exactly the way this page exists
-	# to prevent.
-	handle / {
-		root * `{{ welcome }}`
-		rewrite * /{{ primary }}.html
-		header Cache-Control "no-store"
-		file_server
 	}
-{%- endif %}
 {%- elif kind == "static" %}
-	file_server
-
 {%- if welcome %}
-	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
-	#
-	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
-	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
-	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
-	# cannot reach one the application owns.
-	#
-	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
-	# mutually exclusive and taken in order, so a site with its own index never renders this page
-	# even once.
-	#
-	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
-	# that replaced it was written — the site looking broken in exactly the way this page exists
-	# to prevent.
-	handle / {
+	# The same route a php-fpm site gets, with the index files a static site would have
+	# served — roadmap task T124. `file_server` has the same shape of problem `php_fastcgi`
+	# does: it is not in the group `handle` blocks form, so the condition has to be the
+	# matcher's rather than the ordering's.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
 		root * `{{ welcome }}`
 		rewrite * /{{ primary }}.html
 		header Cache-Control "no-store"
 		file_server
 	}
 {%- endif %}
+
+	handle {
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
 
@@ -229,6 +241,42 @@
 {%- endif %}
 	root * `{{ doc_root }}`
 {%- if kind == "php-fpm" %}
+{%- if welcome %}
+	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
+	#
+	# **A matcher that asks the disk, and never ordering alone.** `php_fastcgi` expands to a
+	# `try_files` whose last entry is a fallback to `index.php`, so `/` can reach the pool whether
+	# or not that file is there; and `php_fastcgi` is not in the mutually exclusive group `handle`
+	# blocks form, so a route placed after it is not reliably reached either. Both are removed by
+	# putting the whole condition in the matcher and the route first. What is measured is the
+	# outcome rather than the mechanism — `crates/mixengine-cli/tests/welcome.rs`, against Caddy
+	# 2.11.4 and PHP 8.4.24: 200 and this page at `/`, 404 at `/missing` and `/api/anything`, and
+	# the site's own index answering the moment it is written, with no reload.
+	#
+	# **`path /` and `not file`, together.** An application's own 404 is an answer, and replacing
+	# it would be MixEngine lying about somebody else's program — a site serving a JSON API under
+	# `/api` and nothing at `/` is ordinary. This matches one exact path, and only while the disk
+	# holds none of the index files the site would have served, so a site with one never renders
+	# this page even once.
+	#
+	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
+	# that replaced it was written — the site looking broken in exactly the way this page exists
+	# to prevent.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.php index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
+
+	handle {
 
 {%- if activator %}
 	# The pool first and the activator second, under the policy the block above explains.
@@ -242,54 +290,30 @@
 	php_fastcgi {{ upstream }}
 {%- endif %}
 	file_server
-
-{%- if welcome %}
-	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
-	#
-	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
-	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
-	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
-	# cannot reach one the application owns.
-	#
-	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
-	# mutually exclusive and taken in order, so a site with its own index never renders this page
-	# even once.
-	#
-	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
-	# that replaced it was written — the site looking broken in exactly the way this page exists
-	# to prevent.
-	handle / {
-		root * `{{ welcome }}`
-		rewrite * /{{ primary }}.html
-		header Cache-Control "no-store"
-		file_server
 	}
-{%- endif %}
 {%- elif kind == "static" %}
-	file_server
-
 {%- if welcome %}
-	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
-	#
-	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
-	# replacing it would be MixEngine lying about somebody else's program — a php-fpm site serving
-	# a JSON API under `/api` and nothing at `/` is ordinary. This matches one exact path and
-	# cannot reach one the application owns.
-	#
-	# **After the handlers above, which is the whole safety argument**: `handle` blocks are
-	# mutually exclusive and taken in order, so a site with its own index never renders this page
-	# even once.
-	#
-	# `no-store`, because a browser that cached this at `/` would go on showing it after the index
-	# that replaced it was written — the site looking broken in exactly the way this page exists
-	# to prevent.
-	handle / {
+	# The same route a php-fpm site gets, with the index files a static site would have
+	# served — roadmap task T124. `file_server` has the same shape of problem `php_fastcgi`
+	# does: it is not in the group `handle` blocks form, so the condition has to be the
+	# matcher's rather than the ordering's.
+	@mixengine_welcome {
+		path /
+		not file {
+			try_files index.html index.htm
+		}
+	}
+	handle @mixengine_welcome {
 		root * `{{ welcome }}`
 		rewrite * /{{ primary }}.html
 		header Cache-Control "no-store"
 		file_server
 	}
 {%- endif %}
+
+	handle {
+		file_server
+	}
 {%- else %}
 	reverse_proxy {{ upstream }}
 

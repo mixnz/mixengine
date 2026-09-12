@@ -62,6 +62,14 @@ pub(crate) struct Site {
     /// What this site's `index.php` prints, which is unique per site so a response cannot be
     /// mistaken for another site's.
     pub says: String,
+
+    /// Its document root, which is also its project root — roadmap task **T124**.
+    ///
+    /// **Carried rather than rebuilt by a caller.** The directory is named after the *project* and
+    /// the site after its domain, so a suite deriving one from the other would be a second place
+    /// this fixture's layout is written down — and it would be wrong the day a `.test` stops being
+    /// the suffix.
+    pub root: PathBuf,
 }
 
 /// Every PHP this machine was given, as directories.
@@ -353,6 +361,7 @@ fn site(home: &Home, version: &str) -> Site {
         pool,
         domain,
         says,
+        root,
     }
 }
 
