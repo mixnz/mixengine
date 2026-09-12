@@ -122,7 +122,87 @@ pub(crate) fn environment(paths: &Paths) -> BTreeMap<String, String> {
         "MIXENGINE_HOME".to_owned(),
         paths.root().to_string_lossy().into_owned(),
     );
+
+    // **There is no terminal on the other end of this** — roadmap task **T120a**. A program that
+    // assumes one writes control sequences into a string a window renders as text, which is how
+    // `create-next-app`'s refusal reached a person as `[31m"Next.js 1"[39m`.
+    //
+    // This bends the note above about inventing no environment, and the bend is deliberate rather
+    // than overlooked: it changes nothing about what the command *does*, it answers a question
+    // about where the output is going that the command would otherwise guess wrong. It is also
+    // never the guarantee — [`without_escapes`] is, because `NO_COLOR` is a convention and not
+    // every program reads it.
+    env.insert("NO_COLOR".to_owned(), "1".to_owned());
+
     env
+}
+
+/// The same text with every ANSI escape sequence taken out — roadmap task **T120a**.
+///
+/// **Here rather than from a crate**, for one screenful of matching with no dependency and no
+/// version to it: the shapes a build tool emits are CSI (`ESC [ … final`), OSC (`ESC ] …` ended by
+/// BEL or by ST) and the two-character escapes. A line holding none of them comes back unchanged.
+///
+/// **Removed at capture rather than at display.** There are three renderers of this text — the
+/// CLI, the desktop's dialog, and the job log T120 built — and a rule enforced in one place is a
+/// rule, while a rule enforced in three is a schedule for the fourth to be written without it.
+fn without_escapes(text: &str) -> String {
+    let mut clean = String::with_capacity(text.len());
+    let mut characters = text.chars();
+
+    while let Some(character) = characters.next() {
+        if character != '\u{1b}' {
+            clean.push(character);
+            continue;
+        }
+
+        match characters.next() {
+            // CSI: parameters and intermediates, then one final byte in `@`..=`~`.
+            Some('[') => {
+                for inside in characters.by_ref() {
+                    if matches!(inside, '\u{40}'..='\u{7e}') {
+                        break;
+                    }
+                }
+            }
+
+            // OSC: a string ended by BEL, or by ST — which is itself an escape, so the character
+            // after it belongs to the sequence too.
+            Some(']') => {
+                while let Some(inside) = characters.next() {
+                    match inside {
+                        '\u{7}' => break,
+                        '\u{1b}' => {
+                            characters.next();
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            // `ESC (B` and its relatives: one more character belongs to the sequence. A bare
+            // `ESC M` would lose the character after it, which is the trade this shape makes and
+            // costs nothing against the programs that actually reach here.
+            Some(_) => {
+                characters.next();
+            }
+
+            // A trailing escape with nothing after it. Dropped, which is the whole job.
+            None => {}
+        }
+    }
+
+    clean
+}
+
+/// One captured line, with nothing in it a terminal would obey.
+fn scrubbed(mut line: LogLine) -> LogLine {
+    if line.text.contains('\u{1b}') {
+        line.text = without_escapes(&line.text);
+    }
+
+    line
 }
 
 /// The `PATH` a scaffold command runs with: `<home>/bin` first, then this daemon's own.
@@ -179,7 +259,7 @@ pub(crate) async fn run_command(
     let (already_said, mut lines) = capture.read();
 
     for line in already_said {
-        sink.line(line);
+        sink.line(scrubbed(line));
     }
 
     let mut last = Vec::new();
@@ -280,6 +360,8 @@ fn drain(lines: &mut broadcast::Receiver<LogLine>, sink: &dyn Sink, last: &mut V
     loop {
         match lines.try_recv() {
             Ok(line) => {
+                let line = scrubbed(line);
+
                 keep_last(last, &line);
                 sink.line(line);
             }
@@ -313,7 +395,14 @@ fn failure(command: &str, code: Option<i32>, last: &[String]) -> String {
     };
 
     match last.iter().find(|line| !line.trim().is_empty()) {
-        Some(_) => format!("{ended} — its last words: {}", last.join(" / ")),
+        Some(_) => format!(
+            "{ended} — its last words:
+{}",
+            last.join(
+                "
+"
+            )
+        ),
         None => ended,
     }
 }
@@ -442,5 +531,85 @@ mod tests {
             env.get("MIXENGINE_HOME").map(String::as_str),
             Some(paths.root().to_string_lossy().as_ref())
         );
+    }
+
+    /// **The command is told there is no terminal** — roadmap task **T120a**.
+    ///
+    /// A complement to the scrub below and never a substitute: `NO_COLOR` is a convention, honoured
+    /// by `create-next-app` and not by everything. Measured on 2026-09-13 against
+    /// `create-next-app@latest`: `NO_COLOR=1` silences it and `FORCE_COLOR=0` does not, which is
+    /// why the obvious one is not the one set here.
+    #[test]
+    fn a_command_is_told_that_nothing_is_a_terminal() {
+        let home = tempfile::tempdir().expect("a directory");
+        let paths = Paths::new(home.path().to_path_buf(), &Default::default());
+
+        assert_eq!(
+            environment(&paths).get("NO_COLOR").map(String::as_str),
+            Some("1")
+        );
+    }
+
+    /// **What a command printed is data, not control** — roadmap task **T120a**.
+    ///
+    /// `create-next-app` colours a pipe, so its refusal reached a person as
+    /// `[31m"Next.js 1"[39m` — and a terminal reading the same string would have obeyed it
+    /// instead of showing it.
+    #[test]
+    fn an_escape_sequence_never_survives_capture() {
+        let coloured = "Could not create a project called \u{1b}[31m\"Next.js 1\"\u{1b}[39m";
+
+        let scrubbed = without_escapes(coloured);
+
+        assert_eq!(
+            scrubbed, "Could not create a project called \"Next.js 1\"",
+            "{scrubbed:?}"
+        );
+    }
+
+    /// The other shapes: the bold/reset pair npm writes around a bullet, an OSC sequence — which is
+    /// the one that does not end in a letter — and a two-character escape.
+    #[test]
+    fn the_other_shapes_of_escape_go_too() {
+        for noisy in [
+            "\u{1b}[1m*\u{1b}[22m name can only contain URL-friendly characters",
+            "\u{1b}]0;a title\u{7}still here",
+            "\u{1b}]0;a title\u{1b}\\still here",
+            "\u{1b}(Bplain",
+        ] {
+            let scrubbed = without_escapes(noisy);
+
+            assert!(!scrubbed.contains('\u{1b}'), "{noisy:?} -> {scrubbed:?}");
+            assert!(
+                scrubbed.contains("name")
+                    || scrubbed.contains("still here")
+                    || scrubbed.contains("plain"),
+                "{noisy:?} -> {scrubbed:?}"
+            );
+        }
+    }
+
+    /// A line with nothing to take out is the same line.
+    #[test]
+    fn a_plain_line_is_unchanged() {
+        assert_eq!(
+            without_escapes("npm warn deprecated"),
+            "npm warn deprecated"
+        );
+    }
+
+    /// **Multi-line output stays multi-line** — roadmap task **T120a**. Joining with `" / "` turned
+    /// a three-line explanation into one line whose punctuation read like paths.
+    #[test]
+    fn a_failures_last_words_keep_their_lines() {
+        let last = vec![
+            "Could not create a project called \"Next.js 1\":".to_owned(),
+            "  * name can only contain URL-friendly characters".to_owned(),
+        ];
+
+        let said = failure("npx create-next-app .", Some(1), &last);
+
+        assert!(said.contains("exited with 1"), "{said}");
+        assert_eq!(said.lines().count(), 3, "{said}");
     }
 }
