@@ -33,6 +33,39 @@ export function scaffoldStepIndex(steps: PlanStep[]): number {
 }
 
 /**
+ * Ô đồng ý đang ở trạng thái nào — `none` khi plan không hề có lệnh nào để hỏi.
+ *
+ * **`declined` là một câu trả lời, không phải một ô chưa chạm tới.** Trong `mix`, câu hỏi này là
+ * một `[y/N]` chặn ngang: không trả lời thì không đi tiếp được, và `unasked` in hẳn một dòng stderr
+ * nói lệnh đã bị bỏ. Trên desktop ô tick im lặng, nên một apply bỏ qua lệnh khởi tạo trông y hệt
+ * một apply chạy nó — người dùng chỉ biết ở màn "Xong", lẫn giữa mười dòng khác. Trạng thái này là
+ * thứ để giao diện nói trước, ở nút bấm và ở khối cảnh báo cạnh ô tick.
+ */
+export function scaffoldConsentState(
+  steps: PlanStep[],
+  agreed: boolean,
+): "none" | "agreed" | "declined" {
+  if (scaffoldStepIndex(steps) < 0) return "none";
+  return agreed ? "agreed" : "declined";
+}
+
+/**
+ * Lệnh khởi tạo đã bị bỏ lại, hoặc `null`.
+ *
+ * Dùng để dựng một khối riêng ở đầu màn "Xong" thay cho dòng `stepNotRun` lẫn trong danh sách —
+ * và thay cho `why` của daemon, vốn kết bằng một gợi ý `mix blueprint apply --run-scaffold`: một
+ * cờ dòng lệnh vô nghĩa với người đang bấm chuột.
+ */
+export function scaffoldLeftCommand(applied: BlueprintApplied): string | null {
+  for (const outcome of applied.steps) {
+    if (outcome.action.action !== "run_scaffold") continue;
+    if (outcome.result.result !== "not_run") continue;
+    return outcome.action.command;
+  }
+  return null;
+}
+
+/**
  * Apply thật chỉ bật khi mọi bước `choice` đã có câu trả lời và không bước nào `blocked`/
  * `unsupported`. Một bước `confirm` (scaffold) không chặn gì — từ chối nó chỉ khiến bước đó
  * `not_run`, không khiến cả plan không gửi được.

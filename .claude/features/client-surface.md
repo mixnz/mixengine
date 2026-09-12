@@ -142,6 +142,13 @@ binaries. What they state is what the daemon **writes** —
    either, so a client that skipped the marking would be a client whose applies fail. The plan
    carries `source` and `trusted` for exactly this, so no second call is needed. Job output — what
    the command prints — is `GET /logs/job/{id}`, on the log stream and never the event stream.
+   **A third, added by T121: no consent must not be a silent answer.** `mix` asks `Run it? [y/N]`
+   and cannot be walked past; a graphical client whose box is simply left untouched has to say, on
+   the control that starts the apply, that the command will not run and the project directory will
+   be left empty — otherwise an apply that downloads a runtime, a database and a web server ends in
+   an empty folder nobody was told about. The same sentence is owed again afterwards, where the
+   step comes back `NotRun`: `StepResult::NotRun`'s `why` ends in a `mix` flag, so a client with no
+   command line writes its own.
 7a. **Taking MixEngine off this machine** — `daemon.uninstall_plan` first and always, because what
    a person is about to allow is what they are shown; then `daemon.uninstall`, whose job raises the
    one prompt and whose report is a measurement of the machine afterwards rather than a claim about

@@ -59,6 +59,15 @@ export default {
         done: "Your site is ready.",
         open: "Open {{url}}",
       },
+    afterApply: {
+      titleWorking: "Bringing your project up",
+      titleReady: "Your project is ready",
+      starting: "Starting everything MixEngine manages…",
+      ready: "Your site is ready at {{url}}.",
+      noSite: "Everything is running. This blueprint made no site, so there is no address to open.",
+      open: "Open {{url}}",
+      close: "Close",
+    },
     dashboard: {
       service: "Service",
       state: "State",
@@ -502,12 +511,19 @@ export default {
         scaffoldTitle: "This blueprint wants to run a command:",
         scaffoldUntrusted: "Nobody has vouched for this blueprint. Review the command before agreeing.",
         scaffoldConsent: "I've read the command above and agree to run it",
+        scaffoldDeclined:
+          "Not ticked: MixEngine will still install the runtimes, services, site and domain — but it will not run the command, so the project folder will be left empty and the site will have nothing to serve.",
         applyButton: "Apply",
+        applyWithoutCommand: "Set up without running the command",
         applying: "Applying…",
         running: "Running…",
         viewLog: "View output",
         hideLog: "Hide output",
         doneTitle: "Done",
+        leftUnrunTitle:
+          "The project folder is still empty — this command was not run, because the box agreeing to it was not ticked:",
+        leftUnrunHow:
+          "Run it yourself in {{root}}, or apply this blueprint again and tick the box.",
         stepDone: "Done",
         stepAlreadyTrue: "Already true",
         stepNotRun: "Not run — {{why}}",

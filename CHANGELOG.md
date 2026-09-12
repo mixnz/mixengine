@@ -17,7 +17,15 @@
 - `mix blueprint apply --autostart` marks the services it creates to start with MixEngine. Services
   the apply found already there keep whatever their owner set.
 - MixLab's Dashboard offers to build your first site while the machine has none: pick a stack, name
-  it, and one button installs, configures and starts everything it needs, then opens it.
+  it, and one button installs, configures and starts everything it needs, then hands you its
+  address.
+- Applying a blueprint in MixLab now ends where the project does: it spends the elevation prompt,
+  starts what this home declares, and names the address of the site it made with a button to open
+  it. Before, an apply from the Blueprints screen stopped at a list of steps.
+- MixLab says what leaving the `[scaffold]` consent box unticked will mean *before* the apply runs —
+  the button reads *Set up without running the command*, and the finished apply says the project
+  folder is still empty and prints the command you can run yourself. It used to be one line among
+  ten, after the fact.
 - `mix blueprint apply --start` starts this home's services once the apply is done, after the one
   elevation prompt rather than before it.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
@@ -66,6 +74,10 @@
   transport instead of building one each, cutting the daemon's idle memory footprint.
 
 ### Fixed
+- Creating a site now says which service is missing instead of answering `FOREIGN KEY constraint
+  failed`, and a `php-fpm` pool that was deleted while its PHP stayed installed is made again where
+  the need is found — before, deleting that service left every new PHP site on the machine failing
+  until the daemon was restarted.
 - The missing-helper hint now matches how each install format actually ships
   `mixengine-elevate`, instead of assuming every release keeps a copy beside `mixengined`.
 - MariaDB starts from a certificate issued once by this home's own authority instead of

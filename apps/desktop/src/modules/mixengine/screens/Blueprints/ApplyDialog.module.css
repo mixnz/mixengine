@@ -75,6 +75,42 @@
   font-size: 13px;
 }
 
+/* Cảnh báo, không phải lỗi: chưa có gì hỏng, và apply không tick vẫn là một lựa chọn hợp lệ. Nên
+   `--warning-text` chứ không `--danger`, và một dải bên trái thay vì một khung đỏ. */
+.consentWarning {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--warning-text);
+  color: var(--warning-text);
+  font-size: 13px;
+}
+
+/* Cùng ngôn ngữ hình với `.consentWarning` — đây đúng là cùng một câu, nói lại sau khi việc đã
+   xảy ra. Đứng đầu màn "Xong" nên có khung riêng chứ không chỉ một dải. */
+.leftUnrun {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-text);
+  border-radius: var(--radius-sm);
+  color: var(--warning-text);
+  font-size: 13px;
+}
+
+.leftUnrun > p {
+  margin: 0;
+}
+
+.leftUnrun > code {
+  padding: 6px 8px;
+  overflow-x: auto;
+  background: rgb(0 0 0 / 12%);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  white-space: pre;
+}
+
 .running {
   display: flex;
   flex-direction: column;

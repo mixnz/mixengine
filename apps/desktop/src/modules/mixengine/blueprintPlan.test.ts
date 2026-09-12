@@ -8,11 +8,15 @@ import {
   canApply,
   describePlanAction,
   jobFailureMessage,
+  scaffoldConsentState,
+  scaffoldLeftCommand,
   scaffoldStepIndex,
 } from "./blueprintPlan";
+import type { BlueprintApplied } from "@mixengine/api";
 import type { PlanStep } from "@mixengine/api";
 import type { BlueprintPlan } from "@mixengine/api";
 import type { JobSummary } from "@mixengine/api";
+import type { StepOutcome } from "@mixengine/api";
 
 function step(partial: Partial<PlanStep> & Pick<PlanStep, "action" | "disposition">): PlanStep {
   return { elevates: false, ...partial };
@@ -64,6 +68,54 @@ describe("scaffoldStepIndex", () => {
     ];
     expect(scaffoldStepIndex(steps)).toBe(1);
     expect(scaffoldStepIndex(steps.slice(0, 1))).toBe(-1);
+  });
+});
+
+describe("scaffoldConsentState", () => {
+  const scaffold = step({
+    action: { action: "run_scaffold", command: "composer create-project laravel/laravel ." },
+    disposition: { disposition: "confirm", what: "composer create-project laravel/laravel ." },
+  });
+  const domain = step({
+    action: { action: "add_domain", domain: "blog.test", primary: true },
+    disposition: { disposition: "satisfied" },
+  });
+
+  it("is none when the plan asks for no command at all", () => {
+    expect(scaffoldConsentState([domain], false)).toBe("none");
+    expect(scaffoldConsentState([domain], true)).toBe("none");
+  });
+
+  it("tells an unticked box apart from a plan with nothing to tick", () => {
+    expect(scaffoldConsentState([domain, scaffold], false)).toBe("declined");
+    expect(scaffoldConsentState([domain, scaffold], true)).toBe("agreed");
+  });
+});
+
+describe("scaffoldLeftCommand", () => {
+  function applied(steps: StepOutcome[]): BlueprintApplied {
+    return { blueprint: "laravel-starter", project: "blog", root: "/srv/blog", steps };
+  }
+
+  it("names the command a skipped step was carrying", () => {
+    const left = applied([
+      {
+        action: { action: "run_scaffold", command: "composer create-project laravel/laravel ." },
+        result: { result: "not_run", why: "nobody agreed to it" },
+      },
+    ]);
+    expect(scaffoldLeftCommand(left)).toBe("composer create-project laravel/laravel .");
+  });
+
+  it("is null when the command ran, and when there was none", () => {
+    expect(
+      scaffoldLeftCommand(
+        applied([
+          { action: { action: "run_scaffold", command: "composer install" }, result: { result: "done" } },
+        ]),
+      ),
+    ).toBeNull();
+    expect(scaffoldLeftCommand(applied([]))).toBeNull();
   });
 });
 

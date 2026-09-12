@@ -1,0 +1,42 @@
+.overlay {
+  composes: overlay from "../../../../components/Modal/surface.module.css";
+}
+
+.dialog {
+  composes: dialog from "../../../../components/Modal/surface.module.css";
+  width: min(460px, calc(100vw - 2rem));
+  padding: 24px;
+  gap: 0.75rem;
+}
+
+.title {
+  margin: 0 0 16px;
+}
+
+.status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.status > p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.status > progress {
+  width: 100%;
+}
+
+.errors {
+  margin-top: 12px;
+  color: var(--danger, #c00);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}

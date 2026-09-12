@@ -21,6 +21,8 @@ import {
   canApply,
   describePlanAction,
   jobFailureMessage,
+  scaffoldConsentState,
+  scaffoldLeftCommand,
   scaffoldStepIndex,
 } from "../../blueprintPlan";
 import { applyJob, type JobRow } from "../../daemonState";
@@ -32,7 +34,13 @@ import styles from "./ApplyDialog.module.css";
 interface Props {
   blueprint: BlueprintSummary;
   onCancel: () => void;
-  onDone: () => void;
+
+  /**
+   * Hộp thoại đã đóng sau một lượt apply. `applied` là kết quả khi nó thành công, `null` khi
+   * thất bại — người gọi cần nó để quyết định đoạn tiếp theo (`AfterApply`), và nhất là để biết
+   * lệnh khởi tạo có chạy hay không.
+   */
+  onDone: (applied: BlueprintApplied | null) => void;
 
   /** Điền sẵn tên project. Quick Start đã hỏi rồi, người dùng không phải gõ lại — T117. */
   initialProject?: string;
@@ -199,7 +207,14 @@ export default function ApplyDialog({
   return (
     <Modal
       label={t("mixengine.blueprints.apply.title", { blueprint: blueprint.name })}
-      onClose={onCancel}
+      // Escape và cú bấm ra ngoài đi cùng đường với nút ở dưới: một apply đã chạy xong thì đóng
+      // bằng cách nào cũng là "xong", không phải "huỷ" — người gọi còn cả một chuỗi khởi động
+      // treo trên `onDone`, và đánh mất nó vì một phím Escape là đánh mất luôn cái site.
+      onClose={() => {
+        if (phase.kind === "done") onDone(phase.applied);
+        else if (phase.kind === "failed") onDone(null);
+        else onCancel();
+      }}
       locked={busy}
       overlayClassName={styles.overlay}
       className={styles.dialog}
@@ -289,6 +304,15 @@ export default function ApplyDialog({
                           checked={scaffoldAgreed}
                           onChange={(e) => setScaffoldAgreed(e.target.checked)}
                         />
+                        {/* Câu `[y/N]` của `mix`, vẽ ra thành giao diện. Không tick là một câu trả
+                            lời — apply vẫn cài runtime, DB, site và domain, chỉ là thư mục
+                            project ở lại rỗng — và cho tới T121 thì desktop không nói câu ấy ở
+                            đâu cả: người dùng biết được ở màn "Xong", lẫn giữa mười dòng khác. */}
+                        {!scaffoldAgreed && (
+                          <p className={styles.consentWarning} role="status">
+                            {t("mixengine.blueprints.apply.scaffoldDeclined")}
+                          </p>
+                        )}
                       </div>
                     )}
                   </li>
@@ -335,6 +359,20 @@ export default function ApplyDialog({
           {phase.kind === "done" && (
             <div className={styles.done}>
               <h4>{t("mixengine.blueprints.apply.doneTitle")}</h4>
+
+              {/* Ở **đầu** danh sách, không phải dòng thứ mười. Và bằng câu của chính app: `why`
+                  daemon trả về kết bằng một gợi ý `mix blueprint apply --run-scaffold`, một cờ
+                  dòng lệnh vô nghĩa với người vừa bấm chuột qua bốn màn hình. */}
+              {scaffoldLeftCommand(phase.applied) !== null && (
+                <div className={styles.leftUnrun} role="alert">
+                  <p>{t("mixengine.blueprints.apply.leftUnrunTitle")}</p>
+                  <code>{scaffoldLeftCommand(phase.applied)}</code>
+                  <p>
+                    {t("mixengine.blueprints.apply.leftUnrunHow", { root: phase.applied.root })}
+                  </p>
+                </div>
+              )}
+
               <ul className={styles.steps}>
                 {phase.applied.steps.map((outcome, i) => (
                   <li key={i} className={styles.step}>
@@ -384,6 +422,9 @@ export default function ApplyDialog({
                   : t("mixengine.blueprints.apply.preview")}
               </Button>
             )}
+            {/* Nút nói đúng việc nó sắp làm. Một "Apply" chung chung trên một plan có lệnh khởi
+                tạo chưa được đồng ý là một nút hứa dựng project rồi dựng ra thư mục rỗng — nên
+                khi ô tick còn trống, nhãn đổi hẳn chứ không chỉ thêm một dòng chú thích ở trên. */}
             {phase.kind === "plan" && (
               <Button
                 size="large"
@@ -393,11 +434,20 @@ export default function ApplyDialog({
               >
                 {busy
                   ? t("mixengine.blueprints.apply.applying")
-                  : t("mixengine.blueprints.apply.applyButton")}
+                  : scaffoldConsentState(phase.plan.steps, scaffoldAgreed) === "declined"
+                    ? t("mixengine.blueprints.apply.applyWithoutCommand")
+                    : t("mixengine.blueprints.apply.applyButton")}
               </Button>
             )}
             {(phase.kind === "done" || phase.kind === "failed") && (
-              <Button size="large" variant="primary" onClick={() => close(onDone)}>
+              <Button
+                size="large"
+                variant="primary"
+                onClick={() => {
+                  const applied = phase.kind === "done" ? phase.applied : null;
+                  close(() => onDone(applied));
+                }}
+              >
                 {t("mixengine.blueprints.apply.close")}
               </Button>
             )}

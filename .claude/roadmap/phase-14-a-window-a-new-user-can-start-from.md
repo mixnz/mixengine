@@ -174,6 +174,69 @@ readable, writable setting since it was written, and nothing has ever read the c
       runner has gone, so what closes it is one sweep over that shared surface rather than anything
       in `api::apply`.
 
+- [x] **T121** An apply says what an unticked consent box means, and a finished apply ends at the
+      site it made. Two halves of one complaint: a person applies a blueprint, watches it download
+      a runtime, a database and a web server, and is left with an empty folder and no address —
+      because the `[scaffold]` consent box went untouched and nothing said so, and because the
+      chain that starts the services and opens the browser lived only in Quick Start.
+      **What this task settled.** The desktop was behind `mix`, not missing an API: the CLI asks
+      `Run it? [y/N]` and prints a line when nobody could be asked, while the dialog took silence
+      for an answer. An unticked box now draws a warning beside itself and **renames the button** —
+      *Set up without running the command* — because a button labelled `Apply` on a plan whose init
+      command will not run is a button promising a project and delivering an empty directory; and
+      the skipped step gets a block at the *top* of the Done screen, in the app's own words rather
+      than the daemon's `why`, which ends in a `mix blueprint apply --run-scaffold` a person holding
+      a mouse cannot use.
+      The post-apply chain moved into `components/AfterApply`, which both callers now mount: grant
+      first, then start, then say where the site is — in that order, because an address handed over
+      before the elevation queue is spent is an unresolved name behind an untrusted certificate.
+      **It hands over the address; it does not navigate.** The first build opened the browser itself
+      whenever the init command had run, on the reasoning that a folder with code in it is the one
+      case worth showing. Trying it settled the question the other way: the panel naming the address
+      is already the thing that shows somebody their result, and pulling a browser window in front
+      of them is a side effect they did not ask for. So the address is a button, and the click is
+      theirs — which also retires the question of what to do about a finish whose folder is empty.
+      **The ordering Quick Start now depends on, found by testing it.** Dashboard draws that card
+      if and only if `site.list` is empty, so its `onCreated` is the read that makes the card
+      *disappear* — and calling it when the apply finished, rather than when the whole chain did,
+      unmounted `AfterApply` mid-flight every single time: Dashboard's one `site.list` returns in
+      milliseconds while the chain is three calls deep, so it is not a race that sometimes loses.
+      The symptom was a project built correctly, scaffold and all, and a browser that never opened.
+      `onCreated` is called from `onFinished` alone, which is what the code this replaced did.
+      **What it deliberately did not do.** It did not pre-tick the consent box — that is T78a's gate,
+      and this task changes what is *said*, not what is allowed. It did not nest `AfterApply` inside
+      `ApplyDialog`: both are `Modal`, `Modal` listens for Escape on `window`, and one press would
+      close both. And it left the site's address a client-side read of `site.list`, the shape Quick
+      Start already had.
+      **The debt it leaves.** `BlueprintApplied` still does not carry the address of the site it
+      made, so each client picks "the project's first site" for itself and `mix blueprint apply`
+      prints no URL at all. A field on the proto would serve both and retire `siteUrl`'s guess.
+
+- [x] **T122** A site may not name a service nothing answers to, and a pool that went missing is made
+      again where the need is found. Reported from a real apply: `service.delete` took the
+      `php-fpm@<version>` row while PHP stayed installed, and from that moment every php-fpm site
+      creation on that home failed — with `(code: 787) FOREIGN KEY constraint failed`, at the end of
+      an apply that had downloaded a runtime, created a database and started a web server.
+      **What this task settled.** Two defects, one symptom. `core::sites` asserted *a site must name
+      a service that exists* in `pool_is_free_for`'s own doc and enforced it nowhere: both
+      `php_service_id` and `site_service_links.service_id` are foreign keys, so the write was never
+      possible, but SQLite names neither the column nor the id and that sentence was what reached
+      the user. `declared_services_exist` now refuses it by name, in `create` and in `update`, for
+      `blueprint.apply`'s reason — it arrives at these rows without a CLI. And the invariant
+      `services::pools::ensure` exists to hold was restored only at boot and after an install, so
+      `service.delete` could break it for as long as the daemon stayed up: `sites::settled` derives
+      `php-fpm@<version>` from `runtime_installs`, which `service.delete` does not touch, so
+      `resolve` kept answering with a version whose pool was gone. The derived branch now runs that
+      same idempotent repair when — and only when — the row is actually missing.
+      **What it deliberately did not do.** It did not add a fifth refusal to `service.delete` for a
+      runtime-origin pool. `services::pools`' own doc answers a row "deleted by hand" with repair
+      rather than refusal, and reversing that is a cross-cutting decision that would need an ADR
+      rather than an edit here.
+      **The debt it leaves.** A failed apply still reports `could not take back: Site { … }: no site
+      answers to <domain>` whenever the site step is what failed — `Ledger::attempting` writes the
+      entry *before* the creation, so a creation that never happened is rolled back and cannot be.
+      The line names a thing that was never made, which is the opposite of what the ledger is for.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are

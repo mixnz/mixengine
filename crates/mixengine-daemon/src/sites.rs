@@ -713,7 +713,9 @@ impl Sites {
                         )
                     })?;
 
-                Ok(SiteKind::PhpFpm { pool: Some(pool) })
+                Ok(SiteKind::PhpFpm {
+                    pool: Some(self.repaired(pool).await?),
+                })
             }
 
             SiteKind::ReverseProxy { upstream } => {
@@ -724,6 +726,48 @@ impl Sites {
 
             SiteKind::Static | SiteKind::NodeApp { .. } => Ok(kind.clone()),
         }
+    }
+
+    /// The pool this site is about to be written with, its row made again if it had gone —
+    /// roadmap task **T122**.
+    ///
+    /// **A derived pool is the one nobody typed, so nobody can be told to fix it.** The branch
+    /// above reads `runtime_installs` through `core::resolve` and spells `php-fpm@<version>` from
+    /// what it finds; the `services` row that id needs is written by a *different* mechanism —
+    /// `services::pools::ensure`, which runs at boot and after an install. `service.delete` can
+    /// take that row away in between, and until this task nothing put it back before the next
+    /// boot: PHP stayed installed, so `resolve` kept answering with a version whose pool no longer
+    /// existed, and every php-fpm site creation on that home failed for as long as the daemon
+    /// stayed up.
+    ///
+    /// So the repair is called here, where the need is discovered. It is the same idempotent call
+    /// the boot makes and costs one query per runtime-backed recipe on a home that is already
+    /// right — and it is reached only when the row is actually missing, which is close to never.
+    ///
+    /// **A repair that does not repair is still a refusal**, by the name of the pool: `core::sites`
+    /// would refuse the write anyway, and saying it here keeps the sentence about the thing the
+    /// caller can act on rather than about a foreign key.
+    async fn repaired(&self, pool: ServiceId) -> Result<ServiceId, Error> {
+        if services::record(&self.store, &pool).await.is_ok() {
+            return Ok(pool);
+        }
+
+        if let Err(error) = mixengine_core::services::pools::ensure(
+            &self.store,
+            mixengine_platform::host().as_ref(),
+            &crate::services::catalogue(),
+        )
+        .await
+        {
+            tracing::warn!(%pool, %error, "this site's pool was missing and could not be made again");
+        }
+
+        Ok(self
+            .existing(std::slice::from_ref(&pool))
+            .await?
+            .into_iter()
+            .next()
+            .unwrap_or(pool))
     }
 
     /// The project a reference names, or `not_found`.

@@ -5,7 +5,9 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
+import type { BlueprintApplied } from "@mixengine/api";
 import type { BlueprintSummary } from "@mixengine/api";
+import AfterApply from "../../components/AfterApply";
 import CaptureDialog from "./CaptureDialog";
 import ImportDialog from "./ImportDialog";
 import ApplyDialog from "./ApplyDialog";
@@ -19,6 +21,8 @@ export default function Blueprints({ active }: { active: boolean }) {
   const [capturing, setCapturing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [applying, setApplying] = useState<BlueprintSummary | null>(null);
+  /** Apply vừa xong — chuỗi xin quyền → khởi động → mở site đang chạy cho project này. */
+  const [settling, setSettling] = useState<BlueprintApplied | null>(null);
   const { t } = useTranslation();
 
   const reload = useCallback(async () => {
@@ -118,11 +122,19 @@ export default function Blueprints({ active }: { active: boolean }) {
         <ApplyDialog
           blueprint={applying}
           onCancel={() => setApplying(null)}
-          onDone={() => {
+          onDone={(applied) => {
             setApplying(null);
+            // Một apply thất bại không có gì để khởi động và không có site nào để mở.
+            setSettling(applied);
             void reload();
           }}
         />
+      )}
+
+      {/* Dựng lên **sau khi** `ApplyDialog` đóng, không lồng vào trong nó: cả hai đều là `Modal`,
+          và `Modal` nghe Escape ở mức `window` — chồng nhau thì một phím đóng cả hai. */}
+      {settling && (
+        <AfterApply project={settling.project} onFinished={() => setSettling(null)} />
       )}
     </div>
   );

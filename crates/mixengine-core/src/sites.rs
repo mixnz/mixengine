@@ -279,6 +279,11 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
     // insert cannot open a window.
     pool_is_free_for(store, &mut *tx, new.owner.extension(), &new.kind).await?;
 
+    // Before the write and inside the transaction, on the line above's reasoning — and before
+    // `write_links` rather than inside it, so the pool and the links are answered for in one place
+    // and in the order the caller asked them.
+    declared_services_exist(store, &mut *tx, &new.kind, &new.services).await?;
+
     let (kind, pool) = columns(&new.kind);
     let config = payload(&new.kind);
 
@@ -563,6 +568,16 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
     if let Some(kind) = &change.kind {
         pool_is_free_for(store, &mut *tx, owner.as_ref(), kind).await?;
     }
+
+    // The same door, so the same check — T122. A kind or a link list left alone names nothing new
+    // and is not asked about; what is already on the row was answered for when it was written.
+    declared_services_exist(
+        store,
+        &mut *tx,
+        change.kind.as_ref().unwrap_or(&SiteKind::Static),
+        change.services.as_deref().unwrap_or_default(),
+    )
+    .await?;
 
     if let Some(doc_root) = &change.doc_root {
         sqlx::query!("UPDATE sites SET doc_root = ? WHERE id = ?", doc_root, id)
@@ -1080,6 +1095,73 @@ async fn pool_is_free_for<'c>(
     }
 }
 
+/// Refuse a site that names a service nothing answers to — roadmap task **T122**.
+///
+/// **The schema already refused it; what it could not do was say so.** `sites.php_service_id` and
+/// `site_service_links.service_id` are both foreign keys, so an id with no row has never been
+/// writable — but SQLite answers `FOREIGN KEY constraint failed` and names neither the column nor
+/// the id, and that sentence is what a `blueprint.apply` handed a person after it had downloaded a
+/// runtime, created a database and started a web server. [`pool_is_free_for`]'s own doc has
+/// asserted *a site must name a service that exists* since T82a; this is that assertion given a
+/// voice.
+///
+/// **Here rather than in the daemon**, for the reason the check above it carries: `blueprint.apply`
+/// reaches these rows without going through a CLI, so a refusal only the CLI made would be no
+/// refusal at all.
+///
+/// Inside the caller's transaction, so a service deleted between this read and the insert is still
+/// caught — by the foreign key, which is where a race belongs. What this moves is the ordinary
+/// case, not the racing one.
+async fn declared_services_exist<'c>(
+    store: &Store,
+    executor: impl sqlx::SqliteExecutor<'c>,
+    kind: &SiteKind,
+    services: &[ServiceId],
+) -> Result<()> {
+    let pool = match kind {
+        SiteKind::PhpFpm { pool: Some(pool) } => Some(pool),
+        _ => None,
+    };
+
+    // One query rather than one per id: a site with four links on a cold page cache should not be
+    // five round trips to answer "everything is there".
+    let wanted: Vec<&ServiceId> = pool.into_iter().chain(services.iter()).collect();
+
+    if wanted.is_empty() {
+        return Ok(());
+    }
+
+    let mut found = std::collections::BTreeSet::new();
+    let mut query = sqlx::QueryBuilder::<Sqlite>::new("SELECT id FROM services WHERE id IN (");
+    let mut separated = query.separated(", ");
+    for service in &wanted {
+        separated.push_bind(service.as_str());
+    }
+    query.push(")");
+
+    let rows: Vec<String> = query
+        .build_query_scalar()
+        .fetch_all(executor)
+        .await
+        .map_err(|source| store.failure("read", source))?;
+
+    found.extend(rows);
+
+    // In the order they were asked for, so the one named is the first a caller would look at — the
+    // pool before the links, because a php-fpm site with no pool is the broken half a person is
+    // most likely to be staring at.
+    for service in wanted {
+        if !found.contains(service.as_str()) {
+            return Err(Error::NotFound {
+                kind: "service",
+                id: service.as_str().to_owned(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// The primary domain of whichever site owns `domain`.
 async fn holder(
     store: &Store,
@@ -1183,6 +1265,72 @@ mod tests {
         )
         .await
         .expect("its own site names its own pool");
+    }
+
+    /// **A pool nothing answers to is refused in words, not by the schema** — roadmap task **T122**.
+    ///
+    /// `pool_is_free_for`'s own doc already asserts *a site must name a service that exists*, and
+    /// until this task nothing here enforced it: the `INSERT` reached SQLite, `php_service_id`'s
+    /// foreign key refused it, and what a person was handed was
+    /// `(code: 787) FOREIGN KEY constraint failed` at the end of an apply that had just downloaded
+    /// a runtime, a database and a web server. The name of the missing pool is the whole of what
+    /// they needed and the only thing that sentence did not carry.
+    #[tokio::test]
+    async fn a_site_may_not_name_a_pool_no_service_answers_to() {
+        let (_temp, store, project) = home().await;
+        let pool = ServiceId::parse("php-fpm@8.4.24").expect("an id");
+
+        let refusal = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::PhpFpm {
+                    pool: Some(pool.clone()),
+                },
+                https_enabled: true,
+                https_redirect: false,
+                domains: vec!["blog.mixengine.test".to_owned()],
+                services: Vec::new(),
+            },
+        )
+        .await
+        .expect_err("a site on a pool that is not declared");
+
+        let said = refusal.to_string();
+        assert!(said.contains("php-fpm@8.4.24"), "{said}");
+        assert!(
+            !said.contains("FOREIGN KEY"),
+            "the schema answered instead of this check: {said}"
+        );
+    }
+
+    /// The same rule at the link table, which carries the other half of a site's services.
+    #[tokio::test]
+    async fn a_site_may_not_link_a_service_no_row_answers_to() {
+        let (_temp, store, project) = home().await;
+
+        let refusal = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: true,
+                https_redirect: false,
+                domains: vec!["blog.mixengine.test".to_owned()],
+                services: vec![ServiceId::parse("mariadb@main").expect("an id")],
+            },
+        )
+        .await
+        .expect_err("a site linking a service that is not declared");
+
+        let said = refusal.to_string();
+        assert!(said.contains("mariadb@main"), "{said}");
+        assert!(
+            !said.contains("FOREIGN KEY"),
+            "the schema answered instead of this check: {said}"
+        );
     }
 
     /// And `site.update` is held to the same rule, because `blueprint.apply` reaches it without a
