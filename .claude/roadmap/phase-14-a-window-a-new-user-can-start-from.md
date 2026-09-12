@@ -271,6 +271,30 @@ readable, writable setting since it was written, and nothing has ever read the c
       a dependent brought down by one still counts as theirs — waking it would start the service
       they stopped.
 
+- [x] **T124** A site with nothing behind it says so, instead of answering 404 or 502. Design:
+      [docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md](../../docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md);
+      ADR [0031](../decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md).
+      **What this task settled.** A welcome page is a `Document` like any other — `welcome/<primary>.html`
+      beside the site's own configuration, swept by the same pass — so nothing is written into a
+      project directory and the page goes away by itself the moment the site answers. The condition
+      is a matcher's and never an ordering's: `handle` blocks are mutually exclusive only among
+      themselves, so a route placed after `php_fastcgi` or `file_server` is not reliably reached, and
+      Caddy's `not file` is what carries the whole question. The proxy kinds are answered on 502 and
+      504 at every path, because a gateway error the front end produced means nothing was listening
+      and there is no application answer to overwrite — while an upstream's *own* 502 passes through,
+      which is why nginx renders `error_page` and never `proxy_intercept_errors`.
+      **What it deliberately did not do.** It did not cover the php-fpm kind on nginx. `try_files`
+      serves the first file it finds in the current context, so a `location = /` naming `/index.php`
+      before the fallback would serve that file with no `fastcgi_pass` behind it — the site's source,
+      as text, on its home page. That rendering was written, measured against the leak and removed
+      again; `a_php_site_renders_no_welcome_route_until_one_cannot_leak_its_source` is what stops it
+      coming back, and a mechanism that cannot leak is the follow-up below.
+- [ ] **T124a** The welcome page reaches a php-fpm site on nginx. What is needed is a check that asks
+      the disk without serving what it finds — Caddy's `not file` has no nginx equivalent, and
+      `error_page 404` is what T124's design refuses, since it would replace the application's own.
+      Until this lands, a php-fpm site on nginx answers 404 exactly as it did before T124, and the
+      same site on Caddy answers the page.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are
