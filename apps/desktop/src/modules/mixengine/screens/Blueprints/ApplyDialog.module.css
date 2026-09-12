@@ -92,9 +92,15 @@
 .log {
   max-height: 200px;
   overflow-y: auto;
-  /* Lõm xuống dưới mặt dialog. `--page-bg`, không phải `--surface-bg`: bề mặt dialog đã là
-     `--surface-bg`, nên khối log phải là màu nằm sau nó mới đọc ra là thụt vào. */
-  background: var(--page-bg);
+  /* Lõm xuống dưới mặt dialog — một cái giếng, không phải một mảng phẳng nữa.
+     Trước đây nền là `--page-bg` với lý lẽ "màu nằm sau mặt dialog thì đọc ra là thụt vào". Lý lẽ
+     đó chỉ đúng ở theme sáng: theme tối đặt `--page-bg` và `--surface-bg` **bằng nhau** (`#2f2f2f`,
+     xem `App.css`), nên khối log biến mất hẳn vào mặt dialog. Một lớp đen phủ lên thì không phụ
+     thuộc token nào cả — sáng thì tối đi, tối thì tối thêm, hai bên đều ra một cái giếng. Viền là
+     thứ gánh phần phân biệt ở theme sáng, nơi lớp phủ buộc phải nhạt. */
+  background: rgb(0 0 0 / 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   padding: 8px;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -125,4 +131,18 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 20px;
+}
+
+/* Nền tối hơn hẳn ở theme tối: mặt dialog đã là `#2f2f2f`, nên lớp phủ phải dày hơn nhiều mới đọc
+   ra là một cái giếng — và một khung output tối hơn cái app quanh nó đúng là hình dung sẵn có của
+   người dùng về một terminal. Hai selector cho một giá trị: một cho lựa chọn tường minh, một cho
+   người để theo hệ điều hành. */
+:root[data-theme="dark"] .log {
+  background: rgb(0 0 0 / 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .log {
+    background: rgb(0 0 0 / 0.28);
+  }
 }

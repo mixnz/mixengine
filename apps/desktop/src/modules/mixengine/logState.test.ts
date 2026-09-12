@@ -10,6 +10,27 @@ describe("applyLogFrame", () => {
     ]);
   });
 
+  /* The daemon stores what the program wrote, escape codes and all; a pane has no terminal to
+     honour them, so they come off here rather than once per line per render. `--ansi` in Laravel's
+     own composer.json is what puts them there, so no flag on our side can stop them at the source. */
+  it("takes the terminal colour out of a line", () => {
+    const raw = JSON.stringify({
+      type: "line",
+      stream: "stdout",
+      at: "2026-09-06T00:00:00Z",
+      text: "  laravel/tinker \x1b[32;1mDONE\x1b[39;22m",
+    });
+    expect(applyLogFrame([], raw, 100)).toEqual([
+      { kind: "line", stream: "stdout", at: "2026-09-06T00:00:00Z", text: "  laravel/tinker DONE" },
+    ]);
+  });
+
+  /* Replayed history came off the same pipe and carries the same codes. */
+  it("takes the terminal colour out of a historic line too", () => {
+    const raw = JSON.stringify({ type: "historic", text: "\x1b[37;44m INFO \x1b[39;49m ready" });
+    expect(applyLogFrame([], raw, 100)).toEqual([{ kind: "historic", text: " INFO  ready" }]);
+  });
+
   it("appends a historic frame with no stream or timestamp", () => {
     const raw = JSON.stringify({ type: "historic", text: "old line" });
     expect(applyLogFrame([], raw, 100)).toEqual([{ kind: "historic", text: "old line" }]);

@@ -6,6 +6,7 @@ import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
+import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { BlueprintApplied } from "@mixengine/api";
@@ -83,6 +84,7 @@ export default function ApplyDialog({
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [showLog, setShowLog] = useState(false);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
+  const logPane = useTailScroll<HTMLDivElement>(logEntries);
 
   async function browseRoot() {
     const picked = await openDialog({ directory: true, multiple: false });
@@ -313,7 +315,7 @@ export default function ApplyDialog({
                   : t("mixengine.blueprints.apply.viewLog")}
               </Button>
               {showLog && (
-                <div className={styles.log}>
+                <div className={styles.log} {...logPane}>
                   {logEntries.map((entry, i) =>
                     entry.kind === "gap" ? (
                       <div key={i} className={styles.gap}>

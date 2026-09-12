@@ -4,6 +4,7 @@ import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
+import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import { applyLogFrame, type LogEntry } from "../../logState";
@@ -52,6 +53,8 @@ export default function Logs({ active }: { active: boolean }) {
     return entry.stream === filter;
   });
 
+  const linePane = useTailScroll<HTMLDivElement>(visible);
+
   return (
     <div className={styles.screen}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
@@ -90,7 +93,7 @@ export default function Logs({ active }: { active: boolean }) {
                 {t("mixengine.logs.loadMore")}
               </Button>
             </div>
-            <div className={styles.lines}>
+            <div className={styles.lines} {...linePane}>
               {visible.length === 0 && <p className={styles.empty}>{t("mixengine.logs.empty")}</p>}
               {visible.map((entry, i) => {
                 if (entry.kind === "gap") {

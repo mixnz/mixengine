@@ -42,9 +42,15 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* Cùng cái giếng với khung output của `ApplyDialog` — hai chỗ đọc log của app phải ra cùng một
+   thứ. Lý do chọn lớp phủ đen thay vì một token nền nằm ở ghi chú bên đó. */
 .lines {
   flex: 1;
   overflow-y: auto;
+  background: rgb(0 0 0 / 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   white-space: pre-wrap;
@@ -73,4 +79,15 @@
 .listEmpty {
   padding: 16px;
   opacity: 0.65;
+}
+
+/* Xem ghi chú cùng nội dung ở cuối `ApplyDialog.module.css`. */
+:root[data-theme="dark"] .lines {
+  background: rgb(0 0 0 / 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .lines {
+    background: rgb(0 0 0 / 0.28);
+  }
 }
