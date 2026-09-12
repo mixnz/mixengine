@@ -982,6 +982,71 @@ mod tests {
         );
     }
 
+    /// **A dead upstream is answered, at every path** — the T124 design, D4. Wide is safe here in
+    /// a way it is not for the file kinds: a 502 nginx generated means nothing was listening, so
+    /// there is no application whose answer is being overwritten.
+    #[test]
+    fn a_proxy_site_answers_a_dead_upstream_with_the_welcome_page() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_static_site()
+        });
+
+        assert!(
+            rendered.contains("error_page 502 504 = @mixengine_welcome;"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("location @mixengine_welcome"),
+            "{rendered}"
+        );
+    }
+
+    /// **And an upstream's own 502 passes through untouched** — D4's negative half, asserted
+    /// because the failure it guards against is a directive somebody adds later believing it
+    /// belongs. With `proxy_intercept_errors on;` a user's own gateway reporting its own upstream
+    /// would be replaced by MixEngine's page, which is this feature overwriting an application's
+    /// answer — the exact thing D3 refuses to do to a 404.
+    ///
+    /// **The directive and not the word**, on `two_sites_on_one_pool_declare_two_differently_named_groups`'
+    /// rule: the comment above it in `site.conf` names it too, and a search for the word would be
+    /// green forever whatever the configuration said.
+    #[test]
+    fn an_upstreams_own_gateway_error_is_not_intercepted() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::NodeApp { port: 3000 },
+            ..a_static_site()
+        });
+
+        let directive = rendered
+            .lines()
+            .find(|line| line.trim_start().starts_with("proxy_intercept_errors"));
+
+        assert!(
+            directive.is_none(),
+            "this directive would capture a 502 the application sent: {directive:?}"
+        );
+    }
+
+    /// **The root-only rule belongs to the kinds that serve files.** A proxy site with a working
+    /// upstream serves `/` from that upstream, and an exact-match location in front of it would
+    /// take the site's own home page away.
+    #[test]
+    fn a_proxy_site_has_no_root_only_welcome_location() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::ReverseProxy {
+                upstream: "http://127.0.0.1:8000".to_owned(),
+            },
+            ..a_static_site()
+        });
+
+        assert!(
+            !rendered.contains("location = / {"),
+            "a proxy site's `/` belongs to its upstream:
+{rendered}"
+        );
+    }
+
     /// A static site at `blog.test` with a certificate, so both shapes of the template are
     /// reachable from one fixture.
     fn a_static_site() -> Served {
