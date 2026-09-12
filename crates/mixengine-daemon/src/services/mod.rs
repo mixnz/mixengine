@@ -1374,6 +1374,26 @@ impl Registry {
         walk
     }
 
+    /// [`Registry::stop`], saying why — roadmap task **T123**.
+    ///
+    /// **The stop half of [`Registry::start_because`]**, and it exists for what the row keeps rather
+    /// than for what the event says. `daemon.shutdown` and a person's `service.stop` walk the same
+    /// [`Registry::stop`], so both left `stopped_by = 'person'` behind — and on-demand activation,
+    /// which may not undo a person's stop, then refused to wake anything at all after a restart.
+    ///
+    /// **Set before the walk rather than inside it**, on the idle sweeper's reasoning: a runner
+    /// reads its reason at the moment it enters `Stopping`, so a value written per service as the
+    /// walk reaches it would be in time — and one written after the walk would not. What the sweeper
+    /// also does, and this deliberately does not, is take the reason back on a stop that did not
+    /// happen: this is called by a daemon on its way out, and there is no next stop to mislabel.
+    pub(crate) async fn stop_because(&self, plan: &Plan, reason: &StateReason) -> Walk {
+        for id in plan.flat() {
+            self.stopping_because(id, Some(reason.clone()));
+        }
+
+        self.stop(plan).await
+    }
+
     /// Wait for every supervised service to have stopped.
     ///
     /// **The order is deliberately not this function's.** By the time the daemon calls it the root
@@ -2897,6 +2917,62 @@ mod tests {
         let (state, pid) = row(&store, &service("mariadb")).await;
         assert_eq!(state, ServiceState::Stopped);
         assert_eq!(pid, None, "a stopped service names no process");
+    }
+
+    /// **A shutdown's stop is not the stop a person makes** — roadmap task **T123**.
+    ///
+    /// `daemon.shutdown` and `service.stop` walk this same function, so the row is the only place
+    /// the difference can be made — and on-demand activation is what reads it at the next boot to
+    /// decide whether it may wake anything at all. One test for both stops, because what is under
+    /// test is precisely that they come out different.
+    #[tokio::test]
+    async fn a_shutdown_and_a_person_do_not_leave_the_same_stop_behind() {
+        let (_home, paths, store) = home(&["caddy"]).await;
+
+        let fake = FakeService::new();
+        let declared = Declared(vec![
+            spec("caddy")
+                .args(arguments(&fake))
+                .build()
+                .expect("a usable spec"),
+        ]);
+        let registry = registry(&paths, &store, Arc::new(declared));
+
+        let graph = registry.graph().await.expect("one declared service");
+        let up = graph.start_plan([&service("caddy")]).expect("a plan");
+        let down = graph.stop_plan([&service("caddy")]).expect("a plan");
+
+        /// What the row says who left this service stopped.
+        async fn who(store: &Store, id: &ServiceId) -> mixengine_core::services::StoppedBy {
+            services::record(store, id)
+                .await
+                .expect("the row")
+                .stopped_by
+        }
+
+        assert!(registry.start(&graph, &up).await.failed.is_none());
+        assert!(registry.stop(&down).await.failed.is_none());
+
+        assert_eq!(
+            who(&store, &service("caddy")).await,
+            mixengine_core::services::StoppedBy::Person,
+            "`service.stop` is somebody asking, and nothing may undo it"
+        );
+
+        assert!(registry.start(&graph, &up).await.failed.is_none());
+        assert!(
+            registry
+                .stop_because(&down, &StateReason::Shutdown)
+                .await
+                .failed
+                .is_none()
+        );
+
+        assert_eq!(
+            who(&store, &service("caddy")).await,
+            mixengine_core::services::StoppedBy::Daemon,
+            "a machine going down was recorded as a decision its owner made"
+        );
     }
 
     /// **A stop that did not take the service down does not report that it did**, which since T18

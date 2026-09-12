@@ -64,6 +64,13 @@ with the task that made its service wakeable:
 
 A database waits longer than a pool on purpose: a pool starts in tens of milliseconds and a server
 replays its log first, so an hour is the point at which stopping it is worth the wait to start it.
+
+**Only a stop somebody asked for is one a request may not undo**, and that is the whole of the rule —
+`services.stopped_by` says which of `never`, `person` and `daemon` left a service stopped, and the
+first two of those are woken. A row that has never run is not a decision, and neither is a machine
+that was restarted: both are the ordinary state of a laptop in the morning, and refusing them is the
+opposite of the promise two paragraphs up. What stays refused is `mix service stop mariadb@main`,
+where undoing it on the next request would be the tool overruling its user (T70's D8, T123).
 Any of these is overridden per service — `mix service idle mariadb@main --after 0` never stops it.
 
 **A database is measured by its connections and not by its query counter**, which the counter would

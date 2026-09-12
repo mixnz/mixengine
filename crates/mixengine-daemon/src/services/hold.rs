@@ -24,7 +24,7 @@
 //!
 //! A service a person stopped is never held for — [`hold_if_wakeable`] binds on an idle stop and on
 //! nothing else — so there is no address at which their stop could be undone. The web path needs
-//! `services.idle_stopped` to answer the same question because its activator's address is bound
+//! `services.stopped_by` to answer the same question because its activator's address is bound
 //! either way; this path answers it by not binding.
 
 use std::collections::HashMap;
@@ -236,7 +236,7 @@ pub(crate) async fn hold_if_wakeable(services: &Arc<Registry>, service: &Service
         }
     };
 
-    if record.state != ServiceState::Stopped || !record.idle_stopped {
+    if record.state != ServiceState::Stopped || !record.stopped_by.may_be_woken() {
         return;
     }
 
@@ -387,15 +387,15 @@ mod tests {
     /// rather than by reading a column at the moment of the connection.
     ///
     /// `mix service stop mariadb@main` followed by the next connection starting it again is the
-    /// tool overruling its user. The web path needs `services.idle_stopped` to tell the two stops
-    /// apart because its activator's address is bound either way; this path never binds for a stop
-    /// it did not make, so `mariadb` says "connection refused", which is the truth.
+    /// tool overruling its user. The web path needs `services.stopped_by` to tell the stops apart
+    /// because its activator's address is bound either way; this path never binds for a stop it did
+    /// not make, so `mariadb` says "connection refused", which is the truth.
     #[tokio::test]
     async fn a_service_a_person_stopped_is_not_held_for() {
         let (fixture_home, paths, store) = home(&["db"]).await;
 
-        // What a person's stop leaves behind: stopped, and not by the daemon.
-        sqlx::query("UPDATE services SET state = 'stopped', idle_stopped = 0 WHERE id = 'db'")
+        // What a person's stop leaves behind: stopped, and by them.
+        sqlx::query("UPDATE services SET state = 'stopped', stopped_by = 'person' WHERE id = 'db'")
             .execute(store.pool())
             .await
             .expect("the row");

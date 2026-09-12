@@ -1,11 +1,22 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,\n                autostart\n         FROM services WHERE id = ?",
+  "query": "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,\n                autostart\n         FROM services",
   "describe": {
     "columns": [
       {
-        "name": "state",
+        "name": "id",
         "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "state",
+        "ordinal": 1,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -16,7 +27,7 @@
       },
       {
         "name": "pid",
-        "ordinal": 1,
+        "ordinal": 2,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -27,7 +38,7 @@
       },
       {
         "name": "pid_start_time",
-        "ordinal": 2,
+        "ordinal": 3,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -38,7 +49,7 @@
       },
       {
         "name": "last_started_at",
-        "ordinal": 3,
+        "ordinal": 4,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -49,7 +60,7 @@
       },
       {
         "name": "last_exit_code",
-        "ordinal": 4,
+        "ordinal": 5,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -60,7 +71,7 @@
       },
       {
         "name": "port",
-        "ordinal": 5,
+        "ordinal": 6,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -70,19 +81,19 @@
         }
       },
       {
-        "name": "idle_stopped",
-        "ordinal": 6,
-        "type_info": "Integer",
+        "name": "stopped_by",
+        "ordinal": 7,
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "services",
-            "name": "idle_stopped"
+            "name": "stopped_by"
           }
         }
       },
       {
         "name": "autostart",
-        "ordinal": 7,
+        "ordinal": 8,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -93,9 +104,10 @@
       }
     ],
     "parameters": {
-      "Right": 1
+      "Right": 0
     },
     "nullable": [
+      false,
       false,
       true,
       true,
@@ -106,5 +118,5 @@
       false
     ]
   },
-  "hash": "4f97e44bf2229bcbd7f754d2fc31b083e1706111e783f96d95c380e4c518d008"
+  "hash": "78e49943f53035fefc99a38bb13ee08dda8a5f67099d1731e9392c53078110d1"
 }

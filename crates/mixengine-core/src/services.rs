@@ -66,6 +66,92 @@ pub async fn state(store: &Store, service: &ServiceId) -> Result<ServiceState> {
     parse_state(service, stored)
 }
 
+/// Who left a service stopped — roadmap task **T123**.
+///
+/// **Only meaningful while a service is [`ServiceState::Stopped`]**, and written on every arrival
+/// there so it can never be left over from an older stop. On-demand activation is the reader: a stop
+/// this answers [`Person`](Self::Person) for is one a connection may not undo, because `mix service
+/// stop` followed by the next request restarting the service is the tool overruling its user.
+///
+/// **Three answers because T70's boolean was one short.** `idle_stopped` asked *did the daemon idle
+/// this?*, so a row that had never run and a service the daemon itself put down both fell in beside
+/// a person's stop — and both were then refused a wake. A machine that was restarted has every pool
+/// in that state, which is how a PHP site came to answer 502 until somebody started its pool by
+/// hand, against `resource-isolation.md`'s own promise of *no error page, no manual start*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StoppedBy {
+    /// Nobody has. The service has not run yet, or it is not stopped at all.
+    Never,
+
+    /// A client asked, through `service.stop` or `service.restart`.
+    Person,
+
+    /// MixEngine itself: an idle sweep, its own shutdown, or a process that vanished under it.
+    Daemon,
+}
+
+impl StoppedBy {
+    /// The word the column holds.
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Never => "never",
+            Self::Person => "person",
+            Self::Daemon => "daemon",
+        }
+    }
+
+    /// Which of the three a stop for this reason is.
+    ///
+    /// **One rule: [`StateReason::Requested`] is a person, and every other reason is the machine.**
+    /// That word is what a client's `service.stop` reaches this function with and the only thing
+    /// that does — the daemon's own walks each carry a reason of their own
+    /// ([`StateReason::Shutdown`], [`StateReason::Idle`], [`StateReason::Vanished`],
+    /// [`StateReason::Unadopted`]), and so does every way a process ends without being asked to.
+    ///
+    /// Consulted only on the way into [`ServiceState::Stopped`]; the same word means something else
+    /// entirely on a start, and nothing calls this there.
+    #[must_use]
+    pub fn of(reason: &StateReason) -> Self {
+        match reason {
+            StateReason::Requested => Self::Person,
+            _ => Self::Daemon,
+        }
+    }
+
+    /// Whether a connection that needs this service may start it again.
+    ///
+    /// The question both readers ask — the web activator and the address holder — in one place, so
+    /// that the answer cannot come out differently on the two paths a wake can arrive by.
+    #[must_use]
+    pub fn may_be_woken(self) -> bool {
+        !matches!(self, Self::Person)
+    }
+
+    /// The column's word, read back.
+    ///
+    /// **A word this build does not know is read as [`Person`](Self::Person)**, which the `CHECK`
+    /// makes unreachable and which is the safe direction anyway: refusing a wake costs a 502 and one
+    /// `mix service start`, while granting one wrongly undoes somebody's deliberate stop.
+    fn parse(service: &str, column: &str) -> Self {
+        match column {
+            "never" => Self::Never,
+            "person" => Self::Person,
+            "daemon" => Self::Daemon,
+            other => {
+                tracing::warn!(
+                    service,
+                    value = other,
+                    "this service's row says it was stopped by something this build cannot read; \
+                     treating it as a stop somebody meant"
+                );
+
+                Self::Person
+            }
+        }
+    }
+}
+
 /// Everything a `services` row says about the process behind a service.
 ///
 /// The columns a supervisor writes, read back in one value. What is **not** in it is the reason for
@@ -76,14 +162,8 @@ pub struct ServiceRecord {
     /// What the row says the service is doing.
     pub state: ServiceState,
 
-    /// Whether it is stopped because nothing was using it — roadmap task **T70**.
-    ///
-    /// **Only meaningful while `state` is [`ServiceState::Stopped`]**, and it is written on every
-    /// arrival there so it can never be left over from an older stop. On-demand activation is the
-    /// reader: a service the daemon idled is one a connection may start again, and a service a
-    /// person stopped is not — `mix service stop` followed by the next request undoing it is the
-    /// tool overruling its user.
-    pub idle_stopped: bool,
+    /// Who left it stopped — roadmap tasks **T70** and **T123**. See [`StoppedBy`].
+    pub stopped_by: StoppedBy,
 
     /// The process it is running as, where there is one. Cleared by [`ended`].
     pub pid: Option<u32>,
@@ -656,7 +736,7 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
     let id = service.as_str();
 
     let row = sqlx::query!(
-        "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,
+        "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,
                 autostart
          FROM services WHERE id = ?",
         id
@@ -671,7 +751,7 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
 
     Ok(ServiceRecord {
         state: parse_state(service, row.state)?,
-        idle_stopped: row.idle_stopped != 0,
+        stopped_by: StoppedBy::parse(id, &row.stopped_by),
         pid: process_id(row.pid),
         pid_start_time: row.pid_start_time,
         last_started_at: row.last_started_at.map(Timestamp),
@@ -797,7 +877,7 @@ pub async fn declaration(store: &Store, service: &ServiceId) -> Result<Declarati
 /// services has no rows, which is an answer and not a failure.
 pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
     let rows = sqlx::query!(
-        "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, idle_stopped,
+        "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,
                 autostart
          FROM services"
     )
@@ -813,11 +893,13 @@ pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
                     value: row.state,
                 })?;
 
+            let stopped_by = StoppedBy::parse(&row.id, &row.stopped_by);
+
             Ok((
                 row.id,
                 ServiceRecord {
                     state,
-                    idle_stopped: row.idle_stopped != 0,
+                    stopped_by,
                     pid: process_id(row.pid),
                     pid_start_time: row.pid_start_time,
                     last_started_at: row.last_started_at.map(Timestamp),
@@ -926,19 +1008,22 @@ pub async fn transition(
 
     let (next, current) = (to.as_str(), from.as_str());
 
-    // **Written on the transition into `stopped`, never separately** — roadmap task T70. On-demand
-    // activation may start a service a connection needed, and must not do it to one a person
-    // stopped; a transition is not stored anywhere, so a daemon that restarts would otherwise
-    // forget which of its stopped services it had stopped itself. Set on every arrival at
-    // `stopped`, so it can never be left over from an older stop, and meaningless — and unread —
-    // while a service is running.
-    let idle_stopped =
-        i64::from(to == ServiceState::Stopped && matches!(reason, StateReason::Idle { .. }));
+    // **Written on the transition into `stopped`, never separately** — roadmap tasks T70 and T123.
+    // On-demand activation may start a service a connection needed, and must not do it to one a
+    // person stopped; a transition is not stored anywhere, so a daemon that restarts would
+    // otherwise forget who had stopped which of its services. Set on every arrival at `stopped`, so
+    // it can never be left over from an older stop, and reset on the way out so that a row which is
+    // not stopped says what is true of it: nobody has stopped this.
+    let stopped_by = match to {
+        ServiceState::Stopped => StoppedBy::of(&reason),
+        _ => StoppedBy::Never,
+    }
+    .as_str();
 
     let updated = sqlx::query!(
-        "UPDATE services SET state = ?, idle_stopped = ? WHERE id = ? AND state = ?",
+        "UPDATE services SET state = ?, stopped_by = ? WHERE id = ? AND state = ?",
         next,
-        idle_stopped,
+        stopped_by,
         id,
         current
     )
@@ -1224,6 +1309,119 @@ mod tests {
             state(&store, &id).await.expect("the row"),
             ServiceState::Starting,
             "the value handed back is the value that survived the commit"
+        );
+    }
+
+    /// Walk a service up and back down the way a supervisor does, arriving at `stopped` for `reason`.
+    async fn down(store: &Store, id: &ServiceId, reason: StateReason) {
+        for to in [
+            ServiceState::Starting,
+            ServiceState::Running,
+            ServiceState::Stopping,
+        ] {
+            transition(store, id, to, StateReason::Requested, NOW)
+                .await
+                .expect("an edge the machine has");
+        }
+
+        transition(store, id, ServiceState::Stopped, reason, NOW)
+            .await
+            .expect("a stopping service can stop");
+    }
+
+    /// **A stop somebody asked for is theirs** — the design's D8, which T123 does not touch.
+    ///
+    /// `mix service stop mariadb@main` followed by the next connection starting it again is the tool
+    /// overruling its user, and this is the word that forbids it.
+    #[tokio::test]
+    async fn a_stop_somebody_asked_for_is_recorded_as_theirs() {
+        let (_home, store) = store().await;
+        let id = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        down(&store, &id, StateReason::Requested).await;
+
+        assert_eq!(
+            record(&store, &id).await.expect("the row").stopped_by,
+            StoppedBy::Person,
+        );
+    }
+
+    /// **A shutdown is not one of those** — roadmap task **T123**.
+    ///
+    /// `daemon.shutdown` and `service.stop` walk the same `Registry::stop`, so this row is the only
+    /// place the difference can survive to the next boot — and on-demand activation is what reads it
+    /// there. Recorded as a person's, every service on the machine came back from every restart
+    /// unwakeable, and every site through one answered 502 until somebody started it by hand.
+    #[tokio::test]
+    async fn a_stop_the_daemon_made_on_its_way_out_is_not_recorded_as_a_person_s() {
+        let (_home, store) = store().await;
+        let id = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        down(&store, &id, StateReason::Shutdown).await;
+
+        assert_eq!(
+            record(&store, &id).await.expect("the row").stopped_by,
+            StoppedBy::Daemon,
+        );
+    }
+
+    /// **Nor is a process that went away under the daemon** — roadmap task **T123**.
+    ///
+    /// What a restarted machine leaves: rows claiming to be running, reconciled to `stopped` by a
+    /// daemon that finds no process behind them. Nobody decided this, so nothing about it may keep a
+    /// connection from starting the service again.
+    #[tokio::test]
+    async fn a_process_that_vanished_is_nobody_s_stop() {
+        let (_home, store) = store().await;
+        let id = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        down(&store, &id, StateReason::Vanished).await;
+
+        assert_eq!(
+            record(&store, &id).await.expect("the row").stopped_by,
+            StoppedBy::Daemon,
+        );
+    }
+
+    /// **And a service that is not stopped is nobody's stop at all** — roadmap task **T123**.
+    ///
+    /// The column is written on the way out of `stopped` as well as into it, so a row can never
+    /// answer with a stop that is over. A reader that asks while the service is running gets the
+    /// truth rather than a leftover.
+    #[tokio::test]
+    async fn leaving_stopped_takes_the_stop_with_it() {
+        let (_home, store) = store().await;
+        let id = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        down(&store, &id, StateReason::Requested).await;
+        transition(
+            &store,
+            &id,
+            ServiceState::Starting,
+            StateReason::Requested,
+            NOW,
+        )
+        .await
+        .expect("a stopped service can start");
+
+        assert_eq!(
+            record(&store, &id).await.expect("the row").stopped_by,
+            StoppedBy::Never,
+        );
+    }
+
+    /// **A row that has never run has never been stopped** — roadmap task **T123**.
+    ///
+    /// `service.create` writes `stopped`, because there is nowhere else for a service to begin. The
+    /// column's default is what keeps that from reading as a decision somebody made.
+    #[tokio::test]
+    async fn a_service_that_has_never_run_was_stopped_by_nobody() {
+        let (_home, store) = store().await;
+        let id = service_row(&store, "caddy", ServiceState::Stopped).await;
+
+        assert_eq!(
+            record(&store, &id).await.expect("the row").stopped_by,
+            StoppedBy::Never,
         );
     }
 

@@ -226,6 +226,22 @@ pub enum StateReason {
     /// recorded rather than failing to parse the event.
     Autostart,
 
+    /// The daemon stopped this on its way out — roadmap task **T123**.
+    ///
+    /// **[`Autostart`](Self::Autostart)'s mirror image, and it exists for the same reason turned
+    /// around.** `daemon.shutdown` and a person's `service.stop` walk the same
+    /// `Registry::stop`, so both read as [`Requested`](Self::Requested) — and a stop that is only
+    /// MixEngine going down became indistinguishable from one its owner meant to last. What that
+    /// cost is the whole of T123: on-demand activation refuses to undo a person's stop, so after
+    /// every `mix daemon restart` it refused to wake anything at all.
+    ///
+    /// **Somebody did ask — for the *daemon* to stop**, which is not a sentence about any one
+    /// service. That is the distinction this word carries and `Requested` cannot.
+    ///
+    /// The enum is `#[non_exhaustive]`, so a build that predates this word reads it as no reason
+    /// recorded rather than failing to parse the event.
+    Shutdown,
+
     /// The [`crate::ReadyCheck`] passed.
     Ready,
 
@@ -454,6 +470,7 @@ impl std::fmt::Display for StateReason {
         match self {
             Self::Requested => f.write_str("somebody asked for it"),
             Self::Autostart => f.write_str("it is set to start with MixEngine"),
+            Self::Shutdown => f.write_str("MixEngine is shutting down"),
             Self::Ready => f.write_str("the ready check passed"),
             Self::ReadyTimeout { after } => write!(f, "not ready within {after}"),
             // Three shapes rather than one, because the useless one has to stay useful: a port

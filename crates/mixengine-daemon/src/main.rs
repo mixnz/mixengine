@@ -1377,10 +1377,17 @@ async fn serve(
                 }
             }
 
-            // **What the last daemon idled is still idled** — roadmap task **T70a**. Without this
-            // a database stopped for being idle before a restart is unreachable for ever: its row
-            // says stopped, nothing holds its address, and the next client is refused by the kernel
-            // with no daemon anywhere in the story.
+            // **What the last daemon left down is still down** — roadmap task **T70a**. Without
+            // this a database stopped before a restart is unreachable for ever: its row says
+            // stopped, nothing holds its address, and the next client is refused by the kernel with
+            // no daemon anywhere in the story.
+            //
+            // **Every stop nobody meant to last, and not only the idle ones** — roadmap task
+            // **T123**. This walk always asked `hold_if_wakeable`, and what that reads is what
+            // widened: a service the last daemon stopped on its way out, or whose process went away
+            // with the machine, is one nothing decided to leave down, so a connection may have it
+            // back. Which is the ordinary case on a laptop, and it used to be the case that got
+            // nothing.
             //
             // Inside this task and not before it, for the block above's reason.
             match mixengine_core::services::records(&store).await {
@@ -1395,7 +1402,7 @@ async fn serve(
 
                     tracing::debug!(
                         services = services.holder().holding(),
-                        "holding the own address of each service the last daemon idled"
+                        "holding the own address of each service nobody meant to leave down"
                     );
                 }
                 Err(error) => tracing::warn!(

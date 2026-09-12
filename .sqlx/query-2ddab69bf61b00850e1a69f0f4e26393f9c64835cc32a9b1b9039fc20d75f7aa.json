@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE services SET state = ?, stopped_by = ? WHERE id = ? AND state = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "2ddab69bf61b00850e1a69f0f4e26393f9c64835cc32a9b1b9039fc20d75f7aa"
+}

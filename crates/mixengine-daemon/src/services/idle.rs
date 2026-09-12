@@ -348,10 +348,12 @@ impl Sweeper {
             "nothing was using this service, so it was stopped"
         );
 
-        // **Here, and after the stop succeeded** — roadmap task **T70a**. This is the one stop that
-        // produces an idle-stopped row, so it is the one stop that may arm a wake: a person's stop
-        // and a dependency's leave nothing bound, which is how D8 is answered on this path without
-        // reading anything at the moment a connection arrives.
+        // **Here, and after the stop succeeded** — roadmap task **T70a**. This is the one stop a
+        // *running* daemon makes that may arm a wake: a person's stop and a dependency's leave
+        // nothing bound, which is how D8 is answered on this path without reading anything at the
+        // moment a connection arrives. The other wakeable stops — a shutdown, a process that went
+        // away — are made by a daemon that is going or gone, and are armed by the boot walk in
+        // `main` instead (T123).
         //
         // A service with nothing to hold — a pool, which has a permanent activator of its own, or
         // anything with no address at all — is left alone by the row check inside.

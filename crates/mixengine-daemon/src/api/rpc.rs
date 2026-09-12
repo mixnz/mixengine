@@ -1449,7 +1449,15 @@ impl Api {
         let plan = graph.stop_order();
         let planned = plan.flat().cloned().collect();
 
-        Ok(walked(planned, self.services.stop(&plan).await))
+        // **Not the same word a person's `service.stop` leaves** — roadmap task T123. Somebody asked
+        // for the *daemon* to stop, which is not a sentence about any one service, and a row that
+        // recorded it as one would keep every service unwakeable until somebody started it by hand.
+        Ok(walked(
+            planned,
+            self.services
+                .stop_because(&plan, &mixengine_proto::StateReason::Shutdown)
+                .await,
+        ))
     }
 
     /// `metrics.snapshot` — every subject's reading, taken now.

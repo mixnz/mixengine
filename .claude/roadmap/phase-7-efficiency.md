@@ -110,6 +110,11 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the reason lives on a transition, and a transition is not stored — so a daemon restart would
       forget, and every pool idled before it would stay stopped with its site answering 502 for ever.
       Migration `0010` adds `services.idle_stopped`, written on every arrival at `stopped`.
+      **That column was one state short, and T123 is what it cost.** A boolean answers *did the
+      daemon idle this?*, so a row that had never run and one a restart left behind both read as a
+      person's stop and were both refused a wake — which is every service on a machine that has been
+      rebooted. Migration `0020` replaces it with `services.stopped_by`, three-valued, and D8 is
+      unchanged: only a stop somebody asked for forbids a wake.
       **What is not automated, stated rather than implied**: no test drives a real front end through
       a real stopped pool. The two renderings were accepted by a real Caddy and a real nginx and the
       retry behaviour was measured against both, and the activator's own halves are covered — but the

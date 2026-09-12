@@ -19,13 +19,19 @@
 //!
 //! | The service is | This does |
 //! | --- | --- |
-//! | stopped, and the daemon idled it | start it, wait, proxy |
+//! | stopped, and nobody meant it to stay down | start it, wait, proxy |
 //! | stopped, and a person stopped it | close the connection |
 //! | running | proxy straight through |
 //!
 //! The middle row is the design's D8 and it is not a detail: `mix service stop mariadb@main`
 //! followed by the next connection undoing it is the tool overruling its user. What makes it
-//! answerable after a restart is `services.idle_stopped`, written on every arrival at `stopped`.
+//! answerable after a restart is `services.stopped_by`, written on every arrival at `stopped`.
+//!
+//! **The top row is wider than it was** — roadmap task **T123**. T70 wrote that column as a
+//! boolean, so it said *the daemon idled this* and nothing else; a row that had never run and one a
+//! restart left behind both fell to the middle row, and every PHP site on a machine that had been
+//! rebooted answered 502 until somebody started its pool by hand. Three of the four ways a service
+//! arrives at `stopped` are not a decision anybody made, and only the fourth may forbid a wake.
 //!
 //! The third row is not a special case for its own sake — a service that is running and whose
 //! primary address was refused anyway is a fault this is not the place to diagnose, and proxying is
@@ -269,7 +275,7 @@ async fn ensure_running(services: &Registry, service: &ServiceId) -> Result<(), 
         return Ok(());
     }
 
-    if !record.idle_stopped {
+    if !record.stopped_by.may_be_woken() {
         return Err(Refused::StoppedOnPurpose);
     }
 
@@ -295,6 +301,7 @@ mod tests {
     use std::net::{Ipv4Addr, TcpListener};
     use std::sync::Arc;
 
+    use mixengine_core::services::StoppedBy;
     use mixengine_platform::activation::dial;
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 
@@ -323,14 +330,36 @@ mod tests {
         }
     }
 
-    /// Mark a stopped service as one the daemon idled, which is what `transition` writes for real.
-    async fn idled(store: &mixengine_core::Store, id: &str, idle: bool) {
-        sqlx::query("UPDATE services SET idle_stopped = ? WHERE id = ?")
-            .bind(i64::from(idle))
+    /// Say who left this stopped service stopped, which is what `transition` writes for real.
+    async fn stopped_by(store: &mixengine_core::Store, id: &str, who: StoppedBy) {
+        sqlx::query("UPDATE services SET stopped_by = ? WHERE id = ?")
+            .bind(who.as_str())
             .bind(id)
             .execute(store.pool())
             .await
             .expect("the row");
+    }
+
+    /// **A service nobody stopped is not one somebody stopped** — roadmap task **T123**.
+    ///
+    /// A row arrives at `stopped` with nothing behind it twice over: `service.create` writes one,
+    /// and a machine that was restarted leaves every pool there. Neither is a person's decision, and
+    /// reading both as one is how a PHP site came to answer 502 until somebody ran `mix service
+    /// start` by hand — against `resource-isolation.md`'s own acceptance criterion, *no error page,
+    /// no manual start*.
+    #[tokio::test]
+    async fn a_service_nobody_stopped_is_not_refused_as_one_somebody_stopped() {
+        let (_home, paths, store) = home(&["waker"]).await;
+
+        // Nothing is declared, so the start this does not refuse fails for the honest reason
+        // instead: what is under test is the decision above it, not a process.
+        let registry = registry(&paths, &store, Arc::new(Declared(Vec::new())));
+
+        assert_ne!(
+            ensure_running(&registry, &service("waker")).await,
+            Err(Refused::StoppedOnPurpose),
+            "a service that has never run was read as one its owner had stopped"
+        );
     }
 
     /// **A person's stop is not undone by a connection** — the design's D8.
@@ -341,7 +370,7 @@ mod tests {
     #[tokio::test]
     async fn a_service_a_person_stopped_is_not_started_by_a_connection() {
         let (home, paths, store) = home(&["waker"]).await;
-        idled(&store, "waker", false).await;
+        stopped_by(&store, "waker", StoppedBy::Person).await;
 
         let registry = Arc::new(registry(
             &paths,

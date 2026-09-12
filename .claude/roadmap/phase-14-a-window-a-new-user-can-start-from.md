@@ -237,6 +237,40 @@ readable, writable setting since it was written, and nothing has ever read the c
       entry *before* the creation, so a creation that never happened is rolled back and cannot be.
       The line names a thing that was never made, which is the opposite of what the ledger is for.
 
+- [x] **T123** A service nobody stopped is started by the request that needs it. Reported as *the
+      php-fpm service is not ticked for autostart and the others are* — which is true, and ticking it
+      would have been the wrong answer: `resource-isolation.md` says the front end is the only
+      always-on service, and a pool is meant to be woken by its own traffic. What the missing tick
+      revealed is that waking had been broken since T70 for every case but one.
+      **The defect.** `services.idle_stopped` (T70, migration `0010`) is a boolean, written `1` only
+      for `StateReason::Idle`. Everything else arriving at `stopped` — a row that has never run, a
+      process that vanished with the machine, the daemon's own shutdown walk — landed on `0`, which
+      the activator reads as *a person stopped this, do not undo it*. So a pool was wakeable only
+      between an idle stop and the next restart, and a PHP site answered 502 after every reboot and
+      every `mix daemon restart` until somebody ran `mix service start` by hand. M14 asks for the
+      opposite in as many words: *the machine is restarted and the site is serving with nothing
+      pressed*.
+      **What this task settled.** Migration `0020` replaces the column with `stopped_by`, three
+      answers — `never`, `person`, `daemon` — and `StoppedBy::may_be_woken` is the one sentence both
+      readers ask, the web activator and the address holder. `NOT NULL` with a third word rather than
+      `NULL` for "never", because `stopped_by != 'person'` is NULL and therefore *not true* for a
+      NULL row: the query shape every reader wants would have silently skipped exactly the rows this
+      task exists to wake. Upgrading reads `last_started_at` to tell a person's stop from a row that
+      never ran, and leaves anything that ran and was stopped some other way as `person` — waking a
+      service somebody deliberately stopped is the one mistake here that waiting does not undo.
+      **And `daemon.shutdown` needed a word of its own.** It and `service.stop` walk the same
+      `Registry::stop`, so both wrote `StateReason::Requested` and the row could not tell them apart
+      — the very case a laptop meets most. `StateReason::Shutdown` is `StateReason::Autostart`'s
+      mirror image and carries the same argument: somebody asked for the *daemon* to stop, which is
+      not a sentence about any one service. `Registry::stop_because` is the stop half of the
+      `start_because` the boot walk already had.
+      **What it deliberately did not do.** It did not tick `autostart` on php-fpm pools, in
+      `services::pools::ensure` or anywhere else. A user with four PHPs installed has not asked for
+      four pools at every boot, and after this task the empty checkbox is the right answer rather
+      than a gap. Nor did it touch D8: a stop somebody asked for is still one nothing may undo, and
+      a dependent brought down by one still counts as theirs — waking it would start the service
+      they stopped.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are
