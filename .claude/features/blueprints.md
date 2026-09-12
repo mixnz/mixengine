@@ -76,6 +76,21 @@ A project with more than one site is **refused** rather than reduced to its firs
 `blueprint.apply { blueprint, project_name, root_path }` runs as a job with a **plan-then-execute**
 shape:
 
+**Who names the directory.** A client that has been given a path sends it and it is used exactly as
+spelled — a folder a person named is a folder a person named. A client that has *not* sends the
+directory it is standing in with `root_is_parent`, and the **daemon** names the project's directory
+under it, with `domains::slug` — the same handle `{project}` expands through
+([ADR 0030](../decisions/0030-the-project-token-expands-to-a-slug.md)). So `Next.js 1` gets the
+domain `next-js-1.test`, the database `next-js-1` and the directory `next-js-1`, which is what makes
+a scaffold like `npx create-next-app .` work at all: it takes its package name from the directory's
+basename and npm refuses capitals and spaces. **The naming is the daemon's and not a client's**
+because no client may hold that rule — `mix` cannot depend on `mixengine-core`, and the desktop
+deliberately keeps no naming rule of its own — so a client composing it would be a second copy of a
+charset to keep in step by hand. Nothing is renamed behind anybody's back: the composed path is in
+the plan's `register_project` step, which every client shows before anything is created. Roadmap
+task **T120a**;
+design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
+
 1. **Plan**: resolve every requirement against what is installed, and return the full list of actions
    (install PHP 8.2.23, create DB `blog`, add domain `blog.test`, issue cert…). The plan is returned
    before anything happens; `mix blueprint apply --dry-run` prints it.
@@ -157,6 +172,14 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   Output goes to the job's log (`GET /logs/job/{id}`, `mix job logs <job> -f`), which is the log
   surface a service's output already uses and not the event stream: how much a scaffold prints is
   decided by somebody else's program.
+- **What the command printed is data, never control** — **T120a**. Every ANSI escape sequence is
+  removed as the line is captured, so the job log, the stream and the sentence a failure writes are
+  covered by one rule rather than by each renderer remembering. `create-next-app` colours a pipe, so
+  its refusal reached a person as `[31m"Next.js 1"[39m` and would have reached a terminal as
+  instructions to move the cursor. The command is also told `NO_COLOR=1` — a complement and never
+  the guarantee, since it is a convention some programs read and others do not; measured,
+  `FORCE_COLOR=0` does nothing to this one. A failure quotes the command's last lines **as lines**:
+  they were joined with `" / "` until the slashes started reading like paths.
 - **Its program is checked at plan time, by the shell's own rule** — T78b. The command's first
   word, when it is a bare name (no quotes, no shell syntax, no path separator, not a builtin of
   `cmd.exe` or `sh`), is looked for on exactly the `PATH` the command would run with — `<home>/bin`,

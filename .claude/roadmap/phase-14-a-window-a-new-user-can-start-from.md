@@ -173,6 +173,29 @@ readable, writable setting since it was written, and nothing has ever read the c
       `services::logs` has the same shape for a service whose last reader disconnects after the
       runner has gone, so what closes it is one sweep over that shared surface rather than anything
       in `api::apply`.
+- [x] **T120a** A scaffold's directory is a name too, and its output is not a terminal. T120 counted
+      the four name spaces `{project}` is *substituted into*; the **directory** is a fifth the token
+      never reaches, because a client composes it instead. `npx create-next-app .` takes its package
+      name from that directory's basename and npm refuses capitals and spaces, so `nextjs` failed for
+      every project named the way people name things — at the last step, over a directory it had just
+      made. Measured rather than reasoned about: `Next.js 1` exits 1 and leaves the directory empty,
+      `next-js-1` succeeds, and `create-next-app` has no name flag to sidestep either with.
+      **The naming moved rather than being copied**, which is the whole of the design. `mix` may not
+      depend on `mixengine-core` and `domains::slug` may not move to `mixengine-proto` — that crate's
+      note reserves the question — so the first draft's "compose it in the CLI" would have meant a
+      second copy of the charset T120 spent a task consolidating, reachable only through `home.rs`'s
+      duplication escape hatch. The request gained `root_is_parent` instead: a client sends where it
+      is standing, the daemon composes at the one choke point both plannings pass through, and the
+      desktop's written refusal to hold a naming rule is kept exactly as it was. A path somebody
+      typed is still used as spelled.
+      **And what a command prints is data.** Its output reached a person as `[31m…[39m` and would
+      have reached a terminal as instructions; escapes are removed at capture, so the job log, the
+      stream and the failure sentence are covered once rather than by three renderers remembering.
+      T120's own security note had reasoned about exactly this hazard and closed it — for the
+      project's *name*, which `validated_name` guards, and silently not for the command's output.
+      `NO_COLOR` is set as a complement and never as the guarantee: measured, `FORCE_COLOR=0` does
+      nothing here.
+      Design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
 
 - [x] **T121** An apply says what an unticked consent box means, and a finished apply ends at the
       site it made. Two halves of one complaint: a person applies a blueprint, watches it download
