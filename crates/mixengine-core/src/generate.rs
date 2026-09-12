@@ -45,6 +45,7 @@ pub mod recipes;
 pub mod served;
 pub mod settings;
 pub mod step;
+pub mod welcome;
 
 pub use databases::{Ask, Credentials, DatabaseAdmin, Found, Provisioning};
 pub use document::{Document, Reason, Validator, Written};
