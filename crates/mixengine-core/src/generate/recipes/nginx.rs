@@ -105,6 +105,17 @@ const AUTHORITY: &str = "public/ca.crt";
 /// place this layout is decided.
 const AUTHORITY_DIR: &str = "public";
 
+/// Where the page a site with nothing behind it answers with is rendered — roadmap task **T124**.
+///
+/// **A directory of its own, and never [`AUTHORITY_DIR`].** That one holds this home's authority and
+/// is asserted to hold exactly one file, because the front end is pointed at the *directory* and so
+/// what else is in it is what else is published. The assertion is about the authority and should
+/// stay about the authority.
+///
+/// Outside `nginx.conf`'s own `include sites/*.conf;` as well, which is the second reason it is not
+/// `sites/`: a rendered HTML page is not a configuration fragment and must never be read as one.
+const WELCOME_DIR: &str = "welcome";
+
 /// The port a front end answers on when its row names none.
 ///
 /// nginx's own configuration carries no listen for sites, so unlike Caddy there is no server default
@@ -250,7 +261,7 @@ impl Recipe for Nginx {
 
     /// Exactly `sites/`, and only because this recipe is a front end — D4.
     fn swept(&self) -> &'static [&'static str] {
-        &[SITES, EXTENSIONS]
+        &[SITES, EXTENSIONS, WELCOME_DIR]
     }
 
     /// One file per site, named after its primary domain — D12.
@@ -317,6 +328,11 @@ impl Recipe for Nginx {
                         .as_ref()
                         .and(context.authority())
                         .map(|_| forward_slashed(&context.config(AUTHORITY_DIR))),
+
+                    // **Every site gets one** — roadmap task T124. Unlike `authority` above this is
+                    // never conditional on the site: what a page is *for* is a site nobody has put
+                    // anything into yet, which is every site at the moment it is made.
+                    welcome: forward_slashed(&context.config(WELCOME_DIR)),
                 };
 
                 let contents = crate::generate::served::render(
@@ -332,6 +348,21 @@ impl Recipe for Nginx {
                 ))
             })
             .collect::<Result<Vec<Document>>>()?;
+
+        // **Every site's welcome page, after every site's configuration** — roadmap task T124.
+        // Appended in a second pass rather than returned two at a time from the map above, so that
+        // `documents[n]` goes on meaning the nth site: the authority below already depends on that
+        // and says so, and interleaving would have made it depend on the stride instead.
+        documents.reserve(served.len());
+        for site in served {
+            let page =
+                crate::generate::welcome::page(site.primary(), &site.kind, &site.doc_root_relative);
+
+            documents.push(Document::new(
+                format!("{WELCOME_DIR}/{}.html", site.primary()),
+                crate::generate::welcome::render(context.service(), &page)?,
+            ));
+        }
 
         // **This home's authority, appended last** — roadmap task T75. Last so that a caller
         // naming `documents[0]` still means the first site, and unconditional so that the file's
@@ -560,6 +591,15 @@ struct SiteRendering<'a> {
     /// becomes a property of the rendering rather than a promise made about it. It is also [`None`]
     /// on a home with no authority to serve.
     authority: Option<String>,
+
+    /// The directory this site's welcome page was rendered into — roadmap task **T124**.
+    ///
+    /// **Always a value**, unlike [`authority`](Self::authority): every site gets a page, and the
+    /// home-wide switch decides whether one is rendered at all rather than which sites get one.
+    ///
+    /// Forward-slashed like every other path this template writes: nginx reads a backslash in a
+    /// quoted string as an escape, so a Windows path spelled natively ends the string early.
+    welcome: String,
 }
 
 /// A certificate as the template writes it — roadmap task **T51**.
@@ -853,10 +893,112 @@ mod tests {
         );
     }
 
-    /// One site per file and one fragment per extension, and both directories are swept.
+    /// One site per file and one fragment per extension, and all three directories are swept —
+    /// `welcome/` since roadmap task **T124**, because a deleted site that kept its page would be a
+    /// page served for a site that no longer exists.
     #[test]
     fn the_front_end_sweeps_the_directories_that_follow_a_table() {
-        assert_eq!(Nginx.swept(), &["sites", "extensions"]);
+        assert_eq!(Nginx.swept(), &["sites", "extensions", "welcome"]);
+    }
+
+    /// **Two documents per site now** — roadmap task T124: the site's configuration, and the page
+    /// it answers with when it has nothing to serve.
+    #[test]
+    fn a_site_renders_a_welcome_page_beside_its_configuration() {
+        let documents = Nginx
+            .sites(&context("{}"), &[a_static_site()])
+            .expect("a rendering");
+
+        let names: Vec<_> = documents
+            .iter()
+            .map(|document| {
+                document
+                    .relative()
+                    .to_string_lossy()
+                    .replace(std::path::MAIN_SEPARATOR, "/")
+            })
+            .collect();
+
+        assert!(
+            names.contains(&"sites/blog.test.conf".to_owned()),
+            "{names:?}"
+        );
+        assert!(
+            names.contains(&"welcome/blog.test.html".to_owned()),
+            "{names:?}"
+        );
+    }
+
+    /// **The root path only, and after the site's own index files** — the T124 design, D3. A
+    /// catch-all `error_page 404` would replace an application's own 404, which is MixEngine lying
+    /// about somebody else's program.
+    #[test]
+    fn a_static_site_falls_back_to_the_welcome_page_only_at_the_root() {
+        let rendered = render_site(&a_static_site());
+
+        assert!(
+            rendered.contains("location = / {"),
+            "the welcome route must be nginx's exact match:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("try_files /index.html /index.htm @mixengine_welcome;"),
+            "the site's own index files must be named before the fallback:
+{rendered}"
+        );
+        assert!(
+            !rendered.contains("error_page 404 ="),
+            "a file-serving site never replaces an application's own 404:
+{rendered}"
+        );
+        assert!(
+            rendered.contains("add_header Cache-Control \"no-store\""),
+            "{rendered}"
+        );
+    }
+
+    /// **Both `server` blocks carry it.** `site.conf` renders the serving locations twice — once in
+    /// the block `https_redirect` splits out and once in the combined one — and the copy that is
+    /// missed is the one a user with the redirect turned on meets, with both suites still green.
+    #[test]
+    fn both_server_blocks_fall_back_to_the_welcome_page() {
+        let combined = render_site(&a_static_site());
+        let redirecting = render_site(&Served {
+            https_redirect: true,
+            ..a_static_site()
+        });
+
+        assert_eq!(
+            combined.matches("location @mixengine_welcome").count(),
+            1,
+            "one serving block, one fallback:
+{combined}"
+        );
+        assert_eq!(
+            redirecting.matches("location @mixengine_welcome").count(),
+            1,
+            "the redirecting block serves nothing, so only the TLS block gets it:
+{redirecting}"
+        );
+    }
+
+    /// A static site at `blog.test` with a certificate, so both shapes of the template are
+    /// reachable from one fixture.
+    fn a_static_site() -> Served {
+        Served {
+            shared: None,
+            domains: vec!["blog.test".to_owned()],
+            doc_root: doc_root(),
+            doc_root_relative: "public".to_owned(),
+            kind: ServedKind::Static,
+            https: true,
+            https_redirect: false,
+            certificate: Some(crate::generate::served::SiteCertificate {
+                certificate: std::path::PathBuf::from("/certs/blog.test.crt"),
+                key: std::path::PathBuf::from("/certs/blog.test.key"),
+                fingerprint: "ab".repeat(32),
+            }),
+        }
     }
 
     /// An absolute path on whichever system this is compiled for.
@@ -974,6 +1116,9 @@ mod tests {
 
         let names: Vec<String> = documents
             .iter()
+            // Site configurations only: since T124 a welcome page is rendered beside each of them,
+            // and an HTML file declares no `upstream` group.
+            .filter(|document| document.relative().starts_with(SITES))
             .map(|document| {
                 // The *directive* and not the word: this file explains itself in prose that says
                 // "upstream" too, and a search that found the comment would compare two identical
