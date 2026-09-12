@@ -27,9 +27,9 @@ use mixengine_core::blueprints::manifest::BlueprintManifest;
 use mixengine_proto::{
     AnswerSubject, BlueprintApplied, BlueprintApply, BlueprintApplyResponse, BlueprintPlan,
     DatabaseCreate, Disposition, DomainAdd, Error, ErrorCode, ExtensionChoice, IssueOutcome,
-    JobKind, LogSubject, PackageTarget, PackageVersion, PlanAction, PlanStep, ProjectCreate,
-    ProjectRef, RuntimeKind, RuntimeTarget, ScaffoldConsent, ServiceCreate, ServiceId, SiteCreate,
-    SiteRef, StepOutcome, StepResult, VersionAnswer, rpc,
+    JobKind, LogLine, LogSubject, PackageTarget, PackageVersion, PlanAction, PlanStep,
+    ProjectCreate, ProjectRef, RuntimeKind, RuntimeTarget, ScaffoldConsent, ServiceCreate,
+    ServiceId, SiteCreate, SiteRef, StepOutcome, StepResult, Stream, Timestamp, VersionAnswer, rpc,
 };
 
 use super::Api;
@@ -88,9 +88,21 @@ impl Api {
             .begin(&kind, move |handle| async move {
                 let applied = api
                     .perform(&plan, &manifest, consent, autostart, &handle)
-                    .await?;
+                    .await;
 
-                serde_json::to_value(applied).map_err(|error| {
+                // **The ring does not outlive the job** — roadmap task **T120**, its design's D5.
+                // One two-hundred-line ring per apply, in a map nothing prunes, is growth nothing
+                // bounds; the leak has been there for scaffold jobs since T78a, and narrating every
+                // step would make it universal. A client already following holds its own
+                // `broadcast::Receiver`, which outlives this entry, so an open stream loses nothing.
+                //
+                // Both paths, which is why the `?` is below rather than above: a failed apply is
+                // exactly the one somebody reads the log of.
+                api.services()
+                    .logs()
+                    .forget_if_unwatched(&LogSubject::Job { id: handle.id() });
+
+                serde_json::to_value(applied?).map_err(|error| {
                     Error::new(
                         ErrorCode::Internal,
                         format!("what the apply did would not encode: {error}"),
@@ -127,6 +139,15 @@ impl Api {
             resolved: self.resolve(plan, handle).await?,
         };
 
+        // **Opened once, before the first step** — roadmap task **T120**, its design's D5. The ring
+        // is per job and `feeding` is what gives it a size: without this call `keep` is zero, so
+        // every line below is published to whoever is already connected and kept for nobody — which
+        // is exactly what a client connecting one step late used to find.
+        let log = self
+            .services()
+            .logs()
+            .feeding(&LogSubject::Job { id: handle.id() }, scaffold::RING_LINES);
+
         let total = plan.steps.len().max(1);
         let mut outcomes = Vec::with_capacity(plan.steps.len());
 
@@ -148,6 +169,11 @@ impl Api {
             handle
                 .progress(percent, steps::describe(&step.action))
                 .await;
+
+            // The same sentence the progress bar carries, kept where it can be read back. A bar
+            // shows one line at a time and forgets the last one; this is the list of everything
+            // this apply has done, which is what somebody reads *after* it has gone wrong.
+            log.record(narration(Stream::Stdout, steps::describe(&step.action)));
 
             let result = match steps::untouched_with_consent(step, context.consent.as_ref()) {
                 Some(result) => result,
@@ -174,6 +200,10 @@ impl Api {
                                 ),
                             };
 
+                            // The sentence the caller gets, in the log the caller can scroll back
+                            // through — so what went wrong sits at the end of what was being done.
+                            log.record(narration(Stream::Stderr, said.clone()));
+
                             return Err(Error::new(error.code, said).with_hint(
                                 error.hint.unwrap_or_else(|| {
                                     "running the apply again picks up where this one stopped"
@@ -190,6 +220,8 @@ impl Api {
                 result,
             });
         }
+
+        log.record(narration(Stream::Stdout, "the apply has finished"));
 
         Ok(BlueprintApplied {
             blueprint: plan.blueprint.clone(),
@@ -847,11 +879,47 @@ fn refusal(
     }
 }
 
+/// One line of an apply's own narration.
+///
+/// **A job's log carries what the apply did, and not only what somebody else's command printed** —
+/// roadmap task **T120**, its design's D5. Until then `LogSubject::Job` was written by exactly one
+/// step, the `[scaffold]` command, so a failure anywhere before it left a log with nothing in it —
+/// which is precisely what a client rendering that log then had to show. `mix job logs <id>` gets
+/// the same narration, with no client change at all.
+///
+/// [`Stream::Stderr`] for a step that did not go well, on the ordinary convention: a client
+/// colouring its output has something to colour by.
+fn narration(stream: Stream, text: impl Into<String>) -> LogLine {
+    LogLine {
+        stream,
+        at: Timestamp::from_system_time(std::time::SystemTime::now()),
+        text: text.into(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     use mixengine_proto::{MismatchAnswer, PackageVersion, RuntimeKind, VersionConstraint};
+
+    /// **D5.** Before roadmap task **T120** the only writer of a job's log ring was the scaffold
+    /// step, so an apply that failed before it — which is every apply that fails on a name — had an
+    /// empty log, and a client's "show output" button had nothing to show. The stream is part of
+    /// the line rather than a detail of the rendering: a client colouring its output needs to know
+    /// which lines went badly without reading them.
+    #[test]
+    fn a_step_is_narrated_on_the_stream_that_says_whether_it_went_well() {
+        let starting = narration(Stream::Stdout, "installing php 8.4");
+
+        assert_eq!(starting.stream, Stream::Stdout);
+        assert_eq!(starting.text, "installing php 8.4");
+
+        let failed = narration(Stream::Stderr, "creating the database shop failed: nope");
+
+        assert_eq!(failed.stream, Stream::Stderr);
+        assert!(failed.text.contains("nope"), "{}", failed.text);
+    }
 
     fn step(action: PlanAction, disposition: Disposition) -> PlanStep {
         PlanStep {
