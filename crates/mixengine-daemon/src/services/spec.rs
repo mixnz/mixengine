@@ -40,8 +40,9 @@ pub(crate) fn declared(
     paths: &Paths,
     store: &Store,
     host: &dyn mixengine_platform::Host,
+    welcome: bool,
 ) -> Arc<dyn SpecSource> {
-    Arc::new(Rendered(generator(paths, store, host)))
+    Arc::new(Rendered(generator(paths, store, host, welcome)))
 }
 
 /// The generator this daemon renders with.
@@ -54,12 +55,14 @@ pub(crate) fn generator(
     paths: &Paths,
     store: &Store,
     host: &dyn mixengine_platform::Host,
+    welcome: bool,
 ) -> Generator {
     Generator::new(
         paths.clone(),
         store.clone(),
         catalogue(),
         host.port_access().bindings(&[80, 443]),
+        welcome,
     )
 }
 

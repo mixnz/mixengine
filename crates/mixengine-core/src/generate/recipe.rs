@@ -158,6 +158,15 @@ pub struct Context {
     /// [`None`] on a home whose authority has not been generated.
     pub(super) authority: Option<String>,
 
+    /// Whether a site with nothing behind it answers with MixEngine's page — roadmap task **T124**.
+    ///
+    /// **Filled by [`Generator`](super::Generator), like [`authority`](Self::authority)**, and for
+    /// the same reason: a recipe is a function of its context, and one that went reading
+    /// `config.toml` would be a second place this home's preferences are decided.
+    ///
+    /// `config.sites.welcome_page`, and therefore `true` unless somebody turned it off.
+    pub(super) welcome: bool,
+
     /// What the extensions installed here add to this front end's configuration — roadmap task
     /// **T81c**.
     ///
@@ -262,6 +271,12 @@ impl Context {
     #[must_use]
     pub fn authority(&self) -> Option<&str> {
         self.authority.as_deref()
+    }
+
+    /// Whether this home answers a site with nothing behind it — roadmap task **T124**.
+    #[must_use]
+    pub fn welcome(&self) -> bool {
+        self.welcome
     }
 
     /// `run/`, for a socket or a pid file.
@@ -528,6 +543,9 @@ impl Context {
             endpoints: Endpoints::default(),
             bindings: Vec::new(),
             authority: None,
+            // A test renders what a home renders: the switch is on unless a case is about it being
+            // off, and that case says so with `with_welcome`.
+            welcome: true,
             fragments: Vec::new(),
             secrets: BTreeMap::new(),
             credential: None,
@@ -591,6 +609,13 @@ impl Context {
     /// The authority a real render would have read off this home's certificates directory.
     pub(super) fn with_authority(mut self, authority: Option<String>) -> Self {
         self.authority = authority;
+        self
+    }
+
+    /// A home that turned the welcome page off — roadmap task **T124**.
+    #[cfg(test)]
+    pub(super) fn with_welcome(mut self, welcome: bool) -> Self {
+        self.welcome = welcome;
         self
     }
 

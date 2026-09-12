@@ -332,7 +332,9 @@ impl Recipe for Nginx {
                     // **Every site gets one** — roadmap task T124. Unlike `authority` above this is
                     // never conditional on the site: what a page is *for* is a site nobody has put
                     // anything into yet, which is every site at the moment it is made.
-                    welcome: forward_slashed(&context.config(WELCOME_DIR)),
+                    welcome: context
+                        .welcome()
+                        .then(|| forward_slashed(&context.config(WELCOME_DIR))),
                 };
 
                 let contents = crate::generate::served::render(
@@ -353,15 +355,25 @@ impl Recipe for Nginx {
         // Appended in a second pass rather than returned two at a time from the map above, so that
         // `documents[n]` goes on meaning the nth site: the authority below already depends on that
         // and says so, and interleaving would have made it depend on the stride instead.
-        documents.reserve(served.len());
-        for site in served {
-            let page =
-                crate::generate::welcome::page(site.primary(), &site.kind, &site.doc_root_relative);
+        //
+        // **Nothing at all on a home that turned it off** (D6), which is the same answer the
+        // rendering gives: a page with no route is a file nothing reads, and a route with no page
+        // would be a 404 on top of the 404 this feature exists to replace.
+        if context.welcome() {
+            documents.reserve(served.len());
 
-            documents.push(Document::new(
-                format!("{WELCOME_DIR}/{}.html", site.primary()),
-                crate::generate::welcome::render(context.service(), &page)?,
-            ));
+            for site in served {
+                let page = crate::generate::welcome::page(
+                    site.primary(),
+                    &site.kind,
+                    &site.doc_root_relative,
+                );
+
+                documents.push(Document::new(
+                    format!("{WELCOME_DIR}/{}.html", site.primary()),
+                    crate::generate::welcome::render(context.service(), &page)?,
+                ));
+            }
         }
 
         // **This home's authority, appended last** — roadmap task T75. Last so that a caller
@@ -594,12 +606,13 @@ struct SiteRendering<'a> {
 
     /// The directory this site's welcome page was rendered into — roadmap task **T124**.
     ///
-    /// **Always a value**, unlike [`authority`](Self::authority): every site gets a page, and the
-    /// home-wide switch decides whether one is rendered at all rather than which sites get one.
+    /// **[`None`] on a home that turned the page off** — the T124 design, D6. The key is always
+    /// present, for [`upstream`](Self::upstream)'s reason: `Strict` makes a missing key an error
+    /// rather than a falsy value, and `None` serialises to `null`, which `{% if %}` reads as false.
     ///
     /// Forward-slashed like every other path this template writes: nginx reads a backslash in a
     /// quoted string as an escape, so a Windows path spelled natively ends the string early.
-    welcome: String,
+    welcome: Option<String>,
 }
 
 /// A certificate as the template writes it — roadmap task **T51**.
@@ -1044,6 +1057,23 @@ mod tests {
             !rendered.contains("location = / {"),
             "a proxy site's `/` belongs to its upstream:
 {rendered}"
+        );
+    }
+
+    /// **Off renders neither the page nor the route** — the T124 design, D6. Either half alone is
+    /// worse than neither: a page nothing routes to is a file nobody reads, and a route with no
+    /// page behind it is a 404 on top of the 404 this feature exists to replace.
+    #[test]
+    fn the_switch_turned_off_renders_no_welcome_at_all() {
+        let documents = Nginx
+            .sites(&context("{}").with_welcome(false), &[a_static_site()])
+            .expect("a rendering");
+
+        assert_eq!(documents.len(), 1, "only the site's own configuration");
+        assert!(
+            !documents[0].contents().contains("location = / {"),
+            "{}",
+            documents[0].contents()
         );
     }
 

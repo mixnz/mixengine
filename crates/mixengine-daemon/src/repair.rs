@@ -69,7 +69,7 @@ impl Repairs {
         paths: &mixengine_core::Paths,
     ) -> Arc<Self> {
         let host = elevation.host();
-        let generator = crate::services::generator(paths, store, host.as_ref());
+        let generator = crate::services::generator(paths, store, host.as_ref(), services.welcome());
 
         Arc::new(Self {
             doctor,

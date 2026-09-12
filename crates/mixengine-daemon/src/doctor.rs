@@ -75,7 +75,7 @@ impl Doctor {
         // **The home's layout rather than its root and its generator separately.** Both are derived
         // from it, and passing them apart let a caller hand this a generator built from one home and
         // a root from another — a check comparing a rendering the registry would never have written.
-        let generator = crate::services::generator(paths, store, host.as_ref());
+        let generator = crate::services::generator(paths, store, host.as_ref(), services.welcome());
 
         Arc::new(Self {
             store: store.clone(),

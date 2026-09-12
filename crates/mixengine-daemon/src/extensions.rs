@@ -669,7 +669,12 @@ impl Extensions {
             id,
         };
 
-        crate::services::spec::generator(&self.paths, &self.store, self.host.as_ref())
+        crate::services::spec::generator(
+            &self.paths,
+            &self.store,
+            self.host.as_ref(),
+            self.services.welcome(),
+        )
             .would_serve(&pending)
             .await
             .map_err(|error| {

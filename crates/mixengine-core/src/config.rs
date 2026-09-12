@@ -44,6 +44,8 @@ pub struct Config {
     pub services: Services,
     /// Ending a share nobody ended.
     pub sharing: Sharing,
+    /// What a site answers when it has nothing to serve.
+    pub sites: Sites,
     /// Looking for a newer MixEngine.
     pub updates: Updates,
     /// How often what is running is measured.
@@ -283,6 +285,33 @@ pub struct Sharing {
     /// period no test can move leaves the loop the one part of that task nothing exercises.
     #[serde(deserialize_with = "sharing_check")]
     pub check_seconds: u64,
+}
+
+/// What a site answers when it has nothing behind it — roadmap task **T124**.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Sites {
+    /// Whether a site with nothing to serve answers with MixEngine's own page instead of a bare 404
+    /// or a bare 502.
+    ///
+    /// **On.** The moment this product is most likely to be judged is the first time a browser is
+    /// pointed at a new site, and without this that moment is a web server's default error page —
+    /// which three of the six shipped blueprints reach by design, since they carry no `[scaffold]`
+    /// and an apply of one ends at a configured site over an empty directory.
+    ///
+    /// **A property of the machine rather than of any one site**, which is why there is no per-site
+    /// field: the page cannot appear on a site that serves anything at `/` or has anything
+    /// listening, so the population that wants it off is not "this site" but "this machine's
+    /// owner" — someone whose tests assert a bare 404. The T124 design, D6.
+    pub welcome_page: bool,
+}
+
+/// [`Sites`] writes its own [`Default`] for [`Sharing`]'s reason: a derived one would be `false`,
+/// which is the opposite of the decision above.
+impl Default for Sites {
+    fn default() -> Self {
+        Self { welcome_page: true }
+    }
 }
 
 /// The default for [`Sharing::check_seconds`]: every half minute.
@@ -851,6 +880,27 @@ pub fn write_template(path: &Path) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **On unless the user says otherwise**, and the shipped template says so in words —
+    /// roadmap task **T124**.
+    #[test]
+    fn the_welcome_page_is_on_by_default() {
+        let config: Config = toml::from_str("").expect("an empty configuration");
+        assert!(config.sites.welcome_page);
+
+        let off: Config = toml::from_str(
+            "[sites]
+welcome_page = false
+",
+        )
+        .expect("a configuration");
+        assert!(!off.sites.welcome_page);
+
+        assert!(
+            TEMPLATE.contains("[sites]"),
+            "a key nothing in the template mentions is a key nobody finds"
+        );
+    }
 
     /// The default, and the one value this key refuses — roadmap task **T71a**.
     ///

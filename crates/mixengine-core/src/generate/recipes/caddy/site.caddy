@@ -120,6 +120,7 @@
 {%- endif %}
 	file_server
 
+{%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
 	#
 	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
@@ -140,9 +141,11 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- elif kind == "static" %}
 	file_server
 
+{%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
 	#
 	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
@@ -163,9 +166,11 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- else %}
 	reverse_proxy {{ upstream }}
 
+{%- if welcome %}
 	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
 	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
 	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
@@ -181,6 +186,7 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- endif %}
 {%- endif %}
 {%- if authority %}
@@ -237,6 +243,7 @@
 {%- endif %}
 	file_server
 
+{%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
 	#
 	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
@@ -257,9 +264,11 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- elif kind == "static" %}
 	file_server
 
+{%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
 	#
 	# **`handle /` and never `handle_errors`.** An application's own 404 is an answer, and
@@ -280,9 +289,11 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- else %}
 	reverse_proxy {{ upstream }}
 
+{%- if welcome %}
 	# **Nothing listening is answered rather than reported as a gateway error** — roadmap task
 	# T124. `SiteKind::NodeApp` is a declaration and no more: nothing in this build starts
 	# `npm run dev`, so a site on a machine that has just booted reaches this every single time.
@@ -298,6 +309,7 @@
 		header Cache-Control "no-store"
 		file_server
 	}
+{%- endif %}
 {%- endif %}
 {%- if authority %}
 	}

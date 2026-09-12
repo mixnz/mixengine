@@ -864,6 +864,12 @@ async fn serve(
     // the next task to want a key would have added an eighth.
     let shutdown_grace = Duration::from_secs(config.daemon.shutdown_grace_seconds);
 
+    // **Whether a site with nothing behind it answers with a page of ours** — roadmap task T124.
+    // Read here beside the grace period rather than passed in, for the reason above: the file is
+    // already an argument, and every generator this daemon builds has to read one answer or a drift
+    // check would report a difference against a rendering nothing wrote.
+    let welcome = config.sites.welcome_page;
+
     // **Roadmap task T91.** Built here rather than passed in, and an eighth argument is only half
     // the reason — it would put this function over the count clippy allows, which is the same wall
     // the note above describes. The other half is that there is nothing to pass: `Reports` is a pure
@@ -983,15 +989,18 @@ async fn serve(
     // bind, and the registry keeps it for everything else.
     let host = mixengine_platform::host();
 
-    let services = Arc::new(services::Registry::new(
-        paths,
-        store,
-        Arc::clone(&host),
-        events.clone(),
-        services::declared(paths, store, host.as_ref()),
-        shutdown.clone(),
-        Arc::clone(&jobs),
-    ));
+    let services = Arc::new(
+        services::Registry::new(
+            paths,
+            store,
+            Arc::clone(&host),
+            events.clone(),
+            services::declared(paths, store, host.as_ref(), welcome),
+            shutdown.clone(),
+            Arc::clone(&jobs),
+        )
+        .with_welcome(welcome),
+    );
 
     // **The DNS server, and the mode it puts this home in** — roadmap task T44. Started here, after
     // the host and before the queue that reads its mode: `require_hosts` asks whether this home

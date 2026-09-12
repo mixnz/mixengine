@@ -313,7 +313,9 @@ impl Recipe for Caddy {
                     // **Every site gets one** — roadmap task T124. Unlike `authority` above this is
                     // never conditional on the site: what a page is *for* is a site nobody has put
                     // anything into yet, which is every site at the moment it is made.
-                    welcome: context.config(WELCOME_DIR).to_string_lossy().into_owned(),
+                    welcome: context
+                        .welcome()
+                        .then(|| context.config(WELCOME_DIR).to_string_lossy().into_owned()),
                 };
 
                 let contents = crate::generate::served::render(
@@ -334,15 +336,25 @@ impl Recipe for Caddy {
         // Appended in a second pass rather than returned two at a time from the map above, so that
         // `documents[n]` goes on meaning the nth site: the authority below already depends on that
         // and says so, and interleaving would have made it depend on the stride instead.
-        documents.reserve(served.len());
-        for site in served {
-            let page =
-                crate::generate::welcome::page(site.primary(), &site.kind, &site.doc_root_relative);
+        //
+        // **Nothing at all on a home that turned it off** (D6), which is the same answer the
+        // rendering gives: a page with no route is a file nothing reads, and a route with no page
+        // would be a 404 on top of the 404 this feature exists to replace.
+        if context.welcome() {
+            documents.reserve(served.len());
 
-            documents.push(Document::new(
-                format!("{WELCOME_DIR}/{}.html", site.primary()),
-                crate::generate::welcome::render(context.service(), &page)?,
-            ));
+            for site in served {
+                let page = crate::generate::welcome::page(
+                    site.primary(),
+                    &site.kind,
+                    &site.doc_root_relative,
+                );
+
+                documents.push(Document::new(
+                    format!("{WELCOME_DIR}/{}.html", site.primary()),
+                    crate::generate::welcome::render(context.service(), &page)?,
+                ));
+            }
         }
 
         // **This home's authority, appended last** — roadmap task T75. Last so that a caller
@@ -534,9 +546,10 @@ struct SiteRendering<'a> {
 
     /// The directory this site's welcome page was rendered into, absolute — roadmap task **T124**.
     ///
-    /// **Always a value**, unlike [`authority`](Self::authority): every site gets a page, and the
-    /// home-wide switch decides whether one is rendered at all rather than which sites get one.
-    welcome: String,
+    /// **[`None`] on a home that turned the page off** — the T124 design, D6. The key is always
+    /// present, for [`upstream`](Self::upstream)'s reason: `Strict` makes a missing key an error
+    /// rather than a falsy value, and `None` serialises to `null`, which `{% if %}` reads as false.
+    welcome: Option<String>,
 }
 
 /// What this site's listeners bind: loopback always, and the interface address when shared.
@@ -1198,6 +1211,26 @@ zz
             !rendered.contains("handle / {"),
             "a proxy site's `/` belongs to its upstream:
 {rendered}"
+        );
+    }
+
+    /// **Off renders neither the page nor the route** — the T124 design, D6. Either half alone is
+    /// worse than neither: a page nothing routes to is a file nobody reads, and a route with no
+    /// page behind it is a 404 on top of the 404 this feature exists to replace.
+    #[test]
+    fn the_switch_turned_off_renders_no_welcome_at_all() {
+        let documents = Caddy
+            .sites(
+                &context("{}").with_welcome(false),
+                &[a_site_with_a_certificate()],
+            )
+            .expect("a rendering");
+
+        assert_eq!(documents.len(), 1, "only the site's own configuration");
+        assert!(
+            !documents[0].contents().contains("handle / {"),
+            "{}",
+            documents[0].contents()
         );
     }
 

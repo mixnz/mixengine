@@ -152,7 +152,7 @@ pub(crate) async fn hold_all(
     store: &mixengine_core::Store,
     host: &dyn mixengine_platform::Host,
 ) -> Result<Vec<ServiceId>, Box<mixengine_core::Error>> {
-    let generator = super::spec::generator(paths, store, host);
+    let generator = super::spec::generator(paths, store, host, services.welcome());
     let mut holding = HOLDING.lock().await;
     let mut held = Vec::new();
 
