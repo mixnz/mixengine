@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { enterModal } from "../core/shortcuts";
+import { exit, OPEN, type ExitState } from "./dialogExit";
 import styles from "./dialogMotion.module.css";
 
 /** Kept in step with the `.closing` animations in `dialogMotion.module.css`. */
@@ -34,8 +35,13 @@ export function isUnhandledEscape(e: KeyboardEvent): boolean {
  * that closes because a save succeeded is unmounted by its caller and goes at once, which is the
  * right answer there anyway: the user has been watching a "Saving…" button and wants the result,
  * not another frame of the form they are done with.
+ *
+ * **A dialog asked something new opens back up.** `question` is what it is asking — whatever the
+ * caller would call a different question, `ConfirmDialog` its message — and a change in it is the
+ * one sign, from out here, that a dialog its caller kept mounted through its own answer has more
+ * to say. Left out, a dialog closes once and never again. See [`exit`](./dialogExit.ts).
  */
-export function useDialogExit() {
+export function useDialogExit(question?: unknown) {
   /* Every dialog in the app calls this hook, which makes it the one place that knows a dialog is
      up — so it is where the count is kept. Ten dialogs, and not one of their files has to say so.
      The count is what a global shortcut asks before acting: the keyboard belongs to whatever is on
@@ -47,7 +53,9 @@ export function useDialogExit() {
 
   const [closing, setClosing] = useState(false);
   const [settled, setSettled] = useState(false);
-  const answer = useRef<(() => void) | null>(null);
+  /* A ref and not state: a dialog hears Escape from the window and clicks from its own overlay,
+     so two answers can arrive in one tick, and the second has to see the first. */
+  const state = useRef<ExitState>(OPEN);
 
   /**
    * Fires once `dialog-in` has run its course. `transform: translate(-50%, -50%)` is meant to
@@ -65,16 +73,38 @@ export function useDialogExit() {
   /** Starts the exit; `reply` is called once it finishes. First call wins — a second Escape, or a
       click on the overlay behind a dialog already on its way out, is ignored. */
   const close = useCallback((reply: () => void) => {
-    if (answer.current) return;
-    answer.current = reply;
+    const answered = exit(state.current, { type: "answer", reply });
+    // The state handed straight back means somebody answered first, and this press is theirs.
+    if (answered === state.current) return;
+    state.current = answered;
     setClosing(true);
   }, []);
+
+  /**
+   * Back up, for the caller that kept the dialog mounted and changed what it asks.
+   *
+   * Only ever after the answer has gone back — [`exit`](./dialogExit.ts) is what holds that line,
+   * since reopening any earlier drops the reply the timer below is still holding and the
+   * confirmed action never runs. And nothing here for the ordinary caller, the one that unmounts
+   * on its answer: its question never changes, so the dialog leaves once and stays gone rather
+   * than flashing back up while the request it started is still in the air.
+   */
+  useEffect(() => {
+    const reopened = exit(state.current, { type: "asked" });
+    if (reopened === state.current) return;
+    state.current = reopened;
+    setClosing(false);
+  }, [question]);
 
   useEffect(() => {
     if (!closing) return;
     // With motion turned down there is nothing to wait for, so the answer goes back at once.
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const id = window.setTimeout(() => answer.current?.(), reduced ? 0 : EXIT_MS);
+    const id = window.setTimeout(() => {
+      const reply = state.current.answer;
+      state.current = exit(state.current, { type: "delivered" });
+      reply?.();
+    }, reduced ? 0 : EXIT_MS);
     return () => window.clearTimeout(id);
   }, [closing]);
 

@@ -11,6 +11,7 @@ import type { RuntimeRelease } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
+import { afterRefusal } from "../../forceStep";
 import { takePendingRuntimesFilter } from "../../runtimesNavigation";
 import { formatInstalledAt, jobFinished, jobFor, versionKey } from "../../runtimeState";
 import StaleBadge from "../../components/StaleBadge";
@@ -27,21 +28,23 @@ export default function Languages({ active }: { active: boolean }) {
   const [uninstallTarget, setUninstallTarget] = useState<RuntimeSummary | null>(null);
   const [forceHint, setForceHint] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
-  // Chỉ lọc bảng "chưa cài" — cùng lý do `Packages.tsx` đã theo.
+  // Filters the "not installed" table only — the same reason `Packages.tsx` has.
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
   const { t } = useTranslation();
 
-  // Đọc được giá trị `installingJob` mới nhất từ trong callback `watch` đăng ký một lần — effect
-  // dưới không có `installingJob` trong deps (đăng ký lại watch mỗi lần map đó đổi là vô nghĩa).
+  // Reads the latest `installingJob` from inside a `watch` callback registered once — the effect
+  // below has no `installingJob` in its deps (re-registering the watch every time that map
+  // changes buys nothing).
   const installingJobRef = useRef(installingJob);
   useEffect(() => {
     installingJobRef.current = installingJob;
   }, [installingJob]);
 
-  // `stillShow` là câu lỗi phải sống sót qua lần đọc lại này. Một job cài hỏng vẫn phải được kể
-  // lại dù lần đọc ngay sau đó trả lời bình thường: đọc lại được không có nghĩa là việc cài đã
-  // xong. Rỗng — mặc định — là "đọc xong thì màn hình sạch", đúng như trước.
+  // `stillShow` is the error that has to survive this reload. A failed install job still has to
+  // be told even when the read right after it answers normally: a read that works says nothing
+  // about whether the install finished. Empty — the default — means "a finished read leaves the
+  // screen clean", exactly as before.
   const reload = useCallback(
     async (stillShow = "") => {
       try {
@@ -57,9 +60,10 @@ export default function Languages({ active }: { active: boolean }) {
     [t],
   );
 
-  // Đọc lại lúc mount và mỗi lần vừa quay lại tab này — cùng lý do `Dashboard.tsx`. Tách khỏi
-  // effect watch bên dưới: watch phải sống suốt vòng đời component (job đang cài vẫn phải được
-  // theo dõi khi người dùng ghé qua Gói hay màn khác), còn reload chỉ cần chạy khi *đang nhìn*.
+  // Read again on mount and on every return to this tab — the same reason `Dashboard.tsx` has.
+  // Kept out of the watch effect below: the watch has to live for the component's whole life (an
+  // install job still has to be followed while the user is over in Packages or another screen),
+  // while the reload only has to run while the screen is *being looked at*.
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
@@ -77,14 +81,15 @@ export default function Languages({ active }: { active: boolean }) {
   useEffect(() => {
     return subscribeDaemonWatch((raw) => {
       setJobs((current) => applyJob(current, raw));
-      // Job đang theo dõi vừa xong: bảng "đã cài" không tự biết bản mới trừ khi đọc lại — không
-      // có API nào khác báo tin này (T3, `daemonState.ts`: sự kiện không bao giờ là đường duy
-      // nhất, nhưng ở đây nó là đường *đầu tiên*, còn mở lại tab vẫn là đường dự phòng).
+      // A job being followed has just finished: the "installed" table does not learn of the new
+      // build unless it reads again — no other API carries this news (T3, `daemonState.ts`: an
+      // event is never the only path, but here it is the *first* one, and reopening the tab
+      // stays the fallback).
       const finished = jobFinished(raw);
       if (finished !== null && Object.values(installingJobRef.current).includes(finished.id)) {
-        // Job hỏng thì `job_finished` là chỗ duy nhất nói ra vì sao — xem `jobFinished`. Đọc lại
-        // vẫn phải chạy (một job hỏng nửa chừng vẫn có thể đã đổi thứ gì đó), nhưng nó không được
-        // xoá mất câu lỗi vừa tới.
+        // When a job fails, `job_finished` is the only place that says why — see `jobFinished`.
+        // The reload still has to run (a job that failed partway may well have changed
+        // something), but it may not wipe out the sentence that has just arrived.
         void reload(finished.error === null ? "" : errorMessage(t, finished.error));
         setInstallingJob((current) => {
           const next = { ...current };
@@ -118,13 +123,20 @@ export default function Languages({ active }: { active: boolean }) {
       setForceHint(null);
       void reload();
     } catch (e) {
-      // `force` chưa gửi và refuse là vì project pin: hỏi lại có `force` không, hiện đúng message
-      // daemon đã viết (nó nêu tên project) thay vì một câu tự bịa.
-      if (!force) {
-        setForceHint(errorMessage(t, e));
-      } else {
-        setError(errorMessage(t, e));
+      // No `force` sent yet and the refusal is a project pin: ask again with `force`, showing the
+      // message the daemon wrote — it names the project — rather than one made up here.
+      const step = afterRefusal(force, errorMessage(t, e));
+
+      if (step.ask === "force") {
+        setForceHint(step.hint);
+        return;
       }
+
+      // Closed on the way out: a dialog left up once there is nothing left to ask is a dialog
+      // holding the screen with nothing to say. See `forceStep.ts`.
+      setUninstallTarget(null);
+      setForceHint(null);
+      setError(step.error);
     }
   }
 
@@ -212,7 +224,7 @@ export default function Languages({ active }: { active: boolean }) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           onKeyDown={(e) => {
-            // Escape xoá câu tìm, và dừng ở đây — không để nó nổi lên đóng cả tab đang mở.
+            // Escape clears the search and stops here — it must not bubble up and close the tab.
             if (e.key !== "Escape" || filter === "") return;
             e.preventDefault();
             e.stopPropagation();

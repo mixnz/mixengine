@@ -14,11 +14,11 @@ import styles from "./Projects.module.css";
 
 interface Props {
   active: boolean;
-  /** Chuyển sang màn Sites, lọc sẵn theo project này — xem `sitesNavigation.ts`. */
+  /** Over to the Sites screen, filtered to this project — see `sitesNavigation.ts`. */
   onOpenSites: (project: string) => void;
 }
 
-/** Mọi project đã đăng ký trong home — tạo, sửa (tên/root/pin/keep_warm), xoá. */
+/** Every project registered in the home — create, edit (name/root/pins/keep_warm), delete. */
 export default function Projects({ active, onOpenSites }: Props) {
   const [rows, setRows] = useState<ProjectSummary[]>([]);
   const [error, setError] = useState("");
@@ -38,7 +38,7 @@ export default function Projects({ active, onOpenSites }: Props) {
     }
   }, [t]);
 
-  // Đọc lại lúc mount và mỗi lần vừa quay lại màn này — cùng lý do `Dashboard.tsx`.
+  // Read again on mount and on every return to this screen — the same reason `Dashboard.tsx` has.
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
@@ -62,10 +62,13 @@ export default function Projects({ active, onOpenSites }: Props) {
   async function confirmDelete(name: string) {
     try {
       await api.projectDelete(name);
-      setDeleting(null);
       void reload();
     } catch (e) {
       setError(errorMessage(t, e));
+    } finally {
+      // **Closed either way.** A dialog kept up on a refusal is one the screen has no second
+      // question for, and the banner behind it is where the refusal is being read anyway.
+      setDeleting(null);
     }
   }
 

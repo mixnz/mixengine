@@ -18,6 +18,14 @@ interface ModalProps {
    *  here is the behaviour, which is why these are passed rather than fixed. */
   overlayClassName: string;
   className: string;
+  /**
+   * What this dialog is asking, for a caller that keeps it mounted through its own answer.
+   *
+   * Changing it puts the dialog back up — that is the whole of its meaning, so give it whatever
+   * says "this is a different question now" and nothing that merely changes while the same one is
+   * being asked. A caller that unmounts on its answer, which is most of them, has no use for it.
+   */
+  question?: unknown;
   /** The dialog's contents. Given `close`, which is how a Cancel button sees the dialog out with
    *  the same animation Escape does. */
   children: (close: (reply: () => void) => void) => ReactNode;
@@ -35,8 +43,16 @@ interface ModalProps {
  * caller deep inside a scrolling panel shouldn't have to care whether some ancestor of theirs
  * establishes a containing block for it.
  */
-function Modal({ label, onClose, locked, overlayClassName, className, children }: ModalProps) {
-  const { close, cls, onEntered } = useDialogExit();
+function Modal({
+  label,
+  onClose,
+  locked,
+  overlayClassName,
+  className,
+  question,
+  children,
+}: ModalProps) {
+  const { close, cls, onEntered } = useDialogExit(question);
   const dialog = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {

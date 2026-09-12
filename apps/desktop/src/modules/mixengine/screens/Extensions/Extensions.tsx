@@ -18,17 +18,19 @@ import PlanDialog from "./PlanDialog";
 import styles from "./Extensions.module.css";
 
 /**
- * Registry chào chính app này như một extension, và một trong các hàng đó **là** app đang chạy.
+ * The registry offers this very application as an extension, and one of those rows **is** the
+ * application running.
  *
- * Khớp theo `id`, không theo `kind`: `desktop-app` là một loại, không phải một danh tính, và một
- * desktop app khác xuất hiện trong registry sau này thì không phải cái đang mở màn hình này.
+ * Matched on `id` and not on `kind`: `desktop-app` is a sort of thing and not an identity, and
+ * another desktop application appearing in the registry later is not the one drawing this screen.
  */
 const SELF = "mixdb";
 
 /**
- * Registry, đã cài, cài (registry hoặc thư mục cục bộ), gỡ, bật/tắt một extension `kind: "service"`.
+ * The registry, what is installed, installing (from the registry or from a local directory),
+ * removing, and starting or stopping an extension of `kind: "service"`.
  *
- * Không có màn hình "cấu hình" — `extension.configure` không tồn tại (Quyết định D1, spec).
+ * There is no "configure" screen — `extension.configure` does not exist (decision D1, spec).
  */
 export default function Extensions({ active }: { active: boolean }) {
   const [installed, setInstalled] = useState<ExtensionSummary[]>([]);
@@ -40,9 +42,10 @@ export default function Extensions({ active }: { active: boolean }) {
   const [installingSource, setInstallingSource] = useState<ExtensionOrigin | null>(null);
   const [uninstalling, setUninstalling] = useState<ExtensionSummary | null>(null);
   const [deleteData, setDeleteData] = useState(false);
-  /* Phiên bản app đang chạy, cho hàng `mixdb`. Registry nói phiên bản nó *xuất bản*, và với một
-     hàng là chính app này thì con số đó trả lời sai câu hỏi người đọc đang hỏi. `""` là chưa hỏi
-     xong — vài mili giây, và trong lúc đó hàng đó dùng con số của registry chứ không để trống. */
+  /* The running application's version, for the `mixdb` row. The registry states the version it
+     *publishes*, and on a row that is this application itself that number answers a question
+     nobody asked. `""` means the asking is not finished — a few milliseconds, and for those the
+     row shows the registry's number rather than nothing at all. */
   const [appVersion, setAppVersion] = useState("");
   const { t } = useTranslation();
 
@@ -70,7 +73,7 @@ export default function Extensions({ active }: { active: boolean }) {
     }
   }, [t]);
 
-  // Đọc lại lúc mount và mỗi lần vừa quay lại màn này — cùng lý do `Dashboard.tsx`.
+  // Read again on mount and on every return to this screen — the same reason `Dashboard.tsx` has.
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
@@ -80,7 +83,7 @@ export default function Extensions({ active }: { active: boolean }) {
     if (typeof picked === "string") setInstallingSource({ type: "path", path: picked });
   }
 
-  /** `extension.*`, không phải `service.*` — xem Global Constraints của plan này. */
+  /** `extension.*` and not `service.*` — see this plan's Global Constraints. */
   async function toggle(row: ExtensionSummary, action: "start" | "stop") {
     setError("");
     try {
@@ -97,27 +100,35 @@ export default function Extensions({ active }: { active: boolean }) {
     setError("");
     try {
       await api.extensionUninstall({ id: uninstalling.id, delete_data: deleteData });
-      setUninstalling(null);
-      setDeleteData(false);
       void reload();
     } catch (e) {
       setError(errorMessage(t, e));
+    } finally {
+      // **Closed either way.** This screen has no second question to ask on a refusal, and a
+      // dialog kept up past its own answer is one nobody can see or dismiss — it has already
+      // animated out. The banner behind it is where the refusal is read.
+      setUninstalling(null);
+      setDeleteData(false);
     }
   }
 
 
-  /** Trạng thái đã dịch; trạng thái lạ hiện nguyên văn daemon viết. Xem `serviceStateLabel.ts`. */
+  /** The translated state; one nobody knows is shown as the daemon wrote it. See
+   *  `serviceStateLabel.ts`. */
   function stateLabel(state: string | null | undefined): string {
     const key = serviceStateKey(state);
     return key === null ? (state ?? "—") : t(key);
   }
 
-  /* MixDB nằm ở "đã cài" **không phải vì API nói vậy** — daemon báo nó chưa cài, và câu đó đúng
-     theo nghĩa của daemon: nó chưa từng cài app này vào home nào cả. Nhưng người đang đọc màn hình
-     này đang chạy nó. Nên hàng đó dựng từ chính app: tên và loại lấy từ registry nếu registry có
-     nói, còn không thì lấy hằng số dưới đây; phiên bản luôn là phiên bản đang chạy.
+  /* MixDB sits under "installed" **not because the API says so** — the daemon reports it as not
+     installed, and that is true in the daemon's own sense: it has never installed this
+     application into any home. But the person reading this screen is running it. So the row is
+     built from the application itself: name and kind from the registry where the registry has
+     something to say, from the constants below where it has not; the version is always the
+     running one.
 
-     Và nó **chỉ xuất hiện một lần**: lọc khỏi cả hai danh sách trước, rồi thêm lại đúng một chỗ. */
+     And it **appears exactly once**: filtered out of both lists first, then added back in one
+     place. */
   const selfOffer = available.find((offer) => offer.id === SELF);
   const selfInstalled = installed.find((row) => row.id === SELF);
   const otherInstalled = installed.filter((row) => row.id !== SELF);
@@ -149,14 +160,15 @@ export default function Extensions({ active }: { active: boolean }) {
         <tbody>
           <tr key={SELF}>
             <td>{selfName}</td>
-            {/* Phiên bản đang chạy, không phải phiên bản registry xuất bản — hai số lệch nhau ngay
-                khi app tự cập nhật. Registry đứng chờ trong lúc `getVersion()` chưa trả lời. */}
+            {/* The running version, not the one the registry publishes — the two part company the
+                moment the application updates itself. The registry stands in while `getVersion()`
+                has yet to answer. */}
             <td>{appVersion || selfOffer?.version || "—"}</td>
             <td>{selfKind}</td>
             <td>—</td>
             <td className={styles.rowActions}>
-              {/* Không có nút Gỡ: một app không tự gỡ chính nó từ bên trong nó được, và cập nhật
-                  đã có đường riêng ở Settings. */}
+              {/* No Remove button: an application cannot remove itself from inside itself, and
+                  updating has a road of its own in Settings. */}
               <span className={styles.installedBadge}>{t("mixengine.extensions.thisApp")}</span>
             </td>
           </tr>

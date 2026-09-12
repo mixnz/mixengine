@@ -7,6 +7,7 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { ServiceCreation } from "@mixengine/api";
+import { afterRefusal } from "../../forceStep";
 import ServiceForm from "../../components/ServiceForm";
 import AutostartPanel from "./AutostartPanel";
 import DatabasePanel from "./DatabasePanel";
@@ -25,7 +26,8 @@ export default function ServicesDetail({
   const [ids, setIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  /** Service vừa tạo không được cổng recipe muốn. Xem `PortMoved`: chỉ đúng ở khoảnh khắc này. */
+  /** A service just created did not get the port its recipe wanted. See `PortMoved`: true of this
+   *  moment and of nothing else. */
   const [moved, setMoved] = useState<ServiceCreation | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [forceHint, setForceHint] = useState<string | null>(null);
@@ -41,15 +43,15 @@ export default function ServicesDetail({
     }
   }, [t]);
 
-  // Đọc lại lúc mount và mỗi lần vừa quay lại màn này — cài/gỡ một runtime (một bản PHP chẳng
-  // hạn) không sinh sự kiện gì cho màn này biết, và màn giữ mount qua lần đổi màn nên không còn
-  // được "remount = đọc lại mới" miễn phí như trước; quay lại tab là đường dự phòng, xem
-  // `Dashboard.tsx`.
+  // Read again on mount and on every return to this screen — installing or removing a runtime (a
+  // PHP build, say) raises no event this screen would hear, and the screen stays mounted across a
+  // change of screen, so it no longer gets "remount = a fresh read" for free; coming back to the
+  // tab is the fallback, see `Dashboard.tsx`.
   useEffect(() => {
     if (active) void reload();
   }, [active, reload]);
 
-  /* Chọn luôn service vừa tạo: người vừa dựng nó là người sắp đặt limits/idle cho nó. */
+  /* Select the service just created: whoever stood it up is about to set its limits and idle. */
   function created(creation: ServiceCreation) {
     setCreating(false);
     setSelected(creation.service.id);
@@ -57,7 +59,7 @@ export default function ServicesDetail({
     void reload();
   }
 
-  /** Câu "nó không nằm ở cổng bạn tưởng", theo đúng ba trường hợp `PortMoved` phân biệt được. */
+  /** The "it is not on the port you think" sentence, in the three cases `PortMoved` tells apart. */
   function movedNotice(creation: ServiceCreation): string {
     const from = creation.moved_from;
     if (from == null) return "";
@@ -89,63 +91,79 @@ export default function ServicesDetail({
       if (selected === id) setSelected(null);
       void reload();
     } catch (e) {
-      // Cùng luật `runtime.uninstall` đã theo ở Languages.tsx: lần đầu chưa gửi `force`, refuse
-      // nêu tên site nào đang khai — hỏi lại đúng câu daemon viết, không tự bịa.
-      if (!force) {
-        setForceHint(errorMessage(t, e));
-      } else {
-        setError(errorMessage(t, e));
+      // The same rule `runtime.uninstall` follows in Languages.tsx: the first attempt sends no
+      // `force`, and the refusal names the sites declaring this service — so the dialog asks again
+      // with the daemon's own sentence rather than one of its own.
+      const step = afterRefusal(force, errorMessage(t, e));
+
+      if (step.ask === "force") {
+        setForceHint(step.hint);
+        return;
       }
+
+      // **Closed, because there is nothing left to ask.** A forced attempt can still be refused
+      // for a reason force never crosses — a running service — and a dialog left up on that is a
+      // dialog on screen with nothing to say.
+      setDeleteTarget(null);
+      setForceHint(null);
+      setError(step.error);
     }
   }
 
   return (
     <div className={styles.screen}>
-      {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-      <div className={styles.list}>
-        <div className={styles.listActions}>
-          <Button onClick={() => setCreating(true)}>
-            {t("mixengine.serviceForm.newService")}
-          </Button>
+      {error !== "" && (
+        <div className={styles.error}>
+          <ErrorBanner message={error} onDismiss={() => setError("")} />
         </div>
-        {ids.map((id) => (
-          <button
-            key={id}
-            className={id === selected ? styles.activeRow : styles.row}
-            onClick={() => setSelected(id)}
-          >
-            {id}
-          </button>
-        ))}
-        {ids.length === 0 && (
-          <p className={styles.listEmpty}>{t("mixengine.servicesDetail.pickService")}</p>
-        )}
-      </div>
-      <div className={styles.detail}>
-        {selected === null ? (
-          <p className={styles.empty}>{t("mixengine.servicesDetail.pickService")}</p>
-        ) : (
-          <>
-            <div className={styles.header}>
-              <h3 className={styles.headerTitle}>{selected}</h3>
-              <Button onClick={() => setDeleteTarget(selected)}>
-                {t("mixengine.servicesDetail.delete")}
-              </Button>
-            </div>
-            {moved !== null && moved.service.id === selected && (
-              <p className={styles.notice} role="status">
-                {movedNotice(moved)}
-              </p>
-            )}
-            <LimitsPanel service={selected} />
-            {/* Cạnh nhau và theo thứ tự này: autostart nói "khi tôi ngồi xuống thì cái gì đang
-                chạy", idle nói "khi tôi không dùng thì cái gì còn chạy". Hai câu hỏi khác nhau về
-                cùng một service, và một người bật cả hai phải thấy cả hai cùng lúc. */}
-            <AutostartPanel service={selected} />
-            <IdlePanel service={selected} />
-            <DatabasePanel service={selected} isModuleVisible={isModuleVisible} />
-          </>
-        )}
+      )}
+      <div className={styles.panes}>
+        <div className={styles.list}>
+          <div className={styles.listActions}>
+            <Button onClick={() => setCreating(true)}>
+              {t("mixengine.serviceForm.newService")}
+            </Button>
+          </div>
+          {ids.map((id) => (
+            <button
+              key={id}
+              className={id === selected ? styles.activeRow : styles.row}
+              onClick={() => setSelected(id)}
+            >
+              {id}
+            </button>
+          ))}
+          {ids.length === 0 && (
+            <p className={styles.listEmpty}>{t("mixengine.servicesDetail.pickService")}</p>
+          )}
+        </div>
+        <div className={styles.detail}>
+          {selected === null ? (
+            <p className={styles.empty}>{t("mixengine.servicesDetail.pickService")}</p>
+          ) : (
+            <>
+              <div className={styles.header}>
+                <h3 className={styles.headerTitle}>{selected}</h3>
+                <Button onClick={() => setDeleteTarget(selected)}>
+                  {t("mixengine.servicesDetail.delete")}
+                </Button>
+              </div>
+              {moved !== null && moved.service.id === selected && (
+                <p className={styles.notice} role="status">
+                  {movedNotice(moved)}
+                </p>
+              )}
+              <LimitsPanel service={selected} />
+              {/* Side by side and in this order: autostart says "what is running when I sit
+                  down", idle says "what stays running when I am not using it". Two different
+                  questions about one service, and somebody turning both on has to see both at
+                  once. */}
+              <AutostartPanel service={selected} />
+              <IdlePanel service={selected} />
+              <DatabasePanel service={selected} isModuleVisible={isModuleVisible} />
+            </>
+          )}
+        </div>
       </div>
 
       {creating && <ServiceForm onCancel={() => setCreating(false)} onCreated={created} />}

@@ -26,6 +26,10 @@ interface ConfirmDialogProps {
  * Both answers go through `close`, so the dialog is off the screen before the caller acts on what
  * it said — including the confirm, which is the one place a modal here animates out of a decision
  * rather than out of a dismissal.
+ *
+ * A caller may keep it mounted through that answer and replace the `message` with what the call
+ * was refused with; the dialog comes back to ask again, with `confirmLabel` naming what the second
+ * answer would do.
  */
 function ConfirmDialog({
   title,
@@ -45,6 +49,10 @@ function ConfirmDialog({
       onClose={onCancel}
       overlayClassName={styles.overlay}
       className={styles.dialog}
+      /* The message is what changes when a caller keeps this dialog up to ask again with what the
+         daemon refused — `service.delete` and `runtime.uninstall` both do — and the dialog has to
+         be back on screen to be read. See `Modal`'s `question`. */
+      question={message}
     >
       {(close) => (
         <>

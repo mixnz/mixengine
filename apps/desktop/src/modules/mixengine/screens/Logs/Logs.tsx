@@ -24,8 +24,8 @@ export default function Logs({ active }: { active: boolean }) {
   const [error, setError] = useState("");
   const { t } = useTranslation();
 
-  // Đọc lại danh sách service lúc mount và mỗi lần vừa quay lại màn này — cùng lý do
-  // `Dashboard.tsx`/`ServicesDetail.tsx`.
+  // Read the service list again on mount and on every return to this screen — the same reason
+  // `Dashboard.tsx` and `ServicesDetail.tsx` have.
   useEffect(() => {
     if (!active) return;
     api
@@ -57,64 +57,78 @@ export default function Logs({ active }: { active: boolean }) {
 
   return (
     <div className={styles.screen}>
-      {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-      <div className={styles.list}>
-        {ids.map((id) => (
-          <button
-            key={id}
-            className={id === selected ? styles.activeRow : styles.row}
-            onClick={() => {
-              setSelected(id);
-              setTail(INITIAL_TAIL);
-            }}
-          >
-            {id}
-          </button>
-        ))}
-        {ids.length === 0 && <p className={styles.listEmpty}>{t("mixengine.logs.pickService")}</p>}
-      </div>
+      {error !== "" && (
+        <div className={styles.error}>
+          <ErrorBanner message={error} onDismiss={() => setError("")} />
+        </div>
+      )}
+      <div className={styles.panes}>
+        <div className={styles.list}>
+          {ids.map((id) => (
+            <button
+              key={id}
+              className={id === selected ? styles.activeRow : styles.row}
+              onClick={() => {
+                setSelected(id);
+                setTail(INITIAL_TAIL);
+              }}
+            >
+              {id}
+            </button>
+          ))}
+          {ids.length === 0 && (
+            <p className={styles.listEmpty}>{t("mixengine.logs.pickService")}</p>
+          )}
+        </div>
 
-      <div className={styles.viewer}>
-        {selected === null ? (
-          <p className={styles.empty}>{t("mixengine.logs.pickService")}</p>
-        ) : (
-          <>
-            <div className={styles.toolbar}>
-              <Select
-                value={filter}
-                onChange={setFilter}
-                options={[
-                  { value: "all", label: t("mixengine.logs.streamAll") },
-                  { value: "stdout", label: t("mixengine.logs.streamStdout") },
-                  { value: "stderr", label: t("mixengine.logs.streamStderr") },
-                ]}
-              />
-              <Button onClick={() => setTail((current) => current * 2)}>
-                {t("mixengine.logs.loadMore")}
-              </Button>
-            </div>
-            <div className={styles.lines} {...linePane}>
-              {visible.length === 0 && <p className={styles.empty}>{t("mixengine.logs.empty")}</p>}
-              {visible.map((entry, i) => {
-                if (entry.kind === "gap") {
+        <div className={styles.viewer}>
+          {selected === null ? (
+            <p className={styles.empty}>{t("mixengine.logs.pickService")}</p>
+          ) : (
+            <>
+              <div className={styles.toolbar}>
+                <Select
+                  value={filter}
+                  onChange={setFilter}
+                  options={[
+                    { value: "all", label: t("mixengine.logs.streamAll") },
+                    { value: "stdout", label: t("mixengine.logs.streamStdout") },
+                    { value: "stderr", label: t("mixengine.logs.streamStderr") },
+                  ]}
+                />
+                <Button onClick={() => setTail((current) => current * 2)}>
+                  {t("mixengine.logs.loadMore")}
+                </Button>
+              </div>
+              <div className={styles.lines} {...linePane}>
+                {visible.length === 0 && (
+                  <p className={styles.empty}>{t("mixengine.logs.empty")}</p>
+                )}
+                {visible.map((entry, i) => {
+                  if (entry.kind === "gap") {
+                    return (
+                      <div key={i} className={styles.gap}>
+                        {t("mixengine.logs.gap", { count: entry.missed })}
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={i} className={styles.gap}>
-                      {t("mixengine.logs.gap", { count: entry.missed })}
+                    <div
+                      key={i}
+                      className={
+                        entry.kind === "line" && entry.stream === "stderr"
+                          ? styles.stderr
+                          : styles.line
+                      }
+                    >
+                      {entry.text}
                     </div>
                   );
-                }
-                return (
-                  <div
-                    key={i}
-                    className={entry.kind === "line" && entry.stream === "stderr" ? styles.stderr : styles.line}
-                  >
-                    {entry.text}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

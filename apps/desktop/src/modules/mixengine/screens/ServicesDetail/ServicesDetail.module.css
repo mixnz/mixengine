@@ -1,6 +1,22 @@
 .screen {
   display: flex;
+  flex-direction: column;
   height: 100%;
+}
+
+/* The banner gets a row of its own above the panes. Dropped straight into the row of panes — which
+   is what `.screen` used to be — it became a third column: a full-height flex item shoving both
+   panes sideways, with its one line of text floating halfway down the window. */
+.error {
+  padding: 12px 16px 0;
+}
+
+.panes {
+  display: flex;
+  flex: 1;
+  /* Without it the panes cannot be shorter than their contents, and the `overflow-y` each of them
+     carries never gets anything to scroll. */
+  min-height: 0;
 }
 
 .list {
@@ -26,8 +42,8 @@
   font-weight: 600;
 }
 
-/* Cùng lý do `.listEmpty` có padding riêng: các hàng service tự sát viền, nên phần đứng trên
-   chúng phải tự đặt lề của mình. */
+/* The same reason `.listEmpty` carries a padding of its own: the service rows run to the edge, so
+   whatever stands above them has to set its own margin. */
 .listActions {
   padding: 12px;
   border-bottom: 1px solid var(--border);
@@ -50,15 +66,16 @@
   opacity: 0.65;
 }
 
-/* Cột giữa (`.list`) không có padding của riêng nó — chỉ hàng nào bấm được mới cần sát viền, còn
-   trạng thái rỗng phải giống hệt cột phải (`.detail` đã có `padding: 16px`). */
+/* The middle column (`.list`) has no padding of its own — only a row you can click needs to run to
+   the edge, and the empty state has to read exactly like the right column, which already carries
+   `padding: 16px` on `.detail`. */
 .listEmpty {
   padding: 16px;
   opacity: 0.65;
 }
 
-/* Không phải lỗi — service đã tạo xong và đang chạy được, chỉ là ở một cổng khác cổng người ta
-   nhớ. Nên nó là `--accent`, không phải `--danger`. */
+/* Not an error — the service was created and can run, it is simply on a port other than the one
+   somebody had in mind. So `--accent`, not `--danger`. */
 .notice {
   margin: 0;
   padding: 0.5rem 0.6rem;
