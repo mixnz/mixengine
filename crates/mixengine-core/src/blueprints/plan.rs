@@ -128,6 +128,19 @@ pub async fn plan(
     let manifest = &filed.manifest;
     let mut steps = Vec::new();
 
+    // **What `{project}` becomes** — roadmap task **T120**, its design's D1. A project's *name* is a
+    // label a person reads, and `projects::validated_name` admits a space, a capital and a `;` into
+    // it; a database identifier, a DNS label, a `ServiceId` instance and a shell command each have a
+    // narrower charset than that. [`crate::domains::slug`] is the one rule that crosses all four,
+    // and `project.create` has derived a project's default domain with it since T39a — so this is
+    // that same handle, derived once, rather than a second answer to a question with one.
+    //
+    // [`None`] is a name with no ASCII in it to slug. The token is then left unexpanded and each
+    // step that uses it refuses it (D3), which is why that is not an error here: a manifest that
+    // never mentions `{project}` is unaffected by a name nothing can be made of.
+    let handle = crate::domains::slug(project);
+    let handle = handle.as_deref();
+
     // **Decided before the project step, because the pins it registers are what these answers
     // settle** (D7). The order of the steps themselves is unchanged: the runtimes are pushed
     // straight after the register, which is where they have always been.
@@ -214,8 +227,8 @@ pub async fn plan(
             steps.push(database_step(
                 &service.name,
                 &instance,
-                &expand(database, project),
-                &expand(&user, project),
+                &expand(database, handle),
+                &expand(&user, handle),
             ));
         }
     }
@@ -246,8 +259,8 @@ pub async fn plan(
         });
 
         let mut names = Vec::new();
-        names.push(expand(&site.domain_pattern, project));
-        names.extend(site.aliases.iter().map(|alias| expand(alias, project)));
+        names.push(expand(&site.domain_pattern, handle));
+        names.extend(site.aliases.iter().map(|alias| expand(alias, handle)));
 
         for (position, domain) in names.iter().enumerate() {
             steps.push(domain_step(store, domain, position == 0, mine).await?);
@@ -275,10 +288,15 @@ pub async fn plan(
 
     if let Some(scaffold) = &manifest.scaffold {
         // **Expanded here, with everything else** — roadmap task **T78a**, its design's D6. The
-        // command a person is shown is the command that runs, and the substitution is safe in front
-        // of a shell because a project name has already been through the slug charset, which holds
-        // no shell metacharacter.
-        let command = expand(&scaffold.command, project);
+        // command a person is shown is the command that runs.
+        //
+        // **The substitution is safe in front of a shell because what is substituted is the
+        // handle** — roadmap task **T120**, its design's D4. [`crate::domains::slug`] answers in
+        // `[a-z0-9-]` and nothing else, which holds no shell metacharacter. This line used to say
+        // that the *project's name* had been through that charset. It had not, and
+        // `projects::validated_name` admits `;`, `$` and a backtick to this day — so a project
+        // called `a; rm -rf $HOME` reached the shell as two commands.
+        let command = expand(&scaffold.command, handle);
 
         steps.push(PlanStep {
             // Arbitrary code from whoever wrote the blueprint. What answers this is the consent in
@@ -713,10 +731,19 @@ async fn newest(store: &Store, kind: RuntimeKind) -> Result<Option<PackageVersio
         .map(|record| record.version))
 }
 
-/// `{project}` becomes the new project's name. **Once, here**, so no later branch can expand it
-/// differently.
-fn expand(value: &str, project: &str) -> String {
-    value.replace(TOKEN, project)
+/// `{project}` becomes the project's **handle** — its name as [`crate::domains::slug`] makes it.
+/// **Once, here**, so no later branch can expand it differently.
+///
+/// A `handle` of [`None`] is a project name with no ASCII in it to slug, and the token is then left
+/// exactly where it is. That is deliberate — roadmap task **T120**, its design's D3: every name
+/// space this value reaches refuses `{project}` on its own rule, so the refusal happens at plan time
+/// and names the token that could not be expanded, rather than a substitution nobody asked for
+/// reaching a shell.
+fn expand(value: &str, handle: Option<&str>) -> String {
+    match handle {
+        Some(handle) => value.replace(TOKEN, handle),
+        None => value.to_owned(),
+    }
 }
 
 /// A step that needs nothing done.
@@ -1875,5 +1902,113 @@ mod tests {
             ),
             "{planned:?}"
         );
+    }
+
+    /// **D1.** A project's name is a label a person reads; a database, a domain and a service id
+    /// each have a charset it does not have to satisfy. `{project}` expands to the handle between
+    /// them — `domains::slug`, which is the rule `project.create` has derived a domain with since
+    /// T39a.
+    #[tokio::test]
+    async fn the_token_expands_to_the_projects_slug_and_not_its_name() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "composer create-project laravel/laravel {project}".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "My Blog 1",
+                root: &temp.path().join("my-blog-1"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        // The name the person typed is what gets registered, untouched.
+        let PlanAction::RegisterProject { name, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RegisterProject { .. })
+        })
+        .action
+        else {
+            panic!("a register step");
+        };
+        assert_eq!(name, "My Blog 1");
+
+        // Everywhere else, the handle.
+        let PlanAction::CreateDatabase { database, user, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::CreateDatabase { .. })
+        })
+        .action
+        else {
+            panic!("a database step");
+        };
+        assert_eq!(database, "my-blog-1");
+        assert_eq!(user, "my-blog-1");
+
+        let PlanAction::AddDomain { domain, .. } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::AddDomain { .. })
+        })
+        .action
+        else {
+            panic!("a domain step");
+        };
+        assert_eq!(domain, "my-blog-1.test");
+
+        let PlanAction::RunScaffold { command } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        })
+        .action
+        else {
+            panic!("a scaffold step");
+        };
+        assert_eq!(command, "composer create-project laravel/laravel my-blog-1");
+    }
+
+    /// **D1, and the reason the comment above the scaffold expansion is now true.** A slug holds no
+    /// shell metacharacter, so a project name full of them reaches the shell as a handle rather
+    /// than as a second command.
+    #[tokio::test]
+    async fn a_name_holding_shell_metacharacters_reaches_the_shell_as_a_slug() {
+        let (temp, store) = home().await;
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "echo {project}".to_owned(),
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "a; rm -rf $HOME",
+                root: &temp.path().join("a"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["echo"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let PlanAction::RunScaffold { command } = &step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        })
+        .action
+        else {
+            panic!("a scaffold step");
+        };
+
+        assert_eq!(command, "echo a-rm-rf-home");
+        assert!(!command.contains(';'), "{command}");
+        assert!(!command.contains('$'), "{command}");
     }
 }
