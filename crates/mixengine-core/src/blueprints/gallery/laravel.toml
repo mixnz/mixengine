@@ -35,3 +35,4 @@ extensions = ["redis"]
 
 [scaffold]
 command = "composer create-project laravel/laravel . --no-interaction"
+needs_empty_dir = true

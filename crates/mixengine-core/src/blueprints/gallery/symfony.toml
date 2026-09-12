@@ -27,3 +27,4 @@ user = "{project}"
 
 [scaffold]
 command = "composer create-project symfony/skeleton . --no-interaction"
+needs_empty_dir = true

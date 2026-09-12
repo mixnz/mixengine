@@ -294,15 +294,28 @@ pub async fn plan(
         steps.push(PlanStep {
             // Arbitrary code from whoever wrote the blueprint. What answers this is the consent in
             // the apply request (T78a, D4); here it is shown, exactly as it would run — or blocked,
-            // when its program is a bare name the PATH does not hold (T78b, D1), or when the token
-            // did not expand (T120, D3).
+            // when its program is a bare name the PATH does not hold (T78b, D1), when the token
+            // did not expand (T120, D3), or when it asked for an empty directory and this one is
+            // not.
             //
             // **A shell is the one name space with no validator**, so this check is the whole of
             // what stands between a handle that could not be made and a command carrying a literal
             // `{project}` into somebody's project directory.
+            //
+            // **The PATH is judged before the directory** — a machine with no `composer` on it is
+            // not made applicable by emptying a folder, so that is the sentence worth reading
+            // first. Only one reason is ever shown, which is why the order is written down.
             disposition: match unexpanded(&command) {
                 Some(reason) => Disposition::Blocked { reason },
-                None => crate::blueprints::program::disposition(&command, scaffold_path),
+                None => match crate::blueprints::program::disposition(&command, scaffold_path) {
+                    Disposition::Confirm { what } if scaffold.needs_empty_dir => {
+                        match occupied(root) {
+                            Some(reason) => Disposition::Blocked { reason },
+                            None => Disposition::Confirm { what },
+                        }
+                    }
+                    judged => judged,
+                },
             },
             action: PlanAction::RunScaffold { command },
             elevates: false,
@@ -790,6 +803,55 @@ fn unexpanded(name: &str) -> Option<String> {
         .then(|| format!("there is nothing in the project's name to expand {TOKEN} into"))
 }
 
+/// How many of a directory's entries a refusal names before it starts counting them.
+const NAMED: usize = 3;
+
+/// The reason `root` is no place for a command that needs an empty directory, or [`None`].
+///
+/// **[`None`] for three different directories**, and deliberately so: one that is not there yet —
+/// which is the ordinary case, since an apply is usually what creates it — one that holds nothing,
+/// and one this daemon cannot read. The last is T78b's D2 one subject along: every doubt resolves
+/// to *not judging*, because a false `blocked` stops a blueprint that would have worked, and a
+/// directory whose listing fails is a doubt rather than an answer.
+///
+/// **It names what is in the way** rather than saying "not empty". The entry a person hits this on
+/// is very often `.git`, or what an apply that stopped partway left behind, and a file manager
+/// hiding dotfiles shows them an empty folder while they read that it is not.
+fn occupied(root: &Path) -> Option<String> {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return None;
+    };
+
+    // Sorted, because `read_dir` answers in whatever order the file system happens to hold and a
+    // reason that reads differently on two runs is a reason nobody can quote.
+    let mut names: Vec<String> = entries
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .collect();
+
+    if names.is_empty() {
+        return None;
+    }
+
+    names.sort();
+
+    let listed = match names.len() > NAMED {
+        true => format!(
+            "{}, and {} more",
+            names[..NAMED].join(", "),
+            names.len() - NAMED
+        ),
+        false => names.join(", "),
+    };
+
+    Some(format!(
+        "{} already holds {listed} — this blueprint's command needs a directory with nothing in \
+         it at all, hidden files included. Point the apply at another directory, or clear this \
+         one; an earlier apply that stopped partway leaves files here too.",
+        root.display()
+    ))
+}
+
 /// A step that cannot be done, and why.
 fn blocked(action: PlanAction, reason: String) -> PlanStep {
     PlanStep {
@@ -1213,6 +1275,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -1675,6 +1738,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -1749,6 +1813,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -1785,6 +1850,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -1823,6 +1889,177 @@ mod tests {
             blocked, 1,
             "only the scaffold is blocked: {:?}",
             planned.steps
+        );
+    }
+
+    /// A manifest whose command refuses a directory that holds anything.
+    fn asking_for_an_empty_directory() -> crate::blueprints::manifest::BlueprintManifest {
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "composer create-project laravel/laravel . --no-interaction".to_owned(),
+            needs_empty_dir: true,
+        });
+
+        manifest
+    }
+
+    /// **A directory that already holds something is decided here, not by composer's exit code.**
+    ///
+    /// `composer create-project .` stops at the first entry a directory holds, and before this the
+    /// plan said nothing about it — so an apply registered the project, installed the runtimes,
+    /// made the database, the site, the domain and the certificate, and *then* the last step said
+    /// the directory was not empty. D10's whole subject.
+    #[tokio::test]
+    async fn a_directory_that_already_holds_something_blocks_the_scaffold() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("shop");
+        std::fs::create_dir_all(&root).expect("a directory");
+        std::fs::write(root.join("README.md"), "mine").expect("a file");
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(asking_for_an_empty_directory()),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+
+        // The reason names what is in the way, because "not empty" sends somebody to look at a
+        // directory that appears empty in a file manager that hides dotfiles.
+        assert!(
+            matches!(
+                &scaffold.disposition,
+                Disposition::Blocked { reason } if reason.contains("README.md")
+            ),
+            "{scaffold:?}"
+        );
+
+        let blocked = planned
+            .steps
+            .iter()
+            .filter(|step| matches!(step.disposition, Disposition::Blocked { .. }))
+            .count();
+        assert_eq!(
+            blocked, 1,
+            "only the scaffold is blocked: {:?}",
+            planned.steps
+        );
+    }
+
+    /// The directory an apply is about usually does not exist yet — that is the happy path, and it
+    /// is the one a false `blocked` here would cost (T78b, D2).
+    #[tokio::test]
+    async fn a_directory_that_is_not_there_yet_is_a_directory_that_is_empty() {
+        let (temp, store) = home().await;
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(asking_for_an_empty_directory()),
+                project: "shop",
+                root: &temp.path().join("shop"),
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+        assert!(
+            matches!(scaffold.disposition, Disposition::Confirm { .. }),
+            "{scaffold:?}"
+        );
+    }
+
+    /// A directory somebody made in a file manager and picked with the folder picker, which is what
+    /// the desktop's Quick Start hands over.
+    #[tokio::test]
+    async fn a_directory_that_is_there_and_empty_is_still_offered() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("shop");
+        std::fs::create_dir_all(&root).expect("a directory");
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(asking_for_an_empty_directory()),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+        assert!(
+            matches!(scaffold.disposition, Disposition::Confirm { .. }),
+            "{scaffold:?}"
+        );
+    }
+
+    /// **And a command that did not ask is left alone.** `composer install` on a tree somebody
+    /// cloned is a scaffold whose directory is *supposed* to hold something, and every manifest
+    /// written before the key existed is one of these.
+    #[tokio::test]
+    async fn a_scaffold_that_did_not_ask_runs_wherever_it_was_pointed() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("shop");
+        std::fs::create_dir_all(&root).expect("a directory");
+        std::fs::write(root.join("composer.json"), "{}").expect("a file");
+
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "composer install".to_owned(),
+            needs_empty_dir: false,
+        });
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root: &root,
+                answers: &[],
+                scaffold_path: &a_path_holding(&temp, &["composer"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+        assert!(
+            matches!(scaffold.disposition, Disposition::Confirm { .. }),
+            "{scaffold:?}"
         );
     }
 
@@ -1953,6 +2190,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -2020,6 +2258,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(
@@ -2136,6 +2375,7 @@ mod tests {
         let mut manifest = a_manifest();
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
+            needs_empty_dir: false,
         });
 
         let planned = plan(

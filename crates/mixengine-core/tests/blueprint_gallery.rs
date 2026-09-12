@@ -74,6 +74,31 @@ fn only_the_three_that_can_run_a_command_carry_one() {
     }
 }
 
+/// **And all three of those commands are project-initialisers, so all three say so.**
+///
+/// `composer create-project .` refuses a directory holding anything at all, `create-next-app`
+/// refuses one holding anything it would overwrite, and before the key existed the plan let all
+/// three through and left the refusal to the last step of an apply — after the project, the
+/// runtimes, the database, the site, the domain and the certificate had been made.
+///
+/// Asserted over the shipped set rather than over one file, because the next gallery entry that
+/// carries an initialiser is the one that would quietly go back to failing late.
+#[test]
+fn every_gallery_command_that_initialises_a_project_asks_for_an_empty_directory() {
+    for entry in ENTRIES {
+        let manifest = manifest::read(entry.manifest).expect("a gallery blueprint");
+        let Some(scaffold) = manifest.scaffold else {
+            continue;
+        };
+
+        assert!(
+            scaffold.needs_empty_dir,
+            "{}'s `{}` is an initialiser and has to say so",
+            entry.slug, scaffold.command
+        );
+    }
+}
+
 /// An opened home with its database, both in a directory the test owns — `tests/store.rs`' helper.
 async fn home() -> (TempDir, Paths, Store) {
     let temp = TempDir::new().expect("a temporary directory");

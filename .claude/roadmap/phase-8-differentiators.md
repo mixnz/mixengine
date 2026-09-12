@@ -147,6 +147,26 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the scaffold suite runs on Windows) leave the step `confirm`. The gallery is unchanged;
       `laravel` and `symfony` now say `blocked` where they said `confirm` on a machine without
       `composer`, which T25 keeps out of the shims on purpose — whether to ship it is the next task.
+- [x] **T78c** A `[scaffold]` that initialises a project says so, and the plan checks the directory.
+      T78b's own shape one question along, and found the same way: applying `laravel` into a folder
+      that already held something applied eleven steps and then handed over composer's *"Project
+      directory is not empty"* — D10's subject exactly, a step the plan could have refused before
+      anything was made. The manifest gained `[scaffold] needs_empty_dir`, **declared and never
+      inferred**: `composer create-project .` refuses a directory holding anything at all while
+      `composer install` on a cloned tree needs one, and nothing about the two strings separates
+      them. Default `false`, so every manifest written before the key runs where it used to.
+      **The PATH is still judged first** — a machine with no `composer` is not made applicable by
+      emptying a folder, and only one reason is ever shown. The refusal names the entries in the
+      way rather than saying *not empty*, because the entry this is hit on is very often `.git` or
+      what an apply that stopped partway left behind, and a file manager hiding dotfiles shows an
+      empty folder to somebody reading that it is not.
+      **Nothing in the clients changed and nothing in the wire did**: the desktop's Apply button
+      already refuses a plan with a blocked step, the CLI already prints the reason, and T78b's D5
+      still holds — a blocked scaffold blocks the scaffold and not the apply, so `mix` can still
+      apply the other eleven steps and leave the command unrun.
+      **What it deliberately does not do** is empty the directory. A resumed apply whose first run
+      left files behind is now told why rather than failing late, and clearing them stays the
+      person's — `project.delete`'s standing rule that the files were never ours is the same rule.
 - [x] **T79** Built-in blueprint gallery — six blueprints compiled into the binary and seeded as
       `builtin` rows at daemon start, which is the first thing in this product to write that word.
       **Trusted without a signature check**, and that is the departure from what T78a expected of

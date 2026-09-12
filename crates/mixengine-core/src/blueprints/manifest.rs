@@ -159,6 +159,18 @@ pub struct Php {
 pub struct Scaffold {
     /// The command, run in the project directory and nowhere else.
     pub command: String,
+
+    /// Whether this command refuses a directory that already holds anything.
+    ///
+    /// **Declared, never inferred from the command.** `composer create-project . ` stops at the
+    /// first entry a directory holds — a `.git` included — while `composer install` on a tree
+    /// somebody cloned is a scaffold that *needs* one. Nothing about the two strings says which is
+    /// which, so the author says it, and [`crate::blueprints::plan`] is what asks the directory.
+    ///
+    /// Default `false`, which is what keeps every `[scaffold]` written before this key existed
+    /// running exactly where it used to.
+    #[serde(default)]
+    pub needs_empty_dir: bool,
 }
 
 impl<'de> serde::Deserialize<'de> for BlueprintSite {
@@ -366,6 +378,13 @@ pub fn render(manifest: &BlueprintManifest) -> String {
     if let Some(scaffold) = &manifest.scaffold {
         let mut table = Table::new();
         table["command"] = value(&scaffold.command);
+
+        // **Written only when it is true**, which is what keeps a manifest captured or imported
+        // before this key existed rendering back the bytes it arrived as.
+        if scaffold.needs_empty_dir {
+            table["needs_empty_dir"] = value(true);
+        }
+
         document["scaffold"] = Item::Table(table);
     }
 
@@ -464,6 +483,39 @@ command = "composer create-project laravel/laravel {project}"
         let read_back = read(GALLERY_SHAPED).expect("it parses");
 
         assert_eq!(render(&read_back), GALLERY_SHAPED);
+    }
+
+    /// **A command asks for an empty directory by saying so, and otherwise asks for nothing.**
+    ///
+    /// The default has to be `false` or every `[scaffold]` written before this key existed would
+    /// start refusing directories its author was happy to run in — `composer install` on a cloned
+    /// tree is a scaffold, and a blueprint that carried one is not this key's business.
+    #[test]
+    fn a_scaffold_asks_for_nothing_about_the_directory_unless_it_says_so() {
+        let read_back = read(GALLERY_SHAPED).expect("it parses");
+
+        assert!(!read_back.scaffold.expect("a scaffold").needs_empty_dir);
+    }
+
+    /// And a manifest that does say so renders it back, which is what lets one travel.
+    #[test]
+    fn a_scaffold_that_asks_for_an_empty_directory_survives_the_round_trip() {
+        let asking = GALLERY_SHAPED.replace(
+            "command = \"composer create-project laravel/laravel {project}\"\n",
+            "command = \"composer create-project laravel/laravel {project}\"\n\
+             needs_empty_dir = true\n",
+        );
+
+        let read_back = read(&asking).expect("it parses");
+
+        assert!(
+            read_back
+                .scaffold
+                .as_ref()
+                .expect("a scaffold")
+                .needs_empty_dir
+        );
+        assert_eq!(render(&read_back), asking);
     }
 
     /// What is written can be read, and reading it back gives the same value — the property every

@@ -44,6 +44,7 @@ extensions = ["redis", "imagick", "xdebug"]
 [scaffold]
 # optional, only runs with explicit user consent at apply time
 command = "composer create-project laravel/laravel ."
+needs_empty_dir = true   # optional, default false — this command refuses a directory with anything in it
 ```
 
 `{project}` is the only templating token; substitution is literal and validated (slug charset).
@@ -158,6 +159,18 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   file with no extension and `bin/` is swept of strangers at every start, so the hint says *put it
   on your PATH and restart the daemon* and never *copy it into `bin/`*. Design:
   [docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../../docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
+- **A command that initialises a project says so, and the directory is checked at plan time.**
+  `[scaffold] needs_empty_dir = true` means this command refuses a directory that already holds
+  anything — `composer create-project .` stops at the first entry there is, a `.git` included — and
+  the plan then `blocked`s the step for a root that is not empty, naming what is in the way.
+  Declared rather than read out of the command, because `composer install` on a tree somebody
+  cloned is a scaffold whose directory is *supposed* to hold something and no rule over the two
+  strings tells them apart; the default is `false`, so a manifest written before the key existed
+  runs exactly where it used to. A root that does not exist yet is empty — that is the ordinary
+  case, since the apply is what creates it — and a root whose listing fails is not judged, on the
+  same rule as the program check: a false `blocked` stops a blueprint that would have worked.
+  The three gallery blueprints carrying a command all set it, asserted over the shipped set in
+  `crates/mixengine-core/tests/blueprint_gallery.rs`.
 - **No timeout.** Any number would kill a legitimate `composer install` on a slow line; the bound is
   that the job is visible and `job.cancel` stops it — killing the process *group*, so what a package
   manager forked goes with it.
