@@ -29,6 +29,9 @@ const en = {
     /** The name of the app's own tab bar, for anyone reading the screen rather than looking at it. */
     tabs: "Open tabs",
     closeTab: "Close tab",
+    /** The same button on the last tab there is, where closing it opens a fresh one in its place —
+     *  so what it does is reload the module, and that is what it says. */
+    reloadTab: "Reload module",
     newConnectionTab: "New connection tab",
     newConnectionTitle: "New Connection",
     /* What each module is called in the `[+]` menu — see `shell/registry.ts`, which is the list
@@ -128,6 +131,9 @@ const en = {
     newTab: "New tab",
     // One row per module, filled from the module's own name — see `shell/shortcuts.ts`.
     newModuleTab: "New {{module}} tab",
+    /** The same row for a module that holds one tab and no more: the key opens it where there is
+     *  none and goes to it where there is one, which is one thing and is said as one. */
+    goToModule: "Go to {{module}}",
     closeTab: "Close tab",
     nextTab: "Next tab",
     prevTab: "Previous tab",

@@ -1,4 +1,4 @@
-import type { TabBadge } from "./module";
+import type { ModuleDefinition, TabBadge } from "./module";
 
 /**
  * What the tab bar knows about one open tab, and the two ways a module changes it.
@@ -20,6 +20,44 @@ export interface TabInfo {
   /** Whatever the module asked to have kept for this tab between launches. Opaque here: the shell
    *  carries it to `localStorage` and back and never reads it — see `shell/session.ts`. */
   state?: unknown;
+}
+
+/**
+ * The visible modules a new tab can still be opened of.
+ *
+ * **Not a count of modules.** A window drawing one module is not a window that wants one tab: a
+ * terminal-only window is one where a second tab is a second shell, and a db-only one where it is a
+ * second connection. What decides it is the module's own `singleTab` — see {@link ModuleDefinition}
+ * — and MixEngine is the one that sets it, because two of its tabs are two views of the one daemon
+ * this window was opened to drive.
+ *
+ * Everything that offers a new tab reads this: the `[+]` button and its menu, `Ctrl/Cmd+T`, the
+ * number chords, and the shortcut table that lists them. An empty result is a window with nothing
+ * left to open, and the button is not drawn at all — the close button then stands alone, and
+ * closing the last tab replaces it, which is how such a window reloads its module.
+ *
+ * Derived on every render rather than kept: the visible list changes with the profile and the tabs
+ * change with every click, and a remembered answer to a question this cheap is an answer that goes
+ * out of date somewhere nobody is looking.
+ */
+export function openableModules(visible: ModuleDefinition[], tabs: TabInfo[]): ModuleDefinition[] {
+  return visible.filter(
+    (module) => !module.singleTab || !tabs.some((tab) => tab.moduleId === module.id),
+  );
+}
+
+/**
+ * The id of the first tab of `moduleId` on the strip, or `undefined` for a module with none.
+ *
+ * Where the number chord of a `singleTab` module goes once its tab exists: it opens one while there
+ * is none and goes to that one afterwards, rather than falling silent — the same key a browser
+ * gives a pinned tab.
+ *
+ * **First** and not *the*: the flag stops a second tab being opened, not a second tab existing. A
+ * session written by a build older than the flag can hold two, and the chord has to land somewhere.
+ */
+export function firstTabOfModule(tabs: TabInfo[], moduleId: string): string | undefined {
+  return tabs.find((tab) => tab.moduleId === moduleId)?.id;
 }
 
 /**

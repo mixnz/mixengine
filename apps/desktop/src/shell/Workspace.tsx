@@ -15,7 +15,15 @@ import { useTranslation } from "../i18n";
 import type { TabBadge } from "./module";
 import { onTabRequest, takeTabRequests } from "./launch";
 import { readSession, writeSession } from "./session";
-import { rebadgeTab, restateTab, retitleTab, tabIdAtOffset, type TabInfo } from "./tabs";
+import {
+  firstTabOfModule,
+  openableModules,
+  rebadgeTab,
+  restateTab,
+  retitleTab,
+  tabIdAtOffset,
+  type TabInfo,
+} from "./tabs";
 import { MODULES, moduleById } from "./registry";
 import { defaultModuleId, visibleModules, withModule } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
@@ -46,7 +54,6 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `enabledKey` is `enabled` flattened; depending on the array itself is the thing this exists to avoid.
   const visible = useMemo(() => visibleModules(enabled), [enabledKey]);
   const visibleIds = useMemo(() => visible.map((m) => m.id), [visible]);
-  const shortcuts = useMemo(() => shortcutsFor(visible), [visible]);
 
   function newTab(moduleId: string = defaultModuleId(visible), state?: unknown): TabInfo {
     const def = moduleById(moduleId);
@@ -68,6 +75,23 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
      shells at launch, for tabs the user may never come back to; the rest of them sit on the strip
      and wait, and mount the first time they are looked at. */
   const [mounted, setMounted] = useState<string[]>(() => [activeId]);
+
+  /* Which of the visible modules a new tab can still be opened of — `shell/tabs.ts`. Everything in
+     this file that offers one reads this and not `visible`: the `[+]` button, the menu behind it,
+     `Ctrl/Cmd+T`, the number chords, and the table in Settings that lists the last two.
+
+     Memoized on which *modules* have a tab rather than on `tabs`, exactly as `visible` is memoized
+     on `enabledKey` and for the same reason: a tab being renamed or badged is a new `tabs` array
+     several times a second, and the dispatcher rebinds its listener whenever `shortcuts` changes
+     identity. */
+  const openModuleKey = useMemo(
+    () => [...new Set(tabs.map((tab) => tab.moduleId))].sort().join(","),
+    [tabs],
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `openModuleKey` is all of `tabs` that matters here; depending on the array itself is the thing this exists to avoid.
+  const openable = useMemo(() => openableModules(visible, tabs), [visible, openModuleKey]);
+  const openableIds = useMemo(() => openable.map((m) => m.id), [openable]);
+  const shortcuts = useMemo(() => shortcutsFor(visible, openable), [visible, openable]);
   const [theme, setTheme] = useTheme();
   const [accent, setAccent] = useAccent();
   const [glass, setGlass] = useGlass();
@@ -89,8 +113,10 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
 
   useScrollAcceleration();
   useShortcutDispatcher(shortcuts);
-  // Always listening — the tab bar is there on every screen the app has.
-  useShortcut("app.newTab", () => openTab(), true);
+  /* Always listening — the tab bar is there on every screen the app has. `app.newTab` is the one
+     exception, and only where there is nothing left for it to open: it is off the catalogue then
+     too, so the table in Settings does not offer a key that answers nothing. */
+  useShortcut("app.newTab", () => openTab(defaultModuleId(openable)), openable.length > 0);
   useShortcut("app.closeTab", () => closeTab(activeId), true);
   useShortcut("app.nextTab", () => setActiveId(tabIdAtOffset(tabs, activeId, 1)), true);
   useShortcut("app.prevTab", () => setActiveId(tabIdAtOffset(tabs, activeId, -1)), true);
@@ -106,7 +132,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
      from being the second place that knows them. */
   for (const module of MODULES) {
     // eslint-disable-next-line react-hooks/rules-of-hooks -- module-level constant, see above: same count, same order, every render, for the life of the app.
-    useShortcut(newModuleTabId(module.id), () => openTab(module.id), visibleIds.includes(module.id));
+    useShortcut(newModuleTabId(module.id), () => openOrGoTo(module.id), visibleIds.includes(module.id));
   }
 
   /* `state` is only ever given by the backend's tab requests below: it is what the module behind
@@ -116,6 +142,20 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
     setTabs((prev) => [...prev, tab]);
     setActiveId(tab.id);
     return tab;
+  }
+
+  /* What a module's own number key does: open a tab of it, or go to the tab it already has and
+     cannot have a second of. The second branch is only ever reached by a `singleTab` module — the
+     other four are openable whatever is on the strip — and it is what keeps `Ctrl/Cmd+1` from being
+     a dead key in a window showing MixEngine alone. The row in Settings says which of the two it
+     is, from the same flag: see `moduleTabShortcuts`. */
+  function openOrGoTo(moduleId: string) {
+    if (openableIds.includes(moduleId)) {
+      openTab(moduleId);
+      return;
+    }
+    const open = firstTabOfModule(tabs, moduleId);
+    if (open !== undefined) setActiveId(open);
   }
 
   function closeTab(id: string) {
@@ -293,24 +333,30 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
             <SettingsIcon className="brand-gear" size={14} />
           </button>
         }
+        /* Not drawn at all once there is nothing left to open — a window holding the one tab its
+           one module has. A `[+]` that could only ever open what is already in front of you is a
+           control that lies about what the app can do, and the close button beside it is what such
+           a window uses instead: closing its last tab puts a fresh one in its place, which is how
+           the module is reloaded. See `openableModules`. */
         trailing={
-          <TabAction
-            onClick={(e) => {
-              // One module and a menu would be a list of one, so the button just opens it — which
-              // is what it did before there was a registry at all, and what the *MixEngine* profile
-              // does every time.
-              if (visible.length < 2) {
-                openTab();
-                return;
-              }
-              const rect = e.currentTarget.getBoundingClientRect();
-              setModuleMenu({ x: rect.left, y: rect.bottom });
-            }}
-            title={t("app.newConnectionTab")}
-            aria-label={t("app.newConnectionTab")}
-          >
-            <PlusIcon />
-          </TabAction>
+          openable.length > 0 ? (
+            <TabAction
+              onClick={(e) => {
+                // One module to offer and a menu would be a list of one, so the button just opens
+                // it — which is what it did before there was a registry at all.
+                if (openable.length < 2) {
+                  openTab(defaultModuleId(openable));
+                  return;
+                }
+                const rect = e.currentTarget.getBoundingClientRect();
+                setModuleMenu({ x: rect.left, y: rect.bottom });
+              }}
+              title={t("app.newConnectionTab")}
+              aria-label={t("app.newConnectionTab")}
+            >
+              <PlusIcon />
+            </TabAction>
+          ) : undefined
         }
       >
         {tabs.map((tab) => {
@@ -324,7 +370,11 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
               tabIndex={0}
               className={tab.badges.map((b) => b.tabClassName).filter(Boolean).join(" ")}
               onClose={() => closeTab(tab.id)}
-              closeLabel={t("app.closeTab")}
+              /* The last tab is not closed by this button, it is replaced — `closeTab` puts a fresh
+                 one where it was, because a window with no tabs is not a window. So on that one tab
+                 the button says what it actually does. True in every profile, not only the
+                 single-module one: it is a property of being the last tab. */
+              closeLabel={tabs.length === 1 ? t("app.reloadTab") : t("app.closeTab")}
               onClick={() => setActiveId(tab.id)}
               onKeyDown={tabKeyDown(() => setActiveId(tab.id))}
               {...reorder.tab(tab.id)}
@@ -363,11 +413,12 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
         })}
       </TabStrip>
 
-      {/* The modules this profile draws, in the registry's order. Unreachable while there is one of
-          them — the button above opens it outright rather than showing a menu of one. */}
+      {/* The modules that can still take a new tab, in the registry's order. Unreachable while
+          there is one of them — the button above opens it outright rather than showing a menu of
+          one — and unreachable while there are none, where there is no button at all. */}
       {moduleMenu && (
         <ContextMenu x={moduleMenu.x} y={moduleMenu.y} onClose={() => setModuleMenu(null)}>
-          {visible.map((m) => (
+          {openable.map((m) => (
             <button
               key={m.id}
               type="button"

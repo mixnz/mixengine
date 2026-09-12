@@ -76,6 +76,12 @@ export function visibleModules(enabled: string[]): ModuleDefinition[] {
  * session, the tab that replaces the last one closed, the tab that replaces the last one when a
  * module is turned off, `Ctrl/Cmd+T`, and the `[+]` button while there is only one module to offer.
  *
+ * **The first of whatever list it is handed.** The three that replace a tab pass the visible
+ * modules; the two that open one pass the openable ones — see `openableModules` in `shell/tabs.ts`,
+ * which is a narrower list and can be empty. Neither caller may hand it an empty one, and the two
+ * that could tell first: `Workspace` draws no `[+]` and registers no `Ctrl/Cmd+T` when there is
+ * nothing to open.
+ *
  * **The first module the profile shows** — and since `visible` is in the registry's order, that is
  * MixEngine for the *MixEngine* and *Everything* profiles and the database client for *Database
  * tools*, which is the whole of T109. There is no constant and no table of preferences per preset:

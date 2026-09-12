@@ -93,6 +93,19 @@ export interface ModuleDefinition {
   /** A tab's title when it is first opened, before the module names it. */
   defaultTitleKey: TranslationKey;
   Tab: ComponentType<ModuleTabProps>;
+  /**
+   * That a second tab of this module would hold nothing the first one does not.
+   *
+   * The default is `false`, and for most modules that is the point of a tab: one connection, one
+   * session, one request each. A module sets this when its tab is a view onto a single thing that
+   * exists once per machine — and the shell then stops offering to open another, on the `[+]`
+   * button, in the menu behind it, and on the chords that do the same thing (`shell/tabs.ts`).
+   *
+   * It says nothing about how many tabs may *exist*: a session restored from a build before the
+   * flag, or from a profile where the module was one of several, is drawn and works like any other.
+   * This is only about opening one more.
+   */
+  singleTab?: boolean;
   settings?: ModuleSettingsSection;
   /** The Ctrl/Cmd chords this module's panes answer, for the dispatcher to resolve and for
    *  Settings to list. Contributed exactly the way `settings` is: the shell collects them and

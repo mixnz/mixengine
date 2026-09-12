@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { rebadgeTab, restateTab, retitleTab, tabIdAtOffset, type TabInfo } from "./tabs";
+import {
+  firstTabOfModule,
+  openableModules,
+  rebadgeTab,
+  restateTab,
+  retitleTab,
+  tabIdAtOffset,
+  type TabInfo,
+} from "./tabs";
+import { visibleModules } from "./profiles";
+import { MODULE_PRESETS } from "./registry";
 
 const TABS: TabInfo[] = [
   { id: "a", moduleId: "db", title: "Kết nối mới", badges: [] },
   { id: "b", moduleId: "rest", title: "Yêu cầu mới", badges: [] },
 ];
+
+function tabOf(moduleId: string, id: string = moduleId): TabInfo {
+  return { id, moduleId, title: "", badges: [] };
+}
 
 describe("retitleTab", () => {
   it("hands back the very same array when the title has not moved", () => {
@@ -75,6 +89,64 @@ describe("restateTab", () => {
   it("does not compare state by value", () => {
     const withState = restateTab(TABS, "a", { savedId: "c-1" });
     expect(restateTab(withState, "a", { savedId: "c-1" })).not.toBe(withState);
+  });
+});
+
+/* What the `[+]` button, the menu behind it and the number chords are still allowed to open.
+
+   The question is a module's own and never a count of modules: a window drawing nothing but the
+   terminal is a window where a second tab is the whole point, and one drawing nothing but
+   MixEngine is a window where a second tab is a second copy of one daemon's control panel. */
+describe("openableModules", () => {
+  const everything = visibleModules(MODULE_PRESETS.everything);
+  const mixengineOnly = visibleModules(MODULE_PRESETS.mixengine);
+
+  it("offers every visible module while the window holds no tabs at all", () => {
+    expect(openableModules(everything, []).map((m) => m.id)).toEqual(everything.map((m) => m.id));
+  });
+
+  it("drops a module that says one tab of it is all there is, once it has one", () => {
+    expect(openableModules(everything, [tabOf("mixengine")]).map((m) => m.id)).toEqual([
+      "db",
+      "rest",
+      "terminal",
+      "tools",
+    ]);
+  });
+
+  it("leaves a MixEngine-only window with nothing left to open", () => {
+    expect(openableModules(mixengineOnly, [tabOf("mixengine")])).toEqual([]);
+  });
+
+  /* A connection, a session, a request — a tab each, and the module is no less openable for having
+     three of them. This is the case a rule written on `visible.length` would have broken. */
+  it("keeps a module whose tabs are its whole point, however many are open", () => {
+    const terminalOnly = visibleModules(["terminal"]);
+    const tabs = [tabOf("terminal", "a"), tabOf("terminal", "b"), tabOf("terminal", "c")];
+    expect(openableModules(terminalOnly, tabs).map((m) => m.id)).toEqual(["terminal"]);
+  });
+
+  it("says nothing about a tab of a module this window is not drawing", () => {
+    expect(openableModules(mixengineOnly, [tabOf("db")]).map((m) => m.id)).toEqual(["mixengine"]);
+  });
+});
+
+/* Where the chord of a module that is already open goes. */
+describe("firstTabOfModule", () => {
+  it("finds the tab of that module", () => {
+    expect(firstTabOfModule(TABS, "rest")).toBe("b");
+  });
+
+  it("says nothing when the module has no tab", () => {
+    expect(firstTabOfModule(TABS, "mixengine")).toBeUndefined();
+    expect(firstTabOfModule([], "mixengine")).toBeUndefined();
+  });
+
+  /* "First" and not "the": a `singleTab` module cannot be opened twice, but a session written
+     before it said so can hold two, and the chord has to land somewhere either way. */
+  it("takes the one nearest the front of the strip", () => {
+    const tabs = [tabOf("db"), tabOf("mixengine", "one"), tabOf("mixengine", "two")];
+    expect(firstTabOfModule(tabs, "mixengine")).toBe("one");
   });
 });
 

@@ -35,6 +35,10 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Changed
+- MixLab stops offering a second MixEngine tab: one tab is the whole of it, so a window showing
+  MixEngine alone has no `[+]` button, and `Ctrl/Cmd+1` goes to the tab rather than opening another.
+  The close button on the last tab there is now reads *Reload module* — closing it puts a fresh one
+  in its place, which is how a module is reloaded.
 - MixLab's Runtimes screen puts Web servers, Databases and Cache & queues on the same tab strip as
   Languages: one row of tabs instead of a *Software* tab that had to be opened first.
 - MixLab wears MixDB's mark — three data platters fanned out on a blue tile — in the taskbar, the

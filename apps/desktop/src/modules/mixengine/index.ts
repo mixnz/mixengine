@@ -11,5 +11,10 @@ export const mixengineModule: ModuleDefinition = {
   labelKey: "app.moduleMixEngine",
   Icon: EngineIcon,
   defaultTitleKey: "mixengine.newTabTitle",
+  /* Một tab là hết. Tab này là bảng điều khiển của **một** daemon trên **một** máy: mở cái thứ hai
+     không cho xem thêm gì cả, chỉ là hai bản sao cùng một trạng thái, cạnh nhau, và cái nào cũng có
+     thể là cái người dùng vừa đọc lần trước. Khác hẳn bốn module kia, nơi mỗi tab là một kết nối,
+     một phiên, một yêu cầu. */
+  singleTab: true,
   Tab: lazy(() => import("./MixEngineTab")),
 };

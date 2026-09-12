@@ -74,6 +74,44 @@ describe("moduleTabShortcuts", () => {
   });
 });
 
+/* A module that holds one tab and no more does not lose its number key — the key stops opening a
+   second tab and goes to the first instead, which is what the same key does in every browser with a
+   pinned tab. So the row stays on the catalogue, and what changes is what it says. `Ctrl/Cmd+T` is
+   the one that does go: it means "one more", and there is no more. */
+describe("a module that is open and cannot be opened again", () => {
+  it("keeps its number key, and says what that key now does", () => {
+    const defs = shortcutsFor(mixengineOnly, []).flatMap((group) => group.defs);
+    const mixengine = defs.find((def) => def.id === newModuleTabId("mixengine"));
+    expect(mixengine?.chord.key).toBe("1");
+    expect(mixengine?.labelKey).toBe("shortcuts.goToModule");
+    expect(defs.some((def) => def.id === "app.newTab")).toBe(false);
+    // The tab can still be closed — which is the whole of what such a window's close button does.
+    expect(defs.some((def) => def.id === "app.closeTab")).toBe(true);
+  });
+
+  /* The four whose tabs are a connection, a session or a request each are never in that position,
+     and their rows say what they have always said. */
+  it("leaves every other module's row saying it opens a new tab", () => {
+    const defs = shortcutsFor(everything, everything).flatMap((group) => group.defs);
+    for (const id of ["db", "rest", "terminal", "tools"]) {
+      expect(defs.find((def) => def.id === newModuleTabId(id))?.labelKey).toBe(
+        "shortcuts.newModuleTab",
+      );
+    }
+  });
+
+  /* The number a module answers to is where it is **drawn**, and nothing about the state of the
+     window may slide `Ctrl/Cmd+2` off the database onto its neighbour. */
+  it("leaves every module the number it is drawn at", () => {
+    const openable = everything.filter((m) => m.id !== "mixengine");
+    const defs = shortcutsFor(everything, openable).flatMap((group) => group.defs);
+    expect(defs.find((def) => def.id === newModuleTabId("mixengine"))?.chord.key).toBe("1");
+    expect(defs.find((def) => def.id === newModuleTabId("db"))?.chord.key).toBe("2");
+    // Four modules can still take one: `Ctrl/Cmd+T` has something to do.
+    expect(defs.some((def) => def.id === "app.newTab")).toBe(true);
+  });
+});
+
 /* `Ctrl/Cmd+R` is written down twice — as `pane.reload` in this file, and as an alias of
    `rest.send` in the REST module — and which of the two a press means is settled against the one
    assembled catalogue. That is what is worth pinning: either def moving is a change to the

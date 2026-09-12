@@ -39,7 +39,11 @@ export function moduleTabShortcuts(
     def: {
       id: newModuleTabId(module.id),
       chord: { key: String(i + 1) },
-      labelKey: "shortcuts.newModuleTab",
+      /* A module that holds one tab and no more never opens a second, so its row says the one
+         thing its key does: open that tab, or go to it. The other four are always openable and the
+         row has said *New … tab* since there were rows. See `Workspace.tsx`, which answers the
+         chord the same way round. */
+      labelKey: module.singleTab ? "shortcuts.goToModule" : "shortcuts.newModuleTab",
       // The module's own name, so the table says "New REST tab" without this file knowing there is
       // a REST module — the registry is still the only place outside `src/modules/` that may.
       labelVars: { module: module.labelKey },
@@ -51,7 +55,7 @@ export function moduleTabShortcuts(
 }
 
 /** The chords the app answers wherever you are — the tab bar's, and the reload every pane shares. */
-function shellShortcuts(visible: ModuleDefinition[]): ShortcutGroup[] {
+function shellShortcuts(visible: ModuleDefinition[], openable: ModuleDefinition[]): ShortcutGroup[] {
   return [
     {
       scope: "app",
@@ -61,7 +65,19 @@ function shellShortcuts(visible: ModuleDefinition[]): ShortcutGroup[] {
            opens and a tab closes from behind an open dialog. The registry is the first thing that
            made the question visible, and a refactor that answers it differently is a refactor
            nobody can trust. Deciding otherwise later is one flag on one line. */
-        { id: "app.newTab", chord: { key: "t" }, labelKey: "shortcuts.newTab", inModal: true },
+        ...(openable.length > 0
+          ? [
+              {
+                id: "app.newTab",
+                chord: { key: "t" },
+                labelKey: "shortcuts.newTab",
+                inModal: true,
+              } satisfies ShortcutDef,
+            ]
+          : []),
+        /* Every visible module, openable or not: a module that cannot take a second tab answers its
+           key by going to the first — see `firstTabOfModule`. `app.newTab` above is the only one
+           that goes, because "one more" is the only thing it can mean. */
         ...moduleTabShortcuts(visible).map((entry) => entry.def),
         { id: "app.closeTab", chord: { key: "w" }, labelKey: "shortcuts.closeTab", inModal: true },
         /* `ctrl` rather than the platform's modifier, because `Cmd+Tab` never reaches a Mac app —
@@ -99,11 +115,20 @@ function shellShortcuts(visible: ModuleDefinition[]): ShortcutGroup[] {
  * A hidden module contributes nothing: its panes are never mounted, so nothing would answer its
  * chords, and the shortcut table draws exactly this list.
  *
+ * `openable` is the same list narrowed to the modules a new tab can still be opened of — see
+ * `openableModules` in `shell/tabs.ts`. It decides one thing: whether `app.newTab` is here at all.
+ * A module's own number key is always here, because a module with nothing left to open answers it
+ * by going to the tab it has. Defaults to the whole of `visible`, which is what a window with no
+ * tabs in it yet would pass.
+ *
  * **The result must be memoized by the caller.** It was a module-level constant until T108 made it
  * a function of the visible modules; `useShortcutDispatcher` rebinds its listener whenever the
  * array's identity changes, and the Settings table is handed the very same value so the two cannot
  * come to disagree.
  */
-export function shortcutsFor(visible: ModuleDefinition[]): ShortcutGroup[] {
-  return [...shellShortcuts(visible), ...visible.flatMap((m) => m.shortcuts ?? [])];
+export function shortcutsFor(
+  visible: ModuleDefinition[],
+  openable: ModuleDefinition[] = visible,
+): ShortcutGroup[] {
+  return [...shellShortcuts(visible, openable), ...visible.flatMap((m) => m.shortcuts ?? [])];
 }
