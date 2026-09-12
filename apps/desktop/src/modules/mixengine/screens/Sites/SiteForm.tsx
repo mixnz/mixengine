@@ -5,6 +5,7 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -252,15 +253,13 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
             </label>
 
             {needsRiskyTldConsent && (
-              <label className={styles.checkbox}>
-                <input
-                  type="checkbox"
-                  checked={acceptRiskyTld}
-                  disabled={saving}
-                  onChange={(e) => setAcceptRiskyTld(e.target.checked)}
-                />
-                {t("mixengine.sites.form.acceptRiskyTld")}
-              </label>
+              <Checkbox
+                className={styles.checkbox}
+                label={t("mixengine.sites.form.acceptRiskyTld")}
+                checked={acceptRiskyTld}
+                disabled={saving}
+                onChange={(e) => setAcceptRiskyTld(e.target.checked)}
+              />
             )}
 
             <label className={styles.field}>
@@ -350,53 +349,46 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               {t("mixengine.sites.form.services")}
               <div className={styles.serviceList}>
                 {serviceIds.map((id) => (
-                  <label key={id} className={styles.checkbox}>
-                    <input
-                      type="checkbox"
-                      checked={selectedServices.has(id)}
-                      disabled={saving}
-                      onChange={() => toggleService(id)}
-                    />
-                    {id}
-                  </label>
+                  <Checkbox
+                    key={id}
+                    className={styles.checkbox}
+                    label={id}
+                    checked={selectedServices.has(id)}
+                    disabled={saving}
+                    onChange={() => toggleService(id)}
+                  />
                 ))}
               </div>
             </div>
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={https}
-                disabled={saving}
-                onChange={(e) => {
-                  setHttps(e.target.checked);
-                  // Bỏ HTTPS là bỏ luôn redirect: không có địa chỉ HTTPS nào để chuyển tới.
-                  if (!e.target.checked) setHttpsRedirect(false);
-                }}
-              />
-              {t("mixengine.sites.form.https")}
-            </label>
+            <Checkbox
+              className={styles.checkbox}
+              label={t("mixengine.sites.form.https")}
+              checked={https}
+              disabled={saving}
+              onChange={(e) => {
+                setHttps(e.target.checked);
+                // Bỏ HTTPS là bỏ luôn redirect: không có địa chỉ HTTPS nào để chuyển tới.
+                if (!e.target.checked) setHttpsRedirect(false);
+              }}
+            />
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={https && httpsRedirect}
-                disabled={saving || !https}
-                onChange={(e) => setHttpsRedirect(e.target.checked)}
-              />
-              {t("mixengine.sites.form.httpsRedirect")}
-            </label>
+            <Checkbox
+              className={styles.checkbox}
+              label={t("mixengine.sites.form.httpsRedirect")}
+              checked={https && httpsRedirect}
+              disabled={saving || !https}
+              onChange={(e) => setHttpsRedirect(e.target.checked)}
+            />
 
             {editing && (
-              <label className={styles.checkbox}>
-                <input
-                  type="checkbox"
-                  checked={enabled}
-                  disabled={saving}
-                  onChange={(e) => setEnabled(e.target.checked)}
-                />
-                {t("mixengine.sites.form.enabled")}
-              </label>
+              <Checkbox
+                className={styles.checkbox}
+                label={t("mixengine.sites.form.enabled")}
+                checked={enabled}
+                disabled={saving}
+                onChange={(e) => setEnabled(e.target.checked)}
+              />
             )}
           </div>
 

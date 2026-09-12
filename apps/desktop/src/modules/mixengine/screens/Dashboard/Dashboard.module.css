@@ -57,12 +57,16 @@
  * hai cột không hề đổi nội dung. Với `fixed`, bề rộng do `<colgroup>` quyết, và chữ trong ô đổi
  * không resize gì nữa.
  *
- * `min-width` là tổng bề rộng nội tại đo được của bốn cột (503px) làm tròn lên: hẹp hơn thế thì
- * `.tableWrap` cuộn ngang, chứ không bóp cột cho tới khi phải cắt chữ.
+ * `min-width` là tổng bề rộng nội tại đo được của cả bảy cột (787px, ứng với bảy tỉ lệ % trong
+ * `<colgroup>`) làm tròn lên: hẹp hơn thế thì `.tableWrap` cuộn ngang, chứ không bóp cột cho tới
+ * khi phải cắt chữ. `<colgroup>` từng chỉ có sáu `<col>` cho một bảng bảy cột — cột Hành động
+ * (cột cuối) không có `<col>` riêng nên bị co về gần 0px, và ba nút Bật/Tắt, Khởi động lại, ⋮ bị
+ * `overflow: hidden` bên dưới nuốt mất mà không cuộn ngang tới được: nội dung tràn *bên trong* biên
+ * của chính ô đó, không tràn ra ngoài bảng để `.tableWrap` cuộn tới.
  */
 .table {
   width: 100%;
-  min-width: 36rem;
+  min-width: 57rem;
   table-layout: fixed;
   border-collapse: collapse;
   white-space: nowrap;
@@ -154,9 +158,11 @@
  */
 .toggle {
   width: 5.5rem;
-  /* Không khai `height`: `.actions` là flex và để `align-items` mặc định là `stretch`, nên nút này
-     tự cao bằng các nút chữ bên cạnh. Một con số cứng ở đây từng làm nó lùn hơn hàng xóm, và sẽ
-     lệch lại mỗi lần padding của nút đổi. */
+  /* Khai `height` tường minh: chấm (`.dot`, nghỉ) và chữ (`.label`, hover) cao khác nhau, nên nếu
+     để `.actions` tự stretch theo nội dung thì cả hàng — kể cả nút Khởi động lại và ⋮ bên cạnh —
+     cao thêm mỗi lần rê chuột vào nút này rồi lùn lại khi rê ra. Một con số đủ cho `.label` (chữ,
+     trạng thái cao hơn) là con số dùng cho cả hai trạng thái, nên không còn gì để nhảy nữa. */
+  height: 2.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;

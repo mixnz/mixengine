@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import Button from "../../../../components/Button";
 import ContextMenu from "../../../../components/ContextMenu";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import { errorMessage } from "../../../../core/errors";
@@ -315,17 +316,17 @@ export default function Dashboard({ active }: { active: boolean }) {
             định danh: version, home, CPU/RSS) — `.headerButtons` đẩy sang phải nên nút này tự đứng
             sát mép trái. */}
         {waiting > 0 && pending === null && (
-          <button className={styles.waiting} onClick={() => void showWaiting()}>
+          <Button className={styles.waiting} onClick={() => void showWaiting()}>
             {t("mixengine.dashboard.elevationWaiting", { count: waiting })}
-          </button>
+          </Button>
         )}
         <div className={styles.headerButtons}>
           {/* Đường dự phòng thủ công cho đúng lỗ hổng comment `reload` ở trên đã nêu: một service
               được tạo/xoá từ nơi khác (CLI, một tab MixDB khác) không sinh sự kiện nào cho bảng này
               biết — quay lại tab là đường dự phòng tự động, nút này là đường dự phòng chủ động. */}
-          <button onClick={() => void reload()}>{t("mixengine.dashboard.reload")}</button>
+          <Button onClick={() => void reload()}>{t("mixengine.dashboard.reload")}</Button>
           {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
-          <button
+          <Button
             onClick={() =>
               void Promise.all(
                 rows.filter((row) => row.state === "running").map((row) => act(row.id, "stop")),
@@ -334,8 +335,8 @@ export default function Dashboard({ active }: { active: boolean }) {
             disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
           >
             {t("mixengine.dashboard.stopAll")}
-          </button>
-          <button onClick={() => setCreating(true)}>{t("mixengine.serviceForm.newService")}</button>
+          </Button>
+          <Button onClick={() => setCreating(true)}>{t("mixengine.serviceForm.newService")}</Button>
         </div>
       </div>
 
@@ -357,11 +358,12 @@ export default function Dashboard({ active }: { active: boolean }) {
               Tỉ lệ lấy từ bề rộng nội tại đo được của từng cột, không phải ước lượng. */}
           <colgroup>
             <col style={{ width: "18%" }} />
-            <col style={{ width: "22%" }} />
-            <col style={{ width: "7%" }} />
+            <col style={{ width: "16%" }} />
             <col style={{ width: "9%" }} />
+            <col style={{ width: "6%" }} />
             <col style={{ width: "10%" }} />
-            <col style={{ width: "34%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "31%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -446,13 +448,13 @@ export default function Dashboard({ active }: { active: boolean }) {
                       </button>
                     );
                   })()}
-                  <button
+                  <Button
                     className={styles.restart}
                     onClick={() => void act(row.id, "restart")}
                     disabled={busy[row.id] !== undefined}
                   >
                     {t("mixengine.dashboard.restart")}
-                  </button>
+                  </Button>
                   <button
                     className={styles.more}
                     aria-label={t("mixengine.dashboard.rowMenu")}

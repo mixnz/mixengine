@@ -4,6 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -83,15 +84,13 @@ export default function ImportDialog({ onCancel, onImported }: Props) {
               />
             </label>
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={overwrite}
-                disabled={saving}
-                onChange={(e) => setOverwrite(e.target.checked)}
-              />
-              {t("mixengine.blueprints.import.overwrite")}
-            </label>
+            <Checkbox
+              className={styles.checkbox}
+              label={t("mixengine.blueprints.import.overwrite")}
+              checked={overwrite}
+              disabled={saving}
+              onChange={(e) => setOverwrite(e.target.checked)}
+            />
           </div>
 
           {error !== "" && (

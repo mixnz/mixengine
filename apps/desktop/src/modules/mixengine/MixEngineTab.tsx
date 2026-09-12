@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
+import Button from "../../components/Button";
 import ErrorBanner from "../../components/ErrorBanner";
 import { errorMessage } from "../../core/errors";
 import { useTranslation, type Language } from "../../i18n";
@@ -153,19 +154,19 @@ export default function MixEngineTab({
           </>
         )}
         {presence === "notRunning" && (
-          <button onClick={() => void run(api.startDaemon)} disabled={busy}>
+          <Button onClick={() => void run(api.startDaemon)} disabled={busy}>
             {busy ? t("mixengine.gate.starting") : t("mixengine.gate.start")}
-          </button>
+          </Button>
         )}
         {presence === "notAnswering" && (
-          <button onClick={() => void run(() => Promise.resolve())} disabled={busy}>
+          <Button onClick={() => void run(() => Promise.resolve())} disabled={busy}>
             {t("mixengine.gate.retry")}
-          </button>
+          </Button>
         )}
         {presence === "notInstalled" && (
-          <button onClick={() => void openUrl(INSTALL_PAGE_BY_LANG[lang] ?? INSTALL_PAGE_EN)}>
+          <Button onClick={() => void openUrl(INSTALL_PAGE_BY_LANG[lang] ?? INSTALL_PAGE_EN)}>
             {t("mixengine.gate.getIt")}
-          </button>
+          </Button>
         )}
       </div>
     );

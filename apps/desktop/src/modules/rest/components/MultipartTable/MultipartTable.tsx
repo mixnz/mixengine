@@ -1,6 +1,7 @@
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { CloseIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { pickFile } from "../../api";
@@ -61,8 +62,8 @@ function MultipartTable({ rows, onChange }: Props) {
       </div>
       {rows.map((row) => (
         <div key={row.id} className={styles.row}>
-          <input
-            type="checkbox"
+          <Checkbox
+            size="small"
             checked={row.enabled}
             aria-label={t("rest.rowEnabled")}
             title={t("rest.rowEnabled")}

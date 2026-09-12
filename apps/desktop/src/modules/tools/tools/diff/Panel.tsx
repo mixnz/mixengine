@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Textarea } from "../../../../components/Input";
+import Checkbox from "../../../../components/Checkbox";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import { formatJson } from "../format/json";
 import {
@@ -90,30 +91,24 @@ function DiffPanel() {
       </div>
 
       <div className={styles.controls}>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={ignoreWhitespace}
-            onChange={(event) => setIgnoreWhitespace(event.target.checked)}
-          />
-          {t("toolbox.diff.ignoreWhitespace")}
-        </label>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={ignoreCase}
-            onChange={(event) => setIgnoreCase(event.target.checked)}
-          />
-          {t("toolbox.diff.ignoreCase")}
-        </label>
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={asJson}
-            onChange={(event) => setAsJson(event.target.checked)}
-          />
-          {t("toolbox.diff.asJson")}
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("toolbox.diff.ignoreWhitespace")}
+          checked={ignoreWhitespace}
+          onChange={(event) => setIgnoreWhitespace(event.target.checked)}
+        />
+        <Checkbox
+          className={styles.check}
+          label={t("toolbox.diff.ignoreCase")}
+          checked={ignoreCase}
+          onChange={(event) => setIgnoreCase(event.target.checked)}
+        />
+        <Checkbox
+          className={styles.check}
+          label={t("toolbox.diff.asJson")}
+          checked={asJson}
+          onChange={(event) => setAsJson(event.target.checked)}
+        />
       </div>
 
       {outcome === "notJson" ? <p className={styles.error}>{t("toolbox.diff.notJson")}</p> : null}

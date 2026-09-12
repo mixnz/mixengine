@@ -5,6 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
+import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -146,18 +147,15 @@ export default function QuickStart({ onCreated }: { onCreated: () => void }) {
         <div className={styles.form}>
           <label className={styles.field}>
             {t("mixengine.quickStart.stack")}
-            <select
-              className={styles.select}
+            <Select
               value={slug}
+              onChange={setSlug}
               disabled={phase.kind !== "form"}
-              onChange={(e) => setSlug(e.target.value)}
-            >
-              {available.map((blueprint) => (
-                <option key={blueprint.slug} value={blueprint.slug}>
-                  {blueprint.name}
-                </option>
-              ))}
-            </select>
+              options={available.map((blueprint) => ({
+                value: blueprint.slug,
+                label: blueprint.name,
+              }))}
+            />
           </label>
 
           <label className={styles.field}>

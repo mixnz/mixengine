@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import Button from "../../../../components/Button";
 import Modal from "../../../../components/Modal";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -62,19 +63,18 @@ export default function CleanupDialog({ disk, onCancel, onStarted }: Props) {
               const flag = cleanupFlagFor(category.id);
               if (flag === null || category.reclaim.reclaim !== "by_cleanup") return null;
               return (
-                <label key={category.id} className={styles.item}>
-                  <input
-                    type="checkbox"
-                    checked={keep[category.id] ?? false}
-                    disabled={submitting}
-                    onChange={(e) =>
-                      setKeep((current) => ({ ...current, [category.id]: e.target.checked }))
-                    }
-                  />
-                  {t("mixengine.dashboard.diskUsage.cleanupKeep", {
+                <Checkbox
+                  key={category.id}
+                  className={styles.item}
+                  label={t("mixengine.dashboard.diskUsage.cleanupKeep", {
                     category: t(`mixengine.dashboard.diskUsage.category.${category.id}`),
                   })}
-                </label>
+                  checked={keep[category.id] ?? false}
+                  disabled={submitting}
+                  onChange={(e) =>
+                    setKeep((current) => ({ ...current, [category.id]: e.target.checked }))
+                  }
+                />
               );
             })}
           </div>

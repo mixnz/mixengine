@@ -15,6 +15,7 @@ import {
 } from "../../environmentsStore";
 import styles from "./EnvironmentDialog.module.css";
 import Modal from "../../../../components/Modal";
+import Checkbox from "../../../../components/Checkbox";
 
 interface Props {
   /** Which environment to open on — the one the tab strip was showing. */
@@ -193,8 +194,8 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
                               </button>
                             )}
                           </div>
-                          <input
-                            type="checkbox"
+                          <Checkbox
+                            size="small"
                             checked={variable.secret}
                             aria-label={t("rest.envVarSecret")}
                             title={t("rest.envVarSecretHint")}

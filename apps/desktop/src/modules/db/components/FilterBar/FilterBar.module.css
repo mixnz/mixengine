@@ -31,16 +31,9 @@
   gap: 0.4rem;
 }
 
-/* The app-wide `input` rule dresses every input as a text field; a checkbox wants none of it. */
+/* The box keeps its own size; the row only says it must not be stretched with the fields. */
 .toggle {
   flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  padding: 0;
-  box-shadow: none;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 /* The field box and the operator select hold their width so the rows stay in columns, but may

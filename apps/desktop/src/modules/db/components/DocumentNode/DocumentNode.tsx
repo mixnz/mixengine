@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef, useState } from "react";
 import Select from "../../../../components/Select";
 import Input, { Textarea } from "../../../../components/Input";
+import Checkbox from "../../../../components/Checkbox";
 import { LockIcon, TrashIcon } from "../../../../icons";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import {
@@ -363,9 +364,10 @@ export function ValueEditor({ initialValue, onCommit, onCancel, propertyName }: 
         />
       )}
       {draft.type === "Boolean" && (
-        <label className={styles.checkboxLabel}>
-          <input type="checkbox" checked={draft.bool} onChange={(e) => setDraft({ ...draft, bool: e.target.checked })} />
-        </label>
+        <Checkbox
+          checked={draft.bool}
+          onChange={(e) => setDraft({ ...draft, bool: e.target.checked })}
+        />
       )}
       {draft.type === "Date" && (
         <Input

@@ -3,6 +3,7 @@ import Button from "../../../../components/Button";
 import Input, { Textarea } from "../../../../components/Input";
 import { useTranslation } from "../../../../i18n";
 import CopyField from "../../components/CopyField";
+import Checkbox from "../../../../components/Checkbox";
 import type { RegexMatch, RegexRun } from "./match";
 import { runInWorker } from "./run";
 import styles from "./Panel.module.css";
@@ -53,10 +54,13 @@ function RegexPanel() {
 
       <div className={styles.controls}>
         {FLAGS.map((flag) => (
-          <label key={flag} className={styles.flag}>
-            <input type="checkbox" checked={flags.includes(flag)} onChange={() => toggle(flag)} />
-            {flag}
-          </label>
+          <Checkbox
+            key={flag}
+            className={styles.flag}
+            label={flag}
+            checked={flags.includes(flag)}
+            onChange={() => toggle(flag)}
+          />
         ))}
         <Button variant="primary" onClick={run} disabled={busy || pattern === ""}>
           {busy ? t("common.loading") : t("toolbox.regex.run")}

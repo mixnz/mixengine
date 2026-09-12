@@ -9,33 +9,45 @@
   box-sizing: border-box;
   border-right: 1px solid var(--border);
   padding: 8px;
-  gap: 2px;
 }
 
-/* Một nhóm là các mục của nó cộng một tiêu đề. `margin-top: auto` trên nhóm cuối đẩy Settings
-   xuống đáy — nhóm đó không có tiêu đề, nên `:last-child` là cách nói "cái không thuộc nhóm nào". */
+/* Một nhóm là các mục của nó cộng một tiêu đề. */
 .group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+/* Ranh giới giữa hai nhóm là một đường kẻ, không phải một khoảng trắng. Sidebar rộng 180px nên
+   tiêu đề chỉ dài một hai từ và nằm đúng cột với các mục dưới nó; ở hình dạng đó, riêng khoảng cách
+   dọc không đọc ra được là "hết nhóm này" — nó chỉ đọc ra là một danh sách thưa hơn.
+
+   `.group + .group` chứ không phải mọi `.group`: nhóm đầu tiên nằm sát mép trên của tab, một đường kẻ
+   ở đó không ngăn cách gì với gì cả. */
+.group + .group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* Phải đứng sau `.group + .group`: hai selector cùng độ đặc hiệu, cái viết sau thắng, và nhóm cuối
+   cần `auto` — nó đẩy Settings xuống đáy. Nhóm đó không có tiêu đề, nên `:last-child` là cách nói
+   "cái không thuộc nhóm nào". */
 .group:last-child {
   margin-top: auto;
 }
 
+/* Tiêu đề mang ba tín hiệu cùng lúc — nhỏ hơn, mờ hơn, viết hoa giãn chữ — vì mục đang chọn cũng
+   đậm 600: riêng độ đậm không phân biệt được hai thứ. Cỡ chữ lấy từ thang bốn bậc trong `App.css`
+   chứ không phải một con số riêng: 11px ở đây là bậc thứ năm mà thang đó nói là không có. */
 .heading {
-  margin: 10px 0 2px;
+  margin: 0 0 4px;
   padding: 0 10px;
-  font-size: var(--text-xs, 11px);
+  font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-muted);
-}
-
-.group:first-child .heading {
-  margin-top: 0;
 }
 
 .item {
@@ -49,11 +61,14 @@
 }
 
 .item:hover:not(:disabled) {
-  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+  background: var(--hover-bg);
 }
 
+/* Không có token nào cho "hàng đang chọn trong một danh sách điều hướng" — `--choice-active-bg` là
+   của segmented control và ở theme tối nó đúng bằng màu trang. Một lớp xám dày hơn `--hover-bg` nổi
+   được ở cả hai theme. */
 .item[aria-current="page"] {
-  background: var(--surface-active, rgba(127, 127, 127, 0.2));
+  background: rgb(128 128 128 / 0.22);
   font-weight: 600;
 }
 

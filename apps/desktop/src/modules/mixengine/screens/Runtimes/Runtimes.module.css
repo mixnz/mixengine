@@ -2,8 +2,8 @@
    chốt cứng chiều cao `.runtimes` đúng bằng viewport bất kể nội dung tràn ra ngoài bằng
    `overflow: visible` mặc định — sticky của `.tabStrip` chỉ dính được trong đúng phạm vi chiều cao
    containing block của nó, nên với `height: 100%` nó rời khỏi đầu trang gần như ngay khi cuộn.
-   `.packages`/`.languages` (con của `.pane`, không đặt height) tự cao theo đúng nội dung nên dải
-   category bên trong không gặp lỗi này — đây là lý do "cấp 2" từng dính đúng còn "cấp 1" thì không. */
+   `.packages`/`.languages` (con của `.pane`, không đặt height) tự cao theo đúng nội dung nên không
+   gặp lỗi này. */
 .runtimes {
   display: flex;
   flex-direction: column;
@@ -26,7 +26,7 @@
   background: var(--surface-bg);
 }
 
-/* Giữ Ngôn ngữ/Gói mount cả hai một khi đã ghé qua — không thêm hộp mới vào layout lúc đang hiện,
+/* Giữ Ngôn ngữ mount một khi đã ghé qua — không thêm hộp mới vào layout lúc đang hiện,
    cùng lý do `.mixengine-screen-pane` đã theo ở `mixengine.css`. */
 .pane {
   display: contents;

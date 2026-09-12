@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import JsonView from "../../../../components/JsonView";
 import { Tab, TabStrip, tabKeyDown } from "../../../../components/TabStrip";
+import Checkbox from "../../../../components/Checkbox";
 import { useTranslation } from "../../../../i18n";
 import {
   SOURCE_MAX_BYTES,
@@ -195,10 +196,12 @@ function ResponsePane({
       const shown = detected.text.slice(0, MAX_TEXT);
       return (
         <>
-          <label className={styles.toolbar}>
-            <input type="checkbox" checked={wrap} onChange={(e) => setWrap(e.target.checked)} />
-            {t("rest.wrapLines")}
-          </label>
+          <Checkbox
+            className={styles.toolbar}
+            label={t("rest.wrapLines")}
+            checked={wrap}
+            onChange={(e) => setWrap(e.target.checked)}
+          />
           {shown.length < detected.text.length && (
             <p className={`${styles.notice} muted`}>
               {t("rest.truncatedNotice", {

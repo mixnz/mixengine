@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Checkbox from "../../../../components/Checkbox";
 import { useTranslation } from "../../../../i18n";
 import { previewClose, previewOpen } from "../../api";
 import { previewDocument } from "../../previewDocument";
@@ -65,18 +66,20 @@ function HtmlPreview({ html, finalUrl }: Props) {
   return (
     <div className={styles.preview}>
       <div className={styles.toolbar}>
-        <label className={styles.switch} title={t("rest.loadExternalHint")}>
-          <input
-            type="checkbox"
-            checked={external}
-            onChange={(e) => setExternal(e.target.checked)}
-          />
-          {t("rest.loadExternal")}
-        </label>
-        <label className={styles.switch} title={t("rest.runScriptsHint")}>
-          <input type="checkbox" checked={scripts} onChange={(e) => setScripts(e.target.checked)} />
-          {t("rest.runScripts")}
-        </label>
+        <Checkbox
+          className={styles.switch}
+          title={t("rest.loadExternalHint")}
+          label={t("rest.loadExternal")}
+          checked={external}
+          onChange={(e) => setExternal(e.target.checked)}
+        />
+        <Checkbox
+          className={styles.switch}
+          title={t("rest.runScriptsHint")}
+          label={t("rest.runScripts")}
+          checked={scripts}
+          onChange={(e) => setScripts(e.target.checked)}
+        />
       </div>
       {src !== "" && (
         <iframe

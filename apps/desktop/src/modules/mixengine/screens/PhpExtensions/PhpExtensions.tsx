@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -68,18 +69,18 @@ export default function PhpExtensions({ onGoTo }: { onGoTo: (screen: MixEngineSc
         <>
           <label className={styles.field}>
             {t("mixengine.phpExtensions.version")}
-            <select
+            <Select
               className={styles.select}
               value={version}
-              onChange={(e) => setVersion(e.target.value)}
-            >
-              {(installed ?? []).map((runtime) => (
-                <option key={runtime.version} value={runtime.version}>
-                  {runtime.version}
-                  {runtime.default ? ` — ${t("mixengine.phpExtensions.isDefault")}` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={setVersion}
+              ariaLabel={t("mixengine.phpExtensions.version")}
+              options={(installed ?? []).map((runtime) => ({
+                value: runtime.version,
+                label: runtime.default
+                  ? `${runtime.version} — ${t("mixengine.phpExtensions.isDefault")}`
+                  : runtime.version,
+              }))}
+            />
           </label>
 
           {version !== "" && <ExtensionsPanel target={{ kind: "php", version }} />}

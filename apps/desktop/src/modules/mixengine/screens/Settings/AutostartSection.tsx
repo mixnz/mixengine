@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -57,10 +58,13 @@ export default function AutostartSection({ onError }: { onError: (message: strin
         </p>
       ) : (
         <>
-          <div className={styles.row}>
-            <input type="checkbox" checked={report.enabled} disabled={busy} onChange={() => void toggle()} />
-            <span>{t("mixengine.settings.autostart.toggle")}</span>
-          </div>
+          <Checkbox
+            className={styles.row}
+            label={t("mixengine.settings.autostart.toggle")}
+            checked={report.enabled}
+            disabled={busy}
+            onChange={() => void toggle()}
+          />
           {presentation === "enabledOtherHome" && (
             <p className={styles.warn}>{t("mixengine.settings.autostart.otherHome")}</p>
           )}

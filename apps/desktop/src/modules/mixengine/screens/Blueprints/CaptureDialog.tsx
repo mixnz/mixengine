@@ -4,6 +4,7 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -91,15 +92,13 @@ export default function CaptureDialog({ onCancel, onCaptured }: Props) {
               />
             </label>
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={overwrite}
-                disabled={saving}
-                onChange={(e) => setOverwrite(e.target.checked)}
-              />
-              {t("mixengine.blueprints.capture.overwrite")}
-            </label>
+            <Checkbox
+              className={styles.checkbox}
+              label={t("mixengine.blueprints.capture.overwrite")}
+              checked={overwrite}
+              disabled={saving}
+              onChange={(e) => setOverwrite(e.target.checked)}
+            />
             {overwrite && (
               <p className={styles.hint}>{t("mixengine.blueprints.capture.overwriteHint")}</p>
             )}

@@ -73,18 +73,6 @@
   cursor: pointer;
 }
 
-/* The app-wide `input` rule dresses every input as a text field; a checkbox wants none of it. */
-.toggle input[type="checkbox"] {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  margin: 0;
-  padding: 0;
-  box-shadow: none;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-
 /* The default is two decisions and a value, so it is fenced off from the plain fields: whether
    there is one at all, what it is, and whether it is to be read as an expression. */
 .defaultBlock {

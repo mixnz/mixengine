@@ -1,3 +1,4 @@
+import Button from "../../../../components/Button";
 import { useTranslation } from "../../../../i18n";
 import type { CategoryUsage } from "@mixengine/api";
 import type { DiskUsage } from "@mixengine/api";
@@ -53,15 +54,15 @@ export default function DiskUsagePanel({ disk, refreshing, onRefresh, onCleanup 
           })}
         </span>
         <div className={styles.headerButtons}>
-          <button onClick={onRefresh} disabled={refreshing}>
+          <Button onClick={onRefresh} disabled={refreshing}>
             {t("mixengine.dashboard.diskUsage.refresh")}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={onCleanup}
             disabled={!disk.categories.some((category) => isCleanupReclaimable(category))}
           >
             {t("mixengine.dashboard.diskUsage.cleanup")}
-          </button>
+          </Button>
         </div>
       </header>
 

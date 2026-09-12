@@ -4,6 +4,7 @@ import { Textarea } from "../../../../components/Input";
 import Select, { type SelectOption } from "../../../../components/Select";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import CopyField from "../../components/CopyField";
+import Checkbox from "../../../../components/Checkbox";
 import { parseCsvRows, rowsToObjects, toCsv } from "../shared/csv";
 import {
   MASK_KINDS,
@@ -126,14 +127,12 @@ function MaskPanel() {
               onChange={setDelimiter}
               ariaLabel={t("toolbox.mask.delimiter")}
             />
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={header}
-                onChange={(event) => setHeader(event.target.checked)}
-              />
-              {t("toolbox.mask.header")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.mask.header")}
+              checked={header}
+              onChange={(event) => setHeader(event.target.checked)}
+            />
           </>
         ) : null}
         <Button variant="primary" onClick={readData} disabled={input.trim() === ""}>

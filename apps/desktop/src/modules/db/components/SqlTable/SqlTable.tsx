@@ -8,6 +8,7 @@ import InsertRowsDialog from "../InsertRowsDialog";
 import LoadingOverlay from "../../../../components/LoadingOverlay";
 import Pagination from "../../../../components/Pagination";
 import Tooltip from "../../../../components/Tooltip";
+import Checkbox from "../../../../components/Checkbox";
 import { ChevronDownIcon, ChevronUpIcon, CopyIcon, PlusIcon, ReloadIcon, TrashIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
@@ -1781,29 +1782,25 @@ function SqlTable({
           {(canDeleteWholeTable || canResetAutoIncrement) && (
             <div className={styles.deleteOptions}>
               {canDeleteWholeTable && (
-                <label className={styles.deleteOption}>
-                  <input
-                    type="checkbox"
-                    checked={deleteWholeTable}
-                    onChange={(e) => {
-                      setDeleteWholeTable(e.target.checked);
-                      // The reset only exists because of this option on a multi-page table;
-                      // taking it back takes its follow-up with it.
-                      if (!e.target.checked) setResetAutoIncrement(false);
-                    }}
-                  />
-                  {t("sqlTable.deleteAllRowsOption", { total })}
-                </label>
+                <Checkbox
+                  className={styles.deleteOption}
+                  label={t("sqlTable.deleteAllRowsOption", { total })}
+                  checked={deleteWholeTable}
+                  onChange={(e) => {
+                    setDeleteWholeTable(e.target.checked);
+                    // The reset only exists because of this option on a multi-page table;
+                    // taking it back takes its follow-up with it.
+                    if (!e.target.checked) setResetAutoIncrement(false);
+                  }}
+                />
               )}
               {canResetAutoIncrement && (
-                <label className={styles.deleteOption}>
-                  <input
-                    type="checkbox"
-                    checked={resetAutoIncrement}
-                    onChange={(e) => setResetAutoIncrement(e.target.checked)}
-                  />
-                  {t("sqlTable.resetAutoIncrementOption", { column: autoIncrementColumn ?? "" })}
-                </label>
+                <Checkbox
+                  className={styles.deleteOption}
+                  label={t("sqlTable.resetAutoIncrementOption", { column: autoIncrementColumn ?? "" })}
+                  checked={resetAutoIncrement}
+                  onChange={(e) => setResetAutoIncrement(e.target.checked)}
+                />
               )}
             </div>
           )}

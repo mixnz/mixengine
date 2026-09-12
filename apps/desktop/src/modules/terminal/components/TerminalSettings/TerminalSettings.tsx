@@ -3,6 +3,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { localShells } from "../../api";
@@ -168,14 +169,12 @@ function TerminalSettings() {
           />
         </div>
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={settings.cursorBlink}
-            onChange={(e) => updateTerminalSettings({ cursorBlink: e.target.checked })}
-          />
-          <span>{t("terminal.settingsCursorBlink")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("terminal.settingsCursorBlink")}
+          checked={settings.cursorBlink}
+          onChange={(e) => updateTerminalSettings({ cursorBlink: e.target.checked })}
+        />
       </div>
 
       <div className={styles.group}>
@@ -212,24 +211,20 @@ function TerminalSettings() {
           </Button>
         </div>
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={settings.rightClickPastes}
-            onChange={(e) => updateTerminalSettings({ rightClickPastes: e.target.checked })}
-          />
-          <span>{t("terminal.settingsRightClickPastes")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("terminal.settingsRightClickPastes")}
+          checked={settings.rightClickPastes}
+          onChange={(e) => updateTerminalSettings({ rightClickPastes: e.target.checked })}
+        />
         <p className={styles.hint}>{t("terminal.settingsRightClickPastesHint")}</p>
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={settings.titleShowsTargetName}
-            onChange={(e) => updateTerminalSettings({ titleShowsTargetName: e.target.checked })}
-          />
-          <span>{t("terminal.settingsTitleShowsTargetName")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("terminal.settingsTitleShowsTargetName")}
+          checked={settings.titleShowsTargetName}
+          onChange={(e) => updateTerminalSettings({ titleShowsTargetName: e.target.checked })}
+        />
         <p className={styles.hint}>{t("terminal.settingsTitleShowsTargetNameHint")}</p>
 
         {error && <p className={styles.hint}>{error}</p>}

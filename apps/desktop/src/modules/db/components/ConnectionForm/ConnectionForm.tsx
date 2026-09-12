@@ -7,6 +7,7 @@ import Input from "../../../../components/Input";
 import { EyeIcon, EyeOffIcon } from "../../../../icons";
 import { DatabaseIcon } from "../../icons";
 import { useActiveTabInView, useStripScroll } from "../../../../components/TabStrip";
+import Checkbox from "../../../../components/Checkbox";
 import { PRIVATE_KEY_PLACEHOLDER } from "../../../../core/ssh";
 import { useTranslation } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
@@ -357,10 +358,11 @@ function ConnectionForm({
         {/* Not `isSqlKind`: SQLite is one, and has no transport to secure. */}
         {(kind === "mysql" || kind === "postgres" || kind === "clickhouse" || kind === "mssql") && (
           <div className="row">
-            <label>
-              <input type="checkbox" checked={useSsl} onChange={(e) => set("useSsl", e.target.checked)} />{" "}
-              {t("connection.useSslLabel")}
-            </label>
+            <Checkbox
+              label={t("connection.useSslLabel")}
+              checked={useSsl}
+              onChange={(e) => set("useSsl", e.target.checked)}
+            />
           </div>
         )}
       </fieldset>

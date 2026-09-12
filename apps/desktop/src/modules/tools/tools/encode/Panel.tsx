@@ -5,6 +5,7 @@ import Select, { type SelectOption } from "../../../../components/Select";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import CopyField from "../../components/CopyField";
+import Checkbox from "../../../../components/Checkbox";
 import {
   HASH_ALGOS,
   base64ToText,
@@ -106,14 +107,12 @@ function EncodePanel() {
       <div className={styles.controls}>
         {tab === "base64" ? (
           <>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={urlSafe}
-                onChange={(event) => setUrlSafe(event.target.checked)}
-              />
-              {t("toolbox.encode.urlSafe")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.encode.urlSafe")}
+              checked={urlSafe}
+              onChange={(event) => setUrlSafe(event.target.checked)}
+            />
             <Button variant="primary" onClick={() => run(() => textToBase64(input, urlSafe))}>
               {t("toolbox.encode.encode")}
             </Button>
@@ -125,14 +124,12 @@ function EncodePanel() {
 
         {tab === "hex" ? (
           <>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={spaced}
-                onChange={(event) => setSpaced(event.target.checked)}
-              />
-              {t("toolbox.encode.spaced")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.encode.spaced")}
+              checked={spaced}
+              onChange={(event) => setSpaced(event.target.checked)}
+            />
             <Button variant="primary" onClick={() => run(() => textToHex(input, spaced))}>
               {t("toolbox.encode.encode")}
             </Button>
@@ -142,14 +139,12 @@ function EncodePanel() {
 
         {tab === "url" ? (
           <>
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={whole}
-                onChange={(event) => setWhole(event.target.checked)}
-              />
-              {t("toolbox.encode.whole")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.encode.whole")}
+              checked={whole}
+              onChange={(event) => setWhole(event.target.checked)}
+            />
             <Button
               variant="primary"
               onClick={() => run(() => (whole ? encodeURI(input) : encodeURIComponent(input)))}

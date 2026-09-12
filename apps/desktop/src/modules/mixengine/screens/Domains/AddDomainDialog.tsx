@@ -4,6 +4,7 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -75,15 +76,13 @@ export default function AddDomainDialog({ onCancel, onAdded }: Props) {
             </label>
 
             {needsRiskyTldConsent && (
-              <label className={styles.checkbox}>
-                <input
-                  type="checkbox"
-                  checked={acceptRiskyTld}
-                  disabled={saving}
-                  onChange={(e) => setAcceptRiskyTld(e.target.checked)}
-                />
-                {t("mixengine.sites.form.acceptRiskyTld")}
-              </label>
+              <Checkbox
+                className={styles.checkbox}
+                label={t("mixengine.sites.form.acceptRiskyTld")}
+                checked={acceptRiskyTld}
+                disabled={saving}
+                onChange={(e) => setAcceptRiskyTld(e.target.checked)}
+              />
             )}
           </div>
 

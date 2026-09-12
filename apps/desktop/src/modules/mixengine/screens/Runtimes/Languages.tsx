@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Button from "../../../../components/Button";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import Input from "../../../../components/Input";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -12,6 +13,7 @@ import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
 import { formatInstalledAt, jobFinished, jobFor, versionKey } from "../../runtimeState";
 import StaleBadge from "../../components/StaleBadge";
+import { matchesAvailable } from "./availableFilter";
 import ExtensionsPanel from "./ExtensionsPanel";
 import styles from "./Languages.module.css";
 
@@ -24,6 +26,8 @@ export default function Languages({ active }: { active: boolean }) {
   const [uninstallTarget, setUninstallTarget] = useState<RuntimeSummary | null>(null);
   const [forceHint, setForceHint] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Chỉ lọc bảng "chưa cài" — cùng lý do `Packages.tsx` đã theo.
+  const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
   const { t } = useTranslation();
 
@@ -123,6 +127,12 @@ export default function Languages({ active }: { active: boolean }) {
     }
   }
 
+  const shownAvailable = available.filter(
+    (release) =>
+      !release.installed &&
+      matchesAvailable([release.kind, release.version, release.channel], filter),
+  );
+
   return (
     <div className={styles.languages}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
@@ -178,39 +188,58 @@ export default function Languages({ active }: { active: boolean }) {
         </tbody>
       </table>
 
-      <h4>
-        {t("mixengine.runtimes.columnVersion")} <StaleBadge stale={stale} />
-      </h4>
+      <div className={styles.availableHeader}>
+        <h4 className={styles.availableTitle}>
+          {t("mixengine.runtimes.columnVersion")} <StaleBadge stale={stale} />
+        </h4>
+        <Input
+          size="small"
+          allowClear
+          className={styles.filter}
+          placeholder={t("mixengine.runtimes.searchAvailable")}
+          aria-label={t("mixengine.runtimes.searchAvailable")}
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          onKeyDown={(e) => {
+            // Escape xoá câu tìm, và dừng ở đây — không để nó nổi lên đóng cả tab đang mở.
+            if (e.key !== "Escape" || filter === "") return;
+            e.preventDefault();
+            e.stopPropagation();
+            setFilter("");
+          }}
+        />
+      </div>
       <table className={styles.table}>
         <tbody>
-          {available
-            .filter((release) => !release.installed)
-            .map((release) => {
-              const key = versionKey(release.kind, release.version);
-              const job = jobFor(jobs, installingJob[key]);
-              return (
-                <tr key={key}>
-                  <td>
-                    {release.kind} {release.version}
-                  </td>
-                  <td>{release.channel}</td>
-                  <td className={styles.actions}>
-                    {job ? (
-                      <span className={styles.progress}>
-                        <progress value={job.percent} max={100} />
-                        {job.message}
-                      </span>
-                    ) : (
-                      <Button onClick={() => void install(release)}>
-                        {t("mixengine.runtimes.install")}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+          {shownAvailable.map((release) => {
+            const key = versionKey(release.kind, release.version);
+            const job = jobFor(jobs, installingJob[key]);
+            return (
+              <tr key={key}>
+                <td>
+                  {release.kind} {release.version}
+                </td>
+                <td>{release.channel}</td>
+                <td className={styles.actions}>
+                  {job ? (
+                    <span className={styles.progress}>
+                      <progress value={job.percent} max={100} />
+                      {job.message}
+                    </span>
+                  ) : (
+                    <Button onClick={() => void install(release)}>
+                      {t("mixengine.runtimes.install")}
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+      {shownAvailable.length === 0 && filter.trim() !== "" && (
+        <p className={styles.noMatches}>{t("mixengine.runtimes.noMatches")}</p>
+      )}
 
       {uninstallTarget && (
         <ConfirmDialog

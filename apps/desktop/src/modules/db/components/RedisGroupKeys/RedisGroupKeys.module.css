@@ -142,6 +142,16 @@
   background: var(--hover-bg);
 }
 
+/* The caption is a badge and a key name, which lay themselves out inside it — the row's own gap
+   only separates the box from the caption as a whole. */
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .name {
   flex: 1;
   min-width: 0;

@@ -23,7 +23,7 @@ import type { RuntimeTarget } from "@mixengine/api";
 import type { RuntimeUninstall } from "@mixengine/api";
 import type { RuntimeRemoval } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
-import type { RuntimeExtension } from "@mixengine/api";
+import type { ExtensionList } from "@mixengine/api";
 import type { ExtensionChoice } from "@mixengine/api";
 import type { ExtensionChange } from "@mixengine/api";
 import type { JobSummary } from "@mixengine/api";
@@ -271,10 +271,8 @@ export function runtimeSetDefault(target: RuntimeTarget): Promise<RuntimeSummary
   return invoke<RuntimeSummary>("mixengine_runtime_set_default", { target });
 }
 
-/** `runtime.list_extensions` trả một mảng trần theo bindings — không bọc trong `{ extensions: [] }`
- *  như `service.list`/`runtime.list_installed` làm; xác nhận lại khi Task 8 chạy thật với daemon. */
-export function runtimeExtensions(target: RuntimeTarget): Promise<RuntimeExtension[]> {
-  return invoke<RuntimeExtension[]>("mixengine_runtime_list_extensions", { target });
+export function runtimeExtensions(target: RuntimeTarget): Promise<ExtensionList> {
+  return invoke<ExtensionList>("mixengine_runtime_list_extensions", { target });
 }
 
 export function runtimeSetExtension(choice: ExtensionChoice): Promise<ExtensionChange> {

@@ -12,6 +12,7 @@ import type { ExtensionOffer } from "@mixengine/api";
 import type { ExtensionOrigin } from "@mixengine/api";
 import type { ExtensionSummary } from "@mixengine/api";
 import StaleBadge from "../../components/StaleBadge";
+import Checkbox from "../../../../components/Checkbox";
 import { serviceStateKey } from "../../serviceStateLabel";
 import PlanDialog from "./PlanDialog";
 import styles from "./Extensions.module.css";
@@ -234,14 +235,12 @@ export default function Extensions({ active }: { active: boolean }) {
           }}
           onConfirm={() => void confirmUninstall()}
         >
-          <label className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={deleteData}
-              onChange={(e) => setDeleteData(e.target.checked)}
-            />
-            {t("mixengine.extensions.deleteData")}
-          </label>
+          <Checkbox
+            className={styles.checkbox}
+            label={t("mixengine.extensions.deleteData")}
+            checked={deleteData}
+            onChange={(e) => setDeleteData(e.target.checked)}
+          />
         </ConfirmDialog>
       )}
     </div>

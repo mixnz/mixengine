@@ -4,6 +4,7 @@ import Input, { Textarea } from "../../../../components/Input";
 import Select, { type SelectOption } from "../../../../components/Select";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import CopyField from "../../components/CopyField";
+import Checkbox from "../../../../components/Checkbox";
 import {
   FIELD_KINDS,
   LOCALES,
@@ -159,14 +160,12 @@ function FakePanel() {
               />
             ) : null}
             {field.kind === "fullName" ? (
-              <label className={styles.check}>
-                <input
-                  type="checkbox"
-                  checked={field.includeMiddle ?? false}
-                  onChange={(event) => updateField(index, { includeMiddle: event.target.checked })}
-                />
-                {t("toolbox.fake.includeMiddle")}
-              </label>
+              <Checkbox
+                className={styles.check}
+                label={t("toolbox.fake.includeMiddle")}
+                checked={field.includeMiddle ?? false}
+                onChange={(event) => updateField(index, { includeMiddle: event.target.checked })}
+              />
             ) : null}
             {field.kind === "integer" || field.kind === "float" ? (
               <>

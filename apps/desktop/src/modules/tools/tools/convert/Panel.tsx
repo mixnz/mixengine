@@ -4,6 +4,7 @@ import Input, { Textarea } from "../../../../components/Input";
 import Select, { type SelectOption } from "../../../../components/Select";
 import { useTranslation } from "../../../../i18n";
 import CopyField from "../../components/CopyField";
+import Checkbox from "../../../../components/Checkbox";
 import type { SqlDialect } from "./insert";
 import { convertData, type ConvertResult, type ReadFormat, type WriteFormat } from "./pivot";
 import styles from "./Panel.module.css";
@@ -99,14 +100,12 @@ function ConvertPanel() {
               onChange={setDelimiter}
               ariaLabel={t("toolbox.convert.delimiter")}
             />
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={header}
-                onChange={(event) => setHeader(event.target.checked)}
-              />
-              {t("toolbox.convert.header")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.convert.header")}
+              checked={header}
+              onChange={(event) => setHeader(event.target.checked)}
+            />
           </>
         ) : null}
         {usesInsert ? (
@@ -123,14 +122,12 @@ function ConvertPanel() {
               onChange={setDialect}
               ariaLabel={t("toolbox.convert.dialect")}
             />
-            <label className={styles.check}>
-              <input
-                type="checkbox"
-                checked={multiRow}
-                onChange={(event) => setMultiRow(event.target.checked)}
-              />
-              {t("toolbox.convert.multiRow")}
-            </label>
+            <Checkbox
+              className={styles.check}
+              label={t("toolbox.convert.multiRow")}
+              checked={multiRow}
+              onChange={(event) => setMultiRow(event.target.checked)}
+            />
           </>
         ) : null}
         <Button variant="primary" onClick={run} disabled={busy || input.trim() === ""}>

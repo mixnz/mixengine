@@ -4,6 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -274,14 +275,12 @@ export default function ApplyDialog({
                             {t("mixengine.blueprints.apply.scaffoldUntrusted")}
                           </p>
                         )}
-                        <label className={styles.checkbox}>
-                          <input
-                            type="checkbox"
-                            checked={scaffoldAgreed}
-                            onChange={(e) => setScaffoldAgreed(e.target.checked)}
-                          />
-                          {t("mixengine.blueprints.apply.scaffoldConsent")}
-                        </label>
+                        <Checkbox
+                          className={styles.checkbox}
+                          label={t("mixengine.blueprints.apply.scaffoldConsent")}
+                          checked={scaffoldAgreed}
+                          onChange={(e) => setScaffoldAgreed(e.target.checked)}
+                        />
                       </div>
                     )}
                   </li>

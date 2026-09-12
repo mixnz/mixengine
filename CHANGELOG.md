@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- Every tab of MixLab's Runtimes screen has a search box over the versions not installed yet, so a
+  long list of releases can be narrowed by name, version or channel.
 - `mix service autostart <service> --on|--off` reads and sets whether a service starts with
   MixEngine, and `mix service list` has an `AUTOSTART` column.
 - Services set that way now start when MixEngine does, in dependency order — so a machine that was
@@ -25,11 +27,18 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Changed
+- MixLab's Runtimes screen puts Web servers, Databases and Cache & queues on the same tab strip as
+  Languages: one row of tabs instead of a *Software* tab that had to be opened first.
+- MixLab wears MixDB's mark — three data platters fanned out on a blue tile — in the taskbar, the
+  Dock, the window and the browser tab.
+- Every checkbox in MixLab is drawn by the app rather than by the operating system: one box, one
+  tick, the accent you picked, and a half-tick where a list is only partly selected.
 - MixLab has a **PHP Extensions** screen: pick an installed PHP and turn `redis`, `mongodb`,
   `xdebug` and the rest on or off. The same panel is still inside Runtimes, and MixEngine's own
   add-ons are now labelled *Add-ons* so the two stop colliding.
 - MixLab's MixEngine sidebar is grouped into Overview, Websites, Environment and Library, with
-  Settings at the bottom.
+  Settings at the bottom. Each group name now reads as a heading rather than as one more entry: a
+  rule above it, and dimmed type that no longer borrowed the colour of the items below it.
 - The desktop window is **MixLab**: its own name, identifier, executable and mark, and MixEngine's
   version rather than one of its own. The daemon, `mix`, the home, the keyring namespace and the
   installers keep MixEngine's name and are unchanged.

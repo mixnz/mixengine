@@ -199,11 +199,6 @@
   width: 70px;
 }
 
-.checkboxLabel {
-  display: inline-flex;
-  align-items: center;
-}
-
 .editorError {
   color: #c94a4a;
   font-size: var(--text-sm);

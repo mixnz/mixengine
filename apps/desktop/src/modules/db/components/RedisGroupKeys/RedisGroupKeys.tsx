@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { redisDeleteKeys, type RedisKeyInfo } from "../../redis/api";
 import Button from "../../../../components/Button";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
 import Input from "../../../../components/Input";
 import LoadingOverlay from "../../../../components/LoadingOverlay";
+import Checkbox from "../../../../components/Checkbox";
 import RedisTypeBadge from "../RedisTypeBadge";
 import { CloseIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
@@ -67,7 +68,6 @@ function RedisGroupKeys({
   // How far a delete has got, or null when none is running. Counted in keys rather than in
   // batches: the batch size is this component's business, the number of keys is the user's.
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const selectAllRef = useRef<HTMLInputElement>(null);
 
   // Keys leave this list — deleted here, deleted from the value pane, dropped by a rescan — and a
   // tick left behind on one of them would put a name back into the next delete that is already
@@ -97,13 +97,6 @@ function RedisGroupKeys({
   // all while a filter is on must not quietly select the keys it is hiding.
   const selectedInView = filtered.reduce((n, key) => (selected.has(key.name) ? n + 1 : n), 0);
   const allSelected = filtered.length > 0 && selectedInView === filtered.length;
-
-  // The half-ticked state has no attribute — it only exists on the DOM node.
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = selectedInView > 0 && !allSelected;
-    }
-  }, [selectedInView, allSelected]);
 
   function toggleKey(name: string) {
     setSelected((prev) => {
@@ -169,16 +162,16 @@ function RedisGroupKeys({
       {partial && <p className={styles.notice}>{t("redisGroup.partialNotice")}</p>}
 
       <div className={styles.toolbar}>
-        <label className={styles.selectAll}>
-          <input
-            ref={selectAllRef}
-            type="checkbox"
-            checked={allSelected}
-            disabled={deleting || filtered.length === 0}
-            onChange={toggleAll}
-          />
-          {t("redisGroup.selectAll")}
-        </label>
+        <Checkbox
+          className={styles.selectAll}
+          label={t("redisGroup.selectAll")}
+          checked={allSelected}
+          // Some but not all of what the filter is showing — the box says so rather than lying
+          // either way.
+          indeterminate={selectedInView > 0 && !allSelected}
+          disabled={deleting || filtered.length === 0}
+          onChange={toggleAll}
+        />
         <Input
           size="normal"
           className={styles.filter}
@@ -212,16 +205,18 @@ function RedisGroupKeys({
             <ul className={styles.rows}>
               {rows.map((key) => (
                 <li key={key.name}>
-                  <label className={styles.row}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(key.name)}
-                      disabled={deleting}
-                      onChange={() => toggleKey(key.name)}
-                    />
-                    <RedisTypeBadge type={key.type} />
-                    <span className={styles.name}>{key.name}</span>
-                  </label>
+                  <Checkbox
+                    className={styles.row}
+                    label={
+                      <span className={styles.rowLabel}>
+                        <RedisTypeBadge type={key.type} />
+                        <span className={styles.name}>{key.name}</span>
+                      </span>
+                    }
+                    checked={selected.has(key.name)}
+                    disabled={deleting}
+                    onChange={() => toggleKey(key.name)}
+                  />
                 </li>
               ))}
             </ul>

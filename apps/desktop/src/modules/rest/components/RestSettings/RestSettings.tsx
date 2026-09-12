@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
+import Checkbox from "../../../../components/Checkbox";
 import { TrashIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { formatBytes } from "../../format";
@@ -41,18 +42,16 @@ function RestSettings() {
       <div className={styles.group}>
         <span className={styles.groupLabel}>{t("rest.settingsHistoryGroup")}</span>
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={workspace.keepResponseBodies}
-            onChange={(e) => {
-              updateWorkspace({ keepResponseBodies: e.target.checked });
-              // Not merely "stop recording them" — see the note on the component.
-              if (!e.target.checked) dropHistoryBodies();
-            }}
-          />
-          <span>{t("rest.settingsKeepBodies")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("rest.settingsKeepBodies")}
+          checked={workspace.keepResponseBodies}
+          onChange={(e) => {
+            updateWorkspace({ keepResponseBodies: e.target.checked });
+            // Not merely "stop recording them" — see the note on the component.
+            if (!e.target.checked) dropHistoryBodies();
+          }}
+        />
         <p className={styles.hint}>
           {t("rest.settingsKeepBodiesHint", { limit: formatBytes(BODY_MAX_BYTES) })}
         </p>
@@ -102,23 +101,19 @@ function RestSettings() {
           <span className={styles.unit}>{t("rest.settingsTimeoutUnit")}</span>
         </div>
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={workspace.followRedirects}
-            onChange={(e) => updateWorkspace({ followRedirects: e.target.checked })}
-          />
-          <span>{t("rest.settingsFollowRedirects")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("rest.settingsFollowRedirects")}
+          checked={workspace.followRedirects}
+          onChange={(e) => updateWorkspace({ followRedirects: e.target.checked })}
+        />
 
-        <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={workspace.acceptInvalidCerts}
-            onChange={(e) => updateWorkspace({ acceptInvalidCerts: e.target.checked })}
-          />
-          <span>{t("rest.settingsInvalidCerts")}</span>
-        </label>
+        <Checkbox
+          className={styles.check}
+          label={t("rest.settingsInvalidCerts")}
+          checked={workspace.acceptInvalidCerts}
+          onChange={(e) => updateWorkspace({ acceptInvalidCerts: e.target.checked })}
+        />
         <p className={styles.hint}>{t("rest.settingsInvalidCertsHint")}</p>
         <p className={styles.hint}>{t("rest.settingsGlobalHint")}</p>
       </div>

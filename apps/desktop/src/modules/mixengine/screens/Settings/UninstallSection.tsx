@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Checkbox from "../../../../components/Checkbox";
 import type { AppError } from "../../../../core/errors";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -210,15 +211,13 @@ export default function UninstallSection({
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>{t("mixengine.settings.uninstall.title")}</h3>
 
-      <label className={styles.row}>
-        <input
-          type="checkbox"
-          checked={keepHome}
-          disabled={job !== null}
-          onChange={(e) => setKeepHome(e.target.checked)}
-        />
-        {t("mixengine.settings.uninstall.keepHome")}
-      </label>
+      <Checkbox
+        className={styles.row}
+        label={t("mixengine.settings.uninstall.keepHome")}
+        checked={keepHome}
+        disabled={job !== null}
+        onChange={(e) => setKeepHome(e.target.checked)}
+      />
 
       {plan && <ul className={styles.list}>{plan.items.map(residueRow)}</ul>}
 

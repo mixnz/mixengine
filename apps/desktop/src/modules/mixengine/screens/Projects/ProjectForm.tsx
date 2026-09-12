@@ -5,6 +5,7 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { ChevronRightIcon } from "../../../../icons";
@@ -281,15 +282,13 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
               />
             </label>
 
-            <label className={styles.checkbox}>
-              <input
-                type="checkbox"
-                checked={keepWarm}
-                disabled={saving}
-                onChange={(e) => setKeepWarm(e.target.checked)}
-              />
-              {t("mixengine.projects.form.keepWarm")}
-            </label>
+            <Checkbox
+              className={styles.checkbox}
+              label={t("mixengine.projects.form.keepWarm")}
+              checked={keepWarm}
+              disabled={saving}
+              onChange={(e) => setKeepWarm(e.target.checked)}
+            />
 
             <Disclosure summary={t("mixengine.projects.form.pinsSummary")}>
               {RUNTIME_KINDS.map((kind) => (
@@ -320,15 +319,13 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
                 </label>
 
                 {siteNeedsRiskyTldConsent && (
-                  <label className={styles.checkbox}>
-                    <input
-                      type="checkbox"
-                      checked={siteAcceptRiskyTld}
-                      disabled={saving}
-                      onChange={(e) => setSiteAcceptRiskyTld(e.target.checked)}
-                    />
-                    {t("mixengine.sites.form.acceptRiskyTld")}
-                  </label>
+                  <Checkbox
+                    className={styles.checkbox}
+                    label={t("mixengine.sites.form.acceptRiskyTld")}
+                    checked={siteAcceptRiskyTld}
+                    disabled={saving}
+                    onChange={(e) => setSiteAcceptRiskyTld(e.target.checked)}
+                  />
                 )}
 
                 <label className={styles.field}>
@@ -415,41 +412,36 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
                   {t("mixengine.sites.form.services")}
                   <div className={styles.serviceList}>
                     {serviceIds.map((id) => (
-                      <label key={id} className={styles.checkbox}>
-                        <input
-                          type="checkbox"
-                          checked={siteSelectedServices.has(id)}
-                          disabled={saving}
-                          onChange={() => toggleSiteService(id)}
-                        />
-                        {id}
-                      </label>
+                      <Checkbox
+                        key={id}
+                        className={styles.checkbox}
+                        label={id}
+                        checked={siteSelectedServices.has(id)}
+                        disabled={saving}
+                        onChange={() => toggleSiteService(id)}
+                      />
                     ))}
                   </div>
                 </div>
 
-                <label className={styles.checkbox}>
-                  <input
-                    type="checkbox"
-                    checked={siteHttps}
-                    disabled={saving}
-                    onChange={(e) => {
-                      setSiteHttps(e.target.checked);
-                      if (!e.target.checked) setSiteHttpsRedirect(false);
-                    }}
-                  />
-                  {t("mixengine.sites.form.https")}
-                </label>
+                <Checkbox
+                  className={styles.checkbox}
+                  label={t("mixengine.sites.form.https")}
+                  checked={siteHttps}
+                  disabled={saving}
+                  onChange={(e) => {
+                    setSiteHttps(e.target.checked);
+                    if (!e.target.checked) setSiteHttpsRedirect(false);
+                  }}
+                />
 
-                <label className={styles.checkbox}>
-                  <input
-                    type="checkbox"
-                    checked={siteHttps && siteHttpsRedirect}
-                    disabled={saving || !siteHttps}
-                    onChange={(e) => setSiteHttpsRedirect(e.target.checked)}
-                  />
-                  {t("mixengine.sites.form.httpsRedirect")}
-                </label>
+                <Checkbox
+                  className={styles.checkbox}
+                  label={t("mixengine.sites.form.httpsRedirect")}
+                  checked={siteHttps && siteHttpsRedirect}
+                  disabled={saving || !siteHttps}
+                  onChange={(e) => setSiteHttpsRedirect(e.target.checked)}
+                />
               </Disclosure>
             )}
           </div>

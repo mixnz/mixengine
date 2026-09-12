@@ -45,3 +45,28 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* Tiêu đề bảng "chưa cài" và ô tìm trên cùng một hàng — ô tìm đẩy sang phải, cùng dáng với ô lọc
+   extension ở `ExtensionsPanel.module.css`. */
+.availableHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.availableTitle {
+  margin: 0;
+}
+
+.filter {
+  flex: 0 1 14rem;
+  min-width: 5rem;
+  margin-left: auto;
+  box-sizing: border-box;
+}
+
+.noMatches {
+  margin: 0;
+  font-size: var(--text-sm);
+  opacity: 0.65;
+}

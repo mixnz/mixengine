@@ -2,6 +2,7 @@ import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } f
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
+import Checkbox from "../../../../components/Checkbox";
 import { MinusIcon, PlusIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import {
@@ -150,8 +151,8 @@ function FilterBar<Op extends string>({
             const takesValue = operatorArity(row.operator) !== "none";
             return (
               <div key={row.id} className={styles.row}>
-                <input
-                  type="checkbox"
+                <Checkbox
+                  size="small"
                   className={styles.toggle}
                   checked={row.enabled}
                   aria-label={t("filterBar.enableFilter")}

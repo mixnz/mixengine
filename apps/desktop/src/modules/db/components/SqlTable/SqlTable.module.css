@@ -246,22 +246,10 @@
 
 .deleteOption {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
   font-size: var(--text-md);
   line-height: 1.4;
-  cursor: pointer;
-}
-
-/* The app-wide `input` rule dresses every input as a text field; a checkbox wants none of it. */
-.deleteOption input[type="checkbox"] {
-  flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  margin: 0.15em 0 0;
-  padding: 0;
-  box-shadow: none;
-  accent-color: var(--accent);
   cursor: pointer;
 }
 

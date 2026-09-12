@@ -472,19 +472,10 @@ fieldset .row label > *:not(button):not(input[type="checkbox"]) {
 }
 
 /* A checkbox row is a sentence, not a field: it ends where its text ends, and when the sentence is
-   longer than the row it wraps onto a second line rather than running past the edge.
-   `baseline`, not `flex-start`: the top of the box and the top of a line of text are not the same
-   height — the line box is taller than its letters, so aligning the two tops sits the box above the
-   text. Sharing a baseline is how a checkbox and its caption line up when written inline, and a
-   wrapped caption still offers its *first* line's baseline, so the box stays up on line one. */
+   longer than the row it wraps onto a second line rather than running past the edge. How the box
+   and its caption line up inside that is `Checkbox`'s own business. */
 fieldset .row label:has(> input[type="checkbox"]) {
   flex: 0 1 auto;
-  align-items: baseline;
-}
-
-/* The caption is what gives way; a checkbox has one size. */
-fieldset .row label > input[type="checkbox"] {
-  flex: none;
 }
 
 fieldset .row input {

@@ -34,6 +34,18 @@
   color: #0f0f0f;
   background-color: #f6f6f6;
 
+  /* Chữ đã lùi một bậc: caption, chú thích, tiêu đề nhóm — thứ vẫn phải đọc được nhưng không được
+     giành chỗ với nội dung.
+
+     Token này đã được khoảng hai mươi chỗ trong module mixengine với tới trong khi không nơi nào
+     định nghĩa nó. `color` là thuộc tính kế thừa, nên một `var()` không giải được không rơi về màu
+     mặc định mà rơi về `inherit`: mọi dòng đáng lẽ mờ đều hiện ở đúng màu của nội dung quanh nó, và
+     lỗi ấy im lặng — không có gì báo, chỉ có một cấp bậc không còn đọc ra.
+
+     Một màu đặc chứ không phải `opacity`: lớp mờ ăn theo bất cứ thứ gì nằm dưới, nên cùng một dòng chữ
+     ra hai màu khác nhau trên nền trang và trên một hàng đang hover. */
+  --text-muted: #6b6b6b;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -676,6 +688,8 @@ textarea:focus {
   color: #f6f6f6;
   background-color: #2f2f2f;
 
+  --text-muted: #a6a6a6;
+
   --control-color: #ffffff;
   --control-bg: #0f0f0f98;
   --control-bg-active: #0f0f0f69;
@@ -755,6 +769,8 @@ textarea:focus {
   :root:not([data-theme]) {
     color: #f6f6f6;
     background-color: #2f2f2f;
+
+    --text-muted: #a6a6a6;
 
     --control-color: #ffffff;
     --control-bg: #0f0f0f98;

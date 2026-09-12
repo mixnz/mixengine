@@ -1,0 +1,130 @@
+/* The box is drawn here rather than left to the platform: `accent-color` alone cannot give the
+   control the app's border, radius, focus ring or tri-state dash, and a native box looks like a
+   different toolkit beside Input and Button. Sized in `em`, so one size class on the outer
+   element moves box and caption together. */
+.input {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  flex: none;
+  /* The app-wide `input` rule dresses every input as a text field — its padding alone would blow
+     the box out to the width of a field, so both are written back to nothing here. */
+  margin: 0;
+  padding: 0;
+  width: 1.1em;
+  height: 1.1em;
+  font-size: inherit;
+  display: inline-grid;
+  place-content: center;
+  /* Only for a box written inline, with no flex row to centre it: enough of an overhang below
+     the baseline to sit level with the letters beside it. */
+  vertical-align: -0.2em;
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  color: var(--accent-on-solid);
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  outline: none;
+}
+
+/* The lit top edge under the liquid-glass setting — see the note in Button.module.css for why it
+   is written per control rather than into `--control-shadow`. */
+:root[data-glass="on"] .input {
+  box-shadow: var(--glass-control-shadow);
+}
+
+/* The tick and the dash are the same element, so the box has one mark to scale in and out of
+   view. The tick is cut from a square; the dash overrides that shape wholesale. */
+.input::before {
+  content: "";
+  width: 0.68em;
+  height: 0.68em;
+  background-color: currentColor;
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  transform: scale(0);
+  transition: transform 0.1s ease-out;
+}
+
+.input:checked::before {
+  transform: scale(1);
+}
+
+.input:indeterminate::before {
+  width: 0.66em;
+  height: 0.13em;
+  min-height: 2px;
+  border-radius: 1px;
+  clip-path: none;
+  transform: scale(1);
+}
+
+.input:checked,
+.input:indeterminate {
+  background-color: var(--accent-solid);
+  border-color: var(--accent-solid);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.input:checked:hover:not(:disabled),
+.input:indeterminate:hover:not(:disabled) {
+  border-color: var(--accent-solid);
+  filter: brightness(0.92);
+}
+
+.input:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* The shared ring is a wash of the accent, invisible on a box already filled with it — a filled
+   box is ringed in its own mark colour instead, the way a primary button is. */
+.input:checked:focus-visible,
+.input:indeterminate:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent-on-solid);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* A checkbox row is a sentence, not a field: it ends where its caption ends. `inline-flex` keeps
+   it from stretching across whatever column it was dropped into.
+
+   `align-items: center` is what puts the box level with the middle of the caption: CSS splits a
+   line's leading evenly above and below the letters, so the centre of the line box is the centre
+   of the text however loose the caller's `line-height` is. */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.label:has(.input:disabled) {
+  cursor: not-allowed;
+}
+
+.label:has(.input:disabled) .text {
+  opacity: 0.5;
+}
+
+/* The caption is what gives way when the row runs out of room, and what takes up the slack when
+   the row is wider than it — the box has one size either way. */
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.normal {
+  font-size: var(--text-md);
+}
+
+.small {
+  font-size: var(--text-sm);
+}

@@ -90,9 +90,10 @@ primitive and under `src/modules/<id>/components/` otherwise. Import from the fo
 file. See [component-structure](../conventions/component-structure.md) and
 [css-modules](../conventions/css-modules.md).
 
-- **`src/components/`** — `Button`, `Input` (+`Textarea`), `Select`, `ItemList`, `Pagination`,
-  `ActionBar`, `ErrorBanner`, `LoadingOverlay`, `ConfirmDialog`, `NameDialog`, `ContextMenu`,
-  `Tooltip`, `JsonView`, `TabStrip`, `Splitter`, plus `dialogMotion` and `contextMenuPosition`.
+- **`src/components/`** — `Button`, `Input` (+`Textarea`), `Checkbox`, `Select`, `ItemList`,
+  `Pagination`, `ActionBar`, `ErrorBanner`, `LoadingOverlay`, `ConfirmDialog`, `NameDialog`,
+  `ContextMenu`, `Tooltip`, `JsonView`, `TabStrip`, `Splitter`, plus `dialogMotion` and
+  `contextMenuPosition`.
 - **`src/shell/components/`** — `GlassFilter`, `SettingsModal`, `UpdateToast`: the shell's own.
 - **`src/modules/db/components/`** — the grids (`SqlTable`, `NoSqlTable`), the document views
   (`Document`, `DocumentNode`), the Redis views, `QueryEditor`, `SqlEditor`, `TableStructure`, the

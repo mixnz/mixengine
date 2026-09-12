@@ -1,5 +1,6 @@
 import { useState } from "react";
 import ConfirmDialog from "../../../components/ConfirmDialog";
+import Checkbox from "../../../components/Checkbox";
 import type { TranslationKey } from "../../../i18n";
 import { useTranslation } from "../../../i18n";
 import { MODULES, MODULE_PRESETS, PRESET_IDS, type PresetId } from "../../registry";
@@ -96,20 +97,20 @@ function ModulesSection({ enabled, onChange, openIds }: ModuleSettings) {
              nothing to draw is read as no value at all. */
           const last = on && enabled.length === 1;
           return (
-            <label
+            <Checkbox
               key={module.id}
               className={styles.moduleRow}
+              label={
+                <span className={styles.moduleLabel}>
+                  <module.Icon size={15} />
+                  <span>{t(module.labelKey)}</span>
+                </span>
+              }
               title={last ? t("profiles.lastOne") : undefined}
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                disabled={last}
-                onChange={(e) => toggle(module.id, e.target.checked)}
-              />
-              <module.Icon size={15} />
-              <span>{t(module.labelKey)}</span>
-            </label>
+              checked={on}
+              disabled={last}
+              onChange={(e) => toggle(module.id, e.target.checked)}
+            />
           );
         })}
         <p className={styles.hint}>{t("profiles.changeLater")}</p>

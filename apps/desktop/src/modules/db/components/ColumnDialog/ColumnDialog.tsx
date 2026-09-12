@@ -11,6 +11,7 @@ import type { SqlDialect, SqlTypeSpec } from "../../sql/dialect";
 import { useSqlDialect } from "../../sql/context";
 import styles from "./ColumnDialog.module.css";
 import Modal from "../../../../components/Modal";
+import Checkbox from "../../../../components/Checkbox";
 
 /** What is known about a type name, or undefined for one the engine's list doesn't carry — a column
  * declared as something older, newer or more exotic than the app knows still has to be editable. */
@@ -461,40 +462,34 @@ function ColumnDialog({ table, columns, collations, column, onCancel, onSubmit }
           </div>
 
           <div className={styles.toggles}>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={draft.nullable}
-                disabled={saving || identityLocked}
-                onChange={(e) => patch({ nullable: e.target.checked })}
-              />
-              {t("columnDialog.nullable")}
-            </label>
+            <Checkbox
+              className={styles.toggle}
+              label={t("columnDialog.nullable")}
+              checked={draft.nullable}
+              disabled={saving || identityLocked}
+              onChange={(e) => patch({ nullable: e.target.checked })}
+            />
             {/* Shown for the types it means something to, and for a type the list doesn't carry that
                 already says it — dropping it there would change the column behind the user's back. */}
             {offers.unsigned && (selectedType?.numeric || draft.unsigned) && (
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={draft.unsigned}
-                  disabled={saving}
-                  onChange={(e) => patch({ unsigned: e.target.checked })}
-                />
-                {t("columnDialog.unsigned")}
-              </label>
+              <Checkbox
+                className={styles.toggle}
+                label={t("columnDialog.unsigned")}
+                checked={draft.unsigned}
+                disabled={saving}
+                onChange={(e) => patch({ unsigned: e.target.checked })}
+              />
             )}
             {/* ClickHouse is the first engine with no counterpart at all — hidden rather than
                 disabled, the same way the clause below is. */}
             {offers.autoIncrement && (
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={draft.autoIncrement}
-                  disabled={saving || identityLocked}
-                  onChange={(e) => patch({ autoIncrement: e.target.checked })}
-                />
-                {t("columnDialog.autoIncrement")}
-              </label>
+              <Checkbox
+                className={styles.toggle}
+                label={t("columnDialog.autoIncrement")}
+                checked={draft.autoIncrement}
+                disabled={saving || identityLocked}
+                onChange={(e) => patch({ autoIncrement: e.target.checked })}
+              />
             )}
             {identityLocked && (
               <p className={styles.hint}>{t("columnDialog.identityLockedMssql")}</p>
@@ -502,28 +497,24 @@ function ColumnDialog({ table, columns, collations, column, onCancel, onSubmit }
             {/* A MySQL clause. The same effect on PostgreSQL is a trigger, which is not a property of
                 the column and so not this dialog's to offer. */}
             {offers.onUpdateCurrentTimestamp && (
-              <label className={styles.toggle}>
-                <input
-                  type="checkbox"
-                  checked={draft.onUpdateCurrentTimestamp}
-                  disabled={saving}
-                  onChange={(e) => patch({ onUpdateCurrentTimestamp: e.target.checked })}
-                />
-                {t("columnDialog.onUpdate")}
-              </label>
+              <Checkbox
+                className={styles.toggle}
+                label={t("columnDialog.onUpdate")}
+                checked={draft.onUpdateCurrentTimestamp}
+                disabled={saving}
+                onChange={(e) => patch({ onUpdateCurrentTimestamp: e.target.checked })}
+              />
             )}
           </div>
 
           <div className={styles.defaultBlock}>
-            <label className={styles.toggle}>
-              <input
-                type="checkbox"
-                checked={draft.hasDefault}
-                disabled={saving}
-                onChange={(e) => patch({ hasDefault: e.target.checked })}
-              />
-              {t("columnDialog.hasDefault")}
-            </label>
+            <Checkbox
+              className={styles.toggle}
+              label={t("columnDialog.hasDefault")}
+              checked={draft.hasDefault}
+              disabled={saving}
+              onChange={(e) => patch({ hasDefault: e.target.checked })}
+            />
             {draft.hasDefault && (
               <>
                 <Input
@@ -534,15 +525,13 @@ function ColumnDialog({ table, columns, collations, column, onCancel, onSubmit }
                   disabled={saving}
                   onChange={(e) => patch({ defaultValue: e.target.value })}
                 />
-                <label className={styles.toggle}>
-                  <input
-                    type="checkbox"
-                    checked={draft.defaultIsExpression}
-                    disabled={saving}
-                    onChange={(e) => patch({ defaultIsExpression: e.target.checked })}
-                  />
-                  {t("columnDialog.defaultIsExpression")}
-                </label>
+                <Checkbox
+                  className={styles.toggle}
+                  label={t("columnDialog.defaultIsExpression")}
+                  checked={draft.defaultIsExpression}
+                  disabled={saving}
+                  onChange={(e) => patch({ defaultIsExpression: e.target.checked })}
+                />
                 <p className={styles.hint}>{t("columnDialog.defaultExpressionHint")}</p>
         </>
           )}
