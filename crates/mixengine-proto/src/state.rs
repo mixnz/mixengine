@@ -242,6 +242,23 @@ pub enum StateReason {
     /// recorded rather than failing to parse the event.
     Shutdown,
 
+    /// A repair stopped this to re-set its superuser credential — roadmap task **T127**.
+    ///
+    /// **Its own word rather than [`Requested`](Self::Requested)**, for `Requested`'s own reason:
+    /// somebody asked for a *repair*, not for this service to be down. And it outlives the job where
+    /// the job fails — `mix service status` saying *a person stopped this* about a repair that died
+    /// half-way is the kind of account T126 spent a day chasing.
+    ///
+    /// **Naming it here is half the change.** Whether a connection may start the service again is
+    /// `StoppedBy::may_be_woken` in `mixengine-core`, and `StoppedBy::of` reaches its wakeable answer
+    /// through a catch-all arm — so this word is named there as well, beside `Requested`, and
+    /// nothing would have failed to compile if it were not. What that would cost is a server started
+    /// against the data directory a reset step is writing into.
+    ///
+    /// The enum is `#[non_exhaustive]`, so a build that predates this word reads it as no reason
+    /// recorded rather than failing to parse the event.
+    CredentialReset,
+
     /// The [`crate::ReadyCheck`] passed.
     Ready,
 
@@ -471,6 +488,12 @@ impl std::fmt::Display for StateReason {
             Self::Requested => f.write_str("somebody asked for it"),
             Self::Autostart => f.write_str("it is set to start with MixEngine"),
             Self::Shutdown => f.write_str("MixEngine is shutting down"),
+            // Past tense on purpose, and it is the failed repair this is worded for: where the job
+            // does not finish the service stays stopped carrying this word, and *is being re-set*
+            // would then be a sentence about work that is not happening.
+            Self::CredentialReset => {
+                f.write_str("it was stopped to re-set its superuser credential")
+            }
             Self::Ready => f.write_str("the ready check passed"),
             Self::ReadyTimeout { after } => write!(f, "not ready within {after}"),
             // Three shapes rather than one, because the useless one has to stay useful: a port
