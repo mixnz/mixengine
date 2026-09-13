@@ -1231,7 +1231,11 @@ mod tests {
             matches!(
                 spec.env().get(PASSWORD_VARIABLE),
                 Some(mixengine_proto::EnvValue::Keyring { service, key })
-                    if service == KEYRING_SERVICE && key == "postgres@main/postgres"
+                    if service == KEYRING_SERVICE
+                        && key == &format!(
+                            "{}/postgres@main/postgres",
+                            crate::generate::recipe::TEST_HOME
+                        )
             ),
             "{:?}",
             spec.env()
@@ -1327,7 +1331,15 @@ mod tests {
                 if key == &context.secret_address(SUPERUSER)),
             "{named:?}"
         );
-        assert_eq!(context.secret_address(SUPERUSER), "postgres@main/postgres");
+        // The home is in front of the service — roadmap task **T126**, and MariaDB's own test
+        // says why.
+        assert_eq!(
+            context.secret_address(SUPERUSER),
+            format!(
+                "{}/postgres@main/postgres",
+                crate::generate::recipe::TEST_HOME
+            )
+        );
     }
 
     /// **`initdb` is told its locale and its encoding, because otherwise it reads the machine's.**

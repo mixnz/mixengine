@@ -508,16 +508,20 @@ async fn an_apply_sets_no_autostart_unless_it_is_asked_to() {
     );
 }
 
-/// **`--start` leaves this home's services running** — roadmap task T117.
+/// **`--start` leaves this project's services running, and only those** — roadmap tasks T117 and
+/// **T125**.
 ///
 /// The last step of *get me a working site*, and the one the apply itself may not take: an apply
 /// never raises an elevation prompt, so a front end started inside the job would serve the new site
-/// at a name this machine does not resolve. What `--start` means is *every service this home
-/// declares* — the same sentence `mix service start` with no argument has answered since phase 1 —
-/// and this asserts it on the two services this home has: the one the apply made and the one it did
-/// not.
+/// at a name this machine does not resolve.
+///
+/// **T117 sent no target at all**, which means *every service this home declares*, because a client
+/// may not derive the apply's own set and the daemon had no narrower question to ask. T125 gave it
+/// one, and the home here is the case that made it matter: two instances of the same service, one
+/// this project's and one somebody else's. A start that leaves the second running is a machine
+/// where installing a second stack turns on every database its owner has.
 #[tokio::test(flavor = "multi_thread")]
-async fn an_apply_can_start_what_this_home_declares() {
+async fn an_apply_starts_what_the_project_needs_and_leaves_the_rest_alone() {
     let home = Home::new();
     let _daemon = home.start_daemon();
 
@@ -528,8 +532,8 @@ async fn an_apply_can_start_what_this_home_declares() {
     )
     .await;
 
-    let fixture =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/with-a-service.toml");
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/with-a-site-and-a-service.toml");
     home.mix(&["blueprint", "import", &fixture.display().to_string()]);
 
     let directory = repository();
@@ -538,7 +542,7 @@ async fn an_apply_can_start_what_this_home_declares() {
     let applied = home.mix(&[
         "blueprint",
         "apply",
-        "with-a-service",
+        "with-a-site-and-a-service",
         "--project",
         "shop",
         "--path",
@@ -554,17 +558,22 @@ async fn an_apply_can_start_what_this_home_declares() {
 
     let listed = json(&home.mix(&["service", "list", "--json"]));
     let services = listed["services"].as_array().expect("a list of services");
-
-    for id in ["fakeservice@shop", "fakeservice@already"] {
-        let found = services
+    let state = |id: &str| {
+        services
             .iter()
             .find(|service| service["id"] == id)
-            .unwrap_or_else(|| panic!("`{id}` is declared: {listed}"));
+            .unwrap_or_else(|| panic!("`{id}` is declared: {listed}"))["state"]
+            .clone()
+    };
 
-        assert_eq!(
-            found["state"], "running",
-            "`--start` starts every service this home declares, not only what the apply made: \
-             {listed}"
-        );
-    }
+    assert_eq!(
+        state("fakeservice@shop"),
+        "running",
+        "the site this apply made declares it: {listed}"
+    );
+    assert_eq!(
+        state("fakeservice@already"),
+        "stopped",
+        "no site of this project declares it, and `--start` is not a machine-wide switch: {listed}"
+    );
 }

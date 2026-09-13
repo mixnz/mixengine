@@ -121,9 +121,15 @@ export function serviceAction(id: string, action: ServiceAction): Promise<unknow
   return invoke("mixengine_service_action", { id, action });
 }
 
-/** `service.start` không có target — *mọi service home này khai*, theo thứ tự phụ thuộc (T117). */
-export function serviceStartAll(): Promise<unknown> {
-  return invoke("mixengine_service_start_all");
+/**
+ * `service.start` với scope project — *mọi service project này cần*, theo thứ tự phụ thuộc (T125).
+ *
+ * Tập ấy là câu trả lời của daemon: service các site của project khai, pool php-fpm chúng đặt tên,
+ * và front end chúng được phục vụ qua. Trước T125 chỗ này gửi target rỗng, nghĩa là mọi service
+ * home khai — một home bốn bản PHP bật cả bốn để dựng một site.
+ */
+export function serviceStartProject(project: string): Promise<unknown> {
+  return invoke("mixengine_service_start_project", { project });
 }
 
 /**

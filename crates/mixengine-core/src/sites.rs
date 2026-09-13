@@ -410,6 +410,40 @@ pub async fn records(store: &Store, project: Option<i64>) -> Result<Vec<SiteReco
     Ok(sites)
 }
 
+/// Every service the sites of one project declare, in id order — roadmap task **T125**.
+///
+/// **The links, plus the pool a php-fpm site names.** `site_service_links` holds what a site was
+/// created *with* — for `blueprint.apply` that is `context.ensured`, the database and the cache it
+/// made or found — while the pool lives in `sites.php_service_id` and therefore in
+/// [`SiteKind::PhpFpm`]. A caller reading only one of the two would start a project's database and
+/// leave the thing that runs its code down, or the other way round.
+///
+/// **The front end is not here**, and that is the boundary this function draws: it is not a service
+/// any site *declares*, it is the one program every site on the machine is reached through. Which
+/// one a home has is `services::front_end::held_by`'s question, and the caller that needs both asks
+/// both.
+///
+/// # Errors
+///
+/// The errors [`records`] gives.
+pub async fn services_of(store: &Store, project: i64) -> Result<Vec<ServiceId>> {
+    let mut declared: Vec<ServiceId> = Vec::new();
+
+    for site in records(store, Some(project)).await? {
+        declared.extend(site.services);
+
+        if let SiteKind::PhpFpm { pool: Some(pool) } = site.kind {
+            declared.push(pool);
+        }
+    }
+
+    // Two sites of one project share a database far more often than not, and a plan is a set.
+    declared.sort();
+    declared.dedup();
+
+    Ok(declared)
+}
+
 /// The site answering to this domain, primary or alias, or [`None`].
 ///
 /// # Errors
@@ -1303,6 +1337,137 @@ mod tests {
             !said.contains("FOREIGN KEY"),
             "the schema answered instead of this check: {said}"
         );
+    }
+
+    /// **Both halves, and nothing else's** — roadmap task **T125**. What a project needs is the
+    /// link table *and* the pool the kind names; a caller reading one of the two starts a database
+    /// with nothing to run the code, or the other way round. The second project is there because
+    /// the answer is a project's and not a home's — the set this replaces was every service the
+    /// home declared.
+    #[tokio::test]
+    async fn the_services_of_a_project_are_its_sites_links_and_their_pool() {
+        let (_temp, store, project) = home().await;
+        a_service_row(&store, "mariadb@main").await;
+        a_service_row(&store, "redis@main").await;
+        let pool = a_php_pool(&store, "8.3.34").await;
+
+        create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::PhpFpm {
+                    pool: Some(pool.clone()),
+                },
+                https_enabled: true,
+                https_redirect: false,
+                domains: vec!["blog.mixengine.test".to_owned()],
+                services: vec![ServiceId::parse("mariadb@main").expect("an id")],
+            },
+        )
+        .await
+        .expect("a php site");
+
+        let other = crate::projects::create(
+            &store,
+            &crate::projects::Registration {
+                name: "shop".to_owned(),
+                root: _temp.path().join("shop"),
+                pins: std::collections::BTreeMap::new(),
+            },
+            Timestamp::from_system_time(std::time::SystemTime::UNIX_EPOCH),
+        )
+        .await
+        .expect("a second project");
+
+        create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(other.id),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: true,
+                https_redirect: false,
+                domains: vec!["shop.mixengine.test".to_owned()],
+                services: vec![ServiceId::parse("redis@main").expect("an id")],
+            },
+        )
+        .await
+        .expect("a second project's site");
+
+        let needed = services_of(&store, project)
+            .await
+            .expect("what the project needs");
+
+        assert_eq!(
+            needed,
+            vec![ServiceId::parse("mariadb@main").expect("an id"), pool,],
+            "the link and the pool, in id order, and nothing the other project declares"
+        );
+    }
+
+    /// A project with no sites needs nothing, which is an answer and not an error.
+    #[tokio::test]
+    async fn a_project_with_no_sites_needs_no_services() {
+        let (_temp, store, project) = home().await;
+
+        assert!(
+            services_of(&store, project)
+                .await
+                .expect("an answer")
+                .is_empty()
+        );
+    }
+
+    /// One `services` row and the package it belongs to, enough for `declared_services_exist` to
+    /// let a link through.
+    async fn a_service_row(store: &Store, id: &str) {
+        let package = id.split('@').next().expect("a package name");
+
+        sqlx::query(
+            "INSERT INTO packages (name, version, install_path, installed_at, source_url, sha256)
+             VALUES (?, '1.0.0', '/packages/x', '2026-09-03T00:00:00Z', 'https://example', 'ab')",
+        )
+        .bind(package)
+        .execute(store.pool())
+        .await
+        .expect("a package for the service to belong to");
+
+        sqlx::query(
+            "INSERT INTO services (id, package_id, instance_name, state)
+             VALUES (?, (SELECT id FROM packages WHERE name = ?), 'main', 'stopped')",
+        )
+        .bind(id)
+        .bind(package)
+        .execute(store.pool())
+        .await
+        .expect("a service row");
+    }
+
+    /// A php-fpm pool and the runtime it belongs to, as an install would have left them.
+    async fn a_php_pool(store: &Store, version: &str) -> ServiceId {
+        sqlx::query(
+            "INSERT INTO runtime_installs (kind, version, channel, install_path, installed_at,
+                                           size_bytes, source_url, sha256, provides_json)
+             VALUES ('php', ?1, 'stable', '/runtimes/php', '2026-09-03T00:00:00Z', 1,
+                     'https://example.invalid/php', 'ab', '{}')",
+        )
+        .bind(version)
+        .execute(store.pool())
+        .await
+        .expect("a runtime row");
+
+        sqlx::query(
+            "INSERT INTO services (id, runtime_install_id, instance_name, state)
+             VALUES ('php-fpm@' || ?1, (SELECT id FROM runtime_installs WHERE version = ?1), ?1,
+                     'stopped')",
+        )
+        .bind(version)
+        .execute(store.pool())
+        .await
+        .expect("a pool row");
+
+        ServiceId::parse(format!("php-fpm@{version}")).expect("an id")
     }
 
     /// The same rule at the link table, which carries the other half of a site's services.

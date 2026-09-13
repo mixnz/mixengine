@@ -357,6 +357,108 @@ readable, writable setting since it was written, and nothing has ever read the c
       about what a site answers is a claim about both servers, and the rendering that had to be
       written twice is the one a Caddy-only suite would never have served.
 
+- [x] **T125** A start after an apply is the project's services, and a failed step does not say
+      "ready". Reported from a real apply: applying one blueprint started **every service this home
+      declares**, and a `[scaffold]` that exited non-zero still ended at a panel offering to open
+      the website.
+      **What this task settled.** Both halves were one omission — `ServiceTarget` could name one
+      service or none, and *none* meant the whole home, so both clients asked for the whole home
+      because the set they wanted had no question to ask for. It now takes a `project`, answered by
+      `core::sites::services_of` (the sites' `site_service_links` plus the php-fpm pool a kind
+      names) and the home's front end, which is not a service any site declares and is the one
+      thing nothing wakes on demand. T117's reasoning stands and its conclusion does not: deriving
+      the set in a client is still business logic in a client — so the daemon derives it.
+      **Front-end-only was measured and rejected**: `resource-isolation.md` promises a database is
+      woken by the connection that needs it, but `hold::hold_if_wakeable` binds at the boot walk and
+      on an idle stop, so an instance this apply has just created is wakeable at nothing until the
+      next daemon start. A start scoped to the front end alone would put a site up in front of a
+      database its own application cannot reach.
+      **A project has no `stop`**, and the refusal is the type's own doc rather than a gap: the set
+      includes the front end every *other* site is reached through, so a project-scoped stop is a
+      machine-wide outage wearing one project's name. A request naming both a service and a project
+      is refused for its own reason — resolving two subjects by precedence carries out the half
+      nobody meant.
+      **And "the job succeeded" is not "the apply is fine."** `api::apply` deliberately answers a
+      non-zero `[scaffold]` with `StepResult::Failed` inside a *successful* job, because a project
+      whose site serves and whose database exists is not worth destroying over a post-install
+      script; `mix` has read that as an exit code since T78a and the desktop had not read it at all.
+      `AfterApply` takes the whole `BlueprintApplied` now: the chain still runs — the elevation
+      queue is still worth spending and the front end is still worth starting — but the failed steps
+      are named at the top, the heading says so, and the address is a line of text instead of a
+      button inviting somebody into a half-built directory.
+      **What it deliberately did not do.** It did not make a failed step abort the post-apply chain
+      the way `mix` aborts: `mix` stops because it owes a shell an exit code and cannot both exit
+      non-zero and carry on, while a window that stopped there would leave a queued hosts entry and
+      a stopped web server behind as a protest against somebody else's script. And it did not
+      pre-arm `hold_if_wakeable` at `service.create`, which would make a front-end-only start
+      correct — that is a change to when the daemon binds addresses, not to what a client may ask.
+
+- [x] **T126** A credential's address names the home it belongs to, and a server that refuses one
+      says what that means. ADR
+      [0032](../decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md).
+      **Reported as an apply that would not finish**, and it was not the apply: the database step of
+      a Laravel blueprint failed with `ERROR 1045 (28000): Access denied for user
+      'root'@'127.0.0.1'` against a server that had been serving that home's databases for a day.
+      **What this task settled.** The credential store is one per operating-system *user* and
+      `MIXENGINE_HOME` means a user has several homes, but an address said only
+      `<service-id>/<user>` — so every home on a machine shared one entry, and the last to bootstrap
+      a `mariadb@main` took the root password of every server already running under that name. A
+      database is where that is fatal rather than untidy: the bootstrap writes the password into the
+      server's data directory as well, only a first run writes both, and nothing can read one back
+      out. Found by timestamp — a sandbox home's first run at 05:55:57 and the entry's last-written
+      time at 05:55:57 — and reproduced outside MixEngine by reading the entry and handing it to
+      `mariadb.exe`. It took `mix service stop` down with it: the shutdown command authenticates as
+      root too, so the supervisor could only kill the server.
+      **The id is the home's, not its path's.** `0021_home_id.sql` mints six random bytes at the
+      first migration; a hash of the root path needs no row and strands every credential the moment
+      somebody renames the directory, which is this outage arriving by another route — and on
+      Windows, case, 8.3 names and UNC spellings are four hashes for one directory.
+      **An older entry is moved on the read that needs it**, in `mixengined`'s new `secrets` module,
+      because there is no set to walk: a ritual's credentials are enumerable from the recipes and a
+      database *account's* are not — the names arrive from whoever asks, and only the server knows
+      them all. The old entry is left in place, since another home may still be running a build that
+      reads it.
+      **And the failure explains itself now.** A superuser refusal — `1045` for the MySQL family,
+      `28P01` for PostgreSQL, matched on the server's own code rather than on prose — is answered
+      with what it means and with the two ways out, instead of with the client's own line at the end
+      of a blueprint that had already downloaded a runtime and made a directory.
+      **What it deliberately did not do.** It did not delete the pre-T126 entries, and it did not
+      automate the repair: a server whose password was already replaced has to be re-set against its
+      own data directory through the recipe's bootstrap, which is **T127** and wants a job, a log
+      and a branch per recipe rather than a line here. It did not change `SecretAddress` either —
+      the shape moved, the type did not, because every client reads the address the daemon returns.
+
+- [ ] **T127** A credential a home cannot produce any more is re-set by a command rather than by
+      hand. T126 stopped homes from taking each other's, and said so where it fails; a machine that
+      already met the collision still has a server whose data directory holds a password nothing
+      knows. The repair is the recipe's own bootstrap — stop the service, set the superuser's
+      password to the one this home holds, start it — and it differs per recipe, so it wants a job
+      with a log rather than a paragraph in a hint. Until it exists the hint names the procedure.
+
+- [x] **T128** A plan names the project the way the row will spell it. Found in the daemon log of
+      the failed apply T126 was reported from: `a failed apply could not take back what it made
+      made=Project { name: "Laravel " } error=no such project: Laravel `. The rollback was looking
+      for a project under a name nothing had ever been stored under.
+      **What this task settled.** `projects::validated_name` trims — it has since phase 0, and
+      `project.create` stores what it returns — while `blueprints::plan` carried the string the
+      request arrived with and handed it to three readers that each compare by equality. So one
+      trailing space made three different failures, all of them after the work had begun: the
+      resumption check in `register` found neither the project nor a name collision and planned a
+      `Create` that the root check then **blocked over this apply's own first attempt**;
+      `ProjectRef::Name(plan.project)` could not find the row the `[site]` step hangs off; and the
+      ledger recorded a project under a name `projects::find` cannot match. The plan now trims once,
+      before anything reads the name — T120's rule arriving at the project's own name rather than at
+      the four name spaces `{project}` is substituted into.
+      **A name that is not one is still left exactly as it arrived**, because `register` is what
+      says so, as a `Blocked` step naming the reason. That is `plan`'s contract and this task did not
+      touch it: everything a person did wrong is a step they can read rather than an error that
+      prints no plan at all.
+      **What it deliberately did not do.** It did not make `projects::find` lenient. A name is
+      normalised where it is *created*, and a lookup that quietly trimmed what somebody typed would
+      be a second rule about what a name is — the one this task exists to remove. `mix project show
+      "Laravel "` still finds nothing, and that is an honest answer about a project called
+      `Laravel`.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are

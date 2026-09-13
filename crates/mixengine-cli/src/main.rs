@@ -718,11 +718,12 @@ enum BlueprintCommand {
         #[arg(long)]
         autostart: bool,
 
-        /// Start every service this home declares once the apply is done.
+        /// Start the services this project needs once the apply is done.
         ///
-        /// **Every service this home declares**, and not only the ones this apply made: working out
-        /// which those were would be this command deciding something the daemon answers, and on a
-        /// second apply the servers it needs are the ones it found rather than the ones it made.
+        /// **This project's, not this home's** — roadmap task **T125**. Which services those are is
+        /// the daemon's answer and not this command's: the sites the apply just made, the database
+        /// and the pool they declare, and the front end they are reached through. Until T125 the
+        /// only set a client could ask for was *every service this home declares*.
         ///
         /// Runs after the elevation, because a site served at a name the hosts file does not
         /// resolve is a browser error with a progress bar in front of it.
@@ -1688,7 +1689,7 @@ enum ServiceCommand {
     },
 
     /// Start a service, and everything it depends on.
-    Start(Target),
+    Start(StartTarget),
 
     /// Stop a service, and everything that depends on it.
     Stop(Target),
@@ -1789,6 +1790,36 @@ struct Target {
     /// being up: an answer sent before the walk would exit `0` for a service that never came up.
     #[arg(long)]
     no_wait: bool,
+}
+
+/// One service or all of them, for the two verbs that have no scope of their own.
+fn walk_target(target: &Target) -> ServiceTarget {
+    ServiceTarget {
+        service: target.service.clone(),
+        project: None,
+        wait: !target.no_wait,
+    }
+}
+
+/// What `start` takes, which is [`Target`] plus the one scope only a start has.
+///
+/// **A type of its own rather than a field on [`Target`]** — roadmap task **T125**. The field would
+/// have to be refused on `stop` and `restart`, and a flag a command lists in its own `--help` in
+/// order to reject it is a flag that reads as a gap. What a project-scoped stop would mean is a
+/// different set from this one — this includes the front end every *other* site is reached
+/// through — so the daemon keeps its refusal for a hand-written request, and `mix` never offers it.
+#[derive(Debug, clap::Args)]
+struct StartTarget {
+    #[command(flatten)]
+    target: Target,
+
+    /// Every service one project needs, instead of one or all.
+    ///
+    /// Its sites' databases and caches, the php-fpm pool they name, and the front end they are
+    /// reached through — worked out by the daemon, which is the only thing that can: the set is
+    /// `site_service_links`, and no client may derive it.
+    #[arg(long, value_name = "PROJECT", conflicts_with = "service")]
+    project: Option<String>,
 }
 
 /// Which service in a listing is the front end, as the daemon answered — roadmap task **T97**.
@@ -3902,15 +3933,17 @@ async fn blueprint(
             // started before that would serve the new site at a name this machine does not resolve
             // and with a certificate no store trusts — a browser error at the end of a progress bar.
             //
-            // **No target**, which is *every service this home declares*, in dependency order. The
-            // alternative is deriving this apply's own service set from the finished plan, which is
-            // business logic in a client — and wrong on a second apply anyway, where the front end
-            // the site needs is one the plan found rather than one it made.
+            // **This project's services, not this home's** — roadmap task **T125**. Until then the
+            // target was empty, meaning *every service this home declares*, and a home with four
+            // PHP versions and three databases started all of them to put one site up. What the
+            // apply needs is a set no client may derive — so the daemon derives it, from the sites
+            // this project now has, and `--start` asks for it by name.
             let walk: ServiceWalk = ask(
                 &mut client,
                 rpc::method::SERVICE_START,
                 encode(&ServiceTarget {
                     service: None,
+                    project: Some(ProjectRef::Name(apply.project.clone())),
                     wait: true,
                 }),
             )
@@ -5249,6 +5282,7 @@ async fn service(
                 None => {
                     let target = ServiceTarget {
                         service: Some(service.clone()),
+                        project: None,
                         wait: false,
                     };
 
@@ -5308,6 +5342,7 @@ async fn service(
                 None => {
                     let target = ServiceTarget {
                         service: Some(service.clone()),
+                        project: None,
                         wait: false,
                     };
 
@@ -5469,23 +5504,28 @@ async fn service(
             .await;
         }
 
-        ServiceCommand::Start(target) => {
-            (rpc::method::SERVICE_START, render::Walked::Start, target)
-        }
-        ServiceCommand::Stop(target) => (rpc::method::SERVICE_STOP, render::Walked::Stop, target),
+        ServiceCommand::Start(start) => (
+            rpc::method::SERVICE_START,
+            render::Walked::Start,
+            ServiceTarget {
+                service: start.target.service.clone(),
+                project: start.project.clone().map(ProjectRef::Name),
+                wait: !start.target.no_wait,
+            },
+        ),
+        ServiceCommand::Stop(target) => (
+            rpc::method::SERVICE_STOP,
+            render::Walked::Stop,
+            walk_target(target),
+        ),
         ServiceCommand::Restart(target) => (
             rpc::method::SERVICE_RESTART,
             render::Walked::Restart,
-            target,
+            walk_target(target),
         ),
     };
 
-    let target = ServiceTarget {
-        service: params.service.clone(),
-        wait: !params.no_wait,
-    };
-
-    let walk: ServiceWalk = ask(&mut client, method, encode(&target)).await?;
+    let walk: ServiceWalk = ask(&mut client, method, encode(&params)).await?;
     emit(&rendered(json, &walk, || {
         render::service_walk(walked, &walk)
     }))?;

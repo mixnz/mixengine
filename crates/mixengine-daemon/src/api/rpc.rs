@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::future::Future;
 use std::sync::Arc;
 
-use mixengine_core::services::{GraphError, Plan, ServiceGraph, ServiceRecord};
+use mixengine_core::services::{GraphError, Plan, ServiceGraph, ServiceRecord, front_end};
 use mixengine_proto::rpc::{self, Id, Request, Response, RpcCode, RpcError};
 use mixengine_proto::{
     BlueprintApply, BlueprintCapture, BlueprintImport, BundleReport, CaRotateQuery, CaStatus,
@@ -20,11 +20,11 @@ use mixengine_proto::{
     ExtensionUninstall, FrontEndSwitch, IdleReport, IdleSource, JobFilter, JobId, JobKind, JobList,
     JobQuery, JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
     MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery,
-    ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget, RuntimeUninstall,
-    ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet,
-    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec,
-    ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare,
-    SiteUpdate, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
+    ProjectRef, ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget,
+    RuntimeUninstall, ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole,
+    ServiceSpec, ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery,
+    SiteShare, SiteUpdate, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
     UpdateStatus, Uptime,
 };
 use serde_json::Value;
@@ -469,6 +469,7 @@ async fn call_method(
                     encode_result(
                         &api.service_start(&ServiceTarget {
                             service: Some(service),
+                            project: None,
                             wait: true,
                         })
                         .await
@@ -487,6 +488,7 @@ async fn call_method(
                     encode_result(
                         &api.service_stop(&ServiceTarget {
                             service: Some(service),
+                            project: None,
                             wait: true,
                         })
                         .await
@@ -1599,6 +1601,7 @@ impl Api {
 
         self.service_idle(&ServiceTarget {
             service: Some(id),
+            project: None,
             wait: false,
         })
         .await
@@ -1788,13 +1791,27 @@ impl Api {
     }
 
     /// `service.start` — bring a service up, and everything it depends on with it.
+    ///
+    /// **Three subjects, and the third is the daemon answering a question no client may** — roadmap
+    /// task **T125**. A named service is the transitive set below it; nothing named is every
+    /// declared service; and [`ServiceTarget::project`] is what one project needs, which is
+    /// [`Self::project_roots`]'s to work out. Until T125 a client that wanted the third asked for
+    /// the second, so applying a blueprint on a home with four PHP versions and three databases
+    /// started all of them.
     pub(super) async fn service_start(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
         let graph = self
             .services
             .graph()
             .await
             .map_err(|error| error.to_wire())?;
-        let plan = start_plan(&graph, target.service.as_ref())?;
+
+        let roots = match (&target.service, &target.project) {
+            (Some(_), Some(_)) => return Err(two_subjects()),
+            (None, Some(project)) => Some(self.project_roots(project, &graph).await?),
+            (service, None) => service.as_ref().map(|id| vec![id.clone()]),
+        };
+
+        let plan = start_plan(&graph, roots.as_deref())?;
 
         self.walk(
             target.wait,
@@ -1808,12 +1825,71 @@ impl Api {
         .await
     }
 
+    /// Every service one project needs, for [`ServiceTarget::project`] — roadmap task **T125**.
+    ///
+    /// **Two readings, because the front end is not a service any site declares.**
+    /// [`mixengine_core::sites::services_of`] answers what the project's own sites named — the database and the
+    /// cache `blueprint.apply` wrote into `site_service_links`, and the php-fpm pool — and
+    /// [`front_end::held_by`] answers which program those sites are reached *through*. Starting the
+    /// first set without the second is a project whose parts are all running and whose address
+    /// answers nothing.
+    ///
+    /// **A root the graph does not know is passed over rather than refused.** That is T122's shape:
+    /// `service.delete` can take a pool row while a site still names it, and a project that cannot
+    /// be started at all because one link dangles is a worse answer than one started without it —
+    /// the start plan is the transitive set below what is left, which is still everything that can
+    /// run.
+    ///
+    /// An empty set is not an error either: a project with no sites yet needs nothing, and a walk
+    /// over nothing is a truthful empty answer.
+    async fn project_roots(
+        &self,
+        reference: &ProjectRef,
+        graph: &ServiceGraph,
+    ) -> Result<Vec<ServiceId>, Error> {
+        let project = mixengine_core::projects::find(&self.store, reference)
+            .await
+            .map_err(|error| error.to_wire())?
+            .ok_or_else(|| {
+                let said = match reference {
+                    ProjectRef::Name(name) => format!("no such project: {name}"),
+                    ProjectRef::Path(path) => {
+                        format!("no project is registered at or above {path}")
+                    }
+                };
+
+                Error::new(ErrorCode::NotFound, said)
+                    .with_hint("`mix project list` shows what does exist")
+            })?;
+
+        let mut roots = mixengine_core::sites::services_of(&self.store, project.id)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        let front_end = front_end::held_by(&self.store, &crate::services::catalogue())
+            .await
+            .map_err(|error| error.to_wire())?
+            .and_then(|id| ServiceId::parse(id).ok());
+
+        if let Some(front_end) = front_end {
+            roots.push(front_end);
+        }
+
+        roots.retain(|id| graph.spec(id).is_some());
+        roots.sort();
+        roots.dedup();
+
+        Ok(roots)
+    }
+
     /// `service.stop` — take a service down, and everything that depends on it first.
     ///
     /// **A stop can fail**, and since T18 there is exactly one way: a process that outlived a
     /// previous daemon, was adopted by this one, and would not die. What comes back then names it,
     /// with no reason attached — see [`Registry::stop`](crate::services::Registry::stop).
     pub(super) async fn service_stop(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
+        refuse_project_scope(target, "stop")?;
+
         let graph = self
             .services
             .graph()
@@ -1855,6 +1931,8 @@ impl Api {
     /// put a second one there to collide with the first. A restart that could not take the service
     /// down has not restarted it, and says so.
     async fn service_restart(&self, target: &ServiceTarget) -> Result<ServiceWalk, Error> {
+        refuse_project_scope(target, "restart")?;
+
         let graph = self
             .services
             .graph()
@@ -1948,14 +2026,48 @@ impl Api {
     }
 }
 
-/// What must start for `service` to be running, or for everything to be.
-fn start_plan(graph: &ServiceGraph, service: Option<&ServiceId>) -> Result<Plan, Error> {
-    match service {
-        Some(id) => graph
-            .start_plan([id])
+/// What must start for `roots` to be running, or for everything to be.
+fn start_plan(graph: &ServiceGraph, roots: Option<&[ServiceId]>) -> Result<Plan, Error> {
+    match roots {
+        Some(roots) => graph
+            .start_plan(roots)
             .map_err(|error| mixengine_core::Error::Graph(error).to_wire()),
         None => Ok(graph.start_order()),
     }
+}
+
+/// The refusal for a request naming a service *and* a project — roadmap task **T125**.
+///
+/// Two subjects is not a request with a winner, so neither is picked: resolving it by precedence
+/// would carry out the half the caller did not mean, silently, on somebody's machine.
+fn two_subjects() -> Error {
+    Error::new(
+        ErrorCode::InvalidArgument,
+        "a service and a project are two subjects, and this call acts on one".to_owned(),
+    )
+    .with_hint("send `service` for one service, `project` for what one project needs, neither for every declared service")
+}
+
+/// The refusal `service.stop` and `service.restart` give a project-scoped request — **T125**.
+///
+/// **Not an omission to be filled in later without thinking about it.** What a project needs
+/// includes the front end every *other* site on the machine is reached through, so a project-scoped
+/// stop is a machine-wide outage wearing one project's name. A stop that means something narrower
+/// is a different set — one this type cannot express by simply being allowed through.
+fn refuse_project_scope(target: &ServiceTarget, verb: &str) -> Result<(), Error> {
+    if target.project.is_none() {
+        return Ok(());
+    }
+
+    Err(Error::new(
+        ErrorCode::InvalidArgument,
+        format!(
+            "`service.{verb}` has no project scope: what a project needs includes the front end              every other site is reached through"
+        ),
+    )
+    .with_hint(format!(
+        "`mix service {verb} <service>` names one, and leaving it out {verb}s every declared service"
+    )))
 }
 
 /// What is watching this service's ceiling, if anything — roadmap task **T71a**.
@@ -2039,7 +2151,7 @@ pub(super) fn summary(
 /// A row this build has no recipe for is [`ServiceRole::Other`] rather than absent: `None` on the
 /// wire means *the daemon predates the member* (ADR 0019), and a service MixEngine cannot configure
 /// is certainly not the program every site is reached through — which is the same answer
-/// [`front_end::held_by`](mixengine_core::services::front_end::held_by) already gives such a row
+/// [`front_end::held_by`] already gives such a row
 /// when it passes over it.
 fn role_of(catalogue: &mixengine_core::generate::Catalogue, id: &ServiceId) -> ServiceRole {
     match catalogue.recipe(id.name()).map(|recipe| recipe.role()) {
@@ -3187,6 +3299,71 @@ mod tests {
             vec![fixture::service("db")],
             "the graph's edge, which is what makes a start order explicable"
         );
+    }
+
+    // The project scope — roadmap task **T125**. What the set *is* belongs to
+    // `core::sites::services_of`, which is tested where it lives; what is proved here is the three
+    // requests this surface has to answer with a refusal rather than with a walk.
+
+    #[tokio::test]
+    async fn a_start_scoped_to_a_project_nothing_answers_to_is_not_found() {
+        let daemon = daemon(web_and_db(), &["db", "web"]).await;
+
+        let answer = daemon
+            .ask(
+                rpc::method::SERVICE_START,
+                serde_json::json!({"project": {"name": "nope"}}),
+            )
+            .await;
+
+        assert_eq!(answer["error"]["data"]["code"], "not_found");
+        assert!(
+            answer["error"]["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("nope"),
+            "{answer}"
+        );
+    }
+
+    /// **Two subjects is refused rather than resolved by precedence.** Picking one would carry out
+    /// the half the caller did not mean — silently, on somebody's machine.
+    #[tokio::test]
+    async fn a_start_naming_a_service_and_a_project_is_refused() {
+        let daemon = daemon(web_and_db(), &["db", "web"]).await;
+
+        let answer = daemon
+            .ask(
+                rpc::method::SERVICE_START,
+                serde_json::json!({"service": "db", "project": {"name": "blog"}}),
+            )
+            .await;
+
+        assert_eq!(answer["error"]["data"]["code"], "invalid_argument");
+        assert_eq!(
+            daemon.state("db").await,
+            Some(ServiceState::Stopped),
+            "a refused request starts nothing"
+        );
+    }
+
+    /// **A project has no stop.** The set includes the front end every *other* site on the machine
+    /// is reached through, so a project-scoped stop is a machine-wide outage wearing one project's
+    /// name — and an accepted request would be exactly that, not an error a user can see.
+    #[tokio::test]
+    async fn a_stop_and_a_restart_have_no_project_scope() {
+        let daemon = daemon(web_and_db(), &["db", "web"]).await;
+
+        for method in [rpc::method::SERVICE_STOP, rpc::method::SERVICE_RESTART] {
+            let answer = daemon
+                .ask(method, serde_json::json!({"project": {"name": "blog"}}))
+                .await;
+
+            assert_eq!(
+                answer["error"]["data"]["code"], "invalid_argument",
+                "{method} answered {answer}"
+            );
+        }
     }
 
     /// A home reached through one front end, declared and rowed.

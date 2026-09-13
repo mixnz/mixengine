@@ -2128,15 +2128,20 @@ impl Runner {
                 let resolved = match value {
                     EnvValue::Literal { value } => Ok(value),
 
-                    EnvValue::Keyring { service, key } => host
-                        .keyring()
-                        .secret(&service, &key)
-                        .map_err(anyhow::Error::from)
-                        .and_then(|secret| {
-                            secret.ok_or_else(|| {
-                                anyhow::anyhow!("no credential is stored at {service}/{key}")
+                    // **Through `crate::secrets` and not the keyring directly** — roadmap task
+                    // **T126**. This is the read that hands a server its own superuser password at
+                    // spawn, so it is the one that has to find an entry written before addresses
+                    // named their home — otherwise upgrading a build would leave every database
+                    // unable to authenticate against itself.
+                    EnvValue::Keyring { service, key } => {
+                        { crate::secrets::secret_blocking(host.as_ref(), &service, &key) }
+                            .map_err(anyhow::Error::from)
+                            .and_then(|secret| {
+                                secret.ok_or_else(|| {
+                                    anyhow::anyhow!("no credential is stored at {service}/{key}")
+                                })
                             })
-                        }),
+                    }
                 };
 
                 match resolved {

@@ -85,19 +85,34 @@ pub async fn mixengine_service_action(id: String, action: String) -> Result<Valu
     rpc::call(method, params).await
 }
 
-/// `service.start` **không có target**, nghĩa là *mọi service home này khai*, theo đúng thứ tự phụ
-/// thuộc — T117.
+/// `service.start` với **scope project** — T125: mọi service project này cần, theo đúng thứ tự phụ
+/// thuộc.
 ///
-/// Lệnh riêng chứ không phải `mixengine_service_action` với `id` rỗng: "một service" và "tất cả" là
-/// hai câu khác nhau, và một `id` rỗng là chỗ để một lỗi chính tả trở thành một lượt khởi động cả
-/// máy.
-///
-/// **Frontend không được tự suy ra tập service của một apply.** Đó là business logic trong client
+/// **Frontend không được tự suy ra tập service ấy.** Đó là business logic trong client
 /// (`CLAUDE.md`), và ở lần apply thứ hai nó còn sai: web server site cần là cái plan *tìm thấy*,
-/// không phải cái nó tạo ra.
+/// không phải cái nó tạo ra. Nên câu hỏi được gửi nguyên văn cho daemon, và daemon là chỗ đọc
+/// `site_service_links` cùng front end của home.
+///
+/// **Trước T125 đây là `mixengine_service_start_all`, gửi một target rỗng** — nghĩa là *mọi service
+/// home này khai*. Một home có bốn bản PHP và ba database bật hết tám service để dựng một site, và
+/// đó chính là lý do lệnh này có tham số.
+///
+/// Lệnh riêng chứ không phải `mixengine_service_action` với `id` rỗng: "một service" và "những gì
+/// một project cần" là hai câu khác nhau, và một `id` rỗng là chỗ để một lỗi chính tả trở thành một
+/// lượt khởi động cả máy.
 #[tauri::command]
-pub async fn mixengine_service_start_all() -> Result<Value, AppError> {
-    rpc::call("service.start", json!({ "wait": true })).await
+pub async fn mixengine_service_start_project(project: String) -> Result<Value, AppError> {
+    rpc::call("service.start", service_start_project_params(&project)).await
+}
+
+/// Params của [`mixengine_service_start_project`]. Tách ra để có chỗ mà test: cái sai ở đây không
+/// ra lỗi, nó ra một lượt khởi động đúng trên sai phạm vi.
+///
+/// **`ProjectRef` là enum ngoại-tag**, nên tên project đi trong `{"name": …}`. Gửi thẳng một chuỗi
+/// vào `project` là một request daemon từ chối, và gửi `project` rỗng là một target không có scope
+/// — tức là bật cả máy, đúng cái T125 gỡ đi.
+fn service_start_project_params(project: &str) -> Value {
+    json!({ "project": { "name": project }, "wait": true })
 }
 
 /// Mở stream sự kiện. Mở lại là đóng cái đang mở.
@@ -663,6 +678,20 @@ mod tests {
     fn the_call_waits_because_the_screen_reloads_after_it() {
         let (_, params) = service_action_call("caddy", "stop").expect("a known action");
         assert_eq!(params["wait"], true);
+    }
+
+    /// **Scope đi trong `project`, và tên nằm trong `{"name": …}`** — T125. Một `ProjectRef` gửi
+    /// sai khuôn là một request bị từ chối; một `project` vắng mặt thì tệ hơn hẳn, vì nó *thành
+    /// công*: target rỗng là mọi service home này khai, đúng hành vi task này gỡ bỏ.
+    #[test]
+    fn a_project_start_names_the_project_it_is_about() {
+        let params = service_start_project_params("shop");
+        assert_eq!(params["project"]["name"], "shop");
+        assert_eq!(params["wait"], true);
+        assert!(
+            params.get("service").is_none(),
+            "a project scope and a service are two subjects; the daemon refuses both at once"
+        );
     }
 
     #[test]

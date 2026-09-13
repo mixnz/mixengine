@@ -7,6 +7,7 @@ import {
   buildScaffoldConsent,
   canApply,
   describePlanAction,
+  failedSteps,
   jobFailureMessage,
   scaffoldConsentState,
   scaffoldLeftCommand,
@@ -116,6 +117,43 @@ describe("scaffoldLeftCommand", () => {
       ),
     ).toBeNull();
     expect(scaffoldLeftCommand(applied([]))).toBeNull();
+  });
+});
+
+describe("failedSteps", () => {
+  function applied(steps: StepOutcome[]): BlueprintApplied {
+    return { blueprint: "laravel-starter", project: "blog", root: "/srv/blog", steps };
+  }
+
+  it("finds a step that ran and failed inside an otherwise successful apply", () => {
+    const outcomes: StepOutcome[] = [
+      { action: { action: "add_domain", domain: "blog.test", primary: true }, result: { result: "done" } },
+      {
+        action: { action: "run_scaffold", command: "composer create-project laravel/laravel ." },
+        result: { result: "failed", why: "exit code 1: Could not find package" },
+      },
+    ];
+    expect(failedSteps(applied(outcomes))).toEqual([outcomes[1]]);
+  });
+
+  // A declined consent is an answer, not a failure — `scaffoldLeftCommand` is what says that one.
+  it("is empty for done, already_true and not_run", () => {
+    expect(
+      failedSteps(
+        applied([
+          { action: { action: "run_scaffold", command: "composer install" }, result: { result: "done" } },
+          {
+            action: { action: "add_domain", domain: "blog.test", primary: true },
+            result: { result: "already_true" },
+          },
+          {
+            action: { action: "run_scaffold", command: "npm install" },
+            result: { result: "not_run", why: "nobody agreed to it" },
+          },
+        ]),
+      ),
+    ).toEqual([]);
+    expect(failedSteps(applied([]))).toEqual([]);
   });
 });
 

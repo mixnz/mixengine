@@ -1039,7 +1039,11 @@ mod tests {
             matches!(
                 spec.env().get(PASSWORD_VARIABLE),
                 Some(mixengine_proto::EnvValue::Keyring { service, key })
-                    if service == KEYRING_SERVICE && key == "mariadb@main/root"
+                    if service == KEYRING_SERVICE
+                        && key == &format!(
+                            "{}/mariadb@main/root",
+                            crate::generate::recipe::TEST_HOME
+                        )
             ),
             "{:?}",
             spec.env()
@@ -1199,13 +1203,23 @@ mod tests {
                 if key == &context.secret_address(ROOT)),
             "{named:?}"
         );
-        assert_eq!(context.secret_address(ROOT), "mariadb@main/root");
+        // **The home is in front of the service** — roadmap task **T126**. Without it every
+        // MIXENGINE_HOME on one machine writes to this one entry, and the last to bootstrap takes
+        // the root password of every server that was already running.
+        assert_eq!(
+            context.secret_address(ROOT),
+            format!("{}/mariadb@main/root", crate::generate::recipe::TEST_HOME)
+        );
 
         // **And it is the shared composition, not a second one that agrees today** — roadmap task
         // **T84**. This address is published to MixDB, which reads the entry MixEngine wrote.
         assert_eq!(
             context.secret_address(ROOT),
-            crate::services::handoff::secret_key(context.service(), ROOT)
+            crate::services::handoff::secret_key(
+                &crate::home::HomeId::parse(crate::generate::recipe::TEST_HOME).expect("an id"),
+                context.service(),
+                ROOT
+            )
         );
     }
 

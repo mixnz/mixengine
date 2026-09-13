@@ -182,11 +182,12 @@ impl Databases {
         // touches the credential store not at all: the address is what the recipe's administrator
         // and the service id say it is, which is exactly what makes the convention askable before
         // anything has been opened.
+        let home = self.home().await?;
         let secret = address.as_ref().and_then(|address| {
             address
                 .administrator
                 .as_deref()
-                .map(|user| SecretAddress::of(handoff::secret_key(&asked.service, user)))
+                .map(|user| SecretAddress::of(handoff::secret_key(&home, &asked.service, user)))
         });
 
         Ok(DatabaseClientReport {
@@ -195,6 +196,18 @@ impl Databases {
             secret,
             client,
         })
+    }
+
+    /// Which home this is, for the first segment of every credential address — roadmap task
+    /// **T126**.
+    ///
+    /// Read per call rather than held on this type: it is one indexed row, the calls that need it
+    /// are already several round trips to a database server, and a copy cached here would be a
+    /// second place the home's identity lives.
+    async fn home(&self) -> Result<mixengine_core::home::HomeId, Error> {
+        mixengine_core::home::id(&self.store)
+            .await
+            .map_err(|error| error.to_wire())
     }
 
     /// `database.credentials` — the password held for one account. Reads only — roadmap task
@@ -243,7 +256,7 @@ impl Databases {
                 )
             })?;
 
-        let at = handoff::secret_key(&asked.service, &account);
+        let at = handoff::secret_key(&self.home().await?, &asked.service, &account);
         let password = self
             .credential(
                 &asked.service,
@@ -326,7 +339,7 @@ impl Databases {
             Some(account) => {
                 // The shared composition — roadmap task **T84**. The recipe that wrote this entry
                 // and the handoff that reads it name one function, so the two cannot drift.
-                let at = handoff::secret_key(&asked.service, account);
+                let at = handoff::secret_key(&self.home().await?, &asked.service, account);
                 let password = self
                     .credential(
                         &asked.service,
@@ -963,9 +976,9 @@ mod tests {
             })
             .await
             .expect("a report");
-        let at = report.secret.as_ref().expect("an address");
-        assert_eq!(at.service, KEYRING_SERVICE);
-        assert_eq!(at.key, "mariadb@main/root");
+        let address = report.secret.as_ref().expect("an address");
+        assert_eq!(address.service, KEYRING_SERVICE);
+        assert_eq!(address.key, at(&databases, "mariadb@main/root").await);
 
         let missing = databases
             .open(&open("mariadb@main", None, None))
@@ -974,6 +987,9 @@ mod tests {
         assert_eq!(missing.code, ErrorCode::PreconditionFailed);
         assert!(host.launched().is_empty());
 
+        // **Stored at the address a build before T126 would have used**, which is what makes the
+        // two assertions below one test of the compatibility path: the read finds it, the answer
+        // names this home's address, and the entry has been moved there by the time it returns.
         host.keyring()
             .set_secret(KEYRING_SERVICE, "mariadb@main/root", "s3cret-value")
             .expect("stored");
@@ -982,9 +998,9 @@ mod tests {
             .open(&open("mariadb@main", None, Some("blog")))
             .await
             .expect("opened");
-        let at = handoff.secret.as_ref().expect("an address");
-        assert_eq!(at.service, mixengine_platform::KEYRING_SERVICE);
-        assert_eq!(at.key, "mariadb@main/root");
+        let address = handoff.secret.as_ref().expect("an address");
+        assert_eq!(address.service, mixengine_platform::KEYRING_SERVICE);
+        assert_eq!(address.key, at(&databases, "mariadb@main/root").await);
         assert_eq!(handoff.user.as_deref(), Some("root"));
 
         let launched = host.launched();
@@ -994,12 +1010,17 @@ mod tests {
             .expect("the URL")
             .to_string_lossy()
             .into_owned();
+        // The home's half of the address is percent-encoded like the rest of it — roadmap task
+        // **T126** — so what MixDB is handed is one opaque key it looks up, exactly as before.
+        let encoded = at(&databases, "mariadb@main/root")
+            .await
+            .replace('@', "%40")
+            .replace('/', "%2F");
+
         assert!(
-            url.contains(
-                "kind=mysql&host=127.0.0.1&port=3306&user=root&database=blog\
-                 &label=mariadb%40main&password_env=MIXENGINE_DB_PASSWORD\
-                 &secret_key=mariadb%40main%2Froot"
-            ),
+            url.contains(&format!(
+                "kind=mysql&host=127.0.0.1&port=3306&user=root&database=blog&label=mariadb%40main&password_env=MIXENGINE_DB_PASSWORD&secret_key={encoded}"
+            )),
             "{url}"
         );
         assert!(!url.contains("s3cret"), "{url}");
@@ -1025,8 +1046,20 @@ mod tests {
         }
     }
 
+    /// The address this home spells `key` at — roadmap task **T126**.
+    ///
+    /// Composed rather than written down because a home's id is random and per home; what the tests
+    /// below assert is that the *service's* half is right and that the home's half is there at all.
+    async fn at(databases: &Databases, key: &str) -> String {
+        let home = mixengine_core::home::id(&databases.store)
+            .await
+            .expect("a migrated home has an id");
+
+        format!("{home}/{key}")
+    }
+
     /// **The administrator by default** — roadmap task **T77b** — exactly as `database.open`'s own
-    /// default: the two commands answer the same question for a process and for a person.
+    /// default: the two commands answer the same question for a person.
     #[tokio::test]
     async fn credentials_defaults_to_the_administrator() {
         let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
@@ -1042,8 +1075,19 @@ mod tests {
             .expect("answers");
 
         assert_eq!(answer.user, "root");
+
+        // The entry was written at the pre-T126 address and is still answered — and the address
+        // handed back is this home's, which is where the read has just moved it.
         assert_eq!(answer.password, "root-secret");
-        assert_eq!(answer.secret.key, "mariadb@main/root");
+        assert_eq!(answer.secret.key, at(&databases, "mariadb@main/root").await);
+        assert_eq!(
+            host.keyring()
+                .secret(KEYRING_SERVICE, &at(&databases, "mariadb@main/root").await)
+                .expect("a read")
+                .as_deref(),
+            Some("root-secret"),
+            "the compatibility read moves what it finds — `crate::secrets`"
+        );
     }
 
     /// A named account with no entry is the same refusal `database.open` already gives, with the

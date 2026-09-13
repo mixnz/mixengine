@@ -29,6 +29,30 @@
   width: 100%;
 }
 
+/* Cùng ngôn ngữ hình với `.leftUnrun` của `ApplyDialog` — đây là cùng một câu, nói lại sau khi
+   chuỗi khởi động đã chạy xong. Đứng trên địa chỉ nên có khung riêng. */
+.trouble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-text);
+  border-radius: var(--radius-sm);
+  color: var(--warning-text);
+  font-size: 13px;
+}
+
+.trouble > p {
+  margin: 0;
+}
+
+.trouble > ul {
+  margin: 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
 .errors {
   margin-top: 12px;
   color: var(--danger, #c00);

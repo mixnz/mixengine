@@ -121,6 +121,22 @@ pub async fn plan(
     let manifest = &filed.manifest;
     let mut steps = Vec::new();
 
+    // **The name, the way `project.create` will store it** — roadmap task **T128**.
+    // [`projects::validated_name`] trims, so a plan carrying what was typed and a row holding what
+    // was stored are two spellings of one project — and everything downstream compares them by
+    // equality. Reported from a real apply of `Laravel `: the resumption check in [`register`] found
+    // neither the project nor a collision and planned a `Create` that its own root then blocked;
+    // `ProjectRef::Name(plan.project)` could not find the row the site had to hang off; and the
+    // rollback of a failed apply warned `no such project: Laravel ` about a project it had just
+    // made. One trim, before anything reads the name, rather than three comparisons taught to be
+    // lenient.
+    //
+    // **A name that is not one is left exactly as it arrived**, because [`register`] is what says so
+    // — as a `Blocked` step naming the reason, which is this function's contract: everything a
+    // person did wrong is a step they can read rather than an error that prints no plan at all.
+    let validated = projects::validated_name(project);
+    let project = validated.as_deref().unwrap_or(project);
+
     // **What `{project}` becomes** — roadmap task **T120**, its design's D1. A project's *name* is a
     // label a person reads, and `projects::validated_name` admits a space, a capital and a `;` into
     // it; a database identifier, a DNS label, a `ServiceId` instance and a shell command each have a
@@ -1102,6 +1118,98 @@ mod tests {
             .into_iter()
             .find(|step| matches!(step.action, PlanAction::EnsureService { .. }))
             .expect("an ensure step for this package")
+    }
+
+    /// **A plan names the project the way it will be registered** — roadmap task **T128**.
+    ///
+    /// `projects::validated_name` trims, so `project.create` stores `Laravel`; the plan used to
+    /// carry `Laravel ` verbatim and hand it on to three readers that each compare it by equality.
+    /// Reported from a real apply, where the rollback of a failed one warned
+    /// `could not take back … Project { name: "Laravel " }: no such project: Laravel ` — it was
+    /// looking for a name nothing had ever been stored under.
+    #[tokio::test]
+    async fn a_name_is_planned_the_way_it_will_be_stored() {
+        let (temp, store) = home().await;
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "  Laravel ",
+                root: &temp.path().join("laravel"),
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        assert_eq!(
+            planned.project, "Laravel",
+            "what a client renders, and what the daemon carries as this apply's project handle"
+        );
+
+        let registered = step_of(&planned, |action| {
+            matches!(action, PlanAction::RegisterProject { .. })
+        });
+
+        assert!(
+            matches!(&registered.action, PlanAction::RegisterProject { name, .. } if name == "Laravel"),
+            "{:?}",
+            registered.action
+        );
+    }
+
+    /// And the same name, applied twice, is the resumption it is — **T128**.
+    ///
+    /// The comparisons in [`register`] are equalities against `projects.name`, so an untrimmed name
+    /// matched nothing: a second apply of a project this one had already registered planned a
+    /// `Create` against a root that was taken, and was blocked over its own first attempt.
+    #[tokio::test]
+    async fn an_untrimmed_name_resumes_the_project_it_already_registered() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("laravel");
+
+        projects::create(
+            &store,
+            &projects::Registration {
+                name: "Laravel".to_owned(),
+                root: root.clone(),
+                pins: BTreeMap::new(),
+            },
+            mixengine_proto::Timestamp::from_system_time(std::time::SystemTime::UNIX_EPOCH),
+        )
+        .await
+        .expect("the first apply's project");
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "Laravel ",
+                root: &root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        assert_eq!(
+            step_of(&planned, |action| matches!(
+                action,
+                PlanAction::RegisterProject { .. }
+            ))
+            .disposition,
+            Disposition::Satisfied,
+            "a project of this name at this root is this apply's own first step, already taken"
+        );
     }
 
     /// Everything the blueprint needs is already here, so only the new project's own things are

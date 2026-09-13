@@ -15,6 +15,7 @@ use std::net::IpAddr;
 use mixengine_proto::{DatabaseProtocol, ServiceId};
 
 use crate::generate::Catalogue;
+use crate::home::HomeId;
 use crate::{Error, Result, Store};
 
 /// The environment variable a credential is handed over in.
@@ -25,18 +26,50 @@ pub use crate::extensions::pools::CREDENTIAL_ENV;
 /// Where one account's password lives inside the keyring's
 /// [`mixengine`](mixengine_proto::KEYRING_SERVICE) namespace.
 ///
-/// `<service-id>/<user>` — `mariadb@main/root`. The service id rather than the package name,
-/// because two instances of one server are two databases with two different passwords.
+/// `<home-id>/<service-id>/<user>` — `9f3c1a77b204/mariadb@main/root`. The service id rather than
+/// the package name, because two instances of one server are two databases with two different
+/// passwords; and the home in front of both, because the credential store is one per **user** and
+/// a user may have several homes.
+///
+/// **The home is roadmap task T126, and it was found by an outage.** The address used to be
+/// `<service-id>/<user>` and nothing else, so every `MIXENGINE_HOME` on a machine shared one entry:
+/// a sandbox home bootstrapping its own `mariadb@main` overwrote the root password of a home that
+/// had been running for a day, and that home's server — which keeps its own copy in its data
+/// directory — answered `ERROR 1045` to everything from that second on, including its own shutdown
+/// command. [`crate::home`] is what the prefix comes from, and
+/// [ADR 0032](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md)
+/// is why it is an id the home carries rather than a hash of where it sits.
 ///
 /// **One composition, and roadmap task T84 is why it is here rather than in three places.** Until
 /// this task the string was spelled by
 /// [`Context::secret_address`](crate::generate::recipe::Context::secret_address) for the recipes,
 /// again by `database.open` for the handoff, and read back by the daemon's credential reader. The
-/// convention is now published to another application — MixDB reads these entries — and a rule that
-/// two `format!`s agree on by inspection is a rule that drifts the first time one of them moves.
+/// convention is published to another application — MixDB reads these entries — but it reads the
+/// [`SecretAddress`](mixengine_proto::SecretAddress) the daemon *hands it* rather than composing
+/// one, which is what let T126 change the shape at all.
 #[must_use]
-pub fn secret_key(service: &ServiceId, user: &str) -> String {
-    format!("{}/{user}", service.as_str())
+pub fn secret_key(home: &HomeId, service: &ServiceId, user: &str) -> String {
+    format!("{home}/{}/{user}", service.as_str())
+}
+
+/// The address this one had before it named a home — roadmap task **T126**.
+///
+/// `<home-id>/<rest>` with the home taken off, or [`None`] for a string that has no home in it and
+/// is therefore already the old shape. Derived rather than passed in, so nothing has to carry two
+/// addresses around to read one credential.
+///
+/// **What reads it is the migration path and nothing else**: a daemon finding no entry at the new
+/// address looks at the old one, and moves what it finds. See `mixengined`'s `secrets` module.
+///
+/// **The first segment has to *be* a home id**, not merely be there — `mariadb@main/root` is an
+/// address from before this task and has nothing older behind it. Without that check every miss on
+/// an old address would cost a second lookup at a key nothing ever wrote (`root`), which is a
+/// keyring round trip and, on Linux, a D-Bus one.
+#[must_use]
+pub fn secret_key_before_homes(key: &str) -> Option<&str> {
+    let (home, rest) = key.split_once('/')?;
+
+    HomeId::parse(home).is_some().then_some(rest)
 }
 
 /// Where one database service listens, and what it speaks.
@@ -204,8 +237,29 @@ mod tests {
     fn the_key_a_recipe_writes_and_the_key_a_handoff_names_are_one_function() {
         let service = ServiceId::parse("mariadb@main").expect("an id");
 
-        assert_eq!(secret_key(&service, "root"), "mariadb@main/root");
-        assert_eq!(secret_key(&service, "blog"), "mariadb@main/blog");
+        let home = HomeId::parse("9f3c1a77b204").expect("an id");
+
+        assert_eq!(
+            secret_key(&home, &service, "root"),
+            "9f3c1a77b204/mariadb@main/root"
+        );
+        assert_eq!(
+            secret_key(&home, &service, "blog"),
+            "9f3c1a77b204/mariadb@main/blog"
+        );
+
+        // What the daemon's compatibility read looks at, and the one thing it must never do to an
+        // address that already has no home in it.
+        assert_eq!(
+            secret_key_before_homes(&secret_key(&home, &service, "root")),
+            Some("mariadb@main/root")
+        );
+        assert_eq!(secret_key_before_homes("root"), None);
+
+        // An address from before this task has nothing older behind it, and saying so is what
+        // keeps a miss to one lookup.
+        assert_eq!(secret_key_before_homes("mariadb@main/root"), None);
+        assert_eq!(secret_key_before_homes("extensions/mixdb/config"), None);
     }
 
     /// Every recipe answers, and only the databases say a word.

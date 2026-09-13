@@ -15,7 +15,7 @@
 
 use crate::{
     FrontEndServer, IdleExemption, IdlePolicy, IdleSource, LimitSupport, PackageVersion,
-    ResourceLimits, ServiceId, ServiceState, StateReason, Timestamp,
+    ProjectRef, ResourceLimits, ServiceId, ServiceState, StateReason, Timestamp,
 };
 
 /// Which services a call is about, and whether the caller waits for the answer to be true.
@@ -32,6 +32,25 @@ pub struct ServiceTarget {
     /// walk covered comes back in [`ServiceWalk::planned`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub service: Option<ServiceId>,
+
+    /// Every service one project needs, instead of one service or all of them — roadmap task
+    /// **T125**.
+    ///
+    /// **What a project needs is the daemon's answer and never a client's.** It is the services its
+    /// sites declare — `site_service_links`, which is where `blueprint.apply` writes the database
+    /// and the cache it ensured — plus the php-fpm pool a site names, plus the front end every one
+    /// of those sites is reached through. A client working that set out for itself would be
+    /// business logic in a client, and it is why both clients said *every service this home
+    /// declares* until this task: the question had no answer to ask for.
+    ///
+    /// **`service.start` only.** `service.stop` and `service.restart` refuse it, because the set
+    /// includes the front end: a project-scoped stop that takes down the web server every *other*
+    /// site is reached through is a machine-wide outage wearing one project's name.
+    ///
+    /// Never sent together with [`ServiceTarget::service`] — two subjects in one call is a request
+    /// nothing can carry out as asked, so it is refused rather than resolved by precedence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<ProjectRef>,
 
     /// Whether to answer when the walk has finished rather than when it has been accepted.
     ///
@@ -52,6 +71,7 @@ impl Default for ServiceTarget {
     fn default() -> Self {
         Self {
             service: None,
+            project: None,
             wait: waits(),
         }
     }
@@ -572,6 +592,7 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&ServiceTarget {
                 service: Some(service("mariadb@main")),
+                project: None,
                 wait: true,
             })
             .unwrap(),

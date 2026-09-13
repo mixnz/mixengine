@@ -62,8 +62,12 @@ export default {
     afterApply: {
       titleWorking: "Bringing your project up",
       titleReady: "Your project is ready",
-      starting: "Starting everything MixEngine manages…",
+      titleTrouble: "Your project is up, and a step failed",
+      starting: "Starting the services this project needs…",
+      troubleTitle: "These steps did not finish:",
       ready: "Your site is ready at {{url}}.",
+      readyWithTrouble:
+        "The site itself is being served at {{url}}, once you have dealt with the above.",
       noSite: "Everything is running. This blueprint made no site, so there is no address to open.",
       open: "Open {{url}}",
       close: "Close",

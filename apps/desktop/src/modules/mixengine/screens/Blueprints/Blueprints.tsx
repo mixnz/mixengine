@@ -134,7 +134,7 @@ export default function Blueprints({ active }: { active: boolean }) {
       {/* Dựng lên **sau khi** `ApplyDialog` đóng, không lồng vào trong nó: cả hai đều là `Modal`,
           và `Modal` nghe Escape ở mức `window` — chồng nhau thì một phím đóng cả hai. */}
       {settling && (
-        <AfterApply project={settling.project} onFinished={() => setSettling(null)} />
+        <AfterApply applied={settling} onFinished={() => setSettling(null)} />
       )}
     </div>
   );

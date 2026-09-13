@@ -606,7 +606,7 @@ mix blueprint apply <BLUEPRINT> [OPTIONS]
 | `--install-missing` | Answer every version question by installing what the blueprint asks for |
 | `--with-front-end` | Install a web server too, where this home has none. A home with no front end serves no site, and nothing installs one by itself. With this, a blueprint that declares a site plans the default web server as well — and a home that already has one, Caddy or nginx, is left alone. |
 | `--autostart` | Start the services this apply creates whenever MixEngine starts. Only what it creates: a server this home already had is left as its owner set it. Read and changed afterwards with `mix service autostart`. |
-| `--start` | Start every service this home declares once the apply is done. **Every service this home declares**, and not only the ones this apply made: working out which those were would be this command deciding something the daemon answers, and on a second apply the servers it needs are the ones it found rather than the ones it made. Runs after the elevation, because a site served at a name the hosts file does not resolve is a browser error with a progress bar in front of it. |
+| `--start` | Start the services this project needs once the apply is done. **This project's, not this home's** — roadmap task **T125**. Which services those are is the daemon's answer and not this command's: the sites the apply just made, the database and the pool they declare, and the front end they are reached through. Until T125 the only set a client could ask for was *every service this home declares*. Runs after the elevation, because a site served at a name the hosts file does not resolve is a browser error with a progress bar in front of it. |
 | `--use-installed` | Answer every version question by using what this machine already has |
 | `--run-scaffold` | Run the blueprint's own `[scaffold]` command without asking first. For a blueprint the gallery signed. An unsigned one takes the other flag, and neither covers the other: a script that runs somebody's unsigned command should say so on the line that does it. |
 | `--run-untrusted-scaffold` | Run an **untrusted** blueprint's own `[scaffold]` command without asking first. Nothing vouches for what this runs. The command is still printed before it starts. |
@@ -1186,6 +1186,7 @@ mix service start [SERVICE] [OPTIONS]
 | --- | --- |
 | `<SERVICE>` | The service to act on. Every declared service when it is left out. Naming one does not mean acting on one — a plan is the transitive set — and what the daemon walked comes back in the answer. |
 | `--no-wait` | Return once the daemon has accepted the plan, rather than once it has walked it. `mix` waits by default, because `mix service start db && …` is a sentence about the database being up: an answer sent before the walk would exit `0` for a service that never came up. |
+| `--project` `<PROJECT>` | Every service one project needs, instead of one or all. Its sites' databases and caches, the php-fpm pool they name, and the front end they are reached through — worked out by the daemon, which is the only thing that can: the set is `site_service_links`, and no client may derive it. |
 
 ### mix service stop
 

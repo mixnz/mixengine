@@ -437,8 +437,14 @@ impl Generator {
         // join per service would ask those questions once per row.
         let credentials = crate::extensions::pools::credentials(&self.store).await?;
 
+        // **Which home this is, read once for the whole walk** — roadmap task **T126**, and beside
+        // the two above for their reason. Every spec that carries an `EnvValue::Keyring` names an
+        // address this is the first segment of, so a walk that asked per row would ask the same
+        // question of the same table once per service for ever.
+        let home = crate::home::id(&self.store).await?;
+
         for row in rows {
-            prepared.push(self.prepare(row, &installed, &fragments, &credentials)?);
+            prepared.push(self.prepare(row, &home, &installed, &fragments, &credentials)?);
         }
 
         let mut upstreams = BTreeMap::new();
@@ -775,6 +781,7 @@ impl Generator {
     fn prepare(
         &self,
         mut row: Row,
+        home: &crate::home::HomeId,
         installed: &BTreeMap<String, crate::extensions::store::Installed>,
         fragments: &[(FrontEndServer, FrontEndAddition)],
         credentials: &BTreeMap<ServiceId, crate::extensions::pools::Credential>,
@@ -958,6 +965,11 @@ impl Generator {
             // drift check renders what the last install rendered, so it must see the pair that
             // install saw. Issuing is `install`'s, just before the render.
             certificate: Self::certificate_of(self.paths.certs(), &service),
+
+            // **Which home a credential of this service's belongs to** — roadmap task **T126**. On
+            // the context because `Context::secret_address` is where an address is composed, and
+            // the whole of T126 is that the address has to say this.
+            home: home.clone(),
             service,
         };
 

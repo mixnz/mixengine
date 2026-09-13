@@ -549,7 +549,22 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
     // **Both halves of the address** — roadmap task **T84**. The namespace is on the wire so that
     // an application reading this entry does not have to hardcode MixEngine's constant.
     assert_eq!(created["secret"]["service"], "mixengine", "{created}");
-    assert_eq!(created["secret"]["key"], "mariadb@main/blog", "{created}");
+
+    // **And the key begins with this home's id** — roadmap task **T126**. Asserted by shape rather
+    // than by value, because the id is minted per home by `0021_home_id.sql` and a suite that knew
+    // it would be reading the home's database to find out. What matters here is that it is there:
+    // without it this entry is the same one every other MIXENGINE_HOME on the machine writes to,
+    // and the run before this one proved that the hard way by taking a working home's password.
+    let key = created["secret"]["key"].as_str().expect("an address");
+    let (home_id, rest) = key.split_once('/').unwrap_or_default();
+    assert_eq!(rest, "mariadb@main/blog", "{created}");
+    assert_eq!(home_id.len(), 12, "{created}");
+    assert!(
+        home_id
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()),
+        "{created}"
+    );
     assert!(
         !created.to_string().contains("password"),
         "the answer carries the address of a credential and never the credential: {created}"

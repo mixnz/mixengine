@@ -694,6 +694,7 @@ struct Install {
 fn target(id: &ServiceId) -> ServiceTarget {
     ServiceTarget {
         service: Some(id.clone()),
+        project: None,
         wait: true,
     }
 }

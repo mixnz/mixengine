@@ -452,6 +452,37 @@ fn a_home_that_declares_nothing_says_so_rather_than_printing_nothing() {
     assert_eq!(error["code"], "not_found", "{error}");
 }
 
+/// **The project scope is a start's alone, and it is answered by the daemon** — roadmap task
+/// **T125**.
+///
+/// What the set *is* is proved where it is derived (`core::sites::services_of`) and where an apply
+/// uses it (`tests/blueprint.rs`). What this pins is the surface a person types at: a project this
+/// home never heard of is refused by name rather than quietly starting every service — the answer
+/// the empty target gives — and `stop` does not carry the flag at all, because that set includes the
+/// front end every *other* site is reached through.
+#[test]
+fn a_project_scope_belongs_to_start_and_names_a_project_that_exists() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let missing = home.mix(&["service", "start", "--project", "nope", "--json"]);
+    assert!(!missing.status.success(), "{missing:?}");
+    let error: Value =
+        serde_json::from_slice(&missing.stderr).expect("mix --json fails in JSON too");
+    assert_eq!(error["code"], "not_found", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("nope"),
+        "{error}"
+    );
+
+    // clap's own usage exit code: `stop` has no such flag, so no call was made.
+    let stopped = home.mix(&["service", "stop", "--project", "nope"]);
+    assert_eq!(stopped.status.code(), Some(2), "{stopped:?}");
+}
+
 #[test]
 fn a_service_id_that_cannot_exist_is_refused_before_a_daemon_is_started() {
     let home = Home::new();

@@ -80,6 +80,15 @@ pub struct Context {
     /// Which service this is.
     pub(super) service: ServiceId,
 
+    /// Which home this is — roadmap task **T126**.
+    ///
+    /// Read once per walk by [`Generator`](super::Generator), like
+    /// [`bindings`](Self::bindings): a recipe is a function of its context, and one that went
+    /// looking in `settings` would be a second place this home's identity is decided. Its one
+    /// reader is [`Context::secret_address`], which is every credential address this build
+    /// composes.
+    pub(super) home: crate::home::HomeId,
+
     /// `packages.name` — the name this context's recipe was found under.
     pub(super) package: String,
 
@@ -415,7 +424,7 @@ impl Context {
     /// one that drifts.
     #[must_use]
     pub fn secret_address(&self, key: &str) -> String {
-        crate::services::handoff::secret_key(&self.service, key)
+        crate::services::handoff::secret_key(&self.home, &self.service, key)
     }
 
     /// What this home's extensions add to this front end's configuration — roadmap task **T81c**.
@@ -508,6 +517,13 @@ impl Context {
     }
 }
 
+/// The home id every context built by [`Context::for_test`] carries — roadmap task **T126**.
+///
+/// Named rather than inline so a test asserting a whole address writes it once: the addresses a
+/// recipe composes begin with this.
+#[cfg(test)]
+pub(crate) const TEST_HOME: &str = "0123456789ab";
+
 #[cfg(test)]
 impl Context {
     /// A context for `service`, laid out under `root` as a home would lay it out.
@@ -549,6 +565,10 @@ impl Context {
             fragments: Vec::new(),
             secrets: BTreeMap::new(),
             credential: None,
+
+            // A fixed id, so an address a test asserts is one it can spell. A real home's is
+            // random and six bytes wide — `migrations/0021_home_id.sql`.
+            home: crate::home::HomeId::parse(TEST_HOME).expect("a valid id"),
             certificate: None,
             service,
         }

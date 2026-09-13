@@ -1,0 +1,36 @@
+schema = 1
+
+# A blueprint whose stack is one `fakeservice` instance and one static site — roadmap task **T125**.
+#
+# **The site is what makes the service the project's.** `site_service_links` is the only place this
+# product records which services a project needs — `blueprint.apply` writes `context.ensured` into
+# it when it creates the site — so `mix service start --project` has nothing to find without one.
+# `with-a-service.toml` is the same stack with no site, kept for T116's question.
+#
+# **`static`, so the suite stays offline**: a php-fpm site would want a runtime and a pool, and a
+# front end is planned only for a manifest asked with `--with-front-end`. A site row with no web
+# server in front of it is a home `core::sites` renders nothing for, which is exactly enough for a
+# start to have a set.
+#
+# `fakeservice` is the supervision fixture, and `mixengine_testkit::declare::package` has already
+# written its `packages` row by the time a suite applies this, so the install step plans `Satisfied`
+# and nothing reaches the package index.
+
+[blueprint]
+name = "with-a-site-and-a-service"
+description = "One fixture service and one static site"
+created_at = "2026-09-13T00:00:00Z"
+
+[blueprint.created_on]
+os = "windows"
+version = "0.0.6"
+
+[[services]]
+name = "fakeservice"
+instance = "per-project"
+
+[site]
+kind = "static"
+doc_root = ""
+https = true
+domain_pattern = "{project}.test"

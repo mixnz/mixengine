@@ -60,8 +60,11 @@ const vi: typeof en = {
     afterApply: {
       titleWorking: "Đang đưa project lên",
       titleReady: "Project đã sẵn sàng",
-      starting: "Đang khởi động mọi thứ MixEngine quản lý…",
+      titleTrouble: "Project đã lên, và có một bước hỏng",
+      starting: "Đang khởi động những service project này cần…",
+      troubleTitle: "Những bước sau không hoàn tất:",
       ready: "Site của bạn đã sẵn sàng tại {{url}}.",
+      readyWithTrouble: "Bản thân site vẫn đang được phục vụ tại {{url}}, sau khi bạn xử lý phần trên.",
       noSite: "Mọi thứ đã chạy. Blueprint này không dựng site nào nên không có địa chỉ để mở.",
       open: "Mở {{url}}",
       close: "Đóng",

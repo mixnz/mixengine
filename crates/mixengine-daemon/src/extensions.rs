@@ -35,9 +35,14 @@ use crate::error::ToWire as _;
 
 /// Where an extension's own credentials live inside the keyring's `mixengine` namespace.
 ///
-/// `extensions/<id>/…`, beside the `<service-id>/<key>` a recipe's credential takes
-/// (`generate::recipe::Context::secret_address`) — one namespace, two shapes that cannot collide
-/// because a service id has no `/` in it.
+/// `<home-id>/extensions/<id>/…`, beside the `<home-id>/<service-id>/<key>` a recipe's credential
+/// takes (`generate::recipe::Context::secret_address`) — one namespace, two shapes that cannot
+/// collide because a service id has no `/` in it.
+///
+/// **The home in front is roadmap task T126**, and it is the same sentence a service's address
+/// carries: the credential store is one per user, `MIXENGINE_HOME` means a user may have several
+/// homes, and two homes that each installed phpMyAdmin were signing their session cookies with one
+/// shared value.
 const EXTENSION_SECRET_PREFIX: &str = "extensions/";
 
 /// What `{secret}` is stored under, for the one extension-owned secret there is.
@@ -532,6 +537,20 @@ impl Extensions {
         mixengine_core::extensions::config::write(&rendered).map_err(|error| error.to_wire())
     }
 
+    /// Where this extension's `{secret}` lives — roadmap task **T126**.
+    ///
+    /// One composition, three callers (read, write, forget), because an address spelled twice is an
+    /// address that drifts — and a `forget` that drifted would leave the entry behind for ever.
+    async fn secret_address(&self, id: &ExtensionId) -> Result<String, Error> {
+        let home = mixengine_core::home::id(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        Ok(format!(
+            "{home}/{EXTENSION_SECRET_PREFIX}{id}/{CONFIG_SECRET_KEY}"
+        ))
+    }
+
     /// The stable random value behind `{secret}`, created on first use — the design's D7.
     ///
     /// **It has to be stable**: phpMyAdmin's `blowfish_secret` is what its session cookie is signed
@@ -549,7 +568,7 @@ impl Extensions {
     /// for, and one that *does* use it is refused by the renderer, naming the field.
     async fn config_secret(&self, id: &ExtensionId) -> Result<String, Error> {
         let host = Arc::clone(&self.host);
-        let key = format!("{EXTENSION_SECRET_PREFIX}{id}/{CONFIG_SECRET_KEY}");
+        let key = self.secret_address(id).await?;
 
         // The keyring blocks, and on Linux it blocks on a D-Bus round trip to a daemon that may be
         // prompting somebody to unlock it. `.claude/standards/rust.md`'s rule for anything that can
@@ -557,8 +576,13 @@ impl Extensions {
         let read = {
             let (host, key) = (Arc::clone(&host), key.clone());
             tokio::task::spawn_blocking(move || {
-                host.keyring()
-                    .secret(mixengine_platform::KEYRING_SERVICE, &key)
+                // Through `crate::secrets` — roadmap task **T126** — so that an entry written
+                // before addresses named their home is still found, and moved.
+                crate::secrets::secret_blocking(
+                    host.as_ref(),
+                    mixengine_platform::KEYRING_SERVICE,
+                    &key,
+                )
             })
             .await
         };
@@ -615,7 +639,10 @@ impl Extensions {
     /// remove — both of which are why nothing here is reported.
     async fn forget_config_secret(&self, id: &ExtensionId) {
         let host = Arc::clone(&self.host);
-        let key = format!("{EXTENSION_SECRET_PREFIX}{id}/{CONFIG_SECRET_KEY}");
+        let Ok(key) = self.secret_address(id).await else {
+            tracing::debug!(%id, "this home has no id, so an extension's secret cannot be named");
+            return;
+        };
 
         let removed = tokio::task::spawn_blocking(move || {
             host.keyring()

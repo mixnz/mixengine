@@ -6,6 +6,7 @@ import type { MismatchAnswer } from "@mixengine/api";
 import type { PlanAction } from "@mixengine/api";
 import type { PlanStep } from "@mixengine/api";
 import type { ScaffoldConsent } from "@mixengine/api";
+import type { StepOutcome } from "@mixengine/api";
 import type { VersionAnswer } from "@mixengine/api";
 import type { TranslationKey } from "../../i18n";
 
@@ -63,6 +64,22 @@ export function scaffoldLeftCommand(applied: BlueprintApplied): string | null {
     return outcome.action.command;
   }
   return null;
+}
+
+/**
+ * Những bước đã chạy và hỏng — rỗng khi apply trót lọt.
+ *
+ * **Một job thành công không có nghĩa là một apply trót lọt.** `api/apply.rs` cố ý trả
+ * `StepResult::Failed` cho một `[scaffold]` exit khác 0 thay vì ném lỗi: một script post-install
+ * hỏng để lại một project vẫn dùng được — site vẫn phục vụ, database vẫn còn — và phá cả cái đó đi
+ * là sai hướng đắt hơn. Cái sai là client đọc "job xong" thành "xong", rồi mời người ta bấm vào
+ * một site có thư mục dựng dở.
+ *
+ * `not_run` không nằm ở đây: nó là một câu trả lời (ô đồng ý bỏ trống), không phải một thất bại, và
+ * [`scaffoldLeftCommand`] đã nói riêng câu ấy.
+ */
+export function failedSteps(applied: BlueprintApplied): StepOutcome[] {
+  return applied.steps.filter((outcome) => outcome.result.result === "failed");
 }
 
 /**

@@ -20,14 +20,17 @@
   it, and one button installs, configures and starts everything it needs, then hands you its
   address.
 - Applying a blueprint in MixLab now ends where the project does: it spends the elevation prompt,
-  starts what this home declares, and names the address of the site it made with a button to open
-  it. Before, an apply from the Blueprints screen stopped at a list of steps.
+  starts the services that project needs, and names the address of the site it made with a button to
+  open it. Before, an apply from the Blueprints screen stopped at a list of steps. An apply whose
+  `[scaffold]` command failed says so at the top of that panel instead, and hands over the address
+  as plain text rather than as an invitation to open a half-built site.
 - MixLab says what leaving the `[scaffold]` consent box unticked will mean *before* the apply runs —
   the button reads *Set up without running the command*, and the finished apply says the project
   folder is still empty and prints the command you can run yourself. It used to be one line among
   ten, after the fact.
-- `mix blueprint apply --start` starts this home's services once the apply is done, after the one
-  elevation prompt rather than before it.
+- `mix blueprint apply --start` starts the services this project needs once the apply is done, after
+  the one elevation prompt rather than before it — not every service the machine has. `mix service
+  start --project <name>` asks the same question on its own.
 - MixLab's first launch brings a MixDB user's saved connections, hosts, environments, drafts and
   their passwords across — once, leaving the MixDB install and its credentials untouched.
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database
@@ -35,6 +38,18 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Fixed
+- A project name typed with a space at either end is applied as the name it will be stored under.
+  A blueprint applied to `Laravel ` used to register `Laravel`, then fail to find its own project
+  when it created the site, refuse to resume over its own first attempt, and leave the failed
+  apply unable to take the project back.
+- A credential MixEngine generates now belongs to the home that generated it. The operating
+  system's credential store is shared by every `MIXENGINE_HOME` on a machine, and until now two of
+  them with a database of the same name shared one entry: the second to set up its server replaced
+  the first one's root password, and the first one's databases became unreachable — including to
+  MixEngine's own shutdown, so the server could only be killed. Entries written by an earlier
+  version are found and moved the first time they are read; nothing is deleted.
+- A database that refuses the password MixEngine holds for it now says what that means and what the
+  ways out are, instead of passing the server's `Access denied` through at the end of a blueprint.
 - Applying the Next.js blueprint no longer fails on the last step over an empty folder. A project
   named `Next.js 1` now gets the directory `next-js-1`, because `create-next-app` takes its package
   name from the folder it is run in and npm refuses capitals and spaces. A folder you name yourself

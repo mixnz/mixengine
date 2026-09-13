@@ -6,6 +6,8 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
+import type { BlueprintApplied } from "@mixengine/api";
+import { describePlanAction, failedSteps } from "../../blueprintPlan";
 import { siteUrl } from "../../siteState";
 import ElevationDialog from "../ElevationDialog";
 import styles from "./AfterApply.module.css";
@@ -18,8 +20,17 @@ type Phase =
   | { kind: "ready"; url: string | null };
 
 interface Props {
-  /** Project vừa được apply dựng ra — dùng để tìm site của chính nó. */
-  project: string;
+  /**
+   * Kết quả của lượt apply vừa xong.
+   *
+   * **Cả một kết quả chứ không chỉ tên project** — T125. Khối này từng nhận đúng một chuỗi, nên nó
+   * không có cách nào biết apply vừa hỏng bước nào và nói "đã sẵn sàng" cho mọi lượt apply mà job
+   * không ném lỗi. Một `[scaffold]` exit khác 0 là `StepResult::Failed` *bên trong* một job thành
+   * công (`api/apply.rs` cố ý: một script post-install hỏng không đáng để phá cả project), nên
+   * "job xong" và "apply ổn" là hai câu khác nhau và chỉ câu thứ hai đáng để mời người ta bấm vào
+   * site.
+   */
+  applied: BlueprintApplied;
 
   /** Người dùng đóng khối này. `url` là địa chỉ tìm được, hoặc `null` nếu không có site nào. */
   onFinished: (url: string | null) => void;
@@ -38,10 +49,17 @@ interface Props {
  * Không đọc được `elevation.status` cũng đi tiếp: site vẫn chạy, và đứng im vì không hỏi được một
  * câu phụ trợ thì tệ hơn một site chạy mà tên chưa phân giải.
  *
- * **"Khởi động" nghĩa là mọi service home này khai**, và câu chữ nói đúng thế. Tự suy ra tập
- * service của riêng apply này từ kế hoạch đã xong là business logic trong client — và còn sai ở
- * lần apply thứ hai, nơi web server site cần là cái kế hoạch *tìm thấy* chứ không phải cái nó tạo
- * ra.
+ * **"Khởi động" nghĩa là những gì project này cần** — T125, và câu chữ nói đúng thế. Tập ấy vẫn
+ * không phải của client: `service.start` nhận một scope `project` và daemon là chỗ đọc
+ * `site_service_links`, pool php-fpm site đặt tên, và front end của home. Trước T125 chỗ này gửi
+ * một target rỗng — *mọi service home này khai* — nên dựng một site Laravel trên máy có bốn bản PHP
+ * và ba database bật cả tám.
+ *
+ * **Một apply có bước hỏng không được mời người ta bấm vào site.** Một `[scaffold]` exit khác 0 về
+ * đây trong một job *thành công*, nên khối này từng nói "đã sẵn sàng" bên trên một thư mục dựng dở.
+ * Chuỗi vẫn chạy đủ — hàng đợi quyền vẫn đáng tiêu, front end vẫn đáng bật, và bỏ dở cả hai chỉ để
+ * phản đối một script hỏng là để lại một máy nửa vời — nhưng cái *nói ra* thì đổi: tiêu đề khác,
+ * các bước hỏng nằm trên cùng, và địa chỉ là một dòng chữ chứ không phải một nút mời bấm.
  *
  * **Một component chứ không phải hai bản sao.** Chuỗi này từng chỉ sống trong `QuickStart`, nên
  * apply từ màn Blueprints kết thúc ở một danh sách bước và một nút Đóng: service chưa bật, tên
@@ -56,7 +74,9 @@ interface Props {
  * cửa sổ trình duyệt lên trước mặt ai đó là một tác dụng phụ họ không xin. Nút ở đây, cú bấm là
  * của họ.
  */
-export default function AfterApply({ project, onFinished }: Props) {
+export default function AfterApply({ applied, onFinished }: Props) {
+  const project = applied.project;
+  const failed = failedSteps(applied);
   const [phase, setPhase] = useState<Phase>({ kind: "checking" });
   const [error, setError] = useState("");
   const { t } = useTranslation();
@@ -93,7 +113,7 @@ export default function AfterApply({ project, onFinished }: Props) {
     let live = true;
     void (async () => {
       try {
-        await api.serviceStartAll();
+        await api.serviceStartProject(project);
         const listed = await api.sites(project);
         const made = listed.sites[0];
         const url = made === undefined ? null : siteUrl(made);
@@ -129,9 +149,11 @@ export default function AfterApply({ project, onFinished }: Props) {
   // Tiêu đề nói đúng trạng thái nó đang ở. Một cái nhan đề đứng yên ở "Đang đưa project lên" phía
   // trên một dòng "đã sẵn sàng" là hai câu cãi nhau trong cùng một hộp thoại — và nhan đề là thứ
   // người ta đọc trước.
-  const heading = done
-    ? t("mixengine.afterApply.titleReady")
-    : t("mixengine.afterApply.titleWorking");
+  const heading = !done
+    ? t("mixengine.afterApply.titleWorking")
+    : failed.length > 0
+      ? t("mixengine.afterApply.titleTrouble")
+      : t("mixengine.afterApply.titleReady");
 
   return (
     <Modal
@@ -152,10 +174,32 @@ export default function AfterApply({ project, onFinished }: Props) {
             </div>
           )}
 
+          {/* Ở **trên** địa chỉ, không phải dưới nó. Bước hỏng là thứ quyết định người ta làm gì
+              tiếp theo, và một khối cảnh báo nằm dưới một nút xanh là một khối không ai đọc. */}
+          {done && failed.length > 0 && (
+            <div className={styles.trouble} role="alert">
+              <p>{t("mixengine.afterApply.troubleTitle")}</p>
+              <ul>
+                {failed.map((outcome, i) => (
+                  <li key={i}>
+                    {describePlanAction(t, outcome.action)}
+                    {outcome.result.result === "failed" && ` — ${outcome.result.why}`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {done && (
             <div className={styles.status}>
               {phase.url === null ? (
                 <p>{t("mixengine.afterApply.noSite")}</p>
+              ) : failed.length > 0 ? (
+                // **Địa chỉ, không phải lời mời.** Site có thật và đang được phục vụ, nên giấu nó
+                // đi là giấu mất thứ người ta cần khi đã sửa xong; nhưng một nút primary "Mở
+                // website" bên dưới một lệnh khởi tạo hỏng là hộp thoại này tự khen một việc nó
+                // vừa nói là hỏng.
+                <p>{t("mixengine.afterApply.readyWithTrouble", { url: phase.url })}</p>
               ) : (
                 <>
                   <p>{t("mixengine.afterApply.ready", { url: phase.url })}</p>

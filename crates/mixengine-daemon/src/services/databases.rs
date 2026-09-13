@@ -145,7 +145,16 @@ pub(crate) async fn ensure(
     let probe = provisioning
         .probe(ask, &root)
         .map_err(|error| error.to_wire())?;
-    let found = Found::read(super::step::run(&probe).await?.output());
+
+    // **The probe is where a stale superuser credential is met, and the only place** — roadmap task
+    // **T126**. Every statement after it authenticates with the same password, so a probe that got
+    // through means the rest will; a probe that did not is the one failure worth explaining, and
+    // `ERROR 1045` on its own explains nothing to the person whose blueprint just stopped.
+    let probed = super::step::run(&probe)
+        .await
+        .map_err(|error| explain_a_refused_superuser(error, service))?;
+
+    let found = Found::read(probed.output());
 
     let account = account_password(
         host,
@@ -172,6 +181,40 @@ pub(crate) async fn ensure(
     })
 }
 
+/// Say what it means when a server refuses the superuser password this home holds — roadmap task
+/// **T126**.
+///
+/// **The one failure this module can diagnose rather than forward.** A database keeps its own copy
+/// of that password inside its data directory, and the keyring holds the other; they are written
+/// together by the first run and can only come apart one way — something replaced the entry after
+/// the bootstrap. Before T126 that address had no home in it, so *anything* on this machine with a
+/// service of the same name could do it: a second `MIXENGINE_HOME`, a sandbox, a test suite. What
+/// the person sees without this is `ERROR 1045 (28000): Access denied for user 'root'@'127.0.0.1'`
+/// at the end of a blueprint that downloaded a runtime and made a project directory.
+///
+/// **Matched on the server's own error code, not on prose.** `1045` is the MySQL family's and
+/// `28P01` is PostgreSQL's; both are part of those projects' interfaces, while the sentence around
+/// them is localised and reworded between releases. A code that does not match leaves the error
+/// exactly as it was, which is the right failure mode for a hint.
+fn explain_a_refused_superuser(error: Error, service: &ServiceId) -> Error {
+    const REFUSALS: [&str; 2] = ["ERROR 1045", "28P01"];
+
+    if !REFUSALS.iter().any(|code| error.message.contains(code)) {
+        return error;
+    }
+
+    Error::new(
+        error.code,
+        format!(
+            "{service} refused the superuser password this home holds, so the server was              bootstrapped with a different one — {}",
+            error.message
+        ),
+    )
+    .with_hint(
+        "until this release a credential's address named the service and not the home, so another          MIXENGINE_HOME on this machine — a sandbox, a second install, a test run — overwrote this          entry. The server's own password has to be set to the one this home holds, against its          data directory, or that directory discarded and the service started again",
+    )
+}
+
 /// What one object was, said the way the wire says it.
 fn made(existed: bool) -> Made {
     match existed {
@@ -182,23 +225,14 @@ fn made(existed: bool) -> Made {
 
 /// Read one credential, off the runtime's threads.
 ///
-/// `spawn_blocking` for the reason [`super::first_run`] gives: the keyring blocks, and on Linux it
-/// blocks on a D-Bus round trip to a daemon that may be prompting somebody to unlock it.
-///
 /// Reached by `database.open` as well (roadmap task **T83**), which reads an account's password
 /// at the moment of the handoff — one reader, so the two agree on the address and the thread.
+///
+/// **Through [`crate::secrets`] since roadmap task T126**, which is what gives an address written
+/// before addresses named their home somewhere to be found: this call is where an account's entry
+/// from an older build is met, and the module note says why the move happens on the read.
 pub(crate) async fn read(host: &Arc<dyn Host>, address: &str) -> Result<Option<String>, Error> {
-    let (host, address) = (Arc::clone(host), address.to_owned());
-
-    tokio::task::spawn_blocking(move || host.keyring().secret(KEYRING_SERVICE, &address))
-        .await
-        .map_err(|_| {
-            Error::new(
-                ErrorCode::Internal,
-                "the task reading a credential did not finish".to_owned(),
-            )
-        })?
-        .map_err(|error| error.to_wire())
+    crate::secrets::read(host, address).await
 }
 
 /// Store one, the same way.

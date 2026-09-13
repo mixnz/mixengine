@@ -19,6 +19,7 @@ pub mod domains;
 pub mod elevation;
 pub mod extensions;
 pub mod generate;
+pub mod home;
 pub mod hosts;
 pub mod index;
 pub mod install;
@@ -875,6 +876,18 @@ pub enum Error {
         #[source]
         source: serde_json::Error,
     },
+
+    /// This home's `settings` holds no id, or holds something that is not one — roadmap task
+    /// **T126**.
+    ///
+    /// `0021_home_id.sql` writes one at the first migration and keeps it through every later one,
+    /// so a home reaching this has a database that skipped the migration or was edited by hand.
+    ///
+    /// **Refused rather than replaced.** Every credential this home has stored is addressed under
+    /// the id it had; minting a second one would answer this call and orphan all of them at once,
+    /// which is the outage T126 exists to remove rather than a recovery from it.
+    #[error("this home has no id, so a credential cannot say which home it belongs to")]
+    HomeHasNoId,
 
     /// The package index could not be fetched.
     ///

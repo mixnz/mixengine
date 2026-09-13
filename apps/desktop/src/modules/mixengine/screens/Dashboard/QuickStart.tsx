@@ -154,13 +154,13 @@ export default function QuickStart({ onCreated }: { onCreated: () => void }) {
        * (`shouldOfferQuickStart`), nên `onCreated` là cú đọc lại làm thẻ này **biến mất**. Gọi nó
        * sớm hơn — lúc apply vừa xong, chẳng hạn — sẽ unmount `AfterApply` ngay giữa chuỗi ba call
        * của nó: cú `site.list` của Dashboard về trong vài mili giây, còn chuỗi kia cần
-       * `elevation.status` + `service.start_all` + `site.list`, nên nó thua chắc chắn chứ không
+       * `elevation.status` + `service.start` + `site.list`, nên nó thua chắc chắn chứ không
        * phải thua lúc được lúc mất. Triệu chứng là một project dựng xong mà trình duyệt không
        * bao giờ mở.
        */}
       {phase.kind === "settling" && (
         <AfterApply
-          project={phase.applied.project}
+          applied={phase.applied}
           onFinished={(url) => {
             setPhase({ kind: "done", url });
             onCreated();
