@@ -100,7 +100,36 @@ gh run list --branch "$(git branch --show-current)" --limit 1
 ```
 
 The run carries the branch that asked, so two questions in flight stay apart. A second request on
-the same branch cancels the first, because by then you have stopped caring about that answer.
+the same branch cancels the first, because by then you have stopped caring about that answer —
+except on `master` and on a tag, which are never cancelled so that those refs keep a complete
+history of what they were told.
+
+`scripts/ask-ci.sh` is those two commands with the push in front, and `scripts/watch-ci.sh` waits
+for the verdict and prints the failing steps rather than a URL.
+
+### Asking about one job
+
+A full run is nine jobs across three operating systems, and there is a loop where eight of them have
+nothing to say yet: one job is red, and what you want is that job again as soon as possible.
+
+```bash
+bash scripts/ask-ci.sh --jobs test     # only the three `test` legs; every other job is skipped
+bash scripts/ask-ci.sh                 # every job, which is the default and the thing to end on
+```
+
+The groups are the job names in the table below — `lint test system bench bindings docs desktop
+build` — plus `all`. `ask-ci.sh` refuses an unknown one itself, because a `choice` input is rejected
+by an API error that does not say which words are allowed.
+
+**A narrowed answer is not an answer about this workspace**, and both halves say so: `ask-ci.sh`
+prints it when it asks, and `watch-ci.sh` names the jobs that never ran when a narrowed run comes
+back green. The exit status stays CI's, because the run did succeed — what it succeeded *at* is the
+part a reader can otherwise miss. Ask for `all` before believing anything.
+
+**A tag is never narrowed.** The `inputs` context is empty for a push, so every job's condition
+falls through to true and a release runs the whole matrix whatever a dispatch once selected;
+`preflight` and `release` additionally refuse to run at all unless the group is `all`, so a
+narrowed dispatch on a tag ref cannot produce half a release.
 
 | Job | Runner | Runs |
 | --- | --- | --- |
