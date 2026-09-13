@@ -541,7 +541,25 @@ readable, writable setting since it was written, and nothing has ever read the c
       "Laravel "` still finds nothing, and that is an honest answer about a project called
       `Laravel`.
 
+- [x] **T129** Autostart is a switch on the row it belongs to, and an apply stops deciding it. The
+      Dashboard's ⋮ menu carries *Turn on / Turn off autostart* over `service.set_autostart`, which
+      is also what un-greys that button: every service has an entry now, not only a database. And
+      Quick Start stops sending `BlueprintApply.autostart`, so an apply from the card and one from
+      Blueprints leave the same machine behind — T116's flag and `mix blueprint apply --autostart`
+      are untouched; what changed is that the window stopped answering a question nobody asked.
+      **What it leaves.** M14's *the machine is restarted and the site is serving with nothing
+      pressed* now needs one tick on the front end: the boot walk starts flagged roots only, and the
+      web activator lives inside the front end's own config, so nothing answers port 80 on a home
+      nobody ticked it for.
+
 **Milestone M14** — on a fresh install, one button on the Dashboard and one elevation prompt produce
 a browser open on a working `https://<name>.test`; the machine is restarted and the site is serving
 with nothing pressed; a PHP extension is one click from the sidebar; and no two sidebar entries are
 called the same thing.
+
+**The second clause is not met today, and T129 is why.** Nothing ticks the front end's `autostart`
+— not `service.create`, not an apply that was not asked — so a fresh install serves until the
+machine is restarted and then serves nothing, one tick away either way. The clause stands as
+written; what would close it is a default decided from the recipe's role where the row is written,
+which is a daemon change and a reversal of T116's default, so it needs a task and an ADR rather than
+an edit here.

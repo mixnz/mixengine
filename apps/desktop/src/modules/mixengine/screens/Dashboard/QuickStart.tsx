@@ -136,7 +136,6 @@ export default function QuickStart({ onCreated }: { onCreated: () => void }) {
           initialProject={project}
           initialRoot={root}
           withFrontEnd
-          autostart
           onCancel={() => setPhase({ kind: "form" })}
           onDone={(applied) => {
             if (applied === null) {

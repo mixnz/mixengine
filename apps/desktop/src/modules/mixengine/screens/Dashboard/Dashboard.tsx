@@ -416,22 +416,42 @@ export default function Dashboard({
 
 
   /**
-   * Hàng này có gì để mời bấm không.
+   * Bật hay tắt autostart cho một service — cùng cột mà `AutostartPanel` ở màn Services đổi.
    *
-   * Hiện chỉ có các mục của một database. **"Mở thư mục dữ liệu" đã bị bỏ** chứ không để xám: daemon
-   * biết thư mục ấy — `ServiceRemoval.data_kept` gọi tên nó — nhưng chỉ nói ở `service.delete`, và
-   * không method đọc nào trả về đường dẫn (`ServiceCreate.data_dir` là *đầu vào*). Cửa sổ thì mở
-   * được thư mục, `tauri-plugin-opener` đã có sẵn; thứ thiếu là đường dẫn, không phải cách mở. Một
-   * mục xám vĩnh viễn là một lời hứa không ai định giữ.
+   * **Ghi lại thứ daemon trả về, không phải thứ vừa bấm.** Một hàng nói "có" trong khi cột trong
+   * database vẫn là "không" tệ hơn một hàng đổi chậm — cùng luật cả bảng này đang theo.
+   *
+   * Không khởi động và không dừng gì cả, nên không đi qua `busy`: thứ nó đổi là walk ở lần daemon
+   * khởi động sau (T112/T113).
    */
-  function hasRowMenu(id: string): boolean {
-    const report = databases[id];
-    return report !== undefined && opensADatabase(report);
-  }
+  const setAutostart = useCallback(
+    async (id: string, autostart: boolean) => {
+      try {
+        const summary = await api.serviceSetAutostart({ service: id, autostart });
+        setRows((current) =>
+          current.map((row) => (row.id === id ? { ...row, autostart: summary.autostart } : row)),
+        );
+      } catch (e) {
+        setError(errorMessage(t, e));
+      }
+    },
+    [t],
+  );
+
+  /** Hàng đang mở menu. Menu chỉ sống cùng một `menu.id`, nhưng bảng thì cập nhật từ stream, nên
+   *  đọc lại từ `rows` thay vì chụp ảnh hàng lúc mở — nhãn autostart phải theo cột bên cạnh. */
+  const menuRow = menu === null ? undefined : rows.find((row) => row.id === menu.id);
 
   /** Câu trả lời cho hàng đang mở menu, buộc vào một tên: `databases[menu.id]` đọc hai lần thì
-   *  TypeScript mất luôn phần thu hẹp kiểu trên `client`. */
-  const menuReport = menu === null ? undefined : databases[menu.id];
+   *  TypeScript mất luôn phần thu hẹp kiểu trên `client`.
+   *
+   *  `opensADatabase` lọc ngay ở đây chứ không còn ở nút ⋮: `database.client` cũng trả lời cho
+   *  nginx và cho một php-fpm pool, chỉ là với `protocol: null`, nên có mặt trong `databases`
+   *  không có nghĩa là có gì để mở. */
+  const menuReport =
+    menuRow === undefined ? undefined : databases[menuRow.id];
+  const menuDatabase =
+    menuReport !== undefined && opensADatabase(menuReport) ? menuReport : undefined;
 
   /** Class màu cho một trạng thái; chuỗi rỗng cho trạng thái không biết, để nó vẽ như chữ thường. */
   function toneClass(state: string | null | undefined): string {
@@ -632,20 +652,17 @@ export default function Dashboard({
                     {t("mixengine.dashboard.restart")}
                   </Button>
                   {/* `ActionBar` chứ không phải một `<button>` tự vẽ: nó *là* primitive cho nút
-                      chỉ-có-icon, và nó mang sẵn đúng luật chỗ này cần — `disabledHint`, vì "an
-                      icon-only button with no text and no reason is a dead end".
+                      chỉ-có-icon, và nó mang sẵn đúng luật chỗ này cần.
 
-                      Xám khi hàng này không có gì để mời bấm: mọi mục của menu đều là mục của một
-                      database, nên với nginx hay một php-fpm pool thì mở ra là mở ra một cái rỗng,
-                      và một menu rỗng là một lời mời đã thất hứa. */}
+                      Không bao giờ xám nữa: autostart là một cột của *mọi* service, nên nginx và
+                      một php-fpm pool cũng có một mục để bấm — trước đây menu chỉ toàn mục của một
+                      database, và với những hàng ấy mở ra là mở ra một cái rỗng. */}
                   <ActionBar
                     actions={[
                       {
                         key: "menu",
                         icon: MoreIcon,
                         label: t("mixengine.dashboard.rowMenu"),
-                        disabled: !hasRowMenu(row.id),
-                        disabledHint: t("mixengine.dashboard.noRowActions"),
                         onClick: (event) => {
                           const at = event.currentTarget.getBoundingClientRect();
                           setMenu({ id: row.id, x: at.left, y: at.bottom });
@@ -678,19 +695,41 @@ export default function Dashboard({
         />
       )}
 
-      {/* Menu chỉ mở được từ một nút ⋮ không xám, mà `hasRowMenu` đã bảo đảm hàng ấy là một
-          database có câu trả lời trong `databases` — nên khối dưới luôn chạy. Giữ điều kiện lại
-          vì nó cũng là thứ thu hẹp kiểu cho `menuReport`, và vì một bất biến không được kiểm tra
-          là một bất biến chờ ai đó gỡ mất.
+      {/* Menu này không bao giờ rỗng, và đó là lý do nút ⋮ không còn xám: autostart có mặt cho
+          *mọi* service, kể cả khi `openChoices` trả về danh sách rỗng vì máy không có client nào
+          và kể cả khi hàng ấy không phải một database.
 
-          Menu này không bao giờ rỗng: `openChoices` có thể trả về danh sách rỗng khi máy không có
-          client nào, nhưng hai mục mật khẩu thì không phụ thuộc vào client nào cả. Đó chính là
-          điều làm cho việc xám nút ⋮ ở trên là đúng chứ không phải đoán. */}
+          **"Mở thư mục dữ liệu" vẫn không có mặt** chứ không để xám: daemon biết thư mục ấy —
+          `ServiceRemoval.data_kept` gọi tên nó — nhưng chỉ nói ở `service.delete`, và không method
+          đọc nào trả về đường dẫn (`ServiceCreate.data_dir` là *đầu vào*). Cửa sổ thì mở được thư
+          mục, `tauri-plugin-opener` đã có sẵn; thứ thiếu là đường dẫn, không phải cách mở. Một mục
+          xám vĩnh viễn là một lời hứa không ai định giữ. */}
       {menu !== null && (
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
-          {menuReport !== undefined && (
+          {/* Nhãn lật theo cột Autostart của chính hàng đó, chứ không phải một dấu tick: mục menu ở
+              đây là `<button>` mang `role="menuitem"`, và một dấu tick không có `menuitemcheckbox`
+              đứng sau là một trạng thái chỉ nhìn mới thấy. */}
+          {menuRow !== undefined && (
+            <button
+              type="button"
+              onClick={() => {
+                const id = menuRow.id;
+                const wanted = !menuRow.autostart;
+                setMenu(null);
+                void setAutostart(id, wanted);
+              }}
+            >
+              {t(
+                menuRow.autostart
+                  ? "mixengine.dashboard.autostartOff"
+                  : "mixengine.dashboard.autostartOn",
+              )}
+            </button>
+          )}
+
+          {menuDatabase !== undefined && (
             <>
-              {openChoices(menuReport.client, isModuleVisible(DATABASE_MODULE_ID)).map((choice) => (
+              {openChoices(menuDatabase.client, isModuleVisible(DATABASE_MODULE_ID)).map((choice) => (
                 <button
                   key={choice}
                   type="button"
@@ -708,7 +747,7 @@ export default function Dashboard({
                 >
                   {choice === "external"
                     ? t("mixengine.dashboard.openDatabaseExternal", {
-                        name: menuReport.client.state === "installed" ? menuReport.client.name : "",
+                        name: menuDatabase.client.state === "installed" ? menuDatabase.client.name : "",
                       })
                     : t(
                         choice === "builtIn"

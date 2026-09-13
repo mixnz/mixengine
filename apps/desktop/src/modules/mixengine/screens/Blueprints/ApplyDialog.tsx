@@ -56,9 +56,6 @@ interface Props {
    * *cho tôi một site chạy được*.
    */
   withFrontEnd?: boolean;
-
-  /** Đánh dấu service apply này **tạo ra** là khởi động cùng MixEngine — T116. Mặc định tắt. */
-  autostart?: boolean;
 }
 
 type Phase =
@@ -79,7 +76,6 @@ export default function ApplyDialog({
   initialProject = "",
   initialRoot = "",
   withFrontEnd = false,
-  autostart = false,
 }: Props) {
   const { t } = useTranslation();
   const [project, setProject] = useState(initialProject);
@@ -113,7 +109,13 @@ export default function ApplyDialog({
         root_is_parent: false,
         dry_run: true,
         front_end: withFrontEnd,
-        autostart,
+        // **Luôn tắt, và không có prop nào bật nó** — `BlueprintApply.autostart` (T116) là một
+        // trường bắt buộc, nên nó được gửi chứ không được bỏ trống. Cửa sổ này không quyết định hộ
+        // ai service nào khởi động cùng MixEngine: một apply đánh cờ lên mọi thứ nó *tạo ra* là
+        // một apply trả lời một câu người dùng chưa hỏi. Câu đó được hỏi ở đúng một chỗ, menu ⋮
+        // của Dashboard, trên đúng service người ta đang nhìn. `mix blueprint apply --autostart`
+        // vẫn gửi được cờ này cho ai muốn nó trong một lệnh.
+        autostart: false,
       });
       if (response.outcome === "planned") {
         setChoices({});
@@ -149,7 +151,8 @@ export default function ApplyDialog({
         // Gửi ở cả hai lượt: kế hoạch người ta đọc phải là kế hoạch chạy, nên một cờ đổi kế hoạch
         // không được thêm vào sau lượt dry run.
         front_end: withFrontEnd,
-        autostart,
+        // Gửi ở cả hai lượt, cùng lý do: xem lượt dry run phía trên.
+        autostart: false,
       });
       if (response.outcome === "started") {
         setPhase({ kind: "running", jobId: response.job.id });

@@ -12,7 +12,11 @@ Rationale for not using containers: [../decisions/0003-no-container-isolation.md
 Nothing but the daemon runs at login. Services start when something actually needs them:
 
 - **Web traffic**: the front-end web server is the only always-on service (it is tiny — Caddy idles
-  at a few MB). The site file names *two* upstreams — the pool's own address first, and a second,
+  at a few MB). **Always-on means its `autostart` is ticked, and nothing ticks it on anybody's
+  behalf** — `service.create` defaults it off, and an apply sets it only when asked (T116, T129), so
+  it is a switch somebody turns on once, from the Dashboard's ⋮ menu or `mix service autostart`. On a
+  home where nobody has, a restart leaves nothing listening on port 80, and the fallback below cannot
+  help: it lives inside the front end's own configuration. The site file names *two* upstreams — the pool's own address first, and a second,
   permanent address the daemon holds — so a request to a stopped pool is refused by the first, and
   the front end retries it against the second. That one starts the pool, waits for its `ReadyCheck`,
   and proxies. First hit is slow (~1 s); the rest are normal, and go straight to the pool without
