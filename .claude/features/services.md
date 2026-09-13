@@ -207,10 +207,24 @@ work done on the strength of a claim known to be unreliable here, and it happens
 types the command.
 
 **What proves it worked is the service starting**, not an exit code. `postgres --single` exits 0 on
-a syntax error; the readiness check of all three of these recipes is an authenticated query, so the
-repair ends with the named service running and the dependents the stop took down started again.
-Where a step fails, nothing is started: a database whose credential is half re-set is not one to put
-back in front of an application.
+a syntax error; the readiness check of two of these recipes is an authenticated query, so the service
+reaching `running` is the password being accepted. MariaDB's is `mariadb-admin ping`, which answers
+before authentication: there the restart proves the server starts on the directory the repair wrote
+into, and the credential itself is proved by the next statement run against it. Either way the repair
+ends with the named service running and the dependents the stop took down started again. Where a step
+fails, nothing is started: a database whose credential is half re-set is not one to put back in front
+of an application.
+
+**And a start that meets the same drift now says so** — roadmap task **T127a**. That asymmetry has a
+second consequence. A MariaDB instance whose password has drifted reaches `running` and meets the
+refusal at its first statement, where it is explained; a PostgreSQL one never leaves `starting`, and
+was reported as a ready check that timed out — two minutes of waiting and then a hint pointing at a
+log. A failed start now reads the lines the service printed before it decides what to call the
+failure, so a refusal naming that instance's own superuser is `superuser_refused`, carrying the
+server's own line and naming this repair, rather than `ready_timeout`. It is read only for a service
+that has a database vocabulary, and only after the start has already failed: a reader that acted on a
+log line while a start was still running could take down a cluster that an application was merely
+polling with a stale password of its own.
 
 ## Web server integration
 
