@@ -556,6 +556,12 @@ fn initialize(context: &Context) -> Result<Step> {
 /// dropped the check, and every other route here already avoids `--skip-networking` entirely, so the
 /// flag is added for 5.7 on Windows only.
 ///
+/// **The Unix socket it still opens is this home's own**, because a server that binds no port binds
+/// a socket instead and the built-in name for it is `/tmp/mysql.sock` — one path for every MySQL on
+/// the machine. Measured against 8.4.10 on Linux: two of these started together and the second one
+/// logged `Another process with pid N is using unix socket file` and aborted, which is a first run
+/// failing for a reason that has nothing to do with the home it was failing in.
+///
 /// The statement is in a file rather than on the command line because an argument list is readable
 /// by every process on this machine. The daemon writes that file inside `run/`, which is owner-only,
 /// and removes it whatever the step does — see [`SecretFile`].
@@ -570,7 +576,17 @@ fn set_the_password(context: &Context, password: &str, windows: bool) -> Result<
         format!("--datadir={}", context.data().display()),
         format!("--log-error={}", bootstrap_log(context).display()),
         "--skip-networking".to_owned(),
+        // The same two lines the generated `my.cnf` carries, for the same reason and argued there:
+        // a default-built server names `/tmp/mysql.sock` and the X plugin names `/tmp/mysqlx.sock`,
+        // both of them machine-wide, so this server would collide with any other MySQL on the
+        // machine — including a second MixEngine home bootstrapping its own. `loose-` because 5.6
+        // and 5.7 have no `mysqlx` and `mysqld` refuses a whole option it does not know.
+        "--loose-mysqlx=OFF".to_owned(),
     ];
+
+    if !windows {
+        args.push(format!("--socket={}", socket_path(context)?.display()));
+    }
 
     if windows && version_parts(context.version()).0 < 8 {
         args.push("--shared-memory".to_owned());
@@ -1307,6 +1323,65 @@ mod tests {
             !setting.args.iter().any(|arg| arg == "--shared-memory"),
             "{setting:?}"
         );
+    }
+
+    /// The server that sets the password names a socket of its own, and no machine-wide one.
+    ///
+    /// **Two of these run at once on one machine** — two homes, or the acceptance suite's own two
+    /// tests — and the built-in `/tmp/mysql.sock` is one name for both of them. Measured against
+    /// 8.4.10 on Linux: the second server aborts with `Unable to setup unix socket lock file`, and
+    /// what the user is told is that their first run failed.
+    #[test]
+    fn the_bootstrap_server_binds_this_homes_socket_and_not_the_machines() {
+        let steps = steps_for(&initialised("8.4.10", provides()), Route::Initialize, false)
+            .expect("two steps");
+
+        let setting = &steps[1];
+        assert!(
+            setting
+                .args
+                .iter()
+                .any(|arg| arg.starts_with("--socket=") && arg.ends_with("mysql@main.sock")),
+            "{setting:?}"
+        );
+    }
+
+    /// On Windows `--socket` names a pipe rather than a path, and this server offers no transport
+    /// at all — so the flag is left off, exactly as the generated `my.cnf` leaves it off.
+    #[test]
+    fn the_bootstrap_server_names_no_socket_on_windows() {
+        let steps = steps_for(&initialised("8.4.10", provides()), Route::Initialize, true)
+            .expect("two steps");
+
+        let setting = &steps[1];
+        assert!(
+            !setting.args.iter().any(|arg| arg.starts_with("--socket=")),
+            "{setting:?}"
+        );
+    }
+
+    /// And the X plugin's own listener is off, on every route that starts a server to set a password.
+    ///
+    /// `/tmp/mysqlx.sock` is a second machine-wide name, and the second half of the same collision:
+    /// in the measurement above it was the X plugin that complained first. `loose-` because 5.6 and
+    /// 5.7 have no such option and `mysqld` refuses a whole option it does not know — the argument
+    /// the generated `my.cnf` already makes for the same line.
+    #[test]
+    fn the_bootstrap_server_turns_the_x_protocol_off() {
+        for windows in [false, true] {
+            let steps = steps_for(
+                &initialised("8.4.10", provides()),
+                Route::Initialize,
+                windows,
+            )
+            .expect("two steps");
+
+            let setting = &steps[1];
+            assert!(
+                setting.args.iter().any(|arg| arg == "--loose-mysqlx=OFF"),
+                "{setting:?}"
+            );
+        }
     }
 
     /// 8.0 and newer dropped the check 5.7 has, on Windows as much as anywhere else.
