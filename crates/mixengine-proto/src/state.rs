@@ -312,6 +312,45 @@ pub enum StateReason {
         detail: String,
     },
 
+    /// The server is up, and refuses the superuser password this home holds — roadmap task
+    /// **T127a**.
+    ///
+    /// **The other end of [`FirstRunFailed`](Self::FirstRunFailed), and it arrives much later.** A
+    /// first run writes that password into the data directory *and* into the OS credential store;
+    /// once the two come apart nothing can log in to bring them back together, and T126 is where
+    /// that could happen. T127 built the repair — `mix service reset-credential` — and reached it
+    /// from the provisioning probe, which is a *running* server. This is the same explanation for a
+    /// server that never gets there: a cluster whose readiness check is an authenticated query
+    /// cannot leave `starting`, and until this word existed it was reported as a ready check that
+    /// timed out, which sends the reader to look at a server that is running perfectly well.
+    ///
+    /// **It is a reading of what the service printed and not of what MixEngine asked**, so the
+    /// daemon reaches it only for a service that has a database vocabulary, and only for a line
+    /// naming that instance's own superuser. An application refused as its own account is not this.
+    ///
+    /// **Only ever carried into [`ServiceState::Failed`]**, by the runner giving up on a start. So
+    /// `mixengine_core::services::StoppedBy::of`, which is consulted on the way into
+    /// [`ServiceState::Stopped`] alone, never sees it — and the answer it would give through its
+    /// catch-all arm is the right one anyway: a database that refused its superuser is not a service
+    /// somebody deliberately stopped, so a connection asking for it may still try.
+    ///
+    /// The enum is `#[non_exhaustive]`, so a build that predates this word reads it as no reason
+    /// recorded rather than failing to parse the event.
+    SuperuserRefused {
+        /// The line the server printed, in its own words.
+        ///
+        /// **Evidence, laid out by a client and deliberately not in the sentence** — the
+        /// arrangement [`CrashLoop`](Self::CrashLoop)'s `tail` documents, which is no longer the
+        /// only variant that carries any. One line rather than a tail, because this reason explains
+        /// itself and the line only confirms it; it is already bounded by the capture's own limit on
+        /// the length of a line, so nothing here invents a second bound.
+        ///
+        /// It holds no secret: neither client prints a password in a refusal — PostgreSQL names the
+        /// role and the `pg_hba.conf` line it matched, the MySQL family names the account and the
+        /// host it came from.
+        said: String,
+    },
+
     /// The spec names a check this build or this machine cannot make.
     ///
     /// The typed answer `CLAUDE.md` requires instead of a `todo!()`, carried all the way to the
@@ -522,6 +561,11 @@ impl std::fmt::Display for StateReason {
                     "what has to happen once before it ever starts did not: {detail}"
                 )
             }
+            // The evidence is `said` and a client lays it out; what follows `failed —` is what the
+            // reader has to do something about.
+            Self::SuperuserRefused { .. } => {
+                f.write_str("it refuses the superuser password this home holds")
+            }
             Self::Uncheckable { check, reason } => write!(f, "{check} cannot be made: {reason}"),
             Self::DependencyFailed { dependency } => write!(f, "{dependency} did not come up"),
             Self::Unhealthy => f.write_str("the health check failed"),
@@ -615,6 +659,14 @@ mod tests {
                     tail: vec!["Address already in use".to_owned()],
                 },
                 "5 failed starts within 5m",
+            ),
+            (
+                // The line is the client's to lay out, exactly as `CrashLoop`'s tail is; what
+                // belongs in the clause after `failed —` is what it means — roadmap task **T127a**.
+                StateReason::SuperuserRefused {
+                    said: "FATAL:  password authentication failed for user \"postgres\"".to_owned(),
+                },
+                "it refuses the superuser password this home holds",
             ),
             (StateReason::Exited { code: Some(1) }, "it exited with 1"),
             (
