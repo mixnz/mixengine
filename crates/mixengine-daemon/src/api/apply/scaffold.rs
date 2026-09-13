@@ -321,7 +321,7 @@ pub(crate) async fn run_command(
                 return match exit.is_success() {
                     true => StepResult::Done,
                     false => StepResult::Failed {
-                        why: failure(command, exit.code(), &last),
+                        why: failure_in(command, exit.code(), &last, root),
                     },
                 };
             }
@@ -384,17 +384,26 @@ fn keep_last(last: &mut Vec<String>, line: &LogLine) {
     last.push(line.text.clone());
 }
 
-/// What a failed command's outcome says.
+/// What a failed command's outcome says, for a command that ran in `root`.
 ///
 /// The exit code, and the last of what it printed — because a job's log is memory only, and by the
 /// time somebody reads the outcome the lines may be gone.
-fn failure(command: &str, code: Option<i32>, last: &[String]) -> String {
+///
+/// **And the folder, when npm would not have taken its name** — roadmap task **T120c**, its
+/// design's D8. The plan blocks this before anything is installed, but only for a blueprint whose
+/// author declared `needs_npm_safe_dir`, and nobody's imported blueprint ever will. So the same
+/// sentence is written here as well, arriving after the download instead of before it, which is
+/// worse than the block and better than npm's own words.
+///
+/// The rule is asked of [`mixengine_core::blueprints::plan`] rather than restated: a second copy of
+/// the charset is two rules that drift.
+fn failure_in(command: &str, code: Option<i32>, last: &[String], root: &Path) -> String {
     let ended = match code {
         Some(code) => format!("`{command}` exited with {code}"),
         None => format!("`{command}` was ended by a signal"),
     };
 
-    match last.iter().find(|line| !line.trim().is_empty()) {
+    let said = match last.iter().find(|line| !line.trim().is_empty()) {
         Some(_) => format!(
             "{ended} — its last words:
 {}",
@@ -404,6 +413,15 @@ fn failure(command: &str, code: Option<i32>, last: &[String]) -> String {
             )
         ),
         None => ended,
+    };
+
+    match mixengine_core::blueprints::plan::not_an_npm_name(root) {
+        Some(reason) => format!(
+            "{said}
+
+{reason}"
+        ),
+        None => said,
     }
 }
 
@@ -607,9 +625,49 @@ mod tests {
             "  * name can only contain URL-friendly characters".to_owned(),
         ];
 
-        let said = failure("npx create-next-app .", Some(1), &last);
+        let said = failure_in(
+            "npx create-next-app .",
+            Some(1),
+            &last,
+            Path::new("/work/next-js-1"),
+        );
 
         assert!(said.contains("exited with 1"), "{said}");
         assert_eq!(said.lines().count(), 3, "{said}");
+    }
+
+    /// **The blueprint that never declared it** — roadmap task **T120c**, its design's D8. A
+    /// plan-time block only reaches a blueprint whose author asked for one; an imported one never
+    /// will, so a failure in a folder npm would refuse carries the same explanation — late, which
+    /// is worse than early and better than nothing.
+    #[test]
+    fn a_failure_in_a_folder_npm_would_refuse_says_so() {
+        let last = vec!["Could not create a project called \"Next.js 1\"".to_owned()];
+
+        let said = failure_in(
+            "npx create-next-app .",
+            Some(1),
+            &last,
+            Path::new("/work/Next.js 1"),
+        );
+
+        assert!(said.contains("Next.js 1"), "{said}");
+        assert!(said.contains("next-js-1"), "{said}");
+    }
+
+    /// And a folder npm is happy with gets no lecture — including the underscored one, which is the
+    /// row that decided the rule.
+    #[test]
+    fn a_failure_in_a_folder_npm_accepts_is_left_alone() {
+        let last = vec!["some other problem".to_owned()];
+
+        let said = failure_in(
+            "npx create-next-app .",
+            Some(1),
+            &last,
+            Path::new("/work/next_js_1"),
+        );
+
+        assert!(!said.contains("rename"), "{said}");
     }
 }

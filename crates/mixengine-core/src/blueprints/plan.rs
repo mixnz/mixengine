@@ -884,7 +884,7 @@ const NPM_LIMIT: usize = 214;
 ///
 /// `slug` still has a job here, and it is the other one: it always answers in a charset every
 /// branch below accepts, so it is what the reason *suggests*.
-pub(crate) fn not_an_npm_name(root: &Path) -> Option<String> {
+pub fn not_an_npm_name(root: &Path) -> Option<String> {
     let name = root.file_name()?.to_string_lossy().into_owned();
 
     let because = if name.is_empty() || name.chars().count() > NPM_LIMIT {
