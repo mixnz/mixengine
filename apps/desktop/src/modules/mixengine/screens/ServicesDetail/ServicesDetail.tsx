@@ -15,14 +15,7 @@ import IdlePanel from "./IdlePanel";
 import LimitsPanel from "./LimitsPanel";
 import styles from "./ServicesDetail.module.css";
 
-export default function ServicesDetail({
-  active,
-  isModuleVisible,
-}: {
-  active: boolean;
-  /** Straight through to `DatabasePanel`, which is what asks — see `ModuleTabProps`. */
-  isModuleVisible: (moduleId: string) => boolean;
-}) {
+export default function ServicesDetail({ active }: { active: boolean }) {
   const [ids, setIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -153,14 +146,17 @@ export default function ServicesDetail({
                   {movedNotice(moved)}
                 </p>
               )}
-              <LimitsPanel service={selected} />
-              {/* Side by side and in this order: autostart says "what is running when I sit
-                  down", idle says "what stays running when I am not using it". Two different
-                  questions about one service, and somebody turning both on has to see both at
-                  once. */}
+              {/* Đầu tiên, và **không vẽ gì cả** cho một service không phải database — nên với
+                  nginx hay một php-fpm pool, cái đầu tiên đọc được vẫn là Autostart. Nó đứng trên
+                  vì nó là thứ riêng của service này, còn ba panel dưới hỏi cùng một câu cho mọi
+                  service. */}
+              <DatabasePanel service={selected} />
+              {/* Cạnh nhau và theo thứ tự này: autostart trả lời "cái gì đang chạy khi tôi ngồi
+                  xuống", idle trả lời "cái gì còn chạy khi tôi không dùng tới". Hai câu hỏi khác
+                  nhau về một service, và ai bật cả hai phải nhìn thấy cả hai cùng lúc. */}
               <AutostartPanel service={selected} />
               <IdlePanel service={selected} />
-              <DatabasePanel service={selected} isModuleVisible={isModuleVisible} />
+              <LimitsPanel service={selected} />
             </>
           )}
         </div>

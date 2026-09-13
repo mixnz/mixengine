@@ -693,6 +693,14 @@ textarea:focus {
   --control-color: #ffffff;
   --control-bg: #0f0f0f98;
   --control-bg-active: #0f0f0f69;
+  /* **Viền riêng cho nền tối, không dùng chung `--border` với nền sáng.** Cùng một token trộn ra
+     hai kết quả khác hẳn: `rgb(128 128 128 / 0.25)` trên `#ffffff` cho `#dfdfdf` — lệch 32 so với
+     nền — nhưng trên `#2f2f2f` chỉ cho `#434343`, lệch 20. Nút primary thì viền bằng
+     `--accent-solid`, đục hoàn toàn, nên đứng cạnh nhau ở dark mode cạnh trên/dưới của nút mặc
+     định mờ hơn hẳn và mắt đọc phần ruột tối của nó là biên — nó trông *thấp hơn* dù đo ra đúng
+     cùng một chiều cao. `0.4` là nghiệm của `a × 128 + (1 − a) × 47 = 79`, tức độ lệch 32 y như
+     nền sáng. */
+  --control-border: rgb(128 128 128 / 0.4);
   --surface-bg: #2f2f2f;
   --page-bg: #2f2f2f;
   /* Một lớp trắng, dày hơn `--hover-bg` mà cả nhóm đang tô — cùng cách `--qe-card-bg`
@@ -775,6 +783,8 @@ textarea:focus {
     --control-color: #ffffff;
     --control-bg: #0f0f0f98;
     --control-bg-active: #0f0f0f69;
+    /* Xem khối `[data-theme="dark"]` ở trên: cùng một lý do và cùng một con số. */
+    --control-border: rgb(128 128 128 / 0.4);
     --surface-bg: #2f2f2f;
     --page-bg: #2f2f2f;
     /* Một lớp trắng, dày hơn `--hover-bg` mà cả nhóm đang tô — cùng cách `--qe-card-bg`

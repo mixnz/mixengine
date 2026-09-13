@@ -83,10 +83,10 @@ pub async fn endpoint(store: &Store, service: &ServiceId) -> Result<Option<Endpo
     let id = service.as_str();
 
     let row = sqlx::query!(
-        "SELECT p.name AS package, s.port, s.bind_addr
+        r#"SELECT p.name AS "package?", s.port, s.bind_addr
          FROM services s
-         JOIN packages p ON p.id = s.package_id
-         WHERE s.id = ?",
+         LEFT JOIN packages p ON p.id = s.package_id
+         WHERE s.id = ?"#,
         id
     )
     .fetch_optional(store.pool())
@@ -97,9 +97,18 @@ pub async fn endpoint(store: &Store, service: &ServiceId) -> Result<Option<Endpo
         id: id.to_owned(),
     })?;
 
+    // **A `LEFT JOIN`, for [`crate::services::handoff::address`]'s reason**: `services` allows three
+    // parents and only one of them is a package, so an inner join dropped every php-fpm pool and
+    // every extension's own service — and the `ok_or_else` above then called them missing. Both
+    // callers walk a manifest's services with `if let Some(..)`, so that answer failed a render
+    // instead of skipping a service.
+    let Some(package) = row.package else {
+        return Ok(None);
+    };
+
     let catalogue = Catalogue::builtin();
 
-    let Some(recipe) = catalogue.recipe(&row.package) else {
+    let Some(recipe) = catalogue.recipe(&package) else {
         return Ok(None);
     };
 
@@ -206,6 +215,56 @@ mod tests {
                 .expect("it reads")
                 .is_none()
         );
+    }
+
+    /// **The same rule for a service whose parent is not a package at all.** `services` allows
+    /// three parents and only one of them is `packages`, so a php-fpm pool — the very thing a
+    /// `web-app` extension declares a dependency on — reached a `NotFound` here. Both callers walk
+    /// the services a manifest named with `if let Some(..)`, so that refusal failed a whole render
+    /// rather than skipping one service. Same defect as [`crate::services::handoff::address`]'s,
+    /// found beside it.
+    #[tokio::test]
+    async fn a_service_with_no_package_has_no_endpoint_rather_than_no_existence() {
+        let (_temp, store) = home().await;
+        a_pool(&store, "php-fpm@8.4.24", "8.4.24", 9000).await;
+
+        let service = ServiceId::parse("php-fpm@8.4.24").expect("an id");
+
+        assert!(
+            endpoint(&store, &service)
+                .await
+                .expect("a service with no package is still a service")
+                .is_none()
+        );
+    }
+
+    /// A `services` row whose parent is an installed runtime rather than a package.
+    async fn a_pool(store: &Store, service: &str, version: &str, port: i64) {
+        let instance = service.split('@').nth(1).unwrap_or(DEFAULT_INSTANCE);
+
+        let runtime_id = sqlx::query_scalar!(
+            "INSERT INTO runtime_installs
+                 (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)
+             VALUES ('php', ?, 'release', '/runtimes/php', '2026-09-03T00:00:00Z', 1,
+                     'https://example.invalid/php.zip', 'ab')
+             RETURNING id",
+            version
+        )
+        .fetch_one(store.pool())
+        .await
+        .expect("a runtime install row");
+
+        sqlx::query!(
+            "INSERT INTO services (id, runtime_install_id, instance_name, state, port, bind_addr)
+             VALUES (?, ?, ?, 'stopped', ?, '127.0.0.1')",
+            service,
+            runtime_id,
+            instance,
+            port
+        )
+        .execute(store.pool())
+        .await
+        .expect("a service row");
     }
 
     /// An empty home with the migrations applied.

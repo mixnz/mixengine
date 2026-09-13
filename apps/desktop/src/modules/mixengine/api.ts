@@ -48,6 +48,8 @@ import type { ServiceRemoval } from "@mixengine/api";
 import type { DatabaseCreate } from "@mixengine/api";
 import type { DatabaseAccount } from "@mixengine/api";
 import type { DatabaseClientReport } from "@mixengine/api";
+import type { DatabaseCredentials } from "@mixengine/api";
+import type { ServiceWalk } from "@mixengine/api";
 import type { DatabaseHandoff } from "@mixengine/api";
 import type { DomainStatusReport } from "@mixengine/api";
 import type { CaStatus } from "@mixengine/api";
@@ -352,6 +354,29 @@ export function databaseCreate(input: DatabaseCreate): Promise<DatabaseAccount> 
 
 export function databaseClient(service: string): Promise<DatabaseClientReport> {
   return invoke<DatabaseClientReport>("mixengine_database_client", { service });
+}
+
+/**
+ * Mật khẩu MixEngine đang giữ cho một account — `database.credentials`, T77b.
+ *
+ * **Câu trả lời duy nhất trong cả API mang chính mật khẩu** (ADR 0025); mọi `database.*` khác chỉ
+ * trả *địa chỉ* của nó trong credential store. `user` vắng nghĩa là quản trị viên của server —
+ * đúng mặc định `database.open` dùng.
+ */
+export function databaseCredentials(service: string, user?: string): Promise<DatabaseCredentials> {
+  return invoke<DatabaseCredentials>("mixengine_database_credentials", { service, user });
+}
+
+/**
+ * Ghi lại credential quản trị viên vào data directory của chính database — `service.reset_credential`,
+ * T127.
+ *
+ * Dừng service này và mọi thứ phụ thuộc nó, chạy bước đặt mật khẩu offline của recipe, rồi bật lại.
+ * **Mọi database trong thư mục ấy được giữ nguyên** — đó là câu quyết định chuyện này cho một
+ * người, nên nơi nào gọi hàm này cũng phải nói nó ra trước.
+ */
+export function serviceResetCredential(service: string): Promise<ServiceWalk> {
+  return invoke<ServiceWalk>("mixengine_service_reset_credential", { service });
 }
 
 /** Hand a service to the desktop client MixEngine found — the one *open* path that leaves this

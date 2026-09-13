@@ -198,7 +198,9 @@ export default function MixEngineTab({
     <div className="mixengine-root mixengine-layout">
       <Sidebar screen={screen} onSelect={selectScreen} />
       <div className="mixengine-screen">
-        {pane("dashboard", (active) => <Dashboard active={active} />)}
+        {pane("dashboard", (active) => (
+          <Dashboard active={active} isModuleVisible={isModuleVisible} />
+        ))}
         {pane("projects", (active) => (
           <Projects
             active={active}
@@ -223,9 +225,7 @@ export default function MixEngineTab({
             }}
           />
         ))}
-        {pane("servicesDetail", (active) => (
-          <ServicesDetail active={active} isModuleVisible={isModuleVisible} />
-        ))}
+        {pane("servicesDetail", (active) => <ServicesDetail active={active} />)}
         {pane("logs", (active) => <Logs active={active} />)}
         {pane("blueprints", (active) => <Blueprints active={active} />)}
         {pane("extensions", (active) => <Extensions active={active} />)}

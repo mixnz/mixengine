@@ -45,9 +45,35 @@
   transform: translateY(-0.06em);
 }
 
-/* Weight, not colour — the accent is kept for focus, so a ring means "the keyboard is here". */
-.button:hover:not(:disabled) {
+/* Weight, not colour — the accent is kept for focus, so a ring means "the keyboard is here".
+   Weight, though, has to be *visible*: a border-colour change on its own moved nothing anybody
+   could see. `--border-strong` is `rgb(128 128 128 / 0.45)` against a resting `--control-border` of
+   `0.4` on a dark page, which is a measured 4.5/255 of travel — and the fill did not move at all,
+   in either theme (light 255 → 255, dark 28 → 28). So hover also lifts the whole control.
+
+   `filter: brightness()` rather than a second background token, for `.primary`'s reason two rules
+   below and by the same means: one value per theme direction works for every surface the button is
+   drawn on — solid, translucent, or a pane of glass — where a fixed colour would need a token per
+   theme *and* per glass setting. It moves the fill by a measured 10/255 each way: light 255 → 245,
+   dark 28 → 38, which keeps the hovered button between its own rest and the page behind it.
+
+   `:not(.primary)` because the filled variant lifts by its own amounts below, and two rules of
+   equal specificity setting `filter` would leave the winner to source order. */
+.button:not(.primary):hover:not(:disabled) {
   border-color: var(--border-strong);
+  filter: brightness(0.96);
+}
+
+/* Up rather than down, because the resting fill sits *below* the page here — the same inversion
+   `.primary` makes at the foot of this file. */
+:root[data-theme="dark"] .button:not(.primary):hover:not(:disabled) {
+  filter: brightness(1.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .button:not(.primary):hover:not(:disabled) {
+    filter: brightness(1.35);
+  }
 }
 
 .button:active:not(:disabled) {

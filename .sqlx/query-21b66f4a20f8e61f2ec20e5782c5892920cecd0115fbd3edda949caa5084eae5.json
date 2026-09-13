@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO runtime_installs\n                 (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)\n             VALUES ('php', ?, 'release', '/runtimes/php', '2026-09-03T00:00:00Z', 1,\n                     'https://example.invalid/php.zip', 'ab')\n             RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "21b66f4a20f8e61f2ec20e5782c5892920cecd0115fbd3edda949caa5084eae5"
+}

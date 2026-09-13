@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
@@ -7,37 +7,62 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { DatabaseClientReport } from "@mixengine/api";
-import { DATABASE_MODULE_ID, openChoices } from "./openChoices";
+import { opensADatabase } from "./openChoices";
 import styles from "./DatabasePanel.module.css";
 
-export default function DatabasePanel({
-  service,
-  isModuleVisible,
-}: {
-  service: string;
-  /** Whether this window draws the built-in database client — T110. */
-  isModuleVisible: (moduleId: string) => boolean;
-}) {
+/**
+ * Những gì màn Services nói về một database — và **không nói gì cả về một service không phải
+ * database**.
+ *
+ * *Mở* không ở đây nữa: nó là một hành động trên chính service, nên nó ở menu 3 chấm của hàng đó
+ * trên Dashboard. Đứng cạnh nút Tạo, hai nút trả lời hai câu hỏi không liên quan bằng cùng một
+ * hình dáng, và cái ô "Tên database" ở giữa thì thuộc về đúng một trong hai.
+ */
+export default function DatabasePanel({ service }: { service: string }) {
   const [report, setReport] = useState<DatabaseClientReport | null>(null);
   const [dbName, setDbName] = useState("");
   const [userName, setUserName] = useState("");
   const [createdMessage, setCreatedMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  /** Lỗi của một hành động trong panel. Không giấu panel đi — việc Tạo hỏng không đổi việc service
+   *  này vẫn là một database. */
   const [error, setError] = useState("");
+  /** Lỗi của chính lần đọc `database.client`. Panel không biết mình có nên tồn tại hay không, nên
+   *  nó hiện đúng câu đó và không hiện gì khác. */
+  const [loadError, setLoadError] = useState("");
   const { t } = useTranslation();
 
-  const reload = useCallback(async () => {
-    try {
-      setReport(await api.databaseClient(service));
-      setError("");
-    } catch (e) {
-      setError(errorMessage(t, e));
-    }
-  }, [service, t]);
-
+  /**
+   * Đọc `database.client` cho service đang chọn.
+   *
+   * **Xoá câu trả lời cũ trước khi hỏi câu mới, và bỏ qua câu trả lời về trễ.** Không làm điều thứ
+   * nhất thì một lần đọc hỏng để nguyên `report` của service *trước đó* — chính là cách panel đã
+   * hiện địa chỉ credential của `postgres@main` dưới tên `php-fpm@8.4.24`. Không làm điều thứ hai
+   * thì bấm nhanh qua hai service sẽ để response của cái cũ hạ cánh sau và thắng, cùng đường đua
+   * `readOrder.ts` mô tả cho bảng ở Dashboard.
+   */
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let live = true;
+    setReport(null);
+    setError("");
+    setLoadError("");
+    setCreatedMessage("");
+    setDbName("");
+    setUserName("");
+
+    void (async () => {
+      try {
+        const answer = await api.databaseClient(service);
+        if (live) setReport(answer);
+      } catch (e) {
+        if (live) setLoadError(errorMessage(t, e));
+      }
+    })();
+
+    return () => {
+      live = false;
+    };
+  }, [service, t]);
 
   async function create() {
     setBusy(true);
@@ -61,114 +86,52 @@ export default function DatabasePanel({
     }
   }
 
-  /* Open in this process: a `Handoff` and a tab request, which the shell turns into a `db` tab —
-     and, when that module is hidden, turns the module on for it first (T110's D1). Which is why
-     this function is the same one behind both built-in choices below. */
-  async function open() {
-    setBusy(true);
-    setError("");
-    try {
-      await api.databaseOpenInMixDB(service, dbName.trim() === "" ? undefined : dbName);
-    } catch (e) {
-      setError(errorMessage(t, e));
-    } finally {
-      setBusy(false);
-    }
+  // Hỏi mà không ra thì nói ra. Im lặng ở đây là một panel biến mất vì daemon không trả lời được,
+  // và người đọc kết luận service này không phải database — một câu chưa ai nói.
+  if (loadError !== "") {
+    return (
+      <div className={styles.panel}>
+        <ErrorBanner message={loadError} onDismiss={() => setLoadError("")} />
+      </div>
+    );
   }
 
-  /* The one *open* that leaves this process, offered only when the built-in client is hidden and
-     the daemon named an application that is not this window — T110's D4. `user` is left out, so
-     the daemon signs in as the server's administrator, which is the account the in-process path
-     resolves through `database.client`'s `secret` too. */
-  async function openExternally() {
-    setBusy(true);
-    setError("");
-    try {
-      await api.databaseOpen(service, dbName.trim() === "" ? undefined : dbName);
-    } catch (e) {
-      setError(errorMessage(t, e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
+  // Chưa đọc xong: chưa có gì để nói.
   if (report === null) return null;
 
-  /* The *open* affordance — T110's D4. Drawn from `database.client` exactly as it always was, plus
-     the one question the daemon knows nothing about: whether this window draws the built-in
-     client. `clientName` is only ever read where there is a choice, and every choice is an
-     `installed` client. */
-  const builtInVisible = isModuleVisible(DATABASE_MODULE_ID);
-  const choices = openChoices(report.client, builtInVisible);
-  const clientName = report.client.state === "installed" ? report.client.name : "";
+  // **Không phải database thì không có panel nào cả.** `protocol: null` là một trạng thái daemon
+  // trả lời cho nginx, caddy và mọi php-fpm pool — một dòng chữ giải thích rằng ở đây không có gì
+  // vẫn là một khối chiếm chỗ nói rằng có.
+  if (!opensADatabase(report)) return null;
 
   return (
     <div className={styles.panel}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
       <h4>{t("mixengine.servicesDetail.database.title")}</h4>
 
-      {report.protocol === null || report.protocol === undefined ? (
-        <p className={styles.hint}>{t("mixengine.servicesDetail.database.notADatabaseService")}</p>
-      ) : (
-        <>
-          {report.secret && (
-            <p className={styles.hint}>
-              {t("mixengine.servicesDetail.database.secretLine", { key: report.secret.key })}
-            </p>
-          )}
-
-          <label className={styles.field}>
-            {t("mixengine.servicesDetail.database.databaseName")}
-            <Input value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
-          </label>
-          <label className={styles.field}>
-            {t("mixengine.servicesDetail.database.userName")}
-            <Input value={userName} disabled={busy} onChange={(e) => setUserName(e.target.value)} />
-          </label>
-
-          {/* Why the button below says something else. Only where there is a button: with no
-              client to open with at all, the sentence under it is already the whole story. */}
-          {!builtInVisible && choices.length > 0 && (
-            <p className={styles.hint}>{t("mixengine.servicesDetail.database.clientHidden")}</p>
-          )}
-
-          <div className={styles.actions}>
-            <Button onClick={() => void create()} disabled={busy || dbName.trim() === ""}>
-              {t("mixengine.servicesDetail.database.create")}
-            </Button>
-
-            {choices.includes("builtIn") && (
-              <Button variant="primary" onClick={() => void open()} disabled={busy}>
-                {t("mixengine.servicesDetail.database.open")}
-              </Button>
-            )}
-            {/* The same call: turning the module on is the shell's, at the queue the request lands
-                in. The label is what makes it an offer rather than a surprise. */}
-            {choices.includes("builtInAfterEnabling") && (
-              <Button variant="primary" onClick={() => void open()} disabled={busy}>
-                {t("mixengine.servicesDetail.database.openEnabling")}
-              </Button>
-            )}
-            {choices.includes("external") && (
-              <Button onClick={() => void openExternally()} disabled={busy}>
-                {t("mixengine.servicesDetail.database.openExternal", { name: clientName })}
-              </Button>
-            )}
-            {report.client.state === "not_installed" && (
-              <p className={styles.hint}>
-                {t("mixengine.servicesDetail.database.notInstalled", {
-                  searched: report.client.searched,
-                })}
-              </p>
-            )}
-            {report.client.state === "no_client" && (
-              <p className={styles.hint}>{t("mixengine.servicesDetail.database.noClient")}</p>
-            )}
-          </div>
-
-          {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
-        </>
+      {report.secret && (
+        <p className={styles.hint}>
+          {t("mixengine.servicesDetail.database.secretLine", { key: report.secret.key })}
+        </p>
       )}
+
+      <h5 className={styles.groupTitle}>{t("mixengine.servicesDetail.database.createTitle")}</h5>
+      <label className={styles.field}>
+        {t("mixengine.servicesDetail.database.databaseName")}
+        <Input value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
+      </label>
+      <label className={styles.field}>
+        {t("mixengine.servicesDetail.database.userName")}
+        <Input value={userName} disabled={busy} onChange={(e) => setUserName(e.target.value)} />
+      </label>
+
+      <div className={styles.actions}>
+        <Button onClick={() => void create()} disabled={busy || dbName.trim() === ""}>
+          {t("mixengine.servicesDetail.database.create")}
+        </Button>
+      </div>
+
+      {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
     </div>
   );
 }

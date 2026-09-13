@@ -125,6 +125,14 @@ pub struct Connection<'a> {
 /// A row with no port is answered the same way: every database recipe binds a TCP port on all three
 /// systems (T34c), so a row without one is a service nothing can dial.
 ///
+/// **A service with no package is one of those, not a missing service.** `services` carries
+/// `CHECK (((package_id IS NOT NULL) + (runtime_install_id IS NOT NULL) + (extension_id IS NOT
+/// NULL)) = 1)`: a service has exactly one parent of three, and only one of the three is a package.
+/// So the join is a `LEFT JOIN` — an inner one dropped every php-fpm pool and every extension's
+/// service, and the `ok_or_else` below then reported "no such service" about a row `service.list`
+/// lists and `mix service status` reads. The three `database.*` methods built on this all repeated
+/// it, with a hint telling the reader to run the very command that disagreed.
+///
 /// # Errors
 ///
 /// [`Error::NotFound`] when there is no such row, [`Error::Database`] when it cannot be read.
@@ -132,10 +140,10 @@ pub async fn address(store: &Store, service: &ServiceId) -> Result<Option<Addres
     let id = service.as_str();
 
     let row = sqlx::query!(
-        "SELECT p.name AS package, s.port, s.bind_addr
+        r#"SELECT p.name AS "package?", s.port, s.bind_addr
          FROM services s
-         JOIN packages p ON p.id = s.package_id
-         WHERE s.id = ?",
+         LEFT JOIN packages p ON p.id = s.package_id
+         WHERE s.id = ?"#,
         id
     )
     .fetch_optional(store.pool())
@@ -146,8 +154,14 @@ pub async fn address(store: &Store, service: &ServiceId) -> Result<Option<Addres
         id: id.to_owned(),
     })?;
 
+    // A service that runs out of a runtime install or an extension has no package to name a recipe,
+    // and nothing opens one — the same answer a package this build has no recipe for gets.
+    let Some(package) = row.package else {
+        return Ok(None);
+    };
+
     let catalogue = Catalogue::builtin();
-    let Some(recipe) = catalogue.recipe(&row.package) else {
+    let Some(recipe) = catalogue.recipe(&package) else {
         return Ok(None);
     };
     let (Some(protocol), Some(port)) = (recipe.protocol(), row.port) else {
@@ -398,6 +412,59 @@ mod tests {
             .await
             .expect_err("no such row");
         assert!(matches!(missing, Error::NotFound { .. }), "{missing}");
+    }
+
+    /// **A service whose row has no package is a service, not a missing one.** `php-fpm@8.4.24`
+    /// is exactly that on a real home: it runs out of an installed *runtime*, so `package_id` is
+    /// `NULL`, while `service.list` lists it like any other. Reading it through a join that drops
+    /// the row answers "no such service" about something the very next command shows — and the
+    /// three `database.*` methods built on this all repeat the lie.
+    #[tokio::test]
+    async fn a_service_with_no_package_is_not_a_missing_service() {
+        let (_temp, store) = home().await;
+        a_service_from_a_runtime(&store, "php-fpm@8.4.24", "8.4.24", 9000).await;
+
+        let answered = address(&store, &ServiceId::parse("php-fpm@8.4.24").expect("an id"))
+            .await
+            .expect("a service with no package is still a service");
+
+        assert!(
+            answered.is_none(),
+            "nothing opens a php-fpm pool: {answered:?}"
+        );
+    }
+
+    /// A `services` row that runs out of an installed runtime rather than a package.
+    ///
+    /// `services` carries `CHECK (((package_id IS NOT NULL) + (runtime_install_id IS NOT NULL) +
+    /// (extension_id IS NOT NULL)) = 1)` — a service has **exactly one** parent of three, and only
+    /// one of those three is a package. That constraint is the whole reason this fixture exists.
+    async fn a_service_from_a_runtime(store: &Store, service: &str, version: &str, port: i64) {
+        let instance = service.split('@').nth(1).unwrap_or("main");
+
+        let runtime_id = sqlx::query_scalar!(
+            "INSERT INTO runtime_installs
+                 (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)
+             VALUES ('php', ?, 'release', '/runtimes/php', '2026-09-03T00:00:00Z', 1,
+                     'https://example.invalid/php.zip', 'ab')
+             RETURNING id",
+            version
+        )
+        .fetch_one(store.pool())
+        .await
+        .expect("a runtime install row");
+
+        sqlx::query!(
+            "INSERT INTO services (id, runtime_install_id, instance_name, state, port, bind_addr)
+             VALUES (?, ?, ?, 'stopped', ?, '127.0.0.1')",
+            service,
+            runtime_id,
+            instance,
+            port
+        )
+        .execute(store.pool())
+        .await
+        .expect("a service row");
     }
 
     /// An empty home with the migrations applied.

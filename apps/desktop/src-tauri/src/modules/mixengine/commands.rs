@@ -425,6 +425,50 @@ pub async fn mixengine_database_open(params: Value) -> Result<Value, AppError> {
     rpc::call("database.open", params).await
 }
 
+/// `database.credentials` — mật khẩu MixEngine đang giữ cho một account.
+///
+/// **Method duy nhất trong cả API trả về chính mật khẩu**, và nó tồn tại đúng để làm việc đó:
+/// [ADR 0025] nói một credential chỉ được trả lời bởi một method sinh ra để trả lời nó. Mọi
+/// `database.*` khác trả *địa chỉ* của credential trong credential store, không bao giờ giá trị.
+///
+/// Giá trị đi thẳng ra frontend để người dùng dán vào `.env` của họ. Không log nó ở đây: một dòng
+/// `tracing` mang mật khẩu là một mật khẩu nằm trên đĩa ở chỗ không ai định để nó nằm.
+///
+/// `user` vắng nghĩa là quản trị viên của server — mặc định của chính `database.open`, vì hai lệnh
+/// là một câu hỏi được hỏi bởi một tiến trình và bởi một người.
+///
+/// [ADR 0025]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md
+#[tauri::command]
+pub async fn mixengine_database_credentials(
+    service: String,
+    user: Option<String>,
+) -> Result<Value, AppError> {
+    let mut params = json!({ "service": service });
+    if let Some(user) = user {
+        params["user"] = json!(user);
+    }
+    rpc::call("database.credentials", params).await
+}
+
+/// `service.reset_credential` — ghi lại credential quản trị viên vào trong data directory của
+/// chính database đó, khi home này không còn sinh ra được mật khẩu cũ nữa (T127).
+///
+/// **Không phải một thao tác nhỏ, và client phải nói trước khi hỏi**: nó dừng service này và mọi
+/// thứ phụ thuộc nó, rồi chạy bước đặt mật khẩu offline của recipe, rồi bật lại. Thứ quyết định
+/// chuyện này cho một người là điều nó **không** làm — mọi database trong thư mục ấy được giữ
+/// nguyên.
+///
+/// `wait: true` như ba lệnh start/stop/restart: call trả về khi việc đã xong, nên màn hình đọc được
+/// sự thật thay vì đọc một trạng thái đang chuyển.
+#[tauri::command]
+pub async fn mixengine_service_reset_credential(service: String) -> Result<Value, AppError> {
+    rpc::call(
+        "service.reset_credential",
+        json!({ "service": service, "wait": true }),
+    )
+    .await
+}
+
 /// Mở stream log của một service. Mở lại (một service khác, hay cùng service với `tail` khác) đóng
 /// cái đang mở — đúng luật `LogsState::keep` đã theo cho `MixEngineState`.
 #[tauri::command]

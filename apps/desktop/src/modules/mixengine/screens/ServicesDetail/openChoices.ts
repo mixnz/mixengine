@@ -1,4 +1,4 @@
-import type { DesktopClient } from "@mixengine/api";
+import type { DatabaseClientReport, DesktopClient } from "@mixengine/api";
 
 /**
  * The module a database service opens into.
@@ -34,4 +34,21 @@ export function openChoices(client: DesktopClient, builtInVisible: boolean): Ope
   if (client.state !== "installed") return [];
   if (builtInVisible) return ["builtIn"];
   return client.extension ? ["builtInAfterEnabling", "external"] : ["builtInAfterEnabling"];
+}
+
+/**
+ * Có phải một service mà một database client mở được không.
+ *
+ * **`protocol` là câu trả lời, và nó là một trạng thái chứ không phải một lỗi** — `database.client`
+ * trả `null` cho nginx, caddy và mọi php-fpm pool, đúng như nó trả một protocol cho postgres. Chỗ
+ * này biến trạng thái đó thành "không vẽ gì cả": panel ở màn Services và menu 3 chấm ở Dashboard
+ * cùng hỏi một câu, nên câu ấy chỉ được định nghĩa một lần.
+ *
+ * Vắng mặt cũng là không, theo luật [ADR 0019]: `protocol` là member tuỳ chọn, và vắng nghĩa là
+ * daemon này cũ hơn member đó — không phải "không xác định được".
+ *
+ * [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md
+ */
+export function opensADatabase(report: Partial<Pick<DatabaseClientReport, "protocol">>): boolean {
+  return report.protocol !== null && report.protocol !== undefined;
 }

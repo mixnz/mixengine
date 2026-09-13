@@ -92,8 +92,13 @@
   color: var(--text-muted);
 }
 
+/* `center`, không phải `stretch` mặc định: cả ba control trong ô này khai chiều cao của riêng
+   chúng, nên để flex kéo giãn là để cái cao nhất quyết định chiều cao của hai cái kia — và
+   `ActionBar` thì không giãn theo được (nút bên trong nó khoá cứng 26px), nên kết cục là hai nút
+   bị kéo cao còn nút ⋮ đứng nguyên, lùn hẳn xuống. */
 .actions {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
@@ -166,8 +171,14 @@
   /* Khai `height` tường minh: chấm (`.dot`, nghỉ) và chữ (`.label`, hover) cao khác nhau, nên nếu
      để `.actions` tự stretch theo nội dung thì cả hàng — kể cả nút Khởi động lại và ⋮ bên cạnh —
      cao thêm mỗi lần rê chuột vào nút này rồi lùn lại khi rê ra. Một con số đủ cho `.label` (chữ,
-     trạng thái cao hơn) là con số dùng cho cả hai trạng thái, nên không còn gì để nhảy nữa. */
-  height: 2.75rem;
+     trạng thái cao hơn) là con số dùng cho cả hai trạng thái, nên không còn gì để nhảy nữa.
+
+     **26px là chiều cao control dày đặc của hệ thống này**, không phải một con số chọn ở đây:
+     `ActionBar` vẽ nút icon ở đúng `26×26` tại mọi chỗ trong app, và `Button size="small"` tính ra
+     26.7px. Ô này là một ô của bảng dữ liệu chứ không phải một form — `Button.normal` tự ghi rằng
+     nó được đo theo trigger của `Select` — nên cả ba control ở đây lấy cỡ dày đặc, và mỗi hàng của
+     bảng ngắn đi 12px. */
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -261,7 +272,3 @@
 }
 
 /* Ba chấm dọc: một nút icon, không phải một nút chữ. */
-.more {
-  padding-inline: 0.5em;
-  line-height: 1;
-}

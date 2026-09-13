@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO services (id, runtime_install_id, instance_name, state, port, bind_addr)\n             VALUES (?, ?, ?, 'stopped', ?, '127.0.0.1')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "517e9c50f8a5f30ca16486090948d8cb78348fe664838b884f0ad1989ef593b0"
+}

@@ -233,7 +233,13 @@
 
     --control-bg: rgb(255 255 255 / 0.08);
     --control-bg-active: rgb(255 255 255 / 0.14);
-    --control-border: rgb(255 255 255 / 0.14);
+    /* **Cùng mục tiêu với `--control-border` của khối dark trong `App.css`, khác con số vì khác
+       phép trộn.** Ở đó viền là xám `#808080` trên `#2f2f2f`; ở đây viền là *trắng* trên
+       `#242527`, nên cùng một alpha cho ra độ lệch khác hẳn — `0.4` trắng ở đây sẽ ra `#7c7c7c`,
+       lệch 87, gấp gần ba lần cạnh của nền sáng và thành một đường kẻ trắng quanh mọi control.
+       `0.15` là nghiệm của `a × 255 + (1 − a) × 37 = 69`, tức cùng độ lệch 32. Đường này vốn đã
+       gần đúng (`0.14` cho lệch 30), nên đây là một cái hích chứ không phải một lần sửa. */
+    --control-border: rgb(255 255 255 / 0.15);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -242,7 +248,8 @@
 
       --control-bg: rgb(255 255 255 / 0.08);
       --control-bg-active: rgb(255 255 255 / 0.14);
-      --control-border: rgb(255 255 255 / 0.14);
+      /* Xem khối `[data-glass="on"][data-theme="dark"]` ở trên: cùng lý do, cùng con số. */
+      --control-border: rgb(255 255 255 / 0.15);
     }
   }
 

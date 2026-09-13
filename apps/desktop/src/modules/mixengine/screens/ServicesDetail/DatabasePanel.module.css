@@ -31,3 +31,9 @@
   font-size: var(--text-sm);
   color: var(--c-green-text);
 }
+
+.groupTitle {
+  margin: 0.25rem 0 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+}

@@ -1,4 +1,4 @@
-import type { ComponentType } from "react";
+import type { ComponentType, MouseEvent } from "react";
 import type { IconProps } from "../../icons";
 import styles from "./ActionBar.module.css";
 
@@ -9,7 +9,11 @@ export interface ActionBarAction {
   icon: ComponentType<IconProps>;
   /** Tooltip and accessible name, since the icon alone carries no text. */
   label: string;
-  onClick: () => void;
+  /** The event comes through so an action that opens something anchored to itself — a context
+   *  menu, a popover — can read where its own button is. A handler that wants none of that still
+   *  types as `() => void`: a function taking fewer parameters is assignable to one taking more,
+   *  so every caller written before this stays exactly as it was. */
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   /** Why it is greyed out, replacing the label as the tooltip. An icon-only button with no text
    *  and no reason is a dead end — the same rule the item menus follow. */

@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import ActionBar from "../../../../components/ActionBar";
 import Button from "../../../../components/Button";
+import ConfirmDialog from "../../../../components/ConfirmDialog";
 import ContextMenu from "../../../../components/ContextMenu";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import { MoreIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { DaemonStatus } from "@mixengine/api";
+import type { DatabaseClientReport } from "@mixengine/api";
+import type { DatabaseCredentials } from "@mixengine/api";
 import type { DiskUsage } from "@mixengine/api";
+import CredentialDialog from "../../components/CredentialDialog";
 import ElevationDialog from "../../components/ElevationDialog";
 import ServiceForm from "../../components/ServiceForm";
 import {
@@ -31,6 +37,11 @@ import {
   readingFor,
 } from "../../metricsState";
 import { pendingFrom } from "../../pendingOps";
+import {
+  DATABASE_MODULE_ID,
+  openChoices,
+  opensADatabase,
+} from "../ServicesDetail/openChoices";
 import { eventArrived, noReadsYet, readBegan, readLanded } from "../../readOrder";
 import { serviceStateKey, serviceStateTone, toggleMode } from "../../serviceStateLabel";
 import CleanupDialog from "./CleanupDialog";
@@ -55,7 +66,15 @@ const PENDING_LABEL = {
  * `service_state_changed` nói vậy, không phải ngay lúc bấm — một công tắc nói dối về việc MariaDB
  * có đang chạy hay không tệ hơn một công tắc chậm.
  */
-export default function Dashboard({ active }: { active: boolean }) {
+export default function Dashboard({
+  active,
+  isModuleVisible,
+}: {
+  active: boolean;
+  /** Whether this window draws the built-in database client — T110. Straight through to the row
+   *  menu, which is where *open* lives now. */
+  isModuleVisible: (moduleId: string) => boolean;
+}) {
   const [status, setStatus] = useState<DaemonStatus | null>(null);
   const [rows, setRows] = useState<ServiceRow[]>([]);
   const [pending, setPending] = useState<unknown[] | null>(null);
@@ -79,6 +98,26 @@ export default function Dashboard({ active }: { active: boolean }) {
   const [busy, setBusy] = useState<Record<string, api.ServiceAction>>({});
   /** Menu của một hàng, và chỗ nó được mở ra. `null` là không có menu nào đang mở. */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  /**
+   * `database.client` cho từng service, tra **một lần cho mỗi id** rồi nhớ.
+   *
+   * **Phải biết trước khi bấm, nên không thể tra lúc mở menu.** Nút ⋮ của một service không phải
+   * database phải xám ngay từ lúc vẽ — mở ra một menu rỗng rồi mới biết là tệ hơn không mời bấm.
+   *
+   * Tra một lượt cho mỗi id là chấp nhận được vì **câu trả lời không bao giờ đổi**: nó là protocol
+   * của recipe, tức một thuộc tính của package service này chạy ra. Nên lần đọc `service.list` đầu
+   * tiên trả giá N lượt, và mọi lần `reload()` sau đó — mỗi lần quay lại tab, mỗi `resync` — trả
+   * giá 0.
+   *
+   * Vắng mặt một id nghĩa là chưa hỏi xong *hoặc* đã hỏi hỏng, và cả hai đều vẽ ra một nút xám.
+   */
+  const [databases, setDatabases] = useState<Record<string, DatabaseClientReport>>({});
+  /** Những id đã gửi câu hỏi đi, để `rows` đổi theo stream không biến thành một tràng RPC. */
+  const asked = useRef(new Set<string>());
+  /** Mật khẩu đang hiện trong hộp thoại, hoặc `null`. Không bao giờ nằm trong `rows`. */
+  const [credentials, setCredentials] = useState<DatabaseCredentials | null>(null);
+  /** Service đang được hỏi "đặt lại mật khẩu?", hoặc `null`. */
+  const [resetTarget, setResetTarget] = useState<string | null>(null);
   const { t } = useTranslation();
 
   /**
@@ -314,21 +353,85 @@ export default function Dashboard({ active }: { active: boolean }) {
 
 
   /**
-   * Hàng này có mở được thư mục data của nó không — **hiện tại luôn là không**.
+   * Hỏi `database.client` cho những id chưa từng hỏi.
    *
-   * Daemon *biết* thư mục đó: `ServiceRemoval.data_kept` nêu tên nó ra. Nhưng nó chỉ nói ở
-   * `service.delete`; không method đọc nào trả về đường dẫn, và `ServiceSummary` — thứ cả
-   * `service.list` lẫn `service.status` trả về — không có field nào cho nó.
+   * **`ServiceSummary` không trả lời được câu này.** `ServiceRole` chỉ phân biệt front end với
+   * phần còn lại, và [ADR 0026] cấm client suy ra vai trò từ tên package — nên `database.client`
+   * là đường duy nhất. Chạy theo `rows` vì đó là nơi một service mới xuất hiện.
    *
-   * Suy ra từ `daemon.status.home` cộng quy ước `data/<package>/<instance>` thì chạy được với mọi
-   * service trên máy hôm nay, nhưng `ServiceCreate.data_dir` cho phép đặt chỗ khác — và một nút mở
-   * nhầm thư mục thì tệ hơn một nút xám. Nên nút ở đây xám cho tới khi có một method đọc trả về
-   * đường dẫn; lúc đó chỉ hàm này đổi, phần menu bên dưới đã sẵn sàng.
+   * Một câu hỏi hỏng thì **bỏ id ra khỏi `asked`**: lần `reload()` sau hỏi lại. Giữ nó lại là để
+   * một trục trặc thoáng qua khoá nút ⋮ của hàng đó cho tới khi đóng cửa sổ.
+   *
+   * [ADR 0026]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md
    */
-  function canOpenDataDir(): boolean {
-    return false;
+  useEffect(() => {
+    const missing = rows.map((row) => row.id).filter((id) => !asked.current.has(id));
+    if (missing.length === 0) return;
+    for (const id of missing) asked.current.add(id);
+
+    void (async () => {
+      const answers = await Promise.all(
+        missing.map(async (id) => {
+          try {
+            return [id, await api.databaseClient(id)] as const;
+          } catch {
+            asked.current.delete(id);
+            return [id, null] as const;
+          }
+        }),
+      );
+      setDatabases((current) => {
+        const next = { ...current };
+        for (const [id, report] of answers) if (report !== null) next[id] = report;
+        return next;
+      });
+    })();
+  }, [rows]);
+
+  /** Lấy mật khẩu quản trị viên của một service và mở hộp thoại. */
+  const showCredentials = useCallback(
+    async (id: string) => {
+      try {
+        setCredentials(await api.databaseCredentials(id));
+      } catch (e) {
+        setError(errorMessage(t, e));
+      }
+    },
+    [t],
+  );
+
+  /** Chạy `service.reset_credential`, rồi đọc lại — nó dừng và bật lại nhiều service. */
+  const resetCredential = useCallback(
+    async (id: string) => {
+      try {
+        await api.serviceResetCredential(id);
+      } catch (e) {
+        setError(errorMessage(t, e));
+      } finally {
+        await reload();
+      }
+    },
+    [reload, t],
+  );
+
+
+  /**
+   * Hàng này có gì để mời bấm không.
+   *
+   * Hiện chỉ có các mục của một database. **"Mở thư mục dữ liệu" đã bị bỏ** chứ không để xám: daemon
+   * biết thư mục ấy — `ServiceRemoval.data_kept` gọi tên nó — nhưng chỉ nói ở `service.delete`, và
+   * không method đọc nào trả về đường dẫn (`ServiceCreate.data_dir` là *đầu vào*). Cửa sổ thì mở
+   * được thư mục, `tauri-plugin-opener` đã có sẵn; thứ thiếu là đường dẫn, không phải cách mở. Một
+   * mục xám vĩnh viễn là một lời hứa không ai định giữ.
+   */
+  function hasRowMenu(id: string): boolean {
+    const report = databases[id];
+    return report !== undefined && opensADatabase(report);
   }
 
+  /** Câu trả lời cho hàng đang mở menu, buộc vào một tên: `databases[menu.id]` đọc hai lần thì
+   *  TypeScript mất luôn phần thu hẹp kiểu trên `client`. */
+  const menuReport = menu === null ? undefined : databases[menu.id];
 
   /** Class màu cho một trạng thái; chuỗi rỗng cho trạng thái không biết, để nó vẽ như chữ thường. */
   function toneClass(state: string | null | undefined): string {
@@ -518,25 +621,38 @@ export default function Dashboard({ active }: { active: boolean }) {
                       </button>
                     );
                   })()}
+                  {/* `small` cùng lý do `.toggle` cao 26px: đây là ô hành động của một hàng bảng,
+                      và cỡ dày đặc là cỡ ba control ở đây dùng chung. */}
                   <Button
+                    size="small"
                     className={styles.restart}
                     onClick={() => void act(row.id, "restart")}
                     disabled={busy[row.id] !== undefined}
                   >
                     {t("mixengine.dashboard.restart")}
                   </Button>
-                  <button
-                    className={styles.more}
-                    aria-label={t("mixengine.dashboard.rowMenu")}
-                    title={t("mixengine.dashboard.noDataDir")}
-                    disabled={!canOpenDataDir()}
-                    onClick={(e) => {
-                      const at = e.currentTarget.getBoundingClientRect();
-                      setMenu({ id: row.id, x: at.left, y: at.bottom });
-                    }}
-                  >
-                    ⋮
-                  </button>
+                  {/* `ActionBar` chứ không phải một `<button>` tự vẽ: nó *là* primitive cho nút
+                      chỉ-có-icon, và nó mang sẵn đúng luật chỗ này cần — `disabledHint`, vì "an
+                      icon-only button with no text and no reason is a dead end".
+
+                      Xám khi hàng này không có gì để mời bấm: mọi mục của menu đều là mục của một
+                      database, nên với nginx hay một php-fpm pool thì mở ra là mở ra một cái rỗng,
+                      và một menu rỗng là một lời mời đã thất hứa. */}
+                  <ActionBar
+                    actions={[
+                      {
+                        key: "menu",
+                        icon: MoreIcon,
+                        label: t("mixengine.dashboard.rowMenu"),
+                        disabled: !hasRowMenu(row.id),
+                        disabledHint: t("mixengine.dashboard.noRowActions"),
+                        onClick: (event) => {
+                          const at = event.currentTarget.getBoundingClientRect();
+                          setMenu({ id: row.id, x: at.left, y: at.bottom });
+                        },
+                      },
+                    ]}
+                  />
                 </td>
               </tr>
               );
@@ -562,15 +678,93 @@ export default function Dashboard({ active }: { active: boolean }) {
         />
       )}
 
-      {/* Chỉ dựng khi có hàng nào mở nó ra — mà hiện chưa hàng nào mở được, vì `canOpenDataDir`
-          còn trả `false`. Phần khung để sẵn ở đây nên lúc daemon có đường dẫn thì không phải nghĩ
-          lại từ đầu. */}
+      {/* Menu chỉ mở được từ một nút ⋮ không xám, mà `hasRowMenu` đã bảo đảm hàng ấy là một
+          database có câu trả lời trong `databases` — nên khối dưới luôn chạy. Giữ điều kiện lại
+          vì nó cũng là thứ thu hẹp kiểu cho `menuReport`, và vì một bất biến không được kiểm tra
+          là một bất biến chờ ai đó gỡ mất.
+
+          Menu này không bao giờ rỗng: `openChoices` có thể trả về danh sách rỗng khi máy không có
+          client nào, nhưng hai mục mật khẩu thì không phụ thuộc vào client nào cả. Đó chính là
+          điều làm cho việc xám nút ⋮ ở trên là đúng chứ không phải đoán. */}
       {menu !== null && (
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
-          <button type="button" onClick={() => setMenu(null)}>
-            {t("mixengine.dashboard.openDataDir")}
-          </button>
+          {menuReport !== undefined && (
+            <>
+              {openChoices(menuReport.client, isModuleVisible(DATABASE_MODULE_ID)).map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  onClick={() => {
+                    const id = menu.id;
+                    setMenu(null);
+                    /* `external` rời khỏi tiến trình này qua `database.open`; hai cái kia mở một
+                       tab `db` ngay trong cửa sổ. Mật khẩu không đi qua đường nào trong hai:
+                       daemon đọc nó và đặt vào môi trường của thứ nó khởi động (T83). */
+                    void (choice === "external"
+                      ? api.databaseOpen(id)
+                      : api.databaseOpenInMixDB(id)
+                    ).catch((e: unknown) => setError(errorMessage(t, e)));
+                  }}
+                >
+                  {choice === "external"
+                    ? t("mixengine.dashboard.openDatabaseExternal", {
+                        name: menuReport.client.state === "installed" ? menuReport.client.name : "",
+                      })
+                    : t(
+                        choice === "builtIn"
+                          ? "mixengine.dashboard.exploreData"
+                          : "mixengine.dashboard.exploreDataEnabling",
+                      )}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const id = menu.id;
+                  setMenu(null);
+                  void showCredentials(id);
+                }}
+              >
+                {t("mixengine.dashboard.credentials")}
+              </button>
+
+              {/* Dấu ba chấm là lời hứa: bấm vào mở một câu hỏi, không chạy ngay một thao tác dừng
+                  service này và mọi thứ phụ thuộc nó. */}
+              <button
+                type="button"
+                onClick={() => {
+                  const id = menu.id;
+                  setMenu(null);
+                  setResetTarget(id);
+                }}
+              >
+                {t("mixengine.dashboard.resetCredential")}
+              </button>
+            </>
+          )}
         </ContextMenu>
+      )}
+
+      {credentials !== null && (
+        <CredentialDialog credentials={credentials} onClose={() => setCredentials(null)} />
+      )}
+
+      {/* Không `danger`: `ConfirmDialog` dành màu đó cho thao tác **mất dữ liệu**, và đây giữ
+          nguyên mọi database — đúng câu quyết định chuyện này cho người đọc, nên nó nằm trong
+          `message` chứ không phải trong một dòng nhỏ ở đâu đó. */}
+      {resetTarget !== null && (
+        <ConfirmDialog
+          title={t("mixengine.dashboard.resetTitle")}
+          message={t("mixengine.dashboard.resetMessage", { service: resetTarget })}
+          confirmLabel={t("mixengine.dashboard.resetConfirm")}
+          onConfirm={() => {
+            const id = resetTarget;
+            setResetTarget(null);
+            void resetCredential(id);
+          }}
+          onCancel={() => setResetTarget(null)}
+        />
       )}
 
       {creating && (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesktopClient } from "@mixengine/api";
-import { openChoices } from "./openChoices";
+import { openChoices, opensADatabase } from "./openChoices";
 
 /** The window itself: T107's answer on a merged install, and the common case. */
 const thisWindow: DesktopClient = { state: "installed", name: "MixLab", program: "/usr/bin/mixlab" };
@@ -49,5 +49,26 @@ describe("openChoices", () => {
       expect(openChoices(notInstalled, visible)).toEqual([]);
       expect(openChoices(noClient, visible)).toEqual([]);
     }
+  });
+});
+
+describe("opensADatabase", () => {
+  /* `protocol` là câu trả lời duy nhất cho "service này có phải database không". Cả panel ở màn
+     Services lẫn menu 3 chấm ở Dashboard đều hỏi nó, nên nó phải là **một** hàm: hai chỗ tự quyết
+     lấy là hai định nghĩa của cùng một câu hỏi, và chúng sẽ lệch nhau. */
+  it("says yes to a service a client speaks a protocol to", () => {
+    expect(opensADatabase({ protocol: "postgres" })).toBe(true);
+  });
+
+  /* nginx, caddy, php-fpm: `database.client` trả `protocol: null` cho chúng — một **trạng thái**,
+     không phải lỗi. Chỗ này là nơi trạng thái đó biến thành "không vẽ gì cả". */
+  it("says no to a service no client opens", () => {
+    expect(opensADatabase({ protocol: null })).toBe(false);
+  });
+
+  /* `protocol` là member tuỳ chọn theo luật ADR 0019: vắng nghĩa là daemon cũ hơn member này, và
+     đoán nó là một database sẽ vẽ ra một panel không có gì ở sau. */
+  it("says no when the daemon never answered the member", () => {
+    expect(opensADatabase({})).toBe(false);
   });
 });

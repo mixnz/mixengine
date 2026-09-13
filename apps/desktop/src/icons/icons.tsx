@@ -352,6 +352,23 @@ export function EngineIcon(props: IconProps) {
   );
 }
 
+/** The overflow menu: the actions a row has that do not fit beside it.
+ *
+ * Filled circles rather than a stroked glyph, on [`DotIcon`]'s precedent — and vertical, which is
+ * the arrangement that reads as "more of this row" rather than "more of this toolbar". Laid out
+ * `3..21` on the grid, the same extent [`CopyIcon`] uses, so it sits at the weight of every other
+ * icon beside it instead of shrinking into the column.
+ */
+export function MoreIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="5" r="2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="19" r="2" fill="currentColor" stroke="none" />
+    </Icon>
+  );
+}
+
 export function DotIcon(props: IconProps) {
   return (
     <Icon {...props}>

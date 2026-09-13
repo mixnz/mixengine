@@ -1,10 +1,10 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT p.name AS package, s.port, s.bind_addr\n         FROM services s\n         JOIN packages p ON p.id = s.package_id\n         WHERE s.id = ?",
+  "query": "SELECT p.name AS \"package?\", s.port, s.bind_addr\n         FROM services s\n         LEFT JOIN packages p ON p.id = s.package_id\n         WHERE s.id = ?",
   "describe": {
     "columns": [
       {
-        "name": "package",
+        "name": "package?",
         "ordinal": 0,
         "type_info": "Text",
         "origin": {
@@ -41,10 +41,10 @@
       "Right": 1
     },
     "nullable": [
-      false,
+      true,
       true,
       false
     ]
   },
-  "hash": "208242571748ffc6a7dde139e44a36068f65b54a44165dca1100bb9995710e8a"
+  "hash": "fff9b5381d1e7fef0b697924647c0ae0896ac26bdb6edc30ebdee6fef08b4b95"
 }
