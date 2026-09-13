@@ -696,6 +696,10 @@ pub(crate) enum Walked {
     Start,
     Stop,
     Restart,
+
+    /// A credential reset — roadmap task **T127**. The walk it reports is the *start* that puts
+    /// back what the repair took down.
+    ResetCredential,
 }
 
 impl Walked {
@@ -705,6 +709,7 @@ impl Walked {
             Self::Start => "started",
             Self::Stop => "stopped",
             Self::Restart => "restarted",
+            Self::ResetCredential => "started again",
         }
     }
 
@@ -714,6 +719,7 @@ impl Walked {
             Self::Start => "failed to start",
             Self::Stop => "failed to stop",
             Self::Restart => "failed to restart",
+            Self::ResetCredential => "did not come back",
         }
     }
 
@@ -723,6 +729,7 @@ impl Walked {
             Self::Start => "starting",
             Self::Stop => "stopping",
             Self::Restart => "restarting",
+            Self::ResetCredential => "re-setting a credential",
         }
     }
 }
@@ -957,6 +964,7 @@ pub(crate) fn service_walk(walked: Walked, walk: &ServiceWalk) -> String {
                 Walked::Start => "start",
                 Walked::Stop => "stop",
                 Walked::Restart => "restart",
+                Walked::ResetCredential => "repair",
             }
         );
     }
