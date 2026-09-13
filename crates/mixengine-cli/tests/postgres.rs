@@ -35,6 +35,8 @@
 
 mod harness;
 
+use std::collections::BTreeMap;
+use std::ffi::OsString;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -92,6 +94,18 @@ const VERSION: &str = "18.6";
 
 /// The service this suite drives. **An `@`**, because a home may hold two clusters.
 const SERVICE: &str = "postgres@main";
+
+/// The instance the credential-reset test drives, which is **not** [`SERVICE`].
+///
+/// **The two ignored tests in this file run at once, in two homes, and a Unix bootstrap keys its
+/// space-free view on the service's id alone** — `/tmp/mixengine-init-<id>`, which the ritual's last
+/// step removes. Two homes bootstrapping one id share it, and the second ritual's cleanup takes the
+/// first one's basedir out from under it: `cannot execute: No such file or directory`, exit 126,
+/// from a script that was there a moment earlier. The same collision is written up at length beside
+/// `the_root_credential_reaches_the_client_through_its_environment_and_not_the_url` in
+/// `mariadb.rs`, which met it first and for the same reason. A name of this test's own is what keeps
+/// the two apart.
+const RESET: &str = "postgres@reset";
 
 /// The PostgreSQL this suite is about, or the reason there is none.
 fn package() -> PathBuf {
@@ -167,8 +181,8 @@ fn index(packed: &Packed, url: &str, provides: serde_json::Map<String, Value>) -
 }
 
 /// Where this instance's data directory is: `data/<package>/<instance>`, because it is named.
-fn data_directory(home: &Home) -> PathBuf {
-    home.path().join("data").join("postgres").join("main")
+fn data_directory(home: &Home, instance: &str) -> PathBuf {
+    home.path().join("data").join("postgres").join(instance)
 }
 
 /// `mix …` for a call that is expected to work, with the daemon's own log in the failure.
@@ -189,8 +203,8 @@ fn expect(home: &Home, args: &[&str]) -> Value {
 }
 
 /// What `mix service status postgres@main` says.
-fn status(home: &Home) -> Value {
-    json(&home.mix(&["service", "status", SERVICE, "--json"]))
+fn status(home: &Home, service: &str) -> Value {
+    json(&home.mix(&["service", "status", service, "--json"]))
 }
 
 /// Every `service.first_run` job this home has run.
@@ -227,6 +241,22 @@ fn server_log(home: &Home) -> String {
     }
 
     said
+}
+
+/// Whether `key` is this home's keyring address for `address` — roadmap task **T126**.
+///
+/// **The whole string cannot be written down in a test.** Since T126 an address begins with an id
+/// the home mints for itself at its first migration — six random bytes, so twelve hex characters —
+/// which is what stopped every `MIXENGINE_HOME` on a machine from sharing one entry. What a test can
+/// state is the shape: this home's id, a slash, and the address as it was spelled before homes were
+/// named.
+///
+/// Asserted rather than ignored, because the prefix is the fix: a key that is *only* the old
+/// spelling is the defect T126 exists to have removed.
+fn is_this_homes_address(key: &str, address: &str) -> bool {
+    key.strip_suffix(address)
+        .and_then(|home| home.strip_suffix('/'))
+        .is_some_and(|home| home.len() == 12 && home.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
 /// Try to connect as `user` with no password, and hand back what the client said.
@@ -315,6 +345,11 @@ fn with_the_password(root: &Path, port: u16, user: &str, database: &str, passwor
 /// signs its own index, and installed through `package.install` — so this suite covers the whole
 /// package install path against a real artifact on all three systems at no extra cost.
 async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
+    created_as(SERVICE).await
+}
+
+/// [`created`], for an instance of the caller's naming — see [`RESET`] for why one test needs that.
+async fn created_as(service: &str) -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
     let root = package();
     let port = free_port();
 
@@ -356,7 +391,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
         &[
             "service",
             "create",
-            SERVICE,
+            service,
             VERSION,
             "--port",
             &port.to_string(),
@@ -365,7 +400,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
     );
     assert_eq!(
         created["service"]["id"],
-        SERVICE,
+        service,
         "{created}\n{}",
         home.daemon_log()
     );
@@ -384,7 +419,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
 #[ignore = "needs a real PostgreSQL — see the module note, and the `postgres` step in ci.yml"]
 async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_twice() {
     let (home, _daemon, _registry, installed_at, port) = created().await;
-    let data = data_directory(&home);
+    let data = data_directory(&home, "main");
 
     // --- started, which is where the bootstrap happens -------------------------------------------
     //
@@ -447,7 +482,7 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
     // none of them reach this line. Which matters twice over here, because `postgres --single`
     // **exits zero even when the statement it was fed failed** — measured — so nothing else in this
     // chain could have caught a password that was never set.
-    let up = status(&home);
+    let up = status(&home, SERVICE);
     assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
 
     let said = server_log(&home);
@@ -475,7 +510,13 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
     assert_eq!(created["made"]["database"], "created", "{created}");
     assert_eq!(created["made"]["user"], "created", "{created}");
     assert_eq!(created["secret"]["service"], "mixengine", "{created}");
-    assert_eq!(created["secret"]["key"], "postgres@main/blog", "{created}");
+    assert!(
+        is_this_homes_address(
+            created["secret"]["key"].as_str().expect("an address"),
+            "postgres@main/blog"
+        ),
+        "{created}"
+    );
     assert!(
         !created.to_string().contains("password"),
         "the answer carries the address of a credential and never the credential: {created}"
@@ -642,7 +683,7 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
     // The credential survived the restart, said the way the first start said it: a service that
     // reaches `running` has answered an authenticated query, and this one was never bootstrapped a
     // second time to re-write the password it answered with.
-    let again = status(&home);
+    let again = status(&home, SERVICE);
     assert_eq!(
         again["state"],
         "running",
@@ -684,35 +725,52 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
 /// store would be one macOS raises a dialog for.
 ///
 /// `--single` is the recipe's own mechanism, and it opens no port and no socket.
-fn set_the_superuser_password_behind_mixengines_back(root: &Path, data: &Path, password: &str) {
-    let script = std::env::temp_dir().join("mixengine-t127-collision.sql");
-    std::fs::write(
-        &script,
-        format!("ALTER ROLE postgres PASSWORD '{password}';\n"),
+///
+/// # Why it goes through `mixengine_platform` rather than `Command`
+///
+/// **PostgreSQL refuses to run as an administrator**, and on a Windows CI runner every process is
+/// one: *"Execution of PostgreSQL by a user with administrative permissions is not permitted."* The
+/// daemon does not meet that, because a child it starts is created from a restricted token with
+/// `Administrators` taken out —
+/// [ADR 0010](../../../.claude/decisions/0010-supervised-child-never-inherits-administrators.md).
+/// A bare `Command` here inherits this process's token instead and is refused, so what looked like a
+/// simpler spawn was a test running the server in a way MixEngine never does. `run_once_with_input`
+/// is the call the daemon's own steps go through, and it carries the statement on standard input for
+/// the reason the recipe does: a password in a file is a plaintext credential on disk.
+async fn set_the_superuser_password_behind_mixengines_back(
+    root: &Path,
+    data: &Path,
+    password: &str,
+) {
+    let program = root.join(format!("bin/postgres{}", std::env::consts::EXE_SUFFIX));
+    let args = [
+        OsString::from("--single"),
+        OsString::from("-D"),
+        OsString::from(data),
+        OsString::from("postgres"),
+    ];
+
+    let ran = mixengine_platform::process::run_once_with_input(
+        &program,
+        &args,
+        data,
+        &BTreeMap::new(),
+        Duration::from_secs(120),
+        &format!(
+            "ALTER ROLE postgres PASSWORD '{password}';
+"
+        ),
     )
-    .expect("a statement to feed the backend");
-
-    let input = std::fs::File::open(&script).expect("the statement is readable");
-    let ran = Command::new(root.join("bin").join("postgres"))
-        .args([
-            "--single".to_owned(),
-            "-D".to_owned(),
-            data.display().to_string(),
-            "postgres".to_owned(),
-        ])
-        .stdin(input)
-        .output()
-        .expect("the backend runs in single-user mode");
-
-    let _ = std::fs::remove_file(&script);
+    .await
+    .expect("the single-user backend runs");
 
     // **Its exit code proves nothing** — single-user mode answers 0 to a syntax error, which is the
     // measurement the recipe's own doc comment carries. What proves this worked is the refusal the
     // test asserts next.
     assert!(
-        ran.status.success(),
+        ran.succeeded(),
         "the single-user backend would not run: {}",
-        String::from_utf8_lossy(&ran.stderr)
+        ran.complaint().unwrap_or("it said nothing")
     );
 }
 
@@ -725,28 +783,29 @@ fn set_the_superuser_password_behind_mixengines_back(root: &Path, data: &Path, p
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a real PostgreSQL — see the module note, and the `postgres` step in ci.yml"]
 async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
-    let (home, _daemon, _registry, installed_at, _port) = created().await;
-    let data = data_directory(&home);
+    let (home, _daemon, _registry, installed_at, _port) = created_as(RESET).await;
+    let data = data_directory(&home, "reset");
     watch(&home);
 
     at("starting the cluster and making a database in it");
-    expect(&home, &["service", "start", SERVICE, "--json"]);
+    expect(&home, &["service", "start", RESET, "--json"]);
     let made = expect(
         &home,
-        &["database", "create", SERVICE, "--name", "shop", "--json"],
+        &["database", "create", RESET, "--name", "shop", "--json"],
     );
     assert_eq!(made["made"]["database"], "created", "{made}");
 
     at("stopping it, and moving the cluster's own copy of the password");
-    expect(&home, &["service", "stop", SERVICE, "--json"]);
+    expect(&home, &["service", "stop", RESET, "--json"]);
     set_the_superuser_password_behind_mixengines_back(
         &installed_at,
         &data,
         "T127T127T127T127T127T127T127T127",
-    );
+    )
+    .await;
 
     at("asking for a database, which is refused and says what the repair is");
-    let refused = home.mix(&["database", "create", SERVICE, "--name", "blog", "--json"]);
+    let refused = home.mix(&["database", "create", RESET, "--name", "blog", "--json"]);
     assert!(
         !refused.status.success(),
         "the cluster accepted a password it no longer has"
@@ -774,18 +833,18 @@ async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
     at("re-setting the credential");
     let walk = expect(
         &home,
-        &["service", "reset-credential", SERVICE, "--yes", "--json"],
+        &["service", "reset-credential", RESET, "--yes", "--json"],
     );
     assert_eq!(walk["complete"], true, "{walk}\n{}", home.daemon_log());
 
     // Proved by the cluster answering an authenticated query, which is what its ready check is.
-    let up = status(&home);
+    let up = status(&home, RESET);
     assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
 
     at("checking that the database made before the repair survived it");
     let again = expect(
         &home,
-        &["database", "create", SERVICE, "--name", "shop", "--json"],
+        &["database", "create", RESET, "--name", "shop", "--json"],
     );
     assert_eq!(
         again["made"]["database"], "existing",

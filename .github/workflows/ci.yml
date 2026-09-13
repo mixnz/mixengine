@@ -45,6 +45,18 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      # **One group at a time, not a list**, because the reason to narrow a run is always one
+      # question: *is `test` green yet.* A run that answered about three of nine jobs is not an
+      # answer about this workspace, and `all` is the default so narrowing is something somebody
+      # chose rather than something they inherited.
+      #
+      # A group is a job's own name, so adding a job adds an option and nothing else has to move.
+      jobs:
+        description: "Which jobs to run. `all` is every one of them."
+        type: choice
+        default: all
+        options: [all, lint, test, system, bench, bindings, docs, desktop, build]
 
 # A second request on the same ref makes the previous run pointless. A feature branch's run is
 # cancelled and replaced, because asking again means the answer in flight is about a commit you have
@@ -67,6 +79,9 @@ env:
 
 jobs:
   lint:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'lint' }}
     name: lint
     runs-on: ubuntu-latest
     # Generous, but far short of the six-hour default: a job that hangs should free the runner.
@@ -204,6 +219,9 @@ jobs:
         run: bash packaging/linux/apprun-check.sh
 
   test:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # **45 since phase 11, and it is the line past which waiting stops being the answer, not a
@@ -949,6 +967,9 @@ jobs:
   # **45 since T87's**, which adds one more suite that drives the CLI and the daemon and then takes
   # the machine apart — with a clock of its own, on the rule above.
   system:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'system' }}
     name: system (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -1445,6 +1466,9 @@ jobs:
   # and Windows starts a child inside a Job Object — and the reported wall clock is the only place
   # that difference is ever written down as a number.
   bench:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bench' }}
     name: bench (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # Ninety rather than the thirty this job started with: M3 added a release build of the
@@ -1697,6 +1721,9 @@ jobs:
   # second and third runner here would re-measure one behaviour at twice the cost, which is the
   # reasoning T86a's `windows-latest` probe uses one job along.
   bindings:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bindings' }}
     name: bindings
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1744,6 +1771,9 @@ jobs:
   # **Ubuntu alone**, again for `bindings`' reason: the generator reads embedded strings and writes
   # files, and a second and third runner would re-measure one behaviour at twice the cost.
   docs:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'docs' }}
     name: docs
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1790,6 +1820,9 @@ jobs:
   # somebody asks, so an advisory published overnight turns red at the moment somebody is looking.
   # Its documented ignores are `apps/desktop/src-tauri/.cargo/audit.toml`'s.
   desktop:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'desktop' }}
     name: desktop
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -1844,6 +1877,9 @@ jobs:
         run: cargo audit
 
   build:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
     name: build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     # A release build of the whole workspace, and twice over on macOS for the two slices, and again
@@ -2078,7 +2114,7 @@ jobs:
   # nothing to say on one.
   preflight:
     name: preflight
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && (inputs.jobs == '' || inputs.jobs == 'all') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -2123,7 +2159,7 @@ jobs:
   # correct on three operating systems", and "the artifacts were built".
   release:
     name: release
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && (inputs.jobs == '' || inputs.jobs == 'all') }}
     needs: [preflight, lint, test, bindings, desktop, build]
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -203,6 +203,35 @@ fn shared(
     projected
 }
 
+/// The rows of `before` that `after` does not have, counting duplicates.
+///
+/// **A multiset difference and not a set one.** Two identical rows that became one *is* a loss, and
+/// a `contains` check would call it a match — so each row of `after` is spent at most once.
+///
+/// Returning the missing rows rather than a boolean is what lets the assertion name them. A table
+/// with eleven rows that lost one prints the one, instead of two lists for a reader to diff by eye.
+fn lost(
+    before: &[BTreeMap<String, String>],
+    after: &[BTreeMap<String, String>],
+) -> Vec<BTreeMap<String, String>> {
+    let mut unspent: BTreeMap<&BTreeMap<String, String>, usize> = BTreeMap::new();
+    for row in after {
+        *unspent.entry(row).or_default() += 1;
+    }
+
+    before
+        .iter()
+        .filter(|row| match unspent.get_mut(*row) {
+            Some(remaining) if *remaining > 0 => {
+                *remaining -= 1;
+                false
+            }
+            _ => true,
+        })
+        .cloned()
+        .collect()
+}
+
 /// The column names a table's census rows carry, which is empty for a table with no rows.
 fn columns_of(rows: &[BTreeMap<String, String>]) -> BTreeSet<String> {
     rows.first()
@@ -294,6 +323,22 @@ async fn opening_it_a_second_time_changes_nothing() {
     }
 }
 
+/// **Every row an upgrade found is still there afterwards, unchanged.**
+///
+/// A row that disappeared fails this, and so does one whose value moved: the comparison is over the
+/// row's own rendering, so a changed cell leaves the old row with nothing to match.
+///
+/// **A row a migration *adds* is not a failure**, which is the same rule [`shared`] already applies
+/// one axis over: *a migration that adds a column is not a loss*. It was an equality until T127
+/// found out why that is wrong — `0021_home_id.sql` seeds `settings` with the id a home is known by,
+/// deliberately and for its own reasons, and an equality reported that correct migration as data
+/// loss on every fixture older than it. Seeding is a normal thing for a migration to do; losing a
+/// row is not, and only the second is what this file is for.
+///
+/// **So nothing here polices additions**, and that gap is deliberate rather than overlooked. What
+/// would notice a migration writing a row it should not is a reader of the migration, and
+/// [`EMPTIED`] covers the direction that cannot be read back — a loss, which leaves nothing behind
+/// to inspect.
 #[tokio::test]
 async fn an_upgrade_keeps_every_row_it_found() {
     for fixture in Fixture::all() {
@@ -321,11 +366,13 @@ async fn an_upgrade_keeps_every_row_it_found() {
                 .cloned()
                 .collect();
 
-            assert_eq!(
-                shared(rows, &columns),
-                shared(migrated, &columns),
-                "{}: {table} is not what it was",
-                fixture.name()
+            let missing = lost(&shared(rows, &columns), &shared(migrated, &columns));
+
+            assert!(
+                missing.is_empty(),
+                "{}: the migration lost {} row(s) from {table}: {missing:?}",
+                fixture.name(),
+                missing.len()
             );
         }
 
@@ -399,10 +446,13 @@ async fn the_copy_taken_first_is_the_database_as_it_was() {
 
 /// The instrument, checked against itself.
 ///
-/// Every assertion above is `assert_eq!` over two censuses, and a census that rendered nothing —
-/// or rendered every row identically — would make all of them pass while reading nothing. So this
-/// takes two censuses of one unchanged file and requires them equal, then changes exactly one value
-/// and deletes exactly one row and requires each to be noticed.
+/// Every assertion above compares two censuses, and a census that rendered nothing — or rendered
+/// every row identically — would make all of them pass while reading nothing. So this takes two
+/// censuses of one unchanged file and requires them equal, then changes exactly one value and
+/// deletes exactly one row and requires each to be noticed.
+///
+/// It is the instrument that is checked here. What is done *with* the readings is
+/// [`lost`], and [`a_lost_row_is_found_and_an_added_one_is_not`] is that half.
 ///
 /// It is `fakeservice`'s rule applied to a measurement rather than to a program: a fixture that
 /// quietly stopped honouring what it was told turns the test using it into one that passes for the
@@ -585,5 +635,64 @@ async fn the_shims_door_opens_an_old_database_and_leaves_it_old() {
         applied(&file).await,
         vec![1],
         "reading a home must never migrate it"
+    );
+}
+
+/// **[`lost`] finds a loss and permits an addition**, which is the whole of what the assertion it
+/// serves claims.
+///
+/// The third case is the one a set difference gets wrong and a multiset one does not: two identical
+/// rows that became one is a row lost, and `contains` would call it a match.
+#[test]
+fn a_lost_row_is_found_and_an_added_one_is_not() {
+    fn row(key: &str, value: &str) -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("key".to_owned(), key.to_owned()),
+            ("value_json".to_owned(), value.to_owned()),
+        ])
+    }
+
+    let before = vec![row("telemetry", "false"), row("update.channel", "stable")];
+
+    assert!(
+        lost(&before, &before).is_empty(),
+        "an unchanged table lost something"
+    );
+
+    // The failure this file exists for.
+    assert_eq!(
+        lost(&before, &before[1..]),
+        vec![row("telemetry", "false")],
+        "a deleted row was not reported"
+    );
+
+    // A changed value is a loss too: the row as it was has nothing to match.
+    assert_eq!(
+        lost(
+            &before,
+            &[row("telemetry", "true"), row("update.channel", "stable")]
+        ),
+        vec![row("telemetry", "false")],
+        "a changed value was not reported"
+    );
+
+    // Duplicates are spent one at a time.
+    let twice = vec![row("telemetry", "false"), row("telemetry", "false")];
+    assert_eq!(
+        lost(&twice, &twice[..1]),
+        vec![row("telemetry", "false")],
+        "two rows that became one read as a match"
+    );
+
+    // **And the case T127 changed.** `0021_home_id.sql` seeds this row; an equality called that
+    // data loss, and this is the assertion that says it is not.
+    let after = vec![
+        row("home.id", "b743b62cbba8"),
+        row("telemetry", "false"),
+        row("update.channel", "stable"),
+    ];
+    assert!(
+        lost(&before, &after).is_empty(),
+        "a migration that seeded a row was reported as one that lost one"
     );
 }

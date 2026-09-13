@@ -35,6 +35,11 @@
 # and then being killed at ten pays for the wait and learns nothing, so an agent should either run
 # this in the background or poll it with `--once`, which asks, answers and exits.
 #
+# **A narrowed run says so on success.** `ask-ci.sh --jobs <group>` skips every job but one, and a
+# green tick over three of nine is the single way this script could mislead the person reading it:
+# the loop's rule is that green means *every* job settled green. The exit status stays CI's — the
+# run did succeed — and what changes is that the line above it names what never ran.
+#
 # Exit status is CI's: 0 when the run succeeded, 1 when it did not, and — under `--once` only —
 # 2 when it has not finished yet. A misuse of the script itself is 64, so that it cannot be read as
 # a report about CI.
@@ -146,8 +151,17 @@ fi
 
 conclusion="$(gh run view "$run" --json conclusion --jq '.conclusion')"
 
+# What was skipped, so a narrowed run cannot be read as a whole one. `preflight` and `release` are
+# skipped on every ref that is not a tag and say nothing about narrowing, so they are not counted.
+skipped="$(gh run view "$run" --json jobs   --jq '[.jobs[] | select(.conclusion == "skipped") | .name
+         | select(. != "preflight" and . != "release")] | join(", ")' 2>/dev/null)"
+
 if [ "$conclusion" = "success" ]; then
   echo "run $run: success"
+  if [ -n "$skipped" ]; then
+    echo "  but this run was narrowed: $skipped never ran."
+    echo "  green here is green for what was asked, not for this workspace — ask for all before believing it."
+  fi
   exit 0
 fi
 
