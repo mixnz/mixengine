@@ -52,7 +52,7 @@ export default {
           "Pick a stack, name it, and MixEngine installs what it needs, configures it and starts it.",
         stack: "Stack",
         name: "Project name",
-        folder: "Put it in",
+        folder: "Folder",
         browse: "Choose…",
         create: "Create it",
         starting: "Starting everything MixEngine manages…",
