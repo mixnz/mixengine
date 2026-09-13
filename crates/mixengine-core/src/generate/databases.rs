@@ -232,6 +232,18 @@ impl Provisioning {
         self.context.secret_address(self.admin.root)
     }
 
+    /// The account that password belongs to — roadmap task **T127a**.
+    ///
+    /// `postgres` for PostgreSQL and `root` for the MySQL family: the same word
+    /// [`root_address`](Self::root_address) composes an address out of, and the word a server writes
+    /// into its own log when it refuses a login. The daemon reads it to tell a refusal that is about
+    /// *this home's superuser* from one about an application's own account, which is the whole guard
+    /// on naming a failed start a refused credential.
+    #[must_use]
+    pub fn root_user(&self) -> &'static str {
+        self.admin.root
+    }
+
     /// Where an account's password lives, or would.
     #[must_use]
     pub fn secret_address(&self, user: &str) -> String {
