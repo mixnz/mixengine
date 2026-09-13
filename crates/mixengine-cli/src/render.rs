@@ -993,11 +993,30 @@ pub(crate) fn service_walk(walked: Walked, walk: &ServiceWalk) -> String {
     };
 
     // The evidence, and the only part of a reason a client lays out itself: `StateReason`'s own
-    // sentence says how many attempts there were, and these are the lines that say what went wrong.
-    if let Some(StateReason::CrashLoop { tail, .. }) = &failure.reason {
-        for line in tail {
-            rendered.push_str(&format!("    {line}\n"));
+    // sentence says what happened, and these are the lines that show it. Two reasons carry any —
+    // `CrashLoop`'s `tail`, and `SuperuserRefused`'s one line.
+    match &failure.reason {
+        Some(StateReason::CrashLoop { tail, .. }) => {
+            for line in tail {
+                rendered.push_str(&format!("    {line}\n"));
+            }
         }
+
+        // **And then the command that undoes it** — roadmap task **T127a**. A walk carries no hint
+        // field and is not being given one for this: the daemon said what happened, and which of
+        // `mix`'s own verbs repairs it is what this binary knows and the daemon does not.
+        Some(StateReason::SuperuserRefused { said }) => {
+            rendered.push_str(&format!("    {said}\n"));
+            rendered.push_str(&format!(
+                "    `mix service reset-credential {}` writes this home's password into the data \
+                 directory and keeps every database in it\n",
+                failure.service
+            ));
+        }
+
+        // `StateReason` is `#[non_exhaustive]`, and every other reason is its own sentence and
+        // nothing more.
+        _ => {}
     }
 
     if !walk.reached.is_empty() {
@@ -5124,6 +5143,43 @@ mod tests {
         assert_eq!(lines[1], "    Address already in use");
         assert_eq!(lines[2], "  started   db");
         assert_eq!(lines[3], "  blocked   worker");
+    }
+
+    /// **A refused superuser is shown with the command that repairs it** — roadmap task **T127a**.
+    ///
+    /// `mix` naming one of `mix`'s own verbs is not business logic in a client: the daemon said what
+    /// happened, and which command undoes it is the thing only this binary knows. A `ServiceWalk`
+    /// carries no hint field, so this is where it can be said at all.
+    #[test]
+    fn a_refused_superuser_is_shown_with_the_repair_under_it() {
+        let walk = ServiceWalk {
+            planned: vec![id("postgres@main")],
+            complete: true,
+            reached: Vec::new(),
+            failed: Some(mixengine_proto::ServiceFailure {
+                service: id("postgres@main"),
+                reason: Some(StateReason::SuperuserRefused {
+                    said: "FATAL:  password authentication failed for user \"postgres\"".to_owned(),
+                }),
+            }),
+            blocked: Vec::new(),
+        };
+
+        let rendered = service_walk(Walked::Start, &walk);
+        let lines: Vec<&str> = rendered.lines().collect();
+
+        assert_eq!(
+            lines[0],
+            "postgres@main failed to start — it refuses the superuser password this home holds"
+        );
+        assert_eq!(
+            lines[1],
+            "    FATAL:  password authentication failed for user \"postgres\""
+        );
+        assert!(
+            lines[2].contains("mix service reset-credential postgres@main"),
+            "{rendered}"
+        );
     }
 
     #[test]
