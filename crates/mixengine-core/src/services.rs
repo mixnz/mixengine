@@ -1988,12 +1988,21 @@ mod tests {
     }
 
     /// And the daemon's own stops are still wakeable, which is the half the arm above must not break.
+    ///
+    /// **[`StateReason::SuperuserRefused`] is in here although it never reaches this function** —
+    /// roadmap task **T127a**. It is only ever carried into [`ServiceState::Failed`] and this is
+    /// consulted on the way into [`ServiceState::Stopped`], so the catch-all arm is what would
+    /// answer for it. This says which answer that has to be if the word ever does arrive: a database
+    /// that refused its superuser is not a stop anybody asked for, and a connection may still try.
     #[test]
     fn the_daemons_own_stops_are_still_wakeable() {
         for reason in [
             StateReason::Shutdown,
             StateReason::Idle {
                 after: mixengine_proto::Millis(600_000),
+            },
+            StateReason::SuperuserRefused {
+                said: "FATAL:  password authentication failed for user \"postgres\"".to_owned(),
             },
         ] {
             let stopped_by = StoppedBy::of(&reason);

@@ -25,6 +25,7 @@ use mixengine_proto::{
     ServiceState, StateReason, StopBehaviour,
 };
 use mixengine_supervisor::logs::Capture;
+use mixengine_supervisor::restart::TAIL_LINES;
 use mixengine_supervisor::{Decision, Health, Restarts, Surroundings, Verdict, ready};
 use tokio::sync::{Notify, broadcast, watch};
 use tokio::time::Instant;
@@ -319,6 +320,20 @@ pub(super) struct Runner {
 
     /// The OS, for the one thing a spawn needs from it that the spec cannot carry: a credential.
     pub(super) host: Arc<dyn Host>,
+
+    /// The account a refusal in this service's own log would have to name — roadmap task **T127a**.
+    ///
+    /// [`None`] for everything that is not a database, which is the gate and not a nicety: a
+    /// php-fpm pool captures its workers' output, and an application that cannot reach its database
+    /// prints `Access denied for user …` into exactly that stream. A pool whose start failed for
+    /// some other reason would then be reported as a pool whose superuser password is wrong — and
+    /// the repair that reason names answers `Unsupported` for it, because a pool keeps no credential
+    /// of its own.
+    ///
+    /// Read once, when this runner is built, out of the map [`Registry::graph`](super::Registry)
+    /// fills: the same answer `database.create` gets, and a service's recipe does not change under a
+    /// supervisor that is already running it.
+    pub(super) superuser: Option<&'static str>,
 
     /// Where a persisted transition is announced.
     pub(super) events: Events,
@@ -845,11 +860,24 @@ impl Runner {
                 // holding that port itself, and is not in conflict with anybody.
                 let conflict = self.port_conflict(Some(supervised.pid())).await;
 
-                self.kill(supervised, capture).await;
+                // Kept rather than dropped since roadmap task **T127a**: `kill` is also the drain,
+                // so what comes back holds the server's last words instead of leaving them in a
+                // pipe.
+                let capture = self.kill(supervised, capture).await;
+                let refused = self.refused_superuser(&capture);
+
                 self.record_exit(None).await;
 
-                self.give_up(conflict.unwrap_or(StateReason::ReadyTimeout { after }))
-                    .await
+                // **A conflict outranks a refusal, and the order is not arbitrary.** If another
+                // program holds the port, the client this check runs is talking to *that program* —
+                // a refusal it printed is not this service's, and who holds the port is the fact
+                // worth reporting.
+                self.give_up(
+                    conflict
+                        .or(refused)
+                        .unwrap_or(StateReason::ReadyTimeout { after }),
+                )
+                .await
             }
 
             // A spec this build or this machine cannot check. Not a timeout, and reported as what it
@@ -1738,6 +1766,24 @@ impl Runner {
             .flatten()
     }
 
+    /// What this service's last words say about a refused superuser, if anything — task **T127a**.
+    ///
+    /// **The same shape as [`Runner::port_conflict`], and asked at the same moment**: a start that
+    /// has already failed, and a question that can turn an honest but useless reason into a useful
+    /// one. Nothing here can fail a start that was going to succeed, which is the whole reason this
+    /// reads a failure rather than racing one — a reader that aborted a start on one log line could
+    /// take down a cluster somebody's application was merely polling with a stale password.
+    ///
+    /// The capture must already be drained — [`Runner::kill`] is what does that — or the server's
+    /// last line is still sitting in a pipe.
+    fn refused_superuser(&self, capture: &Capture) -> Option<StateReason> {
+        let superuser = self.superuser?;
+        let recent = capture.recent(TAIL_LINES);
+
+        super::databases::refusal_in_log(recent.iter().map(|line| line.text.as_str()), superuser)
+            .map(|said| StateReason::SuperuserRefused { said })
+    }
+
     async fn after_exit(
         &self,
         decision: Decision,
@@ -2396,6 +2442,7 @@ mod tests {
                 id: ServiceId::parse("fake").expect("a usable id"),
             }),
             host: Arc::new(mixengine_platform::mock::Host::with_home(paths.root())),
+            superuser: None,
             events: Events::new(),
             cancel: CancellationToken::new(),
             asked_to_start: Arc::new(Notify::new()),
@@ -2436,6 +2483,7 @@ mod tests {
                 paths.root(),
                 keyring_takes,
             )),
+            superuser: None,
             events: Events::new(),
             cancel: CancellationToken::new(),
             asked_to_start: Arc::new(Notify::new()),

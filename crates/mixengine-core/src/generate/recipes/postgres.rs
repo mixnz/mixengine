@@ -1351,6 +1351,26 @@ mod tests {
         assert!(ritual.secrets[0].length >= 32, "{:?}", ritual.secrets);
     }
 
+    /// **The superuser is readable from a provisioning, because a refusal has to be attributed** —
+    /// roadmap task **T127a**. A server's log says who was refused, and this is what tells a line
+    /// about *this home's* superuser apart from one about somebody's application account.
+    #[test]
+    fn a_provisioning_says_which_account_its_superuser_is() {
+        let context = context("{}");
+        let admin = Postgres.databases().expect("a database vocabulary");
+
+        let provisioning = crate::generate::databases::Provisioning::new(&context, admin);
+
+        assert_eq!(provisioning.root_user(), SUPERUSER);
+        // The two answers are about one account, which is what makes a log line attributable to the
+        // credential this home holds rather than merely to somebody.
+        assert!(
+            provisioning.root_address().ends_with(SUPERUSER),
+            "{}",
+            provisioning.root_address()
+        );
+    }
+
     /// The keyring entry the spec names and the one the ritual is stored under are one address.
     ///
     /// Composed twice, and the failure when they disagree is a server that starts and a client that

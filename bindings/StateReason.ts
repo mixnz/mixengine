@@ -36,7 +36,21 @@ program: string | null, } | { "kind": "spawn_failed" } | { "kind": "first_run_fa
  * What went wrong, in the words of whatever refused: a machine with no credential store, a
  * data directory that is not ours, a bootstrap that exited non-zero.
  */
-detail: string, } | { "kind": "uncheckable", 
+detail: string, } | { "kind": "superuser_refused", 
+/**
+ * The line the server printed, in its own words.
+ *
+ * **Evidence, laid out by a client and deliberately not in the sentence** — the
+ * arrangement [`CrashLoop`](Self::CrashLoop)'s `tail` documents, which is no longer the
+ * only variant that carries any. One line rather than a tail, because this reason explains
+ * itself and the line only confirms it; it is already bounded by the capture's own limit on
+ * the length of a line, so nothing here invents a second bound.
+ *
+ * It holds no secret: neither client prints a password in a refusal — PostgreSQL names the
+ * role and the `pg_hba.conf` line it matched, the MySQL family names the account and the
+ * host it came from.
+ */
+said: string, } | { "kind": "uncheckable", 
 /**
  * What was asked for, e.g. `"an HTTP ready check"`.
  */

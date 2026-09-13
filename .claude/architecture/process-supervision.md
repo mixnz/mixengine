@@ -212,6 +212,16 @@ it a timeout thirty seconds later sends whoever wrote the spec to look at the se
 travel from the supervisor's error to the user unchanged, so there is one sentence about it and not
 one per layer.
 
+A database that would not start because the superuser password in its data directory and the one in
+this machine's credential store have come apart is `StateReason::SuperuserRefused` and not a ready
+timeout — roadmap task **T127a**. The distinction is the same one: a cluster whose readiness check is
+an authenticated query was never going to pass it, and "not ready within 2m" sends the reader to look
+at a server that is running perfectly well. What decides it is the daemon reading the lines the
+service printed **after** the start has failed, the way T38 asks the OS who holds the port — never
+while one is still running, because a reader that aborted a start on a single log line could take
+down a cluster somebody's application was merely polling with a stale password. It is asked only of a
+service that has a database vocabulary, and only for a line naming that instance's own superuser.
+
 `Degraded` is distinct from `Failed`: the process is alive but failing health checks, which is what
 a client shows in amber and what `mix doctor` explains.
 
@@ -235,8 +245,8 @@ Crash-loop protection: after `max_retries` inside `window` the service goes `Fai
 until an explicit `service.start`. The window is a field rather than a constant because a service
 that crashes once a day is not in a crash loop, and counting since boot would eventually say it
 was. The last 200 log lines are attached to the failure reason — `StateReason::CrashLoop` carries a
-`tail`, the only variant that carries evidence — so a client can show *why* without the user opening
-a log viewer.
+`tail`, one of the two variants that carry evidence, the other being `SuperuserRefused` and its one
+line — so a client can show *why* without the user opening a log viewer.
 
 **Becoming healthy again resets the backoff and not the history.** A service that starts, works for
 four seconds and dies, five times in a minute, is exactly the thing the cutoff exists for; a counter

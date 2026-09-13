@@ -475,13 +475,47 @@ readable, writable setting since it was written, and nothing has ever read the c
       `crates/mixengine-cli/tests/postgres.rs`, which asserts the symptom rather than wishing it
       away. Making the *start* path say what a refused superuser means is the task this leaves.
 
-- [ ] **T127a** A database that cannot start because its superuser password is wrong says so, rather
-      than reporting a ready check that timed out. T127's explanation is reached from the
-      provisioning probe, which a PostgreSQL instance never gets to: its ready check authenticates,
-      so the failure is a `ReadyTimeout` two minutes long and the hint sent somebody to the service
-      log. What the log holds is `password authentication failed`, one line, from the server itself —
-      so the shape of the fix is a start failure that reads what the service printed before it
-      decides what to call the failure.
+- [x] **T127a** A database that cannot start because its superuser password is wrong says so, rather
+      than reporting a ready check that timed out. `StateReason::SuperuserRefused`, and the design is
+      [docs/superpowers/specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md](../../docs/superpowers/specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md).
+      **What this task settled.** The reading happens *after* the start has failed and never while
+      one is running — T38's shape exactly, where the daemon asks the OS who holds the port before it
+      settles on a reason. The obvious alternative was to race the log against `ready::wait` and
+      abort the moment a refusal is printed, turning two minutes into two seconds; it was rejected
+      on what an abort would be acting on. During `starting`, MixEngine's ready check is not the only
+      thing that server can refuse — an application, a `pgAdmin` left polling, a second home — and a
+      reader that only *renames a failure that already happened* cannot be wrong about anything but
+      the wording, where one that kills a starting cluster on a single log line takes down a start
+      that was going to succeed. So the wait is unchanged and the sentence at the end of it is not.
+      **Two guards, and the second is the one that makes a log safe to act on.** The line must come
+      from a service that has a database vocabulary — the map T77a already fills, so a php-fpm pool
+      whose worker printed `Access denied for user …` is never diagnosed as a pool with a wrong
+      superuser password, which would also offer it a repair that answers `Unsupported`. And it must
+      name *this instance's* superuser, which is why `Provisioning` grew `root_user`:
+      `password authentication failed for user "shop"` is an application's problem and stays a ready
+      timeout. What remains — somebody connecting *as* the superuser with a stale password while a
+      start was failing for another reason — is a credential that really has come apart, so the
+      sentence is not even wrong.
+      **One vocabulary, two readers.** T126's three refusal sentences moved to module scope in
+      `services::databases` beside a `repair_hint` extracted from the same function: the provisioning
+      probe reads the *message of a statement MixEngine ran*, and the new matcher reads *lines a
+      server wrote to whoever was talking to it*. A second copy of those strings is the thing that
+      would go stale the next time a client changes its wording — and both of them lost the runs of
+      spaces they had been carrying into a user's terminal since T126.
+      **A port conflict still outranks a refusal.** If another program holds 5432 the client this
+      check runs is talking to *that* program, so a refusal it printed is not this cluster's.
+      **What it deliberately did not do.** No early abort, above. No change to `ready::wait`,
+      `ReadyCheck` or the supervisor crate at all — reading the *probe's* own stderr would need
+      none of the second guard, because that refusal is certainly ours, but it means a new shape in
+      a public API reaching every ready check to serve one recipe, and it works for `Command` checks
+      alone where reading a service's log works for any of them. No `mix doctor` check and no
+      automatic repair, both for T127's reasons. And no desktop affordance: nothing in
+      `apps/desktop/src` reads `StateReason` yet.
+      **What it found.** `features/services.md` claimed *"the readiness check of all three of these
+      recipes is an authenticated query"*. Two of them are; MariaDB's `mariadb-admin ping` answers
+      before authentication, which is the asymmetry this whole task exists for — so a MariaDB reset
+      that ends with the server running has proved the server starts, and the credential is proved by
+      the next statement run against it. The sentence is corrected; the repair is unchanged.
 
 - [x] **T128** A plan names the project the way the row will spell it. Found in the daemon log of
       the failed apply T126 was reported from: `a failed apply could not take back what it made

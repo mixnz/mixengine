@@ -812,22 +812,26 @@ async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
     );
 
     // **The refusal itself is roadmap task T127's other half.** `28P01` is PostgreSQL's SQLSTATE and
-    // psql never prints it for a refused login, so until this task the sentence below reached
+    // psql never prints it for a refused login, so until that task the sentence below reached
     // nobody.
-    // **And what it is refused *with* is a start that never finished, not a superuser refusal** —
-    // measured, and the difference from MariaDB is the ready check. This cluster's is an
-    // authenticated query, so a password it does not have takes it from `starting` to `failed
-    // reason=ReadyTimeout`; MariaDB's is `mariadb-admin ping`, which answers before authentication
-    // and lets the service reach `running`, where the provisioning probe then meets the refusal and
-    // `explain_a_refused_superuser` can say what it means.
+    // **And what refuses it is the *start*, not the provisioning probe** — measured, and the
+    // difference from MariaDB is the ready check. This cluster's is an authenticated query, so a
+    // password it does not have never lets it leave `starting`; MariaDB's is `mariadb-admin ping`,
+    // which answers before authentication and lets the service reach `running`, where the
+    // provisioning probe meets the refusal instead.
     //
-    // So a PostgreSQL user does not see the sentence that names this repair. That is recorded rather
-    // than asserted around: the repair below is what T127 owes, and making the *start* path say it
-    // too is a task of its own.
+    // So this is **T127a**: the start reads what the server printed before it decides what to call
+    // the failure, and a PostgreSQL user reaches the same repair a MariaDB user always could. Until
+    // it did, this assertion recorded the symptom — `did not start — not ready within 2m`.
     let said = String::from_utf8_lossy(&refused.stderr);
     assert!(
-        said.contains("did not start"),
-        "the symptom is no longer a start that never finished: {said}"
+        said.contains("refuses the superuser password this home holds"),
+        "the start was reported as a ready check that timed out: {said}\n{}",
+        home.daemon_log()
+    );
+    assert!(
+        said.contains("mix service reset-credential postgres@reset"),
+        "the refusal did not name the repair: {said}"
     );
 
     at("re-setting the credential");
