@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "../../../../components/Button";
 import ContextMenu from "../../../../components/ContextMenu";
@@ -14,6 +14,7 @@ import {
   applyEvent,
   applyJob,
   isJobFinished,
+  movesARow,
   needsResync,
   rowsFrom,
   type JobRow,
@@ -30,6 +31,7 @@ import {
   readingFor,
 } from "../../metricsState";
 import { pendingFrom } from "../../pendingOps";
+import { eventArrived, noReadsYet, readBegan, readLanded } from "../../readOrder";
 import { serviceStateKey, serviceStateTone, toggleMode } from "../../serviceStateLabel";
 import CleanupDialog from "./CleanupDialog";
 import DiskUsagePanel from "./DiskUsagePanel";
@@ -79,23 +81,57 @@ export default function Dashboard({ active }: { active: boolean }) {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const { t } = useTranslation();
 
+  /**
+   * Thứ tự giữa các lần đọc và các sự kiện — xem `readOrder.ts`.
+   *
+   * **`rows` có hai người ghi và không cái nào biết cái kia.** Một snapshot `service.list` và một
+   * `service_state_changed` cùng gọi `setRows`, và React ghi theo thứ tự **tới**, không theo thứ
+   * tự *đúng*. Bấm Stop all là lúc điều đó lộ ra: nhiều thao tác xong gần nhau, nhiều lượt đọc và
+   * nhiều sự kiện chen nhau trên đường về, nên một snapshot cũ ghi đè một snapshot mới — và vì
+   * `stopped` là chuyển trạng thái cuối cùng, không còn sự kiện nào sửa lại. Hàng đứng ở "Đang
+   * tắt" cho tới khi có người bấm Làm mới.
+   *
+   * `useRef` chứ không phải `useState`: đây là sổ ghi thứ tự, không phải thứ được vẽ, và một
+   * `setState` ở đây sẽ render lại mỗi lần một message đi qua.
+   */
+  const order = useRef(noReadsYet());
+
   /* Mọi lỗi đi qua đây thành một câu người đọc được. `errorMessage` dịch `code` và điền `params`,
      nên `hint` của MixEngine tới người dùng nguyên vẹn thay vì rơi vào một promise không ai bắt —
      một tab đứng im, rỗng, không nói gì là kết cục tệ hơn bất kỳ thông báo nào. */
   const reload = useCallback(async () => {
-    try {
-      const [next, list, usage] = await Promise.all([
-        api.status(),
-        api.services(),
-        api.diskUsage(false),
-      ]);
-      setStatus(next);
-      setRows(rowsFrom(list.services));
-      setWaiting(next.elevation?.pending ?? 0);
-      setDisk(usage);
-      setError("");
-    } catch (e) {
-      setError(errorMessage(t, e));
+    /* Vòng lặp chứ không đệ quy: một `useCallback` không gọi được chính nó. Nó quay thêm một vòng
+       đúng khi có sự kiện chen vào giữa lượt đọc vừa rồi, và dừng ngay lượt đầu tiên không bị
+       chen — mỗi vòng là một round trip thật, nên nó tự giới hạn nhịp. */
+    for (;;) {
+      const began = readBegan(order.current);
+      order.current = began.order;
+      let landed;
+      try {
+        const [next, list, usage] = await Promise.all([
+          api.status(),
+          api.services(),
+          api.diskUsage(false),
+        ]);
+        landed = readLanded(order.current, began.seq);
+        order.current = landed.order;
+        // Một snapshot khởi hành trước một snapshot đã vẽ rồi thì không được vẽ: nó mang tin cũ
+        // hơn thứ đang trên màn hình, dù nó về sau.
+        if (landed.apply) {
+          setStatus(next);
+          setRows(rowsFrom(list.services));
+          setWaiting(next.elevation?.pending ?? 0);
+          setDisk(usage);
+        }
+        setError("");
+      } catch (e) {
+        // Một lượt đọc hỏng vẫn phải hạ cánh, nếu không `inFlight` không bao giờ về 0 và mọi sự
+        // kiện sau đó đều bị coi là đang đua.
+        landed = readLanded(order.current, began.seq);
+        order.current = landed.order;
+        setError(errorMessage(t, e));
+      }
+      if (!landed.readAgain) return;
     }
   }, [t]);
 
@@ -148,14 +184,12 @@ export default function Dashboard({ active }: { active: boolean }) {
   }, [t]);
 
   /**
-   * Một hành động trên một service.
+   * Gửi một hành động và chờ nó xong. **Không đọc lại** — ai gọi mới quyết định lúc nào đọc.
    *
-   * Hàng vẫn đổi theo stream trong lúc hành động đang chạy — đó là luật "trạng thái được thông
-   * báo". Nhưng khi call trả về, đọc lại: **sự kiện là best-effort và không bao giờ là đường duy
-   * nhất biết trạng thái**, nên tin mỗi stream là để lại một bảng đứng im khi một sự kiện rơi.
-   * Đọc lại không phải là suy đoán, nó là đọc.
+   * Hàng vẫn đổi theo stream suốt lúc đó, đúng luật "trạng thái được thông báo". Việc đọc lại tách
+   * ra khỏi đây vì một lần bấm Stop all là *một* câu hỏi chứ không phải N: xem [`stopAll`].
    */
-  const act = useCallback(
+  const run = useCallback(
     async (id: string, action: api.ServiceAction) => {
       setBusy((current) => ({ ...current, [id]: action }));
       try {
@@ -168,11 +202,39 @@ export default function Dashboard({ active }: { active: boolean }) {
           delete next[id];
           return next;
         });
-        await reload();
       }
     },
-    [reload, t],
+    [t],
   );
+
+  /**
+   * Một hành động trên một hàng, rồi đọc lại.
+   *
+   * **Sự kiện là best-effort và không bao giờ là đường duy nhất biết trạng thái**, nên tin mỗi
+   * stream là để lại một bảng đứng im khi một sự kiện rơi. Đọc lại không phải là suy đoán, nó là
+   * đọc — và `order` ở trên là thứ giữ cho lần đọc ấy không bị một lần đọc cũ hơn ghi đè.
+   */
+  const act = useCallback(
+    async (id: string, action: api.ServiceAction) => {
+      await run(id, action);
+      await reload();
+    },
+    [reload, run],
+  );
+
+  /**
+   * Tắt mọi thứ đang chạy, rồi đọc lại **một** lần.
+   *
+   * Không phải `Promise.all` của `act`: cách đó bắn N lượt `reload` song song cho một lần bấm, mỗi
+   * lượt ba RPC, và chúng đua nhau — đúng thứ `order` ở trên tồn tại để chặn. Chặn được không có
+   * nghĩa là nên gây ra: một lần bấm là một câu hỏi, nên hỏi một lần.
+   */
+  const stopAll = useCallback(async () => {
+    await Promise.all(
+      rows.filter((row) => row.state === "running").map((row) => run(row.id, "stop")),
+    );
+    await reload();
+  }, [reload, rows, run]);
 
   // Đọc lại lúc mount và mỗi lần vừa quay lại màn này — sự kiện service_state_changed không bao
   // giờ báo tin một service khác được tạo/xoá ở màn Services, và không method-kiểu-runtime nào
@@ -241,6 +303,10 @@ export default function Dashboard({ active }: { active: boolean }) {
       // `job_finished` cũng là một lý do đọc lại: một `elevation.grant` xong đổi số "N đang chờ"
       // mà không có sự kiện nào riêng nói vậy (xem `isJobFinished`).
       if (needsResync(raw) || isJobFinished(raw)) void reload();
+      // Một sự kiện đổi hàng, tới trong lúc một `service.list` đang trên đường về, nghĩa là
+      // snapshot đó có thể đã đọc *trước* sự kiện này — client không phân biệt được. Ghi lại ở đây
+      // để lượt đọc ấy xin thêm một lượt nữa khi hạ cánh. Ngoài updater, cùng lý do hai dòng trên.
+      if (movesARow(raw)) order.current = eventArrived(order.current);
       setRows((current) => applyEvent(current, raw).rows);
     });
   }, [active, reload, showWaiting]);
@@ -327,11 +393,7 @@ export default function Dashboard({ active }: { active: boolean }) {
           <Button onClick={() => void reload()}>{t("mixengine.dashboard.reload")}</Button>
           {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
           <Button
-            onClick={() =>
-              void Promise.all(
-                rows.filter((row) => row.state === "running").map((row) => act(row.id, "stop")),
-              )
-            }
+            onClick={() => void stopAll()}
             disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
           >
             {t("mixengine.dashboard.stopAll")}

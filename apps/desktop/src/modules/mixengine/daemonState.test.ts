@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyEvent,
   applyJob,
+  movesARow,
   needsResync,
   rowsFrom,
   type JobRow,
@@ -151,5 +152,25 @@ describe("needsResync", () => {
       expect(needsResync(raw)).toBe(false);
       expect(applyEvent(rows, raw).resync).toBe(false);
     }
+  });
+});
+
+describe("movesARow", () => {
+  /* Chỉ `service_state_changed` mới đổi bảng service. Câu hỏi này tồn tại để `Dashboard` biết một
+     message có đua với một `service.list` đang bay hay không — hỏi **ngoài** updater của
+     `setRows`, vì updater chạy hai lần trong StrictMode. */
+  it("says yes to a service state change", () => {
+    const raw = JSON.stringify({ type: "service_state_changed", service: "caddy@main", to: "stopped" });
+    expect(movesARow(raw)).toBe(true);
+  });
+
+  /* Tiến độ job bắn liên tục suốt một lần cài runtime. Coi nó là một lý do đọc lại là biến một
+     job dài thành một tràng `service.list` không ai cần. */
+  it("says no to job progress", () => {
+    expect(movesARow(JSON.stringify({ type: "job_progress", job: 4, percent: 10 }))).toBe(false);
+  });
+
+  it("says no to something it cannot parse", () => {
+    expect(movesARow("not json")).toBe(false);
   });
 });

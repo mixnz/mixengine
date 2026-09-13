@@ -61,6 +61,26 @@ export function isJobFinished(raw: string): boolean {
 }
 
 /**
+ * Message này có đổi một hàng của bảng service không.
+ *
+ * Tách khỏi [`applyEvent`] vì câu trả lời chỉ phụ thuộc vào message — và vì chỗ duy nhất hỏi được
+ * là **ngoài** updater của `setRows`, cùng lý do [`needsResync`] nêu: React gọi updater hai lần
+ * trong StrictMode.
+ *
+ * `Dashboard` hỏi câu này để biết một message có đua với một `service.list` đang trên đường về hay
+ * không — xem `readOrder.ts`. Chỉ `service_state_changed` được tính: tiến độ job bắn liên tục suốt
+ * một lần cài runtime, và coi nó là một lý do đọc lại là biến một job dài thành một tràng RPC.
+ */
+export function movesARow(raw: string): boolean {
+  try {
+    const { type } = JSON.parse(raw) as { type?: unknown };
+    return type === "service_state_changed";
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Bảng sau một message.
  *
  * `resync` là `true` khi thứ vừa tới có nghĩa là "đừng tin cái đang có, đọc lại": bus bên kia tràn,
