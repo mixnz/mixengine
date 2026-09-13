@@ -42,15 +42,19 @@
 - A scaffold command that fails says so in a sentence you can read: colour codes from tools like
   `create-next-app` no longer arrive as `[31m` in the middle of the message, and a multi-line
   explanation keeps its lines instead of being run together with slashes.
+- A blueprint whose command cannot use the folder's name now says so before anything is installed,
+  and names what to rename the folder to — *rename the folder to `next-js-1` and apply again* —
+  instead of downloading a runtime, making a database and a site, and then handing you npm's own
+  refusal at the last step.
+- The project goes in the folder you chose, in both windows. *Build your first site* used to treat
+  the folder you browsed to as the place to make one inside; it now means the same thing the
+  Blueprints dialog means by it.
 - A site whose PHP pool is not running now starts it from the request that needed it, whatever left
   it stopped. Before, only a pool the idle sweeper had stopped could be woken — so after a reboot or
   a `mix daemon restart` every PHP site on the machine answered 502 until somebody ran `mix service
   start` by hand. A service you stopped yourself is still left alone.
 
 ### Changed
-- MixLab's *Build your first site* card asks where to **put** the project rather than which folder
-  is the project: pick a parent, and MixEngine makes and names the folder inside it. The name it
-  chooses is shown in the plan before anything is created.
 - MixLab stops offering a second MixEngine tab: one tab is the whole of it, so a window showing
   MixEngine alone has no `[+]` button, and `Ctrl/Cmd+1` goes to the tab rather than opening another.
   The close button on the last tab there is now reads *Reload module* — closing it puts a fresh one

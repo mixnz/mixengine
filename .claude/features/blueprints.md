@@ -45,6 +45,7 @@ extensions = ["redis", "imagick", "xdebug"]
 # optional, only runs with explicit user consent at apply time
 command = "composer create-project laravel/laravel ."
 needs_empty_dir = true   # optional, default false — this command refuses a directory with anything in it
+needs_npm_safe_dir = true # optional, default false — this command takes its package name from the directory
 ```
 
 `{project}` is the only templating token; substitution is literal and validated (slug charset).
@@ -76,20 +77,26 @@ A project with more than one site is **refused** rather than reduced to its firs
 `blueprint.apply { blueprint, project_name, root_path }` runs as a job with a **plan-then-execute**
 shape:
 
-**Who names the directory.** A client that has been given a path sends it and it is used exactly as
-spelled — a folder a person named is a folder a person named. A client that has *not* sends the
-directory it is standing in with `root_is_parent`, and the **daemon** names the project's directory
-under it, with `domains::slug` — the same handle `{project}` expands through
-([ADR 0030](../decisions/0030-the-project-token-expands-to-a-slug.md)). So `Next.js 1` gets the
-domain `next-js-1.test`, the database `next-js-1` and the directory `next-js-1`, which is what makes
-a scaffold like `npx create-next-app .` work at all: it takes its package name from the directory's
-basename and npm refuses capitals and spaces. **The naming is the daemon's and not a client's**
-because no client may hold that rule — `mix` cannot depend on `mixengine-core`, and the desktop
-deliberately keeps no naming rule of its own — so a client composing it would be a second copy of a
-charset to keep in step by hand. Nothing is renamed behind anybody's back: the composed path is in
-the plan's `register_project` step, which every client shows before anything is created. Roadmap
-task **T120a**;
-design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
+**Who names the directory.** A folder somebody chose is the folder the source lands in, byte for
+byte — typed into `mix --path`, typed into the Blueprints dialog, or browsed to in Quick Start, all
+three are used exactly as spelled. Only one gesture names no directory at all: `mix blueprint apply`
+with no `--path`. There the client sends the directory it is standing in with `root_is_parent`, and
+the **daemon** composes the project's directory under it with `domains::slug` — the same handle
+`{project}` expands through
+([ADR 0030](../decisions/0030-the-project-token-expands-to-a-slug.md)), so `Next.js 1` gets the
+domain `next-js-1.test`, the database `next-js-1` and the directory `next-js-1`. **The composing is
+the daemon's and not a client's** because no client may hold that rule — `mix` cannot depend on
+`mixengine-core`, and the desktop deliberately keeps no naming rule of its own — so a client
+composing it would be a second copy of a charset to keep in step by hand. Nothing is renamed behind
+anybody's back: the composed path is in the plan's `register_project` step, which every client shows
+before anything is created. Roadmap tasks **T120a** and **T120c**;
+designs: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md),
+[2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../../docs/superpowers/specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
+
+**Quick Start used to compose too, and no longer does** (T120c, withdrawing T120a's D3 and the whole
+of T120b). Two windows meaning different things by *choose a folder* is a longer-lived confusion
+than the friction of needing a folder whose name works, and the friction is answered by the check
+below rather than by a default.
 
 1. **Plan**: resolve every requirement against what is installed, and return the full list of actions
    (install PHP 8.2.23, create DB `blog`, add domain `blog.test`, issue cert…). The plan is returned
@@ -202,6 +209,20 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   same rule as the program check: a false `blocked` stops a blueprint that would have worked.
   The three gallery blueprints carrying a command all set it, asserted over the shipped set in
   `crates/mixengine-core/tests/blueprint_gallery.rs`.
+- **A command that names itself after its directory says so too, and the name is checked before the
+  contents** — roadmap task **T120c**. `[scaffold] needs_npm_safe_dir = true` means this command
+  takes its package name from the directory's basename, so the plan `blocked`s the step for a
+  basename npm will not accept — empty or over 214 characters, an ASCII capital, a character outside
+  `a-z 0-9 - _ .`, or a leading `.` or `_` — and the reason ends with the answer rather than the
+  rule: *rename the folder to `next-js-1` and apply again*. **The ruler is npm's and not
+  `domains::slug`'s**, and the row that decides it is `next_js_1`: `slug` turns every character
+  outside `a-z0-9` into a hyphen, underscore included, so a check built on it would refuse a
+  directory `create-next-app` accepts, installs into and writes `"name": "next_js_1"` for (measured
+  2026-09-13). `slug` is the *generator* here, never the ruler — it always answers in a charset the
+  rule accepts, which is why it can be what the refusal suggests. Where the rule is uncertain it
+  permits, because refusing a directory that would have worked leaves somebody with no way round
+  while missing one costs a wasted install; the leftover case is covered late, by the failure text
+  itself naming the folder. Only `nextjs` declares it, asserted over the shipped set.
 - **No timeout.** Any number would kill a legitimate `composer install` on a slow line; the bound is
   that the job is visible and `job.cancel` stops it — killing the process *group*, so what a package
   manager forked goes with it.
