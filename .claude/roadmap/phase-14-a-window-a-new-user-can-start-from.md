@@ -428,12 +428,60 @@ readable, writable setting since it was written, and nothing has ever read the c
       and a branch per recipe rather than a line here. It did not change `SecretAddress` either —
       the shape moved, the type did not, because every client reads the address the daemon returns.
 
-- [ ] **T127** A credential a home cannot produce any more is re-set by a command rather than by
-      hand. T126 stopped homes from taking each other's, and said so where it fails; a machine that
-      already met the collision still has a server whose data directory holds a password nothing
-      knows. The repair is the recipe's own bootstrap — stop the service, set the superuser's
-      password to the one this home holds, start it — and it differs per recipe, so it wants a job
-      with a log rather than a paragraph in a hint. Until it exists the hint names the procedure.
+- [x] **T127** A credential a home cannot produce any more is re-set by a command rather than by
+      hand. `mix service reset-credential <service>`, and the design is
+      [docs/superpowers/specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md](../../docs/superpowers/specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md).
+      **What this task settled.** Every recipe already owned its own repair and none of them knew
+      it: a ritual is *create the data directory, then set the password through a server that
+      listens on nothing*, and a repair is the second half alone. So `Ritual` grew a third field
+      naming that step for re-use, `FirstRun` exposes it, and the three recipes fill it with
+      functions they already had. That those steps run against a directory that is **already full**
+      was measured rather than assumed, on Windows, against 11.4.12 / 17.11 / 8.0.44, each on a
+      directory that had been *killed* rather than shut down — which is the only stop this repair
+      can have, since the shutdown command is the thing that cannot authenticate. MariaDB's
+      `--bootstrap` took 0.36 s and kept every database; the risk was real, because
+      `mariadb-install-db` refuses a non-empty directory and it was reasonable to expect the server
+      to as well.
+      **`postgres --single` performs its own crash recovery** — *"database system was not properly
+      shut down; automatic recovery in progress"*, then redo, then the `ALTER ROLE` — and tolerates
+      a stale `postmaster.pid`. Nothing has to clean up after the kill before the repair can run.
+      **`mysqld.exe` forks a child on Windows**, and a child that outlives its parent holds the data
+      directory and answers `The innodb_system data file 'ibdata1' must be writable` — a sentence
+      about a live process wearing the words of a file permission. That is why the job proves the
+      directory is writable before it runs a step, and says what it means when it cannot.
+      **A new `StateReason` does not become unwakeable by existing.** The reset stops the service so
+      that nothing starts a server against a directory a step is writing into, and what decides that
+      is `StoppedBy::may_be_woken` in another crate — whose `of` reaches the *wakeable* answer
+      through a `_` arm. A word added to the protocol and named nowhere else compiles cleanly and
+      produces exactly the hazard it was added to prevent, so the test is aimed at `may_be_woken()`
+      rather than at the word.
+      **And T126's PostgreSQL hint had never fired.** It matched the literal `28P01`; psql never
+      prints it for a refused login — not with the recipe's own arguments and not with
+      `VERBOSITY=verbose` — because that is a libpq *connection* failure and never reaches the
+      formatter that would print a SQLSTATE. The matcher takes libpq's own sentence now, and both
+      hints name the command.
+      **What it deliberately did not do.** No `mix doctor` check: detecting this means authenticating
+      against every running database on every run, and the repair is a multi-minute job with a log
+      where `doctor_repair` is shaped for a short synchronous act. No `--rotate`, although the
+      measurement says it would be safe — nothing outside the keyring keeps a copy of that password,
+      and a repair still changes as little as it can. No desktop button. And it did not delete the
+      pre-T126 keyring entries T126 left behind, which is still its own task.
+      **What it found and left open — T127a.** A PostgreSQL user does not see the sentence that names
+      this repair, and the reason is the ready check rather than the matcher above. This cluster's is
+      an authenticated query, so a password it does not have takes the service from `starting` to
+      `failed reason=ReadyTimeout` and the user is told *"did not start — not ready within 2m"*;
+      MariaDB's is `mariadb-admin ping`, which answers before authentication, so the service reaches
+      `running` and the provisioning probe is where the refusal is met and explained. Measured in
+      `crates/mixengine-cli/tests/postgres.rs`, which asserts the symptom rather than wishing it
+      away. Making the *start* path say what a refused superuser means is the task this leaves.
+
+- [ ] **T127a** A database that cannot start because its superuser password is wrong says so, rather
+      than reporting a ready check that timed out. T127's explanation is reached from the
+      provisioning probe, which a PostgreSQL instance never gets to: its ready check authenticates,
+      so the failure is a `ReadyTimeout` two minutes long and the hint sent somebody to the service
+      log. What the log holds is `password authentication failed`, one line, from the server itself —
+      so the shape of the fix is a start failure that reads what the service printed before it
+      decides what to call the failure.
 
 - [x] **T128** A plan names the project the way the row will spell it. Found in the daemon log of
       the failed apply T126 was reported from: `a failed apply could not take back what it made

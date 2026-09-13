@@ -386,6 +386,7 @@ impl Recipe for Postgres {
         Some(Ritual {
             secrets: SECRETS,
             steps,
+            reset: Some(reset_steps),
         })
     }
 
@@ -656,10 +657,51 @@ fn cluster(context: &Context) -> Vec<String> {
 fn steps(context: &Context) -> Result<Vec<Step>> {
     let password = context.secret(SUPERUSER);
 
-    // **Refused rather than escaped.** The only producer of this value is
-    // `mixengine_platform::generate_secret`, whose alphabet is chosen so that the interpolation in
-    // `set_the_password` is safe; an escaper here would be a second thing to get right for a case
-    // that cannot arise, and what it would hide is a credential in the wrong half of a statement.
+    refuse_a_password_that_needs_escaping(context, password)?;
+
+    Ok(vec![
+        create_the_cluster(context)?,
+        set_the_password(context, password)?,
+    ])
+}
+
+/// Set the superuser's password in a cluster that already exists — roadmap task **T127**.
+///
+/// **[`set_the_password`] alone, and never `initdb`.** The ritual creates the cluster and then sets
+/// the password; a repair is the second half, against a cluster holding somebody's databases.
+///
+/// **Measured**, against 17.11 on Windows, on a cluster that had been *killed* with a stale
+/// `postmaster.pid` still on disk: `--single` performed its own crash recovery — *"database system
+/// was not properly shut down; automatic recovery in progress"*, then redo, then the `ALTER ROLE` —
+/// and finished in 0.23 s. Nothing has to clean up after the kill first, which matters because the
+/// stop this repair follows is exactly the one that cannot authenticate.
+///
+/// # Errors
+///
+/// As [`steps`]: an install publishing no `postgres`, and a credential this recipe will not put in a
+/// statement.
+fn reset_steps(context: &Context) -> Result<Vec<Step>> {
+    let password = context.secret(SUPERUSER);
+
+    refuse_a_password_that_needs_escaping(context, password)?;
+
+    Ok(vec![set_the_password(context, password)?])
+}
+
+/// Refuse a credential that would have to be escaped to be interpolated.
+///
+/// **Refused rather than escaped.** The only producer of this value is
+/// `mixengine_platform::generate_secret`, whose alphabet is chosen so that the interpolation in
+/// [`set_the_password`] is safe; an escaper here would be a second thing to get right for a case
+/// that cannot arise, and what it would hide is a credential in the wrong half of a statement.
+///
+/// One function and not two copies since **T127**, so that the repair cannot end up with a weaker
+/// rule than the ritual it repairs.
+///
+/// # Errors
+///
+/// [`Error::SettingValue`], naming no value.
+fn refuse_a_password_that_needs_escaping(context: &Context, password: &str) -> Result<()> {
     if password.is_empty() || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
         return Err(Error::SettingValue {
             service: context.service().as_str().to_owned(),
@@ -670,10 +712,7 @@ fn steps(context: &Context) -> Result<Vec<Step>> {
         });
     }
 
-    Ok(vec![
-        create_the_cluster(context)?,
-        set_the_password(context, password)?,
-    ])
+    Ok(())
 }
 
 /// `initdb`, told the two things it would otherwise read off the machine.
@@ -1518,6 +1557,45 @@ mod tests {
             plan.budget() >= BOOTSTRAP_PATIENCE,
             "one bootstrap step alone asks for {BOOTSTRAP_PATIENCE:?}, and the plan measured {:?}",
             plan.budget()
+        );
+    }
+
+    /// **A reset sets the password and never creates a cluster** — roadmap task **T127**.
+    ///
+    /// `--single` is the assertion beside the negative one: the repair has to reach the cluster
+    /// through a backend that opens no port and no socket, for the reason
+    /// [`set_the_password`] exists at all. A reset that started the real server to run an `ALTER
+    /// ROLE` would put a cluster whose password nobody knows on a TCP port first.
+    #[test]
+    fn the_reset_sets_the_password_and_never_creates_a_cluster() {
+        let plan = FirstRun::new(
+            &context("{}"),
+            Postgres.ritual().expect("postgres bootstraps"),
+        );
+
+        let steps = plan
+            .reset_steps(BTreeMap::from([(SUPERUSER.to_owned(), "a".repeat(32))]))
+            .expect("a reset builds")
+            .expect("postgres declares one");
+
+        assert_eq!(steps.len(), 1, "{steps:?}");
+        assert!(
+            steps[0].args.iter().any(|arg| arg == "--single"),
+            "the reset must reach the cluster through a backend that opens no port: {:?}",
+            steps[0].args
+        );
+        assert!(
+            !steps[0].program.display().to_string().contains(INITDB),
+            "the reset runs initdb: {:?}",
+            steps[0].program
+        );
+        assert!(
+            steps[0]
+                .stdin
+                .as_deref()
+                .is_some_and(|sql| sql.contains("ALTER ROLE")),
+            "{:?}",
+            steps[0].stdin
         );
     }
 

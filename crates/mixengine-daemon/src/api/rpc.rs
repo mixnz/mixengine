@@ -20,12 +20,12 @@ use mixengine_proto::{
     ExtensionUninstall, FrontEndSwitch, IdleReport, IdleSource, JobFilter, JobId, JobKind, JobList,
     JobQuery, JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
     MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageTarget, ProjectCreate, ProjectQuery,
-    ProjectRef, ProjectUpdate, ResourceLimits, RuntimeFilter, RuntimeQuestion, RuntimeTarget,
-    RuntimeUninstall, ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId,
-    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole,
-    ServiceSpec, ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery,
-    SiteShare, SiteUpdate, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
-    UpdateStatus, Uptime,
+    ProjectRef, ProjectUpdate, ResetCredential, ResourceLimits, RuntimeFilter, RuntimeQuestion,
+    RuntimeTarget, RuntimeUninstall, ServiceAutostartSet, ServiceCreate, ServiceDelete,
+    ServiceFailure, ServiceId, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList,
+    ServiceQuery, ServiceRole, ServiceSpec, ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate,
+    SiteListQuery, SiteQuery, SiteShare, SiteUpdate, StateReason, UninstallQuery, UpdateApplied,
+    UpdateApply, UpdateCheck, UpdateDecide, UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -697,6 +697,15 @@ async fn call_method(
                 rpc::method::SERVICE_RESTART => {
                     let target: ServiceTarget = arguments(params)?;
                     encode_result(&api.service_restart(&target).await.map_err(refused)?)
+                }
+
+                rpc::method::SERVICE_RESET_CREDENTIAL => {
+                    let reset: ResetCredential = arguments(params)?;
+                    encode_result(
+                        &api.service_reset_credential(&reset)
+                            .await
+                            .map_err(refused)?,
+                    )
                 }
 
                 rpc::method::DATABASE_CREATE => {
@@ -1962,6 +1971,96 @@ impl Api {
                     services::stop_then_start(&services, &graph, &down, &up).await,
                     "restart",
                 )
+            },
+        )
+        .await
+    }
+
+    /// `service.reset_credential` — the repair for a server whose password nothing knows any more.
+    ///
+    /// **[`Self::service_restart`] with steps in the middle**, and deliberately the same two plans:
+    /// the stop takes down everything that depends on this service, and what is started again is
+    /// what the stop *took down* rather than everything it covered. A repair that started the
+    /// covered set would put back dependents somebody had deliberately stopped.
+    ///
+    /// **The named service always ends running, whatever state it was in** — the design's D7. The
+    /// proof that a reset worked is the readiness check, which for all three of these recipes is an
+    /// authenticated query; a repair that ended with the service stopped would be reporting an exit
+    /// code and calling it a repair, and `postgres --single` exits 0 on a syntax error.
+    ///
+    /// **The stop carries [`StateReason::CredentialReset`]**, which `StoppedBy::of` reads as a
+    /// person's stop — so nothing holds this service's addresses while a step is writing into its
+    /// data directory, and a connection arriving mid-repair is refused rather than answered by a
+    /// server started on top of the work.
+    ///
+    /// **Where the steps fail, nothing is started.** A database whose credential is half re-set is
+    /// not one to put back in front of an application; what is left is a stopped service and a job
+    /// row saying why.
+    ///
+    /// # Errors
+    ///
+    /// `invalid_argument` for a service that keeps no credential of its own — asked **before**
+    /// anything is stopped, so naming a web server costs nothing. Then whatever the repair reports.
+    async fn service_reset_credential(
+        &self,
+        reset: &ResetCredential,
+    ) -> Result<ServiceWalk, Error> {
+        if !self.services.has_credential_reset(&reset.service) {
+            return Err(Error::new(
+                ErrorCode::InvalidArgument,
+                format!(
+                    "{} keeps no superuser credential of its own, so there is nothing here to \
+                     re-set",
+                    reset.service
+                ),
+            )
+            .with_hint(
+                "only the database servers keep one — `mix service list` shows what this home runs",
+            ));
+        }
+
+        let graph = self
+            .services
+            .graph()
+            .await
+            .map_err(|error| error.to_wire())?;
+        let down = stop_plan(&graph, Some(&reset.service))?;
+
+        // Read before anything is stopped, for `service_restart`'s reason: afterwards nothing is
+        // supervised and every service would look like one that had been down all along.
+        let roots = services::restarted(Some(&reset.service), &down, &self.services.supervised());
+
+        // Cannot fail: every id in it came out of this same graph. Mapped rather than unwrapped, so
+        // that a bug here is one bad request rather than the daemon.
+        let up = graph
+            .start_plan(roots.iter())
+            .map_err(|error| mixengine_core::Error::Graph(error).to_wire())?;
+
+        let service = reset.service.clone();
+
+        self.walk(
+            reset.wait,
+            up.flat().cloned().collect(),
+            move |services| async move {
+                let stopped = services
+                    .stop_because(&down, &StateReason::CredentialReset)
+                    .await;
+
+                if stopped.failed.is_some() {
+                    return (stopped, "reset");
+                }
+
+                if let Err(error) = services.reset_credential(&service).await {
+                    tracing::error!(
+                        service = service.as_str(),
+                        %error,
+                        "a credential reset did not finish; this service is left stopped"
+                    );
+
+                    return (stopped, "reset");
+                }
+
+                (services.start(&graph, &up).await, "reset")
             },
         )
         .await
@@ -3344,6 +3443,65 @@ mod tests {
             daemon.state("db").await,
             Some(ServiceState::Stopped),
             "a refused request starts nothing"
+        );
+    }
+
+    /// **A reset names one service, and no service at all is refused by the type** — roadmap task
+    /// **T127**.
+    ///
+    /// T125's finding was that `ServiceTarget::service` is optional and [`None`] means *the whole
+    /// home*; a repair that could be asked for with no subject is that mistake with worse
+    /// consequences. `ResetCredential::service` is required, so this is a deserialisation refusal
+    /// rather than a check somebody could delete.
+    #[tokio::test]
+    async fn a_credential_reset_requires_a_service() {
+        let daemon = daemon(web_and_db(), &["db", "web"]).await;
+
+        for params in [
+            serde_json::json!({}),
+            serde_json::json!({ "project": { "name": "blog" } }),
+        ] {
+            let answer = daemon
+                .ask(rpc::method::SERVICE_RESET_CREDENTIAL, params.clone())
+                .await;
+
+            assert_eq!(
+                answer["error"]["data"]["code"], "invalid_argument",
+                "{params} {answer}"
+            );
+        }
+    }
+
+    /// **A service that keeps no credential is refused before anything is stopped** — **T127**.
+    ///
+    /// The second assertion is the one worth having: a repair that refused *after* the stop would
+    /// take a web server down to tell somebody they named the wrong thing.
+    #[tokio::test]
+    async fn a_service_with_no_credential_is_refused_without_being_stopped() {
+        let daemon = daemon(web_and_db(), &["db", "web"]).await;
+
+        daemon
+            .ask(
+                rpc::method::SERVICE_START,
+                serde_json::json!({ "service": "web" }),
+            )
+            .await;
+
+        let answer = daemon
+            .ask(
+                rpc::method::SERVICE_RESET_CREDENTIAL,
+                serde_json::json!({ "service": "web", "wait": true }),
+            )
+            .await;
+
+        assert_eq!(
+            answer["error"]["data"]["code"], "invalid_argument",
+            "{answer}"
+        );
+        assert_eq!(
+            daemon.state("web").await,
+            Some(ServiceState::Running),
+            "a refused reset stopped the service anyway"
         );
     }
 

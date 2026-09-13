@@ -381,6 +381,7 @@ impl Recipe for Mariadb {
         Some(Ritual {
             secrets: SECRETS,
             steps,
+            reset: Some(reset_steps),
         })
     }
 
@@ -407,19 +408,7 @@ impl Recipe for Mariadb {
 fn steps(context: &Context) -> Result<Vec<Step>> {
     let password = context.secret(ROOT);
 
-    // **Refused rather than escaped.** The only producer of this value is
-    // `mixengine_platform::generate_secret`, whose alphabet is chosen so that the interpolation in
-    // `bootstrap` is safe; an escaper here would be a second thing to get right for a case that
-    // cannot arise, and what it would hide is a credential in the wrong half of a SQL statement.
-    if password.is_empty() || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return Err(Error::SettingValue {
-            service: context.service().as_str().to_owned(),
-            key: "root password",
-            value: "<redacted>".to_owned(),
-            reason: "a generated credential is alphanumeric so that it needs no escaping in the \
-                     statement that sets it; this one is not, which is a bug in whatever made it",
-        });
-    }
+    refuse_a_password_that_needs_escaping(context, password)?;
 
     let mut steps = Vec::with_capacity(4);
 
@@ -436,6 +425,59 @@ fn steps(context: &Context) -> Result<Vec<Step>> {
     }
 
     Ok(steps)
+}
+
+/// Set the root password in a data directory that already exists — roadmap task **T127**.
+///
+/// **[`bootstrap`] alone.** The ritual is `mariadb-install-db` and then that step; a repair is that
+/// step by itself, because the directory is there and full of somebody's databases. Its statements
+/// are true of a server in either state — an `UPDATE` and two conditional `DELETE`s — which is what
+/// lets the ritual's own step be the repair unchanged rather than a second copy to keep in step.
+///
+/// **Measured rather than assumed**, against 11.4.12 on Windows: a data directory holding a
+/// populated InnoDB tablespace that had been *killed* rather than shut down took the `UPDATE
+/// global_priv` in 0.36 s, the databases in it were untouched, and the old password stopped working.
+/// That mattered because `mariadb-install-db` refuses a non-empty directory — the finding
+/// [`STARTED_MARKER`](crate::generate::first_run::STARTED_MARKER) exists for — and it was reasonable
+/// to expect the same of the server's bootstrap mode.
+///
+/// # Errors
+///
+/// As [`steps`]: an install missing the server, and a credential this recipe will not put in a SQL
+/// literal.
+fn reset_steps(context: &Context) -> Result<Vec<Step>> {
+    let password = context.secret(ROOT);
+
+    refuse_a_password_that_needs_escaping(context, password)?;
+
+    Ok(vec![bootstrap(context, password)?])
+}
+
+/// Refuse a credential that would have to be escaped to be interpolated.
+///
+/// **Refused rather than escaped.** The only producer of this value is
+/// `mixengine_platform::generate_secret`, whose alphabet is chosen so that the interpolation in
+/// [`bootstrap`] is safe; an escaper here would be a second thing to get right for a case that
+/// cannot arise, and what it would hide is a credential in the wrong half of a SQL statement.
+///
+/// One function and not two copies since **T127**, so that the repair cannot end up with a weaker
+/// rule than the ritual it repairs.
+///
+/// # Errors
+///
+/// [`Error::SettingValue`], naming no value.
+fn refuse_a_password_that_needs_escaping(context: &Context, password: &str) -> Result<()> {
+    if password.is_empty() || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(Error::SettingValue {
+            service: context.service().as_str().to_owned(),
+            key: "root password",
+            value: "<redacted>".to_owned(),
+            reason: "a generated credential is alphanumeric so that it needs no escaping in the \
+                     statement that sets it; this one is not, which is a bug in whatever made it",
+        });
+    }
+
+    Ok(())
 }
 
 /// `mariadb-install-db` as a system with a shell runs it.
@@ -1127,6 +1169,42 @@ mod tests {
             plan.budget() >= BOOTSTRAP_PATIENCE,
             "one bootstrap step alone asks for {BOOTSTRAP_PATIENCE:?}, and the plan measured {:?}",
             plan.budget()
+        );
+    }
+
+    /// **A reset builds steps for a directory that already exists** — roadmap task **T127**.
+    ///
+    /// The assertion is the negative: not one of them creates a data directory. A reset that ran
+    /// `mariadb-install-db` over a live database is the failure this whole task exists to avoid,
+    /// and it is exactly the one a copy of [`steps`] would produce.
+    #[test]
+    fn the_reset_sets_a_password_and_creates_no_data_directory() {
+        let plan = FirstRun::new(
+            &context("{}"),
+            Mariadb.ritual().expect("mariadb bootstraps"),
+        );
+
+        let steps = plan
+            .reset_steps(BTreeMap::from([(ROOT.to_owned(), "a".repeat(32))]))
+            .expect("a reset builds")
+            .expect("mariadb declares one");
+
+        assert!(!steps.is_empty(), "a declared reset built no steps");
+
+        for step in &steps {
+            let program = step.program.display().to_string();
+            assert!(
+                !program.contains(INSTALL_DB),
+                "a reset step creates a data directory: {program}"
+            );
+        }
+
+        assert!(
+            steps.iter().any(|step| step
+                .stdin
+                .as_deref()
+                .is_some_and(|sql| sql.contains("global_priv"))),
+            "no reset step sets the root password: {steps:?}"
         );
     }
 

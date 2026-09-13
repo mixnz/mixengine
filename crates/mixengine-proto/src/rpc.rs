@@ -369,6 +369,23 @@ pub mod method {
     /// Take a service down and put back exactly what went down with it. Same types again.
     pub const SERVICE_RESTART: &str = "service.restart";
 
+    /// Re-set one database's superuser credential inside its own data directory — roadmap task
+    /// **T127**. Takes [`ResetCredential`](crate::ResetCredential), answers
+    /// [`ServiceWalk`](crate::ServiceWalk).
+    ///
+    /// The repair for a server that refuses the password this home holds for it. A database keeps
+    /// its own copy of that password inside its data directory and the keyring holds the other; they
+    /// are written together by the first run and can only come apart one way. Once they have, no
+    /// client can put them back, because every way of changing the one inside the directory needs
+    /// the credential that was lost.
+    ///
+    /// So this stops the service and everything that depends on it, writes the credential this home
+    /// holds into the data directory through the recipe's own offline step — a server that listens
+    /// on nothing — and starts back what went down. **Every database in the directory is kept.**
+    ///
+    /// Also the name of the job it performs the work in, which is where the log of it lives.
+    pub const SERVICE_RESET_CREDENTIAL: &str = "service.reset_credential";
+
     /// Every service package on this machine. Takes [`PackageFilter`](crate::PackageFilter),
     /// answers [`PackageList`](crate::PackageList).
     ///

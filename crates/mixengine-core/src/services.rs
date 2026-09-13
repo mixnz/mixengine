@@ -103,18 +103,27 @@ impl StoppedBy {
 
     /// Which of the three a stop for this reason is.
     ///
-    /// **One rule: [`StateReason::Requested`] is a person, and every other reason is the machine.**
-    /// That word is what a client's `service.stop` reaches this function with and the only thing
-    /// that does — the daemon's own walks each carry a reason of their own
-    /// ([`StateReason::Shutdown`], [`StateReason::Idle`], [`StateReason::Vanished`],
-    /// [`StateReason::Unadopted`]), and so does every way a process ends without being asked to.
+    /// **Two words are a person and every other reason is the machine.** [`StateReason::Requested`]
+    /// is what a client's `service.stop` reaches this function with and the only thing that does —
+    /// the daemon's own walks each carry a reason of their own ([`StateReason::Shutdown`],
+    /// [`StateReason::Idle`], [`StateReason::Vanished`], [`StateReason::Unadopted`]), and so does
+    /// every way a process ends without being asked to.
+    ///
+    /// **[`StateReason::CredentialReset`] is the second, and it is not a person** — roadmap task
+    /// **T127**. It is here because of what the answer is *used for* rather than what it describes: a
+    /// reset holds the data directory while it rewrites the credential inside it, so a connection
+    /// must not start a server on top of that work. `Person` is the answer that says so, and the
+    /// repair puts the service back itself when it is finished.
+    ///
+    /// **The `_` arm is why this is worth a test of its own.** A reason added to the protocol and not
+    /// named here becomes `Daemon`, which is wakeable, and the compiler says nothing.
     ///
     /// Consulted only on the way into [`ServiceState::Stopped`]; the same word means something else
     /// entirely on a start, and nothing calls this there.
     #[must_use]
     pub fn of(reason: &StateReason) -> Self {
         match reason {
-            StateReason::Requested => Self::Person,
+            StateReason::Requested | StateReason::CredentialReset => Self::Person,
             _ => Self::Daemon,
         }
     }
@@ -1960,5 +1969,37 @@ mod tests {
         .execute(store.pool())
         .await;
         assert!(neither.is_err(), "a service with no parent was accepted");
+    }
+
+    /// **A service stopped for a credential reset may not be woken by a connection** — roadmap task
+    /// **T127**.
+    ///
+    /// **Asserted through [`StoppedBy::may_be_woken`] and not through the reason word**, because
+    /// [`StoppedBy::of`] reaches [`StoppedBy::Daemon`] through a catch-all arm: a reason that is not
+    /// named there becomes wakeable, and nothing fails to compile over it. What that costs is a
+    /// server started against a data directory a reset is part-way through writing — the one thing
+    /// the repair holds the service down for.
+    #[test]
+    fn a_stop_for_a_credential_reset_may_not_be_woken() {
+        let stopped_by = StoppedBy::of(&StateReason::CredentialReset);
+
+        assert_eq!(stopped_by, StoppedBy::Person);
+        assert!(!stopped_by.may_be_woken());
+    }
+
+    /// And the daemon's own stops are still wakeable, which is the half the arm above must not break.
+    #[test]
+    fn the_daemons_own_stops_are_still_wakeable() {
+        for reason in [
+            StateReason::Shutdown,
+            StateReason::Idle {
+                after: mixengine_proto::Millis(600_000),
+            },
+        ] {
+            let stopped_by = StoppedBy::of(&reason);
+
+            assert_eq!(stopped_by, StoppedBy::Daemon, "{reason:?}");
+            assert!(stopped_by.may_be_woken(), "{reason:?}");
+        }
     }
 }

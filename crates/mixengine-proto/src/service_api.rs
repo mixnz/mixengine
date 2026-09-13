@@ -18,6 +18,31 @@ use crate::{
     ProjectRef, ResourceLimits, ServiceId, ServiceState, StateReason, Timestamp,
 };
 
+/// Which database's superuser credential to re-set — roadmap task **T127**.
+///
+/// **A type of its own rather than [`ServiceTarget`], and T125 is why.** That type's `service` is
+/// optional and [`None`] means *every service this home declares* — which is how both clients came
+/// to ask for the whole home when they meant one project. A repair asked for with no subject is that
+/// mistake with worse consequences, so the subject is a required field and there is nothing left to
+/// refuse at run time.
+///
+/// There is no `project` either, for the reason `service.stop` refuses one: a project's services
+/// include the front end every *other* site is reached through, and none of them but a database
+/// keeps a credential to re-set.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct ResetCredential {
+    /// The database to repair: `mariadb@main`, `postgres@shop`.
+    pub service: ServiceId,
+
+    /// Whether to answer when the repair has finished rather than when it has been accepted.
+    ///
+    /// [`ServiceTarget::wait`]'s meaning and its default: a GUI that is already subscribed to the
+    /// events would rather draw the walk arriving than block a window on it.
+    #[serde(default = "waits", skip_serializing_if = "is_waiting")]
+    pub wait: bool,
+}
+
 /// Which services a call is about, and whether the caller waits for the answer to be true.
 ///
 /// One params type for `service.start`, `service.stop` and `service.restart`, because the question

@@ -136,10 +136,15 @@ pub(crate) async fn ensure(
                 ErrorCode::PreconditionFailed,
                 format!("{service} has no superuser credential in this machine's keyring"),
             )
-            .with_hint(
+            // **The same repair, named for the other shape this takes** — roadmap task **T127**. A
+            // missing entry and a wrong one are one command away from each other: the reset writes
+            // what this home holds, and generates one first where it holds nothing.
+            .with_hint(format!(
                 "that password is written by the service's first run — `mix service start` \
-                 performs it",
-            )
+                 performs it. For a data directory that has already been bootstrapped, `mix \
+                 service reset-credential {service}` puts a credential back without touching the \
+                 databases in it"
+            ))
         })?;
 
     let probe = provisioning
@@ -192,12 +197,19 @@ pub(crate) async fn ensure(
 /// the person sees without this is `ERROR 1045 (28000): Access denied for user 'root'@'127.0.0.1'`
 /// at the end of a blueprint that downloaded a runtime and made a project directory.
 ///
-/// **Matched on the server's own error code, not on prose.** `1045` is the MySQL family's and
-/// `28P01` is PostgreSQL's; both are part of those projects' interfaces, while the sentence around
-/// them is localised and reworded between releases. A code that does not match leaves the error
-/// exactly as it was, which is the right failure mode for a hint.
+/// **Two of the three are codes and one is prose, and that asymmetry is measured** — roadmap task
+/// **T127**. `1045` is the MySQL family's and appears verbatim in both clients' output. `28P01` is
+/// PostgreSQL's SQLSTATE and **psql never prints it for a refused login**: it is a libpq
+/// *connection* failure and never reaches the formatter that would print a SQLSTATE, with
+/// `VERBOSITY=verbose` or without. So T126's matcher had never fired for a PostgreSQL user, and what
+/// this matches there is the sentence libpq writes, which is the only thing there is to match.
+/// `28P01` is kept beside it for a client that does surface it.
+///
+/// A message that matches none of them leaves the error exactly as it was, which is the right
+/// failure mode for a hint: widening this until it caught a missing database would explain one
+/// failure as another.
 fn explain_a_refused_superuser(error: Error, service: &ServiceId) -> Error {
-    const REFUSALS: [&str; 2] = ["ERROR 1045", "28P01"];
+    const REFUSALS: [&str; 3] = ["ERROR 1045", "28P01", "password authentication failed"];
 
     if !REFUSALS.iter().any(|code| error.message.contains(code)) {
         return error;
@@ -210,9 +222,9 @@ fn explain_a_refused_superuser(error: Error, service: &ServiceId) -> Error {
             error.message
         ),
     )
-    .with_hint(
-        "until this release a credential's address named the service and not the home, so another          MIXENGINE_HOME on this machine — a sandbox, a second install, a test run — overwrote this          entry. The server's own password has to be set to the one this home holds, against its          data directory, or that directory discarded and the service started again",
-    )
+    .with_hint(format!(
+        "the password inside the server's data directory and the one in this machine's credential          store have come apart, and nothing can log in to bring them back together — until this          release a credential's address named the service and not the home, so another          MIXENGINE_HOME on this machine (a sandbox, a second install, a test run) could overwrite          the entry. `mix service reset-credential {service}` writes this home's password into the          data directory and keeps every database in it"
+    ))
 }
 
 /// What one object was, said the way the wire says it.
@@ -236,7 +248,10 @@ pub(crate) async fn read(host: &Arc<dyn Host>, address: &str) -> Result<Option<S
 }
 
 /// Store one, the same way.
-async fn write(host: &Arc<dyn Host>, address: &str, secret: &str) -> Result<(), Error> {
+///
+/// `pub(super)` since **T127**: `reset` is its second caller, for the credential a repair generates
+/// where the keyring holds none.
+pub(super) async fn write(host: &Arc<dyn Host>, address: &str, secret: &str) -> Result<(), Error> {
     let (host, address, secret) = (Arc::clone(host), address.to_owned(), secret.to_owned());
 
     tokio::task::spawn_blocking(move || {
@@ -492,5 +507,73 @@ mod tests {
             mock.secret_operations().is_empty(),
             "a store that refuses reads must not have been written to either"
         );
+    }
+
+    /// **PostgreSQL's refusal is recognised** — roadmap task **T127**.
+    ///
+    /// **Measured rather than guessed.** `28P01` is the SQLSTATE and psql never prints it for a
+    /// refused login: not with the recipe's own arguments and not with `VERBOSITY=verbose`, because
+    /// a refused login is a libpq *connection* failure and never reaches the formatter that would
+    /// print one. The message below is what psql 17.11 actually wrote, so T126's matcher had never
+    /// fired for a PostgreSQL user at all.
+    #[test]
+    fn a_postgres_refusal_is_explained_and_names_the_repair() {
+        let service = ServiceId::parse("postgres@main").expect("an id");
+        let refused = Error::new(
+            ErrorCode::Internal,
+            "look for the database shop failed: psql: error: connection to server at \"127.0.0.1\",              port 5432 failed: FATAL:  password authentication failed for user \"postgres\""
+                .to_owned(),
+        );
+
+        let explained = explain_a_refused_superuser(refused, &service);
+
+        assert!(
+            explained
+                .message
+                .contains("refused the superuser password this home holds"),
+            "{explained:?}"
+        );
+        assert!(
+            explained
+                .hint
+                .as_deref()
+                .is_some_and(|hint| hint.contains("mix service reset-credential postgres@main")),
+            "{explained:?}"
+        );
+    }
+
+    /// And the MySQL family's still is, with the same repair named — **T127**.
+    #[test]
+    fn a_mysql_refusal_still_names_the_repair() {
+        let refused = Error::new(
+            ErrorCode::Internal,
+            "ERROR 1045 (28000): Access denied for user 'root'@'127.0.0.1' (using password: YES)"
+                .to_owned(),
+        );
+
+        let explained = explain_a_refused_superuser(refused, &service());
+
+        assert!(
+            explained
+                .hint
+                .as_deref()
+                .is_some_and(|hint| hint.contains("mix service reset-credential mariadb@main")),
+            "{explained:?}"
+        );
+    }
+
+    /// **An unrelated failure is left exactly as it was**, which is the right failure mode for a
+    /// hint: a matcher that widened too far would explain a missing database as a lost password.
+    #[test]
+    fn an_unrelated_failure_is_not_explained_away() {
+        let refused = Error::new(
+            ErrorCode::Internal,
+            "ERROR 1049 (42000): Unknown database 'shop'".to_owned(),
+        );
+
+        let explained = explain_a_refused_superuser(refused.clone(), &service());
+
+        assert_eq!(explained.message, refused.message);
+        assert!(explained.hint.is_none(), "{explained:?}");
     }
 }

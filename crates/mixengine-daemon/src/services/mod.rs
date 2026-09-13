@@ -30,6 +30,7 @@ pub(crate) mod idle;
 pub(crate) mod limits;
 pub(crate) mod logs;
 mod ports;
+pub(crate) mod reset;
 mod runner;
 pub(crate) mod spec;
 mod step;
@@ -734,6 +735,40 @@ impl Registry {
     /// The ritual this service still has to have performed, if it declared one.
     fn ritual_for(&self, id: &ServiceId) -> Option<mixengine_core::generate::FirstRun> {
         lock(&self.rituals).get(id).cloned()
+    }
+
+    /// Whether this service declares a credential a repair could re-set — roadmap task **T127**.
+    ///
+    /// **Asked before anything is stopped.** The repair is a stop, some steps and a start; refusing
+    /// a service that has no credential *after* the stop would take a web server down to tell
+    /// somebody they named the wrong thing.
+    pub(crate) fn has_credential_reset(&self, id: &ServiceId) -> bool {
+        self.ritual_for(id).is_some_and(|plan| plan.has_reset())
+    }
+
+    /// Re-set this service's superuser credential in place — roadmap task **T127**.
+    ///
+    /// **The caller has already stopped it**, and the caller is what starts it again: this is the
+    /// middle of `service.reset_credential` and nothing else. It is a method here rather than a call
+    /// in the API for [`first_run::ensure`]'s reason — the two things a repair needs, the OS keyring
+    /// and the job system, are the registry's fields.
+    ///
+    /// # Errors
+    ///
+    /// A service this home does not declare or whose recipe has no repair; and then whatever
+    /// [`reset::perform`] reports.
+    pub(crate) async fn reset_credential(
+        &self,
+        id: &ServiceId,
+    ) -> Result<(), mixengine_proto::Error> {
+        let plan = self.ritual_for(id).ok_or_else(|| {
+            mixengine_proto::Error::new(
+                mixengine_proto::ErrorCode::InvalidArgument,
+                format!("{id} has no first-run ritual, so it keeps no credential of its own"),
+            )
+        })?;
+
+        reset::perform(&self.host, &self.jobs, &plan).await
     }
 
     /// Keep how each declared service's databases are made — roadmap task **T77a**.

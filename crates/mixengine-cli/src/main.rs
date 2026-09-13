@@ -44,16 +44,16 @@ use mixengine_proto::{
     Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageList, PackageRemoval,
     PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
     ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
-    ProjectUpdate, Reclaim, Removal, RepairReport, ResolvedRuntime, ResourceLimits,
-    RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
-    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceAutostartSet,
-    ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary,
-    ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind,
-    SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare, SiteSharing, SiteState,
-    SiteUpdate, Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply,
-    UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer,
-    VersionConstraint, rpc,
+    ProjectUpdate, Reclaim, Removal, RepairReport, ResetCredential, ResolvedRuntime,
+    ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion,
+    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent,
+    ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet,
+    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole,
+    ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation,
+    SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare,
+    SiteSharing, SiteState, SiteUpdate, Timestamp, UninstallQuery, UninstallReport, UpdateApplied,
+    UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus,
+    VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -1696,6 +1696,36 @@ enum ServiceCommand {
 
     /// Stop a service and what depends on it, then start that same set again.
     Restart(Target),
+
+    /// Re-set this database's superuser password inside its own data directory.
+    ///
+    /// For a server that refuses the password MixEngine holds for it — `ERROR 1045`, or `password
+    /// authentication failed`. A database keeps its own copy of that password inside its data
+    /// directory and this machine's credential store holds the other; they are written together
+    /// when the service first starts and can only come apart afterwards. Once they have, nothing
+    /// can log in to put them back, because every way of changing the copy inside the directory
+    /// needs the password that was lost.
+    ///
+    /// This stops the service and everything that depends on it, writes the password this home
+    /// holds into the data directory through the server's own offline bootstrap, and starts back
+    /// what went down. **Every database in it is kept.** `mix job list` holds the account of what
+    /// ran.
+    ///
+    /// Only the database servers keep a password of their own; anything else is refused before
+    /// anything stops.
+    ResetCredential {
+        /// The database to repair: `mariadb@main`, `postgres@shop`.
+        #[arg(value_name = "SERVICE", value_parser = service_id)]
+        service: ServiceId,
+
+        /// Do not ask before stopping the service.
+        #[arg(long, short = 'y')]
+        yes: bool,
+
+        /// Answer as soon as the repair has been accepted, rather than when it has finished.
+        #[arg(long)]
+        no_wait: bool,
+    },
 }
 
 /// What can be done to a service's limits.
@@ -1975,6 +2005,36 @@ fn agreed_to_switch(list: &ServiceList, server: FrontEndServer, json: bool) -> R
     )?;
 
     match confirm::ask(&format!("\nswitch to {}? [y/N] ", server.package())) {
+        confirm::Answer::Yes => Ok(true),
+
+        confirm::Answer::No => {
+            // On stderr, beside the question it answers.
+            let _ = writeln!(std::io::stderr(), "nothing was changed");
+
+            Ok(false)
+        }
+
+        confirm::Answer::Unanswerable => Err(unanswered()),
+    }
+}
+
+/// Ask before a repair stops a database and rewrites the credential inside it — **T127**.
+///
+/// **Asked rather than assumed, and `--yes` is the way past it**, because this is the one `mix
+/// service` subcommand that changes something inside a data directory. What it says is what somebody
+/// weighing it needs: what stops, what is rewritten, and — the part that decides it — that the
+/// databases are kept.
+///
+/// # Errors
+///
+/// [`unanswered`] where there is nobody to ask: a script reaching this needs to be told which flag
+/// says yes in advance, rather than to have one assumed for it.
+fn agreed_to_reset(service: &ServiceId) -> Result<bool, Error> {
+    match confirm::ask(&format!(
+        "\n{service} and everything that depends on it will be stopped, and its superuser password \
+         rewritten inside its data directory.\nEvery database in it is kept.\n\nre-set the \
+         credential? [y/N] "
+    )) {
         confirm::Answer::Yes => Ok(true),
 
         confirm::Answer::No => {
@@ -5507,25 +5567,47 @@ async fn service(
         ServiceCommand::Start(start) => (
             rpc::method::SERVICE_START,
             render::Walked::Start,
-            ServiceTarget {
+            encode(&ServiceTarget {
                 service: start.target.service.clone(),
                 project: start.project.clone().map(ProjectRef::Name),
                 wait: !start.target.no_wait,
-            },
+            }),
         ),
         ServiceCommand::Stop(target) => (
             rpc::method::SERVICE_STOP,
             render::Walked::Stop,
-            walk_target(target),
+            encode(&walk_target(target)),
         ),
         ServiceCommand::Restart(target) => (
             rpc::method::SERVICE_RESTART,
             render::Walked::Restart,
-            walk_target(target),
+            encode(&walk_target(target)),
         ),
+
+        // **Its own params type**, which is why every arm here encodes its own: T125's finding was
+        // that a target with no service means *the whole home*, and a repair may not be askable
+        // that way.
+        ServiceCommand::ResetCredential {
+            service,
+            yes,
+            no_wait,
+        } => {
+            if !*yes && !agreed_to_reset(service)? {
+                return Ok(ExitCode::SUCCESS);
+            }
+
+            (
+                rpc::method::SERVICE_RESET_CREDENTIAL,
+                render::Walked::ResetCredential,
+                encode(&ResetCredential {
+                    service: service.clone(),
+                    wait: !*no_wait,
+                }),
+            )
+        }
     };
 
-    let walk: ServiceWalk = ask(&mut client, method, encode(&params)).await?;
+    let walk: ServiceWalk = ask(&mut client, method, params).await?;
     emit(&rendered(json, &walk, || {
         render::service_walk(walked, &walk)
     }))?;

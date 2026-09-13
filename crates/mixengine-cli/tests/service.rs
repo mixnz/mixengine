@@ -608,3 +608,38 @@ fn asking_for_both_autostart_answers_at_once_is_refused() {
         "two contradictory flags were accepted"
     );
 }
+
+/// **The repair T127 exists to provide is reachable from `mix`** — the client-surface rule.
+///
+/// Help only: the repair itself against a real server is `mariadb.rs`, `mysql.rs` and `postgres.rs`,
+/// which is where there is a data directory to write into.
+#[test]
+fn a_credential_reset_is_a_service_subcommand() {
+    let home = Home::new();
+
+    let help = stdout(&home.mix(&["service", "--help"]));
+
+    assert!(help.contains("reset-credential"), "{help}");
+}
+
+/// **A service that keeps no credential is refused, and the refusal names what does** — T127.
+///
+/// `--yes` so the prompt is not what stops it: the assertion is about the daemon's answer, and a
+/// test that passed because nobody typed `y` would pass with the feature removed.
+#[test]
+fn a_service_with_no_credential_is_refused_a_reset() {
+    let (home, _daemon) = running(&[Service::new("fakeservice@plain")]);
+
+    let refused = home.mix(&["service", "reset-credential", "fakeservice@plain", "--yes"]);
+
+    assert!(
+        !refused.status.success(),
+        "a service with no credential was given a reset"
+    );
+
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("no superuser credential") || said.contains("database servers"),
+        "the refusal does not say which services keep one: {said}"
+    );
+}

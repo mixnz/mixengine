@@ -219,6 +219,7 @@ export * from "./Repair";
 export * from "./RepairReport";
 export * from "./Request";
 export * from "./ReservedRange";
+export * from "./ResetCredential";
 export * from "./Residue";
 export * from "./ResidueId";
 export * from "./ResolvedRuntime";

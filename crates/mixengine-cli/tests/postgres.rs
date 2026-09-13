@@ -676,3 +676,119 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
         "the refusal removed somebody's database"
     );
 }
+
+/// Set the superuser's password in this cluster to something MixEngine does not know.
+///
+/// **The T126 collision, reproduced from the server's side rather than the keyring's** — the MariaDB
+/// suite's reasoning, and the same constraint: a test process that touched this home's credential
+/// store would be one macOS raises a dialog for.
+///
+/// `--single` is the recipe's own mechanism, and it opens no port and no socket.
+fn set_the_superuser_password_behind_mixengines_back(root: &Path, data: &Path, password: &str) {
+    let script = std::env::temp_dir().join("mixengine-t127-collision.sql");
+    std::fs::write(
+        &script,
+        format!("ALTER ROLE postgres PASSWORD '{password}';\n"),
+    )
+    .expect("a statement to feed the backend");
+
+    let input = std::fs::File::open(&script).expect("the statement is readable");
+    let ran = Command::new(root.join("bin").join("postgres"))
+        .args([
+            "--single".to_owned(),
+            "-D".to_owned(),
+            data.display().to_string(),
+            "postgres".to_owned(),
+        ])
+        .stdin(input)
+        .output()
+        .expect("the backend runs in single-user mode");
+
+    let _ = std::fs::remove_file(&script);
+
+    // **Its exit code proves nothing** — single-user mode answers 0 to a syntax error, which is the
+    // measurement the recipe's own doc comment carries. What proves this worked is the refusal the
+    // test asserts next.
+    assert!(
+        ran.status.success(),
+        "the single-user backend would not run: {}",
+        String::from_utf8_lossy(&ran.stderr)
+    );
+}
+
+/// **A credential nothing can produce any more is re-set by a command, and the databases are kept**
+/// — roadmap task **T127**.
+///
+/// PostgreSQL's half of the claim, and it is a different mechanism rather than a second spelling:
+/// the repair is `postgres --single`, which performs its own crash recovery on a cluster that was
+/// killed — measured, and the reason this task did not need a clean stop it cannot have.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a real PostgreSQL — see the module note, and the `postgres` step in ci.yml"]
+async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
+    let (home, _daemon, _registry, installed_at, _port) = created().await;
+    let data = data_directory(&home);
+    watch(&home);
+
+    at("starting the cluster and making a database in it");
+    expect(&home, &["service", "start", SERVICE, "--json"]);
+    let made = expect(
+        &home,
+        &["database", "create", SERVICE, "--name", "shop", "--json"],
+    );
+    assert_eq!(made["made"]["database"], "created", "{made}");
+
+    at("stopping it, and moving the cluster's own copy of the password");
+    expect(&home, &["service", "stop", SERVICE, "--json"]);
+    set_the_superuser_password_behind_mixengines_back(
+        &installed_at,
+        &data,
+        "T127T127T127T127T127T127T127T127",
+    );
+
+    at("asking for a database, which is refused and says what the repair is");
+    let refused = home.mix(&["database", "create", SERVICE, "--name", "blog", "--json"]);
+    assert!(
+        !refused.status.success(),
+        "the cluster accepted a password it no longer has"
+    );
+
+    // **The refusal itself is roadmap task T127's other half.** `28P01` is PostgreSQL's SQLSTATE and
+    // psql never prints it for a refused login, so until this task the sentence below reached
+    // nobody.
+    // **And what it is refused *with* is a start that never finished, not a superuser refusal** —
+    // measured, and the difference from MariaDB is the ready check. This cluster's is an
+    // authenticated query, so a password it does not have takes it from `starting` to `failed
+    // reason=ReadyTimeout`; MariaDB's is `mariadb-admin ping`, which answers before authentication
+    // and lets the service reach `running`, where the provisioning probe then meets the refusal and
+    // `explain_a_refused_superuser` can say what it means.
+    //
+    // So a PostgreSQL user does not see the sentence that names this repair. That is recorded rather
+    // than asserted around: the repair below is what T127 owes, and making the *start* path say it
+    // too is a task of its own.
+    let said = String::from_utf8_lossy(&refused.stderr);
+    assert!(
+        said.contains("did not start"),
+        "the symptom is no longer a start that never finished: {said}"
+    );
+
+    at("re-setting the credential");
+    let walk = expect(
+        &home,
+        &["service", "reset-credential", SERVICE, "--yes", "--json"],
+    );
+    assert_eq!(walk["complete"], true, "{walk}\n{}", home.daemon_log());
+
+    // Proved by the cluster answering an authenticated query, which is what its ready check is.
+    let up = status(&home);
+    assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
+
+    at("checking that the database made before the repair survived it");
+    let again = expect(
+        &home,
+        &["database", "create", SERVICE, "--name", "shop", "--json"],
+    );
+    assert_eq!(
+        again["made"]["database"], "existing",
+        "the repair discarded the cluster: {again}"
+    );
+}
