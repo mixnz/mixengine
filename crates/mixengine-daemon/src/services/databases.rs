@@ -186,6 +186,69 @@ pub(crate) async fn ensure(
     })
 }
 
+/// What a server says when it refuses the superuser password this home holds.
+///
+/// **Two of the three are codes and one is prose, and that asymmetry is measured** — roadmap task
+/// **T127**. `1045` is the MySQL family's and appears verbatim in both clients' output. `28P01` is
+/// PostgreSQL's SQLSTATE and **psql never prints it for a refused login**: it is a libpq
+/// *connection* failure and never reaches the formatter that would print a SQLSTATE, with
+/// `VERBOSITY=verbose` or without. So T126's matcher had never fired for a PostgreSQL user at all,
+/// and what is matched there is the sentence libpq writes, which is the only thing there is to
+/// match. `28P01` is kept beside it for a client that does surface it.
+///
+/// **One list, two readers** — roadmap task **T127a**. [`explain_a_refused_superuser`] reads the
+/// message of a statement MixEngine itself ran, and [`refusal_in_log`] reads lines a server wrote to
+/// whoever was talking to it. A second copy of these three strings is the thing that would go stale
+/// the next time a client changes its wording.
+const REFUSALS: [&str; 3] = ["ERROR 1045", "28P01", "password authentication failed"];
+
+/// The repair T127 built, named for whoever has just met the refusal.
+///
+/// `pub(super)` because a *start* offers it too since roadmap task **T127a**:
+/// [`super::Registry::ensure_running`] is the other place a person meets this, and one sentence
+/// about a repair is the whole point of it being a function rather than a literal in two files.
+pub(super) fn repair_hint(service: &ServiceId) -> String {
+    format!(
+        "the password inside the server's data directory and the one in this machine's credential \
+         store have come apart, and nothing can log in to bring them back together — until this \
+         release a credential's address named the service and not the home, so another \
+         MIXENGINE_HOME on this machine (a sandbox, a second install, a test run) could overwrite \
+         the entry. `mix service reset-credential {service}` writes this home's password into the \
+         data directory and keeps every database in it"
+    )
+}
+
+/// The line in a service's own output that says it refused *this instance's* superuser — roadmap
+/// task **T127a**.
+///
+/// **Two conditions, and the second is the whole of what makes this safe to act on.** A refusal
+/// sentence alone says only that somebody was refused, and a server refuses whoever talks to it: an
+/// application holding a stale password writes the same words into the same pipe. So the line must
+/// also name the account `superuser` — `postgres`, or `root` for the MySQL family, which the recipe
+/// declares and `Provisioning::root_user` reads — and a refusal about somebody's application
+/// account is left to be whatever else the start was.
+///
+/// **The newest match**, because a start that failed printed one of these every quarter of a second
+/// for the whole of its ready timeout, and the last of them is the one the failure is about.
+///
+/// What remains is a third party connecting *as the superuser* with a wrong password while a start
+/// was failing for some other reason. That is somebody who has the superuser password in an
+/// application's configuration and it is stale — a credential that really has come apart — so the
+/// sentence it produces is not even wrong. Recorded rather than guarded against.
+pub(super) fn refusal_in_log<'a, I>(lines: I, superuser: &str) -> Option<String>
+where
+    I: IntoIterator<Item = &'a str>,
+    I::IntoIter: DoubleEndedIterator,
+{
+    lines
+        .into_iter()
+        .rev()
+        .find(|line| {
+            line.contains(superuser) && REFUSALS.iter().any(|refusal| line.contains(refusal))
+        })
+        .map(ToOwned::to_owned)
+}
+
 /// Say what it means when a server refuses the superuser password this home holds — roadmap task
 /// **T126**.
 ///
@@ -197,20 +260,12 @@ pub(crate) async fn ensure(
 /// the person sees without this is `ERROR 1045 (28000): Access denied for user 'root'@'127.0.0.1'`
 /// at the end of a blueprint that downloaded a runtime and made a project directory.
 ///
-/// **Two of the three are codes and one is prose, and that asymmetry is measured** — roadmap task
-/// **T127**. `1045` is the MySQL family's and appears verbatim in both clients' output. `28P01` is
-/// PostgreSQL's SQLSTATE and **psql never prints it for a refused login**: it is a libpq
-/// *connection* failure and never reaches the formatter that would print a SQLSTATE, with
-/// `VERBOSITY=verbose` or without. So T126's matcher had never fired for a PostgreSQL user, and what
-/// this matches there is the sentence libpq writes, which is the only thing there is to match.
-/// `28P01` is kept beside it for a client that does surface it.
+/// What it matches is [`REFUSALS`], which says why one of the three is prose.
 ///
 /// A message that matches none of them leaves the error exactly as it was, which is the right
 /// failure mode for a hint: widening this until it caught a missing database would explain one
 /// failure as another.
 fn explain_a_refused_superuser(error: Error, service: &ServiceId) -> Error {
-    const REFUSALS: [&str; 3] = ["ERROR 1045", "28P01", "password authentication failed"];
-
     if !REFUSALS.iter().any(|code| error.message.contains(code)) {
         return error;
     }
@@ -218,13 +273,12 @@ fn explain_a_refused_superuser(error: Error, service: &ServiceId) -> Error {
     Error::new(
         error.code,
         format!(
-            "{service} refused the superuser password this home holds, so the server was              bootstrapped with a different one — {}",
+            "{service} refused the superuser password this home holds, so the server was \
+             bootstrapped with a different one — {}",
             error.message
         ),
     )
-    .with_hint(format!(
-        "the password inside the server's data directory and the one in this machine's credential          store have come apart, and nothing can log in to bring them back together — until this          release a credential's address named the service and not the home, so another          MIXENGINE_HOME on this machine (a sandbox, a second install, a test run) could overwrite          the entry. `mix service reset-credential {service}` writes this home's password into the          data directory and keeps every database in it"
-    ))
+    .with_hint(repair_hint(service))
 }
 
 /// What one object was, said the way the wire says it.
@@ -521,7 +575,7 @@ mod tests {
         let service = ServiceId::parse("postgres@main").expect("an id");
         let refused = Error::new(
             ErrorCode::Internal,
-            "look for the database shop failed: psql: error: connection to server at \"127.0.0.1\",              port 5432 failed: FATAL:  password authentication failed for user \"postgres\""
+            "look for the database shop failed: psql: error: connection to server at \"127.0.0.1\", port 5432 failed: FATAL:  password authentication failed for user \"postgres\""
                 .to_owned(),
         );
 
@@ -575,5 +629,87 @@ mod tests {
 
         assert_eq!(explained.message, refused.message);
         assert!(explained.hint.is_none(), "{explained:?}");
+    }
+
+    /// A PostgreSQL log line from a refused superuser, as the server writes it to its own stderr.
+    const PG_REFUSAL: &str = "2026-09-13 12:00:00.000 +07 [1234] FATAL:  password authentication \
+                              failed for user \"postgres\"";
+
+    /// **The line the server printed is what a failed start is named from** — roadmap task
+    /// **T127a**. The whole of the risk is here: this matcher runs over a log nobody controls.
+    #[test]
+    fn a_superuser_refusal_is_found_in_the_lines_the_server_printed() {
+        let said = refusal_in_log(
+            [
+                "LOG:  database system is ready to accept connections",
+                PG_REFUSAL,
+            ],
+            "postgres",
+        );
+
+        assert_eq!(said.as_deref(), Some(PG_REFUSAL));
+    }
+
+    /// **And a refusal about somebody else's account is not this.** An application with a stale
+    /// password in its configuration writes the same sentence into the same pipe; naming a start
+    /// after it would send the reader to repair a credential that is not the one at fault.
+    #[test]
+    fn a_refusal_naming_another_account_is_left_alone() {
+        let said = refusal_in_log(
+            ["FATAL:  password authentication failed for user \"shop\""],
+            "postgres",
+        );
+
+        assert_eq!(said, None);
+    }
+
+    /// The MySQL family's wording, matched on the code its client prints.
+    #[test]
+    fn the_mysql_familys_refusal_is_found_too() {
+        let line = "ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: \
+                    YES)";
+
+        assert_eq!(refusal_in_log([line], "root").as_deref(), Some(line));
+    }
+
+    /// A log with nothing of the kind in it says nothing, and so does an empty one.
+    #[test]
+    fn an_ordinary_log_is_not_a_refusal() {
+        assert_eq!(
+            refusal_in_log(
+                [
+                    "LOG:  starting PostgreSQL 17.11",
+                    "LOG:  database system is ready to accept connections",
+                ],
+                "postgres",
+            ),
+            None
+        );
+        assert_eq!(refusal_in_log([], "postgres"), None);
+    }
+
+    /// **The newest one**, because a start that failed printed one every quarter of a second for the
+    /// whole of its ready timeout and the last of them is the one the failure is about.
+    #[test]
+    fn the_last_refusal_is_the_one_reported() {
+        let first = "FATAL:  password authentication failed for user \"postgres\" (1)";
+        let last = "FATAL:  password authentication failed for user \"postgres\" (2)";
+
+        assert_eq!(
+            refusal_in_log([first, last], "postgres").as_deref(),
+            Some(last)
+        );
+    }
+
+    /// The repair is one sentence with two readers — **T127a**. [`explain_a_refused_superuser`] is
+    /// the other, and a second copy of this text is what would go stale.
+    #[test]
+    fn the_repair_sentence_names_the_service_it_is_for() {
+        let hint = repair_hint(&service());
+
+        assert!(
+            hint.contains("mix service reset-credential mariadb@main"),
+            "{hint}"
+        );
     }
 }

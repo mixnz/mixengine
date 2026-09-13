@@ -826,14 +826,25 @@ impl Registry {
         match self.start(&graph, &plan).await.failed {
             None => Ok(()),
 
-            Some((failed, reason)) => Err(mixengine_proto::Error::new(
-                mixengine_proto::ErrorCode::PreconditionFailed,
-                match reason {
-                    Some(reason) => format!("{failed} did not start — {reason}"),
-                    None => format!("{failed} did not start"),
-                },
-            )
-            .with_hint(format!("`mix service logs {failed}` has what it printed"))),
+            Some((failed, reason)) => {
+                // **The one start failure this daemon can do better than "read the log"** — roadmap
+                // task **T127a**. T127 built the repair and reached it from the provisioning probe,
+                // which is a *running* server; this is the same sentence for a database that never
+                // got there.
+                let hint = match &reason {
+                    Some(StateReason::SuperuserRefused { .. }) => databases::repair_hint(&failed),
+                    _ => format!("`mix service logs {failed}` has what it printed"),
+                };
+
+                Err(mixengine_proto::Error::new(
+                    mixengine_proto::ErrorCode::PreconditionFailed,
+                    match reason {
+                        Some(reason) => format!("{failed} did not start — {reason}"),
+                        None => format!("{failed} did not start"),
+                    },
+                )
+                .with_hint(hint))
+            }
         }
     }
 
@@ -1791,6 +1802,11 @@ impl Registry {
                 usize::from(spec.logs().ring_lines),
             ),
             host: Arc::clone(&self.host),
+            // **T127a.** [`None`] for everything that is not a database — the same map
+            // `database.create` reads, filled by the [`Registry::graph`] every start goes through.
+            superuser: self
+                .provisioning_for(&id)
+                .map(|provisioning| provisioning.root_user()),
             events: self.events.clone(),
             cancel: cancel.clone(),
             asked_to_start: Arc::clone(&asked_to_start),
