@@ -58,6 +58,12 @@ pub struct SecretSpec {
     pub length: usize,
 }
 
+/// How a recipe builds one sequence of steps from a context that already carries its credentials.
+///
+/// A named type because [`Ritual`] holds two of these and the second is an [`Option`], which clippy
+/// reads — rightly — as a signature nobody should have to parse twice.
+pub type BuildSteps = fn(&Context) -> Result<Vec<Step>>;
+
 /// A first-run ritual, as a recipe declares it.
 ///
 /// Declared with no [`Context`] because the daemon has to know whether there *is* a ritual before it
@@ -71,7 +77,7 @@ pub struct Ritual {
     pub secrets: &'static [SecretSpec],
 
     /// Builds the steps, from a context that already carries those credentials.
-    pub steps: fn(&Context) -> Result<Vec<Step>>,
+    pub steps: BuildSteps,
 
     /// Re-sets those same credentials in a data directory that already exists — roadmap task
     /// **T127**.
@@ -89,7 +95,7 @@ pub struct Ritual {
     ///
     /// [`None`] for a ritual with no offline repair, which the daemon reports as `Unsupported`
     /// rather than as a `todo!()`.
-    pub reset: Option<fn(&Context) -> Result<Vec<Step>>>,
+    pub reset: Option<BuildSteps>,
 }
 
 // **The shape moved to [`super::step`]** when provisioning needed it too — roadmap task

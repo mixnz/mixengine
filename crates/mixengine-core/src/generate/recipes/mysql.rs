@@ -343,7 +343,7 @@ impl Recipe for Mysql {
         Some(Ritual {
             secrets: SECRETS,
             steps,
-            reset: None,
+            reset: Some(reset_steps),
         })
     }
 
@@ -419,18 +419,7 @@ fn steps(context: &Context) -> Result<Vec<Step>> {
 pub(super) fn steps_for(context: &Context, route: Route, windows: bool) -> Result<Vec<Step>> {
     let password = context.secret(ROOT);
 
-    // **Refused rather than escaped**, for MariaDB's reason: the only producer of this value is
-    // `mixengine_platform::generate_secret`, whose alphabet is what makes the interpolation below
-    // safe without an escaper nobody could prove right.
-    if password.is_empty() || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
-        return Err(Error::SettingValue {
-            service: context.service().as_str().to_owned(),
-            key: "root password",
-            value: "<redacted>".to_owned(),
-            reason: "a generated credential is alphanumeric so that it needs no escaping in the \
-                     statement that sets it; this one is not, which is a bug in whatever made it",
-        });
-    }
+    refuse_a_password_that_needs_escaping(context, password)?;
 
     match route {
         Route::Initialize => Ok(vec![
@@ -454,6 +443,78 @@ pub(super) fn steps_for(context: &Context, route: Route, windows: bool) -> Resul
             bootstrap(context, password)?,
         ]),
     }
+}
+
+/// Set the root password in a data directory that already exists — roadmap task **T127**.
+///
+/// # Errors
+///
+/// As [`steps`].
+fn reset_steps(context: &Context) -> Result<Vec<Step>> {
+    reset_steps_for(
+        context,
+        route(context.version(), cfg!(windows)),
+        cfg!(windows),
+    )
+}
+
+/// The reset for one route, which is what a test can ask for on any system.
+///
+/// **The route's own password step, and the routes differ.** `Route::Initialize` sets it with `ALTER
+/// USER` through `--init-file` on a server bound to nothing; the two older routes write the grant
+/// tables directly in `--bootstrap`. What is dropped from each is the step that *creates* the
+/// directory — `initialize`, `install_db`, `copy_the_shipped_data` — because a repair has one
+/// already, full of somebody's databases.
+///
+/// **`windows` is an argument for [`route`]'s reason**, and here it buys more than it does there:
+/// 5.6 is the one published line that repairs itself through `--bootstrap`, and no machine anybody
+/// runs these tests on is running 5.6.
+///
+/// **Measured**, against 8.0.44 on Windows: `--skip-networking --init-file` against a populated data
+/// directory that had been killed ran XA crash recovery and set the password in 2.3 s, keeping every
+/// database. It also failed the first time, with `The innodb_system data file 'ibdata1' must be
+/// writable` — because `mysqld.exe` forks a child and the child was still holding the directory.
+/// That is a sentence about a live process wearing the words of a file permission, and it is why the
+/// daemon proves the directory is writable before it runs any of this.
+///
+/// # Errors
+///
+/// As [`steps_for`].
+pub(super) fn reset_steps_for(context: &Context, route: Route, windows: bool) -> Result<Vec<Step>> {
+    let password = context.secret(ROOT);
+
+    refuse_a_password_that_needs_escaping(context, password)?;
+
+    Ok(match route {
+        Route::Initialize => vec![set_the_password(context, password, windows)?],
+        Route::Script | Route::ShippedData => vec![bootstrap(context, password)?],
+    })
+}
+
+/// Refuse a credential that would have to be escaped to be interpolated.
+///
+/// **Refused rather than escaped**, for MariaDB's reason: the only producer of this value is
+/// `mixengine_platform::generate_secret`, whose alphabet is what makes the interpolation below safe
+/// without an escaper nobody could prove right.
+///
+/// One function and not two copies since **T127**, so that the repair cannot end up with a weaker
+/// rule than the ritual it repairs.
+///
+/// # Errors
+///
+/// [`Error::SettingValue`], naming no value.
+fn refuse_a_password_that_needs_escaping(context: &Context, password: &str) -> Result<()> {
+    if password.is_empty() || !password.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return Err(Error::SettingValue {
+            service: context.service().as_str().to_owned(),
+            key: "root password",
+            value: "<redacted>".to_owned(),
+            reason: "a generated credential is alphanumeric so that it needs no escaping in the \
+                     statement that sets it; this one is not, which is a bug in whatever made it",
+        });
+    }
+
+    Ok(())
 }
 
 /// `mysqld --initialize-insecure`: the server builds its own data directory.
@@ -842,6 +903,35 @@ mod tests {
         let mut context = context_of(version, provides, "{}");
         context.put_secret(ROOT, "abcd1234abcd1234abcd1234abcd1234");
         context
+    }
+
+    /// **A reset follows the same route its ritual does, and creates no data directory** — roadmap
+    /// task **T127**.
+    ///
+    /// All four rows of the route table, for [`route`]'s own reason: 5.6 is the one published line
+    /// that repairs itself through `--bootstrap` rather than through `--init-file`, and no machine
+    /// anybody runs these tests on is running 5.6.
+    #[test]
+    fn the_reset_follows_the_route_and_creates_no_data_directory() {
+        for (version, provides, route, windows) in [
+            ("8.4.10", provides(), Route::Initialize, false),
+            ("5.7.44", provides(), Route::Initialize, true),
+            ("5.6.51", provides_5_6(), Route::Script, false),
+            ("5.6.51", provides(), Route::ShippedData, true),
+        ] {
+            let context = initialised(version, provides);
+            let steps = reset_steps_for(&context, route, windows).expect("a reset builds");
+
+            assert!(!steps.is_empty(), "{version} {route:?}");
+
+            for step in &steps {
+                let program = step.program.display().to_string();
+                assert!(
+                    !program.contains(INSTALL_DB),
+                    "{version} {route:?}: a reset step creates a data directory: {program}"
+                );
+            }
+        }
     }
 
     /// **Every step of every route, and the file, name one scratch directory of this instance's
