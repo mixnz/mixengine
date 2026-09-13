@@ -35,6 +35,30 @@ pub fn bare_name(command: &str) -> Option<&str> {
     Some(first)
 }
 
+/// The programs that read a package name out of the directory they are run in.
+///
+/// Short, and every entry measured rather than assumed: all four read `package.json`'s `name` from
+/// the folder's basename when they initialise into `.`, which is the property
+/// [`crate::blueprints::plan::not_an_npm_name`] judges.
+const NPM_FAMILY: &[&str] = &["npx", "npm", "yarn", "pnpm"];
+
+/// Whether `command` runs one of the npm family — roadmap task **T120c**.
+///
+/// **A guess, and admitted to be one**, which is why nothing that *blocks* anybody uses it: the
+/// design's D3 has the blueprint declare `needs_npm_safe_dir` rather than have a plan read tea
+/// leaves out of a command string. This answers a smaller question, asked only after a scaffold has
+/// already failed — may the failure add npm's rule to what it says? A miss there costs one hint. A
+/// wrong guess costs a false sentence: `composer create-project` takes its package name from its
+/// argument, so telling somebody their folder is the problem would send them renaming it for
+/// nothing.
+///
+/// [`bare_name`]'s own doubts are inherited whole. A command whose first word is quoted, a path or
+/// a shell construct is not judged, so `./node_modules/.bin/create-next-app .` is left alone.
+#[must_use]
+pub fn is_an_npm_command(command: &str) -> bool {
+    bare_name(command).is_some_and(|name| NPM_FAMILY.contains(&name.to_ascii_lowercase().as_str()))
+}
+
 /// The scaffold step's disposition: `Confirm` unless its program is a bare name nothing on
 /// `scaffold_path` answers to, which is `Blocked` — decided here rather than at the end of a job
 /// (the design's D1 and D3).
@@ -91,6 +115,30 @@ mod tests {
             "   ",
         ] {
             assert_eq!(bare_name(command), None, "{command:?}");
+        }
+    }
+
+    /// **Which commands D8's guess is allowed to speak about** — roadmap task **T120c**.
+    #[test]
+    fn the_npm_family_is_recognised_and_nothing_else_is() {
+        for command in [
+            "npx --yes create-next-app@latest . --yes",
+            "npm init vite@latest .",
+            "YARN create vite",
+            "pnpm create next-app",
+        ] {
+            assert!(is_an_npm_command(command), "{command:?}");
+        }
+
+        for command in [
+            "composer create-project laravel/laravel . --no-interaction",
+            "php artisan install",
+            "django-admin startproject .",
+            // Not a bare name, so nothing is known about it — and D8 stays quiet.
+            "./node_modules/.bin/create-next-app .",
+            "",
+        ] {
+            assert!(!is_an_npm_command(command), "{command:?}");
         }
     }
 

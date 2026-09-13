@@ -222,7 +222,11 @@ readable, writable setting since it was written, and nothing has ever read the c
       refusal *suggests*. **Under-blocking is the safe direction** and the rule is written for it —
       a false refusal forbids a thing that would have worked with no way round, a miss costs one
       install and falls back to the failure's own words, which now name the folder too, for every
-      imported blueprint whose author will never declare the flag.
+      imported blueprint whose author will never declare the flag — but only when the command is one
+      of the npm family, because the first cut said it after *any* failed scaffold and a `composer`
+      that died over a network would have told somebody their folder was the problem. That is this
+      task's own mistake pointed back at itself, and it is the one place a guess about the command
+      is allowed: it may add a hint after a failure, never refuse anybody up front.
       Design: [2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../../docs/superpowers/specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
 
 - [x] **T121** An apply says what an unticked consent box means, and a finished apply ends at the

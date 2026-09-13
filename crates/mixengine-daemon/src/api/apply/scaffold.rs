@@ -395,8 +395,14 @@ fn keep_last(last: &mut Vec<String>, line: &LogLine) {
 /// sentence is written here as well, arriving after the download instead of before it, which is
 /// worse than the block and better than npm's own words.
 ///
-/// The rule is asked of [`mixengine_core::blueprints::plan`] rather than restated: a second copy of
-/// the charset is two rules that drift.
+/// **Only for a command of the npm family**, which is the one guess this makes and the reason it is
+/// kept narrow: `composer create-project` takes its package name from its argument, so an npm rule
+/// added to *its* failure would be a false sentence sending somebody to rename a folder for
+/// nothing — the comprehension failure T120c is about, pointed back at us. A command the guess does
+/// not recognise simply gets no extra sentence.
+///
+/// Both rules are asked of [`mixengine_core::blueprints`] rather than restated: a second copy of
+/// the charset, or of the program list, is two rules that drift.
 fn failure_in(command: &str, code: Option<i32>, last: &[String], root: &Path) -> String {
     let ended = match code {
         Some(code) => format!("`{command}` exited with {code}"),
@@ -414,6 +420,10 @@ fn failure_in(command: &str, code: Option<i32>, last: &[String], root: &Path) ->
         ),
         None => ended,
     };
+
+    if !mixengine_core::blueprints::program::is_an_npm_command(command) {
+        return said;
+    }
 
     match mixengine_core::blueprints::plan::not_an_npm_name(root) {
         Some(reason) => format!(
@@ -653,6 +663,27 @@ mod tests {
 
         assert!(said.contains("Next.js 1"), "{said}");
         assert!(said.contains("next-js-1"), "{said}");
+    }
+
+    /// **And npm's rule is only spoken about npm's commands.** `composer create-project` takes its
+    /// package name from its argument, so telling somebody whose `composer` failed over a network
+    /// that their folder is the problem is a false sentence sending them to rename a folder for
+    /// nothing — the same comprehension failure this whole task exists to answer, pointed the other
+    /// way. D8's guess is narrow because a miss costs a hint and a wrong guess costs a wasted
+    /// afternoon.
+    #[test]
+    fn a_composer_failure_is_told_nothing_about_npms_rule() {
+        let last = vec!["Could not resolve dependencies".to_owned()];
+
+        let said = failure_in(
+            "composer create-project laravel/laravel . --no-interaction",
+            Some(1),
+            &last,
+            Path::new("/work/My Blog"),
+        );
+
+        assert!(!said.contains("npm"), "{said}");
+        assert!(!said.contains("rename"), "{said}");
     }
 
     /// And a folder npm is happy with gets no lecture — including the underscored one, which is the

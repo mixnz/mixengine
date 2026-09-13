@@ -171,9 +171,23 @@ blocked step's reason ends with the answer rather than the rule:
 ### D8 — A scaffold that fails anyway still explains itself
 
 D3 covers blueprints that declare the flag. A blueprint somebody imported never will. So when a
-scaffold step **fails** and its directory's basename is not npm-safe, the failure text gains one
-sentence pointing at the folder — costing one condition, and covering the population D3 cannot
-reach.
+scaffold step **fails**, its command is one of the npm family, and its directory's basename is not
+npm-safe, the failure text gains one sentence pointing at the folder — covering the population D3
+cannot reach.
+
+**Amended after implementation.** The first draft asked only the folder, on the reasoning that it
+cost one condition. It cost more than that: `composer create-project` takes its package name from
+its argument, so a `composer` that failed over a network in a folder called `My Blog` would have
+been answered with *this command takes its package name from the folder it runs in* — a false
+sentence sending somebody to rename a folder for nothing, which is this task's own subject pointed
+back at itself. The condition is now two, and the second is `program::bare_name` against
+`npx`, `npm`, `yarn`, `pnpm`.
+
+**That this is a guess, and D3 forbids guesses, is not a contradiction.** D3 forbids a guess
+deciding whether to *refuse* somebody, where being wrong forbids a thing that works. Here the guess
+only decides whether an already-failed step says one more sentence: a miss costs a hint, and the
+narrowness is what stops a wrong guess costing anything at all. `./node_modules/.bin/create-next-app`
+is not recognised and says nothing, which is the right way to be wrong.
 
 This is not a substitute for D5 and is not treated as one: it arrives after the install, which is
 the whole thing D5 exists to prevent.
@@ -229,7 +243,8 @@ the new field or the gallery's canonical-form test fails, which is the test that
 5. A blueprint without the flag is never blocked by it, whatever its folder is called.
 6. Quick Start applies into the folder the person browsed to, byte for byte, and its label says so.
 7. `mix blueprint apply --project "Next.js 1"` with no `--path` still composes `./next-js-1`.
-8. A scaffold that fails in a folder D4 refuses gains the explaining sentence (D8).
+8. An **npm-family** scaffold that fails in a folder D4 refuses gains the explaining sentence, and a
+   `composer` one that fails in the same folder does not (D8).
 9. A failed step's quoted lines render as lines in the desktop (D9).
 10. `manifest::render` round-trips the new field; the gallery stays canonical.
 

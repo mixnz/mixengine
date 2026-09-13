@@ -221,8 +221,14 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   2026-09-13). `slug` is the *generator* here, never the ruler — it always answers in a charset the
   rule accepts, which is why it can be what the refusal suggests. Where the rule is uncertain it
   permits, because refusing a directory that would have worked leaves somebody with no way round
-  while missing one costs a wasted install; the leftover case is covered late, by the failure text
-  itself naming the folder. Only `nextjs` declares it, asserted over the shipped set.
+  while missing one costs a wasted install; the leftover case — a blueprint somebody imported, whose
+  author will never declare the flag — is covered late, by the failure text itself naming the folder,
+  and **only for a command of the npm family** (`npx`, `npm`, `yarn`, `pnpm`), because
+  `composer create-project` names itself from its argument and telling its failure that the folder
+  is the problem would send somebody renaming one for nothing. That guess is allowed there and
+  nowhere near the block, which is what D3's *declared, never inferred* is about: a guess may add a
+  hint after a failure, never refuse somebody up front. Only `nextjs` declares it, asserted over the
+  shipped set.
 - **No timeout.** Any number would kill a legitimate `composer install` on a slow line; the bound is
   that the job is visible and `job.cancel` stops it — killing the process *group*, so what a package
   manager forked goes with it.
