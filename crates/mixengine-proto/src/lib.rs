@@ -142,9 +142,9 @@ pub use service::{
 };
 pub use service_api::{
     FrontEndOutcome, FrontEndReport, FrontEndSwitch, IdleReport, MemoryWatchdog, PortMoved,
-    ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceFailure,
-    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
-    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk,
+    ResetCredential, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete,
+    ServiceFailure, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList,
+    ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk,
 };
 pub use site_api::{
     SharingChange, SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery,

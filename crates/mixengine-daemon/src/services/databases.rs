@@ -236,7 +236,10 @@ pub(crate) async fn read(host: &Arc<dyn Host>, address: &str) -> Result<Option<S
 }
 
 /// Store one, the same way.
-async fn write(host: &Arc<dyn Host>, address: &str, secret: &str) -> Result<(), Error> {
+///
+/// `pub(super)` since **T127**: `reset` is its second caller, for the credential a repair generates
+/// where the keyring holds none.
+pub(super) async fn write(host: &Arc<dyn Host>, address: &str, secret: &str) -> Result<(), Error> {
     let (host, address, secret) = (Arc::clone(host), address.to_owned(), secret.to_owned());
 
     tokio::task::spawn_blocking(move || {
