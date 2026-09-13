@@ -11,9 +11,11 @@
 //! every published cell by `mixengine-packages`' own `mysql_smoke.py` before the artifact was
 //! allowed out:
 //!
-//! - **There is no `--bootstrap` after 5.7.6.** MariaDB sets its root password through a server that
-//!   reads SQL on standard input; MySQL removed that mode, so the statement goes into a file the
-//!   daemon writes and removes around one step — see
+//! - **`--bootstrap` was deprecated at 5.7.6 and removed at 8.0.0, not removed at 5.7.6.** Measured
+//!   against 5.7.44's own `--verbose --help`, which still lists it, and against a run: 1.7 s to set
+//!   the password and exit. So 5.7 sets its root password the way 5.6 does, on standard input to a
+//!   server that runs the statements and stops; only 8.0 and newer, which really have lost the mode,
+//!   put the statement in a file the daemon writes and removes around one step — see
 //!   [`SecretFile`].
 //! - **`--initialize-insecure` creates exactly one account, `root@localhost`.** MariaDB's installer
 //!   creates `root@127.0.0.1` as well, which is what makes its `skip-name-resolve` safe; copying
@@ -26,11 +28,14 @@
 //! - **Bootstrapping is a table of three routes and not a version test** — see `Route`. 5.6
 //!   answers differently on Windows than on Unix, and its Unix installer is *Perl* in a tree
 //!   compiled from source, so what runs it is read off its own first line.
-//! - **5.7's Windows binary refuses `--skip-networking` alone.** It aborts a `--skip-networking`
-//!   start with `TCP/IP, --shared-memory, or --named-pipe should be configured on NT OS` — after
-//!   running the `--init-file` that sets the password, so the account is left with its new password
-//!   on a server that then fails to come up. Measured against 5.7.44; 8.0.44 has no such check, so
-//!   the extra flag is added only where the version and the OS both call for it.
+//! - **5.7 cannot be stopped from an `--init-file`, so it is never started with one.** Its Windows
+//!   binary first refuses `--skip-networking` alone, aborting with `TCP/IP, --shared-memory, or
+//!   --named-pipe should be configured on NT OS`; handed a transport that satisfies that check it
+//!   runs the file, logs `ready for connections` and then stays up, the `SHUTDOWN` it was given
+//!   having reached a server with nothing yet able to receive it. What that costs is not a failure
+//!   but a silence: the whole of `BOOTSTRAP_PATIENCE` spent on a server nobody asked for, and a
+//!   first run that never finished. Measured against 5.7.44 — and the reason the fix is a route for
+//!   the whole line on every system rather than one more flag for one of them.
 //!
 //! # What this recipe deliberately does not do
 //!
@@ -394,6 +399,20 @@ fn version_parts(version: &str) -> (u32, u32) {
     (parts.next().unwrap_or(0), parts.next().unwrap_or(0))
 }
 
+/// Whether this version sets its root password in `--bootstrap` rather than through `--init-file`.
+///
+/// **Not the same split as [`route`]**, which is about what builds a data directory. 5.7 builds one
+/// the modern way, with `--initialize-insecure`, and then sets the password the old way, because it
+/// still has the old way and cannot be made to finish the new one — see the module header. 5.6
+/// answers the same and reaches [`bootstrap`] through its own routes regardless.
+///
+/// Major version alone, because `--bootstrap` went at 8.0.0 and nowhere in between. A string
+/// [`version_parts`] cannot read answers `0` and so reads as old, which costs nothing: [`route`]
+/// sends that version down 5.6's own routes and it never reaches this question.
+fn bootstraps_the_password(version: &str) -> bool {
+    version_parts(version).0 < 8
+}
+
 /// The things that have to happen before this database is ever started.
 ///
 /// # Errors
@@ -424,7 +443,7 @@ pub(super) fn steps_for(context: &Context, route: Route, windows: bool) -> Resul
     match route {
         Route::Initialize => Ok(vec![
             initialize(context)?,
-            set_the_password(context, password, windows)?,
+            the_password_step(context, password, windows)?,
         ]),
 
         Route::Script => {
@@ -460,11 +479,11 @@ fn reset_steps(context: &Context) -> Result<Vec<Step>> {
 
 /// The reset for one route, which is what a test can ask for on any system.
 ///
-/// **The route's own password step, and the routes differ.** `Route::Initialize` sets it with `ALTER
-/// USER` through `--init-file` on a server bound to nothing; the two older routes write the grant
-/// tables directly in `--bootstrap`. What is dropped from each is the step that *creates* the
-/// directory — `initialize`, `install_db`, `copy_the_shipped_data` — because a repair has one
-/// already, full of somebody's databases.
+/// **The route's own password step, and the routes differ** — [`the_password_step`] for
+/// `Route::Initialize`, which is `ALTER USER` through `--init-file` on 8.0 and newer and a
+/// `--bootstrap` on 5.7; the two older routes write the grant tables directly in `--bootstrap` too.
+/// What is dropped from each is the step that *creates* the directory — `initialize`, `install_db`,
+/// `copy_the_shipped_data` — because a repair has one already, full of somebody's databases.
 ///
 /// **`windows` is an argument for [`route`]'s reason**, and here it buys more than it does there:
 /// 5.6 is the one published line that repairs itself through `--bootstrap`, and no machine anybody
@@ -486,9 +505,27 @@ pub(super) fn reset_steps_for(context: &Context, route: Route, windows: bool) ->
     refuse_a_password_that_needs_escaping(context, password)?;
 
     Ok(match route {
-        Route::Initialize => vec![set_the_password(context, password, windows)?],
+        Route::Initialize => vec![the_password_step(context, password, windows)?],
         Route::Script | Route::ShippedData => vec![bootstrap(context, password)?],
     })
+}
+
+/// The step that gives `root` its password on a directory `--initialize-insecure` built.
+///
+/// One function so that the ritual and the repair cannot drift apart — the T127 reason
+/// [`refuse_a_password_that_needs_escaping`] is one function — and the branch inside it is
+/// [`bootstraps_the_password`]: 5.7 through a server that reads its statements and exits, 8.0 and
+/// newer through one that has to be told to stop.
+///
+/// # Errors
+///
+/// As [`steps_for`].
+fn the_password_step(context: &Context, password: &str, windows: bool) -> Result<Step> {
+    if bootstraps_the_password(context.version()) {
+        bootstrap_the_password(context, password)
+    } else {
+        set_the_password(context, password, windows)
+    }
 }
 
 /// Refuse a credential that would have to be escaped to be interpolated.
@@ -548,13 +585,9 @@ fn initialize(context: &Context) -> Result<Step> {
 /// 3306, on a temporary port, or through a socket. This server binds no *network* port, runs the two
 /// statements it was given and stops itself with the second of them.
 ///
-/// **5.7's Windows binary will not start on `--skip-networking` alone**, though — measured against
-/// 5.7.44, which runs the `--init-file` and then aborts with `TCP/IP, --shared-memory, or
-/// --named-pipe should be configured on NT OS`, leaving the account with its new password on a
-/// server that never came up. `--shared-memory` is a channel nothing off this machine can reach
-/// either, so it satisfies that check without reopening the window `--skip-networking` closes. 8.0
-/// dropped the check, and every other route here already avoids `--skip-networking` entirely, so the
-/// flag is added for 5.7 on Windows only.
+/// **8.0 and newer only**, which is what makes the paragraph above true: 5.7 runs the file and then
+/// stays up regardless, so it is sent to [`bootstrap_the_password`] instead and no version reaching
+/// here needs a transport flag to get past a check 8.0 dropped.
 ///
 /// **The Unix socket it still opens is this home's own**, because a server that binds no port binds
 /// a socket instead and the built-in name for it is `/tmp/mysql.sock` — one path for every MySQL on
@@ -588,10 +621,6 @@ fn set_the_password(context: &Context, password: &str, windows: bool) -> Result<
         args.push(format!("--socket={}", socket_path(context)?.display()));
     }
 
-    if windows && version_parts(context.version()).0 < 8 {
-        args.push("--shared-memory".to_owned());
-    }
-
     args.push(format!("--init-file={}", init.display()));
 
     Ok(Step {
@@ -607,6 +636,50 @@ fn set_the_password(context: &Context, password: &str, windows: bool) -> Result<
                 "ALTER USER '{ROOT}'@'localhost' IDENTIFIED BY '{password}';\nSHUTDOWN;\n"
             ),
         }),
+        env: super::scratch_environment(context),
+        cwd: context.etc().to_path_buf(),
+        timeout: BOOTSTRAP_PATIENCE,
+    })
+}
+
+/// Set the root password on 5.7, through the same bootstrap mode 5.6 uses.
+///
+/// **The mode 5.7 was said not to have.** It was deprecated at 5.7.6 and removed at 8.0.0, and
+/// reading the first date as the second is what put this line on `--init-file`, where it hangs —
+/// the module header has the measurement. Here the server reads two statements on standard input,
+/// writes them and exits: 1.7 s against 5.7.44 on Windows, and no listener of any kind to reason
+/// about, which is what `--skip-networking`, `--shared-memory` and a socket path were all for.
+///
+/// **`authentication_string` and not `Password`**, the column 5.7.6 really did remove; and an
+/// `ALTER USER` in its place would be refused, because bootstrap mode implies `--skip-grant-tables`.
+/// `PASSWORD()` is still there to hash with, deprecated beside `--bootstrap` and removed with it.
+///
+/// **Nothing is deleted here, unlike [`bootstrap`].** What this route starts from is a directory
+/// `--initialize-insecure` built, which holds `root@localhost` and nothing else — no anonymous
+/// accounts and no `test` database — and the repair of T127 runs the same step against a directory
+/// full of somebody's own work, where removing rows would be the last thing to do.
+///
+/// **No `--log-error`, for [`bootstrap`]'s reason**: a statement that fails is quoted back by the
+/// server that refused it, and this one carries the credential. The error log would be a file on
+/// disk holding it. What a failure here can say is therefore what the process itself says, which is
+/// the trade ADR 0006 already makes for every step fed on standard input.
+fn bootstrap_the_password(context: &Context, password: &str) -> Result<Step> {
+    Ok(Step {
+        label: "set the root password".to_owned(),
+        program: context.provided(SERVER)?,
+        args: vec![
+            "--no-defaults".to_owned(),
+            "--bootstrap".to_owned(),
+            format!("--basedir={}", context.install_path().display()),
+            format!("--datadir={}", context.data().display()),
+        ],
+        stdin: Some(format!(
+            "USE mysql;\n\
+             UPDATE user SET authentication_string = PASSWORD('{password}'), \
+             plugin = 'mysql_native_password' WHERE User = '{ROOT}';\n\
+             FLUSH PRIVILEGES;\n"
+        )),
+        secret_file: None,
         env: super::scratch_environment(context),
         cwd: context.etc().to_path_buf(),
         timeout: BOOTSTRAP_PATIENCE,
@@ -699,8 +772,9 @@ fn copy_the_shipped_data(context: &Context) -> Result<Step> {
 
 /// Set the root password on 5.6, through a server in bootstrap mode listening on nothing.
 ///
-/// **The one line that still has `--bootstrap`**, which is why this route reads its SQL on standard
-/// input where the modern one cannot: the mode was removed at 5.7.6.
+/// **5.6's grant tables, which are not 5.7's**: `Password` is the column here and 5.7.6 removed it,
+/// so 5.7 gets a bootstrap of its own in [`bootstrap_the_password`] rather than this one. What the
+/// two share is the mode — deprecated at 5.7.6, removed at 8.0.0 — and the reason for it.
 ///
 /// The grant tables are written to directly because bootstrap mode implies `--skip-grant-tables`,
 /// which refuses `SET PASSWORD` — the same refusal MariaDB's own bootstrap meets. `PASSWORD()` is a
@@ -1293,36 +1367,74 @@ mod tests {
         );
     }
 
-    /// 5.7's Windows binary aborts on `--skip-networking` alone, so it also gets `--shared-memory`.
+    /// **5.7 sets its password in `--bootstrap`, on every system** — the `--init-file` it is given
+    /// instead runs, sets the password and leaves a server that will not stop.
     ///
-    /// Measured against 5.7.44: the init-file still runs and sets the password, but the server then
-    /// refuses to come up at all with `TCP/IP, --shared-memory, or --named-pipe should be configured
-    /// on NT OS`. `windows` is passed explicitly — see [`steps_for`] — so this is exercised on every
-    /// system the tests run on, not only on Windows.
+    /// Measured against 5.7.44 on Windows: `ready for connections`, then the whole of
+    /// [`BOOTSTRAP_PATIENCE`] and a first run reported as never finished. `windows` is passed
+    /// explicitly — see [`steps_for`] — so both halves of the old split are exercised wherever the
+    /// tests run, and both of them answer the same now.
     #[test]
-    fn windows_five_seven_gets_shared_memory_because_it_refuses_no_transport_at_all() {
-        let steps = steps_for(&initialised("5.7.44", provides()), Route::Initialize, true)
+    fn five_seven_sets_the_password_in_bootstrap_mode_on_every_system() {
+        for windows in [true, false] {
+            let steps = steps_for(
+                &initialised("5.7.44", provides()),
+                Route::Initialize,
+                windows,
+            )
             .expect("two steps");
 
-        let setting = &steps[1];
-        assert!(
-            setting.args.iter().any(|arg| arg == "--shared-memory"),
-            "{setting:?}"
-        );
+            let setting = &steps[1];
+
+            assert!(
+                setting.args.iter().any(|arg| arg == "--bootstrap"),
+                "windows={windows}: {setting:?}"
+            );
+            assert!(
+                !setting
+                    .args
+                    .iter()
+                    .any(|arg| arg.starts_with("--init-file")),
+                "windows={windows}: a server told to stop from a file is one that does not: \
+                 {setting:?}"
+            );
+            assert!(
+                setting.secret_file.is_none(),
+                "windows={windows}: bootstrap mode reads its statements on stdin: {setting:?}"
+            );
+            assert!(
+                setting
+                    .stdin
+                    .as_deref()
+                    .is_some_and(|sql| sql.contains("authentication_string")),
+                "windows={windows}: 5.7.6 removed the `Password` column this would otherwise \
+                 write: {setting:?}"
+            );
+        }
     }
 
-    /// The same version on Unix needs no such flag: a Unix socket exists whatever `--skip-networking`
-    /// says, so there is nothing there for the check `--shared-memory` works around.
+    /// Neither transport flag survives, because nothing left on this route needs one.
+    ///
+    /// `--shared-memory` was 5.7-on-Windows' way past `TCP/IP, --shared-memory, or --named-pipe
+    /// should be configured on NT OS`, and 8.0 dropped that check; a `--bootstrap` opens no listener
+    /// at all, so 5.7 has nothing to get past either.
     #[test]
-    fn unix_five_seven_needs_no_shared_memory_because_it_always_has_a_socket() {
-        let steps = steps_for(&initialised("5.7.44", provides()), Route::Initialize, false)
-            .expect("two steps");
-
-        let setting = &steps[1];
-        assert!(
-            !setting.args.iter().any(|arg| arg == "--shared-memory"),
-            "{setting:?}"
-        );
+    fn no_route_asks_for_shared_memory_any_more() {
+        for (version, route, windows) in [
+            ("8.4.10", Route::Initialize, false),
+            ("8.4.10", Route::Initialize, true),
+            ("5.7.44", Route::Initialize, false),
+            ("5.7.44", Route::Initialize, true),
+        ] {
+            for step in
+                steps_for(&initialised(version, provides()), route, windows).expect("the steps")
+            {
+                assert!(
+                    !step.args.iter().any(|arg| arg == "--shared-memory"),
+                    "{version} windows={windows}: {step:?}"
+                );
+            }
+        }
     }
 
     /// The server that sets the password names a socket of its own, and no machine-wide one.
@@ -1450,6 +1562,8 @@ mod tests {
 
         for (version, provides, route, windows) in [
             ("8.4.10", provides(), Route::Initialize, false),
+            ("5.7.44", provides(), Route::Initialize, false),
+            ("5.7.44", provides(), Route::Initialize, true),
             ("5.6.51", provides_5_6(), Route::Script, false),
             ("5.6.51", provides(), Route::ShippedData, true),
         ] {

@@ -163,6 +163,13 @@ Rules:
   Windows has neither, and upstream's zip ships a `data/` directory with the system tables already
   built. The generated password goes on afterwards, out of the keyring, on the same terms as
   MariaDB's — stored before anything is created, no fallback to a file.
+  **How it goes on is a second split, and not the same one**: 8.0 and newer take `ALTER USER` from an
+  `--init-file` on a server bound to nothing, which then stops itself; 5.7 and 5.6 write the grant
+  tables on standard input to `mysqld --bootstrap`, which opens no listener and exits. 5.7 is on that
+  side because its `--init-file` server never stops — it runs the file, reports itself ready for
+  connections and stays, so the first run spent its whole patience on a server nobody asked for.
+  `--bootstrap` was deprecated at 5.7.6 and only removed at 8.0.0; reading the first date as the
+  second is what had put 5.7 on the other side.
   **`--initialize-insecure` creates only `root@localhost`**, where MariaDB's installer also creates
   `root@127.0.0.1`: the `skip-name-resolve` in MariaDB's template would leave every client here
   refused by a server whose own log says it is ready for connections. Two `my.cnf` files that look
@@ -193,7 +200,8 @@ is the way out, and T127 is where it was added.
 set the password through a server that listens on nothing*; a repair is the second half, against a
 directory that is already full. Each recipe declares it beside its ritual, because the mechanisms
 are genuinely different — MariaDB writes the grant tables in `--bootstrap`, MySQL runs `ALTER USER`
-through an `--init-file` on a server bound to nothing, PostgreSQL uses `postgres --single`.
+through an `--init-file` on a server bound to nothing from 8.0 and writes the grant tables in
+`--bootstrap` before it, PostgreSQL uses `postgres --single`.
 
 **The two operations refuse each other's cases**, and that is what keeps a repair from becoming a
 data-loss report. A first run passes over a `Ready` directory without touching it, which is why

@@ -38,6 +38,12 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Fixed
+- MySQL 5.7 finishes its first run instead of hanging on *set the root password*. The server it was
+  started with ran the statement, announced itself ready for connections and then never stopped, so
+  the step sat there for its full fifteen minutes and the service was reported as never having
+  finished its first run — while a `mysqld` nobody could see stayed running. 5.7 now sets the
+  password the way 5.6 does, through a server that reads its statements and exits. 5.6 and 8.0 were
+  never affected.
 - A project name typed with a space at either end is applied as the name it will be stored under.
   A blueprint applied to `Laravel ` used to register `Laravel`, then fail to find its own project
   when it created the site, refuse to resume over its own first attempt, and leave the failed
