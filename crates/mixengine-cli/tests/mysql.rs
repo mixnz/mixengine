@@ -95,6 +95,18 @@ const VERSION: &str = "8.4.10";
 /// has it: a home may hold two databases, so every one of them is named.
 const SERVICE: &str = "mysql@main";
 
+/// The instance the credential-reset test drives, which is **not** [`SERVICE`].
+///
+/// **The two ignored tests in this file run at once, in two homes, and a Unix bootstrap keys its
+/// space-free view on the service's id alone** — `/tmp/mixengine-init-<id>`, which the ritual's last
+/// step removes. Two homes bootstrapping one id share it, and the second ritual's cleanup takes the
+/// first one's basedir out from under it: `cannot execute: No such file or directory`, exit 126,
+/// from a script that was there a moment earlier. The same collision is written up at length beside
+/// `the_root_credential_reaches_the_client_through_its_environment_and_not_the_url` in
+/// `mariadb.rs`, which met it first and for the same reason. A name of this test's own is what keeps
+/// the two apart.
+const RESET: &str = "mysql@reset";
+
 /// The MySQL this suite is about, or the reason there is none.
 fn package() -> PathBuf {
     let directory = std::env::var_os(PACKAGE).unwrap_or_else(|| {
@@ -170,8 +182,8 @@ fn index(packed: &Packed, url: &str, provides: serde_json::Map<String, Value>) -
 }
 
 /// Where this instance's data directory is: `data/<package>/<instance>`, because it is named.
-fn data_directory(home: &Home) -> PathBuf {
-    home.path().join("data").join("mysql").join("main")
+fn data_directory(home: &Home, instance: &str) -> PathBuf {
+    home.path().join("data").join("mysql").join(instance)
 }
 
 /// `mix …` for a call that is expected to work, with the daemon's own log in the failure.
@@ -196,8 +208,8 @@ fn expect(home: &Home, args: &[&str]) -> Value {
 }
 
 /// What `mix service status mysql@main` says.
-fn status(home: &Home) -> Value {
-    json(&home.mix(&["service", "status", SERVICE, "--json"]))
+fn status(home: &Home, service: &str) -> Value {
+    json(&home.mix(&["service", "status", service, "--json"]))
 }
 
 /// Every `service.first_run` job this home has run.
@@ -323,6 +335,11 @@ fn with_the_password(root: &Path, port: u16, user: &str, password: &str) -> Stri
 /// signs its own index, and installed through `package.install` — so this suite covers the whole
 /// package install path against a real artifact on all three systems at no extra cost.
 async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
+    created_as(SERVICE).await
+}
+
+/// [`created`], for an instance of the caller's naming — see [`RESET`] for why one test needs that.
+async fn created_as(service: &str) -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
     let root = package();
     let port = free_port();
 
@@ -361,7 +378,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
         &[
             "service",
             "create",
-            SERVICE,
+            service,
             VERSION,
             "--port",
             &port.to_string(),
@@ -370,7 +387,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
     );
     assert_eq!(
         created["service"]["id"],
-        SERVICE,
+        service,
         "{created}\n{}",
         home.daemon_log()
     );
@@ -389,7 +406,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, PathBuf, u16) {
 #[ignore = "needs a real MySQL — see the module note, and the `mysql` step in ci.yml"]
 async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_twice() {
     let (home, _daemon, _registry, installed_at, port) = created().await;
-    let data = data_directory(&home);
+    let data = data_directory(&home, "main");
 
     // --- started, which is where the bootstrap happens -------------------------------------------
     //
@@ -431,7 +448,7 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
     );
 
     // --- running, and proved so by a query rather than by an accept -------------------------------
-    let up = status(&home);
+    let up = status(&home, SERVICE);
     assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
 
     // **`running` is the assertion this whole suite exists for**, and it is worth saying why in the
@@ -658,7 +675,7 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
     // The credential survived the restart, said the way the first start said it: a service that
     // reaches `running` has answered an authenticated ping, and this one was never bootstrapped a
     // second time to re-write the password it answered with.
-    let again = status(&home);
+    let again = status(&home, SERVICE);
     assert_eq!(
         again["state"],
         "running",
@@ -743,20 +760,20 @@ fn set_the_root_password_behind_mixengines_back(root: &Path, data: &Path, passwo
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a real MySQL — see the module note, and the `mysql` step in ci.yml"]
 async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
-    let (home, _daemon, _registry, installed_at, _port) = created().await;
-    let data = data_directory(&home);
+    let (home, _daemon, _registry, installed_at, _port) = created_as(RESET).await;
+    let data = data_directory(&home, "reset");
     watch(&home);
 
     at("starting the service and making a database in it");
-    expect(&home, &["service", "start", SERVICE, "--json"]);
+    expect(&home, &["service", "start", RESET, "--json"]);
     let made = expect(
         &home,
-        &["database", "create", SERVICE, "--name", "shop", "--json"],
+        &["database", "create", RESET, "--name", "shop", "--json"],
     );
     assert_eq!(made["made"]["database"], "created", "{made}");
 
     at("stopping it, and moving the server's own copy of the password");
-    expect(&home, &["service", "stop", SERVICE, "--json"]);
+    expect(&home, &["service", "stop", RESET, "--json"]);
     set_the_root_password_behind_mixengines_back(
         &installed_at,
         &data,
@@ -764,7 +781,7 @@ async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
     );
 
     at("asking for a database, which is refused");
-    let refused = home.mix(&["database", "create", SERVICE, "--name", "blog", "--json"]);
+    let refused = home.mix(&["database", "create", RESET, "--name", "blog", "--json"]);
     assert!(
         !refused.status.success(),
         "the server accepted a password it no longer has"
@@ -773,17 +790,17 @@ async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
     at("re-setting the credential");
     let walk = expect(
         &home,
-        &["service", "reset-credential", SERVICE, "--yes", "--json"],
+        &["service", "reset-credential", RESET, "--yes", "--json"],
     );
     assert_eq!(walk["complete"], true, "{walk}\n{}", home.daemon_log());
 
-    let up = status(&home);
+    let up = status(&home, RESET);
     assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
 
     at("checking that the database made before the repair survived it");
     let again = expect(
         &home,
-        &["database", "create", SERVICE, "--name", "shop", "--json"],
+        &["database", "create", RESET, "--name", "shop", "--json"],
     );
     assert_eq!(
         again["made"]["database"], "existing",
