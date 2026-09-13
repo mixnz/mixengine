@@ -181,6 +181,37 @@ ours to clear and a directory with contents and *neither* is somebody else's dat
 refused and left exactly as it was. The started marker sits beside the data directory rather than
 inside it, because Windows' `mariadb-install-db` refuses any datadir that is not empty.
 
+### Re-setting a credential a home cannot produce any more
+
+A database keeps its own copy of its superuser password inside its data directory and the OS
+credential store holds the other. The first run writes both, and once they come apart nothing can
+log in to bring them back together: every way of changing the copy inside the directory needs the
+password that was lost. `mix service reset-credential <service>` — `service.reset_credential` —
+is the way out, and T127 is where it was added.
+
+**It is the ritual's own password step and nothing else.** A ritual is *create the directory, then
+set the password through a server that listens on nothing*; a repair is the second half, against a
+directory that is already full. Each recipe declares it beside its ritual, because the mechanisms
+are genuinely different — MariaDB writes the grant tables in `--bootstrap`, MySQL runs `ALTER USER`
+through an `--init-file` on a server bound to nothing, PostgreSQL uses `postgres --single`.
+
+**The two operations refuse each other's cases**, and that is what keeps a repair from becoming a
+data-loss report. A first run passes over a `Ready` directory without touching it, which is why
+restarting a service never repairs a drifted password. A reset refuses `Empty` and `Unfinished` by
+naming the command that performs a first run, refuses a `Foreign` directory exactly as a first run
+does, and never clears anything — deleting a data directory happens on one path only.
+
+**It is never automatic.** *A keyring entry is the deed of ownership* is wrong in precisely this
+case: the entry this home holds may be the one another home overwrote. So the repair is irreversible
+work done on the strength of a claim known to be unreliable here, and it happens only when somebody
+types the command.
+
+**What proves it worked is the service starting**, not an exit code. `postgres --single` exits 0 on
+a syntax error; the readiness check of all three of these recipes is an authenticated query, so the
+repair ends with the named service running and the dependents the stop took down started again.
+Where a step fails, nothing is started: a database whose credential is half re-set is not one to put
+back in front of an application.
+
 ## Web server integration
 
 - Exactly one of Caddy/Nginx is the active front end (owns 80/443). Switching regenerates all site

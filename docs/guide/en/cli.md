@@ -1214,6 +1214,33 @@ mix service restart [SERVICE] [OPTIONS]
 | `<SERVICE>` | The service to act on. Every declared service when it is left out. Naming one does not mean acting on one — a plan is the transitive set — and what the daemon walked comes back in the answer. |
 | `--no-wait` | Return once the daemon has accepted the plan, rather than once it has walked it. `mix` waits by default, because `mix service start db && …` is a sentence about the database being up: an answer sent before the walk would exit `0` for a service that never came up. |
 
+### mix service reset-credential
+
+Re-set this database's superuser password inside its own data directory.
+
+For a server that refuses the password MixEngine holds for it — `ERROR 1045`, or `password
+authentication failed`. A database keeps its own copy of that password inside its data directory and
+this machine's credential store holds the other; they are written together when the service first
+starts and can only come apart afterwards. Once they have, nothing can log in to put them back,
+because every way of changing the copy inside the directory needs the password that was lost.
+
+This stops the service and everything that depends on it, writes the password this home holds into
+the data directory through the server's own offline bootstrap, and starts back what went down.
+**Every database in it is kept.** `mix job list` holds the account of what ran.
+
+Only the database servers keep a password of their own; anything else is refused before anything
+stops.
+
+```
+mix service reset-credential <SERVICE> [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `<SERVICE>` | The database to repair: `mariadb@main`, `postgres@shop` |
+| `-y`, `--yes` | Do not ask before stopping the service |
+| `--no-wait` | Answer as soon as the repair has been accepted, rather than when it has finished |
+
 ## mix job
 
 Watch the long operations this daemon is running

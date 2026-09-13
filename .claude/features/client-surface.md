@@ -120,6 +120,17 @@ binaries. What they state is what the daemon **writes** —
    beside `ExtensionPlan.homepage`. MixEngine finds such an application rather than installing it,
    so the entry's version is not the machine's answer, and a client that draws an install button
    draws it from these two rather than from the version.
+   **And repairing one whose password nothing knows — T127**: `service.reset_credential` takes
+   `ResetCredential { service, wait }` and answers `ServiceWalk`, the same type a restart answers,
+   because that is what it is — a stop, the recipe's own offline password step, and a start of what
+   went down. Its own params type rather than `ServiceTarget`, because that type's `service` is
+   optional and means *the whole home* when absent, which is not a thing a repair may be asked for.
+   A client that draws this draws a **confirmation** with it: it stops the service and everything
+   that depends on it, and rewrites a credential inside a data directory. What it must also say is
+   the part that decides it for somebody — every database in that directory is kept. The account of
+   what ran is the job of the same name, so a client already showing jobs has the log for free. A
+   service that keeps no credential is refused before anything stops, so the affordance can be drawn
+   from `ServiceSummary` and the refusal is a mistyped subject rather than an outage.
 5. **Logs** — a live tail filterable by service, with the on-disk path so the client can reveal it.
    Log lines arrive on their own stream, never the event stream
    ([ADR 0009](../decisions/0009-logs-travel-on-their-own-stream.md)).
