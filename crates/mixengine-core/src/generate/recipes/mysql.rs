@@ -343,6 +343,7 @@ impl Recipe for Mysql {
         Some(Ritual {
             secrets: SECRETS,
             steps,
+            reset: None,
         })
     }
 

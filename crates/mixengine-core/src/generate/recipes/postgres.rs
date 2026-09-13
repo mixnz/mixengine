@@ -386,6 +386,7 @@ impl Recipe for Postgres {
         Some(Ritual {
             secrets: SECRETS,
             steps,
+            reset: None,
         })
     }
 

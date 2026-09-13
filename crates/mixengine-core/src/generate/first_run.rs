@@ -72,6 +72,24 @@ pub struct Ritual {
 
     /// Builds the steps, from a context that already carries those credentials.
     pub steps: fn(&Context) -> Result<Vec<Step>>,
+
+    /// Re-sets those same credentials in a data directory that already exists — roadmap task
+    /// **T127**.
+    ///
+    /// **A field on the ritual rather than a hook of its own**, because the credentials a reset
+    /// writes are the ritual's: named by its [`secrets`](Self::secrets), stored at the addresses
+    /// [`FirstRun::secret_address`] composes. A recipe able to declare a reset without a ritual
+    /// could name a credential nothing generates, and one whose keys came from somewhere else would
+    /// be a second opinion about what this service's superuser is called.
+    ///
+    /// **What a reset is, is the ritual minus the step that creates the directory.** Every recipe
+    /// here fills this with a step it already had — the one that sets a password through a server
+    /// listening on nothing — because those steps were always able to run against a directory that
+    /// is already full. That was measured rather than assumed: see the task's design note.
+    ///
+    /// [`None`] for a ritual with no offline repair, which the daemon reports as `Unsupported`
+    /// rather than as a `todo!()`.
+    pub reset: Option<fn(&Context) -> Result<Vec<Step>>>,
 }
 
 // **The shape moved to [`super::step`]** when provisioning needed it too — roadmap task
@@ -163,6 +181,55 @@ impl FirstRun {
     #[must_use]
     pub fn budget(&self) -> Millis {
         let steps = self.steps(self.stand_ins()).unwrap_or_default();
+
+        Millis(steps.iter().map(|step| step.timeout.0).sum())
+    }
+
+    /// Whether this ritual can repair a data directory rather than only create one — **T127**.
+    #[must_use]
+    pub fn has_reset(&self) -> bool {
+        self.ritual.reset.is_some()
+    }
+
+    /// The steps that re-set this service's superuser credential in place — roadmap task **T127**.
+    ///
+    /// [`None`] where the ritual declares no reset. That is not an error here: the caller is what
+    /// knows whether being unable to repair this service is worth reporting, and it says so in its
+    /// own words.
+    ///
+    /// # Errors
+    ///
+    /// Whatever this recipe cannot answer for this instance — a path this system will not accept,
+    /// an executable the install does not publish — and whatever it refuses about the credential
+    /// itself, which is the same guard [`steps`](Self::steps) carries and deliberately not a
+    /// weaker one.
+    pub fn reset_steps(&self, secrets: BTreeMap<String, String>) -> Result<Option<Vec<Step>>> {
+        let Some(build) = self.ritual.reset else {
+            return Ok(None);
+        };
+
+        let mut context = self.context.clone();
+        context.set_secrets(secrets);
+
+        build(&context).map(Some)
+    }
+
+    /// How long the reset's steps ask for in total, measured before any credential is read.
+    ///
+    /// [`budget`](Self::budget)'s reasoning exactly, and its failure: the daemon chooses how long to
+    /// wait before it has the credential the steps interpolate, and a measurement taken with an
+    /// empty map comes back as no steps at all, because every one of these recipes refuses a
+    /// password it would have to escape.
+    ///
+    /// Zero for a ritual with no reset, which is the right length to wait for a job that is about to
+    /// refuse.
+    #[must_use]
+    pub fn reset_budget(&self) -> Millis {
+        let steps = self
+            .reset_steps(self.stand_ins())
+            .ok()
+            .flatten()
+            .unwrap_or_default();
 
         Millis(steps.iter().map(|step| step.timeout.0).sum())
     }

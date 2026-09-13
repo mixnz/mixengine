@@ -381,6 +381,7 @@ impl Recipe for Mariadb {
         Some(Ritual {
             secrets: SECRETS,
             steps,
+            reset: None,
         })
     }
 
