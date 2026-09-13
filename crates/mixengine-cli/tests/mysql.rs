@@ -698,3 +698,95 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
         "the refusal removed somebody's database"
     );
 }
+
+/// Set the root password in this data directory to something MixEngine does not know.
+///
+/// **The T126 collision, reproduced from the server's side rather than the keyring's** — the MariaDB
+/// suite's reasoning, and the same constraint about this suite never touching the credential store.
+///
+/// `--skip-networking --init-file` is this route's own mechanism: a server that binds no network
+/// port, runs the statement it was given, and stops itself with the second one.
+fn set_the_root_password_behind_mixengines_back(root: &Path, data: &Path, password: &str) {
+    let script = std::env::temp_dir().join("mixengine-t127-mysql-collision.sql");
+    std::fs::write(
+        &script,
+        format!("ALTER USER 'root'@'localhost' IDENTIFIED BY '{password}';\nSHUTDOWN;\n"),
+    )
+    .expect("a statement to feed the server");
+
+    let ran = Command::new(root.join("bin").join("mysqld"))
+        .args([
+            "--no-defaults".to_owned(),
+            format!("--basedir={}", root.display()),
+            format!("--datadir={}", data.display()),
+            "--skip-networking".to_owned(),
+            format!("--init-file={}", script.display()),
+        ])
+        .output()
+        .expect("the server runs against its own data directory");
+
+    let _ = std::fs::remove_file(&script);
+
+    assert!(
+        ran.status.success(),
+        "could not change the password behind MixEngine's back: {}",
+        String::from_utf8_lossy(&ran.stderr)
+    );
+}
+
+/// **A credential nothing can produce any more is re-set by a command, and the databases are kept**
+/// — roadmap task **T127**.
+///
+/// MySQL's half, and it is a third mechanism rather than a second spelling of MariaDB's: this route
+/// sets the password with `ALTER USER` through an `--init-file`, where MariaDB writes the grant
+/// tables directly in `--bootstrap`.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs a real MySQL — see the module note, and the `mysql` step in ci.yml"]
+async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
+    let (home, _daemon, _registry, installed_at, _port) = created().await;
+    let data = data_directory(&home);
+    watch(&home);
+
+    at("starting the service and making a database in it");
+    expect(&home, &["service", "start", SERVICE, "--json"]);
+    let made = expect(
+        &home,
+        &["database", "create", SERVICE, "--name", "shop", "--json"],
+    );
+    assert_eq!(made["made"]["database"], "created", "{made}");
+
+    at("stopping it, and moving the server's own copy of the password");
+    expect(&home, &["service", "stop", SERVICE, "--json"]);
+    set_the_root_password_behind_mixengines_back(
+        &installed_at,
+        &data,
+        "T127T127T127T127T127T127T127T127",
+    );
+
+    at("asking for a database, which is refused");
+    let refused = home.mix(&["database", "create", SERVICE, "--name", "blog", "--json"]);
+    assert!(
+        !refused.status.success(),
+        "the server accepted a password it no longer has"
+    );
+
+    at("re-setting the credential");
+    let walk = expect(
+        &home,
+        &["service", "reset-credential", SERVICE, "--yes", "--json"],
+    );
+    assert_eq!(walk["complete"], true, "{walk}\n{}", home.daemon_log());
+
+    let up = status(&home);
+    assert_eq!(up["state"], "running", "{up}\n{}", home.daemon_log());
+
+    at("checking that the database made before the repair survived it");
+    let again = expect(
+        &home,
+        &["database", "create", SERVICE, "--name", "shop", "--json"],
+    );
+    assert_eq!(
+        again["made"]["database"], "existing",
+        "the repair discarded the data directory: {again}"
+    );
+}
