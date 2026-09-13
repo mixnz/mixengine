@@ -112,6 +112,30 @@ fn every_gallery_command_that_initialises_a_project_asks_for_an_empty_directory(
     }
 }
 
+/// **The npm one asks, and only the npm one** — roadmap task **T120c**.
+///
+/// Three of the four commands are `composer create-project`, which takes its package name from its
+/// argument and does not care what the folder is called; the fourth reads the folder's basename and
+/// npm judges it. A flag that spread to the other three would refuse folders `composer` installs
+/// into happily, which is the over-blocking the design's D6 names as the costly mistake.
+#[test]
+fn only_the_command_that_names_itself_after_the_directory_asks_for_an_npm_name() {
+    for entry in ENTRIES {
+        let manifest = manifest::read(entry.manifest).expect("a gallery blueprint");
+        let Some(scaffold) = manifest.scaffold else {
+            continue;
+        };
+
+        assert_eq!(
+            scaffold.needs_npm_safe_dir,
+            entry.slug == "nextjs",
+            "{} says needs_npm_safe_dir = {}",
+            entry.slug,
+            scaffold.needs_npm_safe_dir
+        );
+    }
+}
+
 /// An opened home with its database, both in a directory the test owns — `tests/store.rs`' helper.
 async fn home() -> (TempDir, Paths, Store) {
     let temp = TempDir::new().expect("a temporary directory");

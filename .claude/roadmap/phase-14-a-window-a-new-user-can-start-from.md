@@ -197,6 +197,38 @@ readable, writable setting since it was written, and nothing has ever read the c
       nothing here.
       Design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
 
+- [x] **T120c** A folder somebody chose is the folder, and a scaffold says what it needs of one.
+      T120a's fix reached `mix` and Quick Start and left the door labelled *Blueprints* exactly as
+      it was — that dialog's root box is required, so every apply from it is by T120a's own
+      definition "a path somebody typed", and `nextjs` went on failing there.
+      **T120b was built, measured working, and thrown away.** It put a checkbox on the dialog
+      defaulting to *make a folder inside the one you chose*. It worked, and it answered the wrong
+      question: somebody who picks a folder wants **that** folder to hold the source, and the person
+      who insists on theirs still meets npm's own sentence, understands nothing, and stops using the
+      product. **A default can make a bad outcome rarer; only an explanation makes it survivable** —
+      that sentence is the whole of this task, and it is what turned a defaults problem into a
+      comprehension one. The one line kept from T120b is `white-space: pre-wrap`, without which
+      T120a's line breaks collapsed and the two npm rules read as one run-on sentence.
+      So the folder is honoured everywhere and the refusal moved forward instead: `[scaffold]`
+      gained `needs_npm_safe_dir`, declared like `needs_empty_dir` and never inferred from the
+      command, and the plan `blocked`s the step before a byte is downloaded, naming what to rename
+      the folder to. No new plan concept, no wire field, no client control — every client already
+      renders a blocked step.
+      **The ruler nearly chosen was `domains::slug`, and the row that killed it is `next_js_1`**:
+      `slug` turns every character outside `a-z0-9` into a hyphen, underscore included, so it would
+      have refused a directory `create-next-app` accepts and installs into — measured, along with
+      the six other names in the design's table. A DNS label and a package name are different rules.
+      `slug` kept the other job: it always answers in a charset the rule accepts, so it is what the
+      refusal *suggests*. **Under-blocking is the safe direction** and the rule is written for it —
+      a false refusal forbids a thing that would have worked with no way round, a miss costs one
+      install and falls back to the failure's own words, which now name the folder too, for every
+      imported blueprint whose author will never declare the flag — but only when the command is one
+      of the npm family, because the first cut said it after *any* failed scaffold and a `composer`
+      that died over a network would have told somebody their folder was the problem. That is this
+      task's own mistake pointed back at itself, and it is the one place a guess about the command
+      is allowed: it may add a hint after a failure, never refuse anybody up front.
+      Design: [2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../../docs/superpowers/specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
+
 - [x] **T121** An apply says what an unticked consent box means, and a finished apply ends at the
       site it made. Two halves of one complaint: a person applies a blueprint, watches it download
       a runtime, a database and a web server, and is left with an empty folder and no address —

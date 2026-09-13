@@ -295,8 +295,9 @@ pub async fn plan(
             // Arbitrary code from whoever wrote the blueprint. What answers this is the consent in
             // the apply request (T78a, D4); here it is shown, exactly as it would run — or blocked,
             // when its program is a bare name the PATH does not hold (T78b, D1), when the token
-            // did not expand (T120, D3), or when it asked for an empty directory and this one is
-            // not.
+            // did not expand (T120, D3), when it names itself after its directory and this one's
+            // name is not one npm will take (T120c, D5), or when it asked for an empty directory
+            // and this one is not.
             //
             // **A shell is the one name space with no validator**, so this check is the whole of
             // what stands between a handle that could not be made and a command carrying a literal
@@ -305,11 +306,20 @@ pub async fn plan(
             // **The PATH is judged before the directory** — a machine with no `composer` on it is
             // not made applicable by emptying a folder, so that is the sentence worth reading
             // first. Only one reason is ever shown, which is why the order is written down.
+            //
+            // **And the directory's name before its contents** (T120c): emptying a folder whose
+            // name is going to be refused anyway is work nobody gets back.
             disposition: match unexpanded(&command) {
                 Some(reason) => Disposition::Blocked { reason },
                 None => match crate::blueprints::program::disposition(&command, scaffold_path) {
-                    Disposition::Confirm { what } if scaffold.needs_empty_dir => {
-                        match occupied(root) {
+                    Disposition::Confirm { what } => {
+                        let refusal = scaffold
+                            .needs_npm_safe_dir
+                            .then(|| not_an_npm_name(root))
+                            .flatten()
+                            .or_else(|| scaffold.needs_empty_dir.then(|| occupied(root)).flatten());
+
+                        match refusal {
                             Some(reason) => Disposition::Blocked { reason },
                             None => Disposition::Confirm { what },
                         }
@@ -852,6 +862,59 @@ fn occupied(root: &Path) -> Option<String> {
     ))
 }
 
+/// The punctuation npm will take in a package name, beside letters and digits.
+const NPM_PUNCTUATION: [char; 3] = ['-', '_', '.'];
+
+/// The longest name npm will register.
+const NPM_LIMIT: usize = 214;
+
+/// The reason `root`'s name is no place for a command that names itself after its directory, or
+/// [`None`] — roadmap task **T120c**.
+///
+/// **npm's rule and not [`crate::domains::slug`]'s**, which is the distinction this function exists
+/// to hold. `slug` turns every character outside `a-z0-9` into a hyphen, underscore included, so a
+/// check built on it refuses `next_js_1` — a directory `create-next-app` accepts, installs into and
+/// writes `"name": "next_js_1"` for. A DNS label and a package name are different rules, and this
+/// is the package one.
+///
+/// **Where it is unsure it permits**, the design's D6. A refusal here forbids somebody a thing that
+/// would have worked and offers no way round it; a miss costs one wasted install and falls back to
+/// the failure's own words. So a path with no final component at all — a drive root — is not
+/// judged.
+///
+/// `slug` still has a job here, and it is the other one: it always answers in a charset every
+/// branch below accepts, so it is what the reason *suggests*.
+pub fn not_an_npm_name(root: &Path) -> Option<String> {
+    let name = root.file_name()?.to_string_lossy().into_owned();
+
+    let because = if name.is_empty() || name.chars().count() > NPM_LIMIT {
+        "npm takes a name of one to two hundred and fourteen characters"
+    } else if name.starts_with('.') || name.starts_with('_') {
+        "npm takes no name beginning with a dot or an underscore"
+    } else if name.chars().any(|character| character.is_ascii_uppercase()) {
+        "npm takes no capital letters in a package name"
+    } else if !name.chars().all(|character| {
+        character.is_ascii_lowercase()
+            || character.is_ascii_digit()
+            || NPM_PUNCTUATION.contains(&character)
+    }) {
+        "npm takes only lower-case letters, digits, and `-`, `_` or `.`"
+    } else {
+        return None;
+    };
+
+    // The answer rather than the rule: `slug` always produces a name the branches above accept.
+    let suggestion = match crate::domains::slug(&name) {
+        Some(slug) => format!(" — rename the folder to `{slug}` and apply again"),
+        None => String::new(),
+    };
+
+    Some(format!(
+        "this command takes its package name from the folder it runs in, and `{name}` is not one \
+         npm will accept: {because}{suggestion}"
+    ))
+}
+
 /// A step that cannot be done, and why.
 fn blocked(action: PlanAction, reason: String) -> PlanStep {
     PlanStep {
@@ -1276,6 +1339,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1739,6 +1803,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1814,6 +1879,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1851,6 +1917,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1898,6 +1965,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel . --no-interaction".to_owned(),
             needs_empty_dir: true,
+            needs_npm_safe_dir: false,
         });
 
         manifest
@@ -1956,6 +2024,171 @@ mod tests {
             "only the scaffold is blocked: {:?}",
             planned.steps
         );
+    }
+
+    /// A manifest whose command takes its package name from the directory it runs in.
+    fn naming_itself_after_its_directory() -> crate::blueprints::manifest::BlueprintManifest {
+        let mut manifest = a_manifest();
+        manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
+            command: "npx --yes create-next-app@latest . --yes".to_owned(),
+            needs_empty_dir: false,
+            needs_npm_safe_dir: true,
+        });
+
+        manifest
+    }
+
+    /// The scaffold step of a plan for `manifest`, applied at `root`.
+    async fn scaffolding_at(
+        temp: &tempfile::TempDir,
+        store: &crate::store::Store,
+        manifest: crate::blueprints::manifest::BlueprintManifest,
+        root: &Path,
+    ) -> BlueprintPlan {
+        plan(
+            store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(manifest),
+                project: "shop",
+                root,
+                answers: &[],
+                scaffold_path: &a_path_holding(temp, &["npx"]),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan")
+    }
+
+    /// **The row that decides the rule** — roadmap task **T120c**. `next_js_1` is not a slug —
+    /// [`crate::domains::slug`] turns the underscore into a hyphen — and npm accepts it, installs
+    /// into it and writes `"name": "next_js_1"`. Measured on 2026-09-13 against
+    /// `npx --yes create-next-app@latest . --yes`. A check built on `slug` would refuse a directory
+    /// that works, which is the mistake this test exists to keep out.
+    #[tokio::test]
+    async fn an_underscored_directory_is_not_refused() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("next_js_1");
+        std::fs::create_dir_all(&root).expect("a directory");
+
+        let planned =
+            scaffolding_at(&temp, &store, naming_itself_after_its_directory(), &root).await;
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+
+        assert!(
+            !matches!(scaffold.disposition, Disposition::Blocked { .. }),
+            "{scaffold:?}"
+        );
+    }
+
+    /// Capitals and a space, which is the failure this task was reported over.
+    #[tokio::test]
+    async fn a_directory_npm_will_not_name_a_package_after_is_blocked_with_the_name_to_use() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("Next.js 1");
+        std::fs::create_dir_all(&root).expect("a directory");
+
+        let planned =
+            scaffolding_at(&temp, &store, naming_itself_after_its_directory(), &root).await;
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+
+        let Disposition::Blocked { reason } = &scaffold.disposition else {
+            panic!("{scaffold:?}");
+        };
+
+        assert!(reason.contains("Next.js 1"), "{reason}");
+        // **The answer, not the rule** — the design's D7.
+        assert!(reason.contains("next-js-1"), "{reason}");
+    }
+
+    /// Each of these is refused by `create-next-app`, measured the same day, so refusing them here
+    /// is not over-blocking.
+    #[tokio::test]
+    async fn the_other_names_npm_refuses_are_blocked_too() {
+        let (temp, store) = home().await;
+
+        for name in ["app(1)", "app~x", ".hidden", "_leading"] {
+            let root = temp.path().join(name);
+            std::fs::create_dir_all(&root).expect("a directory");
+
+            let planned =
+                scaffolding_at(&temp, &store, naming_itself_after_its_directory(), &root).await;
+
+            let scaffold = step_of(&planned, |action| {
+                matches!(action, PlanAction::RunScaffold { .. })
+            });
+
+            assert!(
+                matches!(scaffold.disposition, Disposition::Blocked { .. }),
+                "{name} must be blocked: {scaffold:?}"
+            );
+        }
+    }
+
+    /// **A blueprint that did not declare it is never judged by it** — the whole of the design's
+    /// D3. Three of the gallery's four scaffolds take their package name from an argument and do
+    /// not care what the folder is called.
+    #[tokio::test]
+    async fn a_scaffold_that_did_not_ask_is_not_judged_on_its_directorys_name() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("Next.js 1");
+        std::fs::create_dir_all(&root).expect("a directory");
+
+        let mut manifest = naming_itself_after_its_directory();
+        manifest
+            .scaffold
+            .as_mut()
+            .expect("a scaffold")
+            .needs_npm_safe_dir = false;
+
+        let planned = scaffolding_at(&temp, &store, manifest, &root).await;
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+
+        assert!(
+            !matches!(scaffold.disposition, Disposition::Blocked { .. }),
+            "{scaffold:?}"
+        );
+    }
+
+    /// **The name is asked before the contents.** Emptying a folder that will be refused for its
+    /// name is work nobody gets back, so that is the sentence worth reading first.
+    #[tokio::test]
+    async fn a_badly_named_directory_that_is_also_full_is_refused_for_its_name() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("Next.js 1");
+        std::fs::create_dir_all(&root).expect("a directory");
+        std::fs::write(root.join("README.md"), "mine").expect("a file");
+
+        let mut manifest = naming_itself_after_its_directory();
+        manifest
+            .scaffold
+            .as_mut()
+            .expect("a scaffold")
+            .needs_empty_dir = true;
+
+        let planned = scaffolding_at(&temp, &store, manifest, &root).await;
+
+        let scaffold = step_of(&planned, |action| {
+            matches!(action, PlanAction::RunScaffold { .. })
+        });
+
+        let Disposition::Blocked { reason } = &scaffold.disposition else {
+            panic!("blocked for something: {scaffold:?}");
+        };
+
+        assert!(reason.contains("next-js-1"), "{reason}");
+        assert!(!reason.contains("README.md"), "{reason}");
     }
 
     /// The directory an apply is about usually does not exist yet — that is the happy path, and it
@@ -2036,6 +2269,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer install".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2191,6 +2425,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2259,6 +2494,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2376,6 +2612,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(

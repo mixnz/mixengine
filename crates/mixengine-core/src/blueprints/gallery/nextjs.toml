@@ -22,3 +22,4 @@ domain_pattern = "{project}.test"
 [scaffold]
 command = "npx --yes create-next-app@latest . --yes"
 needs_empty_dir = true
+needs_npm_safe_dir = true

@@ -171,6 +171,25 @@ pub struct Scaffold {
     /// running exactly where it used to.
     #[serde(default)]
     pub needs_empty_dir: bool,
+
+    /// Whether this command takes its own name from the directory it runs in, and so refuses one
+    /// whose name is not a legal npm package name.
+    ///
+    /// **Declared, never inferred from the command.** `npx create-next-app .` derives the package
+    /// name from the directory's basename and npm allows no capitals and no spaces; `composer
+    /// create-project laravel/laravel .` takes its name from its argument and does not care what
+    /// the folder is called. The two strings say nothing about which is which, so the author says
+    /// it — [`Scaffold::needs_empty_dir`]'s own reasoning, one property along.
+    ///
+    /// **Named for npm because the rule is npm's.** This format already says `php`, `composer`,
+    /// `mariadb`; a Ruby or Python scaffold that one day needs the same protection gets its own key
+    /// carrying its own true rule, rather than crowding into one vague key that means something
+    /// slightly different in each ecosystem.
+    ///
+    /// Default `false`, which is what keeps every `[scaffold]` written before this key existed
+    /// planning exactly as it does today.
+    #[serde(default)]
+    pub needs_npm_safe_dir: bool,
 }
 
 impl<'de> serde::Deserialize<'de> for BlueprintSite {
@@ -384,6 +403,9 @@ pub fn render(manifest: &BlueprintManifest) -> String {
         if scaffold.needs_empty_dir {
             table["needs_empty_dir"] = value(true);
         }
+        if scaffold.needs_npm_safe_dir {
+            table["needs_npm_safe_dir"] = value(true);
+        }
 
         document["scaffold"] = Item::Table(table);
     }
@@ -516,6 +538,38 @@ command = "composer create-project laravel/laravel {project}"
                 .needs_empty_dir
         );
         assert_eq!(render(&read_back), asking);
+    }
+
+    /// **A command that names itself after its directory says so too** — roadmap task **T120c**.
+    /// Written only when true, like its neighbour, so a manifest captured or imported before this
+    /// key existed renders back exactly the bytes it arrived as.
+    #[test]
+    fn a_scaffold_that_needs_an_npm_safe_directory_survives_the_round_trip() {
+        let asking = GALLERY_SHAPED.replace(
+            "command = \"composer create-project laravel/laravel {project}\"\n",
+            "command = \"composer create-project laravel/laravel {project}\"\n\
+             needs_empty_dir = true\n\
+             needs_npm_safe_dir = true\n",
+        );
+
+        let read_back = read(&asking).expect("it parses");
+
+        assert!(
+            read_back
+                .scaffold
+                .as_ref()
+                .expect("a scaffold")
+                .needs_npm_safe_dir
+        );
+        assert_eq!(render(&read_back), asking);
+    }
+
+    /// And a scaffold that says nothing about its directory's name is judged on nothing.
+    #[test]
+    fn a_scaffold_says_nothing_about_its_directorys_name_unless_it_says_so() {
+        let read_back = read(GALLERY_SHAPED).expect("it parses");
+
+        assert!(!read_back.scaffold.expect("a scaffold").needs_npm_safe_dir);
     }
 
     /// What is written can be read, and reading it back gives the same value — the property every
