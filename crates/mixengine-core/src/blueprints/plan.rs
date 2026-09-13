@@ -1276,6 +1276,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1739,6 +1740,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1814,6 +1816,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1851,6 +1854,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel .".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -1898,6 +1902,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel . --no-interaction".to_owned(),
             needs_empty_dir: true,
+            needs_npm_safe_dir: false,
         });
 
         manifest
@@ -2036,6 +2041,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer install".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2191,6 +2197,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "composer create-project laravel/laravel {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2259,6 +2266,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
@@ -2376,6 +2384,7 @@ mod tests {
         manifest.scaffold = Some(crate::blueprints::manifest::Scaffold {
             command: "echo {project}".to_owned(),
             needs_empty_dir: false,
+            needs_npm_safe_dir: false,
         });
 
         let planned = plan(
