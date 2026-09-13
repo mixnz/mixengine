@@ -1,15 +1,23 @@
 ---
-name: watching-ci-until-green
-description: Use when CI's verdict is what the work is waiting on in this repository — a branch just pushed, a fix just committed, a run red on one OS only, a job whose log has to be read, or a run that has not been asked for yet.
+description: Run the CI loop until every check is green — watch, classify, fix, gate, commit, ask again
+argument-hint: [branch or note, optional]
+allowed-tools: Bash(bash scripts/ask-ci.sh:*), Bash(bash scripts/watch-ci.sh:*), Bash(gh run:*), Bash(git rev-parse:*), Bash(git status:*)
+disable-model-invocation: true
 ---
 
 # Watching CI until green
+
+Branch: !`git rev-parse --abbrev-ref HEAD`
+HEAD: !`git rev-parse HEAD`
+Uncommitted: !`git status --porcelain`
+
+User's note for this round (may be empty): $ARGUMENTS
 
 CI is the only thing that compiles this workspace for all three operating systems and the only judge
 of a change. This is the loop from a pushed branch to every check green: watch, classify, fix, gate,
 commit, ask again — until `watch-ci.sh` exits 0.
 
-**Invoking this skill authorizes the loop**: committing, pushing and dispatching a run on the
+**Invoking this command authorizes the loop**: committing, pushing and dispatching a run on the
 **working branch**, once per round, without asking again between rounds. It authorizes nothing else —
 no force push, no PR, no merge, and no commit or push on `master` (see *Red on `master`* below).
 
@@ -123,4 +131,4 @@ now green — a green PR is still a PR waiting for a person.
 | "The fix is one line, `master` can take it" | Size is not the question. A red `master` gets a branch; the loop never commits to `master`. |
 | "I cut the branch off a red `master`, so its run will be red too" | The branch's run answers about the branch. Red inherited from `master` is exactly what the fix on it is for. |
 | "It is green, so it is ready — I will open the PR" | Green ends the loop. Opening or merging a PR is the user's decision, asked for separately. |
-| "The PR already exists, merging is just the last step" | It is the step this skill does not have. Report green and wait. |
+| "The PR already exists, merging is just the last step" | It is the step this command does not have. Report green and wait. |
