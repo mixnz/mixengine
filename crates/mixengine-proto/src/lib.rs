@@ -121,7 +121,7 @@ pub use package_api::{
     PackageCatalogue, PackageFilter, PackageList, PackageRelease, PackageRemoval, PackageSummary,
     PackageTarget,
 };
-pub use path_api::{PathPlace, PathReport};
+pub use path_api::{CommandConflict, CommandOrigin, CommandSource, PathPlace, PathReport};
 pub use project_api::{
     PinSource, ProjectCreate, ProjectDetail, ProjectExport, ProjectList, ProjectPin, ProjectQuery,
     ProjectRef, ProjectRemoval, ProjectSummary, ProjectUpdate,

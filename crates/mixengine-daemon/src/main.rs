@@ -2,6 +2,7 @@
 
 mod api;
 mod autostart;
+mod bin_scan;
 mod blueprints;
 mod certs;
 mod crash;
@@ -948,6 +949,16 @@ async fn serve(
             "could not fill bin/ — the commands in it may be missing or out of date"
         ),
     }
+
+    // **And from here a short loop keeps it current** — roadmap task T131. The refresh above is the
+    // only one a start would otherwise perform, so a `npm install -g yarn` typed a minute later
+    // would leave `yarn` uninstallable-looking until the next restart. See `bin_scan` for what an
+    // idle machine pays for this, which is one `stat` per installed runtime per tick.
+    let _rescanning = bin_scan::start(
+        Arc::clone(&shims),
+        store.clone(),
+        std::time::Duration::from_secs(config.bin.rescan_seconds),
+    );
 
     // **The gallery is a projection of a compiled-in table into the database**, exactly as `bin/`
     // above is one onto the disk and `etc/` is one out of it — roadmap task T79, its design's D5.

@@ -25,9 +25,66 @@ use std::sync::Arc;
 
 use mixengine_core::{Paths, shims};
 use mixengine_platform::{Host, PathState};
-use mixengine_proto::{Error, PathPlace, PathReport};
+use mixengine_proto::{
+    CommandConflict, CommandOrigin, CommandSource, Error, PathPlace, PathReport,
+};
 
 use crate::error::ToWire as _;
+
+/// What one walk of the installed rows decided `bin/` should hold beyond the compiled table.
+///
+/// Held as a value so that `path.install` composes one report out of one walk: the copy needs the
+/// names, and the report needs the same names in order to say where each of them came from.
+#[derive(Debug, Default)]
+struct Found {
+    /// The commands, with what put each there.
+    extra: Vec<shims::Extra>,
+
+    /// Names more than one installed package claimed.
+    conflicts: Vec<shims::Conflict>,
+}
+
+/// Where each name in `bin/` came from, for the listing a person reads.
+///
+/// **A directory joined to a decision, and a name in one and not the other is information.** A
+/// command with no origin is a copy left behind by something that has since been uninstalled — the
+/// next refresh sweeps it, and until then `mix path status` is where it can be seen.
+fn origins(commands: &[String], extra: &[shims::Extra]) -> Vec<CommandOrigin> {
+    let same = |left: &str, right: &str| match cfg!(windows) {
+        true => left.eq_ignore_ascii_case(right),
+        false => left == right,
+    };
+
+    commands
+        .iter()
+        .filter_map(|command| {
+            // The file name as `bin/` spells it; what was decided is spelled without the suffix.
+            let stem = std::path::Path::new(command)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .unwrap_or(command);
+
+            let source = if shims::COMMANDS
+                .iter()
+                .any(|compiled| same(compiled.name, stem))
+            {
+                CommandSource::BuiltIn {}
+            } else {
+                match &extra.iter().find(|extra| same(&extra.name, stem))?.origin {
+                    shims::Origin::Client { package } => CommandSource::Client {
+                        package: package.clone(),
+                    },
+                    shims::Origin::Global { kind } => CommandSource::Global { kind: *kind },
+                }
+            };
+
+            Some(CommandOrigin {
+                command: command.clone(),
+                source,
+            })
+        })
+        .collect()
+}
 
 /// The home's `bin/`, the binary that fills it, and the machine whose PATH it goes on.
 #[derive(Debug)]
@@ -93,13 +150,23 @@ impl Shims {
     /// been through [`ToWire`](crate::error::ToWire), and a second error type flowing up through
     /// one method would be one place for a hint to go missing.
     pub(crate) async fn refresh(&self) -> Result<shims::Refreshed, Error> {
+        let found = self.extras().await?;
+
+        self.fill(&found).await
+    }
+
+    /// The copy itself, given what a walk of the rows already found.
+    ///
+    /// Split out so that `path.install` composes one report from one walk rather than asking the
+    /// database twice about a directory it has just written.
+    async fn fill(&self, found: &Found) -> Result<shims::Refreshed, Error> {
         let shim = shims::source(&self.program).map_err(|error| error.to_wire())?;
-        let (extra, conflicts) = self.extras().await?;
 
         let _filling = self.filling.lock().await;
 
-        let mut refreshed = shims::refresh(&self.bin, &shim, &extra).map_err(|e| e.to_wire())?;
-        refreshed.conflicts = conflicts;
+        let mut refreshed =
+            shims::refresh(&self.bin, &shim, &found.extra).map_err(|error| error.to_wire())?;
+        refreshed.conflicts = found.conflicts.clone();
 
         Ok(refreshed)
     }
@@ -123,7 +190,7 @@ impl Shims {
     /// *runtime*, whose shim then says which command to type. It is wrong here, because there is no
     /// such sentence to say — `mysqldump` on a machine that has never had a database is a name
     /// nothing would ever make work.
-    async fn extras(&self) -> Result<(Vec<shims::Extra>, Vec<shims::Conflict>), Error> {
+    async fn extras(&self) -> Result<Found, Error> {
         // The whole walk is [`client::claims`], because the shim performs the same one with the
         // name it was invoked by: two implementations would be a `bin/` holding a command the shim
         // then refused, or a command the shim ran that this directory had given to another package.
@@ -134,7 +201,43 @@ impl Shims {
             .await
             .map_err(|error| error.to_wire())?;
 
-        Ok(shims::resolve_claims(&claims))
+        let (mut extra, conflicts) = shims::resolve_claims(&claims);
+
+        // **And the tools somebody installed into a runtime** — roadmap task T131. Read from the
+        // table rather than scanned here: a refresh happens on every start and on every
+        // `path.install`, where a scan of every bindir is work with nothing to show for it, and
+        // [`rescan`](Self::rescan) is what keeps the table current.
+        let globals = mixengine_core::bin_commands::all(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        extra.extend(globals.into_iter().map(|(name, kind)| shims::Extra {
+            name,
+            origin: shims::Origin::Global { kind },
+        }));
+
+        Ok(Found { extra, conflicts })
+    }
+
+    /// Look for a tool somebody installed into a runtime, and fill `bin/` with what is found.
+    ///
+    /// **`path.rescan`, and the pass the daemon repeats** — roadmap task **T131**. Two steps, and
+    /// the order is the one every projection in this codebase follows: find out what is on disk,
+    /// write the table, *then* make the directory match the table. A `bin/` filled before the table
+    /// was written would hold names the shim could not dispatch.
+    ///
+    /// Idempotent, and cheap when nothing changed: the scan is a `read_dir` per installed runtime,
+    /// the record is one transaction, and `refresh` compares before it writes.
+    pub(crate) async fn rescan(&self) -> Result<shims::Refreshed, Error> {
+        let found = mixengine_core::runtimes::globals::everywhere(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        mixengine_core::bin_commands::record(&self.store, &found)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        self.refresh().await
     }
 
     /// `path.status` — what a terminal opened a minute from now would find.
@@ -142,14 +245,16 @@ impl Shims {
     /// Reads `bin/` rather than reporting [`COMMANDS`](mixengine_core::shims::COMMANDS): the
     /// question is what is *there*, and a listing composed from the table would answer it out of
     /// this binary's constants on a machine where the directory had been deleted.
-    pub(crate) fn status(&self) -> Result<PathReport, Error> {
+    pub(crate) async fn status(&self) -> Result<PathReport, Error> {
         let state = self
             .host
             .path_integration()
             .state(&self.bin)
             .map_err(|error| error.to_wire())?;
 
-        Ok(self.report(state, self.installed(), Vec::new()))
+        let found = self.extras().await?;
+
+        Ok(self.report(state, self.installed(), Vec::new(), found))
     }
 
     /// `path.install` — fill `bin/`, then put it on the PATH.
@@ -158,7 +263,8 @@ impl Shims {
     /// one: a directory of shims nothing can find is invisible, and a PATH entry naming a directory
     /// that was never filled is a `php` that resolves to nothing.
     pub(crate) async fn install(&self) -> Result<PathReport, Error> {
-        let refreshed = self.refresh().await?;
+        let found = self.extras().await?;
+        let refreshed = self.fill(&found).await?;
 
         let state = self
             .host
@@ -166,7 +272,7 @@ impl Shims {
             .add(&self.bin)
             .map_err(|error| error.to_wire())?;
 
-        Ok(self.report(state, refreshed.commands, refreshed.refused))
+        Ok(self.report(state, refreshed.commands, refreshed.refused, found))
     }
 
     /// `path.uninstall` — take `bin/` off the PATH, and leave it exactly as it is.
@@ -175,14 +281,31 @@ impl Shims {
     /// makes the home work in order to undo one line in a profile would be an uninstall wearing a
     /// smaller command's name — `.claude/architecture/overview.md` has removing the home remove
     /// them.
-    pub(crate) fn uninstall(&self) -> Result<PathReport, Error> {
+    pub(crate) async fn uninstall(&self) -> Result<PathReport, Error> {
         let state = self
             .host
             .path_integration()
             .remove(&self.bin)
             .map_err(|error| error.to_wire())?;
 
-        Ok(self.report(state, self.installed(), Vec::new()))
+        let found = self.extras().await?;
+
+        Ok(self.report(state, self.installed(), Vec::new(), found))
+    }
+
+    /// `path.rescan` — the pass, and then the report a person reads.
+    pub(crate) async fn rescanned(&self) -> Result<PathReport, Error> {
+        let refreshed = self.rescan().await?;
+
+        let state = self
+            .host
+            .path_integration()
+            .state(&self.bin)
+            .map_err(|error| error.to_wire())?;
+
+        let found = self.extras().await?;
+
+        Ok(self.report(state, refreshed.commands, refreshed.refused, found))
     }
 
     /// The commands `bin/` answers to right now, read off the directory.
@@ -230,7 +353,13 @@ impl Shims {
     }
 
     /// The wire shape of an answer, from the OS's half and the directory's.
-    fn report(&self, state: PathState, commands: Vec<String>, stale: Vec<String>) -> PathReport {
+    fn report(
+        &self,
+        state: PathState,
+        commands: Vec<String>,
+        stale: Vec<String>,
+        found: Found,
+    ) -> PathReport {
         PathReport {
             directory: self.bin.display().to_string(),
             on_path: state.complete(),
@@ -241,6 +370,16 @@ impl Shims {
                     name: location.name,
                     present: location.present,
                     changed: location.changed,
+                })
+                .collect(),
+            origins: origins(&commands, &found.extra),
+            conflicts: found
+                .conflicts
+                .into_iter()
+                .map(|conflict| CommandConflict {
+                    command: conflict.name,
+                    won: conflict.won,
+                    lost: conflict.lost,
                 })
                 .collect(),
             commands,

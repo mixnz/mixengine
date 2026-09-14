@@ -613,12 +613,7 @@ async fn call_method(
                 // belongs — see [`on_a_blocking_thread`].
                 rpc::method::PATH_STATUS => {
                     no_params(params.as_ref())?;
-                    let shims = Arc::clone(&api.shims);
-                    encode_result(
-                        &on_a_blocking_thread(move || shims.status())
-                            .await
-                            .map_err(refused)?,
-                    )
+                    encode_result(&api.shims.status().await.map_err(refused)?)
                 }
 
                 rpc::method::PATH_INSTALL => {
@@ -632,12 +627,13 @@ async fn call_method(
 
                 rpc::method::PATH_UNINSTALL => {
                     no_params(params.as_ref())?;
-                    let shims = Arc::clone(&api.shims);
-                    encode_result(
-                        &on_a_blocking_thread(move || shims.uninstall())
-                            .await
-                            .map_err(refused)?,
-                    )
+                    encode_result(&api.shims.uninstall().await.map_err(refused)?)
+                }
+
+                // T131: the pass the daemon repeats every `[bin] rescan_seconds`, run now.
+                rpc::method::PATH_RESCAN => {
+                    no_params(params.as_ref())?;
+                    encode_result(&api.shims.rescanned().await.map_err(refused)?)
                 }
 
                 // The second capability that writes outside the home, beside `path.*` above and on

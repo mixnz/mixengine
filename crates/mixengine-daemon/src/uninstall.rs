@@ -240,10 +240,9 @@ impl Uninstall {
         let mut done = std::collections::HashMap::new();
 
         if planned_row(planned, ResidueId::PathEntry) {
-            let shims = Arc::clone(&self.shims);
             done.insert(
                 ResidueId::PathEntry,
-                match crate::api::on_a_blocking_thread(move || shims.uninstall()).await {
+                match self.shims.uninstall().await {
                     Ok(report) => Removal::Removed {
                         what: format!("{} is no longer on your PATH", report.directory),
                     },

@@ -1119,6 +1119,13 @@ enum PathCommand {
     /// The commands stay in the directory — they are inside the home, and removing the home is what
     /// removes them.
     Uninstall,
+
+    /// Look for a tool you installed into a runtime, now.
+    ///
+    /// The daemon does this on its own every couple of seconds, so `npm install -g yarn` makes
+    /// `yarn` a command without anybody asking. This is for the moment in between, and for a home
+    /// whose `[bin] rescan_seconds` was slowed down.
+    Rescan,
 }
 
 /// `mix autostart …` — one subcommand per `autostart.*` method.
@@ -4260,6 +4267,7 @@ async fn path(
         PathCommand::Status => (rpc::method::PATH_STATUS, render::Pathed::Asked),
         PathCommand::Install => (rpc::method::PATH_INSTALL, render::Pathed::Installed),
         PathCommand::Uninstall => (rpc::method::PATH_UNINSTALL, render::Pathed::Uninstalled),
+        PathCommand::Rescan => (rpc::method::PATH_RESCAN, render::Pathed::Rescanned),
     };
 
     let report: PathReport = ask(&mut client, method, None).await?;

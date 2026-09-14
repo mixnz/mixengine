@@ -104,6 +104,19 @@ extension_ports(extension_id, name, port)
    -- one row per allocated port, because services::ports::allocate asks the database which
    --   ports are taken: a second port kept in a JSON column would be handed out again
 
+-- The commands <root>/bin fronts -------------------------------------------
+bin_commands(name, kind)                     -- T131: tools installed into a runtime
+   -- a projection and never a record: the pass that scans each runtime's bindir rewrites it
+   --   whole, so a row never outlives the file it describes by more than one scan
+   -- name is the command as it is typed, with no executable suffix, folded to lower case on
+   --   Windows where `Yarn` and `yarn` are one file
+   -- kind is the RuntimeKind whose version resolution decides which copy runs — the one fact a
+   --   shim cannot derive from the name it was invoked by
+   -- what is deliberately absent is a path: a global tool belongs to a *version*, so the file is
+   --   resolved at run time against whichever one the working directory means
+   -- the other two sources of a command are not rows at all: shims::COMMANDS is compiled in, and
+   --   a service's client commands are derived from its recipe and the packages/services rows
+
 -- Operations ----------------------------------------------------------------
 jobs(id, kind, state, percent, message, started_at, finished_at, result_json)
    -- id is the JobId a client is handed; kind is the method that produced it ("runtime.install")

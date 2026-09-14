@@ -58,7 +58,7 @@ pub(crate) async fn take(
     rows.push(privileged_helper());
     rows.push(audit_log());
     rows.push(autostart_entry(uninstall));
-    rows.push(path_entry(uninstall));
+    rows.push(path_entry(uninstall).await);
     rows.push(home(uninstall.paths.root(), query.keep_home));
 
     // Every directory `[paths]` has moved out of the root, in `directories()`' own order. On an
@@ -504,10 +504,10 @@ fn autostart_entry(uninstall: &Uninstall) -> Residue {
 }
 
 /// **10.** `<root>/bin` on this user's `PATH` — T26's, and unprivileged.
-fn path_entry(uninstall: &Uninstall) -> Residue {
+async fn path_entry(uninstall: &Uninstall) -> Residue {
     let what = "this home's commands on your PATH".to_owned();
 
-    match uninstall.shims.status() {
+    match uninstall.shims.status().await {
         Ok(report) => {
             let carrying: Vec<&mixengine_proto::PathPlace> =
                 report.places.iter().filter(|place| place.present).collect();
