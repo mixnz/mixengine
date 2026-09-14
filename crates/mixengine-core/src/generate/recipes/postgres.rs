@@ -60,7 +60,9 @@ use mixengine_proto::{
 };
 
 use crate::generate::first_run::{Ritual, SecretSpec, Step};
-use crate::generate::recipe::{Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream};
+use crate::generate::recipe::{
+    Claim, ClientCommand, Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream,
+};
 use crate::generate::settings::{Preset, Setting};
 use crate::{Error, Result};
 
@@ -200,6 +202,87 @@ impl Recipe for Postgres {
     /// PostgreSQL's protocol — T83.
     fn protocol(&self) -> Option<mixengine_proto::DatabaseProtocol> {
         Some(mixengine_proto::DatabaseProtocol::Postgres)
+    }
+
+    /// The eleven programs a person runs against a running cluster — roadmap task **T130**.
+    ///
+    /// **No aliases**, because nothing else on this machine is spelled `psql`.
+    ///
+    /// `initdb`, `pg_ctl` and `pg_upgrade` are absent although the artifact publishes all three, and
+    /// the reason is the same one that keeps `postgres` itself out: each of them writes or moves a
+    /// cluster the daemon owns, and a person running one by hand against a live instance is a
+    /// corrupted cluster. They stay reachable at their full path.
+    fn clients(&self) -> &'static [ClientCommand] {
+        &[
+            ClientCommand {
+                name: PSQL,
+                executable: PSQL,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: ISREADY,
+                executable: ISREADY,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "pg_dump",
+                executable: "pg_dump",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "pg_dumpall",
+                executable: "pg_dumpall",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "pg_restore",
+                executable: "pg_restore",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "pg_basebackup",
+                executable: "pg_basebackup",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "createdb",
+                executable: "createdb",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "dropdb",
+                executable: "dropdb",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "createuser",
+                executable: "createuser",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "reindexdb",
+                executable: "reindexdb",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "vacuumdb",
+                executable: "vacuumdb",
+                claim: Claim::Own,
+            },
+        ]
+    }
+
+    /// Where this instance listens, in the two variables `libpq` reads — so every one of the
+    /// eleven above, and anything else built on `libpq`, reaches this cluster and not 5432.
+    fn client_env(&self, listen: &Upstream) -> BTreeMap<&'static str, String> {
+        let mut environment = BTreeMap::new();
+
+        if let Upstream::Tcp(address) = listen {
+            environment.insert("PGHOST", address.ip().to_string());
+            environment.insert("PGPORT", address.port().to_string());
+        }
+
+        environment
     }
 
     /// `postgres --version`, which is cheap and touches the server's own machinery.

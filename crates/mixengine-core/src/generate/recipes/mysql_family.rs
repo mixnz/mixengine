@@ -53,6 +53,30 @@ const PATIENCE: Millis = Millis(30_000);
 /// One value rather than four parameters: the recipes hold their own connection helpers — MariaDB's
 /// client is `mariadb` and MySQL's is `mysql`, and each builds its own argument list — and passing
 /// them apart made a function nobody could read the call site of.
+/// Where an instance listens, in the variables every MySQL-family client reads — roadmap task
+/// **T130**.
+///
+/// **Shared by the two recipes because it is one fact about one wire protocol**: `mysql`,
+/// `mariadb`, `mysqldump` and `mariadb-dump` are four programs built from two source trees that
+/// read the same two variables, and two copies of this would be two chances for one of them to
+/// drift.
+///
+/// A socket answers nothing. `MYSQL_UNIX_PORT` exists and is deliberately not set: no recipe here
+/// puts a MySQL-family server on a socket, so a variable for it would be untested code on every
+/// platform at once.
+pub(super) fn client_env(
+    listen: &crate::generate::recipe::Upstream,
+) -> std::collections::BTreeMap<&'static str, String> {
+    let mut environment = std::collections::BTreeMap::new();
+
+    if let crate::generate::recipe::Upstream::Tcp(address) = listen {
+        environment.insert("MYSQL_HOST", address.ip().to_string());
+        environment.insert("MYSQL_TCP_PORT", address.port().to_string());
+    }
+
+    environment
+}
+
 pub(super) struct Client {
     /// The SQL client, absolute.
     pub(super) program: PathBuf,
