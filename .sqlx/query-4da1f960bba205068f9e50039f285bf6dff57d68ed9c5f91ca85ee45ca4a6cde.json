@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO bin_commands (name, kind) VALUES (?, ?)\n             ON CONFLICT (name) DO UPDATE SET kind = excluded.kind",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "4da1f960bba205068f9e50039f285bf6dff57d68ed9c5f91ca85ee45ca4a6cde"
+}
