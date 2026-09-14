@@ -17,6 +17,7 @@ bash packaging/linux/build-deb.sh    # on Linux:   .deb
 bash packaging/linux/build-rpm.sh    #             .rpm
 bash packaging/linux/build-appimage.sh  #          AppImage
 bash packaging/linux/build-tarball.sh   #          the update payload and a headless .tar.gz
+bash scripts/build-installer.sh      # anywhere:   picks this OS's line above, tools checked first
 ```
 
 **The first line is optional and is there for speed.** `stage.sh` runs `desktop.sh` itself when

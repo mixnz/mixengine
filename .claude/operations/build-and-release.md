@@ -8,6 +8,7 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace                        # unit + component + integration
 cargo run -p mixengine-daemon -- --log-level debug   # foreground; --detach backgrounds it
 cargo run -p mixengine-cli -- status
+bash scripts/clean-targets.sh                 # both target/ directories — `cargo clean` reaches one
 ```
 
 Rust at the root; the one Node toolchain is `apps/desktop/`, the desktop application, whose Cargo
