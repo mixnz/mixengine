@@ -22,7 +22,7 @@ use std::process::{Command, Output};
 
 use mixengine_core::runtimes::Installation;
 use mixengine_core::{Store, paths, runtimes, shims};
-use mixengine_proto::{PackageChannel, PackageVersion, RuntimeKind, Timestamp};
+use mixengine_proto::{PackageChannel, PackageVersion, RuntimeKind, ServiceId, Timestamp};
 
 /// A fixed moment: nothing here asserts on time, and a fixture that read the clock would be one
 /// more thing that can differ between two runs.
@@ -39,11 +39,6 @@ pub(crate) fn published_at() -> String {
 /// A home with runtimes installed in it, and a `bin/` holding the shim under a real command name.
 pub(crate) struct Home {
     root: tempfile::TempDir,
-
-    /// The commands beyond [`shims::COMMANDS`] this home's `bin/` fronts — roadmap tasks **T130**
-    /// and **T131**. Filled by the fixtures that install a service package or a global tool; empty
-    /// for every suite that predates them, so that what those assert is still the compiled table.
-    extra: Vec<shims::Extra>,
 }
 
 impl Home {
@@ -51,10 +46,7 @@ impl Home {
     /// installing them in this order really does.
     pub(crate) fn with(versions: &[&str]) -> Self {
         let root = tempfile::tempdir().expect("a temporary home");
-        let home = Self {
-            root,
-            extra: Vec::new(),
-        };
+        let home = Self { root };
 
         let database = home.path().join(paths::DATABASE_FILE_NAME);
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -127,12 +119,170 @@ impl Home {
     /// rather than half of it: the directory a person's PATH points at is filled by the code that
     /// fills it, and the `php` run below is the file that code put there.
     pub(crate) fn fill_bin(&self) -> shims::Refreshed {
+        self.fill_bin_also_fronting(&[])
+    }
+
+    /// The same, plus names nothing in this home claims.
+    ///
+    /// For the one case that has to exist: a copy left in `bin/` after whatever put it there was
+    /// uninstalled, which is the state a person meets in the moment between removing a database
+    /// and the next refresh.
+    pub(crate) fn front(&self, name: &str) {
+        self.fill_bin_also_fronting(&[name]);
+    }
+
+    fn fill_bin_also_fronting(&self, names: &[&str]) -> shims::Refreshed {
+        let mut extra = self.client_extras();
+
+        extra.extend(names.iter().map(|name| shims::Extra {
+            name: (*name).to_owned(),
+            origin: shims::Origin::Global {
+                kind: RuntimeKind::Node,
+            },
+        }));
+
         shims::refresh(
             &self.path().join("bin"),
             Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
-            &self.extra,
+            &extra,
         )
         .expect("bin/ can be filled in a temporary home")
+    }
+
+    /// The client commands of the installed service packages — roadmap task **T130**.
+    ///
+    /// **The daemon's own walk**, through the same two functions `crate::shims::Shims::extras` uses,
+    /// for [`fill_bin`](Self::fill_bin)'s reason one step further along: what this suite claims is
+    /// that a name a person can type is a name the shim then resolves, and a fixture that composed
+    /// `bin/` by hand would be asserting only the second half of that.
+    fn client_extras(&self) -> Vec<shims::Extra> {
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+
+        if !database.is_file() {
+            return Vec::new();
+        }
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own reads");
+
+        runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+            let catalogue = mixengine_core::generate::Catalogue::builtin();
+
+            let claims = mixengine_core::services::client::claims(&store, &catalogue, None)
+                .await
+                .expect("the installed rows can be read");
+
+            store.close().await;
+
+            shims::resolve_claims(&claims).0
+        })
+    }
+
+    /// A service package on disk and in the database, optionally with one instance of it.
+    ///
+    /// `provides` is the artifact's own map — the keys are MixEngine's names and the values are
+    /// wherever the publisher put the file — and every value becomes a copy of the recording
+    /// program, so a command that reaches one can say which file it was and what it was told.
+    pub(crate) fn install_package(
+        &self,
+        package: &str,
+        version: &str,
+        provides: &[(&str, &str)],
+        instance: Option<(&str, u16)>,
+    ) {
+        let directory = self.path().join("packages").join(package).join(version);
+
+        let provides: BTreeMap<String, String> = provides
+            .iter()
+            .map(|(name, at)| ((*name).to_owned(), (*at).to_owned()))
+            .collect();
+
+        for published in provides.values() {
+            let program = directory.join(published);
+            std::fs::create_dir_all(program.parent().expect("a directory")).expect("a directory");
+            std::fs::copy(mixengine_testkit::package::executable_source(), &program)
+                .unwrap_or_else(|error| panic!("copy to {}: {error}", program.display()));
+        }
+
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own writes");
+
+        runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+
+            mixengine_core::packages::remember(
+                &store,
+                &mixengine_core::packages::Installation {
+                    package: package.to_owned(),
+                    version: PackageVersion::parse(version).expect("a version"),
+                    path: directory.clone(),
+                    bytes: 41_000_000,
+                    url: format!("https://example.invalid/{package}-{version}.tar.zst"),
+                    sha256: "00".to_owned(),
+                    provides,
+                },
+                NOW,
+            )
+            .await
+            .expect("a packages row");
+
+            store.close().await;
+        });
+
+        if let Some((id, port)) = instance {
+            self.instantiate(package, version, id, port);
+        }
+
+        self.fill_bin();
+    }
+
+    /// One more instance of an already-installed package, on a port this test chose.
+    ///
+    /// **[`Port::Fixed`] and never [`Port::Allocate`]**, which is what keeps this suite honest on a
+    /// busy machine: allocation asks the operating system whether a number is free, and whether
+    /// 3307 is free is a property of the machine rather than of MixEngine
+    /// (`.claude/standards/testing.md`). What these cases assert is which *row* a command resolves
+    /// to, and a row is a row whether or not anything is listening on it.
+    pub(crate) fn instantiate(&self, package: &str, version: &str, id: &str, port: u16) {
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own writes");
+
+        runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+
+            mixengine_core::services::create(
+                &store,
+                mixengine_platform::host().as_ref(),
+                &mixengine_core::services::Declaration {
+                    service: ServiceId::parse(id).expect("a service id"),
+                    origin: mixengine_core::services::Origin::Package {
+                        name: package.to_owned(),
+                        version: PackageVersion::parse(version).expect("a version"),
+                    },
+                    instance_name: id.to_owned(),
+                    port: mixengine_core::services::Port::Fixed(port),
+                    bind_addr: None,
+                    data_dir: None,
+                    autostart: false,
+                    overrides: "{}".to_owned(),
+                },
+            )
+            .await
+            .expect("a services row");
+
+            store.close().await;
+        });
+
+        self.fill_bin();
     }
 
     /// Another language installed beside the PHPs, publishing what its real artifact publishes.

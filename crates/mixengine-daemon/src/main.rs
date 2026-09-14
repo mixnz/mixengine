@@ -899,6 +899,8 @@ async fn serve(
         paths,
         program.clone(),
         mixengine_platform::host(),
+        store.clone(),
+        services::spec::catalogue(),
     ));
 
     // **Built here and never called here.** The entry it registers is outside the home, so nothing
@@ -917,16 +919,30 @@ async fn serve(
     // run*, but *is the directory this binary sits in one this account may write*.
     let daemon_exe = program.clone();
 
-    match shims.refresh() {
+    match shims.refresh().await {
         Ok(refreshed) if refreshed.written.is_empty() && refreshed.removed.is_empty() => {
             tracing::debug!(commands = refreshed.commands.len(), "bin/ is up to date");
         }
-        Ok(refreshed) => tracing::info!(
-            written = ?refreshed.written,
-            removed = ?refreshed.removed,
-            refused = ?refreshed.refused,
-            "filled bin/ with one shim per command"
-        ),
+        Ok(refreshed) => {
+            tracing::info!(
+                written = ?refreshed.written,
+                removed = ?refreshed.removed,
+                refused = ?refreshed.refused,
+                "filled bin/ with one shim per command"
+            );
+
+            // **Named rather than resolved silently** — roadmap task T130, the design's §A.4. Two
+            // installed packages wanting one name is settled by a total order, and somebody who
+            // typed `mysql` and reached the other product's client has to be able to find out why.
+            for conflict in &refreshed.conflicts {
+                tracing::info!(
+                    command = %conflict.name,
+                    won = %conflict.won,
+                    lost = ?conflict.lost,
+                    "more than one installed package claims this command"
+                );
+            }
+        }
         Err(error) => tracing::warn!(
             %error,
             "could not fill bin/ — the commands in it may be missing or out of date"

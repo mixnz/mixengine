@@ -256,7 +256,7 @@ pub fn file_name(command: &Command) -> String {
 /// terminal is exactly that. It *will* let the file be renamed out of the way while it runs, which
 /// is the only way to put a new one in its place — and the moved copy keeps working for the process
 /// that is holding it until that process exits.
-const MOVED_ASIDE: &str = ".mixengine-replaced";
+pub const MOVED_ASIDE: &str = ".mixengine-replaced";
 
 /// A command `bin/` fronts that [`COMMANDS`] does not name — roadmap tasks **T130** and **T131**.
 ///

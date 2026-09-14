@@ -48,7 +48,7 @@ use std::path::{Path, PathBuf};
 use mixengine_core::config::PathOverrides;
 use mixengine_core::{Paths, Store, paths, resolve, runtimes, shims};
 use mixengine_platform::process;
-use mixengine_proto::{PackageVersion, RuntimeKind, VersionConstraint};
+use mixengine_proto::{PackageVersion, RuntimeKind, ServiceId, VersionConstraint};
 
 /// What this exits with when it cannot become the program it was asked to be.
 ///
@@ -93,7 +93,12 @@ fn main() {
 /// Answers a status only on Windows, where the shim outlives the program it started; on Unix the
 /// hand-over is an `exec` and the only way back here is the [`Refusal`].
 fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
-    let command = shims::dispatch(invoked).ok_or_else(unknown_command)?;
+    // **The compiled table first, and nothing new happens on this path** — roadmap task T29's
+    // budget is fifteen milliseconds for `php -v`, and every arm added below is an arm a runtime
+    // command never reaches.
+    let Some(command) = shims::dispatch(invoked) else {
+        return client(invoked, arguments);
+    };
 
     let own = resolved(command.kind, command.executable)?;
 
@@ -128,6 +133,169 @@ fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
     process::hand_over(&program, &arguments, &environment).map_err(|error| Refusal {
         said: explain(&error),
         hint: None,
+    })
+}
+
+/// A client of an installed service package — roadmap task **T130**.
+///
+/// `mysqldump`, `psql`, `redis-cli`: not a runtime, so there is no directory to resolve against and
+/// no default version to fall back on. What decides is the **instance** —
+/// [`services::client`](mixengine_core::services::client) has the order — and the instance decides
+/// two things at once: which install the program comes out of, and where it connects.
+///
+/// The claim is settled by the same [`shims::resolve_claims`] the daemon filled `bin/` with, over
+/// the same rows, which is what stops a terminal and a directory listing from disagreeing about
+/// whose `mysql` this is.
+fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
+    let name = called(invoked);
+
+    // The binary run under its own name, before anything copied it into `bin/` — a development
+    // tree, or somebody who found it in an install directory. It is the one name that is *never*
+    // a command, so it is answered without opening a database.
+    if name == shims::BINARY {
+        return Err(unknown_command());
+    }
+
+    let home = home_override().map(PathBuf::from);
+    let root = paths::resolve_root(home.as_deref(), mixengine_platform::host().as_ref()).map_err(
+        |error| Refusal {
+            said: explain(&error),
+            hint: None,
+        },
+    )?;
+
+    let database = Paths::new(root.clone(), &PathOverrides::default())
+        .database_file()
+        .to_path_buf();
+
+    let catalogue = mixengine_core::generate::Catalogue::builtin();
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .map_err(|source| Refusal {
+            said: format!("cannot start: {source}"),
+            hint: None,
+        })?;
+
+    let (package, program, environment) = runtime.block_on(async {
+        let store = Store::open_read_only(&database)
+            .await
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: Some(format!(
+                    "{} is where this shim looks — set MIXENGINE_HOME if that is not the install \
+                     it belongs to",
+                    database.display()
+                )),
+            })?;
+
+        // Narrowed to the recipes that declare this name, so an ordinary `psql` costs one query
+        // rather than one per package in the catalogue.
+        let claims = mixengine_core::services::client::claims(&store, &catalogue, Some(&name))
+            .await
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: None,
+            })?;
+
+        let (extras, _) = shims::resolve_claims(&claims);
+
+        let package = extras
+            .into_iter()
+            .find_map(|extra| match extra.origin {
+                shims::Origin::Client { package } => Some(package),
+                shims::Origin::Global { .. } => None,
+            })
+            .ok_or_else(|| nothing_answers_to(&name))?;
+
+        let recipe = catalogue.recipe(&package).expect("a package that claimed");
+
+        let executable =
+            mixengine_core::services::client::executable_for(&catalogue, &package, &name)
+                .expect("the claim named this command");
+
+        // The instance this command was told to use, if somebody said. Read here rather than
+        // deeper in for `override_version`'s reason: the process that reads it has to be the one
+        // the user invoked.
+        let asked = asked_instance(&package)?;
+
+        let chosen = mixengine_core::services::client::chosen(
+            &store,
+            &package,
+            recipe.preferred_port(),
+            asked.as_ref(),
+        )
+        .await
+        .map_err(|error| Refusal {
+            said: explain(&error),
+            hint: None,
+        })?;
+
+        let program = chosen
+            .program(&package, executable)
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: None,
+            })?;
+
+        let mut environment = BTreeMap::new();
+
+        // The install's own directory ahead of the PATH, for the runtime commands' reason: a
+        // Windows `mariadb.exe` finds its DLLs beside it, and the Cygwin Redis finds `cygwin1.dll`.
+        if let Some(directory) = program.parent() {
+            environment.insert("PATH".to_owned(), ahead_of_the_path(directory));
+        }
+
+        // **And where its own instance listens** — the design's D4. Only where the person has not
+        // said: somebody who exported `MYSQL_TCP_PORT` for a tunnel meant it, and a tool that
+        // overrode it would be one that cannot be used against anything but itself.
+        if let Some(listen) = &chosen.listen {
+            for (variable, value) in recipe.client_env(listen) {
+                if std::env::var_os(variable).is_none() {
+                    environment.insert(variable.to_owned(), OsString::from(value));
+                }
+            }
+        }
+
+        Ok::<_, Refusal>((package, program, environment))
+    })?;
+
+    let _ = package;
+
+    process::hand_over(&program, arguments, &environment).map_err(|error| Refusal {
+        said: explain(&error),
+        hint: None,
+    })
+}
+
+/// `MIXENGINE_MARIADB`, if it says anything.
+///
+/// An empty value is "not set"; anything else that is not a service id is refused rather than
+/// skipped past, on [`override_version`]'s own reasoning.
+fn asked_instance(package: &str) -> Result<Option<ServiceId>, Refusal> {
+    let name = mixengine_core::services::client::override_env(package);
+
+    let Some(value) = std::env::var_os(&name) else {
+        return Ok(None);
+    };
+
+    let Some(value) = value.to_str().map(str::trim) else {
+        return Err(Refusal {
+            said: format!("{name} is not text this can read as a service"),
+            hint: None,
+        });
+    };
+
+    if value.is_empty() {
+        return Ok(None);
+    }
+
+    ServiceId::parse(value).map(Some).map_err(|error| Refusal {
+        said: format!("{name} is set to something that is not a service: {error}"),
+        hint: Some(format!(
+            "an instance of {package}, such as {name}={package}@main"
+        )),
     })
 }
 
@@ -361,6 +529,24 @@ fn unknown_command() -> Refusal {
     Refusal {
         said: "this is a MixEngine shim and is not meant to be run under this name".to_owned(),
         hint: Some(format!("it answers to: {}", names.join(", "))),
+    }
+}
+
+/// A name `bin/` holds and nothing in this home claims any more — roadmap tasks **T130** and
+/// **T131**.
+///
+/// [`unknown_command`]'s sibling and a different sentence, because the situation is different and
+/// the old one reads as a bug. `bin/` is a projection of installed state now, so a `mysqldump`
+/// whose database was uninstalled a moment ago is an ordinary, momentary state of the world — the
+/// next refresh sweeps it — and answering it with "this is a MixEngine shim" plus nineteen runtime
+/// commands tells a person nothing about the one they typed.
+fn nothing_answers_to(name: &str) -> Refusal {
+    Refusal {
+        said: "nothing installed here answers to this command any more".to_owned(),
+        hint: Some(format!(
+            "`mix path status` lists what bin/ holds, and `mix path rescan` brings it up to date \
+             (this shim was left behind under the name {name})"
+        )),
     }
 }
 

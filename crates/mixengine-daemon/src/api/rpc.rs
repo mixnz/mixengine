@@ -623,12 +623,11 @@ async fn call_method(
 
                 rpc::method::PATH_INSTALL => {
                     no_params(params.as_ref())?;
-                    let shims = Arc::clone(&api.shims);
-                    encode_result(
-                        &on_a_blocking_thread(move || shims.install())
-                            .await
-                            .map_err(refused)?,
-                    )
+                    // Not `on_a_blocking_thread` any more: filling `bin/` now reads the database
+                    // first (T130), so the call is a future rather than a pile of file copies, and
+                    // the copies themselves are what they always were — nineteen stats and, on the
+                    // pass that changes anything, a hard link apiece.
+                    encode_result(&api.shims.install().await.map_err(refused)?)
                 }
 
                 rpc::method::PATH_UNINSTALL => {
@@ -2471,6 +2470,8 @@ mod tests {
             &paths,
             installed.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX)),
             Arc::clone(&host) as Arc<dyn mixengine_platform::Host>,
+            store.clone(),
+            crate::services::spec::catalogue(),
         ));
 
         let autostart = Arc::new(crate::autostart::Autostart::new(

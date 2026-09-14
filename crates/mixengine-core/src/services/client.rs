@@ -57,6 +57,38 @@ pub struct Chosen {
     /// Where [`service`](Self::service) listens, and [`None`] when there is no instance or its row
     /// holds no port.
     pub listen: Option<Upstream>,
+
+    /// What that install publishes, by the key the index names it under.
+    ///
+    /// Carried rather than looked up afterwards because **both callers need it and the row is
+    /// already open**: the daemon asks it to find out which client names `bin/` may front, and the
+    /// shim asks it to turn the name somebody typed into a file. Two queries would be two chances
+    /// for `bin/` to hold a name the run then cannot resolve.
+    pub provides: std::collections::BTreeMap<String, String>,
+}
+
+impl Chosen {
+    /// The file behind one of this install's published names.
+    ///
+    /// [`Context::provided`](crate::generate::recipe::Context::provided) for a client rather than
+    /// for a recipe, and the same join: the path inside the archive belongs to whoever packed it,
+    /// so it is read out of the recorded map rather than guessed at from the name.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::PackageProvidesNothing`], naming the command and listing what this version does
+    /// publish.
+    pub fn program(&self, package: &str, executable: &str) -> Result<PathBuf> {
+        self.provides
+            .get(executable)
+            .map(|relative| self.install_path.join(relative))
+            .ok_or_else(|| Error::PackageProvidesNothing {
+                package: package.to_owned(),
+                version: self.version.clone(),
+                executable: executable.to_owned(),
+                known: self.provides.keys().cloned().collect(),
+            })
+    }
 }
 
 /// The variable that names an instance for one package: `MIXENGINE_MARIADB`.
@@ -78,6 +110,111 @@ pub fn override_env(package: &str) -> String {
     format!("MIXENGINE_{folded}")
 }
 
+/// Every client command this home could front, as claims on a name — roadmap task **T130**.
+///
+/// **One implementation, two callers, and that is the point.** The daemon asks with `only` as
+/// [`None`] to compose `bin/`; a shim asks with the name somebody just typed, to find out whose
+/// program it is. Two walks would be a directory holding a command the shim then refused, or a
+/// command the shim ran that `bin/` had given to the other package.
+///
+/// `only` is an optimisation and never a difference in the answer: a name is contested by at most
+/// the packages whose recipes declare it, so a shim narrows the walk to those before it opens the
+/// database and pays one query instead of eight. What comes out is handed to
+/// [`shims::resolve_claims`](crate::shims::resolve_claims) either way.
+///
+/// A package with no installed version is skipped. `bin/` holding `node` on a machine with no
+/// Node.js is [`crate::shims::COMMANDS`]' deliberate choice and is right for a *runtime*, whose
+/// shim then says which command to type; there is no such sentence for `mysqldump` on a machine
+/// that has never had a database.
+///
+/// # Errors
+///
+/// [`Error::Database`] when the rows cannot be read, and [`Error::UnreadablePackageRow`] for a row
+/// this build cannot parse. A package that is not installed is not an error.
+pub async fn claims(
+    store: &Store,
+    catalogue: &crate::generate::Catalogue,
+    only: Option<&str>,
+) -> Result<Vec<crate::shims::Claimed>> {
+    let mut claims = Vec::new();
+
+    for package in catalogue.packages() {
+        let recipe = catalogue.recipe(package).expect("a listed recipe");
+
+        let wanted: Vec<&crate::generate::recipe::ClientCommand> = recipe
+            .clients()
+            .iter()
+            .filter(|client| only.is_none_or(|name| same_command(client.name, name)))
+            .collect();
+
+        if wanted.is_empty() {
+            continue;
+        }
+
+        let preferred_port = recipe.preferred_port();
+
+        let chosen = match chosen(store, package, preferred_port, None).await {
+            Ok(chosen) => chosen,
+            Err(Error::NotFound { .. }) => continue,
+            Err(error) => return Err(error),
+        };
+
+        let on_preferred_port = matches!(
+            (&chosen.listen, preferred_port),
+            (Some(Upstream::Tcp(at)), Some(port)) if at.port() == port
+        );
+
+        for client in wanted {
+            // **The chosen install and not any install.** A Windows MariaDB packs no
+            // `mariadb-backup` on every branch, and a name in `bin/` that resolves to nothing is
+            // worse than a missing one.
+            if !chosen.provides.contains_key(client.executable) {
+                continue;
+            }
+
+            claims.push(crate::shims::Claimed {
+                name: client.name.to_owned(),
+                package: package.to_owned(),
+                claim: client.claim,
+                has_instance: chosen.service.is_some(),
+                on_preferred_port,
+            });
+        }
+    }
+
+    Ok(claims)
+}
+
+/// Are these the same command name?
+///
+/// [`crate::shims::dispatch`]' rule, which is the filesystem's rather than a courtesy: `MYSQL` and
+/// `mysql` are one file on Windows and two here, so folding case on Unix would let a program
+/// genuinely called `MYSQL` be dispatched as the other.
+fn same_command(left: &str, right: &str) -> bool {
+    match cfg!(windows) {
+        true => left.eq_ignore_ascii_case(right),
+        false => left == right,
+    }
+}
+
+/// Which executable a package's recipe runs for one command name.
+///
+/// The compiled half of the answer, asked after [`claims`] has settled *which package* the name
+/// belongs to: a shim has a winner and still needs to know that MariaDB's `mysqldump` is
+/// `mariadb-dump`.
+#[must_use]
+pub fn executable_for(
+    catalogue: &crate::generate::Catalogue,
+    package: &str,
+    name: &str,
+) -> Option<&'static str> {
+    catalogue
+        .recipe(package)?
+        .clients()
+        .iter()
+        .find_map(|client| same_command(client.name, name).then_some(client.executable))
+}
+
 /// One `services` row, as far as this decision cares about it.
 #[derive(Debug, Clone)]
 struct Instance {
@@ -86,6 +223,7 @@ struct Instance {
     bind_addr: String,
     version: String,
     install_path: String,
+    provides_json: String,
 }
 
 /// Which install the clients of `package` should run out of, on this home.
@@ -120,25 +258,39 @@ pub async fn chosen(
                 id: asked.as_str().to_owned(),
             })?;
 
-        return resolved(
-            Some(found.clone()),
-            found.version.clone(),
-            &found.install_path,
-        );
+        let install = Install {
+            version: found.version.clone(),
+            path: found.install_path.clone(),
+            provides_json: found.provides_json.clone(),
+        };
+
+        return resolved(Some(found.clone()), &install);
     }
 
     match pick(instances, preferred_port) {
         Some(instance) => {
-            let (version, path) = (instance.version.clone(), instance.install_path.clone());
-            resolved(Some(instance), version, &path)
+            let install = Install {
+                version: instance.version.clone(),
+                path: instance.install_path.clone(),
+                provides_json: instance.provides_json.clone(),
+            };
+
+            resolved(Some(instance), &install)
         }
 
         // Rule four. The newest installed version, and nothing said about an endpoint.
-        None => {
-            let (version, path) = newest(store, package).await?;
-            resolved(None, version, &path)
-        }
+        None => resolved(None, &newest(store, package).await?),
     }
+}
+
+/// The three things a `packages` row contributes to an answer.
+///
+/// A value rather than three arguments so that the two paths into [`resolved`] cannot pass them in
+/// a different order — they are all strings, which is exactly the shape a compiler cannot check.
+struct Install {
+    version: String,
+    path: String,
+    provides_json: String,
 }
 
 /// Rule three, as a total order.
@@ -166,8 +318,8 @@ fn pick(mut instances: Vec<Instance>, preferred_port: Option<u16>) -> Option<Ins
     instances.into_iter().next()
 }
 
-/// Assemble the answer, parsing the two values a row holds as text.
-fn resolved(instance: Option<Instance>, version: String, install_path: &str) -> Result<Chosen> {
+/// Assemble the answer, parsing the values a row holds as text.
+fn resolved(instance: Option<Instance>, install: &Install) -> Result<Chosen> {
     let listen = instance.as_ref().and_then(|instance| {
         let port = instance.port?;
 
@@ -191,10 +343,14 @@ fn resolved(instance: Option<Instance>, version: String, install_path: &str) -> 
                     .map_err(|_| unreadable("services.id", &instance.id))
             })
             .transpose()?,
-        version: PackageVersion::parse(version.clone())
+        version: PackageVersion::parse(install.version.clone())
             .map_err(|VersionError { value, .. }| unreadable("version", &value))?,
-        install_path: PathBuf::from(install_path),
+        install_path: PathBuf::from(&install.path),
         listen,
+        // An unreadable map is an empty one rather than a refusal, which is `packages::remember`'s
+        // own answer beside the same column: a row with no recorded executables is a thing that
+        // happens, and it is `program` that turns it into a sentence naming the command.
+        provides: serde_json::from_str(&install.provides_json).unwrap_or_default(),
     })
 }
 
@@ -206,7 +362,8 @@ async fn instances(store: &Store, package: &str) -> Result<Vec<Instance>> {
                   services.port          AS "port: u16",
                   services.bind_addr     AS "bind_addr!",
                   packages.version       AS "version!",
-                  packages.install_path  AS "install_path!"
+                  packages.install_path  AS "install_path!",
+                  packages.provides_json AS "provides_json!"
            FROM services
            JOIN packages ON packages.id = services.package_id
            WHERE packages.name = ?"#,
@@ -222,16 +379,16 @@ async fn instances(store: &Store, package: &str) -> Result<Vec<Instance>> {
 /// [`PackageVersion::cmp_precedence`] and not `Ord`, which is the string's order: `8.10.0` is newer
 /// than `8.9.0` and sorts before it as text, so the obvious `ORDER BY version DESC` would hand a
 /// person the older client every time a minor number reached ten.
-async fn newest(store: &Store, package: &str) -> Result<(String, String)> {
+async fn newest(store: &Store, package: &str) -> Result<Install> {
     let rows = sqlx::query!(
-        "SELECT version, install_path FROM packages WHERE name = ?",
+        "SELECT version, install_path, provides_json FROM packages WHERE name = ?",
         package
     )
     .fetch_all(store.pool())
     .await
     .map_err(|source| store.failure("read", source))?;
 
-    let mut best: Option<(PackageVersion, String, String)> = None;
+    let mut best: Option<(PackageVersion, Install)> = None;
 
     for row in rows {
         let version = PackageVersion::parse(row.version.clone()).map_err(
@@ -243,14 +400,21 @@ async fn newest(store: &Store, package: &str) -> Result<(String, String)> {
 
         let newer = best
             .as_ref()
-            .is_none_or(|(held, _, _)| version.cmp_precedence(held).is_gt());
+            .is_none_or(|(held, _)| version.cmp_precedence(held).is_gt());
 
         if newer {
-            best = Some((version, row.version, row.install_path));
+            best = Some((
+                version,
+                Install {
+                    version: row.version,
+                    path: row.install_path,
+                    provides_json: row.provides_json,
+                },
+            ));
         }
     }
 
-    best.map(|(_, version, path)| (version, path))
+    best.map(|(_, install)| install)
         .ok_or_else(|| Error::NotFound {
             kind: "package",
             id: package.to_owned(),

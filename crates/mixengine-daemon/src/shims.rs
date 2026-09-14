@@ -45,14 +45,42 @@ pub(crate) struct Shims {
 
     /// The OS, for the half of this that is not a file inside the home.
     host: Arc<dyn Host>,
+
+    /// The rows `bin/` is a projection of — roadmap tasks **T130** and **T131**.
+    ///
+    /// The directory stopped being a projection of one compiled constant when it started fronting
+    /// the clients of installed packages and the tools somebody put inside a runtime, and this is
+    /// what that cost: the thing that fills `bin/` now has to be able to read the database.
+    store: mixengine_core::Store,
+
+    /// Which packages this build knows how to run, which is what declares their client commands.
+    catalogue: mixengine_core::generate::Catalogue,
+
+    /// Held across every refresh, so two of them cannot sweep against two different expectations.
+    ///
+    /// **Three callers now instead of one**: the start, `path.install`, and the pass that notices a
+    /// global install (T131). A refresh removes what is not expected *before* it writes what is, so
+    /// two overlapping passes could each delete the other's files and leave a name on somebody's
+    /// PATH with nothing behind it. The window is small and the failure is not, which is the shape
+    /// of a lock that is worth taking.
+    filling: tokio::sync::Mutex<()>,
 }
 
 impl Shims {
-    pub(crate) fn new(paths: &Paths, program: PathBuf, host: Arc<dyn Host>) -> Self {
+    pub(crate) fn new(
+        paths: &Paths,
+        program: PathBuf,
+        host: Arc<dyn Host>,
+        store: mixengine_core::Store,
+        catalogue: mixengine_core::generate::Catalogue,
+    ) -> Self {
         Self {
             bin: paths.bin().to_path_buf(),
             program,
             host,
+            store,
+            catalogue,
+            filling: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -64,12 +92,49 @@ impl Shims {
     /// start-up path that logs it: everything below the API boundary in this binary has already
     /// been through [`ToWire`](crate::error::ToWire), and a second error type flowing up through
     /// one method would be one place for a hint to go missing.
-    pub(crate) fn refresh(&self) -> Result<shims::Refreshed, Error> {
+    pub(crate) async fn refresh(&self) -> Result<shims::Refreshed, Error> {
         let shim = shims::source(&self.program).map_err(|error| error.to_wire())?;
+        let (extra, conflicts) = self.extras().await?;
 
-        // Task T130 fills this from the installed rows; until then a refresh is what it always was,
-        // and the empty slice is what says so rather than a `TODO`.
-        shims::refresh(&self.bin, &shim, &[]).map_err(|error| error.to_wire())
+        let _filling = self.filling.lock().await;
+
+        let mut refreshed = shims::refresh(&self.bin, &shim, &extra).map_err(|e| e.to_wire())?;
+        refreshed.conflicts = conflicts;
+
+        Ok(refreshed)
+    }
+
+    /// The commands `bin/` fronts on installed packages' behalf — roadmap task **T130**.
+    ///
+    /// **A recipe declares, the rows decide.** Which names exist at all is
+    /// [`Recipe::clients`](mixengine_core::generate::Recipe::clients), compiled in; which of them
+    /// this home can actually run is three facts out of the database, asked once per package:
+    ///
+    /// - is any version of it installed, and which one would a command resolve to
+    ///   ([`client::chosen`](mixengine_core::services::client::chosen)),
+    /// - does *that* install publish the executable the client names — a Windows MariaDB packs no
+    ///   `mariadb-backup` on every branch, and a name in `bin/` resolving to nothing is worse than
+    ///   a missing one,
+    /// - and is there an instance, on the product's documented port, which is what settles a name
+    ///   two packages both want.
+    ///
+    /// A package that is not installed is skipped rather than reported: `bin/` holding `node` on a
+    /// machine with no Node.js is [`shims::COMMANDS`]' deliberate choice and is right for a
+    /// *runtime*, whose shim then says which command to type. It is wrong here, because there is no
+    /// such sentence to say — `mysqldump` on a machine that has never had a database is a name
+    /// nothing would ever make work.
+    async fn extras(&self) -> Result<(Vec<shims::Extra>, Vec<shims::Conflict>), Error> {
+        // The whole walk is [`client::claims`], because the shim performs the same one with the
+        // name it was invoked by: two implementations would be a `bin/` holding a command the shim
+        // then refused, or a command the shim ran that this directory had given to another package.
+        //
+        // A database that cannot be read fails the whole refresh rather than composing `bin/` out
+        // of half a query — the half that failed would be swept away as commands nothing claims.
+        let claims = mixengine_core::services::client::claims(&self.store, &self.catalogue, None)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        Ok(shims::resolve_claims(&claims))
     }
 
     /// `path.status` — what a terminal opened a minute from now would find.
@@ -92,8 +157,8 @@ impl Shims {
     /// **That order and not the other**, because the failure that survives has to be the harmless
     /// one: a directory of shims nothing can find is invisible, and a PATH entry naming a directory
     /// that was never filled is a `php` that resolves to nothing.
-    pub(crate) fn install(&self) -> Result<PathReport, Error> {
-        let refreshed = self.refresh()?;
+    pub(crate) async fn install(&self) -> Result<PathReport, Error> {
+        let refreshed = self.refresh().await?;
 
         let state = self
             .host
@@ -132,23 +197,36 @@ impl Shims {
             return Vec::new();
         };
 
-        let present: Vec<String> = entries
+        let mut present: Vec<String> = entries
             .flatten()
             .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            // A copy a Windows refresh could not overwrite and moved out of the way. It is rubbish
+            // the next sweep collects, not a command anybody can type.
+            .filter(|name| !name.ends_with(shims::MOVED_ASIDE))
             .collect();
+
+        let same = |left: &str, right: &str| match cfg!(windows) {
+            true => left.eq_ignore_ascii_case(right),
+            false => left == right,
+        };
 
         // In the table's order rather than the directory's, which is arbitrary on every filesystem
         // and stable on none — a listing somebody scans has to be one the eye can predict, which is
         // `runtime.list_installed`'s own reasoning.
-        known
+        let mut listing: Vec<String> = known
             .into_iter()
-            .filter(|name| {
-                present.iter().any(|found| match cfg!(windows) {
-                    true => found.eq_ignore_ascii_case(name),
-                    false => found == name,
-                })
-            })
-            .collect()
+            .filter(|name| present.iter().any(|found| same(found, name)))
+            .collect();
+
+        // **And then everything else `bin/` holds, alphabetically** — roadmap tasks T130 and T131.
+        // A listing composed from [`shims::COMMANDS`] alone used to be the whole answer and is now
+        // a claim that `mysqldump` and `yarn` are not there, on a machine where a person can see
+        // them and run them.
+        present.retain(|found| !listing.iter().any(|name| same(found, name)));
+        present.sort();
+        listing.extend(present);
+
+        listing
     }
 
     /// The wire shape of an answer, from the OS's half and the directory's.

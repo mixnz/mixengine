@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT version, install_path FROM packages WHERE name = ?",
+  "query": "SELECT version, install_path, provides_json FROM packages WHERE name = ?",
   "describe": {
     "columns": [
       {
@@ -24,6 +24,17 @@
             "name": "install_path"
           }
         }
+      },
+      {
+        "name": "provides_json",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "provides_json"
+          }
+        }
       }
     ],
     "parameters": {
@@ -31,8 +42,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "495713b4d1bc10f0c005c86cac208cbf525df4d96256bfefb0594c65364ff032"
+  "hash": "272db9185491e12d95dd04731aac467b8f02a97bfa219c3dfead47dfbfad97ff"
 }
