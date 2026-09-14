@@ -12,15 +12,41 @@ use mixengine_core::shims;
 /// A `bin/` and a file standing in for the shim binary, in a directory this test owns.
 struct Fixture {
     root: tempfile::TempDir,
+
+    /// The commands beyond [`shims::COMMANDS`] this fixture hands to every refresh — roadmap tasks
+    /// **T130** and **T131**. Empty for the suite that predates them, which is what keeps every
+    /// assertion below about the compiled table alone.
+    extra: Vec<shims::Extra>,
 }
 
 impl Fixture {
     fn new() -> Self {
         let root = tempfile::tempdir().expect("a temporary directory");
-        let fixture = Self { root };
+        let fixture = Self {
+            root,
+            extra: Vec::new(),
+        };
 
         fixture.publish(b"the shim, build one");
         fixture
+    }
+
+    /// The same fixture, with `names` handed over as discovered Node tools.
+    ///
+    /// The origin is arbitrary here: what a refresh does with an extra does not depend on where it
+    /// came from, and the suites that care about the origin are the daemon's.
+    fn fronting(mut self, names: &[&str]) -> Self {
+        self.extra = names
+            .iter()
+            .map(|name| shims::Extra {
+                name: (*name).to_owned(),
+                origin: shims::Origin::Global {
+                    kind: mixengine_proto::RuntimeKind::Node,
+                },
+            })
+            .collect();
+
+        self
     }
 
     /// (Re)write the source binary with `contents`, which is how an upgrade is spelled here.
@@ -51,7 +77,8 @@ impl Fixture {
     }
 
     fn refresh(&self) -> shims::Refreshed {
-        shims::refresh(&self.bin(), &self.shim()).expect("a writable temporary directory")
+        shims::refresh(&self.bin(), &self.shim(), &self.extra)
+            .expect("a writable temporary directory")
     }
 
     fn copy_of(&self, name: &str) -> PathBuf {
@@ -259,4 +286,83 @@ fn every_command_becomes_a_file_name_this_system_can_run() {
             "the suffix is the loader's rule: {name}"
         );
     }
+}
+
+/// **A command beyond the compiled table is a copy of the same shim** — roadmap tasks **T130** and
+/// **T131**. The whole of what `bin/` had to learn: `mysqldump` and `yarn` are names, and the
+/// program behind each of them is the one binary that reads its own file name.
+#[test]
+fn a_command_beyond_the_table_is_put_in_bin() {
+    let fixture = Fixture::new().fronting(&["yarn", "mysqldump"]);
+    let refreshed = fixture.refresh();
+
+    for name in ["yarn", "mysqldump"] {
+        let copy = fixture.copy_of(&format!("{name}{}", std::env::consts::EXE_SUFFIX));
+        assert!(copy.is_file(), "{} was not written", copy.display());
+    }
+
+    assert_eq!(
+        refreshed.commands.len(),
+        mixengine_core::shims::COMMANDS.len() + 2
+    );
+}
+
+/// And it is swept the moment it stops being handed over. `bin/` is a projection of what is
+/// installed, so a `yarn` whose Node was uninstalled is a word on somebody's PATH that runs a
+/// program with nothing behind it — which is exactly what this directory's sweep exists to prevent.
+#[test]
+fn a_command_no_longer_handed_over_is_removed() {
+    let fixture = Fixture::new().fronting(&["yarn"]);
+    fixture.refresh();
+
+    let yarn = fixture.copy_of(&format!("yarn{}", std::env::consts::EXE_SUFFIX));
+    assert!(yarn.is_file(), "the first pass wrote it");
+
+    let fixture = Fixture {
+        extra: Vec::new(),
+        ..fixture
+    };
+    let refreshed = fixture.refresh();
+
+    assert!(!yarn.exists(), "the second pass left it there");
+    assert!(
+        refreshed
+            .removed
+            .iter()
+            .any(|name| name.starts_with("yarn")),
+        "{:?}",
+        refreshed.removed
+    );
+}
+
+/// **A compiled row is never displaced by an extra of the same name.** Somebody who runs
+/// `npm install -g npm` has an `npm` in their Node's global directory; fronting *that* would make
+/// `bin/npm` a shim that dispatches to a file found by a shim, and the first thing it would find is
+/// itself.
+#[test]
+fn a_compiled_command_wins_over_an_extra_of_the_same_name() {
+    let fixture = Fixture::new().fronting(&["npm"]);
+    let refreshed = fixture.refresh();
+
+    assert_eq!(
+        refreshed.commands.len(),
+        mixengine_core::shims::COMMANDS.len(),
+        "npm was fronted twice: {:?}",
+        refreshed.commands
+    );
+}
+
+/// One name handed over twice is the caller describing one disk badly, not a reason to write the
+/// file twice or to sweep it between the two writes.
+#[test]
+fn one_name_is_written_once() {
+    let fixture = Fixture::new().fronting(&["yarn", "yarn"]);
+    let refreshed = fixture.refresh();
+
+    assert_eq!(
+        refreshed.commands.len(),
+        mixengine_core::shims::COMMANDS.len() + 1,
+        "{:?}",
+        refreshed.commands
+    );
 }

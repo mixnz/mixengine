@@ -67,7 +67,9 @@ impl Shims {
     pub(crate) fn refresh(&self) -> Result<shims::Refreshed, Error> {
         let shim = shims::source(&self.program).map_err(|error| error.to_wire())?;
 
-        shims::refresh(&self.bin, &shim).map_err(|error| error.to_wire())
+        // Task T130 fills this from the installed rows; until then a refresh is what it always was,
+        // and the empty slice is what says so rather than a `TODO`.
+        shims::refresh(&self.bin, &shim, &[]).map_err(|error| error.to_wire())
     }
 
     /// `path.status` — what a terminal opened a minute from now would find.

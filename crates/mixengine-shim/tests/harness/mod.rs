@@ -39,6 +39,11 @@ pub(crate) fn published_at() -> String {
 /// A home with runtimes installed in it, and a `bin/` holding the shim under a real command name.
 pub(crate) struct Home {
     root: tempfile::TempDir,
+
+    /// The commands beyond [`shims::COMMANDS`] this home's `bin/` fronts — roadmap tasks **T130**
+    /// and **T131**. Filled by the fixtures that install a service package or a global tool; empty
+    /// for every suite that predates them, so that what those assert is still the compiled table.
+    extra: Vec<shims::Extra>,
 }
 
 impl Home {
@@ -46,7 +51,10 @@ impl Home {
     /// installing them in this order really does.
     pub(crate) fn with(versions: &[&str]) -> Self {
         let root = tempfile::tempdir().expect("a temporary home");
-        let home = Self { root };
+        let home = Self {
+            root,
+            extra: Vec::new(),
+        };
 
         let database = home.path().join(paths::DATABASE_FILE_NAME);
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -122,6 +130,7 @@ impl Home {
         shims::refresh(
             &self.path().join("bin"),
             Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
+            &self.extra,
         )
         .expect("bin/ can be filled in a temporary home")
     }
