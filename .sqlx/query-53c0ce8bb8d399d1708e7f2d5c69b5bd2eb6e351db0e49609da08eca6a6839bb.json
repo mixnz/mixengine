@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT kind, install_path, provides_json FROM runtime_installs",
+  "describe": {
+    "columns": [
+      {
+        "name": "kind",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "name": "install_path",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "install_path"
+          }
+        }
+      },
+      {
+        "name": "provides_json",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runtime_installs",
+            "name": "provides_json"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "53c0ce8bb8d399d1708e7f2d5c69b5bd2eb6e351db0e49609da08eca6a6839bb"
+}

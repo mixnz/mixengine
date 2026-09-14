@@ -143,6 +143,56 @@ pub fn scan(
     found
 }
 
+/// Every tool every installed runtime holds, with the language that decides which copy runs.
+///
+/// **The pass the daemon repeats and the shape `bin_commands` is recorded in** — roadmap task
+/// **T131**. Each installed version is scanned against its own `provides`, and the union is taken
+/// by name.
+///
+/// A name two languages both hold goes to the one whose kind comes first in
+/// [`RuntimeKind::ALL`](mixengine_proto::RuntimeKind::ALL). Arbitrary, and the same answer on every
+/// machine and on every pass, which is the property that matters: `bin/` holds one file per name,
+/// so something has to decide, and a decision that moved between scans would make a command mean
+/// different things on two consecutive days.
+///
+/// # Errors
+///
+/// [`Error::Database`](crate::Error::Database) when the installs cannot be listed. A directory that
+/// cannot be read is no tools rather than a failure — see [`scan`].
+pub async fn everywhere(store: &crate::Store) -> crate::Result<BTreeMap<String, RuntimeKind>> {
+    let rows = sqlx::query!("SELECT kind, install_path, provides_json FROM runtime_installs")
+        .fetch_all(store.pool())
+        .await
+        .map_err(|source| store.failure("read", source))?;
+
+    let mut found: BTreeMap<String, RuntimeKind> = BTreeMap::new();
+
+    for row in rows {
+        // A row naming a language this build does not front is skipped rather than refused: it is a
+        // home that met a newer release, and the tools of a language this binary cannot resolve are
+        // ones it could not run anyway.
+        let Some(kind) = RuntimeKind::parse(&row.kind) else {
+            continue;
+        };
+
+        let provides: BTreeMap<String, String> =
+            serde_json::from_str(&row.provides_json).unwrap_or_default();
+
+        for name in scan(kind, Path::new(&row.install_path), &provides) {
+            match found.get(&name) {
+                // Already held by a language that sorts earlier. Nothing to do, and nothing to
+                // report: this is a coincidence between two ecosystems' package names.
+                Some(held) if *held <= kind => {}
+                _ => {
+                    found.insert(name, kind);
+                }
+            }
+        }
+    }
+
+    Ok(found)
+}
+
 /// The command a file in a bindir would be typed as, and [`None`] for a file that is not one.
 ///
 /// On Windows the extension is the loader's and is stripped: `yarn.cmd` is typed `yarn`, and

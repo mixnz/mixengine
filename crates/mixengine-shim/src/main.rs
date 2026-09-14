@@ -178,7 +178,7 @@ fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
             hint: None,
         })?;
 
-    let (package, program, environment) = runtime.block_on(async {
+    let (program, environment) = runtime.block_on(async {
         let store = Store::open_read_only(&database)
             .await
             .map_err(|error| Refusal {
@@ -201,13 +201,17 @@ fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
 
         let (extras, _) = shims::resolve_claims(&claims);
 
-        let package = extras
-            .into_iter()
-            .find_map(|extra| match extra.origin {
-                shims::Origin::Client { package } => Some(package),
-                shims::Origin::Global { .. } => None,
-            })
-            .ok_or_else(|| nothing_answers_to(&name))?;
+        let package = extras.into_iter().find_map(|extra| match extra.origin {
+            shims::Origin::Client { package } => Some(package),
+            shims::Origin::Global { .. } => None,
+        });
+
+        // **No package claims it, so the third arm** — roadmap task T131. A tool somebody installed
+        // into a runtime, whose language `bin_commands` recorded when the pass that found it wrote
+        // `bin/`. One row, because a shim is handed nothing but the name it was invoked by.
+        let Some(package) = package else {
+            return global(&store, &name, &root).await;
+        };
 
         let recipe = catalogue.recipe(&package).expect("a package that claimed");
 
@@ -258,15 +262,112 @@ fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
             }
         }
 
-        Ok::<_, Refusal>((package, program, environment))
+        Ok::<_, Refusal>((program, environment))
     })?;
-
-    let _ = package;
 
     process::hand_over(&program, arguments, &environment).map_err(|error| Refusal {
         said: explain(&error),
         hint: None,
     })
+}
+
+/// A tool somebody installed into a runtime — roadmap task **T131**.
+///
+/// **It follows the version the way `npm` does**, which is the whole of the design: `yarn` is
+/// resolved for *this* directory, and the file is looked for inside that version's own bindir. A
+/// `bin/yarn` that ran whichever copy it found first would be the silent wrong answer the shim
+/// exists to prevent — a project pinned to Node 22 getting Node 24's Yarn.
+///
+/// A version that does not have the tool is a sentence and not a bare 127: the person is told which
+/// version this directory means and what to type to install it there.
+async fn global(
+    store: &Store,
+    name: &str,
+    root: &Path,
+) -> Result<(PathBuf, BTreeMap<String, OsString>), Refusal> {
+    let kind = mixengine_core::bin_commands::kind(store, name)
+        .await
+        .map_err(|error| Refusal {
+            said: explain(&error),
+            hint: None,
+        })?
+        .ok_or_else(|| nothing_answers_to(name))?;
+
+    let asked = override_version(kind)?;
+    let cwd = std::env::current_dir().ok();
+
+    let resolved = resolve::runtime(
+        store,
+        &resolve::Question {
+            kind,
+            cwd: cwd.as_deref(),
+            explicit: asked.as_ref(),
+        },
+    )
+    .await
+    .map_err(|error| Refusal {
+        hint: hint_for(&error),
+        said: explain(&error),
+    })?;
+
+    let install = PathBuf::from(&resolved.runtime.path);
+    let version = resolved.runtime.version.clone();
+
+    let bindir = runtimes::globals::directory(kind, &install).ok_or_else(|| Refusal {
+        said: format!("{kind} installs no tools of its own that a command could front"),
+        hint: None,
+    })?;
+
+    let program = runnable(&bindir, name).ok_or_else(|| Refusal {
+        said: format!(
+            "{kind} {version} is what this directory resolves to, and {name} is not installed \
+             for it"
+        ),
+        hint: Some(install_globally(kind, name)),
+    })?;
+
+    Ok((
+        program,
+        surroundings(kind, &program_for_surroundings(&bindir), root, &version),
+    ))
+}
+
+/// The file in `bindir` that this system would run for a bare `name`.
+///
+/// On Windows that is the name plus one of the loader's extensions, in the order the loader tries
+/// them — an `.exe` before a `.cmd`, which matters because a package that ships both means the
+/// `.exe`, and because a batch file is the one thing whose arguments this cannot always quote.
+fn runnable(bindir: &Path, name: &str) -> Option<PathBuf> {
+    if !cfg!(windows) {
+        let file = bindir.join(name);
+        return file.is_file().then_some(file);
+    }
+
+    ["exe", "com", "bat", "cmd"]
+        .into_iter()
+        .map(|extension| bindir.join(format!("{name}.{extension}")))
+        .find(|file| file.is_file())
+}
+
+/// A path inside `bindir`, for [`surroundings`] to take the parent of.
+///
+/// `surroundings` describes a program by the directory it lives in, and what has to go on the PATH
+/// here is the *bindir* — which on Unix is `<install>/bin`, where `node` itself is, so a `yarn`
+/// started from it finds the interpreter that is meant to run it.
+fn program_for_surroundings(bindir: &Path) -> PathBuf {
+    bindir.join("the-program")
+}
+
+/// What to type to put `name` inside the version this directory resolves to.
+fn install_globally(kind: RuntimeKind, name: &str) -> String {
+    match kind {
+        RuntimeKind::Node => format!("npm install -g {name}"),
+        RuntimeKind::Python => format!("pip install {name}"),
+        RuntimeKind::Ruby => format!("gem install {name}"),
+        RuntimeKind::Php | RuntimeKind::Composer => {
+            format!("nothing here installs {name} into a {kind}")
+        }
+    }
 }
 
 /// `MIXENGINE_MARIADB`, if it says anything.

@@ -181,6 +181,152 @@ impl Home {
         })
     }
 
+    /// What `npm install -g` leaves behind, and the pass that notices it — roadmap task **T131**.
+    ///
+    /// The program is written into the runtime's own bindir (on Windows under every spelling npm
+    /// really writes, so the case that one command comes out of three files is exercised rather
+    /// than assumed), the scan records which language it belongs to, and `bin/` is refilled.
+    pub(crate) fn install_globally(&self, kind: RuntimeKind, version: &str, name: &str) {
+        let install = self
+            .path()
+            .join("runtimes")
+            .join(kind.as_str())
+            .join(version);
+
+        let bindir = mixengine_core::runtimes::globals::directory(kind, &install)
+            .expect("a language with a bindir");
+        std::fs::create_dir_all(&bindir).expect("a bindir");
+
+        let spellings: Vec<String> = match cfg!(windows) {
+            true => vec![
+                format!("{name}.cmd"),
+                format!("{name}.ps1"),
+                name.to_owned(),
+            ],
+            false => vec![name.to_owned()],
+        };
+
+        for spelling in &spellings {
+            let file = bindir.join(spelling);
+
+            // Only the one this system would actually run is the recording program; the others are
+            // the data npm writes beside it, and a scan that turned them into commands would be the
+            // bug the Windows case here is for.
+            if cfg!(windows) && !spelling.ends_with(".cmd") {
+                std::fs::write(&file, b"not a program").expect("a file");
+                continue;
+            }
+
+            std::fs::copy(mixengine_testkit::package::executable_source(), &file)
+                .unwrap_or_else(|error| panic!("copy to {}: {error}", file.display()));
+        }
+
+        // A `.cmd` cannot be handed arguments the way an `.exe` can, and what these cases assert is
+        // the resolution rather than Windows' batch quoting — so the recording program is *also*
+        // written under the name the loader tries first.
+        if cfg!(windows) {
+            let exe = bindir.join(format!("{name}.exe"));
+            std::fs::copy(mixengine_testkit::package::executable_source(), &exe)
+                .unwrap_or_else(|error| panic!("copy to {}: {error}", exe.display()));
+        }
+
+        self.rescan();
+    }
+
+    /// Take a runtime away, the way `runtime.uninstall` does: the tree, then the row, then the pass.
+    pub(crate) fn uninstall_runtime(&self, kind: RuntimeKind, version: &str) {
+        let directory = self
+            .path()
+            .join("runtimes")
+            .join(kind.as_str())
+            .join(version);
+
+        std::fs::remove_dir_all(&directory).expect("a removable directory");
+
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own writes");
+
+        runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+
+            runtimes::forget(
+                &store,
+                kind,
+                &PackageVersion::parse(version).expect("a version"),
+            )
+            .await
+            .expect("the row can be removed");
+
+            store.close().await;
+        });
+
+        self.rescan();
+    }
+
+    /// The discovery pass, as the daemon runs it: scan every installed runtime, record, refill.
+    pub(crate) fn rescan(&self) {
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own writes");
+
+        runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+
+            let found = mixengine_core::runtimes::globals::everywhere(&store)
+                .await
+                .expect("the installed runtimes can be read");
+
+            mixengine_core::bin_commands::record(&store, &found)
+                .await
+                .expect("the projection can be written");
+
+            store.close().await;
+        });
+
+        self.fill_bin_with_globals();
+    }
+
+    /// `bin/` as the daemon composes it: the clients, plus every discovered tool.
+    fn fill_bin_with_globals(&self) -> shims::Refreshed {
+        let database = self.path().join(paths::DATABASE_FILE_NAME);
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("a runtime for the fixture's own reads");
+
+        let globals: Vec<shims::Extra> = runtime.block_on(async {
+            let store = Store::open(&database).await.expect("a database");
+            let recorded = mixengine_core::bin_commands::all(&store)
+                .await
+                .expect("the projection can be read");
+            store.close().await;
+
+            recorded
+                .into_iter()
+                .map(|(name, kind)| shims::Extra {
+                    name,
+                    origin: shims::Origin::Global { kind },
+                })
+                .collect()
+        });
+
+        let mut extra = self.client_extras();
+        extra.extend(globals);
+
+        shims::refresh(
+            &self.path().join("bin"),
+            Path::new(env!("CARGO_BIN_EXE_mixengine-shim")),
+            &extra,
+        )
+        .expect("bin/ can be filled in a temporary home")
+    }
+
     /// A service package on disk and in the database, optionally with one instance of it.
     ///
     /// `provides` is the artifact's own map — the keys are MixEngine's names and the values are
