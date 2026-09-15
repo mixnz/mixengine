@@ -6,6 +6,14 @@ use crate::{Error, Result, TrustState, TrustStoreMethod};
 #[derive(Debug)]
 pub(crate) struct Trust {
     answer: std::result::Result<Answer, String>,
+
+    /// What this machine's store holds, for the bundle T132 writes out of it.
+    ///
+    /// **A count and not certificates**, because nothing here parses them: what a fixture has to be
+    /// able to say is *how many* roots a machine offers, which is the one thing
+    /// `mixengine_core::generate::ca` decides on — a store answering three is a store that was read
+    /// wrong, and it writes no bundle. The bytes are made up, distinct, and never valid DER.
+    roots: usize,
 }
 
 /// The two fields a fixture sets. `missing` is derived rather than given, for
@@ -31,6 +39,7 @@ impl Default for Trust {
                 method: TrustStoreMethod::None,
                 installed: false,
             }),
+            roots: 0,
         }
     }
 }
@@ -40,13 +49,21 @@ impl Trust {
     pub(crate) fn holding(method: TrustStoreMethod, installed: bool) -> Self {
         Self {
             answer: Ok(Answer { method, installed }),
+            roots: 0,
         }
+    }
+
+    /// The same machine, with `roots` certificates in its store — roadmap task **T132**.
+    pub(crate) fn with_roots(mut self, roots: usize) -> Self {
+        self.roots = roots;
+        self
     }
 
     /// A machine that cannot say, with `reason`.
     pub(crate) fn refusing(reason: &str) -> Self {
         Self {
             answer: Err(reason.to_owned()),
+            roots: 0,
         }
     }
 
@@ -77,6 +94,19 @@ impl crate::TrustStore for Trust {
             installed: answer.installed,
             missing,
         })
+    }
+
+    /// As many distinct made-up certificates as this fixture was built with.
+    ///
+    /// **Overridden rather than inherited**, because the default reads the machine the test is
+    /// running on: a suite that asserted on the number of roots a CI runner happens to hold would
+    /// be asserting about the runner.
+    fn roots(&self) -> Result<Vec<Vec<u8>>> {
+        self.answer()?;
+
+        Ok((0..self.roots)
+            .map(|index| format!("a made-up root, number {index}").into_bytes())
+            .collect())
     }
 }
 

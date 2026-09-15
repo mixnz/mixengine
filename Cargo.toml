@@ -205,6 +205,16 @@ rcgen = { version = "0.14.9", features = ["x509-parser"] }
 # inside a running daemon. Every config built here names its provider explicitly for that reason, so
 # a tree that switched providers fails to compile instead of failing in the field.
 rustls = "0.23.43"
+# Every root this machine already trusts, read the way each operating system keeps them — the
+# Windows `ROOT` store, macOS's trust settings, Linux's `ca-certificates` file. Roadmap task
+# **T132**: MixEngine writes a bundle holding those and its own authority, and hands it to the
+# runtimes whose own mechanism *replaces* a trust store rather than adding to it.
+#
+# **A new edge and not a new package**, on `rustls`' reasoning above: it is already in the tree
+# through `rustls-platform-verifier`, and is pinned at the version that was already resolved so the
+# tree carries one copy. Taken by `mixengine-platform` and by nothing else, because reading a system
+# store is precisely the thing that crate exists to be the only place for.
+rustls-native-certs = "0.8.4"
 tokio-rustls = "0.26.4"
 # The PEM codec `rcgen` itself uses, taken directly at the version it pins rather than as a second
 # one: reading a certificate off disk means decoding the same envelope rcgen wrote.

@@ -1227,6 +1227,16 @@ async fn serve(
         }
     }
 
+    // **And the runtimes, which read none of that either** — roadmap task T132. A browser reads the
+    // operating system's trust store; Node, Python, Ruby and PHP each carry a set of their own, so
+    // a site this machine shows a padlock for is one a `fetch()` in the same project refuses. The
+    // bundle is what they can be pointed at: every root this machine trusts, and then ours.
+    //
+    // Here, after the store and before the site certificates, because a runtime started a moment
+    // from now has to find a file rather than an absence — and nothing about it can fail the start,
+    // on the rule the block above follows.
+    crate::certs::bundle::render(paths, host.as_ref());
+
     // **And every site that declares HTTPS gets the certificate its names need** — roadmap task
     // T50, here and not inside any of the generator blocks below. `.claude/CLAUDE.md` says generated
     // configuration is disposable and rebuilt from the database; a certificate is state, cannot be

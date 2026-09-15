@@ -448,7 +448,57 @@ fn surroundings(
         );
     }
 
+    trusting(kind, &paths, &mut environment);
+
     environment
+}
+
+/// Tell this runtime about the authority MixEngine's own sites are signed by — task **T132**.
+///
+/// **One mechanism per language, and the difference between them is the whole design.**
+/// `NODE_EXTRA_CA_CERTS` *adds* to what Node already trusts, so Node is handed the authority itself
+/// and keeps its own curated set. Every other variable here **replaces** a trust store, so those
+/// runtimes are handed the merged bundle — this machine's roots and then ours — because a file
+/// holding one certificate would make `pip install` the first thing to stop working.
+///
+/// | kind | variable | file |
+/// | --- | --- | --- |
+/// | Node | `NODE_EXTRA_CA_CERTS` | `certs/ca/root.crt` |
+/// | Python | `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` | `etc/ca/bundle.pem` |
+/// | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
+/// | PHP, Composer | — | the generated ini set says it instead |
+///
+/// PHP is absent on purpose. Its answer is `openssl.cafile` and `curl.cainfo` in the `conf.d` set
+/// above, which the **pool** reads too — so `php -r` in a terminal and `curl_exec()` in a browser
+/// get the same answer, which is the property T28 exists to hold. Composer runs through a PHP and
+/// inherits it.
+///
+/// Two rules, both of them [`surroundings`]' own:
+///
+/// - **Only a file that exists is named.** A variable pointing at nothing is worse than no
+///   variable, which is why `PHP_INI_SCAN_DIR` is behind an `is_dir` above. A home whose daemon has
+///   never run has no bundle, and says nothing.
+/// - **A value the person set is theirs.** Somebody who exported `SSL_CERT_FILE` for a corporate
+///   authority meant it, and a tool that overrode it would be one that cannot be used inside the
+///   company that installed it. `mix doctor` reports the shadowing instead.
+fn trusting(kind: RuntimeKind, paths: &Paths, environment: &mut BTreeMap<String, OsString>) {
+    let bundle = mixengine_core::generate::ca::path(paths.etc());
+    let authority = mixengine_core::certs::ca::certificate_path(paths.certs());
+
+    let named: &[(&str, &Path)] = match kind {
+        RuntimeKind::Node => &[("NODE_EXTRA_CA_CERTS", &authority)],
+        RuntimeKind::Python => &[("SSL_CERT_FILE", &bundle), ("REQUESTS_CA_BUNDLE", &bundle)],
+        RuntimeKind::Ruby => &[("SSL_CERT_FILE", &bundle)],
+        RuntimeKind::Php | RuntimeKind::Composer => &[],
+    };
+
+    for (variable, file) in named {
+        if std::env::var_os(variable).is_some() || !file.is_file() {
+            continue;
+        }
+
+        environment.insert((*variable).to_owned(), file.as_os_str().to_owned());
+    }
 }
 
 /// Steps two and three: which version this directory means, and which file that is.

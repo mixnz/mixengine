@@ -233,6 +233,29 @@ impl Home {
         self.rescan();
     }
 
+    /// This home's certificate authority, where `certs::ca` puts one — roadmap task **T133**.
+    ///
+    /// **Not a real certificate**, because nothing in the shim parses it: what is being asserted is
+    /// *which file a runtime is pointed at*, and the only property that matters is that the file
+    /// exists. A generated authority would be a key pair per test for no assertion.
+    pub(crate) fn write_authority(&self) {
+        let certificate = mixengine_core::certs::ca::certificate_path(&self.path().join("certs"));
+
+        std::fs::create_dir_all(certificate.parent().expect("a ca directory"))
+            .expect("a directory");
+        std::fs::write(&certificate, b"-----BEGIN CERTIFICATE-----\nnot really\n")
+            .expect("an authority");
+    }
+
+    /// The bundle a daemon start writes, where `generate::ca` puts one.
+    pub(crate) fn write_trust_bundle(&self) {
+        let bundle = mixengine_core::generate::ca::path(&self.path().join("etc"));
+
+        std::fs::create_dir_all(bundle.parent().expect("a ca directory")).expect("a directory");
+        std::fs::write(&bundle, b"# a bundle, as far as a file name is concerned\n")
+            .expect("a bundle");
+    }
+
     /// Take a runtime away, the way `runtime.uninstall` does: the tree, then the row, then the pass.
     pub(crate) fn uninstall_runtime(&self, kind: RuntimeKind, version: &str) {
         let directory = self

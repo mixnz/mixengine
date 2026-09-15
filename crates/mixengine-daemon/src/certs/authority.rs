@@ -186,6 +186,13 @@ async fn rotating(
 
     let promoted = certificates.authority().await?;
     certificates.install_in_browsers(&promoted).await;
+
+    // **And the runtimes, which read neither the store nor a browser database** — roadmap task
+    // T132. The bundle's header carries the authority's fingerprint, so this rotation makes it a
+    // changed file and every `node`, `php`, `python` or `ruby` started afterwards is handed the new
+    // authority rather than the one that has just been removed from the machine.
+    certificates.rebuild_trust_bundle();
+
     if let Some(ca) = previous.as_ref() {
         certificates.remove_from_browsers(&ca.key_id).await;
     }

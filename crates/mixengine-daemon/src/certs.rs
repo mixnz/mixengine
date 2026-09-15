@@ -23,6 +23,7 @@ use mixengine_proto::{
 use crate::error::ToWire as _;
 
 pub(crate) mod authority;
+pub(crate) mod bundle;
 pub(crate) mod handshake;
 pub(crate) mod renewal;
 
@@ -33,6 +34,12 @@ pub(crate) mod renewal;
 #[derive(Debug, Clone)]
 pub(crate) struct Certificates {
     certs: PathBuf,
+
+    /// Where the generated trust bundle goes — roadmap task **T132**.
+    ///
+    /// `Option` for `host`'s reason one field down: `in_directory` is handed a certificates
+    /// directory and no `Paths`, and repairing a certificate needs no bundle to do it.
+    etc: Option<PathBuf>,
 
     /// This machine, for the trust-store half of the answer — roadmap task **T49a**.
     ///
@@ -53,6 +60,7 @@ impl Certificates {
     pub(crate) fn new(paths: &mixengine_core::Paths) -> Self {
         Self {
             certs: paths.certs().to_path_buf(),
+            etc: Some(paths.etc().to_path_buf()),
             host: None,
             store: None,
         }
@@ -63,7 +71,10 @@ impl Certificates {
         paths: &mixengine_core::Paths,
         host: Arc<dyn mixengine_platform::Host>,
     ) -> Self {
-        Self::in_directory(paths.certs(), host)
+        Self {
+            etc: Some(paths.etc().to_path_buf()),
+            ..Self::in_directory(paths.certs(), host)
+        }
     }
 
     /// The same, for a caller that kept the directory rather than the whole `Paths`.
@@ -76,6 +87,7 @@ impl Certificates {
     ) -> Self {
         Self {
             certs: certs.to_path_buf(),
+            etc: None,
             host: Some(host),
             store: None,
         }
@@ -91,6 +103,22 @@ impl Certificates {
             store: Some(store),
             ..Self::reading(paths, host)
         }
+    }
+
+    /// Rewrite `etc/ca/bundle.pem` around whatever authority is on disk now — roadmap task **T132**.
+    ///
+    /// Called after a rotation commits. The file's header carries the authority's fingerprint, so a
+    /// replaced authority makes it a *changed* file and every runtime started afterwards is handed
+    /// the new one — the same mechanism a reissued leaf uses to make a front end re-read.
+    ///
+    /// A [`Certificates`] built without a `Paths` (`in_directory`, which `crate::repair` holds) or
+    /// without a host does nothing: neither has a bundle to write or a store to read it from.
+    pub(crate) fn rebuild_trust_bundle(&self) {
+        let (Some(etc), Some(host)) = (&self.etc, &self.host) else {
+            return;
+        };
+
+        bundle::render_into(etc, &self.certs, host.as_ref());
     }
 
     /// Whether this site is actually served over TLS right now — roadmap task **T74**.

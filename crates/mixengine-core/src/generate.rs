@@ -37,6 +37,7 @@ use std::sync::Arc;
 use mixengine_platform::PortBinding;
 use mixengine_proto::{FrontEndServer, IdlePolicy, Millis, ResourceLimits, ServiceId, ServiceSpec};
 
+pub mod ca;
 pub mod databases;
 pub mod document;
 pub mod first_run;

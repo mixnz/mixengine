@@ -1920,6 +1920,7 @@ dependencies = [
  "mixengine-proto",
  "pem",
  "rcgen",
+ "rustls-native-certs",
  "serde_json",
  "sysinfo",
  "tempfile",
