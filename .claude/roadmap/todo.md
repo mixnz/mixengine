@@ -45,6 +45,7 @@ done
 | [12 — One product](phase-12-one-product.md) | One installer, one updater, a MixDB user's data comes across | T104–T107, T111 | 6 / 6 | **M12** one download installs five binaries and either updater replaces all five; `mixnz/mixdb` archived |
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 | [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T129 | 22 / 22 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
+| [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -54,6 +55,15 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 15's tasks are done — 5 of 5**, and what M15 wants next is the same clean-machine smoke M14
+is waiting on, with three more things typed into the terminal it opens: `mysqldump`, then
+`npm install -g yarn && yarn --version`, then a Node program fetching one of that machine's own
+HTTPS sites. It is written against three more complaints from somebody using the finished product,
+and none of the three was a bug in what existed — each is a place where `<root>/bin` or the
+environment a shim hands over had never said anything. Two decisions came out of it:
+[ADR 0033](../decisions/0033-bin-is-a-projection-of-what-is-installed.md) and
+[ADR 0034](../decisions/0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md).
 
 **Phase 14's tasks are done, and what M14 still wants is the clean-machine smoke on each
 OS**: a fresh install, one button, one prompt, a browser on a working `https://<name>.test`, and

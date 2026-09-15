@@ -31,24 +31,25 @@ use mixengine_proto::{
     Action, ApiAccess, ArtifactAvailability, AutostartMechanism, AutostartReport, BlueprintApplied,
     BlueprintList, BlueprintPlan, BlueprintSummary, BrowserDatabase, Browsers, BundleReport,
     CaRotateReport, CaState, CaStatus, CaUninstallReport, CertIssueReport, CertProblem, CertState,
-    CertStatusReport, Cleanup, CleanupReport, DaemonShutdown, DaemonStatus, DaemonVersion,
-    DatabaseAccount, DatabaseClientReport, DatabaseCredentials, DatabaseHandoff, DesktopClient,
-    DesktopPresence, DiskUsage, Disposition, DnsMode, DoctorReport, DomainStatusReport,
-    ElevationStatus, Enforcement, Execution, ExtensionCatalogue, ExtensionChange,
-    ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan, ExtensionRemoval,
-    ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport, GrantOutcome, Handshake,
-    HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource,
-    InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage,
-    Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome,
-    PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease, PackageRemoval,
-    PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome, Priority,
-    ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim, Removal,
-    RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList, RuntimeRelease,
-    RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId, ServiceLimitsReport,
-    ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk, SignatureCheck,
-    SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing, StateReason, StepResult,
-    Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement,
-    UpdateStatus, Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
+    CertStatusReport, Cleanup, CleanupReport, CommandSource, DaemonShutdown, DaemonStatus,
+    DaemonVersion, DatabaseAccount, DatabaseClientReport, DatabaseCredentials, DatabaseHandoff,
+    DesktopClient, DesktopPresence, DiskUsage, Disposition, DnsMode, DoctorReport,
+    DomainStatusReport, ElevationStatus, Enforcement, Execution, ExtensionCatalogue,
+    ExtensionChange, ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan,
+    ExtensionRemoval, ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport,
+    GrantOutcome, Handshake, HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe,
+    IdleReport, IdleSource, InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState,
+    JobSummary, Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory,
+    NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease,
+    PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome,
+    Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim,
+    Removal, RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList,
+    RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId,
+    ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
+    SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
+    StateReason, StepResult, Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable,
+    UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict, WhenExceeded,
+    privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -1536,6 +1537,8 @@ pub(crate) enum Pathed {
     Installed,
     /// `mix path uninstall`.
     Uninstalled,
+    /// `mix path rescan` — roadmap task **T131**.
+    Rescanned,
 }
 
 /// `mix elevation status`, for a person.
@@ -1718,6 +1721,10 @@ pub(crate) fn path_report(pathed: Pathed, report: &PathReport) -> String {
             true => format!("{} is no longer on this user's PATH\n", report.directory),
             false => format!("{} was not on this user's PATH\n", report.directory),
         },
+
+        // The PATH is not what a rescan is about, so it is not what the first line says: what
+        // changed is the *contents* of the directory, and the listing below is where that shows.
+        (Pathed::Rescanned, _) => format!("{} matches what is installed\n", report.directory),
     };
 
     for place in &report.places {
@@ -1747,6 +1754,28 @@ pub(crate) fn path_report(pathed: Pathed, report: &PathReport) -> String {
             false => report.commands.join(", "),
         }
     ));
+
+    // **Where the ones that are not compiled in came from** — roadmap tasks T130 and T131. The
+    // line above is a list of names; this is the half that tells somebody why `mysqldump` and
+    // `yarn` are on their PATH, and which install would change if they uninstalled something.
+    for origin in &report.origins {
+        let said = match &origin.source {
+            CommandSource::BuiltIn {} => continue,
+            CommandSource::Client { package } => format!("a client of {package}"),
+            CommandSource::Global { kind } => format!("installed into a {kind}"),
+        };
+
+        rendered.push_str(&format!("  {:<18} {said}\n", origin.command));
+    }
+
+    for conflict in &report.conflicts {
+        rendered.push_str(&format!(
+            "  {} runs {}'s, which {} also publishes\n",
+            conflict.command,
+            conflict.won,
+            conflict.lost.join(" and ")
+        ));
+    }
 
     for stale in &report.stale {
         rendered.push_str(&format!(

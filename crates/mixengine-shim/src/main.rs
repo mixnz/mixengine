@@ -48,7 +48,7 @@ use std::path::{Path, PathBuf};
 use mixengine_core::config::PathOverrides;
 use mixengine_core::{Paths, Store, paths, resolve, runtimes, shims};
 use mixengine_platform::process;
-use mixengine_proto::{PackageVersion, RuntimeKind, VersionConstraint};
+use mixengine_proto::{PackageVersion, RuntimeKind, ServiceId, VersionConstraint};
 
 /// What this exits with when it cannot become the program it was asked to be.
 ///
@@ -93,7 +93,12 @@ fn main() {
 /// Answers a status only on Windows, where the shim outlives the program it started; on Unix the
 /// hand-over is an `exec` and the only way back here is the [`Refusal`].
 fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
-    let command = shims::dispatch(invoked).ok_or_else(unknown_command)?;
+    // **The compiled table first, and nothing new happens on this path** — roadmap task T29's
+    // budget is fifteen milliseconds for `php -v`, and every arm added below is an arm a runtime
+    // command never reaches.
+    let Some(command) = shims::dispatch(invoked) else {
+        return client(invoked, arguments);
+    };
 
     let own = resolved(command.kind, command.executable)?;
 
@@ -128,6 +133,270 @@ fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
     process::hand_over(&program, &arguments, &environment).map_err(|error| Refusal {
         said: explain(&error),
         hint: None,
+    })
+}
+
+/// A client of an installed service package — roadmap task **T130**.
+///
+/// `mysqldump`, `psql`, `redis-cli`: not a runtime, so there is no directory to resolve against and
+/// no default version to fall back on. What decides is the **instance** —
+/// [`services::client`](mixengine_core::services::client) has the order — and the instance decides
+/// two things at once: which install the program comes out of, and where it connects.
+///
+/// The claim is settled by the same [`shims::resolve_claims`] the daemon filled `bin/` with, over
+/// the same rows, which is what stops a terminal and a directory listing from disagreeing about
+/// whose `mysql` this is.
+fn client(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
+    let name = called(invoked);
+
+    // The binary run under its own name, before anything copied it into `bin/` — a development
+    // tree, or somebody who found it in an install directory. It is the one name that is *never*
+    // a command, so it is answered without opening a database.
+    if name == shims::BINARY {
+        return Err(unknown_command());
+    }
+
+    let home = home_override().map(PathBuf::from);
+    let root = paths::resolve_root(home.as_deref(), mixengine_platform::host().as_ref()).map_err(
+        |error| Refusal {
+            said: explain(&error),
+            hint: None,
+        },
+    )?;
+
+    let database = Paths::new(root.clone(), &PathOverrides::default())
+        .database_file()
+        .to_path_buf();
+
+    let catalogue = mixengine_core::generate::Catalogue::builtin();
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_time()
+        .build()
+        .map_err(|source| Refusal {
+            said: format!("cannot start: {source}"),
+            hint: None,
+        })?;
+
+    let (program, environment) = runtime.block_on(async {
+        let store = Store::open_read_only(&database)
+            .await
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: Some(format!(
+                    "{} is where this shim looks — set MIXENGINE_HOME if that is not the install \
+                     it belongs to",
+                    database.display()
+                )),
+            })?;
+
+        // Narrowed to the recipes that declare this name, so an ordinary `psql` costs one query
+        // rather than one per package in the catalogue.
+        let claims = mixengine_core::services::client::claims(&store, &catalogue, Some(&name))
+            .await
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: None,
+            })?;
+
+        let (extras, _) = shims::resolve_claims(&claims);
+
+        let package = extras.into_iter().find_map(|extra| match extra.origin {
+            shims::Origin::Client { package } => Some(package),
+            shims::Origin::Global { .. } => None,
+        });
+
+        // **No package claims it, so the third arm** — roadmap task T131. A tool somebody installed
+        // into a runtime, whose language `bin_commands` recorded when the pass that found it wrote
+        // `bin/`. One row, because a shim is handed nothing but the name it was invoked by.
+        let Some(package) = package else {
+            return global(&store, &name, &root).await;
+        };
+
+        let recipe = catalogue.recipe(&package).expect("a package that claimed");
+
+        let executable =
+            mixengine_core::services::client::executable_for(&catalogue, &package, &name)
+                .expect("the claim named this command");
+
+        // The instance this command was told to use, if somebody said. Read here rather than
+        // deeper in for `override_version`'s reason: the process that reads it has to be the one
+        // the user invoked.
+        let asked = asked_instance(&package)?;
+
+        let chosen = mixengine_core::services::client::chosen(
+            &store,
+            &package,
+            recipe.preferred_port(),
+            asked.as_ref(),
+        )
+        .await
+        .map_err(|error| Refusal {
+            said: explain(&error),
+            hint: None,
+        })?;
+
+        let program = chosen
+            .program(&package, executable)
+            .map_err(|error| Refusal {
+                said: explain(&error),
+                hint: None,
+            })?;
+
+        let mut environment = BTreeMap::new();
+
+        // The install's own directory ahead of the PATH, for the runtime commands' reason: a
+        // Windows `mariadb.exe` finds its DLLs beside it, and the Cygwin Redis finds `cygwin1.dll`.
+        if let Some(directory) = program.parent() {
+            environment.insert("PATH".to_owned(), ahead_of_the_path(directory));
+        }
+
+        // **And where its own instance listens** — the design's D4. Only where the person has not
+        // said: somebody who exported `MYSQL_TCP_PORT` for a tunnel meant it, and a tool that
+        // overrode it would be one that cannot be used against anything but itself.
+        if let Some(listen) = &chosen.listen {
+            for (variable, value) in recipe.client_env(listen) {
+                if std::env::var_os(variable).is_none() {
+                    environment.insert(variable.to_owned(), OsString::from(value));
+                }
+            }
+        }
+
+        Ok::<_, Refusal>((program, environment))
+    })?;
+
+    process::hand_over(&program, arguments, &environment).map_err(|error| Refusal {
+        said: explain(&error),
+        hint: None,
+    })
+}
+
+/// A tool somebody installed into a runtime — roadmap task **T131**.
+///
+/// **It follows the version the way `npm` does**, which is the whole of the design: `yarn` is
+/// resolved for *this* directory, and the file is looked for inside that version's own bindir. A
+/// `bin/yarn` that ran whichever copy it found first would be the silent wrong answer the shim
+/// exists to prevent — a project pinned to Node 22 getting Node 24's Yarn.
+///
+/// A version that does not have the tool is a sentence and not a bare 127: the person is told which
+/// version this directory means and what to type to install it there.
+async fn global(
+    store: &Store,
+    name: &str,
+    root: &Path,
+) -> Result<(PathBuf, BTreeMap<String, OsString>), Refusal> {
+    let kind = mixengine_core::bin_commands::kind(store, name)
+        .await
+        .map_err(|error| Refusal {
+            said: explain(&error),
+            hint: None,
+        })?
+        .ok_or_else(|| nothing_answers_to(name))?;
+
+    let asked = override_version(kind)?;
+    let cwd = std::env::current_dir().ok();
+
+    let resolved = resolve::runtime(
+        store,
+        &resolve::Question {
+            kind,
+            cwd: cwd.as_deref(),
+            explicit: asked.as_ref(),
+        },
+    )
+    .await
+    .map_err(|error| Refusal {
+        hint: hint_for(&error),
+        said: explain(&error),
+    })?;
+
+    let install = PathBuf::from(&resolved.runtime.path);
+    let version = resolved.runtime.version.clone();
+
+    let bindir = runtimes::globals::directory(kind, &install).ok_or_else(|| Refusal {
+        said: format!("{kind} installs no tools of its own that a command could front"),
+        hint: None,
+    })?;
+
+    let program = runnable(&bindir, name).ok_or_else(|| Refusal {
+        said: format!(
+            "{kind} {version} is what this directory resolves to, and {name} is not installed \
+             for it"
+        ),
+        hint: Some(install_globally(kind, name)),
+    })?;
+
+    Ok((
+        program,
+        surroundings(kind, &program_for_surroundings(&bindir), root, &version),
+    ))
+}
+
+/// The file in `bindir` that this system would run for a bare `name`.
+///
+/// On Windows that is the name plus one of the loader's extensions, in the order the loader tries
+/// them — an `.exe` before a `.cmd`, which matters because a package that ships both means the
+/// `.exe`, and because a batch file is the one thing whose arguments this cannot always quote.
+fn runnable(bindir: &Path, name: &str) -> Option<PathBuf> {
+    if !cfg!(windows) {
+        let file = bindir.join(name);
+        return file.is_file().then_some(file);
+    }
+
+    ["exe", "com", "bat", "cmd"]
+        .into_iter()
+        .map(|extension| bindir.join(format!("{name}.{extension}")))
+        .find(|file| file.is_file())
+}
+
+/// A path inside `bindir`, for [`surroundings`] to take the parent of.
+///
+/// `surroundings` describes a program by the directory it lives in, and what has to go on the PATH
+/// here is the *bindir* — which on Unix is `<install>/bin`, where `node` itself is, so a `yarn`
+/// started from it finds the interpreter that is meant to run it.
+fn program_for_surroundings(bindir: &Path) -> PathBuf {
+    bindir.join("the-program")
+}
+
+/// What to type to put `name` inside the version this directory resolves to.
+fn install_globally(kind: RuntimeKind, name: &str) -> String {
+    match kind {
+        RuntimeKind::Node => format!("npm install -g {name}"),
+        RuntimeKind::Python => format!("pip install {name}"),
+        RuntimeKind::Ruby => format!("gem install {name}"),
+        RuntimeKind::Php | RuntimeKind::Composer => {
+            format!("nothing here installs {name} into a {kind}")
+        }
+    }
+}
+
+/// `MIXENGINE_MARIADB`, if it says anything.
+///
+/// An empty value is "not set"; anything else that is not a service id is refused rather than
+/// skipped past, on [`override_version`]'s own reasoning.
+fn asked_instance(package: &str) -> Result<Option<ServiceId>, Refusal> {
+    let name = mixengine_core::services::client::override_env(package);
+
+    let Some(value) = std::env::var_os(&name) else {
+        return Ok(None);
+    };
+
+    let Some(value) = value.to_str().map(str::trim) else {
+        return Err(Refusal {
+            said: format!("{name} is not text this can read as a service"),
+            hint: None,
+        });
+    };
+
+    if value.is_empty() {
+        return Ok(None);
+    }
+
+    ServiceId::parse(value).map(Some).map_err(|error| Refusal {
+        said: format!("{name} is set to something that is not a service: {error}"),
+        hint: Some(format!(
+            "an instance of {package}, such as {name}={package}@main"
+        )),
     })
 }
 
@@ -179,7 +448,57 @@ fn surroundings(
         );
     }
 
+    trusting(kind, &paths, &mut environment);
+
     environment
+}
+
+/// Tell this runtime about the authority MixEngine's own sites are signed by — task **T132**.
+///
+/// **One mechanism per language, and the difference between them is the whole design.**
+/// `NODE_EXTRA_CA_CERTS` *adds* to what Node already trusts, so Node is handed the authority itself
+/// and keeps its own curated set. Every other variable here **replaces** a trust store, so those
+/// runtimes are handed the merged bundle — this machine's roots and then ours — because a file
+/// holding one certificate would make `pip install` the first thing to stop working.
+///
+/// | kind | variable | file |
+/// | --- | --- | --- |
+/// | Node | `NODE_EXTRA_CA_CERTS` | `certs/ca/root.crt` |
+/// | Python | `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` | `etc/ca/bundle.pem` |
+/// | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
+/// | PHP, Composer | — | the generated ini set says it instead |
+///
+/// PHP is absent on purpose. Its answer is `openssl.cafile` and `curl.cainfo` in the `conf.d` set
+/// above, which the **pool** reads too — so `php -r` in a terminal and `curl_exec()` in a browser
+/// get the same answer, which is the property T28 exists to hold. Composer runs through a PHP and
+/// inherits it.
+///
+/// Two rules, both of them [`surroundings`]' own:
+///
+/// - **Only a file that exists is named.** A variable pointing at nothing is worse than no
+///   variable, which is why `PHP_INI_SCAN_DIR` is behind an `is_dir` above. A home whose daemon has
+///   never run has no bundle, and says nothing.
+/// - **A value the person set is theirs.** Somebody who exported `SSL_CERT_FILE` for a corporate
+///   authority meant it, and a tool that overrode it would be one that cannot be used inside the
+///   company that installed it. `mix doctor` reports the shadowing instead.
+fn trusting(kind: RuntimeKind, paths: &Paths, environment: &mut BTreeMap<String, OsString>) {
+    let bundle = mixengine_core::generate::ca::path(paths.etc());
+    let authority = mixengine_core::certs::ca::certificate_path(paths.certs());
+
+    let named: &[(&str, &Path)] = match kind {
+        RuntimeKind::Node => &[("NODE_EXTRA_CA_CERTS", &authority)],
+        RuntimeKind::Python => &[("SSL_CERT_FILE", &bundle), ("REQUESTS_CA_BUNDLE", &bundle)],
+        RuntimeKind::Ruby => &[("SSL_CERT_FILE", &bundle)],
+        RuntimeKind::Php | RuntimeKind::Composer => &[],
+    };
+
+    for (variable, file) in named {
+        if std::env::var_os(variable).is_some() || !file.is_file() {
+            continue;
+        }
+
+        environment.insert((*variable).to_owned(), file.as_os_str().to_owned());
+    }
 }
 
 /// Steps two and three: which version this directory means, and which file that is.
@@ -361,6 +680,24 @@ fn unknown_command() -> Refusal {
     Refusal {
         said: "this is a MixEngine shim and is not meant to be run under this name".to_owned(),
         hint: Some(format!("it answers to: {}", names.join(", "))),
+    }
+}
+
+/// A name `bin/` holds and nothing in this home claims any more — roadmap tasks **T130** and
+/// **T131**.
+///
+/// [`unknown_command`]'s sibling and a different sentence, because the situation is different and
+/// the old one reads as a bug. `bin/` is a projection of installed state now, so a `mysqldump`
+/// whose database was uninstalled a moment ago is an ordinary, momentary state of the world — the
+/// next refresh sweeps it — and answering it with "this is a MixEngine shim" plus nineteen runtime
+/// commands tells a person nothing about the one they typed.
+fn nothing_answers_to(name: &str) -> Refusal {
+    Refusal {
+        said: "nothing installed here answers to this command any more".to_owned(),
+        hint: Some(format!(
+            "`mix path status` lists what bin/ holds, and `mix path rescan` brings it up to date \
+             (this shim was left behind under the name {name})"
+        )),
     }
 }
 

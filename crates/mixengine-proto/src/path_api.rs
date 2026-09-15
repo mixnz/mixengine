@@ -65,6 +65,75 @@ pub struct PathReport {
     /// — on Windows, most often a shim a shell in another window is still holding.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stale: Vec<String>,
+
+    /// Where each of those commands came from — roadmap tasks **T130** and **T131**.
+    ///
+    /// **Beside [`commands`](Self::commands) rather than replacing it**, because the two answer
+    /// different questions and only one of them is the old one: `commands` is what `bin/` holds,
+    /// read off the directory, and this is what MixEngine believes put each name there. A name in
+    /// one and not the other is itself information — a command with no origin is a copy left behind
+    /// by something that has since been uninstalled.
+    ///
+    /// In `commands`' order, and empty from a build or a client that does not fill it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub origins: Vec<CommandOrigin>,
+
+    /// Commands more than one installed package claimed, and who got each.
+    ///
+    /// Empty on nearly every machine: the only conflict this build can produce is a home with both
+    /// MariaDB and MySQL installed, where `mysql`, `mysqladmin` and `mysqldump` are spellings
+    /// MariaDB stands in for and MySQL owns outright.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub conflicts: Vec<CommandConflict>,
+}
+
+/// One command in `<root>/bin`, and what put it there.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct CommandOrigin {
+    /// The command, spelled as the file in `bin/` is named.
+    pub command: String,
+
+    /// Where it came from.
+    pub source: CommandSource,
+}
+
+/// The three things that can put a name in `<root>/bin`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "from", rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum CommandSource {
+    /// A command compiled into this build: `php`, `node`, `composer`.
+    ///
+    /// Present whether or not anything is installed, which is deliberate — a `node` on a machine
+    /// with no Node.js says which command to type, where `node: command not found` says nothing.
+    BuiltIn {},
+
+    /// A client of an installed service package: `mysqldump`, `psql`, `redis-cli`.
+    Client {
+        /// Which package's recipe declared it.
+        package: String,
+    },
+
+    /// A tool somebody installed into a runtime: `yarn`, `poetry`, `rails`.
+    Global {
+        /// Which language's version resolution decides which copy of it runs.
+        kind: crate::RuntimeKind,
+    },
+}
+
+/// A command name more than one installed package claimed.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct CommandConflict {
+    /// The contested command.
+    pub command: String,
+
+    /// The package whose program `bin/` fronts under it.
+    pub won: String,
+
+    /// The packages that also claimed it, in the order the tie-break rejected them.
+    pub lost: Vec<String>,
 }
 
 #[cfg(test)]
@@ -80,9 +149,47 @@ mod tests {
                 present: true,
                 changed: true,
             }],
-            commands: vec!["php".to_owned(), "node".to_owned()],
+            commands: vec!["php".to_owned(), "node".to_owned(), "mysqldump".to_owned()],
             stale: Vec::new(),
+            origins: vec![
+                CommandOrigin {
+                    command: "php".to_owned(),
+                    source: CommandSource::BuiltIn {},
+                },
+                CommandOrigin {
+                    command: "mysqldump".to_owned(),
+                    source: CommandSource::Client {
+                        package: "mariadb".to_owned(),
+                    },
+                },
+            ],
+            conflicts: Vec::new(),
         }
+    }
+
+    /// The three sources are told apart by a tag rather than by which fields are present, on
+    /// [`RuntimeSource`](crate::RuntimeSource)'s precedent: a client matches on one word.
+    #[test]
+    fn where_a_command_came_from_is_one_word() {
+        let encoded = serde_json::to_value(report()).unwrap();
+
+        assert_eq!(encoded["origins"][0]["source"]["from"], "built_in");
+        assert_eq!(encoded["origins"][1]["source"]["from"], "client");
+        assert_eq!(encoded["origins"][1]["source"]["package"], "mariadb");
+    }
+
+    /// A build or a client that fills neither list carries neither, which is what keeps a report
+    /// from an older daemon readable by this one.
+    #[test]
+    fn a_report_with_nothing_to_say_about_origins_says_nothing() {
+        let bare = PathReport {
+            origins: Vec::new(),
+            ..report()
+        };
+
+        let encoded = serde_json::to_value(bare).unwrap();
+        assert!(encoded.get("origins").is_none(), "{encoded}");
+        assert!(encoded.get("conflicts").is_none(), "{encoded}");
     }
 
     #[test]

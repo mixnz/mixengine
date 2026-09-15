@@ -172,6 +172,20 @@ pub enum ProblemId {
     /// cannot be undone without reinstalling Windows, so `daemon.doctor_repair` declines it rather
     /// than asking somebody to lower their machine's defences.
     ApplicationControlEnforced,
+
+    /// This machine's roots could be read and `etc/ca/bundle.pem` is not what they say — roadmap
+    /// task **T132**.
+    ///
+    /// **A problem and not a note, because of what it costs when it is true**: without the bundle,
+    /// a Python, Ruby or PHP program started through `bin/` is told nothing, and every HTTPS
+    /// request it makes to a site of this home fails to verify — which is the complaint this whole
+    /// phase answers, arriving again because a file went missing.
+    ///
+    /// **Repaired without a prompt**, on [`SiteCertificateMissing`](Self::SiteCertificateMissing)'s
+    /// reasoning: it is a generated file the daemon can write, and writing it destroys nothing. A
+    /// machine whose store *cannot* be read is a `Note` rather than this — there is nothing to
+    /// repair and nothing MixEngine did wrong.
+    TrustBundleMissing,
 }
 
 #[cfg(test)]

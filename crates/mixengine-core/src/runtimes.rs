@@ -21,6 +21,7 @@
 //! decided down there. Everything else about an artifact comes out of the signed index.
 
 pub mod extensions;
+pub mod globals;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

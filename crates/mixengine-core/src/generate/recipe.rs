@@ -915,6 +915,40 @@ pub struct Upstreams {
     pub activator: Option<Upstream>,
 }
 
+/// One command `<root>/bin` fronts on an installed package's behalf — roadmap task **T130**.
+///
+/// **Declared rather than derived from `provides`**, and nginx is the reason: its map holds
+/// `mime.types` and `fastcgi_params` beside `nginx.exe`, so a `bin/` filled from the map wholesale
+/// would hold a `mime.types` that is a copy of the shim binary. The same rule keeps the supervised
+/// servers out — [`crate::shims::COMMANDS`] states it for `php-fpm` and it holds here for
+/// `mariadbd`, `postgres` and `redis-server`: a shim in front of one would be a second way to start
+/// a process nothing is watching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ClientCommand {
+    /// What the user types, and what the file in `bin/` is named.
+    pub name: &'static str,
+
+    /// Which of the artifact's executables it runs, by the key `provides` publishes it under.
+    pub executable: &'static str,
+
+    /// Whether this name is the package's own or a spelling it stands in for.
+    pub claim: Claim,
+}
+
+/// How strongly a package claims a command name.
+///
+/// Two installed packages can want one name — MariaDB is documented under `mysql` and a MariaDB
+/// 10.x archive still ships a file by that name — and something has to decide without asking. The
+/// order is `crate::shims::resolve_claims`; this is the first and largest term of it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Claim {
+    /// A name from a product this package stands in for. MariaDB's `mysql`, and nothing else today.
+    Alias,
+
+    /// The name the package publishes itself. `mariadb`, `psql`, `redis-cli`.
+    Own,
+}
+
 /// How to configure and run one kind of service.
 ///
 /// Implemented once per `packages.name`. Everything except [`spec`](Self::spec) has a default,
@@ -992,6 +1026,36 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
     /// carries no credential.
     fn protocol(&self) -> Option<mixengine_proto::DatabaseProtocol> {
         None
+    }
+
+    /// The commands a person runs out of this package — roadmap task **T130**.
+    ///
+    /// **Defaulted to nothing**, because that is what a package *is* unless somebody types one of
+    /// its programs: the two front ends and php-fpm publish binaries a person never invokes by
+    /// hand, and a recipe added later opts in rather than remembering to opt out.
+    ///
+    /// A row whose [`ClientCommand::executable`] the installed artifact does not publish is silently
+    /// skipped when `bin/` is filled — the Windows MariaDB packs no `mariadb-backup` on every
+    /// branch, and a name in `bin/` that resolves to nothing is worse than a missing one.
+    fn clients(&self) -> &'static [ClientCommand] {
+        &[]
+    }
+
+    /// What one of those commands is told about the instance it belongs to — roadmap task **T130**.
+    ///
+    /// **A client's own variable and nothing invented**: `mysql` reads `MYSQL_TCP_PORT` and `psql`
+    /// reads `PGPORT`, and a family with no such variable — Redis, Memcached — answers an empty map
+    /// rather than one nothing will read. What makes it necessary is the port allocator:
+    /// `services.md` gives 3306 to whichever of MariaDB and MySQL asks first and the next free port
+    /// above to the other, so on a home with both, a bare `mysql` would otherwise open a session on
+    /// the other product's server and report success.
+    ///
+    /// Handed the [`Upstream`] rather than the whole [`Context`] because a shim has no service to
+    /// build one from — it is resolving a client in somebody's terminal, with the daemon possibly
+    /// stopped. A socket is told to nobody: no client family has a variable for one.
+    fn client_env(&self, listen: &Upstream) -> BTreeMap<&'static str, String> {
+        let _ = listen;
+        BTreeMap::new()
     }
 
     /// How to tell that this service has nothing to do — roadmap task **T69**.
@@ -1639,5 +1703,187 @@ mod tests {
         assert!(!rendering.contains("hunter2"), "{rendering}");
         assert!(!rendering.contains("secret"), "{rendering}");
         assert_eq!(context.secret("root"), "hunter2", "and a recipe still can");
+    }
+}
+
+#[cfg(test)]
+mod client_tests {
+    use super::*;
+
+    /// **Nothing the supervisor runs is a command anybody can type** — roadmap task **T130**.
+    ///
+    /// [`crate::shims::COMMANDS`] states this for `php-fpm`, and a recipe is the other place it can
+    /// be broken: a shim in front of `mariadbd` would be a second way to start a server nothing is
+    /// watching, and one in front of `initdb` would be a way to write over a live cluster.
+    #[test]
+    fn no_recipe_fronts_a_server_or_a_bootstrapper() {
+        let owned = [
+            "mariadbd",
+            "mysqld",
+            "postgres",
+            "redis-server",
+            "caddy",
+            "nginx",
+            "memcached",
+            "php-fpm",
+            "initdb",
+            "pg_ctl",
+            "pg_upgrade",
+            "mariadb-install-db",
+            "mysql_install_db",
+        ];
+
+        let catalogue = super::super::Catalogue::builtin();
+
+        for package in catalogue.packages() {
+            let recipe = catalogue.recipe(package).expect("a listed recipe");
+
+            for client in recipe.clients() {
+                assert!(
+                    !owned.contains(&client.executable),
+                    "{package} fronts {}, which the supervisor owns",
+                    client.executable
+                );
+            }
+        }
+    }
+
+    /// **MariaDB is the only recipe with a compatibility spelling**, and each of its three stands
+    /// for a program MariaDB itself publishes — an alias for an executable no artifact contains
+    /// would be a name in `bin/` that resolves to nothing.
+    #[test]
+    fn mariadb_is_the_only_recipe_that_stands_in_for_another_product() {
+        let catalogue = super::super::Catalogue::builtin();
+
+        for package in catalogue.packages() {
+            let recipe = catalogue.recipe(package).expect("a listed recipe");
+
+            let aliases: Vec<(&str, &str)> = recipe
+                .clients()
+                .iter()
+                .filter(|client| client.claim == Claim::Alias)
+                .map(|client| (client.name, client.executable))
+                .collect();
+
+            if package != "mariadb" {
+                assert!(
+                    aliases.is_empty(),
+                    "{package} claims a name it does not own"
+                );
+                continue;
+            }
+
+            assert_eq!(
+                aliases,
+                vec![
+                    ("mysql", "mariadb"),
+                    ("mysqladmin", "mariadb-admin"),
+                    ("mysqldump", "mariadb-dump"),
+                ]
+            );
+
+            let own: Vec<&str> = recipe
+                .clients()
+                .iter()
+                .filter(|client| client.claim == Claim::Own)
+                .map(|client| client.executable)
+                .collect();
+
+            for (name, executable) in aliases {
+                assert!(
+                    own.contains(&executable),
+                    "{name} stands for {executable}, which mariadb does not publish"
+                );
+            }
+        }
+    }
+
+    /// One package must not claim one name twice, and a client's name must be something a file can
+    /// be called: both would be found by `bin/` rather than here, and much later.
+    #[test]
+    fn a_package_claims_each_name_once() {
+        let catalogue = super::super::Catalogue::builtin();
+
+        for package in catalogue.packages() {
+            let recipe = catalogue.recipe(package).expect("a listed recipe");
+            let mut seen = std::collections::BTreeSet::new();
+
+            for client in recipe.clients() {
+                assert!(
+                    seen.insert(client.name),
+                    "{package} claims {} twice",
+                    client.name
+                );
+                assert!(
+                    !client.name.contains(['/', '\\', '.']),
+                    "{} is not a file name",
+                    client.name
+                );
+            }
+        }
+    }
+
+    /// **A client is told where its own instance listens** — roadmap task **T130**, the design's
+    /// D4, which exists because the port allocator gives 3306 to whichever of the two MySQL-family
+    /// products asks first and the next free port above to the other.
+    #[test]
+    fn a_client_is_told_where_its_instance_listens() {
+        let catalogue = super::super::Catalogue::builtin();
+        let listen = Upstream::Tcp("127.0.0.1:3307".parse().expect("a socket address"));
+
+        let mariadb = catalogue
+            .recipe("mariadb")
+            .expect("a builtin recipe")
+            .client_env(&listen);
+        assert_eq!(
+            mariadb.get("MYSQL_HOST").map(String::as_str),
+            Some("127.0.0.1")
+        );
+        assert_eq!(
+            mariadb.get("MYSQL_TCP_PORT").map(String::as_str),
+            Some("3307")
+        );
+
+        let mysql = catalogue
+            .recipe("mysql")
+            .expect("a builtin recipe")
+            .client_env(&listen);
+        assert_eq!(
+            mysql, mariadb,
+            "two products on one wire protocol read one pair of variables"
+        );
+
+        let postgres = catalogue
+            .recipe("postgres")
+            .expect("a builtin recipe")
+            .client_env(&listen);
+        assert_eq!(postgres.get("PGPORT").map(String::as_str), Some("3307"));
+
+        // Redis publishes a client and no environment for it to read. An empty map is the honest
+        // answer; a variable of our own invention would be one `redis-cli` ignores.
+        assert!(
+            catalogue
+                .recipe("redis")
+                .expect("a builtin recipe")
+                .client_env(&listen)
+                .is_empty()
+        );
+    }
+
+    /// A socket is told to nobody: no client family here has a variable for one, and a recipe that
+    /// answered with a TCP port for a socket would be pointing a client at a listener that is not
+    /// there.
+    #[test]
+    fn a_socket_is_told_to_nobody() {
+        let catalogue = super::super::Catalogue::builtin();
+        let listen = Upstream::Socket(std::path::PathBuf::from("/run/mariadb.sock"));
+
+        for package in catalogue.packages() {
+            let recipe = catalogue.recipe(package).expect("a listed recipe");
+            assert!(
+                recipe.client_env(&listen).is_empty(),
+                "{package} named a variable for a socket"
+            );
+        }
     }
 }

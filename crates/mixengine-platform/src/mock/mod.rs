@@ -525,6 +525,25 @@ impl Host {
         }
     }
 
+    /// A host whose trust store holds `roots` certificates — roadmap task **T132**.
+    ///
+    /// **A count and not a survey**, unlike [`with_browsers`](Self::with_browsers), because the one
+    /// decision anything makes about this number is whether there are enough of it to believe: a
+    /// store answering three is a store that was read wrong, and MixEngine writes no bundle from
+    /// one. What each certificate *is* never leaves this crate.
+    #[must_use]
+    pub fn with_trusted_roots(
+        home: impl Into<PathBuf>,
+        method: crate::TrustStoreMethod,
+        installed: bool,
+        roots: usize,
+    ) -> Self {
+        Self {
+            trust: trust::Trust::holding(method, installed).with_roots(roots),
+            ..Self::with_home(home)
+        }
+    }
+
     /// The one place every constructor above starts from, so a capability added here is added to
     /// all of them rather than to whichever four somebody remembered.
     fn answering(home: Option<PathBuf>) -> Self {

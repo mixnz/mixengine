@@ -256,7 +256,144 @@ pub fn file_name(command: &Command) -> String {
 /// terminal is exactly that. It *will* let the file be renamed out of the way while it runs, which
 /// is the only way to put a new one in its place — and the moved copy keeps working for the process
 /// that is holding it until that process exits.
-const MOVED_ASIDE: &str = ".mixengine-replaced";
+pub const MOVED_ASIDE: &str = ".mixengine-replaced";
+
+/// A command `bin/` fronts that [`COMMANDS`] does not name — roadmap tasks **T130** and **T131**.
+///
+/// **The caller decides these and this module only copies them**, which is the whole shape of the
+/// change: an extra is read out of the database — an installed package's client commands, a tool
+/// found inside an installed runtime — and `core` is where the tables are but the daemon is the only
+/// thing that may open the file. A shim binary is a shim binary whatever name it wears, so what
+/// arrives here is a list of names and a note about where each came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Extra {
+    /// The command as it is typed, without the platform's executable suffix.
+    pub name: String,
+
+    /// What put it there. Carried so that a listing can say why a name is on the PATH, and so that
+    /// a copy left behind by an uninstall can be told from one this build simply does not know.
+    pub origin: Origin,
+}
+
+/// Where an [`Extra`] came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Origin {
+    /// A client command of an installed service package — [`crate::generate::recipe::ClientCommand`].
+    Client {
+        /// The `packages.name` whose recipe declared it.
+        package: String,
+    },
+
+    /// A tool somebody installed into a runtime, found in that runtime's global directory.
+    Global {
+        /// Which language's version resolution decides which copy of it runs.
+        kind: RuntimeKind,
+    },
+}
+
+/// A name more than one installed package claimed, and which of them `bin/` gave it to.
+///
+/// **Resolved by [`resolve_claims`] and reported rather than hidden**: somebody who typed `mysql`
+/// and reached MariaDB's client has to be able to find that out without reading `--version`, and
+/// `mix doctor` is where it is said.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Conflict {
+    /// The contested command.
+    pub name: String,
+
+    /// The package whose program `bin/` fronts under it.
+    pub won: String,
+
+    /// The packages that also claimed it, in the order the tie-break rejected them.
+    pub lost: Vec<String>,
+}
+
+/// One package's claim on one name, as the daemon read it off the installed rows.
+///
+/// The two booleans are the middle terms of the order in [`resolve_claims`], computed once by the
+/// caller because both of them cost a query.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Claimed {
+    /// The contested command.
+    pub name: String,
+
+    /// The `packages.name` claiming it.
+    pub package: String,
+
+    /// How strongly.
+    pub claim: crate::generate::recipe::Claim,
+
+    /// Whether this package has any instance at all.
+    pub has_instance: bool,
+
+    /// Whether one of those instances holds the port the product is documented under.
+    pub on_preferred_port: bool,
+}
+
+/// Give every contested name to exactly one package — roadmap task **T130**, the design's §A.4.
+///
+/// **A total order, so that the answer is the same on every machine and on every run.** Never "give
+/// it to neither": a name a person expects and cannot type is the complaint this whole task opens
+/// with, and an arbitrary-but-stable winner that `mix doctor` names is strictly better than a hole.
+///
+/// 1. [`Claim::Own`](crate::generate::recipe::Claim::Own) beats
+///    [`Alias`](crate::generate::recipe::Claim::Alias). MariaDB's `mysql` disappears the moment the
+///    MySQL package is installed, which is the only conflict this build can actually produce.
+/// 2. A package with an instance beats one without — the product somebody is running is the one
+///    they meant.
+/// 3. Then the instance on the product's own documented port, for
+///    [`crate::services::client`]'s reason.
+/// 4. Then the package name ascending: arbitrary, and stable, which is the only property left that
+///    matters.
+#[must_use]
+pub fn resolve_claims(claims: &[Claimed]) -> (Vec<Extra>, Vec<Conflict>) {
+    let mut by_name: std::collections::BTreeMap<String, Vec<&Claimed>> =
+        std::collections::BTreeMap::new();
+
+    for claim in claims {
+        by_name.entry(fold(&claim.name)).or_default().push(claim);
+    }
+
+    let mut extras = Vec::new();
+    let mut conflicts = Vec::new();
+
+    for contenders in by_name.into_values() {
+        let mut ordered = contenders;
+
+        // Descending: the first element is the winner. `Reverse` on the name so that a *smaller*
+        // package name sorts first once every other term is equal.
+        ordered.sort_by_key(|claimed| {
+            (
+                std::cmp::Reverse(claimed.claim),
+                std::cmp::Reverse(claimed.has_instance),
+                std::cmp::Reverse(claimed.on_preferred_port),
+                claimed.package.clone(),
+            )
+        });
+
+        let won = ordered.first().expect("a group is never empty");
+
+        extras.push(Extra {
+            name: won.name.clone(),
+            origin: Origin::Client {
+                package: won.package.clone(),
+            },
+        });
+
+        if ordered.len() > 1 {
+            conflicts.push(Conflict {
+                name: won.name.clone(),
+                won: won.package.clone(),
+                lost: ordered[1..]
+                    .iter()
+                    .map(|claimed| claimed.package.clone())
+                    .collect(),
+            });
+        }
+    }
+
+    (extras, conflicts)
+}
 
 /// What one [`refresh`] did.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -280,6 +417,13 @@ pub struct Refreshed {
     /// something MixEngine no longer understands, and a refresh that said nothing about it would be
     /// claiming a `bin/` it had not achieved.
     pub refused: Vec<String>,
+
+    /// Names more than one installed package claimed, and who got each — roadmap task **T130**.
+    ///
+    /// **Filled by the caller and carried here**, because the conflict is settled before the copy
+    /// happens: [`resolve_claims`] answers it out of the database, and one value describing one pass
+    /// is better than a caller having to keep two beside each other.
+    pub conflicts: Vec<Conflict>,
 }
 
 /// The file name of the shim binary, without the platform's executable suffix.
@@ -333,23 +477,33 @@ pub fn source(program: &Path) -> Result<PathBuf> {
 /// [`Error::Io`] naming the file that could not be written. Failing to *remove* a stranger is not
 /// one — it lands in [`Refreshed::refused`] — because a directory that has what it should have is
 /// working, and refusing to start over a file nobody can delete would be worse than saying so.
-pub fn refresh(bin: &Path, shim: &Path) -> Result<Refreshed> {
+pub fn refresh(bin: &Path, shim: &Path, extra: &[Extra]) -> Result<Refreshed> {
     crate::paths::create_dir(bin)?;
 
     let mut refreshed = Refreshed::default();
 
-    let expected: HashSet<String> = COMMANDS
-        .iter()
-        .map(|command| fold(&file_name(command)))
-        .collect();
+    // **[`COMMANDS`] first and the extras after it**, which is the one rule that keeps this
+    // composable: a discovered `npm` — an `npm` somebody installed globally into a Node, which does
+    // happen — must not displace the compiled row, or `bin/npm` would be a shim that dispatches to
+    // a file found by a shim that dispatches to a file. A name already spoken for is dropped here
+    // rather than refused, because the caller's list is a description of a disk and not a request.
+    let mut names: Vec<String> = COMMANDS.iter().map(file_name).collect();
+    let mut expected: HashSet<String> = names.iter().map(|name| fold(name)).collect();
+
+    for extra in extra {
+        let name = format!("{}{}", extra.name, std::env::consts::EXE_SUFFIX);
+
+        if expected.insert(fold(&name)) {
+            names.push(name);
+        }
+    }
 
     // Swept **before** the copies rather than after, so that a name which moved from one command to
-    // another — a row renamed between releases — is removed and then written afresh rather than
-    // removed a moment after being put there.
+    // another — a row renamed between releases, a runtime uninstalled since the last pass — is
+    // removed and then written afresh rather than removed a moment after being put there.
     sweep(bin, &expected, &mut refreshed);
 
-    for command in COMMANDS {
-        let name = file_name(command);
+    for name in names {
         let target = bin.join(&name);
 
         if place(shim, &target)? {
@@ -626,5 +780,135 @@ mod tests {
                 command.name
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod claim_tests {
+    use super::*;
+
+    use crate::generate::recipe::Claim;
+
+    fn claimed(name: &str, package: &str, claim: Claim) -> Claimed {
+        Claimed {
+            name: name.to_owned(),
+            package: package.to_owned(),
+            claim,
+            has_instance: false,
+            on_preferred_port: false,
+        }
+    }
+
+    fn running(name: &str, package: &str, claim: Claim, on_preferred_port: bool) -> Claimed {
+        Claimed {
+            has_instance: true,
+            on_preferred_port,
+            ..claimed(name, package, claim)
+        }
+    }
+
+    fn won(claims: &[Claimed], name: &str) -> String {
+        let (_, conflicts) = resolve_claims(claims);
+
+        conflicts
+            .iter()
+            .find(|conflict| conflict.name == name)
+            .map(|conflict| conflict.won.clone())
+            .expect("a conflict over this name")
+    }
+
+    /// **A real name beats a compatibility one**, which is the only conflict this build can produce:
+    /// MariaDB's `mysql` disappears the moment somebody installs the product that owns the name.
+    #[test]
+    fn a_real_name_beats_a_compatibility_one() {
+        // MariaDB is running on 3306 and MySQL is not installed anywhere near a port, so every
+        // other term of the order points the other way. The claim still decides.
+        let claims = [
+            running("mysql", "mariadb", Claim::Alias, true),
+            claimed("mysql", "mysql", Claim::Own),
+        ];
+
+        assert_eq!(won(&claims, "mysql"), "mysql");
+    }
+
+    /// Two real claims — a MariaDB 10.x archive still ships a `mysql` of its own — are settled by
+    /// the instance: the product somebody is actually running is the one they meant.
+    #[test]
+    fn two_real_claims_are_settled_by_the_instance() {
+        let claims = [
+            claimed("mysql", "mariadb", Claim::Own),
+            running("mysql", "mysql", Claim::Own, false),
+        ];
+
+        assert_eq!(won(&claims, "mysql"), "mysql");
+    }
+
+    /// Both running, and the product's own documented port decides — the same rule
+    /// [`crate::services::client`] uses, for the same reason.
+    #[test]
+    fn both_running_and_the_documented_port_decides() {
+        let claims = [
+            running("mysql", "mariadb", Claim::Own, true),
+            running("mysql", "mysql", Claim::Own, false),
+        ];
+
+        assert_eq!(won(&claims, "mysql"), "mariadb");
+    }
+
+    /// Still tied, and the answer is the package name ascending: arbitrary, and the same on every
+    /// machine and on every run, which is the only property left that matters.
+    #[test]
+    fn a_total_tie_ends_in_the_package_name() {
+        let claims = [
+            running("mysql", "mysql", Claim::Own, true),
+            running("mysql", "mariadb", Claim::Own, true),
+        ];
+
+        assert_eq!(won(&claims, "mysql"), "mariadb");
+    }
+
+    /// **The losers are named rather than dropped.** Somebody who typed `mysql` and reached the
+    /// other product's client has to be able to find that out without reading `--version`.
+    #[test]
+    fn the_losers_are_named() {
+        let claims = [
+            claimed("mysql", "mariadb", Claim::Alias),
+            claimed("mysql", "mysql", Claim::Own),
+        ];
+
+        let (extras, conflicts) = resolve_claims(&claims);
+
+        assert_eq!(
+            extras,
+            vec![Extra {
+                name: "mysql".to_owned(),
+                origin: Origin::Client {
+                    package: "mysql".to_owned()
+                },
+            }]
+        );
+        assert_eq!(
+            conflicts,
+            vec![Conflict {
+                name: "mysql".to_owned(),
+                won: "mysql".to_owned(),
+                lost: vec!["mariadb".to_owned()],
+            }]
+        );
+    }
+
+    /// A name only one package claims is not a conflict, and saying so would put every command in
+    /// `bin/` into a report meant for the two that are contested.
+    #[test]
+    fn an_uncontested_name_is_not_a_conflict() {
+        let claims = [
+            claimed("psql", "postgres", Claim::Own),
+            claimed("redis-cli", "redis", Claim::Own),
+        ];
+
+        let (extras, conflicts) = resolve_claims(&claims);
+
+        assert_eq!(extras.len(), 2);
+        assert!(conflicts.is_empty());
     }
 }

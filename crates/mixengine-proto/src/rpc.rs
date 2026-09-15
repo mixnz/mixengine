@@ -313,6 +313,18 @@ pub mod method {
     /// uninstall wearing a smaller command's name.
     pub const PATH_UNINSTALL: &str = "path.uninstall";
 
+    /// Compare `<root>/bin` against what is installed, now. Takes no parameters, answers
+    /// [`PathReport`](crate::PathReport).
+    ///
+    /// **Roadmap task T131, and it exists because the automatic pass has a period.** The daemon
+    /// looks for a tool somebody installed into a runtime every `[bin] rescan_seconds`, so a
+    /// `yarn` is a command a moment after `npm install -g yarn` returns rather than instantly —
+    /// and a person who slowed that key down, or who wants to know *now* whether MixEngine agrees
+    /// with their disk, has something to type.
+    ///
+    /// Idempotent and cheap: a pass that finds nothing changed copies nothing.
+    pub const PATH_RESCAN: &str = "path.rescan";
+
     /// Whether this machine starts a daemon for this home at login. Takes no parameters, answers
     /// [`AutostartReport`](crate::AutostartReport).
     ///

@@ -2,6 +2,7 @@
 
 mod api;
 mod autostart;
+mod bin_scan;
 mod blueprints;
 mod certs;
 mod crash;
@@ -899,6 +900,8 @@ async fn serve(
         paths,
         program.clone(),
         mixengine_platform::host(),
+        store.clone(),
+        services::spec::catalogue(),
     ));
 
     // **Built here and never called here.** The entry it registers is outside the home, so nothing
@@ -917,21 +920,45 @@ async fn serve(
     // run*, but *is the directory this binary sits in one this account may write*.
     let daemon_exe = program.clone();
 
-    match shims.refresh() {
+    match shims.refresh().await {
         Ok(refreshed) if refreshed.written.is_empty() && refreshed.removed.is_empty() => {
             tracing::debug!(commands = refreshed.commands.len(), "bin/ is up to date");
         }
-        Ok(refreshed) => tracing::info!(
-            written = ?refreshed.written,
-            removed = ?refreshed.removed,
-            refused = ?refreshed.refused,
-            "filled bin/ with one shim per command"
-        ),
+        Ok(refreshed) => {
+            tracing::info!(
+                written = ?refreshed.written,
+                removed = ?refreshed.removed,
+                refused = ?refreshed.refused,
+                "filled bin/ with one shim per command"
+            );
+
+            // **Named rather than resolved silently** — roadmap task T130, the design's §A.4. Two
+            // installed packages wanting one name is settled by a total order, and somebody who
+            // typed `mysql` and reached the other product's client has to be able to find out why.
+            for conflict in &refreshed.conflicts {
+                tracing::info!(
+                    command = %conflict.name,
+                    won = %conflict.won,
+                    lost = ?conflict.lost,
+                    "more than one installed package claims this command"
+                );
+            }
+        }
         Err(error) => tracing::warn!(
             %error,
             "could not fill bin/ — the commands in it may be missing or out of date"
         ),
     }
+
+    // **And from here a short loop keeps it current** — roadmap task T131. The refresh above is the
+    // only one a start would otherwise perform, so a `npm install -g yarn` typed a minute later
+    // would leave `yarn` uninstallable-looking until the next restart. See `bin_scan` for what an
+    // idle machine pays for this, which is one `stat` per installed runtime per tick.
+    let _rescanning = bin_scan::start(
+        Arc::clone(&shims),
+        store.clone(),
+        std::time::Duration::from_secs(config.bin.rescan_seconds),
+    );
 
     // **The gallery is a projection of a compiled-in table into the database**, exactly as `bin/`
     // above is one onto the disk and `etc/` is one out of it — roadmap task T79, its design's D5.
@@ -1199,6 +1226,53 @@ async fn serve(
             tracing::warn!(%error, "could not make this home's certificate authority");
         }
     }
+
+    // **And the runtimes, which read none of that either** — roadmap task T132. A browser reads the
+    // operating system's trust store; Node, Python, Ruby and PHP each carry a set of their own, so
+    // a site this machine shows a padlock for is one a `fetch()` in the same project refuses. The
+    // bundle is what they can be pointed at: every root this machine trusts, and then ours.
+    //
+    // Here, after the store and before the site certificates, because a runtime started a moment
+    // from now has to find a file rather than an absence — and nothing about it can fail the start,
+    // on the rule the block above follows.
+    // **And the runtimes, which read none of that either** — roadmap task T132. A browser reads the
+    // operating system's trust store; Node, Python, Ruby and PHP each carry a set of their own, so
+    // a site this machine shows a padlock for is one a `fetch()` in the same project refuses. The
+    // bundle is what they can be pointed at: every root this machine trusts, and then ours.
+    //
+    // **Spawned rather than awaited, and that is not a preference.** The endpoint was bound some
+    // way above and nothing is in `accept` yet, so — as the extension block near the end of this
+    // function says in as many words — every moment spent here is a moment a second client on
+    // Windows meets `ERROR_PIPE_BUSY`. Reading this machine's whole trust store and writing a
+    // quarter of a megabyte is the most expensive thing that was ever put between those two
+    // points, and it was measured: ten of `tests/api.rs`' twenty-four daemons stopped answering.
+    //
+    // Nothing about it can fail the start, on the rule the block above follows.
+    tokio::spawn({
+        let paths = paths.clone();
+        let host = Arc::clone(&host);
+        let store = store.clone();
+
+        async move {
+            if !crate::certs::bundle::render(&paths, host.as_ref()) {
+                return;
+            }
+
+            // **The bundle is what a PHP's generated ini set names**, so a home that has just got
+            // one — or just lost one — needs its `conf.d` written again. The pass below runs
+            // unconditionally at every start as well; this is the one that catches the first start
+            // of a home, where the file did not exist when that pass read for it. Idempotent, and
+            // a comparison per installed runtime, so an ordinary start reaches neither.
+            if let Err(error) =
+                mixengine_core::runtimes::extensions::refresh_all(&store, &paths).await
+            {
+                tracing::warn!(
+                    %error,
+                    "the trust bundle moved and the generated conf.d could not be written again"
+                );
+            }
+        }
+    });
 
     // **And every site that declares HTTPS gets the certificate its names need** — roadmap task
     // T50, here and not inside any of the generator blocks below. `.claude/CLAUDE.md` says generated

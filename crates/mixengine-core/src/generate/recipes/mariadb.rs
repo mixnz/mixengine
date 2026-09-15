@@ -51,7 +51,9 @@ use mixengine_proto::{
 };
 
 use crate::generate::first_run::{Ritual, SecretSpec, Step};
-use crate::generate::recipe::{Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream};
+use crate::generate::recipe::{
+    Claim, ClientCommand, Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream,
+};
 use crate::generate::settings::{Preset, Setting};
 use crate::{Error, Result};
 
@@ -75,6 +77,17 @@ const CLIENT: &str = "mariadb";
 /// The one-shot that bootstraps a data directory — a shell script on Unix and a different C++
 /// program of the same name on Windows. See the module note.
 const INSTALL_DB: &str = "mariadb-install-db";
+
+/// The dump tool, fronted in `bin/` under this name and under `mysqldump` — roadmap task **T130**.
+const DUMP: &str = "mariadb-dump";
+
+/// The physical backup tool. Fronted under its own name only: MySQL's equivalent is a different
+/// product with different arguments, so there is no spelling to stand in for.
+const BACKUP: &str = "mariadb-backup";
+
+/// The post-upgrade table check, which a person runs by hand after moving a data directory between
+/// branches. Fronted for that, and not run by anything here.
+const UPGRADE: &str = "mariadb-upgrade";
 
 /// The rendered configuration, under `etc/<service-id>/`.
 const CONFIG_FILE: &str = "my.cnf";
@@ -178,6 +191,68 @@ impl Recipe for Mariadb {
     /// MySQL's protocol: a fact about the server, whichever client is on the other end — T83.
     fn protocol(&self) -> Option<mixengine_proto::DatabaseProtocol> {
         Some(mixengine_proto::DatabaseProtocol::Mysql)
+    }
+
+    /// The five programs a person runs, and the three spellings they may already have in their
+    /// fingers — roadmap task **T130**.
+    ///
+    /// **MariaDB is the only recipe with an alias**, because it is the only product here that
+    /// renamed its own client: the Windows archive at 12.3 publishes `mariadb.exe` and no
+    /// `mysql.exe`, while every tutorial, script and habit in the world says `mysqldump`. Each
+    /// alias stands for a program this package does publish, and all three disappear the moment the
+    /// `mysql` package is installed beside it — a real name always beats a spelling.
+    ///
+    /// `mariadb-install-db` is deliberately absent although the artifact publishes it. It writes a
+    /// data directory the daemon owns, and a person running it by hand against a live instance is a
+    /// corrupted one; it stays reachable at its full path.
+    fn clients(&self) -> &'static [ClientCommand] {
+        &[
+            ClientCommand {
+                name: CLIENT,
+                executable: CLIENT,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: ADMIN,
+                executable: ADMIN,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: DUMP,
+                executable: DUMP,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: BACKUP,
+                executable: BACKUP,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: UPGRADE,
+                executable: UPGRADE,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysql",
+                executable: CLIENT,
+                claim: Claim::Alias,
+            },
+            ClientCommand {
+                name: "mysqladmin",
+                executable: ADMIN,
+                claim: Claim::Alias,
+            },
+            ClientCommand {
+                name: "mysqldump",
+                executable: DUMP,
+                claim: Claim::Alias,
+            },
+        ]
+    }
+
+    /// Where this instance listens, in the two variables every MySQL-family client reads.
+    fn client_env(&self, listen: &Upstream) -> std::collections::BTreeMap<&'static str, String> {
+        super::mysql_family::client_env(listen)
     }
 
     /// `mariadbd --version`, which is cheap and touches the server's own machinery.

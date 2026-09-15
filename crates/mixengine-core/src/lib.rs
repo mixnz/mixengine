@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 
 use mixengine_platform::Host;
 
+pub mod bin_commands;
 pub mod blueprints;
 pub mod certs;
 pub mod config;
@@ -1605,6 +1606,29 @@ pub enum Error {
         /// The name the recipe looked up.
         executable: String,
         /// What the install does publish, in the order a listing shows them.
+        known: Vec<String>,
+    },
+
+    /// A client command was typed, and the install it belongs to publishes no such program.
+    ///
+    /// The third of the family and its own variant for the same reason the second is: what the
+    /// person has in their hand is **the command they typed and the version it resolved to**, not a
+    /// service id they may never have named. A Windows MariaDB packs no `mariadb-backup` on every
+    /// branch, so this is the ordinary message on a machine where that name was never packed —
+    /// `bin/` fronts what the *chosen* install publishes, and this is what a build that changed its
+    /// mind between the refresh and the run says.
+    #[error(
+        "{package} {version} publishes no executable called {executable} (it has: {})",
+        if known.is_empty() { "nothing recorded".to_owned() } else { known.join(", ") }
+    )]
+    PackageProvidesNothing {
+        /// Which package.
+        package: String,
+        /// Which version of it the command resolved to.
+        version: mixengine_proto::PackageVersion,
+        /// The name that was looked up.
+        executable: String,
+        /// What it does publish, in the order a listing shows them.
         known: Vec<String>,
     },
 

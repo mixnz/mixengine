@@ -193,6 +193,18 @@ binaries. What they state is what the daemon **writes** —
    nothing can prevent. `answering` beside them is measured after the walk, so a screen can say
    *this home's front end will not start* rather than implying the switch caused it.
 
+   **The commands on this user's PATH are `path.status`, `path.install` and `path.uninstall`**, and
+   since **T130**/**T131** the report says more than whether the directory is on the PATH. `commands`
+   is what `<root>/bin` holds, read off the directory; `origins` says what put each name there —
+   built in, a client of an installed package, or a tool somebody installed into a runtime — and
+   `conflicts` names a command two installed packages both claimed and which of them won. A screen
+   listing commands without their origins is a screen that cannot answer *why is `mysqldump` here*
+   or *whose `mysql` is this*.
+
+   **`path.rescan` is the fourth**, and it is the one a person types rather than a screen calls on a
+   timer: the daemon already looks for a tool installed into a runtime every `[bin] rescan_seconds`,
+   so this exists for the moment in between and for a home that slowed that key down.
+
 A tray or menu-bar item needs no more than the dashboard does: overall state, stop-all, and the site
 list.
 

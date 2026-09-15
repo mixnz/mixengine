@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM bin_commands",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "dad946e49dbe1aa03c2d1d5eb690a8541d8540b2c6cf64b589adfeaf877df93a"
+}

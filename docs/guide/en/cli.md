@@ -1365,6 +1365,18 @@ them.
 mix path uninstall
 ```
 
+### mix path rescan
+
+Look for a tool you installed into a runtime, now.
+
+The daemon does this on its own every couple of seconds, so `npm install -g yarn` makes `yarn` a
+command without anybody asking. This is for the moment in between, and for a home whose `[bin]
+rescan_seconds` was slowed down.
+
+```
+mix path rescan
+```
+
 ## mix autostart
 
 Start this home's daemon when you log in, or stop doing that

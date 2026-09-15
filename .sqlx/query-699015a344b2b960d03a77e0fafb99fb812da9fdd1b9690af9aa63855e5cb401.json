@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT services.id            AS \"id!\",\n                  services.port          AS \"port: u16\",\n                  services.bind_addr     AS \"bind_addr!\",\n                  packages.version       AS \"version!\",\n                  packages.install_path  AS \"install_path!\",\n                  packages.provides_json AS \"provides_json!\"\n           FROM services\n           JOIN packages ON packages.id = services.package_id\n           WHERE packages.name = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "port: u16",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "port"
+          }
+        }
+      },
+      {
+        "name": "bind_addr!",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "services",
+            "name": "bind_addr"
+          }
+        }
+      },
+      {
+        "name": "version!",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "version"
+          }
+        }
+      },
+      {
+        "name": "install_path!",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "install_path"
+          }
+        }
+      },
+      {
+        "name": "provides_json!",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "packages",
+            "name": "provides_json"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "699015a344b2b960d03a77e0fafb99fb812da9fdd1b9690af9aa63855e5cb401"
+}

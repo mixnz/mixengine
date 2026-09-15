@@ -134,6 +134,58 @@ pub trait TrustStore: std::fmt::Debug + Send + Sync {
     ///
     /// As [`method`](Self::method).
     fn probe(&self, der: &[u8]) -> Result<TrustState>;
+
+    /// Every root this machine trusts, as DER — roadmap task **T132**.
+    ///
+    /// **The other direction through the same store.** [`probe`](Self::probe) asks whether one
+    /// certificate is in it; this reads the lot, so that MixEngine can write a bundle holding them
+    /// *and* its own authority. That bundle is what a runtime whose trust mechanism **replaces**
+    /// rather than adds — Python's and Ruby's `SSL_CERT_FILE`, PHP's `openssl.cafile` — can be
+    /// pointed at without losing the public internet.
+    ///
+    /// **Defaulted here rather than written three times**, because the per-OS work is
+    /// `rustls-native-certs`': the Windows `ROOT` store, macOS's trust settings, Linux's
+    /// `ca-certificates` file. What `.claude/architecture/platform-abstraction.md` asks of this
+    /// crate is that the `#[cfg]` live here and nowhere above it, and a dependency that carries it
+    /// satisfies that as squarely as a `match` would.
+    ///
+    /// Unprivileged on all three systems, for [`probe`](Self::probe)'s reason.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`](crate::Error::Io) when the store cannot be enumerated. **A caller must treat a
+    /// short answer as a failure too**: `crate::certs` will not write a bundle from fewer roots
+    /// than a real machine holds, because a `SSL_CERT_FILE` naming a handful of certificates breaks
+    /// every public handshake on the machine at once.
+    fn roots(&self) -> Result<Vec<Vec<u8>>> {
+        let loaded = rustls_native_certs::load_native_certs();
+
+        // Partial answers are the ordinary case rather than an error: a Linux machine whose
+        // `ca-certificates` holds one unparseable file still trusts the other hundred and forty.
+        // What makes the difference is whether anything came back at all.
+        for error in &loaded.errors {
+            tracing::debug!(%error, "one of this machine's trust store entries could not be read");
+        }
+
+        if loaded.certs.is_empty() {
+            let reason = match loaded.errors.first() {
+                Some(error) => error.to_string(),
+                None => "this machine's trust store holds nothing this build could read".to_owned(),
+            };
+
+            return Err(crate::Error::Io {
+                action: "read this machine's trusted roots",
+                path: std::path::PathBuf::from("(the system trust store)"),
+                source: std::io::Error::other(reason),
+            });
+        }
+
+        Ok(loaded
+            .certs
+            .into_iter()
+            .map(|certificate| certificate.as_ref().to_vec())
+            .collect())
+    }
 }
 
 #[cfg(test)]

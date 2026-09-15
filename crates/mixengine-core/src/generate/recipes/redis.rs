@@ -43,7 +43,9 @@ use mixengine_proto::{
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use crate::generate::document::Validator;
-use crate::generate::recipe::{Context, Instancing, Recipe, TemplateFile, Upstream};
+use crate::generate::recipe::{
+    Claim, ClientCommand, Context, Instancing, Recipe, TemplateFile, Upstream,
+};
 use crate::generate::settings::{Preset, Setting};
 use crate::install::SmokeTest;
 use crate::{Error, Result};
@@ -105,6 +107,24 @@ impl Recipe for Redis {
     /// to it simply carries no credential. T83.
     fn protocol(&self) -> Option<mixengine_proto::DatabaseProtocol> {
         Some(mixengine_proto::DatabaseProtocol::Redis)
+    }
+
+    /// One command — roadmap task **T130**.
+    ///
+    /// `redis-check-rdb` and `redis-check-aof` are absent: both read a data file the daemon owns
+    /// while the server that writes it may be running, and neither is a thing a person types in a
+    /// project directory. `redis-server` is the supervisor's.
+    ///
+    /// Redis has **no client environment at all** — no `REDISHOST`, no `REDISPORT` — so
+    /// [`Recipe::client_env`]'s default stands and `redis-cli` against an instance the allocator
+    /// moved off 6379 still needs its own `-p`. Inventing a variable here would be inventing one
+    /// `redis-cli` does not read.
+    fn clients(&self) -> &'static [ClientCommand] {
+        &[ClientCommand {
+            name: CLIENT,
+            executable: CLIENT,
+            claim: Claim::Own,
+        }]
     }
 
     /// 6379, which a developer's own Redis routinely holds — and losing it is why the allocation

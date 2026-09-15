@@ -60,7 +60,9 @@ use mixengine_proto::{
 };
 
 use crate::generate::first_run::{Ritual, SecretFile, SecretSpec, Step};
-use crate::generate::recipe::{Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream};
+use crate::generate::recipe::{
+    Claim, ClientCommand, Context, Endpoints, Instancing, Recipe, TemplateFile, Upstream,
+};
 use crate::generate::settings::{Preset, Setting};
 use crate::{Error, Result};
 
@@ -184,6 +186,71 @@ impl Recipe for Mysql {
     /// MySQL's protocol — T83.
     fn protocol(&self) -> Option<mixengine_proto::DatabaseProtocol> {
         Some(mixengine_proto::DatabaseProtocol::Mysql)
+    }
+
+    /// Every client Oracle's archive publishes, under its own name — roadmap task **T130**.
+    ///
+    /// **All nine are `Own`**, which is what takes `mysql`, `mysqladmin` and `mysqldump` away from
+    /// MariaDB the moment this package is installed: a person with both products on one machine and
+    /// a `mysql` on their PATH means the one that answers the MySQL wire, and the alias is the half
+    /// of that pair that can be spelled another way.
+    ///
+    /// `mysqlpump` is absent although 5.7 publishes one: it was deprecated in 8.0 and removed in
+    /// 8.4, so a name in `bin/` for it would appear and vanish with the version somebody installed.
+    /// `mysqld`, `mysql_install_db` and `my_print_defaults` are the supervisor's.
+    fn clients(&self) -> &'static [ClientCommand] {
+        &[
+            ClientCommand {
+                name: CLIENT,
+                executable: CLIENT,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: ADMIN,
+                executable: ADMIN,
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqldump",
+                executable: "mysqldump",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqlcheck",
+                executable: "mysqlcheck",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqlshow",
+                executable: "mysqlshow",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqlimport",
+                executable: "mysqlimport",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqlbinlog",
+                executable: "mysqlbinlog",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysqlslap",
+                executable: "mysqlslap",
+                claim: Claim::Own,
+            },
+            ClientCommand {
+                name: "mysql_upgrade",
+                executable: "mysql_upgrade",
+                claim: Claim::Own,
+            },
+        ]
+    }
+
+    /// Where this instance listens, in the two variables every MySQL-family client reads.
+    fn client_env(&self, listen: &Upstream) -> std::collections::BTreeMap<&'static str, String> {
+        super::mysql_family::client_env(listen)
     }
 
     /// `mysqld --version`, which is cheap and touches the server's own machinery.

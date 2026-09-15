@@ -79,6 +79,15 @@ pub struct State {
     /// nothing declares any more, and that pass already existed for an extension somebody turned
     /// off.
     pub additions: Vec<IniAddition>,
+
+    /// The trust bundle this runtime should believe, when there is one — roadmap task **T132**.
+    ///
+    /// **Filled by [`render`] and not by [`state`]**, because it is a fact about the *home* rather
+    /// than about the install: `state` is handed a `Store` and answers out of one row, and `render`
+    /// is the one that knows where `etc/` is. [`None`] on a home whose daemon has not written a
+    /// bundle — a machine whose trust store could not be read — and the ini then says nothing about
+    /// certificates at all, which leaves PHP exactly as it was before this task.
+    pub ca_bundle: Option<PathBuf>,
 }
 
 /// One extension's `[recipe] php_ini`, with its placeholders already substituted.
@@ -346,10 +355,42 @@ impl State {
              ; `revalidate_freq = 0` is the difference between opcache in production and opcache on\n\
              ; a laptop: an edited file takes effect on the next request.\n\
              opcache.enable = 1\n\
-             opcache.revalidate_freq = 0\n",
+             opcache.revalidate_freq = 0\n{}",
             self.kind,
             self.version,
-            absolute.display()
+            absolute.display(),
+            self.trust()
+        )
+    }
+
+    /// The two lines that tell PHP which authorities to believe — roadmap task **T132**.
+    ///
+    /// **Here rather than in an environment variable**, and that is the point: `PHP_INI_SCAN_DIR`
+    /// names this directory for a `php` in a terminal, and
+    /// [`services::pools`](crate::services::pools) sets the same one on the php-fpm spec — so
+    /// `php -r` and `curl_exec()` in a browser get the same answer, which is what T28's `conf.d`
+    /// model exists to hold. An exported variable would have reached the terminal and not the pool,
+    /// and a site calling another site of this home over HTTPS is the case that matters most.
+    ///
+    /// **Both directives, because PHP has two TLS stacks.** `curl.cainfo` is libcurl's and
+    /// `openssl.cafile` is the openssl stream wrapper's; a `file_get_contents("https://…")` uses the
+    /// second and nothing about the first.
+    ///
+    /// Nothing at all when there is no bundle — [`State::ca_bundle`]'s own rule, and
+    /// `extension_dir`'s: a setting pointing at a file nothing wrote is worse than no setting, and
+    /// on Windows it would be worse still, since the artifact ships no CA file and PHP would be left
+    /// naming one that is not there instead of falling back to Schannel.
+    fn trust(&self) -> String {
+        let Some(bundle) = &self.ca_bundle else {
+            return String::new();
+        };
+
+        format!(
+            "\n; Every authority this machine trusts, and MixEngine's own — so a site of this\n\
+             ; home can be reached over HTTPS from PHP, and the public internet still can.\n\
+             openssl.cafile = \"{0}\"\n\
+             curl.cainfo = \"{0}\"\n",
+            bundle.display()
         )
     }
 }
@@ -396,6 +437,8 @@ pub async fn state(store: &Store, kind: RuntimeKind, version: &PackageVersion) -
         offered,
         choices,
         additions: additions(store, kind).await?,
+        // `render` fills this: it is the caller that knows where `etc/` is. See the field.
+        ca_bundle: None,
     })
 }
 
@@ -463,6 +506,16 @@ async fn additions(store: &Store, kind: RuntimeKind) -> Result<Vec<IniAddition>>
 /// [`Error::Io`] naming the file or directory that could not be read, written or removed.
 pub async fn render(paths: &Paths, state: &State) -> Result<bool> {
     let directory = conf_d(paths.etc(), state.kind, state.version.as_str());
+
+    // **Named only when it is there** — roadmap task T132, on `extension_dir`'s own rule: a setting
+    // pointing at a file nothing wrote is worse than no setting. A home whose daemon has never run,
+    // or whose trust store could not be read, renders an ini that says nothing about certificates.
+    let bundle = crate::generate::ca::path(paths.etc());
+    let state = &State {
+        ca_bundle: bundle.is_file().then_some(bundle),
+        ..state.clone()
+    };
+
     let documents = state.documents();
 
     if documents.is_empty() {
@@ -628,6 +681,7 @@ mod tests {
             },
             choices: serde_json::from_str(choices).expect("choices"),
             additions: Vec::new(),
+            ca_bundle: None,
         }
     }
 
@@ -1104,5 +1158,75 @@ mod tests {
         discard(&paths, RuntimeKind::Php, &version)
             .await
             .expect("idempotent");
+    }
+}
+
+#[cfg(test)]
+mod trust_tests {
+    use super::*;
+
+    fn php(bundle: Option<PathBuf>) -> State {
+        State {
+            kind: RuntimeKind::Php,
+            version: PackageVersion::parse("8.4.24").expect("a version"),
+            install_path: PathBuf::from("/home/runtimes/php/8.4.24"),
+            directory: Some("ext".to_owned()),
+            offered: crate::index::Extensions::default(),
+            choices: BTreeMap::new(),
+            additions: Vec::new(),
+            ca_bundle: bundle,
+        }
+    }
+
+    fn mixengine_ini(state: &State) -> String {
+        state
+            .documents()
+            .into_iter()
+            .find(|document| document.relative() == std::path::Path::new(MIXENGINE_INI))
+            .expect("every PHP renders 00-mixengine.ini")
+            .contents()
+            .to_owned()
+    }
+
+    /// **PHP is told through the ini set rather than through the environment** — roadmap task
+    /// **T132**. `PHP_INI_SCAN_DIR` names this directory for a `php` in a terminal *and* is set on
+    /// the php-fpm spec, so `php -r` and `curl_exec()` in a browser get the same answer. That is
+    /// what makes a site of this home reachable over HTTPS from another site of this home.
+    #[test]
+    fn the_generated_ini_names_the_bundle() {
+        let rendered = mixengine_ini(&php(Some(PathBuf::from("/home/etc/ca/bundle.pem"))));
+
+        assert!(rendered.contains("openssl.cafile"), "{rendered}");
+        assert!(rendered.contains("curl.cainfo"), "{rendered}");
+        assert_eq!(
+            rendered.matches("bundle.pem").count(),
+            2,
+            "PHP has two TLS stacks and each reads its own directive: {rendered}"
+        );
+    }
+
+    /// And says nothing when there is no bundle, rather than naming a file nothing wrote — which on
+    /// Windows would be worse than silence, since the artifact ships no CA file and PHP would be
+    /// left pointing at an absence instead of falling back to the machine's own stack.
+    #[test]
+    fn no_bundle_writes_no_certificate_lines() {
+        let rendered = mixengine_ini(&php(None));
+
+        assert!(!rendered.contains("openssl.cafile"), "{rendered}");
+        assert!(!rendered.contains("curl.cainfo"), "{rendered}");
+    }
+
+    /// A runtime that declares no extension directory renders no ini at all, bundle or not: this is
+    /// the rule the whole module keys off, and a certificate setting must not be the thing that
+    /// starts giving Node a `conf.d`.
+    #[test]
+    fn a_runtime_with_no_extension_directory_still_renders_nothing() {
+        let node = State {
+            kind: RuntimeKind::Node,
+            directory: None,
+            ..php(Some(PathBuf::from("/home/etc/ca/bundle.pem")))
+        };
+
+        assert!(node.documents().is_empty());
     }
 }

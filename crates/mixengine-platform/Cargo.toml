@@ -27,6 +27,14 @@ mixengine-proto = { workspace = true, optional = true }
 # `elevated` alone and must not gain a process enumerator, and CI diffs that closure against
 # `.github/elevate-dependencies.txt`.
 sysinfo = { workspace = true, optional = true }
+# T132: every root this machine already trusts, so a bundle can be written that holds them and
+# MixEngine's own. The per-OS work is this crate's — the Windows `ROOT` store, macOS's trust
+# settings, Linux's `ca-certificates` file — which is exactly what `mixengine-platform` exists to
+# be the only place for. Already in the tree by way of `rustls-platform-verifier`, so it is a new
+# edge and not a new package. Optional and enabled by `host`, on `sysinfo`'s reasoning:
+# `mixengine-elevate` compiles this crate with `elevated` alone and must not gain a certificate
+# enumerator, and CI diffs that closure against `.github/elevate-dependencies.txt`.
+rustls-native-certs = { workspace = true, optional = true }
 thiserror.workspace = true
 # Optional, and every feature that needs it names the parts of it that it needs — see `[features]`
 # below. A build that takes only `elevated` compiles no tokio at all, which is the point.
@@ -175,6 +183,7 @@ host = [
     # above, so naming it here activates it on those two and is a no-op on Windows —
     # `dbus-secret-service`'s arrangement, and for its reason.
     "dep:pem",
+    "dep:rustls-native-certs",
     "dep:sysinfo",
     "dep:tracing",
     # T71: a group is identified by a pid *and* the moment it began, and reading that moment is

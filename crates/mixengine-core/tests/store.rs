@@ -120,6 +120,7 @@ async fn a_first_run_gets_the_documented_schema() {
     assert_eq!(
         tables,
         [
+            "bin_commands",
             "blueprints",
             "ca",
             "certificates",
