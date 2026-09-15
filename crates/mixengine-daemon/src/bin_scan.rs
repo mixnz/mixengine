@@ -46,11 +46,18 @@ pub(crate) fn start(
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
         let mut seen: BTreeMap<PathBuf, SystemTime> = BTreeMap::new();
-        let mut ticks = tokio::time::interval(period);
 
-        // The first tick fires immediately and is what makes a daemon start notice a tool installed
-        // while it was stopped. `Delay` and not `Burst`, so a machine that was suspended does not
-        // wake to a queue of missed passes it then runs back to back.
+        // **The first tick is one period away, not immediate.** `tokio::time::interval` fires at
+        // once, which would put a database write and a walk of `bin/` into the same moment as the
+        // rest of a start — including the bind, which on Windows is a named pipe whose instances a
+        // test run spawning twenty daemons at once can genuinely exhaust (`ERROR_PIPE_BUSY`). There
+        // is nothing for an immediate pass to find, either: `main` has just refreshed `bin/` from
+        // the same rows, so the first thing this can usefully notice is a *change*, and a tool
+        // installed while the daemon was stopped is still noticed two seconds later.
+        let mut ticks = tokio::time::interval_at(tokio::time::Instant::now() + period, period);
+
+        // `Delay` and not `Burst`, so a machine that was suspended does not wake to a queue of
+        // missed passes it then runs back to back.
         ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
         loop {
