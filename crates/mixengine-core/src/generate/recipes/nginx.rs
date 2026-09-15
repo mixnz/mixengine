@@ -301,6 +301,15 @@ impl Recipe for Nginx {
                     kind: kind(&site.kind),
                     upstream: upstream(&site.kind),
                     activator: activator(&site.kind),
+                    rewrite: site_rewrite(&site.kind).cloned(),
+                    routes: site
+                        .routes
+                        .iter()
+                        .enumerate()
+                        .map(|(position, route)| {
+                            RouteRendering::new(site.primary(), position, route)
+                        })
+                        .collect(),
                     group: group(site.primary()),
                     fastcgi_params: &fastcgi_params,
                     listen: &listen,
@@ -560,6 +569,13 @@ struct SiteRendering<'a> {
     /// `fastcgi_pass` straight at the pool, which is what this file rendered before T70.
     activator: Option<String>,
 
+    /// What `/` becomes on the way out, for a proxy site whose upstream carried a path — roadmap
+    /// task **T135**. [`None`] renders exactly what this file rendered before T135.
+    rewrite: Option<crate::generate::served::Rewrite>,
+
+    /// What answers before the kind does, longest prefix first — roadmap task **T135**.
+    routes: Vec<RouteRendering>,
+
     /// What the `upstream` group holding the two is called, when there is one.
     group: String,
     fastcgi_params: &'a str,
@@ -684,9 +700,107 @@ const fn kind(kind: &ServedKind) -> &'static str {
 fn upstream(kind: &ServedKind) -> String {
     match kind {
         ServedKind::PhpFpm { upstream, .. } => address(upstream),
-        ServedKind::ReverseProxy { upstream } => upstream.clone(),
+        ServedKind::ReverseProxy { upstream, .. } => upstream.clone(),
         ServedKind::NodeApp { port } => format!("http://127.0.0.1:{port}"),
         ServedKind::Static => String::new(),
+    }
+}
+
+/// What `/` becomes on the way out for a site whose own upstream carried a path — roadmap task
+/// **T135**.
+///
+/// [`None`] for every other kind, and for the ordinary proxy site whose upstream is an address and
+/// nothing more — which is what this file rendered before T135. nginx would have read the path as a
+/// prefix replacement of its own and Caddy would have refused it, so the two front ends disagreed
+/// about what that URL meant; `served::split_upstream` is where they stopped.
+fn site_rewrite(kind: &ServedKind) -> Option<&crate::generate::served::Rewrite> {
+    match kind {
+        ServedKind::ReverseProxy { rewrite, .. } => rewrite.as_ref(),
+        _ => None,
+    }
+}
+
+/// One route, as `nginx/site.conf` reads it.
+///
+/// **Every key present whichever branch the template takes**, for [`SiteRendering::upstream`]'s
+/// reason: `UndefinedBehavior::Strict` makes a missing one an error rather than a falsy value.
+#[derive(Debug, serde::Serialize)]
+struct RouteRendering {
+    /// The prefix, as the row holds it.
+    path: String,
+
+    /// The anchored expression a proxy route's `location ~` is given.
+    ///
+    /// **A regex and not a prefix**, because nginx's prefix locations match as text: `location /api`
+    /// takes `/apidocs` as well, which is the trap this whole shape exists to avoid.
+    regex: String,
+
+    /// Which branch of the template this target takes.
+    kind: &'static str,
+
+    /// Where a proxy route forwards — scheme, host and port, never a path: nginx refuses a URI part
+    /// in a `proxy_pass` inside a regex location, and the rewrite below has already done the work.
+    address: String,
+
+    /// What the prefix becomes on the way out, or [`None`] to pass the path through.
+    rewrite: Option<crate::generate::served::Rewrite>,
+
+    /// Where a static route's files are, forward-slashed.
+    root: String,
+
+    /// Where a php-fpm route's pool listens, in nginx's spelling.
+    upstream: String,
+
+    /// Where the activator waits for that pool — roadmap task **T70**, the site's own rule.
+    activator: Option<String>,
+
+    /// What the `upstream` group holding the two is called, when there is one.
+    ///
+    /// Named after the site **and the route's position**: nginx refuses a configuration that
+    /// declares one upstream name twice, which takes the whole front end down rather than one site,
+    /// and two routes of one site naming one pool is ordinary.
+    group: String,
+}
+
+impl RouteRendering {
+    /// One [`ServedRoute`](crate::generate::served::ServedRoute) in nginx's spelling.
+    fn new(primary: &str, position: usize, route: &crate::generate::served::ServedRoute) -> Self {
+        use crate::generate::served::ServedRouteTarget as Target;
+
+        let mut rendering = Self {
+            path: route.path.clone(),
+            group: format!("{}_route_{position}", group(primary)),
+            activator: None,
+            // The same escaping `served` does for the rewrite, for the same reason: a `.` in a path
+            // segment is a regex metacharacter, and `/v1.0` would otherwise take `/v1X0`.
+            regex: format!("^{}(/.*)?$", route.path.replace('.', r"\.")),
+            kind: "proxy",
+            address: String::new(),
+            rewrite: None,
+            root: String::new(),
+            upstream: String::new(),
+        };
+
+        match &route.target {
+            Target::Proxy { address, rewrite } => {
+                rendering.address.clone_from(address);
+                rendering.rewrite.clone_from(rewrite);
+            }
+            Target::PhpFpm {
+                upstream,
+                activator,
+            } => {
+                rendering.kind = "php-fpm";
+                rendering.upstream = address(upstream);
+                rendering.activator = activator.as_ref().map(address);
+            }
+            Target::Static { root } => {
+                rendering.kind = "static";
+                rendering.root = forward_slashed(root);
+            }
+        }
+
+        rendering
     }
 }
 
@@ -783,6 +897,7 @@ mod tests {
         let served = vec![Served {
             shared: None,
             domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -819,6 +934,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["php.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
@@ -832,10 +948,12 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["proxy.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::ReverseProxy {
                     upstream: "http://127.0.0.1:4000".to_owned(),
+                    rewrite: None,
                 },
                 https: true,
                 https_redirect: false,
@@ -844,6 +962,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["node.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::NodeApp { port: 3000 },
@@ -1049,6 +1168,7 @@ mod tests {
         let rendered = render_site(&Served {
             kind: ServedKind::ReverseProxy {
                 upstream: "http://127.0.0.1:8000".to_owned(),
+                rewrite: None,
             },
             ..a_static_site()
         });
@@ -1187,6 +1307,145 @@ mod tests {
         }
     }
 
+    /// A php-fpm site with three routes, as `served` hands them over — roadmap task **T135**.
+    fn a_site_with_routes() -> Served {
+        use crate::generate::served::{Rewrite, ServedRoute, ServedRouteTarget};
+
+        Served {
+            routes: vec![
+                ServedRoute {
+                    path: "/v1.0".to_owned(),
+                    target: ServedRouteTarget::Proxy {
+                        address: "http://127.0.0.1:4000".to_owned(),
+                        rewrite: None,
+                    },
+                },
+                ServedRoute {
+                    path: "/abc".to_owned(),
+                    target: ServedRouteTarget::Proxy {
+                        address: "http://127.0.0.1:3003".to_owned(),
+                        rewrite: Some(Rewrite {
+                            regex: "^/abc(/.*)?$".to_owned(),
+                            replacement: "/xyz$1".to_owned(),
+                        }),
+                    },
+                },
+                ServedRoute {
+                    path: "/admin".to_owned(),
+                    target: ServedRouteTarget::PhpFpm {
+                        upstream: Upstream::Tcp("127.0.0.1:9001".parse().expect("an address")),
+                        activator: None,
+                    },
+                },
+            ],
+            ..a_php_site()
+        }
+    }
+
+    /// **Every route is rendered before the site's own `location ~ \.php$`** — roadmap task
+    /// **T135**.
+    ///
+    /// nginx takes regex locations in the order it read them, so a route written after that
+    /// handler would never be reached for a `.php` under its prefix.
+    #[test]
+    fn a_route_is_rendered_before_the_php_handler() {
+        let rendered = render_site(&a_site_with_routes());
+
+        let route = rendered
+            .find("location ~ ^/abc(/.*)?$")
+            .expect("the route location");
+        // The site's own handler is at the server block's own indentation; a route's nested one is
+        // four spaces deeper, which is what tells the two apart in the text.
+        let php = rendered
+            .find("\n    location ~ \\.php$ {")
+            .expect("the site's own php handler");
+
+        assert!(
+            route < php,
+            "a route rendered after the php handler is a route nginx never reaches:\n{rendered}"
+        );
+
+        // **Where the site renders two blocks, both carry the routes.** A site whose `/api`
+        // answered on HTTP and not on HTTPS would be a padlock that works everywhere except where
+        // the application is — and the redirecting shape is the one that has two serving blocks to
+        // get wrong.
+        let redirecting = render_site(&Served {
+            https_redirect: true,
+            ..a_site_with_routes()
+        });
+
+        assert_eq!(
+            redirecting.matches("location ~ ^/abc(/.*)?$").count(),
+            1,
+            "the block that only redirects carries no routes; the one that serves carries them all:
+{redirecting}"
+        );
+        assert!(
+            redirecting.contains("return 307 https://$host$request_uri;"),
+            "{redirecting}"
+        );
+    }
+
+    /// **A file-serving route is a pair of prefix locations with its PHP handler nested inside** —
+    /// roadmap task **T135**, that design's D4.
+    ///
+    /// `^~` stops the sibling regex search, so a handler written beside this location would never
+    /// be reached and `try_files $uri` would answer `/admin/x.php` with its own source, as text —
+    /// T124a's leak, in a new place.
+    #[test]
+    fn a_php_route_nests_its_handler_inside_the_prefix_location() {
+        let rendered = render_site(&a_site_with_routes());
+
+        assert!(
+            rendered.contains("location = /admin { return 301 /admin/; }"),
+            "the exact match is the segment boundary:\n{rendered}"
+        );
+        assert!(rendered.contains("location ^~ /admin/ {"), "{rendered}");
+
+        let prefix = rendered
+            .find("location ^~ /admin/ {")
+            .expect("the prefix location");
+        let nested = rendered[prefix..]
+            .find("fastcgi_pass 127.0.0.1:9001;")
+            .expect("the route's own pool");
+        let closed = rendered[prefix..]
+            .find("\n    }")
+            .expect("its closing brace");
+
+        assert!(
+            nested < closed,
+            "the php handler is inside the prefix location, not beside it:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("try_files $uri $uri/ /admin/index.php?$query_string;"),
+            "{rendered}"
+        );
+    }
+
+    /// **A `.` in a path is escaped where it reaches a regex** — roadmap task **T135**, that
+    /// design's D5. Unescaped, `/v1.0` would also take `/v1X0`.
+    #[test]
+    fn a_dot_in_a_route_path_is_escaped() {
+        let rendered = render_site(&a_site_with_routes());
+
+        assert!(
+            rendered.contains(r"location ~ ^/v1\.0(/.*)?$"),
+            "{rendered}"
+        );
+        assert!(
+            !rendered.contains("location ~ ^/v1.0(/.*)?$"),
+            "an unescaped dot matches any character:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("proxy_pass http://127.0.0.1:4000;"),
+            "a route whose upstream has no path forwards it unchanged:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("rewrite ^/abc(/.*)?$ /xyz$1 break;"),
+            "{rendered}"
+        );
+    }
+
     /// A php-fpm site at `blog.test`, on the static fixture's domain and certificate.
     fn a_php_site() -> Served {
         Served {
@@ -1204,6 +1463,7 @@ mod tests {
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1239,6 +1499,7 @@ mod tests {
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1273,6 +1534,7 @@ mod tests {
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1314,6 +1576,7 @@ mod tests {
             .map(|domain| Served {
                 shared: None,
                 domains: vec![domain.to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
@@ -1362,6 +1625,7 @@ mod tests {
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1489,6 +1753,7 @@ zz
                 &[Served {
                     shared: None,
                     domains: vec!["shop.test".to_owned()],
+                    routes: Vec::new(),
                     doc_root: doc_root(),
                     doc_root_relative: "public".to_owned(),
                     kind: ServedKind::Static,
@@ -1512,6 +1777,7 @@ zz
                 name: Some("blog-mixengine.local".to_owned()),
             }),
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1561,6 +1827,7 @@ zz
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["shop.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1588,6 +1855,7 @@ zz
                 name: Some("shop-mixengine.local".to_owned()),
             }),
             domains: vec!["shop.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,

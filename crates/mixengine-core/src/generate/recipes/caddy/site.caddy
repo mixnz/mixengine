@@ -86,6 +86,45 @@
 	# processes `\"` and `\\` as escapes, so `C:\src\blog` ends the string one character early and
 	# the parse error names the line after it.
 	root * `{{ doc_root }}`
+{%- for route in routes %}
+
+	# **One prefix, one handler, ahead of everything the site's own kind renders** — roadmap task
+	# T135. `handle` blocks are mutually exclusive and taken in the order they are written, which is
+	# what carries the specificity here: `core::generate::served` sorts longest-first, so `/api/v1`
+	# is reached before `/api`, and neither front end is ever asked to resolve an overlap by its own
+	# native rules. The two matchers are the segment boundary — `/api` and everything under it, and
+	# never `/apidocs`.
+	#
+	# **Repeated in the TLS block below rather than shared**, on the rule the certificate note at the
+	# foot of this file states for the whole handler: a Caddyfile snippet lives in the Caddyfile,
+	# which is the one document that must hold nothing belonging to a single site.
+	@{{ route.matcher }} path {{ route.path }} {{ route.path }}/*
+	handle @{{ route.matcher }} {
+{%- if route.rewrite %}
+		# **One directive, and never `uri strip_prefix` + `rewrite`.** Caddy sorts directives into
+		# its own standard order inside a block and `rewrite` comes *before* `uri`, so that pair
+		# runs backwards and hands the upstream `/xyz/abc/foo`. Measured against 2.11.4: this shape
+		# answers `/abc` with `/xyz` and `/abc/foo?q=1` with `/xyz/foo?q=1`.
+		uri path_regexp {{ route.rewrite.regex }} {{ route.rewrite.replacement }}
+{%- endif %}
+{%- if route.kind == "proxy" %}
+		# **Scheme, host and port, and never a path.** Caddy refuses one outright — *for now, URLs
+		# for proxy upstreams only support scheme, host, and port components* — and the whole
+		# rendering is judged by one `caddy validate`, so a path left in here would cost every site
+		# on this machine its configuration. The `uri` line above is where the path went.
+		reverse_proxy {{ route.address }}
+{%- elif route.kind == "php-fpm" %}
+		# No `root` of its own: a php-fpm route changes *which pool* answers under this prefix, not
+		# where the files are, and the block's `root *` reaches into a nested `handle` — measured.
+		php_fastcgi {{ route.upstream }}{% if route.activator %} {{ route.activator }}{% endif %}
+		file_server
+{%- else %}
+		root * `{{ route.root }}`
+		uri strip_prefix {{ route.path }}
+		file_server
+{%- endif %}
+	}
+{%- endfor %}
 {%- if kind == "php-fpm" %}
 {%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
@@ -180,6 +219,13 @@
 		file_server
 	}
 {%- else %}
+{%- if rewrite %}
+	# **The row's upstream carried a path, and Caddy refuses one in an upstream** — roadmap task
+	# T135. Before it, that site failed `caddy validate` and took every other site's rendering down
+	# with it. One directive, for the route macro's reason: `rewrite` sorts before `uri`, so the
+	# readable-looking pair would run backwards.
+	uri path_regexp {{ rewrite.regex }} {{ rewrite.replacement }}
+{%- endif %}
 	reverse_proxy {{ upstream }}
 
 {%- if welcome %}
@@ -240,6 +286,28 @@
 	handle {
 {%- endif %}
 	root * `{{ doc_root }}`
+{%- for route in routes %}
+
+	# The same routes as the plaintext block above, for the reason that block's own note gives —
+	# roadmap task T135. A site whose `/api` answered on HTTP and not on HTTPS would be a padlock
+	# that works everywhere except where the application is.
+	@{{ route.matcher }} path {{ route.path }} {{ route.path }}/*
+	handle @{{ route.matcher }} {
+{%- if route.rewrite %}
+		uri path_regexp {{ route.rewrite.regex }} {{ route.rewrite.replacement }}
+{%- endif %}
+{%- if route.kind == "proxy" %}
+		reverse_proxy {{ route.address }}
+{%- elif route.kind == "php-fpm" %}
+		php_fastcgi {{ route.upstream }}{% if route.activator %} {{ route.activator }}{% endif %}
+		file_server
+{%- else %}
+		root * `{{ route.root }}`
+		uri strip_prefix {{ route.path }}
+		file_server
+{%- endif %}
+	}
+{%- endfor %}
 {%- if kind == "php-fpm" %}
 {%- if welcome %}
 	# **A site with nothing in it says so, instead of answering 404** — roadmap task T124.
@@ -315,6 +383,13 @@
 		file_server
 	}
 {%- else %}
+{%- if rewrite %}
+	# **The row's upstream carried a path, and Caddy refuses one in an upstream** — roadmap task
+	# T135. Before it, that site failed `caddy validate` and took every other site's rendering down
+	# with it. One directive, for the route macro's reason: `rewrite` sorts before `uri`, so the
+	# readable-looking pair would run backwards.
+	uri path_regexp {{ rewrite.regex }} {{ rewrite.replacement }}
+{%- endif %}
 	reverse_proxy {{ upstream }}
 
 {%- if welcome %}

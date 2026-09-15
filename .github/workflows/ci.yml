@@ -812,6 +812,25 @@ jobs:
           CARGO_NET_OFFLINE: "true"
         run: cargo test -p mixengine-cli --test nginx --locked --offline -- --ignored
 
+      # **One site, many backends, through both front ends** — roadmap task T135. Two steps for one
+      # suite, on the rule every pair here follows: a failure should name which server disagreed
+      # without anybody reading the log. The suite drives a proxy route, a rewriting proxy route and
+      # a files route; it needs no PHP, which is why it sits above the PHP steps rather than among
+      # them.
+      - name: Test one site's routes against a real Caddy
+        if: runner.os != 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-cli --test routes --locked --offline -- --ignored caddy_
+
+      # The same guard the nginx step above carries, for its reason: there is no nginx to fetch on
+      # Windows-on-ARM and no upstream that publishes one.
+      - name: Test one site's routes against a real nginx
+        if: runner.os != 'Linux' && env.MIXENGINE_NGINX_PACKAGE != ''
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-cli --test routes --locked --offline -- --ignored nginx_
+
       # And the one that needs the PHP. Its own step rather than a second `--test` on the line above,
       # because a failure should name which recipe failed without anybody reading the log.
       - name: Test against a real PHP

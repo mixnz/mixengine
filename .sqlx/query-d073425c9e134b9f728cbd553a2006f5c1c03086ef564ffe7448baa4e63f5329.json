@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO site_routes (site_id, position, path, target, php_service_id, config_json)\n             VALUES (?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "d073425c9e134b9f728cbd553a2006f5c1c03086ef564ffe7448baa4e63f5329"
+}

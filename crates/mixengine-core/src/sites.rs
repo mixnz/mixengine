@@ -23,7 +23,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use mixengine_platform::paths::in_full;
-use mixengine_proto::{ExtensionId, ServiceId, SiteKind, SiteState};
+use mixengine_proto::{ExtensionId, RouteTarget, ServiceId, SiteKind, SiteRoute, SiteState};
 use sqlx::Sqlite;
 
 use crate::{Error, Result, Store};
@@ -114,6 +114,13 @@ pub struct SiteRecord {
     /// The services it declares, in id order.
     pub services: Vec<ServiceId>,
 
+    /// The routes it declares, in the order they were written down — roadmap task **T135**.
+    ///
+    /// **Declaration order and not match order.** Which route wins an overlap is decided by
+    /// [`by_specificity`] where a rendering or an answer needs it; the row keeps what somebody
+    /// typed, because that is the only thing a `position` column can honestly hold.
+    pub routes: Vec<SiteRoute>,
+
     /// Where the local network reaches it, when it does — roadmap task **T74**.
     pub sharing: Option<Sharing>,
 }
@@ -167,6 +174,9 @@ pub struct NewSite {
     pub domains: Vec<String>,
     /// The services it declares.
     pub services: Vec<ServiceId>,
+    /// The routes it declares — roadmap task **T135**. May be empty, which is every site made
+    /// before this task existed.
+    pub routes: Vec<SiteRoute>,
 }
 
 /// What an update is changing, where [`None`] means "leave it".
@@ -191,6 +201,8 @@ pub struct Change {
     pub domains: Option<Vec<String>>,
     /// The links, **replacing** them.
     pub services: Option<Vec<ServiceId>>,
+    /// The routes, **replacing** them — roadmap task **T135**.
+    pub routes: Option<Vec<SiteRoute>>,
 }
 
 /// A doc root as the row holds it: relative to the project's root, `""` for the root itself.
@@ -312,6 +324,7 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
 
     write_domains(store, &mut tx, id, &new.domains).await?;
     write_links(store, &mut tx, id, &new.services).await?;
+    write_routes(store, &mut tx, id, &new.routes).await?;
 
     tx.commit()
         .await
@@ -329,6 +342,7 @@ pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
         state: SiteState::Enabled,
         domains: new.domains.clone(),
         services: new.services.clone(),
+        routes: new.routes.clone(),
         // A site is created unshared, always. Sharing is a thing a person turns on afterwards for
         // a site they are looking at, and a create that could take one would be a create that could
         // open a firewall rule as a side effect of an import.
@@ -385,6 +399,29 @@ pub async fn records(store: &Store, project: Option<i64>) -> Result<Vec<SiteReco
             })?);
         }
 
+        let declared = sqlx::query!(
+            "SELECT path, target, php_service_id, config_json FROM site_routes
+             WHERE site_id = ? ORDER BY position",
+            row.id
+        )
+        .fetch_all(store.pool())
+        .await
+        .map_err(|source| store.failure("read", source))?;
+
+        let mut routes = Vec::with_capacity(declared.len());
+
+        for route in declared {
+            routes.push(SiteRoute {
+                path: route.path,
+                target: read_route_target(
+                    row.id,
+                    &route.target,
+                    route.php_service_id,
+                    &route.config_json,
+                )?,
+            });
+        }
+
         sites.push(SiteRecord {
             id: row.id,
             owner: SiteOwner::read(row.id, row.project_id, row.extension_id)?,
@@ -395,6 +432,7 @@ pub async fn records(store: &Store, project: Option<i64>) -> Result<Vec<SiteReco
             state: read_state(row.id, &row.state)?,
             domains,
             services,
+            routes,
             sharing: read_sharing(
                 row.id,
                 row.shared_interface,
@@ -692,6 +730,10 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
         write_links(store, &mut tx, id, services).await?;
     }
 
+    if let Some(routes) = &change.routes {
+        write_routes(store, &mut tx, id, routes).await?;
+    }
+
     tx.commit()
         .await
         .map_err(|source| store.failure("write", source))?;
@@ -788,6 +830,90 @@ fn payload(kind: &SiteKind) -> String {
     };
 
     value.to_string()
+}
+
+/// The `target` word and the `php_service_id` a route's target writes into its row — roadmap task
+/// **T135**. [`columns`]' shape one table down.
+fn route_columns(target: &RouteTarget) -> (&'static str, Option<String>) {
+    match target {
+        RouteTarget::Proxy { .. } => ("proxy", None),
+        RouteTarget::PhpFpm { pool } => (
+            "php-fpm",
+            pool.as_ref().map(|pool| pool.as_str().to_owned()),
+        ),
+        RouteTarget::Static { .. } => ("static", None),
+    }
+}
+
+/// The rest of a target's payload, as `site_routes.config_json` holds it — [`payload`]'s shape and
+/// its reason: `serde_json` escapes an upstream with a path in it so this module never has to.
+fn route_payload(target: &RouteTarget) -> String {
+    let value = match target {
+        RouteTarget::Proxy { upstream } => serde_json::json!({ "upstream": upstream }),
+        RouteTarget::PhpFpm { .. } => serde_json::json!({}),
+        RouteTarget::Static { root } => serde_json::json!({ "root": root }),
+    };
+
+    value.to_string()
+}
+
+/// The inverse of [`route_columns`] and [`route_payload`].
+fn read_route_target(
+    site: i64,
+    target: &str,
+    pool: Option<String>,
+    config: &str,
+) -> Result<RouteTarget> {
+    let unreadable = |column: &'static str, value: &str| Error::UnreadableSiteRow {
+        site,
+        column,
+        value: value.to_owned(),
+    };
+
+    let text = |key: &str| -> Result<String> {
+        let payload: serde_json::Value =
+            serde_json::from_str(config).map_err(|_| unreadable("config_json", config))?;
+
+        payload
+            .get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_owned)
+            .ok_or_else(|| unreadable("config_json", config))
+    };
+
+    match target {
+        "proxy" => Ok(RouteTarget::Proxy {
+            upstream: text("upstream")?,
+        }),
+        "php-fpm" => {
+            let pool = pool
+                .map(|id| ServiceId::parse(&id).map_err(|_| unreadable("php_service_id", &id)))
+                .transpose()?;
+
+            Ok(RouteTarget::PhpFpm { pool })
+        }
+        "static" => Ok(RouteTarget::Static {
+            root: text("root")?,
+        }),
+        other => Err(unreadable("target", other)),
+    }
+}
+
+/// Which of two routes a request under both of them belongs to — roadmap task **T135**.
+///
+/// **Longest first, and the whole order is total.** More segments wins, then more bytes, then the
+/// path itself — so two routes never compare equal and a rendering is the same on every run. It is
+/// the one place this question is answered: the two front ends resolve an overlap by different
+/// native rules (Caddy takes handlers in order, nginx has location precedence), and sorting here
+/// means neither is ever asked to.
+#[must_use]
+pub fn by_specificity(left: &SiteRoute, right: &SiteRoute) -> std::cmp::Ordering {
+    let segments = |path: &str| path.split('/').filter(|part| !part.is_empty()).count();
+
+    segments(&right.path)
+        .cmp(&segments(&left.path))
+        .then_with(|| right.path.len().cmp(&left.path.len()))
+        .then_with(|| left.path.cmp(&right.path))
 }
 
 /// The inverse of [`columns`] and [`payload`].
@@ -1082,6 +1208,45 @@ async fn write_links(
     Ok(())
 }
 
+/// Replace a site's routes, same shape as [`write_links`] — roadmap task **T135**.
+///
+/// `position` is the index the caller wrote them in. The unique index refuses a duplicate path; the
+/// daemon has already refused one with a sentence naming it, so what arrives here is a database
+/// failure rather than an argument the caller can act on.
+async fn write_routes(
+    store: &Store,
+    tx: &mut sqlx::Transaction<'_, Sqlite>,
+    site: i64,
+    routes: &[SiteRoute],
+) -> Result<()> {
+    sqlx::query!("DELETE FROM site_routes WHERE site_id = ?", site)
+        .execute(&mut **tx)
+        .await
+        .map_err(|source| store.failure("write", source))?;
+
+    for (index, route) in routes.iter().enumerate() {
+        let position = i64::try_from(index).unwrap_or(i64::MAX);
+        let (target, pool) = route_columns(&route.target);
+        let config = route_payload(&route.target);
+
+        sqlx::query!(
+            "INSERT INTO site_routes (site_id, position, path, target, php_service_id, config_json)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            site,
+            position,
+            route.path,
+            target,
+            pool,
+            config,
+        )
+        .execute(&mut **tx)
+        .await
+        .map_err(|source| store.failure("write", source))?;
+    }
+
+    Ok(())
+}
+
 /// Refuse a pool that belongs to an extension to a site that is not that extension's — roadmap task
 /// **T82a**, that design's D5.
 ///
@@ -1249,6 +1414,115 @@ mod tests {
         SiteKind::PhpFpm { pool: None }
     }
 
+    /// **Routes round-trip, replace as a whole, and go when the site does** — roadmap task
+    /// **T135**.
+    ///
+    /// One test for three claims because they are one claim about one table: what
+    /// [`write_routes`] writes is what [`records`] reads, a replacement removes what it does not
+    /// name (`Change::domains`' rule), and the cascade is the schema's rather than this module's.
+    #[tokio::test]
+    async fn routes_round_trip_and_replace_as_a_whole() {
+        let (_temp, store, project) = home().await;
+
+        let route = |path: &str, target: RouteTarget| SiteRoute {
+            path: path.to_owned(),
+            target,
+        };
+
+        let site = create(
+            &store,
+            &NewSite {
+                owner: SiteOwner::Project(project),
+                doc_root: String::new(),
+                kind: SiteKind::Static,
+                https_enabled: false,
+                https_redirect: false,
+                domains: vec!["routes.mixengine.test".to_owned()],
+                services: Vec::new(),
+                routes: vec![
+                    route(
+                        "/api",
+                        RouteTarget::Proxy {
+                            upstream: "http://127.0.0.1:3003/xyz".to_owned(),
+                        },
+                    ),
+                    route(
+                        "/assets",
+                        RouteTarget::Static {
+                            root: "dist".to_owned(),
+                        },
+                    ),
+                ],
+            },
+        )
+        .await
+        .expect("a site with routes");
+
+        let read = records(&store, None).await.expect("the sites");
+        let stored = read.first().expect("one site");
+
+        assert_eq!(stored.routes.len(), 2, "both routes came back");
+        assert_eq!(
+            stored.routes[0].target,
+            RouteTarget::Proxy {
+                upstream: "http://127.0.0.1:3003/xyz".to_owned()
+            },
+            "a path in an upstream survives the row it was written into"
+        );
+        assert_eq!(stored.routes[1].path, "/assets", "in declaration order");
+
+        let changed = update(
+            &store,
+            site.id,
+            &Change {
+                routes: Some(vec![route("/api", RouteTarget::PhpFpm { pool: None })]),
+                ..Change::default()
+            },
+        )
+        .await
+        .expect("an update");
+
+        assert_eq!(
+            changed.routes,
+            [route("/api", RouteTarget::PhpFpm { pool: None })],
+            "a replacement removes what it does not name"
+        );
+
+        delete(&store, site.id).await.expect("a delete");
+
+        let left = sqlx::query_scalar!("SELECT COUNT(*) FROM site_routes")
+            .fetch_one(store.pool())
+            .await
+            .expect("a count");
+
+        assert_eq!(left, 0, "the cascade takes the routes with the site");
+    }
+
+    /// **Longest first, and the whole order is total** — roadmap task **T135**.
+    ///
+    /// The one place an overlap is decided, which is why it is decided here rather than twice in
+    /// two templates whose native rules differ.
+    #[test]
+    fn routes_sort_longest_first() {
+        let route = |path: &str| SiteRoute {
+            path: path.to_owned(),
+            target: RouteTarget::Static {
+                root: "dist".to_owned(),
+            },
+        };
+
+        let mut routes = [
+            route("/api"),
+            route("/api/v1/items"),
+            route("/b"),
+            route("/api/v1"),
+        ];
+        routes.sort_by(by_specificity);
+
+        let order: Vec<&str> = routes.iter().map(|route| route.path.as_str()).collect();
+        assert_eq!(order, ["/api/v1/items", "/api/v1", "/api", "/b"]);
+    }
+
     /// **A site that is not an extension's may not run on that extension's pool** — roadmap task
     /// **T82a**, that design's D5.
     ///
@@ -1274,6 +1548,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1295,6 +1570,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1326,6 +1602,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1363,6 +1640,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: vec![ServiceId::parse("mariadb@main").expect("an id")],
+                routes: Vec::new(),
             },
         )
         .await
@@ -1390,6 +1668,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.mixengine.test".to_owned()],
                 services: vec![ServiceId::parse("redis@main").expect("an id")],
+                routes: Vec::new(),
             },
         )
         .await
@@ -1485,6 +1764,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: vec![ServiceId::parse("mariadb@main").expect("an id")],
+                routes: Vec::new(),
             },
         )
         .await
@@ -1515,6 +1795,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1618,6 +1899,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1669,6 +1951,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1725,6 +2008,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1764,6 +2048,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1797,6 +2082,7 @@ mod tests {
                 https_redirect: true,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1832,6 +2118,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1862,6 +2149,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1902,6 +2190,7 @@ mod tests {
                 https_redirect: true,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1943,6 +2232,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1979,6 +2269,7 @@ mod tests {
                 https_redirect: true,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2021,6 +2312,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned(), "api.blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2036,6 +2328,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2091,6 +2384,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2106,6 +2400,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2145,6 +2440,7 @@ mod tests {
                     https_redirect: false,
                     domains: vec![domain.to_owned()],
                     services: Vec::new(),
+                    routes: Vec::new(),
                 },
             )
             .await
@@ -2201,6 +2497,7 @@ mod tests {
             state: SiteState::Enabled,
             domains: vec![primary.to_owned()],
             services: Vec::new(),
+            routes: Vec::new(),
             sharing: shared.then(|| Sharing {
                 interface: "Wi-Fi".to_owned(),
                 address: [192, 168, 1, 10].into(),
@@ -2272,6 +2569,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2342,6 +2640,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["blog.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -2361,6 +2660,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await

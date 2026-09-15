@@ -136,6 +136,7 @@ async fn a_first_run_gets_the_documented_schema() {
             "services",
             "settings",
             "site_domains",
+            "site_routes",
             "site_service_links",
             "sites",
         ]

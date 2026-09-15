@@ -250,6 +250,7 @@ impl Projects {
             doc_root: site.doc_root.clone(),
             https: site.https_enabled,
             kind: site.kind.clone(),
+            routes: site.routes.clone(),
             services,
         })
     }

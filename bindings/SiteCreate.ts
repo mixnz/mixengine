@@ -2,6 +2,7 @@
 import type { ProjectRef } from "./ProjectRef";
 import type { ServiceId } from "./ServiceId";
 import type { SiteKind } from "./SiteKind";
+import type { SiteRoute } from "./SiteRoute";
 
 /**
  * Create a site under a project.
@@ -31,6 +32,11 @@ kind?: SiteKind | null,
  * The services it declares. Falls through to `[[services]]`, then to none.
  */
 services?: Array<ServiceId> | null, 
+/**
+ * The routes it declares, **replacing** the list rather than merging into it — roadmap task
+ * **T135**. Falls through to `[[site.routes]]`, then to none.
+ */
+routes?: Array<SiteRoute> | null, 
 /**
  * Whether HTTPS is wanted. A declaration Phase 5 reads; nothing today acts on it.
  */

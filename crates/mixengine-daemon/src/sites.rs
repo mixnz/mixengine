@@ -33,10 +33,10 @@ use mixengine_core::extensions::manifest::Body;
 use mixengine_core::extensions::store as extension_store;
 use mixengine_core::{Store, domains, manifest, projects, resolve, services, sites};
 use mixengine_proto::{
-    Error, ErrorCode, ExtensionId, ProjectRef, RuntimeKind, ServiceId, SiteCreate, SiteCreation,
-    SiteDetail, SiteKind, SiteList, SiteListQuery, SiteOwner, SitePool, SiteQuery, SiteRef,
-    SiteRemoval, SiteServiceLink, SiteSharing, SiteState, SiteSummary, SiteUpdate,
-    VersionConstraint,
+    Error, ErrorCode, ExtensionId, ProjectRef, RouteTarget, RuntimeKind, ServiceId, SiteCreate,
+    SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteOwner, SitePool, SiteQuery,
+    SiteRef, SiteRemoval, SiteRoute, SiteServiceLink, SiteSharing, SiteState, SiteSummary,
+    SiteUpdate, VersionConstraint,
 };
 
 use crate::error::ToWire as _;
@@ -346,6 +346,15 @@ impl Sites {
             None => self.linked(manifest.as_ref()).await?,
         };
 
+        // **Falls through to `[[site.routes]]`, on `kind`'s rule** — roadmap task **T135**. An
+        // import is what this exists for: `project.export` writes the routes into the file, and a
+        // `site.create` that ignored them would make the round trip lose half of what a site is.
+        let routes = create.routes.clone().or_else(|| {
+            declared
+                .map(|site| site.routes.clone())
+                .filter(|routes| !routes.is_empty())
+        });
+
         let new = sites::NewSite {
             owner: sites::SiteOwner::Project(project.id),
             doc_root: sites::relative_doc_root(&project.root, &doc_root)
@@ -355,6 +364,10 @@ impl Sites {
             https_redirect,
             domains: self.checked(&domains, create.accept_risky_tld)?,
             services: self.existing(&services).await?,
+            routes: self
+                .routes(&project, routes.as_deref())
+                .await?
+                .unwrap_or_default(),
         };
 
         let written = sites::create(&self.store, &new)
@@ -447,6 +460,7 @@ impl Sites {
             doc_root: None,
             kind: None,
             services: None,
+            routes: None,
             https: None,
             https_redirect: None,
             state: None,
@@ -480,6 +494,8 @@ impl Sites {
             None => None,
         };
 
+        let routes = self.routes(project, update.routes.as_deref()).await?;
+
         let changed = sites::update(
             &self.store,
             site.id,
@@ -491,6 +507,7 @@ impl Sites {
                 state: update.state,
                 domains,
                 services,
+                routes,
             },
         )
         .await
@@ -694,29 +711,9 @@ impl Sites {
                 Ok(kind.clone())
             }
 
-            SiteKind::PhpFpm { pool: None } => {
-                let resolved = resolve::runtime(
-                    &self.store,
-                    &resolve::Question {
-                        kind: RuntimeKind::Php,
-                        cwd: Some(&project.root),
-                        explicit: None,
-                    },
-                )
-                .await
-                .map_err(|error| error.to_wire())?;
-
-                let pool = ServiceId::parse(format!("php-fpm@{}", resolved.runtime.version))
-                    .map_err(|error| {
-                        Error::new(ErrorCode::Internal, format!("{error}")).with_hint(
-                            "a resolved PHP version does not spell a service id, which is a bug",
-                        )
-                    })?;
-
-                Ok(SiteKind::PhpFpm {
-                    pool: Some(self.repaired(pool).await?),
-                })
-            }
+            SiteKind::PhpFpm { pool: None } => Ok(SiteKind::PhpFpm {
+                pool: Some(self.resolved_pool(&project.root).await?),
+            }),
 
             SiteKind::ReverseProxy { upstream } => {
                 upstream_is_an_address(upstream)?;
@@ -726,6 +723,83 @@ impl Sites {
 
             SiteKind::Static | SiteKind::NodeApp { .. } => Ok(kind.clone()),
         }
+    }
+
+    /// The pool this project resolves to today, its row repaired if it had gone.
+    ///
+    /// **One call and not two**, because a php-fpm *route* asks the same question a php-fpm *site*
+    /// does and the two answers may not differ — roadmap task **T135**. Frozen at the moment it is
+    /// written, on [`Self::settled`]'s rule: what a shell resolves tomorrow is not what a site was
+    /// declared with.
+    async fn resolved_pool(&self, root: &Path) -> Result<ServiceId, Error> {
+        let resolved = resolve::runtime(
+            &self.store,
+            &resolve::Question {
+                kind: RuntimeKind::Php,
+                cwd: Some(root),
+                explicit: None,
+            },
+        )
+        .await
+        .map_err(|error| error.to_wire())?;
+
+        let pool =
+            ServiceId::parse(format!("php-fpm@{}", resolved.runtime.version)).map_err(|error| {
+                Error::new(ErrorCode::Internal, format!("{error}"))
+                    .with_hint("a resolved PHP version does not spell a service id, which is a bug")
+            })?;
+
+        self.repaired(pool).await
+    }
+
+    /// The routes this site is about to be written with: refused where they cannot be rendered, and
+    /// with every php-fpm route that named no pool given the one this project resolves to —
+    /// roadmap task **T135**.
+    ///
+    /// [`None`] in and [`None`] out: an update that says nothing about routes leaves them alone,
+    /// which is not the same request as one that empties the list.
+    async fn routes(
+        &self,
+        project: &projects::ProjectRecord,
+        declared: Option<&[SiteRoute]>,
+    ) -> Result<Option<Vec<SiteRoute>>, Error> {
+        let Some(declared) = declared else {
+            return Ok(None);
+        };
+
+        route_list_is_writable(declared)?;
+
+        let mut settled = Vec::with_capacity(declared.len());
+
+        for route in declared {
+            let target = match &route.target {
+                RouteTarget::PhpFpm { pool: None } => RouteTarget::PhpFpm {
+                    pool: Some(self.resolved_pool(&project.root).await?),
+                },
+                RouteTarget::PhpFpm { pool: Some(pool) } => {
+                    self.existing(std::slice::from_ref(pool)).await?;
+
+                    route.target.clone()
+                }
+                // **Made relative here, against the owner's root, exactly as a doc root is** — the
+                // row stores a relative forward-slashed path on every system, and the renderer
+                // joins it back on. A root outside the project is refused by the same function and
+                // in the same words.
+                RouteTarget::Static { root } => RouteTarget::Static {
+                    root: sites::relative_doc_root(&project.root, root)
+                        .map_err(|error| error.to_wire())?,
+                },
+
+                other => other.clone(),
+            };
+
+            settled.push(SiteRoute {
+                path: route.path.clone(),
+                target,
+            });
+        }
+
+        Ok(Some(settled))
     }
 
     /// The pool this site is about to be written with, its row made again if it had gone —
@@ -1048,6 +1122,14 @@ fn summary(
         https: site.https_enabled,
         https_redirect: site.https_redirect,
         state: site.state,
+        // **In match order and not in the order somebody typed** — roadmap task **T135**. The
+        // rendering resolves an overlap by specificity, so a listing showing declaration order
+        // would be showing something the front end does not do.
+        routes: {
+            let mut routes = site.routes.clone();
+            routes.sort_by(sites::by_specificity);
+            routes
+        },
         sharing: site.sharing.as_ref().map(|sharing| {
             let url = sites::shared_url(sharing.address, web_port);
 
@@ -1114,6 +1196,110 @@ fn upstream_is_an_address(upstream: &str) -> Result<(), Error> {
         return Err(refusal("it has no host"));
     }
 
+    // **Rendered verbatim into a Caddyfile and into `nginx.conf`** — the T135 design, D10. So what
+    // may appear here is a whitelist rather than a list of characters somebody remembered, and a
+    // newline is the whole of the injection: `http://h\n}\nadmin 0.0.0.0:2019 {` is a valid string,
+    // a valid JSON member, and a second server on Caddy's admin port.
+    //
+    // **Refused rather than escaped**, on the rule the four checks above already follow: an address
+    // that needs escaping to survive a configuration file is an address somebody mistyped, and
+    // quoting it would make the mistake reach a server instead of a person.
+    if upstream.chars().any(|character| {
+        character.is_control()
+            || character.is_whitespace()
+            || !character.is_ascii()
+            || matches!(
+                character,
+                '`' | '"' | '\'' | '{' | '}' | '\\' | ';' | '<' | '>' | '|'
+            )
+    }) {
+        return Err(refusal("it carries a character no address does"));
+    }
+
+    Ok(())
+}
+
+/// A route path is an absolute prefix, matched at segment boundaries — the T135 design, D10.
+///
+/// **The alphabet is a whitelist**, because this string is rendered into a Caddy `path` matcher and
+/// into an nginx `location` regex. `.` survives it and *is* a regex metacharacter, which is why the
+/// renderings escape rather than trust — the design's D5, and the one thing this function
+/// deliberately does not solve.
+fn route_path_is_a_prefix(path: &str) -> Result<(), Error> {
+    let refusal = |because: &str| {
+        Error::new(
+            ErrorCode::InvalidArgument,
+            format!("{path} is not a route path: {because}"),
+        )
+        .with_hint("a prefix such as /api, matched at a segment boundary")
+    };
+
+    if path.len() > 255 {
+        return Err(refusal("it is longer than 255 bytes"));
+    }
+
+    let Some(rest) = path.strip_prefix('/') else {
+        return Err(refusal("it does not begin with /"));
+    };
+
+    if rest.is_empty() {
+        return Err(refusal(
+            "what answers / is the site's kind, which every site has",
+        ));
+    }
+
+    for segment in rest.split('/') {
+        if segment.is_empty() {
+            return Err(refusal("it has an empty segment"));
+        }
+
+        if segment == "." || segment == ".." {
+            return Err(refusal("a dot segment is not part of a prefix"));
+        }
+
+        if !segment
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '~' | '%'))
+        {
+            return Err(refusal("a segment carries a character no path prefix does"));
+        }
+    }
+
+    Ok(())
+}
+
+/// The whole list, which is where a duplicate and a flood are visible — the T135 design, D10.
+///
+/// **A cap, because a site's routes are rendered into every one of its server blocks** and a list
+/// nobody bounded is a configuration file nobody bounded. Thirty-two is a number chosen to be
+/// larger than any hand-written site and smaller than an accident.
+fn route_list_is_writable(routes: &[SiteRoute]) -> Result<(), Error> {
+    if routes.len() > 32 {
+        return Err(Error::new(
+            ErrorCode::InvalidArgument,
+            format!("{} routes is more than a site may declare", routes.len()),
+        )
+        .with_hint("at most 32"));
+    }
+
+    let mut seen = std::collections::BTreeSet::new();
+
+    for route in routes {
+        route_path_is_a_prefix(&route.path)?;
+
+        if let RouteTarget::Proxy { upstream } = &route.target {
+            upstream_is_an_address(upstream)?;
+        }
+
+        if !seen.insert(route.path.as_str()) {
+            return Err(Error::new(
+                ErrorCode::InvalidArgument,
+                format!("{} is declared twice", route.path),
+            )
+            .with_hint("one path answers once"));
+        }
+    }
+
     Ok(())
 }
 
@@ -1161,6 +1347,91 @@ mod tests {
         ] {
             assert!(upstream_is_an_address(bad).is_err(), "{bad} was accepted");
         }
+    }
+
+    /// **T135, D10.** An upstream is rendered verbatim into a Caddyfile and into `nginx.conf`, so
+    /// what it may contain is a whitelist rather than a list of things somebody thought of.
+    ///
+    /// The first case is the hole this closes: a newline, a closing brace and a second server on
+    /// Caddy's admin port, in one string a JSON member can carry.
+    #[test]
+    fn an_upstream_may_not_carry_configuration() {
+        for bad in [
+            "http://127.0.0.1:8080\n}\nadmin 0.0.0.0:2019 {",
+            "http://127.0.0.1:8080 extra",
+            "http://127.0.0.1:8080`",
+            "http://127.0.0.1:8080\"",
+            "http://127.0.0.1:8080;",
+            "http://127.0.0.1:8080{",
+            "http://127.0.0.1:8080\\x",
+        ] {
+            assert!(upstream_is_an_address(bad).is_err(), "{bad:?} was accepted");
+        }
+
+        for good in [
+            "http://127.0.0.1:8080",
+            "https://localhost:5173",
+            "http://127.0.0.1:3003/xyz",
+        ] {
+            upstream_is_an_address(good).expect(good);
+        }
+    }
+
+    /// **T135, D10.** A route path is a prefix, at a segment boundary, drawn from an alphabet that
+    /// cannot reach a Caddy matcher or an nginx regex as anything but itself.
+    #[test]
+    fn a_route_path_is_an_absolute_prefix() {
+        for good in ["/api", "/api/v1", "/v1.0", "/a-b_c~d%20e"] {
+            route_path_is_a_prefix(good).expect(good);
+        }
+
+        for bad in [
+            "/",         // what answers `/` is the site's kind — D1
+            "api",       // not absolute
+            "/api/",     // a trailing slash is not part of a prefix
+            "/api//v1",  // an empty segment
+            "/api/../x", // traversal
+            "/api/*",    // a Caddy matcher wildcard
+            "/api?x=1",  // a query
+            "/api#top",  // a fragment
+            "/api x",    // whitespace
+            "/api\n{",   // configuration
+        ] {
+            assert!(route_path_is_a_prefix(bad).is_err(), "{bad:?} was accepted");
+        }
+    }
+
+    /// **T135, D10.** The whole list, which is where a duplicate and a flood are visible.
+    #[test]
+    fn a_route_list_refuses_a_duplicate_and_a_flood() {
+        let one = |path: &str| SiteRoute {
+            path: path.to_owned(),
+            target: RouteTarget::Static {
+                root: "dist".to_owned(),
+            },
+        };
+
+        assert!(
+            route_list_is_writable(&[one("/a"), one("/a")]).is_err(),
+            "a duplicate path"
+        );
+        assert!(
+            route_list_is_writable(&(0..33).map(|n| one(&format!("/r{n}"))).collect::<Vec<_>>())
+                .is_err(),
+            "thirty-three routes"
+        );
+        assert!(
+            route_list_is_writable(&[SiteRoute {
+                path: "/a".to_owned(),
+                target: RouteTarget::Proxy {
+                    upstream: "127.0.0.1:1".to_owned()
+                },
+            }])
+            .is_err(),
+            "a route's upstream is an address, checked by the one function that knows what that is"
+        );
+
+        route_list_is_writable(&[one("/a"), one("/b")]).expect("two routes");
     }
 
     /// A doc root joins onto the root with whatever separator this OS uses, and `""` is the root.

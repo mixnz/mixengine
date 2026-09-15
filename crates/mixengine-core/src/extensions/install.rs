@@ -562,6 +562,7 @@ async fn write_rows(
             // `service.delete` refuse to remove the database out from under an administrative
             // interface. There is no second refusal anywhere for this, on purpose.
             services: site.database.iter().cloned().collect(),
+            routes: Vec::new(),
         };
 
         if let Err(refusal) = sites::create(store, &new).await {

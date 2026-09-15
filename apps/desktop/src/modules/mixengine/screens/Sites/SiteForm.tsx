@@ -10,11 +10,49 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { SiteDetail } from "@mixengine/api";
-import type { SiteKind } from "@mixengine/api";
+import type { RouteTarget, SiteKind, SiteRoute } from "@mixengine/api";
 import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
 import styles from "./SiteForm.module.css";
 
 type Kind = SiteKind["kind"];
+type Target = RouteTarget["target"];
+
+/**
+ * Một route trong lúc đang sửa — T135.
+ *
+ * Phẳng, không phải union: người dùng đổi qua lại giữa các target và ô họ vừa gõ phải còn nguyên khi
+ * họ đổi lại. `toApi` là chỗ nó hẹp lại đúng hình dạng daemon nhận.
+ */
+interface RouteRow {
+  path: string;
+  target: Target;
+  upstream: string;
+  pool: string;
+  root: string;
+}
+
+/** Một `SiteRoute` từ daemon, mở rộng thành dòng đang sửa. */
+function fromApi(route: SiteRoute): RouteRow {
+  return {
+    path: route.path,
+    target: route.target,
+    upstream: route.target === "proxy" ? route.upstream : "",
+    pool: route.target === "php-fpm" ? (route.pool ?? "") : "",
+    root: route.target === "static" ? route.root : "",
+  };
+}
+
+/** Và ngược lại — chỉ gửi đúng field của target đang chọn. */
+function toApi(row: RouteRow): SiteRoute {
+  switch (row.target) {
+    case "proxy":
+      return { path: row.path, target: "proxy", upstream: row.upstream };
+    case "php-fpm":
+      return { path: row.path, target: "php-fpm", pool: row.pool === "" ? null : row.pool };
+    case "static":
+      return { path: row.path, target: "static", root: row.root };
+  }
+}
 
 interface Props {
   /** `undefined` = tạo mới. Có giá trị = sửa, khoá project lại. */
@@ -59,6 +97,10 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
   );
   const [port, setPort] = useState(
     editing && initial.site.kind.kind === "node-app" ? String(initial.site.kind.port) : "",
+  );
+  // T135. `?? []` vì một daemon build trước T135 không gửi trường này.
+  const [routes, setRoutes] = useState<RouteRow[]>(
+    editing ? (initial.site.routes ?? []).map(fromApi) : [],
   );
   const [selectedServices, setSelectedServices] = useState<Set<string>>(
     new Set(editing ? initial.services.map((s) => s.service) : []),
@@ -141,6 +183,12 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
     });
   }
 
+  function updateRoute(index: number, change: Partial<RouteRow>) {
+    setRoutes((current) =>
+      current.map((route, at) => (at === index ? { ...route, ...change } : route)),
+    );
+  }
+
   function kindPayload(): SiteKind {
     switch (kind) {
       case "php-fpm":
@@ -184,6 +232,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
           doc_root: docRoot,
           kind: kindPayload(),
           services: [...selectedServices],
+          routes: routes.map(toApi),
           https,
           https_redirect: https && httpsRedirect,
           state: enabled ? "enabled" : "disabled",
@@ -196,6 +245,9 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
           doc_root: docRoot === "" ? null : docRoot,
           kind: kindPayload(),
           services: [...selectedServices].length > 0 ? [...selectedServices] : null,
+          // `null` chứ không phải `[]`: không khai gì thì để `site.create` rơi xuống
+          // `[[site.routes]]` trong mixengine.toml, đúng như `kind` và `doc_root`.
+          routes: routes.length > 0 ? routes.map(toApi) : null,
           https,
           https_redirect: https && httpsRedirect,
           accept_risky_tld: acceptRiskyTld,
@@ -344,6 +396,94 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
                 />
               </label>
             )}
+
+            {/* T135. Khối này không kiểm tra gì cả — đường dẫn sai quay về bằng đúng câu daemon
+                nói, giống mọi thứ khác trong form này. */}
+            <div className={styles.field}>
+              {t("mixengine.sites.form.routes")}
+              <p className={styles.hint}>{t("mixengine.sites.form.routesHint")}</p>
+
+              {routes.length === 0 ? (
+                <p className={styles.hint}>{t("mixengine.sites.form.routesEmpty")}</p>
+              ) : (
+                <div className={styles.routeList}>
+                  {routes.map((route, index) => (
+                    <div key={index} className={styles.route}>
+                      <Input
+                        value={route.path}
+                        disabled={saving}
+                        placeholder="/api"
+                        aria-label={t("mixengine.sites.form.routePath")}
+                        onChange={(e) => updateRoute(index, { path: e.target.value })}
+                      />
+                      <Select
+                        value={route.target}
+                        disabled={saving}
+                        onChange={(value) => updateRoute(index, { target: value as Target })}
+                        options={[
+                          { value: "proxy", label: "proxy" },
+                          { value: "php-fpm", label: "php-fpm" },
+                          { value: "static", label: "static" },
+                        ]}
+                      />
+                      {route.target === "proxy" && (
+                        <Input
+                          value={route.upstream}
+                          disabled={saving}
+                          placeholder="http://127.0.0.1:3003/xyz"
+                          aria-label={t("mixengine.sites.form.routeUpstream")}
+                          onChange={(e) => updateRoute(index, { upstream: e.target.value })}
+                        />
+                      )}
+                      {route.target === "php-fpm" && (
+                        <Select
+                          value={route.pool}
+                          disabled={saving}
+                          onChange={(value) => updateRoute(index, { pool: value })}
+                          placeholder={t("mixengine.sites.form.poolAuto")}
+                          options={[
+                            { value: "", label: t("mixengine.sites.form.poolAuto") },
+                            ...serviceIds
+                              .filter((id) => id.startsWith("php-fpm@"))
+                              .map((id) => ({ value: id, label: id })),
+                          ]}
+                        />
+                      )}
+                      {route.target === "static" && (
+                        <Input
+                          value={route.root}
+                          disabled={saving}
+                          placeholder="dist"
+                          aria-label={t("mixengine.sites.form.routeRoot")}
+                          onChange={(e) => updateRoute(index, { root: e.target.value })}
+                        />
+                      )}
+                      <Button
+                        disabled={saving}
+                        aria-label={t("mixengine.sites.form.routesRemove")}
+                        onClick={() =>
+                          setRoutes((current) => current.filter((_, at) => at !== index))
+                        }
+                      >
+                        {t("common.delete")}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Button
+                disabled={saving}
+                onClick={() =>
+                  setRoutes((current) => [
+                    ...current,
+                    { path: "", target: "proxy", upstream: "", pool: "", root: "" },
+                  ])
+                }
+              >
+                {t("mixengine.sites.form.routesAdd")}
+              </Button>
+            </div>
 
             <div className={styles.field}>
               {t("mixengine.sites.form.services")}

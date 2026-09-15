@@ -251,6 +251,9 @@ pub async fn plan(
             },
             doc_root: site.doc_root.clone(),
             https: site.https,
+            // Carried whole — roadmap task **T135**. A php-fpm route's pool is already `None` in
+            // the manifest, on capture's own rule, so there is nothing to clear here.
+            routes: site.routes.clone(),
         };
 
         // **D2 again, and the step that found it out.** A project this apply already made, already
@@ -1008,6 +1011,7 @@ mod tests {
                 https: true,
                 domain_pattern: "{project}.test".to_owned(),
                 aliases: Vec::new(),
+                routes: Vec::new(),
             }),
             services: vec![BlueprintService {
                 name: "mariadb".to_owned(),
@@ -1370,6 +1374,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1690,6 +1695,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await

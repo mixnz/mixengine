@@ -2186,14 +2186,22 @@ pub(crate) fn site_list(list: &SiteList) -> String {
         return "no sites are declared — `mix site create` adds one\n".to_owned();
     }
 
+    // **A count and not the routes themselves** — roadmap task **T135**. What a listing is for is
+    // "does this site have more behind it"; which prefix answers what is `mix site show`'s, where
+    // there is room to print the address beside it.
     let mut out = format!(
-        "{:<28}  {:<14}  {:<9}  {}\n",
-        "DOMAIN", "KIND", "STATE", "OWNER"
+        "{:<28}  {:<14}  {:<7}  {:<9}  {}\n",
+        "DOMAIN", "KIND", "ROUTES", "STATE", "OWNER"
     );
 
     for site in &list.sites {
+        let routes = match site.routes.len() {
+            0 => "—".to_owned(),
+            count => count.to_string(),
+        };
+
         out.push_str(&format!(
-            "{:<28}  {:<14}  {:<9}  {}\n",
+            "{:<28}  {:<14}  {routes:<7}  {:<9}  {}\n",
             site.domain,
             kind_word(&site.kind),
             site.state.as_str(),
@@ -2209,6 +2217,23 @@ fn owner_word(owner: &SiteOwner) -> String {
     match owner {
         SiteOwner::Project { name } => name.clone(),
         SiteOwner::Extension { id } => format!("extension {id}"),
+    }
+}
+
+/// What a route's target is printed as — roadmap task **T135**.
+///
+/// The target *and* its address, because a path on its own answers nothing a person came to find
+/// out: `/api  →  http://127.0.0.1:3003/xyz` is the line, and the arrow is what makes the direction
+/// readable at a glance.
+fn route_target_word(target: &mixengine_proto::RouteTarget) -> String {
+    match target {
+        mixengine_proto::RouteTarget::Proxy { upstream } => format!("→ {upstream}"),
+        mixengine_proto::RouteTarget::PhpFpm { pool } => format!(
+            "php-fpm {}",
+            pool.as_ref()
+                .map_or("— the service it named is gone", ServiceId::as_str)
+        ),
+        mixengine_proto::RouteTarget::Static { root } => format!("files in {root}"),
     }
 }
 
@@ -2613,6 +2638,21 @@ pub(crate) fn site_detail(detail: &SiteDetail) -> String {
 
     if detail.domains.len() > 1 {
         out.push_str(&format!("\naliases: {}\n", detail.domains[1..].join(", ")));
+    }
+
+    // **In match order, which is what the daemon answers with** — roadmap task **T135**. Not the
+    // order somebody typed: the front end resolves an overlap by specificity, and a listing showing
+    // declaration order would be showing something no server does.
+    if !detail.site.routes.is_empty() {
+        out.push_str(&format!("\n{:<24}  {}\n", "PATH", "ANSWERED BY"));
+
+        for route in &detail.site.routes {
+            out.push_str(&format!(
+                "{:<24}  {}\n",
+                route.path,
+                route_target_word(&route.target)
+            ));
+        }
     }
 
     if !detail.services.is_empty() {
@@ -3506,6 +3546,7 @@ fn action_said(action: &PlanAction) -> String {
             kind,
             doc_root,
             https,
+            ..
         } => format!(
             "site {} at {}{}",
             site_kind_word(kind),
@@ -4009,6 +4050,7 @@ mod tests {
                     https: true,
                     https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
+                    routes: Vec::new(),
                     sharing: None,
                 },
                 mixengine_proto::SiteSummary {
@@ -4021,6 +4063,7 @@ mod tests {
                     https: true,
                     https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
+                    routes: Vec::new(),
                     sharing: None,
                 },
             ],

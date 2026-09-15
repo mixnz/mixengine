@@ -255,6 +255,7 @@ mod tests {
             state: mixengine_proto::SiteState::Enabled,
             domains: vec![format!("site{id}.test")],
             services: Vec::new(),
+            routes: Vec::new(),
             sharing: Some(sites::Sharing {
                 interface: interface.to_owned(),
                 address: address.into(),

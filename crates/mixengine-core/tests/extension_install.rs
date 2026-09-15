@@ -455,6 +455,7 @@ async fn a_web_app_whose_domain_is_taken_is_refused_naming_the_holder() {
             https_redirect: false,
             domains: vec!["phpmyadmin.mixengine.test".to_owned()],
             services: Vec::new(),
+            routes: Vec::new(),
         },
     )
     .await

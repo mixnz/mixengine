@@ -51,6 +51,69 @@ pub enum SiteKind {
     },
 }
 
+/// One path prefix on a site, and what answers it — roadmap task **T135**.
+///
+/// **Beside [`SiteKind`] rather than inside it.** A site is a kind plus an ordered set of these, and
+/// the kind is what answers everything no route matched — which is why `/` is not a path a route may
+/// take: what answers `/` is the kind, and a second answer to a question that has one is a state
+/// nothing should be able to spell.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct SiteRoute {
+    /// An absolute path prefix, matched at segment boundaries: `/api` takes `/api` and `/api/x`, and
+    /// never `/apidocs`.
+    pub path: String,
+
+    /// What answers under it.
+    ///
+    /// **Flattened**, which is [`SiteKind`]'s own trick and is here for its reason: one definition
+    /// reads a JSON-RPC member and a flat `[[site.routes]]` table in TOML with no conversion in
+    /// between.
+    #[serde(flatten)]
+    pub target: RouteTarget,
+}
+
+/// What answers under a route's path — roadmap task **T135**.
+///
+/// [`SiteKind`]'s shape one level down, with the two differences a prefix makes: there is no
+/// `node-app`, because a port is an address and a second way to write one is a second thing to keep
+/// in step; and `static` carries a root, because mounting a directory at a URL is the whole of what
+/// that target says.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "target", rename_all = "kebab-case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum RouteTarget {
+    /// Forwarded to an address the user already has listening.
+    Proxy {
+        /// An absolute `http` or `https` URL with a host.
+        ///
+        /// **Its path, when it has one, replaces the matched prefix**, trailing slash removed — so
+        /// `/abc` against `http://127.0.0.1:3003/xyz` reaches `/xyz`, and against
+        /// `http://127.0.0.1:3003` reaches `/abc`. A query or a fragment is not part of an address.
+        upstream: String,
+    },
+
+    /// PHP through a php-fpm pool, over the site's own document root.
+    ///
+    /// **The prefix is not stripped**: `/admin/x.php` is `<doc_root>/admin/x.php`. What this target
+    /// changes is which pool answers under the prefix, not where the files are.
+    PhpFpm {
+        /// The pool, which the daemon fills from `core::resolve` when a request does not name one.
+        ///
+        /// [`None`] means *this route names no pool*, in both directions, for
+        /// [`SiteKind::PhpFpm`]'s reason.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        pool: Option<ServiceId>,
+    },
+
+    /// Files from a directory, with **the matched prefix stripped**: `/assets` over `dist` answers
+    /// `/assets/app.css` out of `<root>/dist/app.css`.
+    Static {
+        /// Absolute, or relative to the owner's root — [`SiteSummary::doc_root`]'s rule.
+        root: String,
+    },
+}
+
 /// Which site a call is about.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -117,6 +180,11 @@ pub struct SiteCreate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub services: Option<Vec<ServiceId>>,
 
+    /// The routes it declares, **replacing** the list rather than merging into it — roadmap task
+    /// **T135**. Falls through to `[[site.routes]]`, then to none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routes: Option<Vec<SiteRoute>>,
+
     /// Whether HTTPS is wanted. A declaration Phase 5 reads; nothing today acts on it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub https: Option<bool>,
@@ -158,6 +226,12 @@ pub struct SiteUpdate {
     /// The services, replacing the links the site had.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub services: Option<Vec<ServiceId>>,
+
+    /// The routes, **replacing** the list the site had — roadmap task **T135**. [`Self::domains`]'
+    /// rule and its reason: with a merge there is no way to remove one. `Some(vec![])` empties the
+    /// list; [`None`] leaves it alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routes: Option<Vec<SiteRoute>>,
 
     /// Whether HTTPS is wanted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -280,6 +354,19 @@ pub struct SiteSummary {
 
     /// Whether the web server should serve it.
     pub state: SiteState,
+
+    /// Every route, **in match order** — longest path first — roadmap task **T135**.
+    ///
+    /// **On the summary and not only on the detail**, on [`sharing`](Self::sharing)'s argument: what
+    /// is behind a site is a question about every site at once, and a list that could not answer it
+    /// would make a client ask per row.
+    ///
+    /// Not the order somebody typed: overlaps are resolved by specificity where the configuration is
+    /// rendered, so a listing showing declaration order would be showing something the front end
+    /// does not do. Optional on the wire,
+    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<SiteRoute>,
 
     /// Where the local network can reach it, when it can — roadmap task **T74**.
     ///
@@ -490,6 +577,37 @@ mod tests {
         // produce one.
         let php: SiteKind = serde_json::from_value(json!({"kind": "php-fpm"})).expect("a php site");
         assert_eq!(php, SiteKind::PhpFpm { pool: None });
+    }
+
+    /// **T135, D3.** A route is flat on the wire, exactly as [`SiteKind`] is: one definition reads a
+    /// JSON-RPC member and a `[[site.routes]]` table with nothing in between.
+    #[test]
+    fn a_route_carries_its_target_beside_its_path() {
+        let proxy: SiteRoute = serde_json::from_value(
+            json!({"path": "/abc", "target": "proxy", "upstream": "http://127.0.0.1:3003/xyz"}),
+        )
+        .expect("a proxy route");
+
+        assert_eq!(proxy.path, "/abc");
+        assert_eq!(
+            proxy.target,
+            RouteTarget::Proxy {
+                upstream: "http://127.0.0.1:3003/xyz".to_owned()
+            }
+        );
+
+        // A php-fpm route naming no pool is spellable in both directions, for
+        // `SiteKind::PhpFpm`'s reason: `ON DELETE SET NULL` can produce one.
+        let php: SiteRoute = serde_json::from_value(json!({"path": "/admin", "target": "php-fpm"}))
+            .expect("a php route");
+        assert_eq!(php.target, RouteTarget::PhpFpm { pool: None });
+
+        // A static route with no root is refused by the definition rather than by a check somebody
+        // has to remember to write.
+        assert!(
+            serde_json::from_value::<SiteRoute>(json!({"path": "/assets", "target": "static"}))
+                .is_err()
+        );
     }
 
     /// **D5.** A site is reached by any of its domains or by any directory inside its project.

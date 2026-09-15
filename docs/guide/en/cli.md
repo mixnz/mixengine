@@ -413,6 +413,10 @@ mix site create [OPTIONS]
 | `--upstream` `<URL>` | Where a `reverse-proxy` forwards to |
 | `--port` `<PORT>` | The port a `node-app` listens on |
 | `--pool` `<SERVICE>` | The php-fpm pool a `php-fpm` site uses. Defaults to whatever this directory resolves to |
+| `--proxy` `<PATH=URL>` | Forward a path prefix to an address: `/api=http://127.0.0.1:3003/xyz`. Repeatable. The upstream's path, when it has one, replaces the matched prefix. |
+| `--php` `<PATH[=POOL]>` | Answer a path prefix with a php-fpm pool: `/admin=php-fpm@8.3.33`, or `/admin` alone for whatever this project resolves to. Repeatable |
+| `--files` `<PATH=DIR>` | Serve a path prefix from a directory: `/assets=dist`. The prefix is stripped. Repeatable |
+| `--no-routes` | Remove every route this site has |
 | `--service` `<SERVICE>` | A service the site declares, as `mariadb@main`. May be given more than once |
 | `--https` `<HTTPS>` | Declare HTTPS for it. Phase 5 is what acts on this |
 | `--https-redirect` `<HTTPS_REDIRECT>` | Redirect the plaintext address to the HTTPS one. Needs `--https true` |
@@ -462,6 +466,10 @@ mix site update [DOMAIN] [OPTIONS]
 | `--upstream` `<URL>` | Where a `reverse-proxy` forwards to |
 | `--port` `<PORT>` | The port a `node-app` listens on |
 | `--pool` `<SERVICE>` | The php-fpm pool |
+| `--proxy` `<PATH=URL>` | Forward a path prefix to an address: `/api=http://127.0.0.1:3003/xyz`. Replaces the whole list, together with `--php` and `--files` |
+| `--php` `<PATH[=POOL]>` | Answer a path prefix with a php-fpm pool: `/admin=php-fpm@8.3.33`, or `/admin` alone for whatever this project resolves to. Replaces the whole list |
+| `--files` `<PATH=DIR>` | Serve a path prefix from a directory: `/assets=dist`. The prefix is stripped. Replaces the whole list |
+| `--no-routes` | Remove every route this site has |
 | `--service` `<SERVICE>` | A service the site declares. Replaces the whole list |
 | `--https` `<HTTPS>` | Whether HTTPS is declared |
 | `--https-redirect` `<HTTPS_REDIRECT>` | Redirect the plaintext address to the HTTPS one. Needs HTTPS enabled, before or with this same update |

@@ -145,6 +145,21 @@ pub async fn capture(store: &Store, asked: &Asked<'_>) -> Result<BlueprintManife
                 .skip(1)
                 .map(|domain| tokenised_domain(domain, &project.name))
                 .collect(),
+            // **The same rule one table down** — roadmap task **T135**. A route's pool is a fact
+            // about this machine; everything else about the route travels.
+            routes: site
+                .routes
+                .iter()
+                .map(|route| mixengine_proto::SiteRoute {
+                    path: route.path.clone(),
+                    target: match &route.target {
+                        mixengine_proto::RouteTarget::PhpFpm { .. } => {
+                            mixengine_proto::RouteTarget::PhpFpm { pool: None }
+                        }
+                        other => other.clone(),
+                    },
+                })
+                .collect(),
         }),
         services: linked(
             store,
@@ -424,6 +439,7 @@ mod tests {
                     .iter()
                     .map(|id| ServiceId::parse(*id).expect("an id"))
                     .collect(),
+                routes: Vec::new(),
             },
         )
         .await

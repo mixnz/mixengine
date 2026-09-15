@@ -2,6 +2,7 @@
 import type { PackageVersion } from "./PackageVersion";
 import type { RuntimeKind } from "./RuntimeKind";
 import type { SiteKind } from "./SiteKind";
+import type { SiteRoute } from "./SiteRoute";
 import type { VersionConstraint } from "./VersionConstraint";
 
 /**
@@ -107,7 +108,15 @@ doc_root: string,
 /**
  * Whether HTTPS is declared.
  */
-https: boolean, } | { "action": "add_domain", 
+https: boolean, 
+/**
+ * The path routes it declares — roadmap task **T135**.
+ *
+ * A php-fpm route's pool is not named here, for the reason `kind`'s is: which pool answers
+ * is decided on the machine that makes the site. Empty for every blueprint the gallery
+ * ships, which is what makes this an addition rather than a change.
+ */
+routes?: Array<SiteRoute>, } | { "action": "add_domain", 
 /**
  * The name, `{project}` already expanded.
  */

@@ -68,7 +68,102 @@ pub struct Shared {
     pub name: Option<String>,
 }
 
-/// One site, as the thing that renders it needs it./// One site, as the thing that renders it needs it.
+/// A prefix rewritten on the way out — roadmap task **T135**, that design's D2.
+///
+/// **A regex on both front ends**, because that is the one primitive they share: Caddy's `uri
+/// path_regexp` and nginx's `rewrite … break` take the same two strings, so one computation answers
+/// for both and a divergence between them has nowhere to hide.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+pub struct Rewrite {
+    /// Anchored, with every `.` in the matched prefix escaped — the design's D5.
+    pub regex: String,
+
+    /// `$1` carries whatever followed the prefix.
+    pub replacement: String,
+}
+
+/// An address and the rewrite its path implies, split apart — roadmap task **T135**.
+///
+/// **Caddy refuses a path in a proxy upstream outright** — *"for now, URLs for proxy upstreams only
+/// support scheme, host, and port components"*, measured against 2.11.4 — and the whole rendering is
+/// judged by one `caddy validate` where it is staged, so a single site carrying one would cost
+/// *every* site on the machine its new configuration. The split is what makes that URL mean the same
+/// thing on both front ends instead of breaking one of them.
+///
+/// The rule it implements, in one sentence: the matched prefix is replaced by the upstream's path
+/// with any trailing slash removed, and an upstream with no path replaces nothing.
+fn split_upstream(path: &str, upstream: &str) -> (String, Option<Rewrite>) {
+    let escaped = path.replace('.', r"\.");
+
+    let Some((scheme, rest)) = upstream.split_once("://") else {
+        return (upstream.to_owned(), None);
+    };
+
+    let Some((host, target)) = rest.split_once('/') else {
+        return (upstream.to_owned(), None);
+    };
+
+    let address = format!("{scheme}://{host}");
+    let target = target.trim_end_matches('/');
+
+    // **Two shapes, and the empty one is why.** `^/abc(/.*)?$` with a replacement of `$1` would
+    // send the exact prefix upstream with no path at all; `^/abc/?(.*)$` with `/$1` answers `/`
+    // there and `/foo` below it.
+    let rewrite = if target.is_empty() {
+        Rewrite {
+            regex: format!("^{escaped}/?(.*)$"),
+            replacement: "/$1".to_owned(),
+        }
+    } else {
+        Rewrite {
+            regex: format!("^{escaped}(/.*)?$"),
+            replacement: format!("/{target}$1"),
+        }
+    };
+
+    (address, Some(rewrite))
+}
+
+/// One route of a site, with everything a template would otherwise have to look up resolved —
+/// roadmap task **T135**.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ServedRoute {
+    /// The prefix, exactly as the row holds it.
+    pub path: String,
+
+    /// What answers under it.
+    pub target: ServedRouteTarget,
+}
+
+/// What answers under a route, with its addresses resolved — roadmap task **T135**.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ServedRouteTarget {
+    /// Forwarded, with the prefix rewritten when the upstream asked for it.
+    Proxy {
+        /// Scheme, host and port, and never a path — `split_upstream` in this module is why.
+        address: String,
+
+        /// What the prefix becomes on the way out, or [`None`] to pass the path through.
+        rewrite: Option<Rewrite>,
+    },
+
+    /// PHP through a pool, over the site's own document root.
+    PhpFpm {
+        /// Where the pool is, in this system's shape.
+        upstream: Upstream,
+
+        /// Where the activator waits for it — roadmap task **T70**, the site's own rule.
+        activator: Option<Upstream>,
+    },
+
+    /// Files from a directory, with the prefix stripped.
+    Static {
+        /// Absolute: the owner's root joined to the route's own.
+        root: PathBuf,
+    },
+}
+
+/// One site, as the thing that renders it needs it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Served {
     /// Ordered; the head is the primary.
@@ -91,6 +186,15 @@ pub struct Served {
 
     /// What it serves, and what that kind needs to know.
     pub kind: ServedKind,
+
+    /// What answers before the kind does, **in match order** — longest prefix first — roadmap task
+    /// **T135**.
+    ///
+    /// **Sorted here and not in a template**, because the two front ends resolve an overlap by
+    /// different native rules — Caddy takes its handlers in order, nginx has location precedence of
+    /// its own — and a rendering that left the decision to either would be two behaviours wearing
+    /// one name. Empty for every site made before T135, which renders exactly what it rendered then.
+    pub routes: Vec<ServedRoute>,
 
     /// Whether HTTPS is declared.
     ///
@@ -166,8 +270,16 @@ pub enum ServedKind {
 
     /// Everything forwarded to an address the user already has listening.
     ReverseProxy {
-        /// An absolute `http` or `https` URL with a host, as the row holds it.
+        /// Scheme, host and port — **and never a path**, roadmap task **T135**.
+        ///
+        /// The row may hold one, and until T135 it was written into the configuration unchanged:
+        /// nginx read it as a prefix replacement and Caddy refused the file outright, which cost
+        /// every site on the machine its rendering. `split_upstream` in this module takes it off,
+        /// and [`rewrite`](Self::ReverseProxy::rewrite) carries what it meant.
         upstream: String,
+
+        /// What `/` becomes on the way out, when the row's upstream carried a path.
+        rewrite: Option<Rewrite>,
     },
 
     /// A node process the user runs, on a loopback port.
@@ -306,11 +418,78 @@ pub(super) async fn served(
                 continue;
             }
             SiteKind::Static => ServedKind::Static,
-            SiteKind::ReverseProxy { upstream } => ServedKind::ReverseProxy {
-                upstream: upstream.clone(),
-            },
+            SiteKind::ReverseProxy { upstream } => {
+                // **The empty prefix and not `/`.** A site-wide proxy matches every path, so what
+                // its upstream's path replaces is the string before the first slash — which is
+                // nothing. `"/"` here would build `^/(/.*)?$`, an expression that matches `/` and
+                // no path below it.
+                let (address, rewrite) = split_upstream("", upstream);
+
+                ServedKind::ReverseProxy {
+                    upstream: address,
+                    rewrite,
+                }
+            }
             SiteKind::NodeApp { port } => ServedKind::NodeApp { port: *port },
         };
+
+        let mut declared = record.routes.clone();
+        declared.sort_by(crate::sites::by_specificity);
+
+        let mut routes = Vec::with_capacity(declared.len());
+
+        for route in declared {
+            let target = match route.target {
+                mixengine_proto::RouteTarget::Proxy { ref upstream } => {
+                    let (address, rewrite) = split_upstream(&route.path, upstream);
+
+                    ServedRouteTarget::Proxy { address, rewrite }
+                }
+
+                // **A route whose pool has gone loses the route, not the site** — the T135 design,
+                // D8. A site with no pool has nothing left to serve and is dropped whole; a route is
+                // one prefix of a site that still has a root, a kind and possibly four other
+                // routes, and taking it down would turn one `--force` into an outage.
+                mixengine_proto::RouteTarget::PhpFpm { pool: None } => {
+                    tracing::warn!(
+                        site = record.id,
+                        route = route.path,
+                        "this route names no pool, so it is not being served; the pool it named \
+                         was deleted, and the rest of the site is unaffected"
+                    );
+                    continue;
+                }
+                mixengine_proto::RouteTarget::PhpFpm {
+                    pool: Some(ref pool),
+                } => match upstreams.get(pool) {
+                    Some(resolved) => ServedRouteTarget::PhpFpm {
+                        upstream: resolved.listen.clone(),
+                        activator: resolved.activator.clone(),
+                    },
+                    None => {
+                        tracing::warn!(
+                            site = record.id,
+                            route = route.path,
+                            pool = pool.as_str(),
+                            "this route's pool is not a service this home declares, so the \
+                                 route is not being served; the rest of the site is"
+                        );
+                        continue;
+                    }
+                },
+
+                mixengine_proto::RouteTarget::Static { root: ref under_it } => {
+                    ServedRouteTarget::Static {
+                        root: under(&root, under_it),
+                    }
+                }
+            };
+
+            routes.push(ServedRoute {
+                path: route.path,
+                target,
+            });
+        }
 
         served.push(Served {
             // Before `record.domains` moves out of the record below.
@@ -326,6 +505,7 @@ pub(super) async fn served(
             doc_root_relative: record.doc_root.clone(),
             domains: record.domains,
             kind,
+            routes,
             https: record.https_enabled,
             https_redirect: record.https_redirect,
         });
@@ -438,6 +618,78 @@ mod tests {
             .execute(store.pool())
             .await
             .expect("a domain row");
+    }
+
+    /// **One rule** — the T135 design, D2: the matched prefix is replaced by the upstream's path,
+    /// trailing slash removed; an upstream with no path replaces nothing.
+    ///
+    /// **Two regex shapes**, because the strip-to-root case cannot share the other's: `$1` for the
+    /// exact prefix is empty there, and a request may not leave with no path at all. Both measured
+    /// on Caddy 2.11.4 before either was written.
+    #[test]
+    fn an_upstream_path_becomes_the_prefix_the_request_leaves_with() {
+        assert_eq!(
+            split_upstream("/abc", "http://127.0.0.1:3003"),
+            ("http://127.0.0.1:3003".to_owned(), None),
+            "an upstream with no path replaces nothing"
+        );
+
+        assert_eq!(
+            split_upstream("/abc", "http://127.0.0.1:3003/xyz"),
+            (
+                "http://127.0.0.1:3003".to_owned(),
+                Some(Rewrite {
+                    regex: "^/abc(/.*)?$".to_owned(),
+                    replacement: "/xyz$1".to_owned(),
+                })
+            )
+        );
+
+        assert_eq!(
+            split_upstream("/abc", "http://127.0.0.1:3003/xyz/"),
+            (
+                "http://127.0.0.1:3003".to_owned(),
+                Some(Rewrite {
+                    regex: "^/abc(/.*)?$".to_owned(),
+                    replacement: "/xyz$1".to_owned(),
+                })
+            ),
+            "a trailing slash on the upstream's path is not a third behaviour"
+        );
+
+        assert_eq!(
+            split_upstream("/abc", "http://127.0.0.1:3003/"),
+            (
+                "http://127.0.0.1:3003".to_owned(),
+                Some(Rewrite {
+                    regex: "^/abc/?(.*)$".to_owned(),
+                    replacement: "/$1".to_owned(),
+                })
+            ),
+            "stripping to the root is the shape that cannot leave an empty path"
+        );
+
+        // **A `.` is a regex metacharacter and a path segment may hold one** — the design's D5.
+        assert_eq!(
+            split_upstream("/v1.0", "http://h:1/x")
+                .1
+                .expect("a rewrite")
+                .regex,
+            r"^/v1\.0(/.*)?$"
+        );
+
+        // **A whole site is the empty prefix, not `/`** — every path is under it, so what the
+        // upstream's path replaces is the string before the first slash.
+        assert_eq!(
+            split_upstream("", "http://127.0.0.1:3003/xyz"),
+            (
+                "http://127.0.0.1:3003".to_owned(),
+                Some(Rewrite {
+                    regex: "^(/.*)?$".to_owned(),
+                    replacement: "/xyz$1".to_owned(),
+                })
+            )
+        );
     }
 
     /// The doc root a template gets is absolute and joined onto the project's root, whatever the row
