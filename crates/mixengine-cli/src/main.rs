@@ -51,9 +51,10 @@ use mixengine_proto::{
     ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
     ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
     SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
-    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, Timestamp,
-    UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
-    UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint, rpc,
+    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
+    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
+    UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint,
+    rpc,
 };
 
 use autostart::Autostart;
@@ -104,6 +105,18 @@ struct Args {
 enum Command {
     /// Show the daemon's health, version and what it is currently running.
     Status,
+
+    /// Show where this home keeps the directories that grow, and whether that can still change.
+    ///
+    /// **Starts no daemon and needs none.** `runtimes/`, `packages/`, `data/` and `logs/` can each
+    /// be moved to another disk by `[paths]` in `config.toml`, or by starting `mixengined` with
+    /// `--runtimes`, `--packages`, `--data` or `--logs` — and that choice is free only until the
+    /// first runtime, package or service is installed, because from then on where they are is
+    /// recorded against each of them rather than worked out.
+    ///
+    /// The answer comes from `mixengined` itself, run once: whether anything is installed is a
+    /// question about rows in this home's database, and `mix` does not open one.
+    Storage,
 
     /// Control the daemon itself.
     Daemon {
@@ -2260,6 +2273,9 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
     // thing every future command did, whether or not it had anything to ask.
     match args.command {
         Command::Status => status(&endpoint, autostart.as_ref(), args.json).await,
+
+        // Not `.await`ed and reaching no endpoint: this one runs a program and reads its stdout.
+        Command::Storage => storage(&root, args.json),
         // **Never autostarts, whatever the flags say**, and it is the one command that decides this
         // for itself: starting a daemon in order to ask it to stop is a machine left exactly as it
         // was found, one process later. A home with nothing running is told so as the wire error for
@@ -5425,6 +5441,40 @@ async fn daemon_stop(endpoint: &Endpoint, json: bool) -> Result<ExitCode, Error>
         (None, None) => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
     })
+}
+
+/// `mix storage`: where this home's growing directories are — roadmap task **T145**.
+///
+/// **Neither asynchronous nor connected**, which is what makes it the odd one in the match above.
+/// Every other command sends a request; this one runs `mixengined --storage` and reads the document
+/// it printed. It has to: whether the choice is still free is a count of rows, `mix` links neither
+/// `mixengine-core` nor `sqlx`, and there may be no daemon — a person asking this is usually asking
+/// it *before* the first start.
+///
+/// `--json` hands back what the daemon printed, unchanged. Re-serialising a document this client
+/// only parsed in order to print it would be a second chance to render it differently.
+fn storage(root: &Path, json: bool) -> Result<ExitCode, Error> {
+    let answered = autostart::ask(root, &["--storage"])?;
+
+    if json {
+        println!("{answered}");
+        return Ok(ExitCode::SUCCESS);
+    }
+
+    let report: StorageReport = serde_json::from_str(&answered).map_err(|source| {
+        Error::new(
+            ErrorCode::Internal,
+            format!("mixengined described this home in a way this `mix` cannot read: {source}"),
+        )
+        .with_hint(
+            "the two binaries are from different releases — reinstall MixEngine so that \
+                    `mix` and `mixengined` come from one",
+        )
+    })?;
+
+    print!("{}", render::storage(&report));
+
+    Ok(ExitCode::SUCCESS)
 }
 
 /// `mix status`: what the daemon says about itself.

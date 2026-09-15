@@ -47,9 +47,9 @@ use mixengine_proto::{
     RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId,
     ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
     SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
-    StateReason, StepResult, Timestamp, Trust, UninstallOutcome, UninstallReport, Unusable,
-    UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict, WhenExceeded,
-    privileged::ElevationOutcome,
+    StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust, UninstallOutcome,
+    UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict,
+    WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -5950,4 +5950,46 @@ mod autostart_tests {
         assert!(rendered.contains("no systemd user manager"), "{rendered}");
         assert!(rendered.contains("nothing to register"), "{rendered}");
     }
+}
+
+/// `mix storage` — where this home's four growing directories are, and whether that can change.
+///
+/// **The relocated ones are marked and the rest are not**, rather than a column saying "default" on
+/// four lines out of four on almost every machine. What a person is looking for here is which of
+/// them is somewhere else.
+pub(crate) fn storage(report: &StorageReport) -> String {
+    let mut rendered = format!("  home       {}\n", report.root);
+
+    let paths = &report.paths;
+    for (name, directory) in [
+        ("runtimes", &paths.runtimes),
+        ("packages", &paths.packages),
+        ("data", &paths.data),
+        ("logs", &paths.logs),
+    ] {
+        rendered.push_str(&format!(
+            "  {name:<9}  {}{}\n",
+            directory.path,
+            if directory.relocated {
+                " — moved"
+            } else {
+                ""
+            }
+        ));
+    }
+
+    rendered.push_str(&match &report.changeable {
+        StorageChoice::Free => "\n  nothing is installed yet, so these may still be moved: start \
+                                the daemon with --runtimes, --packages, --data or --logs\n"
+            .to_owned(),
+
+        // The daemon's own sentence, for the reason every other rendering here uses one: what is
+        // installed is a fact it measured, and a client restating it would be a second answer.
+        StorageChoice::Taken { explanation, .. } => format!(
+            "\n  {explanation}, so these can no longer be moved by a flag — moving them means \
+             moving the files and rewriting what the database records about them\n"
+        ),
+    });
+
+    rendered
 }

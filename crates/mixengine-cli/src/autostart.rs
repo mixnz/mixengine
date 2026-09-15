@@ -109,28 +109,85 @@ impl Autostart {
 
     /// The daemon binary could not be run at all.
     fn cannot_run(&self, source: &std::io::Error) -> Error {
-        let message = format!(
-            "cannot start {}: {}",
-            self.program.to_string_lossy(),
-            flatten(source)
-        );
+        cannot_run(&self.program, "start", source)
+    }
+}
 
-        match source.kind() {
-            // The interesting case, and the one worth spelling the search out for: a `mix` that was
-            // copied somewhere on its own, or a development build run from a directory the daemon
-            // has not been built into. `dependency_missing` rather than `process_failed` because
-            // nothing ran and the way out is an install — which is what the GUI turns this code
-            // into an offer to do.
-            std::io::ErrorKind::NotFound => Error::new(ErrorCode::DependencyMissing, message)
-                .with_hint(format!(
-                    "`mix` looks for the daemon at {BINARY}, then next to itself, then on PATH — \
-                     install MixEngine, or point {BINARY} at a mixengined binary"
-                )),
+/// Run the daemon binary once and hand back what it printed — roadmap task **T145**.
+///
+/// **The other half of this module, and the reason it is here rather than beside the command that
+/// wants it.** `mix storage` asks where a home's directories are, which is a question about rows in
+/// a database — and `mixengine-cli` depends on neither `mixengine-core` nor `sqlx`, deliberately,
+/// because `mix` is the binary that has to start in milliseconds. So the client asks the one
+/// program that *can* open a database, by running it, exactly as this module starts one.
+///
+/// No daemon is started and none is required: the modes this is used for print a document and exit.
+/// [`process::hide_stdio_from_children`] is not taken either, for the same reason — that guard
+/// exists because a `--detach` leaves a daemon holding the caller's stdout for days, and a process
+/// that exits before this function returns cannot.
+///
+/// # Errors
+///
+/// [`ErrorCode::DependencyMissing`] when there is no `mixengined` to run, and
+/// [`ErrorCode::ProcessFailed`] when there is one and it refused — carrying its stderr verbatim,
+/// which is the diagnosis it already wrote through the same wire mapping this client uses.
+pub(crate) fn ask(root: &Path, args: &[&str]) -> Result<String, Error> {
+    let program = program();
 
-            // Present and unrunnable: on Unix nearly always the executable bit, and never something
-            // a retry fixes. Not a missing dependency, so not that code either.
-            _ => Error::new(ErrorCode::ProcessFailed, message),
-        }
+    let output = Command::new(&program)
+        .args(args)
+        .arg("--home")
+        .arg(root)
+        .output()
+        .map_err(|source| cannot_run(&program, "run", &source))?;
+
+    if !output.status.success() {
+        let complaint = String::from_utf8_lossy(&output.stderr);
+        let complaint = complaint.trim();
+
+        return Err(Error::new(
+            ErrorCode::ProcessFailed,
+            if complaint.is_empty() {
+                format!(
+                    "{} answered nothing about {} ({})",
+                    program.to_string_lossy(),
+                    root.display(),
+                    output.status
+                )
+            } else {
+                complaint.to_owned()
+            },
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
+}
+
+/// The daemon binary could not be run at all.
+///
+/// `action` completes "cannot …", so that a start and a question are not both reported as a start.
+fn cannot_run(program: &OsString, action: &str, source: &std::io::Error) -> Error {
+    let message = format!(
+        "cannot {action} {}: {}",
+        program.to_string_lossy(),
+        flatten(source)
+    );
+
+    match source.kind() {
+        // The interesting case, and the one worth spelling the search out for: a `mix` that was
+        // copied somewhere on its own, or a development build run from a directory the daemon has
+        // not been built into. `dependency_missing` rather than `process_failed` because nothing
+        // ran and the way out is an install — which is what the GUI turns this code into an offer
+        // to do.
+        std::io::ErrorKind::NotFound => Error::new(ErrorCode::DependencyMissing, message)
+            .with_hint(format!(
+                "`mix` looks for the daemon at {BINARY}, then next to itself, then on PATH — \
+                 install MixEngine, or point {BINARY} at a mixengined binary"
+            )),
+
+        // Present and unrunnable: on Unix nearly always the executable bit, and never something
+        // a retry fixes. Not a missing dependency, so not that code either.
+        _ => Error::new(ErrorCode::ProcessFailed, message),
     }
 }
 

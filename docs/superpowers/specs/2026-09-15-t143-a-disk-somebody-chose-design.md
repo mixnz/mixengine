@@ -182,22 +182,41 @@ before its first start.
 `mixengined` in `autostart.rs`. That is what keeps this reachable from the command line without
 linking sqlx into the binary that has to start in milliseconds.
 
-## D5 — `mix init`, a convenience and not a gate
+## D5 — there is no `mix init`
 
-```
-mix init [--runtimes <DIR>] [--packages <DIR>] [--data <DIR>] [--logs <DIR>]
-```
+An earlier draft of this design had one: `mix init [--data <DIR>] …`, creating the home with a
+chosen layout, printing it, and starting no daemon. **It is not built, and this records why rather
+than leaving a gap somebody reads as an oversight.**
 
-Creates the home, writes the chosen layout, prints where everything will live, and **starts no
-daemon**. It forwards to `mixengined` with the D2 flags plus `--storage`, so there is one
-implementation of the rule and `mix` stays incurious.
+The draft said it would forward to `mixengined` with the D2 flags *plus* `--storage`. That is not a
+command line: D4's `--storage` creates nothing, by design and by its clap conflicts, and the four
+flags only take effect during a start. Asking for both is asking a process to create a home and to
+create nothing. So building it meant choosing between two shapes, and both cost more than the
+command is worth:
 
-**It is deliberately not required.** Making it a gate was considered, and it has the appeal of
-putting the choice in front of everybody. It was rejected because D1 already keeps the choice open
-past the first start: a fresh `mix status` gives a working MixEngine and leaves `runtimes/`,
-`packages/` and `data/` empty, so nothing has been decided. Turning that into *"run `mix init`
-first"* would add a step for everybody who wants the default, to protect a window that is not
-actually closing.
+- **`mix init` starts a daemon** — `mixengined --detach <flags>`, then report. Correct, cheap, and
+  it makes `init` an alias for `status` with flags: two commands, one behaviour, and a command named
+  *init* that leaves a daemon running.
+- **`mixengined --init`**, a third mode that does the startup work and exits. Clean to describe, and
+  it forces a decision about the single-instance lock: `Store::open` runs migrations, and that lock
+  exists precisely so two processes cannot both migrate. Spending a concurrency decision on a
+  convenience is the wrong trade.
+
+**And nothing needs it.** The window (D6) calls `--storage` and then starts a daemon with the flags;
+a person at a terminal has `mixengined --data <DIR> --detach`; a scripted install has the same. What
+`mix init` would have added is a better name for a capability that already has a path — and the name
+promises the one thing D1 refuses, that there is a setup step which must be caught before the
+product is usable. D1's whole point is that a first start decides nothing, so a command implying
+otherwise would need every document to add *"`mix init` is optional"*, a sentence that exists only
+because the command does.
+
+**A command is public surface**: shipping one is a promise to scripts, and not shipping it costs
+nothing. If somebody asks for it, that request will say which of the two shapes above they meant —
+which is exactly what cannot be decided now.
+
+What is left in its place is one sentence, printed by `mix storage` on a home where the choice is
+still open: *"nothing is installed yet, so these may still be moved: start the daemon with
+--runtimes, --packages, --data or --logs"*.
 
 ## D6 — The screens
 

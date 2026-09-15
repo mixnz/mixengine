@@ -190,3 +190,137 @@ async fn a_move_after_an_install_stops_the_start_and_names_what_is_there() {
     );
     assert_eq!(config_text(&home), before, "a refused start wrote the file");
 }
+
+// ---------------------------------------------------------------------------------------------
+// `--storage`, the read that creates nothing — roadmap task T145.
+// ---------------------------------------------------------------------------------------------
+
+/// What `mixengined --storage` printed, parsed.
+fn storage_report(home_path: &std::path::Path) -> mixengine_proto::StorageReport {
+    let output = Command::new(env!("CARGO_BIN_EXE_mixengined"))
+        .arg("--storage")
+        .arg("--home")
+        .arg(home_path)
+        .output()
+        .expect("the daemon binary runs");
+
+    assert!(
+        output.status.success(),
+        "--storage failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    serde_json::from_slice(&output.stdout).expect("--storage prints one JSON document")
+}
+
+/// **The assertion this flag exists to keep.** A window draws its "choose a disk" screen before any
+/// daemon has run, so the question is routinely asked about a home that is not there — and an answer
+/// that created it would make asking the reason the choice was no longer free.
+#[test]
+fn asking_about_a_home_that_is_not_there_creates_nothing() {
+    let parent = tempfile::tempdir().expect("a temporary directory");
+    let absent = parent.path().join("never-started");
+
+    let report = storage_report(&absent);
+
+    // **Spelled the way the filesystem spells it**, which is not always the way it was typed: the
+    // daemon resolves a root through `paths::in_full`, and on macOS `/var/folders/…` is
+    // `/private/var/folders/…`. A test comparing against the string it passed in would be asserting
+    // that the rule `mix` and `mixengined` agree on is absent.
+    let spelled = mixengine_platform::paths::in_full(&absent);
+
+    assert!(report.changeable.is_free());
+    assert_eq!(report.root, spelled.display().to_string());
+    assert_eq!(
+        report.paths.data.path,
+        spelled.join("data").display().to_string(),
+        "a home with no config.toml answers with the layout it would have"
+    );
+    assert!(!report.paths.data.relocated);
+
+    assert!(
+        !absent.exists(),
+        "asking where a home's directories are created the home"
+    );
+}
+
+/// A relocated directory says so, by the test the uninstall inventory uses: it is not under the root.
+#[tokio::test]
+async fn a_relocated_directory_is_marked_as_one() {
+    let home = Home::new();
+    let bulk = tempfile::tempdir().expect("somewhere to move things to");
+    let data = bulk.path().join("data");
+
+    started_and_stopped(&home, &["--data", &data.display().to_string()]).await;
+
+    let report = storage_report(home.path());
+
+    assert!(report.paths.data.relocated, "{:?}", report.paths.data);
+    assert_eq!(report.paths.data.path, data.display().to_string());
+    assert!(
+        !report.paths.runtimes.relocated,
+        "a directory nobody moved is not relocated"
+    );
+}
+
+/// Once something is installed the answer says so, with the counts and the sentence.
+#[tokio::test]
+async fn an_installed_home_reports_what_closed_the_window() {
+    let home = Home::new();
+    started_and_stopped(&home, &[]).await;
+
+    let store = mixengine_core::Store::open(&home.path().join("mixengine.db"))
+        .await
+        .expect("the home's database");
+    sqlx::query(
+        "INSERT INTO runtime_installs
+             (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)
+         VALUES ('php', '8.3.12', 'stable', '/old/runtimes/php/8.3.12', '2026-09-16', 1,
+                 'https://example.invalid/php.tar.gz', 'abc')",
+    )
+    .execute(store.pool())
+    .await
+    .expect("the row");
+    store.close().await;
+
+    let report = storage_report(home.path());
+
+    match report.changeable {
+        mixengine_proto::StorageChoice::Free => panic!("an installed home called itself free"),
+        mixengine_proto::StorageChoice::Taken {
+            runtimes,
+            packages,
+            services,
+            explanation,
+        } => {
+            assert_eq!((runtimes, packages, services), (1, 0, 0));
+            assert_eq!(explanation, "1 runtime is installed");
+        }
+    }
+}
+
+/// **A read and a start are not one command.** `--storage` answers about a home; the four flags
+/// change it; and a command line asking for both would be asking a question and altering its subject
+/// in the same breath.
+#[test]
+fn a_read_cannot_be_combined_with_a_start_or_a_move() {
+    let parent = tempfile::tempdir().expect("a temporary directory");
+
+    for conflicting in [
+        vec!["--storage", "--detach"],
+        vec!["--storage", "--data", "/somewhere"],
+        vec!["--storage", "--runtimes", "/somewhere"],
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_mixengined"))
+            .args(&conflicting)
+            .arg("--home")
+            .arg(parent.path())
+            .output()
+            .expect("the daemon binary runs");
+
+        assert!(
+            !output.status.success(),
+            "{conflicting:?} was accepted as one command line"
+        );
+    }
+}

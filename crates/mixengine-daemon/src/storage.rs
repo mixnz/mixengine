@@ -1,4 +1,5 @@
-//! Applying `--runtimes`, `--packages`, `--data` and `--logs` — roadmap task **T144**.
+//! Applying `--runtimes`, `--packages`, `--data` and `--logs`, and answering `--storage` — roadmap
+//! tasks **T144** and **T145**.
 //!
 //! **The one place on this binary where a flag writes the home rather than configuring the
 //! process.** Every other flag here — `--log-level`, `--index-url`, `--update-url` — says something
@@ -12,11 +13,14 @@
 //! from what the file says is written, while the window [`storage::changeable`] describes is still
 //! open. A value equal to what the file says writes nothing and complains about nothing, so a
 //! launchd plist or a shell alias may carry the flag for the life of that plist rather than working
-//! once. A value
-//! that differs after something has been installed fails the start — the reasoning `--log-format`
-//! already carries on this binary: *fails the start rather than being ignored*, because a daemon
-//! that quietly ran with its data somewhere other than where it was just told to put it is the same
-//! defect with more at stake.
+//! once. A value that differs after something has been installed fails the start — the reasoning
+//! `--log-format` already carries on this binary: *fails the start rather than being ignored*,
+//! because a daemon that quietly ran with its data somewhere other than where it was just told to
+//! put it is the same defect with more at stake.
+//!
+//! **And one read that creates nothing**, which is [`report`]: the screen that offers the choice is
+//! drawn before there is a daemon to ask, so the answer has to come from a process that can open a
+//! database — and it must not be the reason a home, a configuration file or a database exists.
 
 use std::path::Path;
 
@@ -24,7 +28,9 @@ use mixengine_core::Paths;
 use mixengine_core::config::{PathOverrides, RequestedPaths};
 use mixengine_core::storage::{self, Changeable};
 use mixengine_core::store::Store;
-use mixengine_proto::{Error, ErrorCode};
+use mixengine_proto::{
+    Error, ErrorCode, StorageChoice, StorageDirectory, StoragePaths, StorageReport,
+};
 
 use crate::error::ToWire as _;
 
@@ -143,6 +149,98 @@ pub(crate) fn tidy(before: &Paths, after: &Paths) {
                 "the directory this one replaced was left where it is"
             ),
         }
+    }
+}
+
+/// Read where this home's directories are and whether that is still a question — roadmap task
+/// **T145**.
+///
+/// **It creates nothing, and that is the whole of the care this function needs.** The caller is a
+/// window drawing a "choose a disk" screen before any daemon has run, so the home it is asking
+/// about may not exist — and a read that answered by creating the thing it was asked about would
+/// make the screen itself the reason a choice was no longer free. So: no `open_home`, which creates
+/// and bootstraps; no `config::load_or_create`, which writes the template; and the database is
+/// opened only once something has established that there is one, because opening SQLite is how an
+/// empty database comes into existence.
+///
+/// A machine before its first start therefore answers with the default layout and
+/// [`StorageChoice::Free`], which is both true and the answer the screen needs.
+///
+/// # Errors
+///
+/// Whatever resolving the home refuses with, a `config.toml` that does not parse, and a database
+/// that is there and cannot be read.
+pub(crate) async fn report(
+    root_override: Option<&Path>,
+    host: &dyn mixengine_platform::Host,
+) -> Result<StorageReport, Error> {
+    let root = mixengine_core::paths::resolve_root(root_override, host)
+        .map_err(|error| error.to_wire())?;
+
+    // `load` and not `load_or_create`: the second writes the template, and this function is a read.
+    let config_file = root.join(mixengine_core::config::FILE_NAME);
+    let config = if config_file.is_file() {
+        mixengine_core::config::load(&config_file).map_err(|error| error.to_wire())?
+    } else {
+        mixengine_core::config::Config::default()
+    };
+
+    let paths = Paths::new(root.clone(), &config.paths);
+
+    // **Asked whether the file is there before it is opened.** `Store::open_read_only` does not
+    // create one either — it is the shim's door, for this reason — but reaching for it at all on a
+    // machine that has never run a daemon would be asking sqlx a question about a file that is not
+    // the subject: there is no database, so nothing is installed, so the choice is free.
+    let changeable = if paths.database_file().is_file() {
+        let store = Store::open_read_only(paths.database_file())
+            .await
+            .map_err(|error| error.to_wire())?;
+        let answer = storage::changeable(&store)
+            .await
+            .map_err(|error| error.to_wire())?;
+        store.close().await;
+        answer
+    } else {
+        Changeable::Free
+    };
+
+    let directory = |path: &Path| StorageDirectory {
+        path: path.display().to_string(),
+
+        // The test `uninstall::inventory` uses to decide whether a directory needs a row of its
+        // own, restated in one expression rather than in a client.
+        relocated: !path.starts_with(&root),
+    };
+
+    Ok(StorageReport {
+        root: root.display().to_string(),
+        paths: StoragePaths {
+            runtimes: directory(paths.runtimes()),
+            packages: directory(paths.packages()),
+            data: directory(paths.data()),
+            logs: directory(paths.logs()),
+        },
+        changeable: choice(changeable),
+    })
+}
+
+/// One `Changeable` as the wire says it.
+///
+/// The sentence comes from [`Changeable`]'s own `Display`, so the daemon owns it and the three
+/// readers — the window, `mix storage`, a person reading JSON — are all shown the same words.
+fn choice(changeable: Changeable) -> StorageChoice {
+    match changeable {
+        Changeable::Free => StorageChoice::Free,
+        taken @ Changeable::Taken {
+            runtimes,
+            packages,
+            services,
+        } => StorageChoice::Taken {
+            runtimes,
+            packages,
+            services,
+            explanation: taken.to_string(),
+        },
     }
 }
 

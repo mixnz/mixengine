@@ -33,7 +33,7 @@ first row has recorded an absolute path.
 
 ## The window, and the write
 
-- [ ] **T143** What may still be changed, and how it is written. `core::storage::changeable(store)`
+- [x] **T143** What may still be changed, and how it is written. `core::storage::changeable(store)`
       answers `Free` or `Taken { runtimes, packages, services }` from three counts — a row is what
       bakes a path in, so a row is what closes the window, and `logs/` is not consulted because
       nothing records where a log line went. `core::config::set_paths` edits a
@@ -41,7 +41,7 @@ first row has recorded an absolute path.
       template ships survive being written to; the values go through the same `config::relocation`
       validator `[paths]` already uses, so there is no second grammar to keep in step.
 
-- [ ] **T144** The flags on `mixengined`: `--runtimes`, `--packages`, `--data`, `--logs`, each
+- [x] **T144** The flags on `mixengined`: `--runtimes`, `--packages`, `--data`, `--logs`, each
       optional and independent, each **writing into `config.toml`** rather than overriding one
       process — the location is in the rows, so a per-run override would let two daemons disagree
       about one home while the database agrees with neither. Three outcomes: a differing value with
@@ -51,13 +51,14 @@ first row has recorded an absolute path.
 
 ## Saying it and typing it
 
-- [ ] **T145** `mixengined --storage` prints the layout and the window as JSON and exits, creating
-      nothing — not the home, not the config file. A flag rather than a subcommand because this
-      binary has no subcommand tree, and it conflicts with `--detach` in clap. `mix storage` and
-      `mix init` forward to it, the way `mix` already starts the daemon: `mixengine-cli` depends on
-      neither `mixengine-core` nor sqlx, so it cannot answer any of this itself. `mix init` is a
-      convenience and **not** a gate — `mix status` keeps starting a daemon, because a first start
-      installs nothing and therefore decides nothing.
+- [x] **T145** `mixengined --storage` prints the layout and the window as JSON and exits, creating
+      nothing — not the home, not the config file, not the database. A flag rather than a subcommand
+      because this binary has no subcommand tree, and it conflicts with `--detach` and the four
+      relocation flags in clap: a read and a change are not one command line. `mix storage` forwards
+      to it, the way `mix` already starts the daemon, because `mixengine-cli` depends on neither
+      `mixengine-core` nor sqlx and so cannot count a row itself; `--json` hands back the daemon's
+      own document unchanged. **No `mix init`** — the design's D5 records what it would have cost
+      and what says its sentence instead.
 
 - [ ] **T146** MixLab draws it. A picker on the `notRunning` and `notInstalled` gates while the
       window is `Free`: one row per directory with a *Choose…* of its own, plus a shortcut that

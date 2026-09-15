@@ -275,6 +275,22 @@ struct Args {
     #[arg(long, value_name = "DIR")]
     logs: Option<PathBuf>,
 
+    /// Print where this home's directories are, as JSON, and exit — roadmap task **T145**.
+    ///
+    /// **A read that creates nothing.** No home, no `config.toml`, no database: the caller is a
+    /// window drawing its "choose a disk" screen before any daemon has run, and an answer that
+    /// created the home it was asked about would make the question itself the reason the choice was
+    /// no longer free. A machine before its first start answers with the default layout and
+    /// `changeable: free`, which is the true answer and the one that screen needs.
+    ///
+    /// It is here rather than in `mix` because only this binary can open the database, and whether
+    /// the choice is still free is a question about rows.
+    #[arg(
+        long,
+        conflicts_with_all = ["detach", "runtimes", "packages", "data", "logs"]
+    )]
+    storage: bool,
+
     /// Start the daemon in the background and print the endpoint it is listening on.
     ///
     /// Without this the daemon stays in the foreground, which is what a service manager wants —
@@ -521,6 +537,22 @@ async fn run() -> anyhow::Result<()> {
     // hint is written, and a startup failure — the wrong MIXENGINE_HOME, a `[paths]` override onto
     // a disk nobody mounted — is exactly the kind that needs one. Whoever is reading stderr now
     // gets the same sentence a client would get later.
+    // **Before `open_home`, deliberately** — roadmap task **T145**. This one answers a question
+    // *about* a home rather than working in one, and the home it is asked about is routinely a home
+    // that does not exist yet. Everything below this line creates something.
+    if args.storage {
+        let report = storage::report(args.home.as_deref(), host.as_ref()).await?;
+
+        // One line, so that a caller reading stdout gets one document and not a pretty-printed
+        // stream it has to find the end of.
+        println!(
+            "{}",
+            serde_json::to_string(&report).context("the storage report could not be rendered")?
+        );
+
+        return Ok(());
+    }
+
     let home = mixengine_core::open_home(args.home.as_deref(), host.as_ref())
         .map_err(|error| error.to_wire())?;
 

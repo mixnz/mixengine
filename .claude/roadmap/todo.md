@@ -47,7 +47,7 @@ done
 | [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T129 | 22 / 22 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 | [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
 | [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 8 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends — **met**, measured through Caddy 2.11.4 and nginx 1.31.3 |
-| [17 — A disk somebody chose](phase-17-a-disk-somebody-chose.md) | The four directories that grow can be put on another disk, from the window or the command line, while the choice is still free | T143–T147 | 0 / 5 | **M17** a fresh install offers a disk before anything is installed, a runtime and a service land on it, and an elevation prompt still succeeds |
+| [17 — A disk somebody chose](phase-17-a-disk-somebody-chose.md) | The four directories that grow can be put on another disk, from the window or the command line, while the choice is still free | T143–T147 | 3 / 5 | **M17** a fresh install offers a disk before anything is installed, a runtime and a service land on it, and an elevation prompt still succeeds |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
