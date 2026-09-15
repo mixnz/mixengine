@@ -2213,6 +2213,23 @@ fn owner_word(owner: &SiteOwner) -> String {
 }
 
 /// The word a person typed for a kind, which is the word the wire uses.
+/// What a route's target is printed as — roadmap task **T135**.
+///
+/// The target *and* its address, because a path on its own answers nothing a person came to find
+/// out: `/api  →  http://127.0.0.1:3003/xyz` is the line, and the arrow is what makes the direction
+/// readable at a glance.
+fn route_target_word(target: &mixengine_proto::RouteTarget) -> String {
+    match target {
+        mixengine_proto::RouteTarget::Proxy { upstream } => format!("→ {upstream}"),
+        mixengine_proto::RouteTarget::PhpFpm { pool } => format!(
+            "php-fpm {}",
+            pool.as_ref()
+                .map_or("— the service it named is gone", ServiceId::as_str)
+        ),
+        mixengine_proto::RouteTarget::Static { root } => format!("files in {root}"),
+    }
+}
+
 fn kind_word(kind: &SiteKind) -> &'static str {
     match kind {
         SiteKind::PhpFpm { .. } => "php-fpm",
@@ -2613,6 +2630,21 @@ pub(crate) fn site_detail(detail: &SiteDetail) -> String {
 
     if detail.domains.len() > 1 {
         out.push_str(&format!("\naliases: {}\n", detail.domains[1..].join(", ")));
+    }
+
+    // **In match order, which is what the daemon answers with** — roadmap task **T135**. Not the
+    // order somebody typed: the front end resolves an overlap by specificity, and a listing showing
+    // declaration order would be showing something no server does.
+    if !detail.routes.is_empty() {
+        out.push_str(&format!("\n{:<24}  {}\n", "PATH", "ANSWERED BY"));
+
+        for route in &detail.routes {
+            out.push_str(&format!(
+                "{:<24}  {}\n",
+                route.path,
+                route_target_word(&route.target)
+            ));
+        }
     }
 
     if !detail.services.is_empty() {

@@ -45,15 +45,15 @@ use mixengine_proto::{
     PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
     ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
     ProjectUpdate, Reclaim, Removal, RepairReport, ResetCredential, ResolvedRuntime,
-    ResourceLimits, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion,
-    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent,
-    ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet,
-    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole,
-    ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation,
-    SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteShare,
-    SiteSharing, SiteState, SiteUpdate, Timestamp, UninstallQuery, UninstallReport, UpdateApplied,
-    UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus,
-    VersionAnswer, VersionConstraint, rpc,
+    ResourceLimits, RouteTarget, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList,
+    RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
+    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
+    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
+    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
+    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, Timestamp,
+    UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
+    UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -919,6 +919,26 @@ enum SiteCommand {
         #[arg(long, value_name = "SERVICE", value_parser = service_id)]
         pool: Option<ServiceId>,
 
+        /// Forward a path prefix to an address: `/api=http://127.0.0.1:3003/xyz`. Repeatable.
+        ///
+        /// The upstream's path, when it has one, replaces the matched prefix.
+        #[arg(long = "proxy", value_name = "PATH=URL")]
+        proxy: Vec<String>,
+
+        /// Answer a path prefix with a php-fpm pool: `/admin=php-fpm@8.3.33`, or `/admin` alone for
+        /// whatever this project resolves to. Repeatable.
+        #[arg(long = "php", value_name = "PATH[=POOL]")]
+        php: Vec<String>,
+
+        /// Serve a path prefix from a directory: `/assets=dist`. The prefix is stripped.
+        /// Repeatable.
+        #[arg(long = "files", value_name = "PATH=DIR")]
+        files: Vec<String>,
+
+        /// Remove every route this site has.
+        #[arg(long, conflicts_with_all = ["proxy", "php", "files"])]
+        no_routes: bool,
+
         /// A service the site declares, as `mariadb@main`. May be given more than once.
         #[arg(long = "service", value_name = "SERVICE", value_parser = service_id)]
         services: Vec<ServiceId>,
@@ -980,6 +1000,25 @@ enum SiteCommand {
         /// The php-fpm pool.
         #[arg(long, value_name = "SERVICE", value_parser = service_id)]
         pool: Option<ServiceId>,
+
+        /// Forward a path prefix to an address: `/api=http://127.0.0.1:3003/xyz`. Replaces the
+        /// whole list, together with `--php` and `--files`.
+        #[arg(long = "proxy", value_name = "PATH=URL")]
+        proxy: Vec<String>,
+
+        /// Answer a path prefix with a php-fpm pool: `/admin=php-fpm@8.3.33`, or `/admin` alone for
+        /// whatever this project resolves to. Replaces the whole list.
+        #[arg(long = "php", value_name = "PATH[=POOL]")]
+        php: Vec<String>,
+
+        /// Serve a path prefix from a directory: `/assets=dist`. The prefix is stripped. Replaces
+        /// the whole list.
+        #[arg(long = "files", value_name = "PATH=DIR")]
+        files: Vec<String>,
+
+        /// Remove every route this site has.
+        #[arg(long, conflicts_with_all = ["proxy", "php", "files"])]
+        no_routes: bool,
 
         /// A service the site declares. Replaces the whole list.
         #[arg(long = "service", value_name = "SERVICE", value_parser = service_id)]
@@ -3387,6 +3426,10 @@ async fn site(
             upstream,
             port,
             pool,
+            proxy,
+            php,
+            files,
+            no_routes,
             services,
             https,
             https_redirect,
@@ -3398,7 +3441,7 @@ async fn site(
                 doc_root,
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
-                routes: None,
+                routes: site_routes(&proxy, &php, &files, no_routes)?,
                 https,
                 https_redirect,
                 accept_risky_tld,
@@ -3453,6 +3496,10 @@ async fn site(
             upstream,
             port,
             pool,
+            proxy,
+            php,
+            files,
+            no_routes,
             services,
             https,
             https_redirect,
@@ -3465,7 +3512,7 @@ async fn site(
                 doc_root,
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
-                routes: None,
+                routes: site_routes(&proxy, &php, &files, no_routes)?,
                 https,
                 https_redirect,
                 state: state.map(|state| match state {
@@ -3545,6 +3592,96 @@ fn site_kind(
             port: port.ok_or_else(|| missing("--port", "says where the node process listens"))?,
         }),
     })
+}
+
+/// The three route flags as the one list the API takes — roadmap task **T135**.
+///
+/// **The whole list in one request, and never a read-modify-write.** A client that fetched a site's
+/// routes, changed one and sent them back would be holding business logic and racing another writer;
+/// these flags build the list a person typed and hand it over, which is the same thing `--domain`
+/// and `--service` already do.
+///
+/// Assembly rather than logic, on [`site_kind`]'s rule: what a route *means* is the daemon's, and a
+/// path it refuses comes back in the daemon's own words.
+fn site_routes(
+    proxy: &[String],
+    php: &[String],
+    files: &[String],
+    no_routes: bool,
+) -> Result<Option<Vec<SiteRoute>>, Error> {
+    if no_routes {
+        if !proxy.is_empty() || !php.is_empty() || !files.is_empty() {
+            return Err(Error::new(
+                ErrorCode::InvalidArgument,
+                "--no-routes and a route in the same command".to_owned(),
+            )
+            .with_hint("leave --no-routes off to declare routes; it is what empties the list"));
+        }
+
+        return Ok(Some(Vec::new()));
+    }
+
+    if proxy.is_empty() && php.is_empty() && files.is_empty() {
+        return Ok(None);
+    }
+
+    // Split on the **first** `=`: a query is not part of an address, so a URL here has none, and a
+    // directory that holds one is a directory this daemon will refuse by name.
+    let split = |value: &str, flag: &str, what: &str| -> Result<(String, String), Error> {
+        value
+            .split_once('=')
+            .map(|(path, rest)| (path.to_owned(), rest.to_owned()))
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::InvalidArgument,
+                    format!("{value} is not a {flag} route"),
+                )
+                .with_hint(format!("<path>={what}, as in {flag} /api=…"))
+            })
+    };
+
+    let mut routes = Vec::with_capacity(proxy.len() + php.len() + files.len());
+
+    for value in proxy {
+        let (path, upstream) = split(value, "--proxy", "an address")?;
+
+        routes.push(SiteRoute {
+            path,
+            target: RouteTarget::Proxy { upstream },
+        });
+    }
+
+    for value in php {
+        // A pool is optional: `--php /admin` leaves the daemon to resolve the one this project
+        // resolves to, exactly as a php-fpm site with no `--pool` does.
+        let (path, pool) = match value.split_once('=') {
+            Some((path, pool)) => {
+                let pool = service_id(pool).map_err(|because| {
+                    Error::new(ErrorCode::InvalidArgument, because)
+                        .with_hint("a pool such as php-fpm@8.3.33, or no `=` at all to resolve one")
+                })?;
+
+                (path.to_owned(), Some(pool))
+            }
+            None => (value.clone(), None),
+        };
+
+        routes.push(SiteRoute {
+            path,
+            target: RouteTarget::PhpFpm { pool },
+        });
+    }
+
+    for value in files {
+        let (path, root) = split(value, "--files", "a directory")?;
+
+        routes.push(SiteRoute {
+            path,
+            target: RouteTarget::Static { root },
+        });
+    }
+
+    Ok(Some(routes))
 }
 
 /// Which site, defaulting to the directory this `mix` was run in.
@@ -5824,6 +5961,54 @@ fn for_seconds(text: &str) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **T135, D12.** Three flags build the whole list in one request — no read-modify-write in the
+    /// client, so no race and no business logic here.
+    #[test]
+    fn three_flags_build_one_route_list() {
+        let routes = site_routes(
+            &["/api=http://127.0.0.1:3003/xyz".to_owned()],
+            &["/admin=php-fpm@8.3.33".to_owned(), "/old".to_owned()],
+            &["/assets=dist".to_owned()],
+            false,
+        )
+        .expect("a list")
+        .expect("some routes");
+
+        assert_eq!(routes.len(), 4);
+        assert_eq!(routes[0].path, "/api");
+        assert_eq!(
+            routes[0].target,
+            RouteTarget::Proxy {
+                upstream: "http://127.0.0.1:3003/xyz".to_owned()
+            }
+        );
+        assert_eq!(
+            routes[2].target,
+            RouteTarget::PhpFpm { pool: None },
+            "a `--php` with no pool leaves the resolution to the daemon, as a site does"
+        );
+        assert_eq!(
+            routes[3].target,
+            RouteTarget::Static {
+                root: "dist".to_owned()
+            }
+        );
+
+        // Nothing typed leaves the list alone; `--no-routes` empties it. Two different requests.
+        assert_eq!(site_routes(&[], &[], &[], false).expect("nothing"), None);
+        assert_eq!(
+            site_routes(&[], &[], &[], true).expect("cleared"),
+            Some(Vec::new())
+        );
+
+        // `--no-routes` beside a route is refused rather than ordered. clap refuses it first; this
+        // keeps the function honest for any caller that is not clap.
+        assert!(site_routes(&["/a=http://h:1".to_owned()], &[], &[], true).is_err());
+
+        // A value with no `=` is a proxy route with nowhere to go.
+        assert!(site_routes(&["/a".to_owned()], &[], &[], false).is_err());
+    }
 
     #[test]
     fn a_length_of_time_is_read_from_its_suffix() {
