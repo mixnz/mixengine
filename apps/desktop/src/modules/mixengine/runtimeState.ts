@@ -91,3 +91,57 @@ function refusal(value: unknown): AppError {
 export function formatInstalledAt(ms: number): string {
   return new Date(ms).toLocaleString();
 }
+
+/**
+ * Các bản đã cài của một kind, **mới nhất trước** — thứ một ô pin gợi ý.
+ *
+ * Sắp lại chứ không tin thứ tự daemon trả về: `runtime.list_installed` đọc `ORDER BY kind,
+ * version`, tức là sắp *chuỗi*, nên `8.10.0` về trước `8.9.0`. Một danh sách gợi ý nói sai bản nào
+ * mới hơn thì tệ hơn là không sắp gì.
+ *
+ * So từng đoạn: phần số dẫn đầu so như số, phần đuôi còn lại so như chuỗi và **đuôi ngắn hơn là
+ * bản ra sau** — `8.5.0` sau `8.5.0RC1`, đúng luật "một constraint không nhắc pre-release thì không
+ * bao giờ chọn pre-release" của `VersionConstraint`. Đây là thứ tự để *hiển thị*; việc chọn bản nào
+ * thật sự khớp constraint vẫn là của daemon.
+ */
+export function installedVersions(
+  runtimes: readonly { kind: string; version: string }[],
+  kind: string,
+): string[] {
+  return runtimes
+    .filter((runtime) => runtime.kind === kind)
+    .map((runtime) => runtime.version)
+    .sort((left, right) => compareVersions(right, left));
+}
+
+/** Âm khi `left` ra trước `right`. */
+function compareVersions(left: string, right: string): number {
+  const ours = left.split(".");
+  const theirs = right.split(".");
+  for (let i = 0; i < Math.max(ours.length, theirs.length); i++) {
+    // Đoạn thiếu là bản ngắn hơn — `20.11` trước `20.11.1`.
+    if (ours[i] === undefined) return -1;
+    if (theirs[i] === undefined) return 1;
+    const decided = compareSegments(ours[i], theirs[i]);
+    if (decided !== 0) return decided;
+  }
+  return 0;
+}
+
+function compareSegments(left: string, right: string): number {
+  const ourNumber = Number.parseInt(left, 10);
+  const theirNumber = Number.parseInt(right, 10);
+  if (ourNumber !== theirNumber) {
+    // Một đoạn không mở đầu bằng số cho `NaN`; so như chuỗi là thứ duy nhất còn nghĩa lúc đó.
+    if (Number.isNaN(ourNumber) || Number.isNaN(theirNumber)) return left < right ? -1 : 1;
+    return ourNumber - theirNumber;
+  }
+
+  // Cùng số dẫn đầu: đuôi rỗng (`0`) là bản phát hành, đuôi có chữ (`0RC1`) là bản trước nó.
+  const ourTail = left.slice(String(ourNumber).length);
+  const theirTail = right.slice(String(theirNumber).length);
+  if (ourTail === theirTail) return 0;
+  if (ourTail === "") return 1;
+  if (theirTail === "") return -1;
+  return ourTail < theirTail ? -1 : 1;
+}

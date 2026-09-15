@@ -96,3 +96,33 @@ export function formatRemaining(untilMs: number, nowMs: number = Date.now()): st
 export function siteUrl(site: { domain: string; https: boolean }): string {
   return `${site.https ? "https" : "http"}://${site.domain}`;
 }
+
+/** Hai việc một cú bấm vào domain sinh ra, tách khỏi việc *làm* chúng. */
+export interface SiteVisit {
+  /** Project cần bật service trước khi mở, hoặc `null` nếu không có gì để bật. */
+  startProject: string | null;
+  /** Địa chỉ mở ra sau đó. */
+  url: string;
+}
+
+/**
+ * Bấm vào domain của một site thì phải làm gì.
+ *
+ * **Site của extension chỉ mở, không bật gì** — `service.start` nhận một *tên project*, mà một site
+ * extension không có project nào; đoán bừa một cái tên là gửi cho daemon một thứ nó sẽ từ chối.
+ * Thứ phục vụ nó là việc của extension ấy, và nút vẫn bấm được thay vì thành một hàng chết giữa
+ * bảng.
+ *
+ * Trạng thái `disabled` cố ý *không* xét ở đây: nó nói web server có sinh server block hay không,
+ * và mở ra để thấy đúng lỗi ấy vẫn là câu trả lời, không phải một nút bấm không ăn.
+ */
+export function siteVisit(site: {
+  domain: string;
+  https: boolean;
+  owner: SiteOwner;
+}): SiteVisit {
+  return {
+    startProject: site.owner.type === "project" ? site.owner.name : null,
+    url: siteUrl(site),
+  };
+}

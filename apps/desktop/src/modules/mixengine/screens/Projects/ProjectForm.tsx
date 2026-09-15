@@ -12,7 +12,9 @@ import { ChevronRightIcon } from "../../../../icons";
 import * as api from "../../api";
 import type { ProjectDetail } from "@mixengine/api";
 import type { RuntimeKind } from "@mixengine/api";
+import type { RuntimeSummary } from "@mixengine/api";
 import type { SiteKind } from "@mixengine/api";
+import { installedVersions } from "../../runtimeState";
 import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
 import styles from "./ProjectForm.module.css";
 
@@ -118,12 +120,34 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [installed, setInstalled] = useState<RuntimeSummary[]>([]);
   const actionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editing) return;
     void api.services().then((list) => setServiceIds(list.services.map((s) => s.id)));
   }, [editing]);
+
+  /**
+   * Các bản đã cài, để mỗi ô pin gợi ý được thay vì bắt gõ thuộc lòng.
+   *
+   * **Đã cài, không phải tải được** — một constraint chỉ bao giờ được resolve trên những bản có
+   * trên máy này (`VersionConstraint`), nên gợi ý một bản chưa cài là mời người dùng ghim vào thứ
+   * sẽ không resolve nổi.
+   *
+   * Hỏng thì bỏ qua: ô pin vẫn gõ tay được như trước, và một dialog tạo project không nên chết vì
+   * danh sách gợi ý không đọc được.
+   */
+  useEffect(() => {
+    let live = true;
+    void api
+      .runtimesInstalled()
+      .then((list) => live && setInstalled(list.runtimes))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // Dialog dài (khối "tạo nhanh site" mở ra) cuộn được, và nút Lưu nằm ở cuối — lỗi vẽ ra ngay
   // phía trên nút đó, đúng chỗ người dùng đang nhìn lúc bấm, nhưng chèn thêm nội dung vào giữa
@@ -291,13 +315,26 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
             />
 
             <Disclosure summary={t("mixengine.projects.form.pinsSummary")}>
+              {/* `freeText` chứ không phải một Select thường: giá trị ở đây là một
+                  `VersionConstraint`, và danh sách chỉ là các bản đã cài — `^8.3` hay `8.3` không
+                  nằm trong đó nhưng vẫn phải ghim được. */}
               {RUNTIME_KINDS.map((kind) => (
                 <label key={kind} className={styles.field}>
                   {kind}
-                  <Input
+                  <Select
                     value={pins[kind]}
+                    freeText
                     disabled={saving}
-                    onChange={(e) => setPins((prev) => ({ ...prev, [kind]: e.target.value }))}
+                    placeholder={t("mixengine.projects.form.pinAny")}
+                    searchPlaceholder={t("mixengine.projects.form.pinPlaceholder")}
+                    onChange={(value) => setPins((prev) => ({ ...prev, [kind]: value }))}
+                    options={[
+                      { value: "", label: t("mixengine.projects.form.pinAny") },
+                      ...installedVersions(installed, kind).map((version) => ({
+                        value: version,
+                        label: version,
+                      })),
+                    ]}
                   />
                 </label>
               ))}

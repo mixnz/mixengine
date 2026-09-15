@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDownIcon } from "../../icons";
 import { useTranslation } from "../../i18n";
+import { typedValue } from "./freeText";
 import { centeredScrollTop } from "./scroll";
 import styles from "./Select.module.css";
 
@@ -46,6 +47,14 @@ interface SelectProps<T extends string | number> {
    * Worth it for lists long enough to scroll — databases, columns, operators. */
   searchable?: boolean;
   searchPlaceholder?: string;
+  /** Lets the search box commit what was typed, not only pick out of the list — the list becomes
+   * suggestions rather than the whole vocabulary. Implies `searchable`, opens with the current
+   * value already in the box, and offers a row committing anything no option is spelled as.
+   *
+   * For a field whose value is a *grammar* the list only samples: a runtime pin is a version
+   * constraint, so `^8.3` and `8.3` have to stay reachable beside the exact versions installed.
+   * Restricted to a string value, because anything committed here is what somebody typed. */
+  freeText?: T extends string ? boolean : never;
 }
 
 const MENU_GAP = 4;
@@ -87,10 +96,16 @@ function Select<T extends string | number>({
   truncate = true,
   searchable = false,
   searchPlaceholder,
+  freeText = false as T extends string ? boolean : never,
 }: SelectProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  // Free text only: the box has been seeded with the current value and not typed into yet. That
+  // value must not narrow the list — an open menu showing the one option the value already names
+  // would hide every version the user opened it to see — so until a key is pressed the query
+  // counts as empty, and it is the seeded text, not a filter.
+  const [pristine, setPristine] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>(UNMEASURED);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -101,15 +116,38 @@ function Select<T extends string | number>({
   const skipScrollRef = useRef(false);
   const centredRef = useRef(false);
 
+  // A free-text select has the same box, so everything about searching is asked through this
+  // rather than through `searchable` — the two differ only in what the box may commit.
+  const searching = searchable || freeText;
+
   const selected = options.find((o) => o.value === value);
+  /** What the trigger reads, or `null` for nothing chosen yet. */
+  const shown: React.ReactNode | null =
+    selected?.label ?? (freeText && String(value) !== "" ? String(value) : null);
 
   // Everything below indexes into the visible list, not the full one: with a query typed, the
   // keyboard and the mouse have to agree on what "the third option" means.
   const visible = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!searchable || needle === "") return options;
-    return options.filter((o) => optionText(o).toLowerCase().includes(needle));
-  }, [options, query, searchable]);
+    const asked = pristine ? "" : query;
+    const needle = asked.trim().toLowerCase();
+    const matching =
+      !searching || needle === ""
+        ? options
+        : options.filter((o) => optionText(o).toLowerCase().includes(needle));
+    if (!freeText) return matching;
+
+    // At the head, so that typing a value and pressing Enter commits it: the active option starts
+    // at the top of the list, and what was typed is the likelier intent of the two.
+    const typed = typedValue(
+      asked,
+      options.map((o) => String(o.value)),
+    );
+    if (typed === null) return matching;
+    return [
+      { value: typed as T, label: t("select.useTyped", { value: typed }), searchText: typed },
+      ...matching,
+    ];
+  }, [options, query, pristine, searching, freeText, t]);
   const selectedIndex = visible.findIndex((o) => o.value === value);
 
   useEffect(() => {
@@ -150,7 +188,7 @@ function Select<T extends string | number>({
   function measureMenu(): React.CSSProperties {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return UNMEASURED;
-    const rows = options.length + (searchable ? 1 : 0);
+    const rows = options.length + (searching ? 1 : 0);
     const estimatedHeight = Math.min(rows * ROW_HEIGHT + 8, 256);
     const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN;
     const spaceAbove = rect.top - VIEWPORT_MARGIN;
@@ -179,6 +217,12 @@ function Select<T extends string | number>({
    * focus — which is why the first open used to leave the keyboard on the trigger. */
   function openMenu() {
     setMenuStyle(measureMenu());
+    // A free-text box opens on the value it is editing rather than empty: the whole list is still
+    // one keystroke away, and the alternative is retyping `8.3.12` to change its last digit.
+    if (freeText) {
+      setQuery(String(value));
+      setPristine(true);
+    }
     setOpen(true);
   }
 
@@ -187,7 +231,7 @@ function Select<T extends string | number>({
   useLayoutEffect(() => {
     if (!open) return;
     setMenuStyle(measureMenu());
-  }, [open, options.length, searchable]);
+  }, [open, options.length, searching]);
 
   // `width: max-content` is the widest option — until something takes a few pixels back out of it
   // again: the frame drawn around the list, the scrollbar that appears once the list is long
@@ -218,11 +262,15 @@ function Select<T extends string | number>({
 
   // Before the paint, so the box is focused by the time the menu is first seen.
   useLayoutEffect(() => {
-    if (!open || !searchable) return;
+    if (!open || !searching) return;
     // `preventScroll` because the menu is already where it should be — letting the browser
     // scroll to reveal the box it just focused would only move the page under the trigger.
     searchRef.current?.focus({ preventScroll: true });
-  }, [open, searchable]);
+    // The seeded value is selected rather than left with a caret at its end, so the first
+    // keystroke replaces it the way retyping a field does — and the arrow keys still reach the
+    // list, which is what the box is next to.
+    if (freeText) searchRef.current?.select();
+  }, [open, searching, freeText]);
 
   useEffect(() => {
     if (open) {
@@ -375,11 +423,14 @@ function Select<T extends string | number>({
       >
         {/* Chưa chọn gì thì chữ trên trigger phải đọc ra là một lời mời, không phải một giá trị:
             cùng một chỗ, cùng một cỡ chữ, nên độ đậm là thứ duy nhất phân biệt được hai nghĩa. */}
+        {/* A free-text value need not be in the list at all — `^8.3` is a real pin and no option
+            is spelled that way — so the trigger falls back to the value itself before it falls
+            back to the placeholder. Only a genuinely empty one is an invitation. */}
         <span
-          className={selected ? styles.value : `${styles.value} ${styles.placeholder}`}
+          className={shown === null ? `${styles.value} ${styles.placeholder}` : styles.value}
           style={{ textAlign: optionAlign }}
         >
-          {selected ? selected.label : placeholder ?? t("select.placeholder")}
+          {shown ?? placeholder ?? t("select.placeholder")}
         </span>
         {/* Sized above 1em because the shared icon grid leaves margin around the glyph it
             draws, and below the trigger's line box so the icon never sets its height. */}
@@ -392,7 +443,7 @@ function Select<T extends string | number>({
             ref={menuRef}
             style={menuStyle}
           >
-            {searchable && (
+            {searching && (
               <input
                 ref={searchRef}
                 type="text"
@@ -404,7 +455,10 @@ function Select<T extends string | number>({
                 autoCorrect="off"
                 autoCapitalize="off"
                 spellCheck={false}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPristine(false);
+                }}
                 onKeyDown={(e) => onKeyDown(e, true)}
               />
             )}
@@ -429,7 +483,7 @@ function Select<T extends string | number>({
               ))}
               {visible.length === 0 && (
                 <li className={styles.empty}>
-                  {query.trim() === "" ? t("select.noOptions") : t("select.noMatches")}
+                  {pristine || query.trim() === "" ? t("select.noOptions") : t("select.noMatches")}
                 </li>
               )}
             </ul>

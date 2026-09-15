@@ -66,6 +66,7 @@ const vi: SharedDict = {
     noOptions: "Không có tùy chọn",
     noMatches: "Không tìm thấy",
     searchPlaceholder: "Tìm...",
+    useTyped: 'Dùng "{{value}}"',
   },
   input: {
     clear: "Xoá",

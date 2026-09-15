@@ -7,6 +7,7 @@ import {
   joinDocRoot,
   relativeToRoot,
   siteUrl,
+  siteVisit,
   type SiteRow,
 } from "./siteState";
 
@@ -114,5 +115,29 @@ describe("siteUrl", () => {
 
   it("and plain http when it does not", () => {
     expect(siteUrl({ domain: "blog.test", https: false })).toBe("http://blog.test");
+  });
+});
+
+describe("siteVisit", () => {
+  it("starts the owning project's services, then opens the site", () => {
+    expect(
+      siteVisit({
+        domain: "blog.test",
+        https: true,
+        owner: { type: "project", name: "blog" },
+      }),
+    ).toEqual({ startProject: "blog", url: "https://blog.test" });
+  });
+
+  /* An extension's site has no project, and `service.start` is asked for one by name — so the
+     start is skipped rather than guessed at. Whatever serves it is already somebody else's. */
+  it("opens an extension's site without starting anything", () => {
+    expect(
+      siteVisit({
+        domain: "mail.test",
+        https: false,
+        owner: { type: "extension", id: "mailpit" },
+      }),
+    ).toEqual({ startProject: null, url: "http://mail.test" });
   });
 });

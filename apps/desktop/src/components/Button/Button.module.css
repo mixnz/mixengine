@@ -155,3 +155,62 @@
     filter: brightness(1.18);
   }
 }
+
+/* A value that is also an action: no surface, no chrome, drawn as the text it wraps.
+
+   Every rule here has to out-specify the shared states above — `.button:not(.primary):hover:not(
+   :disabled)` is four classes' worth, and would otherwise put a border colour and a brightness
+   shift on something that has neither a border nor a fill. So each one names `.button.link` and
+   sits below them in source order. */
+.button.link {
+  padding: 0;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  font-weight: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  text-align: left;
+  /* The domain is still text somebody wants to copy. A `<button>` is not selectable by default, so
+     a drag across it would select nothing — with this, a click still fires and a drag still takes
+     the text. */
+  user-select: text;
+  /* The column is a value first: it reads as text until the pointer says otherwise. */
+  text-decoration: none;
+}
+
+.button.link:hover:not(:disabled) {
+  border-color: transparent;
+  filter: none;
+  text-decoration: underline;
+  color: var(--accent);
+}
+
+.button.link:active:not(:disabled) {
+  background: none;
+  filter: none;
+}
+
+/* The shared ring is drawn on a border this variant does not have, so it is an outline instead —
+   which follows the text rather than a box the button never painted. */
+.button.link:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--control-radius);
+}
+
+/* The dark-theme hover above names `:root[…]`, which out-specifies `.button.link` on its own — so
+   the variant has to say no again at the same weight, or a transparent control would still be run
+   through `brightness(1.35)` and take its hovered text colour with it. */
+:root[data-theme="dark"] .button.link:hover:not(:disabled) {
+  filter: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .button.link:hover:not(:disabled) {
+    filter: none;
+  }
+}

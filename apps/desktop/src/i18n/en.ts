@@ -77,6 +77,7 @@ const en = {
     noOptions: "No options",
     noMatches: "No matches",
     searchPlaceholder: "Search...",
+    useTyped: 'Use "{{value}}"',
   },
   input: {
     clear: "Clear",

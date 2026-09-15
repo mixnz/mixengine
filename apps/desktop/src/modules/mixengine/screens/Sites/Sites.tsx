@@ -1,3 +1,4 @@
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
@@ -9,7 +10,13 @@ import * as api from "../../api";
 import type { SiteDetail } from "@mixengine/api";
 import type { SiteSharing } from "@mixengine/api";
 import { subscribeDaemonWatch } from "../../daemonWatch";
-import { applySharingChange, canEditSite, formatRemaining, type SiteRow } from "../../siteState";
+import {
+  applySharingChange,
+  canEditSite,
+  formatRemaining,
+  siteVisit,
+  type SiteRow,
+} from "../../siteState";
 import { takePendingSitesFilter } from "../../sitesNavigation";
 import ShareDialog from "./ShareDialog";
 import SiteForm from "./SiteForm";
@@ -67,6 +74,14 @@ export default function Sites({ active }: { active: boolean }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<SiteDetail | null>(null);
   const [sharing, setSharing] = useState<string | null>(null);
+  /**
+   * Domain đang chờ bật service, khoá **cả bảng** chứ không riêng hàng ấy.
+   *
+   * Một biến giữ một domain, nên hai lượt chồng nhau sẽ giẫm lên nhau: lượt xong trước xoá luôn
+   * dấu chờ của lượt còn đang chạy. Khoá cả bảng là cách rẻ nhất để chuyện đó không xảy ra, và cái
+   * giá — vài giây không bấm được hàng khác — nhỏ hơn một bảng nói sai nó đang làm gì.
+   */
+  const [opening, setOpening] = useState<string | null>(null);
   const { t } = useTranslation();
 
   // `filterOverride` là đường thoát khỏi độ trễ một nhịp của `setState`: effect refresh project
@@ -141,6 +156,29 @@ export default function Sites({ active }: { active: boolean }) {
   }
 
   /**
+   * Bấm vào domain: bật những service site này cần, rồi mở nó.
+   *
+   * **Không đợi service báo khoẻ, chỉ đợi `service.start` trả về** — cùng luật `AfterApply` đã
+   * theo. Sức khoẻ thật là câu hỏi của màn Services; ở đây chờ thêm chỉ là giữ người dùng lại
+   * trước một trình duyệt đằng nào cũng tự thử lại.
+   *
+   * Start hỏng thì **không** mở: một trang lỗi không nói được rằng service mới là thứ hỏng, còn
+   * `ErrorBanner` thì nói đúng câu daemon trả về.
+   */
+  async function visit(row: SiteRow) {
+    const { startProject, url } = siteVisit(row);
+    setOpening(row.domain);
+    try {
+      if (startProject !== null) await api.serviceStartProject(startProject);
+      await openUrl(url);
+    } catch (e) {
+      setError(errorMessage(t, e));
+    } finally {
+      setOpening(null);
+    }
+  }
+
+  /**
    * Bỏ chia sẻ. Cập nhật hàng ngay khi call trả về, không đợi `site_sharing_changed` — sự kiện đó
    * là cho lúc nó **tự** đổi (hết giờ, mất mạng), không phải cho lúc người dùng vừa bấm.
    */
@@ -197,7 +235,19 @@ export default function Sites({ active }: { active: boolean }) {
           <tbody>
             {rows.map((row) => (
               <tr key={row.domain}>
-                <td>{row.domain}</td>
+                <td>
+                  <Button
+                    variant="link"
+                    disabled={opening !== null}
+                    onClick={() => void visit(row)}
+                    title={t("mixengine.sites.openHint", { url: siteVisit(row).url })}
+                  >
+                    {row.domain}
+                  </Button>
+                  {opening === row.domain && (
+                    <span className={styles.opening}>{t("mixengine.sites.opening")}</span>
+                  )}
+                </td>
                 <td>
                   {row.owner.type === "project"
                     ? t("mixengine.sites.ownerProject", { name: row.owner.name })

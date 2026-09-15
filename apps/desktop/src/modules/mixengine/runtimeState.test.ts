@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { formatInstalledAt, jobFinished, jobFor, poolBanner, versionKey } from "./runtimeState";
+import {
+  formatInstalledAt,
+  installedVersions,
+  jobFinished,
+  jobFor,
+  poolBanner,
+  versionKey,
+} from "./runtimeState";
 import type { JobRow } from "./daemonState";
 
 describe("versionKey", () => {
@@ -115,5 +122,49 @@ describe("jobFinished", () => {
 
   it("returns null for invalid JSON", () => {
     expect(jobFinished("not json")).toBeNull();
+  });
+});
+
+describe("installedVersions", () => {
+  function runtime(kind: string, version: string) {
+    return { kind, version } as Parameters<typeof installedVersions>[0][number];
+  }
+
+  it("keeps only the kind that was asked for", () => {
+    const list = [runtime("php", "8.3.12"), runtime("node", "20.11.1")];
+    expect(installedVersions(list, "php")).toEqual(["8.3.12"]);
+  });
+
+  it("answers nothing for a kind with nothing installed", () => {
+    expect(installedVersions([runtime("php", "8.3.12")], "ruby")).toEqual([]);
+  });
+
+  /* The daemon answers `ORDER BY kind, version`, which is a string sort — so it hands back `8.10`
+     before `8.9`. Newest first only means anything if the segments are compared as numbers. */
+  it("puts a higher segment first even when it is the shorter string", () => {
+    const list = [runtime("php", "8.9.0"), runtime("php", "8.10.0")];
+    expect(installedVersions(list, "php")).toEqual(["8.10.0", "8.9.0"]);
+  });
+
+  it("orders newest first across major, minor and patch", () => {
+    const list = [
+      runtime("php", "8.2.23"),
+      runtime("php", "7.4.33"),
+      runtime("php", "8.3.12"),
+      runtime("php", "8.3.9"),
+    ];
+    expect(installedVersions(list, "php")).toEqual(["8.3.12", "8.3.9", "8.2.23", "7.4.33"]);
+  });
+
+  /* A constraint naming no pre-release never selects one, so a release candidate is the older of
+     the two and belongs below the release it precedes. */
+  it("puts a release above the release candidate that precedes it", () => {
+    const list = [runtime("php", "8.5.0RC1"), runtime("php", "8.5.0")];
+    expect(installedVersions(list, "php")).toEqual(["8.5.0", "8.5.0RC1"]);
+  });
+
+  it("treats a version with fewer segments as the earlier one", () => {
+    const list = [runtime("node", "20.11"), runtime("node", "20.11.1")];
+    expect(installedVersions(list, "node")).toEqual(["20.11.1", "20.11"]);
   });
 });
