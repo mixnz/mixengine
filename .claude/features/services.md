@@ -308,6 +308,47 @@ database, since `GRANT ALL ON DATABASE` has not carried `CREATE` on `public` sin
 There is no `database.drop`. Removing a database destroys data, and nothing has asked for it — see
 [blueprints.md](blueprints.md) for what a blueprint rollback does instead.
 
+## The commands a package brings with it
+
+**An installed database puts its clients on the PATH** — roadmap task **T130**,
+[ADR 0033](../decisions/0033-bin-is-a-projection-of-what-is-installed.md). `<root>/bin` fronts
+`mysqldump`, `psql`, `redis-cli` and their siblings for whatever this home has installed, so a
+terminal can open a database without knowing where MixEngine unpacked it.
+
+Each recipe **declares** which of its programs are commands rather than the list being derived from
+the artifact's `provides`, and the difference matters twice: nginx's map holds `mime.types` beside
+`nginx.exe`, and every supervised server — `mariadbd`, `postgres`, `redis-server` — plus every
+bootstrapper — `initdb`, `pg_ctl`, `mariadb-install-db` — stays out. A shim in front of one of those
+would be a second way to start or overwrite something nothing is watching. They stay reachable at
+their full path.
+
+**A client belongs to an instance, not to a version.** A runtime resolves per directory; a database
+cannot, because it has instances with their own versions, data directories and ports. So the
+instance decides both which install the program comes out of and, through the client family's own
+variable, where it connects:
+
+```
+mariadb / mysql   MYSQL_HOST   MYSQL_TCP_PORT
+postgres          PGHOST       PGPORT
+redis, memcached  (those clients read no environment; use -p)
+```
+
+That second half is not a nicety. *Ports, and who gets 3306* above gives 3306 to whichever of
+MariaDB and MySQL was created first and the next free port to the other, so on a home with both, a
+bare `mysql` told nothing would open a session on the other product's server and report success. A
+variable the person already exported is never overwritten, and `MIXENGINE_MARIADB=mariadb@legacy`
+names an instance outright.
+
+**MariaDB also answers to `mysql`, `mysqladmin` and `mysqldump`**, because its own archive publishes
+`mariadb-dump` while every tutorial and script says `mysqldump` — and it drops all three the moment
+the MySQL package is installed beside it. A real name always beats a spelling; where two packages
+publish the same real name, the one with an instance wins, then the one on the product's documented
+port, then the package name ascending. `mix path status` and `mix doctor` both say who won.
+
+A home with the package installed and **no instance** still gets the clients, out of the newest
+version installed and told nothing about an endpoint: `mysqldump -h db.example.com` is a real use of
+one.
+
 ## Acceptance criteria
 
 - `mix service start caddy mariadb redis` → all three healthy in under 10 s, **warm**: installed,

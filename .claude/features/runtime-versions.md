@@ -53,15 +53,66 @@ is resolved against installed versions — **never** silently against downloadab
    first argument, with the PHP's own environment.
 
 Only `<root>/bin` goes on the user's PATH — one entry, never per-version directories. The directory
-is filled by the daemon at every start, one shim per row in `core::shims::COMMANDS` — a hard link to
+is filled by the daemon at every start — a hard link to
 the shim binary wherever the filesystem gives one file a second name, and a copy of its bytes where
 it does not, which on Windows is always: a shim there outlives the program it starts, so a link would
 let a running `php -S` hold the shim binary itself open against the next upgrade. Either way the file
 in `bin/` dispatches on the name it was invoked by. Putting the directory on the PATH is
 `path.install`, which is asked for rather than assumed, and
-`path.uninstall` reverses it. Because the command table is a constant, `bin/` does **not** depend on
-what is installed and there is nothing to refresh after an install — a `node` shim on a machine with
-no Node.js resolves nothing and says which command to type.
+`path.uninstall` reverses it.
+
+**`bin/` is a projection of what is installed** — [ADR 0033](../decisions/0033-bin-is-a-projection-of-what-is-installed.md),
+roadmap tasks **T130** and **T131**. Three sources compose it, and the compiled table stays first:
+
+1. `core::shims::COMMANDS`, which is a constant and does **not** depend on what is installed — a
+   `node` shim on a machine with no Node.js resolves nothing and says which command to type, which
+   is a better answer than `node: command not found` from a tool whose job is managing versions of
+   Node.
+2. The **client commands of installed service packages** — `mysqldump`, `psql`, `redis-cli`. See
+   [services.md](services.md).
+3. The **tools somebody installed into a runtime**, below.
+
+`path.status` says which of the three put each name there, and `mix doctor` names a discovered
+command that comes before a program already on the PATH.
+
+### A tool installed into a runtime
+
+`npm install -g yarn`, `pip install poetry`, `gem install rails`. Each package manager writes into a
+**bindir inside the runtime's own install** — measured rather than assumed: `npm config get prefix`
+inside a MixEngine Node answers the install directory itself on Windows and its `bin` on Unix — and
+no part of that is ever on anybody's PATH.
+
+So the daemon looks for them and fronts what it finds. A scan of each installed runtime's bindir
+records the name and **which language it belongs to** (`bin_commands`), and `bin/` gains a shim for
+each. What it refuses: a name `COMMANDS` already holds, a program the artifact itself publishes,
+MixEngine's own binaries, and a file this system does not execute.
+
+**A discovered tool follows the version, exactly as `npm` does.** `yarn` is resolved for the
+directory it was typed in and looked for inside *that* version's bindir — so a project pinned to
+another Node gets that Node's Yarn, or a sentence naming the version and `npm install -g yarn`. A
+PATH entry pointing at one install could never have done that, which is why there is not one.
+
+The pass runs every `[bin] rescan_seconds` (two by default), costs one `stat` per installed runtime
+and does nothing more when no bindir has moved. `mix path rescan` runs it now. Composer's own global
+bindir is out of scope: it is `~/.composer/vendor/bin`, outside every install directory.
+
+### What a shim tells the program it becomes
+
+`PATH` with the runtime's own directory first, the generated ini set (`PHP_INI_SCAN_DIR`, T28), and
+**where this machine's certificate authorities are** — roadmap task **T133**,
+[ADR 0034](../decisions/0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md):
+
+| kind | variable | file |
+| --- | --- | --- |
+| Node | `NODE_EXTRA_CA_CERTS` | `certs/ca/root.crt` |
+| Python | `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` | `etc/ca/bundle.pem` |
+| Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
+| PHP, Composer | — | the generated ini set says it instead |
+
+Node is handed the authority and the others the merged bundle, because `NODE_EXTRA_CA_CERTS` *adds*
+to what Node trusts and every other mechanism **replaces** a trust store. See [tls.md](tls.md).
+Nothing is exported for a file that is not there, and a variable the person already set is never
+overwritten.
 
 ## Install flow
 

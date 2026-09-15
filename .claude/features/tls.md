@@ -138,6 +138,39 @@ just before the render; a home with no usable authority renders no `ssl_*` line 
 does what it did before. Nothing reloads a running server's certificate — `mix service restart`
 is the renewal — and `mix cert status` lists sites only.
 
+## What a runtime trusts
+
+**A browser reads the operating system's trust store. No language runtime does** — roadmap tasks
+**T132** and **T133**,
+[ADR 0034](../decisions/0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md).
+Node ships a compiled-in Mozilla set; Ruby's OpenSSL resolves a `ssl/cert.pem` inside its own moved
+tree; Python uses OpenSSL's default paths and `certifi` above them; PHP uses `openssl.cafile` and
+`curl.cainfo`, and the Windows artifact ships **no CA file at all**. So a site this machine shows a
+padlock for was one a `fetch()` in the same project refused, with `unable to verify the first
+certificate` — and every program on all three systems was behaving correctly.
+
+So the daemon writes **`etc/ca/bundle.pem`**: every root this machine already trusts, read through
+`mixengine_platform::TrustStore::roots`, and then this home's authority. Generated, disposable and
+rebuilt at every start; the authority's fingerprint is in its header, so `cert.ca_rotate` makes it a
+changed file for the same reason a reissued leaf makes a front end re-read.
+
+Each runtime is then handed it through **its own** mechanism — see
+[runtime-versions.md](runtime-versions.md) for the table. Node gets `NODE_EXTRA_CA_CERTS` naming
+`certs/ca/root.crt` and nothing else, because that variable *adds* to what Node already trusts;
+Python, Ruby and PHP get the bundle, because `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `openssl.cafile`
+and `curl.cainfo` all **replace** a trust store, and a file holding one certificate would trust this
+home's sites and nothing else on the internet.
+
+PHP is told through the generated ini set rather than through a variable, so `php -r` in a terminal
+and `curl_exec()` inside a pool answer the same thing — which is what makes a site of this home
+reachable over HTTPS *from another site of this home*.
+
+**Two refusals are part of the design.** A trust store that answers fewer than twenty roots was read
+wrong rather than a machine that trusts nothing, and no bundle is written from it — pointing a
+runtime at a handful of certificates would replace a working trust store with a broken one on the
+next command somebody typed. And a `SSL_CERT_FILE` the person already exported is left exactly as
+they set it; `mix doctor` reports the shadowing instead of overruling it.
+
 ## Trust store details
 
 | OS | Store | Command / API | Removal |

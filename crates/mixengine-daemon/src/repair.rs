@@ -200,6 +200,21 @@ impl Repairs {
                 }
             }
 
+            // **Nothing is read back to confirm it** — roadmap task T132, and the difference from
+            // the two repairs around it is worth stating: a browser database or a site can refuse,
+            // and this cannot. `render` is a comparison and an atomic write of a file inside the
+            // home; the machine's own store is what it is either way. So the only outcome that
+            // could be wrong here is one that claimed a bundle where the store answered too few
+            // roots — which is why the check above makes *that* a `Note` and never a problem this
+            // is asked to fix.
+            InHome::WriteTrustBundle => {
+                self.certificates.rebuild_trust_bundle();
+
+                Action::Repaired {
+                    what: "this home's runtimes have a trust bundle to read".to_owned(),
+                }
+            }
+
             InHome::TrustBrowsers => {
                 // Read here rather than inside: the method takes the state so that a daemon
                 // start, which already has one, does not pay for the system trust-store probe a
@@ -383,6 +398,9 @@ enum InHome {
 
     /// Issue the certificates the sites that declare HTTPS are missing — T50.
     IssueCertificates,
+
+    /// Write the trust bundle this home's runtimes read — T132.
+    WriteTrustBundle,
 }
 
 /// A repair only the elevated helper can make.
@@ -420,6 +438,7 @@ fn plan_for(id: ProblemId) -> Planned {
         ProblemId::ServiceUnsupervised => Planned::InHome(InHome::ReconcileStrandedRows),
         ProblemId::BrowsersNotTrusted => Planned::InHome(InHome::TrustBrowsers),
         ProblemId::SiteCertificateMissing => Planned::InHome(InHome::IssueCertificates),
+        ProblemId::TrustBundleMissing => Planned::InHome(InHome::WriteTrustBundle),
 
         ProblemId::DomainUnreachable => Planned::Untouched(
             "a name resolves once the hosts block and the resolver are what they should be, and \

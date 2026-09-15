@@ -47,6 +47,12 @@ pub(crate) struct Doctor {
     /// Where this home's authority lives, for the trust-store check — T49a.
     certs: std::path::PathBuf,
 
+    /// Where the generated trust bundle lives, for the check that reads it — T132.
+    etc: std::path::PathBuf,
+
+    /// `<root>/bin`, for the check that asks what else on this PATH answers to its names — T131.
+    bin: std::path::PathBuf,
+
     /// What these rows render to, for the drift check — the registry's own generator.
     generator: mixengine_core::generate::Generator,
 
@@ -86,6 +92,8 @@ impl Doctor {
             domains,
             root: paths.root().to_path_buf(),
             certs: paths.certs().to_path_buf(),
+            etc: paths.etc().to_path_buf(),
+            bin: paths.bin().to_path_buf(),
             generator,
             crashes,
         })
@@ -104,6 +112,8 @@ impl Doctor {
                 self.trust_store(),
                 self.browsers(),
                 self.site_certificates().await,
+                self.trust_bundle(),
+                self.commands().await,
                 self.dns_server(),
                 self.port_access().await,
                 self.pending_permissions().await,
@@ -431,6 +441,164 @@ impl Doctor {
                     ),
                 },
             }
+        }
+    }
+
+    /// **The bundle every runtime is pointed at** — roadmap task **T132**.
+    ///
+    /// Three answers, and the middle one is the reason this is not a single `is_file`:
+    ///
+    /// - a machine whose store **cannot be read** is a `Note`. There is nothing to repair, nothing
+    ///   MixEngine did wrong, and nothing is exported — so the runtimes are exactly as they were
+    ///   before this task existed, which is a working machine and not a faulty one.
+    /// - a store that reads and a bundle that is missing is a **problem**, repaired by writing it.
+    /// - a `SSL_CERT_FILE` the *daemon's own environment* already carries is a `Note`: a shim
+    ///   inherits that variable and leaves it alone, so this home's authority never reaches the
+    ///   runtime and the person has to be told which variable is winning.
+    fn trust_bundle(&self) -> Check {
+        let name = "the trust bundle this home's runtimes read".to_owned();
+        let bundle = mixengine_core::generate::ca::path(&self.etc);
+
+        let shadowing: Vec<&str> = ["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS"]
+            .into_iter()
+            .filter(|variable| std::env::var_os(variable).is_some())
+            .collect();
+
+        if !shadowing.is_empty() {
+            return Check {
+                name,
+                outcome: Outcome::Note {
+                    because: format!(
+                        "this daemon's own environment sets {}, and a command started through \
+                         bin/ inherits it rather than MixEngine's own — unset it, or add this \
+                         home's authority to the file it names",
+                        shadowing.join(" and ")
+                    ),
+                },
+            };
+        }
+
+        let roots = match self.host.trust_store().roots() {
+            Ok(roots) => roots,
+            Err(error) => {
+                return Check {
+                    name,
+                    outcome: Outcome::Note {
+                        because: format!(
+                            "this machine's trusted roots could not be read, so no bundle was \
+                             written and no runtime was told anything: {error}"
+                        ),
+                    },
+                };
+            }
+        };
+
+        if roots.len() < mixengine_core::generate::ca::ROOT_FLOOR {
+            return Check {
+                name,
+                outcome: Outcome::Note {
+                    because: format!(
+                        "this machine's trust store answered {} roots, which is too few to \
+                         believe, so no bundle was written",
+                        roots.len()
+                    ),
+                },
+            };
+        }
+
+        match bundle.is_file() {
+            true => Check {
+                name,
+                outcome: Outcome::Ok {},
+            },
+            false => Check {
+                name,
+                outcome: Outcome::Problem {
+                    id: ProblemId::TrustBundleMissing,
+                    because: format!(
+                        "{} is not there, so a Python, Ruby or PHP program started through bin/ \
+                         cannot verify this home's own HTTPS sites",
+                        bundle.display()
+                    ),
+                },
+            },
+        }
+    }
+
+    /// **What is on the PATH that MixEngine did not choose the name of** — tasks **T130**/**T131**.
+    ///
+    /// Never a problem, always a `Note` or `Ok`, and deliberately: both conditions are somebody's
+    /// own doing and neither is broken.
+    ///
+    /// - **A contested name.** A home with both MariaDB and MySQL installed has one `mysql`, and
+    ///   the order that settled it is in `shims::resolve_claims`. Saying who won is the difference
+    ///   between a person finding out here and finding out from `--version`.
+    /// - **A discovered tool that shadows a program already on the PATH.** A globally installed
+    ///   package called `git` puts a `git` ahead of the machine's own; every version manager that
+    ///   fronts global tools has that property, and refusing it would be deciding on somebody's
+    ///   behalf that a tool they installed is not one they meant.
+    async fn commands(&self) -> Check {
+        let name = "the commands on this home's PATH".to_owned();
+
+        let mut said = Vec::new();
+
+        let claims = mixengine_core::services::client::claims(
+            &self.store,
+            &crate::services::spec::catalogue(),
+            None,
+        )
+        .await;
+
+        match claims {
+            Ok(claims) => {
+                for conflict in mixengine_core::shims::resolve_claims(&claims).1 {
+                    said.push(format!(
+                        "{} runs {}'s client, which {} also publishes",
+                        conflict.name,
+                        conflict.won,
+                        conflict.lost.join(" and ")
+                    ));
+                }
+            }
+            Err(error) => {
+                return Check {
+                    name,
+                    outcome: Outcome::Skipped {
+                        because: format!(
+                            "this home's installed packages could not be read: {error}"
+                        ),
+                    },
+                };
+            }
+        }
+
+        match mixengine_core::bin_commands::all(&self.store).await {
+            Ok(found) => {
+                for command in found.keys() {
+                    if let Some(elsewhere) = elsewhere_on_the_path(command, &self.bin) {
+                        said.push(format!(
+                            "{command} was installed into a runtime and now comes before {}",
+                            elsewhere.display()
+                        ));
+                    }
+                }
+            }
+            Err(error) => said.push(format!(
+                "the discovered commands could not be read: {error}"
+            )),
+        }
+
+        match said.is_empty() {
+            true => Check {
+                name,
+                outcome: Outcome::Ok {},
+            },
+            false => Check {
+                name,
+                outcome: Outcome::Note {
+                    because: said.join("; "),
+                },
+            },
         }
     }
 
@@ -897,6 +1065,36 @@ impl Doctor {
 /// daemon — `mixengine_platform`'s reserved-range parser one check along, and for the same reason.
 /// Each item is an id and whether its row claims a supervisor at all; `held` is what this registry is
 /// actually running.
+/// Where else on this user's PATH a program of this name is, ahead of nothing — task **T131**.
+///
+/// Read off `PATH` rather than off the filesystem generally, because that is the question: a `git`
+/// in `/usr/bin` matters and one in a directory nothing searches does not. `<root>/bin` itself is
+/// skipped, since the name being asked about is the one this directory holds.
+///
+/// [`None`] when nothing else answers to it, which is every name on nearly every machine.
+fn elsewhere_on_the_path(command: &str, bin: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = std::env::var_os("PATH")?;
+
+    // The spellings this system would try, which on Windows is the name plus each of the loader's
+    // extensions. `mixengine_core::runtimes::globals` folds the same list on the way in.
+    let spellings: Vec<String> = match cfg!(windows) {
+        true => ["exe", "com", "bat", "cmd"]
+            .into_iter()
+            .map(|extension| format!("{command}.{extension}"))
+            .collect(),
+        false => vec![command.to_owned()],
+    };
+
+    std::env::split_paths(&path)
+        .filter(|directory| directory != bin)
+        .flat_map(|directory| {
+            spellings
+                .iter()
+                .map(move |spelling| directory.join(spelling))
+        })
+        .find(|candidate| candidate.is_file())
+}
+
 fn stranded<'a>(
     rows: impl Iterator<Item = (&'a str, bool)>,
     held: &std::collections::BTreeSet<&str>,
