@@ -204,7 +204,14 @@ rcgen = { version = "0.14.9", features = ["x509-parser"] }
 # one leaves `rustls` with no process-level default and `ClientConfig::builder()` panics at run time
 # inside a running daemon. Every config built here names its provider explicitly for that reason, so
 # a tree that switched providers fails to compile instead of failing in the field.
-rustls = "0.23.43"
+#
+# **0.23.45 and not the 0.23.43 that was resolved when this was written** — RUSTSEC-2026-0285, which
+# `cargo-deny`'s advisories check raised on a tree nobody had changed: rustls accepted a TLS 1.3
+# handshake message sent at the wrong encryption level when it followed a key change in the same
+# record. The transcript stays authenticated, so it alters no handshake; what it means is that a
+# peer could send in plaintext something that should have been encrypted, and rustls would not
+# refuse. It reaches this tree through `reqwest` rather than through the line below.
+rustls = "0.23.45"
 # Every root this machine already trusts, read the way each operating system keeps them — the
 # Windows `ROOT` store, macOS's trust settings, Linux's `ca-certificates` file. Roadmap task
 # **T132**: MixEngine writes a bundle holding those and its own authority, and hands it to the
