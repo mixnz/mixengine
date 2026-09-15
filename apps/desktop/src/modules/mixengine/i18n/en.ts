@@ -366,6 +366,19 @@ export default {
       rss: "Memory (RSS)",
       empty: "No history yet for this subject.",
       retention: "History kept for {{hours}}h",
+      average: "average",
+      peak: "peak",
+      /** How many readings the minute under the pointer is made of — 1 and 60 are not the same
+       *  confidence, and the tooltip is where that difference is legible. */
+      samples: "{{count}} readings this minute",
+      noData: "nothing measured",
+      sampled: "sampled every second",
+      /** Why the rail is worth a legend entry of its own: it says where the peak band means
+       *  anything at all. */
+      sampledHint:
+        "Where readings came once a second, the peak band is real. Elsewhere MixEngine took one reading a minute, so the peak is the average.",
+      /** What a screen reader is told the chart shows, in place of the picture. */
+      summary: "{{label}}, {{from}} to {{to}}. {{count}} minutes measured, peaking at {{peak}}.",
     },
     settings: {
       general: {

@@ -1,14 +1,158 @@
-.chart {
+.frame {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Chú giải soi đúng nét nó nói tới: một vệt cho đường, một ô cho vùng tô. */
+.keyLine {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.keyBand {
+  width: 14px;
+  height: 10px;
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb) / 0.22);
+}
+
+.keyRail {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgb(var(--accent-rgb) / 0.55);
+}
+
+.box {
+  position: relative;
   width: 100%;
-  height: 8rem;
+}
+
+.chart {
   display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+/* Lưới và nhãn lùi hẳn ra sau dữ liệu — chúng là thước đo, không phải nội dung. */
+.grid {
+  stroke: var(--border-soft);
+  stroke-width: 1;
+}
+
+.tick {
+  fill: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+}
+
+.gap {
+  fill: rgb(128 128 128 / 0.07);
+}
+
+.gapLabel {
+  fill: var(--text-muted);
+  font-family: var(--font-ui);
+  font-size: var(--text-xs);
+  opacity: 0.7;
+}
+
+.rail {
+  fill: rgb(var(--accent-rgb) / 0.55);
+  rx: 1.5;
+}
+
+.band {
+  fill: rgb(var(--accent-rgb) / 0.22);
 }
 
 .avg {
   stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
-.peak {
-  stroke: var(--accent);
-  opacity: 0.3;
+.stem {
+  stroke: rgb(var(--accent-rgb) / 0.45);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.dot {
+  fill: var(--accent);
+}
+
+.peakDot {
+  fill: rgb(var(--accent-rgb) / 0.55);
+}
+
+.hair {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.readout {
+  position: absolute;
+  top: 0;
+  transform: translateX(12px);
+  pointer-events: none;
+  z-index: 1;
+  min-width: 9rem;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* Gần mép phải thì lật sang trái, thay vì tràn ra ngoài khung. */
+.readoutLeft {
+  transform: translateX(calc(-100% - 12px));
+}
+
+.readoutTime {
+  margin-bottom: 4px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Con số dẫn, tên đi sau: người đọc đã biết mình đang xem series nào, cái họ thiếu là giá trị. */
+.readoutRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.6;
+}
+
+.readoutRow strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.readoutRow span:last-child {
+  color: var(--text-muted);
+}
+
+.readoutSamples {
+  margin-top: 4px;
+  color: var(--text-muted);
 }

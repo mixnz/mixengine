@@ -9,7 +9,10 @@ import type { MetricsHistory } from "@mixengine/api";
 import { segmentsFor } from "../../metricsHistoryState";
 import { DAEMON_SUBJECT, metricsSubjectFor } from "../../metricsState";
 import Chart from "./Chart";
+import { CPU_UNIT, RSS_UNIT, windowStart } from "./chartScale";
 import styles from "./Metrics.module.css";
+
+const HOUR_MS = 3_600_000;
 
 /**
  * Lịch sử 24 giờ theo subject — chỉ lịch sử, không lặp lại số "bây giờ" Dashboard đã vẽ (Quyết định
@@ -19,6 +22,9 @@ export default function Metrics({ active }: { active: boolean }) {
   const [subjects, setSubjects] = useState<string[]>([]);
   const [subject, setSubject] = useState(DAEMON_SUBJECT);
   const [history, setHistory] = useState<MetricsHistory | null>(null);
+  // Mốc "bây giờ" của lần đọc này, không phải của lần render này — trục phải đứng yên giữa hai lần
+  // tải, nếu không mỗi lần React vẽ lại là biểu đồ nhích một chút.
+  const [loadedAt, setLoadedAt] = useState(() => Date.now());
   const [error, setError] = useState("");
   const { t } = useTranslation();
 
@@ -35,6 +41,7 @@ export default function Metrics({ active }: { active: boolean }) {
   const reload = useCallback(async () => {
     try {
       setHistory(await api.metricsHistory({ subject, since: null, until: null }));
+      setLoadedAt(Date.now());
       setError("");
     } catch (e) {
       setError(errorMessage(t, e));
@@ -47,6 +54,13 @@ export default function Metrics({ active }: { active: boolean }) {
 
   const minutes = history?.minutes ?? [];
   const segments = segmentsFor(minutes);
+
+  /* Trục không kéo giãn khoảng đã đo ra hết bề rộng: `windowStart` chọn một bậc thời gian tròn
+     chứa nó, và phần chưa ai đo trong bậc ấy hiện ra đúng là chưa ai đo. */
+  const retention = (history?.retention_hours ?? 24) * HOUR_MS;
+  const last = minutes[minutes.length - 1];
+  const to = Math.max(loadedAt, last === undefined ? 0 : last.minute + 60_000);
+  const from = windowStart(minutes[0]?.minute ?? null, to, retention);
 
   return (
     <div className={styles.metrics}>
@@ -71,11 +85,27 @@ export default function Metrics({ active }: { active: boolean }) {
         <>
           <section>
             <h3 className={styles.title}>{t("mixengine.metrics.cpu")}</h3>
-            <Chart segments={segments} avg={(m) => m.cpu_avg} peak={(m) => m.cpu_peak} />
+            <Chart
+              segments={segments}
+              from={from}
+              to={to}
+              unit={CPU_UNIT}
+              label={t("mixengine.metrics.cpu")}
+              avg={(m) => m.cpu_avg}
+              peak={(m) => m.cpu_peak}
+            />
           </section>
           <section>
             <h3 className={styles.title}>{t("mixengine.metrics.rss")}</h3>
-            <Chart segments={segments} avg={(m) => m.rss_avg} peak={(m) => m.rss_peak} />
+            <Chart
+              segments={segments}
+              from={from}
+              to={to}
+              unit={RSS_UNIT}
+              label={t("mixengine.metrics.rss")}
+              avg={(m) => m.rss_avg}
+              peak={(m) => m.rss_peak}
+            />
           </section>
         </>
       )}

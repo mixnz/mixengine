@@ -88,6 +88,14 @@
   start` by hand. A service you stopped yourself is still left alone.
 
 ### Changed
+- MixLab's Metrics charts now say what they are drawing: a labelled time axis, a labelled value axis,
+  and a crosshair that reads out the average, the peak and how many readings that minute is made of.
+  Time nobody measured is drawn as such rather than left to look like a flat line, the peak is a band
+  around the average instead of a thick line beside it, and the chart is measured in real pixels — so
+  a wide pane no longer stretches the strokes out of shape. A rail under the axis marks the stretches
+  MixEngine read once a second, which is where that peak band means anything: everywhere else it took
+  one reading a minute, and the peak is the average. Each chart also carries a sentence saying what
+  it shows, for anyone reading the screen rather than looking at it.
 - MixLab stops offering a second MixEngine tab: one tab is the whole of it, so a window showing
   MixEngine alone has no `[+]` button, and `Ctrl/Cmd+1` goes to the tab rather than opening another.
   The close button on the last tab there is now reads *Reload module* — closing it puts a fresh one

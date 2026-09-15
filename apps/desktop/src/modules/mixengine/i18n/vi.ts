@@ -361,6 +361,14 @@ const vi: typeof en = {
       rss: "Bộ nhớ (RSS)",
       empty: "Chưa có lịch sử cho mục này.",
       retention: "Giữ lịch sử {{hours}} giờ",
+      average: "trung bình",
+      peak: "đỉnh",
+      samples: "{{count}} lần đo trong phút này",
+      noData: "không ai đo",
+      sampled: "đo mỗi giây",
+      sampledHint:
+        "Ở những quãng đo mỗi giây, dải đỉnh mới có nghĩa. Ngoài đó MixEngine chỉ đọc một lần mỗi phút, nên đỉnh chính là trung bình.",
+      summary: "{{label}}, {{from}} tới {{to}}. Đo được {{count}} phút, đỉnh {{peak}}.",
     },
     settings: {
       general: {
