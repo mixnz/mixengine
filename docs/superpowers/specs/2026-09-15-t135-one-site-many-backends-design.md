@@ -288,9 +288,14 @@ rather than merging into it — [`SiteUpdate`](../../../crates/mixengine-proto/s
 standing rule, for its stated reason: with a merge there is no way to remove one. `None` leaves the
 list alone; `Some(vec![])` empties it.
 
-`SiteDetail.routes` is optional on the wire —
+`SiteSummary.routes` is optional on the wire —
 [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md) — so a `mix` from
 this build can still read an older daemon's answer.
+
+**On the summary rather than on the detail**, which is where this landed and not where it started.
+The first draft put it on `SiteDetail` alone, and that would have made a listing unable to say
+whether a site has anything behind it without a call per row — the exact argument `SiteSharing` is on
+the summary for. `mix site list` shows a count; `mix site show` shows the list.
 
 `records` reads them with one query per site, beside the two it already makes for domains and
 services. A batch read would be the better shape for all three and is not this task's to introduce
@@ -407,11 +412,35 @@ What is measured, rather than asserted about a template:
 7. **Desktop**: `SiteForm` renders an existing site's routes, adds and removes one, and sends the
    whole list.
 
+## What moved during implementation
+
+- **`routes` is on `SiteSummary`**, not on `SiteDetail` — D7, above.
+- **A whole-site proxy's rewrite is built against the empty prefix, not against `/`.** `"/"` would
+  produce `^/(/.*)?$`, an expression matching `/` and no path beneath it; the empty prefix produces
+  `^(/.*)?$`, which is what `/foo` → `/xyz/foo` needs. Measured on Caddy 2.11.4 before it was
+  written.
+- **The two front-end templates repeat the route loop rather than sharing a macro.** minijinja's
+  `macros` feature is deliberately absent from this workspace's dependency, with the reason written
+  into `Cargo.toml`; the repetition is the same one `site.caddy` already makes for its whole handler,
+  for the reason stated there.
+- **A php-fpm route carries its activator through an `upstream` group of its own on nginx**, named
+  after the site *and the route's position* — nginx refuses a configuration declaring one upstream
+  name twice, and two routes naming one pool is ordinary. Without it, T70's measured lesson would
+  have been silently dropped for routes.
+- **A `static` route's root is made relative against the owner's root** by the same call a doc root
+  goes through, so a root outside the project is refused in the same words.
+- **`PlanAction::CreateSite` carries the routes**, so an applied blueprint creates the site with
+  them. There is no `AddRoute` step and there should not be: a route is a column of the site rather
+  than a name the hosts file has to learn.
+
 ## Risks
 
-- **The nginx renderings in D4 are reasoned, not measured** — this machine has no nginx installed.
-  The first implementation task is to measure them through the existing front-end harness, and the
-  design is expected to move if nginx disagrees. Caddy's half is measured.
+- **The nginx renderings in D4 were reasoned, not measured, when this was written** — this machine
+  had no nginx installed. They have since been measured: `crates/mixengine-cli/tests/routes.rs`
+  drives the same sequence through nginx 1.31.3 and Caddy 2.11.4, both green.
+- **One rendering is still asserted rather than served**: the nginx php-fpm route's nested
+  `location ~ \.php$`. That suite drives no PHP, so nothing reads that text but `recipes::nginx`. It
+  is the shape T124a's leak came from.
 - **Two front ends, one claim.** Every behavioural difference found late is a template change in two
   places; the integration suite driving one sequence twice is what keeps that honest.
 - **A site is now more than one thing to reason about.** `mix site show` printing routes in match
