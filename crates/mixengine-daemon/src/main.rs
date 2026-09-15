@@ -1235,7 +1235,44 @@ async fn serve(
     // Here, after the store and before the site certificates, because a runtime started a moment
     // from now has to find a file rather than an absence — and nothing about it can fail the start,
     // on the rule the block above follows.
-    crate::certs::bundle::render(paths, host.as_ref());
+    // **And the runtimes, which read none of that either** — roadmap task T132. A browser reads the
+    // operating system's trust store; Node, Python, Ruby and PHP each carry a set of their own, so
+    // a site this machine shows a padlock for is one a `fetch()` in the same project refuses. The
+    // bundle is what they can be pointed at: every root this machine trusts, and then ours.
+    //
+    // **Spawned rather than awaited, and that is not a preference.** The endpoint was bound some
+    // way above and nothing is in `accept` yet, so — as the extension block near the end of this
+    // function says in as many words — every moment spent here is a moment a second client on
+    // Windows meets `ERROR_PIPE_BUSY`. Reading this machine's whole trust store and writing a
+    // quarter of a megabyte is the most expensive thing that was ever put between those two
+    // points, and it was measured: ten of `tests/api.rs`' twenty-four daemons stopped answering.
+    //
+    // Nothing about it can fail the start, on the rule the block above follows.
+    tokio::spawn({
+        let paths = paths.clone();
+        let host = Arc::clone(&host);
+        let store = store.clone();
+
+        async move {
+            if !crate::certs::bundle::render(&paths, host.as_ref()) {
+                return;
+            }
+
+            // **The bundle is what a PHP's generated ini set names**, so a home that has just got
+            // one — or just lost one — needs its `conf.d` written again. The pass below runs
+            // unconditionally at every start as well; this is the one that catches the first start
+            // of a home, where the file did not exist when that pass read for it. Idempotent, and
+            // a comparison per installed runtime, so an ordinary start reaches neither.
+            if let Err(error) =
+                mixengine_core::runtimes::extensions::refresh_all(&store, &paths).await
+            {
+                tracing::warn!(
+                    %error,
+                    "the trust bundle moved and the generated conf.d could not be written again"
+                );
+            }
+        }
+    });
 
     // **And every site that declares HTTPS gets the certificate its names need** — roadmap task
     // T50, here and not inside any of the generator blocks below. `.claude/CLAUDE.md` says generated

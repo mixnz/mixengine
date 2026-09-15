@@ -18,12 +18,14 @@ use mixengine_platform::Host;
 /// Called at every daemon start, and again by `cert.ca_rotate`: a rotation changes the fingerprint
 /// in the header, so the file differs and is installed — the same mechanism a renewed leaf uses to
 /// make a front end re-read its configuration.
-pub(crate) fn render(paths: &Paths, host: &dyn Host) {
-    render_into(paths.etc(), paths.certs(), host);
+/// Answers whether the file on disk moved, which is what tells a caller the generated ini sets
+/// naming it have to be written again.
+pub(crate) fn render(paths: &Paths, host: &dyn Host) -> bool {
+    render_into(paths.etc(), paths.certs(), host)
 }
 
 /// The same, for a caller that kept the two directories rather than the whole [`Paths`].
-pub(crate) fn render_into(etc: &std::path::Path, certs: &std::path::Path, host: &dyn Host) {
+pub(crate) fn render_into(etc: &std::path::Path, certs: &std::path::Path, host: &dyn Host) -> bool {
     let roots = match host.trust_store().roots() {
         Ok(roots) => roots,
 
@@ -43,17 +45,26 @@ pub(crate) fn render_into(etc: &std::path::Path, certs: &std::path::Path, host: 
         std::fs::read_to_string(mixengine_core::certs::ca::certificate_path(certs)).ok();
 
     match ca::render(etc, &roots, authority.as_deref()) {
-        Ok(true) if roots.len() >= ca::ROOT_FLOOR => tracing::info!(
-            roots = roots.len(),
-            "wrote a trust bundle this home's runtimes can be pointed at"
-        ),
-        Ok(true) => tracing::warn!(
-            roots = roots.len(),
-            floor = ca::ROOT_FLOOR,
-            "this machine's trust store answered too few roots to believe; the trust bundle was \
-             removed"
-        ),
-        Ok(false) => {}
-        Err(error) => tracing::warn!(%error, "the trust bundle could not be written"),
+        Ok(true) if roots.len() >= ca::ROOT_FLOOR => {
+            tracing::info!(
+                roots = roots.len(),
+                "wrote a trust bundle this home's runtimes can be pointed at"
+            );
+            true
+        }
+        Ok(true) => {
+            tracing::warn!(
+                roots = roots.len(),
+                floor = ca::ROOT_FLOOR,
+                "this machine's trust store answered too few roots to believe; the trust bundle \
+                 was removed"
+            );
+            true
+        }
+        Ok(false) => false,
+        Err(error) => {
+            tracing::warn!(%error, "the trust bundle could not be written");
+            false
+        }
     }
 }
