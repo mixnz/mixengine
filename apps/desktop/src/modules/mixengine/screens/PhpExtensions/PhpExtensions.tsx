@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
@@ -7,6 +7,7 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { RuntimeSummary } from "@mixengine/api";
+import type { RuntimeTarget } from "@mixengine/api";
 import ExtensionsPanel from "../Runtimes/ExtensionsPanel";
 import styles from "./PhpExtensions.module.css";
 
@@ -24,11 +25,27 @@ import styles from "./PhpExtensions.module.css";
  * **Không có PHP thì một câu và một nút**, không phải một bảng rỗng: bảng rỗng bắt người ta đoán
  * xem họ thiếu bước nào.
  */
-export default function PhpExtensions({ onInstallPhp }: { onInstallPhp: () => void }) {
+export default function PhpExtensions({
+  active,
+  onInstallPhp,
+}: {
+  active: boolean;
+  onInstallPhp: () => void;
+}) {
   const [installed, setInstalled] = useState<RuntimeSummary[] | null>(null);
   const [version, setVersion] = useState("");
   const [error, setError] = useState("");
   const { t } = useTranslation();
+
+  /**
+   * Giữ nguyên tham chiếu chừng nào `version` chưa đổi.
+   *
+   * `ExtensionsPanel` có `target` trong deps của `reload`, nên một object literal dựng ngay trong
+   * JSX là một `target` mới **mỗi lần render** — và `MixEngineTab` render lại toàn bộ pane đang
+   * mounted mỗi lần đổi màn. Nghĩa là mỗi lượt chuyển màn tốn thêm một `runtime.list_extensions`
+   * hỏi lại đúng thứ vừa hỏi.
+   */
+  const target = useMemo<RuntimeTarget>(() => ({ kind: "php", version }), [version]);
 
   const reload = useCallback(async () => {
     try {
@@ -46,9 +63,18 @@ export default function PhpExtensions({ onInstallPhp }: { onInstallPhp: () => vo
     }
   }, [t]);
 
+  /**
+   * Đọc lại mỗi khi quay lại màn này, không chỉ lúc mount — `MixEngineTab.pane` giữ mọi màn
+   * mounted và chỉ ẩn đi, nên "đã mount" không có nghĩa là "vừa được xem".
+   *
+   * Đây là màn duy nhất từng bỏ qua giao kèo ấy, và cái giá đúng bằng một lỗi: gỡ bản PHP đang
+   * chọn ở màn Runtimes thì `Select` ở đây vẫn giữ nguyên nó, và `ExtensionsPanel` hỏi daemon về
+   * một runtime không còn tồn tại ("no such runtime: php …"). Luật chọn lại version khi bản đang
+   * chọn biến mất đã nằm sẵn trong `reload()` — thứ thiếu chỉ là một lượt gọi nữa.
+   */
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (active) void reload();
+  }, [active, reload]);
 
   return (
     <div className={styles.screen}>
@@ -82,7 +108,7 @@ export default function PhpExtensions({ onInstallPhp }: { onInstallPhp: () => vo
             />
           </label>
 
-          {version !== "" && <ExtensionsPanel target={{ kind: "php", version }} />}
+          {version !== "" && <ExtensionsPanel target={target} />}
         </>
       )}
     </div>

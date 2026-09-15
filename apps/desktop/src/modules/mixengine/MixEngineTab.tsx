@@ -217,8 +217,9 @@ export default function MixEngineTab({
             draw, and the place to install one is Runtimes right above. The request carried along
             with the jump is what lands it on Languages with `php` already typed — same shape as
             Projects → Sites above, and `selectScreen` so the jump is remembered like any other. */}
-        {pane("phpExtensions", () => (
+        {pane("phpExtensions", (active) => (
           <PhpExtensions
+            active={active}
             onInstallPhp={() => {
               requestRuntimesLanguageFilter("php");
               selectScreen("runtimes");
