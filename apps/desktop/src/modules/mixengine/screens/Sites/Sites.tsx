@@ -162,7 +162,13 @@ export default function Sites({ active }: { active: boolean }) {
       <div className={styles.toolbar}>
         <Select
           value={projectFilter}
-          onChange={setProjectFilter}
+          onChange={(value) => {
+            // The refresh effect above only runs for a new `active` turn, so while this screen is
+            // already open a filter change has to read the sites itself — with `value`, not with
+            // the `projectFilter` that stays one beat stale in the closure.
+            setProjectFilter(value);
+            void reload(value);
+          }}
           searchable
           options={[
             { value: "", label: t("mixengine.sites.filterAllProjects") },
