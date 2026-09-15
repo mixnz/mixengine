@@ -29,6 +29,7 @@ mod secrets;
 mod services;
 mod shims;
 mod sites;
+mod storage;
 mod uninstall;
 mod updates;
 
@@ -241,6 +242,39 @@ struct Args {
     #[arg(long, env = "MIXENGINE_HOME", value_name = "DIR")]
     home: Option<PathBuf>,
 
+    /// Put installed language runtimes here instead of `<root>/runtimes`.
+    ///
+    /// **This writes `config.toml` rather than configuring one process** — roadmap task **T144**,
+    /// and it is the one flag on this binary that does. Where a runtime lives is recorded in
+    /// `runtime_installs.install_path` when it is installed, so a value that applied to one start
+    /// would let a daemon a service manager launched and one a terminal launched disagree about a
+    /// home while the database agreed with neither. A setting that lives in the home cannot do
+    /// that.
+    ///
+    /// Asking for what the file already says is a silent no-op, so a launchd plist or a shell
+    /// alias may carry this for the life of that plist. Asking for something else once anything is
+    /// installed **fails the start** rather than being ignored, on `--log-format`'s reasoning:
+    /// moving an installed home is a file move and a rewrite of those rows, which this does not do.
+    ///
+    /// Relative to the home, or absolute. The same values `[paths]` refuses are refused here.
+    #[arg(long, value_name = "DIR")]
+    runtimes: Option<PathBuf>,
+
+    /// Put installed servers and databases here instead of `<root>/packages`. See `--runtimes`.
+    #[arg(long, value_name = "DIR")]
+    packages: Option<PathBuf>,
+
+    /// Put service data here instead of `<root>/data`. See `--runtimes`.
+    #[arg(long, value_name = "DIR")]
+    data: Option<PathBuf>,
+
+    /// Put logs here instead of `<root>/logs`. See `--runtimes`.
+    ///
+    /// This start's own log lines are already being written when the value is applied, so the move
+    /// takes effect at the next start and `daemon.log` stays where it was for this one.
+    #[arg(long, value_name = "DIR")]
+    logs: Option<PathBuf>,
+
     /// Start the daemon in the background and print the endpoint it is listening on.
     ///
     /// Without this the daemon stays in the foreground, which is what a service manager wants —
@@ -312,6 +346,19 @@ struct Args {
 }
 
 impl Args {
+    /// The four relocations this start was asked for — roadmap task **T144**.
+    ///
+    /// Assembled here rather than read one field at a time further down, on the rule the rest of
+    /// this impl follows: configuration enters the program at `main` and is passed down.
+    fn requested_paths(&self) -> mixengine_core::config::RequestedPaths {
+        mixengine_core::config::RequestedPaths {
+            runtimes: self.runtimes.clone(),
+            packages: self.packages.clone(),
+            data: self.data.clone(),
+            logs: self.logs.clone(),
+        }
+    }
+
     /// Where the package index comes from: what was asked for, or what MixEngine publishes.
     ///
     /// The one place either value is read. Configuration enters at `main` and is passed down —
@@ -570,6 +617,42 @@ async fn run() -> anyhow::Result<()> {
 
     tracing::info!(database = %store.file().display(), "database open and up to date");
 
+    // **Roadmap task T144**, and it has to be here rather than inside `open_home`: whether these
+    // flags may be honoured is a question for the database, and `open_home` never opens one. What
+    // makes the ordering safe is that `mixengine.db` is the one file `[paths]` cannot move, so the
+    // store was opened at a path no relocation can change underneath this decision.
+    let home = match storage::apply(
+        &store,
+        home.paths.config_file(),
+        &home.config.paths,
+        &args.requested_paths(),
+    )
+    .await?
+    {
+        storage::Applied::Nothing => home,
+
+        // Read again rather than patched in place. `open_home` is idempotent and documented as
+        // such — it is what `mix doctor` reuses — so this is the honest way to pick up a layout
+        // that changed a moment ago: resolve, read the file that was just written, and let
+        // `bootstrap` create what the new value names.
+        //
+        // `endpoint` and `lock` above are **not** recomputed, and do not need to be: both come out
+        // of `run/`, which is the directory `[paths]` refuses to move, so a second read answers
+        // with what this process is already holding.
+        storage::Applied::Written(_) => {
+            let moved = mixengine_core::open_home(args.home.as_deref(), host.as_ref())
+                .map_err(|error| error.to_wire())?;
+
+            // The default layout was created a moment ago by the `open_home` at the top of this
+            // function, because the window these flags need is a question for a database that did
+            // not exist yet. What that leaves behind is an empty directory in the home, at exactly
+            // the path somebody who just chose a disk would go looking for their data.
+            storage::tidy(&home.paths, &moved.paths);
+
+            moved
+        }
+    };
+
     // Everything that runs with the database open lives in `serve`, and its result is held rather
     // than propagated with `?`, so that the close below is on the only way out — the transport
     // fails to bind whenever something else is already listening, and a `?` there would skip the
@@ -711,6 +794,23 @@ async fn detach(args: &Args, paths: &Paths, endpoint: &ipc::Endpoint) -> anyhow:
     if let Some(key) = &args.update_key {
         arguments.push("--update-key".into());
         arguments.push(key.into());
+    }
+
+    // And the four relocations — roadmap task **T144**. They have to reach the child rather than
+    // being applied here, because the child is the process that opens the database and only a
+    // process that has opened one can know whether these may still be honoured. A `--detach` that
+    // wrote them itself would be answering that question without having asked it — and a
+    // `--detach` that dropped them would be a flag that works in the foreground and silently does
+    // nothing through the one caller that starts most daemons.
+    //
+    // The name of each flag is the name of the key it writes, which is why this can be a loop over
+    // the same list `config.toml` is written from rather than four blocks like the ones above.
+    let requested = args.requested_paths();
+    for (key, directory) in requested.entries() {
+        if let Some(directory) = directory {
+            arguments.push(format!("--{key}").into());
+            arguments.push(directory.as_os_str().to_owned());
+        }
     }
 
     // The home, and deliberately not this process's working directory. A daemon holds its working
