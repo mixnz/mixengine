@@ -355,6 +355,7 @@ impl Sites {
             https_redirect,
             domains: self.checked(&domains, create.accept_risky_tld)?,
             services: self.existing(&services).await?,
+            routes: Vec::new(),
         };
 
         let written = sites::create(&self.store, &new)
@@ -447,6 +448,7 @@ impl Sites {
             doc_root: None,
             kind: None,
             services: None,
+            routes: None,
             https: None,
             https_redirect: None,
             state: None,
@@ -491,6 +493,7 @@ impl Sites {
                 state: update.state,
                 domains,
                 services,
+                routes: None,
             },
         )
         .await
@@ -1016,6 +1019,14 @@ impl Sites {
             domains: site.domains.clone(),
             pool,
             services: linked,
+            // **In match order and not in the order somebody typed** — roadmap task **T135**. The
+            // rendering resolves an overlap by specificity, so a listing showing declaration order
+            // would be showing something the front end does not do.
+            routes: {
+                let mut routes = site.routes.clone();
+                routes.sort_by(mixengine_core::sites::by_specificity);
+                routes
+            },
         })
     }
 }

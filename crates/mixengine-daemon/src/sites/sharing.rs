@@ -464,6 +464,7 @@ mod tests {
             state: mixengine_proto::SiteState::Enabled,
             domains: vec![primary.to_owned()],
             services: Vec::new(),
+            routes: Vec::new(),
             sharing: shared.then(|| sharing([192, 168, 1, 10], 1)),
         }
     }

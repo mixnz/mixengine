@@ -1717,6 +1717,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec![domain.to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await

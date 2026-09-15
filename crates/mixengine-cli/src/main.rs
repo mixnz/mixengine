@@ -3398,6 +3398,7 @@ async fn site(
                 doc_root,
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
+                routes: None,
                 https,
                 https_redirect,
                 accept_risky_tld,
@@ -3464,6 +3465,7 @@ async fn site(
                 doc_root,
                 kind: site_kind(kind, upstream, port, pool)?,
                 services: (!services.is_empty()).then_some(services),
+                routes: None,
                 https,
                 https_redirect,
                 state: state.map(|state| match state {

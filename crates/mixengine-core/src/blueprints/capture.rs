@@ -424,6 +424,7 @@ mod tests {
                     .iter()
                     .map(|id| ServiceId::parse(*id).expect("an id"))
                     .collect(),
+                routes: Vec::new(),
             },
         )
         .await

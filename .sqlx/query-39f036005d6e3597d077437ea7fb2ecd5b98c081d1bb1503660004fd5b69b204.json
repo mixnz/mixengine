@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM site_routes WHERE site_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "39f036005d6e3597d077437ea7fb2ecd5b98c081d1bb1503660004fd5b69b204"
+}

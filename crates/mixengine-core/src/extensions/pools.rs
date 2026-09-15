@@ -657,6 +657,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["phpmyadmin.mixengine.test".to_owned()],
                 services: vec![ServiceId::parse("mariadb@main").expect("an id")],
+                routes: Vec::new(),
             },
         )
         .await

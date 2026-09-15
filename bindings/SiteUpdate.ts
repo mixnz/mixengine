@@ -2,6 +2,7 @@
 import type { ServiceId } from "./ServiceId";
 import type { SiteKind } from "./SiteKind";
 import type { SiteRef } from "./SiteRef";
+import type { SiteRoute } from "./SiteRoute";
 import type { SiteState } from "./SiteState";
 
 /**
@@ -31,6 +32,12 @@ kind?: SiteKind | null,
  * The services, replacing the links the site had.
  */
 services?: Array<ServiceId> | null, 
+/**
+ * The routes, **replacing** the list the site had — roadmap task **T135**. [`Self::domains`]'
+ * rule and its reason: with a merge there is no way to remove one. `Some(vec![])` empties the
+ * list; [`None`] leaves it alone.
+ */
+routes?: Array<SiteRoute> | null, 
 /**
  * Whether HTTPS is wanted.
  */

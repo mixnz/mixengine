@@ -429,6 +429,7 @@ impl Api {
                         // has an empty `site_service_links`, and a capture of this project would
                         // lose every `[[services]]` entry it should have carried.
                         services: Some(context.ensured.clone()),
+                        routes: None,
                         https: Some(*https),
                         // A blueprint describes what a site *is*; a redirect is a fact about one
                         // home's traffic, which no manifest declares — roadmap task **T98**.

@@ -1370,6 +1370,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await
@@ -1690,6 +1691,7 @@ mod tests {
                 https_redirect: false,
                 domains: vec!["shop.test".to_owned()],
                 services: Vec::new(),
+                routes: Vec::new(),
             },
         )
         .await

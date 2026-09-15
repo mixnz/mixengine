@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT path, target, php_service_id, config_json FROM site_routes\n             WHERE site_id = ? ORDER BY position",
+  "describe": {
+    "columns": [
+      {
+        "name": "path",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_routes",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "name": "target",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_routes",
+            "name": "target"
+          }
+        }
+      },
+      {
+        "name": "php_service_id",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_routes",
+            "name": "php_service_id"
+          }
+        }
+      },
+      {
+        "name": "config_json",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "site_routes",
+            "name": "config_json"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "6e48d7594f1de0eef80e18862edde0868218bd570432eed84d8ef3c8c2591119"
+}

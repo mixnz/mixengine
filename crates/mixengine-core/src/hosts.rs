@@ -116,6 +116,7 @@ mod tests {
             https_redirect: false,
             domains: domains.iter().map(|domain| (*domain).to_owned()).collect(),
             services: Vec::new(),
+            routes: Vec::new(),
         }
     }
 
