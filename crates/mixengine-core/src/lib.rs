@@ -35,6 +35,7 @@ pub mod runtimes;
 pub mod services;
 pub mod shims;
 pub mod sites;
+pub mod storage;
 pub mod store;
 pub mod updates;
 pub mod window;
@@ -523,6 +524,21 @@ pub enum Error {
         /// The parse failure, which carries the line, the column and the accepted keys.
         #[source]
         source: toml::de::Error,
+    },
+
+    /// `config.toml` could not be written to — roadmap task **T143**.
+    ///
+    /// [`Error::Config`]'s sibling on the write path, and separate from it for
+    /// [`Error::ManifestEdit`]'s reason: the first says the user's file is wrong, and this says
+    /// this build could not put something into a file that may be perfectly right. It also carries
+    /// a value this build refused, which is a third thing again — the file is fine, the request is
+    /// not.
+    #[error("{} could not be edited: {reason}", path.display())]
+    ConfigEdit {
+        /// The configuration file.
+        path: PathBuf,
+        /// What stopped it, phrased for whoever wrote the value.
+        reason: String,
     },
 
     /// The database could not be opened or read.

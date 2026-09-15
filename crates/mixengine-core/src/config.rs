@@ -686,6 +686,228 @@ pub struct PathOverrides {
     pub logs: Option<PathBuf>,
 }
 
+impl PathOverrides {
+    /// The four keys and what each is set to, in the order the template lists them.
+    ///
+    /// **One list, walked by everything that has to treat the four alike** — roadmap task **T143**.
+    /// The alternative is four copies of the same `match`, and the fifth key somebody adds later
+    /// reaching three of them.
+    #[must_use]
+    pub fn entries(&self) -> [(&'static str, Option<&Path>); 4] {
+        [
+            ("runtimes", self.runtimes.as_deref()),
+            ("packages", self.packages.as_deref()),
+            ("data", self.data.as_deref()),
+            ("logs", self.logs.as_deref()),
+        ]
+    }
+}
+
+/// What a caller asked to relocate — roadmap task **T143**.
+///
+/// [`PathOverrides`]'s shape without its serde, because the two are different statements: that one
+/// is *what the file says*, and this is *what somebody just asked for*. A key left [`None`] here is
+/// a key nobody mentioned, and [`set_paths`] leaves it exactly as the file has it — which is what
+/// makes `--data` on its own a request about `data/` and about nothing else.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RequestedPaths {
+    /// Where installed language runtimes should go.
+    pub runtimes: Option<PathBuf>,
+    /// Where installed servers and databases should go.
+    pub packages: Option<PathBuf>,
+    /// Where service data should go.
+    pub data: Option<PathBuf>,
+    /// Where logs should go.
+    pub logs: Option<PathBuf>,
+}
+
+impl RequestedPaths {
+    /// The four keys and what each was asked for. [`PathOverrides::entries`]'s shape.
+    #[must_use]
+    pub fn entries(&self) -> [(&'static str, Option<&Path>); 4] {
+        [
+            ("runtimes", self.runtimes.as_deref()),
+            ("packages", self.packages.as_deref()),
+            ("data", self.data.as_deref()),
+            ("logs", self.logs.as_deref()),
+        ]
+    }
+
+    /// Did anybody ask for anything?
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries().iter().all(|(_, path)| path.is_none())
+    }
+
+    /// Which of the requested keys say something `current` does not already say.
+    ///
+    /// **An empty answer is the whole of the silent no-op.** A daemon started from a launchd plist
+    /// or a shell alias carries the same four flags for the life of that plist; asking for what the
+    /// file already says has to be a start that writes nothing and complains about nothing, or the
+    /// flag becomes a thing that works once.
+    ///
+    /// Compared as written rather than as resolved: `bulk/data` and an absolute path to the same
+    /// directory are two different answers to *"what should the file say"*, and this function is
+    /// only ever asked in order to decide whether to write one.
+    #[must_use]
+    pub fn differing_from(&self, current: &PathOverrides) -> Vec<&'static str> {
+        let held = current.entries();
+
+        self.entries()
+            .into_iter()
+            .zip(held)
+            .filter_map(|((key, asked), (_, have))| {
+                let asked = asked?;
+
+                (Some(asked) != have).then_some(key)
+            })
+            .collect()
+    }
+}
+
+/// Set the named keys in `[paths]`, leaving every comment where it was — roadmap task **T143**.
+///
+/// **A `toml_edit` document and not a re-serialised [`Config`]**, for the reason
+/// [`crate::manifest::write`] gives about a project manifest and which holds twice over here: this
+/// file ships with sixty lines of comments explaining the very keys being written, [`TEMPLATE`]
+/// puts them there on first run, and a writer that round-tripped the parsed value would throw all
+/// of them away the first time anybody chose a disk.
+///
+/// **The commented examples are left alone.** `#runtimes = "bulk/runtimes"` stays where the
+/// template put it, above the real key this writes. Removing it would mean matching on comment
+/// text, which is a parser for prose.
+///
+/// The file has to be there: this is called after [`load_or_create`], and creating one here would
+/// mean a `config.toml` with these four keys and none of the documentation.
+///
+/// # Errors
+///
+/// [`Error::Io`] when the file cannot be read or replaced, and [`Error::ConfigEdit`] when it cannot
+/// be parsed or when a value is one [`load`] would refuse — the same sentence, from the same check.
+pub fn set_paths(path: &Path, requested: &RequestedPaths) -> Result<Vec<&'static str>> {
+    let text = std::fs::read_to_string(path).map_err(|source| Error::Io {
+        action: "read",
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    let mut document: toml_edit::DocumentMut =
+        text.parse()
+            .map_err(|error: toml_edit::TomlError| Error::ConfigEdit {
+                path: path.to_path_buf(),
+                reason: error.to_string(),
+            })?;
+
+    // Every value checked before any of them is written: a batch that refused the fourth key after
+    // writing three would leave the file saying something nobody asked for.
+    let mut written = Vec::new();
+    for (key, asked) in requested.entries() {
+        let Some(asked) = asked else {
+            continue;
+        };
+
+        check_relocation(asked).map_err(|reason| Error::ConfigEdit {
+            path: path.to_path_buf(),
+            reason: format!("{key}: {reason}"),
+        })?;
+
+        // TOML is UTF-8, so a path this cannot spell is a path that cannot be written down at all.
+        // Refused rather than lossily converted: a `to_string_lossy` here would store a path with
+        // a replacement character in it and report success.
+        if asked.to_str().is_none() {
+            return Err(Error::ConfigEdit {
+                path: path.to_path_buf(),
+                reason: format!(
+                    "{key}: this path is not valid UTF-8, so it cannot be written into a TOML file"
+                ),
+            });
+        }
+
+        written.push(key);
+    }
+
+    if written.is_empty() {
+        return Ok(written);
+    }
+
+    let table = document
+        .entry("paths")
+        .or_insert_with(|| toml_edit::Item::Table(toml_edit::Table::new()));
+
+    let Some(table) = table.as_table_mut() else {
+        return Err(Error::ConfigEdit {
+            path: path.to_path_buf(),
+            reason: "[paths] is there and is not a table".to_owned(),
+        });
+    };
+
+    // Without this a table created here is *implicit* and renders as nothing at all, so the keys
+    // would be written and the file would come back without them.
+    table.set_implicit(false);
+
+    for (key, asked) in requested.entries() {
+        if let Some(asked) = asked.and_then(Path::to_str) {
+            table[key] = toml_edit::value(asked);
+        }
+    }
+
+    replace_atomically(path, &document.to_string())?;
+
+    Ok(written)
+}
+
+/// Write `contents` over `path` without ever leaving a torn file behind.
+///
+/// A temporary in the same directory, flushed, then renamed — the rule
+/// `mixengine_platform`'s own replace states and which this cannot call: that one is
+/// `pub(crate)` to its crate and compiled only for the elevated helper, deliberately, so that a
+/// third caller cannot reach the mechanism that rewrites `/etc/hosts`. This writes a file inside
+/// `MIXENGINE_HOME` and needs none of that one's ownership carrying.
+fn replace_atomically(path: &Path, contents: &str) -> Result<()> {
+    let directory = path.parent().unwrap_or_else(|| Path::new("."));
+    let temporary = directory.join(format!(
+        "{}.tmp",
+        path.file_name().unwrap_or_default().to_string_lossy()
+    ));
+
+    let failed = |path: &Path, source: std::io::Error| Error::Io {
+        action: "write",
+        path: path.to_path_buf(),
+        source,
+    };
+
+    let staged = (|| -> std::io::Result<()> {
+        let mut file = std::fs::File::create(&temporary)?;
+        file.write_all(contents.as_bytes())?;
+        file.sync_all()
+    })();
+
+    if let Err(source) = staged {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(failed(&temporary, source));
+    }
+
+    // The Windows case `crate::generate` already carries: a rename replaces an existing file
+    // everywhere this runs, except while another process holds the target open without sharing
+    // deletion. Removing it first opens a window where the file is absent, which is worse than a
+    // rename and better than a start that fails because somebody had the file in an editor.
+    if let Err(source) = std::fs::rename(&temporary, path) {
+        if !path.exists() {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(failed(path, source));
+        }
+
+        std::fs::remove_file(path).map_err(|source| failed(path, source))?;
+
+        if let Err(source) = std::fs::rename(&temporary, path) {
+            let _ = std::fs::remove_file(&temporary);
+            return Err(failed(path, source));
+        }
+    }
+
+    Ok(())
+}
+
 /// Refuse a relocation that does not name a directory of its own, or that names one ambiguously.
 ///
 /// `Path::join("")` hands the original path straight back, so `data = ""` would not fail, it would
@@ -700,37 +922,54 @@ where
 {
     let path = Option::<PathBuf>::deserialize(deserializer)?;
 
-    let Some(candidate) = path.as_deref() else {
-        return Ok(path);
-    };
+    if let Some(candidate) = path.as_deref() {
+        check_relocation(candidate).map_err(serde::de::Error::custom)?;
+    }
 
+    Ok(path)
+}
+
+/// The rule [`relocation`] enforces, as a function anything may call — roadmap task **T143**.
+///
+/// **Lifted out of the deserializer rather than copied beside it.** [`set_paths`] writes the same
+/// four keys the file declares, and two lists of refused values are two lists that disagree the
+/// first time one of them grows a case. This is the only place the rule exists; the deserializer
+/// and the writer are both callers.
+///
+/// # Errors
+///
+/// The sentence to show whoever wrote the path — the same sentence either door produces.
+fn check_relocation(candidate: &Path) -> std::result::Result<(), String> {
     // "Is it anchored?" before "does it name anything?": both questions are answered by refusing
     // the path, but a half-anchored Windows path has its own diagnosis and deserves to hear it
     // rather than the generic one.
     if is_drive_less_root(candidate) {
-        return Err(serde::de::Error::custom(
-            "this path starts at the root of a drive without saying which one; write it in full \
-             (D:\\bulk\\data) or make it relative to the MixEngine home (bulk/data)",
-        ));
+        return Err(
+            "this path starts at the root of a drive without saying which one; write it \
+                    in full (D:\\bulk\\data) or make it relative to the MixEngine home (bulk/data)"
+                .to_owned(),
+        );
     }
 
     if is_drive_relative(candidate) {
-        return Err(serde::de::Error::custom(
-            "this path names a drive but does not start at its root, so it would land wherever \
-             that drive's current directory happens to be; write it in full (D:\\bulk\\data) or \
-             make it relative to the MixEngine home (bulk/data)",
-        ));
+        return Err(
+            "this path names a drive but does not start at its root, so it would land \
+                    wherever that drive's current directory happens to be; write it in full \
+                    (D:\\bulk\\data) or make it relative to the MixEngine home (bulk/data)"
+                .to_owned(),
+        );
     }
 
     if !names_a_directory(candidate) {
-        return Err(serde::de::Error::custom(
-            "after resolving `.` and `..` this names no directory of its own — it points at the \
-             MixEngine home, at a directory containing it, or at the root of a filesystem; remove \
-             the key to use the default",
-        ));
+        return Err(
+            "after resolving `.` and `..` this names no directory of its own — it points \
+                    at the MixEngine home, at a directory containing it, or at the root of a \
+                    filesystem; remove the key to use the default"
+                .to_owned(),
+        );
     }
 
-    Ok(path)
+    Ok(())
 }
 
 /// Refuse an empty path where a name is required.
