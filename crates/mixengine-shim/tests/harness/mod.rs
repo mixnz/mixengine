@@ -588,6 +588,72 @@ impl Home {
     }
 
     /// The same, with variables the user's session would have exported.
+    /// The same as [`record_command`](Self::record_command), with `cleared` taken *out* of the
+    /// child's environment first — roadmap task **T133**.
+    ///
+    /// **Because a runner is a machine somebody set up.** `ubuntu-latest` exports
+    /// `SSL_CERT_FILE=/usr/lib/ssl/cert.pem`, so a shim running there correctly leaves it alone —
+    /// the design's D11 — and a case asserting that MixEngine's own value arrives was asserting
+    /// about this machine rather than about the shim. The case that a person's value *wins* is a
+    /// separate one below, and it is the more valuable of the two.
+    pub(crate) fn record_without(
+        &self,
+        command: &str,
+        cwd: &Path,
+        cleared: &[&str],
+        exit_code: i32,
+    ) -> Recorded {
+        let dump = cwd.join(format!("environment-{command}.txt"));
+        let touched = cwd.join(format!("ran-{command}.txt"));
+
+        let run = self.run_clearing(
+            command,
+            cwd,
+            &[
+                "--dump-env",
+                &dump.display().to_string(),
+                "--touch",
+                &touched.display().to_string(),
+                "--exit-code",
+                &exit_code.to_string(),
+            ],
+            cleared,
+        );
+
+        let reached = touched.is_file();
+
+        Recorded {
+            environment: if reached {
+                dumped(&dump)
+            } else {
+                BTreeMap::new()
+            },
+            reached,
+            run,
+        }
+    }
+
+    /// Run with `cleared` removed from what the child inherits.
+    fn run_clearing(&self, command: &str, cwd: &Path, arguments: &[&str], cleared: &[&str]) -> Run {
+        let shim = self.shim(command);
+        let mut child = Command::new(&shim);
+
+        child
+            .args(arguments)
+            .current_dir(cwd)
+            .env("MIXENGINE_HOME", self.path());
+
+        for name in cleared {
+            child.env_remove(name);
+        }
+
+        let output = child
+            .output()
+            .unwrap_or_else(|error| panic!("run {}: {error}", shim.display()));
+
+        Run { output }
+    }
+
     pub(crate) fn run_with(
         &self,
         command: &str,
@@ -626,8 +692,23 @@ pub(crate) struct Recorded {
 
 impl Recorded {
     /// One variable the program recorded, by name.
+    ///
+    /// **Case-insensitively on Windows**, which is the operating system's own rule and not a
+    /// courtesy: an environment block there holds one entry per name whatever case it is written
+    /// in, and the *spelling* that survives is whichever the parent process happened to use. A CI
+    /// runner exports `Path`; this repository's shell exports `PATH`; the shim writes `PATH` and
+    /// the child is handed the parent's spelling carrying the shim's value. A lookup that folded no
+    /// case therefore answered `None` on a green machine — found by the Windows runner, on a case
+    /// that passes here.
     pub(crate) fn recorded(&self, name: &str) -> Option<&str> {
-        self.environment.get(name).map(String::as_str)
+        if !cfg!(windows) {
+            return self.environment.get(name).map(String::as_str);
+        }
+
+        self.environment
+            .iter()
+            .find(|(held, _)| held.eq_ignore_ascii_case(name))
+            .map(|(_, value)| value.as_str())
     }
 
     /// Which runtime really ran: the first entry of the `PATH` the program was given.

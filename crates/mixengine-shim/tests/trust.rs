@@ -19,6 +19,14 @@ use std::collections::BTreeMap;
 use harness::Home;
 use mixengine_proto::RuntimeKind;
 
+/// Variables a machine may already export, taken out of the child before every case below.
+///
+/// **`ubuntu-latest` exports `SSL_CERT_FILE`**, so a shim running there leaves it exactly as it
+/// found it — the design's D11 — and a case asserting MixEngine's own value arrives would be
+/// asserting about the runner. `a_variable_somebody_set_is_left_alone` below is that behaviour's
+/// own case, and it sets the variable itself rather than hoping a machine does.
+const CLEARED: &[&str] = &["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS"];
+
 /// What a Node artifact publishes, spelled as each system really packs it.
 fn node_provides() -> BTreeMap<String, String> {
     let at = match cfg!(windows) {
@@ -39,7 +47,7 @@ fn node_is_handed_the_authority_and_keeps_its_own_roots() {
     home.write_authority();
     home.write_trust_bundle();
 
-    let recorded = home.record_command("node", home.path(), &BTreeMap::new(), 0);
+    let recorded = home.record_without("node", home.path(), CLEARED, 0);
 
     let named = recorded
         .recorded("NODE_EXTRA_CA_CERTS")
@@ -58,7 +66,7 @@ fn ruby_is_handed_the_bundle_and_not_the_authority_alone() {
     home.write_authority();
     home.write_trust_bundle();
 
-    let recorded = home.record_command("ruby", home.path(), &BTreeMap::new(), 0);
+    let recorded = home.record_without("ruby", home.path(), CLEARED, 0);
 
     let named = recorded
         .recorded("SSL_CERT_FILE")
@@ -75,7 +83,7 @@ fn python_is_handed_both_of_the_variables_it_reads() {
     home.write_authority();
     home.write_trust_bundle();
 
-    let recorded = home.record_command("python", home.path(), &BTreeMap::new(), 0);
+    let recorded = home.record_without("python", home.path(), CLEARED, 0);
 
     for variable in ["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE"] {
         let named = recorded
@@ -116,10 +124,10 @@ fn a_bundle_that_is_not_there_is_named_to_nobody() {
     home.install(RuntimeKind::Ruby, "3.4.10", ruby_provides());
     home.install(RuntimeKind::Node, "24.19.0", node_provides());
 
-    let ruby = home.record_command("ruby", home.path(), &BTreeMap::new(), 0);
+    let ruby = home.record_without("ruby", home.path(), CLEARED, 0);
     assert_eq!(ruby.recorded("SSL_CERT_FILE"), None);
 
-    let node = home.record_command("node", home.path(), &BTreeMap::new(), 0);
+    let node = home.record_without("node", home.path(), CLEARED, 0);
     assert_eq!(node.recorded("NODE_EXTRA_CA_CERTS"), None);
 }
 
@@ -132,7 +140,7 @@ fn php_is_told_through_its_ini_set_and_not_through_a_variable() {
     home.write_authority();
     home.write_trust_bundle();
 
-    let recorded = home.record_command("php", home.path(), &BTreeMap::new(), 0);
+    let recorded = home.record_without("php", home.path(), CLEARED, 0);
 
     assert_eq!(recorded.recorded("SSL_CERT_FILE"), None);
     assert_eq!(recorded.recorded("NODE_EXTRA_CA_CERTS"), None);
