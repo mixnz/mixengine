@@ -73,15 +73,34 @@ first row has recorded an absolute path.
 
 ## Written down
 
-- [ ] **T147** Measured and recorded. T144's three outcomes driven against a real daemon on a
+- [x] **T147** Measured and recorded. T144's three outcomes driven against a real daemon on a
       temporary home; the cross-crate check that nothing restated the layout twice — twelve entries
-      from `paths.directories()`, four `RelocatedDirectory` rows in the uninstall inventory, a shim
-      that resolves unchanged because it reads neither key; and on macOS, with the four directories
-      on an external volume, **one elevation prompt granted**, which is the assertion that the
-      helper never reaches the chosen disk. Then the on-disk layout section of
-      [overview.md](../architecture/overview.md), [client-surface.md](../features/client-surface.md)
-      for the gate's new screen, and an ADR for the rule T144 introduces: a flag that configures a
-      home rather than a process.
+      from `paths.directories()` with four of them outside the root and `run/` not among those four,
+      `RelocatedDirectory` rows in the uninstall inventory naming each moved directory, a shim that
+      resolves unchanged because it reads neither key. Recorded in
+      [overview.md](../architecture/overview.md)'s layout section,
+      [client-surface.md](../features/client-surface.md) for the gate's new screen, and
+      [ADR 0036](../decisions/0036-a-flag-may-configure-a-home-rather-than-a-process.md) for
+      T144's rule: a flag that configures a home rather than a process.
+
+      **Measured by hand on macOS**, on a home at `/private/tmp` with `runtimes/`, `packages/` and
+      `data/` on an external `noowners` volume: PHP 7.0.33 installed to
+      `/Volumes/SSD/…/runtimes/php/7.0.33` and ran from there; `install_path` recorded it;
+      `uninstall --dry-run` named all three; a start carrying a differing `--data` afterwards exited
+      1 saying *1 runtime and 1 service are installed*; and the queue was granted to
+      **nothing is waiting for permission** — an elevated helper reaching a home whose data is on
+      the chosen disk, with no Full Disk Access granted to anything.
+
+      **The measurement found two bugs, and neither is this phase's.** None of PHP 7.0.33's
+      extensions load on macOS, relocated or not — `module_file` writes a bare name and the comment
+      above it claims Unix resolves that to `<name>.so`, which does not hold here; filed separately.
+      And `helper-install` reported *cannot write `/Library/PrivilegedHelperTools/…`* when what had
+      actually failed was reading its own binary off the external volume: `fs::copy` fails with one
+      error for two files and the message named the wrong one. Eight prompts were granted against
+      that sentence. Both halves are fixed here — the source is opened before the copy so the
+      failure names the file that failed, and `Settled` carries each failure's sentence out to
+      `GrantOutcome.problems`, which `mix elevation grant` prints under its line. A retryable
+      failure is still a failure somebody has to be told about, and a count is not a diagnosis.
 
 **Milestone M17** — on a fresh install the window offers a disk before anything is installed, a
 runtime and a service land on it, `mix uninstall --dry-run` names it, and an elevation prompt still

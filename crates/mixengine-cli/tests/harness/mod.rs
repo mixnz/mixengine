@@ -183,6 +183,14 @@ impl Home {
         self.spawn_daemon(&[], &[])
     }
 
+    /// The same, started with arguments of the caller's own — roadmap task **T147**.
+    ///
+    /// The four relocation flags are the caller this exists for: what they claim is about a
+    /// *start*, so a test about a relocated home has to be one that started a daemon with them.
+    pub(crate) fn start_daemon_with(&self, arguments: &[&str]) -> Daemon {
+        self.spawn_daemon(arguments, &[])
+    }
+
     /// The same, for a daemon that reads its package index from a registry this test is serving.
     pub(crate) fn start_daemon_reading_index(&self, url: &str, key: &str) -> Daemon {
         self.spawn_daemon(&["--index-url", url, "--index-key", key], &[])

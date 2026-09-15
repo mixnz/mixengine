@@ -106,3 +106,113 @@ fn a_missing_daemon_binary_is_reported_as_one() {
         "a question asked of the daemon binary is not reported as a failed start: {error}"
     );
 }
+
+// ---------------------------------------------------------------------------------------------
+// A home whose four directories are elsewhere — roadmap task T147.
+//
+// **The assertion is that nothing restated the layout twice.** `[paths]` is read in one place and
+// the rest of the workspace is supposed to ask `Paths` rather than compose its own answer; these
+// walk the two paths where a second copy would show — the uninstall inventory, which has to name a
+// directory it will not find under the root, and the shim, which deliberately does not read
+// `config.toml` at all.
+// ---------------------------------------------------------------------------------------------
+
+mod relocated {
+    use super::harness;
+    use harness::{Home, json};
+
+    /// A home with all four keys pointing somewhere else, and the daemon that made it so.
+    ///
+    /// Returned together because the directory has to outlive the home: dropping it first would
+    /// take the four directories out from under a daemon that is still running.
+    fn a_relocated_home() -> (Home, tempfile::TempDir) {
+        let home = Home::new();
+        let bulk = tempfile::tempdir().expect("somewhere to move things to");
+
+        let at = |name: &str| bulk.path().join(name).display().to_string();
+        let daemon = home.start_daemon_with(&[
+            "--runtimes",
+            &at("runtimes"),
+            "--packages",
+            &at("packages"),
+            "--data",
+            &at("data"),
+            "--logs",
+            &at("logs"),
+        ]);
+        drop(daemon);
+
+        (home, bulk)
+    }
+
+    /// Every relocated directory is a row of its own in the plan, named where it actually is.
+    ///
+    /// **The plan is what a client reads back once the daemon is gone**, so a directory the
+    /// inventory failed to notice is one nothing would ever remove — and `mix uninstall` would
+    /// report a machine as clean while a database sat on another disk.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn the_uninstall_plan_names_all_four_where_they_are() {
+        let (home, bulk) = a_relocated_home();
+        let _daemon = home.start_daemon_with(&[]);
+
+        let report = json(&home.mix(&["uninstall", "--dry-run", "--json"]));
+        let items = report["items"].as_array().expect("a list of rows");
+
+        let relocated: Vec<&serde_json::Value> = items
+            .iter()
+            .filter(|row| row["id"] == "relocated_directory")
+            .collect();
+
+        assert_eq!(relocated.len(), 4, "{report}");
+
+        for name in ["runtimes", "packages", "data", "logs"] {
+            let expected = bulk.path().join(name).display().to_string();
+            assert!(
+                relocated
+                    .iter()
+                    .any(|row| row["location"].as_str() == Some(expected.as_str())),
+                "{name} is not in the plan at {expected}: {report}"
+            );
+        }
+    }
+
+    /// The shim still resolves against a home whose directories moved.
+    ///
+    /// It reads neither key — `mixengine-shim` builds its `Paths` from `PathOverrides::default()`
+    /// twice, deliberately, and uses only the database and `etc/`, neither of which `[paths]` can
+    /// move. This is what keeps that comment true rather than merely written down: a shim that
+    /// started reading `config.toml` would still pass its own tests and fail here.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a_shim_still_answers_for_a_relocated_home() {
+        let (home, _bulk) = a_relocated_home();
+
+        let php = home
+            .path()
+            .join("bin")
+            .join(format!("php{}", std::env::consts::EXE_SUFFIX));
+        assert!(php.is_file(), "the daemon filled bin/ on its first start");
+
+        let output = std::process::Command::new(&php)
+            .env("MIXENGINE_HOME", home.path())
+            .arg("--version")
+            .output()
+            .expect("the shim runs");
+
+        // No PHP is installed, so the shim refuses — and *that* is the answer being asserted: it
+        // reached this home's database, found nothing pinned, and said so. A shim that had tripped
+        // over the relocation would fail about a directory instead.
+        let said = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            said.to_lowercase().contains("php"),
+            "the shim did not answer about php: {said}"
+        );
+        assert!(
+            !said.contains("runtimes"),
+            "the shim tripped over the relocation: {said}"
+        );
+    }
+}

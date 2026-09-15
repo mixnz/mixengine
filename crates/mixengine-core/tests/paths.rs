@@ -352,3 +352,47 @@ fn a_host_with_no_answer_is_reported_rather_than_guessed() {
     // The message has to name the way out, because the user's next move is to set it.
     assert!(error.to_string().contains("MIXENGINE_HOME"), "{error}");
 }
+
+/// A home with all four keys moved still owns twelve directories — roadmap task **T147**.
+///
+/// **The number is the point, not the paths.** `Paths::directories` is what `bootstrap` creates and
+/// what the uninstall inventory walks; a relocation that quietly dropped one from the list would be
+/// a directory nothing creates and nothing removes. Exactly four of them lie outside the root, and
+/// the eighth — `run/` — is in the list and is *not* one of them, which is what keeps the elevated
+/// helper on the same disk as the home.
+#[test]
+fn a_fully_relocated_home_still_owns_twelve_directories_and_keeps_run_at_home() {
+    let home = TempDir::new().expect("a temporary directory");
+    let bulk = TempDir::new().expect("somewhere else");
+    let root = home.path().to_path_buf();
+
+    let paths = Paths::new(
+        root.clone(),
+        &PathOverrides {
+            runtimes: Some(bulk.path().join("runtimes")),
+            packages: Some(bulk.path().join("packages")),
+            data: Some(bulk.path().join("data")),
+            logs: Some(bulk.path().join("logs")),
+        },
+    );
+
+    let directories = paths.directories();
+    assert_eq!(directories.len(), 12);
+
+    let elsewhere: Vec<&Path> = directories
+        .iter()
+        .copied()
+        .filter(|directory| !directory.starts_with(&root))
+        .collect();
+    assert_eq!(elsewhere.len(), 4, "{elsewhere:?}");
+
+    // The one `[paths]` cannot move, and the reason this whole feature needs no Full Disk Access on
+    // macOS: the elevated helper's request, its answer and its lock all live under here.
+    assert!(paths.run().starts_with(&root));
+    assert!(paths.database_file().starts_with(&root));
+    assert!(paths.config_file().starts_with(&root));
+
+    // And `daemon.log` travels with `logs/`, which is the one file built on another key rather than
+    // on the root.
+    assert!(paths.daemon_log_file().starts_with(bulk.path()));
+}
