@@ -1034,7 +1034,7 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
     /// its programs: the two front ends and php-fpm publish binaries a person never invokes by
     /// hand, and a recipe added later opts in rather than remembering to opt out.
     ///
-    /// A row whose [`Client::executable`] the installed artifact does not publish is silently
+    /// A row whose [`ClientCommand::executable`] the installed artifact does not publish is silently
     /// skipped when `bin/` is filled — the Windows MariaDB packs no `mariadb-backup` on every
     /// branch, and a name in `bin/` that resolves to nothing is worse than a missing one.
     fn clients(&self) -> &'static [ClientCommand] {

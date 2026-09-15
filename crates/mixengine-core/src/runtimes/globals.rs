@@ -403,29 +403,49 @@ mod tests {
         assert!(scan(RuntimeKind::Ruby, &path, &BTreeMap::new()).is_empty());
     }
 
-    /// Windows resolves a bare name by appending an extension from a fixed list, so a file with any
-    /// other one is data whatever it holds — and `yarn.ps1` beside `yarn.cmd` must not be a second
-    /// command that does nothing.
-    #[cfg(windows)]
+    /// **What counts as a program is this system's own rule.** Windows resolves a bare name by
+    /// appending an extension from a fixed list, so a file with any other one is data whatever it
+    /// holds — and `rails.ps1` beside `rails.bat` must not become a second command that does
+    /// nothing. Unix has no such list and needs none: a bindir holds programs by construction,
+    /// which is what *bindir* means to npm, pip and gem alike.
+    ///
+    /// One test over a `cfg!` rather than two behind `#[cfg]` — see
+    /// `crates/mixengine-proto/tests/workspace_layering.rs`, which is what holds that rule.
     #[test]
-    fn a_file_windows_cannot_run_is_not_a_command() {
+    fn what_counts_as_a_program_is_this_systems_own_rule() {
         let (_install, path) = bindir(
             RuntimeKind::Ruby,
             &["rails.ps1", "LICENSE", "README.md", "rails.bat"],
         );
 
-        assert_eq!(
-            scan(RuntimeKind::Ruby, &path, &BTreeMap::new()),
-            ["rails".to_owned()].into_iter().collect::<BTreeSet<_>>()
-        );
+        let found = scan(RuntimeKind::Ruby, &path, &BTreeMap::new());
+
+        let expected: BTreeSet<String> = match cfg!(windows) {
+            true => ["rails".to_owned()].into_iter().collect(),
+            false => [
+                "LICENSE".to_owned(),
+                "README.md".to_owned(),
+                "rails.bat".to_owned(),
+                "rails.ps1".to_owned(),
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        assert_eq!(found, expected);
     }
 
-    /// On Unix the whole file name is the command: `python3.13` is a program, and stripping at the
-    /// dot would make it `python3`, which is a different one.
-    #[cfg(unix)]
+    /// **A name keeps every dot in it.** `python3.13` is a program, and stripping at the dot would
+    /// make it `python3`, which is a different one — so the Windows arm takes the *extension* off
+    /// and the Unix arm takes nothing off at all.
     #[test]
-    fn a_unix_name_keeps_every_dot_in_it() {
-        let (_install, path) = bindir(RuntimeKind::Python, &["python3.13"]);
+    fn a_name_keeps_every_dot_that_is_not_an_extension() {
+        let file = match cfg!(windows) {
+            true => "python3.13.exe",
+            false => "python3.13",
+        };
+
+        let (_install, path) = bindir(RuntimeKind::Python, &[file]);
 
         assert_eq!(
             scan(RuntimeKind::Python, &path, &BTreeMap::new()),

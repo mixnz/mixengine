@@ -229,7 +229,7 @@ pub struct Bin {
     ///
     /// It is a key at all so that a machine with a filesystem whose directory times are expensive,
     /// or a person who would rather type `mix path rescan`, can slow it down. Zero is refused for
-    /// [`renew_check`]'s reason: it is not a short period, it is no pause at all.
+    /// [`Certs::renew_check_seconds`]' reason: it is not a short period, it is no pause at all.
     #[serde(deserialize_with = "rescan")]
     pub rescan_seconds: u64,
 }

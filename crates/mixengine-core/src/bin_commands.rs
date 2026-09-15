@@ -231,20 +231,37 @@ mod tests {
         assert!(format!("{error}").contains("perl"), "{error}");
     }
 
-    /// Windows makes `Yarn` and `yarn` one file, so it has to make them one row — and a lookup by
-    /// either spelling has to find it.
-    #[cfg(windows)]
+    /// **A name is stored the way this filesystem spells one.** Windows makes `Yarn` and `yarn` one
+    /// file, so it has to make them one row and answer to either; here they are two files, so a
+    /// program genuinely called `YARN` must not be answered for by the other.
+    ///
+    /// One test over a `cfg!` rather than two behind `#[cfg]`, which is the workspace's rule and
+    /// `crates/mixengine-proto/tests/workspace_layering.rs` is what holds it: both arms compile and
+    /// type-check on every system, so neither can rot on the one nobody is running.
     #[tokio::test]
-    async fn one_file_is_one_row_on_windows() {
+    async fn a_name_is_stored_the_way_this_filesystem_spells_it() {
         let (_home, store) = store().await;
 
         record(&store, &found(&[("Yarn", RuntimeKind::Node)]))
             .await
             .expect("a pass");
 
+        let asked = match cfg!(windows) {
+            true => "YARN",
+            false => "Yarn",
+        };
+
         assert_eq!(
-            kind(&store, "YARN").await.expect("an answer"),
+            kind(&store, asked).await.expect("an answer"),
             Some(RuntimeKind::Node)
         );
+
+        if !cfg!(windows) {
+            assert_eq!(
+                kind(&store, "YARN").await.expect("an answer"),
+                None,
+                "a different file is a different command on this system"
+            );
+        }
     }
 }
