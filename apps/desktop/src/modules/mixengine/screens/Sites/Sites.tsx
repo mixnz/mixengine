@@ -181,6 +181,7 @@ export default function Sites({ active }: { active: boolean }) {
               <th>{t("mixengine.sites.columnDomain")}</th>
               <th>{t("mixengine.sites.columnOwner")}</th>
               <th>{t("mixengine.sites.columnKind")}</th>
+              <th>{t("mixengine.sites.columnRoutes")}</th>
               <th>{t("mixengine.sites.columnHttps")}</th>
               <th>{t("mixengine.sites.columnState")}</th>
               <th>{t("mixengine.sites.columnSharing")}</th>
@@ -203,6 +204,8 @@ export default function Sites({ active }: { active: boolean }) {
                   )}
                 </td>
                 <td>{row.kind.kind}</td>
+                {/* T135. `?? []` cho daemon build trước khi trường này tồn tại. */}
+                <td>{(row.routes ?? []).length || "—"}</td>
                 <td>
                   {row.https ? "✓" : "—"}
                   {/* T98: site ép HTTPS — `?? false` cho daemon build trước khi trường này tồn tại. */}

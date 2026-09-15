@@ -2186,14 +2186,22 @@ pub(crate) fn site_list(list: &SiteList) -> String {
         return "no sites are declared — `mix site create` adds one\n".to_owned();
     }
 
+    // **A count and not the routes themselves** — roadmap task **T135**. What a listing is for is
+    // "does this site have more behind it"; which prefix answers what is `mix site show`'s, where
+    // there is room to print the address beside it.
     let mut out = format!(
-        "{:<28}  {:<14}  {:<9}  {}\n",
-        "DOMAIN", "KIND", "STATE", "OWNER"
+        "{:<28}  {:<14}  {:<7}  {:<9}  {}\n",
+        "DOMAIN", "KIND", "ROUTES", "STATE", "OWNER"
     );
 
     for site in &list.sites {
+        let routes = match site.routes.len() {
+            0 => "—".to_owned(),
+            count => count.to_string(),
+        };
+
         out.push_str(&format!(
-            "{:<28}  {:<14}  {:<9}  {}\n",
+            "{:<28}  {:<14}  {routes:<7}  {:<9}  {}\n",
             site.domain,
             kind_word(&site.kind),
             site.state.as_str(),
@@ -2212,7 +2220,6 @@ fn owner_word(owner: &SiteOwner) -> String {
     }
 }
 
-/// The word a person typed for a kind, which is the word the wire uses.
 /// What a route's target is printed as — roadmap task **T135**.
 ///
 /// The target *and* its address, because a path on its own answers nothing a person came to find
@@ -2230,6 +2237,7 @@ fn route_target_word(target: &mixengine_proto::RouteTarget) -> String {
     }
 }
 
+/// The word a person typed for a kind, which is the word the wire uses.
 fn kind_word(kind: &SiteKind) -> &'static str {
     match kind {
         SiteKind::PhpFpm { .. } => "php-fpm",
@@ -2635,10 +2643,10 @@ pub(crate) fn site_detail(detail: &SiteDetail) -> String {
     // **In match order, which is what the daemon answers with** — roadmap task **T135**. Not the
     // order somebody typed: the front end resolves an overlap by specificity, and a listing showing
     // declaration order would be showing something no server does.
-    if !detail.routes.is_empty() {
+    if !detail.site.routes.is_empty() {
         out.push_str(&format!("\n{:<24}  {}\n", "PATH", "ANSWERED BY"));
 
-        for route in &detail.routes {
+        for route in &detail.site.routes {
             out.push_str(&format!(
                 "{:<24}  {}\n",
                 route.path,
@@ -4042,6 +4050,7 @@ mod tests {
                     https: true,
                     https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
+                    routes: Vec::new(),
                     sharing: None,
                 },
                 mixengine_proto::SiteSummary {
@@ -4054,6 +4063,7 @@ mod tests {
                     https: true,
                     https_redirect: false,
                     state: mixengine_proto::SiteState::Enabled,
+                    routes: Vec::new(),
                     sharing: None,
                 },
             ],

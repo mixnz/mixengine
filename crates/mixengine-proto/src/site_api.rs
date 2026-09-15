@@ -355,6 +355,19 @@ pub struct SiteSummary {
     /// Whether the web server should serve it.
     pub state: SiteState,
 
+    /// Every route, **in match order** — longest path first — roadmap task **T135**.
+    ///
+    /// **On the summary and not only on the detail**, on [`sharing`](Self::sharing)'s argument: what
+    /// is behind a site is a question about every site at once, and a list that could not answer it
+    /// would make a client ask per row.
+    ///
+    /// Not the order somebody typed: overlaps are resolved by specificity where the configuration is
+    /// rendered, so a listing showing declaration order would be showing something the front end
+    /// does not do. Optional on the wire,
+    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routes: Vec<SiteRoute>,
+
     /// Where the local network can reach it, when it can — roadmap task **T74**.
     ///
     /// **On the summary and not only on the detail**, because "what is exposed right now" is a
@@ -484,15 +497,6 @@ pub struct SiteDetail {
 
     /// The services it declares, and what each is doing.
     pub services: Vec<SiteServiceLink>,
-
-    /// Every route, **in match order** — longest path first — roadmap task **T135**.
-    ///
-    /// Not the order somebody typed: overlaps are resolved by specificity where the configuration is
-    /// rendered, so a listing that showed declaration order would be showing something the front end
-    /// does not do. Optional on the wire,
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub routes: Vec<SiteRoute>,
 }
 
 /// What the row names, and what the resolver would name today.

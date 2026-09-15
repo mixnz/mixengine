@@ -81,6 +81,20 @@
   border-radius: var(--radius-sm);
 }
 
+/* T135. Mỗi route một hàng: đường dẫn, target, ô của target đó, nút xóa. */
+.routeList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.route {
+  display: grid;
+  grid-template-columns: minmax(6rem, 1fr) minmax(6rem, auto) minmax(8rem, 1.6fr) auto;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .hint {
   margin: 0;
   font-size: var(--text-sm);

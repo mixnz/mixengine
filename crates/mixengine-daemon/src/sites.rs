@@ -1090,14 +1090,6 @@ impl Sites {
             domains: site.domains.clone(),
             pool,
             services: linked,
-            // **In match order and not in the order somebody typed** — roadmap task **T135**. The
-            // rendering resolves an overlap by specificity, so a listing showing declaration order
-            // would be showing something the front end does not do.
-            routes: {
-                let mut routes = site.routes.clone();
-                routes.sort_by(mixengine_core::sites::by_specificity);
-                routes
-            },
         })
     }
 }
@@ -1130,6 +1122,14 @@ fn summary(
         https: site.https_enabled,
         https_redirect: site.https_redirect,
         state: site.state,
+        // **In match order and not in the order somebody typed** — roadmap task **T135**. The
+        // rendering resolves an overlap by specificity, so a listing showing declaration order
+        // would be showing something the front end does not do.
+        routes: {
+            let mut routes = site.routes.clone();
+            routes.sort_by(sites::by_specificity);
+            routes
+        },
         sharing: site.sharing.as_ref().map(|sharing| {
             let url = sites::shared_url(sharing.address, web_port);
 
