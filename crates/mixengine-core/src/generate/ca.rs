@@ -37,7 +37,8 @@
 //! # The floor
 //!
 //! **A store that answers fewer than [`ROOT_FLOOR`] roots was read wrong, and nothing is written.**
-//! Every system trust store on earth holds more than a hundred; a handful means the enumeration
+//! A real store holds tens of them — 35 on the Windows this was measured on, some hundred and
+//! forty in a Linux `ca-certificates`; a handful means the enumeration
 //! failed in a way the call did not report. Writing a bundle from it would replace a working trust
 //! store with a broken one on the next command somebody typed — so the file is not written, a stale
 //! one is removed, and `mix doctor` says so. Node's additive variable is unaffected, which is why
@@ -49,9 +50,12 @@ use crate::{Error, Result};
 
 /// The fewest roots a real machine's trust store holds.
 ///
-/// A floor rather than a guess about any particular machine: the smallest curated set anybody
-/// ships is on the order of a hundred and forty, so twenty is far below every true answer and far
-/// above every failed one.
+/// **Twenty, and the number was measured rather than assumed.** A stock Windows 11 answers **35**:
+/// that store is *seeded* with a small set and fetches the rest on demand, so the "hundred and
+/// forty" a Linux `ca-certificates` holds is the high end of the range and not the middle of it.
+/// Twenty is below every real answer this project has seen and far above a failed enumeration,
+/// which is the only distinction this constant has to make — it is a floor, not an estimate, and
+/// raising it towards a distribution's figure would refuse a working Windows.
 pub const ROOT_FLOOR: usize = 20;
 
 /// Where the bundle goes.

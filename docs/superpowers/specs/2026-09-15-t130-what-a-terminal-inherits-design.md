@@ -360,8 +360,12 @@ PHP's `conf.d` on the first start of a home. An ordinary start reaches neither �
 changed, so nothing is written and nothing is regenerated.
 
 **D9 in code**: `roots()` answering an error, or fewer than 20 roots, writes **no** bundle and
-removes a stale one. Twenty is a floor rather than a guess about any particular machine — every
-system store on earth holds more than a hundred, and a store that answers five has been read wrong.
+removes a stale one. Twenty is a floor rather than an estimate, and **the number this section first
+gave for a real store was wrong**: "every system store on earth holds more than a hundred" is a
+Linux figure. A daemon run against a stock Windows 11 for this task answered **35** — that store is
+seeded with a small set and fetches the rest on demand. Twenty is still below every real answer and
+far above a failed enumeration, which is the only distinction the constant has to make; raising it
+towards a distribution's figure would refuse a working Windows.
 
 ### C.3 Exporting it — T133
 

@@ -66,6 +66,12 @@ working trust store with a broken one on the next command somebody typed. The fi
 stale one is removed, and `mix doctor` reports it — `TrustBundleMissing` is a problem only when the
 store *can* be read.
 
+**Twenty was chosen against a measurement, and the measurement is worth recording**: a daemon run
+against a stock Windows 11 answered **35** roots, not the hundred-and-something a Linux
+`ca-certificates` holds — that store is seeded with a small set and fetches the rest on demand. The
+floor exists to tell a read that failed from one that worked, and nothing more; raising it towards a
+distribution's figure would refuse a working Windows.
+
 **A variable the person already set is never overwritten.** Somebody who exported `SSL_CERT_FILE` for
 a corporate authority meant it, and a tool that overrode it would be one that cannot be used inside
 the company that installed it. `mix doctor` reports the shadowing instead.
