@@ -1,6 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 
 import type { DaemonStatus } from "@mixengine/api";
+import type { StorageReport } from "@mixengine/api";
 import type { ElevationStatus } from "@mixengine/api";
 import type { ServiceList } from "@mixengine/api";
 import type { SiteCreate } from "@mixengine/api";
@@ -102,9 +103,33 @@ export function presence(): Promise<PresenceReport> {
   return invoke<PresenceReport>("mixengine_presence");
 }
 
-/** Khởi động daemon; trả về endpoint nó in ra khi đã sẵn sàng. */
-export function startDaemon(): Promise<string> {
-  return invoke<string>("mixengine_start");
+/**
+ * Bốn thư mục phình to được đặt ở đâu, và điều đó còn đổi được không — T146.
+ *
+ * Trả lời được **khi chưa có daemon nào**: nó chạy `mixengined --storage`, một lệnh đọc và không
+ * tạo ra thứ gì. Đó là điều làm cho việc hỏi không phải là thứ đóng mất quyền chọn.
+ */
+export function storage(): Promise<StorageReport> {
+  return invoke<StorageReport>("mixengine_storage");
+}
+
+/** Bốn thư mục người dùng vừa chọn, đúng dạng lệnh khởi động nhận — T146. */
+export type ChosenPaths = {
+  runtimes?: string;
+  packages?: string;
+  data?: string;
+  logs?: string;
+};
+
+/**
+ * Khởi động daemon; trả về endpoint nó in ra khi đã sẵn sàng.
+ *
+ * `chosen` chỉ mang những khoá người dùng thật sự đổi. Daemon ghi chúng vào `config.toml` — cờ ở
+ * đây cấu hình *một home*, không phải một tiến trình — và từ chối lần khởi động nếu đã có thứ gì
+ * được cài, vì lúc đó chỗ đặt đã nằm trong các dòng của database.
+ */
+export function startDaemon(chosen?: ChosenPaths): Promise<string> {
+  return invoke<string>("mixengine_start", { chosen: chosen ?? null });
 }
 
 export function status(): Promise<DaemonStatus> {

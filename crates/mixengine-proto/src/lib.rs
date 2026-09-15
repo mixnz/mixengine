@@ -52,6 +52,7 @@ mod service;
 mod service_api;
 mod site_api;
 mod state;
+mod storage_api;
 mod time;
 mod uninstall_api;
 mod update_api;
@@ -152,6 +153,7 @@ pub use site_api::{
     SiteServiceLink, SiteShare, SiteSharing, SiteState, SiteSummary, SiteUpdate,
 };
 pub use state::{ServiceState, ServiceTransition, StateReason};
+pub use storage_api::{StorageChoice, StorageDirectory, StoragePaths, StorageReport};
 pub use time::{Millis, Timestamp, Uptime};
 pub use uninstall_api::{Removal, Residue, ResidueId, UninstallQuery, UninstallReport};
 pub use update_api::{

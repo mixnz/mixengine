@@ -37,6 +37,16 @@ export default {
       retry: "Try again",
       getIt: "Reinstall MixEngine",
     },
+      storage: {
+        free: "Nothing is installed yet, so these can still be moved \u2014 choose now and a start puts them there.",
+        taken: "{{what}}, so these can no longer be moved here: where they are is recorded against each of them.",
+        runtimes: "Runtimes",
+        packages: "Servers",
+        data: "Databases",
+        logs: "Logs",
+        choose: "Choose\u2026",
+        oneFolder: "Put all four on one disk\u2026",
+      },
       phpExtensions: {
         title: "PHP Extensions",
         intro:

@@ -114,6 +114,22 @@ projects with. See
   config.toml     user preferences the daemon reads at boot (paths, ports, telemetry off)
 ```
 
+**Four of these can be somewhere else, and the other eight cannot** — roadmap task **T143**,
+[ADR 0036](../decisions/0036-a-flag-may-configure-a-home-rather-than-a-process.md). `runtimes/`,
+`packages/`, `data/` and `logs/` are the ones that grow without bound, and `[paths]` in
+`config.toml` moves them to another disk; `mixengined --runtimes/--packages/--data/--logs` writes
+that file, and MixLab offers it as a screen before the first start. The choice is free only until
+the first runtime, package or service is installed, because from then on where they are is recorded
+in `runtime_installs.install_path` and `services.data_dir` rather than worked out.
+
+**`run/` is deliberately not one of them.** The elevated helper's request, its answer,
+`elevate.lock` and the helper candidate all live under it, so it has to stay where a root process
+can read it — on
+macOS, a home on a removable volume is an elevation prompt that takes a password and then fails,
+because TCC gates that volume and the helper arrives with no responsible process to inherit a grant
+from. Keeping the four growing directories movable and `run/` fixed is what lets somebody put their
+databases on an external disk without granting Full Disk Access to anything.
+
 Nothing is written outside this root except: the hosts file, the OS trust store, resolver/NRPT
 config, firewall rules, the port-80/443 redirect rule, and — since T85 — **`mixengine-elevate`
 itself**, which the helper copies into the one directory on this system an ordinary account cannot

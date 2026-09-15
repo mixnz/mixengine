@@ -152,6 +152,7 @@ const vi: SharedDict = {
       "Pipe của MixEngine ở {{endpoint}} đang do {{owner}} giữ, không phải tài khoản này.",
     mixengineRefused: "MixEngine từ chối: {{message}}",
     mixengineStartFailed: "Không khởi động được MixEngine: {{message}}",
+    mixengineStorageFailed: "Không đọc được chỗ MixEngine đặt file: {{message}}",
     mixengineProtocol: "MixEngine trả lời một thứ phiên bản này không hiểu: {{message}}",
     // SSH
     sshTimeout:

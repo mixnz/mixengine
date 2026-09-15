@@ -13,6 +13,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use serde::Serialize;
+use serde_json::Value;
 
 use crate::error::AppError;
 
@@ -118,15 +119,90 @@ fn installed() -> bool {
     mixengine_platform::install::program_path(DAEMON).is_some()
 }
 
+/// Bốn thư mục người dùng chọn chỗ đặt, dạng lệnh khởi động nhận — roadmap task **T146**.
+///
+/// **Chỉ những khoá người ta thật sự đổi**, không phải cả bốn mỗi lần: daemon coi một giá trị
+/// trùng với thứ `config.toml` đã ghi là no-op im lặng, nhưng gửi bốn khoá cho một lần đổi một
+/// khoá là nói ba câu mình không có ý nói.
+#[derive(Debug, Default, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChosenPaths {
+    pub runtimes: Option<String>,
+    pub packages: Option<String>,
+    pub data: Option<String>,
+    pub logs: Option<String>,
+}
+
+impl ChosenPaths {
+    /// Bốn khoá và giá trị của chúng, theo đúng thứ tự `config.toml` liệt kê.
+    ///
+    /// Tên cờ **chính là** tên khoá, nên đây là một vòng lặp chứ không phải bốn khối giống nhau —
+    /// cùng lý do `mixengined` tự dựng lại danh sách tham số cho tiến trình con bằng một vòng lặp.
+    fn entries(&self) -> [(&'static str, Option<&str>); 4] {
+        [
+            ("runtimes", self.runtimes.as_deref()),
+            ("packages", self.packages.as_deref()),
+            ("data", self.data.as_deref()),
+            ("logs", self.logs.as_deref()),
+        ]
+    }
+}
+
+/// Daemon cất các thư mục phình to ở đâu, và điều đó còn đổi được không — roadmap task **T146**.
+///
+/// **Hỏi được khi chưa có daemon nào**, đó là toàn bộ lý do nó chạy một tiến trình thay vì gọi
+/// JSON-RPC: màn hình mời người dùng chọn ổ được vẽ *trước* lần khởi động đầu tiên. `--storage`
+/// không tạo ra thứ gì — không home, không `config.toml`, không database — nên hỏi không phải là
+/// thứ làm mất đi quyền chọn.
+///
+/// Một tiến trình cho mỗi lần vẽ cổng, và đó là lý do [`installed`] đọc đĩa thay vì chạy chương
+/// trình: cái này trả giá đó cho một màn hình người ta đang nhìn, không phải cho một vòng poll.
+///
+/// **`Value` chứ không phải kiểu của `mixengine-proto`**, theo đúng luật `commands.rs` đã nêu cho
+/// hai lệnh đọc kia: Rust ở đây không đọc field nào — nó chuyển tiếp — và hợp đồng đã có bản sinh
+/// tự động ở `bindings/` cho frontend gõ theo. Kéo thêm một crate vào chỉ để đặt tên cho thứ đi
+/// thẳng qua là trả giá mà không mua được phép kiểm tra nào.
+pub async fn storage() -> Result<Value, AppError> {
+    let output = tauri::async_runtime::spawn_blocking(|| {
+        let mut command = Command::new(program());
+        command.arg("--storage");
+        crate::platform::hide_console(&mut command).output()
+    })
+    .await
+    .map_err(|e| err!("error.mixengineStorageFailed", message = e))?
+    .map_err(|e| err!("error.mixengineStorageFailed", message = e))?;
+
+    if !output.status.success() {
+        return Err(err!(
+            "error.mixengineStorageFailed",
+            message = String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    serde_json::from_slice(&output.stdout)
+        .map_err(|e| err!("error.mixengineStorageFailed", message = e))
+}
+
 /// Khởi động daemon và trả về endpoint nó in ra.
 ///
 /// `--detach` **chỉ trả về khi daemon đã trả lời trên endpoint của nó** và in endpoint ra stdout —
 /// nên không có vòng lặp backoff ở đây. Việc chờ thuộc về tiến trình biết con nó còn sống hay
 /// không, và đó không phải tiến trình này.
-pub async fn start_daemon() -> Result<String, AppError> {
-    let output = tauri::async_runtime::spawn_blocking(|| {
+///
+/// `chosen` là bốn thư mục người dùng vừa chọn ở cổng vào, nếu có — roadmap task **T146**. Chúng
+/// đi thẳng vào dòng lệnh chứ không được ghi ở đây: quyết định chúng có được phép hay không là một
+/// câu hỏi về các dòng trong database, và tiến trình này không mở database nào.
+pub async fn start_daemon(chosen: Option<ChosenPaths>) -> Result<String, AppError> {
+    let output = tauri::async_runtime::spawn_blocking(move || {
         let mut command = Command::new(program());
         command.arg("--detach");
+
+        for (key, directory) in chosen.unwrap_or_default().entries() {
+            if let Some(directory) = directory {
+                command.arg(format!("--{key}")).arg(directory);
+            }
+        }
+
         crate::platform::hide_console(&mut command).output()
     })
     .await

@@ -217,6 +217,24 @@ binaries. What they state is what the daemon **writes** —
    timer: the daemon already looks for a tool installed into a runtime every `[bin] rescan_seconds`,
    so this exists for the moment in between and for a home that slowed that key down.
 
+**And one screen that is drawn before any of this** — roadmap task **T146**. A window that finds no
+daemon running offers a choice of where the four growing directories go: `runtimes/`, `packages/`,
+`data/` and `logs/`, one row each, with the directory the daemon would use and a chooser beside it.
+
+**It is the one screen in this document that reaches no API method**, and it cannot: what it asks
+about is where a daemon that has not started yet will put its files. The answer comes from
+`mixengined --storage`, a one-shot that prints the layout and whether the choice is still free and
+**creates nothing** — not the home, not `config.toml`, not the database — because a screen that
+created the home it asked about would itself be the reason the choice was gone. What the person
+picks is handed to the start as `--runtimes`, `--packages`, `--data` and `--logs`
+([ADR 0036](../decisions/0036-a-flag-may-configure-a-home-rather-than-a-process.md)).
+
+The daemon says whether the choice is free and, when it is not, what closed it — *"3 runtimes and 1
+service are installed"*. A client neither counts that nor writes that sentence. And the screen is
+not offered when no `mixengined` is installed, because the answer comes from the program that is
+missing; such a machine sees it the first time it opens the window after installing, which is still
+before its first runtime.
+
 A tray or menu-bar item needs no more than the dashboard does: overall state, stop-all, and the site
 list.
 

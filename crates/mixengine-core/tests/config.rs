@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use mixengine_core::config::{
     self, Certs, Config, Crash, Daemon, Dns, LogFormat, LogLevel, Logging, Metrics, PathOverrides,
-    Services, Sharing, Sites, TEMPLATE, Updates,
+    RequestedPaths, Services, Sharing, Sites, TEMPLATE, Updates,
 };
 use tempfile::TempDir;
 
@@ -301,13 +301,21 @@ fn a_value_outside_the_closed_set_is_refused() {
     assert!(reported(&error).contains("verbose"), "{error}");
 }
 
+/// Paths that name no directory of their own.
+///
+/// `Path::join("")` gives the original path back, so an empty relocation would quietly make data/
+/// *be* MIXENGINE_HOME — and a later "reset the data directory" would take the whole install with
+/// it. Everything here says the same thing in a different way: `..` and `bulk/..` land on the home
+/// or its parent, `/` on a whole filesystem.
+///
+/// **One list, walked by both doors into the rule** — roadmap task **T143**. `config::load` reads
+/// it through serde and `config::set_paths` writes it through `check_relocation`; a second list
+/// beside this one is how the two come to disagree.
+const NAMES_NOTHING: [&str; 8] = ["", ".", "./", "..", "../", "bulk/..", "x/../..", "/"];
+
 #[test]
 fn a_relocation_that_names_nothing_is_refused() {
-    // `Path::join("")` gives the original path back, so an empty relocation would quietly make
-    // data/ *be* MIXENGINE_HOME — and a later "reset the data directory" would take the whole
-    // install with it. Everything here says the same thing in a different way: `..` and `bulk/..`
-    // land on the home or its parent, `/` on a whole filesystem.
-    for nowhere in ["", ".", "./", "..", "../", "bulk/..", "x/../..", "/"] {
+    for nowhere in NAMES_NOTHING {
         let home = TempDir::new().unwrap();
         let path = write(&home, &format!("[paths]\ndata = \"{nowhere}\"\n"));
 
@@ -603,4 +611,184 @@ fn a_rescan_period_of_zero_is_refused_rather_than_corrected() {
         "{error:?}"
     );
     assert!(message.contains('2'), "{message}");
+}
+
+// ---------------------------------------------------------------------------------------------
+// Writing `[paths]` — roadmap task T143.
+// ---------------------------------------------------------------------------------------------
+
+/// What a caller asks for, with only `data` set.
+///
+/// **Relative, and on all three systems deliberately.** `/bulk/data` is an ordinary absolute path on
+/// macOS and Linux and a *drive-less root* on Windows, which `[paths]` refuses outright — so a test
+/// written with one passes on two systems and fails on the third for a reason that has nothing to do
+/// with what it is testing. Measured: CI went red on exactly this. A relative value is what `[paths]`
+/// documents first and is the same string everywhere; the absolute case is covered by
+/// `mixengine-daemon`'s suite, which builds one from a `TempDir`.
+fn asking_for_data(directory: &str) -> RequestedPaths {
+    RequestedPaths {
+        data: Some(PathBuf::from(directory)),
+        ..RequestedPaths::default()
+    }
+}
+
+/// The section is created when the file has none, and only the key asked for is written.
+#[test]
+fn a_key_is_written_into_a_file_that_had_no_paths_section() {
+    let home = TempDir::new().unwrap();
+    let path = write(&home, "[log]\nlevel = \"warn\"\n");
+
+    let written = config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
+
+    assert_eq!(written, vec!["data"]);
+
+    let config = config::load(&path).unwrap();
+    assert_eq!(config.paths.data, Some(PathBuf::from("bulk/data")));
+    assert_eq!(config.paths.runtimes, None);
+    assert_eq!(config.paths.packages, None);
+    assert_eq!(config.paths.logs, None);
+
+    // The rest of the file is still the user's.
+    assert_eq!(config.log.level, LogLevel::Warn);
+}
+
+/// **The reason this is a `toml_edit` document and not a re-serialised `Config`.** The template is
+/// sixty lines of commented explanation of the very keys being written, and a writer that threw
+/// them away would leave the next reader a file that documents nothing.
+#[test]
+fn every_comment_in_the_template_survives_a_write() {
+    let home = TempDir::new().unwrap();
+    let path = write(&home, TEMPLATE);
+
+    let commented = |text: &str| {
+        text.lines()
+            .filter(|line| line.trim_start().starts_with('#'))
+            .count()
+    };
+
+    let before = commented(TEMPLATE);
+    config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
+    let after = std::fs::read_to_string(&path).unwrap();
+
+    assert_eq!(commented(&after), before, "{after}");
+    assert!(
+        after.contains("#runtimes = \"bulk/runtimes\""),
+        "the commented examples stay where the template put them: {after}"
+    );
+    assert_eq!(
+        config::load(&path).unwrap().paths.data,
+        Some(PathBuf::from("bulk/data"))
+    );
+}
+
+/// A second write replaces the value rather than adding a second key of the same name — which TOML
+/// refuses to parse at all, so this failing would be a file nothing can read.
+#[test]
+fn writing_the_same_key_twice_replaces_it() {
+    let home = TempDir::new().unwrap();
+    let path = write(&home, TEMPLATE);
+
+    config::set_paths(&path, &asking_for_data("bulk/first")).unwrap();
+    config::set_paths(&path, &asking_for_data("bulk/second")).unwrap();
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(
+        text.matches("\ndata = ").count(),
+        1,
+        "two keys of one name is a file TOML will not read: {text}"
+    );
+    assert_eq!(
+        config::load(&path).unwrap().paths.data,
+        Some(PathBuf::from("bulk/second"))
+    );
+}
+
+/// A comment somebody wrote themselves is still attached to what they wrote it about.
+#[test]
+fn a_comment_a_person_added_stays_where_they_put_it() {
+    let home = TempDir::new().unwrap();
+    let path = write(
+        &home,
+        "# the big disk arrived 2026-09-16\n[paths]\nruntimes = \"bulk/runtimes\"\n",
+    );
+
+    config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
+
+    let text = std::fs::read_to_string(&path).unwrap();
+    assert!(
+        text.contains("# the big disk arrived 2026-09-16\n[paths]"),
+        "{text}"
+    );
+
+    // And the key that was already there is untouched by a request that did not mention it.
+    let config = config::load(&path).unwrap();
+    assert_eq!(config.paths.runtimes, Some(PathBuf::from("bulk/runtimes")));
+    assert_eq!(config.paths.data, Some(PathBuf::from("bulk/data")));
+}
+
+/// **The same rule through the other door.** Every value `config::load` refuses, `set_paths`
+/// refuses — and nothing is written when it does, so a refused request leaves the file as it was.
+#[test]
+fn the_writer_refuses_exactly_what_the_reader_refuses() {
+    for nowhere in NAMES_NOTHING {
+        let home = TempDir::new().unwrap();
+        let path = write(&home, TEMPLATE);
+
+        let error = config::set_paths(&path, &asking_for_data(nowhere)).unwrap_err();
+
+        assert!(
+            matches!(error, mixengine_core::Error::ConfigEdit { .. }),
+            "data = {nowhere:?} was written: {error:?}"
+        );
+        assert!(reported(&error).contains("data"), "{error}");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            TEMPLATE,
+            "a refused value left the file changed"
+        );
+    }
+}
+
+/// Nothing asked for is nothing written, and the file is not even opened for writing.
+#[test]
+fn an_empty_request_writes_nothing() {
+    let home = TempDir::new().unwrap();
+    let path = write(&home, TEMPLATE);
+
+    assert!(RequestedPaths::default().is_empty());
+    assert!(
+        config::set_paths(&path, &RequestedPaths::default())
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), TEMPLATE);
+}
+
+/// **The silent no-op.** A launchd plist carries its flags for the life of the plist, so asking for
+/// what the file already says has to be a request that changes nothing.
+#[test]
+fn asking_for_what_the_file_already_says_differs_in_nothing() {
+    let held = PathOverrides {
+        data: Some(PathBuf::from("bulk/data")),
+        ..PathOverrides::default()
+    };
+
+    assert!(
+        asking_for_data("bulk/data")
+            .differing_from(&held)
+            .is_empty()
+    );
+    assert_eq!(
+        asking_for_data("bulk/elsewhere").differing_from(&held),
+        vec!["data"]
+    );
+    assert_eq!(
+        asking_for_data("bulk/data").differing_from(&PathOverrides::default()),
+        vec!["data"],
+        "a key the file does not set at all is a key this request changes"
+    );
+    assert!(
+        RequestedPaths::default().differing_from(&held).is_empty(),
+        "a key nobody mentioned is not a key anybody changed"
+    );
 }

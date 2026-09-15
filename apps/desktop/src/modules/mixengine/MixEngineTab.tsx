@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+
+import type { StorageReport } from "@mixengine/api";
 
 import Button from "../../components/Button";
 import ErrorBanner from "../../components/ErrorBanner";
@@ -22,6 +25,16 @@ import Settings from "./screens/Settings";
 import Sites from "./screens/Sites";
 import { requestRuntimesLanguageFilter } from "./runtimesNavigation";
 import { requestSitesFilter } from "./sitesNavigation";
+import {
+  chosenFrom,
+  explanationOf,
+  isFree,
+  oneFolderFor,
+  pick,
+  rowsFrom,
+  type StorageKey,
+  type StorageRow,
+} from "./storagePicker";
 import { parseMixEngineTabState, type MixEngineScreen } from "./tabState";
 import "./mixengine.css";
 
@@ -58,6 +71,46 @@ export default function MixEngineTab({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const { t, lang } = useTranslation();
+
+  /* Chỗ đặt bốn thư mục phình to, và bốn dòng người dùng đang sửa — T146.
+     `null` là "chưa hỏi xong", phân biệt với "đã hỏi và quyền chọn đã đóng".
+
+     **Chỉ hỏi ở `notRunning`, không hỏi ở `notInstalled`.** Thiết kế nói picker thuộc về cả hai
+     cổng, và điều đó không làm được: câu trả lời tới từ `mixengined --storage`, mà `notInstalled`
+     nghĩa là đúng chương trình ấy không có trên máy. Hỏi ở đó là chạy một tiến trình chắc chắn
+     hỏng để vẽ một màn hình chắc chắn không vẽ được. Một máy chưa cài MixEngine sẽ thấy picker ở
+     lần mở đầu tiên *sau khi* cài — vẫn trước lần cài runtime đầu tiên, nên cửa sổ chọn còn
+     nguyên. */
+  const [storage, setStorage] = useState<StorageReport | null>(null);
+  const [rows, setRows] = useState<StorageRow[]>([]);
+  useEffect(() => {
+    if (presence !== "notRunning") return;
+
+    let live = true;
+    void api
+      .storage()
+      .then((answer) => {
+        if (!live) return;
+        setStorage(answer);
+        setRows(rowsFrom(answer));
+      })
+      // Không hỏi được chỗ đặt file thì cổng vẫn phải vẽ được cái nút của nó: đây là một màn hình
+      // thêm vào, không phải điều kiện để khởi động daemon.
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [presence]);
+
+  async function choose(key: StorageKey) {
+    const picked = await openDialog({ directory: true, multiple: false });
+    if (typeof picked === "string") setRows((prev) => pick(prev, key, picked));
+  }
+
+  async function chooseOneFolder() {
+    const picked = await openDialog({ directory: true, multiple: false });
+    if (typeof picked === "string") setRows((prev) => oneFolderFor(prev, picked));
+  }
 
   /* Mỗi màn hình sidebar tự quản lý watch/reload riêng của nó (qua `subscribeDaemonWatch`) và có
      thể đang giữa một việc dài hơi (một job cài đặt ở Runtimes) khi người dùng đổi sang màn khác —
@@ -154,8 +207,39 @@ export default function MixEngineTab({
             </ul>
           </>
         )}
+        {storage !== null && (
+          <div className="mixengine-gate-storage">
+            <p className="mixengine-gate-looked">
+              {isFree(storage)
+                ? t("mixengine.storage.free")
+                : t("mixengine.storage.taken", { what: explanationOf(storage) ?? "" })}
+            </p>
+
+            <ul className="mixengine-gate-searched">
+              {rows.map((row) => (
+                <li key={row.key} className="mixengine-gate-storage-row">
+                  <span className="mixengine-gate-storage-name">
+                    {t(`mixengine.storage.${row.key}`)}
+                  </span>
+                  <span className="mixengine-gate-storage-path">{row.picked ?? row.current}</span>
+                  {isFree(storage) && (
+                    <Button onClick={() => void choose(row.key)} disabled={busy}>
+                      {t("mixengine.storage.choose")}
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {isFree(storage) && (
+              <Button onClick={() => void chooseOneFolder()} disabled={busy}>
+                {t("mixengine.storage.oneFolder")}
+              </Button>
+            )}
+          </div>
+        )}
         {presence === "notRunning" && (
-          <Button onClick={() => void run(api.startDaemon)} disabled={busy}>
+          <Button onClick={() => void run(() => api.startDaemon(chosenFrom(rows)))} disabled={busy}>
             {busy ? t("mixengine.gate.starting") : t("mixengine.gate.start")}
           </Button>
         )}

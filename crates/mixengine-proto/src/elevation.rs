@@ -180,6 +180,23 @@ pub struct GrantOutcome {
     /// kept and one the helper refused is dropped, so the two numbers do not add up and pretending
     /// they do would make a client compute a third that is wrong.
     pub still_pending: usize,
+
+    /// What every operation that did not come back done had to say, one sentence each.
+    ///
+    /// **Counts are not a diagnosis.** *0 applied, 1 still waiting* is true and there is nothing a
+    /// person can do with it: the reason the helper gave lived in the audit log and in the daemon's
+    /// own log, neither of which is in front of whoever just answered a password prompt. Measured on
+    /// 2026-09-16, when one operation could never succeed on the machine it was queued on and was
+    /// granted eight times against a sentence nobody had been shown.
+    ///
+    /// Both kinds are here — the refused, whose rows are gone, and the failed, whose rows stay for a
+    /// retry — because the difference matters to the queue and not to the reader: either way this
+    /// grant did not do it, and this is why.
+    ///
+    /// Optional on the wire, so an older client reading a newer daemon is unaffected
+    /// ([ADR 0019](../../.claude/decisions/0019-an-added-response-member-is-optional.md)).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub problems: Vec<String>,
 }
 
 /// `elevation.upgrade` — what fetching the published privileged helper did — roadmap task **T88a**.
@@ -301,6 +318,7 @@ mod tests {
             outcome: ElevationOutcome::Declined,
             applied: 0,
             still_pending: 3,
+            problems: Vec::new(),
         };
 
         let encoded = serde_json::to_value(&grant).unwrap();
@@ -327,6 +345,7 @@ mod tests {
             },
             applied: 0,
             still_pending: 1,
+            problems: Vec::new(),
         };
 
         let encoded = serde_json::to_value(&grant).unwrap();

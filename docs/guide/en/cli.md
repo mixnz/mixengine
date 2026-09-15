@@ -32,6 +32,23 @@ Show the daemon's health, version and what it is currently running
 mix status
 ```
 
+## mix storage
+
+Show where this home keeps the directories that grow, and whether that can still change.
+
+**Starts no daemon and needs none.** `runtimes/`, `packages/`, `data/` and `logs/` can each be moved
+to another disk by `[paths]` in `config.toml`, or by starting `mixengined` with `--runtimes`,
+`--packages`, `--data` or `--logs` — and that choice is free only until the first runtime, package
+or service is installed, because from then on where they are is recorded against each of them rather
+than worked out.
+
+The answer comes from `mixengined` itself, run once: whether anything is installed is a question
+about rows in this home's database, and `mix` does not open one.
+
+```
+mix storage
+```
+
 ## mix daemon
 
 Control the daemon itself

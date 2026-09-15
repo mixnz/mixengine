@@ -47,6 +47,7 @@ done
 | [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T129 | 22 / 22 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 | [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
 | [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 8 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends — **met**, measured through Caddy 2.11.4 and nginx 1.31.3 |
+| [17 — A disk somebody chose](phase-17-a-disk-somebody-chose.md) | The four directories that grow can be put on another disk, from the window or the command line, while the choice is still free | T143–T147 | 5 / 5 | **M17** a fresh install offers a disk before anything is installed, a runtime and a service land on it, and an elevation prompt still succeeds — **met**, measured on macOS with `data/` on an external volume and nothing left waiting for permission |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -56,6 +57,24 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 17 is done — 5 of 5, and M17 is met.** It comes from a machine with a small internal disk
+and an external SSD, where pointing `MIXENGINE_HOME` at that disk produced an elevation prompt that
+took a password and then failed: macOS gates a removable volume behind TCC, and the elevated helper
+— spawned through `osascript` and `authtrampoline` — arrives with no responsible process to inherit
+a grant from, so it could not read its own request. Two things fall out. **The home stays where each
+OS puts it**, because `run/` is the helper's whole contact surface and `Paths::new` already refuses
+to move it — which is what makes this phase need no Full Disk Access from anybody. And `[paths]`,
+which has moved the four directories that grow since the beginning, becomes reachable from the
+window, from `mix`, and from the flags a daemon is started with — refused at the one moment it stops
+being safe, which is the first row that records an absolute path. Measured on macOS with
+`runtimes/`, `packages/` and `data/` on an external `noowners` volume: a runtime installed there and
+ran from there, and the elevation queue granted to nothing waiting, with no Full Disk Access given
+to anything. **The measurement found two bugs of its own**, one filed and one fixed here:
+`helper-install` blamed the directory it was writing to when what had failed was reading its own
+binary off that volume, and a grant that did nothing reported only counts — so the same prompt was
+answered eight times against a sentence nobody had been shown.
+Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../../docs/superpowers/specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
 
 **Phase 16's tasks are done — 8 of 8, and M16 is met.** One more complaint from somebody using the
 finished product — a site can only forward to one place — and reading for it found two holes beside
