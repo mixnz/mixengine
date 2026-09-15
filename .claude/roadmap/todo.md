@@ -46,6 +46,7 @@ done
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 | [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T129 | 22 / 22 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 | [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
+| [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 0 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -55,6 +56,11 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 16 is where the work is.** One more complaint from somebody using the finished product — a
+site can only forward to one place — and reading for it found two holes beside it: a path in a
+`reverse-proxy` upstream is accepted by the daemon and refused by Caddy, which costs *every* site on
+the machine its new configuration, and an upstream reaches a Caddyfile with no check for a newline.
 
 **Phase 15's tasks are done — 5 of 5**, and what M15 wants next is the same clean-machine smoke M14
 is waiting on, with three more things typed into the terminal it opens: `mysqldump`, then
