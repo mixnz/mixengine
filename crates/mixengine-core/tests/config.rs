@@ -618,6 +618,13 @@ fn a_rescan_period_of_zero_is_refused_rather_than_corrected() {
 // ---------------------------------------------------------------------------------------------
 
 /// What a caller asks for, with only `data` set.
+///
+/// **Relative, and on all three systems deliberately.** `/bulk/data` is an ordinary absolute path on
+/// macOS and Linux and a *drive-less root* on Windows, which `[paths]` refuses outright — so a test
+/// written with one passes on two systems and fails on the third for a reason that has nothing to do
+/// with what it is testing. Measured: CI went red on exactly this. A relative value is what `[paths]`
+/// documents first and is the same string everywhere; the absolute case is covered by
+/// `mixengine-daemon`'s suite, which builds one from a `TempDir`.
 fn asking_for_data(directory: &str) -> RequestedPaths {
     RequestedPaths {
         data: Some(PathBuf::from(directory)),
@@ -631,12 +638,12 @@ fn a_key_is_written_into_a_file_that_had_no_paths_section() {
     let home = TempDir::new().unwrap();
     let path = write(&home, "[log]\nlevel = \"warn\"\n");
 
-    let written = config::set_paths(&path, &asking_for_data("/bulk/data")).unwrap();
+    let written = config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
 
     assert_eq!(written, vec!["data"]);
 
     let config = config::load(&path).unwrap();
-    assert_eq!(config.paths.data, Some(PathBuf::from("/bulk/data")));
+    assert_eq!(config.paths.data, Some(PathBuf::from("bulk/data")));
     assert_eq!(config.paths.runtimes, None);
     assert_eq!(config.paths.packages, None);
     assert_eq!(config.paths.logs, None);
@@ -660,7 +667,7 @@ fn every_comment_in_the_template_survives_a_write() {
     };
 
     let before = commented(TEMPLATE);
-    config::set_paths(&path, &asking_for_data("/bulk/data")).unwrap();
+    config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
     let after = std::fs::read_to_string(&path).unwrap();
 
     assert_eq!(commented(&after), before, "{after}");
@@ -670,7 +677,7 @@ fn every_comment_in_the_template_survives_a_write() {
     );
     assert_eq!(
         config::load(&path).unwrap().paths.data,
-        Some(PathBuf::from("/bulk/data"))
+        Some(PathBuf::from("bulk/data"))
     );
 }
 
@@ -681,8 +688,8 @@ fn writing_the_same_key_twice_replaces_it() {
     let home = TempDir::new().unwrap();
     let path = write(&home, TEMPLATE);
 
-    config::set_paths(&path, &asking_for_data("/first")).unwrap();
-    config::set_paths(&path, &asking_for_data("/second")).unwrap();
+    config::set_paths(&path, &asking_for_data("bulk/first")).unwrap();
+    config::set_paths(&path, &asking_for_data("bulk/second")).unwrap();
 
     let text = std::fs::read_to_string(&path).unwrap();
     assert_eq!(
@@ -692,7 +699,7 @@ fn writing_the_same_key_twice_replaces_it() {
     );
     assert_eq!(
         config::load(&path).unwrap().paths.data,
-        Some(PathBuf::from("/second"))
+        Some(PathBuf::from("bulk/second"))
     );
 }
 
@@ -702,10 +709,10 @@ fn a_comment_a_person_added_stays_where_they_put_it() {
     let home = TempDir::new().unwrap();
     let path = write(
         &home,
-        "# the big disk arrived 2026-09-16\n[paths]\nruntimes = \"/bulk/runtimes\"\n",
+        "# the big disk arrived 2026-09-16\n[paths]\nruntimes = \"bulk/runtimes\"\n",
     );
 
-    config::set_paths(&path, &asking_for_data("/bulk/data")).unwrap();
+    config::set_paths(&path, &asking_for_data("bulk/data")).unwrap();
 
     let text = std::fs::read_to_string(&path).unwrap();
     assert!(
@@ -715,8 +722,8 @@ fn a_comment_a_person_added_stays_where_they_put_it() {
 
     // And the key that was already there is untouched by a request that did not mention it.
     let config = config::load(&path).unwrap();
-    assert_eq!(config.paths.runtimes, Some(PathBuf::from("/bulk/runtimes")));
-    assert_eq!(config.paths.data, Some(PathBuf::from("/bulk/data")));
+    assert_eq!(config.paths.runtimes, Some(PathBuf::from("bulk/runtimes")));
+    assert_eq!(config.paths.data, Some(PathBuf::from("bulk/data")));
 }
 
 /// **The same rule through the other door.** Every value `config::load` refuses, `set_paths`
@@ -762,21 +769,21 @@ fn an_empty_request_writes_nothing() {
 #[test]
 fn asking_for_what_the_file_already_says_differs_in_nothing() {
     let held = PathOverrides {
-        data: Some(PathBuf::from("/bulk/data")),
+        data: Some(PathBuf::from("bulk/data")),
         ..PathOverrides::default()
     };
 
     assert!(
-        asking_for_data("/bulk/data")
+        asking_for_data("bulk/data")
             .differing_from(&held)
             .is_empty()
     );
     assert_eq!(
-        asking_for_data("/bulk/elsewhere").differing_from(&held),
+        asking_for_data("bulk/elsewhere").differing_from(&held),
         vec!["data"]
     );
     assert_eq!(
-        asking_for_data("/bulk/data").differing_from(&PathOverrides::default()),
+        asking_for_data("bulk/data").differing_from(&PathOverrides::default()),
         vec!["data"],
         "a key the file does not set at all is a key this request changes"
     );

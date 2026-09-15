@@ -264,6 +264,10 @@ mod tests {
     }
 
     /// Asking for `data` and nothing else.
+    ///
+    /// **Relative on purpose**: `/bulk/data` is a drive-less root on Windows, which `[paths]`
+    /// refuses, so an absolute Unix path here is a test that fails on one system for a reason that
+    /// is not the subject. `tests/storage.rs` covers an absolute value, built from a `TempDir`.
     fn asking(directory: &str) -> RequestedPaths {
         RequestedPaths {
             data: Some(PathBuf::from(directory)),
@@ -297,7 +301,7 @@ mod tests {
             &store,
             &config_file,
             &PathOverrides::default(),
-            &asking("/bulk/data"),
+            &asking("bulk/data"),
         )
         .await
         .unwrap();
@@ -308,7 +312,7 @@ mod tests {
                 .unwrap()
                 .paths
                 .data,
-            Some(PathBuf::from("/bulk/data"))
+            Some(PathBuf::from("bulk/data"))
         );
     }
 
@@ -320,7 +324,7 @@ mod tests {
             &store,
             &config_file,
             &PathOverrides::default(),
-            &asking("/bulk/data"),
+            &asking("bulk/data"),
         )
         .await
         .unwrap();
@@ -328,7 +332,7 @@ mod tests {
         let after_first = std::fs::read_to_string(&config_file).unwrap();
         let held = mixengine_core::config::load(&config_file).unwrap().paths;
 
-        let applied = apply(&store, &config_file, &held, &asking("/bulk/data"))
+        let applied = apply(&store, &config_file, &held, &asking("bulk/data"))
             .await
             .unwrap();
 
@@ -357,7 +361,7 @@ mod tests {
             &store,
             &config_file,
             &PathOverrides::default(),
-            &asking("/bulk/data"),
+            &asking("bulk/data"),
         )
         .await
         .unwrap_err();
@@ -387,7 +391,7 @@ mod tests {
             &store,
             &config_file,
             &PathOverrides::default(),
-            &asking("/bulk/data"),
+            &asking("bulk/data"),
         )
         .await
         .unwrap();
@@ -405,7 +409,7 @@ mod tests {
         .expect("the row");
 
         assert_eq!(
-            apply(&store, &config_file, &held, &asking("/bulk/data"))
+            apply(&store, &config_file, &held, &asking("bulk/data"))
                 .await
                 .unwrap(),
             Applied::Nothing
