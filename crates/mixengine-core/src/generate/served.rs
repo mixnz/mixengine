@@ -140,7 +140,7 @@ pub struct ServedRoute {
 pub enum ServedRouteTarget {
     /// Forwarded, with the prefix rewritten when the upstream asked for it.
     Proxy {
-        /// Scheme, host and port, and never a path — [`split_upstream`] is why.
+        /// Scheme, host and port, and never a path — `split_upstream` in this module is why.
         address: String,
 
         /// What the prefix becomes on the way out, or [`None`] to pass the path through.
@@ -274,8 +274,8 @@ pub enum ServedKind {
         ///
         /// The row may hold one, and until T135 it was written into the configuration unchanged:
         /// nginx read it as a prefix replacement and Caddy refused the file outright, which cost
-        /// every site on the machine its rendering. [`split_upstream`] takes it off and
-        /// [`rewrite`](Self::ReverseProxy::rewrite) carries what it meant.
+        /// every site on the machine its rendering. `split_upstream` in this module takes it off,
+        /// and [`rewrite`](Self::ReverseProxy::rewrite) carries what it meant.
         upstream: String,
 
         /// What `/` becomes on the way out, when the row's upstream carried a path.

@@ -46,7 +46,7 @@ done
 | [13 — Profiles](phase-13-profiles.md) | A person who never wanted a database client never sees one | T108–T110 | 3 / 3 | **M13** first-run picks a profile; *MixEngine* hides the toolbox, Settings brings it back |
 | [14 — A window a new user can start from](phase-14-a-window-a-new-user-can-start-from.md) | One button makes a working site, a reboot keeps it, the menu can be read | T112–T129 | 22 / 22 | **M14** one button and one prompt on a fresh install open a working `https://<name>.test`, and a restart leaves it serving |
 | [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
-| [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 0 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends |
+| [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 8 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends — **met**, measured through Caddy 2.11.4 and nginx 1.31.3 |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -57,10 +57,14 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 16 is where the work is.** One more complaint from somebody using the finished product — a
-site can only forward to one place — and reading for it found two holes beside it: a path in a
-`reverse-proxy` upstream is accepted by the daemon and refused by Caddy, which costs *every* site on
-the machine its new configuration, and an upstream reaches a Caddyfile with no check for a newline.
+**Phase 16's tasks are done — 8 of 8, and M16 is met.** One more complaint from somebody using the
+finished product — a site can only forward to one place — and reading for it found two holes beside
+it, both now closed: a path in a `reverse-proxy` upstream was accepted by the daemon and refused by
+Caddy, which cost *every* site on the machine its new configuration, and an upstream reached a
+Caddyfile with no check for a newline. A site is now a kind plus an ordered set of path routes
+([ADR 0035](../decisions/0035-a-site-is-a-kind-and-a-set-of-routes.md)). What is still asserted
+rather than served is one rendering: the nginx php-fpm route's nested PHP handler, which needs a
+suite with a PHP to hand.
 
 **Phase 15's tasks are done — 5 of 5**, and what M15 wants next is the same clean-machine smoke M14
 is waiting on, with three more things typed into the terminal it opens: `mysqldump`, then

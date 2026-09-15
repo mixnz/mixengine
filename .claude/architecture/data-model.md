@@ -83,6 +83,18 @@ sites(id, project_id, extension_id, doc_root, kind, php_service_id,
    --   not a process — and the cascade is what makes forgetting an extension a whole rollback
    -- sites_one_per_extension: a unique partial index, which is also the cascade's index
 site_domains(id, site_id, domain, is_primary)  -- every domain, primary included
+site_routes(id, site_id, position, path, target, php_service_id, config_json)
+   -- T135: one site, many backends. A site is its `kind` plus these, and the kind is what
+   --   answers whatever no route matched — so `/` is not a path a route may take (CHECK)
+   -- target: proxy | php-fpm | static ; UNIQUE(site_id, path)
+   -- position is what somebody typed, kept so a listing can show it back. It is NOT what
+   --   decides which route wins: overlaps are resolved by specificity where the configuration
+   --   is rendered — longest prefix first, `core::sites::by_specificity` — so Caddy, whose
+   --   handlers are taken in order, and nginx, which has location precedence of its own,
+   --   reach the same answer without either being asked to
+   -- php_service_id is ON DELETE SET NULL on sites.php_service_id's precedent, and NULL means
+   --   "the pool this route named has been deleted": the render skips that one route with a
+   --   warning and serves the rest of the site, where a *site* with no pool is dropped whole
 site_service_links(site_id, service_id)      -- which DBs/caches a site declares
 
 -- TLS -----------------------------------------------------------------------

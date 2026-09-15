@@ -3,6 +3,12 @@
 ## Unreleased
 
 ### Added
+- One site can now answer different path prefixes with different things: `mix site create` and `mix
+  site update` take `--proxy /api=http://127.0.0.1:3003/xyz`, `--php /admin` and `--files
+  /assets=dist`, repeatable, with `--no-routes` to clear them. The upstream's path, when it has one,
+  replaces the matched prefix — so a dev server at `/` and an API on another port under `/api` is a
+  single site. The longest prefix wins, and both Caddy and nginx serve it identically.
+- MixLab's site form edits those routes, and its Sites list shows how many a site has.
 - Every tab of MixLab's Runtimes screen has a search box over the versions not installed yet, so a
   long list of releases can be narrowed by name, version or channel.
 - `mix service autostart <service> --on|--off` reads and sets whether a service starts with
@@ -38,6 +44,12 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Fixed
+- A `reverse-proxy` site whose upstream carried a path — `http://127.0.0.1:3000/api` — no longer
+  costs *every* site on the machine its configuration. Caddy refuses a path in a proxy upstream and
+  the whole rendering is judged in one go, so one such site silently froze every other one at its
+  last good configuration. The path is now a rewrite, and means the same thing on Caddy and nginx.
+- A proxy upstream can no longer carry a newline, a brace or a backtick into a generated web server
+  configuration.
 - MySQL 5.7 finishes its first run instead of hanging on *set the root password*. The server it was
   started with ran the statement, announced itself ready for connections and then never stopped, so
   the step sat there for its full fifteen minutes and the service was reported as never having

@@ -48,6 +48,18 @@ binaries. What they state is what the daemon **writes** —
    `site.unshare` takes it back; a machine with more than one network refuses rather than choosing,
    and names the candidates so a client can offer them.
 
+   **And what is behind the site, one prefix at a time — T135.** `SiteSummary.routes` is an ordered
+   list of `SiteRoute`, **in match order** — longest prefix first, which is how the front end resolves
+   an overlap and therefore the only order a client should draw. `SiteCreate.routes` and
+   `SiteUpdate.routes` **replace** the list rather than merging into it, on `domains`' rule: with a
+   merge there is no way to remove one. Three targets — a proxy to an address whose path, when it has
+   one, replaces the matched prefix; a php-fpm pool, which the daemon resolves when the client names
+   none; and a directory, whose prefix is stripped. On the list they are a count, because "does this
+   site have more behind it" is a question about every site at once; on the detail they are the whole
+   list. `mix` types them as `--proxy /api=http://127.0.0.1:3003/xyz`, `--php /admin[=<pool>]` and
+   `--files /assets=dist`, with `--no-routes` for the empty list —
+   [ADR 0035](../decisions/0035-a-site-is-a-kind-and-a-set-of-routes.md).
+
    **A second toggle beside HTTPS itself — T98.** `SiteSummary.https_redirect` and the same field on
    `SiteCreate`/`SiteUpdate` are what a client reads and writes; the one thing worth a client knowing
    ahead of asking is that the daemon refuses `https_redirect: true` whenever the site's own `https`
