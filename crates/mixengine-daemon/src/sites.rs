@@ -346,6 +346,15 @@ impl Sites {
             None => self.linked(manifest.as_ref()).await?,
         };
 
+        // **Falls through to `[[site.routes]]`, on `kind`'s rule** — roadmap task **T135**. An
+        // import is what this exists for: `project.export` writes the routes into the file, and a
+        // `site.create` that ignored them would make the round trip lose half of what a site is.
+        let routes = create.routes.clone().or_else(|| {
+            declared
+                .map(|site| site.routes.clone())
+                .filter(|routes| !routes.is_empty())
+        });
+
         let new = sites::NewSite {
             owner: sites::SiteOwner::Project(project.id),
             doc_root: sites::relative_doc_root(&project.root, &doc_root)
@@ -356,7 +365,7 @@ impl Sites {
             domains: self.checked(&domains, create.accept_risky_tld)?,
             services: self.existing(&services).await?,
             routes: self
-                .routes(&project, create.routes.as_deref())
+                .routes(&project, routes.as_deref())
                 .await?
                 .unwrap_or_default(),
         };
