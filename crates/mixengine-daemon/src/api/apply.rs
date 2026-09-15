@@ -406,6 +406,7 @@ impl Api {
                 kind,
                 doc_root,
                 https,
+                routes,
             } => {
                 // **The one place the walk looks ahead** (D14): a site cannot be created nameless,
                 // and the names are read off the plan's own steps rather than expanded a second
@@ -429,7 +430,11 @@ impl Api {
                         // has an empty `site_service_links`, and a capture of this project would
                         // lose every `[[services]]` entry it should have carried.
                         services: Some(context.ensured.clone()),
-                        routes: None,
+                        // **Written with the site, not after it** — roadmap task **T135**. There is
+                        // no `AddRoute` step and there should not be: a route is a column of the
+                        // site rather than a name the hosts file has to learn, so it costs no
+                        // elevation and nothing can observe the site without them.
+                        routes: Some(routes.clone()),
                         https: Some(*https),
                         // A blueprint describes what a site *is*; a redirect is a fact about one
                         // home's traffic, which no manifest declares — roadmap task **T98**.

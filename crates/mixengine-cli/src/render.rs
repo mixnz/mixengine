@@ -3538,6 +3538,7 @@ fn action_said(action: &PlanAction) -> String {
             kind,
             doc_root,
             https,
+            ..
         } => format!(
             "site {} at {}{}",
             site_kind_word(kind),

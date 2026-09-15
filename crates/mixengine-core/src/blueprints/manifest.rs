@@ -117,6 +117,13 @@ pub struct BlueprintSite {
 
     /// Every other name, by the same rule.
     pub aliases: Vec<String>,
+
+    /// `[[site.routes]]`, in the order they were captured — roadmap task **T135**.
+    ///
+    /// **A php-fpm route's pool is dropped on capture**, for the reason the site's own is: which
+    /// pool answers is a fact about the machine a blueprint was taken from, and the receiving
+    /// machine decides its own.
+    pub routes: Vec<mixengine_proto::SiteRoute>,
 }
 
 /// One `[[services]]` entry.
@@ -237,6 +244,22 @@ impl<'de> serde::Deserialize<'de> for BlueprintSite {
             domain_pattern: text("domain_pattern")
                 .ok_or_else(|| D::Error::custom("a [site] needs a domain_pattern"))?,
             aliases,
+            // **Invisible to the kind above**, which names no `routes` and denies no unknown field
+            // — roadmap task **T135**. Absent is none, which is every manifest the gallery ships.
+            routes: table
+                .get("routes")
+                .and_then(|value| value.as_array())
+                .map(|array| {
+                    array
+                        .iter()
+                        .map(|value| {
+                            mixengine_proto::SiteRoute::deserialize(value.clone())
+                                .map_err(D::Error::custom)
+                        })
+                        .collect::<std::result::Result<Vec<_>, _>>()
+                })
+                .transpose()?
+                .unwrap_or_default(),
         })
     }
 }
@@ -353,6 +376,42 @@ pub fn render(manifest: &BlueprintManifest) -> String {
             table["aliases"] = value(aliases);
         }
 
+        // **After the scalars**, on this function's own reason for being hand-built: TOML puts
+        // tables after the values of the table they sit in, and an array of tables written before
+        // `doc_root` would move every key after it into the wrong table — roadmap task **T135**.
+        if !site.routes.is_empty() {
+            let mut routes = toml_edit::ArrayOfTables::new();
+
+            for route in &site.routes {
+                let mut entry = Table::new();
+                entry["path"] = value(route.path.as_str());
+
+                // Exhaustive, so a fourth target is a compile error here rather than a key silently
+                // missing from a published manifest.
+                match &route.target {
+                    mixengine_proto::RouteTarget::Proxy { upstream } => {
+                        entry["target"] = value("proxy");
+                        entry["upstream"] = value(upstream.as_str());
+                    }
+                    mixengine_proto::RouteTarget::PhpFpm { pool } => {
+                        entry["target"] = value("php-fpm");
+
+                        if let Some(pool) = pool {
+                            entry["pool"] = value(pool.as_str());
+                        }
+                    }
+                    mixengine_proto::RouteTarget::Static { root } => {
+                        entry["target"] = value("static");
+                        entry["root"] = value(root.as_str());
+                    }
+                }
+
+                routes.push(entry);
+            }
+
+            table["routes"] = Item::ArrayOfTables(routes);
+        }
+
         document["site"] = Item::Table(table);
     }
 
@@ -441,6 +500,7 @@ mod tests {
                 https: true,
                 domain_pattern: "{project}.test".to_owned(),
                 aliases: vec!["api.{project}.test".to_owned()],
+                routes: Vec::new(),
             }),
             services: vec![BlueprintService {
                 name: "mariadb".to_owned(),
@@ -517,6 +577,49 @@ command = "composer create-project laravel/laravel {project}"
         let read_back = read(GALLERY_SHAPED).expect("it parses");
 
         assert!(!read_back.scaffold.expect("a scaffold").needs_empty_dir);
+    }
+
+    /// **A site's routes survive a render and a read** — roadmap task **T135**, that design's D11.
+    ///
+    /// The one property this test is really about is the ordering the renderer's own note explains:
+    /// TOML puts a table after the values of the table it sits in, so an array of tables written
+    /// before `doc_root` would take every key after it into the wrong table. Reading the render back
+    /// is what would catch that.
+    #[test]
+    fn a_sites_routes_survive_the_round_trip() {
+        let routes = vec![
+            mixengine_proto::SiteRoute {
+                path: "/api".to_owned(),
+                target: mixengine_proto::RouteTarget::Proxy {
+                    upstream: "http://127.0.0.1:3003/xyz".to_owned(),
+                },
+            },
+            mixengine_proto::SiteRoute {
+                path: "/admin".to_owned(),
+                target: mixengine_proto::RouteTarget::PhpFpm { pool: None },
+            },
+            mixengine_proto::SiteRoute {
+                path: "/assets".to_owned(),
+                target: mixengine_proto::RouteTarget::Static {
+                    root: "dist".to_owned(),
+                },
+            },
+        ];
+
+        let mut manifest = a_manifest();
+        manifest.site.as_mut().expect("a site").routes = routes.clone();
+
+        let rendered = render(&manifest);
+        let read_back = read(&rendered).expect("it parses");
+        let site = read_back.site.as_ref().expect("a site");
+
+        assert_eq!(site.routes, routes);
+        assert_eq!(
+            site.doc_root, "public",
+            "a key written before the array of tables is still in the site table:\n{rendered}"
+        );
+        assert_eq!(site.kind, SiteKind::PhpFpm { pool: None });
+        assert_eq!(render(&read_back), rendered, "and it renders back the same");
     }
 
     /// And a manifest that does say so renders it back, which is what lets one travel.

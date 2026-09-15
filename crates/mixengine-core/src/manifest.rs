@@ -78,6 +78,12 @@ pub struct ManifestSite {
     /// sitting flat beside `upstream = "…"`. One type reads the file and the wire, with nothing in
     /// between to drift.
     pub kind: Option<SiteKind>,
+
+    /// `[[site.routes]]`, in the order the file writes them — roadmap task **T135**.
+    ///
+    /// Empty where the file names none, which is every manifest written before T135. The daemon is
+    /// what sorts them into match order; a file is what somebody typed.
+    pub routes: Vec<mixengine_proto::SiteRoute>,
 }
 
 impl<'de> serde::Deserialize<'de> for ManifestSite {
@@ -114,6 +120,25 @@ impl<'de> serde::Deserialize<'de> for ManifestSite {
             .transpose()?
             .unwrap_or_default();
 
+        // **Read before the kind, and harmless to it either way** — roadmap task **T135**.
+        // `SiteKind` names no `routes`, and nothing here denies unknown fields, so the array below
+        // is invisible to the line after it. Reading it first is what keeps that a fact about this
+        // function rather than about `SiteKind`'s attributes.
+        let routes = table
+            .get("routes")
+            .and_then(|value| value.as_array())
+            .map(|array| {
+                array
+                    .iter()
+                    .map(|value| {
+                        mixengine_proto::SiteRoute::deserialize(value.clone())
+                            .map_err(D::Error::custom)
+                    })
+                    .collect::<std::result::Result<Vec<_>, _>>()
+            })
+            .transpose()?
+            .unwrap_or_default();
+
         // Absent is `None`; present and wrong is the file being wrong, which the enum decides.
         let kind = match table.contains_key("kind") {
             true => Some(SiteKind::deserialize(table.clone()).map_err(D::Error::custom)?),
@@ -126,6 +151,7 @@ impl<'de> serde::Deserialize<'de> for ManifestSite {
             doc_root: text("doc_root"),
             https: table.get("https").and_then(toml::Value::as_bool),
             kind,
+            routes,
         })
     }
 }
@@ -259,6 +285,9 @@ pub struct ExportSite {
     pub https: bool,
     /// What it serves, written from an exhaustive match so a fifth kind cannot be forgotten.
     pub kind: SiteKind,
+    /// The routes it declares, written from an exhaustive match for the same reason — roadmap task
+    /// **T135**.
+    pub routes: Vec<mixengine_proto::SiteRoute>,
     /// The services it declares.
     pub services: Vec<ExportService>,
 }
@@ -354,6 +383,41 @@ pub fn write(directory: &Path, export: &Export) -> Result<bool> {
                     table["port"] = toml_edit::value(i64::from(*port));
                 }
             }
+
+            // **Written whole, and written even when empty** — roadmap task **T135**, on
+            // `aliases`' rule and for its reason: a route removed in the database and left in the
+            // file would be a file that disagrees with the home it came from, and this is a key the
+            // export owns outright.
+            let mut routes = toml_edit::ArrayOfTables::new();
+
+            for route in &site.routes {
+                let mut entry = toml_edit::Table::new();
+                entry["path"] = toml_edit::value(route.path.as_str());
+
+                // Exhaustive, so a fourth target is a compile error here rather than a key silently
+                // missing from somebody's manifest.
+                match &route.target {
+                    mixengine_proto::RouteTarget::Proxy { upstream } => {
+                        entry["target"] = toml_edit::value("proxy");
+                        entry["upstream"] = toml_edit::value(upstream.as_str());
+                    }
+                    mixengine_proto::RouteTarget::PhpFpm { pool } => {
+                        entry["target"] = toml_edit::value("php-fpm");
+
+                        if let Some(pool) = pool {
+                            entry["pool"] = toml_edit::value(pool.as_str());
+                        }
+                    }
+                    mixengine_proto::RouteTarget::Static { root } => {
+                        entry["target"] = toml_edit::value("static");
+                        entry["root"] = toml_edit::value(root.as_str());
+                    }
+                }
+
+                routes.push(entry);
+            }
+
+            table["routes"] = toml_edit::Item::ArrayOfTables(routes);
         });
 
         merge_services(&mut document, &site.services);
@@ -454,6 +518,58 @@ mod tests {
         }
     }
 
+    /// **T135, D11.** A round trip that silently dropped half of what a site is would be worse than
+    /// one that refused, so `[[site.routes]]` is written by an export and read by an import.
+    #[test]
+    fn routes_survive_an_export_and_come_back() {
+        let home = somewhere();
+
+        let routes = vec![
+            mixengine_proto::SiteRoute {
+                path: "/api".to_owned(),
+                target: mixengine_proto::RouteTarget::Proxy {
+                    upstream: "http://127.0.0.1:3003/xyz".to_owned(),
+                },
+            },
+            mixengine_proto::SiteRoute {
+                path: "/admin".to_owned(),
+                target: mixengine_proto::RouteTarget::PhpFpm {
+                    pool: Some(mixengine_proto::ServiceId::parse("php-fpm@8.3.33").expect("an id")),
+                },
+            },
+            mixengine_proto::SiteRoute {
+                path: "/assets".to_owned(),
+                target: mixengine_proto::RouteTarget::Static {
+                    root: "dist".to_owned(),
+                },
+            },
+        ];
+
+        write(
+            home.path(),
+            &export(Some(ExportSite {
+                domain: "blog.test".to_owned(),
+                aliases: Vec::new(),
+                doc_root: String::new(),
+                https: false,
+                kind: mixengine_proto::SiteKind::NodeApp { port: 3000 },
+                routes: routes.clone(),
+                services: Vec::new(),
+            })),
+        )
+        .expect("a manifest");
+
+        let manifest = read(&at(home.path())).expect("a read").expect("a manifest");
+        let site = manifest.site.expect("a site");
+
+        assert_eq!(site.routes, routes);
+        assert_eq!(
+            site.kind,
+            Some(mixengine_proto::SiteKind::NodeApp { port: 3000 }),
+            "the routes beside the kind do not confuse the kind"
+        );
+    }
+
     /// **D9.** The export writes the site, and everything the daemon does not own survives it —
     /// including a hand-written key inside an entry it *does* update.
     #[test]
@@ -479,6 +595,7 @@ mod tests {
                 doc_root: "public".to_owned(),
                 https: true,
                 kind: mixengine_proto::SiteKind::PhpFpm { pool: None },
+                routes: Vec::new(),
                 services: vec![ExportService {
                     name: "mariadb".to_owned(),
                     instance: "main".to_owned(),
@@ -528,6 +645,7 @@ mod tests {
                 kind: mixengine_proto::SiteKind::ReverseProxy {
                     upstream: "http://127.0.0.1:5173".to_owned(),
                 },
+                routes: Vec::new(),
                 services: Vec::new(),
             })),
         )

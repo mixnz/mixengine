@@ -289,6 +289,7 @@ mod tests {
                 kind: mixengine_proto::SiteKind::PhpFpm { pool: None },
                 doc_root: "public".to_owned(),
                 https: true,
+                routes: Vec::new(),
             },
             disposition: Disposition::Create,
             elevates: false,

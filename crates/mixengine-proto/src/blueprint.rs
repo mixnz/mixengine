@@ -495,6 +495,14 @@ pub enum PlanAction {
 
         /// Whether HTTPS is declared.
         https: bool,
+
+        /// The path routes it declares — roadmap task **T135**.
+        ///
+        /// A php-fpm route's pool is not named here, for the reason `kind`'s is: which pool answers
+        /// is decided on the machine that makes the site. Empty for every blueprint the gallery
+        /// ships, which is what makes this an addition rather than a change.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        routes: Vec<crate::SiteRoute>,
     },
 
     /// Give the site a name.
