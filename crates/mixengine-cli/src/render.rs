@@ -1669,7 +1669,12 @@ pub(crate) fn elevation_prompt(status: &ElevationStatus) -> String {
     )
 }
 
-/// What one grant did, in a line.
+/// What one grant did, in a line — and under it, what anything that did not happen had to say.
+///
+/// **The counts alone are not a diagnosis.** *0 applied, 1 still waiting* is true and there is
+/// nothing to do with it: until 2026-09-16 the reason an operation gave lived in the audit log and
+/// the daemon's log, neither of which is in front of the person who has just typed a password. One
+/// of them was granted eight times against a sentence nobody had been shown.
 fn grant(outcome: &GrantOutcome) -> String {
     let what = match &outcome.outcome {
         // A choice and not a failure — ADR 0005. The word carries that, and nothing here adds to it.
@@ -1681,7 +1686,15 @@ fn grant(outcome: &GrantOutcome) -> String {
         ),
     };
 
-    format!("job {} — {what}", outcome.job)
+    let mut rendered = format!("job {} — {what}", outcome.job);
+
+    // The daemon's own sentences, one per line, unchanged. Which operation each is about is already
+    // in the sentence, because the daemon put it there.
+    for problem in &outcome.problems {
+        rendered.push_str(&format!("\n  {problem}"));
+    }
+
+    rendered
 }
 
 /// "1 operation is" / "3 operations are", so a sentence built from a count reads.
@@ -5591,6 +5604,7 @@ mod tests {
                 outcome: mixengine_proto::privileged::ElevationOutcome::Declined,
                 applied: 0,
                 still_pending: 1,
+                problems: Vec::new(),
             }),
         });
 
@@ -5992,4 +6006,54 @@ pub(crate) fn storage(report: &StorageReport) -> String {
     });
 
     rendered
+}
+
+#[cfg(test)]
+mod grant_problems {
+    use super::*;
+
+    /// **A grant that did nothing says why** — roadmap task **T147**.
+    ///
+    /// The regression this pins is not a crash. It is a person granting the same operation eight
+    /// times because the only thing they were shown was *0 applied, 1 still waiting*, while the
+    /// sentence that would have stopped them sat in a log file.
+    #[test]
+    fn what_did_not_happen_is_printed_under_the_line() {
+        let outcome = GrantOutcome {
+            job: mixengine_proto::JobId(8),
+            at: mixengine_proto::Timestamp(1_760_000_000_000),
+            outcome: mixengine_proto::privileged::ElevationOutcome::Completed,
+            applied: 0,
+            still_pending: 1,
+            problems: vec![
+                "helper-install — cannot read /Volumes/SSD/mixengine-elevate: Operation not \
+                 permitted (os error 1)"
+                    .to_owned(),
+            ],
+        };
+
+        let rendered = grant(&outcome);
+
+        assert!(
+            rendered.contains("0 applied, 1 still waiting"),
+            "{rendered}"
+        );
+        assert!(rendered.contains("helper-install"), "{rendered}");
+        assert!(rendered.contains("Operation not permitted"), "{rendered}");
+    }
+
+    /// A grant with nothing to report is the line it always was, with nothing appended.
+    #[test]
+    fn a_grant_that_did_everything_gains_no_lines() {
+        let outcome = GrantOutcome {
+            job: mixengine_proto::JobId(1),
+            at: mixengine_proto::Timestamp(1_760_000_000_000),
+            outcome: mixengine_proto::privileged::ElevationOutcome::Completed,
+            applied: 2,
+            still_pending: 0,
+            problems: Vec::new(),
+        };
+
+        assert_eq!(grant(&outcome), "job #1 — 2 applied, 0 still waiting");
+    }
 }

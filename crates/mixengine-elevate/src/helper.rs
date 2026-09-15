@@ -176,8 +176,23 @@ fn list(paths: &[std::path::PathBuf]) -> String {
 ///
 /// The staged file is removed on every failure after it exists, because a `.new` left in a
 /// root-owned directory is litter only another elevation could clear.
+///
+/// **The source is opened before the copy, so that a failure names the file that failed.**
+/// `fs::copy` reads one file and writes another and reports both with a single error, and the
+/// message here said *"cannot write `<destination>`"* whatever went wrong. Measured on 2026-09-16:
+/// a helper on an external volume could not read **itself** — macOS gates a removable volume behind
+/// TCC and this process is spawned through an elevation prompt with no responsible process to
+/// inherit a grant from — and the report blamed `/Library/PrivilegedHelperTools`, a directory that
+/// was never the problem. Eight prompts were granted against that sentence before anybody thought
+/// to doubt it. One `open` is what separates *this file cannot be read* from *that one cannot be
+/// written*, and the two have completely different answers.
 fn place(source: &Path, destination: &Path) -> Result<(), String> {
     let staged = destination.with_extension("new");
+
+    drop(
+        std::fs::File::open(source)
+            .map_err(|error| format!("cannot read {}: {error}", source.display()))?,
+    );
 
     std::fs::copy(source, &staged)
         .map_err(|error| format!("cannot write {}: {error}", staged.display()))?;
@@ -448,5 +463,38 @@ mod tests {
         assert!(same_file(&one, &one));
         assert!(!same_file(&one, &two));
         assert!(!same_file(&one, &directory.path().join("absent")));
+    }
+
+    /// **A source that cannot be read is reported as a source** — roadmap task **T147**.
+    ///
+    /// `fs::copy` reads one file and writes another and fails with a single error, so the message
+    /// here named the destination whatever went wrong. That cost eight granted prompts on
+    /// 2026-09-16: a helper on an external volume could not read itself — macOS gates a removable
+    /// volume behind TCC and this process arrives with no responsible process to inherit a grant
+    /// from — and every report blamed a directory that was never the problem.
+    ///
+    /// The unreadable source here is one that is absent rather than one TCC refuses, because a
+    /// test cannot arrange the second; what is being pinned is which *name* the sentence carries.
+    #[test]
+    fn a_source_that_cannot_be_read_is_not_reported_as_a_destination() {
+        let directory = tempfile::TempDir::new().expect("a temporary directory");
+        let absent = directory.path().join("no-such-helper");
+        let destination = directory.path().join("installed");
+
+        let complaint = place(&absent, &destination).expect_err("there is nothing to copy");
+
+        assert!(complaint.contains("cannot read"), "{complaint}");
+        assert!(
+            complaint.contains("no-such-helper"),
+            "the sentence has to name the file that failed: {complaint}"
+        );
+        assert!(
+            !complaint.contains("installed"),
+            "a source that cannot be read was blamed on the destination: {complaint}"
+        );
+        assert!(
+            !destination.with_extension("new").exists(),
+            "a refused copy left a staged file behind"
+        );
     }
 }

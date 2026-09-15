@@ -25,7 +25,24 @@ applied: number,
  * kept and one the helper refused is dropped, so the two numbers do not add up and pretending
  * they do would make a client compute a third that is wrong.
  */
-still_pending: number, } & ({ "outcome": "completed" } | { "outcome": "declined" } | { "outcome": "unavailable", 
+still_pending: number, 
+/**
+ * What every operation that did not come back done had to say, one sentence each.
+ *
+ * **Counts are not a diagnosis.** *0 applied, 1 still waiting* is true and there is nothing a
+ * person can do with it: the reason the helper gave lived in the audit log and in the daemon's
+ * own log, neither of which is in front of whoever just answered a password prompt. Measured on
+ * 2026-09-16, when one operation could never succeed on the machine it was queued on and was
+ * granted eight times against a sentence nobody had been shown.
+ *
+ * Both kinds are here — the refused, whose rows are gone, and the failed, whose rows stay for a
+ * retry — because the difference matters to the queue and not to the reader: either way this
+ * grant did not do it, and this is why.
+ *
+ * Optional on the wire, so an older client reading a newer daemon is unaffected
+ * ([ADR 0019](../../.claude/decisions/0019-an-added-response-member-is-optional.md)).
+ */
+problems?: Array<string>, } & ({ "outcome": "completed" } | { "outcome": "declined" } | { "outcome": "unavailable", 
 /**
  * What is missing, phrased for a user, with the manual command where one exists.
  */

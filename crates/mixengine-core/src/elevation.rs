@@ -213,8 +213,15 @@ pub struct Settled {
     /// reason and what a person needs from either is the sentence.
     pub refused: Vec<(PendingOpId, String)>,
 
-    /// How many rows are still there — the [`OpOutcome::Failed`] ones.
-    pub kept: usize,
+    /// The rows that are still there, and what each said — the [`OpOutcome::Failed`] ones.
+    ///
+    /// **The sentence is carried and not only counted** — a retryable failure is still a failure a
+    /// person has to be told about. It was a count until 2026-09-16, and the cost of that showed up
+    /// the first time a failure was permanent in practice: the grant reported *0 applied, 1 still
+    /// waiting*, the reason lived in the audit log alone, and the operation was granted eight times
+    /// against a message nobody had been shown. `kept` is `failed.len()`, so there is one number
+    /// rather than two that can disagree.
+    pub failed: Vec<(PendingOpId, String)>,
 }
 
 /// Apply a helper's report to the queue.
@@ -257,8 +264,8 @@ pub async fn settle(store: &Store, results: &[(PendingOpId, OpOutcome)]) -> Resu
             OpOutcome::Refused { reason } | OpOutcome::Unsupported { reason } => {
                 settled.refused.push((*id, reason.clone()));
             }
-            OpOutcome::Failed { .. } => {
-                settled.kept += 1;
+            OpOutcome::Failed { message } => {
+                settled.failed.push((*id, message.clone()));
                 continue;
             }
         }
@@ -967,7 +974,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(settled.applied, 1);
-        assert_eq!(settled.kept, 1);
+        assert_eq!(settled.failed.len(), 1);
         assert_eq!(settled.refused.len(), 1);
         assert_eq!(settled.refused[0].0, waiting[1].id);
         assert!(settled.refused[0].1.contains("outside the home"));

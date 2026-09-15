@@ -851,6 +851,7 @@ impl Elevation {
     ) -> Result<serde_json::Value, Error> {
         let outcome = raised.map_err(|error| mixengine_core::Error::Platform(error).to_wire())?;
         let asked = waiting.len();
+        let mut problems: Vec<String> = Vec::new();
 
         let (applied, still_pending) = match &outcome {
             // Every row kept, and the job **succeeds**: ADR 0005 says a declined prompt is a normal
@@ -868,7 +869,7 @@ impl Elevation {
                     ErrorCode::PrivilegedRequired,
                     format!("this machine cannot raise an elevation prompt: {reason}"),
                 );
-                self.remember(handle, &outcome, 0, asked);
+                self.remember(handle, &outcome, 0, asked, Vec::new());
                 return Err(error);
             }
 
@@ -880,7 +881,7 @@ impl Elevation {
                 let report = match mixengine_core::elevation::read_report(request) {
                     Ok(report) => report,
                     Err(error) => {
-                        self.remember(handle, &outcome, 0, asked);
+                        self.remember(handle, &outcome, 0, asked, Vec::new());
                         return Err(error.to_wire());
                     }
                 };
@@ -906,7 +907,7 @@ impl Elevation {
 
                 tracing::info!(
                     applied = settled.applied,
-                    kept = settled.kept,
+                    kept = settled.failed.len(),
                     refused = settled.refused.len(),
                     elevated = report.elevated,
                     helper = report.elevate_version,
@@ -926,11 +927,32 @@ impl Elevation {
                     self.learn_installed_helper().await;
                 }
 
-                (settled.applied, settled.kept)
+                // **The sentences, named by the operation they are about** — roadmap task
+                // **T147**. Composed here rather than by a client: what an operation is called and
+                // what it said are both the daemon's to know, and a client joining the two would be
+                // a second place the wording lives.
+                problems = settled
+                    .refused
+                    .iter()
+                    .chain(settled.failed.iter())
+                    .map(|(id, reason)| {
+                        let what = waiting
+                            .iter()
+                            .find(|pending| pending.id == *id)
+                            .map_or_else(
+                                || format!("operation {id}"),
+                                |pending| pending.op.name().to_owned(),
+                            );
+
+                        format!("{what} — {reason}")
+                    })
+                    .collect();
+
+                (settled.applied, settled.failed.len())
             }
         };
 
-        let grant = self.remember(handle, &outcome, applied, still_pending);
+        let grant = self.remember(handle, &outcome, applied, still_pending, problems);
 
         serde_json::to_value(&grant).map_err(|source| {
             Error::new(
@@ -947,6 +969,7 @@ impl Elevation {
         outcome: &ElevationOutcome,
         applied: usize,
         still_pending: usize,
+        problems: Vec<String>,
     ) -> GrantOutcome {
         let grant = GrantOutcome {
             job: handle.id(),
@@ -954,6 +977,7 @@ impl Elevation {
             outcome: outcome.clone(),
             applied,
             still_pending,
+            problems,
         };
 
         self.state
