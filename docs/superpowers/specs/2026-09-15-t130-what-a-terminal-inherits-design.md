@@ -343,9 +343,21 @@ Written through `mixengine_platform::write_private`. The certificates in it are 
 **another account can write** is that account choosing what every one of this user's runtimes
 trusts.
 
-Regenerated at daemon start, before the runtime documents are generated, and on `cert.ca_rotate`.
-The start order becomes: authority → trust stores → browsers → **bundle** → certificates →
-generators.
+Regenerated at daemon start and on `cert.ca_rotate`.
+
+**And at the start it is spawned rather than awaited, which this section had wrong.** The order
+above — authority → trust stores → browsers → bundle → certificates → generators — put it between
+the endpoint's `bind` and the moment the daemon enters `accept`, and *every* moment spent there is a
+moment a second client on Windows meets `ERROR_PIPE_BUSY`: a bound named pipe that nothing is
+accepting on holds exactly one pending connection. Reading a whole OS trust store and writing a
+quarter of a megabyte is the most expensive thing that had ever been put there, and it was measured
+rather than reasoned about — ten of `crates/mixengine-daemon/tests/api.rs`' twenty-four daemons
+stopped answering, against nought at the branch point.
+
+So the task is spawned, and it owns the ordering it needed: when the bundle **moved**, it calls
+`runtimes::extensions::refresh_all` itself, which is what writes the `openssl.cafile` lines into a
+PHP's `conf.d` on the first start of a home. An ordinary start reaches neither — the bundle has not
+changed, so nothing is written and nothing is regenerated.
 
 **D9 in code**: `roots()` answering an error, or fewer than 20 roots, writes **no** bundle and
 removes a stale one. Twenty is a floor rather than a guess about any particular machine — every
@@ -461,6 +473,7 @@ is named here only so the next person does not go looking for a bug that is not 
 | `SSL_CERT_FILE` replacing a good store with a bad file | D9's floor, an atomic install, D10's existence check, and a doctor repair. |
 | A stale bundle after an OS root update | Regenerated at every daemon start. A machine that has not restarted its daemon since a root was revoked keeps trusting it — the same exposure every pinned bundle in every language has, and shorter than most. |
 | The 2-second poll against M7's idle promise | One `stat` per installed runtime per tick, and the interval is a setting. `bench`'s idle measurement is re-run and recorded in the phase file. |
+| **What a daemon start now costs before it accepts** — the one risk this spec did not have, found by running the suite | Two things were put between the `bind` and the `accept` loop, where a bound named pipe on Windows holds one pending connection and every one after it meets `ERROR_PIPE_BUSY`. The bundle's store read is now **spawned**, and the first tick of the rescan is **one period away** rather than immediate. Measured both ways: ten of `tests/api.rs`' twenty-four daemons failed, and the branch point failed none. |
 | Windows batch quoting | `.exe` preferred; Rust's std refuses rather than mis-quotes; the refusal is named. |
 | `bin/` shadowing a machine's own `git` | Reserved list for MixEngine's names; doctor reports the rest; the property is documented. |
 | Two refresh passes racing | One mutex. |
