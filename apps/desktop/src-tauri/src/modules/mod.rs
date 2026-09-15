@@ -212,6 +212,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         tools::commands::tools_listening_ports,
         // ── mixengine ──
         mixengine::commands::mixengine_presence,
+        mixengine::commands::mixengine_storage,
         mixengine::commands::mixengine_start,
         mixengine::commands::mixengine_status,
         mixengine::commands::mixengine_services,

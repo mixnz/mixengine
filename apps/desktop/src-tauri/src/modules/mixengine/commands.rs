@@ -19,10 +19,20 @@ pub async fn mixengine_presence() -> health::PresenceReport {
     health::presence().await
 }
 
-/// Khởi động daemon. Trả về endpoint nó in ra khi đã sẵn sàng.
+/// Daemon cất các thư mục phình to ở đâu, và điều đó còn đổi được không — roadmap task **T146**.
+///
+/// `Value`, cùng lý do hai lệnh đọc ngay dưới: Rust không đọc field nào của câu trả lời này.
 #[tauri::command]
-pub async fn mixengine_start() -> Result<String, AppError> {
-    health::start_daemon().await
+pub async fn mixengine_storage() -> Result<Value, AppError> {
+    health::storage().await
+}
+
+/// Khởi động daemon. Trả về endpoint nó in ra khi đã sẵn sàng.
+///
+/// `chosen` là bốn thư mục người dùng vừa chọn ở cổng vào, nếu có.
+#[tauri::command]
+pub async fn mixengine_start(chosen: Option<health::ChosenPaths>) -> Result<String, AppError> {
+    health::start_daemon(chosen).await
 }
 
 /// Cả hai lệnh đọc dưới đây trả thẳng `Value`, không giải vào struct của riêng MixDB.

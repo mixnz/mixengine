@@ -60,11 +60,16 @@ first row has recorded an absolute path.
       own document unchanged. **No `mix init`** — the design's D5 records what it would have cost
       and what says its sentence instead.
 
-- [ ] **T146** MixLab draws it. A picker on the `notRunning` and `notInstalled` gates while the
-      window is `Free`: one row per directory with a *Choose…* of its own, plus a shortcut that
-      fills all four from one folder; **Start** passes only what changed to
-      `health.rs::start_daemon` as T144's flags. While the window is `Taken` the same rows render
-      read-only with the counts in a sentence. Both dictionaries.
+- [x] **T146** MixLab draws it. A picker on the `notRunning` gate while the window is `Free`: one
+      row per directory with a *Choose…* of its own, plus a shortcut that fills all four from one
+      folder; **Start** passes only what changed to `health.rs::start_daemon` as T144's flags. While
+      the window is `Taken` the same rows render read-only with the daemon's own sentence. Both
+      dictionaries, and `storagePicker.ts` holds every decision as a pure function.
+
+      **`notInstalled` is not one of the gates, and the design was wrong to name it.** The answer
+      comes from `mixengined --storage`, so a machine that has no `mixengined` cannot be told where
+      its directories would go. Such a machine sees the picker the first time it opens MixLab
+      *after* installing — still before its first runtime, so the window is untouched.
 
 ## Written down
 

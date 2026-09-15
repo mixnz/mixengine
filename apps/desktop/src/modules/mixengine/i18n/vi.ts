@@ -35,6 +35,16 @@ const vi: typeof en = {
       retry: "Thử lại",
       getIt: "Cài lại MixEngine",
     },
+      storage: {
+        free: "Chưa cài gì, nên vẫn dời được \u2014 chọn bây giờ và lần khởi động sẽ đặt chúng ở đó.",
+        taken: "{{what}}, nên không dời được ở đây nữa: chỗ đặt đã được ghi lại theo từng thứ một.",
+        runtimes: "Runtime",
+        packages: "Máy chủ",
+        data: "Cơ sở dữ liệu",
+        logs: "Nhật ký",
+        choose: "Chọn\u2026",
+        oneFolder: "Đặt cả bốn lên một ổ\u2026",
+      },
       phpExtensions: {
         title: "PHP Extensions",
         intro:

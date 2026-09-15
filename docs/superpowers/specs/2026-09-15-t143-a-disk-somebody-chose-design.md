@@ -221,7 +221,15 @@ still open: *"nothing is installed yet, so these may still be moved: start the d
 ## D6 — The screens
 
 MixLab's MixEngine tab already gates on four states — `running`, `notAnswering`, `notRunning`,
-`notInstalled`. The picker belongs on the last two, and only while D1 says `Free`:
+`notInstalled`. The picker belongs on `notRunning`, and only while D1 says `Free`.
+
+**Not on `notInstalled`, which this design first said and had wrong.** The answer comes from
+`mixengined --storage`, and `notInstalled` is the state of having no `mixengined` — so asking there
+is running a process that must fail to draw a screen that cannot be drawn. A machine in that state
+sees the picker the first time it opens MixLab after installing, which is still before its first
+runtime.
+
+The rows:
 
 - A row naming each of the four directories and where it would go, with one **Choose…** per row
   (Tauri's directory dialog), plus a single *put all four on one disk* shortcut that fills the four

@@ -73,3 +73,44 @@
 .mixengine-screen-pane[hidden] {
   display: none;
 }
+
+/* Chỗ đặt bốn thư mục phình to, ở cổng vào — T146.
+   Một bảng ba cột trong cùng cái khung `mixengine-gate-searched` dùng cho danh sách thư mục đã tìm:
+   cùng một thứ đang được nói ở đây — mấy đường dẫn để đọc — và một khung thứ hai trông khác đi sẽ
+   là hai giọng cho một việc. */
+.mixengine-gate-storage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.mixengine-gate-storage-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+/* Cột tên có bề rộng cố định để bốn đường dẫn thẳng hàng: đọc bốn dòng so le là đọc bốn lần. */
+.mixengine-gate-storage-name {
+  flex: 0 0 auto;
+  min-width: 84px;
+  opacity: 0.7;
+  font-family: var(--font-ui);
+}
+
+/* Đường dẫn dài hơn khung thì cắt ở đuôi.
+   **Không `direction: rtl`**, dù cắt-từ-trái đúng là cái muốn ở đây: nó không chỉ đổi chỗ cắt mà
+   chạy thuật toán bidi trên cả chuỗi, và `/` là ký tự trung tính nên dấu gạch đầu dòng bị đẩy
+   xuống cuối — `/private/tmp/x/runtimes` hiện ra thành `private/tmp/x/runtimes/`. Đo được bằng
+   mắt trên cửa sổ thật. Một đường dẫn hiện sai tệ hơn nhiều một đường dẫn bị cắt đuôi, và cột tên
+   bên trái đã nói thư mục nào rồi nên phần đuôi không mang thêm gì. */
+.mixengine-gate-storage-path {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
