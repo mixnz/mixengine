@@ -684,7 +684,7 @@ const fn kind(kind: &ServedKind) -> &'static str {
 fn upstream(kind: &ServedKind) -> String {
     match kind {
         ServedKind::PhpFpm { upstream, .. } => address(upstream),
-        ServedKind::ReverseProxy { upstream } => upstream.clone(),
+        ServedKind::ReverseProxy { upstream, .. } => upstream.clone(),
         ServedKind::NodeApp { port } => format!("http://127.0.0.1:{port}"),
         ServedKind::Static => String::new(),
     }
@@ -783,6 +783,7 @@ mod tests {
         let served = vec![Served {
             shared: None,
             domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -819,6 +820,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["php.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
@@ -832,10 +834,12 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["proxy.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::ReverseProxy {
                     upstream: "http://127.0.0.1:4000".to_owned(),
+                    rewrite: None,
                 },
                 https: true,
                 https_redirect: false,
@@ -844,6 +848,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["node.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::NodeApp { port: 3000 },
@@ -1049,6 +1054,7 @@ mod tests {
         let rendered = render_site(&Served {
             kind: ServedKind::ReverseProxy {
                 upstream: "http://127.0.0.1:8000".to_owned(),
+                rewrite: None,
             },
             ..a_static_site()
         });
@@ -1204,6 +1210,7 @@ mod tests {
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1239,6 +1246,7 @@ mod tests {
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1273,6 +1281,7 @@ mod tests {
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1314,6 +1323,7 @@ mod tests {
             .map(|domain| Served {
                 shared: None,
                 domains: vec![domain.to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
@@ -1362,6 +1372,7 @@ mod tests {
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1489,6 +1500,7 @@ zz
                 &[Served {
                     shared: None,
                     domains: vec!["shop.test".to_owned()],
+                    routes: Vec::new(),
                     doc_root: doc_root(),
                     doc_root_relative: "public".to_owned(),
                     kind: ServedKind::Static,
@@ -1512,6 +1524,7 @@ zz
                 name: Some("blog-mixengine.local".to_owned()),
             }),
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1561,6 +1574,7 @@ zz
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["shop.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1588,6 +1602,7 @@ zz
                 name: Some("shop-mixengine.local".to_owned()),
             }),
             domains: vec!["shop.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,

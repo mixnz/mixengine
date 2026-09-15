@@ -67,7 +67,7 @@ pub fn page<'a>(primary: &'a str, kind: &ServedKind, doc_root: &str) -> WelcomeP
                  this page."
             ),
         ),
-        ServedKind::ReverseProxy { upstream } => (
+        ServedKind::ReverseProxy { upstream, .. } => (
             "a reverse proxy",
             format!(
                 "Nothing answered at {upstream}. Start the program that serves it, then reload \
@@ -149,6 +149,7 @@ mod tests {
             "api.test",
             &ServedKind::ReverseProxy {
                 upstream: "http://127.0.0.1:8000".to_owned(),
+                rewrite: None,
             },
             "",
         );

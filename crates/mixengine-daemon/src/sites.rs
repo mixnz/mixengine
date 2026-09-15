@@ -772,6 +772,15 @@ impl Sites {
 
                     route.target.clone()
                 }
+                // **Made relative here, against the owner's root, exactly as a doc root is** — the
+                // row stores a relative forward-slashed path on every system, and the renderer
+                // joins it back on. A root outside the project is refused by the same function and
+                // in the same words.
+                RouteTarget::Static { root } => RouteTarget::Static {
+                    root: sites::relative_doc_root(&project.root, root)
+                        .map_err(|error| error.to_wire())?,
+                },
+
                 other => other.clone(),
             };
 

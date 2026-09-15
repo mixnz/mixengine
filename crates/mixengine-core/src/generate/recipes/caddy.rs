@@ -293,6 +293,13 @@ impl Recipe for Caddy {
                     kind: kind(&site.kind),
                     upstream: upstream(&site.kind),
                     activator: activator(&site.kind),
+                    rewrite: site_rewrite(&site.kind).cloned(),
+                    routes: site
+                        .routes
+                        .iter()
+                        .enumerate()
+                        .map(|(position, route)| RouteRendering::new(position, route))
+                        .collect(),
                     certificate: site.certificate.as_ref().map(Certificate::from),
                     https_redirect: site.https_redirect,
                     bind: bound(site.shared.as_ref().map(|shared| shared.address)),
@@ -498,6 +505,13 @@ struct SiteRendering<'a> {
     /// error, and `None` serialises to `null`, which `{% if %}` reads as false.
     activator: Option<String>,
 
+    /// What `/` becomes on the way out, for a proxy site whose upstream carried a path — roadmap
+    /// task **T135**. [`None`] renders exactly what this file rendered before T135.
+    rewrite: Option<crate::generate::served::Rewrite>,
+
+    /// What answers before the kind does, longest prefix first — roadmap task **T135**.
+    routes: Vec<RouteRendering>,
+
     /// [`None`] renders no TLS block at all — the T51 design, D4.
     ///
     /// **The key is always present**, for `upstream`'s reason: `UndefinedBehavior::Strict` makes a
@@ -605,9 +619,94 @@ const fn kind(kind: &ServedKind) -> &'static str {
 fn upstream(kind: &ServedKind) -> String {
     match kind {
         ServedKind::PhpFpm { upstream, .. } => address(upstream),
-        ServedKind::ReverseProxy { upstream } => upstream.clone(),
+        ServedKind::ReverseProxy { upstream, .. } => upstream.clone(),
         ServedKind::NodeApp { port } => format!("http://127.0.0.1:{port}"),
         ServedKind::Static => String::new(),
+    }
+}
+
+/// What `/` becomes on the way out for a site whose own upstream carried a path — roadmap task
+/// **T135**.
+///
+/// [`None`] for every other kind, and for the ordinary proxy site whose upstream is an address and
+/// nothing more — which is what this file rendered before T135.
+fn site_rewrite(kind: &ServedKind) -> Option<&crate::generate::served::Rewrite> {
+    match kind {
+        ServedKind::ReverseProxy { rewrite, .. } => rewrite.as_ref(),
+        _ => None,
+    }
+}
+
+/// One route, as `caddy/site.caddy` reads it.
+///
+/// **Every key present whichever branch the template takes**, for [`SiteRendering::upstream`]'s
+/// reason: `UndefinedBehavior::Strict` makes a missing one an error rather than a falsy value.
+#[derive(Debug, serde::Serialize)]
+struct RouteRendering {
+    /// The prefix, as the row holds it.
+    path: String,
+
+    /// The name of this route's matcher, unique within the block.
+    ///
+    /// Derived from the position rather than from the path: a matcher name is a Caddyfile token,
+    /// and a path is a string a person typed.
+    matcher: String,
+
+    /// Which branch of the macro this target takes.
+    kind: &'static str,
+
+    /// Where a proxy route forwards — scheme, host and port, never a path.
+    address: String,
+
+    /// What the prefix becomes on the way out, or [`None`] to pass the path through.
+    rewrite: Option<crate::generate::served::Rewrite>,
+
+    /// Where a static route's files are, absolute.
+    root: String,
+
+    /// Where a php-fpm route's pool listens, in Caddy's spelling.
+    upstream: String,
+
+    /// The activator to fall back to — roadmap task **T70**, the site's own rule.
+    activator: Option<String>,
+}
+
+impl RouteRendering {
+    /// One [`ServedRoute`](crate::generate::served::ServedRoute) in Caddy's spelling.
+    fn new(position: usize, route: &crate::generate::served::ServedRoute) -> Self {
+        use crate::generate::served::ServedRouteTarget as Target;
+
+        let mut rendering = Self {
+            path: route.path.clone(),
+            matcher: format!("mixengine_route_{position}"),
+            kind: "proxy",
+            address: String::new(),
+            rewrite: None,
+            root: String::new(),
+            upstream: String::new(),
+            activator: None,
+        };
+
+        match &route.target {
+            Target::Proxy { address, rewrite } => {
+                rendering.address.clone_from(address);
+                rendering.rewrite.clone_from(rewrite);
+            }
+            Target::PhpFpm {
+                upstream,
+                activator,
+            } => {
+                rendering.kind = "php-fpm";
+                rendering.upstream = address(upstream);
+                rendering.activator = activator.as_ref().map(address);
+            }
+            Target::Static { root } => {
+                rendering.kind = "static";
+                rendering.root = root.display().to_string();
+            }
+        }
+
+        rendering
     }
 }
 
@@ -727,6 +826,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["blog.test".to_owned(), "www.blog.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::Static,
@@ -737,6 +837,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["php.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::PhpFpm {
@@ -750,10 +851,12 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["proxy.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::ReverseProxy {
                     upstream: "http://127.0.0.1:4000".to_owned(),
+                    rewrite: None,
                 },
                 https: true,
                 https_redirect: false,
@@ -762,6 +865,7 @@ mod tests {
             Served {
                 shared: None,
                 domains: vec!["node.test".to_owned()],
+                routes: Vec::new(),
                 doc_root: doc_root(),
                 doc_root_relative: "public".to_owned(),
                 kind: ServedKind::NodeApp { port: 3000 },
@@ -827,6 +931,7 @@ mod tests {
         let served = vec![Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -860,6 +965,7 @@ mod tests {
         let served = vec![Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -993,6 +1099,7 @@ zz
                 &[Served {
                     shared: None,
                     domains: vec!["shop.test".to_owned()],
+                    routes: Vec::new(),
                     doc_root: doc_root(),
                     doc_root_relative: "public".to_owned(),
                     kind: ServedKind::Static,
@@ -1016,6 +1123,7 @@ zz
                 name: Some("blog-mixengine.local".to_owned()),
             }),
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1180,6 +1288,7 @@ zz
         let rendered = render_site(&Served {
             kind: ServedKind::ReverseProxy {
                 upstream: "http://127.0.0.1:8000".to_owned(),
+                rewrite: None,
             },
             ..a_site_with_a_certificate()
         });
@@ -1347,6 +1456,7 @@ zz
         Served {
             shared: None,
             domains: vec!["blog.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::Static,
@@ -1383,6 +1493,7 @@ zz
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1417,6 +1528,7 @@ zz
         let rendered = render_site(&Served {
             shared: None,
             domains: vec!["php.test".to_owned()],
+            routes: Vec::new(),
             doc_root: doc_root(),
             doc_root_relative: "public".to_owned(),
             kind: ServedKind::PhpFpm {
@@ -1449,6 +1561,137 @@ zz
             .expect("one site file")[0]
             .contents()
             .to_owned()
+    }
+
+    /// Three routes and a fallback, as `served` hands them over — roadmap task **T135**.
+    fn a_site_with_routes() -> Served {
+        use crate::generate::served::{Rewrite, ServedRoute, ServedRouteTarget};
+
+        Served {
+            routes: vec![
+                ServedRoute {
+                    path: "/api/v1".to_owned(),
+                    target: ServedRouteTarget::Proxy {
+                        address: "http://127.0.0.1:4000".to_owned(),
+                        rewrite: None,
+                    },
+                },
+                ServedRoute {
+                    path: "/abc".to_owned(),
+                    target: ServedRouteTarget::Proxy {
+                        address: "http://127.0.0.1:3003".to_owned(),
+                        rewrite: Some(Rewrite {
+                            regex: "^/abc(/.*)?$".to_owned(),
+                            replacement: "/xyz$1".to_owned(),
+                        }),
+                    },
+                },
+                ServedRoute {
+                    path: "/assets".to_owned(),
+                    target: ServedRouteTarget::Static {
+                        root: doc_root().join("dist"),
+                    },
+                },
+            ],
+            ..a_site_with_a_certificate()
+        }
+    }
+
+    /// **A route renders one handler, ahead of the fallback, in the order it was given** — roadmap
+    /// task **T135**.
+    ///
+    /// The order is the specificity: `core::sites::by_specificity` sorted the list before it got
+    /// here, and `handle` blocks are taken in the order they are written. What this asserts is that
+    /// the rendering preserves it and puts the whole set before the site's own handler.
+    #[test]
+    fn routes_render_in_order_ahead_of_the_fallback() {
+        let rendered = render_site(&a_site_with_routes());
+
+        let first = rendered.find("@mixengine_route_0 path /api/v1 /api/v1/*");
+        let second = rendered.find("@mixengine_route_1 path /abc /abc/*");
+        let third = rendered.find("@mixengine_route_2 path /assets /assets/*");
+        let fallback = rendered.find("@mixengine_welcome");
+
+        assert!(first.is_some(), "the first route is missing:\n{rendered}");
+        assert!(
+            first < second && second < third,
+            "routes keep the order they were sorted into:\n{rendered}"
+        );
+        assert!(
+            third < fallback,
+            "every route is written before what answers the rest of the site:\n{rendered}"
+        );
+
+        // **Both blocks**, because a site whose `/api` answered on HTTP and not on HTTPS would be a
+        // padlock that works everywhere except where the application is.
+        assert_eq!(
+            rendered
+                .matches("@mixengine_route_1 path /abc /abc/*")
+                .count(),
+            2,
+            "the plaintext block and the TLS block both carry the routes:\n{rendered}"
+        );
+    }
+
+    /// **The rewrite is one directive** — roadmap task **T135**, that design's D4.
+    ///
+    /// `uri strip_prefix` + `rewrite` reads better and runs backwards: Caddy sorts directives into
+    /// its own standard order inside a block and `rewrite` comes *before* `uri`, so the pair would
+    /// hand the upstream `/xyz/abc/foo`. A route with no rewrite renders no `uri` line at all.
+    #[test]
+    fn a_rewriting_route_uses_one_directive() {
+        let rendered = render_site(&a_site_with_routes());
+
+        assert!(
+            rendered.contains("uri path_regexp ^/abc(/.*)?$ /xyz$1"),
+            "{rendered}"
+        );
+        assert!(
+            !rendered.contains("uri strip_prefix /abc"),
+            "the two-directive form is the one that runs backwards:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("reverse_proxy http://127.0.0.1:4000"),
+            "a route whose upstream has no path forwards it unchanged:\n{rendered}"
+        );
+
+        // A static route is the one target that *does* strip, because mounting a directory at a URL
+        // is the whole of what it says.
+        assert!(rendered.contains("uri strip_prefix /assets"), "{rendered}");
+    }
+
+    /// **A site whose own upstream carries a path renders a rewrite rather than a configuration
+    /// Caddy refuses** — roadmap task **T135**.
+    ///
+    /// Measured against 2.11.4 before this was written: `reverse_proxy http://127.0.0.1:3003/xyz`
+    /// is *"for now, URLs for proxy upstreams only support scheme, host, and port components"*, and
+    /// the whole rendering is judged by one `caddy validate` — so before this, one site with a path
+    /// in its upstream cost **every** site on the machine its new configuration.
+    #[test]
+    fn a_proxy_site_with_a_path_in_its_upstream_renders_a_rewrite() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::ReverseProxy {
+                upstream: "http://127.0.0.1:3003".to_owned(),
+                rewrite: Some(crate::generate::served::Rewrite {
+                    regex: "^(/.*)?$".to_owned(),
+                    replacement: "/xyz$1".to_owned(),
+                }),
+            },
+            ..a_site_with_a_certificate()
+        });
+
+        assert!(
+            rendered.contains("reverse_proxy http://127.0.0.1:3003"),
+            "the address reaches the directive:\n{rendered}"
+        );
+        assert!(
+            !rendered.contains("reverse_proxy http://127.0.0.1:3003/xyz"),
+            "a path in an upstream is what Caddy refuses outright:\n{rendered}"
+        );
+        assert!(
+            rendered.contains("uri path_regexp ^(/.*)?$ /xyz$1"),
+            "the path it carried became a rewrite:\n{rendered}"
+        );
     }
 
     /// A site with a certificate renders **two** blocks: one plaintext, one TLS — the T51 design,
