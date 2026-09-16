@@ -59,9 +59,11 @@ Written down so nothing below is built twice, and because several of these decid
   enabled `windows-sys` feature. `libc` is a dependency on every Unix target.
 - **Linux builds are `-gnu`.** `ci.yml` builds `x86_64-unknown-linux-gnu` and
   `aarch64-unknown-linux-gnu`, so `gnu_get_libc_version` exists in every Linux `mixengined`.
-- **Blueprint plans take facts about the machine as input.** `blueprints::plan` receives `Wanted`,
-  whose `scaffold_path` is *"handed in rather than read here, so that a dry run and an apply judge
-  the same string"*; and whatever a person cannot do is a `Disposition::Blocked` step, not an error.
+- **A blueprint plan never reads the index.** `blueprints::plan` holds a `VersionConstraint` where
+  a release belongs (the T78 design's D9), so *which* artifact a step installs — and therefore what
+  it requires — is unknowable while planning. The daemon's `Api::resolve` turns every constraint
+  into a release at the top of the apply job, *"where a failure costs nothing because the ledger is
+  still empty"*. A dry run answers `BlueprintApplyResponse::Planned { plan }` and resolves nothing.
 
 Measured on the published index, 2026-09-16 — which Windows artifacts need which runtime:
 
@@ -99,14 +101,17 @@ snapshot:
 | --- | --- | --- |
 | glibc | `gnu_get_libc_version()` | Linux |
 | macOS | `sysctlbyname("kern.osproductversion")` | macOS |
-| Visual C++ runtimes | `Installed`, `Major`, `Minor` under `VisualStudio\14.0\VC\Runtimes\{x64,x86,arm64}` | Windows |
+| Visual C++ runtimes | `Installed`, `Major`, `Minor` under `VisualStudio\14.0\VC\Runtimes\{x64,arm64}` | Windows |
 
 Every fact is a three-way answer: **present at a version**, **absent**, or **could not tell** — a
 registry call that failed for a reason other than a missing key, a sysctl that errored, a string
-that does not parse. The third is not folded into either of the first two anywhere below.
+that does not parse. The third is not folded into either of the first two anywhere below. A fact
+that does not exist on this system — glibc on macOS — is *could not tell*, never *absent*: absent
+would refuse an artifact that asks for it.
 
-The x64 and ARM64 keys are read from the 64-bit registry view and the x86 key from the 32-bit view,
-which is where the measurement above found each of them.
+Both keys are read from the 64-bit registry view, where the measurement above found x64. **The x86
+key is not read**: every Windows artifact the index publishes is `x86_64` or `aarch64`, and a probe
+nothing consults is code nothing exercises.
 
 **A snapshot per request, not one at start-up.** The daemon takes one for each listing, each
 requirements question and each install, and every read is a key lookup or a single syscall. Cached
@@ -224,8 +229,9 @@ the judgement holds an Install remedy:
    and not from configuration — nothing a third party can edit chooses what is about to run with
    administrator rights. The download reuses the installer's HTTP client and cache directory.
    Measured 2026-09-16: both answer `301` to `download.visualstudio.microsoft.com` and then `200`,
-   25,635,768 bytes for x64 and 11,722,336 for ARM64 — the size a window can show before somebody
-   agrees.
+   25,635,768 bytes for x64 and 11,722,336 for ARM64. **The size is not shown before somebody
+   agrees**: learning it is a request to Microsoft, and a listing that made one per row would be a
+   listing that reaches a third party every time a screen opens. Downloads are capped at 64 MiB.
 2. **Believe it only after three checks**, in `mixengine-platform`:
    - `WinVerifyTrust` with `WINTRUST_ACTION_GENERIC_VERIFY_V2` and whole-chain revocation checking
      accepts the file;
@@ -258,16 +264,23 @@ client and a path argument, both of which ADR 0005 keeps out of it).
 
 ## D7 — Blueprints
 
-`Wanted` gains the snapshot, handed in on `scaffold_path`'s reasoning, so `mix blueprint apply
---dry-run` and the apply judge the same machine.
+**`blueprints::plan` is not touched.** It cannot judge a step, because it does not know the release
+a constraint resolves to and must not learn it (the T78 design's D9). The judgement happens in the
+daemon, around the plan, at the two moments it already resolves or could:
 
-Each runtime or package step is judged. An Install remedy makes the plan carry **one**
-prerequisite step ahead of every install step — one installer satisfies every artifact that needs
-it, so three PHPs are one question, not three. A Choose or None remedy makes that step
-`Disposition::Blocked`, with the suggestion in its reason.
+- **The dry run** resolves every `Create` install step the way `Api::resolve` does, judges each
+  resolved artifact against one snapshot, and answers
+  `BlueprintApplyResponse::Planned { plan, needs }` — `needs` optional under ADR 0019, and deduplicated,
+  so three PHPs that each need the Visual C++ runtime are **one** requirement and one question. An
+  index that cannot be read at dry run leaves `needs` absent rather than failing the dry run:
+  nothing here may make a plan unprintable.
+- **The apply job** judges again immediately after `Api::resolve`, before the first step writes to
+  the ledger. An Install remedy with `install_prerequisites` installs the redistributable there,
+  once; without it — or with any Choose or None remedy — the job fails with the requirements named
+  and nothing written. `ignore_requirements` skips the judgement.
 
-The apply request gains the same two flags, and the CLI's apply asks the same `[y/N]` once for the
-whole plan.
+`BlueprintApply` gains the two flags. `mix blueprint apply` renders `needs` with the plan and asks
+the same `[y/N]` once for the whole plan; MixLab's apply dialog does the same.
 
 ## D8 — What this is not
 

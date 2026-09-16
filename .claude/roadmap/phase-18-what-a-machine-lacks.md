@@ -31,7 +31,7 @@ stays where it is.
 - [ ] **T148** **(P)** The machine, read when it is asked about, and a judgement that refuses only a
       certain lack. `mixengine-platform` gains a `host`-only `machine` module answering glibc
       (`gnu_get_libc_version`), macOS (`kern.osproductversion`) and the Visual C++ 2015–2022 runtimes
-      (`VisualStudio\14.0\VC\Runtimes\{x64,x86,arm64}`), each as present, absent or could-not-tell.
+      (`VisualStudio\14.0\VC\Runtimes\{x64,arm64}`), each as present, absent or could-not-tell.
       `mixengine-core` gains the pure judgement: a year is a floor on `14.x`, the artifact's
       architecture picks the key, and anything unknown — a year with no row, an unparseable version,
       2010 and 2013 until a machine that has them is read — is never a lack. `Requires` models `cpu`
@@ -65,15 +65,17 @@ stays where it is.
 ## Consent
 
 - [ ] **T151** Nobody sees an approval dialog they did not agree to. MixLab shows one dialog naming
-      what will be installed, its publisher and its size, and a second button for a Choose remedy.
+      what will be installed and its publisher, and a second button for a Choose remedy.
       `mix runtime install` and `mix package install` ask `[y/N]`, refuse on end of file, take
       `--yes` and `--ignore-requirements`, and `--json` requires `--yes` — T40b's rule, one feature
       along. Design D5.
 
-- [ ] **T152** Blueprints. `Wanted` carries the snapshot, so a dry run and an apply judge the same
-      machine; an Install remedy is one prerequisite step ahead of every install it satisfies, and a
-      Choose or None remedy blocks its step with the suggestion in the reason. The apply asks once
-      for the whole plan. Design D7.
+- [ ] **T152** Blueprints, without teaching the plan about the index. `blueprints::plan` is untouched
+      — it holds constraints and must not learn releases (T78's D9) — so the daemon judges around
+      it: the dry run resolves every install step and answers `Planned { plan, needs }` with one
+      requirement per thing missing however many steps need it, and the apply job judges again right
+      after `Api::resolve`, before the ledger holds anything. `BlueprintApply` takes the same two
+      flags; `mix blueprint apply` and MixLab's apply dialog ask once for the whole plan. Design D7.
 
 ## Milestone
 
