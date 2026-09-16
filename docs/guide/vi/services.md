@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "fe3833729551aec550d145c2a45de880685cc7d006acfab138fb93890bb8e6eb"
+source_sha256 = "43b7a8d478df2554a1c7e4f25b209e5e5ca1e5639125b013ac9a35d142c1bd86"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -35,7 +35,7 @@ với cổng khác nhau, dữ liệu khác nhau, và có thể cả phiên bản
 | PostgreSQL | 16 | 5432 |
 | Redis | 7.x | 6379 |
 | Memcached | 1.6 | 11211 |
-| MongoDB | 8.x | 27017. Không có tài khoản, nên chỉ bao giờ lắng nghe trên loopback |
+| MongoDB | 8.x | 27017. Không có tài khoản, nên chỉ lắng nghe trên loopback |
 
 **Không có gì tự xuất hiện.** MixEngine mới cài chưa có web server nào cho tới khi bạn cài. Chữ
 "mặc định" ở bảng trên nghĩa là *thứ dự án này khuyên dùng khi có nhiều lựa chọn*, chứ không phải
