@@ -24,10 +24,10 @@ const LIMIT: usize = 8;
 
 /// The ports MixEngine's own non-web services use, which may never be opened to a network.
 ///
-/// MariaDB and MySQL, PostgreSQL, Redis, Memcached, and the two Mailpit answers on. Written here as
+/// MariaDB and MySQL, PostgreSQL, Redis, Memcached, MongoDB, and the two Mailpit answers on. Written here as
 /// a constant rather than derived from anything: this list is a security rule, and a rule that is
 /// computed can be computed differently.
-const NEVER: &[u16] = &[3306, 5432, 6379, 11211, 1025, 8025];
+const NEVER: &[u16] = &[3306, 5432, 6379, 11211, 27017, 1025, 8025];
 
 /// Validate, apply, and say what happened.
 pub(crate) fn apply(plan: &FirewallPlan) -> OpOutcome {
@@ -116,7 +116,7 @@ mod tests {
 
     #[test]
     fn a_database_port_is_refused_at_the_last_gate() {
-        for port in [3306u16, 5432, 6379, 11211, 1025, 8025] {
+        for port in [3306u16, 5432, 6379, 11211, 27017, 1025, 8025] {
             let refused = refusal(&plan(&[port]));
             assert!(refused.is_some(), "port {port} was not refused");
         }

@@ -117,6 +117,10 @@ pub enum DatabaseProtocol {
 
     /// RESP — Redis. No accounts: the recipe sets no password, so a handoff carries no credential.
     Redis,
+
+    /// MongoDB's wire protocol — roadmap task **T154**. No accounts: access control is off, so the
+    /// recipe refuses every bind address but loopback and a handoff carries no credential.
+    Mongodb,
 }
 
 impl DatabaseProtocol {
@@ -127,13 +131,15 @@ impl DatabaseProtocol {
             Self::Mysql => "mysql",
             Self::Postgres => "postgres",
             Self::Redis => "redis",
+            Self::Mongodb => "mongodb",
         }
     }
 
-    /// Whether this server has accounts to sign in as. `false` for Redis, where `--user` is refused.
+    /// Whether this server has accounts to sign in as. `false` for Redis and MongoDB, where `--user`
+    /// is refused.
     #[must_use]
     pub const fn has_accounts(self) -> bool {
-        !matches!(self, Self::Redis)
+        !matches!(self, Self::Redis | Self::Mongodb)
     }
 }
 
@@ -549,12 +555,14 @@ mod tests {
             (DatabaseProtocol::Mysql, "mysql"),
             (DatabaseProtocol::Postgres, "postgres"),
             (DatabaseProtocol::Redis, "redis"),
+            (DatabaseProtocol::Mongodb, "mongodb"),
         ] {
             assert_eq!(protocol.as_str(), word);
             assert_eq!(serde_json::to_value(protocol).expect("encodes"), word);
         }
         assert!(DatabaseProtocol::Mysql.has_accounts());
         assert!(!DatabaseProtocol::Redis.has_accounts());
+        assert!(!DatabaseProtocol::Mongodb.has_accounts());
     }
 
     /// An open with nothing but a service carries nothing but a service.

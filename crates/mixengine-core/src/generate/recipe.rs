@@ -614,6 +614,13 @@ impl Context {
         self
     }
 
+    /// The address a row asked this service to bind — roadmap task **T154**, whose recipe refuses
+    /// every one that is not loopback.
+    pub(super) fn with_bind(mut self, bind: &str) -> Self {
+        bind.clone_into(&mut self.bind);
+        self
+    }
+
     /// The endpoints a real render would have asked the recipe for.
     pub(super) fn with_endpoints(mut self, endpoints: Endpoints) -> Self {
         self.endpoints = endpoints;
@@ -1359,7 +1366,7 @@ pub struct Catalogue {
 impl Catalogue {
     /// What this build knows how to run.
     ///
-    /// Eight recipes, which is `.claude/features/services.md`'s catalogue — arrived one roadmap task
+    /// Nine recipes, which is `.claude/features/services.md`'s catalogue — arrived one roadmap task
     /// at a time, because a template written before the server it configures is a guess nobody can
     /// check. A home whose `services` table names none of them is answered by this without a special
     /// case.
@@ -1368,6 +1375,7 @@ impl Catalogue {
         Self::default()
             .with(Arc::new(super::recipes::Caddy))
             .with(Arc::new(super::recipes::Memcached))
+            .with(Arc::new(super::recipes::Mongodb))
             .with(Arc::new(super::recipes::Mariadb))
             .with(Arc::new(super::recipes::Mysql))
             .with(Arc::new(super::recipes::Nginx))
@@ -1474,6 +1482,7 @@ mod tests {
             ("postgres", Some("postgres")),
             ("redis", None),
             ("memcached", None),
+            ("mongodb", None),
             ("caddy", None),
             ("nginx", None),
             ("php-fpm", None),
@@ -1501,6 +1510,7 @@ mod tests {
             ("postgres", false),
             ("redis", false),
             ("memcached", false),
+            ("mongodb", false),
             ("caddy", false),
             ("nginx", false),
             ("php-fpm", false),
@@ -1590,7 +1600,14 @@ mod tests {
                 .idle_default()
         };
 
-        for package in ["mariadb", "mysql", "postgres", "redis", "memcached"] {
+        for package in [
+            "mariadb",
+            "mysql",
+            "postgres",
+            "redis",
+            "memcached",
+            "mongodb",
+        ] {
             assert_eq!(
                 default_of(package),
                 Some(mixengine_proto::Millis::from_secs(60 * 60)),
@@ -1725,6 +1742,8 @@ mod client_tests {
             "caddy",
             "nginx",
             "memcached",
+            "mongod",
+            "mongos",
             "php-fpm",
             "initdb",
             "pg_ctl",

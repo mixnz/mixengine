@@ -35,6 +35,7 @@ với cổng khác nhau, dữ liệu khác nhau, và có thể cả phiên bản
 | PostgreSQL | 16 | 5432 |
 | Redis | 7.x | 6379 |
 | Memcached | 1.6 | 11211 |
+| MongoDB | 8.x | 27017. Không có tài khoản, nên chỉ bao giờ lắng nghe trên loopback |
 
 **Không có gì tự xuất hiện.** MixEngine mới cài chưa có web server nào cho tới khi bạn cài. Chữ
 "mặc định" ở bảng trên nghĩa là *thứ dự án này khuyên dùng khi có nhiều lựa chọn*, chứ không phải

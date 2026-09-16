@@ -33,6 +33,7 @@ package, with different ports, different data and possibly different versions.
 | PostgreSQL | 16 | 5432 |
 | Redis | 7.x | 6379 |
 | Memcached | 1.6 | 11211 |
+| MongoDB | 8.x | 27017 — no accounts, so it only ever listens on loopback |
 
 **Nothing arrives by itself.** A fresh MixEngine has no web server until you install one, and
 "default" above means *the one this project recommends when there is a choice*, not *the one that is

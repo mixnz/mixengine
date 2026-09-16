@@ -286,6 +286,7 @@ mod tests {
         assert_eq!(says("mysql"), Some(DatabaseProtocol::Mysql));
         assert_eq!(says("postgres"), Some(DatabaseProtocol::Postgres));
         assert_eq!(says("redis"), Some(DatabaseProtocol::Redis));
+        assert_eq!(says("mongodb"), Some(DatabaseProtocol::Mongodb));
         assert_eq!(says("memcached"), None);
         assert_eq!(says("caddy"), None);
         assert_eq!(says("php-fpm"), None);

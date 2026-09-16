@@ -26,7 +26,7 @@ became installable.
 
 ## The server
 
-- [ ] **T154** **(P)** The `mongodb` recipe. A rendered `mongod.conf`, `mongod --config` with
+- [x] **T154** **(P)** The `mongodb` recipe. A rendered `mongod.conf`, `mongod --config` with
       `--nounixsocket` everywhere but Windows, ready on its own `Waiting for connections` line,
       healthy on an accept, stopped by a signal. No accounts, so a bind address off loopback is
       refused and `mixengine-elevate` never opens 27017. `DatabaseProtocol::Mongodb`. Design D1–D4.

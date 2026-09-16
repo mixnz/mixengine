@@ -2,7 +2,7 @@
 //!
 //! One module per `packages.name`, each one a [`Recipe`](super::Recipe) and each one its own roadmap
 //! task: Caddy is T31, php-fpm T32, MariaDB T33, PostgreSQL T34, Redis and Memcached both T35,
-//! MySQL T34c and Nginx T37. The machinery they are plugged into — the merge, the render, the diff,
+//! MySQL T34c, Nginx T37 and MongoDB T154. The machinery they are plugged into — the merge, the render, the diff,
 //! the staging, the validation — is T30's and lives one directory up; what a module in here owns is
 //! a template, the overrides worth having, and the [`ServiceSpec`] that runs the program.
 //!
@@ -43,6 +43,7 @@
 pub mod caddy;
 pub mod mariadb;
 pub mod memcached;
+pub mod mongodb;
 pub mod mysql;
 mod mysql_family;
 pub mod nginx;
@@ -53,6 +54,7 @@ pub mod redis;
 pub use caddy::Caddy;
 pub use mariadb::Mariadb;
 pub use memcached::Memcached;
+pub use mongodb::Mongodb;
 pub use mysql::Mysql;
 pub use nginx::Nginx;
 pub use php_fpm::PhpFpm;
