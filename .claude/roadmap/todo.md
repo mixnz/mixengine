@@ -49,6 +49,7 @@ done
 | [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 8 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends — **met**, measured through Caddy 2.11.4 and nginx 1.31.3 |
 | [17 — A disk somebody chose](phase-17-a-disk-somebody-chose.md) | The four directories that grow can be put on another disk, from the window or the command line, while the choice is still free | T143–T147 | 5 / 5 | **M17** a fresh install offers a disk before anything is installed, a runtime and a service land on it, and an elevation prompt still succeeds — **met**, measured on macOS with `data/` on an external volume and nothing left waiting for permission |
 | [18 — What a machine lacks](phase-18-what-a-machine-lacks.md) | What an artifact requires is read before it downloads: what can be installed is, once somebody agrees, and what cannot names the version that runs | T148–T152 | 5 / 5 | **M18** on a Windows machine with no Visual C++ runtime, choosing PHP 8.3 and agreeing once produces one approval dialog naming Microsoft Corporation and ends with `php -v` answering |
+| [19 — MongoDB](phase-19-mongodb.md) | The published MongoDB releases install and run as a service, what they ask of the processor is judged, and MixLab opens one | T153–T156 | 4 / 4 | **M19** `mix service create mongodb@main 8.3.11` keeps a document across a restart, and MixLab's Open lands in a Mongo tab connected to it |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -58,6 +59,13 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 19 is built — 4 of 4, and M19 is half measured.** `mixengine-packages` published MongoDB 6.0
+to 8.3 on 2026-09-15, and nothing here could run one. Now a `mongodb` recipe does, with no accounts
+and two locks in their place — loopback only, and 27017 never opened to a network — and the AVX
+every release states is judged before anything downloads. MixLab opens it in a Mongo tab. A real
+8.3.11 keeps a document across a restart on Windows; the window's click waits for a person.
+Design: [2026-09-17-t153-mongodb-is-a-service-design.md](../../docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md).
 
 **Phase 18 is built — 5 of 5, and M18 is half measured.** In Windows Sandbox, with no Visual C++
 runtime, `mix runtime install php 8.3.33 --yes` installed Microsoft's redistributable and then PHP,

@@ -9,7 +9,7 @@ use windows_sys::Win32::System::Registry::{
     RegCloseKey, RegOpenKeyExW, RegQueryValueExW,
 };
 
-use crate::{Machine, MachineFacts, Probe, VisualCppVersion, visual_cpp_from_registry};
+use crate::{Machine, MachineFacts, Probe, VisualCppVersion, avx, visual_cpp_from_registry};
 
 /// Where the 2015-and-later redistributable records itself, relative to `HKEY_LOCAL_MACHINE`.
 const RUNTIMES: &str = r"SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes";
@@ -23,6 +23,7 @@ impl Machine for Facts {
         MachineFacts {
             visual_cpp_x64: runtime("x64"),
             visual_cpp_arm64: runtime("arm64"),
+            avx: avx(),
             ..MachineFacts::unknown()
         }
     }

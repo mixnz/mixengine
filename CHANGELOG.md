@@ -3,6 +3,13 @@
 ## Unreleased
 
 ### Added
+- MongoDB 6.0 to 8.3 install and run as a service: `mix package install mongodb` and `mix service
+  create mongodb@main`, or the same from MixLab's Packages and Services screens. It listens on
+  loopback only and keeps its data across restarts.
+- MixLab opens a MongoDB service in a Mongo tab, from its Services screen and from `mix database
+  open`, and no longer offers to create a database on a server that makes none.
+- A release that needs a processor with AVX — every MongoDB — is refused before it downloads on a
+  processor without it, in MixLab and in `mix`.
 - Installing a runtime or a service on Windows no longer ends at a missing Visual C++ runtime: MixLab
   and `mix` say what is missing before anything downloads, and after one yes MixEngine downloads
   Microsoft's redistributable, checks that Microsoft signed it, installs it — Windows asks for

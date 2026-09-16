@@ -12,13 +12,13 @@ use tauri::{AppHandle, State};
 
 use crate::error::AppError;
 use crate::launch::{self, TabRequest};
-use crate::modules::db::handoff::{Handoff, HandoffState};
+use crate::modules::db::handoff::{mongo_uri, Handoff, HandoffState};
 use crate::modules::db::models::{ConnectionConfig, DbKind};
 use crate::secrets::secrets_resolve_mixengine;
 
 use super::rpc;
 
-/// `DatabaseProtocol` bên MixEngine chỉ có ba giá trị; một giá trị lạ là daemon nói về một protocol
+/// `DatabaseProtocol` bên MixEngine có bốn giá trị; một giá trị lạ là daemon nói về một protocol
 /// bindings này chưa biết, không phải lỗi lập trình — trả `unsupported_platform`-shaped error thay
 /// vì panic.
 fn db_kind_of(protocol: &str) -> Result<DbKind, AppError> {
@@ -26,6 +26,7 @@ fn db_kind_of(protocol: &str) -> Result<DbKind, AppError> {
         "mysql" => Ok(DbKind::Mysql),
         "postgres" => Ok(DbKind::Postgres),
         "redis" => Ok(DbKind::Redis),
+        "mongodb" => Ok(DbKind::Mongo),
         other => Err(err!(
             "error.mixengineProtocol",
             message = format!("database.client answered an unknown protocol `{other}`")
@@ -97,6 +98,13 @@ pub async fn mixengine_database_open_in_mixdb(
         None => (None, None, None),
     };
 
+    // Mongo reads its address and its database out of one string and ignores the fields: the same
+    // string `mixdb://connect` builds, from the same function.
+    let (uri, database) = match kind {
+        DbKind::Mongo => (Some(mongo_uri("127.0.0.1", port, database.as_deref())?), None),
+        _ => (None, database),
+    };
+
     let config = ConnectionConfig {
         kind,
         host: "127.0.0.1".to_string(),
@@ -104,7 +112,7 @@ pub async fn mixengine_database_open_in_mixdb(
         username,
         password,
         database,
-        uri: None,
+        uri,
         path: None,
         ssh: None,
         use_ssl: None,
@@ -125,4 +133,19 @@ pub async fn mixengine_database_open_in_mixdb(
     );
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Mỗi protocol daemon trả về mở đúng một workspace — `mongodb` là tab Mongo (T155).
+    #[test]
+    fn every_protocol_the_daemon_answers_opens_a_workspace() {
+        assert_eq!(db_kind_of("mysql").unwrap(), DbKind::Mysql);
+        assert_eq!(db_kind_of("postgres").unwrap(), DbKind::Postgres);
+        assert_eq!(db_kind_of("redis").unwrap(), DbKind::Redis);
+        assert_eq!(db_kind_of("mongodb").unwrap(), DbKind::Mongo);
+        assert!(db_kind_of("mongo").is_err());
+    }
 }

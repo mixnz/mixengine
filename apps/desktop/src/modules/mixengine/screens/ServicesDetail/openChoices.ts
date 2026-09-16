@@ -52,3 +52,18 @@ export function openChoices(client: DesktopClient, builtInVisible: boolean): Ope
 export function opensADatabase(report: Partial<Pick<DatabaseClientReport, "protocol">>): boolean {
   return report.protocol !== null && report.protocol !== undefined;
 }
+
+/**
+ * Có vẽ form Tạo database cho service này không — roadmap task T155.
+ *
+ * **Câu trả lời là của daemon**: `creates_databases: false` cho Redis và MongoDB, những server không
+ * tạo database kiểu này, nên form ở đó chỉ có thể bị từ chối. Vắng mặt nghĩa là daemon cũ hơn member
+ * đó ([ADR 0019]) — giữ form như trước.
+ *
+ * [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md
+ */
+export function createsDatabases(
+  report: Partial<Pick<DatabaseClientReport, "creates_databases">>,
+): boolean {
+  return report.creates_databases !== false;
+}

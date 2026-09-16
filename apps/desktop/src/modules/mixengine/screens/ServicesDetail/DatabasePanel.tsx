@@ -7,7 +7,7 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { DatabaseClientReport } from "@mixengine/api";
-import { opensADatabase } from "./openChoices";
+import { createsDatabases, opensADatabase } from "./openChoices";
 import styles from "./DatabasePanel.module.css";
 
 /**
@@ -115,23 +115,29 @@ export default function DatabasePanel({ service }: { service: string }) {
         </p>
       )}
 
-      <h5 className={styles.groupTitle}>{t("mixengine.servicesDetail.database.createTitle")}</h5>
-      <label className={styles.field}>
-        {t("mixengine.servicesDetail.database.databaseName")}
-        <Input value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
-      </label>
-      <label className={styles.field}>
-        {t("mixengine.servicesDetail.database.userName")}
-        <Input value={userName} disabled={busy} onChange={(e) => setUserName(e.target.value)} />
-      </label>
+      {/* Redis và MongoDB không tạo database kiểu này: daemon nói vậy, và một form chỉ có thể bị
+          từ chối thì không vẽ (T155). */}
+      {createsDatabases(report) && (
+        <>
+          <h5 className={styles.groupTitle}>{t("mixengine.servicesDetail.database.createTitle")}</h5>
+          <label className={styles.field}>
+            {t("mixengine.servicesDetail.database.databaseName")}
+            <Input value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
+          </label>
+          <label className={styles.field}>
+            {t("mixengine.servicesDetail.database.userName")}
+            <Input value={userName} disabled={busy} onChange={(e) => setUserName(e.target.value)} />
+          </label>
 
-      <div className={styles.actions}>
-        <Button onClick={() => void create()} disabled={busy || dbName.trim() === ""}>
-          {t("mixengine.servicesDetail.database.create")}
-        </Button>
-      </div>
+          <div className={styles.actions}>
+            <Button onClick={() => void create()} disabled={busy || dbName.trim() === ""}>
+              {t("mixengine.servicesDetail.database.create")}
+            </Button>
+          </div>
 
-      {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
+          {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
+        </>
+      )}
     </div>
   );
 }

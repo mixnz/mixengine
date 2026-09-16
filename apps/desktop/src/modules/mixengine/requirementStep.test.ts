@@ -61,6 +61,7 @@ describe("needLabel", () => {
     expect(needLabel(visualCpp.need)).toBe("Visual C++ 2019 (x64)");
     expect(needLabel(oldMac.need)).toBe("macOS 14.0+");
     expect(needLabel(nowhere.need)).toBe("glibc 2.34+");
+    expect(needLabel({ need: "cpu", feature: "avx" })).toBe("CPU with AVX");
   });
 });
 

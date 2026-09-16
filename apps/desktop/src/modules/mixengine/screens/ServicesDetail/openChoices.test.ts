@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesktopClient } from "@mixengine/api";
-import { openChoices, opensADatabase } from "./openChoices";
+import { createsDatabases, openChoices, opensADatabase } from "./openChoices";
 
 /** The window itself: T107's answer on a merged install, and the common case. */
 const thisWindow: DesktopClient = { state: "installed", name: "MixLab", program: "/usr/bin/mixlab" };
@@ -70,5 +70,14 @@ describe("opensADatabase", () => {
      đoán nó là một database sẽ vẽ ra một panel không có gì ở sau. */
   it("says no when the daemon never answered the member", () => {
     expect(opensADatabase({})).toBe(false);
+  });
+});
+
+describe("createsDatabases", () => {
+  it("draws the form unless the daemon said the server makes no databases", () => {
+    expect(createsDatabases({ creates_databases: false })).toBe(false);
+    expect(createsDatabases({ creates_databases: true })).toBe(true);
+    // An older daemon sends nothing: keep the form it always had.
+    expect(createsDatabases({})).toBe(true);
   });
 });

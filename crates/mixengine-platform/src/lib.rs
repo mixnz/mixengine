@@ -137,7 +137,7 @@ pub use traits::{
     PortRange, Probe, ProcessMetrics, RedistributableOutcome, Redistributables, ReservedPorts,
     ResolverConfig, ResolverMethod, ResolverState, ResourceControl, ServiceInstaller, Started,
     TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER, VisualCppVersion, WhenExceeded,
-    choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
+    avx, choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
     refused_by_app_control, visual_cpp_from_registry,
 };
 

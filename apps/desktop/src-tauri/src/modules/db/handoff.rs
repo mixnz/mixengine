@@ -85,9 +85,12 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
         Some("mysql") => DbKind::Mysql,
         Some("postgres") => DbKind::Postgres,
         Some("redis") => DbKind::Redis,
-        // Same shape as the three above — host/port/user/database, no `uri` of its own — unlike
-        // Mongo, which is why that kind is refused below rather than accepted here.
+        // Same shape as the three above — host/port/user/database, no `uri` of its own.
         Some("clickhouse") => DbKind::Clickhouse,
+        /* MixEngine's word for it, which is the protocol's and the URI scheme's; `mongo` is this
+           application's own and stays refused below. A Mongo connection is one connection string,
+           so the fields are turned into one by `mongo_uri` after they have been read. */
+        Some("mongodb") => DbKind::Mongo,
         /* Refused by name rather than by falling through, because the reason is not "not supported
            yet". `mixdb://` is registered with the operating system, so any web page can hand this
            process a URL; a `kind=sqlite&path=…` would be that page choosing which file on the
@@ -117,15 +120,26 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
     // `Handoff::keyring_ref`. Read before `secret` is moved into the config below.
     let keyring_ref = secret.is_some().then(|| present(&parsed, "secret_key")).flatten();
 
+    // Mongo reads its address and its database out of the string and ignores the fields, so both
+    // go into it; a MongoDB MixEngine runs has no accounts, so no user goes anywhere.
+    let (uri, username, database) = match kind {
+        DbKind::Mongo => (
+            Some(mongo_uri(&host, port, present(&parsed, "database").as_deref())?),
+            None,
+            None,
+        ),
+        _ => (None, present(&parsed, "user"), present(&parsed, "database")),
+    };
+
     Ok(Handoff {
         config: ConnectionConfig {
             kind,
             host,
             port,
-            username: present(&parsed, "user"),
+            username,
             password: secret,
-            database: present(&parsed, "database"),
-            uri: None,
+            database,
+            uri,
             path: None,
             ssh: None,
             // "Try TLS, fall back to plaintext": right for MixEngine's loopback servers, which
@@ -135,6 +149,58 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
         label,
         keyring_ref,
     })
+}
+
+/// The connection string a MongoDB handed over by MixEngine is dialled with — roadmap task T155.
+///
+/// `mongodb://<host>:<port>/<database>?directConnection=true`. Shared by this module's URL and by
+/// the Services screen's Open (`open_in_mixdb.rs`), so the two doors cannot build two strings.
+///
+/// **The host is an address or a plain name, and nothing else.** A `mixdb://` link can come from
+/// any web page, and a host like `a/?authSource=x` would otherwise write options into the string.
+/// `directConnection=true` because a standalone development server is not a replica set, and a
+/// driver told nothing tries to discover one.
+pub fn mongo_uri(host: &str, port: u16, database: Option<&str>) -> Result<String, AppError> {
+    let authority = match host.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V6(address)) => format!("[{address}]"),
+        Ok(address) => address.to_string(),
+        Err(_)
+            if !host.is_empty()
+                && host
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'.' || byte == b'-') =>
+        {
+            host.to_string()
+        }
+        Err(_) => {
+            return Err(invalid(format!(
+                "host `{host}` is not an address a connection string can carry"
+            )))
+        }
+    };
+    let path = database.map(encode).unwrap_or_default();
+
+    Ok(format!(
+        "mongodb://{authority}:{port}/{path}?directConnection=true"
+    ))
+}
+
+/// Percent-encode everything outside RFC 3986's unreserved set.
+fn encode(value: &str) -> String {
+    use std::fmt::Write as _;
+
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(char::from(byte));
+            }
+            _ => {
+                let _ = write!(out, "%{byte:02X}");
+            }
+        }
+    }
+    out
 }
 
 /// The first value under `key`, percent-decoded. A repeated key is the first one's.
@@ -271,6 +337,46 @@ mod tests {
         assert_eq!(handoff.config.password.as_deref(), Some("s3cret"));
         assert_eq!(handoff.config.database.as_deref(), Some("analytics"));
         assert_eq!(handoff.label, "clickhouse@main");
+    }
+
+    /// A MongoDB MixEngine runs, as `mix database open` hands it over — roadmap task T155.
+    #[test]
+    fn a_mongodb_url_reads_as_a_connection_string() {
+        let handoff = parse(
+            "mixdb://connect?kind=mongodb&host=127.0.0.1&port=27017&database=blog\
+             &label=mongodb%40main",
+            None,
+        )
+        .unwrap();
+        assert_eq!(handoff.config.kind, DbKind::Mongo);
+        assert_eq!(
+            handoff.config.uri.as_deref(),
+            Some("mongodb://127.0.0.1:27017/blog?directConnection=true")
+        );
+        assert_eq!(handoff.config.username, None);
+        assert_eq!(handoff.config.database, None);
+        assert_eq!(handoff.label, "mongodb@main");
+    }
+
+    /// A URL can come from any web page, so the host is an address or a plain name and nothing
+    /// that would write options into the string; a database name is escaped.
+    #[test]
+    fn a_mongo_uri_carries_an_address_and_nothing_that_writes_options() {
+        assert_eq!(
+            mongo_uri("::1", 27017, None).unwrap(),
+            "mongodb://[::1]:27017/?directConnection=true"
+        );
+        assert_eq!(
+            mongo_uri("db.local", 1, Some("a b/c")).unwrap(),
+            "mongodb://db.local:1/a%20b%2Fc?directConnection=true"
+        );
+        for host in ["a/?authSource=x", "a@b", "", "a b"] {
+            assert_eq!(
+                mongo_uri(host, 1, None).unwrap_err().code,
+                "error.handoffInvalid",
+                "{host}"
+            );
+        }
     }
 
     #[test]

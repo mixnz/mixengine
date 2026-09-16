@@ -677,6 +677,41 @@ jobs:
           # `-V` and not `--version`: the short flag is in every line the index publishes.
           "$into/bin/memcached$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -V
 
+      # And MongoDB, for T156. The newest line: 8.x needs macOS 14 and glibc 2.34, and every leg of
+      # this job is newer than both.
+      - name: Fetch a real MongoDB
+        env:
+          MONGODB: "8.3.11"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            # Upstream has never built MongoDB for Windows on ARM, at any version.
+            Windows-ARM64) echo "::notice::mixengine-packages publishes no MongoDB for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no MongoDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/mongodb"
+          archive="$RUNNER_TEMP/mongodb.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/mongodb-$MONGODB/mongodb-$MONGODB-$target.$ext"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MONGODB_PACKAGE=$into" >> "$GITHUB_ENV"
+          "$into/bin/mongod$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
       - name: Build tests
         run: cargo test --workspace --all-targets --all-features --locked --offline --no-run
 
@@ -951,6 +986,14 @@ jobs:
         env:
           CARGO_NET_OFFLINE: "true"
         run: cargo test -p mixengine-cli --test memcached --locked --offline -- --ignored --nocapture
+
+      # And MongoDB — T156. Spoken to over the wire by the suite itself, so nothing else is needed.
+      - name: Test against a real MongoDB
+        if: runner.os != 'Linux' && env.MIXENGINE_MONGODB_PACKAGE != ''
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-cli --test mongodb --locked --offline -- --ignored --nocapture
 
       # `--all-targets` silently excludes doc tests; run them separately so rustdoc examples cannot
       # rot. The Linux runner did this inside the namespace already.

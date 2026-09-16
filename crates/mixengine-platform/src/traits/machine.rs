@@ -48,6 +48,10 @@ pub struct MachineFacts {
 
     /// The same runtime for ARM64, on Windows.
     pub visual_cpp_arm64: Probe<VisualCppVersion>,
+
+    /// Whether the processor has AVX and the operating system saves its state — roadmap task
+    /// **T153**. See [`avx`].
+    pub avx: Probe<()>,
 }
 
 impl MachineFacts {
@@ -59,7 +63,36 @@ impl MachineFacts {
             macos: Probe::Unknown,
             visual_cpp_x64: Probe::Unknown,
             visual_cpp_arm64: Probe::Unknown,
+            avx: Probe::Unknown,
         }
+    }
+}
+
+/// Whether this processor supports AVX, and this operating system saves its state — roadmap task
+/// **T153**.
+///
+/// **One answer for all three systems**, which is why it is here rather than in each one's
+/// `machine` module: the question is the processor's, and `is_x86_feature_detected!` asks both
+/// halves of it — the CPUID bit, and `OSXSAVE` with `XGETBV` — which is what a MongoDB build
+/// compiled for AVX actually depends on.
+///
+/// **[`Probe::Unknown`] in any build that is not x86_64.** An ARM64 daemon cannot ask an x86
+/// question, and the x86_64 artifact it would install on Windows on ARM runs under the operating
+/// system's emulation, whose AVX depends on the Windows release; `SmokeTest` decides that case.
+#[must_use]
+pub fn avx() -> Probe<()> {
+    #[cfg(target_arch = "x86_64")]
+    {
+        if std::arch::is_x86_feature_detected!("avx") {
+            Probe::Present(())
+        } else {
+            Probe::Absent
+        }
+    }
+
+    #[cfg(not(target_arch = "x86_64"))]
+    {
+        Probe::Unknown
     }
 }
 
@@ -132,6 +165,14 @@ mod tests {
         assert_eq!(dotted_version("2.35-ubuntu"), Probe::Unknown);
         assert_eq!(dotted_version("2..35"), Probe::Unknown);
         assert_eq!(dotted_version("v14"), Probe::Unknown);
+    }
+
+    /// **About the code, not the runner**: a processor with AVX and one without are both a pass.
+    /// What an x86_64 build may never answer is "could not tell".
+    #[cfg(target_arch = "x86_64")]
+    #[test]
+    fn an_x86_64_build_answers_about_avx() {
+        assert_ne!(avx(), Probe::Unknown);
     }
 
     /// Measured on a Windows 11 machine, 2026-09-16: `Installed=1 Major=14 Minor=50`.

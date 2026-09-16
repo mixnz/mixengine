@@ -86,6 +86,10 @@ pub struct Address {
 
     /// The recipe's administrator — `root`, `postgres` — or [`None`] for a server with no accounts.
     pub administrator: Option<String>,
+
+    /// Whether the recipe knows how to make a database on it — roadmap task **T155**. `false` for
+    /// Redis and MongoDB.
+    pub creates_databases: bool,
 }
 
 /// What a URL is rendered from.
@@ -174,6 +178,7 @@ pub async fn address(store: &Store, service: &ServiceId) -> Result<Option<Addres
         // The column is an `INTEGER`; a value outside a port's range is a row nothing wrote.
         port: u16::try_from(port).unwrap_or_default(),
         administrator: recipe.administrator().map(str::to_owned),
+        creates_databases: recipe.databases().is_some(),
     }))
 }
 
@@ -241,6 +246,7 @@ mod tests {
             host: IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
             port: 3306,
             administrator: administrator.map(str::to_owned),
+            creates_databases: true,
         }
     }
 
@@ -286,6 +292,7 @@ mod tests {
         assert_eq!(says("mysql"), Some(DatabaseProtocol::Mysql));
         assert_eq!(says("postgres"), Some(DatabaseProtocol::Postgres));
         assert_eq!(says("redis"), Some(DatabaseProtocol::Redis));
+        assert_eq!(says("mongodb"), Some(DatabaseProtocol::Mongodb));
         assert_eq!(says("memcached"), None);
         assert_eq!(says("caddy"), None);
         assert_eq!(says("php-fpm"), None);
@@ -393,6 +400,7 @@ mod tests {
         assert_eq!(mariadb.protocol, DatabaseProtocol::Mysql);
         assert_eq!(mariadb.port, 3307);
         assert_eq!(mariadb.administrator.as_deref(), Some("root"));
+        assert!(mariadb.creates_databases);
 
         let redis = address(&store, &ServiceId::parse("redis@main").expect("an id"))
             .await
@@ -400,6 +408,7 @@ mod tests {
             .expect("a cache a client opens");
         assert_eq!(redis.protocol, DatabaseProtocol::Redis);
         assert_eq!(redis.administrator, None);
+        assert!(!redis.creates_databases, "a cache makes no databases");
 
         assert!(
             address(&store, &ServiceId::parse("memcached@main").expect("an id"))

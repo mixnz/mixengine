@@ -7,4 +7,4 @@
  * client is on the other end, so `mariadb` and `mysql` are one word here. The word is what the
  * handoff URL carries as `kind`.
  */
-export type DatabaseProtocol = "mysql" | "postgres" | "redis";
+export type DatabaseProtocol = "mysql" | "postgres" | "redis" | "mongodb";

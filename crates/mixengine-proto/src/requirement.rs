@@ -72,6 +72,14 @@ pub enum Need {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         found: Option<String>,
     },
+
+    /// A processor feature this machine's processor lacks — roadmap task **T153**.
+    ///
+    /// Nothing installs one, so its remedy is a release that does not need it, or none.
+    Cpu {
+        /// The feature the artifact names, as the index spells it — `avx`.
+        feature: String,
+    },
 }
 
 impl Need {
@@ -82,6 +90,7 @@ impl Need {
             Self::Glibc { at_least, .. } => format!("glibc {at_least}+"),
             Self::Macos { at_least, .. } => format!("macOS {at_least}+"),
             Self::VisualCpp { year, arch, .. } => format!("Visual C++ {year} ({arch})"),
+            Self::Cpu { feature } => format!("CPU with {}", feature.to_uppercase()),
         }
     }
 }
@@ -118,6 +127,11 @@ impl fmt::Display for Need {
                 formatter,
                 "the Microsoft Visual C++ {year} Redistributable ({arch}) or newer, and this \
                  machine has {found}"
+            ),
+            Self::Cpu { feature } => write!(
+                formatter,
+                "a processor with {}, and this one does not have it",
+                feature.to_uppercase()
             ),
         }
     }
@@ -182,4 +196,28 @@ pub struct Requirement {
 pub struct Requirements {
     /// Everything the version lacks here. Empty when it lacks nothing, or nothing could be judged.
     pub unmet: Vec<Requirement>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **A processor feature is named the way the index names it**, and said the way a person reads
+    /// it — roadmap task **T153**.
+    #[test]
+    fn a_missing_processor_feature_is_said_in_capitals_and_sent_as_published() {
+        let need = Need::Cpu {
+            feature: "avx".to_owned(),
+        };
+
+        assert_eq!(need.label(), "CPU with AVX");
+        assert_eq!(
+            need.to_string(),
+            "a processor with AVX, and this one does not have it"
+        );
+        assert_eq!(
+            serde_json::to_value(&need).expect("it encodes"),
+            serde_json::json!({"need": "cpu", "feature": "avx"})
+        );
+    }
 }

@@ -15,6 +15,7 @@ install, with sane defaults and no hand-edited config files.
 | PostgreSQL | 16 | `127.0.0.1:5432` | initdb on first start |
 | Redis | 7.x | `127.0.0.1:6379` | **a cache, and it keeps nothing**: `save ""`, `appendonly no`, and stopped with `SHUTDOWN NOSAVE` so it does not write one on the way out either |
 | Memcached | 1.6 | `127.0.0.1:11211` | 64 MB default |
+| MongoDB | 8.x | `127.0.0.1:27017` | **no accounts** (T154): a bind address off loopback is refused, 27017 is never opened to a network, and WiredTiger's cache defaults to 256 MB |
 
 **"Default" is which one this project picks, not one that arrives by itself.** Nothing installs a
 front end. `service.create` refuses a *second* one by `Role::FrontEnd`, and
@@ -94,6 +95,7 @@ etc/
   mysql@main/my.cnf                ← a MySQL template, not MariaDB's
   postgres@main/postgresql.conf + pg_hba.conf + pg_ident.conf
   redis@main/redis.conf
+  mongodb@main/mongod.conf
 ```
 
 **Memcached is not in that list, and never will be.** It has no configuration file format — not one
@@ -180,6 +182,15 @@ Rules:
   a data directory that exists, which `Generator::render` creates for every service beside the log
   directory: Redis names its own `dir` in its own configuration and refuses the whole file when it is
   missing, and memcached, whose working directory it is, never reaches its first line.
+- **MongoDB**: nothing but that same directory — `mongod` initialises an empty one itself on its
+  first start (T154). **It has no accounts**, which is MongoDB's own default and Redis's
+  arrangement: turning access control on means authenticating every probe and handoff through a
+  client the artifact does not ship. Two locks stand in for the password, and neither depends on the
+  other — the recipe refuses a bind address that is not loopback, and `mixengine-elevate` never
+  opens 27017. It is ready when it prints `Waiting for connections` rather than when its port
+  accepts, and on Windows a stop is a kill (ADR 0008) that WiredTiger recovers from at the next
+  start. Design:
+  [docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md](../../docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md).
 
 Init runs inside a job with progress, and is idempotent — a half-finished data dir is detected and
 cleaned rather than reused. **Two markers, and the second one is what keeps that sentence honest**:

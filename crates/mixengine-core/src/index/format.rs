@@ -154,8 +154,8 @@ pub struct Requires {
 
     /// A processor feature the build assumes — `avx`, on every MongoDB artifact.
     ///
-    /// **Modelled and not judged** (T148 design, D2): no kind this build installs declares it, and a
-    /// probe with no consumer is code nothing exercises.
+    /// **Judged since T153**, the task that made MongoDB installable — see
+    /// [`crate::requirements`]. Only `avx`, and only on an x86_64 artifact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cpu: Option<String>,
 }

@@ -42,7 +42,7 @@ pub use limits::{
     Enforcement, LimitMechanism, LimitSupport, MemoryMeasure, ResourceControl, WhenExceeded,
 };
 pub use machine::{
-    Machine, MachineFacts, Probe, VisualCppVersion, dotted_version, visual_cpp_from_registry,
+    Machine, MachineFacts, Probe, VisualCppVersion, avx, dotted_version, visual_cpp_from_registry,
 };
 pub use metrics::{GroupReading, GroupRoot, ProcessMetrics};
 pub use network::{Interface, NetworkInfo, choose as choose_interface};
