@@ -30,6 +30,14 @@ protocol?: DatabaseProtocol | null,
  */
 secret?: SecretAddress | null, 
 /**
+ * Whether `database.create` can make a database on it — roadmap task **T155**.
+ *
+ * `false` for a server that makes none — Redis, MongoDB — so a client leaves out a form that
+ * could only be refused, without learning which products those are. [`None`] for a service no
+ * database client opens, and from a daemon older than this member (ADR 0019).
+ */
+creates_databases?: boolean | null, 
+/**
  * Where it could be opened.
  */
 client: DesktopClient, };

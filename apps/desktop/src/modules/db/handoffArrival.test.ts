@@ -22,6 +22,18 @@ describe("arrivesConnected", () => {
     expect(arrivesConnected({ kind: "redis", host: "127.0.0.1", port: 6379 })).toBe(true);
   });
 
+  /* Nor has a MongoDB MixEngine manages, which arrives as one connection string. */
+  it("dials a MongoDB with nothing to sign in as", () => {
+    expect(
+      arrivesConnected({
+        kind: "mongo",
+        host: "127.0.0.1",
+        port: 27017,
+        uri: "mongodb://127.0.0.1:27017/?directConnection=true",
+      }),
+    ).toBe(true);
+  });
+
   /* A `mixdb://` link from a browser: the same URL, no environment behind it. Dialling `root`
      with an empty password would only fail, so the form waits for the one thing it lacks. */
   it("waits for a password a server with accounts was not given", () => {

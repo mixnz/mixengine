@@ -192,8 +192,9 @@ impl Databases {
 
         Ok(DatabaseClientReport {
             service: asked.service.clone(),
-            protocol: address.map(|address| address.protocol),
+            protocol: address.as_ref().map(|address| address.protocol),
             secret,
+            creates_databases: address.map(|address| address.creates_databases),
             client,
         })
     }
@@ -720,6 +721,7 @@ mod tests {
             .await
             .expect("answers");
         assert_eq!(report.protocol, Some(DatabaseProtocol::Redis));
+        assert_eq!(report.creates_databases, Some(false));
         assert_eq!(report.client, DesktopClient::NoClient);
 
         let handoff = databases
@@ -900,6 +902,7 @@ mod tests {
             .await
             .expect("answers");
         assert_eq!(report.protocol, None);
+        assert_eq!(report.creates_databases, None);
 
         let refused = databases
             .open(&open("memcached@main", None, None))
@@ -955,6 +958,48 @@ mod tests {
         assert_eq!(refused.code, ErrorCode::InvalidArgument);
     }
 
+    /// **A MongoDB is a Redis to this method** — roadmap task **T155**: no accounts, no variable,
+    /// no form to make a database, and the kind the window reads as its Mongo tab.
+    #[tokio::test]
+    async fn a_mongodb_is_opened_with_no_account_and_offers_no_database_to_create() {
+        let host = Arc::new(MockHost::with_desktop_app(
+            std::env::temp_dir(),
+            "/opt/mixdb/mixdb",
+        ));
+        let (_home, databases) =
+            databases(Arc::clone(&host), &[("mongodb@main", "mongodb", 27017)]).await;
+        a_mixdb(&databases.store).await;
+
+        let report = databases
+            .client(&DatabaseClientQuery {
+                service: id("mongodb@main"),
+            })
+            .await
+            .expect("answers");
+        assert_eq!(report.protocol, Some(DatabaseProtocol::Mongodb));
+        assert_eq!(report.secret, None);
+        assert_eq!(report.creates_databases, Some(false));
+
+        databases
+            .open(&open("mongodb@main", None, Some("blog")))
+            .await
+            .expect("opened");
+
+        let launched = host.launched();
+        let url = launched[0]
+            .args
+            .last()
+            .expect("the URL")
+            .to_string_lossy()
+            .into_owned();
+        assert!(
+            url.starts_with("mixdb://connect?kind=mongodb&host=127.0.0.1&port=27017"),
+            "{url}"
+        );
+        assert!(url.contains("&database=blog"), "{url}");
+        assert!(launched[0].env_names.is_empty());
+    }
+
     /// **The design's D2, at the daemon.** The password is in the environment under the one name
     /// and nowhere in the URL; a missing credential is a precondition and starts nothing.
     #[tokio::test]
@@ -979,6 +1024,11 @@ mod tests {
         let address = report.secret.as_ref().expect("an address");
         assert_eq!(address.service, KEYRING_SERVICE);
         assert_eq!(address.key, at(&databases, "mariadb@main/root").await);
+        assert_eq!(
+            report.creates_databases,
+            Some(true),
+            "a server that makes databases keeps its form"
+        );
 
         let missing = databases
             .open(&open("mariadb@main", None, None))

@@ -260,6 +260,14 @@ pub struct DatabaseClientReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub secret: Option<SecretAddress>,
 
+    /// Whether `database.create` can make a database on it — roadmap task **T155**.
+    ///
+    /// `false` for a server that makes none — Redis, MongoDB — so a client leaves out a form that
+    /// could only be refused, without learning which products those are. [`None`] for a service no
+    /// database client opens, and from a daemon older than this member (ADR 0019).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub creates_databases: Option<bool>,
+
     /// Where it could be opened.
     pub client: DesktopClient,
 }
@@ -370,6 +378,7 @@ mod tests {
             service: ServiceId::parse("mariadb@main").expect("an id"),
             protocol: Some(DatabaseProtocol::Mysql),
             secret: Some(SecretAddress::of("mariadb@main/root")),
+            creates_databases: Some(true),
             client: DesktopClient::NoClient,
         };
 
@@ -381,6 +390,7 @@ mod tests {
             service: ServiceId::parse("redis@main").expect("an id"),
             protocol: Some(DatabaseProtocol::Redis),
             secret: None,
+            creates_databases: Some(false),
             client: DesktopClient::NoClient,
         };
 
@@ -388,6 +398,10 @@ mod tests {
         assert!(
             json.get("secret").is_none(),
             "nothing to say is said by saying nothing: {json}"
+        );
+        assert_eq!(
+            json["creates_databases"], false,
+            "a server that makes no databases says so, so a client draws no form for one"
         );
     }
 
@@ -465,6 +479,7 @@ mod tests {
             service: ServiceId::parse("redis@main").expect("an id"),
             protocol: Some(DatabaseProtocol::Redis),
             secret: None,
+            creates_databases: Some(false),
             client: DesktopClient::NotInstalled {
                 extension: crate::ExtensionId::parse("mixdb").expect("an id"),
                 name: "MixDB".to_owned(),
