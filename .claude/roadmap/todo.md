@@ -70,10 +70,14 @@ window, from `mix`, and from the flags a daemon is started with — refused at t
 being safe, which is the first row that records an absolute path. Measured on macOS with
 `runtimes/`, `packages/` and `data/` on an external `noowners` volume: a runtime installed there and
 ran from there, and the elevation queue granted to nothing waiting, with no Full Disk Access given
-to anything. **The measurement found two bugs of its own**, one filed and one fixed here:
-`helper-install` blamed the directory it was writing to when what had failed was reading its own
-binary off that volume, and a grant that did nothing reported only counts — so the same prompt was
-answered eight times against a sentence nobody had been shown.
+to anything. **The measurement found two bugs of its own**, both now fixed: `helper-install` blamed
+the directory it was writing to when what had failed was reading its own binary off that volume, and
+a grant that did nothing reported only counts — so the same prompt was answered eight times against
+a sentence nobody had been shown. The second was older and wider. No PHP 7.0 or 7.1 this product
+ever installed loaded any of its shared modules, on any system, because the generated ini named them
+without the suffix PHP hands the loader verbatim before 7.2 — and the suite written to catch exactly
+that was pinned to 8.3, the branch whose fallback makes a wrong name work. Module names are judged
+against every PHP in `MIXENGINE_PHP_RUNTIMES` now, 7.0.33 among them.
 Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../../docs/superpowers/specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
 
 **Phase 16's tasks are done — 8 of 8, and M16 is met.** One more complaint from somebody using the
