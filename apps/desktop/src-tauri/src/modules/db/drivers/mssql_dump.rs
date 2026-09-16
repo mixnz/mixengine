@@ -649,7 +649,11 @@ pub async fn dump_data(
                 .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))?;
         }
     }
-    Ok(())
+    // `write_all` on a tokio file returns once the bytes are handed to a blocking thread, so the
+    // last write is still in flight here — and its error unseen — until it is flushed.
+    file.flush()
+        .await
+        .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))
 }
 
 /// Replays a dump file into `database`, one call into `mssql_script::run` (Plan 5) — the same
