@@ -40,6 +40,9 @@ pub(crate) mod known_folder;
 #[cfg(feature = "host")]
 mod limits;
 pub(crate) mod lock;
+// What this machine offers the programs MixEngine installs — T148.
+#[cfg(feature = "host")]
+mod machine;
 #[cfg(feature = "host")]
 mod path;
 // The read half is `host` and the write half is `elevated`, so the module is declared for
@@ -56,6 +59,9 @@ pub(crate) mod private_file;
 pub(crate) mod process;
 #[cfg(feature = "host")]
 mod prompt;
+// Believing and running Microsoft's Visual C++ Redistributable installer — T150.
+#[cfg(feature = "host")]
+mod redistributable;
 #[cfg(feature = "elevated")]
 pub(crate) mod replace;
 // The read half is `host` and the write half is `elevated`, as `port_access` is.
@@ -110,6 +116,8 @@ pub(crate) struct Host {
     port_access: port_access::Ports,
     reserved: reserved::Reserved,
     app_control: app_control::Policy,
+    machine: machine::Facts,
+    redistributables: redistributable::Installer,
     network: crate::network::Network,
     firewall_rules: firewall_rules::Rules,
     limits: limits::Limits,
@@ -135,6 +143,8 @@ impl Host {
             port_access: port_access::Ports,
             reserved: reserved::Reserved,
             app_control: app_control::Policy,
+            machine: machine::Facts,
+            redistributables: redistributable::Installer,
             network: crate::network::Network,
             firewall_rules: firewall_rules::Rules,
             limits: limits::Limits,
@@ -201,6 +211,14 @@ impl crate::Host for Host {
 
     fn app_control(&self) -> &dyn crate::AppControl {
         &self.app_control
+    }
+
+    fn machine(&self) -> &dyn crate::Machine {
+        &self.machine
+    }
+
+    fn redistributables(&self) -> &dyn crate::Redistributables {
+        &self.redistributables
     }
 
     fn network(&self) -> &dyn crate::NetworkInfo {

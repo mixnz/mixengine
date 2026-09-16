@@ -43,13 +43,13 @@ use mixengine_proto::{
     NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease,
     PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome,
     Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim,
-    Removal, RepairReport, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList,
-    RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId,
-    ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
-    SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
-    StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust, UninstallOutcome,
-    UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict,
-    WhenExceeded, privileged::ElevationOutcome,
+    Removal, RepairReport, Requirement, ResolvedRuntime, RotateOutcome, RuntimeCatalogue,
+    RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation,
+    ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary,
+    ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval,
+    SiteSharing, StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust,
+    UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus,
+    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -1233,36 +1233,42 @@ pub(crate) fn package_catalogue(catalogue: &PackageCatalogue) -> String {
         ]
     };
 
-    let executions = catalogue.packages.iter().map(|release| release.execution);
-    match emulation_column(executions) {
-        None => {
-            let rows: Vec<[String; 6]> = catalogue.packages.iter().map(cells).collect();
-            rendered.push_str(&table(PACKAGE_HEADINGS, &rows));
-        }
-        Some(note) => {
-            rendered.push_str(&note);
-            let rows: Vec<[String; 7]> = catalogue
-                .packages
-                .iter()
-                .map(|release| {
-                    let [package, version, channel, bytes, installed, eol] = cells(release);
-                    [
-                        package,
-                        version,
-                        channel,
-                        bytes,
-                        installed,
-                        eol,
-                        runs(release.execution),
-                    ]
-                })
-                .collect();
+    let emulated = emulation_column(catalogue.packages.iter().map(|release| release.execution));
+    let lacking = any_lacking(
+        catalogue
+            .packages
+            .iter()
+            .map(|release| release.needs.as_ref()),
+    );
 
-            let [a, b, c, d, e, f] = PACKAGE_HEADINGS;
-            rendered.push_str(&table([a, b, c, d, e, f, RUNS_HEADING], &rows));
-        }
+    if let Some(note) = &emulated {
+        rendered.push_str(note);
     }
 
+    let mut headings = PACKAGE_HEADINGS.to_vec();
+    if emulated.is_some() {
+        headings.push(RUNS_HEADING);
+    }
+    if lacking {
+        headings.push(NEEDS_HEADING);
+    }
+
+    let rows: Vec<Vec<String>> = catalogue
+        .packages
+        .iter()
+        .map(|release| {
+            let mut row = cells(release).to_vec();
+            if emulated.is_some() {
+                row.push(runs(release.execution));
+            }
+            if lacking {
+                row.push(needs(release.needs.as_ref()));
+            }
+            row
+        })
+        .collect();
+
+    rendered.push_str(&table_of(&headings, &rows));
     rendered
 }
 
@@ -1274,6 +1280,41 @@ const RUNTIME_HEADINGS: [&str; 6] = ["RUNTIME", "VERSION", "CHANNEL", "SIZE", "I
 
 /// The seventh column's heading, on both listings.
 const RUNS_HEADING: &str = "RUNS";
+
+/// The column that says what a release lacks on this machine — roadmap task **T151**.
+const NEEDS_HEADING: &str = "NEEDS";
+
+/// What one release lacks, in the few words a cell has room for; blank for a release lacking nothing.
+fn needs(needs: Option<&Vec<Requirement>>) -> String {
+    needs
+        .map(|needs| {
+            needs
+                .iter()
+                .map(|requirement| requirement.need.label())
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default()
+}
+
+/// Whether any release in a listing lacks something here — the one case its `NEEDS` column appears.
+fn any_lacking<'a>(needs: impl Iterator<Item = Option<&'a Vec<Requirement>>>) -> bool {
+    needs
+        .into_iter()
+        .any(|needs| needs.is_some_and(|needs| !needs.is_empty()))
+}
+
+/// What an install lacks here, one line each with what can be done — roadmap task **T151**.
+pub(crate) fn requirements(unmet: &[Requirement]) -> String {
+    let mut rendered = String::from("this machine lacks what it needs:\n");
+    for requirement in unmet {
+        rendered.push_str(&format!(
+            "  - {} — {}\n",
+            requirement.need, requirement.remedy
+        ));
+    }
+    rendered
+}
 
 /// The note that goes above a listing with an emulated row in it, or [`None`] for one without —
 /// roadmap task **T92**.
@@ -1415,36 +1456,42 @@ pub(crate) fn runtime_catalogue(catalogue: &RuntimeCatalogue) -> String {
         ]
     };
 
-    let executions = catalogue.runtimes.iter().map(|release| release.execution);
-    match emulation_column(executions) {
-        None => {
-            let rows: Vec<[String; 6]> = catalogue.runtimes.iter().map(cells).collect();
-            rendered.push_str(&table(RUNTIME_HEADINGS, &rows));
-        }
-        Some(note) => {
-            rendered.push_str(&note);
-            let rows: Vec<[String; 7]> = catalogue
-                .runtimes
-                .iter()
-                .map(|release| {
-                    let [kind, version, channel, bytes, installed, eol] = cells(release);
-                    [
-                        kind,
-                        version,
-                        channel,
-                        bytes,
-                        installed,
-                        eol,
-                        runs(release.execution),
-                    ]
-                })
-                .collect();
+    let emulated = emulation_column(catalogue.runtimes.iter().map(|release| release.execution));
+    let lacking = any_lacking(
+        catalogue
+            .runtimes
+            .iter()
+            .map(|release| release.needs.as_ref()),
+    );
 
-            let [a, b, c, d, e, f] = RUNTIME_HEADINGS;
-            rendered.push_str(&table([a, b, c, d, e, f, RUNS_HEADING], &rows));
-        }
+    if let Some(note) = &emulated {
+        rendered.push_str(note);
     }
 
+    let mut headings = RUNTIME_HEADINGS.to_vec();
+    if emulated.is_some() {
+        headings.push(RUNS_HEADING);
+    }
+    if lacking {
+        headings.push(NEEDS_HEADING);
+    }
+
+    let rows: Vec<Vec<String>> = catalogue
+        .runtimes
+        .iter()
+        .map(|release| {
+            let mut row = cells(release).to_vec();
+            if emulated.is_some() {
+                row.push(runs(release.execution));
+            }
+            if lacking {
+                row.push(needs(release.needs.as_ref()));
+            }
+            row
+        })
+        .collect();
+
+    rendered.push_str(&table_of(&headings, &rows));
     rendered
 }
 
@@ -2003,16 +2050,30 @@ fn names(services: &[ServiceId]) -> String {
 /// with a listing now, and the alternative is four copies of the same width calculation drifting
 /// apart in how they pad and where they trim.
 fn table<const N: usize>(headings: [&str; N], rows: &[[String; N]]) -> String {
-    let widths: [usize; N] = std::array::from_fn(|column| {
-        rows.iter()
-            .map(|row| row[column].chars().count())
-            .chain(std::iter::once(headings[column].chars().count()))
-            .max()
-            .unwrap_or_default()
-    });
+    let rows: Vec<Vec<String>> = rows.iter().map(|row| row.to_vec()).collect();
+    table_of(&headings, &rows)
+}
+
+/// [`table`] for a column count decided at run time — roadmap task **T151**, where a listing may
+/// grow `RUNS`, `NEEDS`, both or neither.
+pub(crate) fn table_of(headings: &[&str], rows: &[Vec<String>]) -> String {
+    let widths: Vec<usize> = (0..headings.len())
+        .map(|column| {
+            rows.iter()
+                .map(|row| row.get(column).map_or(0, |cell| cell.chars().count()))
+                .chain(std::iter::once(headings[column].chars().count()))
+                .max()
+                .unwrap_or_default()
+        })
+        .collect();
 
     let mut rendered = String::new();
-    for row in std::iter::once(headings.map(str::to_owned)).chain(rows.iter().cloned()) {
+    let headings: Vec<String> = headings
+        .iter()
+        .map(|heading| (*heading).to_owned())
+        .collect();
+
+    for row in std::iter::once(&headings).chain(rows.iter()) {
         let line = row
             .iter()
             .zip(&widths)
@@ -3975,9 +4036,9 @@ fn mechanism(mechanism: AutostartMechanism) -> &'static str {
 #[cfg(test)]
 mod tests {
     use mixengine_proto::{
-        CategoryUsage, Cleaned, DiskCategory, MetricsMinute, MetricsSample, MetricsSubject,
-        PortWish, RuntimeKind, SecretAddress, ServiceState, StepOutcome, Timestamp,
-        VersionConstraint,
+        CategoryUsage, Cleaned, DiskCategory, MetricsMinute, MetricsSample, MetricsSubject, Need,
+        PortWish, RedistributableArch, Remedy, RuntimeKind, SecretAddress, ServiceState,
+        StepOutcome, Timestamp, VersionConstraint,
     };
 
     use super::*;
@@ -3992,7 +4053,68 @@ mod tests {
             bytes: 34_718_139,
             installed: false,
             execution,
+            needs: None,
         }
+    }
+
+    fn lacking(release: RuntimeRelease, need: Need, remedy: Remedy) -> RuntimeRelease {
+        RuntimeRelease {
+            needs: Some(vec![Requirement { need, remedy }]),
+            ..release
+        }
+    }
+
+    /// **T151.** The column appears only when a row lacks something, on `RUNS`' reasoning.
+    #[test]
+    fn a_needs_column_appears_only_when_a_row_lacks_something() {
+        let plain = RuntimeCatalogue {
+            runtimes: vec![offered("8.3.33", Some(Execution::Native))],
+            stale: false,
+        };
+        assert!(!runtime_catalogue(&plain).contains("NEEDS"));
+
+        let lacking_one = RuntimeCatalogue {
+            runtimes: vec![
+                lacking(
+                    offered("8.4.24", Some(Execution::Native)),
+                    Need::VisualCpp {
+                        year: "2022".to_owned(),
+                        arch: RedistributableArch::X64,
+                        found: None,
+                    },
+                    Remedy::InstallVisualCpp {
+                        arch: RedistributableArch::X64,
+                    },
+                ),
+                offered("8.3.33", Some(Execution::Native)),
+            ],
+            stale: false,
+        };
+        let rendered = runtime_catalogue(&lacking_one);
+        assert!(rendered.contains("NEEDS"), "{rendered}");
+        assert!(rendered.contains("Visual C++ 2022 (x64)"), "{rendered}");
+    }
+
+    #[test]
+    fn what_is_lacking_is_said_with_what_can_be_done() {
+        let rendered = requirements(&[Requirement {
+            need: Need::Macos {
+                at_least: "14.0".to_owned(),
+                found: "13.6".to_owned(),
+            },
+            remedy: Remedy::ChooseVersion {
+                version: PackageVersion::parse("8.3.33").unwrap(),
+            },
+        }]);
+
+        assert!(
+            rendered.contains("macOS 14.0 or newer, and this Mac runs 13.6"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains("8.3.33 is the newest release that runs here"),
+            "{rendered}"
+        );
     }
 
     /// The column exists only where it says something — roadmap task **T92**.

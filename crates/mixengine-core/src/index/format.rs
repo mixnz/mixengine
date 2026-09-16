@@ -118,12 +118,10 @@ pub struct Artifact {
 
 /// What the publisher measured off the finished artifact, as preconditions on the machine.
 ///
-/// **Nothing in this workspace reads any of them**, and saying otherwise here would be worse than
-/// saying nothing: this comment used to claim the daemon *"checks these before installing, and
-/// prompts about them rather than silently satisfying"*, and roadmap task **T92** found no consumer
-/// at all. The mechanism that exists is [`crate::install::SmokeTest`], whose own note argues the
-/// case — every failure these fields describe is invisible until something tries, and what a
-/// refusal here would have to say is what the loader says anyway.
+/// **Read since T148, before anything is downloaded** — see [`crate::requirements`], which judges
+/// these against the machine and says what can be done about what is missing. T92 recorded that no
+/// consumer existed; [`crate::install::SmokeTest`] still stands in front of every install, because a
+/// prediction is not a proof.
 ///
 /// **The published document already carries a field this type does not model.** Ten artifacts — the
 /// Linux PostgreSQL cells — state a `requires.tzdata`, and it is prose rather than a version: *"the
@@ -153,13 +151,23 @@ pub struct Requires {
     /// and a loader error is a worse way to learn that than a refusal naming the number.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub glibc: Option<String>,
+
+    /// A processor feature the build assumes — `avx`, on every MongoDB artifact.
+    ///
+    /// **Modelled and not judged** (T148 design, D2): no kind this build installs declares it, and a
+    /// probe with no consumer is code nothing exercises.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cpu: Option<String>,
 }
 
 impl Requires {
     /// Whether this artifact asks anything of the machine at all.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.vcredist.is_none() && self.macos.is_none() && self.glibc.is_none()
+        self.vcredist.is_none()
+            && self.macos.is_none()
+            && self.glibc.is_none()
+            && self.cpu.is_none()
     }
 }
 
@@ -595,6 +603,14 @@ impl Index {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cpu_requirement_is_kept_rather_than_dropped() {
+        let requires: Requires =
+            serde_json::from_str(r#"{"cpu": "avx", "glibc": "2.34"}"#).expect("the MongoDB shape");
+        assert_eq!(requires.cpu.as_deref(), Some("avx"));
+        assert!(!requires.is_empty());
+    }
 
     #[test]
     fn timestamp_accepts_what_the_generator_writes() {

@@ -70,3 +70,9 @@
   font-size: var(--text-sm);
   opacity: 0.65;
 }
+
+/* What a release lacks on this machine - T151. Quiet, because most rows say nothing here. */
+.needs {
+  font-size: var(--text-sm);
+  opacity: 0.75;
+}

@@ -130,6 +130,8 @@ mix runtime install <RUNTIME> <VERSION> [OPTIONS]
 | `<RUNTIME>` | Which language |
 | `<VERSION>` | Which version, exactly as `mix runtime available` lists it. Required, and deliberately not a constraint like `8.3`, even now that the daemon can read one: choosing a version from a range is *resolution*, it answers with what is installed, and none of these three commands is asking that question — an install picking `8.3`'s newest would be picking between versions none of which are here yet. `mix runtime resolve` is where a range belongs. |
 | `--no-wait` | Return once the daemon has accepted the install, rather than once it has finished. `mix` waits by default, because `mix runtime install php 8.3.33 && …` is a sentence about PHP being there. What comes back instead is the job, which `mix job wait` can be pointed at later. |
+| `--yes` | Install what this version needs of the machine first without asking — the Microsoft Visual C++ Redistributable, on Windows. Windows still asks for approval |
+| `--ignore-requirements` | Install even though MixEngine judges this machine lacks something the version needs. The version is still run once before it is kept |
 
 ### mix runtime uninstall
 
@@ -278,6 +280,8 @@ mix package install <PACKAGE> <VERSION> [OPTIONS]
 | `<PACKAGE>` | Which package, as `mix package available` lists it |
 | `<VERSION>` | Which version, exactly as `mix package available` lists it |
 | `--no-wait` | Return once the daemon has accepted the install, rather than once it has finished |
+| `--yes` | Install what this version needs of the machine first without asking — the Microsoft Visual C++ Redistributable, on Windows. Windows still asks for approval |
+| `--ignore-requirements` | Install even though MixEngine judges this machine lacks something the version needs. The version is still run once before it is kept |
 
 ### mix package uninstall
 
@@ -636,6 +640,8 @@ mix blueprint apply <BLUEPRINT> [OPTIONS]
 | `--run-scaffold` | Run the blueprint's own `[scaffold]` command without asking first. For a blueprint the gallery signed. An unsigned one takes the other flag, and neither covers the other: a script that runs somebody's unsigned command should say so on the line that does it. |
 | `--run-untrusted-scaffold` | Run an **untrusted** blueprint's own `[scaffold]` command without asking first. Nothing vouches for what this runs. The command is still printed before it starts. |
 | `--grant` | Spend the one elevation prompt at the end without asking first |
+| `--install-prerequisites` | Install what the blueprint's releases need of this machine first, without asking — the Microsoft Visual C++ Redistributable, on Windows. Windows still asks for approval. Its own flag rather than `--yes`: an apply asks several questions, and one flag answering all of them would answer ones nobody read |
+| `--ignore-requirements` | Apply even though MixEngine judges this machine lacks something the releases need |
 
 ## mix extension
 

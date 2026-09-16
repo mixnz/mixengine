@@ -12,6 +12,10 @@ the local network. Each of those is a footgun if done casually. This document is
 - **`mixengine-elevate` is the only elevated component**, and it exists for seconds at a time: the
   daemon spawns it through the OS elevation prompt (UAC / osascript / pkexec), it performs one
   batch of operations, and it exits. It has no listener, no service registration, no idle state.
+  The one exception, and its conditions, is
+  [ADR 0037](../decisions/0037-mixengine-may-run-microsofts-visual-cpp-installer.md): Microsoft's
+  Visual C++ Redistributable installer, signature-verified and agreed to, which raises its own
+  approval dialog.
 - Its whole API is the closed `PrivilegedOp` enum in
   [platform-abstraction.md](platform-abstraction.md#privileged-operations). It **never** accepts a
   command, a script, an arbitrary path, or a certificate it did not verify. There is no

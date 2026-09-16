@@ -33,13 +33,14 @@ use std::time::SystemTime;
 use mixengine_core::generate::Catalogue;
 use mixengine_core::{Paths, Store, packages, paths};
 use mixengine_proto::{
-    Error, ErrorCode, JobId, JobKind, JobSummary, PackageCatalogue, PackageFilter, PackageList,
-    PackageRelease, PackageRemoval, PackageTarget, PackageVersion, Timestamp, VersionConstraint,
-    rpc,
+    Error, ErrorCode, JobId, JobKind, JobSummary, PackageCatalogue, PackageFilter, PackageInstall,
+    PackageList, PackageRelease, PackageRemoval, PackageTarget, PackageVersion, Requirements,
+    Timestamp, VersionConstraint, rpc,
 };
 
 use crate::error::ToWire as _;
 use crate::jobs::{JobHandle, Jobs};
+use crate::requirements;
 use crate::runtimes::Fetcher;
 
 /// Everything `package.*` needs, and the only thing that starts a package install.
@@ -134,6 +135,7 @@ impl Packages {
         let installed = packages::records(&self.store, filter.package.as_deref())
             .await
             .map_err(|error| error.to_wire())?;
+        let facts = requirements::facts();
 
         let mut offered = Vec::new();
         for name in &wanted {
@@ -164,6 +166,9 @@ impl Packages {
                     eol: package.eol.clone(),
                     bytes: chosen.map_or(0, |chosen| chosen.artifact.size),
                     execution: chosen.map(|chosen| chosen.execution),
+                    needs: chosen.map(|_| {
+                        requirements::of(&catalogue.index, name, &package.version, &facts)
+                    }),
                 });
             }
         }
@@ -226,21 +231,54 @@ impl Packages {
             })
     }
 
-    /// `package.install` — start the download, and answer with the job doing it.
-    ///
-    /// Three things are decided before a job exists, because all three are answers a caller should
-    /// have immediately rather than through a job that fails a moment later: a package this build
-    /// cannot run, a version that is already installed, and a version this daemon is already
-    /// installing.
+    /// `package.requirements` — [`crate::runtimes::Runtimes::requirements`] for a service package.
     ///
     /// # Errors
     ///
-    /// `invalid_argument` for a package with no recipe, `already_exists` when it is installed, and
-    /// the wire error of a row that could not be read or a job that could not be started.
+    /// A package this build cannot run, a version not published here, and the wire error of an
+    /// index that could not be obtained at all.
+    pub(crate) async fn requirements(&self, target: &PackageTarget) -> Result<Requirements, Error> {
+        let package = self.runnable(&target.package)?;
+        let catalogue = self
+            .fetcher
+            .index
+            .catalogue()
+            .await
+            .map_err(|error| error.to_wire())?;
+        crate::runtimes::offered(
+            &catalogue.index,
+            &package,
+            target.version.as_str(),
+            &format!("mix package available --package {package}"),
+        )?;
+
+        Ok(Requirements {
+            unmet: requirements::of(
+                &catalogue.index,
+                &package,
+                target.version.as_str(),
+                &requirements::facts(),
+            ),
+        })
+    }
+
+    /// `package.install` — start the download, and answer with the job doing it.
+    ///
+    /// Four things are decided before a job exists, because all four are answers a caller should
+    /// have immediately rather than through a job that fails a moment later: a package this build
+    /// cannot run, a version that is already installed, a version this daemon is already
+    /// installing, and — since T149 — a version this machine certainly lacks something for.
+    ///
+    /// # Errors
+    ///
+    /// `invalid_argument` for a package with no recipe, `already_exists` when it is installed,
+    /// `dependency_missing` when this machine lacks what it needs, and the wire error of a row that
+    /// could not be read or a job that could not be started.
     pub(crate) async fn install(
         self: &Arc<Self>,
-        target: &PackageTarget,
+        asked: &PackageInstall,
     ) -> Result<JobSummary, Error> {
+        let target = &asked.target;
         let package = self.runnable(&target.package)?;
         let package = package.as_str();
 
@@ -270,10 +308,25 @@ impl Packages {
             Err(error) => return Err(error.to_wire()),
         }
 
+        if !asked.ignore_requirements {
+            requirements::gate(
+                &self.fetcher,
+                package,
+                target.version.as_str(),
+                &requirements::Subject {
+                    name: format!("{package} {}", target.version.as_str()),
+                    install: Some(format!("mix package install {package}")),
+                },
+                asked.install_prerequisites,
+            )
+            .await?;
+        }
+
         let kind = JobKind::parse(rpc::method::PACKAGE_INSTALL)
             .expect("`package.install` is a method name, which is what a job kind is");
 
         let packages = Arc::clone(self);
+        let prepare = asked.install_prerequisites && !asked.ignore_requirements;
         let target = PackageTarget {
             package: package.to_owned(),
             version: target.version.clone(),
@@ -281,7 +334,28 @@ impl Packages {
         let started = self
             .jobs
             .begin(&kind, move |handle| async move {
-                let outcome = packages.perform(&target, &handle).await;
+                // What the person agreed to happens first, on `runtimes::install`'s reasoning — T150.
+                let prepared = match prepare {
+                    true => {
+                        requirements::prepare(
+                            &packages.fetcher,
+                            &target.package,
+                            target.version.as_str(),
+                            &requirements::Subject {
+                                name: format!("{} {}", target.package, target.version.as_str()),
+                                install: Some(format!("mix package install {}", target.package)),
+                            },
+                            &handle,
+                        )
+                        .await
+                    }
+                    false => Ok(()),
+                };
+
+                let outcome = match prepared {
+                    Ok(()) => packages.perform(&target, &handle).await,
+                    Err(refused) => Err(refused),
+                };
 
                 // Released here rather than by the caller, on `runtimes::install`'s reasoning: this
                 // future is what owns the install, and it ends by being cancelled as well as by

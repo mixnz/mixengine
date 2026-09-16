@@ -212,6 +212,21 @@ export default {
         appliesNextStart: "Saved — takes effect next time the pool starts.",
       },
     },
+    requirements: {
+      columnNeeds: "Needs",
+      consentTitle: "{{name}} needs the Microsoft Visual C++ runtime",
+      consentMessage:
+        "This computer does not have the Microsoft Visual C++ Redistributable ({{arch}}) that {{name}} needs. MixEngine will download it from Microsoft, check that Microsoft signed it, and install it first. Windows may ask for administrator approval once.",
+      consentConfirm: "Install both",
+      chooseTitle: "{{name}} cannot run on this computer",
+      chooseMessage: "It needs {{needs}}. {{version}} is the newest release that runs here.",
+      chooseConfirm: "Install {{version}} instead",
+      unavailable:
+        "{{name}} cannot run on this computer: it needs {{needs}}, and no published release runs here.",
+      applyConsent:
+        "Install the Microsoft Visual C++ Redistributable ({{arch}}) first — Windows may ask for approval once",
+      applyBlocked: "This blueprint cannot be applied on this computer: it needs {{needs}}.",
+    },
     serviceState: {
       stopped: "Stopped",
       starting: "Starting",

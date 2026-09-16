@@ -267,6 +267,15 @@ pub enum BlueprintApplyResponse {
     Planned {
         /// The plan.
         plan: BlueprintPlan,
+
+        /// What the releases this plan would install lack on this machine — roadmap task **T152**.
+        ///
+        /// Composed by the daemon around the plan, never inside it (T78's D9): the plan holds
+        /// constraints, and the daemon resolves them against the index to judge. One entry per
+        /// distinct requirement, however many steps share it. [`None`] from a daemon before T152, or
+        /// when the index could not be read — a dry run is never refused for want of a judgement.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        needs: Option<Vec<crate::Requirement>>,
     },
 
     /// `dry_run: false` — the job carrying it out.
@@ -601,6 +610,23 @@ pub enum Disposition {
 mod tests {
     use super::*;
 
+    /// **T152.** A dry run from before T152 has no `needs`, and still parses.
+    #[test]
+    fn a_planned_answer_without_needs_is_the_answer_it_always_was() {
+        let planned: BlueprintApplyResponse = serde_json::from_value(serde_json::json!({
+            "outcome": "planned",
+            "plan": {
+                "blueprint": "laravel", "project": "blog", "root": "/tmp/blog", "steps": []
+            }
+        }))
+        .expect("the shape every client has read since T77");
+
+        assert!(matches!(
+            planned,
+            BlueprintApplyResponse::Planned { needs: None, .. }
+        ));
+    }
+
     /// The discriminator travels inside the object, so a client switches on one field — the shape
     /// [`crate::DaemonEvent`] and [`SiteKind`] already use, and the reason a variant added in a
     /// later phase arrives at an older client as an object it can ignore.
@@ -644,6 +670,7 @@ mod tests {
                 trusted: true,
                 signature: None,
             },
+            needs: None,
         };
 
         let json = serde_json::to_value(&planned).expect("it encodes");

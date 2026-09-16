@@ -28,13 +28,15 @@ use mixengine_proto::{
     AnswerSubject, BlueprintApplied, BlueprintApply, BlueprintApplyResponse, BlueprintPlan,
     DatabaseCreate, Disposition, DomainAdd, Error, ErrorCode, ExtensionChoice, IssueOutcome,
     JobKind, LogLine, LogSubject, PackageTarget, PackageVersion, PlanAction, PlanStep,
-    ProjectCreate, ProjectRef, RuntimeKind, RuntimeTarget, ScaffoldConsent, ServiceCreate,
-    ServiceId, SiteCreate, SiteRef, StepOutcome, StepResult, Stream, Timestamp, VersionAnswer, rpc,
+    ProjectCreate, ProjectRef, Requirement, RuntimeKind, RuntimeTarget, ScaffoldConsent,
+    ServiceCreate, ServiceId, SiteCreate, SiteRef, StepOutcome, StepResult, Stream, Timestamp,
+    VersionAnswer, rpc,
 };
 
 use super::Api;
 use crate::error::ToWire as _;
 use crate::jobs::JobHandle;
+use crate::requirements;
 use ledger::{Kept, Made};
 use steps::Context;
 
@@ -54,7 +56,11 @@ impl Api {
         let (manifest, plan) = self.blueprints.planned(asked).await?;
 
         if asked.dry_run {
-            return Ok(BlueprintApplyResponse::Planned { plan });
+            let needs = match asked.ignore_requirements {
+                true => None,
+                false => self.blueprint_needs(&plan).await,
+            };
+            return Ok(BlueprintApplyResponse::Planned { plan, needs });
         }
 
         // **Two plannings, both of them pure reads**, and it is what makes both refusals trivial:
@@ -82,12 +88,13 @@ impl Api {
         let api = Arc::clone(self);
         let consent = asked.scaffold.clone();
         let autostart = asked.autostart;
+        let prerequisites = (asked.install_prerequisites, asked.ignore_requirements);
 
         let started = self
             .jobs
             .begin(&kind, move |handle| async move {
                 let applied = api
-                    .perform(&plan, &manifest, consent, autostart, &handle)
+                    .perform(&plan, &manifest, consent, autostart, prerequisites, &handle)
                     .await;
 
                 // **The ring does not outlive the job it was opened for** — roadmap task **T120**,
@@ -133,8 +140,20 @@ impl Api {
         manifest: &BlueprintManifest,
         consent: Option<ScaffoldConsent>,
         autostart: bool,
+        prerequisites: (bool, bool),
         handle: &JobHandle,
     ) -> Result<BlueprintApplied, Error> {
+        // **Nothing is written until every version is known** (D9). A plan holds constraints, and
+        // only the index can say which release satisfies one — so it is asked here, where a failure
+        // costs nothing because the ledger is still empty. Since T152, the same holds for whether
+        // this machine runs those releases.
+        let resolved = self.resolve(plan, handle).await?;
+        let (install_prerequisites, ignore_requirements) = prerequisites;
+        if !ignore_requirements {
+            self.meet_requirements(plan, install_prerequisites, handle)
+                .await?;
+        }
+
         let mut context = Context {
             project: plan.project.clone(),
             root: PathBuf::from(&plan.root),
@@ -142,10 +161,7 @@ impl Api {
             ledger: ledger::Ledger::default(),
             consent,
             autostart,
-            // **Nothing is written until every version is known** (D9). A plan holds constraints,
-            // and only the index can say which release satisfies one — so it is asked here, where a
-            // failure costs nothing because the ledger is still empty.
-            resolved: self.resolve(plan, handle).await?,
+            resolved,
         };
 
         // **Opened once, before the first step** — roadmap task **T120**, its design's D5. The ring
@@ -641,6 +657,102 @@ impl Api {
         }
 
         Ok(resolved)
+    }
+
+    /// The release every `Create` install step resolves to, without reporting progress — T152.
+    ///
+    /// [`Self::resolve`]'s lookups for a caller with no job: the dry run.
+    async fn install_targets(
+        &self,
+        plan: &BlueprintPlan,
+    ) -> Result<Vec<(String, PackageVersion)>, Error> {
+        let mut targets = Vec::new();
+
+        for step in &plan.steps {
+            if !matches!(step.disposition, Disposition::Create) {
+                continue;
+            }
+
+            match &step.action {
+                PlanAction::InstallRuntime { kind, wanted } => targets.push((
+                    kind.as_str().to_owned(),
+                    self.runtimes.newest_satisfying(*kind, wanted).await?,
+                )),
+                PlanAction::InstallPackage { package, wanted } => targets.push((
+                    package.clone(),
+                    self.packages
+                        .newest_satisfying(package, wanted.as_ref())
+                        .await?,
+                )),
+                _ => {}
+            }
+        }
+
+        Ok(targets)
+    }
+
+    /// What those releases lack on this machine, merged — T152, design D7.
+    ///
+    /// [`None`] when anything needed to judge could not be had: a dry run prints its plan regardless.
+    async fn blueprint_needs(&self, plan: &BlueprintPlan) -> Option<Vec<Requirement>> {
+        let targets = self.install_targets(plan).await.ok()?;
+        let catalogue = self.runtimes.fetcher().index.catalogue().await.ok()?;
+        let facts = requirements::facts();
+
+        Some(mixengine_core::requirements::merged(
+            targets.iter().flat_map(|(kind, version)| {
+                requirements::of(&catalogue.index, kind, version.as_str(), &facts)
+            }),
+        ))
+    }
+
+    /// Refuse, or install what was agreed and judge again — before the first step writes anything.
+    ///
+    /// # Errors
+    ///
+    /// `dependency_missing` for a lack nothing agreed to fixes, and whatever
+    /// [`requirements::satisfy`] refuses with.
+    async fn meet_requirements(
+        &self,
+        plan: &BlueprintPlan,
+        install_prerequisites: bool,
+        handle: &JobHandle,
+    ) -> Result<(), Error> {
+        // A plan that installs nothing asks the index nothing — an apply that worked offline before
+        // T152 still does.
+        let targets = self.install_targets(plan).await?;
+        if targets.is_empty() {
+            return Ok(());
+        }
+
+        // **An index that cannot be read refuses nothing here**, on `requirements::gate`'s reasoning:
+        // the install steps read it too, and report that in their own words.
+        let fetcher = self.runtimes.fetcher();
+        let Ok(catalogue) = fetcher.index.catalogue().await else {
+            return Ok(());
+        };
+
+        let judge = || {
+            let facts = requirements::facts();
+            mixengine_core::requirements::merged(targets.iter().flat_map(|(kind, version)| {
+                requirements::of(&catalogue.index, kind, version.as_str(), &facts)
+            }))
+        };
+        let subject = requirements::Subject {
+            name: "this blueprint".to_owned(),
+            install: None,
+        };
+
+        let unmet = judge();
+        if let Some(refused) = requirements::refusal(&subject, &unmet, install_prerequisites) {
+            return Err(refused);
+        }
+        if !mixengine_core::requirements::needs_consent(&unmet) {
+            return Ok(());
+        }
+
+        requirements::satisfy(fetcher, &unmet, handle).await?;
+        requirements::refusal(&subject, &judge(), false).map_or(Ok(()), Err)
     }
 
     /// The installed version of a package that satisfies what the blueprint asked for.

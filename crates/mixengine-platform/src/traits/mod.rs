@@ -12,12 +12,14 @@ mod home;
 mod hosts;
 mod keyring;
 mod limits;
+mod machine;
 mod metrics;
 mod network;
 mod orphans;
 mod path;
 mod port_access;
 mod ports;
+mod redistributable;
 mod reserved;
 mod resolver;
 mod trust;
@@ -39,12 +41,18 @@ pub use keyring::{KEYRING_SERVICE, Keyring};
 pub use limits::{
     Enforcement, LimitMechanism, LimitSupport, MemoryMeasure, ResourceControl, WhenExceeded,
 };
+pub use machine::{
+    Machine, MachineFacts, Probe, VisualCppVersion, dotted_version, visual_cpp_from_registry,
+};
 pub use metrics::{GroupReading, GroupRoot, ProcessMetrics};
 pub use network::{Interface, NetworkInfo, choose as choose_interface};
 pub use orphans::{OrphanGuarantee, orphan_guarantee};
 pub use path::{PathIntegration, PathLocation, PathState};
 pub use port_access::{PortAccess, PortAccessMethod, PortAccessState, PortBinding};
 pub use ports::{PortHolder, PortOwner};
+pub use redistributable::{
+    RedistributableOutcome, Redistributables, VISUAL_CPP_PUBLISHER, names_the_redistributable,
+};
 pub use reserved::{PortRange, ReservedPorts};
 pub use resolver::{ResolverConfig, ResolverMethod, ResolverState};
 pub use trust::{TrustState, TrustStore, TrustStoreMethod};
@@ -160,6 +168,17 @@ pub trait Host: std::fmt::Debug + Send + Sync {
     /// installed — the same shape as [`reserved_ports`](Self::reserved_ports) above. See
     /// [`AppControl`].
     fn app_control(&self) -> &dyn AppControl;
+
+    /// What this machine offers the programs MixEngine installs — roadmap task **T148**.
+    ///
+    /// **Reads only**, and read again every time it is asked; see [`Machine`].
+    fn machine(&self) -> &dyn Machine;
+
+    /// Installing a Visual C++ runtime this machine lacks — roadmap task **T150**.
+    ///
+    /// **Starts a program that asks Windows for administrator rights**, after a person agreed, and
+    /// only a file Microsoft signed; see [`Redistributables`] and ADR 0037.
+    fn redistributables(&self) -> &dyn Redistributables;
 
     /// Inbound firewall rules naming a program — roadmap task **T76**.
     ///

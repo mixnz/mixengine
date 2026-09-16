@@ -48,6 +48,16 @@ root_is_parent: boolean,
  */
 dry_run: boolean, 
 /**
+ * Install what the plan's releases need of the machine before anything else — roadmap task
+ * **T152**. What [`BlueprintApplyResponse::Planned`](crate::BlueprintApplyResponse)'s `needs`
+ * asked about.
+ */
+install_prerequisites?: boolean, 
+/**
+ * Do not judge what the plan's releases need of the machine — T152. The smoke tests still run.
+ */
+ignore_requirements?: boolean, 
+/**
  * The answers to the version questions this plan raises — roadmap task **T78**.
  *
  * **A question is asked by a client and answered in the request**, because a daemon has no

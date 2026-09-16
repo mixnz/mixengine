@@ -1,0 +1,185 @@
+//! What an artifact asks of the machine that this machine does not have — roadmap task **T149**.
+//!
+//! **Values, because a client draws them.** The wire [`Error`](crate::Error) carries a message
+//! nobody may parse, and MixLab has to put a button beside a requirement and say it in the reader's
+//! language — so what is missing and what can be done about it arrive typed, and the sentences
+//! below are `mix`'s rendering of them.
+
+use std::fmt;
+
+use crate::PackageVersion;
+
+/// Which build of the Microsoft Visual C++ Redistributable.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum RedistributableArch {
+    /// For x86_64 programs — what an emulated x64 PHP on ARM64 Windows needs too (ADR 0023).
+    X64,
+
+    /// For ARM64 programs.
+    Arm64,
+}
+
+impl RedistributableArch {
+    /// The word Microsoft's own file names use.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::X64 => "x64",
+            Self::Arm64 => "arm64",
+        }
+    }
+}
+
+impl fmt::Display for RedistributableArch {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// What the machine lacks.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "need", rename_all = "snake_case")]
+#[non_exhaustive]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum Need {
+    /// A newer C library than this Linux has.
+    Glibc {
+        /// What the artifact was measured to need.
+        at_least: String,
+        /// What this machine has.
+        found: String,
+    },
+
+    /// A newer macOS than this Mac runs.
+    Macos {
+        /// What the artifact was measured to need.
+        at_least: String,
+        /// What this machine runs.
+        found: String,
+    },
+
+    /// A Visual C++ runtime this Windows does not have, or has too old.
+    VisualCpp {
+        /// The redistributable year the artifact names — `2019`.
+        year: String,
+        /// Which build of it.
+        arch: RedistributableArch,
+        /// The version present, `14.29`, when one is present and too old.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        found: Option<String>,
+    },
+}
+
+impl Need {
+    /// The few words a table cell has room for.
+    #[must_use]
+    pub fn label(&self) -> String {
+        match self {
+            Self::Glibc { at_least, .. } => format!("glibc {at_least}+"),
+            Self::Macos { at_least, .. } => format!("macOS {at_least}+"),
+            Self::VisualCpp { year, arch, .. } => format!("Visual C++ {year} ({arch})"),
+        }
+    }
+}
+
+impl fmt::Display for Need {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Glibc { at_least, found } => {
+                write!(
+                    formatter,
+                    "glibc {at_least} or newer, and this machine has {found}"
+                )
+            }
+            Self::Macos { at_least, found } => {
+                write!(
+                    formatter,
+                    "macOS {at_least} or newer, and this Mac runs {found}"
+                )
+            }
+            Self::VisualCpp {
+                year,
+                arch,
+                found: None,
+            } => write!(
+                formatter,
+                "the Microsoft Visual C++ {year} Redistributable ({arch}) or newer, and this \
+                 machine has none"
+            ),
+            Self::VisualCpp {
+                year,
+                arch,
+                found: Some(found),
+            } => write!(
+                formatter,
+                "the Microsoft Visual C++ {year} Redistributable ({arch}) or newer, and this \
+                 machine has {found}"
+            ),
+        }
+    }
+}
+
+/// What can be done about one [`Need`].
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "remedy", rename_all = "snake_case")]
+#[non_exhaustive]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub enum Remedy {
+    /// MixEngine can install it from Microsoft, once somebody agrees.
+    InstallVisualCpp {
+        /// Which build.
+        arch: RedistributableArch,
+    },
+
+    /// Nothing can be installed; this is the newest release of the same kind that runs here.
+    ChooseVersion {
+        /// That release.
+        version: PackageVersion,
+    },
+
+    /// Nothing can be installed, and no published release of the kind runs here.
+    Unavailable,
+}
+
+impl fmt::Display for Remedy {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InstallVisualCpp { arch } => write!(
+                formatter,
+                "MixEngine can install the Microsoft Visual C++ Redistributable ({arch}) from \
+                 Microsoft"
+            ),
+            Self::ChooseVersion { version } => {
+                write!(
+                    formatter,
+                    "{} is the newest release that runs here",
+                    version.as_str()
+                )
+            }
+            Self::Unavailable => formatter.write_str("no published release runs on this machine"),
+        }
+    }
+}
+
+/// One thing missing, and what can be done about it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct Requirement {
+    /// What is missing.
+    pub need: Need,
+
+    /// What can be done about it.
+    pub remedy: Remedy,
+}
+
+/// What `runtime.requirements` and `package.requirements` answer.
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct Requirements {
+    /// Everything the version lacks here. Empty when it lacks nothing, or nothing could be judged.
+    pub unmet: Vec<Requirement>,
+}

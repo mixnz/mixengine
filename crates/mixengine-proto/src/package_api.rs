@@ -50,6 +50,25 @@ pub struct PackageTarget {
     pub version: PackageVersion,
 }
 
+/// What `package.install` takes: a version, and what the person agreed to — roadmap task **T149**.
+///
+/// [`RuntimeInstall`](crate::RuntimeInstall)'s shape, for the same reason.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct PackageInstall {
+    /// Which version.
+    #[serde(flatten)]
+    pub target: PackageTarget,
+
+    /// Install what this version needs of the machine first.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub install_prerequisites: bool,
+
+    /// Do not judge what this version needs of the machine at all. The smoke test still runs.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignore_requirements: bool,
+}
+
 /// Which packages a listing should answer with.
 ///
 /// Every field has a default, so both listings with no parameters are questions a person can type.
@@ -167,6 +186,13 @@ pub struct PackageRelease {
     /// of its own for six of the eleven kinds MixEngine offers — PHP among them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution: Option<Execution>,
+
+    /// What this machine lacks for that build, each with what can be done — roadmap task **T149**.
+    ///
+    /// [`None`] means a peer that predates the member, per ADR 0019; an empty list means nothing is
+    /// lacking or nothing could be judged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub needs: Option<Vec<crate::Requirement>>,
 }
 
 /// What `package.uninstall` answers.

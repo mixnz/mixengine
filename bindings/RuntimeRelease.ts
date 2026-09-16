@@ -2,6 +2,7 @@
 import type { Execution } from "./Execution";
 import type { PackageChannel } from "./PackageChannel";
 import type { PackageVersion } from "./PackageVersion";
+import type { Requirement } from "./Requirement";
 import type { RuntimeKind } from "./RuntimeKind";
 
 /**
@@ -55,4 +56,11 @@ installed: boolean,
  * [`Execution::Emulated`] only on an ARM64 Windows machine, where upstream publishes no build
  * of its own for six of the eleven kinds MixEngine offers — PHP among them.
  */
-execution?: Execution | null, };
+execution?: Execution | null, 
+/**
+ * What this machine lacks for that build, each with what can be done — roadmap task **T149**.
+ *
+ * [`None`] means a peer that predates the member, per ADR 0019; an empty list means nothing is
+ * lacking or nothing could be judged.
+ */
+needs?: Array<Requirement> | null, };

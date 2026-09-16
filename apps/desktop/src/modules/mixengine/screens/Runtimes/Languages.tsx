@@ -7,8 +7,10 @@ import Input from "../../../../components/Input";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { RuntimeRelease } from "@mixengine/api";
+import type { PackageVersion, RuntimeKind, RuntimeRelease } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
+import RequirementDialog from "../../components/RequirementDialog";
+import { askingStep, needLabel, requirementStep, type AskingStep } from "../../requirementStep";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
 import { afterRefusal } from "../../forceStep";
@@ -27,6 +29,8 @@ export default function Languages({ active }: { active: boolean }) {
   const [installingJob, setInstallingJob] = useState<Record<string, number>>({});
   const [uninstallTarget, setUninstallTarget] = useState<RuntimeSummary | null>(null);
   const [forceHint, setForceHint] = useState<string | null>(null);
+  // The one question an install is waiting on, with the release it is about — T151.
+  const [asking, setAsking] = useState<{ release: RuntimeRelease; step: AskingStep } | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
   // Filters the "not installed" table only — the same reason `Packages.tsx` has.
   const [filter, setFilter] = useState("");
@@ -102,14 +106,48 @@ export default function Languages({ active }: { active: boolean }) {
     });
   }, [reload, t]);
 
+  // Ask what this machine lacks first, so a click ends in a working runtime or in one question —
+  // never in a download that fails at its last step (T151).
   async function install(release: RuntimeRelease) {
     setError("");
+    let unmet;
     try {
-      const job = await api.runtimeInstall({ kind: release.kind, version: release.version });
-      setInstallingJob((current) => ({
-        ...current,
-        [versionKey(release.kind, release.version)]: job.id,
-      }));
+      ({ unmet } = await api.runtimeRequirements({ kind: release.kind, version: release.version }));
+    } catch {
+      // A question the daemon cannot answer asks nothing: the install reports the same failure in
+      // its own words, as `mix` does.
+      await start(release.kind, release.version, false);
+      return;
+    }
+
+    const step = requirementStep(unmet);
+    if (step.kind === "proceed") {
+      await start(release.kind, release.version, false);
+      return;
+    }
+
+    const asked = askingStep(step);
+    if (asked === null) {
+      setError(
+        t("mixengine.requirements.unavailable", {
+          name: `${release.kind} ${release.version}`,
+          needs: step.needs.map(needLabel).join(", "),
+        }),
+      );
+      return;
+    }
+    setAsking({ release, step: asked });
+  }
+
+  async function start(kind: RuntimeKind, version: PackageVersion, installPrerequisites: boolean) {
+    setError("");
+    try {
+      const job = await api.runtimeInstall({
+        kind,
+        version,
+        install_prerequisites: installPrerequisites,
+      });
+      setInstallingJob((current) => ({ ...current, [versionKey(kind, version)]: job.id }));
     } catch (e) {
       setError(errorMessage(t, e));
     }
@@ -243,6 +281,9 @@ export default function Languages({ active }: { active: boolean }) {
                   {release.kind} {release.version}
                 </td>
                 <td>{release.channel}</td>
+                <td className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
+                  {(release.needs ?? []).map((requirement) => needLabel(requirement.need)).join(", ")}
+                </td>
                 <td className={styles.actions}>
                   {job ? (
                     <span className={styles.progress}>
@@ -277,6 +318,24 @@ export default function Languages({ active }: { active: boolean }) {
             setForceHint(null);
           }}
           onConfirm={() => void uninstall(uninstallTarget, forceHint !== null)}
+        />
+      )}
+
+      {asking && (
+        <RequirementDialog
+          name={`${asking.release.kind} ${asking.release.version}`}
+          step={asking.step}
+          onCancel={() => setAsking(null)}
+          onInstall={() => {
+            const { release } = asking;
+            setAsking(null);
+            void start(release.kind, release.version, true);
+          }}
+          onChoose={(version) => {
+            const { release } = asking;
+            setAsking(null);
+            void start(release.kind, version, false);
+          }}
         />
       )}
     </div>

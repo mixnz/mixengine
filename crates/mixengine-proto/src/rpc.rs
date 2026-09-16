@@ -227,7 +227,7 @@ pub mod method {
     /// [`RuntimeList`](crate::RuntimeList).
     pub const RUNTIME_LIST_INSTALLED: &str = "runtime.list_installed";
 
-    /// Download and install one version. Takes [`RuntimeTarget`](crate::RuntimeTarget) and answers
+    /// Download and install one version. Takes [`RuntimeInstall`](crate::RuntimeInstall) and answers
     /// a [`JobSummary`](crate::JobSummary) — **the first method in this API that returns a job**.
     ///
     /// The call comes back as soon as the row is written and the work is spawned; progress arrives
@@ -235,6 +235,14 @@ pub mod method {
     /// [`JOB_WAIT`] is what a script blocks on. What the finished job carries as its result is a
     /// [`RuntimeSummary`](crate::RuntimeSummary).
     pub const RUNTIME_INSTALL: &str = "runtime.install";
+
+    /// What one version lacks on this machine, and what can be done about each — roadmap task
+    /// **T149**. Takes [`RuntimeTarget`](crate::RuntimeTarget), answers
+    /// [`Requirements`](crate::Requirements).
+    ///
+    /// What a client asks **before** `runtime.install`, so it can ask the person once rather than
+    /// meet a refusal. The install judges again regardless.
+    pub const RUNTIME_REQUIREMENTS: &str = "runtime.requirements";
 
     /// Remove one version from this machine. Takes [`RuntimeTarget`](crate::RuntimeTarget), answers
     /// [`RuntimeRemoval`](crate::RuntimeRemoval).
@@ -419,13 +427,17 @@ pub mod method {
     pub const PACKAGE_LIST_AVAILABLE: &str = "package.list_available";
 
     /// Download and unpack one version of one package. Takes
-    /// [`PackageTarget`](crate::PackageTarget), answers a [`JobSummary`](crate::JobSummary).
+    /// [`PackageInstall`](crate::PackageInstall), answers a [`JobSummary`](crate::JobSummary).
     ///
     /// A job for [`RUNTIME_INSTALL`]'s reason: an install is tens of megabytes over somebody's
     /// connection, and a long operation returns a job rather than holding a call open. What the
     /// finished job carries as its result is a [`PackageSummary`](crate::PackageSummary) — the same
     /// sentence [`PACKAGE_LIST`] answers with.
     pub const PACKAGE_INSTALL: &str = "package.install";
+
+    /// [`RUNTIME_REQUIREMENTS`] for a service package. Takes [`PackageTarget`](crate::PackageTarget),
+    /// answers [`Requirements`](crate::Requirements).
+    pub const PACKAGE_REQUIREMENTS: &str = "package.requirements";
 
     /// Remove one version of one package. Takes [`PackageTarget`](crate::PackageTarget), answers
     /// [`PackageRemoval`](crate::PackageRemoval).

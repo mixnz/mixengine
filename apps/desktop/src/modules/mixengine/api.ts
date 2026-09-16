@@ -21,6 +21,8 @@ import type { RuntimeKind } from "@mixengine/api";
 import type { RuntimeList } from "@mixengine/api";
 import type { RuntimeCatalogue } from "@mixengine/api";
 import type { RuntimeTarget } from "@mixengine/api";
+import type { RuntimeInstall } from "@mixengine/api";
+import type { Requirements } from "@mixengine/api";
 import type { RuntimeUninstall } from "@mixengine/api";
 import type { RuntimeRemoval } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
@@ -35,6 +37,7 @@ import type { MetricsHistoryQuery } from "@mixengine/api";
 import type { PackageList } from "@mixengine/api";
 import type { PackageCatalogue } from "@mixengine/api";
 import type { PackageTarget } from "@mixengine/api";
+import type { PackageInstall } from "@mixengine/api";
 import type { PackageRemoval } from "@mixengine/api";
 import type { ServiceLimitsReport } from "@mixengine/api";
 import type { ResourceLimits } from "@mixengine/api";
@@ -292,8 +295,12 @@ export function runtimesAvailable(kind?: RuntimeKind): Promise<RuntimeCatalogue>
   return invoke<RuntimeCatalogue>("mixengine_runtime_list_available", { filter: { kind } });
 }
 
-export function runtimeInstall(target: RuntimeTarget): Promise<JobSummary> {
-  return invoke<JobSummary>("mixengine_runtime_install", { target });
+export function runtimeRequirements(target: RuntimeTarget): Promise<Requirements> {
+  return invoke<Requirements>("mixengine_runtime_requirements", { target });
+}
+
+export function runtimeInstall(params: RuntimeInstall): Promise<JobSummary> {
+  return invoke<JobSummary>("mixengine_runtime_install", { target: params });
 }
 
 export function runtimeUninstall(params: RuntimeUninstall): Promise<RuntimeRemoval> {
@@ -320,8 +327,12 @@ export function packagesAvailable(name?: string): Promise<PackageCatalogue> {
   return invoke<PackageCatalogue>("mixengine_package_list_available", { filter: { package: name } });
 }
 
-export function packageInstall(target: PackageTarget): Promise<JobSummary> {
-  return invoke<JobSummary>("mixengine_package_install", { target });
+export function packageRequirements(target: PackageTarget): Promise<Requirements> {
+  return invoke<Requirements>("mixengine_package_requirements", { target });
+}
+
+export function packageInstall(params: PackageInstall): Promise<JobSummary> {
+  return invoke<JobSummary>("mixengine_package_install", { target: params });
 }
 
 export function packageUninstall(target: PackageTarget): Promise<PackageRemoval> {

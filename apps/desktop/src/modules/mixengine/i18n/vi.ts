@@ -207,6 +207,21 @@ const vi: typeof en = {
         appliesNextStart: "Đã lưu — áp dụng lần pool tiếp theo khởi động.",
       },
     },
+    requirements: {
+      columnNeeds: "Cần",
+      consentTitle: "{{name}} cần Microsoft Visual C++ runtime",
+      consentMessage:
+        "Máy này chưa có Microsoft Visual C++ Redistributable ({{arch}}) mà {{name}} cần. MixEngine sẽ tải nó từ Microsoft, kiểm tra đúng chữ ký của Microsoft, rồi cài trước. Windows có thể hỏi quyền quản trị một lần.",
+      consentConfirm: "Cài cả hai",
+      chooseTitle: "{{name}} không chạy được trên máy này",
+      chooseMessage: "Bản này cần {{needs}}. {{version}} là bản mới nhất chạy được ở đây.",
+      chooseConfirm: "Cài {{version}} thay thế",
+      unavailable:
+        "{{name}} không chạy được trên máy này: cần {{needs}}, và không bản nào đã phát hành chạy được ở đây.",
+      applyConsent:
+        "Cài Microsoft Visual C++ Redistributable ({{arch}}) trước — Windows có thể hỏi quyền một lần",
+      applyBlocked: "Không áp dụng được blueprint này trên máy này: cần {{needs}}.",
+    },
     serviceState: {
       stopped: "Đã dừng",
       starting: "Đang khởi động",

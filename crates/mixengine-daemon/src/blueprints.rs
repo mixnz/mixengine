@@ -398,6 +398,8 @@ mod tests {
             scaffold: None,
             front_end: false,
             autostart: false,
+            install_prerequisites: false,
+            ignore_requirements: false,
         }
     }
 
