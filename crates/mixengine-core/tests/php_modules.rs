@@ -85,14 +85,21 @@ fn interpreter(install: &Path) -> PathBuf {
 
 /// The directory of loadable modules inside an install, relative to it, and what it holds.
 ///
-/// **Found by looking rather than read from an index**, because the index is not what this suite is
-/// judging: an artifact's module files are the ground truth a generated name either matches or does
-/// not. The suffix is the one PHP builds with on this system — `so` everywhere but Windows, and on
-/// macOS too, where a PHP extension is never a `.dylib`.
+/// **Found by looking rather than asked of PHP**, and the alternative is worth writing down because
+/// it looks like the obvious one: `ini_get("extension_dir")` answers with the path the artifact was
+/// *built* at — `/opt/mixengine/php-7.0.33/lib/…` on a directory that is nowhere near there. That is
+/// the whole reason `00-mixengine.ini` writes `extension_dir` at all, so a suite reading it back
+/// would be asking the question this product exists to answer.
+///
+/// **A module is recognised by the name PHP loads it under**, not by the suffix alone: `php_*.dll`
+/// on Windows, where the root of an artifact is full of `.dll`s that are the interpreter and its
+/// libraries, and `*.so` elsewhere. Where more than one directory still qualifies, the one PHP's own
+/// layout calls `ext` wins — and anything left over is a panic rather than a guess, because a suite
+/// that picked the wrong directory would judge a name against files nothing loads.
 fn modules(install: &Path) -> (String, Vec<String>) {
     let suffix = if cfg!(windows) { "dll" } else { "so" };
 
-    let mut found: Option<(PathBuf, Vec<String>)> = None;
+    let mut found: Vec<(PathBuf, Vec<String>)> = Vec::new();
     let mut walking = vec![install.to_path_buf()];
 
     while let Some(directory) = walking.pop() {
@@ -105,30 +112,57 @@ fn modules(install: &Path) -> (String, Vec<String>) {
             let path = entry.path();
             if path.is_dir() {
                 walking.push(path);
-            } else if path
+                continue;
+            }
+
+            if !path
                 .extension()
                 .is_some_and(|extension| extension == suffix)
             {
-                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                continue;
+            }
+
+            let stem = path
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            match stem.strip_prefix("php_") {
                 // Windows ships them as `php_<name>.dll`; the name is the half PHP knows.
-                here.push(stem.strip_prefix("php_").unwrap_or(&stem).to_owned());
+                Some(name) => here.push(name.to_owned()),
+                None if cfg!(windows) => {}
+                None => here.push(stem),
             }
         }
 
         if !here.is_empty() {
             here.sort();
-            assert!(
-                found.is_none(),
-                "two directories of modules under {} — this suite would have to be told which",
-                install.display()
-            );
-            found = Some((directory, here));
+            found.push((directory, here));
         }
     }
 
-    let (directory, names) = found.unwrap_or_else(|| {
+    if found.len() > 1 {
+        found.retain(|(directory, _)| {
+            directory
+                .file_name()
+                .is_some_and(|name| name.eq_ignore_ascii_case("ext"))
+        });
+    }
+
+    assert!(
+        found.len() <= 1,
+        "more than one directory of modules under {}, and none of them is `ext` — this suite \
+         would have to be told which: {:?}",
+        install.display(),
+        found
+            .iter()
+            .map(|(directory, _)| directory)
+            .collect::<Vec<_>>()
+    );
+
+    let (directory, names) = found.pop().unwrap_or_else(|| {
         panic!(
-            "no *.{suffix} anywhere under {} — an artifact with no loadable module cannot say \
+            "no loadable *.{suffix} anywhere under {} — an artifact with no module cannot say \
              whether a module name is right",
             install.display()
         )
