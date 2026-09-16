@@ -45,6 +45,7 @@ mod path_api;
 pub mod privileged;
 mod project_api;
 mod repair_api;
+mod requirement;
 pub mod rpc;
 mod runtime;
 mod runtime_api;
@@ -119,8 +120,8 @@ pub use metrics::{
     MetricsFrame, MetricsHistory, MetricsHistoryQuery, MetricsMinute, MetricsSample, MetricsSubject,
 };
 pub use package_api::{
-    PackageCatalogue, PackageFilter, PackageList, PackageRelease, PackageRemoval, PackageSummary,
-    PackageTarget,
+    PackageCatalogue, PackageFilter, PackageInstall, PackageList, PackageRelease, PackageRemoval,
+    PackageSummary, PackageTarget,
 };
 pub use path_api::{CommandConflict, CommandOrigin, CommandSource, PathPlace, PathReport};
 pub use project_api::{
@@ -128,12 +129,13 @@ pub use project_api::{
     ProjectRef, ProjectRemoval, ProjectSummary, ProjectUpdate,
 };
 pub use repair_api::{Action, DoctorRepair, Repair, RepairReport};
+pub use requirement::{Need, RedistributableArch, Remedy, Requirement, Requirements};
 pub use runtime::RuntimeKind;
 pub use runtime_api::{
     ExtensionChange, ExtensionChoice, ExtensionList, ExtensionSource, Linkage, PoolOutcome,
-    ResolvedRuntime, RuntimeCatalogue, RuntimeExtension, RuntimeFilter, RuntimeList,
-    RuntimeQuestion, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, RuntimeTarget,
-    RuntimeUninstall,
+    ResolvedRuntime, RuntimeCatalogue, RuntimeExtension, RuntimeFilter, RuntimeInstall,
+    RuntimeList, RuntimeQuestion, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary,
+    RuntimeTarget, RuntimeUninstall,
 };
 pub use service::{
     Backoff, EnvValue, HealthCheck, HealthProbe, IdleExemption, IdlePolicy, IdleProbe, IdleSource,

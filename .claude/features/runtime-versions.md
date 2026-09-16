@@ -144,6 +144,13 @@ overwritten.
 
 Failures roll back the staging directory. A half-extracted version must never appear in `list`.
 
+**What the machine lacks is read first** — phase 18. `runtime.requirements` answers what a version
+lacks here and what can be done about each: the Microsoft Visual C++ Redistributable can be installed
+(`install_prerequisites`, after a person agrees — ADR 0037); a glibc or macOS that is too old names
+the newest release that runs. `runtime.install` refuses before its job exists when the machine
+certainly lacks something and nothing was agreed; `ignore_requirements` skips the judgement, and the
+smoke test still runs. `package.*` has the same two methods and flags.
+
 See [operations/runtime-packaging.md](../operations/runtime-packaging.md) for where the binaries come
 from on each OS.
 

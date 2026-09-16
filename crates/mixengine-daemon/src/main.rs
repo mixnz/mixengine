@@ -24,6 +24,7 @@ mod packages;
 mod php_extensions;
 mod projects;
 mod repair;
+mod requirements;
 mod runtimes;
 mod secrets;
 mod services;

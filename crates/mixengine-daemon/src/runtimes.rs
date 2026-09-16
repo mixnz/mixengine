@@ -39,14 +39,15 @@ use mixengine_core::index::{self, Index, Package, Selection, Target};
 use mixengine_core::install::Installer;
 use mixengine_core::{Paths, Store, paths, resolve, runtimes};
 use mixengine_proto::{
-    Error, ErrorCode, Execution, JobId, JobKind, JobSummary, PackageVersion, ResolvedRuntime,
-    RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRelease,
-    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, ServiceState, Timestamp,
-    VersionConstraint, rpc,
+    Error, ErrorCode, Execution, JobId, JobKind, JobSummary, PackageVersion, Requirements,
+    ResolvedRuntime, RuntimeCatalogue, RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList,
+    RuntimeQuestion, RuntimeRelease, RuntimeRemoval, RuntimeSummary, RuntimeTarget,
+    RuntimeUninstall, ServiceState, Timestamp, VersionConstraint, rpc,
 };
 
 use crate::error::ToWire as _;
 use crate::jobs::{JobHandle, Jobs};
+use crate::requirements;
 
 /// Where the package index is read from, and which key it has to be signed by.
 ///
@@ -197,6 +198,12 @@ impl Runtimes {
         })
     }
 
+    /// The index and the download pipeline this daemon installs through — for the blueprint
+    /// executor, which judges releases it resolved through this same index (T152).
+    pub(crate) fn fetcher(&self) -> &Arc<Fetcher> {
+        &self.fetcher
+    }
+
     /// `runtime.list_installed` — what is on this machine.
     ///
     /// # Errors
@@ -238,6 +245,7 @@ impl Runtimes {
         let installed = runtimes::records(&self.store, filter.kind)
             .await
             .map_err(|error| error.to_wire())?;
+        let facts = requirements::facts();
 
         let wanted: &[RuntimeKind] = match &filter.kind {
             Some(kind) => std::slice::from_ref(kind),
@@ -273,6 +281,9 @@ impl Runtimes {
                     eol: package.eol.clone(),
                     bytes: chosen.map_or(0, |chosen| chosen.artifact.size),
                     execution: chosen.map(|chosen| chosen.execution),
+                    needs: chosen.map(|_| {
+                        requirements::of(&catalogue.index, kind.as_str(), &package.version, &facts)
+                    }),
                 });
             }
         }
@@ -328,20 +339,53 @@ impl Runtimes {
             })
     }
 
-    /// `runtime.install` — start the download, and answer with the job doing it.
-    ///
-    /// Two things are decided before a job exists, because both are answers a caller should have
-    /// immediately rather than through a job that fails a moment later: a version that is already
-    /// installed, and a version this daemon is already installing.
+    /// `runtime.requirements` — what one version lacks on this machine — roadmap task **T149**.
     ///
     /// # Errors
     ///
-    /// `already_exists` when it is installed, and the wire error of a row that could not be read or
-    /// a job that could not be started.
+    /// The refusals [`offered`] gives for a version that is not published here, and the wire error
+    /// of an index that could not be obtained at all.
+    pub(crate) async fn requirements(&self, target: &RuntimeTarget) -> Result<Requirements, Error> {
+        let catalogue = self
+            .fetcher
+            .index
+            .catalogue()
+            .await
+            .map_err(|error| error.to_wire())?;
+        offered(
+            &catalogue.index,
+            target.kind.as_str(),
+            target.version.as_str(),
+            &format!("mix runtime available --kind {}", target.kind.as_str()),
+        )?;
+
+        Ok(Requirements {
+            unmet: requirements::of(
+                &catalogue.index,
+                target.kind.as_str(),
+                target.version.as_str(),
+                &requirements::facts(),
+            ),
+        })
+    }
+
+    /// `runtime.install` — start the download, and answer with the job doing it.
+    ///
+    /// Three things are decided before a job exists, because each is an answer a caller should have
+    /// immediately rather than through a job that fails a moment later: a version that is already
+    /// installed, a version this daemon is already installing, and — since T149 — a version this
+    /// machine certainly lacks something for.
+    ///
+    /// # Errors
+    ///
+    /// `already_exists` when it is installed, `dependency_missing` when this machine lacks what it
+    /// needs, and the wire error of a row that could not be read or a job that could not be started.
     pub(crate) async fn install(
         self: &Arc<Self>,
-        target: &RuntimeTarget,
+        asked: &RuntimeInstall,
     ) -> Result<JobSummary, Error> {
+        let target = &asked.target;
+
         // Held across the whole of this, so that "is one running" and "start one" are one decision.
         let mut running = self.running.lock().await;
 
@@ -368,15 +412,46 @@ impl Runtimes {
             Err(error) => return Err(error.to_wire()),
         }
 
+        if !asked.ignore_requirements {
+            requirements::gate(
+                &self.fetcher,
+                target.kind.as_str(),
+                target.version.as_str(),
+                &subject_of(target),
+                asked.install_prerequisites,
+            )
+            .await?;
+        }
+
         let kind = JobKind::parse(rpc::method::RUNTIME_INSTALL)
             .expect("`runtime.install` is a method name, which is what a job kind is");
 
         let runtimes = Arc::clone(self);
-        let target = target.clone();
+        let asked = asked.clone();
         let started = self
             .jobs
             .begin(&kind, move |handle| async move {
-                let outcome = runtimes.perform(&target, &handle).await;
+                // **What the person agreed to happens first** — roadmap task **T150**. Inside the job,
+                // because it is a download and an installer; before `perform`, because nothing of
+                // the runtime may be fetched for a machine that still cannot run it.
+                let prepared = match asked.install_prerequisites && !asked.ignore_requirements {
+                    true => {
+                        requirements::prepare(
+                            &runtimes.fetcher,
+                            asked.target.kind.as_str(),
+                            asked.target.version.as_str(),
+                            &subject_of(&asked.target),
+                            &handle,
+                        )
+                        .await
+                    }
+                    false => Ok(()),
+                };
+
+                let outcome = match prepared {
+                    Ok(()) => runtimes.perform(&asked.target, &handle).await,
+                    Err(refused) => Err(refused),
+                };
 
                 // Released here rather than by the caller: this future is what owns the install, and
                 // it ends by being cancelled as well as by returning. It cannot run ahead of the
@@ -387,7 +462,7 @@ impl Runtimes {
                     .running
                     .lock()
                     .await
-                    .remove(&(target.kind, target.version));
+                    .remove(&(asked.target.kind, asked.target.version));
 
                 outcome
             })
@@ -785,6 +860,14 @@ impl Runtimes {
         )
         .await
         .map_err(|error| error.to_wire())
+    }
+}
+
+/// Who a refusal about `target` is about — roadmap task **T149**.
+pub(crate) fn subject_of(target: &RuntimeTarget) -> requirements::Subject {
+    requirements::Subject {
+        name: format!("{} {}", target.kind.as_str(), target.version.as_str()),
+        install: Some(format!("mix runtime install {}", target.kind.as_str())),
     }
 }
 

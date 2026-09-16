@@ -172,6 +172,28 @@ pub struct RuntimeUninstall {
     pub force: bool,
 }
 
+/// What `runtime.install` takes: a version, and what the person agreed to — roadmap task **T149**.
+///
+/// Flattened on [`RuntimeUninstall`]'s pattern, so a request with neither flag is the
+/// [`RuntimeTarget`] every client has always sent.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct RuntimeInstall {
+    /// Which version.
+    #[serde(flatten)]
+    pub target: RuntimeTarget,
+
+    /// Install what this version needs of the machine first — the Microsoft Visual C++
+    /// Redistributable, on Windows. Without it an install that needs one is refused before its job
+    /// exists.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub install_prerequisites: bool,
+
+    /// Do not judge what this version needs of the machine at all. The smoke test still runs.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignore_requirements: bool,
+}
+
 /// Which runtimes a listing should answer with.
 ///
 /// Every field has a default, so both listings with no parameters are questions a person can type.
@@ -319,6 +341,13 @@ pub struct RuntimeRelease {
     /// of its own for six of the eleven kinds MixEngine offers — PHP among them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub execution: Option<Execution>,
+
+    /// What this machine lacks for that build, each with what can be done — roadmap task **T149**.
+    ///
+    /// [`None`] means a peer that predates the member, per ADR 0019; an empty list means nothing is
+    /// lacking or nothing could be judged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub needs: Option<Vec<crate::Requirement>>,
 }
 
 /// What `runtime.resolve` asks: which language, from where, and what the caller was already told.
@@ -474,6 +503,7 @@ mod tests {
             bytes: 1024,
             installed: false,
             execution: Some(Execution::Native),
+            needs: None,
         };
 
         let encoded = serde_json::to_value(&release).unwrap();
@@ -579,5 +609,57 @@ mod tests {
             serde_json::from_value::<RuntimeSummary>(encoded).unwrap(),
             summary
         );
+    }
+
+    /// **T149.** An install without its two flags is the request every client has sent since T23.
+    #[test]
+    fn an_install_without_its_flags_is_the_target_it_always_was() {
+        let asked: RuntimeInstall =
+            serde_json::from_value(serde_json::json!({"kind": "php", "version": "8.3.33"}))
+                .expect("the shape every client has sent since T23");
+
+        assert!(!asked.install_prerequisites);
+        assert!(!asked.ignore_requirements);
+        assert_eq!(
+            serde_json::to_value(&asked).unwrap(),
+            serde_json::json!({"kind": "php", "version": "8.3.33"}),
+            "flags that are off are absent, so an older daemon reads the same request"
+        );
+    }
+
+    /// **T149.** Both halves are tagged, so a client switches on each without parsing a sentence.
+    #[test]
+    fn a_requirement_carries_what_is_missing_and_what_can_be_done() {
+        let requirement = crate::Requirement {
+            need: crate::Need::VisualCpp {
+                year: "2019".to_owned(),
+                arch: crate::RedistributableArch::X64,
+                found: None,
+            },
+            remedy: crate::Remedy::InstallVisualCpp {
+                arch: crate::RedistributableArch::X64,
+            },
+        };
+
+        assert_eq!(
+            serde_json::to_value(&requirement).unwrap(),
+            serde_json::json!({
+                "need": {"need": "visual_cpp", "year": "2019", "arch": "x64"},
+                "remedy": {"remedy": "install_visual_cpp", "arch": "x64"}
+            })
+        );
+    }
+
+    /// ADR 0019, one member along: a release from a daemon before T149 has no `needs`.
+    #[test]
+    fn an_unreported_needs_is_absent_rather_than_empty() {
+        let older = serde_json::json!({
+            "kind": "php", "version": "8.3.33", "channel": "stable",
+            "bytes": 1, "installed": false
+        });
+
+        let release: RuntimeRelease =
+            serde_json::from_value(older).expect("a peer from before T149");
+        assert_eq!(release.needs, None);
     }
 }

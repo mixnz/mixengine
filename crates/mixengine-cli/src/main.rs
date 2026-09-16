@@ -41,20 +41,20 @@ use mixengine_proto::{
     ExtensionRemoval, ExtensionTarget, ExtensionUninstall, FrontEndReport, FrontEndServer,
     FrontEndSwitch, HelperUpgrade, IdleReport, InstalledExtensions, JobFilter, JobId, JobList,
     JobOutcome, JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory,
-    Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageList, PackageRemoval,
-    PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
-    ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
-    ProjectUpdate, Reclaim, Removal, RepairReport, ResetCredential, ResolvedRuntime,
-    ResourceLimits, RouteTarget, RuntimeCatalogue, RuntimeFilter, RuntimeKind, RuntimeList,
-    RuntimeQuestion, RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall,
-    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
-    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
-    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
-    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
-    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
-    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
-    UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint,
-    rpc,
+    Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageInstall, PackageList,
+    PackageRemoval, PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority,
+    ProjectCreate, ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef,
+    ProjectRemoval, ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement,
+    Requirements, ResetCredential, ResolvedRuntime, ResourceLimits, RouteTarget, RuntimeCatalogue,
+    RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceAutostartSet,
+    ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
+    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary,
+    ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind,
+    SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteRoute, SiteShare, SiteSharing,
+    SiteState, SiteUpdate, StorageReport, Timestamp, UninstallQuery, UninstallReport,
+    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement,
+    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -764,6 +764,17 @@ enum BlueprintCommand {
         /// Spend the one elevation prompt at the end without asking first.
         #[arg(long)]
         grant: bool,
+
+        /// Install what the blueprint's releases need of this machine first, without asking — the
+        /// Microsoft Visual C++ Redistributable, on Windows. Windows still asks for approval. Its own
+        /// flag rather than `--yes`: an apply asks several questions, and one flag answering all of
+        /// them would answer ones nobody read.
+        #[arg(long)]
+        install_prerequisites: bool,
+
+        /// Apply even though MixEngine judges this machine lacks something the releases need.
+        #[arg(long)]
+        ignore_requirements: bool,
     },
 }
 
@@ -1299,6 +1310,16 @@ enum RuntimeCommand {
         /// at later.
         #[arg(long)]
         no_wait: bool,
+
+        /// Install what this version needs of the machine first without asking — the Microsoft
+        /// Visual C++ Redistributable, on Windows. Windows still asks for approval.
+        #[arg(long)]
+        yes: bool,
+
+        /// Install even though MixEngine judges this machine lacks something the version needs.
+        /// The version is still run once before it is kept.
+        #[arg(long)]
+        ignore_requirements: bool,
     },
 
     /// Remove one installed version.
@@ -1430,6 +1451,16 @@ enum PackageCommand {
         /// Return once the daemon has accepted the install, rather than once it has finished.
         #[arg(long)]
         no_wait: bool,
+
+        /// Install what this version needs of the machine first without asking — the Microsoft
+        /// Visual C++ Redistributable, on Windows. Windows still asks for approval.
+        #[arg(long)]
+        yes: bool,
+
+        /// Install even though MixEngine judges this machine lacks something the version needs.
+        /// The version is still run once before it is kept.
+        #[arg(long)]
+        ignore_requirements: bool,
     },
 
     /// Remove one installed version.
@@ -4028,6 +4059,8 @@ async fn blueprint(
             run_scaffold,
             run_untrusted_scaffold,
             grant,
+            install_prerequisites,
+            ignore_requirements,
         } => {
             // **Where it goes, and who names it** — roadmap task **T120a**. A path somebody typed
             // is sent as typed; with none, the daemon is told to make one *under* this directory,
@@ -4058,6 +4091,9 @@ async fn blueprint(
                 // run performs, so a flag that changed the plan may not be added afterwards.
                 front_end: with_front_end,
                 autostart: services_autostart,
+                // Answered below, once the plan says what its releases lack — T152.
+                install_prerequisites: false,
+                ignore_requirements,
             };
 
             // **The plan comes first either way** (the T78 design, D6). A dry run stops here; a real
@@ -4066,7 +4102,7 @@ async fn blueprint(
             let planned: BlueprintApplyResponse =
                 ask(&mut client, rpc::method::BLUEPRINT_APPLY, encode(&apply)).await?;
 
-            let BlueprintApplyResponse::Planned { plan } = &planned else {
+            let BlueprintApplyResponse::Planned { plan, needs } = &planned else {
                 return Err(Error::new(
                     ErrorCode::Internal,
                     "the daemon answered a dry run with something other than a plan",
@@ -4074,6 +4110,11 @@ async fn blueprint(
             };
 
             emit(&rendered(json, plan, || render::blueprint_plan(plan)))?;
+
+            let needs = needs.as_deref().unwrap_or_default();
+            if !json && !needs.is_empty() {
+                emit(&render::requirements(needs))?;
+            }
 
             if dry_run {
                 return Ok(ExitCode::SUCCESS);
@@ -4089,6 +4130,13 @@ async fn blueprint(
             // consent carries the command it was given about, so a blueprint that changed between
             // this plan and the apply below cannot be run under it.
             let consent = agreed_to_scaffold(plan, run_scaffold, run_untrusted_scaffold, json)?;
+
+            // **Asked once for the whole plan** (T152, D7), after the version and scaffold questions
+            // so every question the apply raises is answered before any of it starts.
+            let Some(agreed) = agreed_to_prerequisites(needs, install_prerequisites, json)? else {
+                return Ok(ExitCode::SUCCESS);
+            };
+            apply.install_prerequisites = agreed;
 
             apply.dry_run = false;
             apply.answers = answers;
@@ -4366,13 +4414,40 @@ async fn package(
             }))?;
         }
 
-        PackageCommand::Install { package, no_wait } => {
+        PackageCommand::Install {
+            package,
+            no_wait,
+            yes,
+            ignore_requirements,
+        } => {
             let target = PackageTarget {
                 package: package.package,
                 version: package.version,
             };
+            let agreement = Agreement {
+                yes,
+                ignore_requirements,
+            };
+
+            let Some(install_prerequisites) = prerequisites_agreed(
+                &mut client,
+                rpc::method::PACKAGE_REQUIREMENTS,
+                encode(&target),
+                agreement,
+                json,
+            )
+            .await?
+            else {
+                return Ok(ExitCode::FAILURE);
+            };
+
+            let asked = PackageInstall {
+                target,
+                install_prerequisites,
+                ignore_requirements,
+            };
             let started: JobSummary =
-                ask(&mut client, rpc::method::PACKAGE_INSTALL, encode(&target)).await?;
+                ask(&mut client, rpc::method::PACKAGE_INSTALL, encode(&asked)).await?;
 
             if no_wait {
                 emit(&rendered(json, &started, || render::job_status(&started)))?;
@@ -4904,6 +4979,78 @@ fn unanswered() -> Error {
     .with_hint("pass `--yes` to answer in advance")
 }
 
+/// What somebody said in advance about a machine that lacks something — roadmap task **T151**.
+#[derive(Debug, Clone, Copy)]
+struct Agreement {
+    /// `--yes`: install what MixEngine can install, without asking.
+    yes: bool,
+
+    /// `--ignore-requirements`: do not judge at all.
+    ignore_requirements: bool,
+}
+
+/// Whether to install what the machine lacks first, given what the daemon judged.
+///
+/// `Ok(Some(agreed))` goes on to the install; `Ok(None)` is a person who answered no. **Only an
+/// installable lack is asked about**: one no installer fixes is the daemon's to refuse, in its own
+/// sentence, and asking about it here would be a second wording of one refusal.
+fn agreed_to_prerequisites(
+    unmet: &[Requirement],
+    yes: bool,
+    json: bool,
+) -> Result<Option<bool>, Error> {
+    let installable = unmet
+        .iter()
+        .any(|requirement| matches!(requirement.remedy, Remedy::InstallVisualCpp { .. }));
+    let blocked = unmet
+        .iter()
+        .any(|requirement| !matches!(requirement.remedy, Remedy::InstallVisualCpp { .. }));
+
+    if !installable || blocked {
+        return Ok(Some(false));
+    }
+    if yes {
+        return Ok(Some(true));
+    }
+    if json {
+        return Err(unanswered());
+    }
+
+    match confirm::ask(&format!(
+        "{}install it first? Windows will ask for administrator approval. [y/N] ",
+        render::requirements(unmet)
+    )) {
+        confirm::Answer::Yes => Ok(Some(true)),
+        confirm::Answer::No => {
+            let _ = writeln!(std::io::stderr(), "nothing was installed");
+            Ok(None)
+        }
+        confirm::Answer::Unanswerable => Err(unanswered()),
+    }
+}
+
+/// Ask the daemon what `target` lacks, then [`agreed_to_prerequisites`].
+///
+/// **A question the daemon cannot answer asks nothing.** A version the index does not publish, or an
+/// index that cannot be read, is the install's to report — as a job that fails in its own words — and
+/// refusing it here first would be the same failure said twice, the second time more vaguely.
+async fn prerequisites_agreed(
+    client: &mut Client,
+    method: &str,
+    target: Option<serde_json::Value>,
+    agreement: Agreement,
+    json: bool,
+) -> Result<Option<bool>, Error> {
+    if agreement.ignore_requirements {
+        return Ok(Some(false));
+    }
+
+    match ask::<Requirements>(client, method, target).await {
+        Ok(judged) => agreed_to_prerequisites(&judged.unmet, agreement.yes, json),
+        Err(_) => Ok(Some(false)),
+    }
+}
+
 /// `mix runtime …`: one call, one rendering — except the install, which is one call and a wait.
 async fn runtime(
     command: RuntimeCommand,
@@ -4944,8 +5091,17 @@ async fn runtime(
             }))?;
         }
 
-        RuntimeCommand::Install { runtime, no_wait } => {
-            return install(&mut client, target(runtime), no_wait, json).await;
+        RuntimeCommand::Install {
+            runtime,
+            no_wait,
+            yes,
+            ignore_requirements,
+        } => {
+            let agreement = Agreement {
+                yes,
+                ignore_requirements,
+            };
+            return install(&mut client, target(runtime), agreement, no_wait, json).await;
         }
 
         RuntimeCommand::Uninstall { runtime, force } => {
@@ -5032,13 +5188,33 @@ async fn runtime(
 /// an exit status that means it. So `mix` polls `job.wait` until the job ends — each poll is one
 /// round trip over a local socket — and prints the progress it passes on **stderr**, so that stdout
 /// still carries exactly one answer and `--json` still emits exactly one object.
+///
+/// **What the machine lacks is asked about first** (T151), once, before anything is started.
 async fn install(
     client: &mut Client,
     target: RuntimeTarget,
+    agreement: Agreement,
     no_wait: bool,
     json: bool,
 ) -> Result<ExitCode, Error> {
-    let started: JobSummary = ask(client, rpc::method::RUNTIME_INSTALL, encode(&target)).await?;
+    let Some(install_prerequisites) = prerequisites_agreed(
+        client,
+        rpc::method::RUNTIME_REQUIREMENTS,
+        encode(&target),
+        agreement,
+        json,
+    )
+    .await?
+    else {
+        return Ok(ExitCode::FAILURE);
+    };
+
+    let asked = RuntimeInstall {
+        target,
+        install_prerequisites,
+        ignore_requirements: agreement.ignore_requirements,
+    };
+    let started: JobSummary = ask(client, rpc::method::RUNTIME_INSTALL, encode(&asked)).await?;
 
     if no_wait {
         emit(&rendered(json, &started, || render::job_status(&started)))?;
@@ -6011,6 +6187,49 @@ fn for_seconds(text: &str) -> Result<u64, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// **T151.** Nothing is asked, and nothing refused here, unless MixEngine could install it.
+    #[test]
+    fn only_an_installable_lack_is_asked_about() {
+        use mixengine_proto::{Need, RedistributableArch};
+
+        let installable = Requirement {
+            need: Need::VisualCpp {
+                year: "2019".to_owned(),
+                arch: RedistributableArch::X64,
+                found: None,
+            },
+            remedy: Remedy::InstallVisualCpp {
+                arch: RedistributableArch::X64,
+            },
+        };
+        let escapable = Requirement {
+            need: Need::Glibc {
+                at_least: "2.34".to_owned(),
+                found: "2.31".to_owned(),
+            },
+            remedy: Remedy::ChooseVersion {
+                version: PackageVersion::parse("8.3.33").unwrap(),
+            },
+        };
+
+        assert_eq!(
+            agreed_to_prerequisites(&[], false, true).unwrap(),
+            Some(false)
+        );
+        assert_eq!(
+            agreed_to_prerequisites(&[escapable], false, true).unwrap(),
+            Some(false)
+        );
+        assert_eq!(
+            agreed_to_prerequisites(std::slice::from_ref(&installable), true, true).unwrap(),
+            Some(true)
+        );
+        assert!(
+            agreed_to_prerequisites(&[installable], false, true).is_err(),
+            "--json needs --yes"
+        );
+    }
 
     /// **T135, D12.** Three flags build the whole list in one request — no read-modify-write in the
     /// client, so no race and no business logic here.

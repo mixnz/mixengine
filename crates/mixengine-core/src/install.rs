@@ -269,6 +269,12 @@ impl Installer {
         &self.http
     }
 
+    /// Where downloads live — `pub(crate)` for [`crate::prerequisites`], the one fetch that is not an
+    /// [`Artifact`] and still belongs beside the others.
+    pub(crate) fn downloads(&self) -> &Path {
+        &self.downloads
+    }
+
     /// Install `artifact` at `into`, reporting to `watcher` and stopping if it says so.
     ///
     /// `into` must not exist: an install never mutates a version that is already there, which is

@@ -154,10 +154,11 @@ fn finished(process: HANDLE) -> ElevationOutcome {
 /// A thread already in an apartment of another kind answers `RPC_E_CHANGED_MODE`, which is not a
 /// failure — but it must not be paired with a `CoUninitialize` that would tear down somebody else's.
 /// That is the whole of what the flag inside records.
-struct Apartment(bool);
+// Shared with `redistributable`, which starts a program through the same shell call (T150).
+pub(super) struct Apartment(bool);
 
 impl Apartment {
-    fn entered() -> Self {
+    pub(super) fn entered() -> Self {
         #[expect(
             unsafe_code,
             reason = "no reserved pointer is passed, and the matching CoUninitialize is this type's \

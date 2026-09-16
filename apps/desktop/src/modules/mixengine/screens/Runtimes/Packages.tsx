@@ -5,7 +5,9 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
 import { useTranslation } from "../../../../i18n";
 import { formatInstalledAt, jobFor, versionKey } from "../../runtimeState";
+import RequirementDialog from "../../components/RequirementDialog";
 import StaleBadge from "../../components/StaleBadge";
+import { needLabel } from "../../requirementStep";
 import { matchesAvailable } from "./availableFilter";
 import { packageCategory, type PackageCategory } from "./packageCategories";
 import type { PackagesState } from "./usePackages";
@@ -114,6 +116,9 @@ export default function Packages({
                   {release.package} {release.version}
                 </td>
                 <td>{release.channel}</td>
+                <td className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
+                  {(release.needs ?? []).map((requirement) => needLabel(requirement.need)).join(", ")}
+                </td>
                 <td className={styles.actions}>
                   {job ? (
                     <span className={styles.progress}>
@@ -133,6 +138,16 @@ export default function Packages({
       </table>
       {availableInCategory.length === 0 && filter.trim() !== "" && (
         <p className={styles.noMatches}>{t("mixengine.runtimes.noMatches")}</p>
+      )}
+
+      {state.asking && (
+        <RequirementDialog
+          name={`${state.asking.release.package} ${state.asking.release.version}`}
+          step={state.asking.step}
+          onCancel={state.dismissAsking}
+          onInstall={() => void state.agree()}
+          onChoose={(version) => void state.chooseInstead(version)}
+        />
       )}
     </div>
   );

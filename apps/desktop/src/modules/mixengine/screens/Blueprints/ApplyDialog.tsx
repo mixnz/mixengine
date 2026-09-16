@@ -13,6 +13,8 @@ import type { BlueprintApplied } from "@mixengine/api";
 import type { BlueprintPlan } from "@mixengine/api";
 import type { BlueprintSummary } from "@mixengine/api";
 import type { MismatchAnswer } from "@mixengine/api";
+import type { Requirement } from "@mixengine/api";
+import { needLabel, requirementStep, requirementsAllowApply } from "../../requirementStep";
 import {
   answerSubjectFor,
   blueprintAppliedFrom,
@@ -60,7 +62,7 @@ interface Props {
 
 type Phase =
   | { kind: "form" }
-  | { kind: "plan"; plan: BlueprintPlan }
+  | { kind: "plan"; plan: BlueprintPlan; needs: Requirement[] }
   | { kind: "running"; jobId: number }
   | { kind: "done"; applied: BlueprintApplied }
   | { kind: "failed"; message: string };
@@ -83,6 +85,8 @@ export default function ApplyDialog({
   const [phase, setPhase] = useState<Phase>({ kind: "form" });
   const [choices, setChoices] = useState<Record<number, MismatchAnswer>>({});
   const [scaffoldAgreed, setScaffoldAgreed] = useState(false);
+  // Agreement to install what the plan's releases lack on this machine — T152.
+  const [prerequisitesAgreed, setPrerequisitesAgreed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [jobs, setJobs] = useState<JobRow[]>([]);
@@ -120,7 +124,8 @@ export default function ApplyDialog({
       if (response.outcome === "planned") {
         setChoices({});
         setScaffoldAgreed(false);
-        setPhase({ kind: "plan", plan: response.plan });
+        setPrerequisitesAgreed(false);
+        setPhase({ kind: "plan", plan: response.plan, needs: response.needs ?? [] });
       }
     } catch (e) {
       setError(errorMessage(t, e));
@@ -129,7 +134,7 @@ export default function ApplyDialog({
     }
   }
 
-  async function apply(plan: BlueprintPlan) {
+  async function apply(plan: BlueprintPlan, installPrerequisites: boolean) {
     setBusy(true);
     setError("");
     try {
@@ -146,6 +151,7 @@ export default function ApplyDialog({
         // kế hoạch chạy, nên thứ quyết định thư mục không được đổi sau lượt dry run.
         root_is_parent: false,
         dry_run: false,
+        install_prerequisites: installPrerequisites,
         answers: buildAnswers(plan.steps, choices),
         scaffold: scaffold ?? undefined,
         // Gửi ở cả hai lượt: kế hoạch người ta đọc phải là kế hoạch chạy, nên một cờ đổi kế hoạch
@@ -328,6 +334,11 @@ export default function ApplyDialog({
                   </li>
                 ))}
               </ul>
+              <PrerequisitesNotice
+                needs={phase.needs}
+                agreed={prerequisitesAgreed}
+                onAgree={setPrerequisitesAgreed}
+              />
             </div>
           )}
 
@@ -439,8 +450,12 @@ export default function ApplyDialog({
               <Button
                 size="large"
                 variant="primary"
-                onClick={() => void apply(phase.plan)}
-                disabled={busy || !canApply(phase.plan.steps, choices)}
+                onClick={() => void apply(phase.plan, prerequisitesAgreed)}
+                disabled={
+                  busy ||
+                  !canApply(phase.plan.steps, choices) ||
+                  !requirementsAllowApply(phase.needs, prerequisitesAgreed)
+                }
               >
                 {busy
                   ? t("mixengine.blueprints.apply.applying")
@@ -465,5 +480,43 @@ export default function ApplyDialog({
         </>
       )}
     </Modal>
+  );
+}
+
+/**
+ * What the plan's releases lack on this machine — T152. One block for the whole plan, because one
+ * approval covers every step that needs the same runtime.
+ */
+function PrerequisitesNotice({
+  needs,
+  agreed,
+  onAgree,
+}: {
+  needs: readonly Requirement[];
+  agreed: boolean;
+  onAgree: (agreed: boolean) => void;
+}) {
+  const { t } = useTranslation();
+  const step = requirementStep(needs);
+  if (step.kind === "proceed") return null;
+
+  const labels = step.needs.map(needLabel).join(", ");
+  if (step.kind === "choose") {
+    return (
+      <p className={styles.blocked} role="alert">
+        {t("mixengine.requirements.applyBlocked", { needs: labels })}
+      </p>
+    );
+  }
+
+  return (
+    <div className={styles.scaffold}>
+      <Checkbox
+        className={styles.checkbox}
+        label={t("mixengine.requirements.applyConsent", { arch: step.arches.join(", ") })}
+        checked={agreed}
+        onChange={(e) => onAgree(e.target.checked)}
+      />
+    </div>
   );
 }

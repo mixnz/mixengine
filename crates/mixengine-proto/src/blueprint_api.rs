@@ -108,6 +108,16 @@ pub struct BlueprintApply {
     #[serde(default)]
     pub dry_run: bool,
 
+    /// Install what the plan's releases need of the machine before anything else — roadmap task
+    /// **T152**. What [`BlueprintApplyResponse::Planned`](crate::BlueprintApplyResponse)'s `needs`
+    /// asked about.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub install_prerequisites: bool,
+
+    /// Do not judge what the plan's releases need of the machine — T152. The smoke tests still run.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignore_requirements: bool,
+
     /// The answers to the version questions this plan raises — roadmap task **T78**.
     ///
     /// **A question is asked by a client and answered in the request**, because a daemon has no

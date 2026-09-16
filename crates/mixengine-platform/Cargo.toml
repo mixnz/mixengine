@@ -92,6 +92,14 @@ windows-sys = { workspace = true, features = [
     # it does not move `mixengine-elevate`'s dependency budget — unlike `certutil.exe`, which would
     # have meant spawning a process from a context holding an administrative token.
     "Win32_Security_Cryptography",
+    # Authenticode, for the one program MixEngine starts that asks Windows for administrator rights
+    # and is not its own helper: Microsoft's Visual C++ Redistributable (T150, ADR 0037). A feature
+    # adds modules, not crates, so `mixengine-elevate`'s dependency budget does not move. `Catalog`
+    # and `Sip` are there only because `windows-sys` gates the two `WTHelper*` calls that read the
+    # signer out of a verification on them.
+    "Win32_Security_Cryptography_Catalog",
+    "Win32_Security_Cryptography_Sip",
+    "Win32_Security_WinTrust",
     # The listening TCP table, which carries the owning pid of every listener and is the
     # whole of T38 on this system. `Win32_Networking_WinSock` comes with it, for the two
     # address families that table is asked for by name.

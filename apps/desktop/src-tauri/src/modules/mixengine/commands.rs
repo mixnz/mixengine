@@ -285,11 +285,19 @@ pub async fn mixengine_runtime_list_available(filter: Value) -> Result<Value, Ap
     rpc::call("runtime.list_available", filter).await
 }
 
-/// `target` đúng hình `RuntimeTarget { kind, version }`. Trả `JobSummary` — id của nó là thứ frontend
-/// theo dõi qua stream `/events` đã mở sẵn.
+/// `target` is a `RuntimeInstall` — a `RuntimeTarget` plus `install_prerequisites` /
+/// `ignore_requirements`. Answers `JobSummary`, whose id the frontend follows over the `/events`
+/// stream it already has open.
 #[tauri::command]
 pub async fn mixengine_runtime_install(target: Value) -> Result<Value, AppError> {
     rpc::call("runtime.install", target).await
+}
+
+/// `target` is a `RuntimeTarget`. Answers `Requirements`: what that version lacks on this machine,
+/// asked before `runtime.install` so the window can ask the person once — T151.
+#[tauri::command]
+pub async fn mixengine_runtime_requirements(target: Value) -> Result<Value, AppError> {
+    rpc::call("runtime.requirements", target).await
 }
 
 /// `params` đúng hình `RuntimeUninstall { kind, version, force? }`.
@@ -330,11 +338,17 @@ pub async fn mixengine_package_list_available(filter: Value) -> Result<Value, Ap
     rpc::call("package.list_available", filter).await
 }
 
-/// `target` đúng hình `PackageTarget { package, version }`. Trả `JobSummary`, cùng cách theo dõi qua
-/// stream như `runtime.install`.
+/// `target` is a `PackageInstall` — a `PackageTarget` plus `install_prerequisites` /
+/// `ignore_requirements`. Answers `JobSummary`, followed over the stream as `runtime.install` is.
 #[tauri::command]
 pub async fn mixengine_package_install(target: Value) -> Result<Value, AppError> {
     rpc::call("package.install", target).await
+}
+
+/// `target` is a `PackageTarget`. `mixengine_runtime_requirements` for a service package — T151.
+#[tauri::command]
+pub async fn mixengine_package_requirements(target: Value) -> Result<Value, AppError> {
+    rpc::call("package.requirements", target).await
 }
 
 /// `target` đúng hình `PackageTarget`. **Không có `force`** — refuse vì `services` không rỗng là

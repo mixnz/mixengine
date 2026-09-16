@@ -16,11 +16,13 @@ mod home;
 mod hosts;
 mod keyring;
 mod limits;
+mod machine;
 mod metrics;
 mod network;
 mod path;
 mod port_access;
 mod ports;
+mod redistributable;
 mod reserved;
 mod resolver;
 mod trust;
@@ -66,6 +68,12 @@ pub struct Host {
 
     /// What this mock says its application control policy is doing — T94.
     app_control: app_control::Policy,
+
+    /// What this mock says the machine offers — T148.
+    machine: machine::Facts,
+
+    /// How this mock's Visual C++ installer ends, when it has one — T150.
+    redistributables: redistributable::Installer,
     resolver: resolver::Resolver,
     trust: trust::Trust,
     browsers: browsers::Browsers,
@@ -159,6 +167,30 @@ impl Host {
     pub fn with_app_control(home: impl Into<PathBuf>, state: crate::AppControlState) -> Self {
         Self {
             app_control: app_control::Policy::reporting(state),
+            ..Self::with_home(home)
+        }
+    }
+
+    /// A host whose machine reads as `facts` — roadmap task **T148**.
+    ///
+    /// The default host knows nothing about its machine, which judges as lacking nothing.
+    #[must_use]
+    pub fn with_machine(home: impl Into<PathBuf>, facts: crate::MachineFacts) -> Self {
+        Self {
+            machine: machine::Facts::reporting(facts),
+            ..Self::with_home(home)
+        }
+    }
+
+    /// A host whose Visual C++ installer ends as `outcome` — roadmap task **T150**. The default host
+    /// has none to run.
+    #[must_use]
+    pub fn with_redistributable(
+        home: impl Into<PathBuf>,
+        outcome: crate::RedistributableOutcome,
+    ) -> Self {
+        Self {
+            redistributables: redistributable::Installer::ending(outcome),
             ..Self::with_home(home)
         }
     }
@@ -558,6 +590,8 @@ impl Host {
             port_access: port_access::Access::default(),
             reserved: reserved::Reserved::default(),
             app_control: app_control::Policy::default(),
+            machine: machine::Facts::default(),
+            redistributables: redistributable::Installer::default(),
             resolver: resolver::Resolver::default(),
             trust: trust::Trust::default(),
             browsers: browsers::Browsers::default(),
@@ -711,6 +745,14 @@ impl crate::Host for Host {
 
     fn app_control(&self) -> &dyn crate::AppControl {
         &self.app_control
+    }
+
+    fn machine(&self) -> &dyn crate::Machine {
+        &self.machine
+    }
+
+    fn redistributables(&self) -> &dyn crate::Redistributables {
+        &self.redistributables
     }
 
     fn network(&self) -> &dyn crate::NetworkInfo {

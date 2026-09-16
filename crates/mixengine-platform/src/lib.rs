@@ -131,12 +131,14 @@ pub use traits::{
     AutostartMechanism, AutostartPlan, AutostartState, BrowserChange, BrowserSurvey, BrowserTrust,
     ConnectionCount, DatabaseState, DesktopApps, DirectoryAccess, Elevation, ElevationSupport,
     Enforcement, FirewallRules, GroupReading, GroupRoot, HomeDirs, Host, HostsFile, InstalledApp,
-    Interface, KEYRING_SERVICE, Keyring, LimitMechanism, LimitSupport, Located, MemoryMeasure,
-    NetworkInfo, OrphanGuarantee, PathIntegration, PathLocation, PathState, PortAccess,
-    PortAccessMethod, PortAccessState, PortBinding, PortHolder, PortOwner, PortRange,
-    ProcessMetrics, ReservedPorts, ResolverConfig, ResolverMethod, ResolverState, ResourceControl,
-    ServiceInstaller, Started, TrustState, TrustStore, TrustStoreMethod, WhenExceeded,
-    choose_interface, orphan_guarantee, refused_by_app_control,
+    Interface, KEYRING_SERVICE, Keyring, LimitMechanism, LimitSupport, Located, Machine,
+    MachineFacts, MemoryMeasure, NetworkInfo, OrphanGuarantee, PathIntegration, PathLocation,
+    PathState, PortAccess, PortAccessMethod, PortAccessState, PortBinding, PortHolder, PortOwner,
+    PortRange, Probe, ProcessMetrics, RedistributableOutcome, Redistributables, ReservedPorts,
+    ResolverConfig, ResolverMethod, ResolverState, ResourceControl, ServiceInstaller, Started,
+    TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER, VisualCppVersion, WhenExceeded,
+    choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
+    refused_by_app_control, visual_cpp_from_registry,
 };
 
 // The three supported operating systems keep their own directory, exactly as the architecture
@@ -292,6 +294,18 @@ pub enum Error {
         /// The underlying OS error, generally built from `GetLastError`.
         #[source]
         source: std::io::Error,
+    },
+
+    /// A file MixEngine was about to run did not prove what it is — roadmap task **T150**.
+    ///
+    /// Its own variant, because nothing about it is an I/O failure: the file was read, and what it
+    /// said about itself was not good enough to run it with administrator rights.
+    #[error("{} was not run: {reason}", path.display())]
+    NotTrusted {
+        /// The file that was refused.
+        path: std::path::PathBuf,
+        /// Which check refused it, phrased for a person.
+        reason: String,
     },
 
     /// The address of the local endpoint is one this OS will not accept.

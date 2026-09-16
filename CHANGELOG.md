@@ -3,6 +3,16 @@
 ## Unreleased
 
 ### Added
+- Installing a runtime or a service on Windows no longer ends at a missing Visual C++ runtime: MixLab
+  and `mix` say what is missing before anything downloads, and after one yes MixEngine downloads
+  Microsoft's redistributable, checks that Microsoft signed it, installs it — Windows asks for
+  approval if it needs to — and then installs what was asked for. `mix runtime install` and `mix
+  package install` take `--yes`, and `mix blueprint apply` takes `--install-prerequisites`.
+- Where Linux or macOS is too old for a release, MixLab and `mix` name the newest release that does
+  run and offer to install that instead. `mix runtime available` and `mix package available` show a
+  `NEEDS` column when a release lacks something here.
+- `--ignore-requirements` on the same commands installs anyway; the runtime is still run once before
+  it is kept.
 - One site can now answer different path prefixes with different things: `mix site create` and `mix
   site update` take `--proxy /api=http://127.0.0.1:3003/xyz`, `--php /admin` and `--files
   /assets=dist`, repeatable, with `--no-routes` to clear them. The upstream's path, when it has one,

@@ -53,6 +53,11 @@ struct Fixture {
 impl Fixture {
     /// Publish one version of PHP and start a daemon that can see it.
     async fn start() -> Self {
+        Self::start_with(index).await
+    }
+
+    /// Publish what `index_for` says and start a daemon that can see it.
+    async fn start_with(index_for: fn(&Packed, &str) -> Value) -> Self {
         // `.zip` on Windows and `.tar.zst` elsewhere, which is what the publishing pipeline
         // produces for each — the point being that the daemon unpacks what its own platform is
         // actually served rather than whichever format a fixture found convenient.
@@ -73,7 +78,7 @@ impl Fixture {
         .await;
 
         let url = registry.publish_asset(&packed.path(), packed.bytes.clone());
-        registry.publish(&index(&packed, &url));
+        registry.publish(&index_for(&packed, &url));
 
         let home = Home::new();
         let daemon = Daemon::start(&home, &registry);
@@ -141,6 +146,40 @@ fn index(packed: &Packed, url: &str) -> Value {
             },
         ],
     })
+}
+
+/// [`index`], plus a newer PHP this machine can never run — roadmap task **T149**.
+///
+/// A requirement no runner meets: glibc 99 on Linux, macOS 99 on a Mac. Windows has no such
+/// requirement to give — every runner has a Visual C++ runtime new enough — so the test that uses
+/// this stops there, and the Windows half is the core unit tests and M18.
+fn index_with_one_that_cannot_run(packed: &Packed, url: &str) -> Value {
+    let mut published = index(packed, url);
+    let requires = match os() {
+        "linux" => json!({ "glibc": "99.0" }),
+        "macos" => json!({ "macos": "99.0" }),
+        _ => json!({}),
+    };
+
+    published["packages"]
+        .as_array_mut()
+        .expect("packages is a list")
+        .push(json!({
+            "kind": "php",
+            "version": "9.8.0",
+            "channel": "stable",
+            "artifacts": [{
+                "os": os(),
+                "arch": arch(),
+                "url": url,
+                "sha256": packed.sha256,
+                "size": packed.size(),
+                "provides": { "php": program_name(), sapi(): program_name() },
+                "requires": requires,
+            }],
+        }));
+
+    published
 }
 
 /// The SAPI a real PHP publishes on this system — roadmap task T32.
@@ -433,6 +472,74 @@ async fn an_install_reports_where_it_has_got_to_and_is_listed_as_a_job() {
     let jobs = client.call("job.list", json!({})).await;
     assert_eq!(jobs["jobs"][0]["id"], installed["id"]);
     assert_eq!(jobs["jobs"][0]["kind"], "runtime.install");
+}
+
+/// **T149.** A version this machine lacks something for is marked in the listing, answered by
+/// `runtime.requirements`, and refused before a job exists — naming the release that does run.
+#[tokio::test]
+async fn a_version_this_machine_cannot_run_is_refused_before_anything_downloads() {
+    if cfg!(windows) {
+        return;
+    }
+
+    let fixture = Fixture::start_with(index_with_one_that_cannot_run).await;
+    let mut client = fixture.client().await;
+
+    let listed = client
+        .call("runtime.list_available", json!({ "kind": "php" }))
+        .await;
+    let rows = listed["runtimes"].as_array().expect("a list");
+    let newer = rows
+        .iter()
+        .find(|row| row["version"] == "9.8.0")
+        .expect("9.8.0 is offered");
+    let runnable = rows
+        .iter()
+        .find(|row| row["version"] == VERSION)
+        .expect("VERSION is offered");
+    assert_eq!(newer["needs"].as_array().map(Vec::len), Some(1), "{newer}");
+    assert_eq!(runnable["needs"], json!([]), "{runnable}");
+
+    let asked = client
+        .call(
+            "runtime.requirements",
+            json!({ "kind": "php", "version": "9.8.0" }),
+        )
+        .await;
+    assert_eq!(
+        asked["unmet"][0]["remedy"]["remedy"], "choose_version",
+        "{asked}"
+    );
+    assert_eq!(asked["unmet"][0]["remedy"]["version"], VERSION, "{asked}");
+
+    let refused = client
+        .refuse(
+            "runtime.install",
+            json!({ "kind": "php", "version": "9.8.0" }),
+        )
+        .await;
+    assert_eq!(refused["code"], "dependency_missing", "{refused}");
+    assert!(
+        refused["hint"]
+            .as_str()
+            .is_some_and(|hint| hint.contains(VERSION)),
+        "the hint names the release that runs: {refused}"
+    );
+
+    let jobs = client.call("job.list", json!({})).await;
+    assert_eq!(jobs["jobs"], json!([]), "no job was started: {jobs}");
+    assert!(!fixture.installed_at("9.8.0").exists());
+
+    let forced = client
+        .call(
+            "runtime.install",
+            json!({ "kind": "php", "version": "9.8.0", "ignore_requirements": true }),
+        )
+        .await;
+    assert_eq!(
+        forced["kind"], "runtime.install",
+        "ignoring the judgement starts the job: {forced}"
+    );
 }
 
 /// Three disappointments the index client answers `None` to alike, told apart — because they send

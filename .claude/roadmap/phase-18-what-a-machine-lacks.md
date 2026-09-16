@@ -28,7 +28,7 @@ stays where it is.
 
 ## The judgement
 
-- [ ] **T148** **(P)** The machine, read when it is asked about, and a judgement that refuses only a
+- [x] **T148** **(P)** The machine, read when it is asked about, and a judgement that refuses only a
       certain lack. `mixengine-platform` gains a `host`-only `machine` module answering glibc
       (`gnu_get_libc_version`), macOS (`kern.osproductversion`) and the Visual C++ 2015–2022 runtimes
       (`VisualStudio\14.0\VC\Runtimes\{x64,arm64}`), each as present, absent or could-not-tell.
@@ -39,7 +39,7 @@ stays where it is.
 
 ## The answer
 
-- [ ] **T149** What a client is told, before it has to ask twice. Each unmet requirement carries one
+- [x] **T149** What a client is told, before it has to ask twice. Each unmet requirement carries one
       remedy — Install for the 2015–2022 runtime, Choose the newest version of the kind that this
       machine meets for glibc and macOS, None when no version does. `RuntimeRelease` and
       `PackageRelease` gain an optional `needs` under ADR 0019, and `mix … available` grows a `NEEDS`
@@ -51,7 +51,7 @@ stays where it is.
 
 ## The redistributable
 
-- [ ] **T150** **(P)** Installing it, and the decision that allows it. Fetched from
+- [x] **T150** **(P)** Installing it, and the decision that allows it. Fetched from
       `aka.ms/vs/17/release/vc_redist.{x64,arm64}.exe` and nowhere else; believed only after
       `WinVerifyTrust`, a leaf subject of `Microsoft Corporation`, and a version resource naming the
       redistributable; held with a `FILE_SHARE_READ`-only handle until it has started; opened with
@@ -64,13 +64,13 @@ stays where it is.
 
 ## Consent
 
-- [ ] **T151** Nobody sees an approval dialog they did not agree to. MixLab shows one dialog naming
+- [x] **T151** Nobody sees an approval dialog they did not agree to. MixLab shows one dialog naming
       what will be installed and its publisher, and a second button for a Choose remedy.
       `mix runtime install` and `mix package install` ask `[y/N]`, refuse on end of file, take
       `--yes` and `--ignore-requirements`, and `--json` requires `--yes` — T40b's rule, one feature
       along. Design D5.
 
-- [ ] **T152** Blueprints, without teaching the plan about the index. `blueprints::plan` is untouched
+- [x] **T152** Blueprints, without teaching the plan about the index. `blueprints::plan` is untouched
       — it holds constraints and must not learn releases (T78's D9) — so the daemon judges around
       it: the dry run resolves every install step and answers `Planned { plan, needs }` with one
       requirement per thing missing however many steps need it, and the apply job judges again right

@@ -7,6 +7,7 @@ import type { PackageRelease } from "@mixengine/api";
 import type { PackageSummary } from "@mixengine/api";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
+import { askingStep, needLabel, requirementStep, type AskingStep } from "../../requirementStep";
 import { jobFinished, versionKey } from "../../runtimeState";
 
 /** Tất cả những gì `Packages.tsx` cần để vẽ một nhóm, và không hơn. */
@@ -20,6 +21,11 @@ export interface PackagesState {
   clearError: () => void;
   install: (release: PackageRelease) => Promise<void>;
   uninstall: (target: PackageSummary) => Promise<void>;
+  /** The one question an install is waiting on — T151. */
+  asking: { release: PackageRelease; step: AskingStep } | null;
+  agree: () => Promise<void>;
+  chooseInstead: (version: string) => Promise<void>;
+  dismissAsking: () => void;
 }
 
 /**
@@ -36,6 +42,7 @@ export function usePackages(active: boolean): PackagesState {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [installingJob, setInstallingJob] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
+  const [asking, setAsking] = useState<{ release: PackageRelease; step: AskingStep } | null>(null);
   const { t } = useTranslation();
 
   // Cùng lý do `Languages.tsx` đã theo: đọc `installingJob` mới nhất trong callback `watch` đăng
@@ -92,19 +99,78 @@ export function usePackages(active: boolean): PackagesState {
     });
   }, [reload, t]);
 
-  const install = useCallback(async (release: PackageRelease) => {
-    setError("");
-    try {
-      const job = await api.packageInstall({ package: release.package, version: release.version });
-      setInstallingJob((current) => ({
-        ...current,
-        [versionKey(release.package, release.version)]: job.id,
-      }));
-    } catch (e) {
-      setError(errorMessage(t, e));
-    }
-    // `t` đổi khi người dùng đổi ngôn ngữ; câu lỗi phải theo ngôn ngữ đang chọn.
-  }, [t]);
+  const start = useCallback(
+    async (name: string, version: string, installPrerequisites: boolean) => {
+      setError("");
+      try {
+        const job = await api.packageInstall({
+          package: name,
+          version,
+          install_prerequisites: installPrerequisites,
+        });
+        setInstallingJob((current) => ({ ...current, [versionKey(name, version)]: job.id }));
+      } catch (e) {
+        setError(errorMessage(t, e));
+      }
+    },
+    // `t` changes when the person switches language; the error has to follow it.
+    [t],
+  );
+
+  // What the machine lacks is asked about before the download starts — T151.
+  const install = useCallback(
+    async (release: PackageRelease) => {
+      setError("");
+      let unmet;
+      try {
+        ({ unmet } = await api.packageRequirements({
+          package: release.package,
+          version: release.version,
+        }));
+      } catch {
+        // A question the daemon cannot answer asks nothing: the install reports the same failure
+        // in its own words, as `mix` does.
+        await start(release.package, release.version, false);
+        return;
+      }
+
+      const step = requirementStep(unmet);
+      if (step.kind === "proceed") {
+        await start(release.package, release.version, false);
+        return;
+      }
+
+      const asked = askingStep(step);
+      if (asked === null) {
+        setError(
+          t("mixengine.requirements.unavailable", {
+            name: `${release.package} ${release.version}`,
+            needs: step.needs.map(needLabel).join(", "),
+          }),
+        );
+        return;
+      }
+      setAsking({ release, step: asked });
+    },
+    [start, t],
+  );
+
+  const agree = useCallback(async () => {
+    if (asking === null) return;
+    setAsking(null);
+    await start(asking.release.package, asking.release.version, true);
+  }, [asking, start]);
+
+  const chooseInstead = useCallback(
+    async (version: string) => {
+      if (asking === null) return;
+      setAsking(null);
+      await start(asking.release.package, version, false);
+    },
+    [asking, start],
+  );
+
+  const dismissAsking = useCallback(() => setAsking(null), []);
 
   /** Không có `force` — refuse vì `services` không rỗng là chốt (D6). Vẽ danh sách, dừng ở đó. */
   const uninstall = useCallback(
@@ -132,5 +198,9 @@ export function usePackages(active: boolean): PackagesState {
     clearError,
     install,
     uninstall,
+    asking,
+    agree,
+    chooseInstead,
+    dismissAsking,
   };
 }

@@ -306,6 +306,17 @@ a `FILE_SHARE_READ`-only handle held on the file throughout. Also read the file'
 signs with rather than the one this document expects. D6 is built on all of it; if any of it does
 not hold, this design comes back for review before anything else is written.
 
+**Measured 2026-09-16, Windows 11 Pro 26200, x64, runtime 14.50.35719 already present:** signature
+`Valid`, subject `CN=Microsoft Corporation, O=Microsoft Corporation, L=Redmond, S=Washington, C=US`;
+`ProductName` `Microsoft Visual C++ 2015-2022 Redistributable (x64) - 14.44.35211` (aka.ms served an
+older build than the machine had); launched unelevated with `open` while a `FILE_SHARE_READ` handle
+was held: the launch succeeded and exit `1638` arrived both times, **with no approval dialog** — the
+Burn bundle is `asInvoker`, detects before it plans, and logged `WixBundleElevated = 0`. So the
+dialog is raised by the bundle's own elevated child only when there is something to install, and a
+decline surfaces as the bundle's exit code, never as `ERROR_CANCELLED` from `ShellExecuteExW`. Which
+code a decline produces (`1223` or `1602`) could not be measured on this machine; both already map to
+*declined*. It is measured on the M18 run, on a machine with no runtime.
+
 - **The judgement** — unit tests in `mixengine-core`, no OS: met, unmet and could-not-tell for each
   fact; `Minor=50` meeting 2022; an unknown year, an unparseable version and an unmodelled key never
   refusing; an x86_64 artifact on an ARM64 snapshot judged against the x64 key; Choose finding the
