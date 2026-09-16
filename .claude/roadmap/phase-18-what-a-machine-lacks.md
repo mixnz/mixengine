@@ -80,4 +80,7 @@ stays where it is.
 ## Milestone
 
 **M18** on a Windows machine with no Visual C++ runtime, choosing PHP 8.3 in the window and agreeing
-once produces one approval dialog naming Microsoft Corporation, and ends with `php -v` answering.
+once produces one approval dialog naming Microsoft Corporation, and ends with `php -v` answering —
+**half measured** in Windows Sandbox on 2026-09-17: `mix` installed the redistributable and PHP 8.3.33
+and `php -v` answered; the approval dialog and the MixLab click wait for a machine with UAC on. See
+the design's Verification section, which also records the `+crt-static` fix that run forced.

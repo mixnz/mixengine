@@ -62,6 +62,17 @@ done
 # home. `packaging/*/build.sh` checks the staged binary rather than trusting this line.
 export MIXENGINE_RELEASE=1
 
+# **The C runtime goes inside every Windows binary** — roadmap task T150, measured 2026-09-16. Built
+# the default way, `mix.exe` and `mixengined.exe` import `vcruntime140.dll`, and a Windows Sandbox
+# with no Visual C++ runtime refused to start `mix --version` at all (`0xC0000135`): the machine
+# phase 18 exists to rescue could not run the thing that rescues it. The window already links it
+# statically, because `tauri-build` does so for every Tauri application. Here, and not in
+# `.cargo/config.toml`, which sets no flags: a release is what has to run on a bare machine, and a
+# test build on a developer's machine does not. `--target` is what keeps the flag off build scripts.
+case "${target:-$(mix_host_target)}" in
+  *-windows-msvc) export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C target-feature=+crt-static" ;;
+esac
+
 # `--locked`, so a packaging run cannot quietly resolve a dependency the tested build did not have.
 if [ -n "$container" ]; then
   mix_in_container "$container" \

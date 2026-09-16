@@ -336,6 +336,19 @@ code a decline produces (`1223` or `1602`) could not be measured on this machine
   the window and agreeing once produces one approval dialog naming Microsoft Corporation and ends
   with `php -v` answering.
 
+**M18, first measured 2026-09-17 in Windows Sandbox (Windows 11 Enterprise 26100, no
+`vcruntime140.dll`, no `VC\Runtimes` key).** It found a defect older than this phase: `mix.exe` and
+`mixengined.exe` imported `vcruntime140.dll`, and `mix --version` did not start (`0xC0000135`) — the
+machine this phase rescues could not run MixEngine at all. `packaging/stage.sh` now builds every
+Windows binary with `+crt-static`; the rebuilt four import no C runtime DLL. With those: `mix
+runtime available --kind php` showed `NEEDS` on all eleven releases (2015 for 7.0–7.1, 2017 for
+7.2–7.4, 2019 for 8.0–8.3, 2022 for 8.4–8.5); `install php 8.3.33 --json` without `--yes` was
+refused naming `--yes`; answering `n` installed nothing; `--yes` downloaded Microsoft's installer,
+ran it, and the machine then read `Installed=1 Major=14 Minor=44`, after which PHP 8.3.33 installed
+and `php -v` answered — 254 s in all. **Not measured there:** Windows' approval dialog and a declined
+one (the Sandbox runs with `EnableLUA = 0` as an administrator, so the installer never asks), and the
+same flow clicked through MixLab. Both wait for a Windows machine with UAC on and no runtime.
+
 ## Risks
 
 - **Microsoft moves the address or changes the signing subject.** Either makes step 1 or 2 fail

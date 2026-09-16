@@ -154,8 +154,8 @@ pub(crate) async fn satisfy(
             .progress(
                 0,
                 format!(
-                    "installing the Microsoft Visual C++ Redistributable ({arch}) — Windows asks \
-                     for approval, and this step cannot be cancelled once it has started"
+                    "installing the Microsoft Visual C++ Redistributable ({arch}) — Windows may \
+                     ask for approval, and this step cannot be cancelled once it has started"
                 ),
             )
             .await;

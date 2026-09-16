@@ -5017,7 +5017,7 @@ fn agreed_to_prerequisites(
     }
 
     match confirm::ask(&format!(
-        "{}install it first? Windows will ask for administrator approval. [y/N] ",
+        "{}install it first? Windows may ask for administrator approval. [y/N] ",
         render::requirements(unmet)
     )) {
         confirm::Answer::Yes => Ok(Some(true)),

@@ -54,6 +54,9 @@
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
 ### Fixed
+- MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,
+  `mixengined`, the shim and the elevation helper carried a dependency on `vcruntime140.dll` and
+  failed to launch without it; every Windows binary now carries its C runtime inside.
 - A `reverse-proxy` site whose upstream carried a path — `http://127.0.0.1:3000/api` — no longer
   costs *every* site on the machine its configuration. Caddy refuses a path in a proxy upstream and
   the whole rendering is judged in one go, so one such site silently froze every other one at its

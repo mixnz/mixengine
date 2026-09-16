@@ -59,10 +59,12 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 18 is built — 5 of 5, and M18 is not yet measured.** The one thing no CI runner can show —
-a machine with no Visual C++ runtime, a MixLab dialog, one Windows approval, and `php -v` answering —
-waits for a run in Windows Sandbox. Step zero found that a bundle with nothing to install ends `1638`
-without raising the dialog at all, so a declined dialog's exit code is measured there too. It comes from a Windows machine with no Visual C++ runtime, where
+**Phase 18 is built — 5 of 5, and M18 is half measured.** In Windows Sandbox, with no Visual C++
+runtime, `mix runtime install php 8.3.33 --yes` installed Microsoft's redistributable and then PHP,
+and `php -v` answered. The same run found MixEngine itself could not start on that machine — its
+binaries imported `vcruntime140.dll` — so every Windows release is now linked with `+crt-static`.
+What the Sandbox cannot show is Windows' approval dialog (it runs with UAC off) and the MixLab click;
+those wait for a machine with UAC on. The phase comes from a Windows machine with no Visual C++ runtime, where
 installing PHP downloads it, unpacks it, and ends at a loader error the index predicted before the
 first byte moved: every Windows PHP from 7.0.33 to 8.5.9 states a `requires.vcredist`, and T92
 recorded that nothing reads it. The phase reads it. **What can be installed is** — one Microsoft
