@@ -718,13 +718,19 @@ impl Api {
         install_prerequisites: bool,
         handle: &JobHandle,
     ) -> Result<(), Error> {
+        // A plan that installs nothing asks the index nothing — an apply that worked offline before
+        // T152 still does.
         let targets = self.install_targets(plan).await?;
+        if targets.is_empty() {
+            return Ok(());
+        }
+
+        // **An index that cannot be read refuses nothing here**, on `requirements::gate`'s reasoning:
+        // the install steps read it too, and report that in their own words.
         let fetcher = self.runtimes.fetcher();
-        let catalogue = fetcher
-            .index
-            .catalogue()
-            .await
-            .map_err(|error| error.to_wire())?;
+        let Ok(catalogue) = fetcher.index.catalogue().await else {
+            return Ok(());
+        };
 
         let judge = || {
             let facts = requirements::facts();

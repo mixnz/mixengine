@@ -518,9 +518,9 @@ async fn a_version_this_machine_cannot_run_is_refused_before_anything_downloads(
             json!({ "kind": "php", "version": "9.8.0" }),
         )
         .await;
-    assert_eq!(refused["code"], "dependency_missing", "{refused}");
+    assert_eq!(refused["data"]["code"], "dependency_missing", "{refused}");
     assert!(
-        refused["hint"]
+        refused["data"]["hint"]
             .as_str()
             .is_some_and(|hint| hint.contains(VERSION)),
         "the hint names the release that runs: {refused}"
