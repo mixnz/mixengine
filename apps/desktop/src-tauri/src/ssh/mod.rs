@@ -925,11 +925,13 @@ mod tests {
             // Hết handle không phải chuyện của một kết nối: chờ rồi thử lại.
             assert!(!is_transient_accept(&Error::from_raw_os_error(10024))); // WSAEMFILE
         }
+        // Unix không có một bảng số chung: Linux đánh `ECONNRESET` là 104, macOS là 54 — nên lấy
+        // từ `libc` của chính hệ điều hành đang build, không viết số tay.
         #[cfg(unix)]
         {
-            assert!(is_transient_accept(&Error::from_raw_os_error(104))); // ECONNRESET
-            assert!(is_transient_accept(&Error::from_raw_os_error(103))); // ECONNABORTED
-            assert!(!is_transient_accept(&Error::from_raw_os_error(24))); // EMFILE
+            assert!(is_transient_accept(&Error::from_raw_os_error(libc::ECONNRESET)));
+            assert!(is_transient_accept(&Error::from_raw_os_error(libc::ECONNABORTED)));
+            assert!(!is_transient_accept(&Error::from_raw_os_error(libc::EMFILE)));
         }
 
         // Và một signal cắt ngang lời gọi, ở mọi nhà.
