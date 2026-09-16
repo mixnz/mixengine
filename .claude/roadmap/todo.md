@@ -48,6 +48,7 @@ done
 | [15 — What a terminal inherits](phase-15-what-a-terminal-inherits.md) | A terminal can open its databases, run its global tools, and reach its own HTTPS sites | T130–T134 | 5 / 5 | **M15** `mysqldump` is a command, `npm install -g yarn` makes `yarn` one, and a Node program fetches `https://<site>.test` |
 | [16 — One site, many backends](phase-16-one-site-many-backends.md) | A site forwards path prefixes to several backends, rewriting the prefix on the way out | T135–T142 | 8 / 8 | **M16** one site answers `/` from disk, `/api` from a port, `/abc` from another as `/xyz`, on both front ends — **met**, measured through Caddy 2.11.4 and nginx 1.31.3 |
 | [17 — A disk somebody chose](phase-17-a-disk-somebody-chose.md) | The four directories that grow can be put on another disk, from the window or the command line, while the choice is still free | T143–T147 | 5 / 5 | **M17** a fresh install offers a disk before anything is installed, a runtime and a service land on it, and an elevation prompt still succeeds — **met**, measured on macOS with `data/` on an external volume and nothing left waiting for permission |
+| [18 — What a machine lacks](phase-18-what-a-machine-lacks.md) | What an artifact requires is read before it downloads: what can be installed is, once somebody agrees, and what cannot names the version that runs | T148–T152 | 0 / 5 | **M18** on a Windows machine with no Visual C++ runtime, choosing PHP 8.3 and agreeing once produces one approval dialog naming Microsoft Corporation and ends with `php -v` answering |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -57,6 +58,18 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 18 is open — 0 of 5.** It comes from a Windows machine with no Visual C++ runtime, where
+installing PHP downloads it, unpacks it, and ends at a loader error the index predicted before the
+first byte moved: every Windows PHP from 7.0.33 to 8.5.9 states a `requires.vcredist`, and T92
+recorded that nothing reads it. The phase reads it. **What can be installed is** — one Microsoft
+redistributable satisfies 21 of the 22 Windows artifacts that name one — after a person has agreed,
+from a fixed address, and only once its signature says Microsoft; **what cannot is routed around**,
+because a glibc or a macOS version is the operating system itself, and the newest release that does
+run is named instead. `SmokeTest` stays in front of every install. The one exception this makes to
+the security model is ADR 0037's to state, and the installer's real behaviour is measured before a
+line of it is written.
+Design: [2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md](../../docs/superpowers/specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md).
 
 **Phase 17 is done — 5 of 5, and M17 is met.** It comes from a machine with a small internal disk
 and an external SSD, where pointing `MIXENGINE_HOME` at that disk produced an elevation prompt that
