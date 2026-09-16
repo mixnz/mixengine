@@ -1,6 +1,6 @@
 //! macOS: the product version the kernel reports — roadmap task **T148**.
 
-use crate::{Machine, MachineFacts, Probe, dotted_version};
+use crate::{Machine, MachineFacts, Probe, avx, dotted_version};
 
 /// This system's answer.
 #[derive(Debug, Default)]
@@ -10,6 +10,7 @@ impl Machine for Facts {
     fn facts(&self) -> MachineFacts {
         MachineFacts {
             macos: macos(),
+            avx: avx(),
             ..MachineFacts::unknown()
         }
     }

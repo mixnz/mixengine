@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Added
+- A release that needs a processor with AVX — every MongoDB — is refused before it downloads on a
+  processor without it, in MixLab and in `mix`.
 - Installing a runtime or a service on Windows no longer ends at a missing Visual C++ runtime: MixLab
   and `mix` say what is missing before anything downloads, and after one yes MixEngine downloads
   Microsoft's redistributable, checks that Microsoft signed it, installs it — Windows asks for

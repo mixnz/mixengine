@@ -32,4 +32,8 @@ arch: RedistributableArch,
 /**
  * The version present, `14.29`, when one is present and too old.
  */
-found?: string | null, };
+found?: string | null, } | { "need": "cpu", 
+/**
+ * The feature the artifact names, as the index spells it — `avx`.
+ */
+feature: string, };

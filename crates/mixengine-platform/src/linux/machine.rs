@@ -3,7 +3,7 @@
 //! Every Linux build of MixEngine targets `-gnu`, so the running process is itself proof that a
 //! glibc is here; the only question is which.
 
-use crate::{Machine, MachineFacts, Probe, dotted_version};
+use crate::{Machine, MachineFacts, Probe, avx, dotted_version};
 
 /// This system's answer.
 #[derive(Debug, Default)]
@@ -13,6 +13,7 @@ impl Machine for Facts {
     fn facts(&self) -> MachineFacts {
         MachineFacts {
             glibc: glibc(),
+            avx: avx(),
             ..MachineFacts::unknown()
         }
     }

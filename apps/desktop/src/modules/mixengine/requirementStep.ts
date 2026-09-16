@@ -67,6 +67,8 @@ export function needLabel(need: Need): string {
       return `macOS ${need.at_least}+`;
     case "visual_cpp":
       return `Visual C++ ${need.year} (${need.arch})`;
+    case "cpu":
+      return `CPU with ${need.feature.toUpperCase()}`;
   }
 }
 

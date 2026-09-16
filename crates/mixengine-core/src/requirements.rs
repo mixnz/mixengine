@@ -3,8 +3,10 @@
 //!
 //! **Only a certain lack refuses** (T148 design, D2). A fact the machine could not report, a year
 //! this build has no row for, a version that is not dotted numbers, `vcredist` 2010 and 2013 whose
-//! keys nobody has read on a machine that has them, `cpu` and `tzdata`: none of them is ever a lack,
-//! and `install::SmokeTest` decides them exactly as it did before this module existed.
+//! keys nobody has read on a machine that has them, a `cpu` feature other than AVX, and `tzdata`:
+//! none of them is ever a lack, and `install::SmokeTest` decides them exactly as it did before this
+//! module existed. AVX is judged since **T153**, the task that made MongoDB — the one kind that
+//! states it — installable.
 //!
 //! Pure: no OS call, no network, so every rule here is tested without a machine to test it on.
 
@@ -48,6 +50,16 @@ pub fn unmet(requires: &Requires, arch: Arch, facts: &MachineFacts) -> Vec<Need>
         && let Some(need) = visual_cpp(year, arch, facts)
     {
         unmet.push(need);
+    }
+
+    // **Only AVX, only an x86_64 artifact, and only a certain absence** — roadmap task **T153**.
+    // The index states `avx` on MongoDB's ARM64 cells too, where it means nothing, and a feature
+    // word this build has no probe for is a could-not-tell like any other.
+    if requires.cpu.as_deref() == Some("avx") && arch == Arch::X86_64 && facts.avx == Probe::Absent
+    {
+        unmet.push(Need::Cpu {
+            feature: "avx".to_owned(),
+        });
     }
 
     unmet
@@ -483,6 +495,79 @@ mod tests {
             ),
             Some(Vec::new())
         );
+    }
+
+    fn without_avx() -> MachineFacts {
+        MachineFacts {
+            avx: Probe::Absent,
+            ..MachineFacts::unknown()
+        }
+    }
+
+    /// Roadmap task **T153**: MongoDB 5.0 and later refuse to start on an x86_64 without AVX.
+    #[test]
+    fn an_x86_64_artifact_that_needs_avx_is_refused_on_a_processor_without_it() {
+        assert_eq!(
+            unmet(&requires(r#"{"cpu": "avx"}"#), Arch::X86_64, &without_avx()),
+            [Need::Cpu {
+                feature: "avx".to_owned()
+            }]
+        );
+    }
+
+    #[test]
+    fn avx_is_not_a_lack_where_it_cannot_be_one() {
+        let wanted = requires(r#"{"cpu": "avx"}"#);
+        let with = MachineFacts {
+            avx: Probe::Present(()),
+            ..MachineFacts::unknown()
+        };
+
+        assert!(unmet(&wanted, Arch::X86_64, &with).is_empty());
+        assert!(
+            unmet(&wanted, Arch::Aarch64, &without_avx()).is_empty(),
+            "the index states avx on ARM64 cells too, where it means nothing"
+        );
+        assert!(
+            unmet(
+                &requires(r#"{"cpu": "avx512f"}"#),
+                Arch::X86_64,
+                &without_avx()
+            )
+            .is_empty(),
+            "a feature this build has no probe for is a could-not-tell"
+        );
+    }
+
+    fn mongodb(version: &str) -> String {
+        format!(
+            r#"{{"kind": "mongodb", "version": "{version}", "channel": "stable", "artifacts": [{{
+                "os": "linux", "arch": "x86_64", "url": "https://example.invalid/{version}",
+                "sha256": "00", "size": 1, "provides": {{"mongod": "bin/mongod"}},
+                "requires": {{"cpu": "avx", "glibc": "2.34"}}
+            }}]}}"#
+        )
+    }
+
+    /// Every MongoDB release needs AVX, so no other version is a way out.
+    #[test]
+    fn a_lack_every_release_shares_has_nowhere_to_go() {
+        let index = index(&[mongodb("8.3.11"), mongodb("7.0.43")].join(","));
+
+        let judged = judge(
+            &index,
+            Target::new(Os::Linux, Arch::X86_64),
+            "mongodb",
+            "8.3.11",
+            &without_avx(),
+        )
+        .expect("published here");
+
+        assert!(
+            matches!(judged[0].remedy, Remedy::Unavailable),
+            "{judged:?}"
+        );
+        assert!(blocks(&judged));
     }
 
     #[test]
