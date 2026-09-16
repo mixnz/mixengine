@@ -332,3 +332,15 @@ macOS, and a block in `.github/scripts/test-no-network.sh` for Linux, with
 - The `--nounixsocket` argument and the rendered file started by the Linux 8.3.11 artifact in WSL
   before T154 is committed, since this machine cannot run the Unix branch of D3.
 - An `all` CI run green on the branch before the pull request is merged.
+
+**Measured on 2026-09-17, while the work landed:**
+
+- WSL (Ubuntu), the Linux 8.3.11 x86_64 artifact, the rendered file under a data path with a space:
+  `mongod --config … --nounixsocket` announced `Waiting for connections`, no
+  `/tmp/mongodb-<port>.sock` existed, and `SIGTERM` ended in `Now exiting` with the process gone.
+- Windows, `tests/mongodb.rs` against the 8.3.11 artifact through a mock registry, a fresh daemon and
+  `mix`: installed, created on a free port, started, one document inserted, restarted — a kill on
+  that system — and read back, then stopped with nothing answering. 37.8 s.
+- `mixengine-daemon`'s `domains::lookup::a_name_nothing_routes_resolves_to_nothing` fails on the
+  machine that did this work and nowhere else: a MixEngine installed there routes every `.test` name
+  to 127.0.0.1. It is unchanged by this branch.

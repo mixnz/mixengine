@@ -39,7 +39,7 @@ became installable.
 
 ## The proof
 
-- [ ] **T156** **(P)** A real MongoDB judges the recipe: `tests/mongodb.rs` installs 8.3.11 from a
+- [x] **T156** **(P)** A real MongoDB judges the recipe: `tests/mongodb.rs` installs 8.3.11 from a
       mock registry, writes a document, restarts, reads it back and stops, and CI runs it on all
       three test legs. Design D7.
 
@@ -58,4 +58,7 @@ Not started, and each needs a design of its own (D8):
 ## Milestone
 
 **M19** `mix package install mongodb 8.3.11` and `mix service create mongodb@main 8.3.11` produce a
-server that keeps a document across a restart, and MixLab's Open lands in a Mongo tab connected to it.
+server that keeps a document across a restart, and MixLab's Open lands in a Mongo tab connected to it
+— **the first half measured** on Windows on 2026-09-17, by `tests/mongodb.rs` against 8.3.11: a
+document inserted, the service restarted (a kill, on that system) and the document read back. The
+MixLab click waits for a person at the window.
