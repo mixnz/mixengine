@@ -196,6 +196,16 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
     missing "No PHP" "MIXENGINE_PHP_RUNTIME is not set, so the generated ini set was not judged against a real PHP on this leg."
   fi
 
+  # And the module names in that set, against every branch rather than against one. Only 7.0 and 7.1
+  # hand an `extension =` value to the loader verbatim; from 7.2 on a wrong name is recovered by a
+  # fallback that appends the suffix, so the suite above — pinned to 8.3 — is green either way. This
+  # one needs no route out for the same reason the others do not: it runs `php -m` and reads it.
+  if [ -n "${MIXENGINE_PHP_RUNTIMES:-}" ]; then
+    cargo test -p mixengine-core --test php_modules --locked --offline -- --ignored
+  else
+    missing "No PHP" "MIXENGINE_PHP_RUNTIMES is not set, so the generated module names were not judged against the branch that can falsify them."
+  fi
+
   # And the MariaDB recipe against a real server (T33). Inside the namespace for the same reason,
   # and inside *this script* for one the other two do not have: the first-run ritual puts the
   # generated root password in the OS credential store and refuses a machine with none, and this is

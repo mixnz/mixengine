@@ -703,6 +703,15 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       by the Linux leg**, where `crates/mixengine-cli/tests/php_extensions.rs` runs inside the network
       namespace: whether a reload picks up a *newly enabled* extension is a question only a system
       with signals can answer.
+
+      **"Modern" was the load-bearing word, and it went unwritten.** The resolution above is a
+      fallback PHP 7.2 added; 7.0 and 7.1 hand the value to the loader verbatim. The measurement was
+      taken on 8.3 and read as a fact about PHP, so the Unix branch was left writing a bare name too
+      — where it resolves to nothing at all on the two oldest branches this product offers. Five
+      modules were silently absent from every PHP 7.0 installed until it was found in phase 17 and
+      fixed: `module_file` writes the full filename on every system, and
+      `crates/mixengine-core/tests/php_modules.rs` judges it against every PHP in
+      `MIXENGINE_PHP_RUNTIMES` rather than against one that cannot disagree.
       Two deviations from what [runtime-versions.md](../features/runtime-versions.md) said, both
       recorded there: the set lives at `etc/<kind>/<version>/conf.d/` rather than inside the install —
       an install is a rename over the destination, and generated configuration is disposable — and

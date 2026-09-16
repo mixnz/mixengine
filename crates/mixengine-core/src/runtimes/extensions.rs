@@ -255,20 +255,29 @@ pub fn conf_d(etc: &Path, kind: RuntimeKind, version: &str) -> PathBuf {
 
 /// What an `extension =` / `zend_extension =` line names, per platform.
 ///
-/// Unix loads a bare name as `<name>.so`, on every branch this build offers. **Windows does not, on
-/// the oldest ones**: PHP 7.0.33 and 7.1.33's Windows loader takes the ini value literally, and
-/// Windows itself only appends `.dll` to an extension-less name — never the `php_` prefix every
-/// windows.php.net archive actually ships its modules under. A bare `extension = igbinary` therefore
-/// asks Windows to load `igbinary.dll`, which does not exist; only `php_igbinary.dll` does, and
-/// nothing at that path is Windows guessing wrong — `dumpbin /dependents` shows the file loads fine
-/// once asked for by its real name. The full filename loads on every Windows branch this build
-/// offers, old and new alike, so it is written unconditionally rather than only for the branches
-/// measured to need it.
+/// **The full filename, on every system and every branch** — which is one rule rather than a rule
+/// and an exception, and the reason is that PHP itself has only ever had one.
+///
+/// The value is joined to `extension_dir` and handed to the dynamic loader *verbatim*. On PHP 7.0
+/// and 7.1 that is the whole of it: `main/php_ini.c` builds `<extension_dir>/<value>` for
+/// `zend_extension` and `ext/standard/dl.c` does the same for `extension`, with no suffix appended
+/// and — this is the part that matters — **no platform branch anywhere in it**. A bare
+/// `extension = igbinary` therefore asks for a file called `igbinary`, which no PHP build ships, on
+/// Linux and macOS alike. PHP 7.2 added a fallback to both files: try the value as a filename
+/// first, then build `<PHP_SHLIB_EXT_PREFIX><value>.<PHP_SHLIB_SUFFIX>` and try that. So a bare name
+/// works from 7.2 on and fails on the two oldest branches this build offers, which is why writing
+/// the filename is the spelling that loads everywhere rather than the cautious one.
+///
+/// What PHP would have built is exactly what is written here. Those two macros are
+/// `""` and `"so"` on Unix (`main/build-defs.h.in`, and `so` on macOS too — a PHP extension is never
+/// a `.dylib`), `"php_"` and `"dll"` on Windows (`win32/build/config.w32.h.in`) — and the Windows
+/// spelling is the one nothing could guess: Windows appends `.dll` to an extension-less name but
+/// never the `php_` prefix every windows.php.net archive actually ships its modules under.
 fn module_file(name: &str) -> String {
     if cfg!(windows) {
         format!("php_{name}.dll")
     } else {
-        name.to_owned()
+        format!("{name}.so")
     }
 }
 
@@ -966,15 +975,24 @@ mod tests {
 
     /// Two names are engine extensions and the rest are not. A `zend_extension` PHP cannot load is a
     /// startup warning rather than a refusal to start, which is why this is asserted here and again
-    /// against a real PHP in `crates/mixengine-cli/tests/php_extensions.rs`.
+    /// against a real PHP in `crates/mixengine-core/tests/php_modules.rs`.
+    ///
+    /// **The filenames are written out rather than built with [`module_file`]**, which is what this
+    /// test did until the spelling turned out to be wrong: an assertion that calls the function it
+    /// is judging agrees with whatever that function does, so it stayed green through a name no PHP
+    /// could open. What is pinned here is the string, and it changes only when somebody means it to.
     #[test]
     fn the_two_zend_extensions_are_spelled_as_such() {
         let files = rendered(&state(r#"{"xdebug": true}"#));
 
-        assert!(
-            files["90-xdebug.ini"].contains(&format!("zend_extension = {}", module_file("xdebug")))
-        );
-        assert!(files["50-redis.ini"].contains(&format!("extension = {}", module_file("redis"))));
+        let (xdebug, redis) = if cfg!(windows) {
+            ("php_xdebug.dll", "php_redis.dll")
+        } else {
+            ("xdebug.so", "redis.so")
+        };
+
+        assert!(files["90-xdebug.ini"].contains(&format!("zend_extension = {xdebug}")));
+        assert!(files["50-redis.ini"].contains(&format!("extension = {redis}")));
         assert!(
             !files["50-redis.ini"].contains("zend_extension"),
             "an ordinary extension loaded as an engine one is a PHP that will not start"

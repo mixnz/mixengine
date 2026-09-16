@@ -421,6 +421,21 @@ jobs:
           # the suite probes for it rather than writing it down. This is only the smoke check.
           "$into/bin/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version ||             "$into/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
 
+      # And the oldest PHP on offer, which is the only one that can falsify a module name — the
+      # branch above cannot. PHP 7.2 added a fallback that appends the shared-library suffix to an
+      # `extension =` value it cannot open, so a *wrong* name loads anyway from 7.2 on; 7.0 and 7.1
+      # hand the value to the loader verbatim. A suite pinned to 8.3 measured the spelling and could
+      # not have caught it, which is what happened: five modules were silently absent from every PHP
+      # 7.0 this product installed, and the warnings were on every command.
+      - name: Fetch the oldest PHP the module names have to satisfy
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
+          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php" >> "$GITHUB_ENV"
+
       # And a real MariaDB, for T33 — the first recipe that has to *create* something before it can
       # run at all, and the one whose every platform difference is upstream's rather than ours: two
       # different `mariadb-install-db` programs, a bootstrap that refuses `SET PASSWORD`, and an
@@ -846,6 +861,15 @@ jobs:
         env:
           CARGO_NET_OFFLINE: "true"
         run: cargo test -p mixengine-cli --test php_extensions --locked --offline -- --ignored
+
+      # And the module names against *both* branches — the suite above proves the set reaches PHP,
+      # this one proves the names in it name files that exist. Its own step for the same reason: a
+      # failure should say which of the two questions went unanswered.
+      - name: Test the module names against every branch
+        if: runner.os != 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-core --test php_modules --locked --offline -- --ignored
 
       # And the one that needs the MariaDB. Its own step for the reason the PHP one is: a failure
       # should name which recipe failed without anybody reading the log.

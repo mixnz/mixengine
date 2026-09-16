@@ -6,11 +6,24 @@
 //! *and* through the pool in a browser — and on Windows that is where it fails first, because
 //! `curl`, `mbstring` and `intl` are shared modules there that only an ini switches on.
 //!
-//! It also settles the two things the design asserted rather than measured: that php-fpm's `SIGUSR2`
-//! picks up a *newly enabled* extension, and that `zend_extension = xdebug` spelled as a bare name is
-//! a spelling this PHP accepts. Both fail quietly — a `zend_extension` PHP cannot load is a startup
+//! It also settles what the design asserted rather than measured: that php-fpm's `SIGUSR2` picks up
+//! a *newly enabled* extension. That fails quietly — a `zend_extension` PHP cannot load is a startup
 //! warning, not a refusal to start — which is why every assertion below compares **loaded sets**
 //! rather than exit codes.
+//!
+//! # What this suite is not in a position to say
+//!
+//! It once claimed the second half of that sentence too: that a bare `zend_extension = xdebug` is "a
+//! spelling this PHP accepts". It was, and the generalisation was still wrong. PHP 7.2 added a
+//! fallback that appends the shared-library suffix to a value the loader cannot open, so from 7.2 on
+//! a *wrong* module name loads anyway; 7.0 and 7.1 hand it over verbatim and load nothing. Pinned to
+//! 8.3.33, this suite could not have failed either way, and five modules were silently absent from
+//! every PHP 7.0 this product installed.
+//!
+//! The module names are therefore judged where a branch can falsify them —
+//! `mixengine-core/tests/php_modules.rs`, against every PHP in `MIXENGINE_PHP_RUNTIMES`. What is
+//! proved here is the half that needs a home: that the set **reaches** PHP, through the shim on a
+//! terminal and through the pool in a browser.
 //!
 //! **`#[ignore]`d rather than skipped**, for `php_fpm.rs`' reason: a test that quietly returns when
 //! it finds no PHP is a green suite that proved nothing on the day the download broke.

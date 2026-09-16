@@ -92,8 +92,11 @@ first row has recorded an absolute path.
       the chosen disk, with no Full Disk Access granted to anything.
 
       **The measurement found two bugs, and neither is this phase's.** None of PHP 7.0.33's
-      extensions load on macOS, relocated or not — `module_file` writes a bare name and the comment
-      above it claims Unix resolves that to `<name>.so`, which does not hold here; filed separately.
+      extensions load on any system, relocated or not — `module_file` wrote a bare name and the
+      comment above it claimed Unix resolves that to `<name>.so`. PHP's own source has no platform
+      branch there: 7.0 and 7.1 join `extension_dir` to the value verbatim, and the fallback that
+      recovers a wrong name arrived in 7.2. Fixed separately, with the test moved to the branch that
+      can falsify it.
       And `helper-install` reported *cannot write `/Library/PrivilegedHelperTools/…`* when what had
       actually failed was reading its own binary off the external volume: `fs::copy` fails with one
       error for two files and the message named the wrong one. Eight prompts were granted against
