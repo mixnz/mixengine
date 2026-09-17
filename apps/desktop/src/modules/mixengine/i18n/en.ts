@@ -612,6 +612,9 @@ export default {
     },
     blueprints: {
       newButton: "Capture project…",
+      about: "Stacks to start a project from — the ones MixEngine ships, and the ones captured or imported here.",
+      search: "Search blueprints…",
+      noMatches: "No blueprint matches that search.",
       importButton: "Import…",
       columnName: "Name",
       columnSource: "Source",

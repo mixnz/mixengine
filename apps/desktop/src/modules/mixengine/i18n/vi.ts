@@ -602,6 +602,9 @@ const vi: typeof en = {
     },
     blueprints: {
       newButton: "Capture project…",
+      about: "Các stack để dựng project — cái MixEngine có sẵn, và cái đã capture hoặc nhập ở đây.",
+      search: "Tìm blueprint…",
+      noMatches: "Không có blueprint nào khớp.",
       importButton: "Nhập…",
       columnName: "Tên",
       columnSource: "Nguồn",

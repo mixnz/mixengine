@@ -4,14 +4,18 @@
 
 .dialog {
   composes: dialog from "../../../../components/Modal/surface.module.css";
-  padding: 24px;
-  width: min(520px, calc(100vw - 2rem));
+  width: min(540px, calc(100vw - 2rem));
   max-height: 80vh;
   overflow-y: auto;
+  padding: 22px 24px;
+  gap: 16px;
 }
 
 .title {
-  margin: 0 0 16px;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .form {
@@ -23,8 +27,10 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
+  gap: 7px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .rootRow {
@@ -46,9 +52,9 @@
 }
 
 .step {
-  border: 1px solid var(--border, #ddd);
-  border-radius: 6px;
-  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
 }
 
 /* A failed step quotes the command's last lines, and the daemon sends them as lines — T120a's D6.
@@ -59,7 +65,7 @@
 }
 
 .blocked {
-  color: var(--danger, #c00);
+  color: var(--danger-text);
 }
 
 .choice {
@@ -79,7 +85,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* Cảnh báo, không phải lỗi: chưa có gì hỏng, và apply không tick vẫn là một lựa chọn hợp lệ. Nên
@@ -89,7 +95,7 @@
   padding: 6px 10px;
   border-left: 3px solid var(--warning-text);
   color: var(--warning-text);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 /* Cùng ngôn ngữ hình với `.consentWarning` — đây đúng là cùng một câu, nói lại sau khi việc đã
@@ -102,7 +108,7 @@
   border: 1px solid var(--warning-text);
   border-radius: var(--radius-sm);
   color: var(--warning-text);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .leftUnrun > p {
@@ -112,7 +118,7 @@
 .leftUnrun > code {
   padding: 6px 8px;
   overflow-x: auto;
-  background: rgb(0 0 0 / 12%);
+  background: var(--surface-sunken);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
   white-space: pre;
@@ -135,18 +141,13 @@
 .log {
   max-height: 200px;
   overflow-y: auto;
-  /* Lõm xuống dưới mặt dialog — một cái giếng, không phải một mảng phẳng nữa.
-     Trước đây nền là `--page-bg` với lý lẽ "màu nằm sau mặt dialog thì đọc ra là thụt vào". Lý lẽ
-     đó chỉ đúng ở theme sáng: theme tối đặt `--page-bg` và `--surface-bg` **bằng nhau** (`#2f2f2f`,
-     xem `App.css`), nên khối log biến mất hẳn vào mặt dialog. Một lớp đen phủ lên thì không phụ
-     thuộc token nào cả — sáng thì tối đi, tối thì tối thêm, hai bên đều ra một cái giếng. Viền là
-     thứ gánh phần phân biệt ở theme sáng, nơi lớp phủ buộc phải nhạt. */
-  background: rgb(0 0 0 / 0.05);
+  /* Sunk below the dialog's face: a well the output scrolls in, in both themes. */
+  background: var(--surface-sunken);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .logLine {
@@ -165,21 +166,20 @@
 }
 
 .errors {
-  margin-top: 12px;
-  color: var(--danger, #c00);
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-/* Nền tối hơn hẳn ở theme tối: mặt dialog đã là `#2f2f2f`, nên lớp phủ phải dày hơn nhiều mới đọc
-   ra là một cái giếng — và một khung output tối hơn cái app quanh nó đúng là hình dung sẵn có của
-   người dùng về một terminal. Hai selector cho một giá trị: một cho lựa chọn tường minh, một cho
-   người để theo hệ điều hành. */
-:root[data-theme="dark"] .log {
-  background: rgb(0 0 0 / 0.28);
+  gap: 10px;
+  flex-shrink: 0;
 }
