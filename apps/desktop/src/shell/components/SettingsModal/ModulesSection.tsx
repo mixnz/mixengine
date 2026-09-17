@@ -1,6 +1,7 @@
 import { useState } from "react";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import Checkbox from "../../../components/Checkbox";
+import SegmentedControl from "../../../components/SegmentedControl";
 import type { TranslationKey } from "../../../i18n";
 import { useTranslation } from "../../../i18n";
 import { MODULES, MODULE_PRESETS, PRESET_IDS, type PresetId } from "../../registry";
@@ -69,23 +70,13 @@ function ModulesSection({ enabled, onChange, openIds }: ModuleSettings) {
     <>
       <div className={styles.section}>
         <span className={styles.sectionLabel}>{t("profiles.presets")}</span>
-        <div className={styles.themeOptions}>
-          {PRESET_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className={
-                id === preset
-                  ? `${styles.themeOption} ${styles.themeOptionActive}`
-                  : styles.themeOption
-              }
-              aria-pressed={id === preset}
-              onClick={() => propose(MODULE_PRESETS[id])}
-            >
-              {t(presetLabelKey(id))}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl<PresetId>
+          aria-label={t("profiles.presets")}
+          block
+          value={preset}
+          onChange={(id) => propose(MODULE_PRESETS[id])}
+          segments={PRESET_IDS.map((id) => ({ value: id, label: t(presetLabelKey(id)) }))}
+        />
       </div>
 
       <div className={styles.section}>

@@ -1,6 +1,4 @@
-/* The colour and the ground come from `:root` in App.css, which sets `color` and `background-color`
-   outright and swaps both under the dark theme — so this screen inherits them and sets neither.
-   Dim text is `opacity`, the way SettingsModal.module.css does it. */
+/* The colour and the ground come from `:root` in App.css, so this screen sets neither. */
 .screen {
   display: flex;
   align-items: center;
@@ -14,57 +12,74 @@
 .card {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 22px;
   width: 100%;
-  max-width: 34rem;
+  max-width: 36rem;
+}
+
+.mark {
+  align-self: center;
+  width: 44px;
+  height: 44px;
 }
 
 .question {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-2xl);
   font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
   text-align: center;
 }
 
 .choices {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 10px;
 }
 
+/* A choice is a card: the name of the set and a sentence about what is in it. */
 .choice {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.85rem 1rem;
+  gap: 4px;
+  padding: 16px 18px;
   text-align: left;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   background: var(--surface-bg);
-  color: inherit;
+  box-shadow: var(--shadow-card);
+  color: var(--text);
   font: inherit;
   cursor: pointer;
-  transition: border-color 120ms ease;
+  transition: border-color 140ms ease, background-color 140ms ease;
 }
 
-.choice:hover,
+.choice:hover {
+  border-color: rgb(var(--accent-rgb) / 0.45);
+  background: var(--hover-bg);
+}
+
 .choice:focus-visible {
-  border-color: var(--accent);
   outline: none;
+  border-color: var(--accent-text);
+  box-shadow: var(--focus-ring);
 }
 
 .choiceName {
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
 .choiceAbout {
   font-size: var(--text-sm);
-  opacity: 0.65;
+  line-height: 1.5;
+  color: var(--text-muted);
 }
 
 .hint {
   margin: 0;
   text-align: center;
   font-size: var(--text-sm);
-  opacity: 0.65;
+  color: var(--text-muted);
 }

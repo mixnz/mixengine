@@ -21,7 +21,7 @@ in tokens — so the work starts at the tokens and moves outwards one area at a 
 - [x] **T158** Components — every shared component restyled and the new ones (Switch,
       SegmentedControl, FilterChip, StatusPill, Card, PageHeader, Table, MonogramBadge, Popover,
       EmptyState) added, with the shared-components skill updated.
-- [ ] **T159** Shell — tab bar, Settings modal, FirstRun, TabNotice.
+- [x] **T159** Shell — tab bar, Settings modal, FirstRun, TabNotice.
 - [ ] **T160** MixEngine I — gate, sidebar, Dashboard, Projects, Sites and its dialog, Domains & TLS.
 - [ ] **T161** MixEngine II — Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs,
       Add-ons, Settings, the remaining dialogs.

@@ -99,7 +99,6 @@ const CSS_BASELINE: Record<string, number> = {
   "modules/tools/tools/ports/Panel.module.css": 1,
   "modules/tools/tools/regex/Panel.module.css": 1,
   "modules/tools/tools/schema/Panel.module.css": 1,
-  "shell/components/SettingsModal/SettingsModal.module.css": 2,
 };
 
 const TS_BASELINE: Record<string, number> = {

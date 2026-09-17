@@ -1,4 +1,5 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Button from "../components/Button";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
 import SettingsModal from "./components/SettingsModal";
@@ -309,23 +310,25 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
         role="tablist"
         aria-label={t("app.tabs")}
         {...reorder.strip}
-        /* The app's name is also its settings button, which nothing about a bare word at 70%
-           opacity said — so it wears a surface, a border and a gear, and reads as something to
-           press before it is hovered.
-
-           In `leading`, so that a window full of tabs cannot scroll the way into Settings off the
-           left-hand edge — it is the one control that is there on every screen the app has. */
+        /* The app's mark and name, closed off from the tabs by a rule. Not a control: Settings has
+           a button of its own at the far end. */
         leading={
-          <button
-            type="button"
-            className="brand"
+          <div className="brand">
+            <img className="brand-mark" src="/logo.svg" alt="" width={28} height={28} />
+            <span className="brand-name">MixLab</span>
+          </div>
+        }
+        /* In `end`, so that a window full of tabs cannot scroll the way into Settings off the strip
+           — it is the one control that is there on every screen the app has. */
+        end={
+          <Button
+            className="brand-settings"
             onClick={() => setSettingsOpen(true)}
             title={t("app.settings")}
             aria-label={t("app.settings")}
           >
-            MixLab
-            <SettingsIcon className="brand-gear" size={14} />
-          </button>
+            <SettingsIcon size={17} />
+          </Button>
         }
         /* Not drawn at all once there is nothing left to open — a window holding the one tab its
            one module has. A `[+]` that could only ever open what is already in front of you is a

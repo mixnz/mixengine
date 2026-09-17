@@ -12,7 +12,9 @@ export interface Segment<T extends string> {
 
 interface Props<T extends string> {
   segments: readonly Segment<T>[];
-  value: T;
+  /** `null` when the current state matches none of the segments — a hand-picked set no preset
+   *  names — so none of them is shown as chosen. */
+  value: T | null;
   onChange: (value: T) => void;
   /**
    * `tabs` when the segments switch what the screen shows, `filter` when they narrow a list that
