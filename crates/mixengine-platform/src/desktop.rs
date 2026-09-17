@@ -23,7 +23,7 @@ use std::sync::{Mutex, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use crate::process::{self, Detached};
-use crate::{InstalledApp, Located, Result, Started};
+use crate::{DesktopApps, InstalledApp, Located, Result, Started};
 
 /// How long a started application is watched before it is called running.
 pub(crate) const JUDGEMENT: Duration = Duration::from_secs(1);
@@ -48,9 +48,6 @@ pub(crate) fn launch(
     args: &[OsString],
     env: &BTreeMap<String, String>,
 ) -> Result<Started> {
-    let mut all = app.args.clone();
-    all.extend(args.iter().cloned());
-
     // The program's own directory: what Explorer and Finder give it, and never this daemon's home,
     // which the application would then pin for its whole life.
     let directory = app
@@ -59,7 +56,7 @@ pub(crate) fn launch(
         .filter(|parent| !parent.as_os_str().is_empty())
         .map_or_else(std::env::temp_dir, std::path::Path::to_path_buf);
 
-    let mut child = process::spawn_detached(&app.program, &all, &directory, env)?;
+    let mut child = process::spawn_detached(&app.program, args, &directory, env)?;
     let pid = child.pid();
     let deadline = Instant::now() + JUDGEMENT;
 
@@ -87,14 +84,13 @@ pub(crate) fn launch(
 
 /// The window this MixEngine install has, if it has one — roadmap task **T107**, the design's D3.
 ///
-/// Called by all three [`crate::DesktopApps`] implementations, the way [`launch`] is: what differs
-/// per system is `sys::install::window_dirs`, and nothing else here does.
+/// Called by [`Apps`], the one [`crate::DesktopApps`] every system uses: what differs per system is
+/// `sys::install::window_dirs`, and nothing else here does.
 ///
 /// # Errors
 ///
-/// None today. The [`Result`] is the trait method's, whose other implementations walk a registry and
-/// run a Spotlight query; a lookup that is three `stat`s keeps the signature rather than the
-/// signature keeping to it.
+/// None today. The [`Result`] is the trait method's, kept so a lookup that could fail later does not
+/// change the trait.
 pub(crate) fn locate_window(executable: &str, bundle: &str) -> Result<Located> {
     let running = std::env::current_exe().ok();
     let directory = running.as_deref().and_then(std::path::Path::parent);
@@ -102,13 +98,34 @@ pub(crate) fn locate_window(executable: &str, bundle: &str) -> Result<Located> {
     Ok(window_at(directory, executable, bundle))
 }
 
+/// The [`DesktopApps`] every system's host holds — roadmap task **T165**.
+///
+/// One type and not three: what differs per system is `sys::install::window_dirs`, which
+/// [`window_at`] already reaches, and the launcher is [`launch`] everywhere.
+#[derive(Debug, Default)]
+pub(crate) struct Apps;
+
+impl DesktopApps for Apps {
+    fn locate_window(&self, executable: &str, bundle: &str) -> Result<Located> {
+        locate_window(executable, bundle)
+    }
+
+    fn launch(
+        &self,
+        app: &InstalledApp,
+        args: &[OsString],
+        env: &BTreeMap<String, String>,
+    ) -> Result<Started> {
+        launch(app, args, env)
+    }
+}
+
 /// The pure half: the window belonging to an install whose programs are in `directory`.
 ///
-/// **Neither `PATH` nor the operating system's tables**, unlike [`crate::DesktopApps::locate`]. A
-/// `mixlab` first on somebody's `PATH`, or a bundle Spotlight knows about, may belong to a different
-/// install of MixEngine than the program doing the asking — and then which window a database opens
-/// in would depend on the order of a `PATH`. Standalone MixDB is still found through the tables, by
-/// the hint its manifest carries; that is the other half of the design's D3.
+/// **Neither `PATH` nor the operating system's tables.** A `mixlab` first on somebody's `PATH`, or a
+/// bundle Spotlight knows about, may belong to a different install of MixEngine than the program
+/// doing the asking — and then which window a database opens in would depend on the order of a
+/// `PATH`.
 fn window_at(directory: Option<&std::path::Path>, executable: &str, bundle: &str) -> Located {
     let placed_as = crate::install::application_file_name(executable, bundle);
     let mut roots: Vec<std::path::PathBuf> = Vec::new();
@@ -125,10 +142,7 @@ fn window_at(directory: Option<&std::path::Path>, executable: &str, bundle: &str
         let program = crate::install::application_executable(&placed, executable);
 
         if program.is_file() {
-            return Located::Installed(InstalledApp {
-                program,
-                args: Vec::new(),
-            });
+            return Located::Installed(InstalledApp { program });
         }
 
         looked.push(placed.display().to_string());
@@ -187,122 +201,6 @@ fn reap() {
     }
 }
 
-/// Reading the two texts an installer leaves behind, on every system.
-///
-/// Compiled on all three systems so that each reader is tested on every one of them — `prompt`'s
-/// arrangement, and for its reason: the part most likely to be wrong is the parse, and a parse only
-/// compiled on the system that calls it is a parse only tested there.
-#[allow(
-    dead_code,
-    reason = "each reader here is compiled on all three systems and called on one: `exec_line` by \
-              Linux's locator and `unquoted` by Windows', while the tests below read both everywhere"
-)]
-pub(crate) mod entry {
-    /// The program and its fixed arguments out of a desktop entry's `Exec=` value.
-    ///
-    /// Field codes (`%u`, `%U`, `%f`, `%F`, `%i`, `%c`, `%k`, …) are dropped; `"quoted words"` are
-    /// one word; `%%` is a literal `%`. [`None`] for a line with no program in it.
-    pub(crate) fn exec_line(value: &str) -> Option<(String, Vec<String>)> {
-        let mut words = Vec::new();
-        let mut word = String::new();
-        let mut quoted = false;
-        let mut chars = value.trim().chars();
-
-        while let Some(c) = chars.next() {
-            match c {
-                '"' => quoted = !quoted,
-                '\\' if quoted => {
-                    if let Some(next) = chars.next() {
-                        word.push(next);
-                    }
-                }
-                ' ' | '\t' if !quoted => {
-                    if !word.is_empty() {
-                        words.push(std::mem::take(&mut word));
-                    }
-                }
-                // A field code is dropped with the letter after it; `%%` is a literal.
-                '%' => {
-                    if chars.next() == Some('%') {
-                        word.push('%');
-                    }
-                }
-                other => word.push(other),
-            }
-        }
-        if !word.is_empty() {
-            words.push(word);
-        }
-
-        let mut words = words.into_iter();
-        let program = words.next()?;
-        Some((program, words.collect()))
-    }
-
-    /// A registry path as an installer wrote it: quotation marks and a trailing `,<icon index>`
-    /// removed. `C:\a\b.exe`, `"C:\a\b.exe"` and `"C:\a\b.exe",0` are one path.
-    pub(crate) fn unquoted(value: &str) -> String {
-        let trimmed = value.trim();
-
-        if let Some(rest) = trimmed.strip_prefix('"') {
-            // Quoted: the path ends at the closing quote, and whatever follows — an icon index —
-            // is not part of it.
-            return rest
-                .split_once('"')
-                .map_or(rest, |(inner, _)| inner)
-                .to_owned();
-        }
-
-        // Bare: a trailing `,<number>` is an icon index and not part of the path. A comma
-        // followed by anything else stays, since a directory may be named with one.
-        trimmed
-            .rsplit_once(',')
-            .filter(|(_, index)| index.trim().parse::<i32>().is_ok())
-            .map_or(trimmed, |(path, _)| path)
-            .trim()
-            .to_owned()
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use super::*;
-
-        #[test]
-        fn an_exec_line_drops_field_codes_and_keeps_fixed_arguments() {
-            assert_eq!(exec_line("mixdb %U"), Some(("mixdb".to_owned(), vec![])));
-            assert_eq!(
-                exec_line("\"/opt/My App/bin/mixdb\" --flag %u"),
-                Some((
-                    "/opt/My App/bin/mixdb".to_owned(),
-                    vec!["--flag".to_owned()]
-                ))
-            );
-            assert_eq!(
-                exec_line("env FOO=1 mixdb"),
-                Some((
-                    "env".to_owned(),
-                    vec!["FOO=1".to_owned(), "mixdb".to_owned()]
-                ))
-            );
-            assert_eq!(exec_line("%U"), None);
-            assert_eq!(exec_line("   "), None);
-            assert_eq!(
-                exec_line("a 100%% b"),
-                Some(("a".to_owned(), vec!["100%".to_owned(), "b".to_owned()]))
-            );
-        }
-
-        #[test]
-        fn a_registry_path_loses_its_quotes_and_its_icon_index() {
-            assert_eq!(unquoted(r#""C:\a\b.exe""#), r"C:\a\b.exe");
-            assert_eq!(unquoted(r#""C:\a b\c.exe",0"#), r"C:\a b\c.exe");
-            assert_eq!(unquoted(r"C:\a\b.exe,0"), r"C:\a\b.exe");
-            assert_eq!(unquoted(r"C:\a\b.exe"), r"C:\a\b.exe");
-            assert_eq!(unquoted(r"C:\a,b\c.exe"), r"C:\a,b\c.exe");
-        }
-    }
-}
-
 #[cfg(test)]
 mod window_tests {
     use super::*;
@@ -330,7 +228,6 @@ mod window_tests {
         match window_at(Some(temp.path()), "mixlab", "MixLab.app") {
             Located::Installed(app) => {
                 assert_eq!(app.program, program);
-                assert!(app.args.is_empty(), "a window takes no fixed arguments");
             }
             other => panic!("{other:?}"),
         }

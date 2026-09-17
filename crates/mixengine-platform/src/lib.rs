@@ -101,8 +101,8 @@ mod private_file;
 // documentation for why that is a different split rather than a hole in this one.
 #[cfg(feature = "host")]
 mod secrets;
-// Starting a desktop application, shared by all three systems — the T83 design's D9 and D11. What
-// is per-OS is finding it, in `sys::desktop`.
+// Finding this install's window and starting it, shared by all three systems — the T83 design's D9
+// and D11, and T165.
 #[cfg(feature = "host")]
 pub(crate) mod desktop;
 #[cfg(feature = "signal")]
