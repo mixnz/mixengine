@@ -80,6 +80,18 @@ pub enum Need {
         /// The feature the artifact names, as the index spells it — `avx`.
         feature: String,
     },
+
+    /// A shared library the build links and this machine's loader does not list — roadmap task
+    /// **T27e**.
+    ///
+    /// **The one need that never refuses.** Every Linux JDK links `libz`, `freetype`, X11 and ALSA
+    /// from the distribution, and a headless server runs without three of the four — so this is
+    /// said and the install goes on. Its remedy is always
+    /// [`InstallFromDistribution`](Remedy::InstallFromDistribution).
+    SharedLibrary {
+        /// As the index spells it — `libasound.so.2`.
+        soname: String,
+    },
 }
 
 impl Need {
@@ -91,6 +103,7 @@ impl Need {
             Self::Macos { at_least, .. } => format!("macOS {at_least}+"),
             Self::VisualCpp { year, arch, .. } => format!("Visual C++ {year} ({arch})"),
             Self::Cpu { feature } => format!("CPU with {}", feature.to_uppercase()),
+            Self::SharedLibrary { soname } => soname.clone(),
         }
     }
 }
@@ -133,6 +146,10 @@ impl fmt::Display for Need {
                 "a processor with {}, and this one does not have it",
                 feature.to_uppercase()
             ),
+            Self::SharedLibrary { soname } => write!(
+                formatter,
+                "the shared library {soname}, which this machine's loader does not list"
+            ),
         }
     }
 }
@@ -157,6 +174,13 @@ pub enum Remedy {
 
     /// Nothing can be installed, and no published release of the kind runs here.
     Unavailable,
+
+    /// The distribution's package manager has it, and nothing is refused meanwhile — roadmap task
+    /// **T27e**.
+    ///
+    /// **No package name.** `libasound.so.2` is `libasound2` on Debian and `alsa-lib` on Fedora,
+    /// and a daemon that guessed would be naming something it did not measure.
+    InstallFromDistribution,
 }
 
 impl fmt::Display for Remedy {
@@ -175,6 +199,9 @@ impl fmt::Display for Remedy {
                 )
             }
             Self::Unavailable => formatter.write_str("no published release runs on this machine"),
+            Self::InstallFromDistribution => {
+                formatter.write_str("install it with this distribution's package manager")
+            }
         }
     }
 }
@@ -218,6 +245,29 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&need).expect("it encodes"),
             serde_json::json!({"need": "cpu", "feature": "avx"})
+        );
+    }
+
+    /// **A library is named by its soname, and what to do about it names no package** — roadmap
+    /// task **T27e**, its design's D15.
+    #[test]
+    fn a_missing_library_is_said_by_soname_and_sent_as_published() {
+        let need = Need::SharedLibrary {
+            soname: "libasound.so.2".to_owned(),
+        };
+
+        assert_eq!(need.label(), "libasound.so.2");
+        assert_eq!(
+            need.to_string(),
+            "the shared library libasound.so.2, which this machine's loader does not list"
+        );
+        assert_eq!(
+            serde_json::to_value(&need).expect("it encodes"),
+            serde_json::json!({"need": "shared_library", "soname": "libasound.so.2"})
+        );
+        assert_eq!(
+            serde_json::to_value(Remedy::InstallFromDistribution).expect("it encodes"),
+            serde_json::json!({"remedy": "install_from_distribution"})
         );
     }
 }

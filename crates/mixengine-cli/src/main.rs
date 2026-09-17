@@ -4978,12 +4978,27 @@ fn agreed_to_prerequisites(
     yes: bool,
     json: bool,
 ) -> Result<Option<bool>, Error> {
+    // **Said before anything is decided, and it decides nothing** — roadmap task **T27e**, D16: a
+    // library the distribution provides is the person's to install, and the runtime installs
+    // meanwhile. On `--json` it is left out, because the same list is in what the daemon answered.
+    let advisories: Vec<Requirement> = unmet
+        .iter()
+        .filter(|requirement| matches!(requirement.remedy, Remedy::InstallFromDistribution))
+        .cloned()
+        .collect();
+    if !advisories.is_empty() && !json {
+        let _ = write!(std::io::stderr(), "{}", render::advisories(&advisories));
+    }
+
     let installable = unmet
         .iter()
         .any(|requirement| matches!(requirement.remedy, Remedy::InstallVisualCpp { .. }));
-    let blocked = unmet
-        .iter()
-        .any(|requirement| !matches!(requirement.remedy, Remedy::InstallVisualCpp { .. }));
+    let blocked = unmet.iter().any(|requirement| {
+        !matches!(
+            requirement.remedy,
+            Remedy::InstallVisualCpp { .. } | Remedy::InstallFromDistribution
+        )
+    });
 
     if !installable || blocked {
         return Ok(Some(false));
@@ -6207,6 +6222,19 @@ mod tests {
         assert!(
             agreed_to_prerequisites(&[installable], false, true).is_err(),
             "--json needs --yes"
+        );
+
+        // **A library the distribution provides asks nothing** — roadmap task T27e, D16.
+        let advisory = Requirement {
+            need: Need::SharedLibrary {
+                soname: "libasound.so.2".to_owned(),
+            },
+            remedy: Remedy::InstallFromDistribution,
+        };
+        assert_eq!(
+            agreed_to_prerequisites(&[advisory], false, true).unwrap(),
+            Some(false),
+            "it goes on, and nothing was agreed to"
         );
     }
 

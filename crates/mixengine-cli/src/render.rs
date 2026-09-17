@@ -1316,6 +1316,20 @@ pub(crate) fn requirements(unmet: &[Requirement]) -> String {
     rendered
 }
 
+/// What an install may lack that refuses nothing — roadmap task **T27e**, its design's D16.
+pub(crate) fn advisories(advisories: &[Requirement]) -> String {
+    let named: Vec<String> = advisories
+        .iter()
+        .map(|requirement| requirement.need.label())
+        .collect();
+
+    format!(
+        "warning: this machine's loader does not list {} — install them with this distribution's \
+         package manager; the install goes on\n",
+        named.join(", ")
+    )
+}
+
 /// The note that goes above a listing with an emulated row in it, or [`None`] for one without —
 /// roadmap task **T92**.
 ///
@@ -4073,6 +4087,21 @@ mod tests {
             rendered.contains("8.3.33 is the newest release that runs here"),
             "{rendered}"
         );
+    }
+
+    /// **A warning names the libraries and says the install goes on** — roadmap task **T27e**, D16.
+    #[test]
+    fn a_warning_names_the_libraries_and_says_the_install_goes_on() {
+        let said = advisories(&[Requirement {
+            need: Need::SharedLibrary {
+                soname: "libasound.so.2".to_owned(),
+            },
+            remedy: Remedy::InstallFromDistribution,
+        }]);
+
+        assert!(said.starts_with("warning: "), "{said}");
+        assert!(said.contains("libasound.so.2"), "{said}");
+        assert!(said.contains("goes on"), "{said}");
     }
 
     /// The column exists only where it says something — roadmap task **T92**.

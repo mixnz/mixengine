@@ -506,6 +506,30 @@ impl Runtimes {
             handle.progress(0, &notice).await;
         }
 
+        // **What this machine may lack, said and not refused** — roadmap task T27e, D16. The gate
+        // in front of this job already let it through; what is left is to name the sonames, in the
+        // job's own progress so every client sees them and in the log for a support conversation.
+        let advisories = mixengine_core::requirements::advisories(&requirements::of(
+            &catalogue.index,
+            kind.as_str(),
+            version.as_str(),
+            &requirements::facts(),
+        ));
+        if !advisories.is_empty() {
+            let named: Vec<String> = advisories
+                .iter()
+                .map(|requirement| requirement.need.label())
+                .collect();
+            let notice = format!(
+                "this machine's loader does not list {} — install them with this distribution's \
+                 package manager; the install goes on",
+                named.join(", ")
+            );
+
+            tracing::warn!(kind = kind.as_str(), version = version.as_str(), "{notice}");
+            handle.progress(0, &notice).await;
+        }
+
         let into = runtimes::directory(&self.paths, kind, version);
         if let Some(parent) = into.parent() {
             paths::create_dir(parent).map_err(|error| error.to_wire())?;

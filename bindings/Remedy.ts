@@ -13,4 +13,4 @@ arch: RedistributableArch, } | { "remedy": "choose_version",
 /**
  * That release.
  */
-version: PackageVersion, } | { "remedy": "unavailable" };
+version: PackageVersion, } | { "remedy": "unavailable" } | { "remedy": "install_from_distribution" };

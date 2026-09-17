@@ -62,6 +62,19 @@ pub fn unmet(requires: &Requires, arch: Arch, facts: &MachineFacts) -> Vec<Need>
         });
     }
 
+    // **A warning, never a refusal** — roadmap task **T27e**, its design's D15. Only a certain
+    // absence, as everything above: a machine whose loader cache could not be read lacks nothing
+    // here, and one that lists a soname has it whatever else is true.
+    if let Probe::Present(listed) = &facts.shared_libraries {
+        for soname in &requires.libraries {
+            if !listed.contains(soname) {
+                unmet.push(Need::SharedLibrary {
+                    soname: soname.clone(),
+                });
+            }
+        }
+    }
+
     unmet
 }
 
@@ -93,6 +106,10 @@ pub fn judge(
             .map(|need| {
                 let remedy = match &need {
                     Need::VisualCpp { arch, .. } => Remedy::InstallVisualCpp { arch: *arch },
+
+                    // **Never `ChooseVersion`** (T27e, D15): every Linux release of a line links the
+                    // same libraries, so offering another one would be offering the same warning.
+                    Need::SharedLibrary { .. } => Remedy::InstallFromDistribution,
                     _ => match alternative
                         .get_or_insert_with(|| newest_met(index, target, kind, version, facts))
                     {
@@ -117,11 +134,30 @@ pub fn needs_consent(requirements: &[Requirement]) -> bool {
 }
 
 /// Whether any of these is something no installer MixEngine runs can fix.
+///
+/// **An advisory is not one** — roadmap task **T27e**: a library the distribution provides is said
+/// and stands in nobody's way, which is the whole of what [`is_advisory`] marks.
 #[must_use]
 pub fn blocks(requirements: &[Requirement]) -> bool {
+    requirements.iter().any(|requirement| {
+        !is_advisory(requirement) && !matches!(requirement.remedy, Remedy::InstallVisualCpp { .. })
+    })
+}
+
+/// Whether this requirement only warns — roadmap task **T27e**, its design's D15.
+#[must_use]
+pub fn is_advisory(requirement: &Requirement) -> bool {
+    matches!(requirement.remedy, Remedy::InstallFromDistribution)
+}
+
+/// The requirements that only warn, in the order they were judged.
+#[must_use]
+pub fn advisories(requirements: &[Requirement]) -> Vec<Requirement> {
     requirements
         .iter()
-        .any(|requirement| !matches!(requirement.remedy, Remedy::InstallVisualCpp { .. }))
+        .filter(|requirement| is_advisory(requirement))
+        .cloned()
+        .collect()
 }
 
 /// Every redistributable these ask to install, once each.
@@ -214,6 +250,10 @@ fn visual_cpp(year: &str, arch: Arch, facts: &MachineFacts) -> Option<Need> {
 
 /// The newest stable release of `kind`, other than `asked`, whose artifact this machine lacks
 /// nothing for.
+///
+/// **A warning is not a lack here** — roadmap task **T27e**: every Linux release of a JDK line links
+/// the same libraries, so counting one would leave a machine short of glibc with nothing to be
+/// offered at all.
 fn newest_met(
     index: &Index,
     target: Target,
@@ -226,7 +266,9 @@ fn newest_met(
         .filter(|package| package.channel == Channel::Stable && package.version != asked)
         .filter(|package| {
             package.select(target).is_some_and(|selection| {
-                unmet(&selection.artifact.requires, selection.artifact.arch, facts).is_empty()
+                unmet(&selection.artifact.requires, selection.artifact.arch, facts)
+                    .iter()
+                    .all(|need| matches!(need, Need::SharedLibrary { .. }))
             })
         })
         .filter_map(|package| PackageVersion::parse(package.version.clone()).ok())
@@ -424,6 +466,110 @@ mod tests {
         );
         assert!(blocks(&judged));
         assert!(!needs_consent(&judged));
+    }
+
+    /// A machine that lists what a build links, and one that does not — roadmap task **T27e**.
+    fn linux_listing(sonames: &[&str]) -> MachineFacts {
+        MachineFacts {
+            glibc: Probe::Present("2.39".to_owned()),
+            shared_libraries: Probe::Present(sonames.iter().map(|one| (*one).to_owned()).collect()),
+            ..MachineFacts::unknown()
+        }
+    }
+
+    fn java(version: &str, requires: &str) -> String {
+        format!(
+            r#"{{"kind": "java", "version": "{version}", "channel": "stable", "artifacts": [{{
+                "os": "linux", "arch": "x86_64", "url": "https://example.invalid/{version}",
+                "sha256": "00", "size": 1, "provides": {{"java": "bin/java"}},
+                "requires": {requires}
+            }}]}}"#
+        )
+    }
+
+    /// **Only a certain absence**, which is T148's D2 applied to one more field.
+    #[test]
+    fn a_library_the_loader_lists_is_not_a_lack_and_one_it_does_not_is_a_warning() {
+        let wanted = requires(r#"{"libraries": ["libz.so.1", "libasound.so.2"]}"#);
+
+        assert_eq!(
+            unmet(&wanted, Arch::X86_64, &linux_listing(&["libz.so.1"])),
+            vec![Need::SharedLibrary {
+                soname: "libasound.so.2".to_owned()
+            }]
+        );
+        assert!(
+            unmet(&wanted, Arch::X86_64, &MachineFacts::unknown()).is_empty(),
+            "a machine whose loader could not be asked lacks nothing"
+        );
+        assert!(
+            unmet(
+                &wanted,
+                Arch::X86_64,
+                &linux_listing(&["libz.so.1", "libasound.so.2"])
+            )
+            .is_empty()
+        );
+    }
+
+    /// **A warning refuses nothing and asks nothing** — roadmap task **T27e**, its design's D15.
+    #[test]
+    fn a_missing_library_refuses_nothing_and_asks_nothing() {
+        let index = index(&java("21.0.12.1", r#"{"libraries": ["libasound.so.2"]}"#));
+
+        let judged = judge(
+            &index,
+            Target::new(Os::Linux, Arch::X86_64),
+            "java",
+            "21.0.12.1",
+            &linux_listing(&["libz.so.1"]),
+        )
+        .expect("published here");
+
+        assert!(
+            matches!(judged[0].remedy, Remedy::InstallFromDistribution),
+            "{judged:?}"
+        );
+        assert!(!blocks(&judged));
+        assert!(!needs_consent(&judged));
+        assert_eq!(advisories(&judged).len(), 1);
+    }
+
+    /// **A warning does not hide the release that runs** — every Linux JDK links the same set, so
+    /// counting it would leave a machine short of glibc with nothing to be offered.
+    #[test]
+    fn a_warning_does_not_hide_the_release_that_runs() {
+        let index = index(
+            &[
+                java(
+                    "25.0.4.1",
+                    r#"{"glibc": "2.99", "libraries": ["libasound.so.2"]}"#,
+                ),
+                java(
+                    "21.0.12.1",
+                    r#"{"glibc": "2.17", "libraries": ["libasound.so.2"]}"#,
+                ),
+            ]
+            .join(","),
+        );
+
+        let judged = judge(
+            &index,
+            Target::new(Os::Linux, Arch::X86_64),
+            "java",
+            "25.0.4.1",
+            &linux_listing(&["libz.so.1"]),
+        )
+        .expect("published here");
+
+        assert!(
+            judged.iter().any(|one| matches!(
+                &one.remedy,
+                Remedy::ChooseVersion { version } if version.as_str() == "21.0.12.1"
+            )),
+            "{judged:?}"
+        );
+        assert!(blocks(&judged), "the glibc floor still refuses");
     }
 
     #[test]
