@@ -1,7 +1,7 @@
 # MixEngine
 
-A local web development environment. Run several PHP, Node.js, Python and Ruby versions side by side
-and let each directory choose its own; run the web server, databases and caches your projects need;
+A local web development environment. Run several PHP, Node.js, Python, Ruby and Go versions side by
+side and let each directory choose its own; run the web server, databases and caches your projects need;
 and give every site a real name like `https://blog.test` with a certificate your browser trusts.
 No Docker, no virtual machine, no configuration file written by hand — and nothing of MixEngine's
 stays on your machine as a root process.

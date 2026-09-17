@@ -1,7 +1,7 @@
 # Multi-version runtime management
 
-**Goal**: install many versions of PHP, Node.js, Python and Ruby side by side, switch instantly, and
-have each project use the right one without the user thinking about it.
+**Goal**: install many versions of PHP, Node.js, Python, Ruby and Go side by side, switch instantly,
+and have each project use the right one without the user thinking about it.
 
 ## Model
 
@@ -9,12 +9,17 @@ have each project use the right one without the user thinking about it.
   mutates an existing version.
 - A **runtime kind** has one *global default* and any number of *project pins*.
 - PHP is special: each installed PHP version also owns a long-running `php-fpm@<version>` service
-  ([services.md](services.md)). Node/Python/Ruby are invoked per-command, not supervised.
-- **Composer is a kind, not a language** — T27c. It installs, pins, lists and defaults like the four
-  above, into `runtimes/composer/<version>/composer.phar`, and the `composer` shim runs that file
-  under the PHP the same directory resolves to. Composer 2.3+ needs PHP 7.2.5 or newer; a project on
-  an older PHP pins `composer = "2.2"`. No service, no smoke test at install (nothing starts on its
-  own), no `conf.d`. Design:
+  ([services.md](services.md)). Node/Python/Ruby/Go are invoked per-command, not supervised.
+- **Go** — T27d. Upstream's whole tree under `runtimes/go/<version>/`, fronted by `go` and `gofmt`,
+  smoke-tested with `go version`. `GOROOT` is wherever the tree is, derived by `go` itself, and
+  `GOPATH`, `GOMODCACHE`, `GOCACHE` and `GOBIN` stay Go's own defaults. What `go install` writes into
+  `GOBIN` is not fronted: that directory is outside every install and shared by all of them. Design:
+  [docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md](../../docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md).
+- **Composer is a kind, not a language** — T27c. It installs, pins, lists and defaults like the
+  languages above, into `runtimes/composer/<version>/composer.phar`, and the `composer` shim runs
+  that file under the PHP the same directory resolves to. Composer 2.3+ needs PHP 7.2.5 or newer; a
+  project on an older PHP pins `composer = "2.2"`. No service, no smoke test at install (nothing
+  starts on its own), no `conf.d`. Design:
   [docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../../docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
 
 ## Version resolution
@@ -40,7 +45,7 @@ is resolved against installed versions — **never** silently against downloadab
 ## Shims
 
 `<root>/bin/` contains a small shim binary per exposed command (`php`, `php-config`, `pecl`,
-`composer`, `node`, `npm`, `npx`, `python`, `pip`, `ruby`, `gem`, `bundle`). The shim:
+`composer`, `node`, `npm`, `npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`). The shim:
 
 1. Reads its own file name to know which command was invoked.
 2. Calls `resolve` (in-process, reading SQLite read-only + walking for `mixengine.toml`) — **no IPC**,
@@ -108,11 +113,24 @@ bindir is out of scope: it is `~/.composer/vendor/bin`, outside every install di
 | Python | `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` | `etc/ca/bundle.pem` |
 | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
 | PHP, Composer | — | the generated ini set says it instead |
+| Go | — | Go already reads the store this home's authority is installed into |
 
 Node is handed the authority and the others the merged bundle, because `NODE_EXTRA_CA_CERTS` *adds*
 to what Node trusts and every other mechanism **replaces** a trust store. See [tls.md](tls.md).
 Nothing is exported for a file that is not there, and a variable the person already set is never
-overwritten.
+overwritten. Go needs no row: its `crypto/x509` verifies through CryptoAPI on Windows and
+`SecTrustEvaluateWithError` on macOS, and on Linux reads `/etc/ssl/certs/ca-certificates.crt` or
+`/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem` — the two bundles `update-ca-certificates` and
+`update-ca-trust` regenerate after MixEngine's anchor lands.
+
+**And a `go` is kept to the release it resolved to** — T27d. The archive's `go.env` says
+`GOTOOLCHAIN=auto`, which lets a `go.mod` asking for a newer Go download that Go and run it instead,
+so the shim hands a `go` **`GOTOOLCHAIN=local`**: a module that needs more than the pinned release
+fails with Go's own sentence naming the setting. A non-empty `GOTOOLCHAIN` the session exported is
+left alone, an empty one is treated as unset (Go does the same), and one written with `go env -w`
+loses on purpose — the environment beats that file, and it is usually a machine-wide choice made
+before MixEngine was installed. `mix doctor` notes a daemon whose own environment carries a
+`GOTOOLCHAIN` other than `local`, or a `GOROOT`, since its children inherit either.
 
 ## Install flow
 

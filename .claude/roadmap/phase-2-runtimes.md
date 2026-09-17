@@ -676,6 +676,26 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       found it unset, and fell back to the OS default home — another install's database whenever
       the daemon was started with `--home`. T78a's suite never saw it because its command is
       `echo`. The scaffold now carries `MIXENGINE_HOME` naming the daemon's own root.
+- [x] **T27d** Go, the sixth runtime kind — design in
+      [docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md](../../docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md).
+      `mixengine-packages` published seven Go lines as its P19 — upstream's whole tree, `go.env`
+      kept byte for byte — and left one sentence here: the archive says `GOTOOLCHAIN=auto`, which
+      lets a `go.mod` asking for a newer Go download that Go and run it instead of the pinned one.
+      **So the kind came first and the variable last**: `RuntimeKind::Go`, `0025` rebuilding the
+      `CHECK` on 0019's pattern, `go` and `gofmt` in the shim table, `go version` as the smoke test.
+      **The environment is the shim's, not the daemon's** — the packaging design said "the daemon
+      renders" — and the shim hands a `go` `GOTOOLCHAIN=local`, leaves a non-empty session value
+      alone (ADR 0034's rule), treats an empty one as unset, and overrides `go env -w` on purpose.
+      `mix doctor` gained a twenty-first check naming a daemon environment that carries another
+      `GOTOOLCHAIN` or a `GOROOT`. `GOPATH` and the caches stay Go's, and `go install`'s `GOBIN` is
+      not fronted: it is outside every install and shared by all of them.
+      **Measured on a sandbox home against the real index:** 1.25.14 installed and passed its smoke
+      test; in a module whose `go.mod` says `go 1.27`, `bin/go build` stopped with
+      `go.mod requires go >= 1.27 (running go 1.25.14; GOTOOLCHAIN=local)` while the same binary run
+      directly began `downloading go1.27.0`. **Trust is Go's own**, and was checked against 1.25.14's
+      `crypto/x509` rather than by a handshake, which would have needed an authority installed into
+      this machine's store: CryptoAPI on Windows, `SecTrustEvaluateWithError` on macOS, and on Linux
+      the two bundles `update-ca-certificates` and `update-ca-trust` regenerate.
 - [x] **T28** PHP extensions: `conf.d` model, enable/disable, prebuilt extension artifacts, per-pool
       reload.
       **Both of the things this was waiting for had landed with

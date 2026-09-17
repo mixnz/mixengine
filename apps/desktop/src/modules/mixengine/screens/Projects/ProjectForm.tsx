@@ -21,7 +21,8 @@ import styles from "./ProjectForm.module.css";
 // Every kind the contract knows, in the order the form shows them. `composer` arrived with
 // MixEngine's T27c and was the first thing the alias onto `bindings/` caught (phase 11, T102): a
 // project pinned to a Composer version would otherwise have lost that pin on its next save here.
-const RUNTIME_KINDS: readonly RuntimeKind[] = ["php", "node", "python", "ruby", "composer"];
+// `go` arrived with T27d, before `composer`, in the order the contract's own list keeps.
+const RUNTIME_KINDS: readonly RuntimeKind[] = ["php", "node", "python", "ruby", "go", "composer"];
 type Kind = SiteKind["kind"];
 
 /**
@@ -92,6 +93,7 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
       node: "",
       python: "",
       ruby: "",
+      go: "",
       composer: "",
     };
     if (editing) {

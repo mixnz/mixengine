@@ -1107,8 +1107,9 @@ mod tests {
         assert!(cleared.pins.is_empty());
     }
 
-    /// A row written by a build that manages a fifth language must not stop this one reading the
-    /// project — `resolve`'s own rule, kept where the reading moved to.
+    /// A row written by a build that manages a language this one does not must not stop this one
+    /// reading the project — `resolve`'s own rule, kept where the reading moved to. `java`, since Go
+    /// became a kind of this build's own (T27d).
     #[tokio::test]
     async fn a_pin_naming_a_language_this_build_does_not_manage_is_ignored_rather_than_fatal() {
         let (_home, store) = store().await;
@@ -1117,7 +1118,7 @@ mod tests {
 
         sqlx::query(
             "INSERT INTO projects (name, root_path, runtime_pins_json, created_at)
-             VALUES ('blog', ?, '{\"php\": \"8.3\", \"go\": \"1.22\"}', '2026-08-22T06:55:12Z')",
+             VALUES ('blog', ?, '{\"php\": \"8.3\", \"java\": \"21\"}', '2026-08-22T06:55:12Z')",
         )
         .bind(&root)
         .execute(store.pool())

@@ -2,9 +2,9 @@
 title = "MixEngine"
 slug = "index"
 order = 1
-summary = "Chạy PHP, Node, Python và Ruby ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
+summary = "Chạy PHP, Node, Python, Ruby và Go ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
 translation_of = "en/index.md"
-source_sha256 = "83fbf09210bc295d1c7a75d5f166b449d4612f03000ad59384ba26cb0755fc22"
+source_sha256 = "fe799b411b78a9432f4a2cec3adc9def66958f0391b27ead390a11aab605a66d"
 +++
 
 # MixEngine
@@ -15,11 +15,11 @@ source_sha256 = "83fbf09210bc295d1c7a75d5f166b449d4612f03000ad59384ba26cb0755fc2
 > trong cẩm nang này vẫn áp dụng.
 
 MixEngine là môi trường phát triển web chạy ngay trên máy bạn. Bạn có thể cài nhiều phiên bản PHP,
-Node.js, Python và Ruby cùng lúc, rồi để mỗi thư mục dự án tự chọn phiên bản mình dùng. MixEngine
-cũng chạy luôn web server, cơ sở dữ liệu và cache mà dự án cần, và cấp cho mỗi site một tên miền
-thật như `https://blog.test` với chứng chỉ được trình duyệt tin cậy. Không Docker, không máy ảo,
-không phải tự viết file cấu hình nào. Cấu hình sinh ra là việc của MixEngine, và không có tiến trình
-nào của MixEngine chạy thường trực với quyền root.
+Node.js, Python, Ruby và Go cùng lúc, rồi để mỗi thư mục dự án tự chọn phiên bản mình dùng.
+MixEngine cũng chạy luôn web server, cơ sở dữ liệu và cache mà dự án cần, và cấp cho mỗi site một
+tên miền thật như `https://blog.test` với chứng chỉ được trình duyệt tin cậy. Không Docker, không
+máy ảo, không phải tự viết file cấu hình nào. Cấu hình sinh ra là việc của MixEngine, và không có
+tiến trình nào của MixEngine chạy thường trực với quyền root.
 
 MixEngine gồm một daemon và một lệnh. Daemon `mixengined` lưu mọi trạng thái và giám sát mọi tiến
 trình MixEngine chạy. Còn `mix` là lệnh bạn gõ. Một vài thao tác cần quyền quản trị, ví dụ thêm một
@@ -38,8 +38,8 @@ thoát ngay khi xong việc.
 
 - [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và cách một bản checkout mang
   theo cấu hình của chính nó.
-- [Phiên bản PHP, Node, Python và Ruby](./runtimes.md): nhiều phiên bản cùng lúc, chọn theo từng
-  thư mục.
+- [Phiên bản PHP, Node, Python, Ruby và Go](./runtimes.md): nhiều phiên bản cùng lúc, chọn theo
+  từng thư mục.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): những thứ dự án của bạn cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): vì sao `blog.test` phân giải được, và ai ký chứng
   chỉ cho nó.

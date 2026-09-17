@@ -16,9 +16,10 @@
 //! correctly working machine. [`Outcome::Skipped`] is a check that could not run and says why, which
 //! is the difference between "there is nothing wrong here" and "nobody looked".
 
+use std::ffi::OsStr;
 use std::sync::Arc;
 
-use mixengine_proto::{Check, DoctorReport, Outcome, ProblemId};
+use mixengine_proto::{Check, DoctorReport, Outcome, ProblemId, RuntimeKind};
 
 /// The `daemon.doctor` half of the API.
 #[derive(Debug)]
@@ -113,6 +114,7 @@ impl Doctor {
                 self.browsers(),
                 self.site_certificates().await,
                 self.trust_bundle(),
+                self.go_toolchain().await,
                 self.commands().await,
                 self.dns_server(),
                 self.port_access().await,
@@ -520,6 +522,35 @@ impl Doctor {
                          cannot verify this home's own HTTPS sites",
                         bundle.display()
                     ),
+                },
+            },
+        }
+    }
+
+    /// **Whether a pinned Go is the Go that builds** — roadmap task **T27d**, its design's D8.
+    ///
+    /// The shim writes `GOTOOLCHAIN=local` for a `go` and leaves a value the session already carries
+    /// alone, and it never sets `GOROOT`. So a daemon whose own environment carries either is a
+    /// daemon whose children — a scaffold, a terminal it opened — get a `go` a `go.mod` can swap for
+    /// another release, or one compiling with another Go's tools. A `Note`, for
+    /// [`trust_bundle`](Self::trust_bundle)'s reason: the person set it, and nothing here repairs a
+    /// choice.
+    async fn go_toolchain(&self) -> Check {
+        let name = "the Go a project pins".to_owned();
+
+        match mixengine_core::runtimes::records(&self.store, Some(RuntimeKind::Go)).await {
+            Ok(installed) => Check {
+                name,
+                outcome: go_outcome(
+                    !installed.is_empty(),
+                    std::env::var_os("GOTOOLCHAIN").as_deref(),
+                    std::env::var_os("GOROOT").as_deref(),
+                ),
+            },
+            Err(error) => Check {
+                name,
+                outcome: Outcome::Skipped {
+                    because: format!("this home's installed runtimes could not be read: {error}"),
                 },
             },
         }
@@ -1095,6 +1126,38 @@ fn elsewhere_on_the_path(command: &str, bin: &std::path::Path) -> Option<std::pa
         .find(|candidate| candidate.is_file())
 }
 
+/// What [`Doctor::go_toolchain`] decides, as a function of what it read.
+///
+/// `installed` is whether this home holds any Go; the two values are the daemon's own. Out here for
+/// [`limit_outcome`]'s reason: every arm driven by a test, with no environment changed to do it.
+fn go_outcome(installed: bool, toolchain: Option<&OsStr>, goroot: Option<&OsStr>) -> Outcome {
+    if !installed {
+        return Outcome::Ok {};
+    }
+
+    let mut said = Vec::new();
+
+    // Empty is unset to Go, and `local` is what the shim would have written anyway.
+    if let Some(value) = toolchain.filter(|value| !value.is_empty() && *value != "local") {
+        said.push(format!("GOTOOLCHAIN={}", value.to_string_lossy()));
+    }
+
+    if let Some(value) = goroot.filter(|value| !value.is_empty()) {
+        said.push(format!("GOROOT={}", value.to_string_lossy()));
+    }
+
+    match said.is_empty() {
+        true => Outcome::Ok {},
+        false => Outcome::Note {
+            because: format!(
+                "this daemon's own environment sets {}, and a go started through bin/ inherits it \
+                 rather than running the Go its directory pins — unset it",
+                said.join(" and ")
+            ),
+        },
+    }
+}
+
 fn stranded<'a>(
     rows: impl Iterator<Item = (&'a str, bool)>,
     held: &std::collections::BTreeSet<&str>,
@@ -1238,6 +1301,8 @@ mod tests {
         AppControlState, Enforcement, Host as _, LimitMechanism, LimitSupport, MemoryMeasure,
         WhenExceeded,
     };
+    use std::ffi::OsStr;
+
     use mixengine_proto::ProblemId;
 
     use super::Outcome;
@@ -1372,6 +1437,53 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    /// **A home with no Go is not asked about Go** — roadmap task **T27d**, its design's D8. A
+    /// variable nothing here reads is not news about this home.
+    #[test]
+    fn a_home_with_no_go_is_not_asked_about_go() {
+        let outcome = super::go_outcome(false, Some(OsStr::new("auto")), None);
+
+        assert!(matches!(outcome, Outcome::Ok {}), "{outcome:?}");
+    }
+
+    /// Nothing set, `local` set, or an empty value Go reads as unset: the shim's own answer wins.
+    #[test]
+    fn a_daemon_environment_that_leaves_the_pin_alone_is_ok() {
+        for toolchain in [None, Some(OsStr::new("local")), Some(OsStr::new(""))] {
+            let outcome = super::go_outcome(true, toolchain, None);
+
+            assert!(
+                matches!(outcome, Outcome::Ok {}),
+                "{toolchain:?}: {outcome:?}"
+            );
+        }
+    }
+
+    /// **A shim leaves a session's `GOTOOLCHAIN` alone**, so one inherited from the daemon's own
+    /// environment is a pin a `go.mod` can step over — and the person is told which value is winning.
+    #[test]
+    fn a_toolchain_other_than_local_is_a_note_naming_it() {
+        let outcome = super::go_outcome(true, Some(OsStr::new("auto")), None);
+
+        let Outcome::Note { because } = outcome else {
+            panic!("a pin that can be stepped over is news: {outcome:?}");
+        };
+
+        assert!(because.contains("GOTOOLCHAIN=auto"), "{because}");
+    }
+
+    /// A `GOROOT` naming another Go makes the pinned `go` compile with that Go's tools.
+    #[test]
+    fn a_goroot_is_a_note_naming_it() {
+        let outcome = super::go_outcome(true, None, Some(OsStr::new("/usr/local/go")));
+
+        let Outcome::Note { because } = outcome else {
+            panic!("another Go's tools are news: {outcome:?}");
+        };
+
+        assert!(because.contains("GOROOT=/usr/local/go"), "{because}");
     }
 
     /// A support answer with the two interesting fields set and the rest held constant.

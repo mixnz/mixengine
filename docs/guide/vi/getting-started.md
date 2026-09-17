@@ -4,7 +4,7 @@ slug = "getting-started"
 order = 3
 summary = "Từ máy vừa cài xong tới https://blog.test với ổ khóa xanh, mất khoảng năm phút."
 translation_of = "en/getting-started.md"
-source_sha256 = "d3bca98a35c2b2e2a85c4cfd7ccb8c534646c79b3c988e784cf5e9ebb21a2cd3"
+source_sha256 = "6827b3266acbc41167d59561296421c8ee8e37bbf5fa1639af537c44cf78962c"
 +++
 
 # Site đầu tiên của bạn
@@ -129,7 +129,7 @@ Lệnh cuối tạo cơ sở dữ liệu và một tài khoản để truy cập
 ## Đọc tiếp
 
 - [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và mỗi cái quản gì.
-- [Phiên bản PHP, Node, Python và Ruby](./runtimes.md): cách một thư mục tự chọn phiên bản.
+- [Phiên bản PHP, Node, Python, Ruby và Go](./runtimes.md): cách một thư mục tự chọn phiên bản.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): mọi thứ một project cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): `blog.test` phân giải thế nào, và ai ký chứng chỉ.
 - [MixEngine xin quyền để làm gì](./permissions.md): từng hộp thoại, và nó thay đổi gì.
