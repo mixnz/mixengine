@@ -14,7 +14,7 @@ import { tags } from "@lezer/highlight";
 export const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
-    fontFamily: '"Fira Code", monospace',
+    fontFamily: "var(--font-mono)",
     fontSize: "0.9em",
     color: "var(--sql-text)",
     backgroundColor: "transparent",
@@ -85,7 +85,7 @@ export const editorTheme = EditorView.theme({
     color: "inherit",
   },
   ".cm-tooltip.cm-tooltip-autocomplete > ul": {
-    fontFamily: '"Fira Code", monospace',
+    fontFamily: "var(--font-mono)",
     fontSize: "0.85em",
     maxHeight: "14rem",
   },

@@ -522,9 +522,8 @@ const dbVi: DbDict = {
     deleteRowsMessage: "Xóa {{n}} dòng đã chọn? Thao tác này không thể hoàn tác.",
     deleteAllRowsOption: "Xóa toàn bộ {{total}} dòng của bảng, không chỉ các dòng đang chọn",
     resetAutoIncrementOption: "Đặt lại {{column}} để dòng thêm mới bắt đầu từ 1",
-    // Mũi tên viết là `->`, như mọi chỗ khác trong app — ligature của Fira Code nối hai ký tự
-    // thành một. Nó chỉ hiện ra như vậy vì dòng này được vẽ bằng `Tooltip` của chính app chứ không
-    // qua `title`, thứ do trình duyệt vẽ bên ngoài trang bằng font hệ thống, nơi không có ligature.
+    // `->` for the arrow, as everywhere else in the app. Shown in a `Tooltip` of the app's own
+    // rather than through `title`, so it is drawn in the app's font like the grid around it.
     foreignKey: "Khóa ngoại -> {{table}}.{{column}}",
     sortNone: "{{column}} — nhấn để sắp xếp giảm dần",
     sortDesc: "{{column}} — đang giảm dần, nhấn để sắp xếp tăng dần",

@@ -3,8 +3,9 @@
   border: 1px solid var(--control-border);
   font-weight: 500;
   font-family: inherit;
-  /* The app is set in Fira Code, which joins pairs like `//` and `->` into one glyph by blanking
-     the first cell and drawing the pair in the second. In code that reads well; in a box someone
+  /* A mono face with ligatures (the app shipped Fira Code until the 2026 redesign, and a user's
+     own fonts may have them) joins pairs like `//` and `->` into one glyph by blanking the first
+     cell and drawing the pair in the second. In code that reads well; in a box someone
      is checking character by character it reads as a typo — `https://a` shows as `https: /a`. A
      field holds literal text, so it is shown literally. Editors keep their ligatures. */
   font-variant-ligatures: none;

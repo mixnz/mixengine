@@ -8,8 +8,8 @@
 
      Trước đây chỉ có một vai, nên mọi thứ mang vai đó — kể cả đoạn văn dài trong Settings, vốn đang
      được đọc bằng một font lập trình. */
-  --font-ui: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
-  --font-mono: "Fira Code", ui-monospace, monospace;
+  --font-ui: "Geist Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
 
   font-family: var(--font-ui);
   font-size: 14px;

@@ -36,10 +36,15 @@ describe("font tokens", () => {
     expect(appCss).toMatch(/--font-mono:\s*[^;]+;/);
   });
 
+  it("names Geist for both roles", () => {
+    expect(appCss).toMatch(/--font-ui:\s*"Geist Variable",/);
+    expect(appCss).toMatch(/--font-mono:\s*"Geist Mono Variable",/);
+  });
+
   it("không stylesheet nào gọi tên font ngoài chỗ định nghĩa token", () => {
     const offenders = Object.entries(sheets)
       .filter(([path]) => !path.endsWith("/App.css"))
-      .filter(([, css]) => /font-family:[^;]*(Fira Code|system-ui|sans-serif|monospace)/.test(css))
+      .filter(([, css]) => /font-family:[^;]*(Geist|Fira Code|system-ui|sans-serif|monospace)/.test(css))
       .map(([path]) => path);
     expect(offenders).toEqual([]);
   });

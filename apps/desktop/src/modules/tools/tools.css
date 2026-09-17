@@ -11,7 +11,7 @@
   min-height: 0;
 }
 
-/* 260px chứ không phải 220px: font của app là Fira Code, và ở 16px thì nhãn dài nhất
+/* 260px chứ không phải 220px: font của app khi đo là Fira Code, và ở 16px thì nhãn dài nhất
    ("Environment variables") rộng 202px, tiêu đề nhóm dài nhất ("Connection & infrastructure")
    rộng 194px. Trừ hai lớp padding 0.5rem của `.list` và `.item` là 32px, cộng chỗ cho thanh cuộn
    ~15px, thì 250px mới vừa đủ một hàng — 260px để nhãn dài thêm chút nữa vẫn không xuống dòng. */

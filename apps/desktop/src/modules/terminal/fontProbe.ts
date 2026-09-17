@@ -23,7 +23,7 @@ const PROBE_SIZE = 72;
 const FALLBACKS = ["monospace", "serif", "sans-serif"] as const;
 
 export async function installedFonts(candidates: readonly string[]): Promise<string[]> {
-  /* Đợi font tải xong trước khi đo. Fira Code không phải font hệ thống mà là webfont đóng kèm app
+  /* Đợi font tải xong trước khi đo. Geist Mono không phải font hệ thống mà là webfont đóng kèm app
      — xem `main.tsx` — nên đo sớm một nhịp là trình duyệt còn đang dùng font dự phòng, và cái font
      mặc định của chính terminal bị kết luận là "máy không có". */
   await document.fonts.ready;
