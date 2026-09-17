@@ -111,8 +111,18 @@ export default function CertTable({
               <td data-nowrap className={styles.domain}>
                 {row.domain}
               </td>
-              <td className={row.sans.length > 0 ? styles.names : styles.none}>
-                {row.sans.length > 0 ? row.sans.join(", ") : "—"}
+              <td className={row.sans.length > 0 ? undefined : styles.none}>
+                {row.sans.length > 0 ? (
+                  <span className={styles.names}>
+                    {row.sans.map((name) => (
+                      <span key={name} className={styles.name}>
+                        {name}
+                      </span>
+                    ))}
+                  </span>
+                ) : (
+                  "—"
+                )}
               </td>
               <td
                 data-align="end"

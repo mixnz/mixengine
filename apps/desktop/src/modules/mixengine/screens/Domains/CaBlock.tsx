@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
 import Card from "../../../../components/Card";
-import StatusPill from "../../../../components/StatusPill";
+import StatusPill, { type StatusTone } from "../../../../components/StatusPill";
 import { CheckIcon, LockIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -38,6 +38,43 @@ function browsersLine(browsers: Exclude<Browsers, { state: "reached" }>, t: Tran
       return t("mixengine.domains.ca.browsers.notSearched", { reason: browsers.because });
     case "unknown":
       return t("mixengine.domains.ca.browsers.unknown", { reason: browsers.because });
+  }
+}
+
+interface Pill {
+  tone: StatusTone;
+  word: string;
+}
+
+/** The system store's state in a word, for the pill beside the sentence `trustLine` writes. */
+function trustPill(trust: Trust, t: Translate): Pill {
+  switch (trust.state) {
+    case "installed":
+      return { tone: "success", word: t("mixengine.domains.ca.pill.trusted") };
+    case "not_installed":
+      return { tone: "danger", word: t("mixengine.domains.ca.pill.notTrusted") };
+    case "no_store":
+      return { tone: "neutral", word: t("mixengine.domains.ca.pill.noStore") };
+    case "unknown":
+      return { tone: "warning", word: t("mixengine.domains.ca.pill.unknown") };
+  }
+}
+
+/** The browsers' state in a word: every database found trusts the CA, some do, or none do. */
+function browsersPill(browsers: Browsers, t: Translate): Pill {
+  switch (browsers.state) {
+    case "reached": {
+      const trusted = browsers.databases.filter((db) => db.installed).length;
+      if (browsers.databases.length === 0) return { tone: "neutral", word: t("mixengine.domains.ca.pill.noneFound") };
+      if (trusted === browsers.databases.length) return { tone: "success", word: t("mixengine.domains.ca.pill.trusted") };
+      if (trusted === 0) return { tone: "danger", word: t("mixengine.domains.ca.pill.notTrusted") };
+      return { tone: "warning", word: t("mixengine.domains.ca.pill.partly") };
+    }
+    case "no_tool":
+    case "not_searched":
+      return { tone: "neutral", word: t("mixengine.domains.ca.pill.notSearched") };
+    case "unknown":
+      return { tone: "warning", word: t("mixengine.domains.ca.pill.unknown") };
   }
 }
 
@@ -109,16 +146,7 @@ export default function CaBlock({
           {status.state === "present" ? t("mixengine.domains.ca.ready") : t("mixengine.domains.ca.missing")}
         </StatusPill>
       }
-      actions={
-        <Button
-          variant="soft"
-          onClick={() => void repair()}
-          busy={repairing ? t("mixengine.domains.ca.repairing") : undefined}
-        >
-          <LockIcon size={14} />
-          {t("mixengine.domains.ca.repair")}
-        </Button>
-      }
+      description={t("mixengine.domains.ca.about")}
     >
       {status.state !== "present" && (
         <p className={styles.warning}>
@@ -128,33 +156,49 @@ export default function CaBlock({
         </p>
       )}
 
-      <dl className={styles.facts}>
-        <dt>{t("mixengine.domains.ca.systemStore")}</dt>
-        <dd className={status.trust.state === "installed" ? styles.good : undefined}>
-          {trustLine(status.trust, t)}
-        </dd>
+      {/* Two rows that fail independently, each with its own pill — never one tick for both. */}
+      <div className={styles.facts}>
+        <div className={styles.fact}>
+          <span className={styles.label}>{t("mixengine.domains.ca.systemStore")}</span>
+          <StatusPill tone={trustPill(status.trust, t).tone}>{trustPill(status.trust, t).word}</StatusPill>
+          <span className={styles.explain}>{trustLine(status.trust, t)}</span>
+        </div>
 
-        <dt>{t("mixengine.domains.ca.browsersLabel")}</dt>
-        <dd>
-          {status.browsers.state === "reached" ? (
-            <ul className={styles.databases}>
-              {status.browsers.databases.map((db) => (
-                <li key={db.path}>
-                  <span className={styles.owner}>{db.owner}</span>
-                  {db.installed ? (
-                    <CheckIcon size={14} className={styles.good} />
-                  ) : (
-                    <span className={styles.muted}>{db.because ?? "—"}</span>
-                  )}
-                  <span className={styles.path}>{db.path}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            browsersLine(status.browsers, t)
-          )}
-        </dd>
-      </dl>
+        <div className={styles.fact}>
+          <span className={styles.label}>{t("mixengine.domains.ca.browsersLabel")}</span>
+          <StatusPill tone={browsersPill(status.browsers, t).tone}>
+            {browsersPill(status.browsers, t).word}
+          </StatusPill>
+          <span className={styles.explain}>
+            {status.browsers.state === "reached" ? (
+              <ul className={styles.databases}>
+                {status.browsers.databases.map((db) => (
+                  <li key={db.path}>
+                    <span className={styles.owner}>{db.owner}</span>
+                    {db.installed ? (
+                      <CheckIcon size={14} className={styles.good} />
+                    ) : (
+                      <span>{db.because ?? "—"}</span>
+                    )}
+                    <span className={styles.path}>{db.path}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              browsersLine(status.browsers, t)
+            )}
+          </span>
+          <Button
+            variant="soft"
+            className={styles.repair}
+            onClick={() => void repair()}
+            busy={repairing ? t("mixengine.domains.ca.repairing") : undefined}
+          >
+            <LockIcon size={14} />
+            {t("mixengine.domains.ca.repair")}
+          </Button>
+        </div>
+      </div>
 
       {pending && (
         <ElevationDialog

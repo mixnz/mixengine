@@ -7,34 +7,46 @@
   font-size: var(--text-md);
 }
 
-/* The two places the certificate authority has to be trusted, as label and answer. */
+/* The two places the certificate authority has to be trusted, as rows in one sunken panel. */
 .facts {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.fact {
   display: grid;
-  grid-template-columns: 140px minmax(0, 1fr);
-  gap: 10px 16px;
-  margin: 0;
+  grid-template-columns: 120px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
   font-size: var(--text-md);
 }
 
-.facts dt {
+.fact + .fact {
+  border-top: 1px solid var(--border-soft);
+}
+
+.label {
   color: var(--text-muted);
   font-size: var(--text-sm);
   font-weight: 500;
-  line-height: 1.6;
 }
 
-.facts dd {
-  margin: 0;
+.explain {
   min-width: 0;
-  line-height: 1.6;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.repair {
+  grid-column: 4;
 }
 
 .good {
   color: var(--success-text);
-}
-
-.muted {
-  color: var(--text-muted);
 }
 
 .databases {
@@ -55,6 +67,7 @@
 
 .owner {
   font-weight: 500;
+  color: var(--text);
 }
 
 .path {

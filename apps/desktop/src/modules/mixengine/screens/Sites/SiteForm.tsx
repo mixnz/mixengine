@@ -344,62 +344,66 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               )}
             </label>
 
-            <label className={styles.field}>
-              {t("mixengine.sites.form.kind")}
-              <Select
-                value={kind}
-                disabled={saving}
-                onChange={(value) => setKind(value)}
-                options={[
-                  { value: "php-fpm", label: "php-fpm" },
-                  { value: "static", label: "static" },
-                  { value: "reverse-proxy", label: "reverse-proxy" },
-                  { value: "node-app", label: "node-app" },
-                ]}
-              />
-            </label>
-
-            {kind === "php-fpm" && (
+            {/* The kind beside the one field that kind needs; `static` needs none and has the row. */}
+            <div className={styles.pair}>
               <label className={styles.field}>
-                {t("mixengine.sites.form.pool")}
+                {t("mixengine.sites.form.kind")}
                 <Select
-                  value={pool}
+                  value={kind}
                   disabled={saving}
-                  onChange={setPool}
-                  placeholder={t("mixengine.sites.form.poolAuto")}
+                  onChange={(value) => setKind(value)}
                   options={[
-                    { value: "", label: t("mixengine.sites.form.poolAuto") },
-                    ...serviceIds
-                      .filter((id) => id.startsWith("php-fpm@"))
-                      .map((id) => ({ value: id, label: id })),
+                    { value: "php-fpm", label: "php-fpm" },
+                    { value: "static", label: "static" },
+                    { value: "reverse-proxy", label: "reverse-proxy" },
+                    { value: "node-app", label: "node-app" },
                   ]}
                 />
               </label>
-            )}
 
-            {kind === "reverse-proxy" && (
-              <label className={styles.field}>
-                {t("mixengine.sites.form.upstream")}
-                <Input
-                  value={upstream}
-                  disabled={saving}
-                  onChange={(e) => setUpstream(e.target.value)}
-                  placeholder="http://127.0.0.1:3000"
-                />
-              </label>
-            )}
+              {kind === "php-fpm" && (
+                <label className={styles.field}>
+                  {t("mixengine.sites.form.pool")}
+                  <Select
+                    value={pool}
+                    disabled={saving}
+                    onChange={setPool}
+                    placeholder={t("mixengine.sites.form.poolAuto")}
+                    options={[
+                      { value: "", label: t("mixengine.sites.form.poolAuto") },
+                      ...serviceIds
+                        .filter((id) => id.startsWith("php-fpm@"))
+                        .map((id) => ({ value: id, label: id })),
+                    ]}
+                  />
+                </label>
+              )}
 
-            {kind === "node-app" && (
-              <label className={styles.field}>
-                {t("mixengine.sites.form.port")}
-                <Input
-                  type="number"
-                  value={port}
-                  disabled={saving}
-                  onChange={(e) => setPort(e.target.value)}
-                />
-              </label>
-            )}
+              {kind === "reverse-proxy" && (
+                <label className={styles.field}>
+                  {t("mixengine.sites.form.upstream")}
+                  <Input
+                    mono
+                    value={upstream}
+                    disabled={saving}
+                    onChange={(e) => setUpstream(e.target.value)}
+                    placeholder="http://127.0.0.1:3000"
+                  />
+                </label>
+              )}
+
+              {kind === "node-app" && (
+                <label className={styles.field}>
+                  {t("mixengine.sites.form.port")}
+                  <Input
+                    type="number"
+                    value={port}
+                    disabled={saving}
+                    onChange={(e) => setPort(e.target.value)}
+                  />
+                </label>
+              )}
+            </div>
 
             {/* T135. Khối này không kiểm tra gì cả — đường dẫn sai quay về bằng đúng câu daemon
                 nói, giống mọi thứ khác trong form này. */}
@@ -493,7 +497,15 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
             </div>
 
             <div className={styles.field}>
-              {t("mixengine.sites.form.services")}
+              <span className={styles.fieldHead}>
+                {t("mixengine.sites.form.services")}
+                <span className={styles.count}>
+                  {t("mixengine.sites.form.servicesSelected", {
+                    count: selectedServices.size,
+                    total: serviceIds.length,
+                  })}
+                </span>
+              </span>
               <div className={styles.serviceList}>
                 {serviceIds.map((id) => (
                   <Checkbox

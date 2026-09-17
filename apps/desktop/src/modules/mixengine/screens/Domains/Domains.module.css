@@ -60,3 +60,9 @@
   color: var(--danger-text);
   font-size: var(--text-sm);
 }
+
+.resolves {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

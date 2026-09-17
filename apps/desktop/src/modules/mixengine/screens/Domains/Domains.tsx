@@ -136,7 +136,17 @@ export default function Domains({ active }: { active: boolean }) {
                     {row.server_answers ?? "—"}
                   </td>
                   <td className={row.resolves_to.length === 0 ? styles.none : styles.mono}>
-                    {row.resolves_to.length > 0 ? row.resolves_to.join(", ") : "—"}
+                    {row.resolves_to.length > 0 ? (
+                      <span className={styles.resolves}>
+                        {row.resolves_to.join(", ")}
+                        {/* The machine resolves the name to what this daemon's server answers. */}
+                        {row.server_answers != null && row.resolves_to.includes(row.server_answers) && (
+                          <CheckIcon size={14} className={styles.yes} />
+                        )}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   {/* `because` là "một câu nói cái gì sai, hoặc None khi không có gì sai" (doc-comment
                       `DomainStatus`) — có chữ là có lỗi, nên màu đỏ đọc được trước cả câu. */}
