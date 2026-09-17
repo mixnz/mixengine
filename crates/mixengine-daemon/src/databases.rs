@@ -15,8 +15,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
 use mixengine_core::Store;
-use mixengine_core::extensions::manifest::{Body, DesktopApp};
-use mixengine_core::extensions::store::{self as extension_store, Installed};
 use mixengine_core::generate::databases::{Ask, validated_identifier};
 use mixengine_core::services::handoff::{self, CREDENTIAL_ENV, Connection};
 use mixengine_core::window;
@@ -30,22 +28,17 @@ use tokio::sync::Mutex;
 
 use crate::error::ToWire as _;
 
-/// What a database will be handed to: which state to report, what to start, and under which scheme
-/// — roadmap task **T107**.
+/// What a database will be handed to: which state to report, and what to start — roadmap tasks
+/// **T107** and **T165**.
 ///
-/// **One value and not a tuple**, because it grew a third member the day the window stopped being an
-/// extension: a `(DesktopClient, Option<InstalledApp>)` with a scheme bolted on is three things a
-/// caller has to keep in step by hand, and the scheme is the one of the three that used to be read
-/// separately and could disagree.
+/// The scheme is not a member. The only client is this install's window, and its scheme is
+/// [`window::SCHEME`].
 struct Client {
     /// What `mix database client` prints, and what a refused `open` carries back.
     state: DesktopClient,
 
-    /// How to start it, when this machine has it.
+    /// How to start it, when this install has it.
     app: Option<InstalledApp>,
-
-    /// The scheme its handoff URL is written under, when there is something to start.
-    scheme: Option<String>,
 }
 
 /// The `database.*` half of the API.
@@ -57,7 +50,7 @@ pub(crate) struct Databases {
     /// This machine, for its credential store and — roadmap task **T83** — the desktop client.
     host: Arc<dyn mixengine_platform::Host>,
 
-    /// This home's tables: which service listens where, and which extension is the client.
+    /// This home's tables: which service listens where.
     store: Store,
 
     /// One provisioning at a time per instance — see the module note.
@@ -275,10 +268,10 @@ impl Databases {
         })
     }
 
-    /// `database.open` — hand this instance to the installed desktop client — roadmap task **T83**.
+    /// `database.open` — hand this instance to this install's window — roadmap tasks **T83** and **T165**.
     ///
     /// The order is the design's data flow: validate, address, locate, start, read the credential,
-    /// launch. "Not installed" and "no client" come back as states before anything is started, and
+    /// launch. "No client" comes back as a state before anything is started, and
     /// the credential is read as late as the order allows.
     ///
     /// # Errors
@@ -320,7 +313,7 @@ impl Databases {
         }
 
         let located = self.locate_client().await?;
-        let (Some(app), Some(scheme)) = (located.app, located.scheme) else {
+        let Some(app) = located.app else {
             return Ok(DatabaseHandoff {
                 service: asked.service.clone(),
                 protocol: address.protocol,
@@ -358,7 +351,7 @@ impl Databases {
         };
 
         let url = handoff::url(&Connection {
-            scheme: &scheme,
+            scheme: window::SCHEME,
             label: asked.service.as_str(),
             address: &address,
             user: account.as_deref(),
@@ -379,120 +372,32 @@ impl Databases {
         })
     }
 
-    /// The first installed `desktop-app` extension, by id, with the body already unwrapped.
-    async fn desktop_extension(&self) -> Result<Option<(Installed, DesktopApp)>, Error> {
-        let installed = extension_store::all(&self.store)
-            .await
-            .map_err(|error| error.to_wire())?;
-
-        Ok(installed
-            .into_iter()
-            .find_map(|one| match &one.manifest.body {
-                Body::DesktopApp(app) => {
-                    let app = app.clone();
-                    Some((one, app))
-                }
-                _ => None,
-            }))
-    }
-
-    /// The client as a state, how to start it, and the scheme it reads — roadmap task **T107**.
+    /// The client as a state, and how to start it — roadmap tasks **T107** and **T165**.
     ///
-    /// **The window answers first, and the condition is the scheme.** MixLab is MixEngine's client
-    /// *for `mixdb://`*: on a machine that also has standalone MixDB it is the one MixEngine
-    /// installs, updates and supports, and after this phase `mixnz/mixdb` is archived. But
-    /// `desktop-app` is a general mechanism, and an entry naming some other client for some other
-    /// scheme must not be shadowed by a window that cannot read its URLs — so the window answers
-    /// when there is no extension, or when the installed one's scheme is the window's own.
-    ///
-    /// **One read of the store and not two.** `scheme()` used to be a second read, with an
-    /// `Internal` error for *the desktop client vanished between two reads* standing in for the race
-    /// between them; the client is resolved once here and the race is gone with it.
+    /// **This install's window, or nothing** (ADR 0038). No extension is consulted: the only
+    /// application a database is handed to is the MixLab this MixEngine installed, found where that
+    /// install put it.
     async fn locate_client(&self) -> Result<Client, Error> {
-        let extension = self.desktop_extension().await?;
-        let ours = extension
-            .as_ref()
-            .is_none_or(|(_, app)| app.scheme == window::SCHEME);
-
-        if ours && let Located::Installed(app) = self.locate_window().await? {
-            return Ok(Client {
+        Ok(match self.locate_window().await? {
+            Located::Installed(app) => Client {
                 state: DesktopClient::Installed {
                     extension: None,
                     name: window::NAME.to_owned(),
                     program: app.program.display().to_string(),
                 },
                 app: Some(app),
-                scheme: Some(window::SCHEME.to_owned()),
-            });
-        }
-
-        let Some((installed, app)) = extension else {
-            return Ok(Client {
+            },
+            Located::NotInstalled { .. } => Client {
                 state: DesktopClient::NoClient,
                 app: None,
-                scheme: None,
-            });
-        };
-        let id = installed.id.clone();
-        let name = installed.name().to_owned();
-        let homepage = installed.manifest.extension.homepage.clone();
-
-        let Some(hint) = app.detect.here().map(str::to_owned) else {
-            return Ok(Client {
-                state: DesktopClient::NotInstalled {
-                    extension: id,
-                    name,
-                    searched: format!(
-                        "nowhere — the manifest names no way to find it on {}",
-                        std::env::consts::OS
-                    ),
-                    homepage,
-                },
-                app: None,
-                scheme: None,
-            });
-        };
-
-        // Off the runtime: a registry walk, a Spotlight query.
-        let host = Arc::clone(&self.host);
-        let located = tokio::task::spawn_blocking(move || host.desktop_apps().locate(&hint))
-            .await
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::Internal,
-                    "the task locating the client did not finish".to_owned(),
-                )
-            })?
-            .map_err(|error| error.to_wire())?;
-
-        Ok(match located {
-            Located::Installed(found) => Client {
-                state: DesktopClient::Installed {
-                    extension: Some(id),
-                    name,
-                    program: found.program.display().to_string(),
-                },
-                app: Some(found),
-                scheme: Some(app.scheme),
-            },
-            Located::NotInstalled { searched } => Client {
-                state: DesktopClient::NotInstalled {
-                    extension: id,
-                    name,
-                    searched,
-                    homepage,
-                },
-                app: None,
-                scheme: None,
             },
         })
     }
 
     /// This install's own window, off the runtime — roadmap task **T107**.
     ///
-    /// A handful of `stat`s rather than a registry walk, and still through `spawn_blocking`: the two
-    /// lookups are asked the same way because a caller reading this should not have to know which of
-    /// them is cheap this month.
+    /// A handful of `stat`s, and still through `spawn_blocking`: the platform layer's contract is a
+    /// blocking call, and a caller reading this should not have to know that it is cheap this month.
     async fn locate_window(&self) -> Result<Located, Error> {
         let host = Arc::clone(&self.host);
 
@@ -644,35 +549,8 @@ mod tests {
         (home, Databases::new(services, host, store))
     }
 
-    /// The MixDB fixture, installed from a directory.
-    async fn a_mixdb(store: &Store) {
-        let manifest = mixengine_core::extensions::manifest::read(
-            std::path::Path::new("extension.toml"),
-            mixengine_testkit::extension::MIXDB,
-        )
-        .expect("the fixture parses");
-
-        remember(
-            store,
-            &Installed {
-                id: ExtensionId::parse("mixdb").expect("an id"),
-                manifest,
-                install_dir: std::path::PathBuf::from("/extensions/mixdb"),
-                data_dir: std::path::PathBuf::from("/data/extensions/mixdb"),
-                source: Source::Path,
-                signed: false,
-                installed_at: Timestamp(0),
-                ports: BTreeMap::new(),
-            },
-        )
-        .await
-        .expect("the row");
-    }
-
-    /// The same fixture reading a scheme of its own — roadmap task **T107**.
-    ///
-    /// One string apart from [`a_mixdb`], because one string is the whole of what the ordering rule
-    /// turns on: the window answers for its own scheme and stands aside for any other.
+    /// The MixDB fixture under another id and scheme, installed from a directory — roadmap task
+    /// **T107**.
     async fn a_desktop_app(store: &Store, id: &str, scheme: &str) {
         let body = mixengine_testkit::extension::MIXDB
             .replace("id = \"mixdb\"", &format!("id = \"{id}\""))
@@ -708,9 +586,9 @@ mod tests {
         }
     }
 
-    /// No `desktop-app` extension is a state, to both methods, and nothing is started for it.
+    /// An install with no window is a state, to both methods, and nothing is started for it.
     #[tokio::test]
-    async fn with_no_desktop_app_extension_the_answer_is_no_client() {
+    async fn with_no_window_the_answer_is_no_client() {
         let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
         let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
 
@@ -763,37 +641,11 @@ mod tests {
         }
     }
 
-    /// **The window wins over a standalone MixDB.** A MixDB user who installs MixEngine has both;
-    /// the one MixEngine installs, updates and supports is the one a database opens in.
+    /// **A `desktop-app` extension no longer names the client** — roadmap task **T165**. Even one
+    /// for another scheme, on a machine that has that application: the window this install came
+    /// with is the only thing a database is handed to.
     #[tokio::test]
-    async fn the_window_answers_before_the_mixdb_extension() {
-        let host = Arc::new(MockHost::with_window_and_desktop_app(
-            std::env::temp_dir(),
-            "/opt/mixengine/mixlab",
-            "/opt/mixdb/mixdb",
-        ));
-        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
-        a_mixdb(&databases.store).await;
-
-        match databases
-            .client(&DatabaseClientQuery {
-                service: id("redis@main"),
-            })
-            .await
-            .expect("answers")
-            .client
-        {
-            DesktopClient::Installed { name, .. } => {
-                assert_eq!(name, mixengine_core::window::NAME);
-            }
-            other => panic!("{other:?}"),
-        }
-    }
-
-    /// **A client for some other scheme is not shadowed.** `desktop-app` is a general mechanism, and
-    /// the window is MixEngine's client for `mixdb://` and for nothing else — roadmap task **T107**.
-    #[tokio::test]
-    async fn an_extension_for_another_scheme_still_answers() {
+    async fn an_installed_desktop_app_extension_is_not_the_client() {
         let host = Arc::new(MockHost::with_window_and_desktop_app(
             std::env::temp_dir(),
             "/opt/mixengine/mixlab",
@@ -810,12 +662,11 @@ mod tests {
             .expect("answers")
             .client
         {
-            DesktopClient::Installed { extension, .. } => {
-                assert_eq!(
-                    extension.as_ref().map(ExtensionId::as_str),
-                    Some("elsewhere"),
-                    "the extension named this client"
-                );
+            DesktopClient::Installed {
+                extension, name, ..
+            } => {
+                assert_eq!(extension, None);
+                assert_eq!(name, mixengine_core::window::NAME);
             }
             other => panic!("{other:?}"),
         }
@@ -857,37 +708,6 @@ mod tests {
         );
     }
 
-    /// The extension without the application is the other state, and it says where it looked and
-    /// where to get it.
-    #[tokio::test]
-    async fn an_extension_without_the_application_is_not_installed_and_names_where_it_looked() {
-        let host = Arc::new(MockHost::with_home(std::env::temp_dir()));
-        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
-        a_mixdb(&databases.store).await;
-
-        let report = databases
-            .client(&DatabaseClientQuery {
-                service: id("redis@main"),
-            })
-            .await
-            .expect("answers");
-
-        match report.client {
-            DesktopClient::NotInstalled {
-                extension,
-                name,
-                searched,
-                homepage,
-            } => {
-                assert_eq!(extension.as_str(), "mixdb");
-                assert_eq!(name, "MixDB");
-                assert!(!searched.is_empty());
-                assert_eq!(homepage.as_deref(), Some("https://github.com/mixnz/mixdb"));
-            }
-            other => panic!("{other:?}"),
-        }
-    }
-
     /// A service no client opens: `protocol: null` to `client`, a refusal by name to `open` — the
     /// T77a distinction between the package and the operating system.
     #[tokio::test]
@@ -919,13 +739,12 @@ mod tests {
     /// A server with no accounts is handed over with no variable at all, and refuses `--user`.
     #[tokio::test]
     async fn a_redis_is_opened_with_no_account_and_no_variable() {
-        let host = Arc::new(MockHost::with_desktop_app(
+        let host = Arc::new(MockHost::with_window(
             std::env::temp_dir(),
-            "/opt/mixdb/mixdb",
+            "/opt/mixengine/mixlab",
         ));
         let (_home, databases) =
             databases(Arc::clone(&host), &[("redis@main", "redis", 6379)]).await;
-        a_mixdb(&databases.store).await;
 
         let handoff = databases
             .open(&open("redis@main", None, None))
@@ -962,13 +781,12 @@ mod tests {
     /// no form to make a database, and the kind the window reads as its Mongo tab.
     #[tokio::test]
     async fn a_mongodb_is_opened_with_no_account_and_offers_no_database_to_create() {
-        let host = Arc::new(MockHost::with_desktop_app(
+        let host = Arc::new(MockHost::with_window(
             std::env::temp_dir(),
-            "/opt/mixdb/mixdb",
+            "/opt/mixengine/mixlab",
         ));
         let (_home, databases) =
             databases(Arc::clone(&host), &[("mongodb@main", "mongodb", 27017)]).await;
-        a_mixdb(&databases.store).await;
 
         let report = databases
             .client(&DatabaseClientQuery {
@@ -1004,13 +822,12 @@ mod tests {
     /// and nowhere in the URL; a missing credential is a precondition and starts nothing.
     #[tokio::test]
     async fn a_database_is_opened_with_the_credential_in_the_environment_and_not_the_url() {
-        let host = Arc::new(MockHost::with_desktop_app(
+        let host = Arc::new(MockHost::with_window(
             std::env::temp_dir(),
-            "/opt/mixdb/mixdb",
+            "/opt/mixengine/mixlab",
         ));
         let (_home, databases) =
             databases(Arc::clone(&host), &[("mariadb@main", "mariadb", 3306)]).await;
-        a_mixdb(&databases.store).await;
 
         // **`client` says where the credential is, and reads nothing to find out** — roadmap task
         // **T84**, the design's D6. Asked before anything has been stored, so an answer here can
@@ -1061,7 +878,7 @@ mod tests {
             .to_string_lossy()
             .into_owned();
         // The home's half of the address is percent-encoded like the rest of it — roadmap task
-        // **T126** — so what MixDB is handed is one opaque key it looks up, exactly as before.
+        // **T126** — so what the window is handed is one opaque key it looks up, exactly as before.
         let encoded = at(&databases, "mariadb@main/root")
             .await
             .replace('@', "%40")

@@ -71,46 +71,6 @@ fn with_no_desktop_app_installed_both_commands_say_no_client() {
     );
 }
 
-/// The extension without the application: this system's own lookup answers, and says where it
-/// looked and where to get it.
-#[test]
-fn an_application_no_machine_has_is_not_installed_through_this_systems_own_lookup() {
-    let home = Home::new();
-    let _daemon = home.start_daemon();
-    mixengine_testkit::declare::database_blocking(
-        &home.database_file(),
-        "redis@main",
-        "redis",
-        6379,
-    );
-
-    let directory = extension(NOWHERE);
-    let path = directory.path().display().to_string();
-    let installed = home.mix(&["extension", "install", "--path", &path, "--yes"]);
-    assert!(installed.status.success(), "{}", stderr(&installed));
-
-    let report = json(&home.mix(&["database", "client", "redis@main", "--json"]));
-    assert_eq!(report["client"]["state"], "not_installed", "{report}");
-    assert_eq!(report["client"]["name"], "Nowhere", "{report}");
-    assert!(
-        !report["client"]["searched"]
-            .as_str()
-            .unwrap_or_default()
-            .is_empty(),
-        "{report}"
-    );
-
-    let opened = home.mix(&["database", "open", "redis@main"]);
-    assert_eq!(opened.status.code(), Some(1), "{}", stderr(&opened));
-    let said = stdout(&opened);
-    assert!(said.contains("Nowhere is not installed"), "{said}");
-    assert!(said.contains("https://example.invalid/nowhere"), "{said}");
-
-    let human = stdout(&home.mix(&["database", "client", "redis@main"]));
-    assert!(human.contains("redis"), "{human}");
-    assert!(human.contains("not installed"), "{human}");
-}
-
 /// **The plan answers this machine, before anybody agrees to anything** — roadmap task **T84**,
 /// the design's D2, and its (P) half: what says "not installed" here is this system's own registry
 /// walk, Spotlight query or XDG walk, because no machine has the application the fixture names.

@@ -95,7 +95,7 @@ pub struct Address {
 /// What a URL is rendered from.
 #[derive(Debug, Clone, Copy)]
 pub struct Connection<'a> {
-    /// The client's scheme, out of its manifest: `mixdb`.
+    /// The client's scheme: the window's, `mixdb` (`crate::window::SCHEME`).
     pub scheme: &'a str,
 
     /// The label the client names the tab with: the service id.
