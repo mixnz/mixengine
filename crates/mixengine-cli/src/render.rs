@@ -3195,24 +3195,12 @@ pub(crate) fn database_opened(handoff: &DatabaseHandoff) -> String {
 /// The client's state, in the words both commands print.
 fn desktop_client(client: &DesktopClient) -> String {
     match client {
-        DesktopClient::Installed { name, program, .. } => {
+        DesktopClient::Installed { name, program } => {
             format!("  {name} installed at {program}\n")
         }
-        DesktopClient::NotInstalled {
-            name,
-            searched,
-            homepage,
-            ..
-        } => {
-            let mut out =
-                format!("  {name} is not installed on this machine\n  looked for {searched}\n");
-            if let Some(homepage) = homepage {
-                out.push_str(&format!("  {homepage}\n"));
-            }
-            out
-        }
-        DesktopClient::NoClient => "  no desktop database client is installed as an extension\n  \
-                                    `mix extension install mixdb` adds MixDB\n"
+        DesktopClient::NoClient => "  this install has no MixLab window to open a database in\n  \
+                                    MixLab comes with MixEngine's installers; the headless \
+                                    archive has none\n"
             .to_owned(),
     }
 }

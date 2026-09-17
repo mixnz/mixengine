@@ -381,7 +381,6 @@ impl Databases {
         Ok(match self.locate_window().await? {
             Located::Installed(app) => Client {
                 state: DesktopClient::Installed {
-                    extension: None,
                     name: window::NAME.to_owned(),
                     program: app.program.display().to_string(),
                 },
@@ -610,10 +609,10 @@ mod tests {
         assert_eq!(handoff.launched, None);
     }
 
-    /// **The merged product's client, on a machine that never had MixDB** — roadmap task **T107**.
-    /// No extension is installed, and `mix database open` still lands somewhere.
+    /// **The merged product's client** — roadmap task **T107**. Nothing is installed besides
+    /// MixEngine, and `mix database open` still lands somewhere.
     #[tokio::test]
-    async fn the_window_is_the_client_when_no_extension_is_installed() {
+    async fn the_window_is_the_client() {
         let host = Arc::new(MockHost::with_window(
             std::env::temp_dir(),
             "/opt/mixengine/mixlab",
@@ -628,12 +627,7 @@ mod tests {
             .expect("answers");
 
         match report.client {
-            DesktopClient::Installed {
-                extension,
-                name,
-                program,
-            } => {
-                assert_eq!(extension, None, "the window is not an extension");
+            DesktopClient::Installed { name, program } => {
                 assert_eq!(name, mixengine_core::window::NAME);
                 assert!(program.contains("mixlab"), "{program}");
             }
@@ -662,10 +656,7 @@ mod tests {
             .expect("answers")
             .client
         {
-            DesktopClient::Installed {
-                extension, name, ..
-            } => {
-                assert_eq!(extension, None);
+            DesktopClient::Installed { name, .. } => {
                 assert_eq!(name, mixengine_core::window::NAME);
             }
             other => panic!("{other:?}"),

@@ -46,9 +46,10 @@ fn extension(body: &str) -> tempfile::TempDir {
     directory
 }
 
-/// No `desktop-app` extension is a state both commands print, and `open` says what to install.
+/// An install with no window is a state both commands print, and `open` says which installs have
+/// one.
 #[test]
-fn with_no_desktop_app_installed_both_commands_say_no_client() {
+fn with_no_window_both_commands_say_no_client() {
     let home = Home::new();
     let _daemon = home.start_daemon();
     mixengine_testkit::declare::database_blocking(
@@ -64,11 +65,9 @@ fn with_no_desktop_app_installed_both_commands_say_no_client() {
 
     let opened = home.mix(&["database", "open", "redis@main"]);
     assert_eq!(opened.status.code(), Some(1), "{}", stderr(&opened));
-    assert!(
-        stdout(&opened).contains("mix extension install mixdb"),
-        "{}",
-        stdout(&opened)
-    );
+    let said = stdout(&opened);
+    assert!(said.contains("has no MixLab window"), "{said}");
+    assert!(!said.contains("mix extension install"), "{said}");
 }
 
 /// **The plan answers this machine, before anybody agrees to anything** — roadmap task **T84**,
