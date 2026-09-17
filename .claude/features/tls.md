@@ -101,6 +101,14 @@ cannot be rebuilt from a row, and throwing one away costs the trust of every bro
 chain. The daemon's start orders it — authority, trust stores, browsers, **certificates**, then the
 generators — and `site.create` and `site.update` issue before their own walk.
 
+**A JDK is a fourth store, and it is written the same way** — T27e,
+[ADR 0039](../decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md). Java
+verifies against `lib/security/cacerts` inside its own install and reads neither this machine's store
+nor the generated bundle, so the daemon writes the authority in with that JDK's own `keytool`,
+wherever it asks the browsers — start, repair, a committed rotation, `cert.ca_uninstall` and
+`mix uninstall` — and once after a JDK is installed. Nothing about it fails a start or an install;
+`mix doctor` reports a JDK that lacks it.
+
 ## Renewal
 
 - A scheduler task renews anything with **< 30 days** left, on the period `[certs]

@@ -1,11 +1,11 @@
 +++
-title = "PHP, Node, Python, Ruby and Go versions"
+title = "PHP, Node, Python, Ruby, Go and Java versions"
 slug = "runtimes"
 order = 5
 summary = "Install as many versions as you need, and let each directory choose its own — with no shell hook and nothing to remember."
 +++
 
-# PHP, Node, Python, Ruby and Go versions
+# PHP, Node, Python, Ruby, Go and Java versions
 
 > **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
 > graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
@@ -16,8 +16,8 @@ MixEngine installs language runtimes into its own directory, one immutable folde
 never touches whatever your operating system already has. Installing a version never modifies a
 version already installed, so nothing you have working can be broken by adding something new.
 
-Five languages are managed: **PHP**, **Node.js**, **Python**, **Ruby** and **Go** — and one tool,
-**Composer**, which installs the same way and runs under whichever PHP the directory uses.
+Six languages are managed: **PHP**, **Node.js**, **Python**, **Ruby**, **Go** and **Java** — and one
+tool, **Composer**, which installs the same way and runs under whichever PHP the directory uses.
 
 ## Installing a version
 
@@ -37,7 +37,8 @@ sentence about PHP being there. `--no-wait` returns as soon as the daemon has ac
 hands you a job id, which `mix job wait` can be pointed at later.
 
 **Installing a PHP also creates its php-fpm pool** — `php-fpm@8.3.33`, a service like any other, in
-`mix service list`. Node, Python, Ruby and Go are invoked per command and have nothing supervised.
+`mix service list`. Node, Python, Ruby, Go and Java are invoked per command and have nothing
+supervised.
 
 ### On a Windows PC with an ARM processor
 
@@ -105,6 +106,35 @@ with a `GOROOT`, because the commands it starts inherit them.
 Programs you add with `go install` land in Go's own `GOBIN` — `~/go/bin` unless you changed it —
 which MixEngine does not put on your `PATH`.
 
+## Java
+
+```bash
+mix runtime available --kind java      # 11, 17, 21 and 25 — the long-term-support lines
+mix runtime install java 21
+java --version                         # the JDK this directory resolves to
+mix project update api --pin java=21
+```
+
+`java`, `javac`, `jar`, `jshell`, `keytool` and `jlink` are commands like every other. Each is
+started with **`JAVA_HOME` set to the JDK it belongs to**, even if you have exported another one, so
+a program — and any build it runs itself — finds the JDK this directory asked for.
+
+**Maven and Gradle typed in a terminal read your own `JAVA_HOME` first.** If yours points at a
+system JDK, `mvn` and `./gradlew` use that one whatever the directory pins; unset it and they find
+the pinned `java` on your `PATH` instead. `mix doctor` tells you when MixEngine itself was started
+with a `JAVA_HOME` outside its own JDKs.
+
+**HTTPS to your own sites works.** MixEngine writes its certificate authority into each installed
+JDK's certificate store, so `https://blog.test` verifies from Java with no flag and no extra
+argument. Two limits are worth knowing: a runtime you build yourself with `jlink` carries the
+original store and does not trust these sites, and a JVM started with `-Djavax.net.ssl.trustStore`
+reads that store instead of the JDK's own. If a JDK has lost it, `mix doctor --repair` puts it back.
+
+**On Linux a JDK expects some of the system's libraries** — `zlib` to start at all, `freetype` for
+fonts, X11 for windows and ALSA for sound. When your system does not have one, the install says
+which and carries on: a server that never draws a window or plays a sound runs without them, and your
+distribution's package manager has them when you need them.
+
 ## Choosing which one a directory uses
 
 Nothing here changes a shell, patches a profile, or asks you to type an activate command. A
@@ -145,7 +175,8 @@ A constraint with no pre-release in it never selects one. `8.5` and `^8.5` both 
 
 `mix path install` fills `<root>/bin` and puts that one directory on your `PATH`. It holds a small
 program per command — `php`, `php-config`, `pecl`, `composer`, `node`, `npm`, `npx`, `python`,
-`pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt` — and each one works out which version this directory
+`pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`, `java`, `javac`, `jar`, `jshell`, `keytool`,
+`jlink` — and each one works out which version this directory
 wants and hands over to the real binary.
 
 Two things follow that are worth knowing:

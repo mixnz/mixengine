@@ -2,7 +2,7 @@
 title = "MixEngine"
 slug = "index"
 order = 1
-summary = "Run PHP, Node, Python, Ruby and Go locally on any version, with real domains and HTTPS, without Docker."
+summary = "Run PHP, Node, Python, Ruby, Go and Java locally on any version, with real domains and HTTPS, without Docker."
 +++
 
 # MixEngine
@@ -13,7 +13,7 @@ summary = "Run PHP, Node, Python, Ruby and Go locally on any version, with real 
 > handbook still applies.
 
 MixEngine is a local web development environment. It runs several versions of PHP, Node.js, Python,
-Ruby and Go side by side and lets a directory choose which one it uses; it runs the web server,
+Ruby, Go and Java side by side and lets a directory choose which one it uses; it runs the web server,
 databases and caches your projects need; and it gives every site a real name like
 `https://blog.test` with a certificate your browser trusts. There is no Docker, no virtual machine
 and no configuration file to write by hand — the generated configuration is MixEngine's business,
@@ -35,7 +35,7 @@ for once, together, and by a helper that exits as soon as it is done.
 
 - [Projects and sites](./projects-and-sites.md) — the two nouns, and how a checkout carries its own
   setup.
-- [PHP, Node, Python, Ruby and Go versions](./runtimes.md) — several at once, chosen per directory.
+- [PHP, Node, Python, Ruby, Go and Java versions](./runtimes.md) — several at once, chosen per directory.
 - [Servers, databases and caches](./services.md) — what your project runs against.
 - [Names and the padlock](./domains-and-https.md) — why `blog.test` resolves, and what signed it.
 - [Showing a site to your phone](./sharing.md) — one site on the local network, and back off again.

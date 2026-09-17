@@ -2,9 +2,9 @@
 title = "MixEngine"
 slug = "index"
 order = 1
-summary = "Chạy PHP, Node, Python, Ruby và Go ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
+summary = "Chạy PHP, Node, Python, Ruby, Go và Java ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
 translation_of = "en/index.md"
-source_sha256 = "fe799b411b78a9432f4a2cec3adc9def66958f0391b27ead390a11aab605a66d"
+source_sha256 = "a33fdcadc6fed1358f1a1a5d6bfe2615ed6e006b6db5c914313cd28738102994"
 +++
 
 # MixEngine
@@ -15,7 +15,7 @@ source_sha256 = "fe799b411b78a9432f4a2cec3adc9def66958f0391b27ead390a11aab605a66
 > trong cẩm nang này vẫn áp dụng.
 
 MixEngine là môi trường phát triển web chạy ngay trên máy bạn. Bạn có thể cài nhiều phiên bản PHP,
-Node.js, Python, Ruby và Go cùng lúc, rồi để mỗi thư mục dự án tự chọn phiên bản mình dùng.
+Node.js, Python, Ruby, Go và Java cùng lúc, rồi để mỗi thư mục dự án tự chọn phiên bản mình dùng.
 MixEngine cũng chạy luôn web server, cơ sở dữ liệu và cache mà dự án cần, và cấp cho mỗi site một
 tên miền thật như `https://blog.test` với chứng chỉ được trình duyệt tin cậy. Không Docker, không
 máy ảo, không phải tự viết file cấu hình nào. Cấu hình sinh ra là việc của MixEngine, và không có
@@ -38,7 +38,7 @@ thoát ngay khi xong việc.
 
 - [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và cách một bản checkout mang
   theo cấu hình của chính nó.
-- [Phiên bản PHP, Node, Python, Ruby và Go](./runtimes.md): nhiều phiên bản cùng lúc, chọn theo
+- [Phiên bản PHP, Node, Python, Ruby, Go và Java](./runtimes.md): nhiều phiên bản cùng lúc, chọn theo
   từng thư mục.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): những thứ dự án của bạn cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): vì sao `blog.test` phân giải được, và ai ký chứng

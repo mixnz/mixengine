@@ -696,6 +696,25 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `crypto/x509` rather than by a handshake, which would have needed an authority installed into
       this machine's store: CryptoAPI on Windows, `SecTrustEvaluateWithError` on macOS, and on Linux
       the two bundles `update-ca-certificates` and `update-ca-trust` regenerate.
+- [ ] **T27e** Java, the seventh runtime kind — design in
+      [docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md](../../docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md).
+      `mixengine-packages` published four JDK lines as its **P20** — 11, 17, 21 and 25, every cell a
+      Microsoft Build of OpenJDK — and left two sentences here: accept the new `requires.libraries`,
+      and `JAVA_HOME` is two directories above `provides.java`. **The kind came first**:
+      `RuntimeKind::Java`, `0026` rebuilding the `CHECK` on 0025's pattern, six shim rows for exactly
+      what the artifact provides, and `java --version` as the smoke test — run with a JVM's own
+      option variables removed, so a daemon started from a session carrying a malformed
+      `_JAVA_OPTIONS` does not refuse every JDK. **The shim sets `JAVA_HOME` over the session's**,
+      which is the opposite of T27d's rule and for its `go env -w` reason.
+      **Trust is the one thing the packaging design did not raise**: a JDK verifies against its own
+      `lib/security/cacerts` and no variable adds an authority to it, so
+      [ADR 0039](../decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md) has
+      the daemon write it in with that JDK's own `keytool`, wherever the browsers are asked and once
+      after an install. `mix doctor` gained two checks — a note about a `JAVA_HOME` or a trust store
+      the pin cannot reach, and `java_trust_missing`, repaired without a prompt.
+      **A soname `ldconfig -p` does not list is a warning that refuses nothing**: `Need::SharedLibrary`
+      with `Remedy::InstallFromDistribution`, said by `mix`, by the install job and by a notice in
+      MixLab, and never hiding the release a machine short of glibc could still run.
 - [x] **T28** PHP extensions: `conf.d` model, enable/disable, prebuilt extension artifacts, per-pool
       reload.
       **Both of the things this was waiting for had landed with
