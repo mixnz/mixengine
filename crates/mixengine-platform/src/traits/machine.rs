@@ -52,6 +52,10 @@ pub struct MachineFacts {
     /// Whether the processor has AVX and the operating system saves its state — roadmap task
     /// **T153**. See [`avx`].
     pub avx: Probe<()>,
+
+    /// The sonames this system's loader lists for this architecture, on Linux — roadmap task
+    /// **T27e**. See [`shared_libraries`].
+    pub shared_libraries: Probe<std::collections::BTreeSet<String>>,
 }
 
 impl MachineFacts {
@@ -64,6 +68,7 @@ impl MachineFacts {
             visual_cpp_x64: Probe::Unknown,
             visual_cpp_arm64: Probe::Unknown,
             avx: Probe::Unknown,
+            shared_libraries: Probe::Unknown,
         }
     }
 }
@@ -93,6 +98,43 @@ pub fn avx() -> Probe<()> {
     #[cfg(not(target_arch = "x86_64"))]
     {
         Probe::Unknown
+    }
+}
+
+/// The sonames `ldconfig -p` lists for `arch` — roadmap task **T27e**.
+///
+/// `arch` is `std::env::consts::ARCH`, and the tag it maps to is the one `ldconfig` prints beside
+/// each entry: a 32-bit library carries no architecture tag at all, so a machine with only an i386
+/// `libasound` does not count as having one.
+///
+/// **Nothing listed is no answer**, rather than everything missing: a container with no
+/// `ld.so.cache` answers "0 libs found in cache", and reading that as a lack would warn about `libz`
+/// on a machine that plainly has it. Parsing lives here, beside [`dotted_version`], so it is tested
+/// on all three systems while only the call sits behind a `cfg`.
+#[must_use]
+pub fn shared_libraries(listing: &str, arch: &str) -> Probe<std::collections::BTreeSet<String>> {
+    let tag = match arch {
+        "x86_64" => "x86-64",
+        "aarch64" => "AArch64",
+        _ => return Probe::Unknown,
+    };
+
+    let found: std::collections::BTreeSet<String> = listing
+        .lines()
+        .filter_map(|line| {
+            let entry = line.strip_prefix('\t')?;
+            let (soname, rest) = entry.split_once(" (")?;
+            let (tags, _) = rest.split_once(')')?;
+
+            tags.split(',')
+                .any(|one| one.trim() == tag)
+                .then(|| soname.trim().to_owned())
+        })
+        .collect();
+
+    match found.is_empty() {
+        true => Probe::Unknown,
+        false => Probe::Present(found),
     }
 }
 
@@ -165,6 +207,41 @@ mod tests {
         assert_eq!(dotted_version("2.35-ubuntu"), Probe::Unknown);
         assert_eq!(dotted_version("2..35"), Probe::Unknown);
         assert_eq!(dotted_version("v14"), Probe::Unknown);
+    }
+
+    /// Four lines of `ldconfig -p`, as Ubuntu prints them — roadmap task **T27e**, measured on
+    /// 2026-09-18. The third is 32-bit, which carries no architecture tag; the fourth is the shape
+    /// a distribution prints when it records an ABI.
+    const LISTING: &str = "363 libs found in cache `/etc/ld.so.cache'\n\
+        \tlibz.so.1 (libc6,x86-64) => /lib/x86_64-linux-gnu/libz.so.1\n\
+        \tlibasound.so.2 (libc6) => /lib/i386-linux-gnu/libasound.so.2\n\
+        \tlibfreetype.so.6 (libc6,x86-64, OS ABI: Linux 3.2.0) => /lib/x86_64-linux-gnu/libfreetype.so.6\n";
+
+    #[test]
+    fn a_listing_names_the_libraries_of_this_architecture_only() {
+        let Probe::Present(found) = shared_libraries(LISTING, "x86_64") else {
+            panic!("a listing with entries is an answer");
+        };
+
+        assert!(found.contains("libz.so.1"));
+        assert!(
+            found.contains("libfreetype.so.6"),
+            "an OS ABI tag beside the architecture is still this architecture"
+        );
+        assert!(
+            !found.contains("libasound.so.2"),
+            "a 32-bit library is not one an x86_64 build can load"
+        );
+    }
+
+    #[test]
+    fn an_empty_cache_or_an_architecture_with_no_tag_is_no_answer() {
+        assert_eq!(
+            shared_libraries("0 libs found in cache `/etc/ld.so.cache'\n", "x86_64"),
+            Probe::Unknown
+        );
+        assert_eq!(shared_libraries(LISTING, "riscv64"), Probe::Unknown);
+        assert_eq!(shared_libraries("", "x86_64"), Probe::Unknown);
     }
 
     /// **About the code, not the runner**: a processor with AVX and one without are both a pass.

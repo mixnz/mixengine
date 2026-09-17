@@ -8,6 +8,7 @@ import type { Need, RedistributableArch, Requirement } from "@mixengine/api";
  */
 export type RequirementStep =
   | { readonly kind: "proceed" }
+  | { readonly kind: "notice"; readonly needs: readonly Need[] }
   | {
       readonly kind: "consent";
       readonly arches: readonly RedistributableArch[];
@@ -30,7 +31,17 @@ export function requirementStep(unmet: readonly Requirement[]): RequirementStep 
   if (unmet.length === 0) return { kind: "proceed" };
 
   const needs = unmet.map((requirement) => requirement.need);
-  const blocking = unmet.filter((requirement) => requirement.remedy.remedy !== "install_visual_cpp");
+
+  // A library the distribution provides is said, not asked about — T27e. It never outranks the two
+  // steps below: a plan that also needs consent asks for it, and one that is blocked says so.
+  const actionable = unmet.filter(
+    (requirement) => requirement.remedy.remedy !== "install_from_distribution",
+  );
+  if (actionable.length === 0) return { kind: "notice", needs };
+
+  const blocking = actionable.filter(
+    (requirement) => requirement.remedy.remedy !== "install_visual_cpp",
+  );
 
   if (blocking.length > 0) {
     // A choice is only worth offering when every blocking need points at the same way out.
@@ -42,7 +53,7 @@ export function requirementStep(unmet: readonly Requirement[]): RequirementStep 
 
   const arches = [
     ...new Set(
-      unmet.flatMap((requirement) =>
+      actionable.flatMap((requirement) =>
         requirement.remedy.remedy === "install_visual_cpp" ? [requirement.remedy.arch] : [],
       ),
     ),
@@ -69,13 +80,36 @@ export function needLabel(need: Need): string {
       return `Visual C++ ${need.year} (${need.arch})`;
     case "cpu":
       return `CPU with ${need.feature.toUpperCase()}`;
+    case "shared_library":
+      return need.soname;
   }
+}
+
+/**
+ * A row's needs, with every shared library gathered apart — T27e.
+ *
+ * A Linux JDK names eight sonames, which is more than a table cell holds; the screen shows how many
+ * there are and puts the names in the cell's title.
+ */
+export function splitLibraries(needs: readonly Need[]): {
+  readonly others: string[];
+  readonly libraries: string[];
+} {
+  const others: string[] = [];
+  const libraries: string[] = [];
+
+  for (const need of needs) {
+    if (need.need === "shared_library") libraries.push(need.soname);
+    else others.push(needLabel(need));
+  }
+
+  return { others, libraries };
 }
 
 /** Whether a blueprint's apply may be sent, given what its releases lack and what was agreed — T152. */
 export function requirementsAllowApply(unmet: readonly Requirement[], agreed: boolean): boolean {
   const step = requirementStep(unmet);
-  if (step.kind === "proceed") return true;
+  if (step.kind === "proceed" || step.kind === "notice") return true;
   if (step.kind === "consent") return agreed;
   return false;
 }

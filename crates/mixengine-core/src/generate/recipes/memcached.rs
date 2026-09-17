@@ -96,6 +96,7 @@ impl Recipe for Memcached {
             // `-V` rather than `--version`: the short flag is in every line this index publishes,
             // and an install is not the place to find out which release grew the long one.
             args: vec!["-V".to_owned()],
+            unset: &[],
         })
     }
 

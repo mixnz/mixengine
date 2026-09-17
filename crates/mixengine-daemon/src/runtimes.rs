@@ -506,6 +506,30 @@ impl Runtimes {
             handle.progress(0, &notice).await;
         }
 
+        // **What this machine may lack, said and not refused** — roadmap task T27e, D16. The gate
+        // in front of this job already let it through; what is left is to name the sonames, in the
+        // job's own progress so every client sees them and in the log for a support conversation.
+        let advisories = mixengine_core::requirements::advisories(&requirements::of(
+            &catalogue.index,
+            kind.as_str(),
+            version.as_str(),
+            &requirements::facts(),
+        ));
+        if !advisories.is_empty() {
+            let named: Vec<String> = advisories
+                .iter()
+                .map(|requirement| requirement.need.label())
+                .collect();
+            let notice = format!(
+                "this machine's loader does not list {} — install them with this distribution's \
+                 package manager; the install goes on",
+                named.join(", ")
+            );
+
+            tracing::warn!(kind = kind.as_str(), version = version.as_str(), "{notice}");
+            handle.progress(0, &notice).await;
+        }
+
         let into = runtimes::directory(&self.paths, kind, version);
         if let Some(parent) = into.parent() {
             paths::create_dir(parent).map_err(|error| error.to_wire())?;
@@ -572,6 +596,16 @@ impl Runtimes {
         // idempotent call the daemon makes at boot. A failure here is reported and does not undo the
         // install — a PHP with no pool is a PHP the next boot gives one to, where an install rolled
         // back for it would be eighty megabytes thrown away over a row.
+        // **A JDK verifies this home's own sites from its first run** — roadmap task T27e, D9.
+        // After the row for the pool hook's reason below, and because what this walks is rows; it
+        // never undoes the install, on that hook's rule — a JDK that cannot verify a local site is
+        // more use than a hundred and forty megabytes thrown away over a certificate store.
+        if kind == RuntimeKind::Java {
+            crate::certs::jdks::hold(&self.store, self.paths.certs())
+                .await
+                .log("after a JDK was installed");
+        }
+
         match mixengine_core::services::pools::ensure(
             &self.store,
             mixengine_platform::host().as_ref(),

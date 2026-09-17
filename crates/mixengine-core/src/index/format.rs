@@ -158,6 +158,16 @@ pub struct Requires {
     /// [`crate::requirements`]. Only `avx`, and only on an x86_64 artifact.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cpu: Option<String>,
+
+    /// Shared libraries, by soname, that the build links and the archive does not ship — roadmap
+    /// task **T27e**.
+    ///
+    /// Every Linux JDK's `libz`, `freetype`, X11 and ALSA: a publisher links them from the
+    /// distribution, as every Linux JDK is built, and carrying a stranger's desktop stack inside a
+    /// runtime would be the wrong trade. **Judged on Linux as a warning that never refuses** — a
+    /// headless server runs without X11 or sound — see [`crate::requirements`].
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub libraries: Vec<String>,
 }
 
 impl Requires {
@@ -168,6 +178,7 @@ impl Requires {
             && self.macos.is_none()
             && self.glibc.is_none()
             && self.cpu.is_none()
+            && self.libraries.is_empty()
     }
 }
 
@@ -610,6 +621,31 @@ mod tests {
             serde_json::from_str(r#"{"cpu": "avx", "glibc": "2.34"}"#).expect("the MongoDB shape");
         assert_eq!(requires.cpu.as_deref(), Some("avx"));
         assert!(!requires.is_empty());
+    }
+
+    /// **`libraries` is read** — roadmap task **T27e**, its design's D13: the sonames a Linux JDK
+    /// links and does not ship.
+    #[test]
+    fn requires_reads_the_libraries_a_build_links() {
+        let requires: Requires = serde_json::from_str(
+            r#"{"glibc": "2.17", "libraries": ["libz.so.1", "libasound.so.2"]}"#,
+        )
+        .expect("the Java shape");
+
+        assert_eq!(
+            requires.libraries,
+            vec!["libz.so.1".to_owned(), "libasound.so.2".to_owned()]
+        );
+        assert!(!requires.is_empty());
+        assert!(
+            !Requires {
+                libraries: vec!["libz.so.1".to_owned()],
+                ..Requires::default()
+            }
+            .is_empty(),
+            "a build that asks only for a library still asks for something"
+        );
+        assert!(Requires::default().is_empty());
     }
 
     #[test]

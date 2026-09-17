@@ -206,6 +206,10 @@ pub struct SmokeTest {
     /// What to pass it. Something that exits zero quickly and touches the runtime's own machinery —
     /// `-v` for PHP, `--version` for Node.
     pub args: Vec<String>,
+
+    /// Variables removed from the child's environment — a JVM's own option variables, for Java
+    /// (roadmap task **T27e**, its design's D3). Empty for every other kind.
+    pub unset: &'static [&'static str],
 }
 
 /// A runtime that is now on disk.
@@ -644,6 +648,10 @@ impl Installer {
             // A check that hung would otherwise outlive the timeout below and hold the staging
             // directory open, which is exactly what the rename cannot tolerate on Windows.
             .kill_on_drop(true);
+
+        for variable in smoke.unset {
+            checking.env_remove(variable);
+        }
 
         // A runtime is a console program and the daemon has no console, so without this Windows
         // makes one for it — a terminal window flashing on the desktop for every `php -v`.

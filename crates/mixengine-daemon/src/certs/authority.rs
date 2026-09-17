@@ -187,6 +187,11 @@ async fn rotating(
     let promoted = certificates.authority().await?;
     certificates.install_in_browsers(&promoted).await;
 
+    // **And every installed JDK, which reads neither of those** — roadmap task T27e, ADR 0039. The
+    // new alias first and the old one below, beside the browsers': a moment holding both is a moment
+    // every site verifies, where a moment holding neither is not.
+    certificates.hold_in_jdks().await.log("after a rotation");
+
     // **And the runtimes, which read neither the store nor a browser database** — roadmap task
     // T132. The bundle's header carries the authority's fingerprint, so this rotation makes it a
     // changed file and every `node`, `php`, `python` or `ruby` started afterwards is handed the new
@@ -195,6 +200,10 @@ async fn rotating(
 
     if let Some(ca) = previous.as_ref() {
         certificates.remove_from_browsers(&ca.key_id).await;
+        certificates
+            .release_from_jdks(&ca.key_id)
+            .await
+            .log("after a rotation");
     }
 
     handle.progress(90, "telling the front end").await;
@@ -390,6 +399,13 @@ async fn removing(
         .await;
 
     let browsers = certificates.remove_from_browsers(&ca.key_id).await;
+
+    // The JDKs, for the browsers' reason and with no row of its own: `cert.ca_uninstall` reports
+    // the stores a person can name, and a JDK's `cacerts` is one nobody asked about — T27e.
+    certificates
+        .release_from_jdks(&ca.key_id)
+        .await
+        .log("when the authority was uninstalled");
 
     handle
         .progress(40, "asking to take it out of this machine's trust store")

@@ -1,13 +1,13 @@
 +++
-title = "Phiên bản PHP, Node, Python, Ruby và Go"
+title = "Phiên bản PHP, Node, Python, Ruby, Go và Java"
 slug = "runtimes"
 order = 5
 summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó. Không hook shell, không phải nhớ gì cả."
 translation_of = "en/runtimes.md"
-source_sha256 = "f370303c03de0c5bedb162b7ceee75f31dcd07f4cbb3311b2fa03bf205915b17"
+source_sha256 = "4b0d0407f6dbcf19ebd03f93e12452e58467893fa040fd4ce2b3216f230c692b"
 +++
 
-# Phiên bản PHP, Node, Python, Ruby và Go
+# Phiên bản PHP, Node, Python, Ruby, Go và Java
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
 > giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
@@ -18,8 +18,8 @@ MixEngine cài runtime ngôn ngữ vào thư mục riêng của nó, mỗi phiê
 không bao giờ đụng tới những gì hệ điều hành đã có sẵn. Cài một phiên bản mới không bao giờ sửa
 phiên bản đã cài, nên bạn thêm gì vào cũng không làm hỏng thứ đang chạy tốt.
 
-Có năm ngôn ngữ được quản lý: **PHP**, **Node.js**, **Python**, **Ruby** và **Go**, cùng một công
-cụ là **Composer**, được cài theo cùng cách và chạy dưới PHP mà thư mục hiện tại dùng.
+Có sáu ngôn ngữ được quản lý: **PHP**, **Node.js**, **Python**, **Ruby**, **Go** và **Java**, cùng
+một công cụ là **Composer**, được cài theo cùng cách và chạy dưới PHP mà thư mục hiện tại dùng.
 
 ## Cài một phiên bản
 
@@ -39,8 +39,8 @@ Cài đặt là một job, và mặc định `mix` sẽ chờ nó xong. Vì th�
 việc và đưa bạn một job id, để sau đó bạn chờ bằng `mix job wait`.
 
 **Cài PHP cũng tạo luôn pool php-fpm** cho phiên bản đó, ví dụ `php-fpm@8.3.33`. Đây là một
-service như mọi service khác, xuất hiện trong `mix service list`. Node, Python, Ruby và Go được gọi
-theo từng lệnh, không có gì cần giám sát.
+service như mọi service khác, xuất hiện trong `mix service list`. Node, Python, Ruby, Go và Java
+được gọi theo từng lệnh, không có gì cần giám sát.
 
 ### Trên máy Windows dùng chip ARM
 
@@ -108,6 +108,35 @@ Cách xử lý là cài phiên bản Go mới hơn rồi pin nó. Ba chi tiết:
 Chương trình bạn thêm bằng `go install` nằm trong `GOBIN` của Go (mặc định là `~/go/bin` nếu bạn
 chưa đổi), và MixEngine không đưa thư mục đó vào `PATH` của bạn.
 
+## Java
+
+```bash
+mix runtime available --kind java      # 11, 17, 21 và 25 — các dòng hỗ trợ dài hạn
+mix runtime install java 21
+java --version                         # JDK mà thư mục này resolve ra
+mix project update api --pin java=21
+```
+
+`java`, `javac`, `jar`, `jshell`, `keytool` và `jlink` là lệnh như mọi lệnh khác. Mỗi lệnh được khởi
+động với **`JAVA_HOME` trỏ đúng JDK của nó**, kể cả khi bạn đã export một giá trị khác, nên chương
+trình — và cả tiến trình con mà nó tự khởi động — đều tìm thấy đúng JDK mà thư mục này pin.
+
+**Maven và Gradle gõ thẳng trong terminal đọc `JAVA_HOME` của bạn trước.** Nếu biến đó trỏ vào một
+JDK hệ thống thì `mvn` và `./gradlew` dùng JDK đó, bất kể thư mục pin gì; bỏ biến đó đi thì chúng sẽ
+tìm thấy `java` đã pin trên `PATH`. `mix doctor` sẽ báo khi chính MixEngine được khởi động với một
+`JAVA_HOME` nằm ngoài các JDK của nó.
+
+**HTTPS tới site của bạn chạy được.** MixEngine ghi chứng chỉ gốc của mình vào kho chứng chỉ của
+từng JDK đã cài, nên `https://blog.test` được Java xác thực mà không cần cờ hay tham số nào thêm.
+Có hai giới hạn đáng biết: runtime bạn tự dựng bằng `jlink` mang kho chứng chỉ gốc ban đầu nên không
+tin các site này, và một JVM khởi động kèm `-Djavax.net.ssl.trustStore` sẽ đọc kho đó thay vì kho
+của JDK. Nếu một JDK mất chứng chỉ này, `mix doctor --repair` ghi lại.
+
+**Trên Linux, JDK cần một số thư viện của hệ thống**: `zlib` để chạy được, `freetype` để dựng chữ,
+X11 cho cửa sổ và ALSA cho âm thanh. Khi máy bạn thiếu thư viện nào, bản cài sẽ nói tên thư viện đó
+rồi vẫn cài tiếp: một server không vẽ cửa sổ và không phát âm thanh vẫn chạy tốt mà không cần chúng,
+và trình quản lý gói của bản phân phối có sẵn chúng khi bạn cần.
+
 ## Chọn phiên bản cho từng thư mục
 
 Không có gì ở đây sửa shell, vá file profile, hay bắt bạn gõ lệnh activate. Mỗi thư mục resolve ra
@@ -148,7 +177,8 @@ Ràng buộc không ghi pre-release thì không bao giờ chọn pre-release. `8
 
 `mix path install` điền vào `<root>/bin` và đưa duy nhất thư mục đó vào `PATH` của bạn. Trong đó
 có một chương trình nhỏ cho mỗi lệnh: `php`, `php-config`, `pecl`, `composer`, `node`, `npm`,
-`npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`. Mỗi chương trình tự tìm xem thư mục
+`npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`, `java`, `javac`, `jar`,
+`jshell`, `keytool`, `jlink`. Mỗi chương trình tự tìm xem thư mục
 hiện tại muốn phiên bản nào rồi chuyển cho file thực thi thật.
 
 Hai hệ quả đáng biết:

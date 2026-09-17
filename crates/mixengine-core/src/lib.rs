@@ -1146,6 +1146,18 @@ pub enum Error {
         detail: String,
     },
 
+    /// A JDK's own `keytool` would not answer, or would not write — roadmap task **T27e**, ADR 0039.
+    ///
+    /// **Fatal to nothing.** An install and a daemon start carry on without it; what it costs is a
+    /// JDK that cannot verify this home's own HTTPS sites, which `mix doctor` reports and repairs.
+    #[error("{} would not update this JDK's certificate store: {detail}", program.display())]
+    KeytoolRefused {
+        /// Which `keytool` was run.
+        program: PathBuf,
+        /// Its last line, the operating system's refusal to start it, or a timeout.
+        detail: String,
+    },
+
     /// Something is already installed where this one was going.
     ///
     /// An install never mutates a version that is already there: a runtime directory is immutable

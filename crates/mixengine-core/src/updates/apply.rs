@@ -120,6 +120,7 @@ pub async fn stage<W: Watcher>(
     let smoke = SmokeTest {
         executable: SMOKE_EXECUTABLE.to_owned(),
         args: vec!["--version".to_owned()],
+        unset: &[],
     };
 
     let installed = installer

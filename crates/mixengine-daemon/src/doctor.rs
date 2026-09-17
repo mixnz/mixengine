@@ -54,6 +54,10 @@ pub(crate) struct Doctor {
     /// `<root>/bin`, for the check that asks what else on this PATH answers to its names — T131.
     bin: std::path::PathBuf,
 
+    /// `<root>/runtimes`, for the check that asks whether `JAVA_HOME` names one of this home's JDKs
+    /// — roadmap task **T27e**.
+    runtimes: std::path::PathBuf,
+
     /// What these rows render to, for the drift check — the registry's own generator.
     generator: mixengine_core::generate::Generator,
 
@@ -95,6 +99,7 @@ impl Doctor {
             certs: paths.certs().to_path_buf(),
             etc: paths.etc().to_path_buf(),
             bin: paths.bin().to_path_buf(),
+            runtimes: paths.runtimes().to_path_buf(),
             generator,
             crashes,
         })
@@ -115,6 +120,8 @@ impl Doctor {
                 self.site_certificates().await,
                 self.trust_bundle(),
                 self.go_toolchain().await,
+                self.java_pin().await,
+                self.java_trust().await,
                 self.commands().await,
                 self.dns_server(),
                 self.port_access().await,
@@ -553,6 +560,55 @@ impl Doctor {
                     because: format!("this home's installed runtimes could not be read: {error}"),
                 },
             },
+        }
+    }
+
+    /// **Whether a pinned JDK is the JDK a build tool uses** — roadmap task **T27e**, its design's D7.
+    ///
+    /// The shim overwrites `JAVA_HOME` for what it starts, and reaches nothing else: `mvn` and
+    /// `./gradlew` typed in a terminal read the session's. The daemon's environment is the proxy for
+    /// that session — a weak one where a login profile never reaches a user service, which is why the
+    /// handbook carries the rule too. A `Note`, for [`go_toolchain`](Self::go_toolchain)'s reason.
+    async fn java_pin(&self) -> Check {
+        let name = "the JDK a project pins".to_owned();
+
+        match mixengine_core::runtimes::records(&self.store, Some(RuntimeKind::Java)).await {
+            Ok(installed) => {
+                let options: Vec<(&str, Option<std::ffi::OsString>)> =
+                    ["JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS"]
+                        .into_iter()
+                        .map(|variable| (variable, std::env::var_os(variable)))
+                        .collect();
+
+                Check {
+                    name,
+                    outcome: java_outcome(
+                        !installed.is_empty(),
+                        &self.runtimes,
+                        std::env::var_os("JAVA_HOME").as_deref(),
+                        &options,
+                    ),
+                }
+            }
+            Err(error) => Check {
+                name,
+                outcome: Outcome::Skipped {
+                    because: format!("this home's installed runtimes could not be read: {error}"),
+                },
+            },
+        }
+    }
+
+    /// **Whether every JDK can verify this home's own sites** — roadmap task **T27e**, D11.
+    ///
+    /// One `keytool` per installed JDK, which reads and writes nothing; a home with no Java, or none
+    /// with a usable authority, asks no process anything.
+    async fn java_trust(&self) -> Check {
+        Check {
+            name: "every JDK trusts this home's authority".to_owned(),
+            outcome: java_trust_outcome(
+                &crate::certs::jdks::lacking(&self.store, &self.certs).await,
+            ),
         }
     }
 
@@ -1158,6 +1214,71 @@ fn go_outcome(installed: bool, toolchain: Option<&OsStr>, goroot: Option<&OsStr>
     }
 }
 
+/// What [`Doctor::java_pin`] decides, as a function of what it read — [`go_outcome`]'s shape.
+///
+/// `installed` is whether this home holds any JDK, `runtimes` is its `runtimes/` directory, and the
+/// rest are the daemon's own values.
+fn java_outcome(
+    installed: bool,
+    runtimes: &std::path::Path,
+    java_home: Option<&OsStr>,
+    options: &[(&str, Option<std::ffi::OsString>)],
+) -> Outcome {
+    if !installed {
+        return Outcome::Ok {};
+    }
+
+    let mut said = Vec::new();
+
+    if let Some(value) = java_home.filter(|value| !value.is_empty())
+        && !std::path::Path::new(value).starts_with(runtimes.join("java"))
+    {
+        said.push(format!(
+            "JAVA_HOME={} (mvn and ./gradlew typed outside bin/ use that JDK)",
+            value.to_string_lossy()
+        ));
+    }
+
+    for (variable, value) in options {
+        if value
+            .as_deref()
+            .is_some_and(|value| value.to_string_lossy().contains("javax.net.ssl.trustStore"))
+        {
+            said.push(format!(
+                "{variable} naming javax.net.ssl.trustStore (every JVM reads that store instead of \
+                 the cacerts MixEngine writes into)"
+            ));
+        }
+    }
+
+    match said.is_empty() {
+        true => Outcome::Ok {},
+        false => Outcome::Note {
+            because: format!(
+                "this daemon's own environment sets {} — unset it, or expect a JDK other than the \
+                 pinned one",
+                said.join(" and ")
+            ),
+        },
+    }
+}
+
+/// What [`Doctor::java_trust`] decides from the JDKs that do not hold this home's authority.
+fn java_trust_outcome(lacking: &[String]) -> Outcome {
+    match lacking.is_empty() {
+        true => Outcome::Ok {},
+        false => Outcome::Problem {
+            id: ProblemId::JavaTrustMissing,
+            because: format!(
+                "{} cannot verify this home's own HTTPS sites — `mix doctor --repair` writes the \
+                 authority into each one, and a `cacerts` whose password was changed is the one \
+                 case keytool refuses",
+                lacking.join(", ")
+            ),
+        },
+    }
+}
+
 fn stranded<'a>(
     rows: impl Iterator<Item = (&'a str, bool)>,
     held: &std::collections::BTreeSet<&str>,
@@ -1484,6 +1605,100 @@ mod tests {
         };
 
         assert!(because.contains("GOROOT=/usr/local/go"), "{because}");
+    }
+
+    /// **A home with no Java is not asked about Java** — roadmap task **T27e**, its design's D7.
+    #[test]
+    fn a_home_with_no_java_is_not_asked_about_java() {
+        let outcome = super::java_outcome(
+            false,
+            std::path::Path::new("/home/me/.mixengine/runtimes"),
+            Some(OsStr::new("/usr/lib/jvm/temurin-17")),
+            &[],
+        );
+
+        assert!(matches!(outcome, Outcome::Ok {}), "{outcome:?}");
+    }
+
+    /// A `JAVA_HOME` inside this home's JDKs, or none, leaves `mvn` on a pinned JDK.
+    #[test]
+    fn a_java_home_inside_this_home_is_ok() {
+        let runtimes = std::path::Path::new("/home/me/.mixengine/runtimes");
+        let inside = runtimes.join("java").join("21.0.12.1");
+
+        for java_home in [None, Some(inside.as_os_str())] {
+            let outcome = super::java_outcome(true, runtimes, java_home, &[]);
+
+            assert!(
+                matches!(outcome, Outcome::Ok {}),
+                "{java_home:?}: {outcome:?}"
+            );
+        }
+    }
+
+    /// A system JDK in `JAVA_HOME` is the one `mvn` runs, whatever the directory pins.
+    #[test]
+    fn a_java_home_elsewhere_is_a_note_naming_it() {
+        let outcome = super::java_outcome(
+            true,
+            std::path::Path::new("/home/me/.mixengine/runtimes"),
+            Some(OsStr::new("/usr/lib/jvm/temurin-17")),
+            &[],
+        );
+
+        let Outcome::Note { because } = outcome else {
+            panic!("a JDK mvn would use instead is news: {outcome:?}");
+        };
+
+        assert!(
+            because.contains("JAVA_HOME=/usr/lib/jvm/temurin-17"),
+            "{because}"
+        );
+    }
+
+    /// A trust store named in a JVM's options replaces the `cacerts` MixEngine writes into.
+    #[test]
+    fn a_trust_store_in_the_options_is_a_note_naming_the_variable() {
+        let options = [(
+            "_JAVA_OPTIONS",
+            Some(std::ffi::OsString::from(
+                "-Djavax.net.ssl.trustStore=/etc/corp.jks",
+            )),
+        )];
+
+        let outcome = super::java_outcome(
+            true,
+            std::path::Path::new("/home/me/.mixengine/runtimes"),
+            None,
+            &options,
+        );
+
+        let Outcome::Note { because } = outcome else {
+            panic!("a replaced trust store is news: {outcome:?}");
+        };
+
+        assert!(because.contains("_JAVA_OPTIONS"), "{because}");
+    }
+
+    /// Nothing lacking is the ordinary machine, and the one a home with no Java always is.
+    #[test]
+    fn every_jdk_holding_the_authority_is_ok() {
+        let outcome = super::java_trust_outcome(&[]);
+
+        assert!(matches!(outcome, Outcome::Ok {}), "{outcome:?}");
+    }
+
+    /// **A JDK that cannot verify this home's sites is a problem, and is named** — T27e, D11.
+    #[test]
+    fn a_jdk_lacking_the_authority_is_a_problem_naming_it() {
+        let outcome = super::java_trust_outcome(&["java 21.0.12.1".to_owned()]);
+
+        let Outcome::Problem { id, because } = outcome else {
+            panic!("a JDK that cannot verify a local site is a problem: {outcome:?}");
+        };
+
+        assert_eq!(id, ProblemId::JavaTrustMissing);
+        assert!(because.contains("java 21.0.12.1"), "{because}");
     }
 
     /// A support answer with the two interesting fields set and the rest held constant.

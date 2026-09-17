@@ -34,7 +34,7 @@ describe("monogramHue", () => {
 
   it("reaches every hue across ordinary names", () => {
     const names = ["caddy", "nginx", "mariadb", "mysql", "postgres", "redis", "memcached", "mongodb",
-      "php", "node", "python", "ruby", "go", "composer", "laravel", "wordpress", "django", "rails", "vite",
+      "php", "node", "python", "ruby", "go", "java", "composer", "laravel", "wordpress", "django", "rails", "vite",
       "strapi", "symfony", "drupal", "static", "next", "clickhouse", "sqlite", "mssql"];
     const seen = new Set(names.map(monogramHue));
     for (const hue of CATEGORICAL_HUES) expect(seen).toContain(hue);

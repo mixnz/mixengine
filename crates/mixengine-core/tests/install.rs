@@ -412,6 +412,7 @@ async fn a_binary_that_will_not_run_here_is_never_renamed_into_place() {
         // A flag no program of ours accepts, so this fails the way a runtime that cannot start
         // does: it is spawned, and its exit status is not zero.
         args: vec!["--certainly-not-a-flag".to_owned()],
+        unset: &[],
     };
 
     let refusal = fixture
@@ -449,6 +450,7 @@ async fn an_artifact_that_runs_here_is_installed_and_is_still_executable_afterwa
     let smoke = SmokeTest {
         executable: "php".to_owned(),
         args: vec!["--help".to_owned()],
+        unset: &[],
     };
 
     fixture

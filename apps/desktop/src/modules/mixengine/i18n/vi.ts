@@ -265,6 +265,11 @@ const vi: typeof en = {
       applyConsent:
         "Cài Microsoft Visual C++ Redistributable ({{arch}}) trước — Windows có thể hỏi quyền một lần",
       applyBlocked: "Không áp dụng được blueprint này trên máy này: cần {{needs}}.",
+      systemLibraries: "Thư viện hệ thống ({{count}})",
+      librariesNotice:
+        "Đang cài {{name}}. Trình nạp thư viện của máy này không liệt kê {{libraries}}, hãy cài chúng bằng trình quản lý gói của bản phân phối.",
+      applyLibraries:
+        "Trình nạp thư viện của máy này không liệt kê {{libraries}}, hãy cài chúng bằng trình quản lý gói của bản phân phối. Blueprint vẫn áp dụng được.",
     },
     serviceState: {
       stopped: "Đã dừng",

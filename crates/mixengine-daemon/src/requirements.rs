@@ -56,6 +56,15 @@ pub(crate) fn refusal(
     unmet: &[Requirement],
     install_prerequisites: bool,
 ) -> Option<Error> {
+    // **A warning is said by whoever asked, and refuses nothing** — roadmap task **T27e**, D16. It
+    // is dropped here rather than at each caller so that "what stands in the way" means one thing.
+    let unmet: Vec<Requirement> = unmet
+        .iter()
+        .filter(|requirement| !requirements::is_advisory(requirement))
+        .cloned()
+        .collect();
+    let unmet = unmet.as_slice();
+
     if unmet.is_empty() || (!requirements::blocks(unmet) && install_prerequisites) {
         return None;
     }
@@ -276,6 +285,29 @@ mod tests {
                 version: PackageVersion::parse("8.3.33").expect("a version"),
             },
         }
+    }
+
+    fn advisory() -> Requirement {
+        Requirement {
+            need: Need::SharedLibrary {
+                soname: "libasound.so.2".to_owned(),
+            },
+            remedy: mixengine_proto::Remedy::InstallFromDistribution,
+        }
+    }
+
+    /// **A library the distribution provides refuses nothing** — roadmap task **T27e**, D16.
+    #[test]
+    fn a_missing_library_alone_refuses_nothing() {
+        assert!(refusal(&subject(), &[advisory()], false).is_none());
+        assert!(
+            refusal(&subject(), &[advisory(), installable()], false).is_some(),
+            "the Visual C++ runtime beside it still asks"
+        );
+        assert!(
+            refusal(&subject(), &[advisory(), escapable()], true).is_some(),
+            "a lack no installer fixes beside it still refuses"
+        );
     }
 
     #[test]

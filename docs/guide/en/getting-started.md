@@ -126,7 +126,7 @@ shell history or an argument list.
 ## Where to go next
 
 - [Projects and sites](./projects-and-sites.md) — the two nouns, and what each one owns.
-- [PHP, Node, Python, Ruby and Go versions](./runtimes.md) — how a directory chooses its own
+- [PHP, Node, Python, Ruby, Go and Java versions](./runtimes.md) — how a directory chooses its own
   version.
 - [Servers, databases and caches](./services.md) — everything a project runs against.
 - [Names and the padlock](./domains-and-https.md) — how `blog.test` resolves, and what signed it.

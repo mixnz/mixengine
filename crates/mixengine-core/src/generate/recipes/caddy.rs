@@ -227,6 +227,7 @@ impl Recipe for Caddy {
             // A subcommand and not a flag: `caddy --version` exits non-zero, which would fail the
             // install of an archive that is perfectly good.
             args: vec!["version".to_owned()],
+            unset: &[],
         })
     }
 

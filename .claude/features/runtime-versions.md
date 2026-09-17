@@ -1,20 +1,29 @@
 # Multi-version runtime management
 
-**Goal**: install many versions of PHP, Node.js, Python, Ruby and Go side by side, switch instantly,
-and have each project use the right one without the user thinking about it.
+**Goal**: install many versions of PHP, Node.js, Python, Ruby, Go and Java side by side, switch
+instantly, and have each project use the right one without the user thinking about it.
 
 ## Model
 
 - A **runtime install** is an immutable directory `runtimes/<kind>/<version>/`. Installing never
-  mutates an existing version.
+  mutates an existing version. **One file is the exception**, and only on a JDK: the daemon writes
+  this home's authority into `lib/security/cacerts` with that JDK's own `keytool` — T27e,
+  [ADR 0039](../decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
 - A **runtime kind** has one *global default* and any number of *project pins*.
 - PHP is special: each installed PHP version also owns a long-running `php-fpm@<version>` service
-  ([services.md](services.md)). Node/Python/Ruby/Go are invoked per-command, not supervised.
+  ([services.md](services.md)). Node/Python/Ruby/Go/Java are invoked per-command, not supervised.
 - **Go** — T27d. Upstream's whole tree under `runtimes/go/<version>/`, fronted by `go` and `gofmt`,
   smoke-tested with `go version`. `GOROOT` is wherever the tree is, derived by `go` itself, and
   `GOPATH`, `GOMODCACHE`, `GOCACHE` and `GOBIN` stay Go's own defaults. What `go install` writes into
   `GOBIN` is not fronted: that directory is outside every install and shared by all of them. Design:
   [docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md](../../docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md).
+- **Java** — T27e. A Microsoft Build of OpenJDK under `runtimes/java/<version>/` (the LTS lines 11,
+  17, 21 and 25), fronted by `java`, `javac`, `jar`, `jshell`, `keytool` and `jlink`, smoke-tested
+  with `java --version` — run without `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`,
+  `CLASSPATH` or `JAVA_HOME`, so a daemon started from a session carrying one of them does not refuse
+  every JDK for a reason that has nothing to do with the JDK. No globals directory: Maven and Gradle
+  keep their programs outside every install. Design:
+  [docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md](../../docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md).
 - **Composer is a kind, not a language** — T27c. It installs, pins, lists and defaults like the
   languages above, into `runtimes/composer/<version>/composer.phar`, and the `composer` shim runs
   that file under the PHP the same directory resolves to. Composer 2.3+ needs PHP 7.2.5 or newer; a
@@ -45,7 +54,8 @@ is resolved against installed versions — **never** silently against downloadab
 ## Shims
 
 `<root>/bin/` contains a small shim binary per exposed command (`php`, `php-config`, `pecl`,
-`composer`, `node`, `npm`, `npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`). The shim:
+`composer`, `node`, `npm`, `npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`, `java`,
+`javac`, `jar`, `jshell`, `keytool`, `jlink`). The shim:
 
 1. Reads its own file name to know which command was invoked.
 2. Calls `resolve` (in-process, reading SQLite read-only + walking for `mixengine.toml`) — **no IPC**,
@@ -114,6 +124,7 @@ bindir is out of scope: it is `~/.composer/vendor/bin`, outside every install di
 | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
 | PHP, Composer | — | the generated ini set says it instead |
 | Go | — | Go already reads the store this home's authority is installed into |
+| Java | — | its own `cacerts`, written by the daemon with that JDK's `keytool` (T27e, ADR 0039) |
 
 Node is handed the authority and the others the merged bundle, because `NODE_EXTRA_CA_CERTS` *adds*
 to what Node trusts and every other mechanism **replaces** a trust store. See [tls.md](tls.md).
@@ -131,6 +142,26 @@ left alone, an empty one is treated as unset (Go does the same), and one written
 loses on purpose — the environment beats that file, and it is usually a machine-wide choice made
 before MixEngine was installed. `mix doctor` notes a daemon whose own environment carries a
 `GOTOOLCHAIN` other than `local`, or a `GOROOT`, since its children inherit either.
+
+**And a Java command is told its own `JAVA_HOME`** — T27e. The shim sets it to two directories above
+`provides.java` — `Contents/Home` on macOS — **over** whatever the session carries. That is the
+opposite of the rule above, for T27d's `go env -w` reason: `JAVA_HOME` is usually a machine-wide
+value an installer wrote before MixEngine was here, and a `java` whose own children are told about
+another JDK is half a pin. The limit is stated rather than hidden: a shim reaches only what it
+starts, so `mvn` or `./gradlew` typed in a terminal still reads the session's `JAVA_HOME`. `mix
+doctor` notes a daemon environment carrying one outside `runtimes/java/`, or a `JAVA_TOOL_OPTIONS`,
+`_JAVA_OPTIONS` or `JDK_JAVA_OPTIONS` naming `javax.net.ssl.trustStore` — that store replaces the
+`cacerts` the authority was written into.
+
+**What a Linux JDK links is warned about and never refused** — T27e. The index's optional
+`requires.libraries` names the sonames a build links and does not ship: every Linux JDK's `libz`,
+`freetype`, X11 and ALSA. On Linux the daemon reads `ldconfig -p` for this architecture, and each
+soname it does not list becomes a `Need::SharedLibrary` whose remedy is `InstallFromDistribution` —
+it blocks nothing, needs no consent, and never hides a release from `ChooseVersion`, because every
+Linux release of a line links the same set. `mix` prints a `warning:`, the install job says the same
+in its progress, and MixLab shows a notice and installs. An `ldconfig` that cannot be run, or a cache
+that lists nothing, is no answer rather than everything missing: a headless server runs a JDK without
+X11 or sound, and `libz` — the one nothing starts without — is what the smoke test catches anyway.
 
 ## Install flow
 

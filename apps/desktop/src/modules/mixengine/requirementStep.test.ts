@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { Requirement } from "@mixengine/api";
 
-import { askingStep, needLabel, requirementStep, requirementsAllowApply } from "./requirementStep";
+import {
+  askingStep,
+  needLabel,
+  requirementStep,
+  requirementsAllowApply,
+  splitLibraries,
+} from "./requirementStep";
 
 const visualCpp: Requirement = {
   need: { need: "visual_cpp", year: "2019", arch: "x64" },
@@ -18,6 +24,35 @@ const nowhere: Requirement = {
   need: { need: "glibc", at_least: "2.34", found: "2.31" },
   remedy: { remedy: "unavailable" },
 };
+
+const noSound: Requirement = {
+  need: { need: "shared_library", soname: "libasound.so.2" },
+  remedy: { remedy: "install_from_distribution" },
+};
+
+describe("a library the distribution provides", () => {
+  it("is a notice when it is all that is missing, and asks nothing", () => {
+    expect(requirementStep([noSound])).toEqual({ kind: "notice", needs: [noSound.need] });
+    expect(askingStep(requirementStep([noSound]))).toBeNull();
+  });
+
+  it("never outranks a question or a refusal", () => {
+    expect(requirementStep([noSound, visualCpp]).kind).toBe("consent");
+    expect(requirementStep([noSound, nowhere]).kind).toBe("choose");
+  });
+
+  it("lets a blueprint apply", () => {
+    expect(requirementsAllowApply([noSound], false)).toBe(true);
+  });
+
+  it("is named by soname, and gathered apart from every other need", () => {
+    expect(needLabel(noSound.need)).toBe("libasound.so.2");
+    expect(splitLibraries([noSound.need, oldMac.need])).toEqual({
+      others: ["macOS 14.0+"],
+      libraries: ["libasound.so.2"],
+    });
+  });
+});
 
 describe("requirementStep", () => {
   it("lets an install that lacks nothing go straight on", () => {

@@ -5,6 +5,7 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Checkbox from "../../../../components/Checkbox";
+import NoticeBanner from "../../../../components/NoticeBanner";
 import { errorMessage } from "../../../../core/errors";
 import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
@@ -14,7 +15,12 @@ import type { BlueprintPlan } from "@mixengine/api";
 import type { BlueprintSummary } from "@mixengine/api";
 import type { MismatchAnswer } from "@mixengine/api";
 import type { Requirement } from "@mixengine/api";
-import { needLabel, requirementStep, requirementsAllowApply } from "../../requirementStep";
+import {
+  needLabel,
+  requirementStep,
+  requirementsAllowApply,
+  splitLibraries,
+} from "../../requirementStep";
 import {
   answerSubjectFor,
   blueprintAppliedFrom,
@@ -499,6 +505,17 @@ function PrerequisitesNotice({
   const { t } = useTranslation();
   const step = requirementStep(needs);
   if (step.kind === "proceed") return null;
+
+  // **Said, not asked** — T27e: the apply is not held up by a library the distribution provides.
+  if (step.kind === "notice") {
+    return (
+      <NoticeBanner
+        message={t("mixengine.requirements.applyLibraries", {
+          libraries: splitLibraries(step.needs).libraries.join(", "),
+        })}
+      />
+    );
+  }
 
   const labels = step.needs.map(needLabel).join(", ");
   if (step.kind === "choose") {

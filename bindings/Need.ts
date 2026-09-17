@@ -36,4 +36,8 @@ found?: string | null, } | { "need": "cpu",
 /**
  * The feature the artifact names, as the index spells it — `avx`.
  */
-feature: string, };
+feature: string, } | { "need": "shared_library", 
+/**
+ * As the index spells it — `libasound.so.2`.
+ */
+soname: string, };

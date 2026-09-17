@@ -106,13 +106,14 @@ fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
     // kind named the file; the `via` kind names what runs it, resolved for the same directory and
     // under its own override variable, so `MIXENGINE_PHP=8.1 composer install` means what it says.
     // The environment is the program's: PHP's own directory on the PATH, PHP's generated ini set.
-    let (program, root, kind, version, arguments) = match command.via {
+    let (program, root, kind, version, arguments, java) = match command.via {
         None => (
             own.program,
             own.root,
             command.kind,
             own.version,
             arguments.to_vec(),
+            own.java,
         ),
         Some(via) => {
             let runner = resolved(via, via.as_str()).map_err(|refusal| Refusal {
@@ -124,11 +125,18 @@ fn run(invoked: &Path, arguments: &[OsString]) -> Result<i32, Refusal> {
             handed.push(own.program.into_os_string());
             handed.extend(arguments.iter().cloned());
 
-            (runner.program, runner.root, via, runner.version, handed)
+            (
+                runner.program,
+                runner.root,
+                via,
+                runner.version,
+                handed,
+                runner.java,
+            )
         }
     };
 
-    let environment = surroundings(kind, &program, &root, &version);
+    let environment = surroundings(kind, &program, &root, &version, java.as_deref());
 
     process::hand_over(&program, &arguments, &environment).map_err(|error| Refusal {
         said: explain(&error),
@@ -328,7 +336,13 @@ async fn global(
 
     Ok((
         program,
-        surroundings(kind, &program_for_surroundings(&bindir), root, &version),
+        surroundings(
+            kind,
+            &program_for_surroundings(&bindir),
+            root,
+            &version,
+            None,
+        ),
     ))
 }
 
@@ -364,7 +378,7 @@ fn install_globally(kind: RuntimeKind, name: &str) -> String {
         RuntimeKind::Node => format!("npm install -g {name}"),
         RuntimeKind::Python => format!("pip install {name}"),
         RuntimeKind::Ruby => format!("gem install {name}"),
-        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => {
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Java | RuntimeKind::Composer => {
             format!("nothing here installs {name} into a {kind}")
         }
     }
@@ -410,6 +424,10 @@ struct Resolution {
 
     /// Which version this directory meant, which is what names the ini set.
     version: PackageVersion,
+
+    /// `provides.java` of the same install, for a Java command — what `JAVA_HOME` is derived from
+    /// (roadmap task **T27e**, its design's D5). [`None`] for every other kind.
+    java: Option<PathBuf>,
 }
 
 /// Everything the fronted program is given beside its own arguments.
@@ -417,7 +435,8 @@ struct Resolution {
 /// `PATH` is what makes a runtime's own tools reach each other, and `PHP_INI_SCAN_DIR` is the
 /// generated ini set the pool also reads — the whole point of it being here is that `php -m` in a
 /// terminal and `phpinfo()` in a browser answer the same thing. Beside those two, [`trusting`] names
-/// the trust bundle a language reads, and [`toolchain`] keeps a Go to the release it resolved to.
+/// the trust bundle a language reads, [`toolchain`] keeps a Go to the release it resolved to, and
+/// [`java_home`] names a JDK's own home.
 ///
 /// **Keyed off the directory existing rather than off the command being `php`**:
 /// [`runtimes::extensions`] renders nothing for a runtime whose artifact declares no extension
@@ -427,6 +446,7 @@ fn surroundings(
     program: &Path,
     root: &Path,
     version: &PackageVersion,
+    java: Option<&Path>,
 ) -> BTreeMap<String, OsString> {
     let mut environment = BTreeMap::new();
 
@@ -455,8 +475,26 @@ fn surroundings(
         std::env::var_os(GOTOOLCHAIN).as_deref(),
         &mut environment,
     );
+    java_home(java, &mut environment);
 
     environment
+}
+
+/// The variable Maven, Gradle and a JVM's own children read to find a JDK.
+const JAVA_HOME: &str = "JAVA_HOME";
+
+/// Name the JDK a Java command resolved to — roadmap task **T27e**, its design's D5.
+///
+/// **Always, over a value the session carries.** That is the opposite of [`toolchain`]'s rule, and
+/// for T27d's `go env -w` reason: `JAVA_HOME` is usually a machine-wide setting an installer wrote
+/// before MixEngine was here. A shim reaches only what it starts, so `mvn` typed in a terminal still
+/// reads the session's value — `mix doctor` says so.
+fn java_home(java: Option<&Path>, environment: &mut BTreeMap<String, OsString>) {
+    let Some(home) = java.and_then(mixengine_core::runtimes::java::home) else {
+        return;
+    };
+
+    environment.insert(JAVA_HOME.to_owned(), home.into_os_string());
 }
 
 /// The variable that decides whether `go` may run a toolchain other than itself.
@@ -507,6 +545,7 @@ fn toolchain(
 /// | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
 /// | PHP, Composer | — | the generated ini set says it instead |
 /// | Go | — | it reads the operating system's store already |
+/// | Java | — | its own `cacerts`, written by the daemon (T27e, ADR 0039) |
 ///
 /// Go is absent because it needs nothing (roadmap task **T27d**, its design's D7): it verifies
 /// through the operating system on Windows and macOS, and on Linux it reads the system bundle that
@@ -533,7 +572,7 @@ fn trusting(kind: RuntimeKind, paths: &Paths, environment: &mut BTreeMap<String,
         RuntimeKind::Node => &[("NODE_EXTRA_CA_CERTS", &authority)],
         RuntimeKind::Python => &[("SSL_CERT_FILE", &bundle), ("REQUESTS_CA_BUNDLE", &bundle)],
         RuntimeKind::Ruby => &[("SSL_CERT_FILE", &bundle)],
-        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => &[],
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Java | RuntimeKind::Composer => &[],
     };
 
     for (variable, file) in named {
@@ -619,10 +658,23 @@ fn resolved(kind: RuntimeKind, executable: &str) -> Result<Resolution, Refusal> 
                 hint: None,
             })?;
 
+        let java = match kind {
+            RuntimeKind::Java => Some(
+                runtimes::program(&store, kind, &resolved.runtime.version, "java")
+                    .await
+                    .map_err(|error| Refusal {
+                        said: explain(&error),
+                        hint: None,
+                    })?,
+            ),
+            _ => None,
+        };
+
         Ok(Resolution {
             program,
             root,
             version: resolved.runtime.version,
+            java,
         })
     })
 }
@@ -813,6 +865,7 @@ mod tests {
             &root.join("runtimes/php/8.3.33/bin/php"),
             root,
             &version,
+            None,
         );
 
         assert!(
@@ -844,7 +897,10 @@ mod tests {
             &home.path().join("runtimes/node/20.11.0/bin/node"),
             home.path(),
             &version,
+            None,
         );
+
+        assert!(!environment.contains_key(JAVA_HOME));
 
         assert!(!environment.contains_key(mixengine_core::runtimes::extensions::SCAN_DIR_ENV));
     }
@@ -900,5 +956,25 @@ mod tests {
 
             assert!(environment.is_empty(), "{kind}");
         }
+    }
+
+    /// **A Java command names its own JDK**, over whatever the session said — T27e, D5.
+    #[test]
+    fn a_java_command_is_handed_its_own_java_home() {
+        let mut environment = BTreeMap::new();
+        let root = Path::new("runtimes").join("java").join("21.0.12.1");
+
+        java_home(Some(&root.join("bin").join("java")), &mut environment);
+
+        assert_eq!(environment.get(JAVA_HOME), Some(&root.into_os_string()));
+    }
+
+    #[test]
+    fn a_command_with_no_jdk_is_told_nothing_about_one() {
+        let mut environment = BTreeMap::new();
+
+        java_home(None, &mut environment);
+
+        assert!(environment.is_empty());
     }
 }

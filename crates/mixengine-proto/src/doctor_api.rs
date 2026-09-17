@@ -186,6 +186,18 @@ pub enum ProblemId {
     /// machine whose store *cannot* be read is a `Note` rather than this — there is nothing to
     /// repair and nothing MixEngine did wrong.
     TrustBundleMissing,
+
+    /// An installed JDK does not hold this home's authority in its own `cacerts` — roadmap task
+    /// **T27e**, [ADR 0039](../../../.claude/decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
+    ///
+    /// **A problem and not a note**, on [`TrustBundleMissing`](Self::TrustBundleMissing)'s
+    /// reasoning: without it, every HTTPS request a Java program makes to a site of this home fails
+    /// to verify, and there is no flag a person is expected to know about.
+    ///
+    /// **Repaired without a prompt**: the store is a file inside the home, the repair adds one alias
+    /// and destroys nothing, and a JDK whose `keytool` refuses — a `cacerts` whose password is not
+    /// the published default — is reported as untouched rather than silently retried.
+    JavaTrustMissing,
 }
 
 #[cfg(test)]

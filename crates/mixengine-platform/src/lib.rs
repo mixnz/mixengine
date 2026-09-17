@@ -138,7 +138,7 @@ pub use traits::{
     ResolverConfig, ResolverMethod, ResolverState, ResourceControl, ServiceInstaller, Started,
     TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER, VisualCppVersion, WhenExceeded,
     avx, choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
-    refused_by_app_control, visual_cpp_from_registry,
+    refused_by_app_control, shared_libraries, visual_cpp_from_registry,
 };
 
 // The three supported operating systems keep their own directory, exactly as the architecture

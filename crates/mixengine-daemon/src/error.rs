@@ -214,6 +214,10 @@ impl ToWire for mixengine_core::Error {
                      would not start, so the message above is the operating system's own",
                 ),
 
+            // Logged where it happens and reported by `mix doctor`, never answered to a request:
+            // nothing a client asks for fails because a JDK's store could not be written — T27e.
+            Core::KeytoolRefused { .. } => Error::new(ErrorCode::Internal, chain(self)),
+
             // A broken build: the key compiled into this binary is not a key. Nothing a user did and
             // nothing they can do.
             Core::IndexKey { .. } => Error::new(ErrorCode::Internal, chain(self)),

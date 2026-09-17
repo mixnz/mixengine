@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- Java 11, 17, 21 and 25 install and pin like any runtime: `mix runtime install java`, a `java` pin
+  in MixLab's project form, and `java`, `javac`, `jar`, `jshell`, `keytool` and `jlink` on the PATH.
+  A pinned JDK carries its own `JAVA_HOME` and trusts your local HTTPS sites; on Linux the install
+  says which system libraries it may be missing and goes on.
 - Go 1.21 to 1.27 installs and pins like any runtime: `mix runtime install go`, a `go` pin in
   MixLab's project form, and `go` and `gofmt` on the PATH. A pinned Go stays the Go that builds: a
   `go.mod` asking for a newer release no longer downloads and runs it.

@@ -22,6 +22,7 @@
 
 pub mod extensions;
 pub mod globals;
+pub mod java;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -61,22 +62,26 @@ pub fn directory(paths: &Paths, kind: RuntimeKind, version: &PackageVersion) -> 
 /// on. What the download proved by hash is the whole of what can be proved without one.
 #[must_use]
 pub fn smoke_test(kind: RuntimeKind) -> Option<SmokeTest> {
-    let (executable, flag) = match kind {
+    let (executable, flag, unset): (&str, &str, &'static [&'static str]) = match kind {
         // Not `php-win.exe`, which answers `-v` with nothing at all — one of the four bugs T20a
         // found, and the reason the index publishes both under names of ours.
-        RuntimeKind::Php => ("php", "-v"),
-        RuntimeKind::Node => ("node", "--version"),
-        RuntimeKind::Python => ("python", "--version"),
-        RuntimeKind::Ruby => ("ruby", "--version"),
+        RuntimeKind::Php => ("php", "-v", &[]),
+        RuntimeKind::Node => ("node", "--version", &[]),
+        RuntimeKind::Python => ("python", "--version", &[]),
+        RuntimeKind::Ruby => ("ruby", "--version", &[]),
         // `go` has no `--version` flag. `version` touches no module, and the install directory
         // holds no `go.mod`, so `go.env`'s `GOTOOLCHAIN=auto` has nothing to act on here (T27d).
-        RuntimeKind::Go => ("go", "version"),
+        RuntimeKind::Go => ("go", "version", &[]),
+        // `--version` exists from JDK 9 and prints to stdout; on Linux it is also what fails when
+        // `libz.so.1` is missing, since the launcher imports it (T27e, D3).
+        RuntimeKind::Java => ("java", "--version", java::UNSET),
         RuntimeKind::Composer => return None,
     };
 
     Some(SmokeTest {
         executable: executable.to_owned(),
         args: vec![flag.to_owned()],
+        unset,
     })
 }
 
@@ -958,6 +963,18 @@ mod tests {
 
         assert_eq!(smoke.executable, "go");
         assert_eq!(smoke.args, vec!["version".to_owned()]);
+    }
+
+    /// A JDK is started with `--version`, and without the variables a JVM reads before its
+    /// arguments — roadmap task **T27e**, its design's D3.
+    #[test]
+    fn java_is_smoke_tested_with_version_and_a_clean_environment() {
+        let smoke = smoke_test(RuntimeKind::Java).expect("java starts something");
+
+        assert_eq!(smoke.executable, "java");
+        assert_eq!(smoke.args, vec!["--version".to_owned()]);
+        assert!(smoke.unset.contains(&"_JAVA_OPTIONS"), "{:?}", smoke.unset);
+        assert!(smoke_test(RuntimeKind::Php).expect("php").unset.is_empty());
     }
 
     /// The `CHECK` on the column and [`RuntimeKind`] have to agree, or one of them is decoration.

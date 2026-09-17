@@ -1,0 +1,44 @@
+/* A warning-tone inset panel: the notice is part of the page it appears on, not a toast over it. */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 10px 10px 14px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--warning-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--warning-rgb) / 0.35);
+  color: var(--warning-text);
+  font-size: var(--text-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--warning-text);
+  font-size: var(--text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background-color: rgb(var(--warning-rgb) / 0.18);
+  border-color: transparent;
+}
+
+.dismiss:active {
+  background-color: rgb(var(--warning-rgb) / 0.28);
+  border-color: transparent;
+}

@@ -290,6 +290,7 @@ impl Recipe for Postgres {
         Some(crate::install::SmokeTest {
             executable: SERVER.to_owned(),
             args: vec!["--version".to_owned()],
+            unset: &[],
         })
     }
 
