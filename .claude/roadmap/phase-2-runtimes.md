@@ -696,7 +696,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `crypto/x509` rather than by a handshake, which would have needed an authority installed into
       this machine's store: CryptoAPI on Windows, `SecTrustEvaluateWithError` on macOS, and on Linux
       the two bundles `update-ca-certificates` and `update-ca-trust` regenerate.
-- [ ] **T27e** Java, the seventh runtime kind — design in
+- [x] **T27e** Java, the seventh runtime kind — design in
       [docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md](../../docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md).
       `mixengine-packages` published four JDK lines as its **P20** — 11, 17, 21 and 25, every cell a
       Microsoft Build of OpenJDK — and left two sentences here: accept the new `requires.libraries`,
@@ -715,6 +715,24 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **A soname `ldconfig -p` does not list is a warning that refuses nothing**: `Need::SharedLibrary`
       with `Remedy::InstallFromDistribution`, said by `mix`, by the install job and by a notice in
       MixLab, and never hiding the release a machine short of glibc could still run.
+      **Measured before a line of the trust code was written**, on all four lines unpacked from the
+      published Windows x86_64 archives: `-importcert -cacerts -storepass changeit` exits 0, the
+      export returns the same PEM, `-delete` exits 0, and — the question that would have changed D8 —
+      a public HTTPS request still succeeds afterwards on every line, with 119 trusted entries where
+      there were 118. One `keytool` costs 220–300 ms here, which is why the pass at start is spawned.
+      **Measured on a sandbox home against the real index:** 21.0.12.1 and 11.0.32.1 installed and
+      passed their smoke test; `bin/java` printed a `JAVA_HOME` and a `java.home` naming the pinned
+      install while the session exported another one, and `MIXENGINE_JAVA=11` moved both `java` and
+      `javac`; against an `openssl s_server` holding a leaf this home's authority signed, the pinned
+      `java` answered **200** and the same release unpacked outside the home answered **PKIX path
+      building failed**; a hand `keytool -delete` of the alias turned the twenty-third check into
+      `java_trust_missing`, and `mix doctor --repair` put it back; a daemon started with `JAVA_HOME`
+      elsewhere produced the note. **In WSL**, where the loader lists `libz`, `freetype` and X11 but
+      no `libasound.so.2`, `mix runtime install java` printed
+      `warning: this machine's loader does not list libasound.so.2` and installed anyway, and
+      `java --version` answered. Two things this pass did **not** prove by hand: `cert.ca_rotate`,
+      which waits on this machine's elevation prompt, and MixLab's notice, which cannot appear on
+      Windows because the probe there is `Unknown` — `requirementStep`'s tests are what cover it.
 - [x] **T28** PHP extensions: `conf.d` model, enable/disable, prebuilt extension artifacts, per-pool
       reload.
       **Both of the things this was waiting for had landed with
