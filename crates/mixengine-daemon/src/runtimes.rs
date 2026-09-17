@@ -572,6 +572,16 @@ impl Runtimes {
         // idempotent call the daemon makes at boot. A failure here is reported and does not undo the
         // install — a PHP with no pool is a PHP the next boot gives one to, where an install rolled
         // back for it would be eighty megabytes thrown away over a row.
+        // **A JDK verifies this home's own sites from its first run** — roadmap task T27e, D9.
+        // After the row for the pool hook's reason below, and because what this walks is rows; it
+        // never undoes the install, on that hook's rule — a JDK that cannot verify a local site is
+        // more use than a hundred and forty megabytes thrown away over a certificate store.
+        if kind == RuntimeKind::Java {
+            crate::certs::jdks::hold(&self.store, self.paths.certs())
+                .await
+                .log("after a JDK was installed");
+        }
+
         match mixengine_core::services::pools::ensure(
             &self.store,
             mixengine_platform::host().as_ref(),

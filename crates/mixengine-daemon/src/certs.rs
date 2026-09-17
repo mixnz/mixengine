@@ -25,6 +25,7 @@ use crate::error::ToWire as _;
 pub(crate) mod authority;
 pub(crate) mod bundle;
 pub(crate) mod handshake;
+pub(crate) mod jdks;
 pub(crate) mod renewal;
 
 /// Everything this needs, which is one directory.
@@ -487,6 +488,26 @@ impl Certificates {
                 written: Vec::new(),
                 refused: vec![mixengine_proto::flatten(&error)],
             })
+    }
+
+    /// Put this home's authority into every installed JDK that lacks it — roadmap task **T27e**.
+    ///
+    /// **Nothing without a store**, on [`rebuild_trust_bundle`](Self::rebuild_trust_bundle)'s rule:
+    /// which JDKs exist is a question about rows, and a `Certificates` built without them is one
+    /// repairing a certificate rather than a home.
+    pub(crate) async fn hold_in_jdks(&self) -> jdks::JdkChange {
+        match &self.store {
+            Some(store) => jdks::hold(store, &self.certs).await,
+            None => jdks::JdkChange::default(),
+        }
+    }
+
+    /// Let the authority `key_id` names go from every installed JDK — roadmap task **T27e**.
+    pub(crate) async fn release_from_jdks(&self, key_id: &str) -> jdks::JdkChange {
+        match &self.store {
+            Some(store) => jdks::release(store, key_id).await,
+            None => jdks::JdkChange::default(),
+        }
     }
 
     /// Enqueue taking `ca` out of this machine's trust store, and say whether anything was.

@@ -1407,6 +1407,25 @@ async fn serve(
         }
     });
 
+    // **And every installed JDK, which reads neither the machine's store nor that bundle** —
+    // roadmap task T27e, ADR 0039. A JDK verifies against its own `lib/security/cacerts`, and no
+    // variable adds an authority to it, so this is the only way a `java` reaches an HTTPS site of
+    // this home's.
+    //
+    // Spawned for the block above's reason, and it matters more here: this is one `keytool` per
+    // installed JDK, each of them a JVM start, and none of it may stand between the bind and
+    // `accept`. A home with no Java spends one query on it.
+    tokio::spawn({
+        let store = store.clone();
+        let certs = paths.certs().to_path_buf();
+
+        async move {
+            crate::certs::jdks::hold(&store, &certs)
+                .await
+                .log("at start");
+        }
+    });
+
     // **And every site that declares HTTPS gets the certificate its names need** — roadmap task
     // T50, here and not inside any of the generator blocks below. `.claude/CLAUDE.md` says generated
     // configuration is disposable and rebuilt from the database; a certificate is state, cannot be

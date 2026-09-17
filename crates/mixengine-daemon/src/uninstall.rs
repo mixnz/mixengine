@@ -163,6 +163,17 @@ impl Uninstall {
             .await;
         let mut done = self.undo_what_needs_no_token(&planned).await;
 
+        // **And every installed JDK lets this home's authority go** — roadmap task T27e, D9.
+        // Logged rather than a residue row of its own: `cacerts` is inside the home, not a store on
+        // this machine a person could be shown. It matters with `keep_home`, where a kept JDK would
+        // otherwise go on trusting an authority the machine has just been told to forget.
+        if let Ok(mixengine_proto::CaState::Present { ca }) = self.certificates.authority().await {
+            self.certificates
+                .release_from_jdks(&ca.key_id)
+                .await
+                .log("during an uninstall");
+        }
+
         handle.progress(45, "asking for permission").await;
         let asked = self.ask_for_the_rest(&planned).await?;
 
