@@ -19,7 +19,7 @@ use std::fmt;
 /// **Closed, unlike [`JobKind`](crate::JobKind) and like [`JobState`](crate::JobState).** The set
 /// grows only when MixEngine learns to manage another language, or a tool it installs like one,
 /// which is a release of ours and a migration of the `runtime_installs.kind` `CHECK` — never
-/// something a package index gets to extend by publishing. An index naming a sixth one is
+/// something a package index gets to extend by publishing. An index naming a seventh one is
 /// describing something this build could not install a shim for anyway.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -35,6 +35,9 @@ pub enum RuntimeKind {
     Python,
     /// Ruby.
     Ruby,
+    /// Go (roadmap task **T27d**). Its archive is upstream's whole tree, and `GOROOT` is wherever
+    /// that tree was unpacked.
+    Go,
     /// Composer — not a language, and installed like one (roadmap task **T27c**): a `.phar` the
     /// `composer` shim hands to the project's PHP. Last, because it runs under another kind.
     Composer,
@@ -42,11 +45,12 @@ pub enum RuntimeKind {
 
 impl RuntimeKind {
     /// Every kind, in the order a listing shows them.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Php,
         Self::Node,
         Self::Python,
         Self::Ruby,
+        Self::Go,
         Self::Composer,
     ];
 
@@ -61,6 +65,7 @@ impl RuntimeKind {
             Self::Node => "node",
             Self::Python => "python",
             Self::Ruby => "ruby",
+            Self::Go => "go",
             Self::Composer => "composer",
         }
     }
@@ -86,6 +91,7 @@ impl RuntimeKind {
             Self::Node => "MIXENGINE_NODE",
             Self::Python => "MIXENGINE_PYTHON",
             Self::Ruby => "MIXENGINE_RUBY",
+            Self::Go => "MIXENGINE_GO",
             Self::Composer => "MIXENGINE_COMPOSER",
         }
     }
@@ -113,14 +119,21 @@ mod tests {
         }
     }
 
-    /// **Composer is the fifth kind** — roadmap task **T27c**, its design's D1 — last in the
-    /// order, because it is the one that runs under another.
+    /// **Composer is last** — roadmap task **T27c**, its design's D1 — because it is the one that
+    /// runs under another, and it stays last when a kind is added before it (T27d).
     #[test]
-    fn composer_is_a_kind_and_the_last_one() {
-        assert_eq!(RuntimeKind::ALL.len(), 5);
-        assert_eq!(RuntimeKind::ALL[4], RuntimeKind::Composer);
+    fn composer_is_the_last_kind() {
+        assert_eq!(RuntimeKind::ALL.last(), Some(&RuntimeKind::Composer));
         assert_eq!(RuntimeKind::Composer.as_str(), "composer");
         assert_eq!(RuntimeKind::Composer.override_env(), "MIXENGINE_COMPOSER");
+    }
+
+    /// **Go is the sixth kind** — roadmap task **T27d**, its design's D1.
+    #[test]
+    fn go_is_a_kind() {
+        assert_eq!(RuntimeKind::ALL.len(), 6);
+        assert_eq!(RuntimeKind::parse("go"), Some(RuntimeKind::Go));
+        assert_eq!(RuntimeKind::Go.override_env(), "MIXENGINE_GO");
     }
 
     #[test]

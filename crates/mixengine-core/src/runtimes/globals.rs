@@ -70,7 +70,9 @@ const RUNNABLE_ON_WINDOWS: &[&str] = &["exe", "cmd", "bat", "com"];
 /// written for. "Where does npm put a binary" is not something either side of `bin/` can be asked.
 ///
 /// [`None`] for PHP: Composer's global bindir is `~/.composer/vendor/bin`, outside every install
-/// directory and therefore a different question — see the spec's *Out of scope*.
+/// directory and therefore a different question — see the spec's *Out of scope*. [`None`] for Go
+/// too, for the same reason: `go install` writes into `GOBIN` or `GOPATH/bin`, which every installed
+/// Go shares (roadmap task **T27d**).
 #[must_use]
 pub fn directory(kind: RuntimeKind, install_path: &Path) -> Option<PathBuf> {
     match kind {
@@ -89,7 +91,7 @@ pub fn directory(kind: RuntimeKind, install_path: &Path) -> Option<PathBuf> {
         // RubyGems writes into the interpreter's own bindir on both systems.
         RuntimeKind::Ruby => Some(install_path.join("bin")),
 
-        RuntimeKind::Php | RuntimeKind::Composer => None,
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => None,
     }
 }
 
@@ -307,8 +309,10 @@ mod tests {
             install.join("bin")
         );
 
-        // Composer's global bindir is outside every install, which is a different question.
+        // Composer's global bindir is outside every install, which is a different question — and so
+        // is Go's `GOBIN`, which every installed Go shares.
         assert_eq!(directory(RuntimeKind::Php, install), None);
+        assert_eq!(directory(RuntimeKind::Go, install), None);
         assert_eq!(directory(RuntimeKind::Composer, install), None);
     }
 

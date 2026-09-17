@@ -364,7 +364,7 @@ fn install_globally(kind: RuntimeKind, name: &str) -> String {
         RuntimeKind::Node => format!("npm install -g {name}"),
         RuntimeKind::Python => format!("pip install {name}"),
         RuntimeKind::Ruby => format!("gem install {name}"),
-        RuntimeKind::Php | RuntimeKind::Composer => {
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => {
             format!("nothing here installs {name} into a {kind}")
         }
     }
@@ -467,6 +467,11 @@ fn surroundings(
 /// | Python | `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE` | `etc/ca/bundle.pem` |
 /// | Ruby | `SSL_CERT_FILE` | `etc/ca/bundle.pem` |
 /// | PHP, Composer | — | the generated ini set says it instead |
+/// | Go | — | it reads the operating system's store already |
+///
+/// Go is absent because it needs nothing (roadmap task **T27d**, its design's D7): it verifies
+/// through the operating system on Windows and macOS, and on Linux it reads the system bundle that
+/// installing this home's authority regenerates.
 ///
 /// PHP is absent on purpose. Its answer is `openssl.cafile` and `curl.cainfo` in the `conf.d` set
 /// above, which the **pool** reads too — so `php -r` in a terminal and `curl_exec()` in a browser
@@ -489,7 +494,7 @@ fn trusting(kind: RuntimeKind, paths: &Paths, environment: &mut BTreeMap<String,
         RuntimeKind::Node => &[("NODE_EXTRA_CA_CERTS", &authority)],
         RuntimeKind::Python => &[("SSL_CERT_FILE", &bundle), ("REQUESTS_CA_BUNDLE", &bundle)],
         RuntimeKind::Ruby => &[("SSL_CERT_FILE", &bundle)],
-        RuntimeKind::Php | RuntimeKind::Composer => &[],
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => &[],
     };
 
     for (variable, file) in named {

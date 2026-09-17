@@ -68,6 +68,9 @@ pub fn smoke_test(kind: RuntimeKind) -> Option<SmokeTest> {
         RuntimeKind::Node => ("node", "--version"),
         RuntimeKind::Python => ("python", "--version"),
         RuntimeKind::Ruby => ("ruby", "--version"),
+        // `go` has no `--version` flag. `version` touches no module, and the install directory
+        // holds no `go.mod`, so `go.env`'s `GOTOOLCHAIN=auto` has nothing to act on here (T27d).
+        RuntimeKind::Go => ("go", "version"),
         RuntimeKind::Composer => return None,
     };
 
@@ -945,6 +948,16 @@ mod tests {
                 "{kind}"
             );
         }
+    }
+
+    /// `go` has no `--version` flag, and `go version` prints the release without reading a module —
+    /// roadmap task **T27d**, its design's D3.
+    #[test]
+    fn go_is_smoke_tested_with_its_version_subcommand() {
+        let smoke = smoke_test(RuntimeKind::Go).expect("go starts something");
+
+        assert_eq!(smoke.executable, "go");
+        assert_eq!(smoke.args, vec!["version".to_owned()]);
     }
 
     /// The `CHECK` on the column and [`RuntimeKind`] have to agree, or one of them is decoration.
