@@ -35,7 +35,7 @@
   background: var(--surface-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-dialog);
   /* The same arrival the modals use — this is a panel over a dimmed workspace like any of them,
      even though nothing here is to be answered. */
   animation: transfer-card-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;

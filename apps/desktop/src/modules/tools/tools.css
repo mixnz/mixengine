@@ -21,6 +21,7 @@
   width: 260px;
   flex: none;
   border-right: 1px solid var(--border-soft);
+  background: var(--sidebar-bg);
   min-height: 0;
 }
 

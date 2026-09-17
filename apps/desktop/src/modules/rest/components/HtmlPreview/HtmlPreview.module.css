@@ -24,6 +24,7 @@
   flex: 1;
   min-height: 0;
   border: none;
-  /* The page inside is the server's, not the app's — its own background, not ours showing through. */
-  background: #fff;
+  /* The page inside is the server's, not the app's: a browser's own default paper, not ours showing
+     through — whichever theme the app is in. */
+  background: white;
 }

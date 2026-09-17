@@ -89,12 +89,12 @@
 .tab.active {
   opacity: 1;
   background: var(--choice-active-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 }
 
 .error {
   font-size: var(--text-md);
-  color: var(--danger, #d33);
+  color: var(--danger-text);
   margin: 0;
 }
 
@@ -123,11 +123,11 @@
 }
 
 .add {
-  background: color-mix(in srgb, green 14%, transparent);
+  background: rgb(var(--success-rgb) / 0.14);
 }
 
 .remove {
-  background: color-mix(in srgb, red 14%, transparent);
+  background: rgb(var(--danger-rgb) / 0.14);
 }
 
 /* Đoạn khác nhau bên trong một dòng đã đổi (từ `diffSegments`/`computeLineSegments`) — đậm hơn hẳn
@@ -137,11 +137,11 @@
 }
 
 .add .seg {
-  background: color-mix(in srgb, green 38%, transparent);
+  background: rgb(var(--success-rgb) / 0.38);
 }
 
 .remove .seg {
-  background: color-mix(in srgb, red 38%, transparent);
+  background: rgb(var(--danger-rgb) / 0.38);
 }
 
 /* Kiểu Split của GitHub: một CSS Grid 4 cột (số/nội dung x trái/phải). `.splitRow` và các span do

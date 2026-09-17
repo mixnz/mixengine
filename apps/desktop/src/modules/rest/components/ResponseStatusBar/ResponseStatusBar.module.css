@@ -14,11 +14,6 @@
   font-weight: 600;
 }
 
-.s2xx { color: #2f9e44; }
-.s3xx { color: #1971c2; }
-.s4xx { color: #f08c00; }
-.s5xx { color: #e03131; }
-
 .figure {
   opacity: 0.8;
   font-variant-numeric: tabular-nums;

@@ -34,7 +34,7 @@
   margin: -0.15rem -0.4rem;
   background: var(--surface-bg);
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-popover);
   z-index: 1;
 }
 

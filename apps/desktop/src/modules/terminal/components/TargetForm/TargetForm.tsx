@@ -3,6 +3,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Button from "../../../../components/Button";
 import Input, { Textarea } from "../../../../components/Input";
 import Select from "../../../../components/Select";
+import SegmentedControl from "../../../../components/SegmentedControl";
 import { errorMessage } from "../../../../core/errors";
 import { DEFAULT_SSH_PORT, PRIVATE_KEY_PLACEHOLDER } from "../../../../core/ssh";
 import { stableStringify } from "../../../../core/stableStringify";
@@ -342,26 +343,17 @@ function TargetForm({ onOpen, onError, initial }: Props) {
       <div className={styles.form}>
         {/* Hai kiểu đích. Nút chứ không phải `Select`: chỉ có hai, và cái đang chọn quyết định cả
             phần còn lại của form — đáng để thấy được cả hai cùng lúc. */}
-        <div className={styles.kinds} role="tablist" aria-label={t("terminal.newTabTitle")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === "local"}
-            className={`${styles.kind}${kind === "local" ? ` ${styles.kindActive}` : ""}`}
-            onClick={() => setKind("local")}
-          >
-            {t("terminal.targetLocal")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={kind === "ssh"}
-            className={`${styles.kind}${kind === "ssh" ? ` ${styles.kindActive}` : ""}`}
-            onClick={() => setKind("ssh")}
-          >
-            {t("terminal.targetSsh")}
-          </button>
-        </div>
+        <SegmentedControl
+          block
+          mode="tabs"
+          aria-label={t("terminal.newTabTitle")}
+          value={kind}
+          onChange={setKind}
+          segments={[
+            { value: "local", label: t("terminal.targetLocal") },
+            { value: "ssh", label: t("terminal.targetSsh") },
+          ]}
+        />
 
         {/* Ngoài hai nhánh: cả hai loại đều lưu được, nên cả hai đều có tên. */}
         <div className={styles.row}>

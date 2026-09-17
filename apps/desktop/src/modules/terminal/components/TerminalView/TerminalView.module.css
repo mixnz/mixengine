@@ -1,11 +1,10 @@
-/* Nền đen là nền mặc định của theme xterm; khung chứa lấy đúng màu đó để phần đệm không thành
-   một viền sáng quanh màn hình. Pane Cài đặt không mở màu ra: một bảng màu terminal là mười sáu
-   ô chứ không phải một, và không ai xin nó. */
+/* The frame takes the terminal's own background, so the padding does not show as a band around the
+   screen. */
 .host {
   flex: 1;
   min-height: 0;
   padding: 8px;
-  background: #000000;
+  background: var(--ansi-background);
 }
 
 /* Khung bọc màn hình, để thanh tìm có chỗ đứng trên nó. `.host` là flex item của khung này chứ

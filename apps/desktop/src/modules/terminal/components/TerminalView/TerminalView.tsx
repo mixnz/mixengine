@@ -24,6 +24,7 @@ import { openableUrl } from "../../links";
 import { openingKeystrokes } from "../../session";
 import type { TerminalTarget } from "../../types";
 import SearchBar from "../SearchBar";
+import { readDocumentToken, searchDecorations, terminalTheme } from "../../xtermTheme";
 import styles from "./TerminalView.module.css";
 
 /** Kéo cửa sổ sinh ra hàng chục sự kiện một giây; đầu xa chỉ cần biết kích thước cuối cùng. */
@@ -116,6 +117,7 @@ function TerminalView({
       cursorStyle: settingsRef.current.cursorStyle,
       cursorBlink: settingsRef.current.cursorBlink,
       scrollback: settingsRef.current.scrollback,
+      theme: terminalTheme(readDocumentToken),
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -232,6 +234,16 @@ function TerminalView({
     };
   }, [target]);
 
+  /* The theme and the accent are attributes on the root element; when either changes, the colours
+     xterm was handed are stale, so they are read again. The canvas cannot follow a `var()` itself. */
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const term = termRef.current;
+      if (term) term.options.theme = terminalTheme(readDocumentToken);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-accent"] });
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
@@ -289,14 +301,7 @@ function TerminalView({
     /* Bốn màu chứ không hai: `matchOverviewRuler` và `activeMatchColorOverviewRuler` là bắt buộc
        trong `ISearchDecorationOptions`. Chúng vẽ dải đánh dấu bên phải màn hình — chỗ cho thấy các
        kết quả nằm đâu trong cả phần đã cuộn qua — nên chúng dùng đúng cặp màu của chính kết quả. */
-    const options = {
-      decorations: {
-        matchBackground: "#5a4b00",
-        matchOverviewRuler: "#5a4b00",
-        activeMatchBackground: "#a07800",
-        activeMatchColorOverviewRuler: "#a07800",
-      },
-    };
+    const options = { decorations: searchDecorations(readDocumentToken) };
     return back ? search.findPrevious(query, options) : search.findNext(query, options);
   }
 

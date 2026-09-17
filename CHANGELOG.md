@@ -72,6 +72,8 @@
 - MixLab's database connection editor is redrawn: saved connections can be searched and filtered by
   engine, the engine is picked from a list, and a route card shows how the connection travels with a
   connection string to copy that never includes the password.
+- MixLab's terminal follows the light and dark theme and the accent; REST methods and response statuses
+  are drawn as coloured tags and pills.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

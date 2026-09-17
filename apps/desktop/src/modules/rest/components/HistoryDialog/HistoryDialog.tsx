@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import { CloseIcon, TrashIcon } from "../../../../icons";
+import StatusPill from "../../../../components/StatusPill";
 import { useTranslation } from "../../../../i18n";
+import { statusTone } from "../../statusTone";
 import { decodeBase64 } from "../../api";
 import { detectBody } from "../../contentType";
 import { formatBytes, prettyJson } from "../../format";
@@ -17,14 +19,6 @@ interface Props {
   /** Opens the request an entry was sent from. The dialog sees itself out on the way. */
   onOpenRequest: (id: string) => void;
   onClose: () => void;
-}
-
-/** The class of a status code, which is all its colour is about. */
-function statusClass(status: number): string {
-  if (status >= 500) return styles.s5xx;
-  if (status >= 400) return styles.s4xx;
-  if (status >= 300) return styles.s3xx;
-  return styles.s2xx;
 }
 
 /**
@@ -182,9 +176,9 @@ function HistoryDialog({ onOpenRequest, onClose }: Props) {
                             <span className={styles.failed}>{t("rest.historyFailed")}</span>
                           ) : (
                             <>
-                              <span className={statusClass(entry.status)}>
+                              <StatusPill tone={statusTone(entry.status)}>
                                 {entry.status} {entry.statusText}
-                              </span>
+                              </StatusPill>
                               <span>{formatBytes(entry.size)}</span>
         </>
                         )}

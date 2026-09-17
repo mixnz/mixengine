@@ -80,7 +80,7 @@
 }
 
 .rowWrap:hover {
-  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+  background: var(--hover-bg);
 }
 
 .row {
@@ -140,7 +140,7 @@
 }
 
 .rowActive {
-  background: var(--surface-active, rgba(127, 127, 127, 0.2));
+  background: rgb(var(--accent-rgb) / 0.14);
 }
 
 /* Only the column width belongs to this list; how a method looks is `.rest-method` in `rest.css`,

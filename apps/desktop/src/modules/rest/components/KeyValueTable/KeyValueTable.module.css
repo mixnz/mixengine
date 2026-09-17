@@ -41,7 +41,7 @@
 
 .remove:hover {
   opacity: 1;
-  color: var(--danger, #e5484d);
+  color: var(--danger-text);
 }
 
 /* The trailing row is not a row yet — typing in it is what makes one. */

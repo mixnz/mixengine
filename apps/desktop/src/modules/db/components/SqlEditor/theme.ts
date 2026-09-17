@@ -81,7 +81,7 @@ export const editorTheme = EditorView.theme({
     backgroundColor: "var(--surface-bg)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-md)",
-    boxShadow: "var(--shadow-md)",
+    boxShadow: "var(--shadow-popover)",
     color: "inherit",
   },
   ".cm-tooltip.cm-tooltip-autocomplete > ul": {

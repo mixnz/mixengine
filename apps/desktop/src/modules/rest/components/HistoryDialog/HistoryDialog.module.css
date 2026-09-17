@@ -69,7 +69,7 @@
 }
 
 .row:hover {
-  background: var(--surface-hover, rgba(127, 127, 127, 0.12));
+  background: var(--hover-bg);
 }
 
 .entry {
@@ -116,13 +116,8 @@
   font-variant-numeric: tabular-nums;
 }
 
-.s2xx { color: #2f9e44; }
-.s3xx { color: #1971c2; }
-.s4xx { color: #f08c00; }
-.s5xx { color: #e03131; }
-
 .failed {
-  color: #e03131;
+  color: var(--danger-text);
 }
 
 .drop {
@@ -146,7 +141,7 @@
 
 .dropArmed {
   opacity: 1;
-  color: #e03131;
+  color: var(--danger-text);
 }
 
 .detail {
@@ -165,7 +160,7 @@
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--code-bg, rgba(127, 127, 127, 0.08));
+  background: var(--surface-sunken);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   white-space: pre-wrap;
@@ -174,7 +169,7 @@
 
 .error {
   margin: 0;
-  color: #e03131;
+  color: var(--danger-text);
 }
 
 .note {
