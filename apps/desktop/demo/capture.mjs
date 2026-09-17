@@ -23,6 +23,8 @@ const DESKTOP = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(DESKTOP, "screenshots", "out");
 const VIEWPORT = { width: 1440, height: 900 };
 const SCALE = 2;
+const FRAME_VIEWPORT = { width: 1600, height: 1000 };
+const RAW_ROUTE = "/__demo/raw.png";
 const READY_TIMEOUT_MS = 20_000;
 const ACT_TIMEOUT_MS = 10_000;
 const FREEZE_CSS =
@@ -104,8 +106,26 @@ function firstLine(error) {
   return String(error?.message ?? error).split("\n")[0];
 }
 
-/** Composites a raw image into its frame. Filled in by Task 8. */
-async function frameShot() {}
+/** Composites a raw image into `demo/frame/frame.html` and screenshots that. */
+async function frameShot(browser, baseUrl, rawPath, framedPath, scene, theme, platform) {
+  const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: SCALE });
+  try {
+    const page = await context.newPage();
+    await page.route(`**${RAW_ROUTE}`, (route) => route.fulfill({ path: rawPath, contentType: "image/png" }));
+    const query = new URLSearchParams({
+      img: RAW_ROUTE,
+      theme,
+      platform,
+      headline: scene.headline,
+      description: scene.description,
+    });
+    await page.goto(`${baseUrl}/demo/frame/frame.html?${query}`);
+    await page.waitForSelector('body[data-ready="true"]');
+    await page.screenshot({ path: framedPath });
+  } finally {
+    await context.close();
+  }
+}
 
 async function runScene(browser, baseUrl, scene, theme, options) {
   const name = `${scene.id}-${theme}`;
@@ -188,6 +208,7 @@ async function warmUp(browser, baseUrl) {
   try {
     const page = await context.newPage();
     await page.goto(`${baseUrl}/demo/demo.html`, { waitUntil: "networkidle" });
+    await page.goto(`${baseUrl}/demo/frame/frame.html`, { waitUntil: "networkidle" });
   } finally {
     await context.close();
   }

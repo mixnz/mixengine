@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en" data-theme="dark" data-platform="mac">
+  <head>
+    <meta charset="UTF-8" />
+    <title>MixLab — frame</title>
+    <style>
+      :root {
+        --ground-from: #07130f;
+        --ground-to: #0c2a21;
+        --glow: rgba(52, 211, 153, 0.22);
+        --headline: #f1f7f4;
+        --description: #9db3aa;
+        --bar: #1a1d1c;
+        --bar-edge: rgba(255, 255, 255, 0.07);
+        --glyph: #8a9590;
+        --shadow: rgba(0, 0, 0, 0.55);
+        --light-close: #ff5f57;
+        --light-minimise: #febc2e;
+        --light-zoom: #28c840;
+      }
+      :root[data-theme="light"] {
+        --ground-from: #f3faf7;
+        --ground-to: #d3eee3;
+        --glow: rgba(16, 185, 129, 0.18);
+        --headline: #0b1a14;
+        --description: #4b6158;
+        --bar: #ebeeed;
+        --bar-edge: rgba(0, 0, 0, 0.08);
+        --glyph: #5f6b66;
+        --shadow: rgba(15, 45, 35, 0.28);
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1600px;
+        height: 1000px;
+        overflow: hidden;
+      }
+      body {
+        font-family: "Geist Variable", system-ui, sans-serif;
+        background:
+          radial-gradient(900px 520px at 50% 18%, var(--glow), transparent 70%),
+          linear-gradient(160deg, var(--ground-from), var(--ground-to));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      h1 {
+        margin: 48px 0 0;
+        font-size: 52px;
+        line-height: 64px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        color: var(--headline);
+      }
+      p {
+        margin: 12px 0 0;
+        font-size: 22px;
+        line-height: 30px;
+        color: var(--description);
+      }
+      .window {
+        margin-top: 40px;
+        width: 1152px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow:
+          0 40px 90px var(--shadow),
+          0 0 0 1px var(--bar-edge);
+      }
+      .bar {
+        height: 32px;
+        background: var(--bar);
+        border-bottom: 1px solid var(--bar-edge);
+        display: flex;
+        align-items: center;
+        padding: 0 14px;
+        gap: 8px;
+      }
+      .light {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .light.close {
+        background: var(--light-close);
+      }
+      .light.minimise {
+        background: var(--light-minimise);
+      }
+      .light.zoom {
+        background: var(--light-zoom);
+      }
+      .glyphs {
+        display: none;
+        margin-left: auto;
+        gap: 22px;
+        color: var(--glyph);
+      }
+      :root:not([data-platform="mac"]) .light {
+        display: none;
+      }
+      :root:not([data-platform="mac"]) .glyphs {
+        display: flex;
+      }
+      .window img {
+        display: block;
+        width: 1152px;
+        height: 720px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1 id="headline"></h1>
+    <p id="description"></p>
+    <div class="window">
+      <div class="bar">
+        <span class="light close"></span>
+        <span class="light minimise"></span>
+        <span class="light zoom"></span>
+        <span class="glyphs">
+          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2" /></svg>
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <rect x="1.5" y="1.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+          <svg width="12" height="12" viewBox="0 0 12 12">
+            <path d="M1.5 1.5l9 9M10.5 1.5l-9 9" stroke="currentColor" stroke-width="1.2" />
+          </svg>
+        </span>
+      </div>
+      <img id="shot" alt="" />
+    </div>
+    <script type="module" src="/demo/frame/frame.ts"></script>
+  </body>
+</html>
