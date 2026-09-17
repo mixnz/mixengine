@@ -390,10 +390,24 @@ async fn register(
     // this apply's own first step, already taken, and calling that a collision would make a failed
     // apply impossible to run again. Both halves have to match: anything narrower is two projects
     // colliding, which is what the blocks below are for.
+    //
+    // **Already taken only while its directory is still there.** This step is the one that makes
+    // the directory, so a row whose folder somebody has since deleted is work again: planned
+    // `Satisfied`, nothing would make it, and the scaffold would be started in a folder that is not
+    // there. The executor finds the row and makes only the directory.
     if let Some(mine) = registered.iter().find(|record| {
         record.name == project && mixengine_platform::paths::in_full(&record.root) == here
     }) {
-        return Ok((satisfied(action), Some(mine.id)));
+        let step = match root.is_dir() {
+            true => satisfied(action),
+            false => PlanStep {
+                action,
+                disposition: Disposition::Create,
+                elevates: false,
+            },
+        };
+
+        return Ok((step, Some(mine.id)));
     }
 
     if registered.iter().any(|record| record.name == project) {
@@ -1176,6 +1190,7 @@ mod tests {
     async fn an_untrimmed_name_resumes_the_project_it_already_registered() {
         let (temp, store) = home().await;
         let root = temp.path().join("laravel");
+        std::fs::create_dir(&root).expect("the first apply's directory");
 
         projects::create(
             &store,
@@ -1213,6 +1228,53 @@ mod tests {
             .disposition,
             Disposition::Satisfied,
             "a project of this name at this root is this apply's own first step, already taken"
+        );
+    }
+
+    /// **A registered project whose directory is gone is not already true.** The step that makes
+    /// the directory is this one, so planning it `Satisfied` left the blueprint's own command to be
+    /// started in a folder that was not there — which Windows reports as a shell that cannot start.
+    #[tokio::test]
+    async fn a_resumed_project_whose_directory_was_deleted_is_work_again() {
+        let (temp, store) = home().await;
+        let root = temp.path().join("laravel");
+
+        projects::create(
+            &store,
+            &projects::Registration {
+                name: "Laravel".to_owned(),
+                root: root.clone(),
+                pins: BTreeMap::new(),
+            },
+            mixengine_proto::Timestamp::from_system_time(std::time::SystemTime::UNIX_EPOCH),
+        )
+        .await
+        .expect("the first apply's project");
+
+        let planned = plan(
+            &store,
+            &Catalogue::builtin(),
+            &Wanted {
+                blueprint: "blog-stack",
+                filed: &captured(a_manifest()),
+                project: "Laravel",
+                root: &root,
+                answers: &[],
+                scaffold_path: nowhere(),
+                front_end: false,
+            },
+        )
+        .await
+        .expect("a plan");
+
+        assert_eq!(
+            step_of(&planned, |action| matches!(
+                action,
+                PlanAction::RegisterProject { .. }
+            ))
+            .disposition,
+            Disposition::Create,
+            "the directory has to be made again before anything runs in it"
         );
     }
 

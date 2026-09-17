@@ -15,7 +15,8 @@
  *   2. `cargo build -p …` the four crates at the repository root, debug profile, like the window;
  *   3. copy them into src-tauri/target/debug/, unconditionally — a stale daemon beside a fresh
  *      window is the mismatch this script exists to remove, and comparing timestamps to skip a
- *      copy that takes milliseconds buys nothing.
+ *      copy that takes milliseconds buys nothing. A daemon still running there from the last
+ *      window is stopped first with `mix daemon stop` against this home.
  *
  * `tauri dev` is started from here rather than by `&&` in package.json because MIXENGINE_HOME has
  * to reach it: two commands joined by `&&` are two processes, and an environment set in the first
@@ -35,6 +36,7 @@
 import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { headlessBinaries } from "./packaging-lists.mjs";
@@ -67,24 +69,79 @@ if (build.status !== 0) {
 //    yet.
 const destination = join(app, "src-tauri", "target", "debug");
 mkdirSync(destination, { recursive: true });
-for (const { binary } of binaries) {
-  const file = `${binary}${suffix}`;
-  const target = join(destination, file);
+
+// How long a daemon that was asked to stop is given to let go of its executable. `mix daemon stop`
+// is answered before the process exits, so the copy is retried rather than tried once.
+const RELEASE_WITHIN_MS = 15_000;
+const RETRY_EVERY_MS = 250;
+
+// A running executable cannot be replaced on Windows, and the error reads as a permission problem
+// (os error 5).
+function isHeldByARunningProcess(error) {
+  return error.code === "EPERM" || error.code === "EBUSY" || error.code === "ETXTBSY";
+}
+
+// Whether the copy happened; false only when a running process holds the target.
+function tryCopy(source, target) {
   try {
-    copyFileSync(join(root, "target", "debug", file), target);
+    copyFileSync(source, target);
+    return true;
   } catch (error) {
-    // A running executable cannot be replaced on Windows, and the error reads as a permission
-    // problem (os error 5). Say what it is and what to do; do not start a window beside a daemon
-    // of the wrong age.
-    if (error.code === "EPERM" || error.code === "EBUSY" || error.code === "ETXTBSY") {
-      console.error(
-        `cannot replace ${target}: it is running.\n` +
-          `Stop it first — \`mix daemon stop\` with MIXENGINE_HOME=${home}, or the window's own ` +
-          `Stop button — and run this again.`,
-      );
-      process.exit(1);
+    if (isHeldByARunningProcess(error)) {
+      return false;
     }
     throw error;
+  }
+}
+
+// The daemon a previous `npm run dev:app` started outlives its window by design, so the next run
+// finds it holding the binary. It is this home's daemon, stopped the way a person would stop it:
+// through `mix`, services first. Its exit status is not the verdict — a copy that still fails is.
+function stopTheDevDaemon() {
+  const mix = join(root, "target", "debug", `mix${suffix}`);
+  console.log(`the daemon of ${home} is running; stopping it before staging`);
+  const stop = spawnSync(mix, ["daemon", "stop"], {
+    cwd: root,
+    stdio: "inherit",
+    env: { ...process.env, MIXENGINE_HOME: home },
+  });
+  if (stop.error) {
+    console.error(`could not run ${mix}: ${stop.error.message}`);
+  }
+}
+
+let stopped = false;
+for (const { binary } of binaries) {
+  const file = `${binary}${suffix}`;
+  const source = join(root, "target", "debug", file);
+  const target = join(destination, file);
+
+  if (tryCopy(source, target)) {
+    continue;
+  }
+
+  if (!stopped) {
+    stopTheDevDaemon();
+    stopped = true;
+  }
+
+  let copied = false;
+  const deadline = Date.now() + RELEASE_WITHIN_MS;
+  while (!copied && Date.now() < deadline) {
+    await sleep(RETRY_EVERY_MS);
+    copied = tryCopy(source, target);
+  }
+
+  // Still held: a process this home's `mix daemon stop` does not reach — a daemon started against
+  // another home from the same binary. Say what to do; do not start a window beside a daemon of
+  // the wrong age.
+  if (!copied) {
+    console.error(
+      `cannot replace ${target}: it is still running.\n` +
+        `Stop whatever is running it — \`mix daemon stop\` with the MIXENGINE_HOME it was started ` +
+        `with, or the window's own Stop button — and run this again.`,
+    );
+    process.exit(1);
   }
 }
 console.log(`staged ${binaries.map(({ binary }) => binary).join(", ")} in ${destination}`);

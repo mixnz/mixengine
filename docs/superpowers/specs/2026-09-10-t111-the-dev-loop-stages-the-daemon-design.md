@@ -149,10 +149,14 @@ contributor sees `src-tauri/target/debug` and knows which command they skipped.
 ## Error handling
 
 - **The copy is refused because the daemon is running.** On Windows a running executable cannot
-  be overwritten, and the error is `os error 5`, which reads as a permissions problem. The script
-  catches `EPERM`/`EBUSY` on the copy, names the binary, and says to stop it — `mix daemon stop`
-  with the same `MIXENGINE_HOME`, or the window's own Stop — before running again. It exits
-  non-zero, so `tauri dev` does not start a window beside a daemon of the wrong age.
+  be overwritten, and the error is `os error 5`, which reads as a permissions problem. The daemon
+  the last window started outlives it by design, so this is the ordinary second run, not an
+  accident. On `EPERM`/`EBUSY` the script runs the freshly built `mix daemon stop` with the same
+  `MIXENGINE_HOME` — services first, as a person would — and retries the copy for up to fifteen
+  seconds, because the stop is answered before the process exits. A copy that is still refused is
+  a binary something else is running, such as a daemon started against another home: the script
+  names the binary, says to stop it, and exits non-zero, so `tauri dev` does not start a window
+  beside a daemon of the wrong age.
 - **`cargo build` fails.** The script exits with cargo's own status and adds nothing: cargo's
   message is the message.
 - **`common.sh` has no `MIX_BINARIES` line, or the two arrays differ in length.** The script

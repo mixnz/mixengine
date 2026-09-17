@@ -245,9 +245,16 @@ pub(crate) async fn run_command(
         // The shell itself would not start, which is a machine that cannot run any scaffold rather
         // than a command that failed. Still this step's outcome and not the apply's: the project is
         // made either way.
+        //
+        // **Flattened, because the platform's sentence is only `cannot start <shell>`** and the
+        // OS's reason is its `#[source]`: a working directory that is not there reads, without it,
+        // as a broken `cmd.exe`.
         Err(error) => {
             return StepResult::Failed {
-                why: format!("it could not be started: {error}"),
+                why: format!(
+                    "it could not be started: {}",
+                    mixengine_proto::flatten(&error)
+                ),
             };
         }
     };
@@ -465,6 +472,23 @@ mod tests {
 
         assert_eq!(result, StepResult::Done, "{result:?}");
         assert!(root.path().join("made.txt").is_file());
+    }
+
+    /// **A command that could not be started says why.** The platform error's own sentence is only
+    /// `cannot start <shell>`, and the OS's reason is its `#[source]` — so a Laravel apply into a
+    /// directory somebody had since deleted reported a broken `cmd.exe` and not the missing folder.
+    #[tokio::test]
+    async fn a_command_that_cannot_start_says_what_the_os_said() {
+        let home = tempfile::tempdir().expect("a directory");
+        let gone = home.path().join("deleted since");
+
+        let result = run_command("exit 0", &gone, &BTreeMap::new(), &Discarding, None).await;
+
+        let StepResult::Failed { why } = result else {
+            panic!("a failed step, not {result:?}");
+        };
+
+        assert!(why.contains("os error"), "{why}");
     }
 
     /// **A command that fails is a failed step, not a failed job** — roadmap task **T78a**, its
