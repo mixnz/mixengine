@@ -121,6 +121,7 @@ impl Doctor {
                 self.trust_bundle(),
                 self.go_toolchain().await,
                 self.java_pin().await,
+                self.java_trust().await,
                 self.commands().await,
                 self.dns_server(),
                 self.port_access().await,
@@ -595,6 +596,19 @@ impl Doctor {
                     because: format!("this home's installed runtimes could not be read: {error}"),
                 },
             },
+        }
+    }
+
+    /// **Whether every JDK can verify this home's own sites** — roadmap task **T27e**, D11.
+    ///
+    /// One `keytool` per installed JDK, which reads and writes nothing; a home with no Java, or none
+    /// with a usable authority, asks no process anything.
+    async fn java_trust(&self) -> Check {
+        Check {
+            name: "every JDK trusts this home's authority".to_owned(),
+            outcome: java_trust_outcome(
+                &crate::certs::jdks::lacking(&self.store, &self.certs).await,
+            ),
         }
     }
 
@@ -1249,6 +1263,22 @@ fn java_outcome(
     }
 }
 
+/// What [`Doctor::java_trust`] decides from the JDKs that do not hold this home's authority.
+fn java_trust_outcome(lacking: &[String]) -> Outcome {
+    match lacking.is_empty() {
+        true => Outcome::Ok {},
+        false => Outcome::Problem {
+            id: ProblemId::JavaTrustMissing,
+            because: format!(
+                "{} cannot verify this home's own HTTPS sites — `mix doctor --repair` writes the \
+                 authority into each one, and a `cacerts` whose password was changed is the one \
+                 case keytool refuses",
+                lacking.join(", ")
+            ),
+        },
+    }
+}
+
 fn stranded<'a>(
     rows: impl Iterator<Item = (&'a str, bool)>,
     held: &std::collections::BTreeSet<&str>,
@@ -1648,6 +1678,27 @@ mod tests {
         };
 
         assert!(because.contains("_JAVA_OPTIONS"), "{because}");
+    }
+
+    /// Nothing lacking is the ordinary machine, and the one a home with no Java always is.
+    #[test]
+    fn every_jdk_holding_the_authority_is_ok() {
+        let outcome = super::java_trust_outcome(&[]);
+
+        assert!(matches!(outcome, Outcome::Ok {}), "{outcome:?}");
+    }
+
+    /// **A JDK that cannot verify this home's sites is a problem, and is named** — T27e, D11.
+    #[test]
+    fn a_jdk_lacking_the_authority_is_a_problem_naming_it() {
+        let outcome = super::java_trust_outcome(&["java 21.0.12.1".to_owned()]);
+
+        let Outcome::Problem { id, because } = outcome else {
+            panic!("a JDK that cannot verify a local site is a problem: {outcome:?}");
+        };
+
+        assert_eq!(id, ProblemId::JavaTrustMissing);
+        assert!(because.contains("java 21.0.12.1"), "{because}");
     }
 
     /// A support answer with the two interesting fields set and the rest held constant.

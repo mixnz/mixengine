@@ -215,6 +215,26 @@ impl Repairs {
                 }
             }
 
+            // **`refused` is why this is not always a `Repaired`**, exactly as the browsers below:
+            // a JDK whose `cacerts` password is not the published default is left as it was found,
+            // and calling that repaired is the silence every `refused` list here exists to prevent.
+            InHome::TrustJdks => {
+                let change = self.certificates.hold_in_jdks().await;
+
+                if change.refused.is_empty() {
+                    Action::Repaired {
+                        what: format!(
+                            "{} JDK(s) now hold MixEngine's authority",
+                            change.written.len()
+                        ),
+                    }
+                } else {
+                    Action::Untouched {
+                        because: change.refused.join("; "),
+                    }
+                }
+            }
+
             InHome::TrustBrowsers => {
                 // Read here rather than inside: the method takes the state so that a daemon
                 // start, which already has one, does not pay for the system trust-store probe a
@@ -401,6 +421,9 @@ enum InHome {
 
     /// Write the trust bundle this home's runtimes read — T132.
     WriteTrustBundle,
+
+    /// Put MixEngine's authority back into every JDK that lacks it — T27e, ADR 0039.
+    TrustJdks,
 }
 
 /// A repair only the elevated helper can make.
@@ -439,6 +462,7 @@ fn plan_for(id: ProblemId) -> Planned {
         ProblemId::BrowsersNotTrusted => Planned::InHome(InHome::TrustBrowsers),
         ProblemId::SiteCertificateMissing => Planned::InHome(InHome::IssueCertificates),
         ProblemId::TrustBundleMissing => Planned::InHome(InHome::WriteTrustBundle),
+        ProblemId::JavaTrustMissing => Planned::InHome(InHome::TrustJdks),
 
         ProblemId::DomainUnreachable => Planned::Untouched(
             "a name resolves once the hosts block and the resolver are what they should be, and \
