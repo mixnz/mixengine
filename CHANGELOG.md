@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Go 1.21 to 1.27 installs and pins like any runtime: `mix runtime install go`, a `go` pin in
+  MixLab's project form, and `go` and `gofmt` on the PATH. A pinned Go stays the Go that builds: a
+  `go.mod` asking for a newer release no longer downloads and runs it.
 - MongoDB 6.0 to 8.3 install and run as a service: `mix package install mongodb` and `mix service
   create mongodb@main`, or the same from MixLab's Packages and Services screens. It listens on
   loopback only and keeps its data across restarts.

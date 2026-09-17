@@ -1,13 +1,13 @@
 +++
-title = "Phiên bản PHP, Node, Python và Ruby"
+title = "Phiên bản PHP, Node, Python, Ruby và Go"
 slug = "runtimes"
 order = 5
 summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó. Không hook shell, không phải nhớ gì cả."
 translation_of = "en/runtimes.md"
-source_sha256 = "2c9f2b7837a5d2a3e823537d0346d9b30ddc8ea9ee99aa60a32e92f2f6a4164d"
+source_sha256 = "f370303c03de0c5bedb162b7ceee75f31dcd07f4cbb3311b2fa03bf205915b17"
 +++
 
-# Phiên bản PHP, Node, Python và Ruby
+# Phiên bản PHP, Node, Python, Ruby và Go
 
 > **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
 > giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
@@ -18,7 +18,8 @@ MixEngine cài runtime ngôn ngữ vào thư mục riêng của nó, mỗi phiê
 không bao giờ đụng tới những gì hệ điều hành đã có sẵn. Cài một phiên bản mới không bao giờ sửa
 phiên bản đã cài, nên bạn thêm gì vào cũng không làm hỏng thứ đang chạy tốt.
 
-Có bốn ngôn ngữ được quản lý: **PHP**, **Node.js**, **Python** và **Ruby**.
+Có năm ngôn ngữ được quản lý: **PHP**, **Node.js**, **Python**, **Ruby** và **Go**, cùng một công
+cụ là **Composer**, được cài theo cùng cách và chạy dưới PHP mà thư mục hiện tại dùng.
 
 ## Cài một phiên bản
 
@@ -38,8 +39,8 @@ Cài đặt là một job, và mặc định `mix` sẽ chờ nó xong. Vì th�
 việc và đưa bạn một job id, để sau đó bạn chờ bằng `mix job wait`.
 
 **Cài PHP cũng tạo luôn pool php-fpm** cho phiên bản đó, ví dụ `php-fpm@8.3.33`. Đây là một
-service như mọi service khác, xuất hiện trong `mix service list`. Node, Python và Ruby được gọi theo
-từng lệnh, không có gì cần giám sát.
+service như mọi service khác, xuất hiện trong `mix service list`. Node, Python, Ruby và Go được gọi
+theo từng lệnh, không có gì cần giám sát.
 
 ### Trên máy Windows dùng chip ARM
 
@@ -51,6 +52,61 @@ Bạn không phải đoán cái nào là cái nào. Trên máy đó, `mix runtim
 `mix package available` có thêm cột `RUNS`, ghi `native` hoặc `emulated` cho từng phiên bản, và
 lệnh cài sẽ nói rõ trước khi bắt đầu tải. Trên các máy khác không có cột này, vì không có gì để
 nói.
+
+## Composer
+
+```bash
+mix runtime available --kind composer   # the versions the index offers
+mix runtime install composer 2.10.3     # exact, like every install
+composer --version                      # runs composer.phar under this directory's PHP
+mix project update shop --pin composer=2.2
+```
+
+Composer là một file chứ không phải một chương trình: lệnh `composer` khởi động PHP mà thư mục của
+bạn resolve ra, rồi đưa `composer.phar` cho PHP đó. Vì vậy `MIXENGINE_PHP=8.1 composer install`
+dùng PHP 8.1, và một thư mục pin PHP 7.4 cần dòng 2.2, vì Composer 2.3 trở lên đòi PHP 7.2.5 hoặc
+mới hơn.
+
+| PHP của bạn | Pin |
+| --- | --- |
+| 7.2.5 trở lên | `composer = "2"` |
+| 5.3 – 7.2.4 | `composer = "2.2"` |
+
+Cài Composer không tạo service nào và không chạy gì cả; `mix runtime list` hiện nó cạnh các ngôn
+ngữ.
+
+## Go
+
+```bash
+mix runtime available --kind go        # 1.21 to the newest release
+mix runtime install go 1.25.14
+go version                             # the Go this directory resolves to
+mix project update api --pin go=1.25
+```
+
+`go` và `gofmt` là lệnh như mọi lệnh khác. `GOROOT` do chính `go` tự suy ra từ nơi nó được cài, còn
+`GOPATH`, module cache và build cache vẫn nằm ở chỗ Go đặt. Mọi phiên bản dùng chung chúng, và Go
+vốn được thiết kế để dùng như vậy.
+
+**Go đã pin là Go dùng để build.** Một `go.mod` đòi phiên bản mới hơn phiên bản thư mục của bạn
+resolve ra sẽ không âm thầm tải phiên bản đó về rồi chạy thay: `go` được khởi động qua MixEngine
+chạy với `GOTOOLCHAIN=local`, nên module như vậy dừng lại với thông báo của chính Go.
+
+```text
+go: go.mod requires go >= 1.27 (running go 1.25.14; GOTOOLCHAIN=local)
+```
+
+Cách xử lý là cài phiên bản Go mới hơn rồi pin nó. Ba chi tiết:
+
+- `GOTOOLCHAIN` do bạn tự export được giữ nguyên đúng như bạn viết.
+- Giá trị rỗng được coi như chưa đặt, giống cách Go đọc nó.
+- Giá trị bạn lưu bằng `go env -w` sẽ bị ghi đè: pin thắng một thiết lập áp dụng cho cả máy.
+
+`mix doctor` sẽ báo khi chính MixEngine được khởi động với một `GOTOOLCHAIN` khác `local`, hoặc với
+`GOROOT`, vì các lệnh nó khởi động thừa hưởng những biến đó.
+
+Chương trình bạn thêm bằng `go install` nằm trong `GOBIN` của Go (mặc định là `~/go/bin` nếu bạn
+chưa đổi), và MixEngine không đưa thư mục đó vào `PATH` của bạn.
 
 ## Chọn phiên bản cho từng thư mục
 
@@ -92,8 +148,8 @@ Ràng buộc không ghi pre-release thì không bao giờ chọn pre-release. `8
 
 `mix path install` điền vào `<root>/bin` và đưa duy nhất thư mục đó vào `PATH` của bạn. Trong đó
 có một chương trình nhỏ cho mỗi lệnh: `php`, `php-config`, `pecl`, `composer`, `node`, `npm`,
-`npx`, `python`, `pip`, `ruby`, `gem`, `bundle`. Mỗi chương trình tự tìm xem thư mục hiện tại muốn
-phiên bản nào rồi chuyển cho file thực thi thật.
+`npx`, `python`, `pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt`. Mỗi chương trình tự tìm xem thư mục
+hiện tại muốn phiên bản nào rồi chuyển cho file thực thi thật.
 
 Hai hệ quả đáng biết:
 

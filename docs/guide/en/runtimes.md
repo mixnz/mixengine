@@ -1,11 +1,11 @@
 +++
-title = "PHP, Node, Python and Ruby versions"
+title = "PHP, Node, Python, Ruby and Go versions"
 slug = "runtimes"
 order = 5
 summary = "Install as many versions as you need, and let each directory choose its own — with no shell hook and nothing to remember."
 +++
 
-# PHP, Node, Python and Ruby versions
+# PHP, Node, Python, Ruby and Go versions
 
 > **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
 > graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
@@ -16,7 +16,7 @@ MixEngine installs language runtimes into its own directory, one immutable folde
 never touches whatever your operating system already has. Installing a version never modifies a
 version already installed, so nothing you have working can be broken by adding something new.
 
-Four languages are managed: **PHP**, **Node.js**, **Python** and **Ruby** — and one tool,
+Five languages are managed: **PHP**, **Node.js**, **Python**, **Ruby** and **Go** — and one tool,
 **Composer**, which installs the same way and runs under whichever PHP the directory uses.
 
 ## Installing a version
@@ -37,7 +37,7 @@ sentence about PHP being there. `--no-wait` returns as soon as the daemon has ac
 hands you a job id, which `mix job wait` can be pointed at later.
 
 **Installing a PHP also creates its php-fpm pool** — `php-fpm@8.3.33`, a service like any other, in
-`mix service list`. Node, Python and Ruby are invoked per command and have nothing supervised.
+`mix service list`. Node, Python, Ruby and Go are invoked per command and have nothing supervised.
 
 ### On a Windows PC with an ARM processor
 
@@ -70,6 +70,40 @@ directory pinned to PHP 7.4 needs the 2.2 line — Composer 2.3 and later want P
 
 Installing Composer creates no service and runs nothing; `mix runtime list` shows it beside the
 languages.
+
+## Go
+
+```bash
+mix runtime available --kind go        # 1.21 to the newest release
+mix runtime install go 1.25.14
+go version                             # the Go this directory resolves to
+mix project update api --pin go=1.25
+```
+
+`go` and `gofmt` are commands like every other. `GOROOT` is worked out by `go` itself from where it
+is installed, and `GOPATH`, the module cache and the build cache stay where Go puts them — every
+version shares them, which is how Go is designed to be used.
+
+**A pinned Go is the Go that builds.** A `go.mod` asking for a newer release than the one your
+directory resolves to does not quietly download that release and run it instead: a `go` started
+through MixEngine runs with `GOTOOLCHAIN=local`, so such a module stops with Go's own message.
+
+```text
+go: go.mod requires go >= 1.27 (running go 1.25.14; GOTOOLCHAIN=local)
+```
+
+The answer is to install the newer Go and pin it. Three details:
+
+- A `GOTOOLCHAIN` you export yourself is left exactly as you wrote it.
+- An empty one counts as not set, the way Go reads it.
+- One you saved with `go env -w` is overridden: the pin wins over a setting that applies to the
+  whole machine.
+
+`mix doctor` tells you when MixEngine itself was started with a `GOTOOLCHAIN` other than `local`, or
+with a `GOROOT`, because the commands it starts inherit them.
+
+Programs you add with `go install` land in Go's own `GOBIN` — `~/go/bin` unless you changed it —
+which MixEngine does not put on your `PATH`.
 
 ## Choosing which one a directory uses
 
@@ -111,8 +145,8 @@ A constraint with no pre-release in it never selects one. `8.5` and `^8.5` both 
 
 `mix path install` fills `<root>/bin` and puts that one directory on your `PATH`. It holds a small
 program per command — `php`, `php-config`, `pecl`, `composer`, `node`, `npm`, `npx`, `python`,
-`pip`, `ruby`, `gem`, `bundle` — and each one works out which version this directory wants and hands
-over to the real binary.
+`pip`, `ruby`, `gem`, `bundle`, `go`, `gofmt` — and each one works out which version this directory
+wants and hands over to the real binary.
 
 Two things follow that are worth knowing:
 
