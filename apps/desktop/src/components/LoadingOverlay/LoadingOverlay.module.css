@@ -1,19 +1,28 @@
 .overlay {
   position: absolute;
   inset: 0;
-  /* Above whatever the covered content stacks on top of itself — a sticky table
-     header, for one, which would otherwise paint through the veil. */
+  /* Above whatever the covered content stacks on top of itself — a sticky table header, for one,
+     which would otherwise paint through the veil. */
   z-index: 2;
   display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 1rem;
-  background: rgba(128, 128, 128, 0.08);
-  backdrop-filter: blur(0.5px);
   /* Held invisible for the first tenth of a second, then faded up. A refetch off a warm connection
-     is often quicker than that, and a veil that flashed on and off again read as a glitch rather
-     than as a wait. `both` is what keeps it hidden through the delay. */
+     is often quicker than that, and a veil that flashed on and off read as a glitch rather than a
+     wait. `both` is what keeps it hidden through the delay. */
   animation: loading-veil-in 180ms ease-out 100ms both;
+}
+
+/* The veil itself: the page's own colour at half strength, on a layer of its own so the pill above
+   it stays opaque. */
+.overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--page-bg);
+  opacity: 0.45;
 }
 
 @keyframes loading-veil-in {
@@ -29,33 +38,32 @@
 }
 
 /* A pill that floats over the content, so it takes the radius and the shadow everything else
-   floating does. Sized in
-   `rem` rather than `em`: the panels it covers set their own font sizes, and the same wait should
-   look the same everywhere it is shown. It used to be 0.85em at 75% opacity — small, grey, and easy
-   to take for a piece of the table underneath. */
+   floating does. Sized in `rem`: the panels it covers set their own font sizes, and the same wait
+   should look the same everywhere it is shown. */
 .label {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 1rem;
+  gap: 10px;
+  font-size: var(--text-md);
   font-weight: 500;
   line-height: 1.4;
-  padding: 0.6rem 1.15rem;
-  border-radius: var(--radius-lg, 12px);
-  background: var(--surface-bg, #fff);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-md);
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--popover-bg);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-popover);
+  color: var(--text);
 }
 
-/* Turning, because a wait with no moving part in it reads as a screen that has stopped rather than
-   one that is working. Drawn in the accent against a ring of itself at a quarter strength. */
+/* Turning, because a wait with no moving part in it reads as a screen that has stopped. Drawn in
+   the accent against a ring of itself at a quarter strength. */
 .spinner {
   flex: none;
-  width: 0.95em;
-  height: 0.95em;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   border: 2px solid rgb(var(--accent-rgb) / 0.25);
-  border-top-color: var(--accent);
+  border-top-color: var(--accent-text);
   animation: loading-spin 700ms linear infinite;
 }
 

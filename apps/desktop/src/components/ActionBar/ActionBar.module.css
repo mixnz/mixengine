@@ -1,38 +1,40 @@
 .bar {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 4px;
 }
 
 .action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+  min-height: 0;
   padding: 0;
   border: none;
   box-shadow: none;
   background: transparent;
   border-radius: var(--radius-sm);
-  color: inherit;
+  color: var(--text-muted);
 }
 
 .action:hover:not(:disabled) {
-  background: var(--hover-bg);
+  background: var(--neutral-bg);
   border-color: transparent;
+  color: var(--text);
 }
 
 .action:disabled {
-  opacity: 0.4;
+  color: var(--text-disabled);
   cursor: default;
 }
 
-/* Only on hover: at rest a destructive action sits in the bar as quietly as the others, and
-   turns red once the pointer is on it — where the click would actually land. */
+/* Only on hover: at rest a destructive action sits in the bar as quietly as the others, and turns
+   red once the pointer is on it — where the click would actually land. */
 .danger:hover:not(:disabled) {
-  background: rgb(var(--danger-rgb) / 0.15);
-  color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.14);
+  color: var(--danger-text);
 }
 
 .spinning {
@@ -45,5 +47,11 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
   }
 }

@@ -1,9 +1,6 @@
-/* `width` cùng với `height`, vì cái ôm nó là một flex container.
- *
- * `.tab-panel` được `App.tsx` đặt `display: flex` khi tab đang mở, nên fallback là một flex item:
- * chiều cao được `align-items: stretch` lo hộ, còn chiều ngang thì co theo nội dung. Đo được 576px
- * trong một pane rộng 1280px — nội dung căn giữa của một hộp nằm nép bên trái. `border-box` đi kèm
- * vì app này **không** đặt `box-sizing` toàn cục (chỉ `textarea` có), và hộp này có `padding: 2rem`. */
+/* `width` as well as `height`, because what holds it is a flex container: `.tab-panel` is a flex
+ * row, so the fallback is a flex item that stretches vertically but shrinks horizontally to its
+ * content. `border-box` because the app sets no global `box-sizing` and this box has padding. */
 .fallback {
   width: 100%;
   height: 100%;
@@ -12,32 +9,36 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 14px;
   padding: 2rem;
   text-align: center;
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .message {
   max-width: 32rem;
   font-size: var(--text-md);
+  line-height: 1.5;
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 10px;
 }
 
 .button {
-  padding: 0.4rem 0.9rem;
-  border-radius: var(--radius-lg, 12px);
-  border: 1px solid var(--border);
-  background: var(--surface-bg, #fff);
-  color: inherit;
+  min-height: var(--control-h);
+  padding: 0 1em;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: var(--button-bg);
+  color: var(--text);
   font: inherit;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .button:hover {
-  background: rgb(var(--danger-rgb) / 0.08);
+  background: var(--hover-bg);
+  border-color: var(--border-hover);
 }
