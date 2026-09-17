@@ -404,68 +404,42 @@ body {
   text-align: left;
 }
 
-/* The name of the app, and the only way into its settings. It used to be flat text at 70% opacity,
-   which is how a label looks, not how a button looks — nobody had a reason to click it. It now
-   carries its own surface, a hairline and a gear, so what it is stays legible from across the
-   window and what it does is legible from a foot away. */
+/* The app's mark and name at the head of the tab bar, closed off from the tabs by a rule. Not a
+   control: Settings is the gear at the far end of the strip. */
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 10px;
   flex: none;
-  font-family: inherit;
-  font-size: var(--text-md);
+  height: 28px;
+  padding-right: 18px;
+  margin-right: 8px;
+  border-right: 1px solid var(--chrome-border);
+  user-select: none;
+}
+
+.brand-mark {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+.brand-name {
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: 0.01em;
-  /* Sits a little off the bottom of the bar: the tabs beside it run down to the edge, and the
-     button is not one of them. */
-  margin: 0 0.5rem 0.3rem 0.1rem;
-  padding: 0.3rem 0.5rem;
-  border: none;
-  background: var(--hover-bg);
-  box-shadow: inset 0 0 0 1px var(--border);
-  color: inherit;
-  opacity: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--text);
   white-space: nowrap;
-  cursor: pointer;
-  border-radius: var(--radius-md);
-  transition: background-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
 }
 
-.brand:hover {
-  opacity: 1;
-  background: rgb(var(--accent-rgb) / 0.12);
-  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.45);
-  color: var(--accent-text);
-}
-
-/* The press itself, since the button has no travel of its own. */
-.brand:active {
-  background: rgb(var(--accent-rgb) / 0.2);
-}
-
-.brand-gear {
+/* utton. so it outranks Button's own size class whatever order the two stylesheets load in. */
+button.brand-settings {
   flex: none;
-  opacity: 0.7;
-  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 120ms ease;
-}
-
-/* An eighth of a turn on hover: the gear is eight-toothed, so it lands where it started and the
-   movement reads as the thing turning rather than as the icon being swapped. */
-.brand:hover .brand-gear {
-  opacity: 1;
-  transform: rotate(45deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .brand,
-  .brand-gear {
-    transition: none;
-  }
-
-  .brand:hover .brand-gear {
-    transform: none;
-  }
+  width: 38px;
+  min-height: 38px;
+  padding: 0;
+  margin-left: 12px;
+  color: var(--text-secondary);
 }
 
 /* One mark on a tab, whatever it says. The layout is all the shell knows about it: what colour it
@@ -477,11 +451,14 @@ body {
 }
 
 /* The one mark the shell draws for itself: the module's icon, on a tab that has no badge of its
-   own yet. Held back from the name beside it, which is the thing to read — this says no more than
-   which of the app's modules the tab belongs to, and a mark at full strength would be claiming to
-   say something about the tab in particular. */
+   own yet. Quiet on a tab at rest, and in the accent on the open one — the tab bar's one piece of
+   colour, saying which module the screen below belongs to. */
 .tab-module {
-  opacity: 0.55;
+  color: var(--text-faint);
+}
+
+[data-active] > .tab-module {
+  color: var(--accent-text);
 }
 
 /* Deliberately unpadded: each view below pads itself instead (`--view-padding`), so that a veil

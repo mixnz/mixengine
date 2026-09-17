@@ -38,8 +38,11 @@ interface TabStripProps extends HTMLAttributes<HTMLDivElement> {
   size?: "normal" | "small";
   /** Held against the left edge, outside the part that scrolls. */
   leading?: ReactNode;
-  /** Held against the right edge, outside the part that scrolls. */
+  /** Follows the last tab while the tabs fit, and is held against the right edge once they do
+   *  not — `[+]`. */
   trailing?: ReactNode;
+  /** Always at the far right, whatever the tabs do — the window's settings. */
+  end?: ReactNode;
   /** What `useTabReorder().strip` spreads. Named here rather than left to the rest, because it has
    *  to land on the element that actually scrolls — a drag reads `scrollLeft` off it to carry the
    *  strip along when a tab reaches either end. */
@@ -50,6 +53,7 @@ export function TabStrip({
   size = "normal",
   leading,
   trailing,
+  end,
   className,
   children,
   "data-tab-strip": dragStrip,
@@ -106,6 +110,7 @@ export function TabStrip({
         </button>
       )}
       {overflowing && trailing}
+      {end}
     </div>
   );
 }
