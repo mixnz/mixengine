@@ -25,9 +25,15 @@ import {
 } from "./connectionForm";
 import MongoWorkspace from "./mongo/MongoWorkspace";
 import RedisWorkspace from "./redis/RedisWorkspace";
+import Button from "../../components/Button";
+import EmptyState from "../../components/EmptyState";
 import ErrorBanner from "../../components/ErrorBanner";
 import ContextMenu from "../../components/ContextMenu";
-import { LockIcon, PinIcon } from "../../icons";
+import FilterChip from "../../components/FilterChip";
+import Input from "../../components/Input";
+import { LockIcon, PinIcon, PlusIcon } from "../../icons";
+import EngineBadge from "./components/EngineBadge";
+import { connectionPlace, engineCounts, filterConnections } from "./connectionString";
 import { DatabaseIcon } from "./icons";
 import { useTranslation } from "../../i18n";
 import { errorMessage } from "../../core/errors";
@@ -363,6 +369,29 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
     });
   }, [savedConnections, lang]);
 
+  /* The saved list narrowed by a name search and by engine chips — presentation over the list
+     already in hand, see `connectionString.ts`. */
+  const [listQuery, setListQuery] = useState("");
+  const [listKinds, setListKinds] = useState<ReadonlySet<DbKind>>(new Set());
+  const engines = useMemo(() => engineCounts(orderedConnections), [orderedConnections]);
+  const shownConnections = useMemo(
+    () => filterConnections(orderedConnections, { query: listQuery, kinds: listKinds }),
+    [orderedConnections, listQuery, listKinds],
+  );
+
+  function toggleListKind(engine: DbKind) {
+    setListKinds((current) => {
+      const next = new Set(current);
+      if (next.has(engine)) next.delete(engine);
+      else next.add(engine);
+      return next;
+    });
+  }
+
+  function clearListFilters() {
+    setListQuery("");
+    setListKinds(new Set());
+  }
   function openContextMenu(e: React.MouseEvent, id: string) {
     e.preventDefault();
     setContextMenu({ id, x: e.clientX, y: e.clientY });
@@ -609,65 +638,120 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
     return (
       <div className="login-view">
         <aside className="saved-list" ref={savedListRef}>
+          {/* Title, search and chips stay put while the rows scroll under them — one sticky block,
+              whose height is what `scrollTopFor` keeps a scrolled-to row clear of. */}
           <div className="saved-list-header" ref={savedHeaderRef}>
-            <h3>{t("connection.connections")}</h3>
-            {/* Creating a connection is an action on the list, not one of its rows, so it sits in
-                the header where it stays reachable however far the names scroll. */}
-            <button
-              type="button"
-              className="saved-list-new"
-              onClick={newConnectionForm}
-              title={t("connection.newConnection")}
-            >
-              <span className="saved-item-icon kind-new">+</span>
-              <span className="visually-hidden">{t("connection.newConnection")}</span>
-            </button>
+            <div className="saved-list-title">
+              <h3>{t("connection.connections")}</h3>
+              <span className="saved-list-count">{savedConnections.length}</span>
+              {/* Creating a connection is an action on the list, not one of its rows, so it sits in
+                  the header where it stays reachable however far the names scroll. */}
+              <Button
+                size="small"
+                variant="soft"
+                className="saved-list-new"
+                onClick={newConnectionForm}
+                title={t("connection.newConnection")}
+                aria-label={t("connection.newConnection")}
+              >
+                <PlusIcon size={15} />
+              </Button>
+            </div>
+            <Input
+              allowClear
+              value={listQuery}
+              onChange={(e) => setListQuery(e.target.value)}
+              placeholder={t("connection.searchConnections")}
+              aria-label={t("connection.searchConnections")}
+            />
+            {engines.length > 1 && (
+              <div className="saved-list-chips">
+                {engines.map(([engine, count]) => (
+                  <FilterChip
+                    key={engine}
+                    pressed={listKinds.has(engine)}
+                    count={count}
+                    leading={<DatabaseIcon kind={engine} size="0.95em" className={`choice-icon kind-${engine}`} />}
+                    onClick={() => toggleListKind(engine)}
+                  >
+                    {t(kindLabel(engine))}
+                  </FilterChip>
+                ))}
+              </div>
+            )}
           </div>
-          <ul>
-            {orderedConnections.map((c) => (
-              <li key={c.id} ref={c.id === editingId ? activeRowRef : null}>
-                <button
-                  type="button"
-                  className={`saved-item${c.id === editingId ? " saved-item-active" : ""}${
-                    c.readOnly ? " saved-item-readonly" : ""
-                  }`}
-                  onClick={() => applySavedConnection(c)}
-                  onDoubleClick={() => openAndConnect(c)}
-                  onContextMenu={(e) => openContextMenu(e, c.id)}
-                  title={t("connection.savedItemTooltip")}
-                >
-                  {/* The engine's own logo, in its own colour: the row is recognised by a shape
-                      the user already knows from everywhere else, rather than by an abbreviation
-                      this app made up. The name it stands for is carried in text beside it for
-                      anyone the shape says nothing to. */}
-                  <span className={`saved-item-icon kind-${c.config.kind}`}>
-                    <DatabaseIcon kind={c.config.kind} size="1.05rem" />
-                    <span className="visually-hidden">{t(kindLabel(c.config.kind))}</span>
-                  </span>
-                  <strong>{c.name}</strong>
-                  {/* Read-only is about what the row will let you do, so it says the word rather
-                      than only drawing a lock — a shape alone would be one more badge to learn.
-                      The row carries the mark's colour too, so a production server is recognisable
-                      before the eye reaches the end of its name. */}
-                  {c.readOnly && (
-                    <span className="saved-item-readonly-badge">
-                      <LockIcon size={12} />
-                      {t("common.readOnly")}
-                    </span>
-                  )}
-                  {/* Says why this one sits above the alphabet. The button's own `title` describes
-                      the row, so the mark carries its word in a `<span>` for screen readers
-                      rather than in a second tooltip that would replace it. */}
-                  {c.pinned && (
-                    <span className="saved-item-pin">
-                      <PinIcon size={14} />
-                      <span className="visually-hidden">{t("connection.pinnedTooltip")}</span>
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
+          {savedConnections.length > 0 && shownConnections.length === 0 ? (
+            <EmptyState
+              title={t("connection.noConnectionsMatch")}
+              action={
+                <Button size="small" onClick={clearListFilters}>
+                  {t("connection.clearFilters")}
+                </Button>
+              }
+            />
+          ) : (
+            [
+              { key: "pinned", label: t("connection.pinnedGroup"), rows: shownConnections.filter((c) => c.pinned) },
+              { key: "all", label: t("connection.connections"), rows: shownConnections.filter((c) => !c.pinned) },
+            ]
+              // The Pinned group only when something is pinned; the other always, so an empty list
+              // still reads as a list.
+              .filter((group) => group.key === "all" || group.rows.length > 0)
+              .map((group) => (
+                <section key={group.key} className="saved-group">
+                  <h4 className="saved-group-label">
+                    {group.label}
+                    <span>{group.rows.length}</span>
+                  </h4>
+                  <ul>
+                    {group.rows.map((c) => (
+                      <li key={c.id} ref={c.id === editingId ? activeRowRef : null}>
+                        <button
+                          type="button"
+                          className={`saved-item${c.id === editingId ? " saved-item-active" : ""}${
+                            c.readOnly ? " saved-item-readonly" : ""
+                          }`}
+                          onClick={() => applySavedConnection(c)}
+                          onDoubleClick={() => openAndConnect(c)}
+                          onContextMenu={(e) => openContextMenu(e, c.id)}
+                          title={t("connection.savedItemTooltip")}
+                        >
+                          {/* The engine's own logo, in its own tile: the row is recognised by a
+                              shape the user already knows from everywhere else. The engine's name
+                              is written in the line under the connection's. */}
+                          <EngineBadge kind={c.config.kind} size={30} />
+                          <span className="saved-item-text">
+                            <strong>{c.name}</strong>
+                            <span className="saved-item-sub">
+                              {t(kindLabel(c.config.kind))}
+                              {connectionPlace(c.config) !== "" && ` · ${connectionPlace(c.config)}`}
+                            </span>
+                          </span>
+                          {/* Read-only is about what the row will let you do, so it says the word
+                              rather than only drawing a lock — a shape alone would be one more badge
+                              to learn. */}
+                          {c.readOnly && (
+                            <span className="saved-item-readonly-badge">
+                              <LockIcon size={12} />
+                              {t("common.readOnly")}
+                            </span>
+                          )}
+                          {/* Says why this one sits above the alphabet. The button's own `title`
+                              describes the row, so the mark carries its word in a `<span>` for
+                              screen readers rather than in a second tooltip that would replace it. */}
+                          {c.pinned && (
+                            <span className="saved-item-pin">
+                              <PinIcon size={14} />
+                              <span className="visually-hidden">{t("connection.pinnedTooltip")}</span>
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))
+          )}
         </aside>
         <section className="login-form">
           <ConnectionForm

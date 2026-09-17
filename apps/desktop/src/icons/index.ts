@@ -27,6 +27,7 @@ export {
   LockIcon,
   LogIcon,
   MinusIcon,
+  MonitorIcon,
   ModulesIcon,
   MoreIcon,
   PackageIcon,

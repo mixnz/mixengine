@@ -3,17 +3,22 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import Select from "../../../../components/Select";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import Input from "../../../../components/Input";
-import { EyeIcon, EyeOffIcon } from "../../../../icons";
-import { DatabaseIcon } from "../../icons";
-import { useActiveTabInView, useStripScroll } from "../../../../components/TabStrip";
-import Checkbox from "../../../../components/Checkbox";
+import Popover from "../../../../components/Popover";
+import SegmentedControl from "../../../../components/SegmentedControl";
+import StatusPill from "../../../../components/StatusPill";
+import Switch from "../../../../components/Switch";
+import { CopyIcon, EyeIcon, EyeOffIcon, MonitorIcon, ServerIcon } from "../../../../icons";
+import { copyText } from "../../../../core/clipboard";
 import { PRIVATE_KEY_PLACEHOLDER } from "../../../../core/ssh";
-import { useTranslation } from "../../../../i18n";
+import { useTranslation, type TranslationKey } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
 import { createSqliteFile } from "../../sqlite/api";
 import { kindLabel, type ConnectionForm as FormState } from "../../connectionForm";
+import { connectionPlace, connectionString } from "../../connectionString";
 import type { DbKind } from "../../types";
+import EngineBadge from "../EngineBadge";
 
 /**
  * The connection form: what is filled in before Connect, and what a saved connection is edited in.
@@ -23,6 +28,24 @@ import type { DbKind } from "../../types";
  * how the form looks — the mask over a connection string, the example key path, the warning about
  * Redis's protected mode — came out with it, since nothing else was ever asking.
  */
+
+/** Every engine the picker offers, in the order it lists them. */
+const ENGINES: DbKind[] = ["mysql", "postgres", "sqlite", "mongo", "redis", "clickhouse", "mssql"];
+
+/** The one line under each engine's name in the picker. */
+const ENGINE_DESCRIPTION: Record<DbKind, TranslationKey> = {
+  mysql: "connection.engineAboutMysql",
+  postgres: "connection.engineAboutPostgres",
+  sqlite: "connection.engineAboutSqlite",
+  mongo: "connection.engineAboutMongo",
+  redis: "connection.engineAboutRedis",
+  clickhouse: "connection.engineAboutClickhouse",
+  mssql: "connection.engineAboutMssql",
+};
+
+function engineDescription(kind: DbKind): TranslationKey {
+  return (ENGINE_DESCRIPTION as Partial<Record<string, TranslationKey>>)[kind] ?? "connection.kindUnknown";
+}
 
 /**
  * Whether dialling `host` means talking to this machine — the one case a server refusing everything
@@ -62,7 +85,6 @@ function maskMongoUri(uri: string): string {
     .join(":");
   return `${scheme}${masked}@${uri.slice(full.length)}`;
 }
-
 
 interface Props {
   form: FormState;
@@ -111,17 +133,10 @@ function ConnectionForm({
 }: Props) {
   const { t } = useTranslation();
   const passwordRef = useRef<HTMLInputElement>(null);
-  /* The database-kind row scrolls sideways rather than wrapping — see the row itself below. Both
-     hooks are the tab strip's: one gives the wheel the axis it lacks and reports which end is
-     overrun, the other keeps the selected kind in view when a saved connection is opened. */
-  const kindScroller = useRef<HTMLDivElement | null>(null);
-  const { overflowing, atStart, atEnd } = useStripScroll(kindScroller);
-  useActiveTabInView(kindScroller);
-  /* Fade only on a side that is actually hiding something: a mask on an edge with nothing past it
-     dims the first and last kind for no reason. */
-  const kindFade = !overflowing
-    ? ""
-    : `${atStart ? "" : " choice-row-fade-start"}${atEnd ? "" : " choice-row-fade-end"}`;
+  const engineTrigger = useRef<HTMLButtonElement>(null);
+  const [pickingEngine, setPickingEngine] = useState(false);
+  const [passwordShown, setPasswordShown] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   /** What went wrong making a database file, shown under the field. Cleared by the next attempt. */
   const [fileError, setFileError] = useState("");
@@ -192,8 +207,17 @@ function ConnectionForm({
     }
   }
 
+  async function copyConnectionString() {
+    await copyText(connectionString(form));
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }
+
   const isMongo = kind === "mongo";
   const isSqlite = kind === "sqlite";
+  /* Not `isSqlKind`: SQLite is one, and has no transport to secure. */
+  const hasSsl = kind === "mysql" || kind === "postgres" || kind === "clickhouse" || kind === "mssql";
+  const tunnelled = !isSqlite && tunnelType === "ssh";
 
   /* A Redis server whose default user has no password runs in protected mode unless it was told
      otherwise, and protected mode answers anything that isn't loopback with `-DENIED` and hangs
@@ -218,281 +242,394 @@ function ConnectionForm({
     sshPort > 0 &&
     (sshAuthType === "password" ? sshPassword !== "" : sshKeyPath.trim() !== "");
 
+  const place = connectionPlace({ kind, host, port, path, uri });
+  const sshPlace = `${sshHost.trim() || "—"}${sshPort > 0 ? `:${sshPort}` : ""}`;
+
   return (
-    <>
-      <div className="row row-name">
-        <label className="field-name">
-          {editingId ? t("connection.nameLabel") : t("connection.saveAsLabel")}{" "}
-          <Input
-            value={saveAsName}
-            onChange={(e) => setSaveAsName(e.target.value)}
-            placeholder={t("connection.connectionNamePlaceholder")}
-          />
-        </label>
-      </div>
-
-      <fieldset>
-        <legend>{t("connection.databaseLegend")}</legend>
-        {/* The one row in this form that is allowed the full width of the pane, and the one that
-            needs it: a kind is added to this list every time an engine is, and seven of them
-            already outrun the measure the fields are set to. It scrolls rather than wraps — a
-            segmented control that becomes two rows stops reading as one control. */}
-        <div className={`choice-row choice-row-kind${kindFade}`}>
-          <div className="choice-scroller" ref={kindScroller} role="tablist">
-            {(["mysql", "postgres", "mssql", "sqlite", "mongo", "redis", "clickhouse"] as DbKind[]).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={kind === k}
-                /* `data-active` is what `useActiveTabInView` looks for, so opening a saved
-                   connection whose kind sits off the right-hand end scrolls it into view instead
-                   of showing a row that looks like nothing is selected. */
-                data-active={kind === k ? "" : undefined}
-                className={`choice kind-${k}${kind === k ? " choice-active" : ""}`}
-                onClick={() => changeKind(k)}
-              >
-                {/* Logo before the name, not instead of it: this row is the one place the kinds are
-                    read side by side, so the word stays and the mark only makes it quicker to find. */}
-                <DatabaseIcon kind={k} className="choice-icon" size="1.05em" />
-                {t(kindLabel(k))}
-              </button>
-            ))}
+    <div className="connection-editor">
+      <header className="editor-header">
+        <EngineBadge kind={kind} size={52} />
+        <div className="editor-heading">
+          <h2 className="editor-title">{saveAsName.trim() || t("connection.untitled")}</h2>
+          <div className="editor-state">
+            <StatusPill tone={connecting ? "warning" : "neutral"} pulse={connecting}>
+              {connecting ? t("connection.connecting") : t("connection.notConnected")}
+            </StatusPill>
+            {status !== "" && !connecting && <span className="editor-status">{status}</span>}
           </div>
         </div>
-        {isSqlite ? (
-          /* A path and nothing else. There is no host to reach, no account to be on and no
-             database to pick inside the file — the file is the database. */
-          <div className="row">
-            <label className="field-file-path">
-              {t("connection.sqlitePathLabel")}{" "}
-              <Input
-                value={path}
-                onChange={(e) => {
-                  // The complaint was about the path that was there; a different one is a
-                  // different question, and the answer to it comes from Connect.
-                  setFileError("");
-                  set("path", e.target.value);
-                }}
-                placeholder={t("connection.sqlitePathPlaceholder")}
-              />
-              <Button onClick={browseForDatabaseFile}>{t("common.browse")}</Button>
-              <Button onClick={createDatabaseFile}>{t("connection.newSqliteFile")}</Button>
-            </label>
-          </div>
-        ) : isMongo ? (
-          <div className="row">
-            <label className="field-connection-string">
-              {t("connection.connectionStringLabel")}{" "}
-              <Input
-                value={uriRevealed ? uri : maskMongoUri(uri)}
-                onChange={(e) => set("uri", e.target.value)}
-                placeholder={t("connection.connectionStringPlaceholder")}
-                readOnly={!uriRevealed}
-              />
-              <Button
-                className="reveal-toggle"
-                aria-pressed={uriRevealed}
-                title={uriRevealed ? t("connection.hideConnectionString") : t("connection.revealConnectionString")}
-                onClick={() => (uriRevealed ? set("uriRevealed", false) : set("confirmingReveal", true))}
-              >
-                {/* The struck-through eye marks the state the button moves *to*: shown now,
-                    click to hide. */}
-                {uriRevealed ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
-              </Button>
-            </label>
-          </div>
-        ) : (
-          /* One row for the whole endpoint: each field is held to half the width, so they pair
-             themselves off two to a line — host and port, then the credentials, then the
-             database on a line of its own. */
-          <div className="row">
-            <label>
-              {t("common.host")}{" "}
-              <Input value={host} onChange={(e) => set("host", e.target.value)} />
-            </label>
-            <label>
-              {t("common.port")}{" "}
-              <Input
-                type="number"
-                value={port}
-                onChange={(e) => set("port", Number(e.target.value))}
-              />
-            </label>
-            <label>
-              {t("common.user")}{" "}
-              <Input value={username} onChange={(e) => set("username", e.target.value)} />
-            </label>
-            <label>
-              {t("common.password")}{" "}
-              <Input
-                ref={passwordRef}
-                type="password"
-                value={password}
-                onChange={(e) => set("password", e.target.value)}
-                autoComplete="new-password"
-              />
-            </label>
-            <label>
-              {kind === "redis" ? t("connection.dbIndexLabel") : t("common.database")}{" "}
-              <Input value={database} onChange={(e) => set("database", e.target.value)} />
-            </label>
-          </div>
-        )}
-
-        {/* Under the field it is about, and outside the row so it takes the width rather than a
-            flex item's share of it. Amber like the Redis hint below: nothing has been connected to
-            yet, so this is a note about the box above, not a failed connection. */}
-        {fileError !== "" && (
-          <p className="field-warning" role="alert">
-            {fileError}
-          </p>
-        )}
-
-        {showRedisProtectedModeHint && (
-          <p className="field-warning" role="status">
-            {t("connection.redisNoPasswordWarning")}
-          </p>
-        )}
-
-        {/* Not `isSqlKind`: SQLite is one, and has no transport to secure. */}
-        {(kind === "mysql" || kind === "postgres" || kind === "clickhouse" || kind === "mssql") && (
-          <div className="row">
-            <Checkbox
-              label={t("connection.useSslLabel")}
-              checked={useSsl}
-              onChange={(e) => set("useSsl", e.target.checked)}
-            />
-          </div>
-        )}
-      </fieldset>
-
-      {/* There is nothing to tunnel to: the file is on this machine. Hidden rather than disabled,
-          because a disabled control still says the choice exists. */}
-      {!isSqlite && (
-      <fieldset>
-        <legend>{t("connection.connectionMethodLegend")}</legend>
-        <div className="choice-row" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tunnelType === "direct"}
-            className={`choice${tunnelType === "direct" ? " choice-active" : ""}`}
-            onClick={() => set("tunnelType", "direct")}
-          >
-            {t("connection.methodTcpIp")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tunnelType === "ssh"}
-            className={`choice${tunnelType === "ssh" ? " choice-active" : ""}`}
-            onClick={() => set("tunnelType", "ssh")}
-          >
-            {t("connection.methodSsh")}
-          </button>
-        </div>
-        {tunnelType === "ssh" && (
-          <>
-            <div className="row">
-              <label>
-                {t("connection.sshHost")}{" "}
-                <Input value={sshHost} onChange={(e) => set("sshHost", e.target.value)} />
-              </label>
-              <label>
-                {t("connection.sshPort")}{" "}
-                <Input
-                  type="number"
-                  value={sshPort}
-                  onChange={(e) => set("sshPort", Number(e.target.value))}
-                />
-              </label>
-              <label>
-                {t("connection.sshUser")}{" "}
-                <Input value={sshUser} onChange={(e) => set("sshUser", e.target.value)} />
-              </label>
-              <label>
-                {t("connection.auth")}{" "}
-                <Select
-                  value={sshAuthType}
-                  onChange={(v) => set("sshAuthType", v)}
-                  options={[
-                    { value: "password", label: t("connection.authPassword") },
-                    { value: "privatekey", label: t("connection.authPrivateKey") },
-                  ]}
-                />
-              </label>
-            </div>
-            {sshAuthType === "password" && (
-              <div className="row">
-                <label>
-                  {t("connection.sshPassword")}{" "}
-                  <Input
-                    type="password"
-                    value={sshPassword}
-                    onChange={(e) => set("sshPassword", e.target.value)}
-                    autoComplete="new-password"
-                  />
-                </label>
-              </div>
-            )}
-            {sshAuthType === "privatekey" && (
-              <div className="row">
-                <label>
-                  {t("connection.privateKeyFile")}{" "}
-                  <Input
-                    value={sshKeyPath}
-                    onChange={(e) => set("sshKeyPath", e.target.value)}
-                    placeholder={PRIVATE_KEY_PLACEHOLDER}
-                  />
-                </label>
-                <Button onClick={browseForPrivateKey}>
-                  {t("common.browse")}
-                </Button>
-                <label>
-                  {t("connection.keyPassphrase")}{" "}
-                  <Input
-                    type="password"
-                    value={sshPassphrase}
-                    onChange={(e) => set("sshPassphrase", e.target.value)}
-                    placeholder={t("connection.passphrasePlaceholder")}
-                    autoComplete="new-password"
-                  />
-                </label>
-              </div>
-            )}
-            <div className="row">
-              <Button onClick={testTunnel} disabled={!sshInputsComplete}>
-                {t("connection.testTunnel")}
-              </Button>
-              {tunnelStatus && (
-                <span className={`tunnel-status tunnel-status-${tunnelStatus.tone}`}>{tunnelStatus.message}</span>
-              )}
-            </div>
-          </>
-        )}
-      </fieldset>
-      )}
-
-      <div className="row row-actions">
-        <div className="row-actions-left">
-          <Button
-            onClick={saveConnection}
-            disabled={saveDisabled}
-          >
+        <div className="editor-actions">
+          <Button size="large" onClick={saveConnection} disabled={saveDisabled}>
             {editingId ? t("connection.updateConnection") : t("connection.saveConnection")}
           </Button>
           {editingId && (
-            <Button onClick={saveConnectionAsNew} disabled={!saveAsName.trim()}>
+            <Button size="large" onClick={saveConnectionAsNew} disabled={!saveAsName.trim()}>
               {t("connection.saveAsNew")}
             </Button>
           )}
-        </div>
-        <div className="row-actions-right">
-          <span>{status}</span>
-          <Button variant="primary" onClick={() => connect()} disabled={connecting}>
+          <Button size="large" variant="primary" onClick={() => connect()} disabled={connecting}>
             {t("common.connect")}
           </Button>
+        </div>
+      </header>
+
+      <div className="editor-grid">
+        <div className="editor-column">
+          <Card title={t("connection.general")}>
+            <div className="editor-fields">
+              <label className="editor-field span-6">
+                {editingId ? t("connection.nameLabel") : t("connection.saveAsLabel")}
+                <Input
+                  value={saveAsName}
+                  onChange={(e) => setSaveAsName(e.target.value)}
+                  placeholder={t("connection.connectionNamePlaceholder")}
+                />
+              </label>
+              <div className="editor-field span-6">
+                <span id="connection-engine-label">{t("connection.databaseLegend")}</span>
+                <div className="engine-picker">
+                  <button
+                    ref={engineTrigger}
+                    type="button"
+                    className="engine-trigger"
+                    aria-labelledby="connection-engine-label"
+                    aria-haspopup="dialog"
+                    aria-expanded={pickingEngine}
+                    onClick={() => setPickingEngine((open) => !open)}
+                  >
+                    <EngineBadge kind={kind} size={38} />
+                    <span className="engine-trigger-text">
+                      <strong>{t(kindLabel(kind))}</strong>
+                      <span>{t(engineDescription(kind))}</span>
+                    </span>
+                    <span className="engine-trigger-change">{t("connection.changeEngine")}</span>
+                  </button>
+                  <Popover
+                    open={pickingEngine}
+                    onClose={() => setPickingEngine(false)}
+                    anchorRef={engineTrigger}
+                    label={t("connection.databaseLegend")}
+                    className="engine-options"
+                  >
+                    {ENGINES.map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        className="engine-option"
+                        aria-pressed={kind === k}
+                        onClick={() => {
+                          changeKind(k);
+                          setPickingEngine(false);
+                          engineTrigger.current?.focus();
+                        }}
+                      >
+                        <EngineBadge kind={k} size={30} />
+                        <span className="engine-option-text">
+                          <strong>{t(kindLabel(k))}</strong>
+                          <span>{t(engineDescription(k))}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </Popover>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card title={isSqlite ? t("connection.file") : t("connection.server")}>
+            <div className="editor-fields">
+              {isSqlite ? (
+                /* A path and nothing else. There is no host to reach, no account to be on and no
+                   database to pick inside the file — the file is the database. */
+                <label className="editor-field span-6">
+                  {t("connection.sqlitePathLabel")}
+                  <span className="editor-inline">
+                    <Input
+                      mono
+                      value={path}
+                      onChange={(e) => {
+                        // The complaint was about the path that was there; a different one is a
+                        // different question, and the answer to it comes from Connect.
+                        setFileError("");
+                        set("path", e.target.value);
+                      }}
+                      placeholder={t("connection.sqlitePathPlaceholder")}
+                    />
+                    <Button onClick={browseForDatabaseFile}>{t("common.browse")}</Button>
+                    <Button onClick={createDatabaseFile}>{t("connection.newSqliteFile")}</Button>
+                  </span>
+                </label>
+              ) : isMongo ? (
+                <label className="editor-field span-6">
+                  {t("connection.connectionStringLabel")}
+                  <span className="editor-inline">
+                    <Input
+                      mono
+                      value={uriRevealed ? uri : maskMongoUri(uri)}
+                      onChange={(e) => set("uri", e.target.value)}
+                      placeholder={t("connection.connectionStringPlaceholder")}
+                      readOnly={!uriRevealed}
+                    />
+                    <Button
+                      className="reveal-toggle"
+                      aria-pressed={uriRevealed}
+                      title={uriRevealed ? t("connection.hideConnectionString") : t("connection.revealConnectionString")}
+                      aria-label={uriRevealed ? t("connection.hideConnectionString") : t("connection.revealConnectionString")}
+                      onClick={() => (uriRevealed ? set("uriRevealed", false) : set("confirmingReveal", true))}
+                    >
+                      {/* The struck-through eye marks the state the button moves *to*: shown now,
+                          click to hide. */}
+                      {uriRevealed ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                    </Button>
+                  </span>
+                </label>
+              ) : (
+                <>
+                  <label className="editor-field span-4">
+                    {t("common.host")}
+                    <Input mono value={host} onChange={(e) => set("host", e.target.value)} />
+                  </label>
+                  <label className="editor-field span-2">
+                    {t("common.port")}
+                    <Input
+                      mono
+                      type="number"
+                      value={port}
+                      onChange={(e) => set("port", Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="editor-field span-3">
+                    {t("common.user")}
+                    <Input value={username} onChange={(e) => set("username", e.target.value)} />
+                  </label>
+                  <label className="editor-field span-3">
+                    {t("common.password")}
+                    <span className="editor-inline">
+                      <Input
+                        ref={passwordRef}
+                        type={passwordShown ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => set("password", e.target.value)}
+                        autoComplete="new-password"
+                      />
+                      <Button
+                        className="reveal-toggle"
+                        aria-pressed={passwordShown}
+                        title={passwordShown ? t("connection.hidePassword") : t("connection.showPassword")}
+                        aria-label={passwordShown ? t("connection.hidePassword") : t("connection.showPassword")}
+                        onClick={() => setPasswordShown((shown) => !shown)}
+                      >
+                        {passwordShown ? <EyeOffIcon size={16} /> : <EyeIcon size={16} />}
+                      </Button>
+                    </span>
+                  </label>
+                  <label className="editor-field span-6">
+                    {kind === "redis" ? t("connection.dbIndexLabel") : t("common.database")}
+                    <Input mono value={database} onChange={(e) => set("database", e.target.value)} />
+                  </label>
+                </>
+              )}
+            </div>
+
+            {/* Under the field it is about. Amber like the Redis hint below: nothing has been
+                connected to yet, so this is a note about the box above, not a failed connection. */}
+            {fileError !== "" && (
+              <p className="field-warning" role="alert">
+                {fileError}
+              </p>
+            )}
+
+            {showRedisProtectedModeHint && (
+              <p className="field-warning" role="status">
+                {t("connection.redisNoPasswordWarning")}
+              </p>
+            )}
+
+            {hasSsl && (
+              <div className="switch-panel">
+                <span className="switch-panel-text">
+                  <span id="connection-use-ssl">{t("connection.useSslLabel")}</span>
+                  <span className="switch-panel-hint">{t("connection.useSslHint")}</span>
+                </span>
+                <Switch
+                  aria-labelledby="connection-use-ssl"
+                  checked={useSsl}
+                  onChange={(next) => set("useSsl", next)}
+                />
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <div className="editor-column">
+          <Card title={t("connection.connectionMethodLegend")}>
+            {isSqlite ? (
+              /* There is nothing to tunnel to: the file is on this machine. A note rather than a
+                 disabled control, because a disabled control still says the choice exists. */
+              <p className="editor-note">{t("connection.sqliteOpenedDirectly")}</p>
+            ) : (
+              <>
+                <SegmentedControl
+                  block
+                  mode="tabs"
+                  aria-label={t("connection.connectionMethodLegend")}
+                  value={tunnelType}
+                  onChange={(value) => set("tunnelType", value)}
+                  segments={[
+                    { value: "direct", label: t("connection.methodTcpIp") },
+                    { value: "ssh", label: t("connection.methodSsh") },
+                  ]}
+                />
+                {tunnelType === "ssh" && (
+                  <div className="editor-fields editor-fields-spaced">
+                    <label className="editor-field span-4">
+                      {t("connection.sshHost")}
+                      <Input mono value={sshHost} onChange={(e) => set("sshHost", e.target.value)} />
+                    </label>
+                    <label className="editor-field span-2">
+                      {t("connection.sshPort")}
+                      <Input
+                        mono
+                        type="number"
+                        value={sshPort}
+                        onChange={(e) => set("sshPort", Number(e.target.value))}
+                      />
+                    </label>
+                    <label className="editor-field span-3">
+                      {t("connection.sshUser")}
+                      <Input value={sshUser} onChange={(e) => set("sshUser", e.target.value)} />
+                    </label>
+                    <label className="editor-field span-3">
+                      {t("connection.auth")}
+                      <Select
+                        value={sshAuthType}
+                        onChange={(v) => set("sshAuthType", v)}
+                        options={[
+                          {
+                            value: "password",
+                            label: t("connection.authPassword"),
+                            optionLabel: (
+                              <span className="option-with-hint">
+                                {t("connection.authPassword")}
+                                <span>{t("connection.authPasswordHint")}</span>
+                              </span>
+                            ),
+                            searchText: t("connection.authPassword"),
+                          },
+                          {
+                            value: "privatekey",
+                            label: t("connection.authPrivateKey"),
+                            optionLabel: (
+                              <span className="option-with-hint">
+                                {t("connection.authPrivateKey")}
+                                <span>{t("connection.authPrivateKeyHint")}</span>
+                              </span>
+                            ),
+                            searchText: t("connection.authPrivateKey"),
+                          },
+                        ]}
+                      />
+                    </label>
+                    {sshAuthType === "password" ? (
+                      <label className="editor-field span-6">
+                        {t("connection.sshPassword")}
+                        <Input
+                          type="password"
+                          value={sshPassword}
+                          onChange={(e) => set("sshPassword", e.target.value)}
+                          autoComplete="new-password"
+                        />
+                      </label>
+                    ) : (
+                      <>
+                        <label className="editor-field span-6">
+                          {t("connection.privateKeyFile")}
+                          <span className="editor-inline">
+                            <Input
+                              mono
+                              value={sshKeyPath}
+                              onChange={(e) => set("sshKeyPath", e.target.value)}
+                              placeholder={PRIVATE_KEY_PLACEHOLDER}
+                            />
+                            <Button onClick={browseForPrivateKey}>{t("common.browse")}</Button>
+                          </span>
+                        </label>
+                        <label className="editor-field span-6">
+                          {t("connection.keyPassphrase")}
+                          <Input
+                            type="password"
+                            value={sshPassphrase}
+                            onChange={(e) => set("sshPassphrase", e.target.value)}
+                            placeholder={t("connection.passphrasePlaceholder")}
+                            autoComplete="new-password"
+                          />
+                        </label>
+                      </>
+                    )}
+                    <div className="editor-tunnel span-6">
+                      {tunnelStatus && (
+                        <span className={`tunnel-status tunnel-status-${tunnelStatus.tone}`}>
+                          {tunnelStatus.message}
+                        </span>
+                      )}
+                      <Button variant="soft" onClick={testTunnel} disabled={!sshInputsComplete}>
+                        {t("connection.testTunnel")}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </Card>
+
+          <Card title={t("connection.route")}>
+            {/* The way a connection travels, drawn: this computer, the SSH server when there is one,
+                and the engine at the address the form will dial. */}
+            <ol className="route" aria-label={t("connection.route")}>
+              <li className="route-node">
+                <span className="route-icon">
+                  <MonitorIcon size={18} />
+                </span>
+                <span className="route-name">{t("connection.thisComputer")}</span>
+              </li>
+              {isSqlite ? (
+                <li className="route-link route-link-file">{t("connection.routeFile")}</li>
+              ) : tunnelled ? (
+                <>
+                  <li className="route-link route-link-encrypted">{t("connection.routeEncrypted")}</li>
+                  <li className="route-node">
+                    <span className="route-icon">
+                      <ServerIcon size={18} />
+                    </span>
+                    <span className="route-name">{t("connection.sshServer")}</span>
+                    <span className="route-address">{sshPlace}</span>
+                  </li>
+                  <li className="route-link">{t("connection.routeLocal")}</li>
+                </>
+              ) : (
+                <li className="route-link">{t("connection.routeDirect")}</li>
+              )}
+              <li className="route-node">
+                <EngineBadge kind={kind} size={38} />
+                <span className="route-name">{t(kindLabel(kind))}</span>
+                <span className="route-address">{place || "—"}</span>
+              </li>
+            </ol>
+
+            <div className="connection-string">
+              <span className="connection-string-label">{t("connection.connectionStringLabel")}</span>
+              <code>{connectionString(form) || "—"}</code>
+              <Button
+                size="small"
+                variant="ghost"
+                aria-label={t("connection.copyConnectionString")}
+                title={copied ? t("connection.copied") : t("connection.copyConnectionString")}
+                onClick={() => void copyConnectionString()}
+              >
+                <CopyIcon size={14} />
+              </Button>
+            </div>
+          </Card>
         </div>
       </div>
 
@@ -508,7 +645,7 @@ function ConnectionForm({
           onCancel={() => set("confirmingReveal", false)}
         />
       )}
-    </>
+    </div>
   );
 }
 

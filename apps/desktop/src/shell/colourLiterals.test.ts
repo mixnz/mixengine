@@ -65,7 +65,6 @@ const CSS_BASELINE: Record<string, number> = {
   "modules/db/components/ToolsSection/ToolsSection.module.css": 3,
   "modules/db/components/TransferOverlay/TransferOverlay.module.css": 2,
   "modules/db/components/TunnelBanner/TunnelBanner.module.css": 5,
-  "modules/db/db.css": 20,
   "modules/rest/components/BodyEditor/BodyEditor.module.css": 1,
   "modules/rest/components/HistoryDialog/HistoryDialog.module.css": 9,
   "modules/rest/components/HtmlPreview/HtmlPreview.module.css": 1,

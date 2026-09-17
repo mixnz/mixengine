@@ -1,5 +1,5 @@
 import type { ConnectionForm } from "./connectionForm";
-import type { DbKind, SavedConnection } from "./types";
+import type { ConnectionConfig, DbKind, SavedConnection } from "./types";
 
 /** The scheme each server engine's URLs are written with. SQLite has a path and Mongo a URI of its
  *  own, so neither is here. */
@@ -47,6 +47,23 @@ export function maskMongoPassword(uri: string): string {
   const colon = userinfo.indexOf(":");
   if (colon < 0) return uri;
   return `${scheme}${userinfo.slice(0, colon)}:***@${uri.slice(full.length)}`;
+}
+
+/**
+ * Where a connection points, in the few characters a list row or a route diagram has room for:
+ * `host:port` for a server, the file's path for SQLite, and for MongoDB the hosts out of its URI —
+ * never the credentials in front of them.
+ */
+export function connectionPlace(config: Pick<ConnectionConfig, "kind" | "host" | "port" | "path" | "uri">): string {
+  if (config.kind === "sqlite") return config.path?.trim() ?? "";
+  if (config.kind === "mongo") {
+    const uri = config.uri?.trim() ?? "";
+    const rest = uri.replace(/^mongodb(?:\+srv)?:\/\//i, "");
+    const hosts = rest.slice(rest.indexOf("@") + 1);
+    return hosts.split(/[/?]/, 1)[0] ?? "";
+  }
+  const host = config.host.trim();
+  return config.port > 0 ? `${host}:${config.port}` : host;
 }
 
 /** What the saved-connection list is narrowed to: a name search, and the engines picked. An empty

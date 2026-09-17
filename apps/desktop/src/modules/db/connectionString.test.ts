@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formFrom } from "./connectionForm";
-import { connectionString, engineCounts, filterConnections, maskMongoPassword } from "./connectionString";
+import { connectionPlace, connectionString, engineCounts, filterConnections, maskMongoPassword } from "./connectionString";
 import type { ConnectionConfig, SavedConnection } from "./types";
 
 function formOf(config: ConnectionConfig) {
@@ -88,5 +88,24 @@ describe("engineCounts", () => {
       ["mysql", 2],
       ["redis", 1],
     ]);
+  });
+});
+
+describe("connectionPlace", () => {
+  it("is host:port for a server", () => {
+    expect(connectionPlace({ kind: "mysql", host: "db.example", port: 3306 })).toBe("db.example:3306");
+  });
+
+  it("is the path for SQLite", () => {
+    expect(connectionPlace({ kind: "sqlite", host: "", port: 0, path: "/data/app.db" })).toBe("/data/app.db");
+  });
+
+  it("is the hosts of a Mongo URI, without its credentials", () => {
+    expect(connectionPlace({ kind: "mongo", host: "", port: 0, uri: "mongodb://u:p@a:27017,b:27017/app?rs=x" })).toBe(
+      "a:27017,b:27017",
+    );
+    expect(connectionPlace({ kind: "mongo", host: "", port: 0, uri: "mongodb+srv://cluster.example" })).toBe(
+      "cluster.example",
+    );
   });
 });

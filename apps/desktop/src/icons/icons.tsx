@@ -477,6 +477,16 @@ export function PuzzleIcon(props: IconProps) {
   );
 }
 
+/** This machine: a screen on a stand. */
+export function MonitorIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8M12 16v4" />
+    </Icon>
+  );
+}
+
 /** A running server process: stacked units with their lights. */
 export function ServerIcon(props: IconProps) {
   return (
