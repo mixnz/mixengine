@@ -43,6 +43,13 @@ became installable.
       mock registry, writes a document, restarts, reads it back and stops, and CI runs it on all
       three test legs. Design D7.
 
+## The gallery
+
+- [x] **T164** Two blueprints ask for it — `laravel-mongodb` (PHP-FPM, `[php] extensions =
+      ["mongodb"]`, `laravel`'s scaffold) and `express-mongodb` (a `node-app` on 3000, no scaffold).
+      Both name `mongodb@main` and no `database`, because the recipe makes none, and both say in
+      their description that MongoDB needs AVX. See `.claude/features/blueprints.md`.
+
 ## Follow-ups
 
 Not started, and each needs a design of its own (D8):

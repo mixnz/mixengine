@@ -409,7 +409,9 @@ async fn a_fresh_home_holds_the_gallery() {
         [
             "django",
             "drupal",
+            "express-mongodb",
             "laravel",
+            "laravel-mongodb",
             "nextjs",
             "php-mysql",
             "rails",

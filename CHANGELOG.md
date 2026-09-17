@@ -8,6 +8,8 @@
   loopback only and keeps its data across restarts.
 - MixLab opens a MongoDB service in a Mongo tab, from its Services screen and from `mix database
   open`, and no longer offers to create a database on a server that makes none.
+- Two blueprints with MongoDB: `laravel-mongodb` (Laravel on PHP-FPM, the `mongodb` extension on)
+  and `express-mongodb` (a Node.js server on port 3000).
 - A release that needs a processor with AVX — every MongoDB — is refused before it downloads on a
   processor without it, in MixLab and in `mix`.
 - Installing a runtime or a service on Windows no longer ends at a missing Visual C++ runtime: MixLab

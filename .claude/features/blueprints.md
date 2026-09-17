@@ -152,7 +152,7 @@ differently on a machine that had already chosen. A home that has one — nginx 
 left alone whatever the flag says. The instance name comes from the recipe's own `Instancing`, which
 is why it is `caddy` and not `caddy@main`.
 
-**An apply that writes no source code still ends at a page.** Seven of the eleven gallery
+**An apply that writes no source code still ends at a page.** Eight of the thirteen gallery
 blueprints carry no `[scaffold]` on purpose, so the ordinary outcome of applying one is a configured site over
 an empty directory — which a web server answers with a 404, or with a 502 for a kind that forwards to
 a program the user runs. Since **T124** the front end answers with MixEngine's own page instead,
@@ -262,9 +262,10 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
 
 ## Built-in gallery
 
-Eleven blueprints ship **inside the binary** and are seeded into every home as `builtin` rows the
-first time a daemon starts there: `django`, `drupal`, `laravel`, `nextjs`, `php-mysql`, `rails`,
-`static`, `strapi`, `symfony`, `vite`, `wordpress`. They are trusted without a signature check,
+Thirteen blueprints ship **inside the binary** and are seeded into every home as `builtin` rows the
+first time a daemon starts there: `django`, `drupal`, `express-mongodb`, `laravel`,
+`laravel-mongodb`, `nextjs`, `php-mysql`, `rails`, `static`, `strapi`, `symfony`, `vite`,
+`wordpress`. They are trusted without a signature check,
 because a signature travelling in the same binary as the key it would be checked against proves
 nothing the binary has not already proved — publishing them as signed files for hand import is T79a.
 
@@ -275,24 +276,35 @@ is the only Ruby in it, though the runtime has shipped with six shims since phas
 the only MySQL, beside three MariaDBs; `drupal` is the only `doc_root` that is neither the project
 root nor `public`; `vite` is the only document root that is a *build output*, which is the question
 this product is asked most often and had no answer for; and `strapi` is the only `node-app` with a
-database, a pairing `nextjs` leaves untouched. `memcached` is still reached by nothing, and
+database, a pairing `nextjs` leaves untouched. The two MongoDB entries — T164 — close the gap phase
+19 opened: every PHP MixEngine installs carries the `mongodb` extension and MixLab browses a
+MongoDB, and nothing in the gallery asked for one. `laravel-mongodb` is the only entry that turns
+that extension on, and `express-mongodb` the only `node-app` with a document store. Both name the
+service and **no `database`**: the recipe runs without accounts and makes no databases — one exists
+once something writes to it — so the key would plan a step the apply is refused at. And both say in
+their description that MongoDB needs a processor with AVX, which is the first requirement in the
+gallery a machine can fail by being what it is; it is judged when the package installs, not in the
+plan. `memcached` is still reached by nothing, and
 deliberately: it is added after a performance problem, never at the moment a project is created, and
 an entry that existed to complete a table is the change this section exists to argue against.
 
 Seeding **compares before it writes**, so the ordinary daemon start touches nothing, and a row whose
 source is `captured` or `imported` is never overwritten: capturing over `laravel` makes that slug
-this machine's own for good. There is no `blueprint.delete` in this build, so the eleven are in every
+this machine's own for good. There is no `blueprint.delete` in this build, so the thirteen are in every
 home for good as well.
 
-Four of them carry a `[scaffold]` — `laravel`, `symfony`, `nextjs` and `drupal` — and seven
-deliberately do not. A gallery command has to be non-interactive (there is no timeout, so a prompt
+Five of them carry a `[scaffold]` — `laravel`, `laravel-mongodb`, `symfony`, `nextjs` and `drupal`
+— and eight deliberately do not. A gallery command has to be non-interactive (there is no timeout, so a prompt
 would hang a job), spelled the same for `cmd.exe` and `sh`, with a program for its first word — the
 plan reads it as one (T78b) — and it may not write into a shared runtime: that last rule is what
 removes Django's `pip install django` and Rails' `gem install rails`, both of which reach every
 project using that runtime. The first rule is what removes `vite` and `strapi`: `create-vite` and
 `create-strapi-app` ask questions that no flag reliably silences, and a job with no timeout that is
 waiting on a prompt waits for good. `php-mysql` has no initialiser to run at all, which is the whole
-of what it offers. The gallery sells a stack, not a scaffold.
+of what it offers. `express-mongodb` has only `express-generator`, unmaintained and a major version
+of Express behind. `laravel-mongodb` runs `laravel`'s command and no more: the `composer require
+mongodb/laravel-mongodb` after it would be a second command joined to the first, so its description
+carries it instead. The gallery sells a stack, not a scaffold.
 
 **A blueprint with no scaffold is a complete blueprint.** Since T124 an apply that writes no source
 code ends at a page that says so, and the two things people actually do with these entries are
@@ -305,7 +317,7 @@ capture taken on Windows and committed as a fixture.
 
 ## The gallery as signed files
 
-The same eleven are published from the packaging repository as `<slug>.toml` with a
+The same thirteen are published from the packaging repository as `<slug>.toml` with a
 `<slug>.toml.minisig` beside each —
 `github.com/mixnz/mixengine-packages/releases/download/blueprints/` — signed by the gallery key whose
 public half is `blueprints::trust::PUBLIC_KEY`. **T79a**, and the channel T79's compiled-in gallery
@@ -314,10 +326,10 @@ repository: its workflow checks out this one at a ref and reads them there, and 
 `blueprints.pub` against the compiled-in `PUBLIC_KEY` before it signs anything** — a signature no
 installed MixEngine would accept is worse than no signature, because it looks published.
 
-It is not how anybody gets `laravel` onto a machine: every home already holds all eleven. It is how a
-blueprint an installed build does *not* carry reaches one, how the eleven can be corrected between
+It is not how anybody gets `laravel` onto a machine: every home already holds all thirteen. It is how a
+blueprint an installed build does *not* carry reaches one, how the thirteen can be corrected between
 application releases, and how a file somebody downloads lands **trusted** instead of untrusted for
-good. Replacing one of the eleven needs `mix blueprint import <file> --overwrite`, and it costs that
+good. Replacing one of the thirteen needs `mix blueprint import <file> --overwrite`, and it costs that
 slug its builtin refresh — seeding leaves a row whose source is not `builtin` alone, so the imported
 copy is that machine's `laravel` from then on, even when the bytes were identical.
 

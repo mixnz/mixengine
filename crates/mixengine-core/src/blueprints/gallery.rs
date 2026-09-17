@@ -39,8 +39,16 @@ pub const ENTRIES: &[Entry] = &[
         manifest: include_str!("gallery/drupal.toml"),
     },
     Entry {
+        slug: "express-mongodb",
+        manifest: include_str!("gallery/express-mongodb.toml"),
+    },
+    Entry {
         slug: "laravel",
         manifest: include_str!("gallery/laravel.toml"),
+    },
+    Entry {
+        slug: "laravel-mongodb",
+        manifest: include_str!("gallery/laravel-mongodb.toml"),
     },
     Entry {
         slug: "nextjs",
@@ -79,7 +87,7 @@ pub const ENTRIES: &[Entry] = &[
 /// What a seed did, for the one line the daemon logs.
 ///
 /// [`crate::shims::Refreshed`]'s shape, and its reason: the ordinary start writes nothing, so what
-/// is worth logging is the exception rather than the eleven names.
+/// is worth logging is the exception rather than the thirteen names.
 #[derive(Debug, Default)]
 pub struct Seeded {
     /// The rows this call wrote, because they were missing or held different bytes.
@@ -95,7 +103,7 @@ pub struct Seeded {
 /// Put every blueprint this build ships into this home, writing only what differs.
 ///
 /// **One read, then only the writes that are needed** (D4). Every CLI test in this workspace starts
-/// a daemon and every daemon start calls this; eleven file writes and eleven upserts on each of those is a
+/// a daemon and every daemon start calls this; thirteen file writes and thirteen upserts on each of those is a
 /// cost with nothing on the other side of it, since the bytes are identical every time. It is
 /// `bin/`'s rule one object along — see [`crate::shims::refresh`].
 ///
@@ -108,7 +116,7 @@ pub struct Seeded {
 /// which [`ENTRIES`]' round-trip test is what stops reaching one; [`crate::Error::Database`] when
 /// the table cannot be read or written, and [`crate::Error::Io`] when a rendering cannot be.
 pub async fn seed(store: &Store, paths: &Paths) -> Result<Seeded> {
-    // Every row rather than the eleven by name: `sqlx::query!` needs its SQL literal, so an `IN` list
+    // Every row rather than the thirteen by name: `sqlx::query!` needs its SQL literal, so an `IN` list
     // would have to be as long as `ENTRIES` and stay in step with it by hand. A home holds a
     // handful of blueprints, and this is one statement either way.
     let rows = sqlx::query!(
