@@ -134,19 +134,3 @@
   --sql-operator: #8b949e;
   --sql-punctuation: #8b949e;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .editor {
-    --sql-error: var(--danger-text);
-    --sql-warning: #e2b93d;
-    --sql-keyword: #c586c0;
-    --sql-type: #4ec9b0;
-    --sql-builtin: #dcdcaa;
-    --sql-string: #ce9178;
-    --sql-identifier: #9cdcfe;
-    --sql-number: #b5cea8;
-    --sql-comment: #6a9955;
-    --sql-operator: #8b949e;
-    --sql-punctuation: #8b949e;
-  }
-}

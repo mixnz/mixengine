@@ -44,21 +44,3 @@
 :root[data-theme="dark"] .keyword {
   color: #c586c0;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .key {
-    color: #9cdcfe;
-  }
-
-  :root:not([data-theme]) .string {
-    color: #ce9178;
-  }
-
-  :root:not([data-theme]) .number {
-    color: #b5cea8;
-  }
-
-  :root:not([data-theme]) .keyword {
-    color: #c586c0;
-  }
-}

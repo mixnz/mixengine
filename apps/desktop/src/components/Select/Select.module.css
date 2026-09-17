@@ -209,21 +209,3 @@
 :root[data-theme="dark"] .optionSelected.optionActive {
   background: rgb(var(--accent-rgb) / 0.32);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .menu {
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-
-  :root:not([data-theme]) .search {
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  :root:not([data-theme]) .optionSelected {
-    background: rgb(var(--accent-rgb) / 0.25);
-  }
-
-  :root:not([data-theme]) .optionSelected.optionActive {
-    background: rgb(var(--accent-rgb) / 0.32);
-  }
-}

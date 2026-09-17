@@ -287,43 +287,6 @@
   --kind-rgb: 242 102 98;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .kind-mysql {
-    --kind: #5bbfd6;
-    --kind-rgb: 91 191 214;
-  }
-
-  :root:not([data-theme]) .kind-postgres {
-    --kind: #7ea9d6;
-    --kind-rgb: 126 169 214;
-  }
-
-  :root:not([data-theme]) .kind-mongo {
-    --kind: #6fcf76;
-    --kind-rgb: 111 207 118;
-  }
-
-  :root:not([data-theme]) .kind-redis {
-    --kind: #f0665e;
-    --kind-rgb: 240 102 94;
-  }
-
-  :root:not([data-theme]) .kind-sqlite {
-    --kind: #58b4ea;
-    --kind-rgb: 88 180 234;
-  }
-
-  :root:not([data-theme]) .kind-clickhouse {
-    --kind: #ffcc01;
-    --kind-rgb: 255 204 1;
-  }
-
-  :root:not([data-theme]) .kind-mssql {
-    --kind: #f26662;
-    --kind-rgb: 242 102 98;
-  }
-}
-
 /* The one entry in the list that isn't an engine, so it borrows the accent through the same two
    properties the brand colours are handed over in. */
 .kind-new {

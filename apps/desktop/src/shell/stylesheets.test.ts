@@ -41,4 +41,8 @@ describe("stylesheets", () => {
       offenders(sources, (src) => /GlassFilter|glass\.css|useGlass|[\s`"']glass(-pill)?[`"']/.test(src)),
     ).toEqual([]);
   });
+
+  it("never waits for data-theme to be absent", () => {
+    expect(offenders(sheets, (css) => /prefers-color-scheme|:not\(\[data-theme\]\)/.test(css))).toEqual([]);
+  });
 });

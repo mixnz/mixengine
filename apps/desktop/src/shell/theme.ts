@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { IS_MAC, IS_WINDOWS } from "../core/platform";
-import { clearRetiredKeys } from "./themeModel";
+import { clearRetiredKeys, resolveTheme } from "./themeModel";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -34,6 +34,7 @@ const DEFAULT_ACCENT: AccentColor = "blue";
 
 const STORAGE_KEY = "mixdb-theme";
 const ACCENT_STORAGE_KEY = "mixdb-accent";
+
 function readStoredTheme(): ThemeMode {
   const stored = localStorage.getItem(STORAGE_KEY);
   return stored === "light" || stored === "dark" ? stored : "system";
@@ -44,19 +45,21 @@ function readStoredAccent(): AccentColor {
   return ACCENT_COLORS.includes(stored as AccentColor) ? (stored as AccentColor) : DEFAULT_ACCENT;
 }
 
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+/* The attribute always names a theme; only the stored preference remembers that it was *system*. */
 function applyTheme(theme: ThemeMode): void {
-  const root = document.documentElement;
+  const prefersDark = window.matchMedia(DARK_QUERY).matches;
+  document.documentElement.setAttribute("data-theme", resolveTheme(theme, prefersDark));
   if (theme === "system") {
-    root.removeAttribute("data-theme");
     localStorage.removeItem(STORAGE_KEY);
   } else {
-    root.setAttribute("data-theme", theme);
     localStorage.setItem(STORAGE_KEY, theme);
   }
 }
 
 /* The default is what `:root` already carries, so the attribute is left off for it rather than
-   written out — same shape as the theme above, and it keeps the DOM clean for the common case. */
+   written out, which keeps the DOM clean for the common case. */
 function applyAccent(accent: AccentColor): void {
   const root = document.documentElement;
   if (accent === DEFAULT_ACCENT) {
@@ -87,7 +90,7 @@ function applyPlatform(): void {
 /* Read before React mounts: the stored choice has to be on the root element for the very first
    paint, otherwise the window flashes the default accent on every launch.
 
-   The theme is here too, and it is the one of them that is applied twice:`theme-preload.js`
+   The theme is here too, and it is the one of them that is applied twice: `theme-preload.js`
    sets it earlier still, before the bundle has even been fetched, which is what stops a dark app
    flashing white while it loads. That file is the optimisation and this is the guarantee — a
    preload that 404s, is blocked, or is dropped by a future change to `index.html` would otherwise
@@ -97,6 +100,11 @@ applyPlatform();
 applyTheme(readStoredTheme());
 applyAccent(readStoredAccent());
 clearRetiredKeys(localStorage);
+
+/* Under *system* the window follows the OS while it is open, not only when it starts. */
+window.matchMedia(DARK_QUERY).addEventListener("change", () => {
+  if (readStoredTheme() === "system") applyTheme("system");
+});
 
 export function useTheme(): [ThemeMode, (theme: ThemeMode) => void] {
   const [theme, setTheme] = useState<ThemeMode>(readStoredTheme);

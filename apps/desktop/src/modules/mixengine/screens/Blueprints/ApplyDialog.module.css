@@ -183,9 +183,3 @@
 :root[data-theme="dark"] .log {
   background: rgb(0 0 0 / 0.28);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .log {
-    background: rgb(0 0 0 / 0.28);
-  }
-}

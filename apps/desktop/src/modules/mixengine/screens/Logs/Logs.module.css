@@ -102,9 +102,3 @@
 :root[data-theme="dark"] .lines {
   background: rgb(0 0 0 / 0.28);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .lines {
-    background: rgb(0 0 0 / 0.28);
-  }
-}

@@ -91,14 +91,3 @@
 :root[data-theme="dark"] .reconnected {
   border-left-color: #66bb6a;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .reconnecting {
-    border-left-color: #ffc107;
-  }
-
-  :root:not([data-theme]) .reconnected {
-    border-left-color: #66bb6a;
-  }
-
-}
