@@ -138,6 +138,34 @@ describe("contrast", () => {
     ).toEqual([]);
   });
 
+  it("SQL syntax reads on the editor", () => {
+    const SQL = ["text", "keyword", "type", "builtin", "string", "identifier", "number", "comment", "operator", "punctuation", "warning", "error"];
+    expect(
+      failures((theme, fail) => {
+        for (const k of SQL) atLeast(ratio(colour(theme, `--sql-${k}`), colour(theme, "--sql-bg")), 4.5, `--sql-${k}`, fail);
+      }),
+    ).toEqual([]);
+  });
+
+  it("terminal colours read on the terminal", () => {
+    const ANSI = ["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"];
+    // The colours that exist to be the background's own shade are not meant to be read on it.
+    const EXEMPT: Record<string, string[]> = {
+      light: ["--ansi-white", "--ansi-bright-white"],
+      dark: ["--ansi-black"],
+    };
+    const out: string[] = [];
+    for (const [name, theme] of THEMES) {
+      const names = ["--ansi-foreground", ...ANSI.map((c) => `--ansi-${c}`), ...ANSI.map((c) => `--ansi-bright-${c}`)];
+      for (const n of names) {
+        if (EXEMPT[name].includes(n)) continue;
+        const r = ratio(colour(theme, n), colour(theme, "--ansi-background"));
+        if (r < 4.5) out.push(`${name} ${n}: ${r.toFixed(2)}`);
+      }
+    }
+    expect(out).toEqual([]);
+  });
+
   it("names mint as the default accent", () => {
     expect(value(light, "--accent")).toBe(value(light, "--c-mint"));
   });

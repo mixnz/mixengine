@@ -5,10 +5,10 @@ import { tags } from "@lezer/highlight";
 /**
  * How the editor is painted.
  *
- * Every colour here is a CSS custom property defined in `SqlEditor.module.css` — none is written
- * as a value. CodeMirror's own themes are static: the extension list is built once, and the app's
- * theme and accent change under it while it runs. Naming a variable is what lets one theme object
- * follow light, dark and all ten accents without being rebuilt.
+ * Every colour here is a CSS custom property defined in `shell/App.css` or `SqlEditor.module.css` —
+ * none is written as a value. CodeMirror's own themes are static: the extension list is built
+ * once, and the app's theme and accent change under it while it runs. Naming a variable is what
+ * lets one theme object follow light, dark and every accent without being rebuilt.
  */
 
 export const editorTheme = EditorView.theme({

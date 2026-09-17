@@ -127,6 +127,50 @@
   --shadow-dialog: 0 40px 100px -20px rgb(15 23 42 / 0.22);
   --shadow-primary: 0 6px 20px -8px rgb(var(--accent-rgb) / 0.45);
 
+  /* The SQL editor's palette. CodeMirror's extension list is built once for the life of an editor,
+     while theme and accent change under it, so it paints from these variables. The string, number
+     and identifier colours are the ones JSON is painted with, so a script and a JSON value in one
+     window share a scheme. */
+  --sql-bg: var(--control-bg);
+  --sql-text: var(--text);
+  --sql-keyword: #7c3aed;
+  --sql-type: #1f6f85;
+  --sql-builtin: #795e26;
+  --sql-string: #a31515;
+  --sql-identifier: #0451a5;
+  --sql-number: #0b7650;
+  --sql-comment: #5f6b76;
+  --sql-operator: #57606a;
+  --sql-punctuation: #57606a;
+  --sql-warning: var(--warning-text);
+  --sql-error: var(--danger-text);
+  --sql-bracket: var(--active-bg);
+  --sql-bracket-bad: rgb(var(--danger-rgb) / 0.28);
+  --sql-gutter: var(--text-muted);
+
+  /* The terminal's sixteen colours. `white` and `bright-white` are the page's own light shades
+     and are not meant to be read on it. */
+  --ansi-background: #ffffff;
+  --ansi-foreground: #141a23;
+  --ansi-cursor: var(--accent-text);
+  --ansi-selection: rgb(var(--accent-rgb) / 0.3);
+  --ansi-black: #141a23;
+  --ansi-red: #c0392e;
+  --ansi-green: #1c7a4e;
+  --ansi-yellow: #946300;
+  --ansi-blue: #4460bd;
+  --ansi-magenta: #7152cc;
+  --ansi-cyan: #176e65;
+  --ansi-white: #d5dce5;
+  --ansi-bright-black: #626e80;
+  --ansi-bright-red: #a83026;
+  --ansi-bright-green: #176841;
+  --ansi-bright-yellow: #7a5200;
+  --ansi-bright-blue: #3a55a8;
+  --ansi-bright-magenta: #6645bf;
+  --ansi-bright-cyan: #176b62;
+  --ansi-bright-white: #eef1f5;
+
   /* Names the app used before the redesign, pointed at their new roles until T158–T163 move every
      consumer across. */
   --shadow-sm: var(--shadow-card);
@@ -778,6 +822,35 @@ textarea:focus {
   --shadow-card: none;
   --shadow-popover: 0 20px 48px -14px rgb(0 0 0 / 0.75);
   --shadow-dialog: 0 40px 100px -20px rgb(0 0 0 / 0.85);
+
+  --sql-keyword: #c586c0;
+  --sql-type: #4ec9b0;
+  --sql-builtin: #dcdcaa;
+  --sql-string: #ce9178;
+  --sql-identifier: #9cdcfe;
+  --sql-number: #b5cea8;
+  --sql-comment: #7fa86a;
+  --sql-operator: #8b949e;
+  --sql-punctuation: #8b949e;
+
+  --ansi-background: #0b1017;
+  --ansi-foreground: #e6eaf0;
+  --ansi-black: #1f2836;
+  --ansi-red: #f08a80;
+  --ansi-green: #7dd8aa;
+  --ansi-yellow: #e9b54a;
+  --ansi-blue: #8ea8f2;
+  --ansi-magenta: #b39af2;
+  --ansi-cyan: #6fd0c4;
+  --ansi-white: #c9d1dc;
+  --ansi-bright-black: #8391a5;
+  --ansi-bright-red: #f5a39b;
+  --ansi-bright-green: #9de3bf;
+  --ansi-bright-yellow: #f0c877;
+  --ansi-bright-blue: #afc1f6;
+  --ansi-bright-magenta: #c9b8f6;
+  --ansi-bright-cyan: #93ddd3;
+  --ansi-bright-white: #f5f7fa;
 
   /* The dark cast of every hue. Which one `--accent` points at was settled by `[data-accent]` and
      holds through the theme, so only the palettes are restated. */
