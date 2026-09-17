@@ -1,5 +1,6 @@
 import { storeHandlers } from "../ipc/store";
 import type { Handlers } from "../ipc/dispatch";
+import { dbFiles, dbHandlers } from "./db";
 import { mixengineHandlers } from "./mixengine";
 import { pluginHandlers } from "./plugins";
 
@@ -7,5 +8,6 @@ import { pluginHandlers } from "./plugins";
 export const handlers: Handlers = {
   ...pluginHandlers,
   ...mixengineHandlers,
-  ...storeHandlers({}),
+  ...dbHandlers,
+  ...storeHandlers({ ...dbFiles }),
 };
