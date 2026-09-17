@@ -702,7 +702,6 @@ const vi: typeof en = {
       columnState: "Trạng thái",
       install: "Cài",
       installed: "Đã cài",
-      thisApp: "Chính app này",
       uninstall: "Gỡ",
       start: "Bật",
       stop: "Tắt",

@@ -713,7 +713,6 @@ export default {
       columnState: "State",
       install: "Install",
       installed: "Installed",
-      thisApp: "This app",
       uninstall: "Uninstall",
       start: "Start",
       stop: "Stop",

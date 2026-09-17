@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { getVersion } from "@tauri-apps/api/app";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import Button from "../../../../components/Button";
@@ -34,15 +33,6 @@ function pillTone(state: string | null | undefined): StatusTone {
 }
 
 /**
- * The registry offers this very application as an extension, and one of those rows **is** the
- * application running.
- *
- * Matched on `id` and not on `kind`: `desktop-app` is a sort of thing and not an identity, and
- * another desktop application appearing in the registry later is not the one drawing this screen.
- */
-const SELF = "mixdb";
-
-/**
  * The registry, what is installed, installing (from the registry or from a local directory),
  * removing, and starting or stopping an extension of `kind: "service"`.
  *
@@ -58,16 +48,7 @@ export default function Extensions({ active }: { active: boolean }) {
   const [installingSource, setInstallingSource] = useState<ExtensionOrigin | null>(null);
   const [uninstalling, setUninstalling] = useState<ExtensionSummary | null>(null);
   const [deleteData, setDeleteData] = useState(false);
-  /* The running application's version, for the `mixdb` row. The registry states the version it
-     *publishes*, and on a row that is this application itself that number answers a question
-     nobody asked. `""` means the asking is not finished — a few milliseconds, and for those the
-     row shows the registry's number rather than nothing at all. */
-  const [appVersion, setAppVersion] = useState("");
   const { t } = useTranslation();
-
-  useEffect(() => {
-    void getVersion().then(setAppVersion);
-  }, []);
 
   const reload = useCallback(async () => {
     try {
@@ -136,22 +117,6 @@ export default function Extensions({ active }: { active: boolean }) {
     return key === null ? (state ?? "—") : t(key);
   }
 
-  /* MixDB sits under "installed" **not because the API says so** — the daemon reports it as not
-     installed, and that is true in the daemon's own sense: it has never installed this
-     application into any home. But the person reading this screen is running it. So the row is
-     built from the application itself: name and kind from the registry where the registry has
-     something to say, from the constants below where it has not; the version is always the
-     running one.
-
-     And it **appears exactly once**: filtered out of both lists first, then added back in one
-     place. */
-  const selfOffer = available.find((offer) => offer.id === SELF);
-  const selfInstalled = installed.find((row) => row.id === SELF);
-  const otherInstalled = installed.filter((row) => row.id !== SELF);
-  const otherAvailable = available.filter((offer) => offer.id !== SELF);
-  const selfName = selfInstalled?.name ?? selfOffer?.name ?? "MixDB";
-  const selfKind = selfInstalled?.kind ?? selfOffer?.kind ?? "desktop-app";
-
   return (
     <div className={`mixengine-page ${styles.extensions}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
@@ -167,7 +132,7 @@ export default function Extensions({ active }: { active: boolean }) {
         }
       />
 
-      <Card title={t("mixengine.extensions.installedTitle")} count={otherInstalled.length + 1} flush>
+      <Card title={t("mixengine.extensions.installedTitle")} count={installed.length} flush>
         <Table aria-label={t("mixengine.extensions.installedTitle")}>
           <thead>
             <tr>
@@ -179,28 +144,7 @@ export default function Extensions({ active }: { active: boolean }) {
             </tr>
           </thead>
           <tbody>
-            <tr key={SELF}>
-              <td data-nowrap>
-                <span className={styles.name}>
-                  <MonogramBadge name={selfName} size={28} />
-                  {selfName}
-                </span>
-              </td>
-              {/* The running version, not the one the registry publishes — the two part company the
-                  moment the application updates itself. The registry stands in while `getVersion()`
-                  has yet to answer. */}
-              <td className={styles.version}>{appVersion || selfOffer?.version || "—"}</td>
-              <td>
-                <span className={styles.tag}>{selfKind}</span>
-              </td>
-              <td className={styles.none}>—</td>
-              <td data-align="end" data-nowrap>
-                {/* No Remove button: an application cannot remove itself from inside itself, and
-                    updating has a road of its own in Settings. */}
-                <StatusPill tone="neutral">{t("mixengine.extensions.thisApp")}</StatusPill>
-              </td>
-            </tr>
-            {otherInstalled.map((row) => (
+            {installed.map((row) => (
               <tr key={row.id}>
                 <td data-nowrap>
                   <span className={styles.name}>
@@ -246,19 +190,19 @@ export default function Extensions({ active }: { active: boolean }) {
         title={t("mixengine.extensions.registryTitle")}
         count={
           <>
-            {otherAvailable.length}
+            {available.length}
             <StaleBadge stale={stale} />
           </>
         }
         description={unreadable > 0 ? t("mixengine.extensions.unreadable", { count: unreadable }) : undefined}
         flush
       >
-        {otherAvailable.length === 0 ? (
+        {available.length === 0 ? (
           <EmptyState title={t("mixengine.extensions.registryEmpty")} />
         ) : (
           <Table aria-label={t("mixengine.extensions.registryTitle")}>
             <tbody>
-              {otherAvailable.map((offer) => (
+              {available.map((offer) => (
                 <tr key={offer.id}>
                   <td data-nowrap>
                     <span className={styles.name}>
