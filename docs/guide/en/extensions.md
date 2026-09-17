@@ -31,7 +31,6 @@ There are four shapes an extension can take, and it is worth recognising which y
 | --- | --- |
 | `web-app` | Source served on your own stack, on a generated internal site — phpMyAdmin, Adminer |
 | `service` | A program MixEngine supervises like any other — Mailpit, MinIO, MeiliSearch |
-| `desktop-app` | An application on your machine that MixEngine finds and hands a connection to |
 | `recipe` | Configuration only: extra web-server directives, a `php.ini` profile |
 
 ## Look before you install

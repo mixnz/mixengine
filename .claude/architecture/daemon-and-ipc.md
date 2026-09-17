@@ -139,8 +139,7 @@ domain.*     list, add, remove, dns_status
 cert.*       issue, status, ca_status, ca_rotate, ca_uninstall
 blueprint.*  list, capture, apply, export, import, delete
 extension.*  registry_list, install, uninstall, start, stop, configure
-                                        `plan` answers `homepage`, and — for kind `desktop-app` alone —
-                                        `client`, whether the application is on this machine. T84.
+                                        `plan` answers `homepage`. T84.
 metrics.*    snapshot, history          (the live stream is `GET /metrics`, not a method)
 ```
 

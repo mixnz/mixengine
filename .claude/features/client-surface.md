@@ -108,10 +108,9 @@ binaries. What they state is what the daemon **writes** —
    installed to hand the connection to, and the handoff itself, answered per service so a client
    draws the affordance from data instead of probing the filesystem for an application
    ([extensions.md](extensions.md)). `database.client` answers
-   `DatabaseClientReport { protocol, secret, client }` — `installed` with the executable and, when
-   an extension named it rather than this install's own window, that extension (T107);
-   `not_installed` with where this system looked and the homepage; or `no_client` — and
-   `protocol: null` for a service no client opens, all of them states. `database.open` answers
+   `DatabaseClientReport { protocol, secret, client }` — `installed` with this install's window and
+   its executable (T107), or `no_client` for an install with none (T165) — and `protocol: null` for a
+   service no client opens, all of them states. `database.open` answers
    `DatabaseHandoff` with `launched: running | handed_on` and `secret`, the keyring address the
    password was read from, never the password: it went into the started process's environment and
    nowhere else. **And making one — T77a**: a client creating a project on a database stack needs
@@ -127,11 +126,6 @@ binaries. What they state is what the daemon **writes** —
    store as …"* without hardcoding MixEngine's namespace — which is the business logic `CLAUDE.md`
    keeps out of clients. `database.client` composes it from the recipe and the service id, starting
    nothing and reading nothing, so the affordance can be drawn before anything is opened.
-   **And whether a `desktop-app` is on the machine — T84**: `ExtensionPlan.client` is
-   `installed { program }` or `not_installed { searched }` for that kind and absent for every other,
-   beside `ExtensionPlan.homepage`. MixEngine finds such an application rather than installing it,
-   so the entry's version is not the machine's answer, and a client that draws an install button
-   draws it from these two rather than from the version.
    **And repairing one whose password nothing knows — T127**: `service.reset_credential` takes
    `ResetCredential { service, wait }` and answers `ServiceWalk`, the same type a restart answers,
    because that is what it is — a stop, the recipe's own offline password step, and a start of what
@@ -297,7 +291,7 @@ reason a client can behave well without inventing anything.
   from the keyring at that instant is the only version of this that keeps it out of a shell history,
   an argument list and a log. The same rule is why "reveal password" is a separate deliberate call
   and not a field on a service read. **Built by T83**: `database.open` reads the credential at that
-  instant, starts the located client itself with it in that process's environment, and answers
+  instant, starts this install's window itself with it in that process's environment, and answers
   with the keyring address it came from — a client is told *where*, and is never handed *what*.
 - **A dead daemon is a legible state.** A client that loses the socket can tell the difference
   between "not running" and "not answering", and reconnects without being restarted.

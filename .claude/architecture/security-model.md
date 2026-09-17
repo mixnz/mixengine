@@ -197,7 +197,7 @@ describing a control that is not there is how a later reader concludes the contr
   reach everything `mix` reaches. Making it a boundary means requiring a token on **every**
   connection, `mix` included — the second access-control story the bullet above already refused for
   a case nobody has. And nothing has the case: no extension in the plan (Mailpit, phpMyAdmin,
-  Adminer, MixDB) calls the daemon API at all.
+  Adminer) calls the daemon API at all.
 
   What T80 shipped instead: `[permissions]` as a **declaration shown before an extension is
   installed** — the shape T78a gave `[scaffold]` — with the two permissions that can hold enforced

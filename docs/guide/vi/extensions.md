@@ -33,7 +33,6 @@ Extension có bốn dạng, và bạn nên nhận ra mình đang cài dạng nà
 | --- | --- |
 | `web-app` | Mã nguồn chạy trên chính stack của bạn, ở một site nội bộ được sinh ra. Ví dụ phpMyAdmin, Adminer |
 | `service` | Một chương trình MixEngine giám sát như mọi service khác. Ví dụ Mailpit, MinIO, MeiliSearch |
-| `desktop-app` | Ứng dụng có sẵn trên máy bạn, MixEngine tìm thấy và đưa kết nối cho nó |
 | `recipe` | Chỉ có cấu hình: thêm directive cho web server, một profile `php.ini` |
 
 ## Xem trước khi cài

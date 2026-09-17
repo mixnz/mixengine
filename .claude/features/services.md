@@ -285,18 +285,16 @@ polling with a stale password of its own.
 
 MixEngine manages *lifecycle* (install, start, stop, config, credentials, data dir, backup/restore
 snapshots of the data dir). Browsing and querying data is **out of scope** — that is
-[MixDB](https://github.com/mixnz/mixdb), integrated as an extension
-([extensions.md](extensions.md)).
+MixLab's `db` module ([extensions.md](extensions.md)).
 
 **Making a database is part of that lifecycle, and "credentials" is what makes it one.**
 `database.create` — `mix database create mariadb@main --name blog` — creates a database and an
 account that reaches it on a running instance, generating the account's password and storing it in
 the OS keyring at `<service-id>/<user>`. Nothing prints it or puts it on the wire *by default*: what
 a caller is told is the address, and handing a credential to a program that needs one is
-`database.open` — `mix database open mariadb@main --user blog` — which starts the desktop client
-with the password in that process's environment alone (T83, [extensions.md](extensions.md)). That
-client is MixLab, the window this MixEngine installed, when the install has one, and a `desktop-app`
-extension's otherwise (T107).
+`database.open` — `mix database open mariadb@main --user blog` — which starts MixLab
+with the password in that process's environment alone (T83, [extensions.md](extensions.md)). The
+headless archive has no window, and says so (T165).
 
 **A person can still read it, and can still choose it** — T77b. Neither of the two calls above
 reaches the one case they leave uncovered: a project's own `.env`. `mix database credentials

@@ -198,6 +198,20 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       offer. They are a bounded, scrollable list now, and every entry is kept — naming two while the
       lookup walked forty-seven would be a shorter lie. Nothing but a screenshot was going to say so.
 
+- [x] **T165** The window is the only desktop client. `desktop-app` leaves the manifest format, the
+      API, the daemon, the platform layer, `mix` and MixLab, and migration 24 removes installed rows
+      of the kind — its one entry, MixDB, was withdrawn from the registry on 2026-09-17 and *is*
+      MixLab. `database.client` answers `installed` for this install's window or `no_client`; the
+      per-OS lookups and T107's scheme rule go with it. **(P)** — three lookups deleted.
+      [ADR 0038](../decisions/0038-the-window-is-the-only-desktop-database-client.md).
+      Design: [2026-09-17-t165-the-window-is-the-only-desktop-client-design.md](../../docs/superpowers/specs/2026-09-17-t165-the-window-is-the-only-desktop-client-design.md).
+      **No protocol bump**, for the reason the ADR gives: everything removed was written only by a
+      daemon. **And the one real handoff test kept a real client**: `mariadb.rs` runs a copy of the
+      daemon out of its own directory with a script named `mixlab` beside it, since beside the
+      running program is the only place the window is looked for. **And the upgrade census learned a
+      partial loss**: `upgrade.rs` gains `REMOVED` beside `EMPTIED`, and the first fixture it met was
+      `schema-0001`, whose `extensions` table migration 16 had already emptied whole.
+
 **Milestone M12** — on a clean machine of each OS, one installer installs the daemon, the CLI, the
 helper, the shim and the window; the window's Update button and `mix self-update` each replace all
 five; a MixDB user's saved connections open in the new window with their passwords; `mix database
