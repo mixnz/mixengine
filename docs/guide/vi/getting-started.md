@@ -129,7 +129,8 @@ Lệnh cuối tạo cơ sở dữ liệu và một tài khoản để truy cập
 ## Đọc tiếp
 
 - [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và mỗi cái quản gì.
-- [Phiên bản PHP, Node, Python, Ruby, Go và Java](./runtimes.md): cách một thư mục tự chọn phiên bản.
+- [Phiên bản PHP, Node, Python, Ruby, Go và Java](./runtimes.md): cách một thư mục tự chọn phiên
+  bản.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): mọi thứ một project cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): `blog.test` phân giải thế nào, và ai ký chứng chỉ.
 - [MixEngine xin quyền để làm gì](./permissions.md): từng hộp thoại, và nó thay đổi gì.

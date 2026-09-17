@@ -132,8 +132,8 @@ reads that store instead of the JDK's own. If a JDK has lost it, `mix doctor --r
 
 **On Linux a JDK expects some of the system's libraries** — `zlib` to start at all, `freetype` for
 fonts, X11 for windows and ALSA for sound. When your system does not have one, the install says
-which and carries on: a server that never draws a window or plays a sound runs without them, and your
-distribution's package manager has them when you need them.
+which and carries on: a server that never draws a window or plays a sound runs without them, and
+your distribution's package manager has them when you need them.
 
 ## Choosing which one a directory uses
 

@@ -4,7 +4,7 @@ slug = "index"
 order = 1
 summary = "Chạy PHP, Node, Python, Ruby, Go và Java ngay trên máy với đúng phiên bản bạn cần, có tên miền thật và HTTPS, không cần Docker."
 translation_of = "en/index.md"
-source_sha256 = "a33fdcadc6fed1358f1a1a5d6bfe2615ed6e006b6db5c914313cd28738102994"
+source_sha256 = "0ed7424aea12a5a809c638dd7bc25ed9e1c706a6914ab4901811fd685e872cfc"
 +++
 
 # MixEngine
@@ -38,8 +38,8 @@ thoát ngay khi xong việc.
 
 - [Dự án và site](./projects-and-sites.md): hai khái niệm cốt lõi, và cách một bản checkout mang
   theo cấu hình của chính nó.
-- [Phiên bản PHP, Node, Python, Ruby, Go và Java](./runtimes.md): nhiều phiên bản cùng lúc, chọn theo
-  từng thư mục.
+- [Phiên bản PHP, Node, Python, Ruby, Go và Java](./runtimes.md): nhiều phiên bản cùng lúc, chọn
+  theo từng thư mục.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): những thứ dự án của bạn cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): vì sao `blog.test` phân giải được, và ai ký chứng
   chỉ cho nó.
