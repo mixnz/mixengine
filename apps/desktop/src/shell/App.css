@@ -185,22 +185,26 @@
      and a half-transparent mint does not. */
   --focus-ring: inset 0 0 0 2px var(--accent-text);
 
-  /* The accent, in four handles: the fill (`--accent`), the accent as text or icon on the page
-     (`--accent-text`), the ink on a filled button (`--accent-on-solid`), and bare channels for
-     washes. Nothing outside these blocks names a hue. */
+  /* The accent, in five handles: the fill (`--accent`), the fill under ink — a filled button, a
+     checked box, a switch that is on (`--accent-solid`) — the accent as text or icon on the page
+     (`--accent-text`), that ink (`--accent-on-solid`), and bare channels for washes. Nothing
+     outside these blocks names a hue. */
   --accent: var(--c-mint);
+  --accent-solid: var(--c-mint-solid);
   --accent-text: var(--c-mint-text);
   --accent-on-solid: var(--c-mint-on-solid);
   --accent-rgb: var(--c-mint-rgb);
-  --accent-solid: var(--accent);
 
   /* Every palette stays defined whichever one is in force, so the swatches in Settings can each
      paint themselves from their own `--c-<name>`. Each hue's `-text` reads at 4.5:1 on every
-     surface above and on its own wash, and its `-on-solid` reads at 4.5:1 on its fill — asserted by
-     `contrast.test.ts`, not by eye. */
+     surface above and on its own wash, and its `-on-solid` reads at 4.5:1 on its fill — its
+     `-solid` where it has one — asserted by `contrast.test.ts`, not by eye. Mint has one because it
+     is too light to carry white and near-black ink on it reads muddy, so what it fills under ink on
+     the light page is a deeper cast of the same hue. */
   --c-mint: #5ec4a1;
+  --c-mint-solid: #1f7f62;
   --c-mint-text: #387661;
-  --c-mint-on-solid: #062117;
+  --c-mint-on-solid: #ffffff;
   --c-mint-rgb: 94 196 161;
 
   --c-blue: #23528c;
@@ -264,6 +268,7 @@
    attribute — `applyAccent` in theme.ts leaves the attribute off for it. */
 :root[data-accent="blue"] {
   --accent: var(--c-blue);
+  --accent-solid: var(--c-blue);
   --accent-text: var(--c-blue-text);
   --accent-on-solid: var(--c-blue-on-solid);
   --accent-rgb: var(--c-blue-rgb);
@@ -271,6 +276,7 @@
 
 :root[data-accent="indigo"] {
   --accent: var(--c-indigo);
+  --accent-solid: var(--c-indigo);
   --accent-text: var(--c-indigo-text);
   --accent-on-solid: var(--c-indigo-on-solid);
   --accent-rgb: var(--c-indigo-rgb);
@@ -278,6 +284,7 @@
 
 :root[data-accent="violet"] {
   --accent: var(--c-violet);
+  --accent-solid: var(--c-violet);
   --accent-text: var(--c-violet-text);
   --accent-on-solid: var(--c-violet-on-solid);
   --accent-rgb: var(--c-violet-rgb);
@@ -285,6 +292,7 @@
 
 :root[data-accent="magenta"] {
   --accent: var(--c-magenta);
+  --accent-solid: var(--c-magenta);
   --accent-text: var(--c-magenta-text);
   --accent-on-solid: var(--c-magenta-on-solid);
   --accent-rgb: var(--c-magenta-rgb);
@@ -292,6 +300,7 @@
 
 :root[data-accent="orange"] {
   --accent: var(--c-orange);
+  --accent-solid: var(--c-orange);
   --accent-text: var(--c-orange-text);
   --accent-on-solid: var(--c-orange-on-solid);
   --accent-rgb: var(--c-orange-rgb);
@@ -299,6 +308,7 @@
 
 :root[data-accent="amber"] {
   --accent: var(--c-amber);
+  --accent-solid: var(--c-amber);
   --accent-text: var(--c-amber-text);
   --accent-on-solid: var(--c-amber-on-solid);
   --accent-rgb: var(--c-amber-rgb);
@@ -306,6 +316,7 @@
 
 :root[data-accent="green"] {
   --accent: var(--c-green);
+  --accent-solid: var(--c-green);
   --accent-text: var(--c-green-text);
   --accent-on-solid: var(--c-green-on-solid);
   --accent-rgb: var(--c-green-rgb);
@@ -313,6 +324,7 @@
 
 :root[data-accent="teal"] {
   --accent: var(--c-teal);
+  --accent-solid: var(--c-teal);
   --accent-text: var(--c-teal-text);
   --accent-on-solid: var(--c-teal-on-solid);
   --accent-rgb: var(--c-teal-rgb);
@@ -320,6 +332,7 @@
 
 :root[data-accent="cyan"] {
   --accent: var(--c-cyan);
+  --accent-solid: var(--c-cyan);
   --accent-text: var(--c-cyan-text);
   --accent-on-solid: var(--c-cyan-on-solid);
   --accent-rgb: var(--c-cyan-rgb);
@@ -327,6 +340,7 @@
 
 :root[data-accent="slate"] {
   --accent: var(--c-slate);
+  --accent-solid: var(--c-slate);
   --accent-text: var(--c-slate-text);
   --accent-on-solid: var(--c-slate-on-solid);
   --accent-rgb: var(--c-slate-rgb);
@@ -836,6 +850,7 @@ textarea:focus {
   /* The dark cast of every hue. Which one `--accent` points at was settled by `[data-accent]` and
      holds through the theme, so only the palettes are restated. */
   --c-mint: #5ec4a1;
+  --c-mint-solid: #5ec4a1;
   --c-mint-text: #5ec4a1;
   --c-mint-on-solid: #062117;
   --c-mint-rgb: 94 196 161;

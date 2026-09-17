@@ -18,7 +18,7 @@
 
 .checked,
 .checked:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-solid);
   background: rgb(var(--accent-rgb) / 0.08);
 }
 

@@ -109,7 +109,8 @@ describe("contrast", () => {
           for (const s of SURFACES) atLeast(ratio(text, colour(theme, s)), 4.5, `--c-${h}-text on ${s}`, fail);
           const washed = wash(channels(theme, `--c-${h}-rgb`), ACCENT_WASH, colour(theme, "--surface-bg"));
           atLeast(ratio(text, washed), 4.5, `--c-${h}-text on its wash`, fail);
-          atLeast(ratio(colour(theme, `--c-${h}-on-solid`), colour(theme, `--c-${h}`)), 4.5, `--c-${h}-on-solid`, fail);
+          const fill = theme.has(`--c-${h}-solid`) ? `--c-${h}-solid` : `--c-${h}`;
+          atLeast(ratio(colour(theme, `--c-${h}-on-solid`), colour(theme, fill)), 4.5, `--c-${h}-on-solid on ${fill}`, fail);
         }
       }),
     ).toEqual([]);
@@ -168,5 +169,7 @@ describe("contrast", () => {
 
   it("names mint as the default accent", () => {
     expect(value(light, "--accent")).toBe(value(light, "--c-mint"));
+    // The ink the default accent carries is only checked against this fill.
+    expect(value(light, "--accent-solid")).toBe(value(light, "--c-mint-solid"));
   });
 });
