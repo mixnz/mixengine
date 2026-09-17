@@ -54,7 +54,6 @@ const CSS_BASELINE: Record<string, number> = {
   "components/LoadingOverlay/LoadingOverlay.module.css": 2,
   "components/Modal/surface.module.css": 1,
   "components/NameDialog/NameDialog.module.css": 1,
-  "components/Select/Select.module.css": 3,
   "components/TabStrip/TabStrip.module.css": 4,
   "modules/db/components/ColumnDialog/ColumnDialog.module.css": 1,
   "modules/db/components/DatabaseStats/DatabaseStats.module.css": 2,

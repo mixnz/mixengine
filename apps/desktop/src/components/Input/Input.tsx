@@ -12,6 +12,8 @@ interface InputProps extends Omit<ComponentPropsWithRef<"input">, "size"> {
   /** Shows a × at the end of the field once there is a value, clearing it on click. Only makes
    *  sense on a controlled field — the caller's own `onChange` is what actually empties `value`. */
   allowClear?: boolean;
+  /** Set in the mono face: for values compared character by character — paths, ports, hosts. */
+  mono?: boolean;
 }
 
 function Input({
@@ -23,6 +25,7 @@ function Input({
   spellCheck = false,
   className,
   allowClear = false,
+  mono = false,
   value,
   ref,
   ...rest
@@ -48,7 +51,7 @@ function Input({
       autoCapitalize={autoCapitalize}
       spellCheck={spellCheck}
       value={value}
-      className={`${styles.input} ${styles[size]}${allowClear ? ` ${styles.clearable}` : ""}${
+      className={`${styles.input} ${styles[size]}${mono ? ` ${styles.mono}` : ""}${allowClear ? ` ${styles.clearable}` : ""}${
         !allowClear && className ? ` ${className}` : ""
       }`}
       {...rest}
