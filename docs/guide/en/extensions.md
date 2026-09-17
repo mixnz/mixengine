@@ -25,7 +25,7 @@ mix extension list
 
 `available` is the signed registry MixEngine publishes; `list` is what this machine has installed.
 
-There are four shapes an extension can take, and it is worth recognising which you are installing:
+There are three shapes an extension can take, and it is worth recognising which you are installing:
 
 | Kind | What it is |
 | --- | --- |
