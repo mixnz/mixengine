@@ -8,6 +8,8 @@ export interface Segment<T extends string> {
   /** A number beside the label — how many rows the filter would leave, say. */
   count?: number;
   disabled?: boolean;
+  /** Said on hover — most of all why a disabled segment cannot be picked. */
+  title?: string;
 }
 
 interface Props<T extends string> {
@@ -55,6 +57,7 @@ function SegmentedControl<T extends string>({
             aria-selected={tabs ? selected : undefined}
             aria-pressed={tabs ? undefined : selected}
             disabled={segment.disabled}
+            title={segment.title}
             className={`${styles.segment}${selected ? ` ${styles.selected}` : ""}`}
             onClick={() => onChange(segment.value)}
           >

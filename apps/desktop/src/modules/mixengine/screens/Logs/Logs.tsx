@@ -12,14 +12,18 @@ import { errorMessage } from "../../../../core/errors";
 import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import { applyLogFrame, type LogEntry } from "../../logState";
+import {
+  applyLogFrame,
+  countStreams,
+  filterByStream,
+  type LogEntry,
+  type StreamFilter,
+} from "../../logState";
 import { takePendingLogsService } from "../../logsNavigation";
 import styles from "./Logs.module.css";
 
 const MAX_ENTRIES = 2000;
 const INITIAL_TAIL = 200;
-
-type StreamFilter = "all" | "stdout" | "stderr";
 
 export default function Logs({ active }: { active: boolean }) {
   const [ids, setIds] = useState<string[]>([]);
@@ -59,11 +63,13 @@ export default function Logs({ active }: { active: boolean }) {
     };
   }, [selected, tail, t]);
 
-  const visible = entries.filter((entry) => {
-    if (filter === "all") return true;
-    if (entry.kind !== "line") return true; // gap/historic always shown — filter is stream-only
-    return entry.stream === filter;
-  });
+  const counts = countStreams(entries);
+  // Only lines read back from the file, so no stream can be told apart: the stream segments are
+  // locked, and whatever was picked falls back to All rather than hiding every line.
+  const streamsUnknown = counts.historic > 0 && counts.stdout + counts.stderr === 0;
+  const shown: StreamFilter = streamsUnknown ? "all" : filter;
+  const visible = filterByStream(entries, shown);
+  const hiddenHistoric = shown === "all" ? 0 : counts.historic;
 
   const linePane = useTailScroll<HTMLDivElement>(visible);
 
@@ -90,12 +96,17 @@ export default function Logs({ active }: { active: boolean }) {
             />
             <SegmentedControl
               aria-label={t("mixengine.logs.stream")}
-              value={filter}
+              value={shown}
               onChange={setFilter}
               segments={[
-                { value: "all", label: t("mixengine.logs.streamAll") },
-                { value: "stdout", label: t("mixengine.logs.streamStdout") },
-                { value: "stderr", label: t("mixengine.logs.streamStderr") },
+                { value: "all", label: t("mixengine.logs.streamAll"), count: counts.all },
+                ...(["stdout", "stderr"] as const).map((stream) => ({
+                  value: stream,
+                  label: t(stream === "stdout" ? "mixengine.logs.streamStdout" : "mixengine.logs.streamStderr"),
+                  count: counts[stream],
+                  disabled: streamsUnknown,
+                  title: streamsUnknown ? t("mixengine.logs.streamUnknown") : undefined,
+                })),
               ]}
             />
           </>
@@ -119,7 +130,12 @@ export default function Logs({ active }: { active: boolean }) {
           <EmptyState title={t("mixengine.logs.pickService")} />
         ) : (
           <div className={styles.lines} data-density="compact" {...linePane}>
-            {visible.length === 0 && <p className={styles.empty}>{t("mixengine.logs.empty")}</p>}
+            {hiddenHistoric > 0 && (
+              <p className={styles.note}>{t("mixengine.logs.historicHidden", { count: hiddenHistoric })}</p>
+            )}
+            {visible.length === 0 && hiddenHistoric === 0 && (
+              <p className={styles.empty}>{t("mixengine.logs.empty")}</p>
+            )}
             {visible.map((entry, i) => {
               if (entry.kind === "gap") {
                 return (

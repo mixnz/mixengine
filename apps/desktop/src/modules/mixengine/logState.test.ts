@@ -1,6 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import { applyLogFrame, type LogEntry } from "./logState";
+import { applyLogFrame, countStreams, filterByStream, type LogEntry } from "./logState";
+
+const MIXED: LogEntry[] = [
+  { kind: "historic", text: "from the file" },
+  { kind: "line", stream: "stdout", at: "", text: "out" },
+  { kind: "gap", missed: 3 },
+  { kind: "line", stream: "stderr", at: "", text: "err one" },
+  { kind: "line", stream: "stderr", at: "", text: "err two" },
+];
+
+describe("countStreams", () => {
+  it("counts every printed line under all, and a historic one under neither stream", () => {
+    expect(countStreams(MIXED)).toEqual({ all: 4, stdout: 1, stderr: 2, historic: 1 });
+  });
+});
+
+describe("filterByStream", () => {
+  it("leaves everything under all", () => {
+    expect(filterByStream(MIXED, "all")).toEqual(MIXED);
+  });
+
+  /* A line read back from the file has no stream, so no stream filter can honestly keep it. */
+  it("hides historic lines under a stream and keeps the gap", () => {
+    expect(filterByStream(MIXED, "stderr")).toEqual([MIXED[2], MIXED[3], MIXED[4]]);
+    expect(filterByStream(MIXED, "stdout")).toEqual([MIXED[1], MIXED[2]]);
+  });
+});
 
 describe("applyLogFrame", () => {
   it("appends a line frame", () => {

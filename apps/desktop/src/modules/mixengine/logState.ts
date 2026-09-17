@@ -37,3 +37,37 @@ export function applyLogFrame(entries: LogEntry[], raw: string, maxEntries: numb
   const combined = [...entries, next];
   return combined.length > maxEntries ? combined.slice(combined.length - maxEntries) : combined;
 }
+
+export type StreamFilter = "all" | "stdout" | "stderr";
+
+/** How many printed lines each filter would leave. A gap is a marker, not a line, and counts nowhere. */
+export interface StreamCounts {
+  all: number;
+  stdout: number;
+  stderr: number;
+  /** Lines read back from `current.log`: in `all`, and in neither stream, because none is known. */
+  historic: number;
+}
+
+export function countStreams(entries: readonly LogEntry[]): StreamCounts {
+  const counts: StreamCounts = { all: 0, stdout: 0, stderr: 0, historic: 0 };
+  for (const entry of entries) {
+    if (entry.kind === "gap") continue;
+    counts.all += 1;
+    if (entry.kind === "historic") counts.historic += 1;
+    else counts[entry.stream] += 1;
+  }
+  return counts;
+}
+
+/**
+ * The entries a stream filter leaves on screen.
+ *
+ * A historic line is not known to be on either stream, so a stream filter hides it rather than
+ * claiming it — showing it under both is what made the filter look like it did nothing. A gap stays:
+ * it says where lines were lost, whichever stream they were on.
+ */
+export function filterByStream(entries: readonly LogEntry[], filter: StreamFilter): LogEntry[] {
+  if (filter === "all") return [...entries];
+  return entries.filter((entry) => entry.kind === "gap" || (entry.kind === "line" && entry.stream === filter));
+}

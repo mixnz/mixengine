@@ -367,6 +367,8 @@ const vi: typeof en = {
       loadMore: "Xem thêm phía trên",
       gap: "— bỏ qua {{count}} dòng —",
       empty: "Chưa có gì được in ra.",
+      historicHidden: "{{count}} dòng đọc lại từ file log không cho biết thuộc luồng nào — xem ở Tất cả.",
+      streamUnknown: "Dòng đọc lại từ file log không cho biết thuộc luồng nào.",
     },
     sites: {
       columnDomain: "Domain",

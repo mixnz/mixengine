@@ -372,6 +372,8 @@ export default {
       loadMore: "Load more history",
       gap: "— {{count}} lines skipped —",
       empty: "No output yet.",
+      historicHidden: "{{count}} lines read back from the log file do not say which stream they came from — they show under All.",
+      streamUnknown: "Lines read back from the log file do not say which stream they came from.",
     },
     sites: {
       columnDomain: "Domain",

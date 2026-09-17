@@ -54,3 +54,11 @@
   margin: 0;
   color: var(--text-muted);
 }
+
+/* Said in the app's own voice rather than the log's, so it is not read as a line the service printed. */
+.note {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  color: var(--text-muted);
+  font-style: italic;
+}
