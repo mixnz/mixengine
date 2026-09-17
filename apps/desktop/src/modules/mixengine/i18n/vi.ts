@@ -169,7 +169,12 @@ const vi: typeof en = {
       cannotPromptReason: "Máy này hiện không thể bật lời hỏi quyền: {{reason}}",
     },
     projects: {
-      newProject: "+ Tạo project",
+      newProject: "Tạo project",
+      about: "Các thư mục trên máy này mà MixEngine phục vụ thành site cục bộ.",
+      copyRoot: "Sao chép đường dẫn thư mục của project",
+      present: "Có",
+      notFound: "Không có",
+      yes: "Có",
       columnName: "Tên",
       columnRoot: "Root",
       columnManifest: "mixengine.toml",
@@ -257,7 +262,7 @@ const vi: typeof en = {
       failed: "Hỏng",
     },
     serviceForm: {
-      newService: "+ Tạo service",
+      newService: "Tạo service",
       title: "Thêm service",
       package: "Package",
       packagePlaceholder: "Chọn một package đã cài",
@@ -358,7 +363,7 @@ const vi: typeof en = {
       sharingIndefinite: "đang chia sẻ LAN",
       sharingUntil: "chia sẻ LAN tới {{until}}",
       empty: "Chưa có site nào.",
-      newSite: "+ Tạo site",
+      newSite: "Tạo site",
       filterAllProjects: "Mọi project",
       edit: "Sửa",
       form: {
@@ -511,7 +516,7 @@ const vi: typeof en = {
       columnResolves: "Resolve tới",
       columnReason: "Lý do",
       columnActions: "Hành động",
-      addDomain: "+ Thêm domain",
+      addDomain: "Thêm domain",
       remove: "Gỡ",
       empty: "Chưa có domain nào.",
       ca: {

@@ -174,7 +174,12 @@ export default {
       cannotPromptReason: "This machine cannot raise a permission prompt right now: {{reason}}",
     },
     projects: {
-      newProject: "+ New project",
+      newProject: "New project",
+      about: "Folders on this computer that MixEngine serves as local sites.",
+      copyRoot: "Copy the project's folder path",
+      present: "Present",
+      notFound: "Not found",
+      yes: "Yes",
       columnName: "Name",
       columnRoot: "Root",
       columnManifest: "mixengine.toml",
@@ -262,7 +267,7 @@ export default {
       failed: "Failed",
     },
     serviceForm: {
-      newService: "+ New service",
+      newService: "New service",
       title: "New service",
       package: "Package",
       packagePlaceholder: "Pick an installed package",
@@ -363,7 +368,7 @@ export default {
       sharingIndefinite: "on the LAN",
       sharingUntil: "on the LAN until {{until}}",
       empty: "No sites yet.",
-      newSite: "+ New site",
+      newSite: "New site",
       filterAllProjects: "All projects",
       edit: "Edit",
       form: {
@@ -521,7 +526,7 @@ export default {
       columnResolves: "Resolves to",
       columnReason: "Reason",
       columnActions: "Actions",
-      addDomain: "+ Add domain",
+      addDomain: "Add domain",
       remove: "Remove",
       empty: "No domains yet.",
       ca: {
