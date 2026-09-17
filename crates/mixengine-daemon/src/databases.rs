@@ -487,12 +487,11 @@ impl Databases {
 mod tests {
     use std::sync::Arc;
 
-    use mixengine_core::extensions::store::{Installed, Source, remember};
     use mixengine_platform::mock::Host as MockHost;
     use mixengine_platform::{Host as _, KEYRING_SERVICE};
     use mixengine_proto::{
-        DatabaseClientQuery, DatabaseOpen, DatabaseProtocol, DesktopClient, ErrorCode, ExtensionId,
-        Launch, ServiceId, Timestamp,
+        DatabaseClientQuery, DatabaseOpen, DatabaseProtocol, DesktopClient, ErrorCode, Launch,
+        ServiceId,
     };
 
     use super::*;
@@ -548,35 +547,6 @@ mod tests {
         (home, Databases::new(services, host, store))
     }
 
-    /// The MixDB fixture under another id and scheme, installed from a directory — roadmap task
-    /// **T107**.
-    async fn a_desktop_app(store: &Store, id: &str, scheme: &str) {
-        let body = mixengine_testkit::extension::MIXDB
-            .replace("id = \"mixdb\"", &format!("id = \"{id}\""))
-            .replace("scheme = \"mixdb\"", &format!("scheme = \"{scheme}\""));
-        let manifest = mixengine_core::extensions::manifest::read(
-            std::path::Path::new("extension.toml"),
-            &body,
-        )
-        .expect("the fixture parses");
-
-        remember(
-            store,
-            &Installed {
-                id: ExtensionId::parse(id).expect("an id"),
-                manifest,
-                install_dir: std::path::PathBuf::from("/extensions/other"),
-                data_dir: std::path::PathBuf::from("/data/extensions/other"),
-                source: Source::Path,
-                signed: false,
-                installed_at: Timestamp(0),
-                ports: BTreeMap::new(),
-            },
-        )
-        .await
-        .expect("the row");
-    }
-
     fn open(service: &str, user: Option<&str>, database: Option<&str>) -> DatabaseOpen {
         DatabaseOpen {
             service: id(service),
@@ -630,34 +600,6 @@ mod tests {
             DesktopClient::Installed { name, program } => {
                 assert_eq!(name, mixengine_core::window::NAME);
                 assert!(program.contains("mixlab"), "{program}");
-            }
-            other => panic!("{other:?}"),
-        }
-    }
-
-    /// **A `desktop-app` extension no longer names the client** — roadmap task **T165**. Even one
-    /// for another scheme, on a machine that has that application: the window this install came
-    /// with is the only thing a database is handed to.
-    #[tokio::test]
-    async fn an_installed_desktop_app_extension_is_not_the_client() {
-        let host = Arc::new(MockHost::with_window_and_desktop_app(
-            std::env::temp_dir(),
-            "/opt/mixengine/mixlab",
-            "/opt/elsewhere/elsewhere",
-        ));
-        let (_home, databases) = databases(host, &[("redis@main", "redis", 6379)]).await;
-        a_desktop_app(&databases.store, "elsewhere", "elsewhere").await;
-
-        match databases
-            .client(&DatabaseClientQuery {
-                service: id("redis@main"),
-            })
-            .await
-            .expect("answers")
-            .client
-        {
-            DesktopClient::Installed { name, .. } => {
-                assert_eq!(name, mixengine_core::window::NAME);
             }
             other => panic!("{other:?}"),
         }

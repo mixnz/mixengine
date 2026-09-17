@@ -391,7 +391,7 @@ pub enum Error {
 
     /// A table that belongs to a different kind of extension.
     ///
-    /// Refused rather than ignored: a `[service]` table under `kind = "desktop-app"` is somebody
+    /// Refused rather than ignored: a `[service]` table under `kind = "web-app"` is somebody
     /// who believes their extension will be supervised, and a key silently dropped is a belief
     /// nothing corrects.
     #[error("a {kind} extension has no [{table}] table, and {id} declares one")]

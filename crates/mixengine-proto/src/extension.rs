@@ -2,7 +2,7 @@
 //!
 //! **Not to be confused with [`crate::runtime_api`]'s `Extension*` types**, which are about a *PHP*
 //! extension being switched on for one installed runtime. These are MixEngine's own extensions:
-//! Mailpit, phpMyAdmin, MixDB. The two vocabularies never meet, and the older one keeps its names
+//! Mailpit, phpMyAdmin, Adminer. The two vocabularies never meet, and the older one keeps its names
 //! because renaming four public types serves nothing this task is for (the T80 design, D11).
 //!
 //! The manifest itself lives in `mixengine-core::extensions::manifest`, for T77's reason: what
@@ -20,7 +20,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use crate::service::{ServiceId, SpecError};
 
-/// An extension's identity: `mailpit`, `phpmyadmin`, `mixdb`.
+/// An extension's identity: `mailpit`, `phpmyadmin`, `adminer`.
 ///
 /// **A [`ServiceId`] with no instance.** It names a directory — `extensions/<id>/` — so every rule
 /// a service id carries about directory names applies unchanged, down to the names Windows refuses;
@@ -91,9 +91,6 @@ pub enum ExtensionKind {
     /// Source served by our own stack on an internal domain. phpMyAdmin, Adminer.
     WebApp,
 
-    /// An application we neither run nor bundle — we find it and hand it something. MixDB.
-    DesktopApp,
-
     /// Configuration only, merged into what MixEngine generates.
     ///
     /// **`[recipe]` is not exclusive to this kind** (the T80 design, D7): Mailpit is a service
@@ -109,7 +106,6 @@ impl ExtensionKind {
         match self {
             Self::Service => "service",
             Self::WebApp => "web-app",
-            Self::DesktopApp => "desktop-app",
             Self::Recipe => "recipe",
         }
     }
@@ -260,7 +256,7 @@ mod tests {
     /// would have missed.
     #[test]
     fn an_id_is_a_directory_name() {
-        for good in ["mailpit", "phpmyadmin", "mixdb", "adminer", "php-my-admin"] {
+        for good in ["mailpit", "phpmyadmin", "adminer", "php-my-admin"] {
             assert!(ExtensionId::parse(good).is_ok(), "{good} should parse");
         }
 

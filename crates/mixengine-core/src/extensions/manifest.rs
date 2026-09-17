@@ -77,7 +77,7 @@ pub struct ExtensionManifest {
     /// `[permissions]`.
     pub permissions: ExtensionPermissions,
 
-    /// Whichever of the four bodies `kind` names.
+    /// Whichever of the three bodies `kind` names.
     pub body: Body,
 
     /// `[recipe]`, which may accompany any kind (the T80 design, D7).
@@ -131,7 +131,7 @@ pub struct Artifact {
     pub size: Option<u64>,
 }
 
-/// The four bodies, one per [`ExtensionKind`].
+/// The three bodies, one per [`ExtensionKind`].
 #[derive(Debug, Clone, PartialEq)]
 pub enum Body {
     /// A supervised process. Boxed because it is three times the size of the next variant, and
@@ -140,9 +140,6 @@ pub enum Body {
 
     /// Source served on an internal domain.
     WebApp(WebApp),
-
-    /// Something MixEngine finds rather than runs.
-    DesktopApp(DesktopApp),
 
     /// Nothing but `[recipe]` — which is held beside this rather than inside it, because it may
     /// accompany any kind.
@@ -383,69 +380,6 @@ pub struct WebAppRuntime {
     pub requires: VersionConstraint,
 }
 
-/// `[desktop-app]`.
-///
-/// **An entry of this kind names no `[artifact.<target>]`, and that absence is the entry** —
-/// roadmap task **T84**, the design's D1. MixEngine *finds* an application somebody else installed;
-/// it never downloads or runs an installer. A desktop application publishes installers rather than
-/// archives, running one would be arbitrary code outside `mixengine-elevate`'s boundary, and an
-/// application that self-updates would leave MixEngine a second updater permanently behind the
-/// first. What follows is therefore how to find it, and `[extension].homepage` is where to get it.
-///
-/// One consequence worth stating where an author will read it: `[extension].version` on a
-/// `desktop-app` is **the entry's** version and not the machine's. `extension.plan` answers the
-/// machine, per OS, and every surface prints the two side by side.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct DesktopApp {
-    /// The URL scheme a handoff is written to. `mixdb`.
-    pub scheme: String,
-
-    /// How to find it, per OS.
-    ///
-    /// **Declared here, looked up by `mixengine-platform`'s `DesktopApps`** (T83): what belongs in
-    /// the manifest is the name each OS looks it up by, and the lookup is the platform layer's.
-    #[serde(default)]
-    pub detect: DetectHints,
-}
-
-/// `[desktop-app.detect]` — one hint per OS, each in that OS's own currency.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct DetectHints {
-    /// An executable's file name — `mixdb.exe` — looked for under App Paths and then in the
-    /// uninstall table's `DisplayIcon`, case-insensitively.
-    ///
-    /// This once said "under App Paths" alone. T83 measured that Tauri's NSIS installer writes no
-    /// App Paths entry at all and does write `Uninstall\<product>\DisplayIcon`, so the lookup reads
-    /// both; the hint stays a file name either way.
-    #[serde(default)]
-    pub windows: Option<String>,
-
-    /// A bundle identifier, asked of Spotlight.
-    #[serde(default)]
-    pub macos: Option<String>,
-
-    /// A desktop entry file name, looked for in the XDG `applications/` directories.
-    #[serde(default)]
-    pub linux: Option<String>,
-}
-
-impl DetectHints {
-    /// The hint for the system this build was compiled for, where the manifest gives one.
-    #[must_use]
-    pub fn here(&self) -> Option<&str> {
-        let hint = match std::env::consts::OS {
-            "windows" => self.windows.as_ref(),
-            "macos" => self.macos.as_ref(),
-            "linux" => self.linux.as_ref(),
-            _ => None,
-        };
-
-        hint.map(String::as_str)
-    }
-}
-
 /// `[recipe]` — what an extension adds to what MixEngine generates.
 ///
 /// **Two forms, and both have a consumer named in the roadmap**: `php_ini` is T82's
@@ -543,12 +477,6 @@ struct Raw {
     service: Option<ServiceTemplate>,
     #[serde(default, rename = "web-app", skip_serializing_if = "Option::is_none")]
     web_app: Option<WebApp>,
-    #[serde(
-        default,
-        rename = "desktop-app",
-        skip_serializing_if = "Option::is_none"
-    )]
-    desktop_app: Option<DesktopApp>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipe: Option<RecipeTable>,
 }
@@ -561,11 +489,10 @@ impl From<&ExtensionManifest> for Raw {
     /// `web-app`. Serialising [`Body`] itself would produce a key named after a Rust variant, which
     /// round-trips perfectly and is not a manifest.
     fn from(manifest: &ExtensionManifest) -> Self {
-        let (service, web_app, desktop_app) = match &manifest.body {
-            Body::Service(template) => (Some((**template).clone()), None, None),
-            Body::WebApp(app) => (None, Some(app.clone()), None),
-            Body::DesktopApp(app) => (None, None, Some(app.clone())),
-            Body::Recipe => (None, None, None),
+        let (service, web_app) = match &manifest.body {
+            Body::Service(template) => (Some((**template).clone()), None),
+            Body::WebApp(app) => (None, Some(app.clone())),
+            Body::Recipe => (None, None),
         };
 
         Self {
@@ -576,7 +503,6 @@ impl From<&ExtensionManifest> for Raw {
             permissions: manifest.permissions.clone(),
             service,
             web_app,
-            desktop_app,
             recipe: manifest.recipe.clone(),
         }
     }
@@ -655,7 +581,7 @@ fn checked(raw: Raw) -> Result<ExtensionManifest> {
         });
     }
 
-    let body = body(&id, kind, raw.service, raw.web_app, raw.desktop_app)?;
+    let body = body(&id, kind, raw.service, raw.web_app)?;
 
     for name in raw.ports.keys() {
         placeholder_name(&id, name)?;
@@ -677,24 +603,21 @@ fn checked(raw: Raw) -> Result<ExtensionManifest> {
     })
 }
 
-/// Pair `kind` with the one table it is allowed, refusing the other two.
+/// Pair `kind` with the one table it is allowed, refusing the other.
 fn body(
     id: &ExtensionId,
     kind: ExtensionKind,
     service: Option<ServiceTemplate>,
     web_app: Option<WebApp>,
-    desktop_app: Option<DesktopApp>,
 ) -> Result<Body> {
-    let present: [(&'static str, bool); 3] = [
+    let present: [(&'static str, bool); 2] = [
         ("service", service.is_some()),
         ("web-app", web_app.is_some()),
-        ("desktop-app", desktop_app.is_some()),
     ];
 
     let own = match kind {
         ExtensionKind::Service => Some("service"),
         ExtensionKind::WebApp => Some("web-app"),
-        ExtensionKind::DesktopApp => Some("desktop-app"),
         ExtensionKind::Recipe => None,
     };
 
@@ -719,9 +642,6 @@ fn body(
             .map(|template| Body::Service(Box::new(template)))
             .ok_or_else(|| missing("service")),
         ExtensionKind::WebApp => web_app.map(Body::WebApp).ok_or_else(|| missing("web-app")),
-        ExtensionKind::DesktopApp => desktop_app
-            .map(Body::DesktopApp)
-            .ok_or_else(|| missing("desktop-app")),
         ExtensionKind::Recipe => Ok(Body::Recipe),
     }
 }
@@ -976,7 +896,7 @@ mod tests {
         );
     }
 
-    /// The four fixtures are the four kinds, and each one parses into the body its `kind` names.
+    /// Every kind has a fixture, and each one parses into the body its `kind` names.
     #[test]
     fn every_kind_reads() {
         let mailpit = parse(mixengine_testkit::extension::MAILPIT).expect("mailpit parses");
@@ -987,44 +907,8 @@ mod tests {
             parse(mixengine_testkit::extension::PHPMYADMIN).expect("phpmyadmin parses");
         assert!(matches!(phpmyadmin.body, Body::WebApp(_)));
 
-        let mixdb = parse(mixengine_testkit::extension::MIXDB).expect("mixdb parses");
-        assert!(matches!(mixdb.body, Body::DesktopApp(_)));
-
         let sendmail = parse(mixengine_testkit::extension::SENDMAIL).expect("sendmail parses");
         assert!(matches!(sendmail.body, Body::Recipe));
-    }
-
-    /// The MixDB entry describes released software, and the three hints are what the three
-    /// installers actually write — roadmap task **T84**, the design's D4.
-    ///
-    /// **And it names no artifact, which is the entry** (D1): MixDB publishes an NSIS installer, a
-    /// disk image, an AppImage and a Debian package, none of them an archive this workspace
-    /// unpacks, and it updates itself. MixEngine finds an application somebody else installed.
-    #[test]
-    fn the_mixdb_entry_names_no_artifact_and_the_hints_each_installer_writes() {
-        let manifest = parse(mixengine_testkit::extension::MIXDB).expect("the fixture reads");
-
-        assert_eq!(manifest.extension.id.as_str(), "mixdb");
-        assert_eq!(manifest.extension.version.as_str(), "0.0.28");
-        assert_eq!(
-            manifest.extension.homepage.as_deref(),
-            Some("https://github.com/mixnz/mixdb")
-        );
-        assert!(
-            manifest.artifacts.is_empty(),
-            "a desktop-app names no artifact: MixEngine finds it, it does not install it"
-        );
-
-        let Body::DesktopApp(app) = &manifest.body else {
-            panic!("mixdb is a desktop-app");
-        };
-        assert_eq!(app.scheme, "mixdb");
-        assert_eq!(app.detect.windows.as_deref(), Some("mixdb.exe"));
-        assert_eq!(
-            app.detect.macos.as_deref(),
-            Some("io.github.haiquang9994.mixdb")
-        );
-        assert_eq!(app.detect.linux.as_deref(), Some("mixdb.desktop"));
     }
 
     /// **D7.** Mailpit is a supervised service *and* a php.ini change, in one extension, because
@@ -1044,14 +928,23 @@ mod tests {
     #[test]
     fn a_table_from_another_kind_is_refused() {
         let text = with_body(
-            "desktop-app",
-            "[desktop-app]\nscheme = \"probe\"\n\n[service]\nprogram = \"{install_dir}/x\"\ncwd = \"{data_dir}\"\nready = { type = \"pid_alive\", settle = \"1s\" }\n",
+            "web-app",
+            "[web-app]\nroot = \"{install_dir}/app\"\ndomain = \"pma\"\n\n[web-app.runtime]\nkind = \"php\"\nrequires = \"^8.1\"\n\n[service]\nprogram = \"{install_dir}/x\"\ncwd = \"{data_dir}\"\nready = { type = \"pid_alive\", settle = \"1s\" }\n",
         );
 
         assert!(matches!(
             parse(&text),
             Err(Error::ExtensionTableUnexpected { .. })
         ));
+    }
+
+    /// **`desktop-app` is not a kind** — roadmap task **T165**, ADR 0038. A manifest that still
+    /// says so is refused by the reader like any other word it does not know.
+    #[test]
+    fn desktop_app_is_not_a_kind() {
+        let text = with_body("desktop-app", "[desktop-app]\nscheme = \"mixdb\"\n");
+
+        assert!(matches!(parse(&text), Err(Error::ExtensionManifest { .. })));
     }
 
     /// And a kind with none of its own table is a manifest that says nothing about what it is.
@@ -1215,7 +1108,6 @@ mod tests {
             ("mailpit", extension::MAILPIT),
             ("phpmyadmin", extension::PHPMYADMIN),
             ("adminer", extension::ADMINER),
-            ("mixdb", extension::MIXDB),
             ("sendmail", extension::SENDMAIL),
         ] {
             let manifest = parse(text).unwrap_or_else(|error| panic!("{name}: {error}"));

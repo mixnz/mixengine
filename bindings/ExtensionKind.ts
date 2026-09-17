@@ -3,4 +3,4 @@
 /**
  * What an extension *is*, which decides which tables its manifest may carry.
  */
-export type ExtensionKind = "service" | "web-app" | "desktop-app" | "recipe";
+export type ExtensionKind = "service" | "web-app" | "recipe";

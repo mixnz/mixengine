@@ -431,8 +431,8 @@ pub async fn install<W: Watcher>(
                     )
                     .await?;
             } else {
-                // A kind with no artifact — a `recipe`, or a `desktop-app` we only detect — still
-                // gets its directory, so everything downstream can name one place.
+                // A kind with no artifact — a `recipe` — still gets its directory, so everything
+                // downstream can name one place.
                 crate::paths::create_dir(&install_dir)?;
             }
         }

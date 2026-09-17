@@ -1,7 +1,7 @@
 //! Extensions — roadmap task **T80**.
 //!
 //! **Not [`crate::runtimes::extensions`]**, which is about a PHP extension being switched on for
-//! one installed runtime. These are MixEngine's own: Mailpit, phpMyAdmin, MixDB.
+//! one installed runtime. These are MixEngine's own: Mailpit, phpMyAdmin, Adminer.
 //!
 //! T80 reads a manifest and renders it into the thing that would run. Nothing here installs, stores
 //! or starts anything — that is T81, which is deliberately handed a format already proved to make
@@ -21,8 +21,7 @@ pub mod uninstall;
 use std::path::Path;
 
 use mixengine_proto::{
-    ArtifactAvailability, DesktopAppSummary, ExtensionInspection, PortWish, RecipeAddition,
-    WebAppSummary,
+    ArtifactAvailability, ExtensionInspection, PortWish, RecipeAddition, WebAppSummary,
 };
 
 use crate::index::format::{Arch, Os};
@@ -87,14 +86,6 @@ pub fn inspect(paths: &Paths, path: &Path) -> Result<ExtensionInspection> {
         _ => None,
     };
 
-    let opens = match &read.body {
-        Body::DesktopApp(app) => Some(DesktopAppSummary {
-            scheme: app.scheme.clone(),
-            detect: app.detect.here().map(str::to_owned),
-        }),
-        _ => None,
-    };
-
     let extends = additions(&read, &context)?;
 
     Ok(ExtensionInspection {
@@ -118,7 +109,6 @@ pub fn inspect(paths: &Paths, path: &Path) -> Result<ExtensionInspection> {
         permissions: read.permissions.clone(),
         runs,
         serves,
-        opens,
         extends,
     })
 }
@@ -235,21 +225,21 @@ mod tests {
         let home = tempfile::tempdir().expect("a directory");
         let paths = Paths::new(home.path().to_path_buf(), &PathOverrides::default());
         std::fs::create_dir_all(paths.extensions()).expect("a directory");
-        let file = paths.extensions().join("mixdb.toml");
-        std::fs::write(&file, mixengine_testkit::extension::MIXDB).expect("written");
+        let file = paths.extensions().join("sendmail.toml");
+        std::fs::write(&file, mixengine_testkit::extension::SENDMAIL).expect("written");
 
         let inspection = inspect(&paths, &file).expect("inspects");
 
         assert!(inspection.runs.is_none());
-        assert!(inspection.opens.is_some());
+        assert!(inspection.serves.is_none());
         assert!(matches!(
             inspection.artifact,
             ArtifactAvailability::NotRequired
         ));
     }
 
-    /// An artifact published for other systems is a **state**, not a failure — the shape T83 gives
-    /// "MixDB is not installed".
+    /// An artifact published for other systems is a **state**, not a failure — the shape
+    /// `database.client` gives an install with no window.
     #[test]
     fn an_artifact_for_another_machine_is_a_state() {
         let home = tempfile::tempdir().expect("a directory");
