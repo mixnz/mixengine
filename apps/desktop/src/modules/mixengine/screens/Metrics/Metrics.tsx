@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -63,58 +66,61 @@ export default function Metrics({ active }: { active: boolean }) {
   const from = windowStart(minutes[0]?.minute ?? null, to, retention);
 
   return (
-    <div className={styles.metrics}>
+    <div className={`mixengine-page ${styles.metrics}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <header className={styles.header}>
-        <span>{t("mixengine.metrics.subject")}</span>
-        <Select
-          value={subject}
-          onChange={setSubject}
-          searchable
-          options={[
-            { value: DAEMON_SUBJECT, label: t("mixengine.metrics.daemon") },
-            ...subjects.map((s) => ({ value: s, label: s.replace(/^service:/, "") })),
-          ]}
-        />
-      </header>
+      <PageHeader title={t("mixengine.sidebar.metrics")} description={t("mixengine.metrics.about")} />
 
-      {minutes.length === 0 ? (
-        <p className={styles.empty}>{t("mixengine.metrics.empty")}</p>
-      ) : (
-        <>
-          <section>
-            <h3 className={styles.title}>{t("mixengine.metrics.cpu")}</h3>
-            <Chart
-              segments={segments}
-              from={from}
-              to={to}
-              unit={CPU_UNIT}
-              label={t("mixengine.metrics.cpu")}
-              avg={(m) => m.cpu_avg}
-              peak={(m) => m.cpu_peak}
-            />
-          </section>
-          <section>
-            <h3 className={styles.title}>{t("mixengine.metrics.rss")}</h3>
-            <Chart
-              segments={segments}
-              from={from}
-              to={to}
-              unit={RSS_UNIT}
-              label={t("mixengine.metrics.rss")}
-              avg={(m) => m.rss_avg}
-              peak={(m) => m.rss_peak}
-            />
-          </section>
-        </>
-      )}
-
-      {history && (
-        <p className={styles.retention}>
-          {t("mixengine.metrics.retention", { hours: history.retention_hours })}
-        </p>
-      )}
+      <Card
+        title={t("mixengine.metrics.history")}
+        description={history ? t("mixengine.metrics.retention", { hours: history.retention_hours }) : undefined}
+        actions={
+          <Select
+            className={styles.subject}
+            value={subject}
+            onChange={setSubject}
+            searchable
+            ariaLabel={t("mixengine.metrics.subject")}
+            options={[
+              { value: DAEMON_SUBJECT, label: t("mixengine.metrics.daemon") },
+              ...subjects.map((s) => ({ value: s, label: s.replace(/^service:/, "") })),
+            ]}
+          />
+        }
+      >
+        {minutes.length === 0 ? (
+          <EmptyState title={t("mixengine.metrics.empty")} />
+        ) : (
+          <div className={styles.charts}>
+            <section>
+              <h3 className={styles.title}>{t("mixengine.metrics.cpu")}</h3>
+              <Chart
+                segments={segments}
+                from={from}
+                to={to}
+                unit={CPU_UNIT}
+                label={t("mixengine.metrics.cpu")}
+                avg={(m) => m.cpu_avg}
+                peak={(m) => m.cpu_peak}
+                hue="sky"
+              />
+            </section>
+            <section>
+              <h3 className={styles.title}>{t("mixengine.metrics.rss")}</h3>
+              <Chart
+                segments={segments}
+                from={from}
+                to={to}
+                unit={RSS_UNIT}
+                label={t("mixengine.metrics.rss")}
+                avg={(m) => m.rss_avg}
+                peak={(m) => m.rss_peak}
+                hue="purple"
+              />
+            </section>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

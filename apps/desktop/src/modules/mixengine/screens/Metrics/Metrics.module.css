@@ -1,31 +1,21 @@
 .metrics {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  position: relative;
   width: 100%;
-  box-sizing: border-box;
-  overflow: auto;
 }
 
-.header {
+.subject {
+  width: 16rem;
+}
+
+.charts {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 22px;
 }
 
 .title {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: var(--text-sm);
-  color: var(--text-muted);
-}
-
-.empty {
-  color: var(--text-muted);
-}
-
-.retention {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
 }
