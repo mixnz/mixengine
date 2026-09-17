@@ -459,6 +459,7 @@ const vi: typeof en = {
       summary: "{{label}}, {{from}} tới {{to}}. Đo được {{count}} phút, đỉnh {{peak}}.",
     },
     settings: {
+      about: "MixEngine này được thiết lập, cập nhật, kiểm tra và gỡ bỏ ra sao.",
       general: {
         title: "Chung",
         root: "Thư mục root: {{path}}",

@@ -469,6 +469,7 @@ export default {
       summary: "{{label}}, {{from}} to {{to}}. {{count}} minutes measured, peaking at {{peak}}.",
     },
     settings: {
+      about: "How this MixEngine is set up, kept current, checked and removed.",
       general: {
         title: "General",
         root: "Root directory: {{path}}",

@@ -5,7 +5,6 @@ import Modal from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { IS_MAC, IS_WINDOWS } from "../../../../core/platform";
 import { useTranslation } from "../../../../i18n";
-import settingsStyles from "./Settings.module.css";
 import styles from "./UninstallConfirmDialog.module.css";
 
 /**
@@ -67,7 +66,7 @@ export default function UninstallConfirmDialog({
             </Button>
             <Button
               size="large"
-              className={settingsStyles.danger}
+              variant="danger"
               onClick={() => void allow()}
               disabled={busy}
             >

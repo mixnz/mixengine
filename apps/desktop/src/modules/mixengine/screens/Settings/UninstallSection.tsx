@@ -200,7 +200,7 @@ export default function UninstallSection({
 
   if (done) {
     return (
-      <section className={styles.section}>
+      <section className={`${styles.section} ${styles.dangerSection}`}>
         <h3 className={styles.sectionTitle}>{t("mixengine.settings.uninstall.title")}</h3>
         <p>{t("mixengine.settings.uninstall.done")}</p>
       </section>
@@ -208,7 +208,7 @@ export default function UninstallSection({
   }
 
   return (
-    <section className={styles.section}>
+    <section className={`${styles.section} ${styles.dangerSection}`}>
       <h3 className={styles.sectionTitle}>{t("mixengine.settings.uninstall.title")}</h3>
 
       <Checkbox
@@ -232,7 +232,7 @@ export default function UninstallSection({
           {job.message && ` ${job.message}`}
         </p>
       ) : (
-        <Button className={styles.danger} onClick={() => setConfirmOpen(true)}>
+        <Button variant="danger" className={styles.start} onClick={() => setConfirmOpen(true)}>
           {t("mixengine.settings.uninstall.start")}
         </Button>
       )}

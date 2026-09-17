@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -50,9 +51,10 @@ export default function Settings({
   }, [active, reload]);
 
   return (
-    <div className={styles.settings}>
+    <div className={`mixengine-page ${styles.settings}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
+      <PageHeader title={t("mixengine.sidebar.settings")} description={t("mixengine.settings.about")} />
       {status && (
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>{t("mixengine.settings.general.title")}</h3>
