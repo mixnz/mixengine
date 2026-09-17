@@ -156,7 +156,11 @@
   gap: 2px;
 }
 
+/* `flex-shrink: 0` is what makes a long list scroll. The listbox is a flex column of limited
+   height, and a row with `overflow: hidden` may otherwise shrink below its content — so the rows
+   were squeezed to fit, their text cut through the middle, instead of the list scrolling. */
 .option {
+  flex-shrink: 0;
   padding: 0.55em 0.7em;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -188,6 +192,7 @@
 }
 
 .empty {
+  flex-shrink: 0;
   padding: 0.55em 0.7em;
   color: var(--text-muted);
 }

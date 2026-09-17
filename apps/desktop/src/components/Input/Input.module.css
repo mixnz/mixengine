@@ -2,6 +2,11 @@
   box-sizing: border-box;
   border-radius: var(--radius-md);
   border: 1px solid var(--control-border);
+  /* No vertical padding: the size classes below set the height, as Select's trigger and Button do.
+     The app-wide `input` rule pads by 0.6em, which in a compact region made a field taller than the
+     select beside it. `.textarea` puts its own back. */
+  padding-top: 0;
+  padding-bottom: 0;
   font-weight: 400;
   font-family: inherit;
   /* A mono face with ligatures (the app shipped Fira Code until the 2026 redesign, and a user's

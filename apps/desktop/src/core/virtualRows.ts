@@ -462,6 +462,34 @@ function ruler(): CanvasRenderingContext2D | null {
 }
 
 /**
+ * An element drawn in the font the grid's values are: a data cell, not the grid.
+ *
+ * The two stopped agreeing when the app's text moved to a sans face and the cells kept a mono one —
+ * a stylesheet sets `tbody td` apart from the table around it. Measured in the grid's own font, a
+ * value came out narrower than it is drawn, and a column of timestamps ended every one of them in
+ * an ellipsis. When no row is on screen yet a cell is put in for the reading and taken straight out
+ * again, in the same task, so nothing is ever laid out or painted with it.
+ */
+function bodyFont(grid: HTMLElement): FontParts {
+  const cell = grid.querySelector("tbody td");
+  if (cell) return fontParts(getComputedStyle(cell));
+  const probe = document.createElement("tbody");
+  const td = probe.appendChild(document.createElement("tr")).appendChild(document.createElement("td"));
+  grid.appendChild(probe);
+  // Copied out while the probe is attached: a computed style is live, and empty once it is removed.
+  const parts = fontParts(getComputedStyle(td));
+  probe.remove();
+  return parts;
+}
+
+type FontParts = Pick<CSSStyleDeclaration, "fontStyle" | "fontWeight" | "fontSize" | "fontFamily">;
+
+function fontParts(style: FontParts): FontParts {
+  const { fontStyle, fontWeight, fontSize, fontFamily } = style;
+  return { fontStyle, fontWeight, fontSize, fontFamily };
+}
+
+/**
  * How wide each column has to be, worked out without laying a single row out.
  *
  * The text is measured against a canvas in the grid's own font rather than by the layout engine,
@@ -486,15 +514,15 @@ export function measureColumns(
   if (!ink) return null;
   /** Assembled by hand rather than read from `style.font`: the shorthand comes back empty in some
    *  engines, and every part of it is available separately. */
-  const font = (style: CSSStyleDeclaration) =>
+  const font = (style: FontParts) =>
     `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
 
-  const body = font(getComputedStyle(grid));
+  const body = font(bodyFont(grid));
   // Taken from a header cell rather than assumed to be the body in bold. A `th` is bold by default
   // and a stylesheet may make it something else again, and a name measured a weight lighter than it
   // is drawn is a name with an ellipsis in a column wide enough for it.
   const headCell = grid.querySelector("thead th");
-  const head = headCell ? font(getComputedStyle(headCell)) : body;
+  const head = headCell ? font(fontParts(getComputedStyle(headCell))) : body;
 
   return headers.map((name, c) => {
     ink.font = head;

@@ -538,7 +538,7 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
   ];
 
   return (
-    <div className="rest-tab" data-density="compact">
+    <div className="rest-tab">
       <aside className="rest-sidebar" style={{ width }}>
         <RequestList
           lists={lists}

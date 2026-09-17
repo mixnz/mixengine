@@ -321,6 +321,9 @@ button.saved-list-new {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-2xl);
+  /* Tall enough for descenders: `overflow: hidden` (for the ellipsis) clips at the line box, and a
+     tighter line cut the tail off every g, p and y in a connection's name. */
+  line-height: 1.3;
   font-weight: 600;
   letter-spacing: -0.02em;
 }

@@ -86,7 +86,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   box-shadow: none;
-  color: var(--text-secondary);
+  color: var(--text);
   font-size: var(--text-md);
   cursor: pointer;
   white-space: nowrap;
@@ -103,16 +103,14 @@
 .tab:hover:not(.tabActive) {
   background: var(--hover-bg);
   border-color: var(--border);
-  color: var(--text);
 }
 
-/* The open tab stands out of the strip as a surface of its own. Nothing about it changes its width:
-   on a strip of tabs the only thing allowed to move is the tab being dragged. */
+/* The open tab stands out of the strip as a surface of its own; its text reads exactly as every
+   other tab's. Nothing about it changes its width: on a strip of tabs the only thing allowed to
+   move is the tab being dragged. */
 .tabActive {
   background: var(--button-bg);
   border-color: var(--border-strong);
-  color: var(--text);
-  font-weight: 500;
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -225,7 +223,6 @@
 .small .tabActive {
   background: var(--choice-active-bg);
   border-color: var(--border-strong);
-  color: var(--text);
 }
 
 .small .action {

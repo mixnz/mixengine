@@ -185,7 +185,9 @@ function TerminalTab({ active, onTitleChange, onBadgesChange, restored, onStateC
   const target = useMemo(() => (choice ? terminalTarget(choice) : null), [choice]);
 
   return (
-    <div className="terminal-tab" data-density="compact">
+    // Compact only around a session: the form that picks a target is a form, drawn at the same
+    // size as the database module's connection form.
+    <div className="terminal-tab" data-density={target ? "compact" : undefined}>
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
       {target ? (
         <>
