@@ -817,13 +817,13 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
 }
 
 /// **The only test in the workspace in which a real credential reaches a real process through the
-/// handoff** — roadmap task **T83**, its design's D2. A desktop entry in a data directory of this
-/// test's own points at a script that records its first argument and *whether* the variable is
-/// set — never its value, which is the module note's rule at one more address.
+/// handoff** — roadmap task **T83**, its design's D2, on the window since **T165**. A copy of the
+/// daemon runs out of a directory of this test's own, with a script named as MixLab's window beside
+/// it; the script records its first argument and *whether* the variable is set — never its value,
+/// which is the module note's rule at one more address.
 ///
-/// Linux only: it is the one system where a data directory can be named through the environment
-/// of the daemon this test starts. The Windows and macOS lookups are asked for real, for an
-/// application no machine has, in `database.rs`.
+/// Linux only: a script can be an executable named `mixlab` there, where Windows needs an `.exe`
+/// and macOS a bundle.
 ///
 /// # Why this service is not `mariadb@main`
 ///
@@ -845,12 +845,15 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
     /// The service this test drives — see the note above for why it is not [`SERVICE`].
     const HANDOFF: &str = "mariadb@handoff";
 
-    // The fake client: a script, a desktop entry naming it, and the file it reports into.
-    let data = tempfile::tempdir().expect("a data dir");
+    // The fake window: a script named as this install's window, beside a copy of the daemon — the
+    // one place `locate_window` looks on Linux — and the file it reports into.
+    let data = tempfile::tempdir().expect("a directory for the fake install");
     let record = data.path().join("received.txt");
-    let script = data.path().join("fake-mixdb.sh");
+    let install = data.path().join("bin");
+    std::fs::create_dir_all(&install).expect("the install directory");
+    let window = install.join("mixlab");
     std::fs::write(
-        &script,
+        &window,
         format!(
             "#!/bin/sh\nprintf 'url=%s\\n' \"$1\" > '{0}'\n\
              if [ -n \"$MIXENGINE_DB_PASSWORD\" ]; then echo 'password=present' >> '{0}'; \
@@ -859,19 +862,10 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
         ),
     )
     .expect("the script");
-    std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o755)).expect("executable");
-    let applications = data.path().join("applications");
-    std::fs::create_dir_all(&applications).expect("applications");
-    std::fs::write(
-        applications.join("mixengine-fake.desktop"),
-        format!(
-            "[Desktop Entry]\nName=Fake\nExec={} %u\nType=Application\n",
-            script.display()
-        ),
-    )
-    .expect("the entry");
+    std::fs::set_permissions(&window, std::fs::Permissions::from_mode(0o755)).expect("executable");
+    let daemon = harness::daemon_installed_in(&install);
 
-    // `created()`'s steps, with a daemon that reads its data directories from this test.
+    // `created()`'s steps, with a daemon run from the fake install.
     let root = package();
     let port = free_port();
     let packing = if cfg!(windows) {
@@ -890,11 +884,8 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
     registry.publish(&index(&packed, &url, provides(&root)));
 
     let home = Home::new();
-    let _daemon = home.start_daemon_reading_index_with_env(
-        &registry.url(),
-        registry.public_key(),
-        &[("XDG_DATA_HOME", &data.path().display().to_string())],
-    );
+    let _daemon =
+        home.start_daemon_from_reading_index(&daemon, &registry.url(), registry.public_key());
     watch(&home);
 
     at("installing the package");
@@ -914,26 +905,7 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
         ],
     );
 
-    at("installing a desktop-app extension that names the fake client");
-    let manifest = "schema = 1\n\n[extension]\nid = \"mixdb\"\nname = \"MixDB\"\n\
-                    version = \"0.0.1\"\nkind = \"desktop-app\"\ndescription = \"fake\"\n\n\
-                    [desktop-app]\nscheme = \"mixdb\"\n\n[desktop-app.detect]\n\
-                    linux = \"mixengine-fake.desktop\"\n\n[permissions]\nnetwork = \"loopback\"\n";
-    let extension = tempfile::tempdir().expect("an extension dir");
-    std::fs::write(extension.path().join("extension.toml"), manifest).expect("the manifest");
-    expect(
-        &home,
-        &[
-            "extension",
-            "install",
-            "--path",
-            &extension.path().display().to_string(),
-            "--yes",
-            "--json",
-        ],
-    );
-
-    at("opening the database in the fake client, which starts the server and its first run");
+    at("opening the database in the fake window, which starts the server and its first run");
     let opened = expect(&home, &["database", "open", HANDOFF, "--json"]);
     assert_eq!(opened["launched"]["launch"], "handed_on", "{opened}");
     assert_eq!(opened["secret"]["service"], "mixengine", "{opened}");

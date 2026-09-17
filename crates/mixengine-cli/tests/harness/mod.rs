@@ -180,7 +180,7 @@ impl Home {
     /// Killed when the returned handle drops. Nothing here uses `--detach`: a foreground daemon is
     /// this process's child, which is what makes it stoppable at the end of a test.
     pub(crate) fn start_daemon(&self) -> Daemon {
-        self.spawn_daemon(&[], &[])
+        self.spawn_daemon(&[])
     }
 
     /// The same, started with arguments of the caller's own — roadmap task **T147**.
@@ -188,40 +188,37 @@ impl Home {
     /// The four relocation flags are the caller this exists for: what they claim is about a
     /// *start*, so a test about a relocated home has to be one that started a daemon with them.
     pub(crate) fn start_daemon_with(&self, arguments: &[&str]) -> Daemon {
-        self.spawn_daemon(arguments, &[])
+        self.spawn_daemon(arguments)
     }
 
     /// The same, for a daemon that reads its package index from a registry this test is serving.
     pub(crate) fn start_daemon_reading_index(&self, url: &str, key: &str) -> Daemon {
-        self.spawn_daemon(&["--index-url", url, "--index-key", key], &[])
+        self.spawn_daemon(&["--index-url", url, "--index-key", key])
     }
 
-    /// [`start_daemon_reading_index`](Self::start_daemon_reading_index), with these variables in
-    /// the daemon's environment — what a Linux locator reads its data directories from (T83).
-    ///
-    /// On the child rather than through `std::env::set_var`, for [`mix_in`](Self::mix_in)'s
-    /// reason.
-    pub(crate) fn start_daemon_reading_index_with_env(
+    /// [`start_daemon_reading_index`](Self::start_daemon_reading_index), from a daemon binary of the
+    /// caller's own — roadmap task **T165**. See [`daemon_installed_in`].
+    pub(crate) fn start_daemon_from_reading_index(
         &self,
+        binary: &Path,
         url: &str,
         key: &str,
-        environment: &[(&str, &str)],
     ) -> Daemon {
-        self.spawn_daemon(&["--index-url", url, "--index-key", key], environment)
+        self.spawn_daemon_from(binary, &["--index-url", url, "--index-key", key])
     }
 
-    fn spawn_daemon(&self, arguments: &[&str], environment: &[(&str, &str)]) -> Daemon {
-        let mut command = Command::new(daemon_binary());
+    fn spawn_daemon(&self, arguments: &[&str]) -> Daemon {
+        self.spawn_daemon_from(&daemon_binary(), arguments)
+    }
+
+    fn spawn_daemon_from(&self, binary: &Path, arguments: &[&str]) -> Daemon {
+        let mut command = Command::new(binary);
         command
             .arg("--home")
             .arg(self.path())
             .args(arguments)
             .stdout(Stdio::null())
             .stderr(Stdio::null());
-
-        for (name, value) in environment {
-            command.env(name, value);
-        }
 
         let daemon = Daemon(command.spawn().expect("the daemon binary runs"));
         self.wait_until_listening();
@@ -364,6 +361,25 @@ pub(crate) fn daemon_binary() -> PathBuf {
     );
 
     daemon
+}
+
+/// Copy this build's `mixengined`, and the `mixengine-shim` it reaches for beside itself, into
+/// `directory` — roadmap task **T165** — and hand back the copied daemon.
+///
+/// **For a test about what a daemon finds beside itself.** MixLab's window is looked for next to the
+/// running program and nowhere else, so the only way to give a daemon a window of the test's own is
+/// to run a daemon out of a directory of the test's own. `std::fs::copy` keeps the executable bit.
+pub(crate) fn daemon_installed_in(directory: &Path) -> PathBuf {
+    let built = daemon_binary();
+    let source = built.parent().expect("the build directory");
+
+    for name in ["mixengined", "mixengine-shim"] {
+        let file = format!("{name}{}", std::env::consts::EXE_SUFFIX);
+        std::fs::copy(source.join(&file), directory.join(&file))
+            .unwrap_or_else(|error| panic!("copying {file} beside the test's window: {error}"));
+    }
+
+    directory.join(format!("mixengined{}", std::env::consts::EXE_SUFFIX))
 }
 
 /// The JSON a successful `mix --json` printed.
