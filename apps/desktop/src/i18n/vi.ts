@@ -87,6 +87,7 @@ const vi: SharedDict = {
     themeDark: "Tối",
     themeSystem: "Hệ thống",
     accent: "Màu chủ đạo",
+    accentMint: "Xanh bạc hà",
     accentBlue: "Xanh dương",
     accentIndigo: "Chàm",
     accentViolet: "Tím",

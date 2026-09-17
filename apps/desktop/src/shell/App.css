@@ -1,50 +1,47 @@
 :root {
-  /* Chữ có hai vai, không phải một giá trị. `--font-ui` là thứ app tự nói ra — nhãn, nút, tab,
-     menu, tiêu đề. `--font-mono` là thứ đến từ database.
-
-     Ranh giới không phải "chỗ nào trông hợp", mà là: mono khi việc so từng ký tự là thật. Một giá
-     trị `varchar` cần thấy được khoảng trắng cuối và phân biệt được `l` với `1`; nhãn "Save
-     connection" thì không, và sans quét nhanh hơn ở cỡ chữ nhỏ.
-
-     Trước đây chỉ có một vai, nên mọi thứ mang vai đó — kể cả đoạn văn dài trong Settings, vốn đang
-     được đọc bằng một font lập trình. */
+  /* Two roles for type, not one value. `--font-ui` is what the app says itself — labels, buttons,
+     tabs, menus, titles. `--font-mono` is what arrives from somewhere else: a value from a
+     database, a path, a port, a version, a domain, a command. Mono where comparing character by
+     character is real, sans everywhere else. */
   --font-ui: "Geist Variable", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
 
+  /* The type scale. A size outside it is a mistake, not a choice — see
+     .claude/desktop/decisions/2026-09-17-mixlab-redesign-tokens-themes-densities.md. */
+  --text-2xs: 11.5px; /* badge sub-lines */
+  --text-xs: 12px; /* column heads, captions, group labels */
+  --text-sm: 12.5px; /* field labels, secondary lines */
+  --text-md: 13.5px; /* body and controls */
+  --text-lg: 15px; /* card titles */
+  --text-xl: 18px; /* dialog titles */
+  --text-2xl: 28px; /* page titles */
+
+  /* The radius scale, by what wears it. */
+  --radius-xs: 6px; /* tags, code, badges */
+  --radius-sm: 8px; /* row-sized buttons, options, list rows */
+  --radius-md: 10px; /* fields and page buttons */
+  --radius-lg: 12px; /* popovers, inset panels, segmented tracks */
+  --radius-xl: 16px; /* cards */
+  --radius-2xl: 18px; /* dialogs */
+  --radius-pill: 999px; /* chips, status pills, switches */
+
+  /* Comfortable density. A region that holds rows rather than forms sets
+     `data-density="compact"` and the block below redefines these beneath it; components read
+     these and never pick a density themselves. */
+  --control-h-lg: 44px; /* page-level actions */
+  --control-h: 40px; /* fields, dialog buttons */
+  --control-h-sm: 36px; /* row actions */
+  --control-h-xs: 32px; /* chips, inline toggles */
+  --row-h: 60px; /* a table row */
+  --list-row-h: 48px; /* a list row with a badge */
+  --text-body: 13.5px;
+
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: var(--text-body);
   line-height: 20px;
   font-weight: 400;
-
-  /* Bốn bậc, và không có bậc thứ năm.
-
-     Trước đợt này app có 179 khai báo `font-size` theo `em` và 71 theo `rem` — nghĩa là không có
-     thang nào cả, chỉ có những lần điều chỉnh cục bộ chồng lên nhau, và một `0.9em` nằm trong một
-     `0.9em` khác ra một cỡ chữ không ai định. Bốn con số này là thang; một cỡ chữ ngoài chúng là
-     một sai sót, không phải một lựa chọn.
-
-     14px chứ không phải 16px vì đây là công cụ người ta mở tám tiếng một ngày để làm việc, không
-     phải một trang để ngắm: chữ nhỏ hơn nghĩa là nhiều dòng dữ liệu hơn trên một màn, và đó là
-     thứ đáng đánh đổi ở đây. */
-  --text-xs: 12px; /* badge, caption, chú thích */
-  --text-sm: 13px; /* label phụ, dòng trạng thái */
-  --text-md: 14px; /* thân, mọi control */
-  --text-lg: 16px; /* tiêu đề pane, tiêu đề dialog */
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  /* Chữ đã lùi một bậc: caption, chú thích, tiêu đề nhóm — thứ vẫn phải đọc được nhưng không được
-     giành chỗ với nội dung.
-
-     Token này đã được khoảng hai mươi chỗ trong module mixengine với tới trong khi không nơi nào
-     định nghĩa nó. `color` là thuộc tính kế thừa, nên một `var()` không giải được không rơi về màu
-     mặc định mà rơi về `inherit`: mọi dòng đáng lẽ mờ đều hiện ở đúng màu của nội dung quanh nó, và
-     lỗi ấy im lặng — không có gì báo, chỉ có một cấp bậc không còn đọc ra.
-
-     Một màu đặc chứ không phải `opacity`: lớp mờ ăn theo bất cứ thứ gì nằm dưới, nên cùng một dòng chữ
-     ra hai màu khác nhau trên nền trang và trên một hàng đang hover. */
-  --text-muted: #6b6b6b;
+  color: var(--text);
+  background-color: var(--page-bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -52,224 +49,264 @@
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 
-  /* Three steps, used everywhere. Anything smaller than a control (badge, chip, swatch ring) takes
-     `sm`, a control or a row takes `md`, and anything that floats above the page (dialog, menu,
-     panel) takes `lg`. A radius outside this set is a mistake, not a choice. */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-
   /* The gap between a tab's view and the window. Held by the view rather than by the tab that
      holds it, so a veil over the view can still cover the gap — see `.tab-content`. */
   --view-padding: 0.25rem;
 
-  /* Grey at three weights, so the twenty-odd `rgba(128, 128, 128, …)` these replaced can't drift
-     apart. Grey rather than a tinted neutral: it sits under every accent without arguing. */
-  --border-soft: rgb(128 128 128 / 0.15);
-  --border: rgb(128 128 128 / 0.25);
-  --border-strong: rgb(128 128 128 / 0.45);
-  --hover-bg: rgb(128 128 128 / 0.12);
-
-  /* Height above the page. A control is *on* the page and casts almost nothing; only what floats
-     gets a real shadow. The old control shadow was `0 2px 2px rgb(0 0 0 / 0.2)` — a hard dark bar
-     under every input, which is most of what made the app look heavy. */
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
-  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.12);
-  --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.18);
-
-  /* Shared visual language for form controls (input/button/textarea/select
-     trigger) — referenced from here and from Button/Input/Select's own CSS
-     modules so the two layers can't drift out of sync. */
-  --control-radius: var(--radius-md);
-  --control-shadow: var(--shadow-sm);
-  --control-color: #0f0f0f;
-  --control-bg: #ffffff;
-  --control-bg-active: #e8e8e8;
-  --control-border: var(--border);
-  --control-border-focus: var(--accent);
+  /* Surfaces, light theme. The dark theme restates every one of these at the foot of the file. */
+  --page-bg: #f5f7fa;
+  --chrome-bg: #edf0f4;
+  --sidebar-bg: #fafbfc;
   --surface-bg: #ffffff;
-  --page-bg: #f6f6f6;
+  --surface-sunken: #f3f6f9;
+  --table-head-bg: #f7f9fb;
+  --control-bg: #ffffff;
+  --button-bg: #ffffff;
+  --popover-bg: #ffffff;
+  --track-bg: #eef1f5;
+  --neutral-bg: #eef1f5;
+  --hover-bg: #f3f6f9;
+  --active-bg: #e3e8ef;
+  --choice-active-bg: #ffffff;
+  --option-selected-bg: #eef1f5;
+  --scrim: rgb(15 23 42 / 0.32);
 
-  /* Nền của ô đang được chọn trong một segmented control — `.choice-active` bên `modules/db/db.css`,
-     `.tab.active` bên `modules/tools/.../encode`. Riêng ra khỏi `--surface-bg` vì cả nhóm quanh nó
-     đã tô `--hover-bg`: trong theme tối `--surface-bg` đúng bằng màu trang, nên ô đang chọn hoá ra
-     *tối hơn* nhóm và đọc ra như một lỗ thủng, còn những ô không được chọn mới là cái trông nổi
-     lên. Ô được chọn phải nổi khỏi nhóm ở cả hai theme, nên nó có token riêng. */
-  --choice-active-bg: var(--surface-bg);
+  /* Lines. */
+  --border-soft: #eef1f5;
+  --border: #e2e7ee;
+  --chrome-border: #dde3ea;
+  --control-border: #d5dce5;
+  --border-strong: #d5dce5;
+  --border-hover: #b9c3d0;
+  --scrollbar-thumb: #c5cdd8;
+  --scrollbar-thumb-hover: #aab4c2;
+
+  /* Text. `--text-faint` is for placeholders and the dash of an empty cell only: it does not
+     reach 4.5:1 and is not meant to carry anything that has to be read. */
+  --text: #141a23;
+  --text-secondary: #4f5b6c;
+  --text-muted: #626e80;
+  --text-faint: #7a8596;
+  --text-disabled: #a3adba;
+
+  /* Status, each as text, a solid for dots and borders, and channels for its washes. Red is never
+     an accent: it is what *delete* means here. */
+  --success: #2fa36b;
+  --success-text: #1c7a4e;
+  --success-rgb: 47 163 107;
+  --warning: #946300;
+  --warning-text: #946300;
+  --warning-rgb: 217 154 30;
+  --danger: #d64a3f;
+  --danger-text: #c0392e;
+  --danger-rgb: 214 74 63;
+
+  /* Categorical hues for badges and chart series, drawn as text on a wash of themselves. */
+  --cat-wash-alpha: 0.12;
+  --cat-teal: #176e65;
+  --cat-teal-rgb: 23 110 101;
+  --cat-sand: #7f5b39;
+  --cat-sand-rgb: 127 91 57;
+  --cat-sky: #23709a;
+  --cat-sky-rgb: 35 112 154;
+  --cat-periwinkle: #4f59c2;
+  --cat-periwinkle-rgb: 79 89 194;
+  --cat-coral: #b2412a;
+  --cat-coral-rgb: 178 65 42;
+  --cat-blue: #4460bd;
+  --cat-blue-rgb: 68 96 189;
+  --cat-purple: #7152cc;
+  --cat-purple-rgb: 113 82 204;
+  --cat-green: #1b7048;
+  --cat-green-rgb: 27 112 72;
+
+  /* Elevation. A card on the light page takes a hairline shadow so white does not dissolve into
+     near-white; in the dark theme depth is carried by the surfaces alone. */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-popover: 0 20px 48px -14px rgb(15 23 42 / 0.16);
+  --shadow-dialog: 0 40px 100px -20px rgb(15 23 42 / 0.22);
+  --shadow-primary: 0 6px 20px -8px rgb(var(--accent-rgb) / 0.45);
+
+  /* Names the app used before the redesign, pointed at their new roles until T158–T163 move every
+     consumer across. */
+  --shadow-sm: var(--shadow-card);
+  --shadow-md: var(--shadow-popover);
+  --shadow-lg: var(--shadow-dialog);
+  --control-radius: var(--radius-md);
+  --control-shadow: none;
+  --control-color: var(--text);
+  --control-bg-active: var(--active-bg);
+  --control-border-focus: var(--accent-text);
 
   /* What a *pinned* strip paints with: a grid's header, its totals, the column of buttons held
      against the right edge. Carried as a variable rather than a class because a `<th>` cannot
      compose one: the rules that pin these strips are descendant selectors (`.grid thead th`). */
   --rail-bg: var(--page-bg);
 
-  /* One ring, one meaning: keyboard focus.
+  /* One ring, one meaning: keyboard focus. Drawn inside the border box, because this app nests
+     scroll panes inside `overflow: hidden` workspaces several deep and an outset ring loses its
+     edges there. Solid rather than a translucent accent: the ring has to clear 3:1 on a white card,
+     and a half-transparent mint does not. */
+  --focus-ring: inset 0 0 0 2px var(--accent-text);
 
-     Drawn *inside* the border box. A ring painted outside is at the mercy of every ancestor that
-     clips — this app nests scroll panes inside `overflow: hidden` workspaces several deep, and the
-     filter bar sits flush against the top edge of one, so an outset ring lost its top edge with no
-     padding that could be added locally to bring it back. Inset costs nothing: the controls carry
-     enough padding that 2px never reaches the text. */
-  --focus-ring: inset 0 0 0 2px rgb(var(--accent-rgb) / 0.5);
+  /* The accent, in four handles: the fill (`--accent`), the accent as text or icon on the page
+     (`--accent-text`), the ink on a filled button (`--accent-on-solid`), and bare channels for
+     washes. Nothing outside these blocks names a hue. */
+  --accent: var(--c-mint);
+  --accent-text: var(--c-mint-text);
+  --accent-on-solid: var(--c-mint-on-solid);
+  --accent-rgb: var(--c-mint-rgb);
+  --accent-solid: var(--accent);
 
-  /* The accent as a filled surface — the primary button. Light mode fills with the darker text
-     cast so white type on it clears 4.5:1 (the plain `--accent` is too light for that on the
-     greener hues); dark mode fills with `--accent` and puts near-black type on top. */
-  --accent-solid: var(--accent-text);
-  --accent-on-solid: #ffffff;
+  /* Every palette stays defined whichever one is in force, so the swatches in Settings can each
+     paint themselves from their own `--c-<name>`. Each hue's `-text` reads at 4.5:1 on every
+     surface above and on its own wash, and its `-on-solid` reads at 4.5:1 on its fill — asserted by
+     `contrast.test.ts`, not by eye. */
+  --c-mint: #5ec4a1;
+  --c-mint-text: #387661;
+  --c-mint-on-solid: #062117;
+  --c-mint-rgb: 94 196 161;
 
-  /* The accent, in the three forms the app actually uses it in: solid for borders and icons, a
-     darker (light mode) or lighter (dark mode) cast for text that has to stay readable against the
-     page, and bare channels so a rule can mix its own wash with `rgb(var(--accent-rgb) / a)`
-     instead of every wash needing a token of its own. Nothing outside this block should name a
-     hue: an accent the user can change means these three are the only handles the rest of the app
-     may hold. */
-  --accent: var(--c-blue);
-  --accent-text: var(--c-blue-text);
-  --accent-rgb: var(--c-blue-rgb);
-
-  /* Destructive, in the same three forms the accent has: solid for a border, an icon or a filled
-     bar; a darker cast for text that has to stay readable against the page; and bare channels so
-     a rule can mix its own wash with `rgb(var(--danger-rgb) / a)`.
-
-     Not one of the ten accent palettes and never chosen by the user: red is what *delete* means
-     here, and an accent that could also be red would leave a Delete button reading as the
-     recommended one. Which is why the accents are picked to stay distinct from it — see above.
-
-     Before these existed the same red was written out by hand in sixty-odd places, in two casts
-     that had drifted a little (`#d32f2f` against `#c0392b`) and two more for dark. */
-  --danger: #d32f2f;
-  --danger-text: #c0392b;
-  --danger-rgb: 211 47 47;
-
-  /* Hai màu còn lại của bộ "trạng thái", cùng hai dạng như `--danger`: một bản đặc cho viền và
-     icon, một bản đọc được trên nền trang cho chữ.
-
-     Chúng ra đời vì `.waiting` bên Dashboard đã viết `var(--warning, #b45309)` từ lâu — một token
-     app này chưa bao giờ định nghĩa, nên nó luôn rơi về mã cứng và không đổi theo theme. Đúng
-     loại lỗi `var(--surface, #fff)` đã để lại ở bốn dialog. Bản sáng của `--warning` giữ nguyên
-     đúng `#b45309` đó, nên không màn hình nào đổi màu vì lần thêm này. */
-  --success: #2e7d32;
-  --success-text: #1b5e20;
-  --warning: #b45309;
-  --warning-text: #92400e;
-
-  /* All ten palettes stay defined whichever one is in force, rather than only the chosen one, so
-     the swatches in Settings can each paint themselves from their own `--c-<name>` and show the
-     whole set at once. Their dark casts sit with the rest of the dark theme at the foot of the
-     file — a swatch tracks the theme for free that way, no second set of values to keep in step.
-
-     A hue lands here only if it reads at 4.5:1 against this page in its `-text` cast and stays
-     distinct from the red that means destructive, which is why there is no red among them. */
-  /* Xanh dương đậm, và là một lựa chọn. Giá trị cũ `#396cd8` là accent mặc định của template
-     `create-tauri-app` — nó chưa bao giờ được ai chọn, chỉ là thứ còn sót lại từ lúc dựng dự án,
-     và là dấu vết dễ nhận ra nhất ở một app chưa ai ngồi xuống nhìn. Tối hơn và bớt bão hoà hơn,
-     nên nó đọc ra "công cụ" chứ không phải "trang web". */
   --c-blue: #23528c;
   --c-blue-text: #1d4576;
+  --c-blue-on-solid: #ffffff;
   --c-blue-rgb: 35 82 140;
 
   --c-indigo: #5457d6;
   --c-indigo-text: #4245b5;
+  --c-indigo-on-solid: #ffffff;
   --c-indigo-rgb: 84 87 214;
 
   --c-violet: #7c4dcc;
   --c-violet-text: #6740ab;
+  --c-violet-on-solid: #ffffff;
   --c-violet-rgb: 124 77 204;
 
   --c-magenta: #c2418f;
   --c-magenta-text: #a23577;
+  --c-magenta-on-solid: #ffffff;
   --c-magenta-rgb: 194 65 143;
 
-  --c-orange: #c2620f;
+  --c-orange: #b85a0b;
   --c-orange-text: #a1520d;
-  --c-orange-rgb: 194 98 15;
+  --c-orange-on-solid: #ffffff;
+  --c-orange-rgb: 184 90 11;
 
-  /* Held well below a bright yellow: at full chroma this hue cannot reach 4.5:1 against the light
-     page, and the accent carries text. It comes back up in the dark half. */
-  --c-amber: #9c7000;
+  --c-amber: #e0ac2b;
   --c-amber-text: #805c00;
-  --c-amber-rgb: 156 112 0;
+  --c-amber-on-solid: #0b1017;
+  --c-amber-rgb: 224 172 43;
 
-  --c-green: #2f8f46;
+  --c-green: #287a3c;
   --c-green-text: #27753a;
-  --c-green-rgb: 47 143 70;
+  --c-green-on-solid: #ffffff;
+  --c-green-rgb: 40 122 60;
 
-  --c-teal: #0f8a86;
+  --c-teal: #0f7f7b;
   --c-teal-text: #0d726f;
-  --c-teal-rgb: 15 138 134;
+  --c-teal-on-solid: #ffffff;
+  --c-teal-rgb: 15 127 123;
 
-  --c-cyan: #0b7ea8;
+  --c-cyan: #0b74a0;
   --c-cyan-text: #09688a;
-  --c-cyan-rgb: 11 126 168;
+  --c-cyan-on-solid: #ffffff;
+  --c-cyan-rgb: 11 116 160;
 
   --c-slate: #5a6b7c;
   --c-slate-text: #4a5866;
+  --c-slate-on-solid: #ffffff;
   --c-slate-rgb: 90 107 124;
 
-  /* The mark on a connection MixDB will not write to. The one colour besides the destructive red
-     that the accent may not decide: the accent is the user's choice of decoration and can be
-     changed at will, and this states a fact about the connection that has to keep meaning the same
-     thing afterwards. Amber because caution is what it means — and borrowed from the palette's own
-     amber, so it follows the theme without a second pair of values to keep in step. (An accent of
-     amber puts the two hues side by side; the badge is still the only worded mark in the row.) */
+  /* The mark on a connection MixLab will not write to. Amber because caution is what it means,
+     and not the accent: the accent is decoration the user can change, this is a fact about the
+     connection. */
   --readonly: var(--c-amber-text);
   --readonly-rgb: var(--c-amber-rgb);
 }
 
-/* Which of the ten the accent points at. Blue is the default and is set on `:root` above, so it
-   needs no attribute — `applyAccent` in theme.ts leaves the attribute off for it. */
+/* Which hue the accent points at. Mint is the default and is set on `:root` above, so it needs no
+   attribute — `applyAccent` in theme.ts leaves the attribute off for it. */
+:root[data-accent="blue"] {
+  --accent: var(--c-blue);
+  --accent-text: var(--c-blue-text);
+  --accent-on-solid: var(--c-blue-on-solid);
+  --accent-rgb: var(--c-blue-rgb);
+}
+
 :root[data-accent="indigo"] {
   --accent: var(--c-indigo);
   --accent-text: var(--c-indigo-text);
+  --accent-on-solid: var(--c-indigo-on-solid);
   --accent-rgb: var(--c-indigo-rgb);
 }
 
 :root[data-accent="violet"] {
   --accent: var(--c-violet);
   --accent-text: var(--c-violet-text);
+  --accent-on-solid: var(--c-violet-on-solid);
   --accent-rgb: var(--c-violet-rgb);
 }
 
 :root[data-accent="magenta"] {
   --accent: var(--c-magenta);
   --accent-text: var(--c-magenta-text);
+  --accent-on-solid: var(--c-magenta-on-solid);
   --accent-rgb: var(--c-magenta-rgb);
 }
 
 :root[data-accent="orange"] {
   --accent: var(--c-orange);
   --accent-text: var(--c-orange-text);
+  --accent-on-solid: var(--c-orange-on-solid);
   --accent-rgb: var(--c-orange-rgb);
 }
 
 :root[data-accent="amber"] {
   --accent: var(--c-amber);
   --accent-text: var(--c-amber-text);
+  --accent-on-solid: var(--c-amber-on-solid);
   --accent-rgb: var(--c-amber-rgb);
 }
 
 :root[data-accent="green"] {
   --accent: var(--c-green);
   --accent-text: var(--c-green-text);
+  --accent-on-solid: var(--c-green-on-solid);
   --accent-rgb: var(--c-green-rgb);
 }
 
 :root[data-accent="teal"] {
   --accent: var(--c-teal);
   --accent-text: var(--c-teal-text);
+  --accent-on-solid: var(--c-teal-on-solid);
   --accent-rgb: var(--c-teal-rgb);
 }
 
 :root[data-accent="cyan"] {
   --accent: var(--c-cyan);
   --accent-text: var(--c-cyan-text);
+  --accent-on-solid: var(--c-cyan-on-solid);
   --accent-rgb: var(--c-cyan-rgb);
 }
 
 :root[data-accent="slate"] {
   --accent: var(--c-slate);
   --accent-text: var(--c-slate-text);
+  --accent-on-solid: var(--c-slate-on-solid);
   --accent-rgb: var(--c-slate-rgb);
+}
+
+/* Compact density, for regions that hold rows: the connected database workspace, REST's tables
+   and response, the terminal, the log view. */
+[data-density="compact"] {
+  --control-h-lg: 30px;
+  --control-h: 28px;
+  --control-h-sm: 24px;
+  --control-h-xs: 22px;
+  --row-h: 28px;
+  --list-row-h: 28px;
+  --text-body: 13px;
+  font-size: var(--text-body);
 }
 
 html,
@@ -283,7 +320,7 @@ body {
 @supports not (selector(::-webkit-scrollbar)) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
   }
 }
 
@@ -297,15 +334,15 @@ body {
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: rgba(128, 128, 128, 0.35);
-  border-radius: 8px;
+  background-color: var(--scrollbar-thumb);
+  border-radius: var(--radius-pill);
   border: 2px solid transparent;
   background-clip: padding-box;
   min-height: 40px;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(128, 128, 128, 0.55);
+  background-color: var(--scrollbar-thumb-hover);
 }
 
 *::-webkit-scrollbar-corner {
@@ -513,10 +550,10 @@ body {
      wherever it can first, and only scrolls when nowhere fits. */
   max-height: calc(100vh - 1rem);
   overflow-y: auto;
-  background: var(--surface-bg);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  background: var(--popover-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
   padding: 0.25rem;
   gap: 0.1rem;
   /* Grows from the corner it is pinned by, so the eye is led back to what was right-clicked.
@@ -551,7 +588,7 @@ body {
   box-shadow: none;
   background: transparent;
   text-align: left;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 0.5em 0.8em;
 }
 
@@ -577,7 +614,7 @@ body {
 }
 
 .context-menu-delete {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
 .muted {
@@ -599,7 +636,8 @@ a {
 }
 
 a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
+  text-decoration: underline;
 }
 
 /* The border stays transparent here because most `<button>`s in this app are chrome — tabs, icon
@@ -637,7 +675,7 @@ button {
 button:hover:not(:disabled),
 input:hover:not(:disabled),
 textarea:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--border-hover);
 }
 
 button:active:not(:disabled) {
@@ -665,7 +703,7 @@ button:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
 [tabindex]:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
   box-shadow: var(--focus-ring);
 }
 
@@ -673,94 +711,128 @@ select:focus-visible,
    where typing will land. */
 input:focus,
 textarea:focus {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 
 :root[data-theme="dark"] {
-  color: #f6f6f6;
-  background-color: #2f2f2f;
+  --page-bg: #0e131c;
+  --chrome-bg: #0b1017;
+  --sidebar-bg: #111722;
+  --surface-bg: #131a25;
+  --surface-sunken: #0f151f;
+  --table-head-bg: #111823;
+  --control-bg: #0b1017;
+  --button-bg: #151c28;
+  --popover-bg: #161e2b;
+  --track-bg: #0b1017;
+  --neutral-bg: #1a2230;
+  --hover-bg: #161e2b;
+  --active-bg: #1c2534;
+  --choice-active-bg: #1c2533;
+  --option-selected-bg: #1c2533;
+  --scrim: rgb(4 7 11 / 0.68);
 
-  --text-muted: #a6a6a6;
+  --border-soft: #1b2330;
+  --border: #1f2836;
+  --chrome-border: #1c2432;
+  --control-border: #222b3a;
+  --border-strong: #2a3446;
+  --border-hover: #3a4760;
+  --scrollbar-thumb: #243041;
+  --scrollbar-thumb-hover: #34425a;
 
-  --control-color: #ffffff;
-  --control-bg: #0f0f0f98;
-  --control-bg-active: #0f0f0f69;
-  /* **Viền riêng cho nền tối, không dùng chung `--border` với nền sáng.** Cùng một token trộn ra
-     hai kết quả khác hẳn: `rgb(128 128 128 / 0.25)` trên `#ffffff` cho `#dfdfdf` — lệch 32 so với
-     nền — nhưng trên `#2f2f2f` chỉ cho `#434343`, lệch 20. Nút primary thì viền bằng
-     `--accent-solid`, đục hoàn toàn, nên đứng cạnh nhau ở dark mode cạnh trên/dưới của nút mặc
-     định mờ hơn hẳn và mắt đọc phần ruột tối của nó là biên — nó trông *thấp hơn* dù đo ra đúng
-     cùng một chiều cao. `0.4` là nghiệm của `a × 128 + (1 − a) × 47 = 79`, tức độ lệch 32 y như
-     nền sáng. */
-  --control-border: rgb(128 128 128 / 0.4);
-  --surface-bg: #2f2f2f;
-  --page-bg: #2f2f2f;
-  /* Một lớp trắng, dày hơn `--hover-bg` mà cả nhóm đang tô — cùng cách `--qe-card-bg`
-     nâng một card lên khỏi trang. */
-  --choice-active-bg: rgb(255 255 255 / 0.16);
+  --text: #e6eaf0;
+  --text-secondary: #a7b0bf;
+  --text-muted: #8391a5;
+  --text-faint: #6b7688;
+  --text-disabled: #5a6679;
 
-  /* A control casts nothing here — a dark shadow on a dark page only muddies it — while what
-     floats needs a heavier one to separate at all. */
-  --shadow-sm: none;
-  --shadow-md: 0 4px 16px rgb(0 0 0 / 0.45);
-  --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.55);
+  --success: #5ccb93;
+  --success-text: #7dd8aa;
+  --success-rgb: 92 203 147;
+  --warning: #e9b54a;
+  --warning-text: #e9b54a;
+  --warning-rgb: 233 181 74;
+  --danger: #e5675c;
+  --danger-text: #f08a80;
+  --danger-rgb: 229 103 92;
 
-  /* The reverse of the light rule above: fill with the lighter cast, set near-black on it. */
-  --accent-solid: var(--accent);
-  --accent-on-solid: #16181c;
+  --cat-wash-alpha: 0.16;
+  --cat-teal: #6fd0c4;
+  --cat-teal-rgb: 111 208 196;
+  --cat-sand: #c9a27e;
+  --cat-sand-rgb: 201 162 126;
+  --cat-sky: #5db0d6;
+  --cat-sky-rgb: 93 176 214;
+  --cat-periwinkle: #a9b0f5;
+  --cat-periwinkle-rgb: 169 176 245;
+  --cat-coral: #f2806a;
+  --cat-coral-rgb: 242 128 106;
+  --cat-blue: #8ea8f2;
+  --cat-blue-rgb: 142 168 242;
+  --cat-purple: #b39af2;
+  --cat-purple-rgb: 179 154 242;
+  --cat-green: #5ccb93;
+  --cat-green-rgb: 92 203 147;
 
-  /* Lighter, so it reads against a dark page — the light casts are close enough to the
-     background here to be hard work. `--danger-text` is the softer of the two, matching the
-     roles they have in the light theme. */
-  --danger: #ff6b6b;
-  --danger-text: #ff8a80;
-  --danger-rgb: 255 99 99;
+  --shadow-card: none;
+  --shadow-popover: 0 20px 48px -14px rgb(0 0 0 / 0.75);
+  --shadow-dialog: 0 40px 100px -20px rgb(0 0 0 / 0.85);
 
-  --success: #6bcf7f;
-  --success-text: #8ce09c;
-  --warning: #f0a54a;
-  --warning-text: #f5bd74;
+  /* The dark cast of every hue. Which one `--accent` points at was settled by `[data-accent]` and
+     holds through the theme, so only the palettes are restated. */
+  --c-mint: #5ec4a1;
+  --c-mint-text: #5ec4a1;
+  --c-mint-on-solid: #062117;
+  --c-mint-rgb: 94 196 161;
 
-  /* The dark cast of all ten. Only the palettes are restated — which one `--accent` points at was
-     settled by `[data-accent]` above and holds through the theme, so a swatch and the accent both
-     follow the theme without a second selector per colour. */
   --c-blue: #6f9fd8;
   --c-blue-text: #8fb6e4;
+  --c-blue-on-solid: #0b1017;
   --c-blue-rgb: 111 159 216;
 
   --c-indigo: #8b8df0;
   --c-indigo-text: #a5a7f5;
+  --c-indigo-on-solid: #0b1017;
   --c-indigo-rgb: 139 141 240;
 
   --c-violet: #a887f5;
   --c-violet-text: #bda3f7;
+  --c-violet-on-solid: #0b1017;
   --c-violet-rgb: 168 135 245;
 
   --c-magenta: #ec78bb;
   --c-magenta-text: #f095cb;
+  --c-magenta-on-solid: #0b1017;
   --c-magenta-rgb: 236 120 187;
 
   --c-orange: #f0913f;
   --c-orange-text: #f5a866;
+  --c-orange-on-solid: #0b1017;
   --c-orange-rgb: 240 145 63;
 
   --c-amber: #e0ac2b;
   --c-amber-text: #e8bd57;
+  --c-amber-on-solid: #0b1017;
   --c-amber-rgb: 224 172 43;
 
   --c-green: #5fc97a;
   --c-green-text: #84d69a;
+  --c-green-on-solid: #0b1017;
   --c-green-rgb: 95 201 122;
 
   --c-teal: #3fc7c0;
   --c-teal-text: #6bd5d0;
+  --c-teal-on-solid: #0b1017;
   --c-teal-rgb: 63 199 192;
 
   --c-cyan: #40b8e0;
   --c-cyan-text: #6cc9e8;
+  --c-cyan-on-solid: #0b1017;
   --c-cyan-rgb: 64 184 224;
 
   --c-slate: #93a4b5;
   --c-slate-text: #adbac7;
+  --c-slate-on-solid: #0b1017;
   --c-slate-rgb: 147 164 181;
 }

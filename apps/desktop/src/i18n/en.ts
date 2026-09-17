@@ -98,6 +98,7 @@ const en = {
     themeDark: "Dark",
     themeSystem: "System",
     accent: "Accent colour",
+    accentMint: "Mint",
     accentBlue: "Blue",
     accentIndigo: "Indigo",
     accentViolet: "Violet",

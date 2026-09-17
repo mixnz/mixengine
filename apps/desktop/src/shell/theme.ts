@@ -6,6 +6,7 @@ export type ThemeMode = "light" | "dark" | "system";
 
 /** The accent a user can pick; the palette each one resolves to lives in App.css. */
 export type AccentColor =
+  | "mint"
   | "blue"
   | "indigo"
   | "violet"
@@ -18,6 +19,7 @@ export type AccentColor =
   | "slate";
 
 export const ACCENT_COLORS: AccentColor[] = [
+  "mint",
   "blue",
   "indigo",
   "violet",
@@ -30,7 +32,7 @@ export const ACCENT_COLORS: AccentColor[] = [
   "slate",
 ];
 
-const DEFAULT_ACCENT: AccentColor = "blue";
+const DEFAULT_ACCENT: AccentColor = "mint";
 
 const STORAGE_KEY = "mixdb-theme";
 const ACCENT_STORAGE_KEY = "mixdb-accent";

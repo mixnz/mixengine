@@ -66,7 +66,7 @@ function AppearanceSection({ theme, onThemeChange, accent, onAccentChange }: Pro
                 key={opt}
                 type="button"
                 className={opt === accent ? `${styles.accentOption} ${styles.accentOptionActive}` : styles.accentOption}
-                /* The palette lives in App.css; the swatch only names which of the ten it is,
+                /* The palette lives in App.css; the swatch only names which hue it is,
                    so it picks up that colour's light and dark cast on its own. */
                 style={{ "--accent-swatch": `var(--c-${opt})` } as CSSProperties}
                 onClick={() => onAccentChange(opt)}
