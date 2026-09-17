@@ -288,7 +288,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--control-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
@@ -960,7 +960,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-bg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-dialog);
   transform-origin: top left;
   will-change: transform;
 }

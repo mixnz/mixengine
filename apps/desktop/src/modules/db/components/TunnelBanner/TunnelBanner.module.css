@@ -23,7 +23,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background: var(--surface-bg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-dialog);
   text-align: left;
 }
 

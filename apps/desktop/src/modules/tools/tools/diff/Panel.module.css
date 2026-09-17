@@ -89,7 +89,7 @@
 .tab.active {
   opacity: 1;
   background: var(--choice-active-bg);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-card);
 }
 
 .error {

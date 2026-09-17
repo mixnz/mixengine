@@ -174,17 +174,6 @@
   --ansi-match: #f6dd8a;
   --ansi-match-active: #e9b54a;
 
-  /* Names the app used before the redesign, pointed at their new roles until T158–T163 move every
-     consumer across. */
-  --shadow-sm: var(--shadow-card);
-  --shadow-md: var(--shadow-popover);
-  --shadow-lg: var(--shadow-dialog);
-  --control-radius: var(--radius-md);
-  --control-shadow: none;
-  --control-color: var(--text);
-  --control-bg-active: var(--active-bg);
-  --control-border-focus: var(--accent-text);
-
   /* What a *pinned* strip paints with: a grid's header, its totals, the column of buttons held
      against the right edge. Carried as a variable rather than a class because a `<th>` cannot
      compose one: the rules that pin these strips are descendant selectors (`.grid thead th`). */
@@ -680,18 +669,18 @@ a:hover {
 input,
 button,
 textarea {
-  border-radius: var(--control-radius);
+  border-radius: var(--radius-md);
   border: 1px solid transparent;
   padding: 0.6em 1.2em;
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  color: var(--control-color);
+  color: var(--text);
   background-color: var(--control-bg);
   /* Fast enough to feel like a response rather than an animation. The old 0.25s on hover read as
      the interface lagging behind the pointer. */
   transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
 }
 
 input,
@@ -713,7 +702,7 @@ textarea:hover:not(:disabled) {
 }
 
 button:active:not(:disabled) {
-  background-color: var(--control-bg-active);
+  background-color: var(--active-bg);
 }
 
 button:disabled {
