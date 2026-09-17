@@ -170,6 +170,9 @@
   --ansi-bright-magenta: #6645bf;
   --ansi-bright-cyan: #176b62;
   --ansi-bright-white: #eef1f5;
+  /* The terminal search's marks: every match, and the one the search is on. */
+  --ansi-match: #f6dd8a;
+  --ansi-match-active: #e9b54a;
 
   /* Names the app used before the redesign, pointed at their new roles until T158–T163 move every
      consumer across. */
@@ -838,6 +841,8 @@ textarea:focus {
   --ansi-bright-magenta: #c9b8f6;
   --ansi-bright-cyan: #93ddd3;
   --ansi-bright-white: #f5f7fa;
+  --ansi-match: #5a4b00;
+  --ansi-match-active: #a07800;
 
   /* The dark cast of every hue. Which one `--accent` points at was settled by `[data-accent]` and
      holds through the theme, so only the palettes are restated. */

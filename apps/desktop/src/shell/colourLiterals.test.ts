@@ -57,7 +57,6 @@ const CSS_BASELINE: Record<string, number> = {
   "modules/rest/components/ResponseStatusBar/ResponseStatusBar.module.css": 4,
   "modules/rest/components/UrlPreview/UrlPreview.module.css": 2,
   "modules/rest/rest.css": 7,
-  "modules/terminal/components/TerminalView/TerminalView.module.css": 1,
   "modules/tools/tools/connection/Panel.module.css": 1,
   "modules/tools/tools/convert/Panel.module.css": 1,
   "modules/tools/tools/diff/Panel.module.css": 1,
@@ -70,7 +69,6 @@ const CSS_BASELINE: Record<string, number> = {
 };
 
 const TS_BASELINE: Record<string, number> = {
-  "modules/terminal/components/TerminalView/TerminalView.tsx": 4,
   "modules/tools/tools/qrcode/Panel.tsx": 2,
 };
 
