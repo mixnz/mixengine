@@ -871,24 +871,16 @@ export default function Dashboard({
                   onClick={() => {
                     const id = menu.id;
                     setMenu(null);
-                    /* `external` rời khỏi tiến trình này qua `database.open`; hai cái kia mở một
-                       tab `db` ngay trong cửa sổ. Mật khẩu không đi qua đường nào trong hai (T83). */
-                    void (choice === "external"
-                      ? api.databaseOpen(id)
-                      : api.databaseOpenInMixDB(id)
-                    ).catch((e: unknown) => setError(errorMessage(t, e)));
+                    // A `db` tab in this window; the password travels neither way through here (T83).
+                    void api.databaseOpenInMixDB(id).catch((e: unknown) => setError(errorMessage(t, e)));
                   }}
                 >
                   <DatabaseGenericIcon size={14} />
-                  {choice === "external"
-                    ? t("mixengine.dashboard.openDatabaseExternal", {
-                        name: menuDatabase.client.state === "installed" ? menuDatabase.client.name : "",
-                      })
-                    : t(
-                        choice === "builtIn"
-                          ? "mixengine.dashboard.exploreData"
-                          : "mixengine.dashboard.exploreDataEnabling",
-                      )}
+                  {t(
+                    choice === "builtIn"
+                      ? "mixengine.dashboard.exploreData"
+                      : "mixengine.dashboard.exploreDataEnabling",
+                  )}
                 </button>
               ))}
 
