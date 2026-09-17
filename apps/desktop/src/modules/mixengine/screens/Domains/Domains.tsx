@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
+import Table from "../../../../components/Table";
+import { CheckIcon, GlobeIcon, PlusIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -12,6 +17,11 @@ import AddDomainDialog from "./AddDomainDialog";
 import CaBlock from "./CaBlock";
 import CertTable from "./CertTable";
 import styles from "./Domains.module.css";
+
+/** One of the four yes-or-no facts about a domain: a tick in the success tone, or a dash. */
+function Fact({ on }: { on: boolean }) {
+  return on ? <CheckIcon size={15} className={styles.yes} /> : <span className={styles.none}>—</span>;
+}
 
 /**
  * Bảng chẩn đoán domain — T2.5.
@@ -71,55 +81,77 @@ export default function Domains({ active }: { active: boolean }) {
   }
 
   return (
-    <div className={styles.domains}>
+    <div className={`mixengine-page ${styles.domains}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+
+      <PageHeader
+        title={t("mixengine.sidebar.domains")}
+        description={t("mixengine.domains.about")}
+        actions={
+          <Button size="large" variant="primary" onClick={() => setAdding(true)}>
+            <PlusIcon size={15} />
+            {t("mixengine.domains.addDomain")}
+          </Button>
+        }
+      />
 
       <CaBlock revision={revision} onError={setError} />
 
-      <div className={styles.toolbar}>
-        <Button variant="primary" onClick={() => setAdding(true)}>
-          {t("mixengine.domains.addDomain")}
-        </Button>
-      </div>
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t("mixengine.domains.columnDomain")}</th>
-              <th>{t("mixengine.domains.columnSite")}</th>
-              <th>{t("mixengine.domains.columnHosts")}</th>
-              <th>{t("mixengine.domains.columnWildcard")}</th>
-              <th>{t("mixengine.domains.columnServer")}</th>
-              <th>{t("mixengine.domains.columnResolves")}</th>
-              <th className={styles.reason}>{t("mixengine.domains.columnReason")}</th>
-              <th className={styles.actions}>{t("mixengine.domains.columnActions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.domain}>
-                <td>{row.domain}</td>
-                <td>{row.site ?? "—"}</td>
-                <td>{row.hosts_entry ? "✓" : "—"}</td>
-                <td>{row.wildcard ? "✓" : "—"}</td>
-                <td>{row.server_answers ?? "—"}</td>
-                <td>{row.resolves_to.length > 0 ? row.resolves_to.join(", ") : "—"}</td>
-                {/* `because` là "một câu nói cái gì sai, hoặc None khi không có gì sai" (doc-comment
-                    `DomainStatus`) — có chữ là có lỗi, nên màu đỏ đọc được trước cả câu. */}
-                <td className={`${styles.reason} ${styles.bad}`}>{row.because ?? ""}</td>
-                <td className={styles.actions}>
-                  <Button onClick={() => void remove(row.domain)}>
-                    {t("mixengine.domains.remove")}
-                  </Button>
-                </td>
+      <Card title={t("mixengine.domains.title")} count={rows.length} flush>
+        {rows.length === 0 ? (
+          <EmptyState title={t("mixengine.domains.empty")} />
+        ) : (
+          <Table aria-label={t("mixengine.domains.title")}>
+            <thead>
+              <tr>
+                <th>{t("mixengine.domains.columnDomain")}</th>
+                <th>{t("mixengine.domains.columnSite")}</th>
+                <th>{t("mixengine.domains.columnHosts")}</th>
+                <th>{t("mixengine.domains.columnWildcard")}</th>
+                <th>{t("mixengine.domains.columnServer")}</th>
+                <th>{t("mixengine.domains.columnResolves")}</th>
+                <th className={styles.reason}>{t("mixengine.domains.columnReason")}</th>
+                <th data-align="end">{t("mixengine.domains.columnActions")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {rows.length === 0 && <p className={styles.empty}>{t("mixengine.domains.empty")}</p>}
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.domain}>
+                  <td data-nowrap>
+                    <span className={styles.domain}>
+                      <span className={row.because == null ? styles.globeOk : styles.globeBad} aria-hidden="true">
+                        <GlobeIcon size={14} />
+                      </span>
+                      {row.domain}
+                    </span>
+                  </td>
+                  <td className={row.site == null ? styles.none : undefined}>{row.site ?? "—"}</td>
+                  <td>
+                    <Fact on={row.hosts_entry} />
+                  </td>
+                  <td>
+                    <Fact on={row.wildcard} />
+                  </td>
+                  <td className={row.server_answers == null ? styles.none : styles.mono}>
+                    {row.server_answers ?? "—"}
+                  </td>
+                  <td className={row.resolves_to.length === 0 ? styles.none : styles.mono}>
+                    {row.resolves_to.length > 0 ? row.resolves_to.join(", ") : "—"}
+                  </td>
+                  {/* `because` là "một câu nói cái gì sai, hoặc None khi không có gì sai" (doc-comment
+                      `DomainStatus`) — có chữ là có lỗi, nên màu đỏ đọc được trước cả câu. */}
+                  <td className={`${styles.reason} ${styles.bad}`}>{row.because ?? ""}</td>
+                  <td data-align="end" data-nowrap>
+                    <Button size="small" variant="danger" onClick={() => void remove(row.domain)}>
+                      {t("mixengine.domains.remove")}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
       <CertTable revision={revision} onError={setError} />
 

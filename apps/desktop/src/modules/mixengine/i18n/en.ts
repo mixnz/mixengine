@@ -525,6 +525,8 @@ export default {
       },
     },
     domains: {
+      title: "Domains",
+      about: "Local names, whether this machine resolves them, and the certificates that serve them.",
       columnDomain: "Domain",
       columnSite: "Site",
       columnHosts: "Hosts entry",
@@ -544,6 +546,8 @@ export default {
         browsersLabel: "Browsers",
         repair: "Fix browser trust",
         repairing: "Fixing…",
+        ready: "Ready",
+        missing: "Not ready",
         trust: {
           installed: "Trusted, in {{store}}.",
           notInstalled: "Not trusted: {{reason}}",
@@ -564,11 +568,14 @@ export default {
         columnStatus: "Status",
         columnActions: "Actions",
         reissue: "Reissue",
+        reissuing: "Reissuing",
         outcome: {
           issued: "Issued",
           reused: "Up to date",
           notWanted: "Not wanted: {{reason}}",
+          notWantedShort: "Not wanted",
           refused: "Refused: {{reason}}",
+          refusedShort: "Refused",
         },
       },
     },

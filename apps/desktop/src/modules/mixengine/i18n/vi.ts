@@ -515,6 +515,8 @@ const vi: typeof en = {
       },
     },
     domains: {
+      title: "Domain",
+      about: "Các tên cục bộ, máy này có resolve được không, và chứng chỉ phục vụ chúng.",
       columnDomain: "Domain",
       columnSite: "Site",
       columnHosts: "Dòng hosts",
@@ -534,6 +536,8 @@ const vi: typeof en = {
         browsersLabel: "Trình duyệt",
         repair: "Sửa trust trình duyệt",
         repairing: "Đang sửa…",
+        ready: "Sẵn sàng",
+        missing: "Chưa sẵn sàng",
         trust: {
           installed: "Đã tin cậy, trong {{store}}.",
           notInstalled: "Chưa tin cậy: {{reason}}",
@@ -554,11 +558,14 @@ const vi: typeof en = {
         columnStatus: "Trạng thái",
         columnActions: "Hành động",
         reissue: "Cấp lại",
+        reissuing: "Đang cấp lại",
         outcome: {
           issued: "Đã cấp",
           reused: "Đã cập nhật",
           notWanted: "Không cần: {{reason}}",
+          notWantedShort: "Không cần",
           refused: "Từ chối: {{reason}}",
+          refusedShort: "Từ chối",
         },
       },
     },

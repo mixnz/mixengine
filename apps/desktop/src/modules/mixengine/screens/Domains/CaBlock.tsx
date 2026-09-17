@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import StatusPill from "../../../../components/StatusPill";
+import { CheckIcon, LockIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -99,9 +102,24 @@ export default function CaBlock({
   if (status === null) return null;
 
   return (
-    <section className={styles.block}>
-      <h3 className={styles.title}>{t("mixengine.domains.ca.title")}</h3>
-
+    <Card
+      title={t("mixengine.domains.ca.title")}
+      count={
+        <StatusPill tone={status.state === "present" ? "success" : "danger"}>
+          {status.state === "present" ? t("mixengine.domains.ca.ready") : t("mixengine.domains.ca.missing")}
+        </StatusPill>
+      }
+      actions={
+        <Button
+          variant="soft"
+          onClick={() => void repair()}
+          busy={repairing ? t("mixengine.domains.ca.repairing") : undefined}
+        >
+          <LockIcon size={14} />
+          {t("mixengine.domains.ca.repair")}
+        </Button>
+      }
+    >
       {status.state !== "present" && (
         <p className={styles.warning}>
           {status.state === "absent"
@@ -110,19 +128,24 @@ export default function CaBlock({
         </p>
       )}
 
-      <div className={styles.row}>
-        <span className={styles.label}>{t("mixengine.domains.ca.systemStore")}</span>
-        <span>{trustLine(status.trust, t)}</span>
-      </div>
+      <dl className={styles.facts}>
+        <dt>{t("mixengine.domains.ca.systemStore")}</dt>
+        <dd className={status.trust.state === "installed" ? styles.good : undefined}>
+          {trustLine(status.trust, t)}
+        </dd>
 
-      <div className={styles.row}>
-        <span className={styles.label}>{t("mixengine.domains.ca.browsersLabel")}</span>
-        <span>
+        <dt>{t("mixengine.domains.ca.browsersLabel")}</dt>
+        <dd>
           {status.browsers.state === "reached" ? (
             <ul className={styles.databases}>
               {status.browsers.databases.map((db) => (
                 <li key={db.path}>
-                  {db.owner}: {db.installed ? "✓" : (db.because ?? "—")}{" "}
+                  <span className={styles.owner}>{db.owner}</span>
+                  {db.installed ? (
+                    <CheckIcon size={14} className={styles.good} />
+                  ) : (
+                    <span className={styles.muted}>{db.because ?? "—"}</span>
+                  )}
                   <span className={styles.path}>{db.path}</span>
                 </li>
               ))}
@@ -130,11 +153,8 @@ export default function CaBlock({
           ) : (
             browsersLine(status.browsers, t)
           )}
-        </span>
-        <Button onClick={() => void repair()} disabled={repairing}>
-          {repairing ? t("mixengine.domains.ca.repairing") : t("mixengine.domains.ca.repair")}
-        </Button>
-      </div>
+        </dd>
+      </dl>
 
       {pending && (
         <ElevationDialog
@@ -147,6 +167,6 @@ export default function CaBlock({
           }}
         />
       )}
-    </section>
+    </Card>
   );
 }
