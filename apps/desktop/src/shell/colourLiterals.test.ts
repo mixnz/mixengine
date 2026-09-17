@@ -68,7 +68,6 @@ const CSS_BASELINE: Record<string, number> = {
   "modules/db/db.css": 20,
   "modules/mixengine/components/AfterApply/AfterApply.module.css": 1,
   "modules/mixengine/components/ElevationDialog/ElevationDialog.module.css": 1,
-  "modules/mixengine/components/StaleBadge/StaleBadge.module.css": 1,
   "modules/mixengine/screens/Blueprints/ApplyDialog.module.css": 6,
   "modules/mixengine/screens/Blueprints/Blueprints.module.css": 2,
   "modules/mixengine/screens/Blueprints/CaptureDialog.module.css": 1,

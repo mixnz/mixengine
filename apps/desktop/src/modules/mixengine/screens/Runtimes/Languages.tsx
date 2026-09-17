@@ -1,10 +1,15 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
+import MonogramBadge from "../../../../components/MonogramBadge";
+import Table from "../../../../components/Table";
 import { errorMessage } from "../../../../core/errors";
+import { ChevronDownIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { PackageVersion, RuntimeKind, RuntimeRelease } from "@mixengine/api";
@@ -19,7 +24,7 @@ import { formatInstalledAt, jobFinished, jobFor, versionKey } from "../../runtim
 import StaleBadge from "../../components/StaleBadge";
 import { matchesAvailable } from "./availableFilter";
 import ExtensionsPanel from "./ExtensionsPanel";
-import styles from "./Languages.module.css";
+import styles from "./Catalogue.module.css";
 
 export default function Languages({ active }: { active: boolean }) {
   const [installed, setInstalled] = useState<RuntimeSummary[]>([]);
@@ -195,115 +200,147 @@ export default function Languages({ active }: { active: boolean }) {
   );
 
   return (
-    <div className={styles.languages}>
+    <div className={styles.catalogue}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>{t("mixengine.runtimes.columnVersion")}</th>
-            <th>{t("mixengine.runtimes.columnChannel")}</th>
-            <th>{t("mixengine.runtimes.columnInstalledAt")}</th>
-            <th>{t("mixengine.runtimes.columnDefault")}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {installed.map((row) => {
-            const key = versionKey(row.kind, row.version);
-            return (
-              <Fragment key={key}>
-                <tr>
-                  <td>
-                    <button
-                      className={styles.versionButton}
-                      onClick={() => setExpanded(expanded === key ? null : key)}
-                    >
-                      {row.kind} {row.version}
-                    </button>
-                  </td>
-                  <td>{row.channel}</td>
-                  <td>{formatInstalledAt(row.installed_at)}</td>
-                  <td>{row.default ? "✓" : "—"}</td>
-                  <td className={styles.actions}>
-                    {!row.default && (
-                      <Button onClick={() => void setDefault(row)}>
-                        {t("mixengine.runtimes.setDefault")}
-                      </Button>
+      <Card title={t("mixengine.runtimes.installedTitle")} count={installed.length} flush>
+        {installed.length === 0 ? (
+          <EmptyState title={t("mixengine.runtimes.installedEmpty")} />
+        ) : (
+          <Table aria-label={t("mixengine.runtimes.installedTitle")}>
+            <thead>
+              <tr>
+                <th>{t("mixengine.runtimes.columnRuntime")}</th>
+                <th>{t("mixengine.runtimes.columnVersion")}</th>
+                <th>{t("mixengine.runtimes.columnChannel")}</th>
+                <th>{t("mixengine.runtimes.columnInstalledAt")}</th>
+                <th>{t("mixengine.runtimes.columnDefault")}</th>
+                <th data-align="end">{t("mixengine.runtimes.columnActions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {installed.map((row) => {
+                const key = versionKey(row.kind, row.version);
+                const open = expanded === key;
+                return (
+                  <Fragment key={key}>
+                    <tr>
+                      <td data-nowrap>
+                        <span className={styles.name}>
+                          <MonogramBadge name={row.kind} size={28} />
+                          {row.kind === "php" ? (
+                            // PHP alone has extensions to show under its row.
+                            <Button
+                              variant="link"
+                              aria-expanded={open}
+                              onClick={() => setExpanded(open ? null : key)}
+                            >
+                              {row.kind}
+                              <ChevronDownIcon
+                                size={14}
+                                className={open ? styles.chevronOpen : styles.chevron}
+                              />
+                            </Button>
+                          ) : (
+                            row.kind
+                          )}
+                        </span>
+                      </td>
+                      <td className={styles.version}>{row.version}</td>
+                      <td>
+                        <span className={styles.tag}>{row.channel}</span>
+                      </td>
+                      <td className={styles.muted}>{formatInstalledAt(row.installed_at)}</td>
+                      <td>
+                        {row.default ? (
+                          <span className={styles.defaultPill}>{t("mixengine.runtimes.columnDefault")}</span>
+                        ) : (
+                          <Button size="small" variant="ghost" onClick={() => void setDefault(row)}>
+                            {t("mixengine.runtimes.setDefault")}
+                          </Button>
+                        )}
+                      </td>
+                      <td data-align="end" data-nowrap>
+                        <Button size="small" variant="danger" onClick={() => setUninstallTarget(row)}>
+                          {t("mixengine.runtimes.uninstall")}
+                        </Button>
+                      </td>
+                    </tr>
+                    {open && row.kind === "php" && (
+                      <tr className={styles.expansion}>
+                        <td colSpan={6}>
+                          <ExtensionsPanel target={{ kind: row.kind, version: row.version }} />
+                        </td>
+                      </tr>
                     )}
-                    <Button onClick={() => setUninstallTarget(row)}>
-                      {t("mixengine.runtimes.uninstall")}
-                    </Button>
-                  </td>
-                </tr>
-                {expanded === key && row.kind === "php" && (
-                  <tr>
-                    <td colSpan={5}>
-                      <ExtensionsPanel target={{ kind: row.kind, version: row.version }} />
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
-      <div className={styles.availableHeader}>
-        <h4 className={styles.availableTitle}>
-          {t("mixengine.runtimes.columnVersion")} <StaleBadge stale={stale} />
-        </h4>
-        <Input
-          size="small"
-          allowClear
-          className={styles.filter}
-          placeholder={t("mixengine.runtimes.searchAvailable")}
-          aria-label={t("mixengine.runtimes.searchAvailable")}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          onKeyDown={(e) => {
-            // Escape clears the search and stops here — it must not bubble up and close the tab.
-            if (e.key !== "Escape" || filter === "") return;
-            e.preventDefault();
-            e.stopPropagation();
-            setFilter("");
-          }}
-        />
-      </div>
-      <table className={styles.table}>
-        <tbody>
-          {shownAvailable.map((release) => {
-            const key = versionKey(release.kind, release.version);
-            const job = jobFor(jobs, installingJob[key]);
-            return (
-              <tr key={key}>
-                <td>
-                  {release.kind} {release.version}
-                </td>
-                <td>{release.channel}</td>
-                <td className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
-                  {(release.needs ?? []).map((requirement) => needLabel(requirement.need)).join(", ")}
-                </td>
-                <td className={styles.actions}>
+      <Card
+        title={t("mixengine.runtimes.availableTitle")}
+        count={
+          <>
+            {shownAvailable.length}
+            <StaleBadge stale={stale} />
+          </>
+        }
+        actions={
+          <Input
+            allowClear
+            className={styles.filter}
+            placeholder={t("mixengine.runtimes.searchAvailable")}
+            aria-label={t("mixengine.runtimes.searchAvailable")}
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              // Escape clears the search and stops here — it must not bubble up and close the tab.
+              if (e.key !== "Escape" || filter === "") return;
+              e.preventDefault();
+              e.stopPropagation();
+              setFilter("");
+            }}
+          />
+        }
+        flush
+      >
+        {shownAvailable.length === 0 ? (
+          filter.trim() !== "" && <EmptyState title={t("mixengine.runtimes.noMatches")} />
+        ) : (
+          <ul className={styles.available}>
+            {shownAvailable.map((release) => {
+              const key = versionKey(release.kind, release.version);
+              const job = jobFor(jobs, installingJob[key]);
+              const needs = (release.needs ?? []).map((requirement) => needLabel(requirement.need));
+              return (
+                <li key={key} className={styles.release}>
+                  <MonogramBadge name={release.kind} size={28} />
+                  <span className={styles.releaseName}>{release.kind}</span>
+                  <span className={styles.version}>{release.version}</span>
+                  <span className={styles.tag}>{release.channel}</span>
+                  <span className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
+                    {needs.join(", ")}
+                  </span>
                   {job ? (
                     <span className={styles.progress}>
                       <progress value={job.percent} max={100} />
-                      {job.message}
+                      <span className={styles.progressText}>{job.message}</span>
                     </span>
                   ) : (
-                    <Button onClick={() => void install(release)}>
+                    <Button variant="soft" className={styles.install} onClick={() => void install(release)}>
                       {t("mixengine.runtimes.install")}
                     </Button>
                   )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      {shownAvailable.length === 0 && filter.trim() !== "" && (
-        <p className={styles.noMatches}>{t("mixengine.runtimes.noMatches")}</p>
-      )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
 
       {uninstallTarget && (
         <ConfirmDialog

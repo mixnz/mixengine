@@ -1,0 +1,135 @@
+/* What Languages and every package group share: an Installed card and an Available card. */
+.catalogue {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.chevron,
+.chevronOpen {
+  margin-left: 4px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.version {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.tag {
+  justify-self: start;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--neutral-bg);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.services {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.defaultPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgb(var(--accent-rgb) / 0.16);
+  color: var(--accent-text);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+/* The PHP row's extensions, under it, on the sunken surface. */
+.expansion > td {
+  padding: 0;
+  background: var(--surface-sunken);
+}
+
+.filter {
+  width: 16rem;
+}
+
+/* Releases not installed yet: a scrolling list, one row each, the install button a fixed width so
+   the column of buttons does not jitter as the names change length. */
+.available {
+  display: flex;
+  flex-direction: column;
+  max-height: 420px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.release {
+  display: grid;
+  grid-template-columns: 28px minmax(8rem, 1fr) 9rem 6rem minmax(0, 1fr) 160px;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--list-row-h);
+  padding: 6px 18px;
+}
+
+.release + .release {
+  border-top: 1px solid var(--border-soft);
+}
+
+.releaseName {
+  font-weight: 500;
+}
+
+/* What a release lacks on this machine - T151. Quiet, because most rows say nothing here. */
+.needs {
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--warning-text);
+}
+
+.install {
+  justify-self: end;
+  width: 104px;
+}
+
+/* A job's message changes length as it downloads; it wraps inside its column rather than moving
+   the others. */
+.progress {
+  grid-column: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.progress progress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}
+
+.progressText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
