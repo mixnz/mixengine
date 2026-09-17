@@ -7,6 +7,7 @@ import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
 import MonogramBadge from "../../../../components/MonogramBadge";
+import NoticeBanner from "../../../../components/NoticeBanner";
 import Table from "../../../../components/Table";
 import { errorMessage } from "../../../../core/errors";
 import { ChevronDownIcon } from "../../../../icons";
@@ -15,7 +16,13 @@ import * as api from "../../api";
 import type { PackageVersion, RuntimeKind, RuntimeRelease } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
 import RequirementDialog from "../../components/RequirementDialog";
-import { askingStep, needLabel, requirementStep, type AskingStep } from "../../requirementStep";
+import {
+  askingStep,
+  needLabel,
+  requirementStep,
+  splitLibraries,
+  type AskingStep,
+} from "../../requirementStep";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
 import { afterRefusal } from "../../forceStep";
@@ -40,6 +47,8 @@ export default function Languages({ active }: { active: boolean }) {
   // Filters the "not installed" table only — the same reason `Packages.tsx` has.
   const [filter, setFilter] = useState("");
   const [error, setError] = useState("");
+  // What an install said about this machine and went on anyway — T27e.
+  const [notice, setNotice] = useState("");
   const { t } = useTranslation();
 
   // Reads the latest `installingJob` from inside a `watch` callback registered once — the effect
@@ -131,6 +140,19 @@ export default function Languages({ active }: { active: boolean }) {
       return;
     }
 
+    // **Said, not asked** — T27e: `mix` prints the same warning and installs, so the window does
+    // too rather than putting a dialog in front of a machine that can run this perfectly well.
+    if (step.kind === "notice") {
+      setNotice(
+        t("mixengine.requirements.librariesNotice", {
+          name: `${release.kind} ${release.version}`,
+          libraries: splitLibraries(step.needs).libraries.join(", "),
+        }),
+      );
+      await start(release.kind, release.version, false);
+      return;
+    }
+
     const asked = askingStep(step);
     if (asked === null) {
       setError(
@@ -202,6 +224,7 @@ export default function Languages({ active }: { active: boolean }) {
   return (
     <div className={styles.catalogue}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+      {notice !== "" && <NoticeBanner message={notice} onDismiss={() => setNotice("")} />}
 
       <Card title={t("mixengine.runtimes.installedTitle")} count={installed.length} flush>
         {installed.length === 0 ? (
@@ -315,14 +338,30 @@ export default function Languages({ active }: { active: boolean }) {
             {shownAvailable.map((release) => {
               const key = versionKey(release.kind, release.version);
               const job = jobFor(jobs, installingJob[key]);
-              const needs = (release.needs ?? []).map((requirement) => needLabel(requirement.need));
+              const { others, libraries } = splitLibraries(
+                (release.needs ?? []).map((requirement) => requirement.need),
+              );
+              const needs =
+                libraries.length > 0
+                  ? [
+                      ...others,
+                      t("mixengine.requirements.systemLibraries", { count: libraries.length }),
+                    ]
+                  : others;
               return (
                 <li key={key} className={styles.release}>
                   <MonogramBadge name={release.kind} size={28} />
                   <span className={styles.releaseName}>{release.kind}</span>
                   <span className={styles.version}>{release.version}</span>
                   <span className={styles.tag}>{release.channel}</span>
-                  <span className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
+                  <span
+                    className={styles.needs}
+                    title={
+                      libraries.length > 0
+                        ? libraries.join(", ")
+                        : t("mixengine.requirements.columnNeeds")
+                    }
+                  >
                     {needs.join(", ")}
                   </span>
                   {job ? (

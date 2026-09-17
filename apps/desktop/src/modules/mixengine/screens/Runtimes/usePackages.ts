@@ -7,7 +7,13 @@ import type { PackageRelease } from "@mixengine/api";
 import type { PackageSummary } from "@mixengine/api";
 import { applyJob, type JobRow } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
-import { askingStep, needLabel, requirementStep, type AskingStep } from "../../requirementStep";
+import {
+  askingStep,
+  needLabel,
+  requirementStep,
+  splitLibraries,
+  type AskingStep,
+} from "../../requirementStep";
 import { jobFinished, versionKey } from "../../runtimeState";
 
 /** Tất cả những gì `Packages.tsx` cần để vẽ một nhóm, và không hơn. */
@@ -19,6 +25,9 @@ export interface PackagesState {
   installingJob: Record<string, number>;
   error: string;
   clearError: () => void;
+  /** What an install said about this machine and went on anyway — T27e. */
+  notice: string;
+  clearNotice: () => void;
   install: (release: PackageRelease) => Promise<void>;
   uninstall: (target: PackageSummary) => Promise<void>;
   /** The one question an install is waiting on — T151. */
@@ -42,6 +51,8 @@ export function usePackages(active: boolean): PackagesState {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [installingJob, setInstallingJob] = useState<Record<string, number>>({});
   const [error, setError] = useState("");
+  // What an install said about this machine and went on anyway — T27e.
+  const [notice, setNotice] = useState("");
   const [asking, setAsking] = useState<{ release: PackageRelease; step: AskingStep } | null>(null);
   const { t } = useTranslation();
 
@@ -140,6 +151,18 @@ export function usePackages(active: boolean): PackagesState {
         return;
       }
 
+      // **Said, not asked** — T27e, the same rule `Languages` follows and `mix` follows.
+      if (step.kind === "notice") {
+        setNotice(
+          t("mixengine.requirements.librariesNotice", {
+            name: `${release.package} ${release.version}`,
+            libraries: splitLibraries(step.needs).libraries.join(", "),
+          }),
+        );
+        await start(release.package, release.version, false);
+        return;
+      }
+
       const asked = askingStep(step);
       if (asked === null) {
         setError(
@@ -187,6 +210,7 @@ export function usePackages(active: boolean): PackagesState {
   );
 
   const clearError = useCallback(() => setError(""), []);
+  const clearNotice = useCallback(() => setNotice(""), []);
 
   return {
     installed,
@@ -196,6 +220,8 @@ export function usePackages(active: boolean): PackagesState {
     installingJob,
     error,
     clearError,
+    notice,
+    clearNotice,
     install,
     uninstall,
     asking,

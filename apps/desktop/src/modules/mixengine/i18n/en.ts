@@ -270,6 +270,11 @@ export default {
       applyConsent:
         "Install the Microsoft Visual C++ Redistributable ({{arch}}) first — Windows may ask for approval once",
       applyBlocked: "This blueprint cannot be applied on this computer: it needs {{needs}}.",
+      systemLibraries: "System libraries ({{count}})",
+      librariesNotice:
+        "Installing {{name}}. This computer's loader does not list {{libraries}} — install them with your distribution's package manager.",
+      applyLibraries:
+        "This computer's loader does not list {{libraries}} — install them with your distribution's package manager. The blueprint still applies.",
     },
     serviceState: {
       stopped: "Stopped",

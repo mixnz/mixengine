@@ -6,12 +6,13 @@ import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
 import MonogramBadge from "../../../../components/MonogramBadge";
+import NoticeBanner from "../../../../components/NoticeBanner";
 import Table from "../../../../components/Table";
 import { useTranslation } from "../../../../i18n";
 import { formatInstalledAt, jobFor, versionKey } from "../../runtimeState";
 import RequirementDialog from "../../components/RequirementDialog";
 import StaleBadge from "../../components/StaleBadge";
-import { needLabel } from "../../requirementStep";
+import { splitLibraries } from "../../requirementStep";
 import { matchesAvailable } from "./availableFilter";
 import { packageCategory, type PackageCategory } from "./packageCategories";
 import type { PackagesState } from "./usePackages";
@@ -30,7 +31,8 @@ export default function Packages({
   state: PackagesState;
 }) {
   const { t } = useTranslation();
-  const { installed, available, stale, jobs, installingJob, error, clearError } = state;
+  const { installed, available, stale, jobs, installingJob, error, clearError, notice, clearNotice } =
+    state;
 
   // Chỉ lọc bảng "chưa cài": bảng trên là những bản máy này đang giữ, thường vài hàng, và giấu bớt
   // chúng sau một câu tìm kiếm là giấu đúng thứ người dùng cần thấy đủ trước khi gỡ.
@@ -47,6 +49,7 @@ export default function Packages({
   return (
     <div className={styles.catalogue}>
       {error !== "" && <ErrorBanner message={error} onDismiss={clearError} />}
+      {notice !== "" && <NoticeBanner message={notice} onDismiss={clearNotice} />}
 
       <Card title={t("mixengine.runtimes.installedTitle")} count={installedInCategory.length} flush>
         {installedInCategory.length === 0 ? (
@@ -138,14 +141,30 @@ export default function Packages({
             {availableInCategory.map((release) => {
               const key = versionKey(release.package, release.version);
               const job = jobFor(jobs, installingJob[key]);
-              const needs = (release.needs ?? []).map((requirement) => needLabel(requirement.need));
+              const { others, libraries } = splitLibraries(
+                (release.needs ?? []).map((requirement) => requirement.need),
+              );
+              const needs =
+                libraries.length > 0
+                  ? [
+                      ...others,
+                      t("mixengine.requirements.systemLibraries", { count: libraries.length }),
+                    ]
+                  : others;
               return (
                 <li key={key} className={styles.release}>
                   <MonogramBadge name={release.package} size={28} />
                   <span className={styles.releaseName}>{release.package}</span>
                   <span className={styles.version}>{release.version}</span>
                   <span className={styles.tag}>{release.channel}</span>
-                  <span className={styles.needs} title={t("mixengine.requirements.columnNeeds")}>
+                  <span
+                    className={styles.needs}
+                    title={
+                      libraries.length > 0
+                        ? libraries.join(", ")
+                        : t("mixengine.requirements.columnNeeds")
+                    }
+                  >
                     {needs.join(", ")}
                   </span>
                   {job ? (

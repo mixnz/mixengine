@@ -85,6 +85,9 @@ const en = {
   errorBanner: {
     dismiss: "Dismiss error",
   },
+  noticeBanner: {
+    dismiss: "Dismiss notice",
+  },
   cellDialog: {
     title: "{{column}}, row {{n}}",
     copy: "Copy",
