@@ -97,6 +97,8 @@ enum Bson {
     Text(&'static str),
     /// A 32-bit integer.
     Int(i32),
+    /// A boolean, which BSON writes as one byte.
+    Bool(bool),
     /// An embedded document, in order.
     Document(Vec<(&'static str, Bson)>),
     /// An array, which BSON writes as a document keyed `"0"`, `"1"`, ….
@@ -123,6 +125,7 @@ fn element(out: &mut Vec<u8>, key: &str, value: &Bson) {
         Bson::Text(_) => 0x02,
         Bson::Document(_) => 0x03,
         Bson::Array(_) => 0x04,
+        Bson::Bool(_) => 0x08,
         Bson::Int(_) => 0x10,
     });
     out.extend(key.as_bytes());
@@ -136,6 +139,7 @@ fn element(out: &mut Vec<u8>, key: &str, value: &Bson) {
             out.push(0);
         }
         Bson::Int(number) => out.extend(number.to_le_bytes()),
+        Bson::Bool(value) => out.push(u8::from(*value)),
         Bson::Document(fields) => {
             let mut body = Vec::new();
             for (key, value) in fields {
@@ -319,6 +323,11 @@ async fn a_database_is_generated_started_written_to_restarted_whole_and_stopped(
     assert!(answers(port), "nothing answered hello on {port}");
 
     // --- it is a database, and it keeps what it is given ------------------------------------------
+    //
+    // **Journaled before it is acknowledged.** A restart on Windows is a kill, and `mongod` flushes
+    // its journal every 100 ms, so an insert acknowledged without `j` is lost whenever the kill lands
+    // inside that window — which the Windows CI leg found on 2026-09-17. `j: true` asks for exactly
+    // the promise the assertion below checks: what was acknowledged survives the process.
     let inserted = command(
         port,
         &[
@@ -329,6 +338,10 @@ async fn a_database_is_generated_started_written_to_restarted_whole_and_stopped(
                     ("_id", Bson::Int(1)),
                     ("text", Bson::Text("hello")),
                 ])]),
+            ),
+            (
+                "writeConcern",
+                Bson::Document(vec![("j", Bson::Bool(true))]),
             ),
             ("$db", Bson::Text("mixengine")),
         ],
