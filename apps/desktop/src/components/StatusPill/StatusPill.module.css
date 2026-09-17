@@ -1,0 +1,71 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.success {
+  background: rgb(var(--success-rgb) / 0.12);
+  color: var(--success-text);
+}
+
+.success .dot {
+  background: var(--success);
+}
+
+.warning {
+  background: rgb(var(--warning-rgb) / 0.12);
+  color: var(--warning-text);
+}
+
+.warning .dot {
+  background: var(--warning);
+}
+
+.danger {
+  background: rgb(var(--danger-rgb) / 0.12);
+  color: var(--danger-text);
+}
+
+.danger .dot {
+  background: var(--danger);
+}
+
+.neutral {
+  background: var(--neutral-bg);
+  color: var(--text-secondary);
+}
+
+.neutral .dot {
+  background: var(--text-faint);
+}
+
+.pulse {
+  animation: status-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes status-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
