@@ -369,6 +369,13 @@ export default {
       sharingUntil: "on the LAN until {{until}}",
       empty: "No sites yet.",
       newSite: "New site",
+      about: "Local domains and what answers them.",
+      open: "Open",
+      routesNone: "None",
+      httpsOn: "On",
+      httpsOff: "Off",
+      stateEnabled: "Enabled",
+      stateDisabled: "Disabled",
       filterAllProjects: "All projects",
       edit: "Edit",
       form: {

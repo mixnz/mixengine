@@ -2,11 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import Button from "../../../../components/Button";
-import Input from "../../../../components/Input";
+import Input, { Textarea } from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
 import Checkbox from "../../../../components/Checkbox";
+import Switch from "../../../../components/Switch";
 import { errorMessage } from "../../../../core/errors";
+import { PlusIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { SiteDetail } from "@mixengine/api";
@@ -295,8 +297,9 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
 
             <label className={styles.field}>
               {t("mixengine.sites.form.domains")}
-              <textarea
-                className={styles.textarea}
+              <Textarea
+                mono
+                maxRows={6}
                 value={domainsText}
                 disabled={saving}
                 onChange={(e) => setDomainsText(e.target.value)}
@@ -318,6 +321,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               {t("mixengine.sites.form.docRoot")}
               <div className={styles.docRoot}>
                 <Input
+                  mono
                   value={docRoot}
                   disabled={saving}
                   onChange={(e) => setDocRoot(e.target.value)}
@@ -459,6 +463,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
                         />
                       )}
                       <Button
+                        variant="danger"
                         disabled={saving}
                         aria-label={t("mixengine.sites.form.routesRemove")}
                         onClick={() =>
@@ -473,6 +478,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               )}
 
               <Button
+                className={styles.addRoute}
                 disabled={saving}
                 onClick={() =>
                   setRoutes((current) => [
@@ -481,6 +487,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
                   ])
                 }
               >
+                <PlusIcon size={14} />
                 {t("mixengine.sites.form.routesAdd")}
               </Button>
             </div>
@@ -501,35 +508,42 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               </div>
             </div>
 
-            <Checkbox
-              className={styles.checkbox}
-              label={t("mixengine.sites.form.https")}
-              checked={https}
-              disabled={saving}
-              onChange={(e) => {
-                setHttps(e.target.checked);
-                // Bỏ HTTPS là bỏ luôn redirect: không có địa chỉ HTTPS nào để chuyển tới.
-                if (!e.target.checked) setHttpsRedirect(false);
-              }}
-            />
-
-            <Checkbox
-              className={styles.checkbox}
-              label={t("mixengine.sites.form.httpsRedirect")}
-              checked={https && httpsRedirect}
-              disabled={saving || !https}
-              onChange={(e) => setHttpsRedirect(e.target.checked)}
-            />
-
-            {editing && (
-              <Checkbox
-                className={styles.checkbox}
-                label={t("mixengine.sites.form.enabled")}
-                checked={enabled}
-                disabled={saving}
-                onChange={(e) => setEnabled(e.target.checked)}
-              />
-            )}
+            {/* Settings that take effect as the site is saved, as switch rows in one inset panel. */}
+            <div className={styles.toggles}>
+              <div className={styles.toggle}>
+                <span id="site-form-https">{t("mixengine.sites.form.https")}</span>
+                <Switch
+                  aria-labelledby="site-form-https"
+                  checked={https}
+                  disabled={saving}
+                  onChange={(next) => {
+                    setHttps(next);
+                    // Bỏ HTTPS là bỏ luôn redirect: không có địa chỉ HTTPS nào để chuyển tới.
+                    if (!next) setHttpsRedirect(false);
+                  }}
+                />
+              </div>
+              <div className={https ? styles.toggle : `${styles.toggle} ${styles.toggleOff}`}>
+                <span id="site-form-redirect">{t("mixengine.sites.form.httpsRedirect")}</span>
+                <Switch
+                  aria-labelledby="site-form-redirect"
+                  checked={https && httpsRedirect}
+                  disabled={saving || !https}
+                  onChange={setHttpsRedirect}
+                />
+              </div>
+              {editing && (
+                <div className={styles.toggle}>
+                  <span id="site-form-enabled">{t("mixengine.sites.form.enabled")}</span>
+                  <Switch
+                    aria-labelledby="site-form-enabled"
+                    checked={enabled}
+                    disabled={saving}
+                    onChange={setEnabled}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {error !== "" && (

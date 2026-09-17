@@ -364,6 +364,13 @@ const vi: typeof en = {
       sharingUntil: "chia sẻ LAN tới {{until}}",
       empty: "Chưa có site nào.",
       newSite: "Tạo site",
+      about: "Các domain cục bộ và thứ trả lời chúng.",
+      open: "Mở",
+      routesNone: "Không có",
+      httpsOn: "Bật",
+      httpsOff: "Tắt",
+      stateEnabled: "Đang bật",
+      stateDisabled: "Đang tắt",
       filterAllProjects: "Mọi project",
       edit: "Sửa",
       form: {
