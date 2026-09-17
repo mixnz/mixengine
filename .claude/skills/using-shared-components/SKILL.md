@@ -22,6 +22,26 @@ The primitives are not styling wrappers — each carries behaviour a raw element
 That last row is the argument: thirteen dialogs once hand-rolled the first three and none had the
 fourth. A duplicated primitive is a copy missing something, and nobody notices which.
 
+The redesign (phase 20, [design](../../../docs/superpowers/specs/2026-09-17-t157-mixlab-redesign-design.md))
+added the parts a screen is built from:
+
+| Primitive | For |
+| --- | --- |
+| `Button` variants | `primary`, `default` (secondary), `soft`, `ghost`, `danger`, `positive`, `link`; `busy="Starting"` locks it with dots |
+| `Switch` | an on/off setting that applies at once — `aria-pressed`, `small` in a table row |
+| `SegmentedControl` | mutually exclusive choices; `mode="tabs"` switches a view, `mode="filter"` narrows a list |
+| `FilterChip` | independent filters, any number on |
+| `StatusPill` | a state in a word and a dot — `success`/`warning`/`danger`/`neutral`, `pulse` while changing |
+| `Card` | a section of a screen: title, description, count, actions; `flush` for an edge-to-edge table |
+| `PageHeader` | a screen's title, badges, description and actions |
+| `Table` | a semantic table of managed things at `--row-h`; `data-align="end"` for action cells |
+| `MonogramBadge` | two letters and a hue *derived* from a name — never a table of names |
+| `Popover` | an anchored panel that is neither a menu nor a listbox |
+| `EmptyState` | nothing to show, said as a sentence with a way forward |
+
+Sizes come from the density tokens (`--control-h*`, `--row-h`), so none of these takes a density
+prop: a region that holds rows sets `data-density="compact"` on its root.
+
 ## The rules
 
 - **Form controls → always the primitive.** `<Input type="number">`, never `<input type="number">`.

@@ -18,7 +18,7 @@ in tokens — so the work starts at the tokens and moves outwards one area at a 
 - [x] **T157** Foundation — glass removed; `data-theme` always resolved; Geist; the two-theme token
       set with mint as default and four-handle accents; two densities; syntax and terminal tokens;
       `contrast.test.ts` and the `colourLiterals.test.ts` ratchet; the ADR. Design D1–D9.
-- [ ] **T158** Components — every shared component restyled and the new ones (Switch,
+- [x] **T158** Components — every shared component restyled and the new ones (Switch,
       SegmentedControl, FilterChip, StatusPill, Card, PageHeader, Table, MonogramBadge, Popover,
       EmptyState) added, with the shared-components skill updated.
 - [ ] **T159** Shell — tab bar, Settings modal, FirstRun, TabNotice.
