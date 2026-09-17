@@ -121,6 +121,9 @@
   it stopped. Before, only a pool the idle sweeper had stopped could be woken — so after a reboot or
   a `mix daemon restart` every PHP site on the machine answered 502 until somebody ran `mix service
   start` by hand. A service you stopped yourself is still left alone.
+- Applying a blueprint again after its project folder was deleted makes the folder again, instead
+  of running the blueprint's command in a folder that is not there — which Windows reported as
+  *cannot start cmd.exe*. A command that cannot be started now also says the system's own reason.
 
 ### Changed
 - MixLab's Metrics charts now say what they are drawing: a labelled time axis, a labelled value axis,
