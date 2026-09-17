@@ -8,6 +8,7 @@ import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import { applyLogFrame, type LogEntry } from "../../logState";
+import { takePendingLogsService } from "../../logsNavigation";
 import styles from "./Logs.module.css";
 
 const MAX_ENTRIES = 2000;
@@ -28,6 +29,12 @@ export default function Logs({ active }: { active: boolean }) {
   // `Dashboard.tsx` and `ServicesDetail.tsx` have.
   useEffect(() => {
     if (!active) return;
+    // A row menu elsewhere may have asked for one service — see `logsNavigation.ts`.
+    const requested = takePendingLogsService();
+    if (requested !== null) {
+      setSelected(requested);
+      setTail(INITIAL_TAIL);
+    }
     api
       .services()
       .then((list) => setIds(list.services.map((s) => s.id)))

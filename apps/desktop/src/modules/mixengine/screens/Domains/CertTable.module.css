@@ -1,32 +1,33 @@
-.block {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.title {
-  margin: 0;
-}
-
-.tableWrap {
-  overflow-x: auto;
-  min-width: 0;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  white-space: nowrap;
-}
-
-.table th,
-.table td {
-  text-align: left;
-  padding: 6px 12px 6px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.expiring {
-  color: var(--danger-text, #b91c1c);
+.domain {
   font-weight: 600;
+}
+
+.names {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.name {
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: var(--neutral-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.days {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Under a week left: the one figure on this card somebody has to act on. */
+.expiring {
+  color: var(--danger-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.none {
+  color: var(--text-faint);
 }

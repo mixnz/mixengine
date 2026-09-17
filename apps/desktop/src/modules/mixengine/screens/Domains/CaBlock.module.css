@@ -1,30 +1,52 @@
-.block {
+.warning {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--warning-rgb) / 0.12);
+  color: var(--warning-text);
+  font-size: var(--text-md);
+}
+
+/* The two places the certificate authority has to be trusted, as rows in one sunken panel. */
+.facts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md, 6px);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
 }
 
-.title {
-  margin: 0;
+.fact {
+  display: grid;
+  grid-template-columns: 120px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  font-size: var(--text-md);
 }
 
-.warning {
-  margin: 0;
-  color: var(--warning, #b45309);
-}
-
-.row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+.fact + .fact {
+  border-top: 1px solid var(--border-soft);
 }
 
 .label {
-  flex: 0 0 140px;
   color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.explain {
+  min-width: 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.repair {
+  grid-column: 4;
+}
+
+.good {
+  color: var(--success-text);
 }
 
 .databases {
@@ -33,10 +55,27 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+}
+
+.databases li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.owner {
+  font-weight: 500;
+  color: var(--text);
 }
 
 .path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-muted);
   font-family: var(--font-mono);
+  font-size: var(--text-sm);
 }

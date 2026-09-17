@@ -2,8 +2,14 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
 import Select from "../../../../components/Select";
+import StatusPill from "../../../../components/StatusPill";
+import Table from "../../../../components/Table";
+import { FolderIcon, GlobeIcon, LockIcon, PlusIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -43,7 +49,7 @@ function SharingCell({
 
   if (!sharing) {
     return (
-      <Button onClick={onShare} size="small">
+      <Button onClick={onShare} size="small" variant="soft">
         {t("mixengine.sites.share.share")}
       </Button>
     );
@@ -194,101 +200,148 @@ export default function Sites({ active }: { active: boolean }) {
   }
 
   return (
-    <div className={styles.sites}>
+    <div className={`mixengine-page ${styles.sites}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <div className={styles.toolbar}>
-        <Select
-          value={projectFilter}
-          onChange={(value) => {
-            // The refresh effect above only runs for a new `active` turn, so while this screen is
-            // already open a filter change has to read the sites itself — with `value`, not with
-            // the `projectFilter` that stays one beat stale in the closure.
-            setProjectFilter(value);
-            void reload(value);
-          }}
-          searchable
-          options={[
-            { value: "", label: t("mixengine.sites.filterAllProjects") },
-            ...projectNames.map((name) => ({ value: name, label: name })),
-          ]}
-        />
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          {t("mixengine.sites.newSite")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("mixengine.sidebar.sites")}
+        description={t("mixengine.sites.about")}
+        actions={
+          <>
+            <Select
+              className={styles.filter}
+              size="large"
+              value={projectFilter}
+              onChange={(value) => {
+                // The refresh effect above only runs for a new `active` turn, so while this screen is
+                // already open a filter change has to read the sites itself — with `value`, not with
+                // the `projectFilter` that stays one beat stale in the closure.
+                setProjectFilter(value);
+                void reload(value);
+              }}
+              searchable
+              options={[
+                { value: "", label: t("mixengine.sites.filterAllProjects") },
+                ...projectNames.map((name) => ({ value: name, label: name })),
+              ]}
+            />
+            <Button size="large" variant="primary" onClick={() => setCreating(true)}>
+              <PlusIcon size={15} />
+              {t("mixengine.sites.newSite")}
+            </Button>
+          </>
+        }
+      />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t("mixengine.sites.columnDomain")}</th>
-              <th>{t("mixengine.sites.columnOwner")}</th>
-              <th>{t("mixengine.sites.columnKind")}</th>
-              <th>{t("mixengine.sites.columnRoutes")}</th>
-              <th>{t("mixengine.sites.columnHttps")}</th>
-              <th>{t("mixengine.sites.columnState")}</th>
-              <th>{t("mixengine.sites.columnSharing")}</th>
-              <th>{t("mixengine.sites.columnActions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.domain}>
-                <td>
-                  <Button
-                    variant="link"
-                    disabled={opening !== null}
-                    onClick={() => void visit(row)}
-                    title={t("mixengine.sites.openHint", { url: siteVisit(row).url })}
-                  >
-                    {row.domain}
-                  </Button>
-                  {opening === row.domain && (
-                    <span className={styles.opening}>{t("mixengine.sites.opening")}</span>
-                  )}
-                </td>
-                <td>
-                  {row.owner.type === "project"
-                    ? t("mixengine.sites.ownerProject", { name: row.owner.name })
-                    : t("mixengine.sites.ownerExtension", { id: row.owner.id })}
-                  {!canEditSite(row.owner) && (
-                    <span className={styles.readOnly} title={t("mixengine.sites.editDisabledHint")}>
-                      {" "}
-                      🔒
-                    </span>
-                  )}
-                </td>
-                <td>{row.kind.kind}</td>
-                {/* T135. `?? []` cho daemon build trước khi trường này tồn tại. */}
-                <td>{(row.routes ?? []).length || "—"}</td>
-                <td>
-                  {row.https ? "✓" : "—"}
-                  {/* T98: site ép HTTPS — `?? false` cho daemon build trước khi trường này tồn tại. */}
-                  {row.https && (row.https_redirect ?? false) && (
-                    <span className={styles.redirect}> {t("mixengine.sites.redirect")}</span>
-                  )}
-                </td>
-                <td>{row.state}</td>
-                <td>
-                  <SharingCell
-                    sharing={row.sharing}
-                    onShare={() => setSharing(row.domain)}
-                    onUnshare={() => void unshare(row.domain)}
-                  />
-                </td>
-                <td>
-                  <Button onClick={() => void edit(row.domain)} disabled={!canEditSite(row.owner)}>
-                    {t("mixengine.sites.edit")}
-                  </Button>
-                </td>
+      <Card flush>
+        {rows.length === 0 ? (
+          <EmptyState title={t("mixengine.sites.empty")} />
+        ) : (
+          <Table aria-label={t("mixengine.sidebar.sites")}>
+            <thead>
+              <tr>
+                <th>{t("mixengine.sites.columnDomain")}</th>
+                <th>{t("mixengine.sites.columnOwner")}</th>
+                <th>{t("mixengine.sites.columnKind")}</th>
+                <th>{t("mixengine.sites.columnRoutes")}</th>
+                <th>{t("mixengine.sites.columnHttps")}</th>
+                <th>{t("mixengine.sites.columnState")}</th>
+                <th>{t("mixengine.sites.columnSharing")}</th>
+                <th data-align="end">{t("mixengine.sites.columnActions")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {rows.length === 0 && <p className={styles.empty}>{t("mixengine.sites.empty")}</p>}
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const routes = (row.routes ?? []).length; // T135. `?? []` for a daemon from before the field.
+                return (
+                  <tr key={row.domain}>
+                    <td>
+                      <span className={styles.domain}>
+                        <span className={row.https ? styles.lockOn : styles.lockOff} aria-hidden="true">
+                          <LockIcon size={14} />
+                        </span>
+                        <Button
+                          variant="link"
+                          disabled={opening !== null}
+                          onClick={() => void visit(row)}
+                          title={t("mixengine.sites.openHint", { url: siteVisit(row).url })}
+                        >
+                          {row.domain}
+                        </Button>
+                        {opening === row.domain && (
+                          <span className={styles.opening}>{t("mixengine.sites.opening")}</span>
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.owner}>
+                        {row.owner.type === "project" ? (
+                          <>
+                            <FolderIcon size={14} className={styles.ownerIcon} />
+                            {row.owner.name}
+                          </>
+                        ) : (
+                          t("mixengine.sites.ownerExtension", { id: row.owner.id })
+                        )}
+                        {!canEditSite(row.owner) && (
+                          <span className={styles.readOnly} title={t("mixengine.sites.editDisabledHint")}>
+                            <LockIcon size={12} />
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.kind}>{row.kind.kind}</span>
+                    </td>
+                    <td className={routes === 0 ? styles.none : undefined}>
+                      {routes === 0 ? t("mixengine.sites.routesNone") : routes}
+                    </td>
+                    <td data-nowrap>
+                      <span className={row.https ? styles.httpsOn : styles.none}>
+                        {row.https ? t("mixengine.sites.httpsOn") : t("mixengine.sites.httpsOff")}
+                      </span>
+                      {/* T98: site ép HTTPS — `?? false` cho daemon build trước khi trường này tồn tại. */}
+                      {row.https && (row.https_redirect ?? false) && (
+                        <span className={styles.redirect}> {t("mixengine.sites.redirect")}</span>
+                      )}
+                    </td>
+                    <td>
+                      <StatusPill tone={row.state === "enabled" ? "success" : "neutral"}>
+                        {row.state === "enabled"
+                          ? t("mixengine.sites.stateEnabled")
+                          : t("mixengine.sites.stateDisabled")}
+                      </StatusPill>
+                    </td>
+                    <td>
+                      <SharingCell
+                        sharing={row.sharing}
+                        onShare={() => setSharing(row.domain)}
+                        onUnshare={() => void unshare(row.domain)}
+                      />
+                    </td>
+                    <td data-align="end" data-nowrap>
+                      <span className={styles.rowActions}>
+                        <Button size="small" disabled={opening !== null} onClick={() => void visit(row)}>
+                          <GlobeIcon size={14} />
+                          {t("mixengine.sites.open")}
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() => void edit(row.domain)}
+                          disabled={!canEditSite(row.owner)}
+                          title={canEditSite(row.owner) ? undefined : t("mixengine.sites.editDisabledHint")}
+                        >
+                          {t("mixengine.sites.edit")}
+                        </Button>
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
       {creating && (
         <SiteForm

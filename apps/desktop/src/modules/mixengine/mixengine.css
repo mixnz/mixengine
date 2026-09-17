@@ -1,6 +1,6 @@
-/* Root của workspace cần đủ khối năm thuộc tính: `.tab-panel` là flex hàng ngang, nên một root
-   thiếu `width` chỉ rộng bằng nội dung và dính vào mép trái —
-   xem .agent/conventions/workspace-root.md. */
+/* A workspace root needs all five properties: `.tab-panel` is a horizontal flex row, so a root
+   without `width` is only as wide as its content and sticks to the left edge —
+   see .agent/conventions/workspace-root.md. */
 .mixengine-root {
   display: flex;
   flex-direction: column;
@@ -10,48 +10,53 @@
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
+  background: var(--page-bg);
 }
 
-/* Cổng đứng trước một daemon chưa trả lời: một câu và, khi có việc để làm, một nút. */
+/* The gate in front of a daemon that is not answering: a sentence and, when there is something to
+   do, a button — centred on the page in a card of its own. */
 .mixengine-gate {
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 14px;
   padding: 24px;
   text-align: center;
+  font-size: var(--text-md);
+}
+
+.mixengine-gate > p:first-of-type {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
 }
 
 .mixengine-gate-looked {
   margin: 0;
-  opacity: 0.6;
-  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
 }
 
-/* Chỗ đã tìm `mixengined` — một danh sách đường dẫn, không phải một câu (T111).
-   `PATH` của một máy thật có vài chục mục, nên nối tất cả vào một đoạn văn căn giữa đẩy chính cái
-   nút xuống dưới đáy cửa sổ: màn hình mất đúng thứ nó tồn tại để đưa ra. Trần chiều cao và tự cuộn
-   giữ nút ở yên, mỗi dòng một đường dẫn, và mấy dòng đầu — chỗ cạnh chương trình, rồi chỗ installer
-   của hệ điều hành này đặt MixEngine — là mấy dòng người đọc làm được gì đó với chúng. */
+/* Where `mixengined` was looked for — a list of paths, not a sentence (T111). A real `PATH` has a
+   few dozen entries, so a ceiling and its own scrolling keep the button in place under it. */
 .mixengine-gate-searched {
   margin: 0;
-  padding: 8px 12px;
+  padding: 10px 14px;
   max-width: min(720px, 100%);
   max-height: 180px;
   overflow: auto;
-  border: 1px solid var(--border-soft);
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
   list-style: none;
   text-align: left;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: 1.7;
-  /* Một đường dẫn Windows không có chỗ nào để ngắt dòng "đẹp", nên cho nó ngắt ở bất kỳ đâu thay vì
-     để nó tràn ngang ra khỏi khung. */
+  /* A Windows path has nowhere pleasant to break, so let it break anywhere rather than overflow. */
   overflow-wrap: anywhere;
 }
 
-/* Sidebar + màn hình đang chọn, cạnh nhau. `.mixengine-root` là flex column ở trên nên phải nói lại
-   `flex-direction: row` ở đây thay vì đổi luật của root. */
+/* The sidebar and the chosen screen, side by side. */
 .mixengine-layout {
   flex-direction: row;
 }
@@ -63,9 +68,8 @@
   overflow: auto;
 }
 
-/* Một màn hình đã xem qua ở lại trong DOM để không mất state của nó — `display: contents` là để
-   nó không thêm một hộp mới vào layout (một số màn tự đặt `height: 100%` mong chờ là con trực tiếp
-   của `.mixengine-screen`, số khác không) khi đang hiện; `[hidden]` mới thật sự ẩn nó đi. */
+/* A screen once looked at stays in the DOM so it keeps its state — `display: contents` so it adds
+   no box of its own while shown; `[hidden]` is what actually hides it. */
 .mixengine-screen-pane {
   display: contents;
 }
@@ -74,15 +78,24 @@
   display: none;
 }
 
-/* Chỗ đặt bốn thư mục phình to, ở cổng vào — T146.
-   Một bảng ba cột trong cùng cái khung `mixengine-gate-searched` dùng cho danh sách thư mục đã tìm:
-   cùng một thứ đang được nói ở đây — mấy đường dẫn để đọc — và một khung thứ hai trông khác đi sẽ
-   là hai giọng cho một việc. */
+/* A screen's page: the padding and the rhythm between its header and its cards. Screens that are
+   a list beside a detail (Services, Logs) lay themselves out instead. */
+.mixengine-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 28px 30px 36px 36px;
+}
+
+/* Where the four directories that grow are placed, at the gate — T146. The same frame as the list
+   of searched directories: the same thing is being said here, a few paths to read. */
 .mixengine-gate-storage {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
 }
 
@@ -90,23 +103,20 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 2px 0;
+  padding: 3px 0;
 }
 
-/* Cột tên có bề rộng cố định để bốn đường dẫn thẳng hàng: đọc bốn dòng so le là đọc bốn lần. */
+/* A fixed width for the name column so the four paths line up: four ragged lines are read four
+   times. */
 .mixengine-gate-storage-name {
   flex: 0 0 auto;
   min-width: 84px;
-  opacity: 0.7;
+  color: var(--text-muted);
   font-family: var(--font-ui);
 }
 
-/* Đường dẫn dài hơn khung thì cắt ở đuôi.
-   **Không `direction: rtl`**, dù cắt-từ-trái đúng là cái muốn ở đây: nó không chỉ đổi chỗ cắt mà
-   chạy thuật toán bidi trên cả chuỗi, và `/` là ký tự trung tính nên dấu gạch đầu dòng bị đẩy
-   xuống cuối — `/private/tmp/x/runtimes` hiện ra thành `private/tmp/x/runtimes/`. Đo được bằng
-   mắt trên cửa sổ thật. Một đường dẫn hiện sai tệ hơn nhiều một đường dẫn bị cắt đuôi, và cột tên
-   bên trái đã nói thư mục nào rồi nên phần đuôi không mang thêm gì. */
+/* A path longer than the frame is cut at its tail. **Not `direction: rtl`**, which would run the
+   bidi algorithm over the whole string and move the leading `/` to the end. */
 .mixengine-gate-storage-path {
   flex: 1 1 auto;
   overflow: hidden;

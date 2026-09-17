@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
+import Table from "../../../../components/Table";
+import { copyText } from "../../../../core/clipboard";
 import { errorMessage } from "../../../../core/errors";
+import { CopyIcon, FolderIcon, GlobeIcon, PlusIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { ProjectDetail } from "@mixengine/api";
@@ -73,61 +79,105 @@ export default function Projects({ active, onOpenSites }: Props) {
   }
 
   return (
-    <div className={styles.projects}>
+    <div className={`mixengine-page ${styles.projects}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <div className={styles.toolbar}>
-        <Button variant="primary" onClick={() => setCreating(true)}>
-          {t("mixengine.projects.newProject")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("mixengine.sidebar.projects")}
+        description={t("mixengine.projects.about")}
+        actions={
+          <Button size="large" variant="primary" onClick={() => setCreating(true)}>
+            <PlusIcon size={15} />
+            {t("mixengine.projects.newProject")}
+          </Button>
+        }
+      />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t("mixengine.projects.columnName")}</th>
-              <th>{t("mixengine.projects.columnRoot")}</th>
-              <th>{t("mixengine.projects.columnManifest")}</th>
-              <th>{t("mixengine.projects.columnKeepWarm")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.name}>
-                <td>
-                  <button className={styles.nameButton} onClick={() => void showDetail(row.name)}>
-                    {row.name}
-                  </button>
-                </td>
-                <td>{row.root}</td>
-                <td>{row.manifest ? "✓" : "—"}</td>
-                <td>{row.keep_warm ? "✓" : "—"}</td>
-                <td className={styles.rowActions}>
-                  <Button onClick={() => onOpenSites(row.name)}>
-                    {t("mixengine.projects.openSites")}
-                  </Button>
-                  <Button onClick={() => void edit(row.name)}>{t("mixengine.projects.edit")}</Button>
-                  <Button onClick={() => setDeleting(row.name)}>
-                    {t("mixengine.projects.delete")}
-                  </Button>
-                </td>
+      <Card flush>
+        {rows.length === 0 ? (
+          <EmptyState title={t("mixengine.projects.empty")} />
+        ) : (
+          <Table aria-label={t("mixengine.sidebar.projects")}>
+            <thead>
+              <tr>
+                <th>{t("mixengine.projects.columnName")}</th>
+                <th>{t("mixengine.projects.columnRoot")}</th>
+                <th>{t("mixengine.projects.columnManifest")}</th>
+                <th>{t("mixengine.projects.columnKeepWarm")}</th>
+                <th data-align="end">{t("mixengine.sites.columnActions")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {rows.length === 0 && <p className={styles.empty}>{t("mixengine.projects.empty")}</p>}
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.name}>
+                  <td>
+                    <span className={styles.name}>
+                      <span className={styles.folder} aria-hidden="true">
+                        <FolderIcon size={17} />
+                      </span>
+                      <Button variant="link" onClick={() => void showDetail(row.name)}>
+                        {row.name}
+                      </Button>
+                    </span>
+                  </td>
+                  <td>
+                    <span className={styles.root}>
+                      <span className={styles.rootPath} title={row.root}>
+                        {row.root}
+                      </span>
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        className={styles.copy}
+                        aria-label={t("mixengine.projects.copyRoot")}
+                        title={t("mixengine.projects.copyRoot")}
+                        onClick={() => void copyText(row.root)}
+                      >
+                        <CopyIcon size={13} />
+                      </Button>
+                    </span>
+                  </td>
+                  <td className={row.manifest ? undefined : styles.none}>
+                    {row.manifest ? t("mixengine.projects.present") : t("mixengine.projects.notFound")}
+                  </td>
+                  <td className={row.keep_warm ? undefined : styles.none}>
+                    {row.keep_warm ? t("mixengine.projects.yes") : "—"}
+                  </td>
+                  <td data-align="end" data-nowrap>
+                    <span className={styles.rowActions}>
+                      <Button size="small" onClick={() => onOpenSites(row.name)}>
+                        <GlobeIcon size={14} />
+                        {t("mixengine.projects.openSites")}
+                      </Button>
+                      <Button size="small" onClick={() => void edit(row.name)}>
+                        {t("mixengine.projects.edit")}
+                      </Button>
+                      <Button size="small" variant="danger" onClick={() => setDeleting(row.name)}>
+                        {t("mixengine.projects.delete")}
+                      </Button>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
       {detail && (
-        <div className={styles.detailPanel}>
-          <h4>{t("mixengine.projects.detail.pinsTitle")}</h4>
-          <ul>
+        <Card
+          title={t("mixengine.projects.detail.pinsTitle")}
+          count={detail.project.name}
+          actions={
+            <Button size="small" onClick={() => setDetail(null)}>
+              {t("common.close")}
+            </Button>
+          }
+        >
+          <ul className={styles.pins}>
             {formatPins(detail.pins).map((pin) => (
               <li key={pin.kind}>
-                <strong>{pin.kind}</strong> {pin.constraint} —{" "}
+                <strong>{pin.kind}</strong> <code>{pin.constraint}</code> —{" "}
                 {pin.sourceLabel === "manifest"
                   ? t("mixengine.projects.detail.sourceManifest", { path: pin.sourcePath ?? "" })
                   : t("mixengine.projects.detail.sourceRow")}
@@ -139,8 +189,7 @@ export default function Projects({ active, onOpenSites }: Props) {
               </li>
             ))}
           </ul>
-          <Button onClick={() => setDetail(null)}>{t("common.close")}</Button>
-        </div>
+        </Card>
       )}
 
       {creating && (

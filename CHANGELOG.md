@@ -64,6 +64,8 @@
 - MixLab is set in Geist, with a new colour scheme for its light and dark themes and mint as the
   default accent; the System theme now follows the operating system as it switches.
 - The Liquid glass appearance setting is gone.
+- MixLab's Dashboard, Projects, Sites and Domains & TLS screens are redrawn; the Dashboard's services
+  can be filtered to running or stopped, and a service's menu opens its logs.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,
