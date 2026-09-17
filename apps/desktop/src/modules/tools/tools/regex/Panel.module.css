@@ -40,7 +40,7 @@
 
 .error {
   font-size: var(--text-md);
-  color: var(--danger, #d33);
+  color: var(--danger-text);
   margin: 0;
 }
 
@@ -56,7 +56,7 @@
 }
 
 .hit {
-  background: color-mix(in srgb, orange 30%, transparent);
+  background: rgb(var(--warning-rgb) / 0.30);
   border-radius: 2px;
 }
 
