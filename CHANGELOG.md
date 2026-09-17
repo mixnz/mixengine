@@ -69,6 +69,9 @@
 - MixLab's Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs, Add-ons and Settings screens
   are redrawn: PHP extensions are tiles with an On/Off filter, Services lists each service's real state,
   and Blueprints can be searched.
+- MixLab's database connection editor is redrawn: saved connections can be searched and filtered by
+  engine, the engine is picked from a list, and a route card shows how the connection travels with a
+  connection string to copy that never includes the password.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

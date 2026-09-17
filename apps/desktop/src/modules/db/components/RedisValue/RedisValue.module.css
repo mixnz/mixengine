@@ -103,7 +103,7 @@
 }
 
 .table tbody tr:hover {
-  background: rgba(128, 128, 128, 0.08);
+  background: var(--surface-sunken);
 }
 
 .numberColumn {
@@ -191,7 +191,7 @@
 /* Switches the whole-key string view between its JSON form and the bytes actually stored. */
 .formatToggle {
   padding: 0.05rem 0.35rem;
-  border: 1px solid rgba(128, 128, 128, 0.35);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   box-shadow: none;
@@ -215,7 +215,7 @@
 
 .loadMore {
   padding: 0.3rem 0.8rem;
-  border: 1px dashed rgba(128, 128, 128, 0.4);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   box-shadow: none;

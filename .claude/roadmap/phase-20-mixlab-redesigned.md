@@ -25,7 +25,7 @@ in tokens — so the work starts at the tokens and moves outwards one area at a 
 - [x] **T160** MixEngine I — gate, sidebar, Dashboard, Projects, Sites and its dialog, Domains & TLS.
 - [x] **T161** MixEngine II — Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs,
       Add-ons, Settings, the remaining dialogs.
-- [ ] **T162** `db` — the connection editor, the compact workspace, its dialogs.
+- [x] **T162** `db` — the connection editor, the compact workspace, its dialogs.
 - [ ] **T163** REST, Terminal (xterm reads `--ansi-*`), Tools; both colour-literal baselines empty.
 
 **M20**: every screen renders in both themes with no colour literal outside `App.css`, the contrast

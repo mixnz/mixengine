@@ -11,7 +11,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--scrim);
 }
 
 .dialog {
@@ -41,11 +41,11 @@
 /* Một vệt màu bên trái nói đây là tin gì, không nhuộm cả hộp: chữ vẫn đọc trên nền của dialog như
    mọi hộp thoại khác. */
 .reconnecting {
-  border-left: 3px solid #eda200;
+  border-left: 3px solid var(--warning);
 }
 
 .reconnected {
-  border-left: 3px solid #2e7d32;
+  border-left: 3px solid var(--success);
 }
 
 .failed {
@@ -82,12 +82,4 @@
   justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.25rem;
-}
-
-:root[data-theme="dark"] .reconnecting {
-  border-left-color: #ffc107;
-}
-
-:root[data-theme="dark"] .reconnected {
-  border-left-color: #66bb6a;
 }

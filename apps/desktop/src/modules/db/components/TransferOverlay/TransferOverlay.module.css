@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgb(0 0 0 / 0.45);
+  background: var(--scrim);
   backdrop-filter: blur(2px);
   /* The window is locked for the duration; swallow anything aimed at what is underneath. */
   cursor: progress;
@@ -116,7 +116,7 @@
 .progressTrack {
   height: 5px;
   border-radius: 999px;
-  background: rgba(128, 128, 128, 0.22);
+  background: var(--neutral-bg);
   overflow: hidden;
 }
 

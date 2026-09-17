@@ -33,7 +33,11 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+  min-height: 0;
   margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  box-shadow: none;
   border: 1.5px solid var(--border-strong);
   border-radius: 50%;
   background: var(--control-bg);

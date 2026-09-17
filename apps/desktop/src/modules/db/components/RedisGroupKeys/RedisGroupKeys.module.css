@@ -100,7 +100,7 @@
    button would drop to a plain grey edge exactly when the pointer is on it. */
 .delete:hover:not(:disabled) {
   border-color: var(--danger-text);
-  background: rgb(192 57 43 / 0.1);
+  background: rgb(var(--danger-rgb) / 0.1);
 }
 
 .scrollWrap {
@@ -174,7 +174,7 @@
 
 .showMore {
   padding: 0.3rem 0.8rem;
-  border: 1px dashed rgba(128, 128, 128, 0.4);
+  border: 1px dashed var(--border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   box-shadow: none;

@@ -56,7 +56,7 @@ prop: a region that holds rows sets `data-density="compact"` on its root.
 ## When nothing fits
 
 1. **Count call sites, including the one you are writing.** Two or more → make it shared now.
-   Standing example: `type="radio"` sat open-coded in two screens until `RadioCard` came with the second.
+   Standing example: `type="radio"` sat open-coded in two screens until `RadioCard` replaced both.
 2. **One call site, generic shape → still make it shared.** The bias is toward creating: a control a
    second screen would plausibly want is cheaper as a primitive today than as two divergent copies
    later. Ask what the *thing* is — "a segmented control", not "the idle-timeout picker".
