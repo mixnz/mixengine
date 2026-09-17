@@ -411,7 +411,7 @@ function MongoWorkspace({
         : undefined;
 
   return (
-    <div className="mongo-workspace">
+    <div className="mongo-workspace" data-density="compact">
       <div className="mongo-header">
         <div className="mongo-header-left">
           {serverInfo && (

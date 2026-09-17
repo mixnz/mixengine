@@ -49,7 +49,6 @@ function counts(
 
 const CSS_BASELINE: Record<string, number> = {
   "components/CellDialog/CellDialog.module.css": 1,
-  "components/ConfirmDialog/ConfirmDialog.module.css": 2,
   "components/ErrorBoundary/ErrorBoundary.module.css": 1,
   "components/JsonView/JsonView.module.css": 8,
   "components/LoadingOverlay/LoadingOverlay.module.css": 2,

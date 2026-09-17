@@ -421,7 +421,7 @@ function RedisWorkspace({
   }, [keyLimit, t, lang]);
 
   return (
-    <div className="redis-workspace">
+    <div className="redis-workspace" data-density="compact">
       <div className="redis-header">
         <div className="redis-header-left">
           {serverInfo && (
