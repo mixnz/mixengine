@@ -1,18 +1,12 @@
+import StatusPill from "../../../../components/StatusPill";
 import { useTranslation } from "../../../../i18n";
+import { statusTone } from "../../statusTone";
 import { formatBytes } from "../../format";
 import type { SendState } from "../ResponsePane";
 import styles from "./ResponseStatusBar.module.css";
 
 interface Props {
   state: SendState;
-}
-
-/** The class of a status code, which is all its colour is about. */
-function statusClass(status: number): string {
-  if (status >= 500) return styles.s5xx;
-  if (status >= 400) return styles.s4xx;
-  if (status >= 300) return styles.s3xx;
-  return styles.s2xx;
 }
 
 /**
@@ -36,9 +30,9 @@ function ResponseStatusBar({ state }: Props) {
 
   return (
     <div className={styles.bar}>
-      <span className={`${styles.status} ${statusClass(response.status)}`}>
+      <StatusPill tone={statusTone(response.status)} className={styles.status}>
         {response.status} {response.status_text}
-      </span>
+      </StatusPill>
       <span className={styles.figure} title={t("rest.totalTimeHint")}>
         {response.total_ms} ms
       </span>
