@@ -149,7 +149,7 @@
 /* Over the header's own fill rather than in place of it — see the same rule in SqlTable: replacing
    it lets the rows scrolling underneath show through the column name under the pointer. */
 .headerCell:hover {
-  background: linear-gradient(rgb(128 128 128 / 0.18), rgb(128 128 128 / 0.18)), var(--rail-bg);
+  background: var(--table-head-bg);
 }
 
 .name {

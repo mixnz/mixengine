@@ -79,16 +79,16 @@
    in both. Only the half of the row that actually changed wears it: the key for a rename, the
    value for an edit. */
 .markChanged {
-  background: rgba(255, 179, 0, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(255, 179, 0, 0.55);
+  background: rgb(var(--warning-rgb) / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(var(--warning-rgb) / 0.55);
   border-radius: 3px;
   padding: 0 3px;
 }
 
 /* Added, rather than altered — nothing here existed before, so key and value are both marked. */
 .markAdded {
-  background: rgba(63, 185, 80, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(63, 185, 80, 0.55);
+  background: rgb(var(--success-rgb) / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(var(--success-rgb) / 0.55);
   border-radius: 3px;
   padding: 0 3px;
 }
@@ -127,12 +127,12 @@
 
 .deleteMarked {
   opacity: 1;
-  color: #c94a4a;
+  color: var(--danger-text);
 }
 
 .deleteMarked:hover {
   opacity: 1;
-  background: rgba(201, 74, 74, 0.15);
+  background: rgb(var(--danger-rgb) / 0.15);
   border-radius: var(--radius-sm);
 }
 
@@ -200,7 +200,7 @@
 }
 
 .editorError {
-  color: #c94a4a;
+  color: var(--danger-text);
   font-size: var(--text-sm);
 }
 

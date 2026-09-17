@@ -95,7 +95,7 @@
   align-items: center;
   gap: 0.3em;
   font-size: var(--text-xs);
-  color: rgb(190, 140, 0);
+  color: var(--warning-text);
   white-space: nowrap;
 }
 
@@ -111,12 +111,12 @@
 }
 
 .saveBtn {
-  background: rgba(46, 158, 79, 0.15);
-  color: #2e9e4f;
+  background: rgb(var(--success-rgb) / 0.15);
+  color: var(--success-text);
 }
 
 .saveBtn:hover {
-  background: rgba(46, 158, 79, 0.28);
+  background: rgb(var(--success-rgb) / 0.28);
 }
 
 .discardBtn {
@@ -136,7 +136,7 @@
   align-items: center;
   gap: 0.3em;
   font-size: var(--text-xs);
-  color: #2e9e4f;
+  color: var(--success-text);
   white-space: nowrap;
 }
 
@@ -145,7 +145,7 @@
   align-items: center;
   gap: 0.4rem;
   font-size: var(--text-xs);
-  color: #c94a4a;
+  color: var(--danger-text);
   white-space: nowrap;
 }
 
@@ -160,12 +160,12 @@
 }
 
 .confirmDeleteYes {
-  background: rgba(201, 74, 74, 0.15);
-  color: #c94a4a;
+  background: rgb(var(--danger-rgb) / 0.15);
+  color: var(--danger-text);
 }
 
 .confirmDeleteYes:hover {
-  background: rgba(201, 74, 74, 0.28);
+  background: rgb(var(--danger-rgb) / 0.28);
 }
 
 .confirmDeleteNo {
@@ -195,8 +195,8 @@
 
 .deleteDocButton:hover {
   opacity: 1;
-  color: #c94a4a;
-  background: rgba(201, 74, 74, 0.15);
+  color: var(--danger-text);
+  background: rgb(var(--danger-rgb) / 0.15);
   border-radius: var(--radius-sm);
 }
 

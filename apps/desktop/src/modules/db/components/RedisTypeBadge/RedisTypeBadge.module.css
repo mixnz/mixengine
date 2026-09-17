@@ -11,7 +11,7 @@
   letter-spacing: 0.02em;
   padding: 0.1rem 0.1rem;
   border-radius: var(--radius-sm);
-  background: rgba(128, 128, 128, 0.2);
+  background: var(--neutral-bg);
   opacity: 0.85;
   /* A type this app has no abbreviation for falls back to the first letters of its own name;
      clipping it is better than letting it push the key names out of their column. */
@@ -23,50 +23,29 @@
   color: var(--accent-text);
 }
 
+/* The other five take a categorical hue each, which already carries its own cast for both themes.
+   `.string` takes the accent, the theme's cast of whichever accent the user picked. */
 .list {
-  background: rgba(60, 150, 170, 0.2);
-  color: #2f8ca3;
+  background: rgb(var(--cat-sky-rgb) / var(--cat-wash-alpha));
+  color: var(--cat-sky);
 }
 
 .set {
-  background: rgba(190, 118, 30, 0.2);
-  color: #b4761e;
+  background: rgb(var(--cat-sand-rgb) / var(--cat-wash-alpha));
+  color: var(--cat-sand);
 }
 
 .zset {
-  background: rgba(150, 90, 200, 0.2);
-  color: #8c5ac8;
+  background: rgb(var(--cat-purple-rgb) / var(--cat-wash-alpha));
+  color: var(--cat-purple);
 }
 
 .hash {
-  background: rgba(40, 160, 120, 0.2);
-  color: #28a078;
+  background: rgb(var(--cat-teal-rgb) / var(--cat-wash-alpha));
+  color: var(--cat-teal);
 }
 
 .stream {
-  background: rgba(200, 70, 110, 0.2);
-  color: #c8466e;
-}
-
-/* The colours above are fixed picks that read on white, so on a dark surface they have to come
-   back up. `.string` is not among them: it takes `--accent-text`, which is already the theme's
-   own cast of whichever accent the user picked. */
-:root[data-theme="dark"] .list {
-  color: #7fc9dc;
-}
-
-:root[data-theme="dark"] .set {
-  color: #e0a75c;
-}
-
-:root[data-theme="dark"] .zset {
-  color: #bd9ae4;
-}
-
-:root[data-theme="dark"] .hash {
-  color: #5ecfa5;
-}
-
-:root[data-theme="dark"] .stream {
-  color: #e8859f;
+  background: rgb(var(--cat-coral-rgb) / var(--cat-wash-alpha));
+  color: var(--cat-coral);
 }

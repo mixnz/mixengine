@@ -208,7 +208,7 @@
 /* The row's tint has to be painted onto the pinned cell as well: it carries a background of its
    own, which is what the row's would otherwise show through. */
 .grid tbody tr:hover .rowActions {
-  background-image: linear-gradient(rgba(128, 128, 128, 0.12), rgba(128, 128, 128, 0.12));
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
 }
 
 .rowButtons {
@@ -224,7 +224,7 @@
      its em would shrink with it until the badge sat against the name. */
   margin-left: 0.4rem;
   padding: 0 0.3em;
-  border: 1px solid rgba(128, 128, 128, 0.45);
+  border: 1px solid var(--border-strong);
   border-radius: 3px;
   font-size: var(--text-xs);
   font-weight: 600;
@@ -281,7 +281,7 @@
 
 .iconButton:hover:not(:disabled) {
   opacity: 1;
-  background: rgba(128, 128, 128, 0.18);
+  background: var(--neutral-bg);
 }
 
 .iconButton:disabled {

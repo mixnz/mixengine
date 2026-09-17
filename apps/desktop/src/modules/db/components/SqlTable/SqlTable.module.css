@@ -43,7 +43,7 @@
    and it has to be one property, since the fill is what stops the rows scrolling underneath from
    showing straight through the column name under the pointer. */
 .headerCell:hover {
-  background: linear-gradient(rgb(128 128 128 / 0.14), rgb(128 128 128 / 0.14)), var(--rail-bg);
+  background: var(--table-head-bg);
 }
 
 /* Kept in the flow even while empty, so a column doesn't change width as its sort comes and
@@ -152,8 +152,8 @@
 }
 
 .cellDirty {
-  background: rgba(255, 179, 0, 0.18);
-  box-shadow: inset 0 0 0 1px rgba(255, 179, 0, 0.55);
+  background: rgb(var(--warning-rgb) / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(var(--warning-rgb) / 0.55);
 }
 
 .sqlTable td.cellEditing {
