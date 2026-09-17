@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 /**
- * Colour belongs to `shell/App.css` (design D8). Until every screen has moved onto its tokens this
- * is a ratchet rather than a ban: each file's count of colour literals is pinned below, a file
- * above its pin or missing from it fails, and a file *below* its pin fails too until the pin is
- * lowered — so the numbers only ever go down. The migration is done when both maps are empty.
+ * Colour belongs to `shell/App.css` (design D8). This was a ratchet while the screens moved onto the
+ * tokens, a pin per file that only ever went down; every screen has moved, so it is now a ban — no
+ * colour literal in any other stylesheet, and no hex colour in any source.
+ *
+ * The one exception is a colour that is data rather than theme, and each is named below with why.
  */
 
 const sheets = import.meta.glob("../**/*.css", {
@@ -47,42 +48,23 @@ function counts(
   return out;
 }
 
-const CSS_BASELINE: Record<string, number> = {
-  "modules/rest/components/BodyEditor/BodyEditor.module.css": 1,
-  "modules/rest/components/HistoryDialog/HistoryDialog.module.css": 9,
-  "modules/rest/components/HtmlPreview/HtmlPreview.module.css": 1,
-  "modules/rest/components/KeyValueTable/KeyValueTable.module.css": 1,
-  "modules/rest/components/MultipartTable/MultipartTable.module.css": 1,
-  "modules/rest/components/RequestList/RequestList.module.css": 2,
-  "modules/rest/components/ResponseStatusBar/ResponseStatusBar.module.css": 4,
-  "modules/rest/components/UrlPreview/UrlPreview.module.css": 2,
-  "modules/rest/rest.css": 7,
-  "modules/tools/tools/connection/Panel.module.css": 1,
-  "modules/tools/tools/convert/Panel.module.css": 1,
-  "modules/tools/tools/diff/Panel.module.css": 1,
-  "modules/tools/tools/env/Panel.module.css": 1,
-  "modules/tools/tools/format/Panel.module.css": 1,
-  "modules/tools/tools/mask/Panel.module.css": 1,
-  "modules/tools/tools/ports/Panel.module.css": 1,
-  "modules/tools/tools/regex/Panel.module.css": 1,
-  "modules/tools/tools/schema/Panel.module.css": 1,
+/** Sources whose hex colours are values the user works with, not colours the app is drawn in. */
+const DATA_COLOURS: Record<string, string> = {
+  // A QR code's default ink and paper: black on white is what scanners read, whatever the theme,
+  // and the colour inputs beside them take a hex value.
+  "modules/tools/tools/qrcode/Panel.tsx": "default QR ink and paper",
 };
-
-const TS_BASELINE: Record<string, number> = {
-  "modules/tools/tools/qrcode/Panel.tsx": 2,
-};
-
 describe("colour literals", () => {
   it("reads real files", () => {
     expect(Object.keys(sheets).length).toBeGreaterThan(40);
     expect(Object.keys(sources).length).toBeGreaterThan(100);
   });
 
-  it("stylesheets outside App.css match their pins", () => {
-    expect(counts(sheets, CSS_LITERAL, withoutBlockComments, (p) => p === "shell/App.css")).toEqual(CSS_BASELINE);
+  it("no stylesheet outside App.css names a colour", () => {
+    expect(counts(sheets, CSS_LITERAL, withoutBlockComments, (p) => p === "shell/App.css")).toEqual({});
   });
 
-  it("sources match their pins", () => {
-    expect(counts(sources, TS_HEX, withoutComments, () => false)).toEqual(TS_BASELINE);
+  it("no source names a hex colour, but for data colours", () => {
+    expect(counts(sources, TS_HEX, withoutComments, (p) => p in DATA_COLOURS)).toEqual({});
   });
 });
