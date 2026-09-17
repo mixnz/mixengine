@@ -7,9 +7,9 @@ import styles from "./Tooltip.module.css";
  *
  * The difference is what the text is drawn *with*. A `title` tooltip is browser chrome: it is
  * painted outside the page, in the system's UI font, and no stylesheet reaches it. This one is an
- * element of the page like any other, so it is set in the app's own Fira Code — which matters
- * wherever the text contains something the font itself draws, `->` becoming a single long arrow
- * being the case that brought this into being.
+ * element of the page like any other, so it is set in the app's own font — which matters wherever
+ * the text has to line up with the rest of the window. (The case that brought this into being was
+ * `->`, which the app's font at the time drew as a single long arrow.)
  *
  * The cost of leaving `title` behind is everything the browser was doing for free: the delay before
  * it appears, staying inside the window, and going away again. All three are below.
@@ -114,7 +114,7 @@ function Tooltip({ text, children }: Props) {
       </span>
       {open &&
         createPortal(
-          <div ref={bubble} id={id} role="tooltip" className={`${styles.bubble} glass`}>
+          <div ref={bubble} id={id} role="tooltip" className={styles.bubble}>
             {text}
           </div>,
           document.body

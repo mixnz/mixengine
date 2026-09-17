@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
  * `shell/fonts.test.ts`. Case đầu tiên bên dưới canh điều đó.
  */
 
-/** Mọi khối `selector { … }` trong cùng, tách như `glass.test.ts` tách chúng. */
+/** Every innermost `selector { … }` block. */
 function blocks(css: string) {
   return [...css.matchAll(/([^{}]*)\{([^{}]*)\}/g)].map(([, selector, body]) => {
     const lines = selector.trim().split("\n");

@@ -138,8 +138,6 @@
   top: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
   cursor: pointer;
   user-select: none;
 }
@@ -191,8 +189,6 @@
   bottom: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
   border-top: 1px solid var(--border);
   border-bottom: none;
   font-weight: 600;
@@ -203,9 +199,6 @@
   margin: 0;
   font-size: var(--text-sm);
   opacity: 0.55;
-}
-
-@media (prefers-color-scheme: dark) {
 }
 
 /* Cột số ở đây chỉ so sánh được khi chúng thẳng hàng, và đó là việc mono làm. Header là nhãn. */

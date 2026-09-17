@@ -16,15 +16,6 @@
   animation: loading-veil-in 180ms ease-out 100ms both;
 }
 
-/* The veil gives up its own blur while the glass is on. Any element carrying a `backdrop-filter`
-   becomes the backdrop root for its descendants, so the pill would have sampled *this* layer —
-   already blurred, already greyed — instead of the table underneath, and the lensing would have had
-   nothing with edges in it to bend. This is the one place the glass reaches outside `glass.css`,
-   because it is the one surface with a veil of its own between it and the content. */
-:root[data-glass="on"] .overlay {
-  backdrop-filter: none;
-}
-
 @keyframes loading-veil-in {
   from {
     opacity: 0;
@@ -38,7 +29,7 @@
 }
 
 /* A pill that floats over the content, so it takes the radius and the shadow everything else
-   floating does — or, with liquid glass on, the capsule and the rim `glass-pill` gives it. Sized in
+   floating does. Sized in
    `rem` rather than `em`: the panels it covers set their own font sizes, and the same wait should
    look the same everywhere it is shown. It used to be 0.85em at 75% opacity — small, grey, and easy
    to take for a piece of the table underneath. */

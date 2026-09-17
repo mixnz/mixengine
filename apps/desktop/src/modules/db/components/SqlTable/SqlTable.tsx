@@ -1462,8 +1462,8 @@ function SqlTable({
                       {foreignKey && (
                         // Its own tooltip, so what the column points at is readable without having
                         // to remember the schema. Drawn by the app rather than by `title`, which
-                        // would have put it in the system's font, where the `->` of the message is
-                        // two characters instead of the arrow Fira Code makes of them.
+                        // would have put it in the system's font rather than the one the grid is
+                        // drawn in.
                         <Tooltip
                           text={t("sqlTable.foreignKey", {
                             table: foreignKey.table,

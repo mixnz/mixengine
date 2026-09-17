@@ -90,8 +90,8 @@
   cursor: pointer;
   white-space: nowrap;
   max-width: 200px;
-  /* Background only. The active tab's `box-shadow` is where its hairline and the glass rim land,
-     and neither is something to watch slide into place. */
+  /* Background only. The active tab's `box-shadow` is where its hairline lands, and
+     that is not something to watch slide into place. */
   transition: background-color 120ms ease;
 }
 
@@ -248,43 +248,4 @@
 .small .tab:hover:not(.tabActive),
 .small .tabActive {
   opacity: 1;
-}
-
-/* ---------------------------------------------------------------------------------------------
-   GLASS
-
-   The strip's share of the glass look, which used to sit in `shell/glass.css` and reached in by
-   the old global class names. It lives with the thing it draws now: the shell's stylesheet has no
-   way to name a hashed class, and that is the right pressure — how a component looks in a theme is
-   the component's business.
-
-   Only the full-size strip. A pane strip is two levels down and takes no rim: the material is for
-   the window's chrome, not for every row of words inside it. */
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  /* Neither the strip nor its tabs has anything behind it but the page, so neither takes a filter;
-     what they take is the direction — the strip was a *darker* band on the page, which is the one
-     thing the material never is. Turned around, the strip becomes the ground and the open tab a
-     pane raised out of it. */
-  :global(:root[data-glass="on"]) .strip:not(.small) {
-    background: var(--glass-chrome-tint);
-  }
-
-  /* The open tab, lifted: the rim that says the surface it is drawn on is the same one the menus
-     and dialogs are cut from. Dưới glass, chính cái rim này là hình khối phân biệt tab đang mở —
-     không cần thêm vạch nào. */
-  :global(:root[data-glass="on"]) .strip:not(.small) .tabActive {
-    box-shadow:
-      inset 1px 1px 1.5px -0.5px var(--glass-rim-lit),
-      inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55);
-  }
-
-  /* The same rim, plus the shadow of a tab in hand — restated because the rule above out-names the
-     plain one, and a tab that lost its lift the moment it was picked up would be the wrong way
-     round. */
-  :global(:root[data-glass="on"]) .strip:not(.small) .tabActive[data-dragging] {
-    box-shadow:
-      inset 1px 1px 1.5px -0.5px var(--glass-rim-lit),
-      inset 0 0 0 1px rgb(var(--accent-rgb) / 0.55),
-      0 0 12px rgb(0 0 0 / 0.24);
-  }
 }

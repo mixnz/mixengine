@@ -38,8 +38,12 @@ export interface TerminalSettings {
   titleShowsTargetName: boolean;
 }
 
-/** Cái xterm đang được dựng bằng từ đợt 1, giữ nguyên làm mặc định. */
-export const DEFAULT_FONT_FAMILY = '"Fira Code", monospace';
+/** The app's own mono face, bundled, so a new terminal matches the rest of the window. */
+export const DEFAULT_FONT_FAMILY = '"Geist Mono Variable", monospace';
+
+/** Defaults earlier builds wrote into the settings file. They name fonts the app no longer bundles,
+ *  so a file carrying one is carrying a default rather than a choice. */
+const RETIRED_DEFAULT_FONT_FAMILIES: readonly string[] = ['"Fira Code", monospace'];
 
 export const DEFAULT_SCROLLBACK = 5000;
 
@@ -91,7 +95,9 @@ export function sanitizeSettings(raw: unknown): TerminalSettings {
   const record = typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>) : {};
   const cursorStyle = record.cursorStyle;
   return {
-    fontFamily: text(record.fontFamily, DEFAULT_FONT_FAMILY),
+    fontFamily: RETIRED_DEFAULT_FONT_FAMILIES.includes(record.fontFamily as string)
+      ? DEFAULT_FONT_FAMILY
+      : text(record.fontFamily, DEFAULT_FONT_FAMILY),
     // `?? Number.NaN` chứ không để `Number(undefined)` một mình: `Number(null)` ra 0, và 0 kẹp
     // thành cỡ chữ nhỏ nhất thay vì thành mặc định.
     fontSize: stepFontSize(Number(record.fontSize ?? Number.NaN), 0),

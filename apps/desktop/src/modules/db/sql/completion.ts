@@ -66,11 +66,9 @@ export function completionSchema(
  *  column, wherever it is shown. */
 export function columnDetail(column: SqlOutlineColumn): string {
   const parts = [column.key === "PRI" ? "PK" : null, column.dataType];
-  // `->` rather than a real arrow, and drawn as one either way: the app ships Fira Code itself, and
-  // its ligature turns the two characters into a single long arrow. An actual `→` would come out
-  // worse — U+2192 is in none of the subsets `@fontsource/fira-code` serves, whose latin range
-  // carries U+2191 and U+2193 and stops there, so it would be borrowed from whatever the OS has and
-  // sit at the wrong width in a column of monospace.
+  // `->` rather than a real arrow: an actual `→` is not guaranteed to be in the subsets of the
+  // bundled mono font, and a glyph borrowed from whatever the OS has would sit at the wrong width in
+  // a column of monospace.
   if (column.references) parts.push(`-> ${column.references}`);
   return parts.filter((part) => part !== null).join(" ");
 }

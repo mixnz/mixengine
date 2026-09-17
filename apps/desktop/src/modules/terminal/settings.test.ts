@@ -34,6 +34,16 @@ describe("clampScrollback", () => {
 });
 
 describe("sanitizeSettings", () => {
+  it("defaults the terminal to Geist Mono", () => {
+    expect(DEFAULT_FONT_FAMILY).toBe('"Geist Mono Variable", monospace');
+  });
+
+  /* The previous default names a font the app no longer bundles, so a file that still carries it
+     is carrying a default rather than a choice. */
+  it("moves the retired default font to the current one", () => {
+    expect(sanitizeSettings({ fontFamily: '"Fira Code", monospace' }).fontFamily).toBe(DEFAULT_FONT_FAMILY);
+  });
+
   it("gives every default when there is nothing stored", () => {
     expect(sanitizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(sanitizeSettings(null)).toEqual(DEFAULT_SETTINGS);

@@ -1,7 +1,6 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
-import GlassFilter from "./components/GlassFilter";
 import SettingsModal from "./components/SettingsModal";
 import TabNotice from "./components/TabNotice";
 import ContextMenu from "../components/ContextMenu";
@@ -10,7 +9,7 @@ import { PlusIcon, SettingsIcon } from "../icons";
 import { isBlockedReload } from "../core/reload";
 import { useScrollAcceleration } from "../core/scroll";
 import { useShortcut, useShortcutDispatcher } from "../core/shortcuts";
-import { useAccent, useGlass, useTheme } from "./theme";
+import { useAccent, useTheme } from "./theme";
 import { useTranslation } from "../i18n";
 import type { TabBadge } from "./module";
 import { onTabRequest, takeTabRequests } from "./launch";
@@ -94,7 +93,6 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const shortcuts = useMemo(() => shortcutsFor(visible, openable), [visible, openable]);
   const [theme, setTheme] = useTheme();
   const [accent, setAccent] = useAccent();
-  const [glass, setGlass] = useGlass();
   const [settingsOpen, setSettingsOpen] = useState(false);
   /* Where the `[+]` menu was asked for, while it is open. Never set with one module: the button
      opens a tab outright then, exactly as it did before there was a registry. */
@@ -303,10 +301,6 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
 
   return (
     <main className="app">
-      {/* Draws nothing on its own — it is the filter the glass surfaces point at, and it has to
-          outlive any one of them. Left out entirely while the setting is off, so a look nobody
-          asked for costs nothing to have shipped. */}
-      {glass && <GlassFilter />}
       {/* The one strip in the app that was reachable by mouse only. Every other one — the REST
           requests, the tabs inside the response pane — already says what it is and takes Enter and
           Space; this one is the app's own tab bar, so being the exception was the wrong way round.
@@ -493,8 +487,6 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
           onThemeChange={setTheme}
           accent={accent}
           onAccentChange={setAccent}
-          glass={glass}
-          onGlassChange={setGlass}
           shortcuts={shortcuts}
           modules={{
             enabled,

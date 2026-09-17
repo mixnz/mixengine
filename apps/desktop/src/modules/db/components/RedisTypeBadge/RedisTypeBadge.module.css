@@ -70,25 +70,3 @@
 :root[data-theme="dark"] .stream {
   color: #e8859f;
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .list {
-    color: #7fc9dc;
-  }
-
-  :root:not([data-theme]) .set {
-    color: #e0a75c;
-  }
-
-  :root:not([data-theme]) .zset {
-    color: #bd9ae4;
-  }
-
-  :root:not([data-theme]) .hash {
-    color: #5ecfa5;
-  }
-
-  :root:not([data-theme]) .stream {
-    color: #e8859f;
-  }
-}

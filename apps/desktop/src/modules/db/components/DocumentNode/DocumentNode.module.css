@@ -209,9 +209,3 @@
 :root[data-theme="dark"] .badge {
   background: rgb(var(--accent-rgb) / 0.25);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .badge {
-    background: rgb(var(--accent-rgb) / 0.25);
-  }
-}

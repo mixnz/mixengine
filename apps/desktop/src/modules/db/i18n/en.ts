@@ -543,10 +543,8 @@ const dbEn = {
     deleteRowsMessage: "Delete the {{n}} selected rows? This cannot be undone.",
     deleteAllRowsOption: "Delete all {{total}} rows in the table, not only the ones selected here",
     resetAutoIncrementOption: "Reset {{column}} so the next row inserted starts at 1",
-    // `->` for the arrow, as everywhere else in the app — Fira Code's ligature draws the two
-    // characters as one. It only reads that way because this is shown in a `Tooltip` of the app's
-    // own rather than through `title`, which the browser paints outside the page in the system's
-    // font, where no ligature applies.
+    // `->` for the arrow, as everywhere else in the app. Shown in a `Tooltip` of the app's own
+    // rather than through `title`, so it is drawn in the app's font like the grid around it.
     foreignKey: "Foreign key -> {{table}}.{{column}}",
     sortNone: "{{column}} — click to sort descending",
     sortDesc: "{{column}} — sorted descending, click to sort ascending",

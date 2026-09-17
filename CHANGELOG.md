@@ -60,6 +60,11 @@
   tools — and Settings has a Modules pane that changes the answer. Turning a module off closes its
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
 
+### Changed
+- MixLab is set in Geist, with a new colour scheme for its light and dark themes and mint as the
+  default accent; the System theme now follows the operating system as it switches.
+- The Liquid glass appearance setting is gone.
+
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,
   `mixengined`, the shim and the elevation helper carried a dependency on `vcruntime140.dll` and

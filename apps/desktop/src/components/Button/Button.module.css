@@ -24,15 +24,6 @@
   outline: none;
 }
 
-/* The lit top edge, under the liquid-glass setting only. Written here against the button's own
-   class rather than into `--control-shadow`, which every bare `<button>` in the app also reads —
-   a token would draw a white line across the icon buttons and list rows that carry no surface at
-   all. Above the state rules on purpose: `:focus-visible` shares this specificity and has to keep
-   winning, so the ring still replaces the rim while the keyboard is here. */
-:root[data-glass="on"] .button {
-  box-shadow: var(--glass-control-shadow);
-}
-
 /* Centred on the word beside it rather than on the line box around it. A line box reserves room
    under the baseline for descenders, and `Clear` has none — so an icon centred in that box sits low
    against the letters, which is exactly where it looked. A transform rather than a margin: the
@@ -53,9 +44,9 @@
 
    `filter: brightness()` rather than a second background token, for `.primary`'s reason two rules
    below and by the same means: one value per theme direction works for every surface the button is
-   drawn on — solid, translucent, or a pane of glass — where a fixed colour would need a token per
-   theme *and* per glass setting. It moves the fill by a measured 10/255 each way: light 255 → 245,
-   dark 28 → 38, which keeps the hovered button between its own rest and the page behind it.
+   drawn on, where a fixed colour would need a token per surface and per theme. It moves the fill
+   by a measured 10/255 each way: light 255 → 245, dark 28 → 38, which keeps the hovered button
+   between its own rest and the page behind it.
 
    `:not(.primary)` because the filled variant lifts by its own amounts below, and two rules of
    equal specificity setting `filter` would leave the winner to source order. */
@@ -68,12 +59,6 @@
    `.primary` makes at the foot of this file. */
 :root[data-theme="dark"] .button:not(.primary):hover:not(:disabled) {
   filter: brightness(1.35);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .button:not(.primary):hover:not(:disabled) {
-    filter: brightness(1.35);
-  }
 }
 
 .button:active:not(:disabled) {
@@ -146,16 +131,6 @@
   filter: brightness(1.18);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .primary:hover:not(:disabled) {
-    filter: brightness(1.1);
-  }
-
-  :root:not([data-theme]) .primary:active:not(:disabled) {
-    filter: brightness(1.18);
-  }
-}
-
 /* A value that is also an action: no surface, no chrome, drawn as the text it wraps.
 
    Every rule here has to out-specify the shared states above — `.button:not(.primary):hover:not(
@@ -207,10 +182,4 @@
    through `brightness(1.35)` and take its hovered text colour with it. */
 :root[data-theme="dark"] .button.link:hover:not(:disabled) {
   filter: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .button.link:hover:not(:disabled) {
-    filter: none;
-  }
 }

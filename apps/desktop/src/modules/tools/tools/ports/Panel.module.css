@@ -13,7 +13,7 @@
 }
 
 /* 18rem chứ không phải 10rem: placeholder dài nhất là bản tiếng Việt "Lọc theo cổng hoặc tiến
-   trình", đo được 270px ở font của ô (Fira Code 14.4px) kể cả padding và viền. Ô 10rem cắt mất
+   trình", đo được 270px ở font của ô (Fira Code 14.4px, font của app khi đo) kể cả padding và viền. Ô 10rem cắt mất
    nửa câu, và một placeholder cụt thì không nói được là ô này lọc theo những gì. */
 .filter {
   width: 18rem;

@@ -19,8 +19,6 @@ interface SettingsModalProps {
   onThemeChange: (theme: ThemeMode) => void;
   accent: AccentColor;
   onAccentChange: (accent: AccentColor) => void;
-  glass: boolean;
-  onGlassChange: (glass: boolean) => void;
   /** The catalogue the dispatcher was handed — see {@link ShortcutsSection}. */
   shortcuts: ShortcutGroup[];
   /** Which modules this window draws, and how to change it. */
@@ -44,8 +42,6 @@ function SettingsModal({
   onThemeChange,
   accent,
   onAccentChange,
-  glass,
-  onGlassChange,
   shortcuts,
   modules,
   onClose,
@@ -132,8 +128,6 @@ function SettingsModal({
                 onThemeChange={onThemeChange}
                 accent={accent}
                 onAccentChange={onAccentChange}
-                glass={glass}
-                onGlassChange={onGlassChange}
               />
             </div>
             <div

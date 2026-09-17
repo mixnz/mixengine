@@ -1,9 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import "@fontsource/fira-code/400.css";
-import "@fontsource/fira-code/500.css";
-import "@fontsource/fira-code/600.css";
-import "@fontsource/fira-code/700.css";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
 import App from "./shell/App";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { I18nProvider } from "./i18n";

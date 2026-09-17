@@ -19,6 +19,8 @@ export const TERMINAL_FONTS: readonly string[] = [
   "DejaVu Sans Mono",
   "Fira Code",
   "Fira Mono",
+  // Bundled with the app (see `main.tsx`) and the default, so it is always offered.
+  "Geist Mono Variable",
   "Hack",
   "IBM Plex Mono",
   "Inconsolata",

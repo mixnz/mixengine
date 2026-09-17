@@ -3,9 +3,14 @@
 // runs under a CSP with `script-src 'self'`, which an inline script has no way of satisfying.
 (function () {
   try {
+    // Always a theme, never absent: *system* is resolved here too, the same way theme.ts does.
     var stored = localStorage.getItem("mixdb-theme");
-    if (stored === "light" || stored === "dark") {
-      document.documentElement.setAttribute("data-theme", stored);
-    }
+    var theme =
+      stored === "light" || stored === "dark"
+        ? stored
+        : window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light";
+    document.documentElement.setAttribute("data-theme", theme);
   } catch (e) {}
 })();

@@ -29,8 +29,8 @@ describe("familyOf", () => {
   });
 
   it("falls back to the default font rather than to nothing", () => {
-    expect(familyOf("")).toBe("Fira Code");
-    expect(familyOf(", monospace")).toBe("Fira Code");
+    expect(familyOf("")).toBe("Geist Mono Variable");
+    expect(familyOf(", monospace")).toBe("Geist Mono Variable");
   });
 
   it("round-trips every font offered in the list", () => {

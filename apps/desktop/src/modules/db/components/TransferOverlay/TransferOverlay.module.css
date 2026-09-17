@@ -1,7 +1,6 @@
 .overlay {
   /* Not a modal by composition — it has its own motion and sits inside the workspace rather than
-     over the window — but it is one to look at, so it wears the same material by hand. */
-  composes: glass-scrim from global;
+     over the window. */
   position: absolute;
   inset: 0;
   /* Over everything the workspace itself can raise — a sticky table header, a context menu —
@@ -25,7 +24,6 @@
 }
 
 .card {
-  composes: glass-sheet from global;
   display: flex;
   flex-direction: column;
   align-items: center;

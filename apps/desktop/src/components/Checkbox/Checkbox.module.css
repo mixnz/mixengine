@@ -29,12 +29,6 @@
   outline: none;
 }
 
-/* The lit top edge under the liquid-glass setting — see the note in Button.module.css for why it
-   is written per control rather than into `--control-shadow`. */
-:root[data-glass="on"] .input {
-  box-shadow: var(--glass-control-shadow);
-}
-
 /* The tick and the dash are the same element, so the box has one mark to scale in and out of
    view. The tick is cut from a square; the dash overrides that shape wholesale. */
 .input::before {

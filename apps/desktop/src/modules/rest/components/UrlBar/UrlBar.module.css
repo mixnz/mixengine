@@ -16,7 +16,7 @@
    and the basis never applies at all.
 
    The basis is `OPTIONS`, which is the longest of the seven, worked out rather than measured so
-   it follows the size the control is actually drawn at: seven cells of Fira Code at 0.6em each,
+   it follows the size the control is actually drawn at: seven mono cells at 0.6em each,
    and the chevron, the gap beside it and the padding around both, all taken at the 0.8em that
    `size="small"` sets — then the two borders, which are the one part that is not type.
 

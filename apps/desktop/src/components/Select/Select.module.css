@@ -22,12 +22,6 @@
   text-align: left;
 }
 
-/* The lit top edge under the liquid-glass setting — see the note in Button.module.css for why it
-   is written per control rather than into `--control-shadow`. */
-:root[data-glass="on"] .trigger {
-  box-shadow: var(--glass-control-shadow);
-}
-
 /* Sizes mirror Button/Input's so a select lines up at equal height with same-size controls. */
 .normal {
   padding: 0.35em 0.7em;
@@ -214,22 +208,4 @@
 
 :root[data-theme="dark"] .optionSelected.optionActive {
   background: rgb(var(--accent-rgb) / 0.32);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .menu {
-    border-color: rgba(255, 255, 255, 0.15);
-  }
-
-  :root:not([data-theme]) .search {
-    border-color: rgba(255, 255, 255, 0.2);
-  }
-
-  :root:not([data-theme]) .optionSelected {
-    background: rgb(var(--accent-rgb) / 0.25);
-  }
-
-  :root:not([data-theme]) .optionSelected.optionActive {
-    background: rgb(var(--accent-rgb) / 0.32);
-  }
 }

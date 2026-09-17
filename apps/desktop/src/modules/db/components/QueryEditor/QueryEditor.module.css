@@ -742,8 +742,6 @@
   top: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
   font-weight: 600;
 }
 
@@ -1007,13 +1005,6 @@
   /* `--surface-bg` is the page colour in the dark theme, so a card painted with it would not be a
      card. A wash of white over the page is what lifts it. */
   --qe-card-bg: rgb(255 255 255 / 0.05);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .queryEditor {
-    --qe-card-bg: rgb(255 255 255 / 0.05);
-  }
-
 }
 
 /* Xem ghi chú cùng nội dung ở cuối `SqlTable.module.css`: ô mang giá trị từ server nên mono, tên

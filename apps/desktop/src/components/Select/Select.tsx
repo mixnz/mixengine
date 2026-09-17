@@ -439,7 +439,7 @@ function Select<T extends string | number>({
       {open &&
         createPortal(
           <div
-            className={`${styles.menu} glass`}
+            className={styles.menu}
             ref={menuRef}
             style={menuStyle}
           >

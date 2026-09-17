@@ -80,21 +80,3 @@
 :root[data-theme="dark"] .dismiss:active {
   background-color: rgb(var(--danger-rgb) / 0.45);
 }
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .countdown {
-    background-color: rgb(var(--danger-rgb) / 0.2);
-  }
-
-  :root:not([data-theme]) .dismiss {
-    background-color: rgb(var(--danger-rgb) / 0.2);
-  }
-
-  :root:not([data-theme]) .dismiss:hover {
-    background-color: rgb(var(--danger-rgb) / 0.35);
-  }
-
-  :root:not([data-theme]) .dismiss:active {
-    background-color: rgb(var(--danger-rgb) / 0.45);
-  }
-}
