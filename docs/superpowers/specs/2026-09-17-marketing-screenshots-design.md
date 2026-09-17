@@ -121,7 +121,11 @@ Each rendered in `dark` and `light`, English only: twelve raw images and twelve 
 
 A scene is ready when all of these hold at once:
 
-- the mock reports no IPC call in flight and none started for 800 ms,
+- the app has mounted into `demo.html`'s own `#root` — a cold Vite server can take seconds before
+  the bundle runs, and a page doing nothing yet is perfectly quiet,
+- the mock reports no IPC call in flight and none started for 800 ms, counting the page's network
+  requests as activity too — a cold server transforms a lazily imported screen while the page makes
+  no IPC call and no DOM change,
 - `document.fonts.ready` has resolved,
 - a `MutationObserver` has seen no change for 500 ms,
 - two animation frames have passed.

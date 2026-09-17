@@ -28,3 +28,6 @@ dist-ssr
 
 # `tsc -b` writes one of these per project; they are a build cache and say nothing a reader needs.
 *.tsbuildinfo
+
+# `npm run screenshots` — regenerated from demo/ on every run, see demo/capture.mjs.
+/screenshots/out/
