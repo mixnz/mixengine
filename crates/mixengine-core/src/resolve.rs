@@ -365,7 +365,7 @@ mod tests {
             .to_string();
         sqlx::query(
             "INSERT INTO projects (name, root_path, runtime_pins_json, created_at)
-             VALUES ('blog', ?, '{\"php\": \"8.2\", \"go\": \"1.22\"}', '2026-08-14T06:55:12Z')",
+             VALUES ('blog', ?, '{\"php\": \"8.2\", \"java\": \"21\"}', '2026-08-14T06:55:12Z')",
         )
         .bind(&root)
         .execute(store.pool())
