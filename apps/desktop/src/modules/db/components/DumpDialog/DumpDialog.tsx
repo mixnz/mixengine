@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Button from "../../../../components/Button";
+import RadioCard from "../../../../components/RadioCard";
 import { useTranslation } from "../../../../i18n";
 import type { SqlDumpMode } from "../../sql/api";
 import styles from "./DumpDialog.module.css";
@@ -44,18 +45,14 @@ function DumpDialog({ database, modes, onCancel, onSubmit }: Props) {
 
           <div className={styles.modes}>
             {offered.map((option) => (
-              <label key={option.mode} className={styles.mode}>
-                <input
-                  type="radio"
-                  name="dump-mode"
-                  checked={mode === option.mode}
-                  onChange={() => setMode(option.mode)}
-                />
-                <span>
-                  <span className={styles.modeLabel}>{t(option.labelKey)}</span>
-                  <span className={styles.modeHint}>{t(option.hintKey)}</span>
-                </span>
-              </label>
+              <RadioCard
+                key={option.mode}
+                name="dump-mode"
+                checked={mode === option.mode}
+                onChange={() => setMode(option.mode)}
+                label={t(option.labelKey)}
+                description={t(option.hintKey)}
+              />
             ))}
           </div>
 
