@@ -164,9 +164,10 @@
 - When MixLab cannot find `mixengined` beside itself, the MixEngine tab now lists the directories it
   looked in and offers to reinstall MixEngine, instead of inviting a first install.
 - With the database client turned off, MixLab's Services screen offers rather than acts: *open* on
-  a database service says it will turn the client on first, and offers another installed database
-  application where MixEngine found one. A `mixdb://` link or `mix database open` turns the client
-  on for the tab it opens, and the tab says so.
+  a database service says it will turn the client on first. A `mixdb://` link or `mix database open`
+  turns the client on for the tab it opens, and the tab says so.
+- `desktop-app` extensions are gone: `mix database open` opens MixLab, the window MixEngine installs,
+  and an install that added MixDB as an extension has it removed on upgrade.
 
 ## v0.0.6
 

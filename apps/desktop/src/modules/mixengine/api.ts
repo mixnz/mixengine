@@ -54,7 +54,6 @@ import type { DatabaseAccount } from "@mixengine/api";
 import type { DatabaseClientReport } from "@mixengine/api";
 import type { DatabaseCredentials } from "@mixengine/api";
 import type { ServiceWalk } from "@mixengine/api";
-import type { DatabaseHandoff } from "@mixengine/api";
 import type { DomainStatusReport } from "@mixengine/api";
 import type { CaStatus } from "@mixengine/api";
 import type { CertIssueReport } from "@mixengine/api";
@@ -413,13 +412,6 @@ export function databaseCredentials(service: string, user?: string): Promise<Dat
  */
 export function serviceResetCredential(service: string): Promise<ServiceWalk> {
   return invoke<ServiceWalk>("mixengine_service_reset_credential", { service });
-}
-
-/** Hand a service to the desktop client MixEngine found — the one *open* path that leaves this
- *  process. The password goes into the launched client's environment on the daemon's side and
- *  never crosses this API. */
-export function databaseOpen(service: string, database?: string): Promise<DatabaseHandoff> {
-  return invoke<DatabaseHandoff>("mixengine_database_open", { params: { service, database } });
 }
 
 /** Không trả gì — thành công nghĩa là một tab `db` mới đã được xếp hàng mở, xem

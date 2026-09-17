@@ -76,9 +76,6 @@ pub(crate) mod resolver;
 // Every unsafe call T49a makes, in one file — see its header.
 #[cfg(feature = "host")]
 mod browsers;
-// Finding an installed desktop application in the registry — T83.
-#[cfg(feature = "host")]
-mod desktop;
 #[cfg(any(feature = "host", feature = "elevated"))]
 mod store;
 pub(crate) mod trust;
@@ -127,7 +124,7 @@ pub(crate) struct Host {
     browsers: browsers::Browsers,
     prompts: prompt::Prompt,
     hosts: crate::hosts::Managed,
-    desktop: desktop::Apps,
+    desktop: crate::desktop::Apps,
 }
 
 #[cfg(feature = "host")]
@@ -154,7 +151,7 @@ impl Host {
             browsers: browsers::Browsers,
             prompts: prompt::Prompt,
             hosts: crate::hosts::Managed,
-            desktop: desktop::Apps::of_this_machine(),
+            desktop: crate::desktop::Apps,
         }
     }
 }

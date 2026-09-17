@@ -2,7 +2,7 @@
 import type { ServiceId } from "./ServiceId";
 
 /**
- * An extension's identity: `mailpit`, `phpmyadmin`, `mixdb`.
+ * An extension's identity: `mailpit`, `phpmyadmin`, `adminer`.
  *
  * **A [`ServiceId`] with no instance.** It names a directory — `extensions/<id>/` — so every rule
  * a service id carries about directory names applies unchanged, down to the names Windows refuses;

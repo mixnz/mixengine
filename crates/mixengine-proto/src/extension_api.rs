@@ -70,15 +70,12 @@ pub struct ExtensionInspection {
     ///
     /// The rendered thing rather than a description of it: every placeholder substituted, the
     /// address decided by `permissions.network`, and put through `ServiceSpec`'s own checks. For
-    /// the three kinds with nothing to supervise this is [`None`], and no spec is invented to have
+    /// the two kinds with nothing to supervise this is [`None`], and no spec is invented to have
     /// something to show.
     pub runs: Option<ServiceSpec>,
 
     /// The site that would be generated, for a `web-app`.
     pub serves: Option<WebAppSummary>,
-
-    /// What would be opened, for a `desktop-app`.
-    pub opens: Option<DesktopAppSummary>,
 
     /// What it adds to generated configuration. May be non-empty for any kind — a `service` that
     /// also carries a recipe is Mailpit, and is the ordinary case rather than the odd one.
@@ -100,14 +97,14 @@ pub enum ArtifactAvailability {
 
     /// The manifest publishes artifacts, and none for this machine.
     ///
-    /// **A state, not an error** — the same shape T83 gives "MixDB is not installed". A client
-    /// renders it as an absent affordance and says which systems it is published for.
+    /// **A state, not an error.** A client renders it as an absent affordance and says which
+    /// systems it is published for.
     OtherTargets {
         /// The targets it does publish for, in the manifest's own words.
         targets: Vec<String>,
     },
 
-    /// It downloads nothing: a `recipe`, or a `desktop-app` that is only detected.
+    /// It downloads nothing: a `recipe`.
     NotRequired,
 }
 
@@ -187,21 +184,6 @@ pub struct WebAppSummary {
     pub requires: VersionConstraint,
 }
 
-/// What a `desktop-app` would be opened with.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
-pub struct DesktopAppSummary {
-    /// The URL scheme a handoff is written to.
-    pub scheme: String,
-
-    /// How this system would look for it, where the manifest says.
-    ///
-    /// **The hint, not the answer.** Locating an installed application is platform-layer work —
-    /// `database.client` asks it and answers a [`DesktopClient`](crate::DesktopClient) (T83); what
-    /// belongs in a manifest is the name each system looks it up by.
-    pub detect: Option<String>,
-}
-
 /// One thing an extension adds to generated configuration.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -279,11 +261,8 @@ pub struct ExtensionPlan {
     /// What it is for.
     pub description: String,
 
-    /// Where it is from, when the manifest says.
-    ///
-    /// **On the plan since roadmap task T84**: for a `desktop-app`, whose install may end with
-    /// *"go and get it"*, this is the sentence's object. The plan is where a person decides, and
-    /// *"where is this from"* is part of deciding for every other kind too.
+    /// Where it is from, when the manifest says — on the plan since roadmap task **T84**, because
+    /// *"where is this from"* is part of deciding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
 
@@ -309,19 +288,6 @@ pub struct ExtensionPlan {
     /// The site it would be served on, for a `web-app` — roadmap task **T81b**.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub site: Option<PlannedSite>,
-
-    /// Whether the application is on this machine — for kind `desktop-app`, and [`None`] for every
-    /// other kind — roadmap task **T84**, the design's D2.
-    ///
-    /// Filled by the daemon rather than by `mixengine_core::extensions::install::plan`: it is a
-    /// question about this machine and not about the manifest, and nothing but a `desktop-app` pays
-    /// for the registry walk, the Spotlight query or the XDG walk that answers it.
-    ///
-    /// It is also what makes the `version` above readable. MixEngine does not install a
-    /// `desktop-app` and such an application updates itself, so the version is the *entry's* and
-    /// this field is the machine's; a surface that prints one prints both.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub client: Option<crate::DesktopPresence>,
 }
 
 /// Agreement to install one extension, naming what was read.

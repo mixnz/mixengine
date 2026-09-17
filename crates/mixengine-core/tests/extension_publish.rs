@@ -190,7 +190,7 @@ fn a_manifest_the_reader_refuses_is_reported_as_the_reader_reports_it() {
 fn what_is_assembled_is_what_the_client_reads() {
     let home = tempfile::tempdir().expect("a directory");
     let (manifests, key) = roster(home.path(), mixengine_core::index::PUBLIC_KEY);
-    manifest_file(&manifests, "mixdb", mixengine_testkit::extension::MIXDB);
+    manifest_file(&manifests, "mailpit", mixengine_testkit::extension::MAILPIT);
 
     let registry = registry::assemble(&manifests, &key, generated_at()).expect("assemble");
     let written = serde_json::to_string(&registry).expect("serialise");
@@ -199,5 +199,5 @@ fn what_is_assembled_is_what_the_client_reads() {
     let listing = read.listing();
     assert_eq!(listing.extensions.len(), 1);
     assert_eq!(listing.unreadable, 0);
-    assert_eq!(listing.extensions[0].extension.id.as_str(), "mixdb");
+    assert_eq!(listing.extensions[0].extension.id.as_str(), "mailpit");
 }

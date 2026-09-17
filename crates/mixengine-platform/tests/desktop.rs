@@ -1,8 +1,7 @@
-//! Starting a desktop application, against the real OS — roadmap task **T83**.
+//! Starting a desktop application, against the real OS — roadmap tasks **T83** and **T165**.
 //!
-//! `locate` is per system and each implementation proves its own mechanism in its own module;
-//! what is here is the launcher every system shares, driven against the shell every system has,
-//! and the mock's contract.
+//! `locate_window` is proved against a `TempDir` in `src/desktop.rs`; what is here is the launcher
+//! every system shares, driven against the shell every system has, and the mock's contract.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -22,11 +21,8 @@ fn shell() -> (PathBuf, &'static str) {
 fn app_running(line: &str) -> (InstalledApp, Vec<OsString>) {
     let (program, flag) = shell();
     (
-        InstalledApp {
-            program,
-            args: vec![OsString::from(flag)],
-        },
-        vec![OsString::from(line)],
+        InstalledApp { program },
+        vec![OsString::from(flag), OsString::from(line)],
     )
 }
 
@@ -115,7 +111,6 @@ fn a_program_that_is_not_there_is_an_error() {
     let host = mixengine_platform::host();
     let app = InstalledApp {
         program: std::env::temp_dir().join("mixengine-no-such-program"),
-        args: Vec::new(),
     };
 
     assert!(
@@ -125,18 +120,24 @@ fn a_program_that_is_not_there_is_an_error() {
     );
 }
 
-/// The mock's ordinary machine has nothing installed; one built with an application finds it for
-/// any hint and records what it started — names of variables, never values.
+/// The mock's ordinary install has no window; one built with a window finds it and records what it
+/// started — names of variables, never values.
 #[test]
 fn the_mock_records_a_launch_without_its_values() {
     let bare = mock::Host::with_home("/tmp/mixengine-test");
     assert!(matches!(
-        bare.desktop_apps().locate("MixDB.exe").expect("answers"),
+        bare.desktop_apps()
+            .locate_window("mixlab", "MixLab.app")
+            .expect("answers"),
         Located::NotInstalled { .. }
     ));
 
-    let host = mock::Host::with_desktop_app("/tmp/mixengine-test", "/opt/mixdb/mixdb");
-    let Located::Installed(app) = host.desktop_apps().locate("anything").expect("answers") else {
+    let host = mock::Host::with_window("/tmp/mixengine-test", "/opt/mixengine/mixlab");
+    let Located::Installed(app) = host
+        .desktop_apps()
+        .locate_window("mixlab", "MixLab.app")
+        .expect("answers")
+    else {
         panic!("installed");
     };
     let env = BTreeMap::from([("MIXENGINE_DB_PASSWORD".to_owned(), "s3cret".to_owned())]);
@@ -148,7 +149,7 @@ fn the_mock_records_a_launch_without_its_values() {
 
     let launched = host.launched();
     assert_eq!(launched.len(), 1);
-    assert_eq!(launched[0].program, PathBuf::from("/opt/mixdb/mixdb"));
+    assert_eq!(launched[0].program, PathBuf::from("/opt/mixengine/mixlab"));
     assert_eq!(launched[0].args, vec![OsString::from("mixdb://connect")]);
     assert_eq!(
         launched[0].env_names,

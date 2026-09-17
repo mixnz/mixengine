@@ -108,6 +108,26 @@ fn exempt(schema: i64) -> BTreeSet<&'static str> {
         .collect()
 }
 
+/// Every migration in this tree that deletes **some** rows of a table on purpose — roadmap task
+/// **T165** — as `(version, table, column, value)`: the rows whose `column` holds `value`.
+///
+/// [`EMPTIED`]'s sibling for a partial loss. Named rather than skipped for that list's reason, and
+/// proved by [`the_rows_a_migration_removes_really_are_removed_and_only_those`] rather than excused.
+/// `value` is compared with the census' own rendering, so it is written the way `quote()` writes
+/// it: a text value in single quotes.
+const REMOVED: &[(i64, &str, &str, &str)] = &[(24, "extensions", "kind", "'desktop-app'")];
+
+/// Whether `row` of `table` is one [`REMOVED`] lets a fixture at `schema` lose.
+fn removed_by(schema: i64, table: &str, row: &BTreeMap<String, String>) -> bool {
+    REMOVED
+        .iter()
+        .any(|(version, removed_from, column, value)| {
+            *version > schema
+                && *removed_from == table
+                && row.get(*column).is_some_and(|held| held == value)
+        })
+}
+
 /// Every row of every table, rendered by SQLite itself.
 type Census = BTreeMap<String, Vec<BTreeMap<String, String>>>;
 
@@ -366,7 +386,12 @@ async fn an_upgrade_keeps_every_row_it_found() {
                 .cloned()
                 .collect();
 
-            let missing = lost(&shared(rows, &columns), &shared(migrated, &columns));
+            let kept: Vec<BTreeMap<String, String>> = rows
+                .iter()
+                .filter(|row| !removed_by(fixture.schema(), table, row))
+                .cloned()
+                .collect();
+            let missing = lost(&shared(&kept, &columns), &shared(migrated, &columns));
 
             assert!(
                 missing.is_empty(),
@@ -418,6 +443,56 @@ async fn the_tables_two_migrations_empty_really_are_emptied() {
             );
         }
     }
+}
+
+/// [`REMOVED`], proved: the rows it names are gone after an upgrade, at least one fixture seeds such
+/// a row, and every other row of the same table is still there.
+#[tokio::test]
+async fn the_rows_a_migration_removes_really_are_removed_and_only_those() {
+    let mut proved = 0;
+
+    for fixture in Fixture::all() {
+        let (_temp, file) = laid_out(&fixture);
+        let before = census(&file).await;
+
+        Store::open(&file).await.expect("the upgrade").close().await;
+
+        let after = census(&file).await;
+
+        for (version, table, column, value) in REMOVED {
+            // A table an older migration empties whole is [`EMPTIED`]'s to prove, not this one's.
+            if *version <= fixture.schema() || exempt(fixture.schema()).contains(table) {
+                continue;
+            }
+            let Some(rows) = before.get(*table) else {
+                continue;
+            };
+            let named =
+                |row: &BTreeMap<String, String>| row.get(*column).is_some_and(|held| held == value);
+
+            if rows.iter().any(named) {
+                proved += 1;
+            }
+
+            let remaining = after.get(*table).map(Vec::as_slice).unwrap_or_default();
+            assert!(
+                !remaining.iter().any(named),
+                "{}: {table} still holds a row whose {column} is {value}",
+                fixture.name()
+            );
+            assert_eq!(
+                remaining.len(),
+                rows.iter().filter(|row| !named(row)).count(),
+                "{}: migration {version} removed more from {table} than REMOVED names",
+                fixture.name()
+            );
+        }
+    }
+
+    assert!(
+        proved > 0,
+        "no fixture seeds a row REMOVED names, so the entry proves nothing"
+    );
 }
 
 #[tokio::test]

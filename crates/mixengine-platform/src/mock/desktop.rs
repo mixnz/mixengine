@@ -1,4 +1,4 @@
-//! A desktop application that exists when a test says so, and a record of what was started.
+//! A window that exists when a test says so, and a record of what was started.
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -17,7 +17,7 @@ pub struct Launched {
     /// What was started.
     pub program: PathBuf,
 
-    /// With what, after the application's own fixed arguments.
+    /// With what.
     pub args: Vec<OsString>,
 
     /// Which variables were added to its environment, sorted.
@@ -29,36 +29,14 @@ const PID: u32 = 4242;
 
 #[derive(Debug, Default)]
 pub(super) struct Apps {
-    /// The one application this machine has, for every hint — or none.
-    program: Option<PathBuf>,
-
     /// The window this install has — or none.
-    ///
-    /// **Separate from `program`**, because a test has to be able to say *MixLab and not MixDB*,
-    /// *MixDB and not MixLab*, and *both*: that is the whole of what the daemon's ordering rule is
-    /// made of — roadmap task **T107**.
     window: Option<PathBuf>,
     launches: Mutex<Vec<Launched>>,
 }
 
 impl Apps {
-    pub(super) fn installing(program: PathBuf) -> Self {
-        Self {
-            program: Some(program),
-            ..Self::default()
-        }
-    }
-
     pub(super) fn with_window(window: PathBuf) -> Self {
         Self {
-            window: Some(window),
-            ..Self::default()
-        }
-    }
-
-    pub(super) fn installing_both(program: PathBuf, window: PathBuf) -> Self {
-        Self {
-            program: Some(program),
             window: Some(window),
             ..Self::default()
         }
@@ -73,23 +51,10 @@ impl Apps {
 }
 
 impl DesktopApps for Apps {
-    fn locate(&self, _hint: &str) -> Result<Located> {
-        Ok(match &self.program {
-            Some(program) => Located::Installed(InstalledApp {
-                program: program.clone(),
-                args: Vec::new(),
-            }),
-            None => Located::NotInstalled {
-                searched: "the mock's empty table of applications".to_owned(),
-            },
-        })
-    }
-
     fn locate_window(&self, _executable: &str, _bundle: &str) -> Result<Located> {
         Ok(match &self.window {
             Some(program) => Located::Installed(InstalledApp {
                 program: program.clone(),
-                args: Vec::new(),
             }),
             None => Located::NotInstalled {
                 searched: "the mock's install, which has no window".to_owned(),

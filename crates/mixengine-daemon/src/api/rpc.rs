@@ -3142,7 +3142,7 @@ mod tests {
         // A namespace this build has not reached — `site.create` used to stand here until T39a,
         // `blueprint.apply` until T77 and `extension.install` until T81. Each of them becoming a
         // real method is exactly the drift this test is worth keeping past; what stands here now is
-        // the one `desktop-app` integration nobody has written (T83).
+        // a method nobody has written.
         let answer = call(r#"{"jsonrpc":"2.0","method":"extension.open","id":1}"#).await;
 
         assert_eq!(answer["error"]["code"], -32601);

@@ -37,6 +37,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Accepted |
 | [0029](0029-every-install-format-carries-a-helper-to-install-from.md) | Every install format carries a helper to install from | Accepted |
 | [0030](0030-the-project-token-expands-to-a-slug.md) | A blueprint's `{project}` expands to a slug, not to the project's name | Accepted |
+| [0038](0038-the-window-is-the-only-desktop-database-client.md) | The window is the only desktop database client, and `desktop-app` is not an extension kind | Accepted |
 
 ## Template
 

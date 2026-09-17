@@ -1,0 +1,13 @@
+-- T165. `desktop-app` is no longer an extension kind (ADR 0038): the only application a database is
+-- handed to is the MixLab window this install came with. A home that installed one -- MixDB, the only
+-- entry of that kind the registry ever published -- still holds its row, and this build's manifest
+-- reader cannot read what that row stores, so the row goes before anything opens the table.
+--
+-- `extension_ports` cascades and a `desktop-app` declared no port; `services.extension_id` is
+-- RESTRICT and a `desktop-app` never had a service. The `CHECK (kind IN (...))` 0016 wrote keeps
+-- 'desktop-app': dropping it means rebuilding the table under `-- no-transaction`, which is 0016's
+-- whole ceremony for a value nothing writes any more.
+--
+-- The two directories the install created are left on disk. Both were created empty -- a
+-- `desktop-app` downloaded nothing and ran nothing -- and a migration cannot remove files.
+DELETE FROM extensions WHERE kind = 'desktop-app';

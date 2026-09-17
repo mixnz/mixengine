@@ -82,7 +82,7 @@ pub use crash::{CRASH_FORMAT, CrashLocation, CrashReport};
 pub use daemon::{DaemonShutdown, DaemonStatus, DaemonVersion, DnsMode, DnsStatus, Health};
 pub use database::{
     DatabaseAccount, DatabaseClientReport, DatabaseCredentials, DatabaseHandoff, DatabaseProtocol,
-    DesktopClient, DesktopPresence, Launch, Made, Provisioned, SecretAddress,
+    DesktopClient, Launch, Made, Provisioned, SecretAddress,
 };
 pub use database_api::{
     DatabaseClientQuery, DatabaseCreate, DatabaseCredentialsQuery, DatabaseOpen,
@@ -106,11 +106,10 @@ pub use extension::{
     NetworkReach,
 };
 pub use extension_api::{
-    ArtifactAvailability, DesktopAppSummary, ExtensionAvailable, ExtensionCatalogue,
-    ExtensionConsent, ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer,
-    ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary,
-    ExtensionTarget, ExtensionUninstall, InstalledExtensions, PlannedSite, PortWish,
-    RecipeAddition, WebAppSummary,
+    ArtifactAvailability, ExtensionAvailable, ExtensionCatalogue, ExtensionConsent,
+    ExtensionInspect, ExtensionInspection, ExtensionInstall, ExtensionOffer, ExtensionOrigin,
+    ExtensionPlan, ExtensionPlanRequest, ExtensionRemoval, ExtensionSummary, ExtensionTarget,
+    ExtensionUninstall, InstalledExtensions, PlannedSite, PortWish, RecipeAddition, WebAppSummary,
 };
 pub use job::{JobFinish, JobId, JobKind, JobOutcome, JobProgress, JobState, JobUpdate};
 pub use job_api::{JobFilter, JobList, JobQuery, JobSummary, JobWait};

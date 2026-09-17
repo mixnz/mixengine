@@ -46,7 +46,7 @@ one job:
 - [client-surface.md](features/client-surface.md) — what a graphical client must be able to ask for
 - [lan-sharing.md](features/lan-sharing.md) — access from phones/tablets on the same Wi‑Fi
 - [blueprints.md](features/blueprints.md) — capture and clone an environment
-- [extensions.md](features/extensions.md) — plugin model, registry, MixDB integration
+- [extensions.md](features/extensions.md) — plugin model, registry, opening a database in MixLab
 - [resource-isolation.md](features/resource-isolation.md) — lightweight limits, on-demand start
 - [updates.md](features/updates.md) — auto-update from GitHub Releases without OS code signing
 

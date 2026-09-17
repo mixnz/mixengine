@@ -1,8 +1,7 @@
 # Extensions
 
 **Goal**: a small, curated store for the tools developers reach for — phpMyAdmin, pgAdmin, Mailpit,
-MinIO, MeiliSearch, **MixDB** — installable in one click, managed by the same supervisor as
-everything else.
+MinIO, MeiliSearch — installable in one click, managed by the same supervisor as everything else.
 
 ## Extension kinds
 
@@ -10,8 +9,10 @@ everything else.
 | --- | --- | --- | --- |
 | `web-app` | PHP/Node source served by our stack | phpMyAdmin, Adminer | A generated internal site (`phpmyadmin.mixengine.test`) on a managed runtime |
 | `service` | A binary we supervise | Mailpit, MinIO, MeiliSearch | A `ServiceSpec`, same as any bundled service |
-| `desktop-app` | A separate installed application we detect and launch | **MixDB** | We do not bundle it; we detect/install it and pass connection details |
 | `recipe` | Config-only addition | extra Caddy directives, a php.ini profile | Merged into config generation |
+
+**There was a fourth kind, `desktop-app`, and it is gone** — [ADR 0038](../decisions/0038-the-window-is-the-only-desktop-database-client.md),
+roadmap task **T165**. Its one entry was MixDB, which became MixLab, the window every installer ships.
 
 **`[recipe]` may accompany any kind, and `kind = "recipe"` means an extension that is *only* that.**
 The table above called `recipe` "config-only" and T82 asks for Mailpit *"with the `sendmail_path`
@@ -168,29 +169,18 @@ generator is older than its own inputs.
 Design:
 [docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md](../../docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md).
 
-## MixDB integration (`desktop-app`)
+## Opening a database in MixLab
 
-[MixDB](https://github.com/mixnz/mixdb) is your Tauri database client for MySQL, MongoDB and
-Redis — the natural companion to MixEngine's managed databases. Integration, in increasing order of
-effort:
+MixLab is MixEngine's desktop application, and its `db` module is the client for MixEngine's managed
+databases. Opening one is a handoff: a `mixdb://` URL carrying host, port and user, **naming** the
+variable the password is in, and the password itself fetched from the OS keyring **at the moment the
+handoff is asked for** and placed in the started window's environment — never in the URL, an
+argument, a file or a log (T83). A one-shot connection file was refused because a password on disk
+for the length of a race is still a password on disk. The keyring convention below means a connection
+the window saves points at MixEngine's credential instead of holding a second copy (T84). The scheme
+is `mixdb` and not `mixlab` because every MixDB install registered it (T107).
 
-1. **Detect & launch** — find an installed MixDB and expose, per database service, the handoff that
-   opens that service in it. Ship this first.
-2. **Connection handoff** — a `mixdb://` URL carrying host, port and user, **naming** the variable
-   the password is in, and the password itself fetched from the OS keyring **at the moment the
-   handoff is asked for** and placed in the started process's environment — never in the URL, an
-   argument, a file or a log. This section once offered "a one-shot connection file in MixDB's
-   import format" as the alternative; T83 refused it, because a password on disk for the length
-   of a race is still a password on disk.
-3. **Listed in the registry** — MixDB published as a `desktop-app` entry, so `mix extension install
-   mixdb` is how MixEngine learns to find and speak to it. This line once read *"MixDB's own release
-   artifacts … so users can install it from inside MixEngine"*; **T84** refused the installing half
-   and kept the listing, for the three reasons below.
-4. **Shared keyring convention** — one namespace both applications read, so a connection saved in
-   MixDB points at MixEngine's credential instead of holding a second copy of it. **T84**, and the
-   contract is below.
-
-**"Open in MixDB" is a capability, not a button.** This section said *offer it on every database
+**Opening is a capability, not a button.** This section said *offer it on every database
 service* because it was written while a GUI was still planned inside this workspace, and
 [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) removed that GUI — which
 [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md) has since brought back
@@ -203,23 +193,20 @@ design's D10) — which is why the demand is written down in [client-surface.md]
 rather than assumed. Design:
 [docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../../docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
 
-Detection answers a state, not a launch — **three of them, and none is an error**: `installed`, with
-the executable this machine would start; `not_installed`, with where this system looked and the
-manifest's homepage; and `no_client`, when no `desktop-app` extension is installed at all. A client
-renders the last two as an absent affordance with a sentence beside it, and `mix` prints what to
-install and exits `1`. "Installed and failed to open" is the one that *is* an error
-(`process_failed`), and it is told apart from all three. Locating an installed desktop application
-and starting it are both OS-specific, so both live behind `mixengine-platform`'s `DesktopApps` —
-which is what makes T83 a task with a platform component on all three systems. The hints it looks
-by are the manifest's `[desktop-app.detect]`, and on Windows the lookup reads App Paths *and* the
-uninstall table's `DisplayIcon`, because Tauri's installer — MixDB's — writes no App Paths entry.
+Detection answers a state, not a launch — **two of them, and neither is an error**: `installed`, with
+the window this install would start, and `no_client` for an install with none, which is the headless
+archive. A client renders the second as an absent affordance with a sentence beside it, and `mix`
+says the install has no window and exits `1`. "Installed and failed to open" is the one that *is* an
+error (`process_failed`). The window is looked for where this install put it and nowhere else —
+beside the running program, and `/Applications` for a daemon in `/usr/local/bin` on macOS — through
+`mixengine-platform`'s `DesktopApps::locate_window`, which also starts it.
 
 **The scheme is a wire format, not a dispatch.** MixEngine starts the binary it located, directly,
 with the URL as its one argument; it never hands the URL to the operating system's scheme handler.
 Following the scheme could not carry the environment the password travels in, and would hand a
 credential to whatever program registered `mixdb://` — a claim any program can make.
 
-**The handoff contract, which the `mixdb` repository implements:**
+**The handoff contract, which the window implements:**
 
 ```
 argv[1]  mixdb://connect?kind=<mysql|postgres|redis>&host=<ip>&port=<n>[&user=<account>][&database=<name>]&label=<service-id>[&password_env=MIXENGINE_DB_PASSWORD][&secret_key=<service-id>%2F<account>]
@@ -227,32 +214,14 @@ env      MIXENGINE_DB_PASSWORD=<the password>   — present exactly when `user` 
 ```
 
 The receiver reads the variable and **removes it from its environment before anything else
-starts** — a Tauri application forks webview helpers and MixDB's terminal module spawns shells, each
+starts** — a Tauri application forks webview helpers and the window's terminal module spawns shells, each
 inheriting what the parent still holds — and never writes it to its saved-connections file. A
 launch that exits `0` within a second is reported as `handed_on`: that is what a single-instance
-application does when a copy is already running, and on that day MixDB's second process reads the
+application does when a copy is already running, and on that day the window's second process reads the
 variable before it forwards and carries it over its own channel, because the daemon only reaches the
 process it started.
 
-**A `desktop-app` entry names no artifact, and that absence *is* the entry** — **T84**, the design's
-D1, which is where this section's *"MixDB's own release artifacts … so users can install it from
-inside MixEngine"* was overturned. Three reasons, each sufficient alone. There is nothing to unpack:
-MixDB publishes an NSIS installer, a disk image, an AppImage and a Debian package, and `Installer`
-verifies a hash and unpacks an archive — a `.dmg` is a filesystem, a `.deb` belongs at `/usr`, an
-NSIS `.exe` is a program. Running a downloaded installer would be arbitrary code arriving through
-the door built for supervised services, which is `mixengine-elevate`'s boundary read backwards. And
-MixDB updates itself, so a version MixEngine installed would be permanently behind the one on the
-machine, with nothing able to tell them apart. So the entry carries how to *find* an application
-somebody else installed — the scheme, the per-OS hints — and `homepage`, which is where to get it.
-
-**Which makes `[extension].version` on a `desktop-app` the entry's version and not the machine's.**
-`extension.plan` therefore answers the machine as well, per OS, as `client` — `installed { program }`
-or `not_installed { searched }` — and `mix extension plan` and `mix extension install` print the two
-side by side. An install that wrote a row and an empty directory is otherwise a success that
-produced nothing a person can see, and the state that would explain it was previously reachable only
-through `database.client`, which needs a database service to ask about.
-
-**The shared keyring convention, which the `mixdb` repository implements** — **T84**, the design's
+**The shared keyring convention, which the window implements** — **T84**, the design's
 D5 and D6:
 
 ```
@@ -262,17 +231,17 @@ on the wire &secret_key=<percent-encoded>   — the key alone, present exactly w
 in an answer secret: { service, key }       — database.create, database.client, database.open
 ```
 
-**The namespace is the convention; the key is the message.** MixDB registers `mixdb://` with the
+**The namespace is the convention; the key is the message.** The window registers `mixdb://` with the
 operating system, so a URL is something any web page can make it receive. A URL that could name the
 *credential store's namespace* would be a way to read any secret on the machine — another
 application's, the browser's — and send it to a stranger's server as a password; a URL naming a key
 reaches only MixEngine's own entries, which is the same set it could reach by naming a `label` and a
 `user` anyway. That is also why `password_env` may travel and this may not: an environment variable
-exists only in a process MixEngine started, so a forged URL delivered to a *running* MixDB names a
+exists only in a process MixEngine started, so a forged URL delivered to a *running* window names a
 variable that is not there.
 
 **What the receiver owes.** A saved connection holds the address and not the password, read from the
-OS store at connect time, so nothing MixEngine generated is copied into MixDB's own namespace. A
+OS store at connect time, so nothing MixEngine generated is copied into the window's own namespace. A
 reference may only be attached to a handoff that arrived on `argv` of a **fresh process** — never to
 a URL delivered to a running instance, whatever it says. And a read that finds nothing falls back to
 asking: MixEngine removes an entry when the thing it belongs to is removed, so a reference outliving
@@ -288,8 +257,6 @@ agree by inspection.
 Design:
 [docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md](../../docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md).
 
-Keep the coupling one-directional: MixEngine knows how to hand off to MixDB; MixDB does not need
-MixEngine to exist.
 
 ## web-app extensions
 
@@ -445,14 +412,12 @@ rather than leaving a `mix service list` entry to be discovered.
   field. A locked keyring costs that one site rather than every project's, which is the same
   dedicated pool paying for itself twice. Design:
   [docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md](../../docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md).
-- `mix` hands a managed database service to MixDB and MixDB opens with that connection preselected,
+- `mix` hands a managed database service to MixLab and it opens with that connection preselected,
   its password never appearing in an argument, a URL or a log.
-- Where MixDB is not installed the same call answers that as a state, not as a failure, and the CLI
-  says what to install rather than what went wrong. **And so does installing the extension** — T84:
-  a `desktop-app`'s plan carries the machine's answer beside the entry's version, because MixEngine
-  finds an application somebody else installed rather than installing one.
-- A connection saved in MixDB after that handoff holds MixEngine's keyring address and no password,
-  so there is one copy of the credential on the machine. **T84**: the namespace is a convention both
-  applications hold and never travels on the wire, the key travels as `secret_key`, and every
-  `database.*` answer carries both halves so nothing outside this workspace hardcodes `mixengine`.
+- Where the install has no window the same call answers that as a state, not as a failure, and the
+  CLI says so rather than what went wrong (T165).
+- A connection the window saves after that handoff holds MixEngine's keyring address and no password,
+  so there is one copy of the credential on the machine. **T84**: the namespace is a convention and
+  never travels on the wire, the key travels as `secret_key`, and every `database.*` answer carries
+  both halves so nothing outside this workspace hardcodes `mixengine`.
 - An extension with `network = "loopback"` cannot be shared to the LAN — enforced, not documented.

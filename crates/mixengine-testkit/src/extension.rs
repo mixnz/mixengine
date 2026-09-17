@@ -1,4 +1,4 @@
-//! The five `extension.toml` fixtures — roadmap task **T80**, made true by **T82** and **T82a**.
+//! The four `extension.toml` fixtures — roadmap task **T80**, made true by **T82** and **T82a**.
 //!
 //! **These are the manifests T82 shipped**, not examples written to fit the parser. A format proved
 //! against files invented for it proves only that it is self-consistent; these are the kinds as the
@@ -14,8 +14,7 @@
 //! diff and no red test; what proves the published roster against upstream is that repository's own
 //! `check-extensions.yml`.
 //!
-//! `mixdb.toml` has no hash at all — T83 has not chosen a release — and `sendmail.toml` needs none:
-//! a `recipe` downloads nothing.
+//! `sendmail.toml` has no hash: a `recipe` downloads nothing.
 
 /// A `service` that also carries a recipe — D7's case, in one file.
 pub const MAILPIT: &str = include_str!("../fixtures/extensions/mailpit.toml");
@@ -27,9 +26,6 @@ pub const PHPMYADMIN: &str = include_str!("../fixtures/extensions/phpmyadmin.tom
 /// A `web-app` whose artifact is **one file** rather than an archive — the T82 design's D3 — and
 /// whose generated `index.php` is what gives Adminer a default server.
 pub const ADMINER: &str = include_str!("../fixtures/extensions/adminer.toml");
-
-/// A `desktop-app`: nothing to supervise, and detection is T83's platform work.
-pub const MIXDB: &str = include_str!("../fixtures/extensions/mixdb.toml");
 
 /// A `recipe` and nothing else.
 pub const SENDMAIL: &str = include_str!("../fixtures/extensions/sendmail.toml");

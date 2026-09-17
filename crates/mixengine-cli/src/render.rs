@@ -33,23 +33,23 @@ use mixengine_proto::{
     CaRotateReport, CaState, CaStatus, CaUninstallReport, CertIssueReport, CertProblem, CertState,
     CertStatusReport, Cleanup, CleanupReport, CommandSource, DaemonShutdown, DaemonStatus,
     DaemonVersion, DatabaseAccount, DatabaseClientReport, DatabaseCredentials, DatabaseHandoff,
-    DesktopClient, DesktopPresence, DiskUsage, Disposition, DnsMode, DoctorReport,
-    DomainStatusReport, ElevationStatus, Enforcement, Execution, ExtensionCatalogue,
-    ExtensionChange, ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan,
-    ExtensionRemoval, ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport,
-    GrantOutcome, Handshake, HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe,
-    IdleReport, IdleSource, InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState,
-    JobSummary, Launch, Linkage, Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory,
-    NetworkReach, Outcome, PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease,
-    PackageRemoval, PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome,
-    Priority, ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim,
-    Removal, RepairReport, Requirement, ResolvedRuntime, RotateOutcome, RuntimeCatalogue,
-    RuntimeList, RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation,
-    ServiceId, ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary,
-    ServiceWalk, SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval,
-    SiteSharing, StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust,
-    UninstallOutcome, UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus,
-    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
+    DesktopClient, DiskUsage, Disposition, DnsMode, DoctorReport, DomainStatusReport,
+    ElevationStatus, Enforcement, Execution, ExtensionCatalogue, ExtensionChange,
+    ExtensionInspection, ExtensionKind, ExtensionList, ExtensionPlan, ExtensionRemoval,
+    ExtensionSource, FilesystemReach, FrontEndOutcome, FrontEndReport, GrantOutcome, Handshake,
+    HelperUpgrade, HelperUpgradeOutcome, IdleExemption, IdleProbe, IdleReport, IdleSource,
+    InstalledExtensions, IssueOutcome, JobList, JobOutcome, JobState, JobSummary, Launch, Linkage,
+    Made, MemoryMeasure, MemoryWatchdog, MetricsFrame, MetricsHistory, NetworkReach, Outcome,
+    PROTOCOL_VERSION, PackageCatalogue, PackageList, PackageRelease, PackageRemoval,
+    PackageVersion, PathReport, PinSource, PlanAction, PlanStep, PoolOutcome, Priority,
+    ProjectDetail, ProjectExport, ProjectList, ProjectRemoval, RecipeAddition, Reclaim, Removal,
+    RepairReport, Requirement, ResolvedRuntime, RotateOutcome, RuntimeCatalogue, RuntimeList,
+    RuntimeRelease, RuntimeRemoval, RuntimeSource, RuntimeSummary, ServiceCreation, ServiceId,
+    ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
+    SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
+    StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust, UninstallOutcome,
+    UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict,
+    WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -3195,24 +3195,12 @@ pub(crate) fn database_opened(handoff: &DatabaseHandoff) -> String {
 /// The client's state, in the words both commands print.
 fn desktop_client(client: &DesktopClient) -> String {
     match client {
-        DesktopClient::Installed { name, program, .. } => {
+        DesktopClient::Installed { name, program } => {
             format!("  {name} installed at {program}\n")
         }
-        DesktopClient::NotInstalled {
-            name,
-            searched,
-            homepage,
-            ..
-        } => {
-            let mut out =
-                format!("  {name} is not installed on this machine\n  looked for {searched}\n");
-            if let Some(homepage) = homepage {
-                out.push_str(&format!("  {homepage}\n"));
-            }
-            out
-        }
-        DesktopClient::NoClient => "  no desktop database client is installed as an extension\n  \
-                                    `mix extension install mixdb` adds MixDB\n"
+        DesktopClient::NoClient => "  this install has no MixLab window to open a database in\n  \
+                                    MixLab comes with MixEngine's installers; the headless \
+                                    archive has none\n"
             .to_owned(),
     }
 }
@@ -3282,8 +3270,6 @@ pub(crate) fn extension_inspection(inspection: &ExtensionInspection) -> String {
         match inspection.kind {
             ExtensionKind::Service => "a program MixEngine would supervise",
             ExtensionKind::WebApp => "source MixEngine would serve on an internal domain",
-            ExtensionKind::DesktopApp =>
-                "an application MixEngine would find and hand something to",
             ExtensionKind::Recipe => "configuration MixEngine would merge into what it generates",
         }
     );
@@ -3368,14 +3354,6 @@ pub(crate) fn extension_inspection(inspection: &ExtensionInspection) -> String {
             "\nit would serve\n  root     {}\n  domain   {}\n  runtime  {} {}\n",
             site.root, site.domain, site.runtime, site.requires
         ));
-    }
-
-    if let Some(app) = &inspection.opens {
-        out.push_str(&format!("\nit would open\n  scheme   {}://\n", app.scheme));
-        out.push_str(&match &app.detect {
-            Some(hint) => format!("  found by {hint}\n"),
-            None => "  found by nothing this manifest declares for this system\n".to_owned(),
-        });
     }
 
     if !inspection.ports.is_empty() {
@@ -3784,8 +3762,6 @@ pub(crate) fn extension_plan(plan: &ExtensionPlan) -> String {
         match plan.kind {
             ExtensionKind::Service => "a program MixEngine would supervise",
             ExtensionKind::WebApp => "source MixEngine would serve on an internal domain",
-            ExtensionKind::DesktopApp =>
-                "an application MixEngine would find and hand something to",
             ExtensionKind::Recipe => "configuration MixEngine would merge into what it generates",
         }
     );
@@ -3885,24 +3861,6 @@ pub(crate) fn extension_plan(plan: &ExtensionPlan) -> String {
         "install dir  {}\ndata dir     {}\n",
         plan.install_dir, plan.data_dir
     ));
-
-    // **What installing a `desktop-app` does and does not do** — roadmap task **T84**, the design's
-    // D1 and D2. MixEngine finds an application somebody else installed; it never downloads or runs
-    // an installer. So the version above is the entry's, and this line is the machine's.
-    if let Some(client) = &plan.client {
-        out.push_str(&match client {
-            DesktopPresence::Installed { program } => format!(
-                "application  {} is on this machine at {program}\n             MixEngine finds it \
-                 rather than installing it\n",
-                plan.name
-            ),
-            DesktopPresence::NotInstalled { searched } => format!(
-                "application  {} is not on this machine — looked for {searched}\n             \
-                 MixEngine finds it rather than installing it: install {} yourself first\n",
-                plan.name, plan.name
-            ),
-        });
-    }
 
     out
 }
@@ -4211,60 +4169,6 @@ mod tests {
         assert!(rendered.contains("extension phpmyadmin"), "{rendered}");
     }
 
-    /// A plan for a `desktop-app`, which is the one kind whose install may produce nothing a person
-    /// can see — roadmap task **T84**, the design's D2.
-    fn desktop_app_plan() -> ExtensionPlan {
-        ExtensionPlan {
-            id: mixengine_proto::ExtensionId::parse("mixdb").expect("an id"),
-            name: "MixDB".to_owned(),
-            version: PackageVersion::parse("0.0.28").expect("a version"),
-            kind: ExtensionKind::DesktopApp,
-            description: "Desktop database client".to_owned(),
-            homepage: Some("https://github.com/mixnz/mixdb".to_owned()),
-            signed: true,
-            permissions: mixengine_proto::ExtensionPermissions::default(),
-            ports: Vec::new(),
-            install_dir: "/x".to_owned(),
-            data_dir: "/y".to_owned(),
-            site: None,
-            client: None,
-        }
-    }
-
-    /// **The one question installing a `desktop-app` raises, answered where a person decides** —
-    /// roadmap task **T84**. And the homepage, because the answer may be *"go and get it"*.
-    #[test]
-    fn a_desktop_app_plan_says_the_application_is_missing_and_where_to_get_it() {
-        let mut plan = desktop_app_plan();
-        plan.client = Some(DesktopPresence::NotInstalled {
-            searched: "App Paths and the uninstall table".to_owned(),
-        });
-
-        let out = extension_plan(&plan);
-
-        assert!(out.contains("is not on this machine"), "{out}");
-        assert!(out.contains("App Paths and the uninstall table"), "{out}");
-        assert!(out.contains("https://github.com/mixnz/mixdb"), "{out}");
-        assert!(
-            out.contains("MixEngine finds it rather than installing it"),
-            "the version above is the entry's, not the machine's: {out}"
-        );
-    }
-
-    /// And on a machine that has it, where.
-    #[test]
-    fn a_desktop_app_plan_that_is_here_says_where() {
-        let mut plan = desktop_app_plan();
-        plan.client = Some(DesktopPresence::Installed {
-            program: "/opt/mixdb/mixdb".to_owned(),
-        });
-
-        let out = extension_plan(&plan);
-
-        assert!(out.contains("/opt/mixdb/mixdb"), "{out}");
-        assert!(!out.contains("is not on this machine"), "{out}");
-    }
-
     /// **T81b.** A plan for a web-app says which name it takes and which pool it runs on — and
     /// since **T82a**, which account it would sign itself in as, because a database superuser's
     /// password is the one thing on this screen somebody must not agree to by accident.
@@ -4288,7 +4192,6 @@ mod tests {
                 database: Some(ServiceId::parse("mariadb@main").expect("an id")),
                 signs_in: Some("root".to_owned()),
             }),
-            client: None,
         };
 
         let rendered = extension_plan(&plan);
@@ -4365,7 +4268,6 @@ mod tests {
             data_dir: "/home/dev/.mixengine/extensions/mailpit/data".to_owned(),
             runs: Some(spec),
             serves: None,
-            opens: None,
             extends: vec![RecipeAddition::PhpIni {
                 key: "sendmail_path".to_owned(),
                 value: "/home/dev/.mixengine/extensions/mailpit/mailpit sendmail".to_owned(),

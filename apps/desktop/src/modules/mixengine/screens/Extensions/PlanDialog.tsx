@@ -119,16 +119,6 @@ export default function PlanDialog({ source, onCancel, onInstalled }: Props) {
 
               <p>{t("mixengine.extensions.plan.installDir", { dir: plan.install_dir })}</p>
               <p>{t("mixengine.extensions.plan.dataDir", { dir: plan.data_dir })}</p>
-
-              {plan.client && (
-                <p>
-                  {plan.client.state === "installed"
-                    ? t("mixengine.extensions.plan.clientInstalled", { program: plan.client.program })
-                    : t("mixengine.extensions.plan.clientNotInstalled", {
-                        searched: plan.client.searched,
-                      })}
-                </p>
-              )}
             </div>
           )}
 

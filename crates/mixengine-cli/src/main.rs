@@ -816,11 +816,10 @@ enum DatabaseCommand {
 
     /// Where this instance could be opened, and with what.
     ///
-    /// MixLab, the window this MixEngine installed, when the install has one. A `desktop-app`
-    /// extension's client otherwise — MixDB, say — which is what a headless install and an install
-    /// from before MixLab answer with.
+    /// MixLab, the window this MixEngine installed, when the install has one; nothing on the
+    /// headless archive.
     ///
-    /// Reads only: starts nothing, opens nothing. "Not installed" is an answer, not a failure.
+    /// Reads only: starts nothing, opens nothing. "No client" is an answer, not a failure.
     Client {
         /// Which instance: `mariadb@main`, `redis@main`.
         #[arg(value_name = "SERVICE", value_parser = service_id)]
@@ -842,16 +841,15 @@ enum DatabaseCommand {
         user: Option<String>,
     },
 
-    /// Open this instance in the desktop database client — MixLab, or whatever `mix database
-    /// client` names.
+    /// Open this instance in MixLab, the window this MixEngine installed.
     ///
     /// MixLab need not be running: a copy already open takes the connection as a new tab and this
     /// command says so, and one that is not open is started.
     ///
     /// The instance is started if it is not running. The account's password is read from this
     /// machine's credential store at that moment and handed to the client in its own environment —
-    /// never printed, never put in an argument. Exits 1 when there is no client at all — a headless
-    /// install, say — and says what to install.
+    /// never printed, never put in an argument. Exits 1 on an install with no window — the headless
+    /// archive — and says so.
     Open {
         /// Which instance.
         #[arg(value_name = "SERVICE", value_parser = service_id)]
@@ -3852,25 +3850,6 @@ async fn extension(
             emit(&rendered(json, &finished, || render::job_status(&finished)))?;
 
             let succeeded = render::job_succeeded(&finished);
-
-            // **Said again where a person ends up** — roadmap task **T84**, the design's D2.
-            // Installing a `desktop-app` writes a row and an empty directory, because MixEngine
-            // finds an application somebody else installed rather than installing one; `--yes`
-            // skipped the plan's render, and this is exactly the case somebody needs a sentence
-            // about.
-            let absent = matches!(
-                plan.client,
-                Some(mixengine_proto::DesktopPresence::NotInstalled { .. })
-            );
-            if succeeded && !json && absent {
-                let homepage = plan.homepage.as_deref().unwrap_or("its homepage");
-                let _ = writeln!(
-                    std::io::stderr(),
-                    "{} is not on this machine yet — MixEngine finds it rather than installing it. \
-                     Get it at {homepage}",
-                    plan.name
-                );
-            }
 
             return Ok(match succeeded {
                 true => ExitCode::SUCCESS,

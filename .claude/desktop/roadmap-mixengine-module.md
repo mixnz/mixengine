@@ -286,8 +286,8 @@ thông báo nói vì sao nó tắt.
   canh — và database thì cố ý được cảnh báo rồi để yên.
 - **T3.4 — Database.** `database.create` trả database, account và **địa chỉ keyring**, không bao giờ
   trả mật khẩu. `database.client` trả `DatabaseClientReport { protocol, secret, client }` — `installed`
-  kèm executable, `not_installed` kèm nơi đã tìm và homepage, `no_client`, và `protocol: null` cho
-  service không client nào mở. **Cả ba đều là trạng thái, không phải lỗi**: vẽ chúng như một
+  kèm executable của cửa sổ, `no_client` (từ T165), và `protocol: null` cho service không client nào
+  mở. **Cả hai đều là trạng thái, không phải lỗi**: vẽ chúng như một
   affordance vắng mặt kèm một câu giải thích, đừng vẽ như một thất bại của người dùng.
 - **T3.5 — `database.open`, nhìn từ phía trong.** Đây chính là đường đã đẻ ra Pha 0: daemon đọc
   credential đúng khoảnh khắc bàn giao, tự khởi động client tìm được với mật khẩu trong environment

@@ -42,9 +42,6 @@ mod redistributable;
 // The read half is `host` and the write half is `elevated`, as `port_access` is.
 #[cfg(feature = "host")]
 pub(crate) mod browsers;
-// Finding an installed desktop application through its desktop entry — T83.
-#[cfg(feature = "host")]
-mod desktop;
 #[cfg(feature = "elevated")]
 pub(crate) mod firewall;
 #[cfg(feature = "host")]
@@ -132,7 +129,7 @@ pub(crate) struct Host {
     browsers: browsers::Browsers,
     prompts: prompt::Prompt,
     hosts: crate::hosts::Managed,
-    desktop: desktop::Apps,
+    desktop: crate::desktop::Apps,
 }
 
 #[cfg(feature = "host")]
@@ -159,7 +156,7 @@ impl Host {
             browsers: browsers::Browsers::of_this_user(),
             prompts: prompt::Prompt,
             hosts: crate::hosts::Managed,
-            desktop: desktop::Apps::of_this_user(),
+            desktop: crate::desktop::Apps,
         }
     }
 }

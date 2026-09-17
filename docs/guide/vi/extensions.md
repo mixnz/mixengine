@@ -4,7 +4,7 @@ slug = "extensions"
 order = 10
 summary = "Những công cụ đi kèm stack như phpMyAdmin, Mailpit, MinIO. Cài từ một registry có chữ ký, và cho bạn xem mỗi cái được phép làm gì trước khi đồng ý."
 translation_of = "en/extensions.md"
-source_sha256 = "a1b54453396561f06fc04a61241614983fa3f44320436fba5036062264a0adbe"
+source_sha256 = "c0a6c8ea6d97e43bdde6a01bed229d1d8d0930fe834c84cf8d7d6ba35e999071"
 +++
 
 # Extension
@@ -27,13 +27,12 @@ mix extension list
 
 `available` là registry có chữ ký mà MixEngine phát hành; `list` là những gì máy này đã cài.
 
-Extension có bốn dạng, và bạn nên nhận ra mình đang cài dạng nào:
+Extension có ba dạng, và bạn nên nhận ra mình đang cài dạng nào:
 
 | Dạng | Là gì |
 | --- | --- |
 | `web-app` | Mã nguồn chạy trên chính stack của bạn, ở một site nội bộ được sinh ra. Ví dụ phpMyAdmin, Adminer |
 | `service` | Một chương trình MixEngine giám sát như mọi service khác. Ví dụ Mailpit, MinIO, MeiliSearch |
-| `desktop-app` | Ứng dụng có sẵn trên máy bạn, MixEngine tìm thấy và đưa kết nối cho nó |
 | `recipe` | Chỉ có cấu hình: thêm directive cho web server, một profile `php.ini` |
 
 ## Xem trước khi cài

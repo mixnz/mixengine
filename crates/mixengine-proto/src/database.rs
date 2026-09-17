@@ -149,75 +149,25 @@ impl std::fmt::Display for DatabaseProtocol {
     }
 }
 
-/// Where a database could be opened, as a state — roadmap task **T83**, the design's D3.
+/// Where a database could be opened, as a state — roadmap tasks **T83** and **T165**.
 ///
-/// **Three answers, and two of them are not errors.** A client renders `not_installed` and
-/// `no_client` as an absent affordance with a sentence beside it; an error would be rendered as a
-/// failure of something the person did.
+/// **Two answers, and neither is an error.** A client renders `no_client` as an absent affordance
+/// with a sentence beside it; an error would be rendered as a failure of something the person did.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case")]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 pub enum DesktopClient {
-    /// This machine has an application that opens databases: a `desktop-app` extension's, or —
-    /// roadmap task **T107** — the window this MixEngine install came with.
+    /// This MixEngine install has its window — roadmap task **T107** — and this is how it would be
+    /// started.
     Installed {
-        /// The extension, when one named it.
-        ///
-        /// **[`None`] for MixEngine's own window**, which is not an extension and never was: a
-        /// merged install has a database client before anybody installs anything. Skipped when
-        /// absent, so the document an extension produces is unchanged.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        extension: Option<crate::ExtensionId>,
-        /// Its display name — `MixLab`, or `MixDB`.
+        /// Its display name: `MixLab`.
         name: String,
         /// The executable this machine would start.
         program: String,
     },
 
-    /// The extension is installed; the application is not on this machine.
-    NotInstalled {
-        /// The extension.
-        extension: crate::ExtensionId,
-        /// Its display name.
-        name: String,
-        /// Where this system looked, phrased for a person.
-        searched: String,
-        /// Where to get it, when the manifest says.
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        homepage: Option<String>,
-    },
-
-    /// No `desktop-app` extension is installed here.
+    /// This install has no window: the headless archive, or a window somebody removed.
     NoClient,
-}
-
-/// Whether the application a `desktop-app` extension names is on this machine — roadmap task
-/// **T84**, the design's D2.
-///
-/// **Not [`DesktopClient`], and deliberately.** That enum answers *"which client would open this
-/// database"* and carries the extension's id and name in both arms, plus a `no_client` arm that
-/// cannot arise here: in an [`ExtensionPlan`](crate::ExtensionPlan) the extension *is* the subject.
-/// Two arms and one field each.
-///
-/// It exists because installing a `desktop-app` writes a row and creates an empty directory:
-/// MixEngine finds an application somebody else installed and never downloads or runs an installer
-/// (the design's D1). On a machine without the application that is a success which produced nothing
-/// a person can see, and this is the sentence that says so where they are standing.
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "state", rename_all = "snake_case")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
-pub enum DesktopPresence {
-    /// It is here.
-    Installed {
-        /// The executable this machine would start.
-        program: String,
-    },
-
-    /// It is not, and this is where this system looked, phrased for a person.
-    NotInstalled {
-        /// Where.
-        searched: String,
-    },
 }
 
 /// What became of the process — roadmap task **T83**, the design's D8.
@@ -472,7 +422,7 @@ mod tests {
         );
     }
 
-    /// The three states a client can be in are three words on the wire, and a person can read them.
+    /// The two states a client can be in are two words on the wire, and a person can read them.
     #[test]
     fn a_client_state_is_tagged_by_its_state() {
         let report = DatabaseClientReport {
@@ -480,56 +430,23 @@ mod tests {
             protocol: Some(DatabaseProtocol::Redis),
             secret: None,
             creates_databases: Some(false),
-            client: DesktopClient::NotInstalled {
-                extension: crate::ExtensionId::parse("mixdb").expect("an id"),
-                name: "MixDB".to_owned(),
-                searched: "App Paths and the uninstall table".to_owned(),
-                homepage: Some("https://github.com/mixnz/mixdb".to_owned()),
+            client: DesktopClient::Installed {
+                name: "MixLab".to_owned(),
+                program: "/usr/bin/mixlab".to_owned(),
             },
         };
 
         let json = serde_json::to_value(&report).expect("it encodes");
         assert_eq!(json["protocol"], "redis");
-        assert_eq!(json["client"]["state"], "not_installed");
-        assert_eq!(
-            json["client"]["searched"],
-            "App Paths and the uninstall table"
-        );
+        assert_eq!(json["client"]["state"], "installed");
+        assert_eq!(json["client"]["name"], "MixLab");
+        assert!(json["client"].get("extension").is_none(), "{json}");
 
         let back: DatabaseClientReport = serde_json::from_value(json).expect("and decodes");
         assert_eq!(back, report);
 
         let none = serde_json::to_value(DesktopClient::NoClient).expect("it encodes");
         assert_eq!(none["state"], "no_client");
-    }
-
-    /// A client that is not an extension carries no extension, and the key is simply absent —
-    /// roadmap task **T107**.
-    ///
-    /// **Absent and not `null`**, so the document an extension produces is byte-for-byte what it
-    /// was: every reader of `mix database client --json` written before this release keeps working,
-    /// and the one new case is a key that is not there rather than a value of a new shape.
-    #[test]
-    fn the_windows_installed_state_names_no_extension() {
-        let window = serde_json::to_value(DesktopClient::Installed {
-            extension: None,
-            name: "MixLab".to_owned(),
-            program: "/usr/bin/mixlab".to_owned(),
-        })
-        .expect("it encodes");
-
-        assert_eq!(window["state"], "installed");
-        assert_eq!(window["name"], "MixLab");
-        assert!(window.get("extension").is_none(), "{window}");
-
-        let extension = serde_json::to_value(DesktopClient::Installed {
-            extension: Some(crate::ExtensionId::parse("mixdb").expect("an id")),
-            name: "MixDB".to_owned(),
-            program: "/usr/bin/mixdb".to_owned(),
-        })
-        .expect("it encodes");
-
-        assert_eq!(extension["extension"], "mixdb");
     }
 
     /// A handoff carries where the password was read from and never the password — D2, and
@@ -543,9 +460,8 @@ mod tests {
             database: None,
             secret: Some(SecretAddress::of("mariadb@main/root")),
             client: DesktopClient::Installed {
-                extension: Some(crate::ExtensionId::parse("mixdb").expect("an id")),
-                name: "MixDB".to_owned(),
-                program: "/Applications/MixDB.app/Contents/MacOS/mixdb".to_owned(),
+                name: "MixLab".to_owned(),
+                program: "/Applications/MixLab.app/Contents/MacOS/mixlab".to_owned(),
             },
             launched: Some(Launch::Running { pid: 4242 }),
         };

@@ -25,13 +25,12 @@ mix extension list
 
 `available` is the signed registry MixEngine publishes; `list` is what this machine has installed.
 
-There are four shapes an extension can take, and it is worth recognising which you are installing:
+There are three shapes an extension can take, and it is worth recognising which you are installing:
 
 | Kind | What it is |
 | --- | --- |
 | `web-app` | Source served on your own stack, on a generated internal site — phpMyAdmin, Adminer |
 | `service` | A program MixEngine supervises like any other — Mailpit, MinIO, MeiliSearch |
-| `desktop-app` | An application on your machine that MixEngine finds and hands a connection to |
 | `recipe` | Configuration only: extra web-server directives, a `php.ini` profile |
 
 ## Look before you install

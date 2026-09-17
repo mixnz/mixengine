@@ -1457,7 +1457,7 @@ impl fmt::Display for Exit {
 /// The environment is inherited, with `extra_env` applied on top. Inheriting is deliberate:
 /// `MIXENGINE_LOG_FORMAT` is set by a log collector that wraps a command it did not write, and a
 /// child that dropped it would stop being collected halfway through a start. `extra_env` exists for
-/// the one caller that adds something — a desktop application handed a credential (roadmap task
+/// the one caller that adds something — this install's window handed a credential (roadmap task
 /// T83, through [`crate::DesktopApps`]) — and is empty for every other.
 ///
 /// **`directory` is required rather than inherited**, and the caller is expected to name something
