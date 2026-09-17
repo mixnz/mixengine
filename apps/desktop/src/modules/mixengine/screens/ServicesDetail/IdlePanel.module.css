@@ -1,25 +1,15 @@
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
 .choices {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-}
-
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: var(--text-md);
+  gap: 8px;
 }
 
 .minutes {
-  width: 5rem;
+  width: 6rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }

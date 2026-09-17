@@ -1,21 +1,16 @@
-.panel {
+/* Why a service can have both autostart and an idle timeout, in a sunken note under the switch. */
+.note {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--border);
+  gap: 6px;
+  padding: 12px 14px;
   border-radius: var(--radius-lg);
-}
-
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: var(--text-md);
-}
-
-.note {
-  margin: 0;
-  color: var(--text-muted);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.note p {
+  margin: 0;
 }

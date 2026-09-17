@@ -305,6 +305,9 @@ export default {
     },
     servicesDetail: {
       pickService: "Pick a service",
+      noServices: "No services yet.",
+      frontEnd: "Front end",
+      port: "port {{port}}",
       movedTo: "{{service}} was given port {{port}}.",
       movedBy: "Port {{preferred}} is held by {{program}} (pid {{pid}}).",
       movedByProgram: "Port {{preferred}} is held by {{program}}.",
@@ -340,6 +343,7 @@ export default {
       },
       idle: {
         title: "Idle shutdown",
+        about: "Stop this service when nothing has used it for a while.",
         useRecipe: "Use the recipe's own setting",
         never: "Never stop for being idle",
         afterMinutes: "Stop after this many minutes idle",
@@ -348,6 +352,7 @@ export default {
       database: {
         title: "Database",
         createTitle: "Create database",
+        copyKey: "Copy the key",
         databaseName: "Database name",
         userName: "Account name (defaults to the database name)",
         create: "Create",

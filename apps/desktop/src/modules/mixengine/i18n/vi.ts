@@ -300,6 +300,9 @@ const vi: typeof en = {
     },
     servicesDetail: {
       pickService: "Chọn một service",
+      noServices: "Chưa có service nào.",
+      frontEnd: "Front end",
+      port: "cổng {{port}}",
       movedTo: "{{service}} được cấp cổng {{port}}.",
       movedBy: "Cổng {{preferred}} đang bị {{program}} (pid {{pid}}) giữ.",
       movedByProgram: "Cổng {{preferred}} đang bị {{program}} giữ.",
@@ -335,6 +338,7 @@ const vi: typeof en = {
       },
       idle: {
         title: "Tự dừng khi rảnh",
+        about: "Dừng service này khi không ai dùng tới nó một lúc.",
         useRecipe: "Theo cài đặt của recipe",
         never: "Không bao giờ tự dừng",
         afterMinutes: "Dừng sau bao nhiêu phút rảnh",
@@ -343,6 +347,7 @@ const vi: typeof en = {
       database: {
         title: "Database",
         createTitle: "Tạo database",
+        copyKey: "Chép khoá",
         databaseName: "Tên database",
         userName: "Tên account (mặc định trùng tên database)",
         create: "Tạo",

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
+import Card from "../../../../components/Card";
 import ErrorBanner from "../../../../components/ErrorBanner";
-import Checkbox from "../../../../components/Checkbox";
+import Switch from "../../../../components/Switch";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -58,20 +59,24 @@ export default function AutostartPanel({ service }: { service: string }) {
   }
 
   return (
-    <div className={styles.panel}>
+    <Card
+      headingLevel={3}
+      title={t("mixengine.servicesDetail.autostart.title")}
+      description={t("mixengine.servicesDetail.autostart.toggle")}
+      actions={
+        <Switch
+          aria-label={t("mixengine.servicesDetail.autostart.toggle")}
+          checked={autostart === true}
+          disabled={busy || autostart === null}
+          onChange={(next) => void toggle(next)}
+        />
+      }
+    >
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-      <h4>{t("mixengine.servicesDetail.autostart.title")}</h4>
-
-      <Checkbox
-        className={styles.toggle}
-        label={t("mixengine.servicesDetail.autostart.toggle")}
-        checked={autostart === true}
-        disabled={busy || autostart === null}
-        onChange={(e) => void toggle(e.target.checked)}
-      />
-
-      <p className={styles.note}>{t("mixengine.servicesDetail.autostart.dependencies")}</p>
-      <p className={styles.note}>{t("mixengine.servicesDetail.autostart.versusIdle")}</p>
-    </div>
+      <div className={styles.note}>
+        <p>{t("mixengine.servicesDetail.autostart.dependencies")}</p>
+        <p>{t("mixengine.servicesDetail.autostart.versusIdle")}</p>
+      </div>
+    </Card>
   );
 }
