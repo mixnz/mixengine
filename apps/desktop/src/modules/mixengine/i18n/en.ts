@@ -55,6 +55,7 @@ export default {
         isDefault: "default",
         noPhp: "No PHP is installed yet, so there is nothing to turn on.",
         installPhp: "Install a PHP",
+        installAnother: "Install another PHP version",
       },
       quickStart: {
         title: "Build your first site",
@@ -215,6 +216,13 @@ export default {
     },
     runtimes: {
       tabLanguages: "Languages",
+      about: "Languages, servers and the versions of each this machine keeps.",
+      installedTitle: "Installed",
+      installedEmpty: "Nothing installed here yet.",
+      availableTitle: "Available",
+      columnRuntime: "Runtime",
+      columnPackage: "Package",
+      columnActions: "Actions",
       categoryWeb: "Web servers",
       categoryDatabase: "Databases",
       categoryCache: "Cache & queues",
@@ -234,7 +242,14 @@ export default {
       columnServices: "Used by",
       uninstallBlockedMessage: "In use by: {{services}}. Remove or reassign those services first.",
       extensions: {
-        title: "PHP extensions — {{version}}",
+        title: "Optional for PHP {{version}}",
+        onCount: "{{on}} of {{total}} on",
+        filter: "Show extensions",
+        filterAll: "All",
+        filterOn: "On",
+        filterOff: "Off",
+        builtIn: "Built in",
+        builtInAbout: "Compiled into PHP and always on.",
         search: "Search extensions...",
         noMatches: "No extension matches your search.",
         restartRequired: "Restart the pool for this to take effect.",
@@ -290,6 +305,9 @@ export default {
     },
     servicesDetail: {
       pickService: "Pick a service",
+      noServices: "No services yet.",
+      frontEnd: "Front end",
+      port: "port {{port}}",
       movedTo: "{{service}} was given port {{port}}.",
       movedBy: "Port {{preferred}} is held by {{program}} (pid {{pid}}).",
       movedByProgram: "Port {{preferred}} is held by {{program}}.",
@@ -325,6 +343,7 @@ export default {
       },
       idle: {
         title: "Idle shutdown",
+        about: "Stop this service when nothing has used it for a while.",
         useRecipe: "Use the recipe's own setting",
         never: "Never stop for being idle",
         afterMinutes: "Stop after this many minutes idle",
@@ -333,6 +352,7 @@ export default {
       database: {
         title: "Database",
         createTitle: "Create database",
+        copyKey: "Copy the key",
         databaseName: "Database name",
         userName: "Account name (defaults to the database name)",
         create: "Create",
@@ -343,6 +363,9 @@ export default {
     },
     logs: {
       pickService: "Pick a service",
+      about: "What a service writes, as it writes it.",
+      service: "Service",
+      stream: "Stream",
       streamAll: "All",
       streamStdout: "stdout",
       streamStderr: "stderr",
@@ -424,6 +447,8 @@ export default {
     },
     metrics: {
       subject: "Show",
+      about: "How much CPU and memory MixEngine and each service used, minute by minute.",
+      history: "History",
       daemon: "MixEngine daemon",
       cpu: "CPU",
       rss: "Memory (RSS)",
@@ -444,6 +469,7 @@ export default {
       summary: "{{label}}, {{from}} to {{to}}. {{count}} minutes measured, peaking at {{peak}}.",
     },
     settings: {
+      about: "How this MixEngine is set up, kept current, checked and removed.",
       general: {
         title: "General",
         root: "Root directory: {{path}}",
@@ -592,6 +618,9 @@ export default {
     },
     blueprints: {
       newButton: "Capture project…",
+      about: "Stacks to start a project from — the ones MixEngine ships, and the ones captured or imported here.",
+      search: "Search blueprints…",
+      noMatches: "No blueprint matches that search.",
       importButton: "Import…",
       columnName: "Name",
       columnSource: "Source",
@@ -672,6 +701,8 @@ export default {
     },
     extensions: {
       installFromPath: "Install from folder…",
+      about: "Add-ons extend MixEngine with services and tools of their own.",
+      registryEmpty: "The registry offers nothing else right now.",
       installedTitle: "Installed",
       registryTitle: "Registry",
       columnName: "Name",

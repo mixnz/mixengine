@@ -4,6 +4,17 @@
   gap: 4px;
 }
 
+/* The series' hue, taken from the categorical set: every stroke and wash below reads it. */
+.sky {
+  --series: var(--cat-sky);
+  --series-rgb: var(--cat-sky-rgb);
+}
+
+.purple {
+  --series: var(--cat-purple);
+  --series-rgb: var(--cat-purple-rgb);
+}
+
 .legend {
   display: flex;
   align-items: center;
@@ -23,21 +34,21 @@
   width: 14px;
   height: 2px;
   border-radius: 1px;
-  background: var(--accent);
+  background: var(--series);
 }
 
 .keyBand {
   width: 14px;
   height: 10px;
   border-radius: 2px;
-  background: rgb(var(--accent-rgb) / 0.22);
+  background: rgb(var(--series-rgb) / 0.16);
 }
 
 .keyRail {
   width: 14px;
   height: 3px;
   border-radius: 2px;
-  background: rgb(var(--accent-rgb) / 0.55);
+  background: rgb(var(--series-rgb) / 0.55);
 }
 
 .box {
@@ -64,7 +75,8 @@
 }
 
 .gap {
-  fill: rgb(128 128 128 / 0.07);
+  fill: var(--text-faint);
+  fill-opacity: 0.08;
 }
 
 .gapLabel {
@@ -75,33 +87,33 @@
 }
 
 .rail {
-  fill: rgb(var(--accent-rgb) / 0.55);
+  fill: rgb(var(--series-rgb) / 0.55);
   rx: 1.5;
 }
 
 .band {
-  fill: rgb(var(--accent-rgb) / 0.22);
+  fill: rgb(var(--series-rgb) / 0.16);
 }
 
 .avg {
-  stroke: var(--accent);
+  stroke: var(--series);
   stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 .stem {
-  stroke: rgb(var(--accent-rgb) / 0.45);
+  stroke: rgb(var(--series-rgb) / 0.45);
   stroke-width: 2;
   stroke-linecap: round;
 }
 
 .dot {
-  fill: var(--accent);
+  fill: var(--series);
 }
 
 .peakDot {
-  fill: rgb(var(--accent-rgb) / 0.55);
+  fill: rgb(var(--series-rgb) / 0.55);
 }
 
 .hair {
@@ -120,7 +132,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-bg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-popover);
   font-size: var(--text-xs);
   white-space: nowrap;
 }

@@ -53,6 +53,7 @@ const vi: typeof en = {
         isDefault: "mặc định",
         noPhp: "Chưa có bản PHP nào được cài, nên chưa có gì để bật.",
         installPhp: "Cài một bản PHP",
+        installAnother: "Cài thêm một bản PHP",
       },
       quickStart: {
         title: "Dựng site đầu tiên",
@@ -210,6 +211,13 @@ const vi: typeof en = {
     },
     runtimes: {
       tabLanguages: "Ngôn ngữ",
+      about: "Ngôn ngữ, máy chủ và các phiên bản máy này đang giữ.",
+      installedTitle: "Đã cài",
+      installedEmpty: "Chưa cài gì ở đây.",
+      availableTitle: "Có thể cài",
+      columnRuntime: "Runtime",
+      columnPackage: "Package",
+      columnActions: "Hành động",
       categoryWeb: "Máy chủ web",
       categoryDatabase: "Cơ sở dữ liệu",
       categoryCache: "Cache & hàng đợi",
@@ -229,7 +237,14 @@ const vi: typeof en = {
       columnServices: "Đang dùng bởi",
       uninstallBlockedMessage: "Đang dùng bởi: {{services}}. Xoá hoặc chuyển các service đó trước.",
       extensions: {
-        title: "PHP extension — {{version}}",
+        title: "Tuỳ chọn cho PHP {{version}}",
+        onCount: "Bật {{on}} / {{total}}",
+        filter: "Lọc extension",
+        filterAll: "Tất cả",
+        filterOn: "Đang bật",
+        filterOff: "Đang tắt",
+        builtIn: "Có sẵn",
+        builtInAbout: "Biên dịch sẵn trong PHP và luôn bật.",
         search: "Tìm extension...",
         noMatches: "Không có extension nào khớp.",
         restartRequired: "Cần khởi động lại pool để có hiệu lực.",
@@ -285,6 +300,9 @@ const vi: typeof en = {
     },
     servicesDetail: {
       pickService: "Chọn một service",
+      noServices: "Chưa có service nào.",
+      frontEnd: "Front end",
+      port: "cổng {{port}}",
       movedTo: "{{service}} được cấp cổng {{port}}.",
       movedBy: "Cổng {{preferred}} đang bị {{program}} (pid {{pid}}) giữ.",
       movedByProgram: "Cổng {{preferred}} đang bị {{program}} giữ.",
@@ -320,6 +338,7 @@ const vi: typeof en = {
       },
       idle: {
         title: "Tự dừng khi rảnh",
+        about: "Dừng service này khi không ai dùng tới nó một lúc.",
         useRecipe: "Theo cài đặt của recipe",
         never: "Không bao giờ tự dừng",
         afterMinutes: "Dừng sau bao nhiêu phút rảnh",
@@ -328,6 +347,7 @@ const vi: typeof en = {
       database: {
         title: "Database",
         createTitle: "Tạo database",
+        copyKey: "Chép khoá",
         databaseName: "Tên database",
         userName: "Tên account (mặc định trùng tên database)",
         create: "Tạo",
@@ -338,6 +358,9 @@ const vi: typeof en = {
     },
     logs: {
       pickService: "Chọn một service",
+      about: "Những gì một service ghi ra, ngay khi nó ghi.",
+      service: "Service",
+      stream: "Luồng",
       streamAll: "Tất cả",
       streamStdout: "stdout",
       streamStderr: "stderr",
@@ -419,6 +442,8 @@ const vi: typeof en = {
     },
     metrics: {
       subject: "Xem",
+      about: "MixEngine và từng service đã dùng bao nhiêu CPU và bộ nhớ, theo từng phút.",
+      history: "Lịch sử",
       daemon: "Daemon MixEngine",
       cpu: "CPU",
       rss: "Bộ nhớ (RSS)",
@@ -434,6 +459,7 @@ const vi: typeof en = {
       summary: "{{label}}, {{from}} tới {{to}}. Đo được {{count}} phút, đỉnh {{peak}}.",
     },
     settings: {
+      about: "MixEngine này được thiết lập, cập nhật, kiểm tra và gỡ bỏ ra sao.",
       general: {
         title: "Chung",
         root: "Thư mục root: {{path}}",
@@ -582,6 +608,9 @@ const vi: typeof en = {
     },
     blueprints: {
       newButton: "Capture project…",
+      about: "Các stack để dựng project — cái MixEngine có sẵn, và cái đã capture hoặc nhập ở đây.",
+      search: "Tìm blueprint…",
+      noMatches: "Không có blueprint nào khớp.",
       importButton: "Nhập…",
       columnName: "Tên",
       columnSource: "Nguồn",
@@ -661,6 +690,8 @@ const vi: typeof en = {
     },
     extensions: {
       installFromPath: "Cài từ thư mục…",
+      about: "Add-on mở rộng MixEngine bằng service và công cụ của riêng chúng.",
+      registryEmpty: "Registry hiện không có gì khác.",
       installedTitle: "Đã cài",
       registryTitle: "Registry",
       columnName: "Tên",

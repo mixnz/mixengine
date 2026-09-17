@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import Input from "../../../../components/Input";
+import RadioCard from "../../../../components/RadioCard";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -50,50 +53,52 @@ export default function IdlePanel({ service }: { service: string }) {
   }
 
   return (
-    <div className={styles.panel}>
+    <Card
+      headingLevel={3}
+      title={t("mixengine.servicesDetail.idle.title")}
+      description={t("mixengine.servicesDetail.idle.about")}
+    >
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-      <h4>{t("mixengine.servicesDetail.idle.title")}</h4>
 
       <div className={styles.choices}>
-        <label className={styles.choice}>
-          <input
-            type="radio"
-            checked={choice === "recipe"}
-            disabled={saving}
-            onChange={() => setChoice("recipe")}
-          />
-          {t("mixengine.servicesDetail.idle.useRecipe")}
-        </label>
-        <label className={styles.choice}>
-          <input
-            type="radio"
-            checked={choice === "never"}
-            disabled={saving}
-            onChange={() => setChoice("never")}
-          />
-          {t("mixengine.servicesDetail.idle.never")}
-        </label>
-        <label className={styles.choice}>
-          <input
-            type="radio"
-            checked={choice === "minutes"}
-            disabled={saving}
-            onChange={() => setChoice("minutes")}
-          />
-          {t("mixengine.servicesDetail.idle.afterMinutes")}
-          <input
+        <RadioCard
+          name={`idle-${service}`}
+          checked={choice === "recipe"}
+          disabled={saving}
+          onChange={() => setChoice("recipe")}
+          label={t("mixengine.servicesDetail.idle.useRecipe")}
+        />
+        <RadioCard
+          name={`idle-${service}`}
+          checked={choice === "never"}
+          disabled={saving}
+          onChange={() => setChoice("never")}
+          label={t("mixengine.servicesDetail.idle.never")}
+        />
+        <RadioCard
+          name={`idle-${service}`}
+          checked={choice === "minutes"}
+          disabled={saving}
+          onChange={() => setChoice("minutes")}
+          label={t("mixengine.servicesDetail.idle.afterMinutes")}
+        >
+          <Input
             type="number"
+            mono
             className={styles.minutes}
+            aria-label={t("mixengine.servicesDetail.idle.afterMinutes")}
             value={minutes}
             disabled={saving || choice !== "minutes"}
             onChange={(e) => setMinutes(e.target.value)}
           />
-        </label>
+        </RadioCard>
       </div>
 
-      <Button variant="primary" onClick={() => void save()} disabled={saving}>
-        {t("mixengine.servicesDetail.idle.save")}
-      </Button>
-    </div>
+      <div className={styles.actions}>
+        <Button variant="primary" onClick={() => void save()} busy={saving ? t("mixengine.servicesDetail.idle.save") : undefined}>
+          {t("mixengine.servicesDetail.idle.save")}
+        </Button>
+      </div>
+    </Card>
   );
 }

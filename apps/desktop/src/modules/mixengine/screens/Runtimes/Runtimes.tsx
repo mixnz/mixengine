@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
-import { Tab, TabStrip, tabKeyDown } from "../../../../components/TabStrip";
+import PageHeader from "../../../../components/PageHeader";
+import SegmentedControl, { type Segment } from "../../../../components/SegmentedControl";
+import { DatabaseGenericIcon, EngineIcon, GlobeIcon, PackageIcon, PulseIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { peekPendingRuntimesFilter } from "../../runtimesNavigation";
 import Languages from "./Languages";
@@ -68,35 +70,31 @@ export default function Runtimes({ active }: { active: boolean }) {
     other: t("mixengine.runtimes.categoryOther"),
   };
 
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: "languages", label: t("mixengine.runtimes.tabLanguages") },
-    ...categoryTabs.map((cat) => ({ key: cat as TabKey, label: categoryLabel[cat] })),
+  const tabIcon: Record<TabKey, ReactNode> = {
+    languages: <EngineIcon size={15} />,
+    web: <GlobeIcon size={15} />,
+    database: <DatabaseGenericIcon size={15} />,
+    cache: <PulseIcon size={15} />,
+    other: <PackageIcon size={15} />,
+  };
+
+  const tabs: Segment<TabKey>[] = [
+    { value: "languages", label: t("mixengine.runtimes.tabLanguages"), icon: tabIcon.languages },
+    ...categoryTabs.map((cat) => ({ value: cat as TabKey, label: categoryLabel[cat], icon: tabIcon[cat] })),
   ];
 
   return (
-    <div className={styles.runtimes}>
-      <div className={styles.tabStripWrap}>
-        <TabStrip size="small" role="tablist">
-          {tabs.map((item) => {
-            const selected = item.key === tab;
-            const pick = () => setTab(item.key);
-            return (
-              <Tab
-                key={item.key}
-                active={selected}
-                role="tab"
-                aria-selected={selected}
-                tabIndex={0}
-                onClick={pick}
-                onKeyDown={tabKeyDown(pick)}
-              >
-                {item.label}
-              </Tab>
-            );
-          })}
-        </TabStrip>
-      </div>
-      {languagesMounted && (
+    <div className={`mixengine-page ${styles.runtimes}`}>
+      <PageHeader title={t("mixengine.sidebar.runtimes")} description={t("mixengine.runtimes.about")} />
+      <div className={styles.tabs}>
+        <SegmentedControl
+          mode="tabs"
+          aria-label={t("mixengine.sidebar.runtimes")}
+          segments={tabs}
+          value={tab}
+          onChange={setTab}
+        />
+      </div>      {languagesMounted && (
         <div className={styles.pane} hidden={tab !== "languages"}>
           <Languages active={active && tab === "languages"} />
         </div>

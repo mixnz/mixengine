@@ -38,6 +38,7 @@ added the parts a screen is built from:
 | `MonogramBadge` | two letters and a hue *derived* from a name — never a table of names |
 | `Popover` | an anchored panel that is neither a menu nor a listbox |
 | `EmptyState` | nothing to show, said as a sentence with a way forward |
+| `RadioCard` | one of a few exclusive choices as a card; a real radio, so arrow keys walk the group |
 
 Sizes come from the density tokens (`--control-h*`, `--row-h`), so none of these takes a density
 prop: a region that holds rows sets `data-density="compact"` on its root.
@@ -55,7 +56,7 @@ prop: a region that holds rows sets `data-density="compact"` on its root.
 ## When nothing fits
 
 1. **Count call sites, including the one you are writing.** Two or more → make it shared now.
-   Standing example: `type="radio"` is open-coded in two screens and there is still no `Radio`.
+   Standing example: `type="radio"` sat open-coded in two screens until `RadioCard` came with the second.
 2. **One call site, generic shape → still make it shared.** The bias is toward creating: a control a
    second screen would plausibly want is cheaper as a primitive today than as two divergent copies
    later. Ask what the *thing* is — "a segmented control", not "the idle-timeout picker".

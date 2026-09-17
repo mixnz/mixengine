@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -77,39 +80,47 @@ export default function PhpExtensions({
   }, [active, reload]);
 
   return (
-    <div className={styles.screen}>
+    <div className={`mixengine-page ${styles.screen}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <h3 className={styles.title}>{t("mixengine.phpExtensions.title")}</h3>
-      <p className={styles.intro}>{t("mixengine.phpExtensions.intro")}</p>
+      <PageHeader title={t("mixengine.phpExtensions.title")} description={t("mixengine.phpExtensions.intro")} />
 
       {installed !== null && installed.length === 0 ? (
-        <div className={styles.empty}>
-          <p>{t("mixengine.phpExtensions.noPhp")}</p>
-          <Button variant="primary" onClick={onInstallPhp}>
-            {t("mixengine.phpExtensions.installPhp")}
-          </Button>
-        </div>
+        <Card>
+          <EmptyState
+            title={t("mixengine.phpExtensions.noPhp")}
+            action={
+              <Button variant="primary" onClick={onInstallPhp}>
+                {t("mixengine.phpExtensions.installPhp")}
+              </Button>
+            }
+          />
+        </Card>
       ) : (
-        <>
-          <label className={styles.field}>
-            {t("mixengine.phpExtensions.version")}
-            <Select
-              className={styles.select}
-              value={version}
-              onChange={setVersion}
-              ariaLabel={t("mixengine.phpExtensions.version")}
-              options={(installed ?? []).map((runtime) => ({
-                value: runtime.version,
-                label: runtime.default
-                  ? `${runtime.version} — ${t("mixengine.phpExtensions.isDefault")}`
-                  : runtime.version,
-              }))}
-            />
-          </label>
-
-          {version !== "" && <ExtensionsPanel target={target} />}
-        </>
+        version !== "" && (
+          <ExtensionsPanel
+            target={target}
+            leading={
+              <>
+                <Select
+                  className={styles.select}
+                  value={version}
+                  onChange={setVersion}
+                  ariaLabel={t("mixengine.phpExtensions.version")}
+                  options={(installed ?? []).map((runtime) => ({
+                    value: runtime.version,
+                    label: runtime.default
+                      ? `PHP ${runtime.version} — ${t("mixengine.phpExtensions.isDefault")}`
+                      : `PHP ${runtime.version}`,
+                  }))}
+                />
+                <Button variant="link" onClick={onInstallPhp}>
+                  {t("mixengine.phpExtensions.installAnother")}
+                </Button>
+              </>
+            }
+          />
+        )
       )}
     </div>
   );

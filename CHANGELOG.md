@@ -66,6 +66,9 @@
 - The Liquid glass appearance setting is gone.
 - MixLab's Dashboard, Projects, Sites and Domains & TLS screens are redrawn; the Dashboard's services
   can be filtered to running or stopped, and a service's menu opens its logs.
+- MixLab's Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs, Add-ons and Settings screens
+  are redrawn: PHP extensions are tiles with an On/Off filter, Services lists each service's real state,
+  and Blueprints can be searched.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

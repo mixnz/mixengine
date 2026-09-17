@@ -1,24 +1,35 @@
 .settings {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 16px;
+  position: relative;
   width: 100%;
-  box-sizing: border-box;
-  overflow: auto;
 }
 
+/* Each section is drawn as a card: the same surface, hairline, radius and shadow `Card` has. */
 .section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 20px 22px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xl);
+  background: var(--surface-bg);
+  box-shadow: var(--shadow-card);
+  font-size: var(--text-md);
 }
 
 .sectionTitle {
-  margin: 0;
+  margin: 0 0 4px;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* The one section that holds an irreversible action says so in its border and its title. */
+.dangerSection {
+  border-color: rgb(var(--danger-rgb) / 0.45);
+}
+
+.dangerSection .sectionTitle {
+  color: var(--danger-text);
 }
 
 /* Khoảng cách trong một section do `gap` của nó quyết định, không phải margin 1em mặc định của
@@ -30,30 +41,33 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .muted {
   color: var(--text-muted);
   font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
 }
 
 .listItem {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  gap: 12px;
   align-items: baseline;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .listItem:last-child {
@@ -79,7 +93,6 @@
   color: var(--warning-text);
 }
 
-.danger {
-  color: var(--danger-text);
-  border-color: var(--danger);
+.start {
+  align-self: flex-start;
 }

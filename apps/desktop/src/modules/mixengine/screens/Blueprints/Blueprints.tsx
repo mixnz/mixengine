@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import Input from "../../../../components/Input";
+import MonogramBadge from "../../../../components/MonogramBadge";
+import PageHeader from "../../../../components/PageHeader";
+import StatusPill from "../../../../components/StatusPill";
+import { PlusIcon, UploadIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -18,6 +25,7 @@ import styles from "./Blueprints.module.css";
 export default function Blueprints({ active }: { active: boolean }) {
   const [rows, setRows] = useState<BlueprintSummary[]>([]);
   const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
   const [capturing, setCapturing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [applying, setApplying] = useState<BlueprintSummary | null>(null);
@@ -46,58 +54,78 @@ export default function Blueprints({ active }: { active: boolean }) {
     return t("mixengine.blueprints.sourceImported");
   }
 
+  const needle = search.trim().toLowerCase();
+  const shown = rows.filter(
+    (row) =>
+      needle === "" ||
+      row.name.toLowerCase().includes(needle) ||
+      row.description.toLowerCase().includes(needle),
+  );
+
   return (
-    <div className={styles.blueprints}>
+    <div className={`mixengine-page ${styles.blueprints}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <div className={styles.toolbar}>
-        <Button onClick={() => setImporting(true)}>{t("mixengine.blueprints.importButton")}</Button>
-        <Button variant="primary" onClick={() => setCapturing(true)}>
-          {t("mixengine.blueprints.newButton")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("mixengine.sidebar.blueprints")}
+        description={t("mixengine.blueprints.about")}
+        actions={
+          <>
+            <Button size="large" onClick={() => setImporting(true)}>
+              <UploadIcon size={15} />
+              {t("mixengine.blueprints.importButton")}
+            </Button>
+            <Button size="large" variant="primary" onClick={() => setCapturing(true)}>
+              <PlusIcon size={15} />
+              {t("mixengine.blueprints.newButton")}
+            </Button>
+          </>
+        }
+      />
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t("mixengine.blueprints.columnName")}</th>
-              <th>{t("mixengine.blueprints.columnSource")}</th>
-              <th>{t("mixengine.blueprints.columnDescription")}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.slug}>
-                <td>
-                  {row.name}{" "}
-                  {row.trusted ? (
-                    <span className={styles.trusted}>{t("mixengine.blueprints.trustedBadge")}</span>
-                  ) : (
-                    <span className={styles.untrusted}>
-                      {t("mixengine.blueprints.untrustedBadge")}
-                      {row.source === "imported" &&
-                        row.signature === "rejected" &&
-                        ` — ${t("mixengine.blueprints.signatureRejected")}`}
-                    </span>
-                  )}
-                </td>
-                <td>{sourceLabel(row)}</td>
-                <td>{row.description}</td>
-                <td className={styles.rowActions}>
-                  <Button onClick={() => setApplying(row)}>
-                    {t("mixengine.blueprints.applyButton")}
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Input
+        allowClear
+        className={styles.search}
+        placeholder={t("mixengine.blueprints.search")}
+        aria-label={t("mixengine.blueprints.search")}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
 
-      {rows.length === 0 && <p className={styles.empty}>{t("mixengine.blueprints.empty")}</p>}
-
+      {shown.length === 0 ? (
+        <Card>
+          <EmptyState
+            title={rows.length === 0 ? t("mixengine.blueprints.empty") : t("mixengine.blueprints.noMatches")}
+          />
+        </Card>
+      ) : (
+        <ul className={styles.grid}>
+          {shown.map((row) => (
+            <li key={row.slug} className={styles.card}>
+              <div className={styles.cardHead}>
+                <MonogramBadge name={row.name} size={38} />
+                <div className={styles.cardTitle}>
+                  <h2 className={styles.name}>{row.name}</h2>
+                  <span className={styles.source}>{sourceLabel(row)}</span>
+                </div>
+                {row.trusted ? (
+                  <StatusPill tone="success">{t("mixengine.blueprints.trustedBadge")}</StatusPill>
+                ) : row.source === "imported" && row.signature === "rejected" ? (
+                  <StatusPill tone="danger">{t("mixengine.blueprints.signatureRejected")}</StatusPill>
+                ) : (
+                  <StatusPill tone="warning">{t("mixengine.blueprints.untrustedBadge")}</StatusPill>
+                )}
+              </div>
+              <p className={styles.description}>{row.description}</p>
+              <div className={styles.cardActions}>
+                <Button variant="soft" onClick={() => setApplying(row)}>
+                  {t("mixengine.blueprints.applyButton")}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
       {capturing && (
         <CaptureDialog
           onCancel={() => setCapturing(false)}

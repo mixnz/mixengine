@@ -3,8 +3,15 @@ import { getVersion } from "@tauri-apps/api/app";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import MonogramBadge from "../../../../components/MonogramBadge";
+import PageHeader from "../../../../components/PageHeader";
+import StatusPill, { type StatusTone } from "../../../../components/StatusPill";
+import Table from "../../../../components/Table";
+import { FolderIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -13,9 +20,18 @@ import type { ExtensionOrigin } from "@mixengine/api";
 import type { ExtensionSummary } from "@mixengine/api";
 import StaleBadge from "../../components/StaleBadge";
 import Checkbox from "../../../../components/Checkbox";
-import { serviceStateKey } from "../../serviceStateLabel";
+import { serviceStateKey, serviceStateTone } from "../../serviceStateLabel";
 import PlanDialog from "./PlanDialog";
 import styles from "./Extensions.module.css";
+
+/** The state as a pill tone: whether it is serving, not which of the seven states it is in. */
+function pillTone(state: string | null | undefined): StatusTone {
+  const tone = serviceStateTone(state);
+  if (tone === "ok") return "success";
+  if (tone === "bad") return "danger";
+  if (tone === "busy") return "warning";
+  return "neutral";
+}
 
 /**
  * The registry offers this very application as an extension, and one of those rows **is** the
@@ -137,94 +153,142 @@ export default function Extensions({ active }: { active: boolean }) {
   const selfKind = selfInstalled?.kind ?? selfOffer?.kind ?? "desktop-app";
 
   return (
-    <div className={styles.extensions}>
+    <div className={`mixengine-page ${styles.extensions}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      <div className={styles.toolbar}>
-        <Button onClick={() => void browseInstallFromPath()}>
-          {t("mixengine.extensions.installFromPath")}
-        </Button>
-      </div>
+      <PageHeader
+        title={t("mixengine.sidebar.extensions")}
+        description={t("mixengine.extensions.about")}
+        actions={
+          <Button size="large" onClick={() => void browseInstallFromPath()}>
+            <FolderIcon size={15} />
+            {t("mixengine.extensions.installFromPath")}
+          </Button>
+        }
+      />
 
-      <h4>{t("mixengine.extensions.installedTitle")}</h4>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>{t("mixengine.extensions.columnName")}</th>
-            <th>{t("mixengine.extensions.columnVersion")}</th>
-            <th>{t("mixengine.extensions.columnKind")}</th>
-            <th>{t("mixengine.extensions.columnState")}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr key={SELF}>
-            <td>{selfName}</td>
-            {/* The running version, not the one the registry publishes — the two part company the
-                moment the application updates itself. The registry stands in while `getVersion()`
-                has yet to answer. */}
-            <td>{appVersion || selfOffer?.version || "—"}</td>
-            <td>{selfKind}</td>
-            <td>—</td>
-            <td className={styles.rowActions}>
-              {/* No Remove button: an application cannot remove itself from inside itself, and
-                  updating has a road of its own in Settings. */}
-              <span className={styles.installedBadge}>{t("mixengine.extensions.thisApp")}</span>
-            </td>
-          </tr>
-          {otherInstalled.map((row) => (
-            <tr key={row.id}>
-              <td>{row.name}</td>
-              <td>{row.version}</td>
-              <td>{row.kind}</td>
-              <td>{row.kind === "service" ? stateLabel(serviceState[row.id]) : "—"}</td>
-              <td className={styles.rowActions}>
-                {row.kind === "service" && (
-                  <>
-                    <Button onClick={() => void toggle(row, "start")}>
-                      {t("mixengine.extensions.start")}
-                    </Button>
-                    <Button onClick={() => void toggle(row, "stop")}>
-                      {t("mixengine.extensions.stop")}
-                    </Button>
-                  </>
-                )}
-                <Button onClick={() => setUninstalling(row)}>
-                  {t("mixengine.extensions.uninstall")}
-                </Button>
+      <Card title={t("mixengine.extensions.installedTitle")} count={otherInstalled.length + 1} flush>
+        <Table aria-label={t("mixengine.extensions.installedTitle")}>
+          <thead>
+            <tr>
+              <th>{t("mixengine.extensions.columnName")}</th>
+              <th>{t("mixengine.extensions.columnVersion")}</th>
+              <th>{t("mixengine.extensions.columnKind")}</th>
+              <th>{t("mixengine.extensions.columnState")}</th>
+              <th data-align="end" />
+            </tr>
+          </thead>
+          <tbody>
+            <tr key={SELF}>
+              <td data-nowrap>
+                <span className={styles.name}>
+                  <MonogramBadge name={selfName} size={28} />
+                  {selfName}
+                </span>
+              </td>
+              {/* The running version, not the one the registry publishes — the two part company the
+                  moment the application updates itself. The registry stands in while `getVersion()`
+                  has yet to answer. */}
+              <td className={styles.version}>{appVersion || selfOffer?.version || "—"}</td>
+              <td>
+                <span className={styles.tag}>{selfKind}</span>
+              </td>
+              <td className={styles.none}>—</td>
+              <td data-align="end" data-nowrap>
+                {/* No Remove button: an application cannot remove itself from inside itself, and
+                    updating has a road of its own in Settings. */}
+                <StatusPill tone="neutral">{t("mixengine.extensions.thisApp")}</StatusPill>
               </td>
             </tr>
-          ))}
-        </tbody>
-      </table>
+            {otherInstalled.map((row) => (
+              <tr key={row.id}>
+                <td data-nowrap>
+                  <span className={styles.name}>
+                    <MonogramBadge name={row.name} size={28} />
+                    {row.name}
+                  </span>
+                </td>
+                <td className={styles.version}>{row.version}</td>
+                <td>
+                  <span className={styles.tag}>{row.kind}</span>
+                </td>
+                <td>
+                  {row.kind === "service" ? (
+                    <StatusPill tone={pillTone(serviceState[row.id])}>{stateLabel(serviceState[row.id])}</StatusPill>
+                  ) : (
+                    <span className={styles.none}>—</span>
+                  )}
+                </td>
+                <td data-align="end" data-nowrap>
+                  <span className={styles.rowActions}>
+                    {row.kind === "service" && (
+                      <>
+                        <Button size="small" variant="positive" onClick={() => void toggle(row, "start")}>
+                          {t("mixengine.extensions.start")}
+                        </Button>
+                        <Button size="small" onClick={() => void toggle(row, "stop")}>
+                          {t("mixengine.extensions.stop")}
+                        </Button>
+                      </>
+                    )}
+                    <Button size="small" variant="danger" onClick={() => setUninstalling(row)}>
+                      {t("mixengine.extensions.uninstall")}
+                    </Button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </Card>
 
-      <h4>
-        {t("mixengine.extensions.registryTitle")} <StaleBadge stale={stale} />
-      </h4>
-      {unreadable > 0 && (
-        <p className={styles.hint}>{t("mixengine.extensions.unreadable", { count: unreadable })}</p>
-      )}
-      <table className={styles.table}>
-        <tbody>
-          {otherAvailable.map((offer) => (
-            <tr key={offer.id}>
-              <td>{offer.name}</td>
-              <td>{offer.version}</td>
-              <td>{offer.kind}</td>
-              <td className={styles.rowActions}>
-                {offer.installed ? (
-                  <span className={styles.installedBadge}>{t("mixengine.extensions.installed")}</span>
-                ) : (
-                  <Button onClick={() => setInstallingSource({ type: "registry", id: offer.id })}>
-                    {t("mixengine.extensions.install")}
-                  </Button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
+      <Card
+        title={t("mixengine.extensions.registryTitle")}
+        count={
+          <>
+            {otherAvailable.length}
+            <StaleBadge stale={stale} />
+          </>
+        }
+        description={unreadable > 0 ? t("mixengine.extensions.unreadable", { count: unreadable }) : undefined}
+        flush
+      >
+        {otherAvailable.length === 0 ? (
+          <EmptyState title={t("mixengine.extensions.registryEmpty")} />
+        ) : (
+          <Table aria-label={t("mixengine.extensions.registryTitle")}>
+            <tbody>
+              {otherAvailable.map((offer) => (
+                <tr key={offer.id}>
+                  <td data-nowrap>
+                    <span className={styles.name}>
+                      <MonogramBadge name={offer.name} size={28} />
+                      {offer.name}
+                    </span>
+                  </td>
+                  <td className={styles.version}>{offer.version}</td>
+                  <td>
+                    <span className={styles.tag}>{offer.kind}</span>
+                  </td>
+                  <td data-align="end" data-nowrap>
+                    {offer.installed ? (
+                      <StatusPill tone="success">{t("mixengine.extensions.installed")}</StatusPill>
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="soft"
+                        onClick={() => setInstallingSource({ type: "registry", id: offer.id })}
+                      >
+                        {t("mixengine.extensions.install")}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </Card>
       {installingSource && (
         <PlanDialog
           source={installingSource}

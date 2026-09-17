@@ -45,6 +45,8 @@ interface Props {
   /** Đọc giá trị trung bình/đỉnh từ một phút — cặp `cpu_avg`/`cpu_peak` hay `rss_avg`/`rss_peak`. */
   avg: (minute: MetricsMinute) => number | null;
   peak: (minute: MetricsMinute) => number | null;
+  /** The categorical hue the series is drawn in — one per quantity, so two charts are told apart. */
+  hue: "sky" | "purple";
 }
 
 /** Phút dưới con trỏ, cùng vị trí của nó tính bằng pixel CSS trong khung. */
@@ -68,7 +70,7 @@ interface Hover {
  * cả bề rộng pane bằng `preserveAspectRatio="none"`, làm đoạn ngang mảnh hơn đoạn dốc và biến nét
  * đỉnh dày 4px thành một dải thô.
  */
-export default function Chart({ segments, from, to, unit, label, avg, peak }: Props) {
+export default function Chart({ segments, from, to, unit, label, avg, peak, hue }: Props) {
   const { lang, t } = useTranslation();
   const box = useRef<HTMLDivElement>(null);
   const plot = useRef<SVGSVGElement>(null);
@@ -129,7 +131,7 @@ export default function Chart({ segments, from, to, unit, label, avg, peak }: Pr
   const hoveredPeak = hovered === undefined ? null : peak(hovered);
 
   return (
-    <div className={styles.frame}>
+    <div className={`${styles.frame} ${styles[hue]}`}>
       <div className={styles.legend}>
         <span className={styles.key}>
           <span className={styles.keyBand} />

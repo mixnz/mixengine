@@ -4,50 +4,66 @@
 
 .dialog {
   composes: dialog from "../../../../components/Modal/surface.module.css";
-  padding: 24px;
-  width: min(420px, calc(100vw - 2rem));
+  width: min(460px, calc(100vw - 2rem));
   max-height: 80vh;
   overflow-y: auto;
+  padding: 22px 24px;
+  gap: 16px;
 }
 
 .title {
-  margin: 0 0 16px;
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
+  gap: 7px;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-md);
 }
 
 .hint {
   margin: 0;
-  font-size: 12px;
-  opacity: 0.7;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .errors {
-  margin-top: 12px;
-  color: var(--danger, #c00);
+  flex-shrink: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
+  gap: 10px;
+  flex-shrink: 0;
 }

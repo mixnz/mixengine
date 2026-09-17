@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
+import { copyText } from "../../../../core/clipboard";
 import { errorMessage } from "../../../../core/errors";
+import { CopyIcon, LockIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { DatabaseClientReport } from "@mixengine/api";
@@ -89,11 +92,7 @@ export default function DatabasePanel({ service }: { service: string }) {
   // Hỏi mà không ra thì nói ra. Im lặng ở đây là một panel biến mất vì daemon không trả lời được,
   // và người đọc kết luận service này không phải database — một câu chưa ai nói.
   if (loadError !== "") {
-    return (
-      <div className={styles.panel}>
-        <ErrorBanner message={loadError} onDismiss={() => setLoadError("")} />
-      </div>
-    );
+    return <ErrorBanner message={loadError} onDismiss={() => setLoadError("")} />;
   }
 
   // Chưa đọc xong: chưa có gì để nói.
@@ -105,39 +104,64 @@ export default function DatabasePanel({ service }: { service: string }) {
   if (!opensADatabase(report)) return null;
 
   return (
-    <div className={styles.panel}>
+    <Card headingLevel={3} title={t("mixengine.servicesDetail.database.title")}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
-      <h4>{t("mixengine.servicesDetail.database.title")}</h4>
 
-      {report.secret && (
-        <p className={styles.hint}>
-          {t("mixengine.servicesDetail.database.secretLine", { key: report.secret.key })}
-        </p>
-      )}
-
-      {/* Redis và MongoDB không tạo database kiểu này: daemon nói vậy, và một form chỉ có thể bị
-          từ chối thì không vẽ (T155). */}
-      {createsDatabases(report) && (
-        <>
-          <h5 className={styles.groupTitle}>{t("mixengine.servicesDetail.database.createTitle")}</h5>
-          <label className={styles.field}>
-            {t("mixengine.servicesDetail.database.databaseName")}
-            <Input value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
-          </label>
-          <label className={styles.field}>
-            {t("mixengine.servicesDetail.database.userName")}
-            <Input value={userName} disabled={busy} onChange={(e) => setUserName(e.target.value)} />
-          </label>
-
-          <div className={styles.actions}>
-            <Button onClick={() => void create()} disabled={busy || dbName.trim() === ""}>
-              {t("mixengine.servicesDetail.database.create")}
+      <div className={styles.body}>
+        {report.secret && (
+          <div className={styles.secret}>
+            <LockIcon size={14} className={styles.secretIcon} />
+            <span className={styles.secretText}>
+              {t("mixengine.servicesDetail.database.secretLine", { key: report.secret.key })}
+            </span>
+            <Button
+              size="small"
+              variant="ghost"
+              aria-label={t("mixengine.servicesDetail.database.copyKey")}
+              title={t("mixengine.servicesDetail.database.copyKey")}
+              onClick={() => void copyText(report.secret?.key ?? "")}
+            >
+              <CopyIcon size={14} />
             </Button>
           </div>
+        )}
 
-          {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
-        </>
-      )}
-    </div>
+        {/* Redis và MongoDB không tạo database kiểu này: daemon nói vậy, và một form chỉ có thể bị
+            từ chối thì không vẽ (T155). */}
+        {createsDatabases(report) && (
+          <>
+            <h4 className={styles.groupTitle}>{t("mixengine.servicesDetail.database.createTitle")}</h4>
+            <div className={styles.fields}>
+              <label className={styles.field}>
+                {t("mixengine.servicesDetail.database.databaseName")}
+                <Input mono value={dbName} disabled={busy} onChange={(e) => setDbName(e.target.value)} />
+              </label>
+              <label className={styles.field}>
+                {t("mixengine.servicesDetail.database.userName")}
+                {/* The daemon names the account after the database when none is given; the
+                    placeholder says so as the database name is typed. */}
+                <Input
+                  mono
+                  value={userName}
+                  placeholder={dbName}
+                  disabled={busy}
+                  onChange={(e) => setUserName(e.target.value)}
+                />
+              </label>
+              <Button
+                variant="primary"
+                className={styles.create}
+                onClick={() => void create()}
+                disabled={busy || dbName.trim() === ""}
+              >
+                {t("mixengine.servicesDetail.database.create")}
+              </Button>
+            </div>
+
+            {createdMessage !== "" && <p className={styles.created}>{createdMessage}</p>}
+          </>
+        )}
+      </div>
+    </Card>
   );
 }

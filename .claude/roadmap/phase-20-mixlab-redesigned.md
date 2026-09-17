@@ -23,7 +23,7 @@ in tokens — so the work starts at the tokens and moves outwards one area at a 
       EmptyState) added, with the shared-components skill updated.
 - [x] **T159** Shell — tab bar, Settings modal, FirstRun, TabNotice.
 - [x] **T160** MixEngine I — gate, sidebar, Dashboard, Projects, Sites and its dialog, Domains & TLS.
-- [ ] **T161** MixEngine II — Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs,
+- [x] **T161** MixEngine II — Runtimes, PHP extensions, Services, Blueprints, Metrics, Logs,
       Add-ons, Settings, the remaining dialogs.
 - [ ] **T162** `db` — the connection editor, the compact workspace, its dialogs.
 - [ ] **T163** REST, Terminal (xterm reads `--ansi-*`), Tools; both colour-literal baselines empty.
