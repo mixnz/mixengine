@@ -1,7 +1,7 @@
 //! The blueprints this build ships — roadmap task **T79**.
 //!
 //! Out here rather than beside the code because these are assertions about the *shipped set*: that
-//! the eleven files are readable, that each one is its own rendering, and that seeding a real home
+//! the thirteen files are readable, that each one is its own rendering, and that seeding a real home
 //! with them is idempotent.
 
 use mixengine_core::blueprints::gallery::{self, ENTRIES};
@@ -34,7 +34,7 @@ fn every_gallery_blueprint_is_its_own_rendering() {
 
 /// The set the roadmap names, spelled the way a person types it on a command line.
 #[test]
-fn the_gallery_is_the_eleven_the_roadmap_names() {
+fn the_gallery_is_the_thirteen_the_roadmap_names() {
     let slugs: Vec<_> = ENTRIES.iter().map(|entry| entry.slug).collect();
 
     assert_eq!(
@@ -42,7 +42,9 @@ fn the_gallery_is_the_eleven_the_roadmap_names() {
         [
             "django",
             "drupal",
+            "express-mongodb",
             "laravel",
+            "laravel-mongodb",
             "nextjs",
             "php-mysql",
             "rails",
@@ -61,22 +63,30 @@ fn the_gallery_is_the_eleven_the_roadmap_names() {
     }
 }
 
-/// **Four carry a command and seven do not** — D8. Asserted rather than left to a reading of the
+/// **Five carry a command and eight do not** — D8. Asserted rather than left to a reading of the
 /// files, because a scaffold added to `wordpress` or `django` by a later edit is exactly the change
 /// this task decided against.
 ///
-/// The seven without one are not a shortfall. A gallery command has to be non-interactive — there is
+/// The eight without one are not a shortfall. A gallery command has to be non-interactive — there is
 /// no timeout, so a prompt hangs a job for good — spelled the same for `cmd.exe` and `sh`, with a
 /// program for its first word, and it may not write into a shared runtime: that last rule is what
 /// removes Django's `pip install django` and Rails' `gem install rails`, both of which reach every
 /// project using that runtime. `vite` and `strapi` are kept out by the first: `create-vite` and
 /// `create-strapi-app` ask questions no flag reliably silences. And `php-mysql` is the kind of
-/// project that has no initialiser at all, which is the point of it.
+/// project that has no initialiser at all, which is the point of it. `express-mongodb` has one only
+/// in `express-generator`, which is unmaintained and writes an Express a major version behind.
+///
+/// `laravel-mongodb` runs `laravel`'s command and stops there: the `composer require` that adds
+/// MongoDB's Eloquent driver would be a second command joined to the first, so its
+/// `[blueprint] description` says it instead.
 #[test]
-fn only_the_four_that_can_run_a_command_carry_one() {
+fn only_the_five_that_can_run_a_command_carry_one() {
     for entry in ENTRIES {
         let manifest = manifest::read(entry.manifest).expect("a gallery blueprint");
-        let expected = matches!(entry.slug, "laravel" | "symfony" | "nextjs" | "drupal");
+        let expected = matches!(
+            entry.slug,
+            "laravel" | "laravel-mongodb" | "symfony" | "nextjs" | "drupal"
+        );
 
         assert_eq!(
             manifest.scaffold.is_some(),
@@ -87,7 +97,7 @@ fn only_the_four_that_can_run_a_command_carry_one() {
     }
 }
 
-/// **And all three of those commands are project-initialisers, so all three say so.**
+/// **And all five of those commands are project-initialisers, so all five say so.**
 ///
 /// `composer create-project .` refuses a directory holding anything at all, `create-next-app`
 /// refuses one holding anything it would overwrite, and before the key existed the plan let all
@@ -114,9 +124,9 @@ fn every_gallery_command_that_initialises_a_project_asks_for_an_empty_directory(
 
 /// **The npm one asks, and only the npm one** — roadmap task **T120c**.
 ///
-/// Three of the four commands are `composer create-project`, which takes its package name from its
-/// argument and does not care what the folder is called; the fourth reads the folder's basename and
-/// npm judges it. A flag that spread to the other three would refuse folders `composer` installs
+/// Four of the five commands are `composer create-project`, which takes its package name from its
+/// argument and does not care what the folder is called; the fifth reads the folder's basename and
+/// npm judges it. A flag that spread to the other four would refuse folders `composer` installs
 /// into happily, which is the over-blocking the design's D6 names as the costly mistake.
 #[test]
 fn only_the_command_that_names_itself_after_the_directory_asks_for_an_npm_name() {
@@ -335,7 +345,7 @@ async fn planned(slug: &str) -> mixengine_proto::BlueprintPlan {
     planned_with(slug, GALLERY_PROGRAMS).await
 }
 
-/// **Every one of the eleven plans without a blocked step** — nothing in the gallery asks for
+/// **Every one of the thirteen plans without a blocked step** — nothing in the gallery asks for
 /// something this build cannot do on a machine that has nothing installed but the two programs the
 /// gallery's commands name.
 #[tokio::test]
@@ -360,12 +370,12 @@ async fn every_gallery_blueprint_plans_on_a_machine_with_nothing_installed() {
     }
 }
 
-/// **On a machine without `composer`, the three that run it are blocked at exactly one step and
+/// **On a machine without `composer`, the four that run it are blocked at exactly one step and
 /// it is the command** — roadmap task **T78b**. The gap the product does not close (T25 keeps
 /// `composer` out of the shims) is on the screen rather than at the end of the job, and the other
-/// eight plan clean because `npx` is a shim every home has.
+/// nine plan clean because `npx` is a shim every home has.
 #[tokio::test]
-async fn without_composer_only_the_three_that_need_it_are_blocked_and_only_at_the_command() {
+async fn without_composer_only_the_four_that_need_it_are_blocked_and_only_at_the_command() {
     for entry in ENTRIES {
         let planned = planned_with(entry.slug, &["npx"]).await;
         let blocked: Vec<_> = planned
@@ -375,7 +385,7 @@ async fn without_composer_only_the_three_that_need_it_are_blocked_and_only_at_th
             .collect();
 
         match entry.slug {
-            "laravel" | "symfony" | "drupal" => {
+            "laravel" | "laravel-mongodb" | "symfony" | "drupal" => {
                 assert_eq!(blocked.len(), 1, "{}: {:?}", entry.slug, planned.steps);
                 assert!(
                     matches!(blocked[0].action, PlanAction::RunScaffold { .. }),
@@ -398,10 +408,10 @@ async fn without_composer_only_the_three_that_need_it_are_blocked_and_only_at_th
     }
 }
 
-/// **The three that run Composer ask for it** — roadmap task **T27c**, its design's D6 — so a machine
+/// **The four that run Composer ask for it** — roadmap task **T27c**, its design's D6 — so a machine
 /// without one reads `create composer 2` where T78b had it read `blocked`.
 #[tokio::test]
-async fn the_three_composer_blueprints_ask_for_it_and_nothing_else_does() {
+async fn the_four_composer_blueprints_ask_for_it_and_nothing_else_does() {
     for entry in ENTRIES {
         let planned = planned(entry.slug).await;
         let asks = planned.steps.iter().any(|step| {
@@ -415,7 +425,10 @@ async fn the_three_composer_blueprints_ask_for_it_and_nothing_else_does() {
         });
         assert_eq!(
             asks,
-            matches!(entry.slug, "laravel" | "symfony" | "drupal"),
+            matches!(
+                entry.slug,
+                "laravel" | "laravel-mongodb" | "symfony" | "drupal"
+            ),
             "{}: {:?}",
             entry.slug,
             planned.steps
@@ -528,6 +541,54 @@ async fn laravel_plans_the_whole_stack() {
         action,
         PlanAction::RunScaffold { .. }
     )));
+}
+
+/// **The two MongoDB blueprints ask for the server and never for a database** — roadmap phase 19.
+///
+/// The `mongodb` recipe runs with access control off and answers no `databases()`: a MongoDB database
+/// exists once something writes to it, and there is no account to make. A `database` key on either
+/// entry would plan a `CreateDatabase` step the apply is refused at, after the downloads. And the PHP
+/// one turns the driver's extension on, because a machine that turned it off is exactly the one a
+/// Laravel app talking to MongoDB fails on with nothing pointing at why.
+#[tokio::test]
+async fn the_mongodb_blueprints_plan_a_server_and_no_database() {
+    for slug in ["express-mongodb", "laravel-mongodb"] {
+        let planned = planned(slug).await;
+        let has =
+            |wanted: fn(&PlanAction) -> bool| planned.steps.iter().any(|step| wanted(&step.action));
+
+        assert!(
+            has(|action| matches!(
+                action,
+                PlanAction::InstallPackage { package, .. } if package == "mongodb"
+            )),
+            "{slug}: {:?}",
+            planned.steps
+        );
+        assert!(
+            has(|action| matches!(
+                action,
+                PlanAction::EnsureService { package, instance, .. }
+                    if package == "mongodb" && instance == "main"
+            )),
+            "{slug}: {:?}",
+            planned.steps
+        );
+        assert!(
+            !has(|action| matches!(action, PlanAction::CreateDatabase { .. })),
+            "{slug}: {:?}",
+            planned.steps
+        );
+        assert_eq!(
+            has(|action| matches!(
+                action,
+                PlanAction::SetPhpExtension { name, .. } if name == "mongodb"
+            )),
+            slug == "laravel-mongodb",
+            "{slug}: {:?}",
+            planned.steps
+        );
+    }
 }
 
 /// **The three without a command plan no command** — D8, asserted on the plan rather than on the
