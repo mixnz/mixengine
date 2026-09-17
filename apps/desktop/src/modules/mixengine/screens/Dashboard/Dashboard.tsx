@@ -4,8 +4,29 @@ import ActionBar from "../../../../components/ActionBar";
 import Button from "../../../../components/Button";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
 import ContextMenu from "../../../../components/ContextMenu";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
-import { MoreIcon } from "../../../../icons";
+import MonogramBadge from "../../../../components/MonogramBadge";
+import PageHeader from "../../../../components/PageHeader";
+import SegmentedControl from "../../../../components/SegmentedControl";
+import StatusPill, { type StatusTone } from "../../../../components/StatusPill";
+import Switch from "../../../../components/Switch";
+import Table from "../../../../components/Table";
+import {
+  CopyIcon,
+  DatabaseGenericIcon,
+  FolderIcon,
+  LockIcon,
+  LogIcon,
+  MoreIcon,
+  PlayIcon,
+  PlusIcon,
+  PowerIcon,
+  ReloadIcon,
+  StopIcon,
+} from "../../../../icons";
+import { copyText } from "../../../../core/clipboard";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -59,6 +80,8 @@ const PENDING_LABEL = {
   restart: "mixengine.dashboard.restarting",
 } as const;
 
+type ServiceFilter = "all" | "running" | "stopped";
+
 /**
  * Daemon, và mọi thứ nó đang giám sát.
  *
@@ -69,8 +92,11 @@ const PENDING_LABEL = {
 export default function Dashboard({
   active,
   isModuleVisible,
+  onViewLogs,
 }: {
   active: boolean;
+  /** Opens the Logs screen on one service — the row menu's *View logs*. */
+  onViewLogs: (serviceId: string) => void;
   /** Whether this window draws the built-in database client — T110. Straight through to the row
    *  menu, which is where *open* lives now. */
   isModuleVisible: (moduleId: string) => boolean;
@@ -118,6 +144,10 @@ export default function Dashboard({
   const [credentials, setCredentials] = useState<DatabaseCredentials | null>(null);
   /** Service đang được hỏi "đặt lại mật khẩu?", hoặc `null`. */
   const [resetTarget, setResetTarget] = useState<string | null>(null);
+  /** Which rows the Services card shows. */
+  const [filter, setFilter] = useState<ServiceFilter>("all");
+  /** The home path was just copied, for the button to say so for a moment. */
+  const [homeCopied, setHomeCopied] = useState(false);
   const { t } = useTranslation();
 
   /**
@@ -453,10 +483,13 @@ export default function Dashboard({
   const menuDatabase =
     menuReport !== undefined && opensADatabase(menuReport) ? menuReport : undefined;
 
-  /** Class màu cho một trạng thái; chuỗi rỗng cho trạng thái không biết, để nó vẽ như chữ thường. */
-  function toneClass(state: string | null | undefined): string {
+  /** The state as a pill tone: whether it is serving, not which of the seven states it is in. */
+  function pillTone(state: string | null | undefined): StatusTone {
     const tone = serviceStateTone(state);
-    return tone === null ? "" : styles[tone];
+    if (tone === "ok") return "success";
+    if (tone === "bad") return "danger";
+    if (tone === "busy") return "warning";
+    return "neutral";
   }
 
   /** Trạng thái đã dịch; một trạng thái daemon mới hơn build này hiện nguyên văn. */
@@ -465,220 +498,303 @@ export default function Dashboard({
     return key === null ? (state ?? "—") : t(key);
   }
 
+  const runningCount = rows.filter((row) => isServing(row.state)).length;
+  const movingCount = rows.filter(
+    (row) => busy[row.id] !== undefined || toggleMode(row.state, false) === "moving",
+  ).length;
+  const shown = rows.filter((row) =>
+    filter === "all" ? true : filter === "running" ? isServing(row.state) : !isServing(row.state),
+  );
+  const daemon = readingFor(frame, DAEMON_SUBJECT);
+
+  function copyHome(home: string) {
+    void copyText(home).then(() => {
+      setHomeCopied(true);
+      window.setTimeout(() => setHomeCopied(false), 1600);
+    });
+  }
+
   return (
-    <div className={styles.dashboard}>
+    <div className={`mixengine-page ${styles.dashboard}`}>
       {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-      {/* Trên bảng service, và chỉ khi home này chưa có site nào — T117. Điều kiện là trạng thái
-          của home chứ không phải một cờ "đã bỏ qua": không có gì để lưu, migrate hay sửa tay sai,
-          và một máy vừa xoá hết site thì thấy lời mời quay lại, đúng như nó nên. */}
+      <PageHeader
+        title={t("mixengine.sidebar.dashboard")}
+        badges={
+          status && (
+            <>
+              <StatusPill tone="neutral" className={styles.version}>
+                {t("mixengine.dashboard.versionBadge", { version: status.version })}
+              </StatusPill>
+              {movingCount > 0 ? (
+                <StatusPill tone="warning" pulse>
+                  {t("mixengine.dashboard.summaryChanging", { count: movingCount })}
+                </StatusPill>
+              ) : runningCount > 0 ? (
+                <StatusPill tone="success">
+                  {t("mixengine.dashboard.summaryRunning", { running: runningCount, total: rows.length })}
+                </StatusPill>
+              ) : (
+                rows.length > 0 && (
+                  <StatusPill tone="neutral">{t("mixengine.dashboard.summaryStopped")}</StatusPill>
+                )
+              )}
+            </>
+          )
+        }
+        meta={
+          status && (
+            <div className={styles.home}>
+              <FolderIcon size={14} className={styles.homeIcon} />
+              <span className={styles.homePath} title={status.home}>
+                {status.home}
+              </span>
+              <Button
+                size="small"
+                variant="ghost"
+                className={styles.copy}
+                onClick={() => copyHome(status.home)}
+                aria-label={t("mixengine.dashboard.copyHome")}
+              >
+                <CopyIcon size={13} />
+                {homeCopied ? t("mixengine.dashboard.copied") : t("mixengine.dashboard.copy")}
+              </Button>
+            </div>
+          )
+        }
+        actions={
+          <div className={styles.headerSide}>
+            {/* Daemon không có `ServiceRow` — vẽ riêng khỏi bảng service, không chèn vào `rows`. */}
+            {daemon && (
+              <div className={styles.usage} role="group" aria-label={t("mixengine.dashboard.daemon")}>
+                <span className={styles.usageCell}>
+                  <span className={styles.liveDot} aria-hidden="true" />
+                  <strong>{t("mixengine.dashboard.daemon")}</strong>
+                </span>
+                <span className={styles.usageCell}>
+                  <span className={styles.usageLabel}>{t("mixengine.dashboard.cpu")}</span>
+                  <span className={styles.usageValue}>
+                    {daemon.cpu_percent === null ? "—" : formatPercent(daemon.cpu_percent)}
+                  </span>
+                  <span className={styles.usageBar} aria-hidden="true">
+                    <span style={{ width: `${Math.min(100, Math.max(3, daemon.cpu_percent ?? 0))}%` }} />
+                  </span>
+                </span>
+                <span className={styles.usageCell}>
+                  <span className={styles.usageLabel}>{t("mixengine.dashboard.memory")}</span>
+                  <span className={styles.usageValue}>{formatBytes(daemon.rss_bytes)}</span>
+                </span>
+              </div>
+            )}
+            <div className={styles.headerButtons}>
+              {/* Không tự bật hộp thoại lúc mở tab: một lô có thể nằm chờ nhiều ngày, và một modal bật
+                  lên mỗi lần mở tab là thứ người ta học cách bấm bỏ mà không đọc. */}
+              {waiting > 0 && pending === null && (
+                <Button size="large" className={styles.waiting} onClick={() => void showWaiting()}>
+                  {t("mixengine.dashboard.elevationWaiting", { count: waiting })}
+                </Button>
+              )}
+              {/* Đường dự phòng thủ công: một service được tạo/xoá từ nơi khác không sinh sự kiện nào
+                  cho bảng này biết. */}
+              <Button size="large" onClick={() => void reload()}>
+                <ReloadIcon size={15} />
+                {t("mixengine.dashboard.reload")}
+              </Button>
+              {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
+              <Button
+                size="large"
+                variant="danger"
+                onClick={() => void stopAll()}
+                disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
+              >
+                <StopIcon size={13} />
+                {t("mixengine.dashboard.stopAll")}
+              </Button>
+              <Button size="large" variant="primary" onClick={() => setCreating(true)}>
+                <PlusIcon size={15} />
+                {t("mixengine.dashboard.newService")}
+              </Button>
+            </div>
+          </div>
+        }
+      />
+
+      {/* Trên bảng service, và chỉ khi home này chưa có site nào — T117. */}
       {shouldOfferQuickStart(sites) && <QuickStart onCreated={() => void readSites()} />}
 
-      {status && (
-        <header className={styles.header}>
-          <strong>MixEngine {status.version}</strong>
-          <span className={styles.home}>{status.home}</span>
-          {/* Daemon không có `ServiceRow` — vẽ riêng khỏi bảng service, không chèn vào `rows`.
-              `.daemonUsage` đẩy nó sát bên phải header. */}
-          {(() => {
-            const daemon = readingFor(frame, DAEMON_SUBJECT);
-            return (
-              daemon && (
-                <span className={`${styles.home} ${styles.daemonUsage}`}>
-                  {t("mixengine.dashboard.daemonUsage", {
-                    cpu: daemon.cpu_percent === null ? "—" : formatPercent(daemon.cpu_percent),
-                    rss: formatBytes(daemon.rss_bytes),
-                  })}
-                </span>
-              )
-            );
-          })()}
-        </header>
-      )}
-
-      {/* Hàng riêng, xuống dưới header, hai nút sát bên phải — tách khỏi header để header không dài
-          thêm mỗi lần một field trạng thái mới được thêm vào. */}
-      <div className={styles.headerActions}>
-        {/* Không tự bật hộp thoại lúc mở tab: một lô có thể nằm chờ nhiều ngày, và một modal bật
-            lên mỗi lần mở tab là thứ người ta học cách bấm bỏ mà không đọc. Một nút nói đúng điều
-            cần nói, đặt ở hàng hành động (nơi người ta tìm thứ để bấm) chứ không ở header (dòng
-            định danh: version, home, CPU/RSS) — `.headerButtons` đẩy sang phải nên nút này tự đứng
-            sát mép trái. */}
-        {waiting > 0 && pending === null && (
-          <Button className={styles.waiting} onClick={() => void showWaiting()}>
-            {t("mixengine.dashboard.elevationWaiting", { count: waiting })}
-          </Button>
+      <Card
+        flush
+        title={t("mixengine.dashboard.servicesTitle")}
+        description={t("mixengine.dashboard.servicesAbout")}
+        actions={
+          <SegmentedControl<ServiceFilter>
+            aria-label={t("mixengine.dashboard.servicesTitle")}
+            value={filter}
+            onChange={setFilter}
+            segments={[
+              { value: "all", label: t("mixengine.dashboard.filterAll"), count: rows.length },
+              { value: "running", label: t("mixengine.dashboard.filterRunning"), count: runningCount },
+              {
+                value: "stopped",
+                label: t("mixengine.dashboard.filterStopped"),
+                count: rows.length - runningCount,
+              },
+            ]}
+          />
+        }
+      >
+        {/* Tiến độ vẽ ngay tại chỗ, không phủ spinner lên cả màn hình. */}
+        {jobs.length > 0 && (
+          <ul className={styles.jobs}>
+            {jobs.map((job) => (
+              <li key={job.id}>
+                <span>{job.kind || t("mixengine.dashboard.job")}</span>
+                <progress value={job.percent} max={100} />
+                <span className={styles.jobMessage}>{job.message}</span>
+              </li>
+            ))}
+          </ul>
         )}
-        <div className={styles.headerButtons}>
-          {/* Đường dự phòng thủ công cho đúng lỗ hổng comment `reload` ở trên đã nêu: một service
-              được tạo/xoá từ nơi khác (CLI, một tab MixDB khác) không sinh sự kiện nào cho bảng này
-              biết — quay lại tab là đường dự phòng tự động, nút này là đường dự phòng chủ động. */}
-          <Button onClick={() => void reload()}>{t("mixengine.dashboard.reload")}</Button>
-          {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
-          <Button
-            onClick={() => void stopAll()}
-            disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
-          >
-            {t("mixengine.dashboard.stopAll")}
-          </Button>
-          <Button onClick={() => setCreating(true)}>{t("mixengine.serviceForm.newService")}</Button>
-        </div>
-      </div>
 
-      {jobs.length > 0 && (
-        <ul className={styles.jobs}>
-          {jobs.map((job) => (
-            <li key={job.id}>
-              <span>{job.kind || t("mixengine.dashboard.job")}</span>
-              <progress value={job.percent} max={100} />
-              <span>{job.message}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          {/* Bề rộng khai ở đây chứ không để nội dung quyết — xem `table-layout: fixed` bên CSS.
-              Tỉ lệ lấy từ bề rộng nội tại đo được của từng cột, không phải ước lượng.
-
-              Measured against the *longest translation of each header*, not against English. At the
-              table's own `min-width` (57rem, and `1rem` is 14px here) Autostart's old 9% came to
-              72px, 12px of which is the cell's padding — enough for "Autostart" (57px) and not for
-              "Tự khởi động" (82px), so the Vietnamese header sat there clipped to an ellipsis. The
-              three points it needed came off Service (an id already carries `title` and is the one
-              cell meant to elide) and off CPU and RSS, whose widest readings are "100.0%" and
-              "128.4 MB". */}
-          <colgroup>
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "6%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "31%" }} />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>{t("mixengine.dashboard.service")}</th>
-              <th>{t("mixengine.dashboard.state")}</th>
-              {/* Cạnh State và không ở cuối bảng — T114. Hai cột này là câu người đang quét bảng
-                  thật sự hỏi: cái gì đang chạy, và cái gì sẽ chạy sau lần đăng nhập tới. */}
-              <th>{t("mixengine.dashboard.autostart")}</th>
-              <th>{t("mixengine.dashboard.port")}</th>
-              <th>{t("mixengine.dashboard.cpu")}</th>
-              <th>{t("mixengine.dashboard.rss")}</th>
-              <th>{t("mixengine.dashboard.actions")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const reading = readingFor(frame, metricsSubjectFor(row.id));
-              return (
-              <tr key={row.id}>
-                {/* Cột cố định không nới ra cho một id dài, nên id đầy đủ ở lại trong `title`. */}
-                <td title={row.id}>{row.id}</td>
-                <td>
-                  {busy[row.id] ? (
-                    /* Một hành động vừa gửi đi và chưa có sự kiện nào xác nhận: cũng là "đang
-                       chuyển", nên cùng màu với `starting`/`stopping`, chỉ thêm nghiêng. */
-                    <span className={`${styles.pending} ${styles.busy}`}>
-                      {t(PENDING_LABEL[busy[row.id]])}
-                    </span>
-                  ) : (
-                    <span className={toneClass(row.state)}>{stateLabel(row.state)}</span>
-                  )}
-                </td>
-                <td>
-                  {t(
-                    row.autostart
-                      ? "mixengine.dashboard.autostartYes"
-                      : "mixengine.dashboard.autostartNo",
-                  )}
-                </td>
-                <td>{row.port ?? "—"}</td>
-                {/* Vắng mặt trong frame (chưa có stream, hay service chưa lọt vào lần đo) là "—",
-                    không phải 0% — một service rảnh và một service không đo được là hai câu khác
-                    nhau. `cpu_percent: null` trên chính sample cũng vẽ "—" vì cùng lý do đó. */}
-                <td>
-                  {reading === null || reading.cpu_percent === null
-                    ? "—"
-                    : formatPercent(reading.cpu_percent)}
-                </td>
-                <td>{reading === null ? "—" : formatBytes(reading.rss_bytes)}</td>
-                <td className={styles.actions}>
-                  {/* Nghỉ thì là một cái đèn báo, chạm vào thì là một cái nút. Màu lúc nghỉ nói
-                      *trạng thái* (cùng bảng với cột State), màu lúc hover nói *việc sắp làm*.
-                      `aria-label` mang việc đó kèm tên service, nên trình đọc màn hình nghe được
-                      "Tắt mariadb@main" chứ không nghe một cái nút không tên. */}
-                  {(() => {
-                    const mode = toggleMode(row.state, busy[row.id] !== undefined);
-                    if (mode === "moving") {
-                      return (
-                        <button
-                          className={`${styles.toggle} ${styles.moving}`}
-                          aria-label={t("mixengine.dashboard.moving", { service: row.id })}
-                          disabled
-                        >
-                          <span className={styles.dots} aria-hidden="true">
-                            <i />
-                            <i />
-                            <i />
-                          </span>
-                        </button>
-                      );
-                    }
-                    const action = mode === "up" ? "stop" : "start";
-                    const label = t(`mixengine.dashboard.${action}`);
-                    return (
-                      <button
-                        className={`${styles.toggle} ${styles[mode]} ${toneClass(row.state)}`}
-                        aria-label={t(`mixengine.dashboard.${action}Service`, { service: row.id })}
-                        onClick={() => void act(row.id, action)}
-                      >
-                        <span className={styles.dot} aria-hidden="true" />
-                        <span className={styles.label}>{label}</span>
-                      </button>
-                    );
-                  })()}
-                  {/* `small` cùng lý do `.toggle` cao 26px: đây là ô hành động của một hàng bảng,
-                      và cỡ dày đặc là cỡ ba control ở đây dùng chung. */}
-                  <Button
-                    size="small"
-                    className={styles.restart}
-                    onClick={() => void act(row.id, "restart")}
-                    disabled={busy[row.id] !== undefined}
-                  >
-                    {t("mixengine.dashboard.restart")}
-                  </Button>
-                  {/* `ActionBar` chứ không phải một `<button>` tự vẽ: nó *là* primitive cho nút
-                      chỉ-có-icon, và nó mang sẵn đúng luật chỗ này cần.
-
-                      Không bao giờ xám nữa: autostart là một cột của *mọi* service, nên nginx và
-                      một php-fpm pool cũng có một mục để bấm — trước đây menu chỉ toàn mục của một
-                      database, và với những hàng ấy mở ra là mở ra một cái rỗng. */}
-                  <ActionBar
-                    actions={[
-                      {
-                        key: "menu",
-                        icon: MoreIcon,
-                        label: t("mixengine.dashboard.rowMenu"),
-                        onClick: (event) => {
-                          const at = event.currentTarget.getBoundingClientRect();
-                          setMenu({ id: row.id, x: at.left, y: at.bottom });
-                        },
-                      },
-                    ]}
-                  />
-                </td>
+        {rows.length === 0 ? (
+          <EmptyState title={t("mixengine.dashboard.noServices")} />
+        ) : shown.length === 0 ? (
+          <EmptyState
+            title={
+              filter === "running"
+                ? t("mixengine.dashboard.filterEmptyRunning")
+                : t("mixengine.dashboard.filterEmptyStopped")
+            }
+            action={
+              <Button size="small" onClick={() => setFilter("all")}>
+                {t("mixengine.dashboard.showAll")}
+              </Button>
+            }
+          />
+        ) : (
+          <Table aria-label={t("mixengine.dashboard.servicesTitle")}>
+            <thead>
+              <tr>
+                <th>{t("mixengine.dashboard.service")}</th>
+                <th>{t("mixengine.dashboard.state")}</th>
+                {/* Cạnh State — T114: cái gì đang chạy, và cái gì sẽ chạy sau lần đăng nhập tới. */}
+                <th>{t("mixengine.dashboard.autostart")}</th>
+                <th>{t("mixengine.dashboard.port")}</th>
+                <th>{t("mixengine.dashboard.cpu")}</th>
+                <th>{t("mixengine.dashboard.memory")}</th>
+                <th data-align="end">{t("mixengine.dashboard.actions")}</th>
               </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {rows.length === 0 && <p className={styles.empty}>{t("mixengine.dashboard.noServices")}</p>}
+            </thead>
+            <tbody>
+              {shown.map((row) => {
+                const reading = readingFor(frame, metricsSubjectFor(row.id));
+                const mode = toggleMode(row.state, busy[row.id] !== undefined);
+                return (
+                  <tr key={row.id}>
+                    <td>
+                      <span className={styles.service}>
+                        <MonogramBadge name={row.id} size={34} />
+                        <span className={styles.serviceName} title={row.id}>
+                          {row.id}
+                        </span>
+                      </span>
+                    </td>
+                    <td data-nowrap>
+                      {busy[row.id] ? (
+                        /* Một hành động vừa gửi đi và chưa có sự kiện nào xác nhận: cũng là "đang
+                           chuyển", nên cùng tông với `starting`/`stopping`. */
+                        <StatusPill tone="warning" pulse>
+                          {t(PENDING_LABEL[busy[row.id]])}
+                        </StatusPill>
+                      ) : (
+                        <StatusPill tone={pillTone(row.state)} pulse={mode === "moving"}>
+                          {stateLabel(row.state)}
+                        </StatusPill>
+                      )}
+                    </td>
+                    <td>
+                      <Switch
+                        small
+                        checked={row.autostart}
+                        onChange={(next) => void setAutostart(row.id, next)}
+                        aria-label={t(
+                          row.autostart
+                            ? "mixengine.dashboard.autostartOff"
+                            : "mixengine.dashboard.autostartOn",
+                        )}
+                      />
+                    </td>
+                    <td className={row.port === null ? styles.none : styles.mono}>{row.port ?? "—"}</td>
+                    {/* Vắng mặt trong frame là "—", không phải 0%: một service rảnh và một service không
+                        đo được là hai câu khác nhau. */}
+                    <td className={styles.mono}>
+                      {reading === null || reading.cpu_percent === null
+                        ? "—"
+                        : formatPercent(reading.cpu_percent)}
+                    </td>
+                    <td className={styles.mono}>{reading === null ? "—" : formatBytes(reading.rss_bytes)}</td>
+                    <td data-align="end" data-nowrap>
+                      <span className={styles.actions}>
+                        {mode === "moving" ? (
+                          <Button
+                            size="small"
+                            className={styles.toggle}
+                            busy={busy[row.id] ? t(PENDING_LABEL[busy[row.id]]) : stateLabel(row.state)}
+                            aria-label={t("mixengine.dashboard.moving", { service: row.id })}
+                          />
+                        ) : mode === "up" ? (
+                          <Button
+                            size="small"
+                            className={`${styles.toggle} ${styles.stop}`}
+                            aria-label={t("mixengine.dashboard.stopService", { service: row.id })}
+                            onClick={() => void act(row.id, "stop")}
+                          >
+                            <StopIcon size={11} className={styles.stopMark} />
+                            {t("mixengine.dashboard.stop")}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="positive"
+                            className={styles.toggle}
+                            aria-label={t("mixengine.dashboard.startService", { service: row.id })}
+                            onClick={() => void act(row.id, "start")}
+                          >
+                            <PlayIcon size={11} />
+                            {t("mixengine.dashboard.start")}
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          onClick={() => void act(row.id, "restart")}
+                          disabled={busy[row.id] !== undefined || mode !== "up"}
+                        >
+                          <ReloadIcon size={13} />
+                          {t("mixengine.dashboard.restart")}
+                        </Button>
+                        {/* Never greyed: autostart and the logs are there for *every* service. */}
+                        <ActionBar
+                          actions={[
+                            {
+                              key: "menu",
+                              icon: MoreIcon,
+                              label: t("mixengine.dashboard.rowMenu"),
+                              onClick: (event) => {
+                                const at = event.currentTarget.getBoundingClientRect();
+                                setMenu({ id: row.id, x: at.left, y: at.bottom });
+                              },
+                            },
+                          ]}
+                        />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        )}
+      </Card>
 
       <DiskUsagePanel
         disk={disk}
@@ -695,20 +811,37 @@ export default function Dashboard({
         />
       )}
 
-      {/* Menu này không bao giờ rỗng, và đó là lý do nút ⋮ không còn xám: autostart có mặt cho
-          *mọi* service, kể cả khi `openChoices` trả về danh sách rỗng vì máy không có client nào
-          và kể cả khi hàng ấy không phải một database.
-
-          **"Mở thư mục dữ liệu" vẫn không có mặt** chứ không để xám: daemon biết thư mục ấy —
-          `ServiceRemoval.data_kept` gọi tên nó — nhưng chỉ nói ở `service.delete`, và không method
-          đọc nào trả về đường dẫn (`ServiceCreate.data_dir` là *đầu vào*). Cửa sổ thì mở được thư
-          mục, `tauri-plugin-opener` đã có sẵn; thứ thiếu là đường dẫn, không phải cách mở. Một mục
-          xám vĩnh viễn là một lời hứa không ai định giữ. */}
+      {/* Menu này không bao giờ rỗng: autostart và log có mặt cho *mọi* service. */}
       {menu !== null && (
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
-          {/* Nhãn lật theo cột Autostart của chính hàng đó, chứ không phải một dấu tick: mục menu ở
-              đây là `<button>` mang `role="menuitem"`, và một dấu tick không có `menuitemcheckbox`
-              đứng sau là một trạng thái chỉ nhìn mới thấy. */}
+          <button
+            type="button"
+            onClick={() => {
+              const id = menu.id;
+              setMenu(null);
+              onViewLogs(id);
+            }}
+          >
+            <LogIcon size={14} />
+            {t("mixengine.dashboard.viewLogs")}
+          </button>
+
+          {menuRow !== undefined && (
+            <button
+              type="button"
+              disabled={menuRow.port === null}
+              onClick={() => {
+                const port = menuRow.port;
+                setMenu(null);
+                if (port !== null) void copyText(String(port));
+              }}
+            >
+              <CopyIcon size={14} />
+              {t("mixengine.dashboard.copyPort")}
+            </button>
+          )}
+
+          {/* Nhãn lật theo cột Autostart của chính hàng đó, chứ không phải một dấu tick. */}
           {menuRow !== undefined && (
             <button
               type="button"
@@ -719,6 +852,7 @@ export default function Dashboard({
                 void setAutostart(id, wanted);
               }}
             >
+              <PowerIcon size={14} />
               {t(
                 menuRow.autostart
                   ? "mixengine.dashboard.autostartOff"
@@ -729,6 +863,7 @@ export default function Dashboard({
 
           {menuDatabase !== undefined && (
             <>
+              <div className="context-menu-separator" />
               {openChoices(menuDatabase.client, isModuleVisible(DATABASE_MODULE_ID)).map((choice) => (
                 <button
                   key={choice}
@@ -737,14 +872,14 @@ export default function Dashboard({
                     const id = menu.id;
                     setMenu(null);
                     /* `external` rời khỏi tiến trình này qua `database.open`; hai cái kia mở một
-                       tab `db` ngay trong cửa sổ. Mật khẩu không đi qua đường nào trong hai:
-                       daemon đọc nó và đặt vào môi trường của thứ nó khởi động (T83). */
+                       tab `db` ngay trong cửa sổ. Mật khẩu không đi qua đường nào trong hai (T83). */
                     void (choice === "external"
                       ? api.databaseOpen(id)
                       : api.databaseOpenInMixDB(id)
                     ).catch((e: unknown) => setError(errorMessage(t, e)));
                   }}
                 >
+                  <DatabaseGenericIcon size={14} />
                   {choice === "external"
                     ? t("mixengine.dashboard.openDatabaseExternal", {
                         name: menuDatabase.client.state === "installed" ? menuDatabase.client.name : "",
@@ -765,11 +900,11 @@ export default function Dashboard({
                   void showCredentials(id);
                 }}
               >
+                <LockIcon size={14} />
                 {t("mixengine.dashboard.credentials")}
               </button>
 
-              {/* Dấu ba chấm là lời hứa: bấm vào mở một câu hỏi, không chạy ngay một thao tác dừng
-                  service này và mọi thứ phụ thuộc nó. */}
+              {/* Dấu ba chấm là lời hứa: bấm vào mở một câu hỏi, không chạy ngay. */}
               <button
                 type="button"
                 onClick={() => {
@@ -778,6 +913,7 @@ export default function Dashboard({
                   setResetTarget(id);
                 }}
               >
+                <ReloadIcon size={14} />
                 {t("mixengine.dashboard.resetCredential")}
               </button>
             </>
@@ -790,8 +926,7 @@ export default function Dashboard({
       )}
 
       {/* Không `danger`: `ConfirmDialog` dành màu đó cho thao tác **mất dữ liệu**, và đây giữ
-          nguyên mọi database — đúng câu quyết định chuyện này cho người đọc, nên nó nằm trong
-          `message` chứ không phải trong một dòng nhỏ ở đâu đó. */}
+          nguyên mọi database. */}
       {resetTarget !== null && (
         <ConfirmDialog
           title={t("mixengine.dashboard.resetTitle")}
@@ -830,4 +965,9 @@ export default function Dashboard({
       )}
     </div>
   );
+}
+
+/** Serving, for the filter and the summary: `degraded` still answers. */
+function isServing(state: string | null | undefined): boolean {
+  return state === "running" || state === "degraded";
 }

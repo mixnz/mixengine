@@ -24,6 +24,7 @@ import ServicesDetail from "./screens/ServicesDetail";
 import Settings from "./screens/Settings";
 import Sites from "./screens/Sites";
 import { requestRuntimesLanguageFilter } from "./runtimesNavigation";
+import { requestLogsService } from "./logsNavigation";
 import { requestSitesFilter } from "./sitesNavigation";
 import {
   chosenFrom,
@@ -283,7 +284,14 @@ export default function MixEngineTab({
       <Sidebar screen={screen} onSelect={selectScreen} />
       <div className="mixengine-screen">
         {pane("dashboard", (active) => (
-          <Dashboard active={active} isModuleVisible={isModuleVisible} />
+          <Dashboard
+            active={active}
+            isModuleVisible={isModuleVisible}
+            onViewLogs={(service) => {
+              requestLogsService(service);
+              selectScreen("logs");
+            }}
+          />
         ))}
         {pane("projects", (active) => (
           <Projects

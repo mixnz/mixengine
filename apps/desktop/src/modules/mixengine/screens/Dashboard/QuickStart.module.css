@@ -1,48 +1,54 @@
+/* The invitation to build a first site: a card in the accent's tone, above the services it will
+   start. */
 .card {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised, transparent);
+  gap: 14px;
+  padding: 20px 22px;
+  border: 1px solid rgb(var(--accent-rgb) / 0.45);
+  border-radius: var(--radius-xl);
+  background: rgb(var(--accent-rgb) / 0.06);
 }
 
 .title {
   margin: 0;
   font-size: var(--text-lg);
+  font-weight: 600;
 }
 
 .intro {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .form {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.75rem;
+  gap: 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 7px;
   font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
   min-width: 12rem;
 }
 
 .folderRow {
   display: flex;
-  gap: 0.4rem;
+  gap: 8px;
   align-items: center;
 }
 
 .doneRow {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 12px;
   flex-wrap: wrap;
 }
