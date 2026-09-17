@@ -30,6 +30,7 @@ a line in `src/shell/registry.ts` — see
 | `npm run lint` | eslint: hook dependencies, and the rule that nothing outside `src/modules/` imports a module |
 | `npm run build:app` | Full production bundle into `src-tauri/target/release/bundle/` |
 | `npm run icons` | Rebuild `src-tauri/icons/` from the two SVGs in `public/`; macOS gets the padded one |
+| `npm run screenshots` | The six promotional images — Dashboard, Sites, Database, REST, Terminal, Tools — from sample data, dark and light, raw and framed, into `screenshots/out/`. `-- --check` renders every scene and writes nothing (CI runs it). See [demo-screenshots.md](../../.claude/desktop/conventions/demo-screenshots.md) |
 
 Releasing is MixEngine's — [build-and-release.md](../../.claude/operations/build-and-release.md);
 this application has no release of its own. The app icon, and why there are two logo files, is
