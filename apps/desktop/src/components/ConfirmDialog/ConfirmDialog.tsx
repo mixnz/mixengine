@@ -67,8 +67,7 @@ function ConfirmDialog({
               size="large"
               /* A destructive confirm keeps its own red and stays outlined: filling it with the
                  accent would dress the dangerous choice as the recommended one. */
-              variant={danger ? "default" : "primary"}
-              className={danger ? styles.danger : undefined}
+              variant={danger ? "danger" : "primary"}
               onClick={() => close(onConfirm)}
               /* Not on a destructive one. With focus here, Enter — the key someone is already
                  pressing their way through a form with — deletes the thing the dialog is asking

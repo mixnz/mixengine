@@ -1,0 +1,97 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--surface-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+}
+
+.danger {
+  border-color: rgb(var(--danger-rgb) / 0.45);
+}
+
+.danger .title {
+  color: var(--danger-text);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 0;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.count {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 22px 22px;
+  min-width: 0;
+}
+
+.header + .body {
+  padding-top: 16px;
+}
+
+.body:first-child {
+  padding-top: 22px;
+}
+
+/* A table running edge to edge: the rows carry their own padding and the card clips their corners. */
+.flush {
+  overflow: hidden;
+}
+
+.flush .header {
+  padding-bottom: 16px;
+}
+
+.flush .body {
+  padding: 0;
+  gap: 0;
+}

@@ -544,7 +544,7 @@ function SqlWorkspace({
     tables.length === 0 ? t("sql.noTables") : filteredTables.length === 0 ? t("sql.noMatchingTables") : undefined;
 
   return (
-    <div className="sql-workspace">
+    <div className="sql-workspace" data-density="compact">
       <div className="sql-header">
         <div className="sql-header-left">
           {serverInfo && (

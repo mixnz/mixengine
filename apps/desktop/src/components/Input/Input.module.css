@@ -1,74 +1,96 @@
 .input {
-  border-radius: var(--control-radius);
+  box-sizing: border-box;
+  border-radius: var(--radius-md);
   border: 1px solid var(--control-border);
-  font-weight: 500;
+  font-weight: 400;
   font-family: inherit;
   /* A mono face with ligatures (the app shipped Fira Code until the 2026 redesign, and a user's
-     own fonts may have them) joins pairs like `//` and `->` into one glyph by blanking the first
-     cell and drawing the pair in the second. In code that reads well; in a box someone
-     is checking character by character it reads as a typo — `https://a` shows as `https: /a`. A
+     own fonts may have them) joins pairs like `//` and `->` into one glyph. In a box someone is
+     checking character by character that reads as a typo — `https://a` shows as `https: /a`. A
      field holds literal text, so it is shown literally. Editors keep their ligatures. */
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "calt" 0;
-  color: var(--control-color);
+  color: var(--text);
   background-color: var(--control-bg);
-  box-shadow: var(--control-shadow);
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
   outline: none;
 }
 
+.input::placeholder {
+  color: var(--text-faint);
+}
+
 .input:hover:not(:disabled) {
-  border-color: var(--border-strong);
+  border-color: var(--border-hover);
 }
 
-/* A text box shows focus however it was reached — it marks where typing lands — but only the
-   keyboard gets the ring. */
+/* A text box shows focus however it was reached — it marks where typing lands. The inset line
+   makes the edge read 2px without an outer halo an overflowing pane would clip. */
 .input:focus:not(:disabled) {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-text);
 }
 
-.input:focus-visible:not(:disabled) {
-  box-shadow: var(--focus-ring);
+.input[aria-invalid="true"]:not(:disabled) {
+  border-color: var(--danger);
+}
+
+.input[aria-invalid="true"]:focus:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--danger);
 }
 
 .input:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  color: var(--text-disabled);
+  background-color: var(--surface-sunken);
 }
 
-/* Height is measured and written per keystroke, so the box must count its own padding and
-   border (there is no global border-box reset here) and must never keep a scrollbar of its
-   own until it has actually hit its maximum height. */
+/* Values that are compared character by character — paths, ports, hosts, names from a server. */
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Height is measured and written per keystroke, so the box never keeps a scrollbar of its own
+   until it has actually hit its maximum height. */
 .textarea {
-  box-sizing: border-box;
   display: block;
   overflow-y: hidden;
   resize: vertical;
   white-space: pre-wrap;
+  padding-top: 0.55em;
+  padding-bottom: 0.55em;
 }
 
-/* Sizes mirror Button's so an input lines up at equal height with a same-size button. */
+/* Heights rather than paddings, so a `data-density="compact"` region shrinks every field in it.
+   Sizes mirror Button's so a field lines up with a button of the same size. */
 .normal {
-  padding: 0.35em 0.7em;
+  min-height: var(--control-h);
+  padding-left: 0.9em;
+  padding-right: 0.9em;
   font-size: var(--text-md);
   line-height: 1.4;
 }
 
 .small {
-  padding: 0.3em 0.6em;
+  min-height: var(--control-h-sm);
+  padding-left: 0.7em;
+  padding-right: 0.7em;
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   line-height: 1.3;
 }
 
 .large {
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  min-height: var(--control-h-lg);
+  padding-left: 1em;
+  padding-right: 1em;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
 /* Only present when `allowClear` is on — takes the caller's `className` (width, margin, flex) in
-   the bare `<input>`'s place, so those rules keep landing on whichever element actually sizes the
-   field. */
+   the bare `<input>`'s place, so those rules keep landing on whichever element sizes the field. */
 .clearWrap {
   position: relative;
   display: block;
@@ -79,34 +101,32 @@
 }
 
 .clearable {
-  box-sizing: border-box;
-  padding-right: 1.9em;
+  padding-right: 2.1em;
 }
 
 .clearButton {
   position: absolute;
   top: 50%;
-  right: 0.35em;
+  right: 0.4em;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   background: transparent;
-  color: inherit;
-  opacity: 0.55;
+  color: var(--text-muted);
   cursor: pointer;
-  padding: 0.2em;
-  border-radius: var(--radius-sm);
+  padding: 0.25em;
+  border-radius: var(--radius-xs);
 }
 
 .clearButton:hover {
-  opacity: 0.9;
-  background: var(--hover-bg);
+  color: var(--text);
+  background: var(--neutral-bg);
 }
 
 .clearButton:focus-visible {
   outline: none;
-  opacity: 0.9;
+  color: var(--text);
   box-shadow: var(--focus-ring);
 }

@@ -1,47 +1,48 @@
 /*
- * Cái một dialog trông như, ở đúng một chỗ.
+ * What a dialog looks like, in exactly one place.
  *
- * `Modal` nhận hai class làm prop vì **hành vi** dùng chung được còn **chiều rộng** thì không —
- * đọc doc của nó. Nhưng giữa hai thứ đó có một mảng không caller nào thật sự tự quyết: nằm giữa
- * màn hình, nổi trên nền mờ, mang màu bề mặt của theme. Hai mươi hai file đã chép tay lại y hệt
- * chín dòng đó, và bốn file chép sai — không `z-index`, không animation, và
- * `var(--surface, #fff)` gọi một token app này chưa bao giờ định nghĩa, nên chúng trắng bệch
- * trong theme tối. `surface.test.ts` là chỗ canh để không có file thứ hai mươi ba làm lại.
+ * `Modal` takes two classes as props because its *behaviour* can be shared and its *width* cannot.
+ * Between the two there is a band no caller really decides for itself: centred, floating over the
+ * scrim, on the theme's surface. Twenty-two files once copied those lines by hand, and four copied
+ * them wrong — no `z-index`, no motion, and `var(--surface, #fff)` naming a token this app never
+ * defined, so they came up white in the dark theme. `surface.test.ts` keeps a twenty-third from
+ * doing it again.
  *
- * Caller còn phải tự khai: **chiều rộng** (và chiều cao, nếu có), **padding/gap** của riêng nó, và
- * `--dialog-layer` nếu nó không thuộc tầng mặc định. Đó là những thứ khác nhau có lý do.
+ * A caller still declares its own **width** (and height, if it has one), its own **padding/gap**,
+ * and `--dialog-layer` if it does not belong on the default layer.
  *
- * Motion tới từ `dialogMotion.module.css` và ở lại bên đó: file này là hình dạng, file kia là
- * chuyển động, và `.pop` bên đó phục vụ cả những mặt phẳng không phải dialog.
+ * Motion comes from `dialogMotion.module.css` and stays there: this file is shape, that one is
+ * movement, and its `.pop` serves surfaces that are not dialogs too.
  */
 
 /*
- * Tầng của dialog trong thang z-index của app: 60/61 Settings, 70/71 REST, 80/81 mặc định, rồi
- * 82/83 CellDialog, 85 context menu, 90 tooltip. Overlay lấy đúng số này, tấm dialog lấy số kế
- * tiếp — nên một caller đổi tầng chỉ khai một con số, không phải hai con số phải khớp nhau.
+ * A dialog's layer on the app's z-index scale: 60/61 Settings, 70/71 REST, 80/81 the default, then
+ * 82/83 CellDialog, 85 context menu, 90 tooltip. The overlay takes this number and the panel the
+ * next one, so a caller that changes layer states one number rather than two that must agree.
  */
 .overlay {
   composes: overlay from "../dialogMotion.module.css";
   position: fixed;
   inset: 0;
   z-index: var(--dialog-layer, 80);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--scrim);
 }
 
 .dialog {
   composes: dialog from "../dialogMotion.module.css";
   position: fixed;
   z-index: calc(var(--dialog-layer, 80) + 1);
-  /* Keyframes của `dialogMotion` giả định đúng ba dòng này — xem comment đầu file đó. */
+  /* `dialogMotion`'s keyframes assume exactly these three lines — see the comment at its top. */
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   background: var(--surface-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  /* Dialog được portal ra `body`, nên nó không thừa hưởng canh lề của chỗ đã mở nó. */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-dialog);
+  color: var(--text);
+  /* Portalled into `body`, so it does not inherit the alignment of wherever it was opened from. */
   text-align: left;
 }

@@ -1,0 +1,92 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  background: rgb(var(--hue-rgb) / var(--cat-wash-alpha));
+  color: var(--hue);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  user-select: none;
+}
+
+.size28 {
+  width: 28px;
+  height: 28px;
+  font-size: 10.5px;
+}
+
+.size30 {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.size34 {
+  width: 34px;
+  height: 34px;
+  font-size: var(--text-2xs);
+  border-radius: 9px;
+}
+
+.size38 {
+  width: 38px;
+  height: 38px;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-md);
+}
+
+.size50 {
+  width: 50px;
+  height: 50px;
+  font-size: 16px;
+  border-radius: 13px;
+}
+
+.teal {
+  --hue: var(--cat-teal);
+  --hue-rgb: var(--cat-teal-rgb);
+}
+
+.sand {
+  --hue: var(--cat-sand);
+  --hue-rgb: var(--cat-sand-rgb);
+}
+
+.sky {
+  --hue: var(--cat-sky);
+  --hue-rgb: var(--cat-sky-rgb);
+}
+
+.periwinkle {
+  --hue: var(--cat-periwinkle);
+  --hue-rgb: var(--cat-periwinkle-rgb);
+}
+
+.coral {
+  --hue: var(--cat-coral);
+  --hue-rgb: var(--cat-coral-rgb);
+}
+
+.blue {
+  --hue: var(--cat-blue);
+  --hue-rgb: var(--cat-blue-rgb);
+}
+
+.purple {
+  --hue: var(--cat-purple);
+  --hue-rgb: var(--cat-purple-rgb);
+}
+
+.green {
+  --hue: var(--cat-green);
+  --hue-rgb: var(--cat-green-rgb);
+}
+
+.neutral {
+  background: var(--neutral-bg);
+  color: var(--text-muted);
+}

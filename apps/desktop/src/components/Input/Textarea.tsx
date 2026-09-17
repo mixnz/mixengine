@@ -6,6 +6,8 @@ interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>
   size?: InputSize;
   /** How tall the box may grow before it starts scrolling instead. */
   maxRows?: number;
+  /** Set in the mono face, as `Input`'s `mono`. */
+  mono?: boolean;
   ref?: Ref<HTMLTextAreaElement>;
 }
 
@@ -18,6 +20,7 @@ function Textarea({
   autoCapitalize = "off",
   spellCheck = false,
   maxRows = 10,
+  mono = false,
   className,
   value,
   ref,
@@ -53,7 +56,7 @@ function Textarea({
       autoCapitalize={autoCapitalize}
       spellCheck={spellCheck}
       value={value}
-      className={`${styles.input} ${styles[size]} ${styles.textarea}${className ? ` ${className}` : ""}`}
+      className={`${styles.input} ${styles[size]} ${styles.textarea}${mono ? ` ${styles.mono}` : ""}${className ? ` ${className}` : ""}`}
       {...rest}
     />
   );

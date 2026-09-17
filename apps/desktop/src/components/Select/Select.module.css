@@ -10,56 +10,63 @@
   justify-content: space-between;
   gap: 0.6em;
   width: 100%;
-  border-radius: var(--control-radius);
+  box-sizing: border-box;
+  border-radius: var(--radius-md);
   border: 1px solid var(--control-border);
-  font-weight: 500;
+  font-weight: 400;
   font-family: inherit;
-  color: var(--control-color);
+  color: var(--text);
   background-color: var(--control-bg);
-  box-shadow: var(--control-shadow);
+  box-shadow: none;
   cursor: pointer;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
   text-align: left;
 }
 
-/* Sizes mirror Button/Input's so a select lines up at equal height with same-size controls. */
+/* Heights rather than paddings, mirroring Button and Input, so the three line up in a row and a
+   `data-density="compact"` region shrinks all of them together. */
 .normal {
-  padding: 0.35em 0.7em;
+  min-height: var(--control-h);
+  padding: 0 0.75em 0 0.9em;
   font-size: var(--text-md);
   line-height: 1.4;
 }
 
 .small {
-  padding: 0.3em 0.6em;
+  min-height: var(--control-h-sm);
+  padding: 0 0.6em 0 0.7em;
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   line-height: 1.3;
 }
 
 .large {
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+  min-height: var(--control-h-lg);
+  padding: 0 0.9em 0 1em;
+  font-size: var(--text-md);
   line-height: 1.5;
 }
 
 .trigger:hover {
-  border-color: var(--border-strong);
+  border-color: var(--border-hover);
 }
 
 .trigger:focus-visible {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
+  border-color: var(--accent-text);
+  box-shadow: inset 0 0 0 1px var(--accent-text);
 }
 
 /* An open select is showing its menu, which is as good as focused — it takes the accent whether
    the pointer or the keyboard opened it. */
 .select[aria-expanded="true"] .trigger,
 .trigger[aria-expanded="true"] {
-  border-color: var(--accent);
+  border-color: var(--accent-text);
 }
 
 .disabled .trigger {
-  opacity: 0.5;
   cursor: not-allowed;
+  color: var(--text-disabled);
+  background-color: var(--surface-sunken);
 }
 
 .value {
@@ -70,17 +77,13 @@
   white-space: nowrap;
 }
 
-/* Chưa chọn gì. `opacity` chứ không phải một màu riêng: app không có token "chữ mờ" nào, và mọi
-   `.hint` trong app đã nói cùng điều này bằng đúng con số này — nên placeholder mờ đi giống hệt ở
-   cả theme sáng lẫn tối mà không cần một token thứ hai phải nuôi. */
 .placeholder {
-  opacity: 0.65;
+  color: var(--text-faint);
 }
 
 /* `truncate={false}`. The floor goes, so a short value gets a narrow control instead of eight ems
-   of empty box, and the ellipsis goes with it: the trigger is as wide as what it says, so there is
-   nothing left for an ellipsis to stand for. The menu is not part of this — it shows its options
-   in full whichever way the trigger is set. */
+   of empty box, and the ellipsis goes with it: the trigger is as wide as what it says. The menu is
+   not part of this — it shows its options in full whichever way the trigger is set. */
 .fit {
   min-width: 0;
 }
@@ -91,8 +94,8 @@
 
 .chevron {
   flex-shrink: 0;
-  opacity: 0.6;
-  transition: transform 0.15s;
+  color: var(--text-muted);
+  transition: transform 160ms ease;
 }
 
 .trigger[aria-expanded="true"] .chevron {
@@ -107,11 +110,11 @@
   display: flex;
   flex-direction: column;
   width: max-content;
-  padding: 0.3rem;
-  background: var(--surface-bg);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 6px;
+  background: var(--popover-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-popover);
   box-sizing: border-box;
 }
 
@@ -119,31 +122,27 @@
   flex-shrink: 0;
   width: 100%;
   min-width: 10em;
-  margin-bottom: 0.3rem;
-  padding: 0.4em 0.6em;
-  border: 1px solid var(--border);
+  min-height: var(--control-h-sm);
+  margin-bottom: 6px;
+  padding: 0 0.7em;
+  border: 1px solid var(--control-border);
   border-radius: var(--radius-sm);
   font: inherit;
   font-size: var(--text-sm);
-  color: inherit;
-  background: transparent;
+  color: var(--text);
+  background: var(--control-bg);
   box-sizing: border-box;
 }
 
 .search:focus {
   outline: none;
-  border-color: var(--control-border-focus);
+  border-color: var(--accent-text);
 }
 
 /* On a layer of its own, for as long as the menu is up. Moving the pointer down a list repaints
    one row at a time, and the engine redraws only that row's rectangle — which comes back not
-   quite matching the pixels around it. The mismatch lands on the row's edge as a hairline, and a
-   hairline appearing above one option and below another reads as the options themselves
-   shifting; scrolled to the foot of a long list, where the rows sit half a device pixel off, it
-   is plain to see. The glass filter widens what a repaint has to resample and makes it worse, but
-   it is there with the glass off too. A composited layer is repainted whole, so there is no edge
-   for one to land on. It is the case `will-change` is actually meant for: the layer is created
-   with the open menu and goes with it. */
+   quite matching the pixels around it, as a hairline that reads as the options shifting. A
+   composited layer is repainted whole, so there is no edge for one to land on. */
 .listbox {
   will-change: transform;
   min-height: 0;
@@ -152,10 +151,13 @@
   margin: 0;
   padding: 0;
   list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .option {
-  padding: 0.5em 0.7em;
+  padding: 0.55em 0.7em;
   border-radius: var(--radius-sm);
   cursor: pointer;
   overflow: hidden;
@@ -164,48 +166,28 @@
 }
 
 /* Two states, two materials, so the list can be read without moving the pointer off it: the
-   accent is what has been *chosen*, and the app's own neutral hover is where the pointer *is*.
-   The accent used to be spent on the second of those, which left the chosen option with nothing
-   but a weight and a text colour — and reading a row as bolder than its neighbours takes a
-   comparison, where a filled row takes a glance. */
+   accent is what has been *chosen*, and the neutral hover is where the pointer *is*. */
 .optionActive {
   background: var(--hover-bg);
 }
 
 .optionSelected {
-  background: rgb(var(--accent-rgb) / 0.12);
+  background: var(--option-selected-bg);
   color: var(--accent-text);
   font-weight: 600;
 }
 
-/* The chosen option under the pointer. Deeper than either on its own rather than a third colour:
-   it is both states at once, and it should read as both. */
+/* The chosen option under the pointer: both states at once, and it should read as both. */
 .optionSelected.optionActive {
-  background: rgb(var(--accent-rgb) / 0.18);
+  background: var(--active-bg);
 }
 
 .optionDisabled {
-  opacity: 0.4;
+  color: var(--text-disabled);
   cursor: not-allowed;
 }
 
 .empty {
-  padding: 0.5em 0.7em;
-  opacity: 0.6;
-}
-
-:root[data-theme="dark"] .menu {
-  border-color: rgba(255, 255, 255, 0.15);
-}
-
-:root[data-theme="dark"] .search {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-:root[data-theme="dark"] .optionSelected {
-  background: rgb(var(--accent-rgb) / 0.25);
-}
-
-:root[data-theme="dark"] .optionSelected.optionActive {
-  background: rgb(var(--accent-rgb) / 0.32);
+  padding: 0.55em 0.7em;
+  color: var(--text-muted);
 }
