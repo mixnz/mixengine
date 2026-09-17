@@ -205,6 +205,20 @@ pub const COMMANDS: &[Command] = &[
         executable: "irb",
         via: None,
     },
+    // Go (T27d). `gofmt` is typed, and called by editors, by name; the binaries under `pkg/tool/`
+    // are not, and `go` finds them from its own `GOROOT`.
+    Command {
+        name: "go",
+        kind: RuntimeKind::Go,
+        executable: "go",
+        via: None,
+    },
+    Command {
+        name: "gofmt",
+        kind: RuntimeKind::Go,
+        executable: "gofmt",
+        via: None,
+    },
     // Composer. A file and not a program: `composer.phar`, run by the PHP the directory resolves
     // to (T27c). Its own row so that a version of *Composer* is pinned and defaulted like any
     // runtime's, and `via` so that the shim knows whose program to start.
@@ -750,6 +764,19 @@ mod tests {
                 }
                 _ => assert_eq!(command.via, None, "{}", command.name),
             }
+        }
+    }
+
+    /// Go's two commands — roadmap task **T27d**, its design's D4.
+    #[test]
+    fn go_fronts_go_and_gofmt() {
+        for name in ["go", "gofmt"] {
+            let command =
+                dispatch(Path::new(name)).unwrap_or_else(|| panic!("{name} is a command"));
+
+            assert_eq!(command.kind, RuntimeKind::Go);
+            assert_eq!(command.executable, name);
+            assert_eq!(command.via, None);
         }
     }
 
