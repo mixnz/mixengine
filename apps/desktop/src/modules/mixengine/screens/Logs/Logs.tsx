@@ -1,8 +1,13 @@
 import { useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
+import Card from "../../../../components/Card";
+import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
+import PageHeader from "../../../../components/PageHeader";
+import SegmentedControl from "../../../../components/SegmentedControl";
 import Select from "../../../../components/Select";
+import { HistoryIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTailScroll } from "../../../../core/tailScroll";
 import { useTranslation } from "../../../../i18n";
@@ -63,80 +68,78 @@ export default function Logs({ active }: { active: boolean }) {
   const linePane = useTailScroll<HTMLDivElement>(visible);
 
   return (
-    <div className={styles.screen}>
-      {error !== "" && (
-        <div className={styles.error}>
-          <ErrorBanner message={error} onDismiss={() => setError("")} />
-        </div>
-      )}
-      <div className={styles.panes}>
-        <div className={styles.list}>
-          {ids.map((id) => (
-            <button
-              key={id}
-              className={id === selected ? styles.activeRow : styles.row}
-              onClick={() => {
+    <div className={`mixengine-page ${styles.screen}`}>
+      {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+
+      <PageHeader
+        title={t("mixengine.sidebar.logs")}
+        description={t("mixengine.logs.about")}
+        actions={
+          <>
+            <Select
+              className={styles.service}
+              value={selected ?? ""}
+              onChange={(id) => {
                 setSelected(id);
                 setTail(INITIAL_TAIL);
               }}
-            >
-              {id}
-            </button>
-          ))}
-          {ids.length === 0 && (
-            <p className={styles.listEmpty}>{t("mixengine.logs.pickService")}</p>
-          )}
-        </div>
+              searchable
+              placeholder={t("mixengine.logs.pickService")}
+              ariaLabel={t("mixengine.logs.service")}
+              options={ids.map((id) => ({ value: id, label: id }))}
+            />
+            <SegmentedControl
+              aria-label={t("mixengine.logs.stream")}
+              value={filter}
+              onChange={setFilter}
+              segments={[
+                { value: "all", label: t("mixengine.logs.streamAll") },
+                { value: "stdout", label: t("mixengine.logs.streamStdout") },
+                { value: "stderr", label: t("mixengine.logs.streamStderr") },
+              ]}
+            />
+          </>
+        }
+      />
 
-        <div className={styles.viewer}>
-          {selected === null ? (
-            <p className={styles.empty}>{t("mixengine.logs.pickService")}</p>
-          ) : (
-            <>
-              <div className={styles.toolbar}>
-                <Select
-                  value={filter}
-                  onChange={setFilter}
-                  options={[
-                    { value: "all", label: t("mixengine.logs.streamAll") },
-                    { value: "stdout", label: t("mixengine.logs.streamStdout") },
-                    { value: "stderr", label: t("mixengine.logs.streamStderr") },
-                  ]}
-                />
-                <Button onClick={() => setTail((current) => current * 2)}>
-                  {t("mixengine.logs.loadMore")}
-                </Button>
-              </div>
-              <div className={styles.lines} {...linePane}>
-                {visible.length === 0 && (
-                  <p className={styles.empty}>{t("mixengine.logs.empty")}</p>
-                )}
-                {visible.map((entry, i) => {
-                  if (entry.kind === "gap") {
-                    return (
-                      <div key={i} className={styles.gap}>
-                        {t("mixengine.logs.gap", { count: entry.missed })}
-                      </div>
-                    );
-                  }
-                  return (
-                    <div
-                      key={i}
-                      className={
-                        entry.kind === "line" && entry.stream === "stderr"
-                          ? styles.stderr
-                          : styles.line
-                      }
-                    >
-                      {entry.text}
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      <Card
+        flush
+        className={styles.card}
+        title={selected ?? t("mixengine.logs.pickService")}
+        actions={
+          selected !== null && (
+            <Button size="small" onClick={() => setTail((current) => current * 2)}>
+              <HistoryIcon size={14} />
+              {t("mixengine.logs.loadMore")}
+            </Button>
+          )
+        }
+      >
+        {selected === null ? (
+          <EmptyState title={t("mixengine.logs.pickService")} />
+        ) : (
+          <div className={styles.lines} data-density="compact" {...linePane}>
+            {visible.length === 0 && <p className={styles.empty}>{t("mixengine.logs.empty")}</p>}
+            {visible.map((entry, i) => {
+              if (entry.kind === "gap") {
+                return (
+                  <div key={i} className={styles.gap}>
+                    {t("mixengine.logs.gap", { count: entry.missed })}
+                  </div>
+                );
+              }
+              return (
+                <div
+                  key={i}
+                  className={entry.kind === "line" && entry.stream === "stderr" ? styles.stderr : styles.line}
+                >
+                  {entry.text}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

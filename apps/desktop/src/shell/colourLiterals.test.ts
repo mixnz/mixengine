@@ -70,8 +70,6 @@ const CSS_BASELINE: Record<string, number> = {
   "modules/mixengine/components/ElevationDialog/ElevationDialog.module.css": 1,
   "modules/mixengine/screens/Extensions/Extensions.module.css": 1,
   "modules/mixengine/screens/Extensions/PlanDialog.module.css": 2,
-  "modules/mixengine/screens/Logs/Logs.module.css": 2,
-  "modules/mixengine/screens/Metrics/Chart.module.css": 1,
   "modules/rest/components/BodyEditor/BodyEditor.module.css": 1,
   "modules/rest/components/HistoryDialog/HistoryDialog.module.css": 9,
   "modules/rest/components/HtmlPreview/HtmlPreview.module.css": 1,

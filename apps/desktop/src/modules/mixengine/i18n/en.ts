@@ -363,6 +363,9 @@ export default {
     },
     logs: {
       pickService: "Pick a service",
+      about: "What a service writes, as it writes it.",
+      service: "Service",
+      stream: "Stream",
       streamAll: "All",
       streamStdout: "stdout",
       streamStderr: "stderr",
@@ -444,6 +447,8 @@ export default {
     },
     metrics: {
       subject: "Show",
+      about: "How much CPU and memory MixEngine and each service used, minute by minute.",
+      history: "History",
       daemon: "MixEngine daemon",
       cpu: "CPU",
       rss: "Memory (RSS)",

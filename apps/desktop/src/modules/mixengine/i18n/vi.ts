@@ -358,6 +358,9 @@ const vi: typeof en = {
     },
     logs: {
       pickService: "Chọn một service",
+      about: "Những gì một service ghi ra, ngay khi nó ghi.",
+      service: "Service",
+      stream: "Luồng",
       streamAll: "Tất cả",
       streamStdout: "stdout",
       streamStderr: "stderr",
@@ -439,6 +442,8 @@ const vi: typeof en = {
     },
     metrics: {
       subject: "Xem",
+      about: "MixEngine và từng service đã dùng bao nhiêu CPU và bộ nhớ, theo từng phút.",
+      history: "Lịch sử",
       daemon: "Daemon MixEngine",
       cpu: "CPU",
       rss: "Bộ nhớ (RSS)",
