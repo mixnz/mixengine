@@ -35,9 +35,7 @@
    read-only connection it goes amber: the one thing on screen that says so no matter which pane
    of the workspace is showing.
 
-   `--tab-accent` is the knob `components/TabStrip` puts there for exactly this. Setting it beats
-   nothing and races nothing — the glass rim picks the new colour up on its own, which is why the
-   copy of this rule that used to sit under `@supports` further down is gone. */
+   `--tab-accent` is the knob `components/TabStrip` puts there for exactly this. */
 .tab-readonly {
   --tab-accent: var(--readonly);
 }
@@ -70,15 +68,13 @@
    A pinned strip like the grids' headers, so it paints the rail rather than the surface: the
    cards sit on the page, and `--surface-bg` put a white slab over `--page-bg` behind the title —
    a rectangle that stopped dead at the add button's edge and at the first card. `--rail-bg` is
-   the page's own colour until the glass setting turns it into a tint over a blur, so the strip
-   hides what slides under it without ever being a shape of its own. */
+   the page's own colour, so the strip hides what slides under it without ever being a shape of its
+   own. */
 .saved-list-header {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
   /* Flush with the cards below on both sides, so the title starts on their left edge and the add
      button ends on their right. The top padding keeps the title off the edge of the scroll box
      and stays part of the sticky band. */

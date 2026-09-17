@@ -114,7 +114,7 @@ function Tooltip({ text, children }: Props) {
       </span>
       {open &&
         createPortal(
-          <div ref={bubble} id={id} role="tooltip" className={`${styles.bubble} glass`}>
+          <div ref={bubble} id={id} role="tooltip" className={styles.bubble}>
             {text}
           </div>,
           document.body

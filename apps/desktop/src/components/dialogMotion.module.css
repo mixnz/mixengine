@@ -1,12 +1,7 @@
 /*
- * One arrival and one departure, worn by every modal in the app — and, with them, the glass skin
- * from `glass.css`, which is inert unless the setting is on.
+ * One arrival and one departure, worn by every modal in the app.
  *
- * The glass rides here rather than being added dialog by dialog because there is no such thing as a
- * modal that should be left out: the material is the layer, not the contents. Ten dialogs opting in
- * by hand is ten chances to forget, and the eleventh would be written without it.
- *
- * Otherwise kept as motion alone — no colour, no box, no position — so a dialog composes these into
+ * Kept as motion alone — no colour, no box, no position — so a dialog composes these into
  * its own `.overlay` and `.dialog` without giving up a pixel of its own layout:
  *
  *   .overlay { composes: overlay from "../dialogMotion.module.css"; ... }
@@ -18,16 +13,12 @@
  */
 
 .overlay {
-  /* Deepened to a proper frost while the glass is on, which is the whole of the effect for a
-     modal: the sheet above has no filter of its own and reads what this leaves behind it. */
-  composes: glass-scrim from global;
   /* A touch of blur pushes the page back a step, so the dialog reads as the only live thing. */
   backdrop-filter: blur(3px);
   animation: overlay-in 180ms ease-out both;
 }
 
 .dialog {
-  composes: glass-sheet from global;
   /* Decelerating curve with no overshoot: the dialog arrives fast and settles, which reads as
      confident. A bounce here would make every destructive prompt feel playful. */
   animation: dialog-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;

@@ -47,9 +47,9 @@ export default defineConfig(async () => ({
      and a test that parses an empty stylesheet finds no rules, filters them to an empty list, and
      asserts that the list is empty: it passes for ever without reading a line.
 
-     `glass.test.ts` did exactly that from the day it was written, so the WebKit `backdrop-filter`
-     trap it exists to guard was never guarded. Both stylesheet tests now assert they read
-     something before asserting anything about it, but this is the fix for the cause. */
+     A stylesheet test once did exactly that from the day it was written. The stylesheet tests now
+     assert they read something before asserting anything about it, but this is the fix for the
+     cause. */
   test: {
     css: true,
   },

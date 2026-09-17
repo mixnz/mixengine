@@ -6,8 +6,8 @@
      trị `varchar` cần thấy được khoảng trắng cuối và phân biệt được `l` với `1`; nhãn "Save
      connection" thì không, và sans quét nhanh hơn ở cỡ chữ nhỏ.
 
-     Trước đây chỉ có một vai, nên mọi thứ mang vai đó — kể cả đoạn văn sáu dòng giải thích Liquid
-     glass trong Settings, vốn đang được đọc bằng một font lập trình. */
+     Trước đây chỉ có một vai, nên mọi thứ mang vai đó — kể cả đoạn văn dài trong Settings, vốn đang
+     được đọc bằng một font lập trình. */
   --font-ui: ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto, sans-serif;
   --font-mono: "Fira Code", ui-monospace, monospace;
 
@@ -98,17 +98,9 @@
   --choice-active-bg: var(--surface-bg);
 
   /* What a *pinned* strip paints with: a grid's header, its totals, the column of buttons held
-     against the right edge. These are the one part of the app proper that live content passes
-     behind, so they are the one part that can be real glass — but only when the setting is on, and
-     only if the engine has the property. Both are decided in `glass.css`; here they resolve to the
-     opaque page colour every one of these strips used to name directly, so with the setting off
-     nothing about them has changed.
-
-     Carried as variables rather than as a class because a `<th>` cannot compose one: the rules that
-     pin these strips are descendant selectors (`.grid thead th`), and CSS Modules' `composes` only
-     works on a bare class. */
+     against the right edge. Carried as a variable rather than a class because a `<th>` cannot
+     compose one: the rules that pin these strips are descendant selectors (`.grid thead th`). */
   --rail-bg: var(--page-bg);
-  --rail-filter: none;
 
   /* One ring, one meaning: keyboard focus.
 

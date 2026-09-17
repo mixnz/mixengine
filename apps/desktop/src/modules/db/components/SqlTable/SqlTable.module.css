@@ -22,15 +22,12 @@
 }
 
 
-/* The rows pass underneath, so the header has to hide them — `--rail-bg` is the page colour until
-   the glass setting turns it into a tint over a blur of whatever is behind it. */
+/* The rows pass underneath, so the header has to hide them — `--rail-bg` is the page colour. */
 .scroll thead th {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
 }
 
 /* Every header cell is the control that sorts by its column, so it takes the pointer the whole

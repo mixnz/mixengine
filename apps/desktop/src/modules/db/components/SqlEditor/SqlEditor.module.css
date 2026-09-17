@@ -28,8 +28,8 @@
   --sql-gutter-active: var(--accent-text);
   /* What the line numbers are painted on, and it has to be opaque: the gutter is pinned to the left
      edge of the scroller, so a script wider than the editor slides underneath it. The pane's colour
-     is two layers — `--control-bg` over the page — and the top one is translucent in the dark theme
-     and in glass, so naming it alone would tint the code passing behind rather than hide it. */
+     is two layers — `--control-bg` over the page — and the top one may be translucent, so naming it
+     alone would tint the code passing behind rather than hide it. */
   --sql-gutter-bg: linear-gradient(var(--control-bg), var(--control-bg)), var(--page-bg);
   --sql-statement-bg: rgb(var(--accent-rgb) / 0.06);
   --sql-statement-bar: rgb(var(--accent-rgb) / 0.55);

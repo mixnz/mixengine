@@ -97,8 +97,6 @@
   top: 0;
   z-index: 1;
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
 }
 
 /* Past a few dozen rows each grid holds only the rows on screen, and these are the two things that
@@ -190,8 +188,6 @@
   /* The same fill the sticky header takes, which is what the rows themselves show: nothing between
      the grid and the page paints a background of its own. */
   background: var(--rail-bg);
-  -webkit-backdrop-filter: var(--rail-filter);
-  backdrop-filter: var(--rail-filter);
   /* Its own left edge, since the border of the cell in front of it passes underneath as soon as
      the grid is scrolled — the column would otherwise sit on the rows with no edge at all. */
   border-left: 1px solid var(--border);

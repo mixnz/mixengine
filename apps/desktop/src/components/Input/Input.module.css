@@ -16,12 +16,6 @@
   outline: none;
 }
 
-/* The lit top edge under the liquid-glass setting — see the note in Button.module.css for why it
-   is written per control rather than into `--control-shadow`. */
-:root[data-glass="on"] .input {
-  box-shadow: var(--glass-control-shadow);
-}
-
 .input:hover:not(:disabled) {
   border-color: var(--border-strong);
 }
