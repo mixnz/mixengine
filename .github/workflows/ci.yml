@@ -1929,6 +1929,15 @@ jobs:
           npm test
           npm run lint
 
+      # Every scene `npm run screenshots` takes still renders from its sample data — a command a
+      # scene reaches with no fixture, or a screen that crashes on one, fails here rather than on the
+      # day the images are needed. Nothing is written. See apps/desktop/demo/capture.mjs.
+      - name: Frontend — demo scenes render
+        working-directory: apps/desktop
+        run: |
+          npx playwright install --with-deps chromium
+          npm run screenshots -- --check
+
       # The Tauri crates link against webkit2gtk, so even `cargo check` wants it present.
       - name: Install the libraries the window links against
         run: |
