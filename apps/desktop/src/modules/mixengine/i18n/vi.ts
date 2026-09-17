@@ -689,6 +689,8 @@ const vi: typeof en = {
     },
     extensions: {
       installFromPath: "Cài từ thư mục…",
+      about: "Add-on mở rộng MixEngine bằng service và công cụ của riêng chúng.",
+      registryEmpty: "Registry hiện không có gì khác.",
       installedTitle: "Đã cài",
       registryTitle: "Registry",
       columnName: "Tên",

@@ -700,6 +700,8 @@ export default {
     },
     extensions: {
       installFromPath: "Install from folder…",
+      about: "Add-ons extend MixEngine with services and tools of their own.",
+      registryEmpty: "The registry offers nothing else right now.",
       installedTitle: "Installed",
       registryTitle: "Registry",
       columnName: "Name",
