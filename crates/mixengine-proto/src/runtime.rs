@@ -19,7 +19,7 @@ use std::fmt;
 /// **Closed, unlike [`JobKind`](crate::JobKind) and like [`JobState`](crate::JobState).** The set
 /// grows only when MixEngine learns to manage another language, or a tool it installs like one,
 /// which is a release of ours and a migration of the `runtime_installs.kind` `CHECK` — never
-/// something a package index gets to extend by publishing. An index naming a seventh one is
+/// something a package index gets to extend by publishing. An index naming an eighth one is
 /// describing something this build could not install a shim for anyway.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -38,6 +38,9 @@ pub enum RuntimeKind {
     /// Go (roadmap task **T27d**). Its archive is upstream's whole tree, and `GOROOT` is wherever
     /// that tree was unpacked.
     Go,
+    /// Java (roadmap task **T27e**). A JDK from Microsoft Build of OpenJDK; `JAVA_HOME` is two
+    /// directories above `provides.java`, which the shim renders.
+    Java,
     /// Composer — not a language, and installed like one (roadmap task **T27c**): a `.phar` the
     /// `composer` shim hands to the project's PHP. Last, because it runs under another kind.
     Composer,
@@ -45,12 +48,13 @@ pub enum RuntimeKind {
 
 impl RuntimeKind {
     /// Every kind, in the order a listing shows them.
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 7] = [
         Self::Php,
         Self::Node,
         Self::Python,
         Self::Ruby,
         Self::Go,
+        Self::Java,
         Self::Composer,
     ];
 
@@ -66,6 +70,7 @@ impl RuntimeKind {
             Self::Python => "python",
             Self::Ruby => "ruby",
             Self::Go => "go",
+            Self::Java => "java",
             Self::Composer => "composer",
         }
     }
@@ -92,6 +97,7 @@ impl RuntimeKind {
             Self::Python => "MIXENGINE_PYTHON",
             Self::Ruby => "MIXENGINE_RUBY",
             Self::Go => "MIXENGINE_GO",
+            Self::Java => "MIXENGINE_JAVA",
             Self::Composer => "MIXENGINE_COMPOSER",
         }
     }
@@ -131,9 +137,18 @@ mod tests {
     /// **Go is the sixth kind** — roadmap task **T27d**, its design's D1.
     #[test]
     fn go_is_a_kind() {
-        assert_eq!(RuntimeKind::ALL.len(), 6);
+        assert!(RuntimeKind::ALL.contains(&RuntimeKind::Go));
         assert_eq!(RuntimeKind::parse("go"), Some(RuntimeKind::Go));
         assert_eq!(RuntimeKind::Go.override_env(), "MIXENGINE_GO");
+    }
+
+    /// **Java is the seventh kind** — roadmap task **T27e**, its design's D1.
+    #[test]
+    fn java_is_a_kind() {
+        assert_eq!(RuntimeKind::ALL.len(), 7);
+        assert_eq!(RuntimeKind::ALL[5], RuntimeKind::Java);
+        assert_eq!(RuntimeKind::parse("java"), Some(RuntimeKind::Java));
+        assert_eq!(RuntimeKind::Java.override_env(), "MIXENGINE_JAVA");
     }
 
     #[test]

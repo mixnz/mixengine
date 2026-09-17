@@ -137,6 +137,7 @@ impl Recipe for Redis {
         Some(SmokeTest {
             executable: SERVER.to_owned(),
             args: vec!["--version".to_owned()],
+            unset: &[],
         })
     }
 

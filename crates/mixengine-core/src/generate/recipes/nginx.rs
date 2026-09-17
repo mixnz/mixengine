@@ -207,6 +207,7 @@ impl Recipe for Nginx {
             // `-v` and not `-t`: the second reads a configuration, and at the moment an archive is
             // being installed there is no service and therefore nothing rendered to read.
             args: vec!["-v".to_owned()],
+            unset: &[],
         })
     }
 

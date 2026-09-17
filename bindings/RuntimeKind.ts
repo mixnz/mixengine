@@ -7,7 +7,7 @@
  * **Closed, unlike [`JobKind`](crate::JobKind) and like [`JobState`](crate::JobState).** The set
  * grows only when MixEngine learns to manage another language, or a tool it installs like one,
  * which is a release of ours and a migration of the `runtime_installs.kind` `CHECK` — never
- * something a package index gets to extend by publishing. An index naming a seventh one is
+ * something a package index gets to extend by publishing. An index naming an eighth one is
  * describing something this build could not install a shim for anyway.
  */
-export type RuntimeKind = "php" | "node" | "python" | "ruby" | "go" | "composer";
+export type RuntimeKind = "php" | "node" | "python" | "ruby" | "go" | "java" | "composer";

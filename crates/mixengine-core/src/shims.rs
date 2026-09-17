@@ -219,6 +219,44 @@ pub const COMMANDS: &[Command] = &[
         executable: "gofmt",
         via: None,
     },
+    // Java (T27e): exactly the keys of the artifact's `provides`. The JDK's other tools are reached
+    // through PATH, whose first entry under a shim is that JDK's `bin/`.
+    Command {
+        name: "java",
+        kind: RuntimeKind::Java,
+        executable: "java",
+        via: None,
+    },
+    Command {
+        name: "javac",
+        kind: RuntimeKind::Java,
+        executable: "javac",
+        via: None,
+    },
+    Command {
+        name: "jar",
+        kind: RuntimeKind::Java,
+        executable: "jar",
+        via: None,
+    },
+    Command {
+        name: "jshell",
+        kind: RuntimeKind::Java,
+        executable: "jshell",
+        via: None,
+    },
+    Command {
+        name: "keytool",
+        kind: RuntimeKind::Java,
+        executable: "keytool",
+        via: None,
+    },
+    Command {
+        name: "jlink",
+        kind: RuntimeKind::Java,
+        executable: "jlink",
+        via: None,
+    },
     // Composer. A file and not a program: `composer.phar`, run by the PHP the directory resolves
     // to (T27c). Its own row so that a version of *Composer* is pinned and defaulted like any
     // runtime's, and `via` so that the shim knows whose program to start.
@@ -775,6 +813,19 @@ mod tests {
                 dispatch(Path::new(name)).unwrap_or_else(|| panic!("{name} is a command"));
 
             assert_eq!(command.kind, RuntimeKind::Go);
+            assert_eq!(command.executable, name);
+            assert_eq!(command.via, None);
+        }
+    }
+
+    /// Java's six commands — roadmap task **T27e**, its design's D4.
+    #[test]
+    fn java_fronts_the_six_commands_its_artifact_provides() {
+        for name in ["java", "javac", "jar", "jshell", "keytool", "jlink"] {
+            let command =
+                dispatch(Path::new(name)).unwrap_or_else(|| panic!("{name} is a command"));
+
+            assert_eq!(command.kind, RuntimeKind::Java);
             assert_eq!(command.executable, name);
             assert_eq!(command.via, None);
         }

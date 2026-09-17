@@ -72,7 +72,8 @@ const RUNNABLE_ON_WINDOWS: &[&str] = &["exe", "cmd", "bat", "com"];
 /// [`None`] for PHP: Composer's global bindir is `~/.composer/vendor/bin`, outside every install
 /// directory and therefore a different question — see the spec's *Out of scope*. [`None`] for Go
 /// too, for the same reason: `go install` writes into `GOBIN` or `GOPATH/bin`, which every installed
-/// Go shares (roadmap task **T27d**).
+/// Go shares (roadmap task **T27d**). And for Java: Maven and Gradle keep their programs outside
+/// every install (roadmap task **T27e**).
 #[must_use]
 pub fn directory(kind: RuntimeKind, install_path: &Path) -> Option<PathBuf> {
     match kind {
@@ -91,7 +92,7 @@ pub fn directory(kind: RuntimeKind, install_path: &Path) -> Option<PathBuf> {
         // RubyGems writes into the interpreter's own bindir on both systems.
         RuntimeKind::Ruby => Some(install_path.join("bin")),
 
-        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Composer => None,
+        RuntimeKind::Php | RuntimeKind::Go | RuntimeKind::Java | RuntimeKind::Composer => None,
     }
 }
 
@@ -313,6 +314,7 @@ mod tests {
         // is Go's `GOBIN`, which every installed Go shares.
         assert_eq!(directory(RuntimeKind::Php, install), None);
         assert_eq!(directory(RuntimeKind::Go, install), None);
+        assert_eq!(directory(RuntimeKind::Java, install), None);
         assert_eq!(directory(RuntimeKind::Composer, install), None);
     }
 
