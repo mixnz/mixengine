@@ -30,6 +30,7 @@ function FirstRun({ onChoose }: FirstRunProps) {
   return (
     <main className={styles.screen}>
       <div className={styles.card}>
+        <img className={styles.mark} src="/logo.svg" alt="" width={44} height={44} />
         <h1 className={styles.question}>{t("profiles.question")}</h1>
         <div className={styles.choices}>
           {PRESET_IDS.map((preset, i) => {

@@ -1,29 +1,35 @@
+/* A line above a tab's pane saying what happened to the window — an accent-toned inset strip, part
+   of the page rather than a toast over it. */
 .notice {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  padding: 6px var(--view-padding);
-  border-bottom: 1px solid var(--border-soft);
-  background-color: var(--hover-bg);
-  font-size: 0.85rem;
+  padding: 8px 12px 8px 16px;
+  border-bottom: 1px solid rgb(var(--accent-rgb) / 0.35);
+  background-color: rgb(var(--accent-rgb) / 0.1);
+  color: var(--text);
+  font-size: var(--text-sm);
 }
 
 .dismiss {
   display: flex;
   align-items: center;
+  justify-content: center;
   flex: none;
-  padding: 2px;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  padding: 0;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: none;
-  color: inherit;
+  color: var(--text-muted);
   cursor: pointer;
-  opacity: 0.7;
 }
 
 .dismiss:hover {
-  background-color: var(--hover-bg);
-  opacity: 1;
+  background-color: var(--neutral-bg);
+  color: var(--text);
 }
