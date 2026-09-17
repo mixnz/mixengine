@@ -143,6 +143,65 @@ async fn applying_the_same_blueprint_twice_leaves_nothing_to_do_the_second_time(
     );
 }
 
+/// **An apply resumed after its directory was deleted makes the directory again** — and does not
+/// register the project a second time. Found by a Laravel apply whose folder had been removed by
+/// hand: the project step planned `already true`, nothing made the folder, and the scaffold that
+/// followed could not be started in it.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_resumed_apply_makes_the_directory_somebody_deleted() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+    let first = repository();
+    a_project_with_a_site(&home, first.path(), "blog", "blog.test");
+    home.mix(&["blueprint", "capture", "blog-stack", "--project", "blog"]);
+
+    let second = repository();
+    let root = second.path().join("shop");
+    let into = root.display().to_string();
+    let apply = [
+        "blueprint",
+        "apply",
+        "blog-stack",
+        "--project",
+        "shop",
+        "--path",
+        &into,
+        "--json",
+    ];
+
+    home.mix(&apply);
+    std::fs::remove_dir_all(&root).expect("the directory is deleted by hand");
+
+    // An apply's `--json` is a stream — its log lines, the job, then the result — so the result is
+    // the last line.
+    let printed = stdout(&home.mix(&apply));
+    let again: Value = printed
+        .lines()
+        .rev()
+        .find(|line| !line.trim().is_empty())
+        .and_then(|line| serde_json::from_str(line).ok())
+        .unwrap_or_else(|| panic!("the apply's result is its last line: {printed}"));
+    let registered = again["steps"]
+        .as_array()
+        .expect("a list of steps")
+        .iter()
+        .find(|step| step["action"]["action"] == "register_project")
+        .expect("the project step");
+
+    assert_eq!(registered["result"]["result"], "done", "{again}");
+    assert!(root.is_dir(), "the directory was not made again");
+
+    // Still one project, at the same place: the directory was made, the row was not written twice.
+    let listed = json(&home.mix(&["project", "list", "--json"]));
+    let named_shop = listed["projects"]
+        .as_array()
+        .expect("a list of projects")
+        .iter()
+        .filter(|project| project["name"] == "shop")
+        .count();
+    assert_eq!(named_shop, 1, "{listed}");
+}
+
 /// **The round trip**, which is what catches D7 and D14 cheaply: a capture of the applied project is
 /// the blueprint that made it, header aside. T77 made the renderer byte-identical on purpose, and
 /// this is the assertion that spends it.

@@ -288,6 +288,22 @@ impl Api {
                     .ledger
                     .keeping(Kept::Directory { path: root.clone() });
 
+                // **A resumed apply whose directory was deleted** is planned as work to make that
+                // directory again, and the row is already there. Done without the ledger's
+                // `Made::Project`: a rollback of this apply must not delete a project an earlier
+                // one registered.
+                let here = mixengine_platform::paths::in_full(std::path::Path::new(root));
+                let registered =
+                    mixengine_core::projects::find(&self.store, &ProjectRef::Name(name.clone()))
+                        .await
+                        .map_err(|error| error.to_wire())?;
+
+                if registered.is_some_and(|project| {
+                    mixengine_platform::paths::in_full(&project.root) == here
+                }) {
+                    return Ok(StepResult::Done);
+                }
+
                 context
                     .ledger
                     .attempting(Made::Project { name: name.clone() });
