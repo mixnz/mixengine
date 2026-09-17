@@ -1,3 +1,19 @@
+import type { ComponentType } from "react";
+import {
+  AddOnIcon,
+  BlueprintIcon,
+  DashboardIcon,
+  FolderIcon,
+  GlobeIcon,
+  LockIcon,
+  LogIcon,
+  PackageIcon,
+  PulseIcon,
+  PuzzleIcon,
+  ServerIcon,
+  SlidersIcon,
+  type IconProps,
+} from "../../../../icons";
 import { useTranslation, type TranslationKey } from "../../../../i18n";
 import type { MixEngineScreen } from "../../tabState";
 import styles from "./Sidebar.module.css";
@@ -29,44 +45,44 @@ import styles from "./Sidebar.module.css";
  */
 const GROUPS: readonly {
   labelKey: TranslationKey | null;
-  items: readonly { screen: MixEngineScreen; labelKey: TranslationKey }[];
+  items: readonly { screen: MixEngineScreen; labelKey: TranslationKey; Icon: ComponentType<IconProps> }[];
 }[] = [
   {
     labelKey: "mixengine.sidebar.groupOverview",
     items: [
-      { screen: "dashboard", labelKey: "mixengine.sidebar.dashboard" },
-      { screen: "metrics", labelKey: "mixengine.sidebar.metrics" },
-      { screen: "logs", labelKey: "mixengine.sidebar.logs" },
+      { screen: "dashboard", labelKey: "mixengine.sidebar.dashboard", Icon: DashboardIcon },
+      { screen: "metrics", labelKey: "mixengine.sidebar.metrics", Icon: PulseIcon },
+      { screen: "logs", labelKey: "mixengine.sidebar.logs", Icon: LogIcon },
     ],
   },
   {
     labelKey: "mixengine.sidebar.groupWebsites",
     items: [
-      { screen: "projects", labelKey: "mixengine.sidebar.projects" },
-      { screen: "sites", labelKey: "mixengine.sidebar.sites" },
-      { screen: "domains", labelKey: "mixengine.sidebar.domains" },
+      { screen: "projects", labelKey: "mixengine.sidebar.projects", Icon: FolderIcon },
+      { screen: "sites", labelKey: "mixengine.sidebar.sites", Icon: GlobeIcon },
+      { screen: "domains", labelKey: "mixengine.sidebar.domains", Icon: LockIcon },
     ],
   },
   {
     labelKey: "mixengine.sidebar.groupEnvironment",
     items: [
-      { screen: "runtimes", labelKey: "mixengine.sidebar.runtimes" },
-      { screen: "phpExtensions", labelKey: "mixengine.sidebar.phpExtensions" },
-      { screen: "servicesDetail", labelKey: "mixengine.sidebar.servicesDetail" },
+      { screen: "runtimes", labelKey: "mixengine.sidebar.runtimes", Icon: PackageIcon },
+      { screen: "phpExtensions", labelKey: "mixengine.sidebar.phpExtensions", Icon: PuzzleIcon },
+      { screen: "servicesDetail", labelKey: "mixengine.sidebar.servicesDetail", Icon: ServerIcon },
     ],
   },
   {
     labelKey: "mixengine.sidebar.groupLibrary",
     items: [
-      { screen: "blueprints", labelKey: "mixengine.sidebar.blueprints" },
-      { screen: "extensions", labelKey: "mixengine.sidebar.extensions" },
+      { screen: "blueprints", labelKey: "mixengine.sidebar.blueprints", Icon: BlueprintIcon },
+      { screen: "extensions", labelKey: "mixengine.sidebar.extensions", Icon: AddOnIcon },
     ],
   },
   // Không tiêu đề, và `margin-top: auto` trong CSS đẩy nó xuống đáy: Settings không thuộc nhóm nào
   // và là mục người ta tìm ở chỗ nó vẫn luôn ở.
   {
     labelKey: null,
-    items: [{ screen: "settings", labelKey: "mixengine.sidebar.settings" }],
+    items: [{ screen: "settings", labelKey: "mixengine.sidebar.settings", Icon: SlidersIcon }],
   },
 ];
 
@@ -92,6 +108,7 @@ export default function Sidebar({
               aria-current={item.screen === screen ? "page" : undefined}
               onClick={() => onSelect(item.screen)}
             >
+              <item.Icon size={16} className={styles.icon} />
               {t(item.labelKey)}
             </button>
           ))}

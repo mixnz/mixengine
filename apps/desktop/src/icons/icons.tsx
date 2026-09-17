@@ -425,3 +425,97 @@ export function ToolsIcon(props: IconProps) {
     </Icon>
   );
 }
+
+/** The Dashboard screen: a page of panels at a glance. */
+export function DashboardIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="3.5" y="3.5" width="7" height="9" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="5" rx="1.5" />
+      <rect x="13.5" y="11.5" width="7" height="9" rx="1.5" />
+      <rect x="3.5" y="15.5" width="7" height="5" rx="1.5" />
+    </Icon>
+  );
+}
+
+/** Metrics over time: a pulse line. */
+export function PulseIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3 12h4l3-8 4 16 3-8h4" />
+    </Icon>
+  );
+}
+
+/** A log: a page of lines. */
+export function LogIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9z" />
+      <path d="M14 3v6h6" />
+      <path d="M8 13h8M8 17h5" />
+    </Icon>
+  );
+}
+
+/** Something installed: a package box. */
+export function PackageIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M21 16V8l-9-5-9 5v8l9 5z" />
+      <path d="M3.3 7 12 12l8.7-5M12 22V12" />
+    </Icon>
+  );
+}
+
+/** An extension to something: a puzzle piece. */
+export function PuzzleIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M10 3h4v3a2 2 0 1 0 4 0h3v5h-3a2 2 0 1 0 0 4h3v6h-6v-3a2 2 0 1 0-4 0v3H4v-6h3a2 2 0 1 0 0-4H4V6h6z" />
+    </Icon>
+  );
+}
+
+/** A running server process: stacked units with their lights. */
+export function ServerIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="16" height="6.5" rx="1.5" />
+      <rect x="4" y="13.5" width="16" height="6.5" rx="1.5" />
+      <path d="M8 7.25h.01M8 16.75h.01" />
+    </Icon>
+  );
+}
+
+/** A ready-made layout to start from. */
+export function BlueprintIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M4 10h16M10 10v10" />
+    </Icon>
+  );
+}
+
+/** Something added to the app: a square with a plus. */
+export function AddOnIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M12 8.5v7M8.5 12h7" />
+    </Icon>
+  );
+}
+
+/** A setting with sliders. */
+export function SlidersIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
+      <circle cx="16" cy="6" r="2" />
+      <circle cx="10" cy="12" r="2" />
+      <circle cx="18" cy="18" r="2" />
+    </Icon>
+  );
+}
