@@ -1,5 +1,6 @@
 import { appLogDir } from "@tauri-apps/api/path";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
+import Button from "../../../components/Button";
 import { useTranslation } from "../../../i18n";
 import { PRIVACY_POLICY_URL } from "../../links";
 import { openReleasesPage, useAppVersion } from "../../version";
@@ -27,11 +28,9 @@ function UpdateSection() {
           </span>
           <span className={styles.updateStatus}>{t("update.unavailable")}</span>
         </div>
-        <div className={styles.toolSuiteActions}>
-          <button type="button" className={styles.toolButton} onClick={() => void openReleasesPage()}>
-            {t("update.openPage")}
-          </button>
-        </div>
+        <Button size="small" onClick={() => void openReleasesPage()}>
+          {t("update.openPage")}
+        </Button>
       </div>
 
       <p className={styles.hint}>{t("update.autoHint")}</p>
@@ -39,28 +38,19 @@ function UpdateSection() {
       {/* The privacy policy sits in this pane rather than one of its own. It is the only pane about
           the app itself rather than about what you do with it — it is where the running version is
           named — and a sixth entry in the column for a single outbound link would cost the reader
-          more than it gives them. Most people arrive at the policy from the store listing anyway;
-          this is the copy that is here when they look for it inside the app. */}
+          more than it gives them. */}
       <div className={styles.updateRow}>
         <span className={styles.hint}>{t("settings.privacyHint")}</span>
-        <button
-          type="button"
-          className={styles.toolButton}
-          onClick={() => void openUrl(PRIVACY_POLICY_URL)}
-        >
+        <Button size="small" onClick={() => void openUrl(PRIVACY_POLICY_URL)}>
           {t("settings.privacyPolicy")}
-        </button>
+        </Button>
       </div>
 
       <div className={styles.updateRow}>
         <span className={styles.hint}>{t("settings.logHint")}</span>
-        <button
-          type="button"
-          className={styles.toolButton}
-          onClick={() => void appLogDir().then(revealItemInDir)}
-        >
+        <Button size="small" onClick={() => void appLogDir().then(revealItemInDir)}>
           {t("settings.openLogFolder")}
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import SegmentedControl from "../../../components/SegmentedControl";
 import type { AccentColor, ThemeMode } from "../../theme";
 import { ACCENT_COLORS } from "../../theme";
 import type { Language, TranslationKey } from "../../../i18n";
@@ -26,34 +27,24 @@ function accentLabelKey(accent: AccentColor): TranslationKey {
 function AppearanceSection({ theme, onThemeChange, accent, onAccentChange }: Props) {
   const { t, lang, setLang } = useTranslation();
 
-  const themeOptions: { value: ThemeMode; label: string }[] = [
-    { value: "light", label: t("settings.themeLight") },
-    { value: "dark", label: t("settings.themeDark") },
-    { value: "system", label: t("settings.themeSystem") },
-  ];
-
-  const languageOptions: { value: Language; label: string }[] = [
-    { value: "en", label: t("settings.languageEnglish") },
-    { value: "vi", label: t("settings.languageVietnamese") },
-  ];
-
   return (
     <>
       <div className={styles.section}>
-        <span className={styles.sectionLabel}>{t("settings.theme")}</span>
-        <div className={styles.themeOptions}>
-          {themeOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={opt.value === theme ? `${styles.themeOption} ${styles.themeOptionActive}` : styles.themeOption}
-              onClick={() => onThemeChange(opt.value)}
-              aria-pressed={opt.value === theme}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <span className={styles.sectionLabel} id="settings-theme-label">
+          {t("settings.theme")}
+        </span>
+        {/* System first: it is the default, and the choice that asks least of the user. */}
+        <SegmentedControl<ThemeMode>
+          aria-label={t("settings.theme")}
+          block
+          value={theme}
+          onChange={onThemeChange}
+          segments={[
+            { value: "system", label: t("settings.themeSystem") },
+            { value: "light", label: t("settings.themeLight") },
+            { value: "dark", label: t("settings.themeDark") },
+          ]}
+        />
       </div>
 
       <div className={styles.section}>
@@ -81,19 +72,16 @@ function AppearanceSection({ theme, onThemeChange, accent, onAccentChange }: Pro
 
       <div className={styles.section}>
         <span className={styles.sectionLabel}>{t("settings.language")}</span>
-        <div className={styles.themeOptions}>
-          {languageOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              className={opt.value === lang ? `${styles.themeOption} ${styles.themeOptionActive}` : styles.themeOption}
-              onClick={() => setLang(opt.value)}
-              aria-pressed={opt.value === lang}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl<Language>
+          aria-label={t("settings.language")}
+          block
+          value={lang}
+          onChange={setLang}
+          segments={[
+            { value: "en", label: t("settings.languageEnglish") },
+            { value: "vi", label: t("settings.languageVietnamese") },
+          ]}
+        />
       </div>
     </>
   );
