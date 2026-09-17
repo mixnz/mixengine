@@ -414,9 +414,10 @@ struct Resolution {
 
 /// Everything the fronted program is given beside its own arguments.
 ///
-/// Two variables and no more. `PATH` is what makes a runtime's own tools reach each other, and
-/// `PHP_INI_SCAN_DIR` is the generated ini set the pool also reads — the whole point of it being
-/// here is that `php -m` in a terminal and `phpinfo()` in a browser answer the same thing.
+/// `PATH` is what makes a runtime's own tools reach each other, and `PHP_INI_SCAN_DIR` is the
+/// generated ini set the pool also reads — the whole point of it being here is that `php -m` in a
+/// terminal and `phpinfo()` in a browser answer the same thing. Beside those two, [`trusting`] names
+/// the trust bundle a language reads, and [`toolchain`] keeps a Go to the release it resolved to.
 ///
 /// **Keyed off the directory existing rather than off the command being `php`**:
 /// [`runtimes::extensions`] renders nothing for a runtime whose artifact declares no extension
@@ -449,8 +450,46 @@ fn surroundings(
     }
 
     trusting(kind, &paths, &mut environment);
+    toolchain(
+        kind,
+        std::env::var_os(GOTOOLCHAIN).as_deref(),
+        &mut environment,
+    );
 
     environment
+}
+
+/// The variable that decides whether `go` may run a toolchain other than itself.
+const GOTOOLCHAIN: &str = "GOTOOLCHAIN";
+
+/// Keep a Go to the release this directory resolved to — roadmap task **T27d**, its design's D5.
+///
+/// **The archive's `go.env` says `GOTOOLCHAIN=auto`**, kept byte for byte by the packaging
+/// repository. With `auto`, a `go` meeting a `go.mod` that asks for a newer release downloads that
+/// release into the module cache and runs it instead — so a project pinned to 1.25 would build with
+/// whatever its `go.mod` names, silently. `local` makes that a sentence from Go naming the setting.
+///
+/// Three rules, and the third is the one that differs from [`trusting`]:
+///
+/// - **A non-empty value in the session is the person's**, left exactly as it arrived.
+/// - **An empty one is unset**, because that is how Go reads it: it would fall through to `go.env`.
+/// - **A value written with `go env -w` is overridden**, on purpose. Go reads the environment before
+///   the user's `go env` file, so this variable wins; and that file is usually a machine-wide
+///   setting from before MixEngine was installed, which is exactly the machine where honouring it
+///   would make a pin mean nothing.
+///
+/// `session` is the invoking process's own value, passed in rather than read here so the rules can
+/// be asserted without changing the environment of the test process.
+fn toolchain(
+    kind: RuntimeKind,
+    session: Option<&OsStr>,
+    environment: &mut BTreeMap<String, OsString>,
+) {
+    if kind != RuntimeKind::Go || session.is_some_and(|value| !value.is_empty()) {
+        return;
+    }
+
+    environment.insert(GOTOOLCHAIN.to_owned(), OsString::from("local"));
 }
 
 /// Tell this runtime about the authority MixEngine's own sites are signed by — task **T132**.
@@ -808,5 +847,58 @@ mod tests {
         );
 
         assert!(!environment.contains_key(mixengine_core::runtimes::extensions::SCAN_DIR_ENV));
+    }
+
+    /// **The pin means the release that was resolved** — roadmap task **T27d**, its design's D5.
+    /// `go.env` inside the archive says `auto`, which would let a `go.mod` swap the toolchain.
+    #[test]
+    fn a_go_is_kept_to_the_toolchain_it_resolved_to() {
+        let mut environment = BTreeMap::new();
+
+        toolchain(RuntimeKind::Go, None, &mut environment);
+
+        assert_eq!(environment.get(GOTOOLCHAIN), Some(&OsString::from("local")));
+    }
+
+    /// Go reads an empty variable as unset and falls through to `go.env`, so this does too.
+    #[test]
+    fn an_empty_session_value_is_unset_to_go_and_so_to_this() {
+        let mut environment = BTreeMap::new();
+
+        toolchain(RuntimeKind::Go, Some(OsStr::new("")), &mut environment);
+
+        assert_eq!(environment.get(GOTOOLCHAIN), Some(&OsString::from("local")));
+    }
+
+    /// **A value the person set is theirs** — ADR 0034's rule, for one more variable.
+    #[test]
+    fn a_session_value_is_left_to_the_session() {
+        let mut environment = BTreeMap::new();
+
+        toolchain(
+            RuntimeKind::Go,
+            Some(OsStr::new("go1.27.1+auto")),
+            &mut environment,
+        );
+
+        assert_eq!(
+            environment.get(GOTOOLCHAIN),
+            None,
+            "inherited, not overwritten"
+        );
+    }
+
+    #[test]
+    fn no_other_kind_is_told_about_a_go_toolchain() {
+        for kind in RuntimeKind::ALL
+            .into_iter()
+            .filter(|kind| *kind != RuntimeKind::Go)
+        {
+            let mut environment = BTreeMap::new();
+
+            toolchain(kind, None, &mut environment);
+
+            assert!(environment.is_empty(), "{kind}");
+        }
     }
 }
