@@ -73,11 +73,12 @@
   background: var(--active-bg);
 }
 
+/* The label keeps the weight of every other item: a bolder one is wider, and selecting an item
+   would shift its text. */
 .item[aria-current="page"] {
   background: rgb(var(--accent-rgb) / 0.12);
   border-color: rgb(var(--accent-rgb) / 0.45);
   color: var(--text);
-  font-weight: 600;
 }
 
 .item[aria-current="page"] .icon {
