@@ -544,77 +544,92 @@ export default function Dashboard({
         }
         meta={
           status && (
-            <div className={styles.home}>
-              <FolderIcon size={14} className={styles.homeIcon} />
-              <span className={styles.homePath} title={status.home}>
-                {status.home}
-              </span>
-              <Button
-                size="small"
-                variant="ghost"
-                className={styles.copy}
-                onClick={() => copyHome(status.home)}
-                aria-label={t("mixengine.dashboard.copyHome")}
-              >
-                <CopyIcon size={13} />
-                {homeCopied ? t("mixengine.dashboard.copied") : t("mixengine.dashboard.copy")}
-              </Button>
-            </div>
-          )
-        }
-        actions={
-          <div className={styles.headerSide}>
-            {/* Daemon không có `ServiceRow` — vẽ riêng khỏi bảng service, không chèn vào `rows`. */}
-            {daemon && (
+            <div className={styles.metaRow}>
+              <div className={styles.home}>
+                <FolderIcon size={14} className={styles.homeIcon} />
+                <span className={styles.homePath} title={status.home}>
+                  {status.home}
+                </span>
+                <Button
+                  size="small"
+                  variant="ghost"
+                  className={styles.copy}
+                  onClick={() => copyHome(status.home)}
+                  aria-label={t("mixengine.dashboard.copyHome")}
+                >
+                  <CopyIcon size={13} />
+                  {homeCopied ? t("mixengine.dashboard.copied") : t("mixengine.dashboard.copy")}
+                </Button>
+              </div>
+              {/* Daemon không có `ServiceRow` — vẽ riêng khỏi bảng service, không chèn vào `rows`.
+                  Luôn vẽ, kể cả trước frame đầu tiên: khung đứng sẵn với "—" thay vì hiện ra sau và
+                  đẩy cả màn xuống — `frame` về `null` mỗi lần rời tab, nên cú nhảy đó lặp lại mỗi
+                  lần quay lại. */}
               <div className={styles.usage} role="group" aria-label={t("mixengine.dashboard.daemon")}>
                 <span className={styles.usageCell}>
-                  <span className={styles.liveDot} aria-hidden="true" />
+                  <span
+                    className={daemon ? styles.liveDot : `${styles.liveDot} ${styles.liveDotIdle}`}
+                    aria-hidden="true"
+                  />
                   <strong>{t("mixengine.dashboard.daemon")}</strong>
                 </span>
                 <span className={styles.usageCell}>
                   <span className={styles.usageLabel}>{t("mixengine.dashboard.cpu")}</span>
                   <span className={styles.usageValue}>
-                    {daemon.cpu_percent === null ? "—" : formatPercent(daemon.cpu_percent)}
+                    {daemon === null || daemon.cpu_percent === null
+                      ? "—"
+                      : formatPercent(daemon.cpu_percent)}
                   </span>
                   <span className={styles.usageBar} aria-hidden="true">
-                    <span style={{ width: `${Math.min(100, Math.max(3, daemon.cpu_percent ?? 0))}%` }} />
+                    <span
+                      style={{
+                        width:
+                          daemon === null
+                            ? 0
+                            : `${Math.min(100, Math.max(3, daemon.cpu_percent ?? 0))}%`,
+                      }}
+                    />
                   </span>
                 </span>
                 <span className={styles.usageCell}>
                   <span className={styles.usageLabel}>{t("mixengine.dashboard.memory")}</span>
-                  <span className={styles.usageValue}>{formatBytes(daemon.rss_bytes)}</span>
+                  <span className={styles.usageValue}>
+                    {daemon === null ? "—" : formatBytes(daemon.rss_bytes)}
+                  </span>
                 </span>
               </div>
-            )}
-            <div className={styles.headerButtons}>
-              {/* Không tự bật hộp thoại lúc mở tab: một lô có thể nằm chờ nhiều ngày, và một modal bật
-                  lên mỗi lần mở tab là thứ người ta học cách bấm bỏ mà không đọc. */}
-              {waiting > 0 && pending === null && (
-                <Button size="large" className={styles.waiting} onClick={() => void showWaiting()}>
-                  {t("mixengine.dashboard.elevationWaiting", { count: waiting })}
-                </Button>
-              )}
-              {/* Đường dự phòng thủ công: một service được tạo/xoá từ nơi khác không sinh sự kiện nào
-                  cho bảng này biết. */}
-              <Button size="large" onClick={() => void reload()}>
-                <ReloadIcon size={15} />
-                {t("mixengine.dashboard.reload")}
-              </Button>
-              {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
-              <Button
-                size="large"
-                variant="danger"
-                onClick={() => void stopAll()}
-                disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
-              >
-                <StopIcon size={13} />
-                {t("mixengine.dashboard.stopAll")}
-              </Button>
-              <Button size="large" variant="primary" onClick={() => setCreating(true)}>
-                <PlusIcon size={15} />
-                {t("mixengine.dashboard.newService")}
-              </Button>
             </div>
+          )
+        }
+        actions={
+          <div className={styles.headerButtons}>
+            {/* Không tự bật hộp thoại lúc mở tab: một lô có thể nằm chờ nhiều ngày, và một modal bật
+                lên mỗi lần mở tab là thứ người ta học cách bấm bỏ mà không đọc. */}
+            {waiting > 0 && pending === null && (
+              <Button size="large" className={styles.waiting} onClick={() => void showWaiting()}>
+                {t("mixengine.dashboard.elevationWaiting", { count: waiting })}
+              </Button>
+            )}
+            {/* Đường dự phòng thủ công: một service được tạo/xoá từ nơi khác không sinh sự kiện nào
+                cho bảng này biết. */}
+            <Button size="large" onClick={() => void reload()}>
+              <ReloadIcon size={15} />
+              {t("mixengine.dashboard.reload")}
+            </Button>
+            {/* Không đổi hàng nào ở đây: bảng đổi khi `service_state_changed` tới, không khi bấm. */}
+            <Button
+              size="large"
+              variant="danger"
+              onClick={() => void stopAll()}
+              disabled={rows.every((row) => row.state !== "running") || Object.keys(busy).length > 0}
+            >
+              <StopIcon size={13} />
+              {t("mixengine.dashboard.stopAll")}
+            </Button>
+            <Button size="large" variant="primary" onClick={() => setCreating(true)}>
+              <PlusIcon size={15} />
+              {t("mixengine.dashboard.newService")}
+            </Button>
           </div>
         }
       />

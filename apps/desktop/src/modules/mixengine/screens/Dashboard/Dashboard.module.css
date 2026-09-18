@@ -38,14 +38,6 @@
   font-size: var(--text-xs);
 }
 
-/* The daemon's own usage above the page's actions. */
-.headerSide {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
-}
-
 .headerButtons {
   display: flex;
   flex-wrap: wrap;
@@ -53,10 +45,27 @@
   gap: 10px;
 }
 
+/* The home path and the daemon's own usage on the one line under the title. The line is there from
+   the first `daemon.status`, so the usage joining it adds no height: nothing below moves when the
+   first metrics frame lands. The path gives way first; the usage keeps its width. */
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  min-width: 0;
+}
+
+.metaRow > .home {
+  flex: 0 1 auto;
+}
+
+/* As tall as the Copy button beside it, so the line keeps the height it already had. */
 .usage {
   display: flex;
+  flex-shrink: 0;
   align-items: stretch;
-  min-height: 40px;
+  height: 28px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--table-head-bg);
@@ -67,8 +76,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 14px;
-  font-size: var(--text-sm);
+  padding: 0 10px;
+  font-size: var(--text-xs);
 }
 
 .usageCell + .usageCell {
@@ -79,10 +88,13 @@
   color: var(--text-muted);
 }
 
+/* Wide enough for "12.3456%" in mono, so the value changing every second does not push the cells
+   beside it sideways; only a reading of 100% or more is wider. */
 .usageValue {
-  min-width: 44px;
+  min-width: 8ch;
   text-align: right;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
 }
 
@@ -107,6 +119,12 @@
   border-radius: 50%;
   background: var(--success);
   box-shadow: 0 0 0 3px rgb(var(--success-rgb) / 0.25);
+}
+
+/* No frame yet: the dot says "not measured", not "down". */
+.liveDotIdle {
+  background: var(--text-faint);
+  box-shadow: none;
 }
 
 /* Amber: something waits for a person, and nothing is broken. */
