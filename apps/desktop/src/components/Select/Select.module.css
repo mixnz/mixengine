@@ -172,7 +172,7 @@
 /* Two states, two materials, so the list can be read without moving the pointer off it: the
    accent is what has been *chosen*, and the neutral hover is where the pointer *is*. */
 .optionActive {
-  background: var(--hover-bg);
+  background: var(--popover-hover-bg);
 }
 
 .optionSelected {
@@ -183,7 +183,7 @@
 
 /* The chosen option under the pointer: both states at once, and it should read as both. */
 .optionSelected.optionActive {
-  background: var(--active-bg);
+  background: var(--option-selected-hover-bg);
 }
 
 .optionDisabled {

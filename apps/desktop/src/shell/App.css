@@ -63,6 +63,11 @@
   --control-bg: #ffffff;
   --button-bg: #ffffff;
   --popover-bg: #ffffff;
+  /* Hover on an entry drawn over `--popover-bg`. Its own token because `--hover-bg` is tuned for
+     the page, and in dark it is the popover's own colour — a hover there shows nothing. */
+  --popover-hover-bg: #f3f6f9;
+  /* The chosen option under the pointer: one step past both the chosen fill and the hover. */
+  --option-selected-hover-bg: #e3e8ef;
   --track-bg: #eef1f5;
   --neutral-bg: #eef1f5;
   --hover-bg: #f3f6f9;
@@ -620,7 +625,7 @@ button.brand-settings {
 }
 
 .context-menu button:hover {
-  background: var(--hover-bg);
+  background: var(--popover-hover-bg);
   border-color: transparent;
 }
 
@@ -761,6 +766,8 @@ textarea:focus {
   --control-bg: #0b1017;
   --button-bg: #151c28;
   --popover-bg: #161e2b;
+  --popover-hover-bg: #212b3b;
+  --option-selected-hover-bg: #283447;
   --track-bg: #0b1017;
   --neutral-bg: #1a2230;
   --hover-bg: #161e2b;
