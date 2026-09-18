@@ -60,6 +60,7 @@ const vi: typeof en = {
         intro:
           "Chọn một stack, đặt tên, và MixEngine cài những gì nó cần, cấu hình rồi khởi động giúp bạn.",
         stack: "Stack",
+        searchStacks: "Tìm stack…",
         name: "Tên project",
         folder: "Thư mục",
         browse: "Chọn…",

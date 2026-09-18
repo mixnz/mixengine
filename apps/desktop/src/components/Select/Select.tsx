@@ -237,19 +237,27 @@ function Select<T extends string | number>({
   // again: the frame drawn around the list, the scrollbar that appears once the list is long
   // enough to want one. Whatever it is, the shortfall lands on the longest option and only that
   // one, which then ends in an ellipsis inside a menu with room to spare. So it is measured
-  // instead of trusted: every row says what it would need, and the menu is widened to the widest
-  // of them. `maxWidth` still has the last word, which is what keeps it on the screen.
+  // instead of trusted: every row says how much it is cut short by, and the menu is widened by
+  // the most any of them lacks. `maxWidth` still has the last word, which is what keeps it on the
+  // screen.
+  //
+  // Only a row that is actually cut counts. The rows are stretched to the list's width, so in a
+  // menu already wider than its text — held open by the trigger's width or the search box — every
+  // row's `scrollWidth` is the list's own width, and comparing against that grew the menu by the
+  // bought pixel on every run: a keystroke in the search box, or a parent re-rendering with a
+  // fresh `options` array, and the menu crept wider a pixel at a time.
   useLayoutEffect(() => {
     const list = listRef.current;
     const menu = menuRef.current;
     if (!open || !list || !menu) return;
-    let needed = 0;
+    let grow = 0;
     for (let i = 0; i < list.children.length; i++) {
-      needed = Math.max(needed, list.children[i].scrollWidth);
+      const row = list.children[i];
+      const shortfall = row.scrollWidth - row.clientWidth;
+      // `scrollWidth` is a whole number and the text under it is not, so the last pixel is bought.
+      if (shortfall > 0) grow = Math.max(grow, shortfall + 1);
     }
-    // `scrollWidth` is a whole number and the text under it is not, so the last pixel is bought.
-    const grow = needed + 1 - list.clientWidth;
-    if (grow <= 0) return;
+    if (grow === 0) return;
     const width = menu.offsetWidth + grow;
     setMenuStyle((prev) => ({ ...prev, width }));
   }, [open, visible]);

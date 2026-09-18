@@ -90,6 +90,8 @@ export default function QuickStart({ onCreated }: { onCreated: () => void }) {
               value={slug}
               onChange={setSlug}
               disabled={phase.kind !== "form"}
+              searchable
+              searchPlaceholder={t("mixengine.quickStart.searchStacks")}
               options={available.map((blueprint) => ({
                 value: blueprint.slug,
                 label: blueprint.name,
