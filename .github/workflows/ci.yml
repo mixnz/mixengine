@@ -1123,9 +1123,12 @@ jobs:
           echo "MIXENGINE_MONGODB_PACKAGE=$into" >> "$GITHUB_ENV"
           "$into/bin/mongod$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
 
-      # Only this leg's suites, plus the binaries the harness spawns (`mix`, `mixengined`,
-      # `mixengine-shim`), which cargo builds for any `mixengine-cli` integration test. With the
-      # workspace's features, for T170b's reason.
+      # Only this leg's suites, plus the binaries the harness spawns. **`--bins` is not optional**:
+      # cargo builds a package's own binaries for its integration tests, so `--test caddy` gets `mix`,
+      # but `mixengined` and `mixengine-shim` belong to other packages, and the harness finds them
+      # beside `mix` or panics. In `test` the `--all-targets` build made them in passing; here nothing
+      # would (the first run of this job failed on exactly that). With the workspace's features, for
+      # T170b's reason.
       - name: Build the suites this leg runs
         shell: bash
         env:
@@ -1139,6 +1142,7 @@ jobs:
           esac
           args=()
           for suite in $suites; do args+=(--test "$suite"); done
+          cargo build --workspace --bins --all-features --locked --offline
           cargo test --workspace --all-features --locked --offline --no-run "${args[@]}"
 
       # The credential store the SQL suites' first-run rituals need, for the reason `test`'s step of
