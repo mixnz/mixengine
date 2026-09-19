@@ -537,6 +537,21 @@ pub mod method {
     /// Roadmap task **T112**.
     pub const SERVICE_SET_AUTOSTART: &str = "service.set_autostart";
 
+    /// Whether this home stops services nobody is using. Takes nothing, answers
+    /// [`SaveResources`](crate::SaveResources). Roadmap task **T167b**.
+    pub const SERVICE_SAVE_RESOURCES: &str = "service.save_resources";
+
+    /// Turn the home's resource saving on or off. Takes
+    /// [`SaveResourcesSet`](crate::SaveResourcesSet), answers
+    /// [`SaveResources`](crate::SaveResources).
+    ///
+    /// **Nothing is stopped or started by the call**, on [`SERVICE_SET_IDLE`]'s reasoning: the next
+    /// idle sweep reads the switch, and a service already past its saving policy is stopped by that
+    /// sweep, not by this. Off is the default ([ADR 0041]).
+    ///
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    pub const SERVICE_SET_SAVE_RESOURCES: &str = "service.set_save_resources";
+
     /// Make a database and the account that reaches it, on one running instance. Takes
     /// [`DatabaseCreate`](crate::DatabaseCreate), answers
     /// [`DatabaseAccount`](crate::DatabaseAccount).

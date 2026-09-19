@@ -2245,6 +2245,7 @@ pub(super) fn summary(
         // exactly as it has no state — and `false` is the reading that cannot be acted on, which is
         // the safer of the two for something a boot walk reads.
         autostart: record.is_some_and(|record| record.autostart),
+        stopped_by: None,
     }
 }
 

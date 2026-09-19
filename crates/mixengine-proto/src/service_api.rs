@@ -247,6 +247,57 @@ pub struct ServiceSummary {
     /// [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
     #[serde(default)]
     pub autostart: bool,
+
+    /// Who left it stopped, while it is — roadmap task **T167d**.
+    ///
+    /// **Absent while the service is not `stopped`**, and from a daemon older than this member
+    /// (ADR 0019). It is what lets a client tell a service MixEngine put to rest, which the next
+    /// request wakes, from one a person stopped — which stays stopped — and draw the first as
+    /// resting rather than as a failure ([ADR 0041]).
+    ///
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stopped_by: Option<StoppedBy>,
+}
+
+/// Who left a service stopped — the wire half of `mixengine-core`'s `StoppedBy`, and of the
+/// `services.stopped_by` column it reads.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+#[non_exhaustive]
+pub enum StoppedBy {
+    /// Nobody: the service has not run since it was created or since the machine started.
+    Never,
+
+    /// A person, through `service.stop` or `service.restart`. It stays stopped until asked.
+    Person,
+
+    /// MixEngine itself — an idle sweep, its own shutdown, a process that vanished. The next request
+    /// that needs it starts it again.
+    Daemon,
+}
+
+/// Whether this home stops services nobody is using — `service.save_resources` answers it, and
+/// `service.set_save_resources` answers it after changing it. Roadmap task **T167b**.
+///
+/// **Off unless a person turned it on** ([ADR 0041]). While it is off, a service whose own idle
+/// setting is unset is never stopped for being idle; a service somebody gave a number keeps it.
+///
+/// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct SaveResources {
+    /// Whether the switch is on.
+    pub on: bool,
+}
+
+/// What `service.set_save_resources` takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct SaveResourcesSet {
+    /// What it should be.
+    pub on: bool,
 }
 
 /// What `service.set_autostart` takes: one service, and whether it starts with the daemon.
@@ -553,6 +604,7 @@ mod tests {
             depends_on: Vec::new(),
             role: Some(ServiceRole::Other {}),
             autostart: false,
+            stopped_by: None,
         }
     }
 
@@ -752,6 +804,35 @@ mod tests {
             .expect_err("a status with no subject is a mistyped list, not a list");
     }
 
+    /// T167: who stopped a service travels as one word, and a daemon older than the member — or a
+    /// service that is not stopped — sends nothing.
+    #[test]
+    fn stopped_by_is_a_word_and_is_absent_when_not_said() {
+        assert_eq!(serde_json::to_value(StoppedBy::Daemon).unwrap(), "daemon");
+        assert_eq!(serde_json::to_value(StoppedBy::Person).unwrap(), "person");
+        assert_eq!(serde_json::to_value(StoppedBy::Never).unwrap(), "never");
+
+        let older = serde_json::json!({
+            "id": "caddy", "state": "stopped", "supervised": false, "depends_on": []
+        });
+        let summary: ServiceSummary = serde_json::from_value(older).expect("an older daemon's row");
+        assert_eq!(summary.stopped_by, None);
+        assert!(
+            serde_json::to_value(&summary).unwrap().get("stopped_by").is_none(),
+            "an absent reason is not written as null"
+        );
+    }
+
+    #[test]
+    fn save_resources_is_one_boolean_each_way() {
+        let asked: SaveResourcesSet = serde_json::from_str(r#"{"on":true}"#).unwrap();
+        assert!(asked.on);
+        assert_eq!(
+            serde_json::to_value(SaveResources { on: false }).unwrap(),
+            serde_json::json!({ "on": false })
+        );
+    }
+
     #[test]
     fn a_summary_of_a_service_with_no_row_omits_the_state_rather_than_inventing_one() {
         let summary = ServiceSummary {
@@ -765,6 +846,7 @@ mod tests {
             depends_on: Vec::new(),
             role: None,
             autostart: false,
+            stopped_by: None,
         };
 
         let encoded = serde_json::to_value(&summary).unwrap();
