@@ -126,19 +126,22 @@ fn service_start_project_params(project: &str) -> Value {
 }
 
 /// Mở stream sự kiện. Mở lại là đóng cái đang mở.
+///
+/// Only the calling window's: each webview has its own stream since T168a.
 #[tauri::command]
 pub async fn mixengine_watch(
+    webview: tauri::WebviewWindow,
     on_event: Channel<String>,
     state: State<'_, MixEngineState>,
 ) -> Result<(), AppError> {
-    events::stream_events(on_event, &state).await
+    events::stream_events(on_event, webview.label(), &state).await
 }
 
 /// Đóng stream. Gọi khi không có gì mở là vô hại — cleanup của một effect chạy hai lần trong
 /// StrictMode.
 #[tauri::command]
-pub fn mixengine_unwatch(state: State<'_, MixEngineState>) {
-    state.stop();
+pub fn mixengine_unwatch(webview: tauri::WebviewWindow, state: State<'_, MixEngineState>) {
+    state.stop(webview.label());
 }
 
 /// Mọi thao tác đang chờ quyền quản trị, kèm câu mô tả daemon tự viết cho từng cái.
