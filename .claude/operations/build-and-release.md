@@ -24,8 +24,11 @@ a daemon — so the MixEngine tab either showed *not installed*, or, on a machin
 installed, found **that** daemon at the second step and started it against the release home while
 the window kept dialling `MixEngine-dev`. `apps/desktop/scripts/stage-daemon.mjs` builds the four
 headless crates at the root, copies them there, and then starts `tauri dev` itself with
-`MIXENGINE_HOME` pointed at `.mixengine-home` — the same home `.cargo/config.toml` gives
-`cargo run -p mixengine-daemon`, so a terminal and the window see one daemon. It starts the window
+`MIXENGINE_DEV_HOME` pointed at `.mixengine-home` — the same suggestion `.cargo/config.toml` gives
+`cargo run -p mixengine-daemon`, so a terminal and the window see one daemon. It is a suggestion and
+not a home: the binaries take it unless an elevated helper could not read it there, and on macOS a
+checkout under `/Volumes/` gets `MixEngine-dev` instead
+([ADR 0040](../decisions/0040-a-development-builds-home-follows-its-checkout.md)). It starts the window
 rather than sitting in front of it behind `&&` because that environment has to reach it. The list it
 stages is `packaging/common.sh`'s `MIX_BINARIES` minus the window; it carries none of its own. A copy
 refused because that daemon is still running from the last window stops it with `mix daemon stop`

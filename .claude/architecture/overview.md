@@ -128,7 +128,10 @@ can read it — on
 macOS, a home on a removable volume is an elevation prompt that takes a password and then fails,
 because TCC gates that volume and the helper arrives with no responsible process to inherit a grant
 from. Keeping the four growing directories movable and `run/` fixed is what lets somebody put their
-databases on an external disk without granting Full Disk Access to anything.
+databases on an external disk without granting Full Disk Access to anything. A development build follows
+the same rule for the home itself: it takes its checkout's `.mixengine-home` only when an elevated
+process could read it there, and otherwise uses `MixEngine-dev` —
+[ADR 0040](../decisions/0040-a-development-builds-home-follows-its-checkout.md).
 
 Nothing is written outside this root except: the hosts file, the OS trust store, resolver/NRPT
 config, firewall rules, the port-80/443 redirect rule, and — since T85 — **`mixengine-elevate`
