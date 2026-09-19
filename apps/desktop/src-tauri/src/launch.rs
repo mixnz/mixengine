@@ -252,7 +252,7 @@ fn received<R: Runtime>(app: &AppHandle<R>, line: &str) {
     }
 }
 
-fn bring_to_front<R: Runtime>(app: &AppHandle<R>) {
+pub(crate) fn bring_to_front<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();

@@ -689,6 +689,14 @@ pub async fn mixengine_update_apply(params: Value) -> Result<Value, AppError> {
     rpc::call("update.apply", params).await
 }
 
+/// `daemon.shutdown` — stops every service in reverse dependency order, answers with what it
+/// stopped, then exits. The connection closing after the answer is the shutdown happening, the same
+/// rule `mixengine_update_apply` follows; the answer is read in full before that close.
+#[tauri::command]
+pub async fn mixengine_shutdown() -> Result<Value, AppError> {
+    rpc::call("daemon.shutdown", json!({})).await
+}
+
 /// `daemon.doctor` — đọc thuần, không tham số, không thể tự bật elevation.
 #[tauri::command]
 pub async fn mixengine_doctor() -> Result<Value, AppError> {

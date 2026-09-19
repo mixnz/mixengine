@@ -26,6 +26,9 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::import::import_happened,
         crate::relaunch::relaunch_app,
         crate::relaunch::relaunch_after_update,
+        crate::tray::tray_open_main,
+        crate::tray::tray_hide_panel,
+        crate::tray::app_quit,
         // ── db ──
         db::commands::connect_db,
         db::commands::disconnect_db,
@@ -295,6 +298,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         mixengine::commands::mixengine_update_check,
         mixengine::commands::mixengine_update_decide,
         mixengine::commands::mixengine_update_apply,
+        mixengine::commands::mixengine_shutdown,
         mixengine::commands::mixengine_doctor,
         mixengine::commands::mixengine_doctor_repair,
         mixengine::commands::mixengine_uninstall_plan,

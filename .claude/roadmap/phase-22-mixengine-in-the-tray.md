@@ -14,7 +14,7 @@ Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks
 
 - [x] **T168a** One event stream per window. `MixEngineState` keys its token by webview label, so the
       tray panel's stream never closes the main window's.
-- [ ] **T168b** The commands the panel needs and MixLab lacked: `mixengine_shutdown`
+- [x] **T168b** The commands the panel needs and MixLab lacked: `mixengine_shutdown`
       (`daemon.shutdown`), `tray_open_main`, `tray_hide_panel`, `app_quit`.
 - [ ] **T168c** `tray.rs` on macOS and Windows: the icon, the hidden `tray` window, `panel_position`,
       blur-hide with its 250 ms debounce, close-to-tray, and the macOS activation policy. **(P)**

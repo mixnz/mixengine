@@ -10,6 +10,7 @@ mod platform;
 mod relaunch;
 mod secrets;
 mod ssh;
+mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
