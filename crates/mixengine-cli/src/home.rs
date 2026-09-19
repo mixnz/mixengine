@@ -8,6 +8,7 @@
 //! [`tests/status.rs`](../tests/status.rs) starts a real daemon and a real client against one
 //! temporary home to prove they still agree.
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use mixengine_platform::Host;
@@ -28,8 +29,9 @@ const RUN: &str = "run";
 
 /// Decide which directory is `MIXENGINE_HOME` for this invocation.
 ///
-/// The same three steps `mixengine_core::paths::resolve_root` takes, and it has to stay that way:
-/// an override wins outright, the platform decides when there is none, and the result is made
+/// The same steps `mixengine_core::paths::resolve_root` takes, and it has to stay that way: an
+/// override wins outright, then a development checkout's suggestion
+/// ([`mixengine_platform::home::development_home`], T166), then the platform, and the result is made
 /// absolute and spelled in full rather than canonicalised — the daemon may already be running against a home that has
 /// since been renamed, and `canonicalize` would both require the directory to exist and hand back a
 /// `\\?\` path on Windows that no endpoint fingerprint would match.
@@ -44,6 +46,17 @@ const RUN: &str = "run";
 /// [`ErrorCode::InvalidArgument`] when the override is empty, and whatever the platform layer says
 /// when there is no override and the OS cannot name a data directory.
 pub(crate) fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<PathBuf, Error> {
+    let suggested = std::env::var_os(mixengine_platform::home::DEV_HOME_VAR);
+    resolve_root_with(override_, suggested.as_deref(), host)
+}
+
+/// [`resolve_root`] with the development suggestion passed in rather than read, so a test does not
+/// depend on the environment cargo gives it.
+fn resolve_root_with(
+    override_: Option<&Path>,
+    suggested: Option<&OsStr>,
+    host: &dyn Host,
+) -> Result<PathBuf, Error> {
     let root = match override_ {
         // Unreachable from a command line — `clap` refuses `--home ""` with its own usage error,
         // which `tests/status.rs` pins because neither this function nor `core`'s equivalent can
@@ -58,10 +71,13 @@ pub(crate) fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<
             ));
         }
         Some(path) => path.to_path_buf(),
-        None => host
-            .home_dirs()
-            .default_home()
-            .map_err(|error| to_wire(&error))?,
+        None => match mixengine_platform::home::development_home_from(host, suggested) {
+            Some(path) => path,
+            None => host
+                .home_dirs()
+                .default_home()
+                .map_err(|error| to_wire(&error))?,
+        },
     };
 
     let absolute = std::path::absolute(&root).map_err(|source| {
@@ -101,7 +117,8 @@ mod tests {
 
     #[test]
     fn an_override_wins_and_is_made_absolute_rather_than_canonical() {
-        let root = resolve_root(Some(Path::new("mixengine-home")), &host()).expect("a root");
+        let root =
+            resolve_root_with(Some(Path::new("mixengine-home")), None, &host()).expect("a root");
 
         // Absolute because the daemon it may go on to start outlives any working directory, and
         // relative-to-cwd would quietly follow that around.
@@ -112,14 +129,27 @@ mod tests {
 
     #[test]
     fn without_an_override_the_platform_decides() {
-        let root = resolve_root(None, &host()).expect("a root");
+        let root = resolve_root_with(None, None, &host()).expect("a root");
 
         assert!(root.ends_with("default-home"), "{root:?}");
     }
 
+    /// T166: a checkout's suggestion sits between an override and the platform.
+    #[test]
+    fn a_checkout_suggestion_beats_the_default_and_an_override_beats_it() {
+        let suggested = OsStr::new("checkout-home");
+
+        let root = resolve_root_with(None, Some(suggested), &host()).expect("a root");
+        assert!(root.ends_with("checkout-home"), "{root:?}");
+
+        let root =
+            resolve_root_with(Some(Path::new("chosen")), Some(suggested), &host()).expect("a root");
+        assert!(root.ends_with("chosen"), "{root:?}");
+    }
+
     #[test]
     fn an_empty_override_is_refused_instead_of_meaning_the_default() {
-        let error = resolve_root(Some(Path::new("")), &host())
+        let error = resolve_root_with(Some(Path::new("")), None, &host())
             .expect_err("an empty home is not the same as no home");
 
         assert_eq!(error.code, ErrorCode::InvalidArgument);
@@ -127,7 +157,7 @@ mod tests {
 
     #[test]
     fn a_machine_that_cannot_name_a_data_directory_says_so_rather_than_guessing() {
-        let error = resolve_root(None, &mixengine_platform::mock::Host::without_home())
+        let error = resolve_root_with(None, None, &mixengine_platform::mock::Host::without_home())
             .expect_err("there is no default home to fall back to");
 
         assert_eq!(error.code, ErrorCode::PreconditionFailed);

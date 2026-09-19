@@ -6,6 +6,7 @@
 //! `.claude/architecture/overview.md`, all of them through `mixengine-elevate` — and the
 //! directories the user themselves moved with `[paths]`, which are still MixEngine's to remove.
 
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 use mixengine_platform::Host;
@@ -42,8 +43,9 @@ const CRASHES_DIR_NAME: &str = "crashes";
 
 /// Decide which directory is `MIXENGINE_HOME`.
 ///
-/// `override_` comes from the environment or the command line and wins outright; without one the
-/// platform decides. Either way the result is made absolute — the daemon outlives any particular
+/// `override_` comes from the environment or the command line and wins outright; without one a
+/// development checkout's suggestion is weighed
+/// ([`mixengine_platform::home::development_home`], T166), and then the platform decides. Either way the result is made absolute — the daemon outlives any particular
 /// working directory, and a relative root would quietly follow it around.
 ///
 /// The directory is not created and need not exist yet, so this stops short of `canonicalize`,
@@ -58,6 +60,21 @@ const CRASHES_DIR_NAME: &str = "crashes";
 /// override and the OS cannot say where user data belongs, and [`Error::Io`] if the path cannot be
 /// made absolute.
 pub fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<PathBuf> {
+    let suggested = std::env::var_os(mixengine_platform::home::DEV_HOME_VAR);
+    resolve_root_with(override_, suggested.as_deref(), host)
+}
+
+/// [`resolve_root`] with the development suggestion passed in rather than read from
+/// `MIXENGINE_DEV_HOME`, so that a test does not depend on the environment cargo gives it.
+///
+/// # Errors
+///
+/// As [`resolve_root`].
+pub fn resolve_root_with(
+    override_: Option<&Path>,
+    suggested: Option<&OsStr>,
+    host: &dyn Host,
+) -> Result<PathBuf> {
     let root = match override_ {
         // A guard at the library boundary, not the daemon's first line of defence: `clap` refuses
         // an empty `--home` and an empty `MIXENGINE_HOME` before either reaches this function, so
@@ -66,7 +83,10 @@ pub fn resolve_root(override_: Option<&Path>, host: &dyn Host) -> Result<PathBuf
         // empty override as "not given", which would point a sandbox run at the real install.
         Some(path) if path.as_os_str().is_empty() => return Err(Error::EmptyHome),
         Some(path) => path.to_path_buf(),
-        None => host.home_dirs().default_home()?,
+        None => match mixengine_platform::home::development_home_from(host, suggested) {
+            Some(path) => path,
+            None => host.home_dirs().default_home()?,
+        },
     };
 
     let absolute = std::path::absolute(&root).map_err(|source| Error::Io {
