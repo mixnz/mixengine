@@ -35,8 +35,8 @@
   transform: translateX(calc(100% + 12px));
   opacity: 0;
   transition:
-    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease-out;
+    transform 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 400ms ease-out;
 }
 
 .stage[data-slides] .panel.shown {
@@ -46,7 +46,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .stage[data-slides] .panel {
-    transition: opacity 120ms linear;
+    transition: opacity 240ms linear;
     transform: none;
   }
 }

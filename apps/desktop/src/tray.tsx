@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { I18nProvider } from "./i18n";
 import { blockNativeContextMenu } from "./core/nativeContextMenu";
 import { logError } from "./core/log";
+import { IS_MAC, IS_WINDOWS } from "./core/platform";
 import { readEnabledModules, visibleModules } from "./shell/profiles";
 /* The tokens, the ground and the theme the main window draws with. `shell/theme` applies the stored
    theme and accent as it is imported. */
@@ -21,6 +22,14 @@ import "./shell/App.css";
  */
 
 blockNativeContextMenu();
+
+/* On macOS and Windows the window is transparent and the page draws a card inside it — but
+   `App.css` paints `:root` with the page colour, which would fill the whole window and sit there,
+   already in place, while the card slid in over it. On Linux the window is an ordinary one and
+   keeps its ground. */
+if (IS_MAC || IS_WINDOWS) {
+  document.documentElement.style.backgroundColor = "transparent";
+}
 
 window.addEventListener("error", (e) => void logError("tray", e.error ?? e.message));
 window.addEventListener("unhandledrejection", (e) => void logError("tray", e.reason));

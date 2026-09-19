@@ -82,7 +82,7 @@ both of which the webview already does. Using one panel means one set of compone
   it opens over a full-screen app. **The window is transparent**, which on macOS takes
   `macos-private-api` and so rules out the Mac App Store, where MixLab is not. It is what lets the
   page draw a rounded card with its own shadow 10px inside the window, and **slide it in from the
-  right** each time the window is shown (280 ms, eased out; a plain fade under reduced motion).
+  right** each time the window is shown (560 ms, eased out; a plain fade under reduced motion).
 - **Showing and hiding:**
   - A click on the icon toggles the panel.
   - On macOS and Windows, `WindowEvent::Focused(false)` hides it, and the page puts the card back
