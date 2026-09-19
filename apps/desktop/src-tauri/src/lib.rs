@@ -78,13 +78,18 @@ pub fn run() {
     // MixLab at login, starting with `--hidden` — ADR 0042. Not in a development build: the entry
     // is named after the product, so a debug build would overwrite the release's, and it would
     // name an executable under `target/` that the next `cargo clean` removes.
+    //
+    // `macos_launcher` exists only in the plugin's macOS build, so it is asked for there alone. A
+    // debug build never compiles this block, which is how the call without a `cfg` went unnoticed
+    // until the release legs of `build` failed on the other four systems.
     #[cfg(all(desktop, not(debug_assertions)))]
-    let builder = builder.plugin(
-        tauri_plugin_autostart::Builder::new()
-            .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
-            .arg(launch::HIDDEN)
-            .build(),
-    );
+    let builder = builder.plugin({
+        let autostart = tauri_plugin_autostart::Builder::new();
+        #[cfg(target_os = "macos")]
+        let autostart =
+            autostart.macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent);
+        autostart.arg(launch::HIDDEN).build()
+    });
 
     // Each module puts its own state in; the list of commands they add up to is
     // `modules::handler`.
