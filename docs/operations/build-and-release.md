@@ -154,6 +154,17 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | `build` | the same five, after `window` and `binaries` of its own leg | installers for each OS (macOS ships one universal artifact), packaged from the two tars under `MIX_PREBUILT=1` and uploaded as `mixengine-<os>`; **fails if anything was compiled in it**, and reports the whole path's time against 18 minutes. All three jobs build **on a branch without LTO and with 16 codegen units, on a tag exactly as `[profile.release]` says** (T170h: a branch proves the packaging, which does not depend on LTO, and only a tag feeds `release`); the window has been placed by every installer since T105 |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' `mixengine-*` artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
+**macOS builds by ref** (T171c). Each of the three build jobs chooses the same way:
+
+| Ref | Release profile | macOS slices | macOS files |
+| --- | --- | --- | --- |
+| a `v*` tag | `[profile.release]` as written | x86_64 and aarch64 | `macos-universal` |
+| `master` | no LTO, 16 codegen units | x86_64 and aarch64 | `macos-universal` |
+| any other branch | no LTO, 16 codegen units | aarch64 only, x86_64 checked with `cargo check` | `macos-arm64` |
+
+So a branch's macOS artifacts do not run on an Intel Mac. The `lipo` path and the x86_64 release
+build are proved by every `master` run, before any tag.
+
 **Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
 their own, which is the thing that file will not do.
 

@@ -50,12 +50,16 @@ shopt -s nullglob
 case "$(uname -s)" in
   Darwin)
     # `--bundles app`, because a webview application on macOS is a directory rather than a file, and
-    # that directory is what goes into `/Applications`. Universal in one build: both slices are
-    # `rustup` targets here, exactly as `packaging/macos/build.sh` arranges for the other four.
-    rustup target add x86_64-apple-darwin aarch64-apple-darwin
-    (cd "$app" && npm run tauri -- build --bundles app --target universal-apple-darwin)
+    # that directory is what goes into `/Applications`. Universal in one build when both slices are
+    # asked for, one slice when only `aarch64` is (T171, E2) — the target is `mix_window_key`, so
+    # the directory this is staged under and the build that fills it cannot disagree.
+    window_target="$(mix_window_key)"
+    for slice in $(mix_macos_slices); do
+      rustup target add "$slice-apple-darwin"
+    done
+    (cd "$app" && npm run tauri -- build --bundles app --target "$window_target")
 
-    bundles=("$app/src-tauri/target/universal-apple-darwin/release/bundle/macos"/*.app)
+    bundles=("$app/src-tauri/target/$window_target/release/bundle/macos"/*.app)
     if [ ${#bundles[@]} -ne 1 ]; then
       echo "expected one .app under the macOS bundle directory, found ${#bundles[@]}" >&2
       printf '  %s\n' "${bundles[@]}" >&2

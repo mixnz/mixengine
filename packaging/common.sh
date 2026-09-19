@@ -171,15 +171,49 @@ mix_exe_suffix() {
   esac
 }
 
+# The macOS slices this build makes — T171, E2. Both unless told otherwise, so a tag, `master` and a
+# developer's machine build what has always shipped; CI sets `aarch64` alone on any other branch,
+# where a second release build of everything bought nothing a `cargo check` does not.
+#
+# Spelled as a closed list rather than taken apart word by word: a typo here would otherwise be a
+# package with one slice missing and a name claiming both.
+mix_macos_slices() {
+  case "${MIX_MACOS_SLICES:-x86_64 aarch64}" in
+    "x86_64 aarch64") echo "x86_64 aarch64" ;;
+    "aarch64") echo "aarch64" ;;
+    *)
+      echo "MIX_MACOS_SLICES is '$MIX_MACOS_SLICES'; it takes 'x86_64 aarch64' or 'aarch64'" >&2
+      exit 64
+      ;;
+  esac
+}
+
+# The word a macOS file name carries: what the slices add up to, so that a one-slice build can never
+# pass for universal in `dist`.
+mix_macos_label() {
+  local slices
+  slices="$(mix_macos_slices)" || exit $?
+  case "$slices" in
+    "aarch64") echo "arm64" ;;
+    *) echo "universal" ;;
+  esac
+}
+
 # Which staged window a target uses — T105, D2.
 #
-# **macOS is always `universal-apple-darwin`, whatever slice was asked for.**
-# `packaging/macos/build.sh` calls `stage.sh` once per architecture and the window is built once for
-# both, so keying its staging directory by the slice would build it twice and place whichever
-# finished last.
+# **On macOS the key is the slice set, whatever slice was asked for.** `packaging/macos/build.sh`
+# calls `stage.sh` once per architecture and the window is built once for all of them, so keying its
+# staging directory by the slice would build it twice and place whichever finished last.
 mix_window_key() {
+  local slices
   case "$(uname -s)" in
-    Darwin) echo "universal-apple-darwin" ;;
+    Darwin)
+      slices="$(mix_macos_slices)" || exit $?
+      case "$slices" in
+        "aarch64") echo "aarch64-apple-darwin" ;;
+        *) echo "universal-apple-darwin" ;;
+      esac
+      ;;
     *) echo "${1:-$(mix_host_target)}" ;;
   esac
 }

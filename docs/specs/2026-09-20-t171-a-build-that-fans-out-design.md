@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-20
 task: T171
 ---
@@ -76,6 +76,13 @@ system. Buying cache was declined when T170 was scoped.
 - **`window` and `binaries` have no `needs`**, so they start with the rest of the run. `build` has
   `needs: [window, binaries]` and runs only its own leg's packaging. The matrix stays in one place:
   each of the three jobs uses the same `include` list, and `build` downloads by `matrix.os`.
+- **`needs` waits for the whole matrix, not for the leg.** Actions has no per-leg dependency
+  between two matrix jobs, so every `build (os)` starts only when the slowest of all ten `window`
+  and `binaries` legs has finished. That was found while measuring Task 2, after the design was
+  agreed, and it is accepted. A run ends with its slowest leg either way, so the loss is at most
+  the difference between the packaging times, a few minutes. A per-leg dependency would mean five
+  hand-written `build` jobs without a matrix, five copies of every step to keep in step, and that
+  costs more than those minutes.
 - **Tars, not the raw files.** `upload-artifact` drops file modes and symlinks. An executable that
   arrives non-executable is a failure that looks nothing like its cause, and a macOS application
   bundle does not survive the trip without its symlinks.
@@ -179,6 +186,14 @@ compete with them. But a full run already has 5 macOS jobs (`test`, `services`, 
 `build`), and `window` and `binaries` make 6 that want to start together. One of them queues until
 another finishes, which is most likely `test (macos)` at 7 min. That delay is part of what the
 measurement in Rollout step 2 is for.
+
+The 20-job limit matters more. A full run asks for 29 jobs before any `build` can start, so 9 wait,
+and the queue fills in roughly the order `ci.yml` writes the jobs. `window` and `binaries` were
+written last, and one of them left waiting 8 minutes would put that leg's path near 25 minutes. So
+T171c also reorders the file: the two builds first, then `bench`, `test` and `services`, and the
+jobs that finish in minutes (`system`, `rustdoc`, `lint`, `bindings`, `docs`) last. `bench` goes
+before `system`, so the macOS job left waiting is `system` (5 min), not `bench` (16). GitHub does
+not promise this order. Estimated full-run wall time is 18–20 minutes against about 30 today.
 
 ## Documentation
 
