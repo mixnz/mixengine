@@ -209,16 +209,45 @@
   justify-content: center;
 }
 
+/* A site is one row you click: its scheme, its name, and where the click goes. Full width, so the
+   whole row is the target and not only the letters of the name. */
 .site {
+  width: 100%;
   display: flex;
-  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-h);
+  padding: 0 10px;
+  margin: 0 -10px;
+  box-sizing: content-box;
+  justify-content: flex-start;
+  border-radius: var(--radius-md);
 }
 
-.site > button {
-  max-width: 100%;
+.siteIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.siteName {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.siteGo {
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.site:hover .siteGo {
+  color: var(--text-secondary);
 }
 
 .footer {

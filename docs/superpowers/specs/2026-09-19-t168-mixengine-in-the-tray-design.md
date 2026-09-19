@@ -128,7 +128,8 @@ From top to bottom:
    - One button: **Start** when the service is stopped, **Stop** when it is running. While the call is
      in flight the row shows the pending state, as the Dashboard does (`pendingOps.ts`).
    - The list scrolls.
-3. **Stop all.** It asks for confirmation first (D4), then sends `service.stop` with no target —
+3. **Stop all.** It acts at once, as the Dashboard's does — the services start again with a click —
+   and sends `service.stop` with no target —
    `mixengine_service_stop_all`, a command of its own for the reason `mixengine_service_start_project`
    is one: an empty id must never be the way to say "everything".
 4. **Sites.** One row per site from `site.list`: the domain, which opens the site's URL in the default
@@ -141,18 +142,24 @@ From top to bottom:
 The panel keeps no state of its own that the Dashboard does not also keep. It re-reads `daemon.status`,
 `service.list` and `site.list` each time it is shown, and live updates come from D5.
 
-## D4. Confirmation happens inside the panel
+## D4. Stop MixEngine is confirmed inside the panel
 
-**Stop all** and **Stop MixEngine** do not act on the first click. The row turns into *"Stop N
-services?"* with **Cancel** and **Stop**, and the prompt goes back after 5 seconds or when the panel hides.
+**Stop MixEngine** does not act on the first click; **Stop all** does, as it does on the Dashboard.
+The footer turns into *"Stop MixEngine and every service it runs?"* with **Cancel** and **Stop**,
+and goes back after 5 seconds or when the panel hides.
 
 A native dialog would take focus from the popover and hide it in the middle of the question. It would also
 look different on each system, so it is not used. The Linux panel is an ordinary window and could have
 one, but the same inline row is used there too, so that the panel stays the same everywhere.
 
-After `daemon.shutdown` answers, the panel shows the result, for example *"Stopped 5 services"*, or the
-failures that `DaemonShutdown.services` names and `unordered` when it is set. It then switches to the stopped state.
-It does not report the stop as done before the answer arrives.
+After `daemon.shutdown` answers, the panel shows the result — how many services stopped with it,
+the failures that `DaemonShutdown.services` names, and `unordered` when it is set. It then
+switches to the stopped state. It does not report the stop as done before the answer arrives.
+
+**The two windows follow each other.** A daemon started from the panel is noticed by MixLab's
+gate, which asks `/health` every 2 seconds while it is up; one stopped from the panel ends MixLab's
+event stream, and the tab goes back to its gate. The panel does the same while it is open and the
+daemon is down. Services need nothing extra: both windows apply the same events.
 
 ## D5. The event stream serves every window
 

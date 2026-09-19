@@ -103,12 +103,12 @@ mix service delete mariadb@legacy
 
 ### From the tray
 
-MixLab puts a MixEngine icon in the tray (Windows), the menu bar (macOS) or the system tray
-(Linux). On Windows and macOS a click opens a panel beside the icon. On Linux a click opens a short
-menu, and **Open control panel** opens the same panel as a small window, because Linux does not tell
-an application about clicks on its icon. The panel lists your services with Start and Stop, has
-**Stop all**, lists your sites (a click opens one), and ends with **Open MixLab** and **Stop
-MixEngine**. **Stop all** and **Stop MixEngine** each ask you to confirm first.
+MixLab puts a MixEngine icon in the tray (Windows), the menu bar (macOS) or the system tray (Linux).
+On Windows and macOS a click slides a panel into the corner of the screen, beside the taskbar or
+under the menu bar. On Linux a click opens a short menu, and **Open control panel** opens the same
+panel as a small window, because Linux does not tell an application about clicks on its icon. The
+panel lists your services with Start and Stop, has **Stop all**, lists your sites (a click opens
+one), and ends with **Open MixLab** and **Stop MixEngine**, which asks you to confirm first.
 
 Closing MixLab's window while the icon is there only hides the window. Use the power button in the
 panel, or ⌘Q on macOS, to quit. Quitting MixLab leaves MixEngine running.

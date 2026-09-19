@@ -224,9 +224,35 @@ pub fn app_quit(app: AppHandle) {
 /// [`on_window_event`], where hiding the main window takes it out.
 pub(crate) fn show_in_dock<R: Runtime>(app: &AppHandle<R>) {
     #[cfg(target_os = "macos")]
-    let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+    {
+        let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        #[cfg(debug_assertions)]
+        restore_dev_dock_icon(app);
+    }
     #[cfg(not(target_os = "macos"))]
     let _ = app;
+}
+
+/// A development build is a bare executable, not an `.app`: its Dock icon is one Tauri sets by hand
+/// when the app starts, and macOS drops it for the generic "exec" one when the app comes back into
+/// the Dock. A release reads its icon from the bundle's `icon.icns` and needs none of this.
+#[cfg(all(target_os = "macos", debug_assertions))]
+fn restore_dev_dock_icon<R: Runtime>(app: &AppHandle<R>) {
+    use objc2::{AllocAnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
+
+    const ICON: &[u8] = include_bytes!("../icons/128x128@2x.png");
+    let _ = app.run_on_main_thread(|| {
+        let Some(mtm) = MainThreadMarker::new() else {
+            return;
+        };
+        let data = NSData::with_bytes(ICON);
+        if let Some(image) = NSImage::initWithData(NSImage::alloc(), &data) {
+            // SAFETY: on the main thread, with an image just made from a PNG this crate carries.
+            unsafe { NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image)) };
+        }
+    });
 }
 
 /// Asks the page to slide the card out and hide the window — and hides it anyway if the page has

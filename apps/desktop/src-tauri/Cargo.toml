@@ -124,6 +124,13 @@ portable-pty = "0.9"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# Putting the Dock icon back in a development build after the tray hid the app from the Dock
+# (`src/tray.rs`, `show_in_dock`). The same versions and features `tauri` already links on macOS.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSImage"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSData"] }
+
 # Whether a StatusNotifierItem host is on the session bus, before a tray icon nobody would draw is
 # made (`src/tray.rs`, T168d). The same major version and features `tauri-plugin-opener` already
 # pulls in on Linux, so this compiles nothing new.

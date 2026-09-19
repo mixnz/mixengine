@@ -4,7 +4,7 @@
 
 ### Added
 - MixEngine in the tray on Windows, macOS and Linux: a panel with your services (Start and Stop),
-  Stop all, your sites, Open MixLab and Stop MixEngine, the two stops confirmed first. Closing
+  Stop all, your sites, Open MixLab and Stop MixEngine, which asks first. Closing
   MixLab's window keeps it in the tray, and a Settings switch opens it there at login.
 - Java 11, 17, 21 and 25 install and pin like any runtime: `mix runtime install java`, a `java` pin
   in MixLab's project form, and `java`, `javac`, `jar`, `jshell`, `keytool` and `jlink` on the PATH.

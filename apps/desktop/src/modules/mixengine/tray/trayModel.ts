@@ -7,7 +7,11 @@ import { toggleMode } from "../serviceStateLabel";
  * The tray panel's pure halves — T168, `docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md`.
  */
 
-/** The two actions the panel asks about before doing (D4). */
+/**
+ * What the panel asks about before doing (D4). Only *Stop MixEngine* today — *Stop all* acts at
+ * once, as it does on the Dashboard — but the machine is written for more than one question, and
+ * its tests hold it to that.
+ */
 export type Confirmable = "stopAll" | "shutdown";
 
 /** How long a question waits for its answer before the row goes back to the button. */

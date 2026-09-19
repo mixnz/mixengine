@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "6a704ab1f117c728a3f6badcd4148bc6e037970d946cd15289bf14c570b77cb0"
+source_sha256 = "c98ef72115643a8e2d16743aa95848628b7838c2994eadcd97ea3591b14c2351"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -105,11 +105,11 @@ mix service delete mariadb@legacy
 ### Từ khay hệ thống
 
 MixLab đặt một icon MixEngine trên khay hệ thống (Windows, Linux) hoặc thanh menu (macOS). Trên
-Windows và macOS, bấm vào icon sẽ mở một bảng ngay cạnh icon. Trên Linux, bấm vào icon sẽ mở một
-menu ngắn, và **Mở bảng điều khiển** mở cùng bảng đó dưới dạng một cửa sổ nhỏ, vì Linux không báo
-cho ứng dụng biết khi icon được bấm. Bảng liệt kê các service kèm nút Chạy và Dừng, có **Dừng tất
-cả**, liệt kê các site (bấm vào để mở), và cuối bảng có **Mở MixLab** và **Tắt MixEngine**. **Dừng
-tất cả** và **Tắt MixEngine** đều hỏi xác nhận trước.
+Windows và macOS, bấm vào icon sẽ trượt một bảng vào góc màn hình, sát thanh taskbar hoặc menu bar.
+Trên Linux, bấm vào icon sẽ mở một menu ngắn, và **Mở bảng điều khiển** mở cùng bảng đó dưới dạng
+một cửa sổ nhỏ, vì Linux không báo cho ứng dụng biết khi icon được bấm. Bảng liệt kê các service kèm
+nút Chạy và Dừng, có **Dừng tất cả**, liệt kê các site (bấm vào để mở), và cuối bảng có **Mở
+MixLab** và **Tắt MixEngine**; riêng **Tắt MixEngine** hỏi xác nhận trước.
 
 Khi đã có icon, bấm đóng cửa sổ MixLab chỉ ẩn cửa sổ đi. Muốn thoát, dùng nút nguồn trong bảng, hoặc
 ⌘Q trên macOS. Thoát MixLab không tắt MixEngine.

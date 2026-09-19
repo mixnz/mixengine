@@ -11,7 +11,7 @@ import StatusPill, { type StatusTone } from "../../../components/StatusPill";
 import { errorMessage } from "../../../core/errors";
 import { IS_MAC, IS_WINDOWS } from "../../../core/platform";
 import { hideTrayPanel, openMainWindow, quitApp } from "../../../core/window";
-import { PlayIcon, PowerIcon, StopIcon } from "../../../icons";
+import { ChevronRightIcon, GlobeIcon, LockIcon, PlayIcon, PowerIcon, StopIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import * as api from "../api";
 import { applyEvent, needsResync, rowsFrom, type ServiceRow } from "../daemonState";
@@ -33,6 +33,9 @@ import styles from "./TrayPanel.module.css";
 /* The popover slides in from the right on the two systems where it is one. On Linux it is an
    ordinary window the window manager placed, and content sliding about inside it would look broken. */
 const SLIDES = IS_MAC || IS_WINDOWS;
+
+/** How often an open panel asks whether a daemon has come up elsewhere — MixLab's Start, `mix`. */
+const POLL_MS = 2000;
 
 /** The slide out, to the millisecond of `TrayPanel.module.css`'s exit transition. */
 const SLIDE_OUT_MS = 420;
@@ -149,6 +152,14 @@ function TrayPanel() {
     };
   }, [refresh, dispatchConfirm]);
 
+  /* Stopped here and started from MixLab or `mix` while the panel is open: nothing else would tell
+     it, because a stopped daemon has no event stream to send the news on. */
+  useEffect(() => {
+    if (!shown || presence === null || presence === "running") return;
+    const poll = window.setInterval(() => void refresh(), POLL_MS);
+    return () => window.clearInterval(poll);
+  }, [shown, presence, refresh]);
+
   useEffect(
     () =>
       subscribeDaemonWatch((raw) => {
@@ -263,23 +274,14 @@ function TrayPanel() {
   }
 
   function confirmNow() {
-    if (confirm === "stopAll") {
-      void perform("stopAll", async () => {
-        await api.serviceStopAll();
-      });
-    } else if (confirm === "shutdown") {
+    if (confirm === "shutdown") {
       void perform("shutdown", async () => {
         setReport(shutdownReport(await api.shutdown()));
       });
     }
   }
 
-  const question =
-    confirm === "stopAll"
-      ? t("mixengine.tray.confirmStopAll")
-      : confirm === "shutdown"
-        ? t("mixengine.tray.confirmShutdown")
-        : null;
+  const question = confirm === "shutdown" ? t("mixengine.tray.confirmShutdown") : null;
 
   return (
     <div className={styles.stage} data-slides={SLIDES || undefined}>
@@ -345,7 +347,21 @@ function TrayPanel() {
             <section className={styles.section}>
               <div className={styles.sectionHead}>
                 <h2 className={styles.title}>{t("mixengine.tray.services")}</h2>
-                {counts.up > 0 && armButton("stopAll", t("mixengine.tray.stopAll"), "default", "small")}
+                {/* No question first, as on the Dashboard: the services start again with a click. */}
+                {counts.up > 0 && (
+                  <Button
+                    size="small"
+                    busy={working === "stopAll" ? t("mixengine.dashboard.stopping") : undefined}
+                    disabled={working !== null && working !== "stopAll"}
+                    onClick={() =>
+                      void perform("stopAll", async () => {
+                        await api.serviceStopAll();
+                      })
+                    }
+                  >
+                    {t("mixengine.tray.stopAll")}
+                  </Button>
+                )}
               </div>
               {rows.length === 0 ? (
                 <p className={styles.empty}>{t("mixengine.tray.noServices")}</p>
@@ -411,13 +427,23 @@ function TrayPanel() {
                 <p className={styles.empty}>{t("mixengine.tray.noSites")}</p>
               ) : (
                 <ul className={styles.list}>
-                  {sites.map((site) => (
-                    <li key={site.domain} className={styles.site}>
-                      <Button variant="link" size="small" title={site.domain} onClick={() => void visit(site)}>
-                        {site.domain}
-                      </Button>
-                    </li>
-                  ))}
+                  {sites.map((site) => {
+                    const SchemeIcon = site.https ? LockIcon : GlobeIcon;
+                    return (
+                      <li key={site.domain}>
+                        <Button
+                          variant="ghost"
+                          className={styles.site}
+                          title={t("mixengine.tray.openSite", { domain: site.domain })}
+                          onClick={() => void visit(site)}
+                        >
+                          <SchemeIcon size={14} className={styles.siteIcon} />
+                          <span className={styles.siteName}>{site.domain}</span>
+                          <ChevronRightIcon size={14} className={styles.siteGo} />
+                        </Button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
