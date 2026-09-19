@@ -74,23 +74,30 @@ both of which the webview already does. Using one panel means one set of compone
   Creating it on the first click costs a visible half-second on the first open. Creating it once is
   roughly one more renderer process, which WebView2 and WKWebView share with the main window's
   process group.
-- **Size:** 360 × 520 logical pixels on macOS and Windows. On Linux, where it is a normal window,
-  the minimum size is the same.
-- **macOS and Windows window attributes:** `decorations: false`, `always_on_top`, `skip_taskbar`,
-  `resizable: false`, and on macOS `visible_on_all_workspaces`, so it opens over a full-screen app.
-  **The window is opaque.** A transparent window with rounded corners needs `macos-private-api`,
-  which is not worth it for the first version.
+- **Size:** 440 × 600 logical pixels on macOS and Windows. On Linux, where it is a normal window,
+  the minimum size is the same. (360 × 520 was the first measure; a service row with *Resting —
+  starts on the next visit* in it pushed its own name out and its button off the card.)
+- **macOS and Windows window attributes:** `decorations: false`, `transparent`, no system shadow,
+  `always_on_top`, `skip_taskbar`, `resizable: false`, and on macOS `visible_on_all_workspaces`, so
+  it opens over a full-screen app. **The window is transparent**, which on macOS takes
+  `macos-private-api` and so rules out the Mac App Store, where MixLab is not. It is what lets the
+  page draw a rounded card with its own shadow 10px inside the window, and **slide it in from the
+  right** each time the window is shown (280 ms, eased out; a plain fade under reduced motion).
 - **Showing and hiding:**
   - A click on the icon toggles the panel.
-  - On macOS and Windows, `WindowEvent::Focused(false)` hides it.
+  - On macOS and Windows, `WindowEvent::Focused(false)` hides it, and the page puts the card back
+    off the edge so the next show slides again.
   - Clicking the icon while the panel is open raises both events: the focus loss hides the panel and the
     click would show it again. So a click that arrives **within 250 ms of a blur-hide is ignored**.
-- **Position** comes from a pure function, `panel_position(icon_rect, panel_size, work_area)`:
-  - Below the icon when the icon is in the top half of its monitor, above it otherwise. This covers a
-    Windows taskbar on any edge and the macOS menu bar.
-  - Centred on the icon horizontally, then clamped into the monitor's work area.
-  - `tauri-plugin-positioner` is not used. Its tray positions assume a bottom taskbar on Windows, and a
-    function this small can be tested on its own.
+- **Position: the corner, not the icon.** The window goes in the right-hand corner of the usable
+  area on the bar's side — under the menu bar on macOS, against a bottom taskbar in the bottom
+  corner, under a top one in the top corner — the way the system's own tray panels sit. Two pure
+  functions, `bar_at_top` (from where the icon is, or where the work area starts when that makes
+  no sense) and `panel_position`, carry it and are tested on their own.
+  - **Which monitor** is found by asking every monitor whether it holds the click, as a physical
+    point and as a logical one: the point a tray event carries is physical on Windows and logical on
+    macOS, and `monitor_from_point` with the wrong one finds nothing — the first build opened the
+    panel wherever the window manager put it. The primary monitor answers when none does.
 
 ## D3. What the panel shows
 

@@ -25,8 +25,11 @@ tauri-build = { version = "2", features = [] }
 # here so the import (`import.rs`) can say what it skipped and why: it runs before any window is
 # drawn, and there is nowhere else for it to say it.
 log = "0.4"
-# `tray-icon`: MixEngine in the tray or the menu bar — T168, `src/tray.rs`.
-tauri = { version = "2", features = ["tray-icon"] }
+# `tray-icon`: MixEngine in the tray or the menu bar — T168, `src/tray.rs`. `macos-private-api`:
+# the only way a macOS window is transparent, which is what gives the tray panel its rounded card and
+# lets it slide in from the edge without dragging a rectangle behind it. The cost is the Mac App
+# Store, which MixLab is not in.
+tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

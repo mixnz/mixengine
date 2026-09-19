@@ -1,10 +1,23 @@
-/* The tray panel fills its window: a pinned header, a body that scrolls, a pinned footer. */
-.panel {
-  display: flex;
-  flex-direction: column;
+/* The tray panel. On macOS and Windows the window is transparent and sits in the corner of the
+   screen; the card is drawn 10px inside it — the gap the eye sees, and room for its shadow — and
+   slides in from the right each time the window is shown. On Linux the window is an ordinary one and
+   the card simply fills it. */
+.stage {
   width: 100%;
   height: 100vh;
   box-sizing: border-box;
+  display: flex;
+  overflow: hidden;
+}
+
+.stage[data-slides] {
+  padding: 10px;
+}
+
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
   background: var(--page-bg);
@@ -12,11 +25,37 @@
   font-family: var(--font-ui);
 }
 
+.stage[data-slides] .panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-popover);
+  overflow: hidden;
+  /* Off the right-hand edge until shown. The window clips it, so it appears to come out of the
+     side of the screen. */
+  transform: translateX(calc(100% + 12px));
+  opacity: 0;
+  transition:
+    transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 200ms ease-out;
+}
+
+.stage[data-slides] .panel.shown {
+  transform: none;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage[data-slides] .panel {
+    transition: opacity 120ms linear;
+    transform: none;
+  }
+}
+
 .header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 16px 12px;
+  gap: 12px;
+  padding: 16px 18px 14px;
   border-bottom: 1px solid var(--border-soft);
   flex-shrink: 0;
 }
@@ -29,11 +68,12 @@
 .brand {
   display: flex;
   flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .name {
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
@@ -46,18 +86,19 @@
 .body {
   flex: 1;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
-  padding: 12px 16px;
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 
 .summary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 10px;
+  gap: 8px 12px;
 }
 
 .counts {
@@ -85,7 +126,7 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .sectionHead {
@@ -119,11 +160,14 @@
   flex-direction: column;
 }
 
+/* Badge, then the name over its state, then one button. The middle column is the one that gives
+   way, so neither the badge nor the button is ever pushed out of the card. */
 .row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px;
-  min-height: var(--row-h);
+  column-gap: 12px;
+  padding: 8px 0;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -131,13 +175,31 @@
   border-bottom: none;
 }
 
-.rowName {
-  flex: 1;
+.rowText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
+}
+
+.rowName {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.rowState {
+  max-width: 100%;
+}
+
+/* Start and Stop the same width, so a column of them lines up whatever each row says. */
+.toggle {
+  min-width: 84px;
+  justify-content: center;
 }
 
 .site {
@@ -152,31 +214,35 @@
   white-space: nowrap;
 }
 
-/* The question that replaces a Stop button until it is answered. */
-.confirm {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.question {
-  font-size: var(--text-sm);
-  color: var(--text);
-}
-
 .footer {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 10px 16px;
+  padding: 12px 18px;
   border-top: 1px solid var(--border-soft);
   background: var(--chrome-bg);
   flex-shrink: 0;
 }
 
-.quit {
-  margin-left: auto;
+/* The two actions share the width; the quit icon keeps its own. */
+.footerAction {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+
+.footerAction > button,
+button.footerAction {
+  flex: 1;
+  justify-content: center;
+}
+
+.asking {
+  flex-wrap: wrap;
+}
+
+.question {
+  flex: 1 1 180px;
+  font-size: var(--text-sm);
+  color: var(--text);
 }

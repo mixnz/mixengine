@@ -31,8 +31,14 @@ const MAIN: &str = "main";
 const ICON: &str = "mixengine";
 
 /// The panel's size in logical pixels. On Linux it is a normal window and this is its minimum.
-const PANEL_WIDTH: f64 = 360.0;
-const PANEL_HEIGHT: f64 = 520.0;
+const PANEL_WIDTH: f64 = 440.0;
+const PANEL_HEIGHT: f64 = 600.0;
+
+/// The gap between the window and the edges of the usable area, in logical pixels. None: the page
+/// keeps its card 10px inside the window, which is both the gap the eye sees and the room the
+/// card's shadow is drawn in.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+const PANEL_MARGIN: f64 = 0.0;
 
 /// A click on the icon this soon after the panel hid itself on blur is the same gesture, not a
 /// new one: clicking the icon takes focus from the panel first, and the click arrives after.
@@ -146,8 +152,12 @@ pub fn create_panel<R: Runtime>(app: &AppHandle<R>) {
         .visible(false)
         .inner_size(PANEL_WIDTH, PANEL_HEIGHT);
 
+    // Transparent and without the system's shadow: the page draws a rounded card with its own
+    // shadow inside a margin of this window, and slides it in from the right (`TrayPanel.module.css`).
     #[cfg(not(target_os = "linux"))]
     let builder = builder
+        .transparent(true)
+        .shadow(false)
         .decorations(false)
         .always_on_top(true)
         .skip_taskbar(true)
@@ -322,27 +332,34 @@ fn on_icon_event(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
         return;
     }
 
-    if let Ok(Some(monitor)) = app.monitor_from_point(position.x, position.y) {
-        let scale = monitor.scale_factor();
-        let icon = rect.position.to_physical::<f64>(scale);
-        let icon_size = rect.size.to_physical::<f64>(scale);
-        let work = monitor.work_area();
-        let (x, y) = panel_position(
-            Bounds {
-                x: icon.x,
-                y: icon.y,
-                width: icon_size.width,
-                height: icon_size.height,
-            },
-            (PANEL_WIDTH * scale, PANEL_HEIGHT * scale),
-            Bounds {
+    match monitor_under(app, position.x, position.y) {
+        Some(monitor) => {
+            let scale = monitor.scale_factor();
+            let icon = rect.position.to_physical::<f64>(scale);
+            let icon_size = rect.size.to_physical::<f64>(scale);
+            let screen = Bounds {
+                x: f64::from(monitor.position().x),
+                y: f64::from(monitor.position().y),
+                width: f64::from(monitor.size().width),
+                height: f64::from(monitor.size().height),
+            };
+            let work = monitor.work_area();
+            let work = Bounds {
                 x: f64::from(work.position.x),
                 y: f64::from(work.position.y),
                 width: f64::from(work.size.width),
                 height: f64::from(work.size.height),
-            },
-        );
-        let _ = panel.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+            };
+            let at_top = bar_at_top(icon.y + icon_size.height / 2.0, screen, work);
+            let (x, y) = panel_position(
+                at_top,
+                (PANEL_WIDTH * scale, PANEL_HEIGHT * scale),
+                work,
+                PANEL_MARGIN * scale,
+            );
+            let _ = panel.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32));
+        }
+        None => log::warn!("tray: no monitor found for a click at {position:?}"),
     }
     let _ = panel.show();
     let _ = panel.set_focus();
@@ -468,6 +485,36 @@ fn on_menu_event(app: &AppHandle, id: &str) {
     }
 }
 
+/// The monitor a click on the icon happened on.
+///
+/// Not `monitor_from_point` alone: the point a tray event carries is physical on Windows and
+/// logical on macOS, and asking with the wrong one finds nothing — which is how the panel once
+/// opened wherever the window manager put it instead of beside the menu bar. So every monitor is
+/// asked both ways, and the primary one answers when none contains the point.
+#[cfg(not(target_os = "linux"))]
+fn monitor_under(app: &AppHandle, x: f64, y: f64) -> Option<tauri::Monitor> {
+    let monitors = app.available_monitors().unwrap_or_default();
+    let contains = |monitor: &tauri::Monitor, x: f64, y: f64| {
+        let origin = monitor.position();
+        let size = monitor.size();
+        x >= f64::from(origin.x)
+            && x < f64::from(origin.x) + f64::from(size.width)
+            && y >= f64::from(origin.y)
+            && y < f64::from(origin.y) + f64::from(size.height)
+    };
+    monitors
+        .iter()
+        .find(|m| contains(m, x, y))
+        .or_else(|| {
+            monitors.iter().find(|m| {
+                let scale = m.scale_factor();
+                contains(m, x * scale, y * scale)
+            })
+        })
+        .cloned()
+        .or_else(|| app.primary_monitor().ok().flatten())
+}
+
 /// A rectangle in physical pixels. Linux is never told where its icon is, so it has no use for one.
 #[cfg_attr(target_os = "linux", allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -478,28 +525,36 @@ struct Bounds {
     height: f64,
 }
 
-/// Where the panel's top-left corner goes, for an icon at `icon` on a monitor whose usable area is
-/// `work`.
+/// Whether the bar the icon sits in runs along the top of the screen — the macOS menu bar, a
+/// Windows taskbar moved up — rather than the bottom.
 ///
-/// Below the icon when the icon sits in the top half of that area — the macOS menu bar, a Windows
-/// taskbar moved to the top — and above it otherwise; centred on the icon, then kept inside the
-/// area. A taskbar on the left or right puts the icon in neither half in particular, and the clamp
-/// is what keeps the panel on screen there.
+/// The icon says it best: it is in the bar. When its position makes no sense (outside the
+/// screen), the usable area does: a bar at the top pushes it down from the screen's edge.
 #[cfg_attr(target_os = "linux", allow(dead_code))]
-fn panel_position(icon: Bounds, panel: (f64, f64), work: Bounds) -> (f64, f64) {
-    let (width, height) = panel;
-    let icon_centre_y = icon.y + icon.height / 2.0;
-    let below = icon_centre_y < work.y + work.height / 2.0;
-
-    let x = icon.x + icon.width / 2.0 - width / 2.0;
-    let y = if below {
-        icon.y + icon.height
+fn bar_at_top(icon_centre_y: f64, screen: Bounds, work: Bounds) -> bool {
+    if icon_centre_y >= screen.y && icon_centre_y < screen.y + screen.height {
+        icon_centre_y < screen.y + screen.height / 2.0
     } else {
-        icon.y - height
-    };
+        work.y > screen.y
+    }
+}
 
-    let x = x.clamp(work.x, (work.x + work.width - width).max(work.x));
-    let y = y.clamp(work.y, (work.y + work.height - height).max(work.y));
+/// Where the panel's top-left corner goes: in the right-hand corner of the usable area on the
+/// bar's side, `margin` in from both edges — tucked against the taskbar or under the menu bar,
+/// the way the system's own tray panels sit, rather than hanging off the icon.
+///
+/// A taskbar on the right is outside the usable area already, so "the right-hand corner" is the
+/// one beside it. One on the left leaves the panel in the corner opposite, which is still the
+/// corner every other tray panel on that screen uses.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
+fn panel_position(at_top: bool, panel: (f64, f64), work: Bounds, margin: f64) -> (f64, f64) {
+    let (width, height) = panel;
+    let x = (work.x + work.width - width - margin).max(work.x);
+    let y = if at_top {
+        work.y + margin
+    } else {
+        (work.y + work.height - height - margin).max(work.y)
+    };
     (x, y)
 }
 
@@ -507,7 +562,7 @@ fn panel_position(icon: Bounds, panel: (f64, f64), work: Bounds) -> (f64, f64) {
 mod tests {
     use super::*;
 
-    const PANEL_SIZE: (f64, f64) = (360.0, 520.0);
+    const PANEL_SIZE: (f64, f64) = (440.0, 600.0);
 
     fn bounds(x: f64, y: f64, width: f64, height: f64) -> Bounds {
         Bounds {
@@ -519,86 +574,74 @@ mod tests {
     }
 
     #[test]
-    fn a_menu_bar_icon_gets_the_panel_under_it() {
+    fn a_menu_bar_puts_the_panel_in_the_top_right_corner() {
         // macOS: a 1440×900 screen whose work area starts under a 25px menu bar.
-        let icon = bounds(1200.0, 0.0, 24.0, 24.0);
+        let screen = bounds(0.0, 0.0, 1440.0, 900.0);
         let work = bounds(0.0, 25.0, 1440.0, 875.0);
-        let (x, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, 1212.0 - 180.0);
-        assert_eq!(y, 25.0, "clamped just under the menu bar");
-    }
-
-    #[test]
-    fn a_bottom_taskbar_icon_gets_the_panel_above_it() {
-        let icon = bounds(1500.0, 1050.0, 24.0, 30.0);
-        let work = bounds(0.0, 0.0, 1920.0, 1040.0);
-        let (x, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, 1512.0 - 180.0);
+        assert!(bar_at_top(12.0, screen, work));
         assert_eq!(
-            y,
-            1040.0 - 520.0,
-            "kept inside the work area, above the taskbar"
+            panel_position(true, PANEL_SIZE, work, 8.0),
+            (1440.0 - 440.0 - 8.0, 33.0)
         );
     }
 
     #[test]
-    fn a_top_taskbar_icon_gets_the_panel_below_it() {
-        let icon = bounds(1500.0, 5.0, 24.0, 30.0);
-        let work = bounds(0.0, 40.0, 1920.0, 1040.0);
-        let (_, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(y, 40.0);
-    }
-
-    #[test]
-    fn an_icon_at_the_right_edge_keeps_the_panel_on_screen() {
-        let icon = bounds(1900.0, 1050.0, 20.0, 30.0);
+    fn a_bottom_taskbar_puts_the_panel_in_the_bottom_right_corner() {
+        let screen = bounds(0.0, 0.0, 1920.0, 1080.0);
         let work = bounds(0.0, 0.0, 1920.0, 1040.0);
-        let (x, _) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, 1920.0 - 360.0);
+        assert!(!bar_at_top(1060.0, screen, work));
+        assert_eq!(
+            panel_position(false, PANEL_SIZE, work, 8.0),
+            (1920.0 - 448.0, 1040.0 - 608.0)
+        );
     }
 
     #[test]
-    fn a_left_taskbar_keeps_the_panel_inside_the_work_area() {
-        // The taskbar is 60px wide on the left; the icon is low on it.
-        let icon = bounds(18.0, 900.0, 24.0, 24.0);
-        let work = bounds(60.0, 0.0, 1860.0, 1080.0);
-        let (x, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, 60.0);
-        assert_eq!(y, 900.0 - 520.0);
+    fn a_top_taskbar_puts_the_panel_under_it() {
+        let screen = bounds(0.0, 0.0, 1920.0, 1080.0);
+        let work = bounds(0.0, 40.0, 1920.0, 1040.0);
+        assert!(bar_at_top(20.0, screen, work));
+        assert_eq!(panel_position(true, PANEL_SIZE, work, 8.0).1, 48.0);
     }
 
     #[test]
-    fn a_right_taskbar_keeps_the_panel_inside_the_work_area() {
-        let icon = bounds(1880.0, 200.0, 24.0, 24.0);
+    fn a_right_taskbar_puts_the_panel_beside_it() {
         let work = bounds(0.0, 0.0, 1860.0, 1080.0);
-        let (x, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, 1860.0 - 360.0);
-        assert_eq!(y, 224.0);
+        assert_eq!(
+            panel_position(false, PANEL_SIZE, work, 8.0).0,
+            1860.0 - 448.0
+        );
+    }
+
+    #[test]
+    fn an_icon_off_the_screen_falls_back_to_where_the_work_area_starts() {
+        let screen = bounds(0.0, 0.0, 1440.0, 900.0);
+        assert!(bar_at_top(-5.0, screen, bounds(0.0, 25.0, 1440.0, 875.0)));
+        assert!(!bar_at_top(-5.0, screen, bounds(0.0, 0.0, 1440.0, 860.0)));
     }
 
     #[test]
     fn a_monitor_left_of_the_primary_one_has_negative_coordinates() {
-        let icon = bounds(-300.0, 1050.0, 24.0, 30.0);
         let work = bounds(-1920.0, 0.0, 1920.0, 1040.0);
-        let (x, y) = panel_position(icon, PANEL_SIZE, work);
-        assert_eq!(x, -288.0 - 180.0);
-        assert_eq!(y, 520.0);
+        assert_eq!(
+            panel_position(false, PANEL_SIZE, work, 8.0),
+            (-448.0, 1040.0 - 608.0)
+        );
     }
 
     #[test]
     fn a_scaled_monitor_is_measured_in_physical_pixels() {
-        // 150%: the caller hands in the panel at 540×780 and the rest in physical pixels too.
-        let icon = bounds(2000.0, 1560.0, 36.0, 45.0);
-        let work = bounds(0.0, 0.0, 2880.0, 1560.0);
-        let (x, y) = panel_position(icon, (540.0, 780.0), work);
-        assert_eq!(x, 2018.0 - 270.0);
-        assert_eq!(y, 1560.0 - 780.0);
+        // 200%: the caller hands in the panel, the margin and the area in physical pixels.
+        let work = bounds(0.0, 50.0, 2880.0, 1750.0);
+        assert_eq!(
+            panel_position(true, (880.0, 1200.0), work, 16.0),
+            (2880.0 - 896.0, 66.0)
+        );
     }
 
     #[test]
     fn a_panel_larger_than_the_work_area_starts_at_its_corner() {
-        let icon = bounds(100.0, 10.0, 24.0, 24.0);
         let work = bounds(0.0, 0.0, 300.0, 400.0);
-        assert_eq!(panel_position(icon, PANEL_SIZE, work), (0.0, 0.0));
+        assert_eq!(panel_position(false, PANEL_SIZE, work, 8.0), (0.0, 0.0));
     }
 }

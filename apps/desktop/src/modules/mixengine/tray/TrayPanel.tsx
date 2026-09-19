@@ -9,6 +9,7 @@ import ErrorBanner from "../../../components/ErrorBanner";
 import MonogramBadge from "../../../components/MonogramBadge";
 import StatusPill, { type StatusTone } from "../../../components/StatusPill";
 import { errorMessage } from "../../../core/errors";
+import { IS_MAC, IS_WINDOWS } from "../../../core/platform";
 import { hideTrayPanel, openMainWindow, quitApp } from "../../../core/window";
 import { PlayIcon, PowerIcon, StopIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
@@ -29,6 +30,10 @@ import {
 } from "./trayModel";
 import styles from "./TrayPanel.module.css";
 
+/* The popover slides in from the right on the two systems where it is one. On Linux it is an
+   ordinary window the window manager placed, and content sliding about inside it would look broken. */
+const SLIDES = IS_MAC || IS_WINDOWS;
+
 /**
  * The tray panel — T168, the spec's D3. What the Dashboard would say about this machine, in 360
  * pixels: the daemon, its services with Start and Stop, *Stop all*, the sites, and the way into
@@ -48,6 +53,9 @@ function TrayPanel() {
   const [confirm, setConfirm] = useState<Confirmable | null>(null);
   const [report, setReport] = useState<ShutdownReport | null>(null);
   const [error, setError] = useState("");
+  /* Off to the right until the window is focused, and back there the moment it is not — so that
+     the next show starts from the edge instead of flashing where it was. */
+  const [shown, setShown] = useState(!SLIDES);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
@@ -97,8 +105,11 @@ function TrayPanel() {
         if (focused) {
           setReport(null);
           void refresh();
+          // One frame at the edge first, or the browser skips straight to the end of the slide.
+          if (SLIDES) requestAnimationFrame(() => setShown(true));
         } else {
           dispatchConfirm({ type: "hide" });
+          if (SLIDES) setShown(false);
         }
       })
       .then((stop) => {
@@ -192,26 +203,13 @@ function TrayPanel() {
   const running = presence === "running";
   const counts = serviceCounts(rows);
 
-  function confirmRow(key: Confirmable, label: string, question: string, onConfirm: () => void) {
-    if (confirm === key) {
-      return (
-        <div className={styles.confirm} role="group" aria-label={question}>
-          <span className={styles.question}>{question}</span>
-          <Button size="small" onClick={() => dispatchConfirm({ type: "cancel" })}>
-            {t("mixengine.tray.cancel")}
-          </Button>
-          <Button size="small" variant="danger" onClick={onConfirm}>
-            {t("mixengine.tray.confirm")}
-          </Button>
-        </div>
-      );
-    }
+  function armButton(key: Confirmable, label: string, variant: "default" | "danger", size: "small" | "normal") {
     return (
       <Button
-        size="small"
-        variant={key === "shutdown" ? "danger" : "default"}
+        size={size}
+        variant={variant}
         busy={working === key ? t("mixengine.dashboard.stopping") : undefined}
-        disabled={working !== null}
+        disabled={working !== null && working !== key}
         onClick={() => dispatchConfirm({ type: "arm", key })}
       >
         {label}
@@ -219,181 +217,203 @@ function TrayPanel() {
     );
   }
 
+  function confirmNow() {
+    if (confirm === "stopAll") {
+      void perform("stopAll", async () => {
+        await api.serviceStopAll();
+      });
+    } else if (confirm === "shutdown") {
+      void perform("shutdown", async () => {
+        setReport(shutdownReport(await api.shutdown()));
+      });
+    }
+  }
+
+  const question =
+    confirm === "stopAll"
+      ? t("mixengine.tray.confirmStopAll")
+      : confirm === "shutdown"
+        ? t("mixengine.tray.confirmShutdown")
+        : null;
+
   return (
-    <div className={styles.panel} data-density="compact">
-      <header className={styles.header}>
-        <img className={styles.logo} src="/logo.svg" alt="" width={28} height={28} />
-        <div className={styles.brand}>
-          <span className={styles.name}>MixEngine</span>
-          <span className={styles.slogan}>{t("mixengine.tray.slogan")}</span>
-        </div>
-      </header>
+    <div className={styles.stage} data-slides={SLIDES || undefined}>
+      <div className={`${styles.panel} ${shown ? styles.shown : ""}`} data-density="compact">
+        <header className={styles.header}>
+          <img className={styles.logo} src="/logo.svg" alt="" width={32} height={32} />
+          <div className={styles.brand}>
+            <span className={styles.name}>MixEngine</span>
+            <span className={styles.slogan}>{t("mixengine.tray.slogan")}</span>
+          </div>
+        </header>
 
-      <div className={styles.body}>
-        {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+        <div className={styles.body}>
+          {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-        <section className={styles.summary}>
-          {presence === null ? null : running ? (
-            <>
-              <StatusPill tone="success">{t("mixengine.tray.running")}</StatusPill>
-              <span className={styles.counts}>
-                {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
-              </span>
-            </>
-          ) : (
-            <>
-              <p className={styles.state}>
-                {presence === "notRunning" ? t("mixengine.tray.stopped") : t(`mixengine.gate.${presence}`)}
-              </p>
-              {presence === "notRunning" &&
-                (setupFree ? (
-                  <Button size="small" variant="primary" onClick={() => void openMainWindow()}>
-                    {t("mixengine.tray.setUp")}
-                  </Button>
-                ) : (
-                  <Button
-                    size="small"
-                    variant="primary"
-                    busy={working === "start" ? t("mixengine.gate.starting") : undefined}
-                    onClick={() =>
-                      void perform("start", async () => {
-                        await api.startDaemon();
-                      })
-                    }
-                  >
-                    {t("mixengine.gate.start")}
-                  </Button>
-                ))}
-              {presence !== "notRunning" && (
-                <Button size="small" onClick={() => void openMainWindow()}>
-                  {t("mixengine.tray.openMain")}
-                </Button>
-              )}
-            </>
-          )}
-          {report !== null && (
-            <div className={styles.report} role="status">
-              <p>{t("mixengine.tray.shutdownDone", { count: report.stopped })}</p>
-              {report.failed !== null && (
-                <p>{t("mixengine.tray.shutdownFailed", { service: report.failed })}</p>
-              )}
-              {report.unordered !== null && (
-                <p>{t("mixengine.tray.unordered", { message: report.unordered })}</p>
-              )}
-            </div>
-          )}
-        </section>
-
-        {running && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.title}>{t("mixengine.tray.services")}</h2>
-              {counts.up > 0 &&
-                confirmRow(
-                  "stopAll",
-                  t("mixengine.tray.stopAll"),
-                  t("mixengine.tray.confirmStopAll", { count: counts.up }),
-                  () =>
-                    void perform("stopAll", async () => {
-                      await api.serviceStopAll();
-                    }),
-                )}
-            </div>
-            {rows.length === 0 ? (
-              <p className={styles.empty}>{t("mixengine.tray.noServices")}</p>
+          <section className={styles.summary}>
+            {presence === null ? null : running ? (
+              <>
+                <StatusPill tone="success">{t("mixengine.tray.running")}</StatusPill>
+                <span className={styles.counts}>
+                  {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
+                </span>
+              </>
             ) : (
-              <ul className={styles.list}>
-                {rows.map((row) => {
-                  const pending = busy[row.id];
-                  const mode = toggleMode(row.state, pending !== undefined);
-                  return (
-                    <li key={row.id} className={styles.row}>
-                      <MonogramBadge name={row.id} size={28} />
-                      <span className={styles.rowName} title={row.id}>
-                        {row.id}
-                      </span>
-                      <StatusPill tone={pending ? "warning" : pillTone(row)} pulse={mode === "moving"}>
-                        {pending
-                          ? t(pending === "stop" ? "mixengine.dashboard.stopping" : "mixengine.dashboard.starting")
-                          : stateLabel(row)}
-                      </StatusPill>
-                      {mode === "up" ? (
-                        <Button
-                          size="small"
-                          aria-label={t("mixengine.dashboard.stopService", { service: row.id })}
-                          onClick={() => void act(row.id, "stop")}
-                        >
-                          <StopIcon size={11} />
-                          {t("mixengine.dashboard.stop")}
-                        </Button>
-                      ) : (
-                        <Button
-                          size="small"
-                          variant="positive"
-                          disabled={mode === "moving"}
-                          aria-label={t("mixengine.dashboard.startService", { service: row.id })}
-                          onClick={() => void act(row.id, "start")}
-                        >
-                          <PlayIcon size={11} />
-                          {t("mixengine.dashboard.start")}
-                        </Button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </section>
-        )}
-
-        {running && (
-          <section className={styles.section}>
-            <div className={styles.sectionHead}>
-              <h2 className={styles.title}>{t("mixengine.tray.sites")}</h2>
-            </div>
-            {sites.length === 0 ? (
-              <p className={styles.empty}>{t("mixengine.tray.noSites")}</p>
-            ) : (
-              <ul className={styles.list}>
-                {sites.map((site) => (
-                  <li key={site.domain} className={styles.site}>
-                    <Button variant="link" size="small" title={site.domain} onClick={() => void visit(site)}>
-                      {site.domain}
+              <>
+                <p className={styles.state}>
+                  {presence === "notRunning" ? t("mixengine.tray.stopped") : t(`mixengine.gate.${presence}`)}
+                </p>
+                {presence === "notRunning" &&
+                  (setupFree ? (
+                    <Button variant="primary" onClick={() => void openMainWindow()}>
+                      {t("mixengine.tray.setUp")}
                     </Button>
-                  </li>
-                ))}
-              </ul>
+                  ) : (
+                    <Button
+                      variant="primary"
+                      busy={working === "start" ? t("mixengine.gate.starting") : undefined}
+                      onClick={() =>
+                        void perform("start", async () => {
+                          await api.startDaemon();
+                        })
+                      }
+                    >
+                      {t("mixengine.gate.start")}
+                    </Button>
+                  ))}
+              </>
+            )}
+            {report !== null && (
+              <div className={styles.report} role="status">
+                <p>{t("mixengine.tray.shutdownDone", { count: report.stopped })}</p>
+                {report.failed !== null && (
+                  <p>{t("mixengine.tray.shutdownFailed", { service: report.failed })}</p>
+                )}
+                {report.unordered !== null && (
+                  <p>{t("mixengine.tray.unordered", { message: report.unordered })}</p>
+                )}
+              </div>
             )}
           </section>
+
+          {running && (
+            <section className={styles.section}>
+              <div className={styles.sectionHead}>
+                <h2 className={styles.title}>{t("mixengine.tray.services")}</h2>
+                {counts.up > 0 && armButton("stopAll", t("mixengine.tray.stopAll"), "default", "small")}
+              </div>
+              {rows.length === 0 ? (
+                <p className={styles.empty}>{t("mixengine.tray.noServices")}</p>
+              ) : (
+                <ul className={styles.list}>
+                  {rows.map((row) => {
+                    const pending = busy[row.id];
+                    const mode = toggleMode(row.state, pending !== undefined);
+                    return (
+                      <li key={row.id} className={styles.row}>
+                        <MonogramBadge name={row.id} size={30} />
+                        <div className={styles.rowText}>
+                          <span className={styles.rowName} title={row.id}>
+                            {row.id}
+                          </span>
+                          <StatusPill
+                            className={styles.rowState}
+                            tone={pending ? "warning" : pillTone(row)}
+                            pulse={mode === "moving"}
+                          >
+                            {pending
+                              ? t(pending === "stop" ? "mixengine.dashboard.stopping" : "mixengine.dashboard.starting")
+                              : stateLabel(row)}
+                          </StatusPill>
+                        </div>
+                        {mode === "up" ? (
+                          <Button
+                            size="small"
+                            className={styles.toggle}
+                            aria-label={t("mixengine.dashboard.stopService", { service: row.id })}
+                            onClick={() => void act(row.id, "stop")}
+                          >
+                            <StopIcon size={11} />
+                            {t("mixengine.dashboard.stop")}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="positive"
+                            className={styles.toggle}
+                            disabled={mode === "moving"}
+                            aria-label={t("mixengine.dashboard.startService", { service: row.id })}
+                            onClick={() => void act(row.id, "start")}
+                          >
+                            <PlayIcon size={11} />
+                            {t("mixengine.dashboard.start")}
+                          </Button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          )}
+
+          {running && (
+            <section className={styles.section}>
+              <div className={styles.sectionHead}>
+                <h2 className={styles.title}>{t("mixengine.tray.sites")}</h2>
+              </div>
+              {sites.length === 0 ? (
+                <p className={styles.empty}>{t("mixengine.tray.noSites")}</p>
+              ) : (
+                <ul className={styles.list}>
+                  {sites.map((site) => (
+                    <li key={site.domain} className={styles.site}>
+                      <Button variant="link" size="small" title={site.domain} onClick={() => void visit(site)}>
+                        {site.domain}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+        </div>
+
+        {/* One strip at the bottom either way: the three ways out, or the question the last
+            click asked — never both squeezed onto one line. */}
+        {question !== null ? (
+          <footer className={`${styles.footer} ${styles.asking}`} role="group" aria-label={question}>
+            <span className={styles.question}>{question}</span>
+            <Button onClick={() => dispatchConfirm({ type: "cancel" })}>{t("mixengine.tray.cancel")}</Button>
+            <Button variant="danger" onClick={confirmNow}>
+              {t("mixengine.tray.confirm")}
+            </Button>
+          </footer>
+        ) : (
+          <footer className={styles.footer}>
+            <Button variant="primary" className={styles.footerAction} onClick={() => void openMainWindow()}>
+              {t("mixengine.tray.openMain")}
+            </Button>
+            {running ? (
+              <span className={styles.footerAction}>
+                {armButton("shutdown", t("mixengine.tray.shutdown"), "danger", "normal")}
+              </span>
+            ) : (
+              <span className={styles.footerAction} />
+            )}
+            <ActionBar
+              actions={[
+                {
+                  key: "quit",
+                  icon: PowerIcon,
+                  label: t("mixengine.tray.quit"),
+                  onClick: () => void quitApp(),
+                },
+              ]}
+            />
+          </footer>
         )}
       </div>
-
-      <footer className={styles.footer}>
-        <Button size="small" variant="primary" onClick={() => void openMainWindow()}>
-          {t("mixengine.tray.openMain")}
-        </Button>
-        {running &&
-          confirmRow(
-            "shutdown",
-            t("mixengine.tray.shutdown"),
-            t("mixengine.tray.confirmShutdown", { count: counts.up }),
-            () =>
-              void perform("shutdown", async () => {
-                setReport(shutdownReport(await api.shutdown()));
-              }),
-          )}
-        <ActionBar
-          className={styles.quit}
-          actions={[
-            {
-              key: "quit",
-              icon: PowerIcon,
-              label: t("mixengine.tray.quit"),
-              onClick: () => void quitApp(),
-            },
-          ]}
-        />
-      </footer>
     </div>
   );
 }
