@@ -55,7 +55,7 @@ done
 | [22 — MixEngine in the tray](phase-22-mixengine-in-the-tray.md) | An icon on all three systems that starts and stops services, stops MixEngine and opens MixLab | T168a–T168g | 7 / 7 | **M22** after a login with the switch on, the icon alone stops MariaDB, stops everything and shuts MixEngine down |
 | [23 — One home for the documentation](phase-23-one-home-for-the-documentation.md) | Every document for people under `docs/`, every spec with its status, links checked in CI | T169a–T169d | 4 / 4 | **M23** the `lint` job runs `node scripts/check-docs.mjs` on `master` and it passes |
 | [24 — A test job that scales](phase-24-a-test-job-that-scales.md) | A branch run is waited for 15 minutes or less; a new suite adds a parallel leg, not serial minutes | T170a–T170l, T171a–T171c | 15 / 15 | **M24** in a warm branch run every leg finishes in 15 minutes or less, `build` in 20, and none passes 30 |
-| [25 — A workflow a person can read](phase-25-a-workflow-a-person-can-read.md) | A person reads the CI job they change without the other thirteen | T172a–T172e | 0 / 5 | **M25** no workflow file passes 500 lines and a full run matches the one before in jobs, test counts and artifacts |
+| [25 — A workflow a person can read](phase-25-a-workflow-a-person-can-read.md) | A person reads the CI job they change without the other thirteen | T172a–T172e | 1 / 5 | **M25** no workflow file passes 500 lines and a full run matches the one before in jobs, test counts and artifacts |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 

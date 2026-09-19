@@ -699,43 +699,8 @@ jobs:
       # route out at all.
       - name: Fetch a real Caddy
         if: contains(fromJSON('["web","all"]'), matrix.group)
-        env:
-          CADDY: "2.11.4"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no Caddy for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/caddy"
-          archive="$RUNNER_TEMP/caddy.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/caddy-$CADDY/caddy-$CADDY-$target.$ext"
-
-          # Two different `tar`s, and on Windows the one on the PATH is the wrong one. Git Bash
-          # ships GNU tar, which reads `D:\a\_temp\caddy.zip` as a *remote host* called `D` — and
-          # cannot read a zip even once told otherwise. Windows itself ships bsdtar, which reads
-          # both, so it is named outright rather than reached through the PATH.
-          #
-          # Elsewhere the archive is `.tar.zst`: bsdtar decompresses it by magic and GNU tar shells
-          # out to `zstd`, so the pipe is the fallback for a tar built without it.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_CADDY_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/caddy$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" version
+        run: bash .github/scripts/fetch-package.sh --probe "caddy version" caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
 
       # **And the other front end — T37.** The same reasoning as the Caddy step, plus one thing only
       # this program can settle: an `include` inside an nginx configuration resolves against the
@@ -748,40 +713,9 @@ jobs:
       - name: Fetch a real nginx
         if: contains(fromJSON('["web","all"]'), matrix.group)
         shell: bash
-        env:
-          NGINX: "1.31.3"
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64)
-              echo "::notice::nginx.org publishes one Windows build and it is 32-bit x86, so this cell is empty on purpose"
-              exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no nginx for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/nginx"
-          archive="$RUNNER_TEMP/nginx.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/nginx-$NGINX/nginx-$NGINX-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_NGINX_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `-v` and not `-t`: the second reads a configuration, and there is none here. It is also
-          # what the recipe's smoke test runs, so a build that fails this fails an install too.
-          "$into/nginx$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -v
+        # `-v` and not `-t`: the second reads a configuration, and there is none here. It is also
+        # what the recipe's smoke test runs, so a build that fails this fails an install too.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "nginx -v" nginx 1.31.3 MIXENGINE_NGINX_PACKAGE
 
       # **A second real program, and it buys what the Caddy one cannot.** Caddy is one binary that
       # behaves the same on all three systems; PHP is the opposite, and T32 is the task about that:
@@ -791,38 +725,10 @@ jobs:
       # the program can tell the two apart.
       - name: Fetch a real PHP
         if: contains(fromJSON('["web","all"]'), matrix.group)
-        env:
-          PHP: "8.3.33"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no PHP for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/php"
-          archive="$RUNNER_TEMP/php.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive"             "https://github.com/mixnz/mixengine-packages/releases/download/php-$PHP/php-$PHP-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_PHP_RUNTIME=$into" >> "$GITHUB_ENV"
-          # `bin/php` on Unix, `php.exe` at the root on Windows — the layout is the publisher's, and
-          # the suite probes for it rather than writing it down. This is only the smoke check.
-          "$into/bin/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version ||             "$into/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # `bin/php` on Unix, `php.exe` at the root on Windows — the layout is the publisher's, and
+        # the suite probes for it rather than writing it down. This is only the smoke check.
+        run: bash .github/scripts/fetch-package.sh --probe "bin/php --version" --probe "php --version" php 8.3.33 MIXENGINE_PHP_RUNTIME
 
       # And the oldest PHP on offer, which is the only one that can falsify a module name — the
       # branch above cannot. PHP 7.2 added a fallback that appends the shared-library suffix to an
@@ -850,39 +756,8 @@ jobs:
       # tolerable, the answer is a separate job rather than a quieter test.
       - name: Fetch a real MariaDB
         if: contains(fromJSON('["sql","all"]'), matrix.group)
-        env:
-          MARIADB: "11.4.12"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mariadb"
-          archive="$RUNNER_TEMP/mariadb.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB/mariadb-$MARIADB-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MARIADB_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/mariadbd` on every system — the layout is the publisher's, and the suite probes for
-          # it rather than writing it down. This is only the smoke check.
-          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        run: bash .github/scripts/fetch-package.sh --probe "bin/mariadbd --version" mariadb 11.4.12 MIXENGINE_MARIADB_PACKAGE
 
       # And a *second* MariaDB, of another series, for T36 — two instances of one server, at two
       # versions, running side by side. 10.6 is the oldest line the index publishes and is chosen
@@ -895,39 +770,10 @@ jobs:
       # a suite that stops running two servers.
       - name: Fetch a second MariaDB, of an older series
         if: contains(fromJSON('["sql","all"]'), matrix.group)
-        env:
-          MARIADB_LEGACY: "10.6.28"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mariadb-legacy"
-          archive="$RUNNER_TEMP/mariadb-legacy.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB_LEGACY/mariadb-$MARIADB_LEGACY-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MARIADB_LEGACY_PACKAGE=$into" >> "$GITHUB_ENV"
-          # This series ships `bin/mysqld` and a `bin/mariadbd` beside it; the suite probes for
-          # every program it needs and this is only the smoke check.
-          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # This series ships `bin/mysqld` and a `bin/mariadbd` beside it; the suite probes for
+        # every program it needs and this is only the smoke check.
+        run: bash .github/scripts/fetch-package.sh --probe "bin/mariadbd --version" mariadb 10.6.28 MIXENGINE_MARIADB_LEGACY_PACKAGE "$RUNNER_TEMP/mariadb-legacy"
 
       # And a real MySQL, for T34c — the other database with these programs' names, and not a
       # version of the one above. 8.4 is the line `docs/features/services.md` names; the two 5.x
@@ -940,39 +786,8 @@ jobs:
       - name: Fetch a real MySQL
         if: contains(fromJSON('["sql","all"]'), matrix.group)
         shell: bash
-        env:
-          MYSQL: "8.4.10"
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64)
-              echo "::notice::mixengine-packages publishes no MySQL for Windows on ARM, and neither does upstream"
-              exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no MySQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mysql"
-          archive="$RUNNER_TEMP/mysql.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mysql-$MYSQL/mysql-$MYSQL-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MYSQL_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/mysqld` on every system this fetches. Only the smoke check; the suite probes.
-          "$into/bin/mysqld$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # Neither mixengine-packages nor upstream publishes MySQL for Windows on ARM.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/mysqld --version" mysql 8.4.10 MIXENGINE_MYSQL_PACKAGE
 
       # And a real PostgreSQL, for T34 — the recipe that made T34a necessary. It is the smaller of
       # the two databases, and it is the one whose Windows leg only runs at all because a supervised
@@ -980,148 +795,33 @@ jobs:
       # the top of this job asserts this runner holds.
       - name: Fetch a real PostgreSQL
         if: contains(fromJSON('["sql","all"]'), matrix.group)
-        env:
-          POSTGRES: "18.6"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Upstream does not compile PostgreSQL there before 19, so the index offers nothing on
-            # this cell and neither does this step. The suite below is skipped rather than failed.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no PostgreSQL for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no PostgreSQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/postgres"
-          archive="$RUNNER_TEMP/postgres.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/postgres-$POSTGRES/postgres-$POSTGRES-$target.$ext"
-
-          # The same two `tar`s for the same reason as the two steps above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_POSTGRES_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/postgres` on every route — one spelling, which the Debian cell buys with a symlink.
-          "$into/bin/postgres$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # Upstream does not compile PostgreSQL for Windows on ARM before 19, so the index offers
+        # nothing on that cell and the suite is skipped rather than failed.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/postgres --version" postgres 18.6 MIXENGINE_POSTGRES_PACKAGE
 
       # And the two caches, for T35. Small downloads next to the two databases above, and the pair
       # of them is one roadmap task because neither is big enough to be one on its own.
       - name: Fetch a real Redis
         if: contains(fromJSON('["web","all"]'), matrix.group)
-        env:
-          REDIS: "8.10.0"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Cygwin has no aarch64 port, so the Windows cells of both caches are built for x86_64
-            # and that one alone — see mixengine-packages' `docs/packages/redis-memcached.md`.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no Redis for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no Redis for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/redis"
-          archive="$RUNNER_TEMP/redis.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/redis-$REDIS/redis-$REDIS-$target.$ext"
-
-          # The same two `tar`s for the same reason as the steps above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_REDIS_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/bin/redis-server$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # Cygwin has no aarch64 port, so the Windows cells of both caches are built for x86_64
+        # and that one alone — see mixengine-packages' `docs/packages/redis-memcached.md`.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/redis-server --version" redis 8.10.0 MIXENGINE_REDIS_PACKAGE
 
       - name: Fetch a real memcached
         if: contains(fromJSON('["web","all"]'), matrix.group)
-        env:
-          MEMCACHED: "1.6.45"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no memcached for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no memcached for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/memcached"
-          archive="$RUNNER_TEMP/memcached.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/memcached-$MEMCACHED/memcached-$MEMCACHED-$target.$ext"
-
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MEMCACHED_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `-V` and not `--version`: the short flag is in every line the index publishes.
-          "$into/bin/memcached$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -V
+        # `-V` and not `--version`: the short flag is in every line the index publishes.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/memcached -V" memcached 1.6.45 MIXENGINE_MEMCACHED_PACKAGE
 
       # And MongoDB, for T156. The newest line: 8.x needs macOS 14 and glibc 2.34, and every leg of
       # this job is newer than both.
       - name: Fetch a real MongoDB
         if: contains(fromJSON('["web","all"]'), matrix.group)
-        env:
-          MONGODB: "8.3.11"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Upstream has never built MongoDB for Windows on ARM, at any version.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no MongoDB for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no MongoDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mongodb"
-          archive="$RUNNER_TEMP/mongodb.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mongodb-$MONGODB/mongodb-$MONGODB-$target.$ext"
-
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MONGODB_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/bin/mongod$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+        # Upstream has never built MongoDB for Windows on ARM, at any version.
+        run: bash .github/scripts/fetch-package.sh --absent-on Windows-ARM64 --probe "bin/mongod --version" mongodb 8.3.11 MIXENGINE_MONGODB_PACKAGE
 
       # Only this leg's suites, plus the binaries the harness spawns. **`--bins` is not optional**:
       # cargo builds a package's own binaries for its integration tests, so `--test caddy` gets `mix`,
@@ -1598,35 +1298,8 @@ jobs:
       # has no network namespace to get in ahead of; nothing below it is offline but cargo.
       - name: Fetch a real Caddy
         if: runner.os != 'Linux'
-        env:
-          CADDY: "2.11.4"
         shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no Caddy for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/caddy"
-          archive="$RUNNER_TEMP/caddy.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/caddy-$CADDY/caddy-$CADDY-$target.$ext"
-
-          # The `test` job's own Caddy step says why the Windows arm names its `tar` outright.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_CADDY_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/caddy$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" version
+        run: bash .github/scripts/fetch-package.sh --probe "caddy version" caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
 
       # Both suites drive a real `mix` against a real `mixengined`, and a rotation reaches the store
       # through the `mixengine-elevate` beside it — three binaries in one directory, which is what
@@ -1954,8 +1627,7 @@ jobs:
         run: cargo fetch --locked
 
       # **M3's three servers**, fetched before the offline steps below because from there on there is
-      # no network. One script rather than three more copies of the `test` job's fetch steps — see
-      # the note at the top of `.github/scripts/fetch-package.sh`.
+      # no network, through the script every fetch in CI uses (T172a).
       #
       # The versions are the ones the `test` job's own steps pin, and they are pinned in two places
       # deliberately: a bench comparing itself against last month's number has to be measuring the

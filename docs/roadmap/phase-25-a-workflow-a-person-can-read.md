@@ -9,7 +9,7 @@ Design: [2026-09-20-t172-a-workflow-a-person-can-read-design.md](../specs/2026-0
 
 ---
 
-- [ ] **T172a** Every "Fetch a real X" step goes through `.github/scripts/fetch-package.sh`, which
+- [x] **T172a** Every "Fetch a real X" step goes through `.github/scripts/fetch-package.sh`, which
       learns `--absent-on` and `--probe`.
 - [ ] **T172b** The clock/budget pair and "Choose the release profile" are composite actions under
       `.github/actions/`.
