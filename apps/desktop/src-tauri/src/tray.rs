@@ -32,7 +32,7 @@ const MAIN: &str = "main";
 const ICON: &str = "mixengine";
 
 /// The panel's size in logical pixels. On Linux it is a normal window and this is its minimum.
-const PANEL_WIDTH: f64 = 440.0;
+const PANEL_WIDTH: f64 = 540.0;
 const PANEL_HEIGHT: f64 = 600.0;
 
 /// The gap between the window and the edges of the usable area, in logical pixels. None: the page

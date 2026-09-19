@@ -5,7 +5,6 @@ const vi: typeof en = {
     // The tray panel (T168). The slogan is a brand line and stays in English in every language.
     tray: {
       slogan: "For Developers. By Developers.",
-      running: "MixEngine đang chạy",
       counts: "Service đang chạy: {{up}}/{{total}}",
       setUp: "Thiết lập trong MixLab",
       services: "Service",

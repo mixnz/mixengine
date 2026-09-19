@@ -18,7 +18,7 @@ import DaemonUsage from "../components/DaemonUsage";
 import { applyEvent, needsResync, rowsFrom, type ServiceRow } from "../daemonState";
 import { ensureDaemonWatch, subscribeDaemonWatch } from "../daemonWatch";
 import { serviceStateKey, serviceStateTone, toggleMode } from "../serviceStateLabel";
-import { DAEMON_SUBJECT, parseMetricsFrame, readingFor } from "../metricsState";
+import { DAEMON_SUBJECT, parseMetricsFrame, readingFor, servicesTotal } from "../metricsState";
 import { siteVisit } from "../siteState";
 import { isFree } from "../storagePicker";
 import {
@@ -343,11 +343,18 @@ function TrayPanel() {
                 <EngineIcon size={18} />
               </span>
               <span className={styles.engineName}>MixEngine</span>
-              <StatusPill tone="success">{t("mixengine.tray.running")}</StatusPill>
+              <StatusPill tone="success">{t("mixengine.serviceState.running")}</StatusPill>
               <span className={styles.counts}>
                 {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
               </span>
-              <DaemonUsage className={styles.usage} reading={readingFor(frame, DAEMON_SUBJECT)} />
+              <div className={styles.usages}>
+                <DaemonUsage className={styles.usage} reading={readingFor(frame, DAEMON_SUBJECT)} />
+                <DaemonUsage
+                  className={styles.usage}
+                  label={t("mixengine.tray.services")}
+                  reading={servicesTotal(frame)}
+                />
+              </div>
             </section>
           )}
 

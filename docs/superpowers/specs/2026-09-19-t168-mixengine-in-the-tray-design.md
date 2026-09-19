@@ -74,9 +74,10 @@ both of which the webview already does. Using one panel means one set of compone
   Creating it on the first click costs a visible half-second on the first open. Creating it once is
   roughly one more renderer process, which WebView2 and WKWebView share with the main window's
   process group.
-- **Size:** 440 × 600 logical pixels on macOS and Windows. On Linux, where it is a normal window,
+- **Size:** 540 × 600 logical pixels on macOS and Windows. On Linux, where it is a normal window,
   the minimum size is the same. (360 × 520 was the first measure; a service row with *Resting —
-  starts on the next visit* in it pushed its own name out and its button off the card.)
+  starts on the next visit* in it pushed its own name out and its button off the card; 440 cut off
+  the memory reading of the CPU and memory strips.)
 - **macOS and Windows window attributes:** `decorations: false`, `transparent`, no system shadow,
   `always_on_top`, `skip_taskbar`, `resizable: false`, and on macOS `visible_on_all_workspaces`, so
   it opens over a full-screen app. **The window is transparent**, which on macOS takes
@@ -116,8 +117,9 @@ From top to bottom:
    - It sits in the header rather than the footer, which holds the actions. It stays pinned while
      the lists below scroll.
 1. **The engine, as a card of its own.** Running: the engine's mark (`EngineIcon`), **MixEngine**,
-   a *Running* pill and *Services running: N/M*, and under them the Dashboard's own strip of the
-   daemon's CPU and memory (`DaemonUsage`, shared). That strip holds `/metrics` open — which is
+   a *Running* pill and *Services running: N/M*, and under them two strips of CPU and memory in the
+   Dashboard's own drawing (`DaemonUsage`, shared): the daemon's, and every service's added up
+   (`servicesTotal` — only what the frame measured; a service it did not measure is not a 0). That strip holds `/metrics` open — which is
    what makes the daemon sample every second — only while the panel is shown, focused and the
    daemon is up; `MetricsState` keeps one stream per window, like `MixEngineState` (D5), so the
    panel's never closes the Dashboard's. The header names the application and the card

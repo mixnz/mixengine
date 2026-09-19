@@ -143,14 +143,30 @@
   margin-left: auto;
 }
 
-/* The Dashboard's strip, across the card's full width under the name. */
+/* The daemon's strip and the services' one, stacked under the name, their columns lined up: the
+   name cell and the memory cell a fixed width, the CPU cell taking what is left. */
+.usages {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .usage {
   width: 100%;
   box-sizing: border-box;
 }
 
-.usage > span {
+.usage > span:nth-child(1) {
+  flex: 0 0 108px;
+}
+
+.usage > span:nth-child(2) {
   flex: 1 1 auto;
+}
+
+.usage > span:nth-child(3) {
+  flex: 0 0 150px;
 }
 
 /* The daemon is not up: MixLab's own gate, centred in whatever height the panel has. */

@@ -5,25 +5,30 @@ import { formatBytes, formatPercent } from "../../metricsState";
 import styles from "./DaemonUsage.module.css";
 
 /**
- * The daemon's own CPU and memory — the Dashboard's header strip, and since T168 the tray panel's.
+ * CPU and memory in one strip — the daemon's in the Dashboard's header, and since T168 the daemon's
+ * and every service's added up in the tray panel.
  *
  * Always drawn, before the first frame too: `null` shows "—" in a strip that is already the size
  * it will be, instead of one that appears later and pushes everything under it down.
  */
 export default function DaemonUsage({
   reading,
+  label,
   className,
 }: {
   reading: MetricsSample | null;
+  /** What the strip measures, already translated. The daemon's by default. */
+  label?: string;
   /** For a caller that lays the strip out differently — the tray stretches it across its card. */
   className?: string;
 }) {
   const { t } = useTranslation();
+  const name = label ?? t("mixengine.dashboard.daemon");
   return (
-    <div className={className ? `${styles.usage} ${className}` : styles.usage} role="group" aria-label={t("mixengine.dashboard.daemon")}>
+    <div className={className ? `${styles.usage} ${className}` : styles.usage} role="group" aria-label={name}>
       <span className={styles.cell}>
         <span className={reading ? styles.liveDot : `${styles.liveDot} ${styles.liveDotIdle}`} aria-hidden="true" />
-        <strong>{t("mixengine.dashboard.daemon")}</strong>
+        <strong>{name}</strong>
       </span>
       <span className={styles.cell}>
         <span className={styles.label}>{t("mixengine.dashboard.cpu")}</span>

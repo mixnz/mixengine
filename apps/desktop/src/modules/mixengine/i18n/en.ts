@@ -3,7 +3,6 @@ export default {
     // The tray panel (T168). The slogan is a brand line and stays in English in every language.
     tray: {
       slogan: "For Developers. By Developers.",
-      running: "MixEngine is running",
       counts: "Services running: {{up}}/{{total}}",
       setUp: "Set up in MixLab",
       services: "Services",
