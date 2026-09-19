@@ -186,11 +186,21 @@ impl Recipe for PhpFpm {
                 default: Preset::Number(120),
             },
             Setting {
-                // Fifteen seconds. A pool is up in tens of milliseconds; what this is really waiting
-                // for is a first run on Windows, where Defender reads the whole of a PHP before the
-                // process starts.
+                // Thirty seconds. A pool is up in tens of milliseconds; what this is really waiting
+                // for is a first run on Windows, where the runtime is read off the disk before the
+                // process starts — Defender where it is on, and a slow or busy disk where it is
+                // not. Fifteen was the first number and it was measured too short twice on CI's own
+                // Windows runner, with Defender off (runs 35456409469 and 35470533602): the pool
+                // was still alive and still not listening when the check gave up.
+                //
+                // **One number on every system, like every other setting here.** A default that
+                // differed by operating system would make a home structurally different from a
+                // colleague's, which is the thing this recipe's module note refuses. What the
+                // longer wait costs is on the failing path only: a pool that will never start is
+                // reported after thirty seconds instead of fifteen, and it is reported with its own
+                // last lines beside it (the runner logs them since the same task).
                 key: READY_TIMEOUT,
-                default: Preset::Number(15_000),
+                default: Preset::Number(30_000),
             },
             Setting {
                 key: STOP_GRACE,

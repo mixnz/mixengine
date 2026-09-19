@@ -866,6 +866,25 @@ impl Runner {
                 let capture = self.kill(supervised, capture).await;
                 let refused = self.refused_superuser(&capture);
 
+                // **And what it last said, in the daemon's own log.** The service's own log file
+                // holds these lines as well, but a ready timeout is the failure a reader meets
+                // furthest from that file — in a CI log, in a bug report, in a screenshot — and
+                // "not ready within 15s" on its own says only that something was slow. Measured on
+                // run 35470533602, where a php-fpm pool timed out on Windows and the report held
+                // no line of what the pool had printed.
+                let said = capture.recent(TAIL_LINES);
+                if !said.is_empty() {
+                    tracing::warn!(
+                        service = self.spec.id().as_str(),
+                        said = said
+                            .iter()
+                            .map(|line| line.text.as_str())
+                            .collect::<Vec<_>>()
+                            .join(" / "),
+                        "this service was not ready in time; these are its last lines"
+                    );
+                }
+
                 self.record_exit(None).await;
 
                 // **A conflict outranks a refusal, and the order is not arbitrary.** If another

@@ -389,14 +389,20 @@ async fn one_ini_set_reaches_the_terminal_and_the_pool_and_moves_when_it_is_told
     // `get_loaded_extensions()` in a pool are the two answers a person compares when a project works
     // in one and not the other.
     let started = home.mix(&["service", "start", &pool, "--json"]);
+    // **The pool's own log is in here too**, since a start that timed out on CI reported fifteen
+    // seconds of silence and nothing the pool had said (run 35470533602). Output goes to
+    // `logs/services/<id>/current.log` and never to `daemon.log` — ADR 0009.
     assert!(
         started.status.success(),
         "the pool would not start
 --- stderr ---
 {}
+--- the pool's own log ---
+{}
 --- daemon ---
 {}",
         String::from_utf8_lossy(&started.stderr),
+        harness::frontend::service_log(&home, &pool),
         home.daemon_log()
     );
     let started = json(&started);
