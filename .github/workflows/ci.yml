@@ -257,12 +257,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
 
       # T2b, answered: this leg holds `BUILTIN\Administrators` as an *enabled* group at High
       # Mandatory Level — a full token, not the UAC-filtered one where that group is present
@@ -493,23 +492,12 @@ jobs:
           cargo doc --workspace --no-deps --document-private-items --all-features --locked
           --offline
 
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   # **rustdoc for Windows (T170d)**, split out of the Windows `test` leg, which is the run's critical
   # path; macOS and Linux still run it as the last step of `test`. What it checks, and why once per
@@ -528,12 +516,11 @@ jobs:
         # Windows only: the `rustdoc` step of `test` covers the other two (T170d).
         os: [windows-latest]
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
 
       - name: Install pinned toolchain
         run: |
@@ -557,23 +544,12 @@ jobs:
           cargo doc --workspace --no-deps --document-private-items --all-features --locked
           --offline
 
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   # **The suites that need a real program (T170e)**, split out of `test` so that a new package adds
   # a leg that runs in parallel rather than minutes to one that does not. The groups are a matrix
@@ -604,12 +580,11 @@ jobs:
           # Inside the network namespace, as they ran in `test`.
           - { os: ubuntu-latest, group: all }
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
 
       # T2b, answered: this leg holds `BUILTIN\Administrators` as an *enabled* group at High
       # Mandatory Level — a full token, not the UAC-filtered one where that group is present
@@ -1071,23 +1046,12 @@ jobs:
           CARGO_NET_OFFLINE: "true"
         run: cargo test --workspace --all-features --test mongodb --locked --offline -- --ignored --nocapture
 
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   # The job `docs/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
   # test. T40 is that task: `mixengine-elevate` creates a root-owned audit directory outside
@@ -1604,12 +1568,11 @@ jobs:
           - { os: macos-latest, group: all }
           - { os: ubuntu-latest, group: all }
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
 
       - name: Install pinned toolchain
         run: |
@@ -1843,23 +1806,12 @@ jobs:
             'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
              exec cargo test --release -p mixengine-cli --test warm_start --locked --offline -- --ignored --nocapture'
 
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   # T56, and the fifth job of the table in docs/operations/build-and-release.md: the published
   # TypeScript contract, regenerated from `mixengine-proto` and compared with what is committed.
@@ -2094,41 +2046,13 @@ jobs:
             target: aarch64-unknown-linux-gnu
             container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      # **A branch builds without LTO (T170h).** `[profile.release]`'s `lto = "thin"` and
-      # `codegen-units = 1` make the binary a user gets smaller and faster, and they are the slowest
-      # settings cargo has. A branch's `build` proves that every artifact packages, installs and is
-      # probed, which does not depend on LTO. A tag builds exactly as `Cargo.toml` says, and only a
-      # tag run feeds `release` — so an LTO-only bug is found by the tag run, which the release
-      # checklist requires to be green anyway. `MIXENGINE_RELEASE`, `crt-static` and the strip
-      # setting are untouched: they are what makes an artifact a release, and a branch still proves
-      # them. `packaging/common.sh` forwards both variables into the manylinux container.
-      #
-      # The same step in all three jobs, so that each reports what it was built with.
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      - uses: ./.github/actions/release-profile
 
       # On every leg, the Linux ones included: the window is built on the runner itself, never in
       # the container.
@@ -2189,20 +2113,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # T170g, and T171's targets.
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   binaries:
     if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
@@ -2232,30 +2148,13 @@ jobs:
             target: aarch64-unknown-linux-gnu
             container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
     steps:
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      - uses: ./.github/actions/release-profile
 
       # Only the legs that build on the runner itself rather than inside a container: the two Linux
       # legs install their own pinned toolchain inside `stage.sh --container`'s `docker run`, since
@@ -2356,19 +2255,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
 
   build:
     if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
@@ -2408,30 +2300,13 @@ jobs:
             target: aarch64-unknown-linux-gnu
             container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
     steps:
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
       - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      - uses: ./.github/actions/release-profile
 
       # From this run only, which is `download-artifact`'s default and never overridden here: an
       # artifact belongs to the commit its run built.
@@ -2583,17 +2458,12 @@ jobs:
             echo "::notice title=Path over its target::window, binaries and build took $((elapsed / 60)) minutes against a target of 18."
           fi
 
-      - name: Budget
+      - uses: ./.github/actions/leg-budget
         if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "5"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 30.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+        with:
+          phase: end
+          target-minutes: "5"
+          ceiling-minutes: "30"
 
   # T86. Three questions that need no compiler, so a release that cannot work fails in thirty seconds
   # instead of in an hour. It gates `release` and nothing else — a conditional `needs` is not a thing
