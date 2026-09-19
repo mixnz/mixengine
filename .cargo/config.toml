@@ -25,25 +25,21 @@ TS_RS_LARGE_INT = "number"
 
 # **A daemon built here must not open the MixEngine somebody is running their real projects with.**
 #
-# The home directory is chosen by the platform default, and that default knows nothing about which
-# binary asked: `cargo run -p mixengine-daemon` on a developer's machine resolves the same
-# `%LOCALAPPDATA%\MixEngine` an installed release does. So a working tree carrying a migration that
-# has not shipped yet will *migrate that person's real database* to a schema no release can read —
-# silently, because migrating a database that is behind is exactly the right thing to do. Editing
-# that migration afterwards, which is normal while it is unreleased, then leaves the database
-# openable by nothing at all.
-#
-# This closes the path a developer actually walks. **It is not the whole fix**: cargo sets this for
-# what cargo runs, so `./target/debug/mixengined` started by hand — the quickest way to read a
-# daemon's startup failure, and done twice while diagnosing the one that prompted this — is outside
-# it. The fix that travels with the binary is a release marker compiled into it.
+# ADR 0024 gives a development build its own default home beside the released one; this entry goes
+# one step further and keeps a checkout's daemon inside the checkout, so that the window's daemon
+# and a terminal's `cargo run` are one daemon, and `cargo clean` does not reach it.
 #
 # `.mixengine-home` and **not** anything under `target/`, which is the first place this was written:
 # `cargo clean` empties that directory, and a home is where runtimes land — gigabytes of downloaded
-# PHP and Node beside the sites and services that refer to them. Throwing all of it away as a side
-# effect of a routine clean is a smaller instance of exactly the loss this entry exists to prevent.
-# `.gitignore` has carried `/.mixengine-home/` for sandbox roots since before this file did.
+# PHP and Node beside the sites and services that refer to them. `.gitignore` has carried
+# `/.mixengine-home/` for sandbox roots since before this file did.
 #
-# Not `force = true`, so `MIXENGINE_HOME=… cargo run` still chooses; and `--home`, which every test
-# suite passes for itself, beats both.
-MIXENGINE_HOME = { value = ".mixengine-home", relative = true }
+# **A suggestion, not `MIXENGINE_HOME`** — ADR 0040, roadmap task T166. It was `MIXENGINE_HOME`
+# until a checkout on an external disk put `run/` where macOS will not let the elevated helper read
+# its own request, and every Allow on the prompt ended in *no report*. `mix`, `mixengined` and the
+# window now weigh this in `mixengine_platform::home::development_home`: taken unless an elevated
+# process could not read it there, in which case the default home (`MixEngine-dev`) is used and a
+# warning names what was passed over. A release build ignores it.
+#
+# `MIXENGINE_HOME` and `--home` still beat it, for a person who chose.
+MIXENGINE_DEV_HOME = { value = ".mixengine-home", relative = true }

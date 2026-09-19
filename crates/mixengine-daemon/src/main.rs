@@ -528,12 +528,20 @@ async fn run() -> anyhow::Result<()> {
     // are seconds a user would otherwise never see in `uptime`.
     let started = api::Started::now();
 
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     // Before anything else: find the home directory, read config.toml, create what is missing.
     // It happens before logging is set up because the log level is one of the things it reads —
     // a failure here is reported by `main` returning it, not by a logger that does not exist yet.
     let host = mixengine_platform::host();
+
+    // A development checkout's suggested home, weighed here at the binary's edge and not inside
+    // `mixengine_core::paths::resolve_root` — T166, ADR 0040. The library reads no environment,
+    // which is what lets every test hand it a mock host and know which home it gets; `--home` and
+    // `MIXENGINE_HOME` arrive through clap for the same reason.
+    if args.home.is_none() {
+        args.home = mixengine_platform::home::development_home(host.as_ref());
+    }
     // Through the wire mapping even though there is no wire yet: the boundary is the only place a
     // hint is written, and a startup failure — the wrong MIXENGINE_HOME, a `[paths]` override onto
     // a disk nobody mounted — is exactly the kind that needs one. Whoever is reading stderr now

@@ -31,6 +31,9 @@ pub mod elevated;
 /// not the same thing: see the module note.
 #[cfg(feature = "ipc")]
 pub mod activation;
+// Documented by its own `//!` header. `host` only: the helper never chooses a home.
+#[cfg(feature = "host")]
+pub mod home;
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub mod hosts;
 // Documented by its own `//!` header. Under both features because it is the one question both
@@ -134,11 +137,12 @@ pub use traits::{
     Interface, KEYRING_SERVICE, Keyring, LimitMechanism, LimitSupport, Located, Machine,
     MachineFacts, MemoryMeasure, NetworkInfo, OrphanGuarantee, PathIntegration, PathLocation,
     PathState, PortAccess, PortAccessMethod, PortAccessState, PortBinding, PortHolder, PortOwner,
-    PortRange, Probe, ProcessMetrics, RedistributableOutcome, Redistributables, ReservedPorts,
-    ResolverConfig, ResolverMethod, ResolverState, ResourceControl, ServiceInstaller, Started,
-    TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER, VisualCppVersion, WhenExceeded,
-    avx, choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
-    refused_by_app_control, shared_libraries, visual_cpp_from_registry,
+    PortRange, Probe, ProcessMetrics, Raised, RedistributableOutcome, Redistributables,
+    ReservedPorts, ResolverConfig, ResolverMethod, ResolverState, ResourceControl,
+    ServiceInstaller, Started, TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER,
+    VisualCppVersion, WhenExceeded, avx, choose_interface, dotted_version,
+    names_the_redistributable, orphan_guarantee, refused_by_app_control, shared_libraries,
+    visual_cpp_from_registry,
 };
 
 // The three supported operating systems keep their own directory, exactly as the architecture

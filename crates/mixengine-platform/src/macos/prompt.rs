@@ -16,7 +16,7 @@ use std::process::Command;
 use mixengine_proto::privileged::ElevationOutcome;
 
 use crate::prompt::{self, macos as decide};
-use crate::{Elevation, ElevationSupport, Result};
+use crate::{Elevation, ElevationSupport, Raised, Result};
 
 /// Part of the base system since Mac OS X 10.0, and named absolutely so that the daemon's own `PATH`
 /// cannot decide what runs.
@@ -41,7 +41,7 @@ impl Elevation for Prompt {
         }
     }
 
-    fn run(&self, helper: &Path, request: &Path) -> Result<ElevationOutcome> {
+    fn run(&self, helper: &Path, request: &Path) -> Result<Raised> {
         prompt::usable("run as the elevation helper", helper)?;
         prompt::usable("hand to the elevation helper", request)?;
 
@@ -57,9 +57,9 @@ impl Elevation for Prompt {
         let ran = match osascript.output() {
             Ok(output) => output,
             Err(source) => {
-                return Ok(ElevationOutcome::Unavailable {
+                return Ok(Raised::from(ElevationOutcome::Unavailable {
                     reason: format!("{OSASCRIPT} could not be started ({source})"),
-                });
+                }));
             }
         };
 
@@ -70,6 +70,14 @@ impl Elevation for Prompt {
             "osascript ended"
         );
 
-        Ok(decide::outcome(ran.status.code(), &complaint))
+        // The helper's words only when the helper ran: on the other two answers the stream is
+        // osascript's, and `Unavailable` already carries it as its reason.
+        let outcome = decide::outcome(ran.status.code(), &complaint);
+        let said = match outcome {
+            ElevationOutcome::Completed => decide::said(&complaint),
+            _ => None,
+        };
+
+        Ok(Raised { outcome, said })
     }
 }

@@ -22,7 +22,7 @@ use windows_sys::Win32::UI::Shell::{
 use windows_sys::Win32::UI::WindowsAndMessaging::SW_HIDE;
 
 use crate::prompt::{self, windows as decide};
-use crate::{Elevation, ElevationSupport, Error, Result};
+use crate::{Elevation, ElevationSupport, Error, Raised, Result};
 
 /// The verb that asks for a token this process does not have.
 const RUNAS: &str = "runas";
@@ -38,7 +38,7 @@ impl Elevation for Prompt {
         ElevationSupport::Available
     }
 
-    fn run(&self, helper: &Path, request: &Path) -> Result<ElevationOutcome> {
+    fn run(&self, helper: &Path, request: &Path) -> Result<Raised> {
         prompt::usable("run as the elevation helper", helper)?;
 
         // Before the request is looked for, not after: a Windows path cannot contain a quotation
@@ -96,7 +96,7 @@ impl Elevation for Prompt {
             if refusal.raw_os_error()
                 == Some(i32::try_from(decide::ERROR_CANCELLED).expect("1223 fits in an i32"))
             {
-                return Ok(ElevationOutcome::Declined);
+                return Ok(Raised::from(ElevationOutcome::Declined));
             }
 
             return Err(Error::Os {
@@ -105,7 +105,8 @@ impl Elevation for Prompt {
             });
         }
 
-        Ok(finished(info.hProcess))
+        // No `said`: a `runas` child has no stream this process owns — T166, D5.
+        Ok(Raised::from(finished(info.hProcess)))
     }
 }
 

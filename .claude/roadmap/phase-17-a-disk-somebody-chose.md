@@ -105,6 +105,20 @@ first row has recorded an absolute path.
       `GrantOutcome.problems`, which `mix elevation grant` prints under its line. A retryable
       failure is still a failure somebody has to be told about, and a count is not a diagnosis.
 
+- [x] **T166** A checkout on an external disk. A follow-up to T143, found on 2026-09-19: MixLab
+      started with `npm run dev:app` from a checkout on an external SSD, and every Allow ended in
+      *left no report*. `.cargo/config.toml` and `stage-daemon.mjs` both set `MIXENGINE_HOME` to
+      the checkout's `.mixengine-home`, so `run/` went onto the gated volume whatever the picker had
+      chosen. Two fixes. **The checkout suggests** (`MIXENGINE_DEV_HOME`), and
+      `mixengine_platform::home::development_home` passes the suggestion over when
+      `HomeDirs::elevated_can_read` says no (macOS: anything under `/Volumes/`), so the default
+      `MixEngine-dev` is used instead; this is
+      [ADR 0040](../decisions/0040-a-development-builds-home-follows-its-checkout.md). **And the
+      helper's reason reaches the error**: `Elevation::run` returns `Raised { outcome, said }`
+      (osascript's framing stripped on macOS, pkexec's stderr captured on Linux, nothing on
+      Windows), and `ElevateReportMissing` ends in it, where it used to stop at a `debug` line.
+      Design: [2026-09-19-t166-a-checkout-on-an-external-disk-design.md](../../docs/superpowers/specs/2026-09-19-t166-a-checkout-on-an-external-disk-design.md).
+
 **Milestone M17** — on a fresh install the window offers a disk before anything is installed, a
 runtime and a service land on it, `mix uninstall --dry-run` names it, and an elevation prompt still
 succeeds.

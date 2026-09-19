@@ -425,7 +425,8 @@ pub fn read_report(request: &Request) -> Result<PrivilegedResponse> {
     let text = match std::fs::read_to_string(&path) {
         Ok(text) => text,
         Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
-            return Err(Error::ElevateReportMissing { path });
+            // What the helper said is the launcher's to know, not this reader's; the daemon adds it.
+            return Err(Error::ElevateReportMissing { path, said: None });
         }
         Err(source) => {
             return Err(Error::Io {
@@ -1136,6 +1137,34 @@ mod tests {
         assert!(
             matches!(error, Error::ElevateReportMissing { .. }),
             "{error}"
+        );
+    }
+
+    /// T166: the message ends in the helper's reason when there is one, and is today's sentence when
+    /// there is not.
+    #[test]
+    fn a_missing_report_carries_what_the_helper_said() {
+        let path = PathBuf::from("/home/run/elevate/x/response.json");
+
+        let silent = Error::ElevateReportMissing {
+            path: path.clone(),
+            said: None,
+        };
+        assert_eq!(
+            silent.to_string(),
+            "the elevation helper left no report beside /home/run/elevate/x/response.json"
+        );
+
+        let said = Error::ElevateReportMissing {
+            path,
+            said: Some(
+                "mixengine-elevate: cannot read request.json: Operation not permitted".into(),
+            ),
+        };
+        assert_eq!(
+            said.to_string(),
+            "the elevation helper left no report beside /home/run/elevate/x/response.json: \
+             mixengine-elevate: cannot read request.json: Operation not permitted"
         );
     }
 

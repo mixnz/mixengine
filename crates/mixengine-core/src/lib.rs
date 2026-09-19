@@ -1738,11 +1738,14 @@ pub enum Error {
     ///
     /// **A state and not an impossibility.** `ElevationOutcome::Completed` means the helper ran, not
     /// that it wrote a report: a process that died before writing one is exactly this, on every
-    /// system, because a crash is not a per-OS event.
-    #[error("the elevation helper left no report beside {}", path.display())]
+    /// system, because a crash is not a per-OS event. So is a helper that refused its request — it
+    /// writes nothing beside one it does not trust — and then `said` is its reason (T166).
+    #[error("the elevation helper left no report beside {}{}", path.display(), said_suffix(said.as_deref()))]
     ElevateReportMissing {
         /// Where one would have been.
         path: PathBuf,
+        /// What the helper wrote to stderr, when the OS let the daemon read it. Never on Windows.
+        said: Option<String>,
     },
 
     /// The report is there and is not a document this build can read.
@@ -1812,6 +1815,11 @@ pub enum Error {
     /// The OS refused to answer a question only it can answer.
     #[error(transparent)]
     Platform(#[from] mixengine_platform::Error),
+}
+
+/// `": <said>"`, or nothing — the tail [`Error::ElevateReportMissing`] gains when the helper said why.
+fn said_suffix(said: Option<&str>) -> String {
+    said.map_or_else(String::new, |said| format!(": {said}"))
 }
 
 /// Result of a domain operation.

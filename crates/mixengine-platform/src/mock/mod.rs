@@ -102,6 +102,14 @@ impl Host {
         Self::answering(Some(home.into()))
     }
 
+    /// This host, where an elevated process cannot read anything under `path` — macOS' TCC-gated
+    /// volume, on any OS a test runs on (T166).
+    #[must_use]
+    pub fn elevated_cannot_read(mut self, path: impl Into<PathBuf>) -> Self {
+        self.home.blind_to(path.into());
+        self
+    }
+
     /// A host that cannot say where the user's data belongs — the service-account case.
     #[must_use]
     pub fn without_home() -> Self {
@@ -284,6 +292,18 @@ impl Host {
     pub fn declining_elevation(home: impl Into<PathBuf>) -> Self {
         Self {
             prompts: elevation::Prompts::declining(),
+            ..Self::with_home(home)
+        }
+    }
+
+    /// A host where the prompt is accepted and the helper writes `said` to stderr.
+    ///
+    /// Pair it with a request nothing answers to reproduce a helper that refused its request: the
+    /// state T166 makes legible, where the only account of why is what the helper said.
+    #[must_use]
+    pub fn elevation_saying(home: impl Into<PathBuf>, said: &str) -> Self {
+        Self {
+            prompts: elevation::Prompts::saying(said),
             ..Self::with_home(home)
         }
     }

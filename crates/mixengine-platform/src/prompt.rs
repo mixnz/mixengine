@@ -98,6 +98,28 @@ pub(crate) mod windows {
     }
 }
 
+/// The most of what a helper said that reaches an error message, in bytes.
+///
+/// A refusal is one line; the bound is for a helper that panicked and printed a backtrace, where the
+/// reason is at the end and a page of frames above it is not a sentence anybody reads — T166, D5.
+pub(crate) const SAID_LIMIT: usize = 1024;
+
+/// A helper's stderr as it goes into an error: trimmed, `None` when there is nothing, and the
+/// **last** [`SAID_LIMIT`] bytes when there is too much, cut on a character boundary.
+pub(crate) fn trimmed(text: &str) -> Option<String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return None;
+    }
+
+    let mut start = text.len().saturating_sub(SAID_LIMIT);
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+
+    Some(text[start..].trim_start().to_owned())
+}
+
 /// macOS' table, and the script that is a constant.
 pub(crate) mod macos {
     use super::ElevationOutcome;
@@ -126,6 +148,29 @@ pub(crate) mod macos {
         let open = tail.rfind('(')?;
 
         tail[open + 1..].parse().ok()
+    }
+
+    /// The helper's own words, out of osascript's account of them.
+    ///
+    /// `do shell script` reports a non-zero status as an AppleScript error, which wraps whatever the
+    /// helper wrote to stderr as `<n>:<n>: execution error: <stderr> (<status>)`. The framing is
+    /// AppleScript's and says nothing to a person; what is inside it is the helper's sentence. Only
+    /// the **last** parenthesised integer goes — `(os error 1)` inside the sentence is the helper's.
+    pub(crate) fn said(stderr: &str) -> Option<String> {
+        let text = stderr.trim();
+        let text = text
+            .split_once(": execution error: ")
+            .map_or(text, |(_, rest)| rest);
+
+        let text = match error_code(text) {
+            Some(_) => text
+                .strip_suffix(')')
+                .and_then(|tail| tail.rfind('(').map(|open| &tail[..open]))
+                .unwrap_or(text),
+            None => text,
+        };
+
+        super::trimmed(text)
     }
 
     /// What osascript's answer means, in the three words the trait speaks.
@@ -303,6 +348,38 @@ mod tests {
             Some(65)
         );
         assert_eq!(macos::error_code("no code here at all"), None);
+    }
+
+    #[test]
+    fn macos_keeps_the_helpers_sentence_and_drops_applescripts_framing() {
+        // The stderr of the incident T166 comes from, verbatim but for the path.
+        assert_eq!(
+            macos::said(
+                "7:134: execution error: mixengine-elevate: cannot read /Volumes/SSD/home/run/\
+                 elevate/x/request.json: Operation not permitted (os error 1) (65)\n"
+            )
+            .as_deref(),
+            Some(
+                "mixengine-elevate: cannot read /Volumes/SSD/home/run/elevate/x/request.json: \
+                 Operation not permitted (os error 1)"
+            ),
+        );
+        assert_eq!(
+            macos::said("mixengine-elevate: no framing at all").as_deref(),
+            Some("mixengine-elevate: no framing at all"),
+        );
+        assert_eq!(macos::said("  \n"), None);
+    }
+
+    #[test]
+    fn a_long_complaint_keeps_its_end() {
+        let long = format!("{}the reason", "é".repeat(SAID_LIMIT));
+        let kept = trimmed(&long).expect("something to keep");
+
+        assert!(kept.len() <= SAID_LIMIT, "{}", kept.len());
+        assert!(kept.ends_with("the reason"), "{kept}");
+        assert_eq!(trimmed("  a line \n").as_deref(), Some("a line"));
+        assert_eq!(trimmed(""), None);
     }
 
     #[test]
