@@ -134,11 +134,12 @@ pub use traits::{
     Interface, KEYRING_SERVICE, Keyring, LimitMechanism, LimitSupport, Located, Machine,
     MachineFacts, MemoryMeasure, NetworkInfo, OrphanGuarantee, PathIntegration, PathLocation,
     PathState, PortAccess, PortAccessMethod, PortAccessState, PortBinding, PortHolder, PortOwner,
-    PortRange, Probe, ProcessMetrics, RedistributableOutcome, Redistributables, ReservedPorts,
-    ResolverConfig, ResolverMethod, ResolverState, ResourceControl, ServiceInstaller, Started,
-    TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER, VisualCppVersion, WhenExceeded,
-    avx, choose_interface, dotted_version, names_the_redistributable, orphan_guarantee,
-    refused_by_app_control, shared_libraries, visual_cpp_from_registry,
+    PortRange, Probe, ProcessMetrics, Raised, RedistributableOutcome, Redistributables,
+    ReservedPorts, ResolverConfig, ResolverMethod, ResolverState, ResourceControl,
+    ServiceInstaller, Started, TrustState, TrustStore, TrustStoreMethod, VISUAL_CPP_PUBLISHER,
+    VisualCppVersion, WhenExceeded, avx, choose_interface, dotted_version,
+    names_the_redistributable, orphan_guarantee, refused_by_app_control, shared_libraries,
+    visual_cpp_from_registry,
 };
 
 // The three supported operating systems keep their own directory, exactly as the architecture

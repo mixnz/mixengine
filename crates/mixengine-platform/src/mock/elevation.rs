@@ -13,7 +13,7 @@ use std::sync::Mutex;
 
 use mixengine_proto::privileged::ElevationOutcome;
 
-use crate::{Elevation, ElevationSupport, Result};
+use crate::{Elevation, ElevationSupport, Raised, Result};
 
 /// One attempt to raise a prompt, as the mock recorded it.
 ///
@@ -36,6 +36,9 @@ pub(super) struct Prompts {
     /// that behaves differently on the second prompt of a batch is a caller that has broken the rule
     /// the batch exists for.
     answer: ElevationOutcome,
+
+    /// What the helper "said" on stderr, handed back with a `Completed` answer.
+    said: Option<String>,
 }
 
 impl Default for Prompts {
@@ -43,6 +46,7 @@ impl Default for Prompts {
         Self {
             raised: Mutex::new(Vec::new()),
             answer: ElevationOutcome::Completed,
+            said: None,
         }
     }
 }
@@ -75,6 +79,15 @@ impl Prompts {
     }
 
     /// Every prompt this host was asked to raise, in order.
+    /// A prompt that is accepted, and a helper that wrote `said` to stderr — the helper that refused
+    /// its request, when nothing is written beside it (T166).
+    pub(super) fn saying(said: &str) -> Self {
+        Self {
+            said: Some(said.to_owned()),
+            ..Self::default()
+        }
+    }
+
     pub(super) fn raised(&self) -> Vec<Prompt> {
         self.raised
             .lock()
@@ -96,7 +109,7 @@ impl Elevation for Prompts {
         }
     }
 
-    fn run(&self, helper: &Path, request: &Path) -> Result<ElevationOutcome> {
+    fn run(&self, helper: &Path, request: &Path) -> Result<Raised> {
         self.raised
             .lock()
             .expect("no test panics while holding this")
@@ -105,6 +118,9 @@ impl Elevation for Prompts {
                 request: request.to_path_buf(),
             });
 
-        Ok(self.answer.clone())
+        Ok(Raised {
+            outcome: self.answer.clone(),
+            said: self.said.clone(),
+        })
     }
 }

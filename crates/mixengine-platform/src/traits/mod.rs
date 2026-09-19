@@ -33,7 +33,7 @@ pub use autostart::{AutostartMechanism, AutostartPlan, AutostartState, ServiceIn
 pub use browsers::{BrowserChange, BrowserSurvey, BrowserTrust, DatabaseState};
 pub use connections::ConnectionCount;
 pub use desktop::{DesktopApps, InstalledApp, Located, Started};
-pub use elevation::{Elevation, ElevationSupport};
+pub use elevation::{Elevation, ElevationSupport, Raised};
 pub use firewall_rules::FirewallRules;
 pub use home::HomeDirs;
 pub use hosts::HostsFile;

@@ -19,6 +19,34 @@ pub enum ElevationSupport {
     },
 }
 
+/// What became of one prompt, and what the helper said on its way out.
+///
+/// `said` is **a sentence for a person, never something to branch on** — T40a, D7 still holds: the
+/// helper's exit code goes no further than a log line, because Windows cannot supply it. What a
+/// helper that refused its request wrote to stderr is the only account of *why* there is no report
+/// beside it (roadmap task T166, D5), and without it the daemon can say only that there is none.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Raised {
+    /// The prompt's answer — the part that crosses the wire.
+    pub outcome: ElevationOutcome,
+
+    /// What the helper wrote to stderr, trimmed and bounded, when this OS let us read it.
+    ///
+    /// Only ever set on [`ElevationOutcome::Completed`]: on the other two the stream belongs to the
+    /// launcher, not to the helper. Always `None` on Windows, where a `runas` child has no stream the
+    /// caller owns.
+    pub said: Option<String>,
+}
+
+impl From<ElevationOutcome> for Raised {
+    fn from(outcome: ElevationOutcome) -> Self {
+        Self {
+            outcome,
+            said: None,
+        }
+    }
+}
+
 /// Running `mixengine-elevate` once, under an administrative token.
 ///
 /// **The capability stops at the prompt.** It raises one, waits for the process to end, and answers
@@ -57,7 +85,8 @@ pub trait Elevation: std::fmt::Debug + Send + Sync {
     ///
     /// [`ElevationOutcome::Completed`] means the helper **ran**, not that it left a report. A helper
     /// that died before writing one is `Completed` with nothing beside the request — a state every
-    /// caller has to handle anyway, on every system, because a crash is not a per-OS event.
+    /// caller has to handle anyway, on every system, because a crash is not a per-OS event. So is a
+    /// helper that refused its request, and [`Raised::said`] is where its reason arrives.
     ///
     /// # Errors
     ///
@@ -67,5 +96,5 @@ pub trait Elevation: std::fmt::Debug + Send + Sync {
     /// an absolute existing file, or that carries a character the mechanism cannot be given, and
     /// [`Error::Os`](crate::Error::Os) for a system call that failed for a reason that is not the
     /// user.
-    fn run(&self, helper: &Path, request: &Path) -> Result<ElevationOutcome>;
+    fn run(&self, helper: &Path, request: &Path) -> Result<Raised>;
 }

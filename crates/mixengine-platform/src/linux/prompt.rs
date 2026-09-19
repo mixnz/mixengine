@@ -20,7 +20,7 @@ use std::process::Command;
 use mixengine_proto::privileged::ElevationOutcome;
 
 use crate::prompt::{self, linux as decide};
-use crate::{Elevation, ElevationSupport, Result};
+use crate::{Elevation, ElevationSupport, Raised, Result};
 
 /// Resolved through `PATH` rather than spelled `/usr/bin/pkexec`: the check's first question is
 /// whether polkit is on this machine at all, and that question is `PATH`'s.
@@ -36,7 +36,7 @@ impl Elevation for Prompt {
         })
     }
 
-    fn run(&self, helper: &Path, request: &Path) -> Result<ElevationOutcome> {
+    fn run(&self, helper: &Path, request: &Path) -> Result<Raised> {
         prompt::usable("run as the elevation helper", helper)?;
         prompt::usable("hand to the elevation helper", request)?;
 
@@ -47,29 +47,43 @@ impl Elevation for Prompt {
         // Rule 3 of platform-abstraction.md — detect, then act. Nothing is spawned on a machine that
         // has already been shown to have nowhere to draw a prompt.
         if let Some(reason) = decide::missing(session(), Some(&manual)) {
-            return Ok(ElevationOutcome::Unavailable { reason });
+            return Ok(Raised::from(ElevationOutcome::Unavailable { reason }));
         }
 
+        // `output` rather than `status`: the helper's stderr is the only account of why it left no
+        // report, and inherited it went to the daemon's own stream, where nobody who had just typed
+        // a password would read it — T166, D5. stdin was never the helper's to read.
         let ran = Command::new(PKEXEC)
             .arg("--disable-internal-agent")
             .arg(helper)
             .arg(request)
-            .status();
+            .output();
 
-        let status = match ran {
-            Ok(status) => status,
+        let ran = match ran {
+            Ok(output) => output,
             Err(source) => {
-                return Ok(ElevationOutcome::Unavailable {
+                return Ok(Raised::from(ElevationOutcome::Unavailable {
                     reason: format!(
                         "{PKEXEC} could not be started ({source}). Run this by hand instead: {manual}"
                     ),
-                });
+                }));
             }
         };
 
-        tracing::debug!(code = ?status.code(), "pkexec ended");
+        let complaint = String::from_utf8_lossy(&ran.stderr);
+        tracing::debug!(
+            code = ?ran.status.code(),
+            stderr = %complaint.trim(),
+            "pkexec ended"
+        );
 
-        Ok(decide::outcome(status.code()))
+        let outcome = decide::outcome(ran.status.code());
+        let said = match outcome {
+            ElevationOutcome::Completed => prompt::trimmed(&complaint),
+            _ => None,
+        };
+
+        Ok(Raised { outcome, said })
     }
 }
 

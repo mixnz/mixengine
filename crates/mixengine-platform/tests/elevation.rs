@@ -35,7 +35,8 @@ fn a_mock_records_every_prompt_it_was_asked_to_raise() {
     let outcome = machine
         .elevation()
         .run(&helper, &request)
-        .expect("the mock raises nothing and refuses nothing");
+        .expect("the mock raises nothing and refuses nothing")
+        .outcome;
 
     assert_eq!(outcome, ElevationOutcome::Completed);
     assert_eq!(
@@ -43,6 +44,18 @@ fn a_mock_records_every_prompt_it_was_asked_to_raise() {
         vec![mock::Prompt { helper, request }],
         "the pair is the assertion T40b's queue needs: one prompt, on the request it just wrote"
     );
+}
+
+/// T166: the mock hands back what its helper "said", and only with a prompt that was accepted.
+#[test]
+fn a_mock_helper_can_say_why_it_left_nothing() {
+    let (helper, request) = a_helper_and_a_request();
+    let machine = mock::Host::elevation_saying("/tmp/mixengine-test", "mixengine-elevate: refused");
+
+    let raised = machine.elevation().run(&helper, &request).unwrap();
+
+    assert_eq!(raised.outcome, ElevationOutcome::Completed);
+    assert_eq!(raised.said.as_deref(), Some("mixengine-elevate: refused"));
 }
 
 /// The distinction T40b's degraded mode turns on: a machine that *could* prompt and was refused will
@@ -54,7 +67,7 @@ fn a_declined_prompt_is_still_a_machine_that_can_prompt() {
 
     assert_eq!(machine.elevation().probe(), ElevationSupport::Available);
     assert_eq!(
-        machine.elevation().run(&helper, &request).unwrap(),
+        machine.elevation().run(&helper, &request).unwrap().outcome,
         ElevationOutcome::Declined
     );
 }
@@ -71,7 +84,7 @@ fn a_machine_that_cannot_prompt_says_so_before_it_is_asked() {
         }
     );
     assert_eq!(
-        machine.elevation().run(&helper, &request).unwrap(),
+        machine.elevation().run(&helper, &request).unwrap().outcome,
         ElevationOutcome::Unavailable {
             reason: "no polkit agent".to_owned()
         }
@@ -247,7 +260,8 @@ fn windows_runs_the_helper_and_a_report_appears_beside_the_request() {
     let outcome = host()
         .elevation()
         .run(&helper(), &pending.path)
-        .expect("the helper is installed and both paths are absolute");
+        .expect("the helper is installed and both paths are absolute")
+        .outcome;
 
     assert_eq!(outcome, ElevationOutcome::Completed);
 
@@ -274,7 +288,8 @@ fn macos_runs_the_helper_and_a_report_appears_beside_the_request() {
     let outcome = host()
         .elevation()
         .run(&helper(), &pending.path)
-        .expect("the helper is installed and both paths are absolute");
+        .expect("the helper is installed and both paths are absolute")
+        .outcome;
 
     assert_eq!(outcome, ElevationOutcome::Completed);
 
@@ -306,7 +321,8 @@ fn linux_says_it_cannot_prompt_and_hands_back_the_command_to_run_by_hand() {
     let outcome = machine
         .elevation()
         .run(&helper(), &pending.path)
-        .expect("both paths are absolute and both files are there");
+        .expect("both paths are absolute and both files are there")
+        .outcome;
 
     let ElevationOutcome::Unavailable { reason } = outcome else {
         panic!(

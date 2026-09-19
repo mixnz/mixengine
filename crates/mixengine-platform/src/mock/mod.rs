@@ -288,6 +288,18 @@ impl Host {
         }
     }
 
+    /// A host where the prompt is accepted and the helper writes `said` to stderr.
+    ///
+    /// Pair it with a request nothing answers to reproduce a helper that refused its request: the
+    /// state T166 makes legible, where the only account of why is what the helper said.
+    #[must_use]
+    pub fn elevation_saying(home: impl Into<PathBuf>, said: &str) -> Self {
+        Self {
+            prompts: elevation::Prompts::saying(said),
+            ..Self::with_home(home)
+        }
+    }
+
     /// A host with no way to raise a prompt, with `reason`.
     ///
     /// The headless-Linux case for this capability: polkit installed and no authentication agent to

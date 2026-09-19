@@ -795,14 +795,19 @@ impl Elevation {
 
         let path = request.path().to_path_buf();
         let machine = Arc::clone(&self.host);
-        let raised = tokio::task::spawn_blocking(move || machine.elevation().run(&helper, &path))
-            .await
-            .map_err(|join| {
-                Error::new(
-                    ErrorCode::Internal,
-                    format!("the elevation prompt could not be waited on: {join}"),
-                )
-            })?;
+        let raised = tokio::task::spawn_blocking(move || {
+            machine
+                .elevation()
+                .run(&helper, &path)
+                .map(|raised| raised.outcome)
+        })
+        .await
+        .map_err(|join| {
+            Error::new(
+                ErrorCode::Internal,
+                format!("the elevation prompt could not be waited on: {join}"),
+            )
+        })?;
 
         let answer = self.judge(handle, &request, raised, &waiting).await;
 
