@@ -9,6 +9,7 @@ use std::process::Command;
 fn mix() -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_mix"));
     command.env_remove("MIXENGINE_HOME");
+    command.env_remove("MIXENGINE_DEV_HOME");
     command.env_remove("MIXENGINE_LANG");
     command.env_remove("LC_ALL");
     command.env_remove("LC_MESSAGES");

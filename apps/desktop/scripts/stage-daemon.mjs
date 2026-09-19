@@ -18,12 +18,16 @@
  *      copy that takes milliseconds buys nothing. A daemon still running there from the last
  *      window is stopped first with `mix daemon stop` against this home.
  *
- * `tauri dev` is started from here rather than by `&&` in package.json because MIXENGINE_HOME has
- * to reach it: two commands joined by `&&` are two processes, and an environment set in the first
- * does not survive into the second. The home is the repository's own .mixengine-home, which is
- * what the root .cargo/config.toml gives `cargo run -p mixengine-daemon`, so the daemon the window
- * starts and the one a terminal starts are the same daemon. A MIXENGINE_HOME already set wins,
- * exactly as it does for cargo.
+ * `tauri dev` is started from here rather than by `&&` in package.json so that one environment
+ * reaches both it and `mix daemon stop`: two commands joined by `&&` are two processes, and an
+ * environment set in the first does not survive into the second.
+ *
+ * **This script picks no home** — T166, ADR 0040. It passes MIXENGINE_DEV_HOME, the same
+ * suggestion the root .cargo/config.toml gives everything cargo runs, and the binaries decide:
+ * the checkout's .mixengine-home, unless an elevated helper could not read it there (a checkout on
+ * an external disk, on macOS), in which case the default home. Deciding here as well would be a
+ * second copy of that rule, in a language the daemon does not speak. A MIXENGINE_HOME already set
+ * still wins, as it does for cargo.
  *
  * Node and not bash: `npm run dev:app` is typed into PowerShell, and on a Windows machine with WSL
  * a bare `bash` is System32\bash.exe, which is WSL's. The other scripts in packaging/ are run from
@@ -46,7 +50,12 @@ const root = resolve(app, "..", "..");
 const suffix = process.platform === "win32" ? ".exe" : "";
 const stageOnly = process.argv.includes("--stage-only");
 
-const home = process.env.MIXENGINE_HOME || join(root, ".mixengine-home");
+// The suggestion, never the home — see the header. `mix daemon stop` below runs outside cargo, so
+// it would not otherwise see what .cargo/config.toml gives the window.
+const environment = {
+  ...process.env,
+  MIXENGINE_DEV_HOME: process.env.MIXENGINE_DEV_HOME || join(root, ".mixengine-home"),
+};
 
 // 1. The list, from the one file that declares it.
 const binaries = headlessBinaries(readFileSync(join(root, "packaging", "common.sh"), "utf8"));
@@ -99,11 +108,11 @@ function tryCopy(source, target) {
 // through `mix`, services first. Its exit status is not the verdict — a copy that still fails is.
 function stopTheDevDaemon() {
   const mix = join(root, "target", "debug", `mix${suffix}`);
-  console.log(`the daemon of ${home} is running; stopping it before staging`);
+  console.log("this checkout's daemon is running; stopping it before staging");
   const stop = spawnSync(mix, ["daemon", "stop"], {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, MIXENGINE_HOME: home },
+    env: environment,
   });
   if (stop.error) {
     console.error(`could not run ${mix}: ${stop.error.message}`);
@@ -150,13 +159,13 @@ if (stageOnly) {
   process.exit(0);
 }
 
-// 4. The window, with the home the daemon beside it will share. `node tauri.js` rather than the
-//    `tauri` command: on Windows that command is a .cmd shim, which spawnSync cannot start without
-//    a shell.
+// 4. The window, with the environment the daemon beside it will resolve its home from.
+//    `node tauri.js` rather than the `tauri` command: on Windows that command is a .cmd shim,
+//    which spawnSync cannot start without a shell.
 const tauri = join(app, "node_modules", "@tauri-apps", "cli", "tauri.js");
 const dev = spawnSync(process.execPath, [tauri, "dev"], {
   cwd: app,
   stdio: "inherit",
-  env: { ...process.env, MIXENGINE_HOME: home },
+  env: environment,
 });
 process.exit(dev.status ?? 1);
