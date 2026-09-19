@@ -117,7 +117,9 @@ From top to bottom:
    - One button: **Start** when the service is stopped, **Stop** when it is running. While the call is
      in flight the row shows the pending state, as the Dashboard does (`pendingOps.ts`).
    - The list scrolls.
-3. **Stop all.** It asks for confirmation first (D4), then sends `service.stop` with no target.
+3. **Stop all.** It asks for confirmation first (D4), then sends `service.stop` with no target —
+   `mixengine_service_stop_all`, a command of its own for the reason `mixengine_service_start_project`
+   is one: an empty id must never be the way to say "everything".
 4. **Sites.** One row per site from `site.list`: the domain, which opens the site's URL in the default
    browser through `opener`. It has no controls. Sharing and anything else are MixLab's.
 5. **Footer.**
@@ -147,9 +149,14 @@ It does not report the stop as done before the answer arrives.
 - `mixengine_watch` takes the calling `WebviewWindow`, and cancels and replaces only that window's token.
 - `mixengine_unwatch` does the same.
 
-Each window's `daemonWatch.ts` works as it does today. Two streams against the daemon cost one
-extra connection, and the tray panel opens its stream only while it is shown, closing it on hide.
-The daemon already supports several `/events` subscribers, since `mix` and MixLab watch at the same time.
+Each window's `daemonWatch.ts` works as it does today: opened once for the life of its JavaScript
+context. Two streams against the daemon cost one extra idle connection. The daemon already supports
+several `/events` subscribers, since `mix` and MixLab watch at the same time.
+
+**A stream that ended is reopened.** The panel outlives many daemons — it is never destroyed, and
+*Stop MixEngine* ends the very stream it is listening on. So `daemonWatch.ts` forgets a channel that
+reported `mixdb_disconnected`, and the panel calls `ensureDaemonWatch()` whenever it finds the daemon
+running again.
 
 The alternative was one stream in Rust fanned out to every window. It was rejected because it moves
 the "open once for the life of the app" logic from `daemonWatch.ts` into Rust for no gain.

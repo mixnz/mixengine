@@ -24,7 +24,7 @@ Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks
       header with the slogan, services, stop-all, sites, the footer, and inline confirmation.
 - [x] **T168f** MixLab at login: `tauri-plugin-autostart` with `--hidden`, `main` hidden until shown,
       the Settings switch beside the daemon's, and the AppImage and development-build names. **(P)**
-- [ ] **T168g** The tray icons, and `client-surface.md`, the desktop roadmap, the architecture notes
+- [x] **T168g** The tray icons, and `client-surface.md`, the desktop roadmap, the architecture notes
       and the handbook brought up to date.
 
 **Milestone M22**: on macOS and Windows, a person who ticked the login switch sees the icon after
