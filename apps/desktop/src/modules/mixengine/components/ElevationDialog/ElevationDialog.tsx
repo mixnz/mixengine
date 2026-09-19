@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -121,56 +120,60 @@ export default function ElevationDialog({
 
   return (
     <Modal
-      label={t("mixengine.elevation.title")}
+      title={t("mixengine.elevation.title")}
       onClose={onClose}
       locked={busy}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      footerNote={
+        busy ? (
+          <>
+            {t("mixengine.elevation.prompting")}
+            {dots}
+          </>
+        ) : undefined
+      }
+      actions={[
+        { kind: "cancel", label: t("common.close"), disabled: busy },
+        ...(canPrompt
+          ? [
+              {
+                kind: "confirm" as const,
+                label: t("mixengine.elevation.grant"),
+                onClick: () => void grant(),
+                disabled: busy,
+              },
+            ]
+          : []),
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h2 className={styles.title}>{t("mixengine.elevation.title")}</h2>
-          <p>{t("mixengine.elevation.lead")}</p>
-          <ul className={styles.ops}>
-            {pending.map((op, at) => {
-              const { kind, description, detail } = describeOp(op);
-              return (
-                // Vị trí là khoá: `PendingOp.id` có tồn tại, nhưng thứ tự là thứ daemon gửi và danh
-                // sách không sắp xếp lại, nên hai cách cho cùng một kết quả và cách này không phải
-                // tin vào một field.
-                <li key={at}>
-                  {/* Câu của daemon đứng trước; tên kỹ thuật đứng sau, cho người muốn tra cứu nó. */}
-                  {description && <div>{description}</div>}
-                  <code className={styles.kind}>{kind}</code>
-                  {detail && <pre className={styles.detail}>{detail}</pre>}
-                </li>
-              );
-            })}
-          </ul>
-          {!canPrompt && (
-            <p className={styles.cannotPrompt}>
-              {reason
-                ? t("mixengine.elevation.cannotPromptReason", { reason })
-                : t("mixengine.elevation.cannotPrompt")}
-            </p>
-          )}
-          {notice !== null && !busy && <p className={styles.cannotPrompt}>{notice}</p>}
-          <div className={styles.buttons}>
-            {busy && (
-              <span className={styles.prompting}>
-                {t("mixengine.elevation.prompting")}
-                {dots}
-              </span>
+          <ModalBody>
+            <p className={styles.lead}>{t("mixengine.elevation.lead")}</p>
+            <ul className={styles.ops}>
+              {pending.map((op, at) => {
+                const { kind, description, detail } = describeOp(op);
+                return (
+                  // Vị trí là khoá: `PendingOp.id` có tồn tại, nhưng thứ tự là thứ daemon gửi và danh
+                  // sách không sắp xếp lại, nên hai cách cho cùng một kết quả và cách này không phải
+                  // tin vào một field.
+                  <li key={at}>
+                    {/* Câu của daemon đứng trước; tên kỹ thuật đứng sau, cho người muốn tra cứu nó. */}
+                    {description && <div>{description}</div>}
+                    <code className={styles.kind}>{kind}</code>
+                    {detail && <pre className={styles.detail}>{detail}</pre>}
+                  </li>
+                );
+              })}
+            </ul>
+            {!canPrompt && (
+              <p className={styles.cannotPrompt}>
+                {reason
+                  ? t("mixengine.elevation.cannotPromptReason", { reason })
+                  : t("mixengine.elevation.cannotPrompt")}
+              </p>
             )}
-            <Button size="large" onClick={() => close(onClose)} disabled={busy}>
-              {t("common.close")}
-            </Button>
-            {canPrompt && (
-              <Button size="large" variant="primary" onClick={() => void grant()} disabled={busy}>
-                {t("mixengine.elevation.grant")}
-              </Button>
-            )}
-          </div>
+            {notice !== null && !busy && <p className={styles.cannotPrompt}>{notice}</p>}
+          </ModalBody>
         </>
       )}
     </Modal>

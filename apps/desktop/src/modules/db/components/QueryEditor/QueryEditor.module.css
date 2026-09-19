@@ -90,32 +90,7 @@
   margin-left: 0;
 }
 
-/* The history list. Wider and taller than a confirmation, because it is read rather than answered:
-   the whole point is scanning a page of queries at once. Same z-index band as ConfirmDialog, which
-   never appears at the same time as this. */
-.overlay {
-  composes: overlay from "../../../../components/Modal/surface.module.css";
-}
-
-.historyDialog {
-  composes: dialog from "../../../../components/Modal/surface.module.css";
-  gap: 0.6rem;
-  width: min(720px, calc(100vw - 2rem));
-  max-height: min(34rem, calc(100vh - 4rem));
-  padding: 1rem;
-}
-
-.historyHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.historyTitle {
-  margin: 0;
-}
-
+/* The zoom bar's close button. */
 .historyClose {
   display: inline-flex;
   padding: 0.2rem;

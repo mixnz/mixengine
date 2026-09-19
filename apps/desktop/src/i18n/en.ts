@@ -94,7 +94,6 @@ const en = {
   },
   settings: {
     title: "Settings",
-    close: "Close",
     appearance: "Appearance",
     theme: "Theme",
     themeLight: "Light",

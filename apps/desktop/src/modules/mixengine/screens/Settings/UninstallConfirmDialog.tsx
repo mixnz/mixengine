@@ -1,7 +1,6 @@
 import { useState } from "react";
 
-import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { IS_MAC, IS_WINDOWS } from "../../../../core/platform";
 import { useTranslation } from "../../../../i18n";
@@ -46,33 +45,29 @@ export default function UninstallConfirmDialog({
 
   return (
     <Modal
-      label={t("mixengine.settings.uninstall.confirmTitle")}
+      title={t("mixengine.settings.uninstall.confirmTitle")}
       onClose={onClose}
       locked={busy}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.close"), disabled: busy },
+        {
+          kind: "danger",
+          label: t("mixengine.settings.uninstall.confirmAllow"),
+          onClick: () => void allow(),
+          disabled: busy,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h2 className={styles.title}>{t("mixengine.settings.uninstall.confirmTitle")}</h2>
-          <p>
-            {t("mixengine.settings.uninstall.confirmLead")}
-            {elevateOs !== null &&
-              ` ${t("mixengine.settings.uninstall.confirmLeadElevate", { os: elevateOs })}`}
-          </p>
-          <div className={styles.buttons}>
-            <Button size="large" onClick={() => close(onClose)} disabled={busy}>
-              {t("common.close")}
-            </Button>
-            <Button
-              size="large"
-              variant="danger"
-              onClick={() => void allow()}
-              disabled={busy}
-            >
-              {t("mixengine.settings.uninstall.confirmAllow")}
-            </Button>
-          </div>
+          <ModalBody>
+            <p className={styles.lead}>
+              {t("mixengine.settings.uninstall.confirmLead")}
+              {elevateOs !== null &&
+                ` ${t("mixengine.settings.uninstall.confirmLeadElevate", { os: elevateOs })}`}
+            </p>
+          </ModalBody>
         </>
       )}
     </Modal>

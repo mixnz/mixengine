@@ -1,33 +1,7 @@
-.overlay {
-  composes: overlay from "../Modal/surface.module.css";
-}
-
-.dialog {
-  composes: dialog from "../Modal/surface.module.css";
-  width: min(440px, calc(100vw - 2rem));
-  padding: 22px 24px;
-  gap: 12px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
 .message {
   margin: 0;
   font-size: var(--text-md);
   line-height: 1.55;
   color: var(--text-secondary);
-  /* The message often quotes a value the user typed, which may have no spaces to break at. */
   overflow-wrap: anywhere;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 6px;
 }

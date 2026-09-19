@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
 import { MinusIcon, PlusIcon } from "../../../../icons";
@@ -8,7 +7,7 @@ import { errorMessage } from "../../../../core/errors";
 import type { SqlIndexKind, SqlIndexSpec, SqlTableIndex } from "../../types";
 import { useSqlDialect } from "../../sql/context";
 import styles from "./IndexDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 
 /** One column of the index being built. `prefixLength` is text rather than a number so a
  * half-typed value doesn't have to mean anything yet. */
@@ -164,152 +163,137 @@ function IndexDialog({ table, columns, index, onCancel, onSubmit }: Props) {
       label={table}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      title={editing ? t("indexDialog.editTitle", { index: index.name }) : t("indexDialog.addTitle", { table })}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t(editing ? "indexDialog.submitEdit" : "indexDialog.submitAdd"),
+          onClick: () => void submit(),
+          busy: saving ? t("indexDialog.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>
-              {editing
-                ? t("indexDialog.editTitle", { index: index.name })
-                : t("indexDialog.addTitle", { table })}
-            </h3>
+          <ModalBody>
             {editing && <p className={styles.note}>{t("indexDialog.replaceNote")}</p>}
-          </div>
 
-          <div className={styles.form}>
-            <label className={styles.field}>
-              {t("indexDialog.name")}
-              <Input
-                ref={nameRef}
-                size="normal"
-                value={fixedName ?? name}
-                placeholder={t("indexDialog.namePlaceholder")}
-                // On MySQL a primary key is always called PRIMARY, so there is nothing to type.
-                disabled={saving || fixedName !== null}
-                title={fixedName !== null ? t("indexDialog.nameFixed") : undefined}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("indexDialog.kind")}
-              <Select
-                value={kind}
-                size="normal"
-                options={kindOptions}
-                ariaLabel={t("indexDialog.kind")}
-                disabled={saving}
-                onChange={(next) => {
-                  setKind(next);
-                  setErrors([]);
-                }}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("indexDialog.method")}
-              <Select
-                value={method}
-                size="normal"
-                options={methodOptions}
-                ariaLabel={t("indexDialog.method")}
-                disabled={saving || !takesMethod(kind)}
-                onChange={setMethod}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("indexDialog.comment")}
-              <Input
-                size="normal"
-                value={comment}
-                disabled={saving}
-                onChange={(e) => setComment(e.target.value)}
-              />
-            </label>
-          </div>
-
-          <div className={styles.columns}>
-            <span className={styles.columnsLabel}>{t("indexDialog.columns")}</span>
-            {draft.map((row) => (
-              <div key={row.id} className={styles.columnRow}>
-                <Select
-                  value={row.name}
-                  size="small"
-                  className={styles.columnSelect}
-                  options={columnOptions}
-                  ariaLabel={t("indexDialog.column")}
-                  disabled={saving}
-                  searchable
-                  onChange={(next) => updateColumn(row.id, { name: next })}
+            <div className={styles.form}>
+              <label className={styles.field}>
+                {t("indexDialog.name")}
+                <Input
+                  ref={nameRef}
+                  size="normal"
+                  value={fixedName ?? name}
+                  placeholder={t("indexDialog.namePlaceholder")}
+                  // On MySQL a primary key is always called PRIMARY, so there is nothing to type.
+                  disabled={saving || fixedName !== null}
+                  title={fixedName !== null ? t("indexDialog.nameFixed") : undefined}
+                  onChange={(e) => setName(e.target.value)}
                 />
-                {/* PostgreSQL indexes a whole value: there is no prefix to ask for. */}
-                {offers.indexPrefix && (
-                  <Input
-                    size="small"
-                    className={styles.prefixInput}
-                    value={row.prefixLength}
-                    placeholder={t("indexDialog.prefixPlaceholder")}
-                    aria-label={t("indexDialog.prefixLength")}
-                    title={t("indexDialog.prefixTooltip")}
-                    inputMode="numeric"
-                    disabled={saving}
-                    onChange={(e) => updateColumn(row.id, { prefixLength: e.target.value })}
-                  />
-                )}
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  aria-label={t("indexDialog.removeColumn")}
-                  title={t("indexDialog.removeColumn")}
-                  disabled={saving || draft.length === 1}
-                  onClick={() => {
-                    setDraft((prev) => prev.filter((r) => r.id !== row.id));
+              </label>
+
+              <label className={styles.field}>
+                {t("indexDialog.kind")}
+                <Select
+                  value={kind}
+                  size="normal"
+                  options={kindOptions}
+                  ariaLabel={t("indexDialog.kind")}
+                  disabled={saving}
+                  onChange={(next) => {
+                    setKind(next);
                     setErrors([]);
                   }}
-                >
-                  <MinusIcon size={14} />
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className={styles.iconButton}
-              aria-label={t("indexDialog.addColumn")}
-              title={t("indexDialog.addColumn")}
-              disabled={saving || columns.length === 0}
-              onClick={() => {
-                setDraft((prev) => [
-                  ...prev,
-                  { id: nextId++, name: columns[0] ?? "", prefixLength: "" },
-                ]);
-                setErrors([]);
-              }}
-            >
-              <PlusIcon size={14} />
-            </button>
-          </div>
+                />
+              </label>
 
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
-              ))}
+              <label className={styles.field}>
+                {t("indexDialog.method")}
+                <Select
+                  value={method}
+                  size="normal"
+                  options={methodOptions}
+                  ariaLabel={t("indexDialog.method")}
+                  disabled={saving || !takesMethod(kind)}
+                  onChange={setMethod}
+                />
+              </label>
+
+              <label className={styles.field}>
+                {t("indexDialog.comment")}
+                <Input
+                  size="normal"
+                  value={comment}
+                  disabled={saving}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+              </label>
             </div>
-          )}
 
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={saving}>
-              {saving
-                ? t("indexDialog.saving")
-                : t(editing ? "indexDialog.submitEdit" : "indexDialog.submitAdd")}
-            </Button>
-          </div>
+            <div className={styles.columns}>
+              <span className={styles.columnsLabel}>{t("indexDialog.columns")}</span>
+              {draft.map((row) => (
+                <div key={row.id} className={styles.columnRow}>
+                  <Select
+                    value={row.name}
+                    size="small"
+                    className={styles.columnSelect}
+                    options={columnOptions}
+                    ariaLabel={t("indexDialog.column")}
+                    disabled={saving}
+                    searchable
+                    onChange={(next) => updateColumn(row.id, { name: next })}
+                  />
+                  {/* PostgreSQL indexes a whole value: there is no prefix to ask for. */}
+                  {offers.indexPrefix && (
+                    <Input
+                      size="small"
+                      className={styles.prefixInput}
+                      value={row.prefixLength}
+                      placeholder={t("indexDialog.prefixPlaceholder")}
+                      aria-label={t("indexDialog.prefixLength")}
+                      title={t("indexDialog.prefixTooltip")}
+                      inputMode="numeric"
+                      disabled={saving}
+                      onChange={(e) => updateColumn(row.id, { prefixLength: e.target.value })}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={t("indexDialog.removeColumn")}
+                    title={t("indexDialog.removeColumn")}
+                    disabled={saving || draft.length === 1}
+                    onClick={() => {
+                      setDraft((prev) => prev.filter((r) => r.id !== row.id));
+                      setErrors([]);
+                    }}
+                  >
+                    <MinusIcon size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={styles.iconButton}
+                aria-label={t("indexDialog.addColumn")}
+                title={t("indexDialog.addColumn")}
+                disabled={saving || columns.length === 0}
+                onClick={() => {
+                  setDraft((prev) => [
+                    ...prev,
+                    { id: nextId++, name: columns[0] ?? "", prefixLength: "" },
+                  ]);
+                  setErrors([]);
+                }}
+              >
+                <PlusIcon size={14} />
+              </button>
+            </div>
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

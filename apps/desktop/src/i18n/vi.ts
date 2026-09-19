@@ -83,7 +83,6 @@ const vi: SharedDict = {
   },
   settings: {
     title: "Cài đặt",
-    close: "Đóng",
     appearance: "Giao diện",
     theme: "Chế độ hiển thị",
     themeLight: "Sáng",

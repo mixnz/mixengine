@@ -1,29 +1,3 @@
-.overlay {
-  composes: overlay from "../../../../components/Modal/surface.module.css";
-}
-
-.dialog {
-  composes: dialog from "../../../../components/Modal/surface.module.css";
-  width: min(560px, calc(100vw - 2rem));
-  max-height: calc(100vh - 3rem);
-  overflow-y: auto;
-  padding: 22px 24px;
-  gap: 16px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -104,38 +78,4 @@
 
 .disclosureBodyOpen .disclosureInner {
   padding-top: 0.5rem;
-}
-
-/* `flex-shrink: 0` là chỗ mấu chốt, không phải trang trí. `.dialog` là flex column, và khi nội
-   dung dài hơn `max-height` của nó, flexbox phải co bớt các con lại cho vừa khung *trước khi* tính
-   tới việc cuộn — nhưng một phần tử có `overflow` khác `visible` (đúng `.errors` ở đây) bị flexbox
-   coi kích thước tối thiểu là 0 lúc co, nên nó nhận gần hết phần bị co và co gần về 0, hiện ra như
-   một dải mỏng cắt ngang chữ, dù bảng thân dialog vẫn đang cuộn được bình thường — mất `flex-shrink:
-   0` là lỗi thật đã gặp, không phải suy đoán. */
-.errors {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  flex-shrink: 0;
-  max-height: 8rem;
-  overflow-y: auto;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: rgb(var(--danger-rgb) / 0.12);
-  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
-  color: var(--danger-text);
-  font-size: var(--text-md);
-  line-height: 1.4;
-}
-
-.errors p {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  flex-shrink: 0;
 }

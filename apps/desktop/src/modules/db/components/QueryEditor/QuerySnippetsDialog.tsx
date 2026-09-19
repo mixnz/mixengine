@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { CloseIcon, TrashIcon } from "../../../../icons";
+import { TrashIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { removeSnippet, saveSnippet, useQuerySnippets } from "../../querySnippets";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import styles from "./QueryEditor.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 
 interface Props {
   /** The query the Save row would keep — the selection, or the statement the caret is in. Empty
@@ -66,98 +66,87 @@ function QuerySnippetsDialog({ sql, onPick, onClose }: Props) {
 
   return (
     <Modal
-      label={t("query.snippetsTitle")}
+      title={t("query.snippetsTitle")}
       onClose={onClose}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.historyDialog}
+      fixedHeight
     >
       {(close) => (
         <>
-          <div className={styles.historyHeader}>
-            <h3 className={styles.historyTitle}>{t("query.snippetsTitle")}</h3>
-            <button type="button" className={styles.historyClose} onClick={() => close(onClose)} title={t("common.close")}>
-              <CloseIcon />
-            </button>
-          </div>
-
-          <div className={styles.historyTools}>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void save();
-              }}
-              placeholder={t("query.snippetNamePlaceholder")}
-              aria-label={t("query.snippetNamePlaceholder")}
-              disabled={!canSave || saving}
-              autoFocus
-            />
-            <Button
-              size="small"
-              variant="primary"
-              onClick={() => void save()}
-              disabled={!canSave || saving || name.trim() === ""}
-            >
-              {saving ? t("query.snippetSaving") : t("query.saveSnippet")}
-            </Button>
-          </div>
-          <p className={styles.historyHint}>
-            {canSave ? oneLine(sql).slice(0, 120) : t("query.snippetNothingToSave")}
-          </p>
-
-          {error !== "" && (
-            <p className={styles.error} role="alert">
-              {error}
+          <ModalBody>
+            <div className={styles.historyTools}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void save();
+                }}
+                placeholder={t("query.snippetNamePlaceholder")}
+                aria-label={t("query.snippetNamePlaceholder")}
+                disabled={!canSave || saving}
+                autoFocus
+              />
+              <Button
+                size="small"
+                variant="primary"
+                onClick={() => void save()}
+                disabled={!canSave || saving || name.trim() === ""}
+              >
+                {saving ? t("query.snippetSaving") : t("query.saveSnippet")}
+              </Button>
+            </div>
+            <p className={styles.historyHint}>
+              {canSave ? oneLine(sql).slice(0, 120) : t("query.snippetNothingToSave")}
             </p>
-          )}
 
-          {snippets.length === 0 ? (
-            <p className={styles.historyEmpty}>{t("query.snippetsEmpty")}</p>
-          ) : (
-            <ul className={styles.historyList} onMouseDown={() => setConfirmDrop(null)}>
-              {snippets.map((snippet) => (
-                <li key={snippet.name} className={styles.entryRow}>
-                  <button
-                    type="button"
-                    className={styles.historyEntry}
-                    title={snippet.sql}
-                    onClick={() => {
-                      onPick(snippet.sql);
-                      close(onClose);
-                    }}
-                  >
-                    <span className={styles.snippetName}>{snippet.name}</span>
-                    <span className={styles.historySql}>{oneLine(snippet.sql)}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={
-                      confirmDrop === snippet.name
-                        ? `${styles.entryDelete} ${styles.entryDeleteArmed}`
-                        : styles.entryDelete
-                    }
-                    title={
-                      confirmDrop === snippet.name
-                        ? t("query.snippetDeleteConfirm")
-                        : t("query.snippetDelete", { name: snippet.name })
-                    }
-                    // The list disarms on mouse-down, which lands before this button's click and
-                    // would clear `confirmDrop` in time for the confirming press to read it as
-                    // unarmed — the second click re-arming for ever instead of deleting. Stopping it
-                    // here keeps disarming to presses that are somewhere else.
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() =>
-                      confirmDrop === snippet.name ? void drop(snippet.name) : setConfirmDrop(snippet.name)
-                    }
-                  >
-                    <TrashIcon size="0.9em" />
-                    {confirmDrop === snippet.name && <span>{t("query.snippetDeleteConfirm")}</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+            {snippets.length === 0 ? (
+              <p className={styles.historyEmpty}>{t("query.snippetsEmpty")}</p>
+            ) : (
+              <ul className={styles.historyList} onMouseDown={() => setConfirmDrop(null)}>
+                {snippets.map((snippet) => (
+                  <li key={snippet.name} className={styles.entryRow}>
+                    <button
+                      type="button"
+                      className={styles.historyEntry}
+                      title={snippet.sql}
+                      onClick={() => {
+                        onPick(snippet.sql);
+                        close(onClose);
+                      }}
+                    >
+                      <span className={styles.snippetName}>{snippet.name}</span>
+                      <span className={styles.historySql}>{oneLine(snippet.sql)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={
+                        confirmDrop === snippet.name
+                          ? `${styles.entryDelete} ${styles.entryDeleteArmed}`
+                          : styles.entryDelete
+                      }
+                      title={
+                        confirmDrop === snippet.name
+                          ? t("query.snippetDeleteConfirm")
+                          : t("query.snippetDelete", { name: snippet.name })
+                      }
+                      // The list disarms on mouse-down, which lands before this button's click and
+                      // would clear `confirmDrop` in time for the confirming press to read it as
+                      // unarmed — the second click re-arming for ever instead of deleting. Stopping it
+                      // here keeps disarming to presses that are somewhere else.
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() =>
+                        confirmDrop === snippet.name ? void drop(snippet.name) : setConfirmDrop(snippet.name)
+                      }
+                    >
+                      <TrashIcon size="0.9em" />
+                      {confirmDrop === snippet.name && <span>{t("query.snippetDeleteConfirm")}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

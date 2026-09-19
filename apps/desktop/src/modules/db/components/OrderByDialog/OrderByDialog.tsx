@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
 import { MinusIcon, PlusIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import styles from "./OrderByDialog.module.css";
 
 interface DraftColumn {
@@ -89,97 +88,84 @@ function OrderByDialog({ table, columns, current, rowCount, onCancel, onSubmit }
       label={table}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      title={t("orderByDialog.title", { table })}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "danger",
+          label: t("orderByDialog.submit"),
+          onClick: () => void submit(),
+          disabled: !canConfirm,
+          busy: saving ? t("orderByDialog.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>{t("orderByDialog.title", { table })}</h3>
+          <ModalBody>
             <p className={styles.note}>
               {rowCount === null
                 ? t("orderByDialog.warning")
                 : t("orderByDialog.warningWithCount", { count: rowCount })}
             </p>
-          </div>
 
-          <div className={styles.columns}>
-            <span className={styles.columnsLabel}>{t("orderByDialog.columns")}</span>
-            {draft.map((row) => (
-              <div key={row.id} className={styles.columnRow}>
-                <Select
-                  value={row.name}
-                  size="small"
-                  className={styles.columnSelect}
-                  options={columnOptions}
-                  ariaLabel={t("orderByDialog.column")}
-                  disabled={saving}
-                  searchable
-                  onChange={(next) => updateColumn(row.id, next)}
-                />
-                <button
-                  type="button"
-                  className={styles.iconButton}
-                  aria-label={t("orderByDialog.removeColumn")}
-                  title={t("orderByDialog.removeColumn")}
-                  disabled={saving || draft.length === 1}
-                  onClick={() => {
-                    setDraft((prev) => prev.filter((r) => r.id !== row.id));
-                    setErrors([]);
-                  }}
-                >
-                  <MinusIcon size={14} />
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className={styles.iconButton}
-              aria-label={t("orderByDialog.addColumn")}
-              title={t("orderByDialog.addColumn")}
-              disabled={saving || columns.length === 0}
-              onClick={() => {
-                setDraft((prev) => [...prev, { id: nextId++, name: columns[0] ?? "" }]);
-                setErrors([]);
-              }}
-            >
-              <PlusIcon size={14} />
-            </button>
-          </div>
-
-          <label className={styles.field}>
-            {t("orderByDialog.confirmLabel", { table })}
-            <Input
-              ref={typedRef}
-              size="normal"
-              value={typed}
-              disabled={saving}
-              onChange={(e) => setTyped(e.target.value)}
-            />
-          </label>
-
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
+            <div className={styles.columns}>
+              <span className={styles.columnsLabel}>{t("orderByDialog.columns")}</span>
+              {draft.map((row) => (
+                <div key={row.id} className={styles.columnRow}>
+                  <Select
+                    value={row.name}
+                    size="small"
+                    className={styles.columnSelect}
+                    options={columnOptions}
+                    ariaLabel={t("orderByDialog.column")}
+                    disabled={saving}
+                    searchable
+                    onChange={(next) => updateColumn(row.id, next)}
+                  />
+                  <button
+                    type="button"
+                    className={styles.iconButton}
+                    aria-label={t("orderByDialog.removeColumn")}
+                    title={t("orderByDialog.removeColumn")}
+                    disabled={saving || draft.length === 1}
+                    onClick={() => {
+                      setDraft((prev) => prev.filter((r) => r.id !== row.id));
+                      setErrors([]);
+                    }}
+                  >
+                    <MinusIcon size={14} />
+                  </button>
+                </div>
               ))}
+              <button
+                type="button"
+                className={styles.iconButton}
+                aria-label={t("orderByDialog.addColumn")}
+                title={t("orderByDialog.addColumn")}
+                disabled={saving || columns.length === 0}
+                onClick={() => {
+                  setDraft((prev) => [...prev, { id: nextId++, name: columns[0] ?? "" }]);
+                  setErrors([]);
+                }}
+              >
+                <PlusIcon size={14} />
+              </button>
             </div>
-          )}
 
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="default"
-              className={styles.danger}
-              onClick={() => void submit()}
-              disabled={!canConfirm}
-            >
-              {saving ? t("orderByDialog.saving") : t("orderByDialog.submit")}
-            </Button>
-          </div>
+            <label className={styles.field}>
+              {t("orderByDialog.confirmLabel", { table })}
+              <Input
+                ref={typedRef}
+                size="normal"
+                value={typed}
+                disabled={saving}
+                onChange={(e) => setTyped(e.target.value)}
+              />
+            </label>
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

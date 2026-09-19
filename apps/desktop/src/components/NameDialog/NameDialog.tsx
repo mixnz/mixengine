@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Button from "../Button";
 import Input from "../Input";
 import { useTranslation } from "../../i18n";
 import { errorMessage } from "../../core/errors";
 import styles from "./NameDialog.module.css";
-import Modal from "../Modal";
+import Modal, { ModalBody, ModalErrors } from "../Modal";
 
 interface Props {
   title: string;
@@ -79,17 +78,24 @@ function NameDialog({
 
   return (
     <Modal
+      title={title}
       label={ariaLabel}
+      size="small"
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: submitLabel,
+          onClick: () => void submit(),
+          busy: saving ? savingLabel : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{title}</h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             <label className={styles.field}>
               {label}
               <Input
@@ -104,26 +110,9 @@ function NameDialog({
               />
             </label>
             {extraFields?.(saving)}
-          </div>
-
-          {hint !== undefined && <p className={styles.hint}>{hint}</p>}
-
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
-              ))}
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={saving}>
-              {saving ? savingLabel : submitLabel}
-            </Button>
-          </div>
+            {hint !== undefined && <p className={styles.hint}>{hint}</p>}
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

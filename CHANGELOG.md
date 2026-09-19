@@ -97,6 +97,8 @@
   `mix project keep-warm` still sets it.
 - Creating a site from MixLab's project form offers everything the site form does, routes included,
   and both pick a site's services with switches.
+- Every MixLab dialog keeps its title and buttons in view while its contents scroll, stays clear of
+  the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

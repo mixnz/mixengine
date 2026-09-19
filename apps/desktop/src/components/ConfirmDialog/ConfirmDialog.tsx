@@ -1,8 +1,7 @@
 import { type ReactNode } from "react";
 import { useTranslation } from "../../i18n";
-import Button from "../Button";
 import styles from "./ConfirmDialog.module.css";
-import Modal from "../Modal";
+import Modal, { ModalBody } from "../Modal";
 
 interface ConfirmDialogProps {
   title: string;
@@ -45,40 +44,34 @@ function ConfirmDialog({
 
   return (
     <Modal
-      label={title}
+      title={title}
+      size="small"
       onClose={onCancel}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
       /* The message is what changes when a caller keeps this dialog up to ask again with what the
          daemon refused — `service.delete` and `runtime.uninstall` both do — and the dialog has to
          be back on screen to be read. See `Modal`'s `question`. */
       question={message}
+      actions={[
+        { kind: "cancel", label: cancelLabel ?? t("common.cancel") },
+        {
+          /* A destructive confirm keeps its own red and stays outlined: filling it with the accent
+             would dress the dangerous choice as the recommended one. */
+          kind: danger ? "danger" : "confirm",
+          label: confirmLabel ?? t("common.confirm"),
+          onClick: onConfirm,
+          closes: true,
+          /* Not on a destructive one. With focus here, Enter — the key someone is already pressing
+             their way through a form with — deletes the thing the dialog is asking about. Left
+             off, `Modal` focuses the first control: the ✕, the same answer Escape gives. */
+          autoFocus: !danger,
+        },
+      ]}
     >
-      {(close) => (
-        <>
-          <h3 className={styles.title}>{title}</h3>
+      {() => (
+        <ModalBody>
           <p className={styles.message}>{message}</p>
           {children}
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)}>
-              {cancelLabel ?? t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              /* A destructive confirm keeps its own red and stays outlined: filling it with the
-                 accent would dress the dangerous choice as the recommended one. */
-              variant={danger ? "danger" : "primary"}
-              onClick={() => close(onConfirm)}
-              /* Not on a destructive one. With focus here, Enter — the key someone is already
-                 pressing their way through a form with — deletes the thing the dialog is asking
-                 about. Left off, `Modal` focuses the first control, which is Cancel: the same
-                 answer Escape gives. */
-              autoFocus={!danger}
-            >
-              {confirmLabel ?? t("common.confirm")}
-            </Button>
-          </div>
-        </>
+        </ModalBody>
       )}
     </Modal>
   );

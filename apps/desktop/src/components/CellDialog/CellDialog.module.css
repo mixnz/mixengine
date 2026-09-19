@@ -1,63 +1,4 @@
-/* One cell of a grid, read at a size a cell cannot offer. Here rather than beside a grid because
-   both grids open it: the data tab's table and the query tab's result.
-
-   A layer of its own above every other dialog in the app. This is the one dialog that can be opened
-   from a pane already lifted over the window — the query tab's expanded results, which sit at 81.
-   On the shared 80 the scrim went behind the very pane it was meant to dim. */
-.overlay {
-  composes: overlay from "../Modal/surface.module.css";
-  --dialog-layer: 82;
-}
-
-/* Narrower than a dialog holding a list, and taller: what goes in here is a document or a stack
-   trace, which is read down rather than across. */
-.dialog {
-  composes: dialog from "../Modal/surface.module.css";
-  --dialog-layer: 82;
-  gap: 12px;
-  width: min(640px, calc(100vw - 2rem));
-  max-height: min(32rem, calc(100vh - 4rem));
-  padding: 20px 22px;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  /* A column name has nothing to break at, and a long one would otherwise push the close button
-     off the edge it is pinned to. */
-  overflow-wrap: anywhere;
-}
-
-.close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.close:hover {
-  background: var(--neutral-bg);
-  color: var(--text);
-}
-
-.body {
-  flex: 1 1 auto;
-  min-height: 0;
+.box {
   overflow: auto;
   padding: 12px;
   border: 1px solid var(--border);
@@ -73,23 +14,4 @@
   white-space: pre-wrap;
   word-break: break-word;
   user-select: text;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* A webview that refuses the clipboard outright is worth saying out loud — the alternative is a
-   copy that silently did nothing. */
-.failed {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: rgb(var(--danger-rgb) / 0.12);
-  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
-  color: var(--danger-text);
-  font-size: var(--text-md);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }

@@ -8,8 +8,9 @@
  * defined, so they came up white in the dark theme. `surface.test.ts` keeps a twenty-third from
  * doing it again.
  *
- * A caller still declares its own **width** (and height, if it has one), its own **padding/gap**,
- * and `--dialog-layer` if it does not belong on the default layer.
+ * Since the one-layout change (spec `2026-09-19-one-dialog-layout-design.md`) this file is the whole
+ * frame: width by size, the height cap, padding, header, ✕, body, errors and the action row. `Modal`
+ * draws all of it; a caller declares nothing about its dialog's frame.
  *
  * Motion comes from `dialogMotion.module.css` and stays there: this file is shape, that one is
  * movement, and its `.pop` serves surfaces that are not dialogs too.
@@ -45,4 +46,136 @@
   color: var(--text);
   /* Portalled into `body`, so it does not inherit the alignment of wherever it was opened from. */
   text-align: left;
+  width: min(var(--dialog-width), calc(100vw - 2rem));
+  /* Never touches the window's top or bottom edge, whatever it holds: 2rem clear of each. */
+  max-height: calc(100vh - 4rem);
+  box-sizing: border-box;
+  padding: 22px 24px;
+  gap: 16px;
+  /* The dialog never scrolls — its body does, so the title and the buttons stay in view. */
+  overflow: hidden;
+}
+
+.small {
+  --dialog-width: 460px;
+}
+
+.normal {
+  --dialog-width: 600px;
+}
+
+.large {
+  --dialog-width: 900px;
+}
+
+/* For a dialog whose body is a list or a pair of panes that scroll on their own: one height, so it
+   does not resize under the pointer as its contents change. */
+.fixedHeight {
+  height: min(640px, calc(100vh - 4rem));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: none;
+  /* The ✕ is 36px tall; pulled into the padding so the title keeps its place. */
+  margin: -6px -10px -6px 0;
+}
+
+.title {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.close {
+  flex: none;
+  width: 36px;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+/* The only part of a dialog that scrolls. The 2px of padding, taken back by the margin, keep a
+   focused field's ring from being clipped at the scroll edge. */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+}
+
+/* A body whose child scrolls itself: it hands that child the height left, and scrolls nothing. */
+.fill {
+  overflow: hidden;
+}
+
+.fill > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* A body that runs to the dialog's edges, for a layout that draws its own dividing lines. */
+.flush {
+  margin: 0 -24px -22px;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.errors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: none;
+  max-height: 8rem;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  background: rgb(var(--danger-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
+  color: var(--danger-text);
+  font-size: var(--text-md);
+  line-height: 1.4;
+}
+
+.errors p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Tools and a live note on the left, cancel and the answer on the right. */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+
+.start {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.note {
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
 }

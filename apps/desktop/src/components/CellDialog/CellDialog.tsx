@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
-import { CloseIcon } from "../../icons";
 import { useTranslation } from "../../i18n";
-import Button from "../Button";
 import JsonView from "../JsonView";
 import { copyText } from "../../core/clipboard";
 import { displayValue } from "../../core/virtualRows";
 import { errorMessage } from "../../core/errors";
 import styles from "./CellDialog.module.css";
-import Modal from "../Modal";
+import Modal, { ModalBody, ModalErrors } from "../Modal";
 
 interface Props {
   /** The column the cell is in, for the heading. */
@@ -68,48 +66,32 @@ function CellDialog({ column, rowNumber, value, onClose }: Props) {
 
   return (
     <Modal
-      label={title}
+      title={title}
+      /* A layer of its own above every other dialog: this one can be opened from a pane already
+         lifted over the window — the query tab's expanded results, at 81. On the shared 80 the
+         scrim went behind the very pane it was meant to dim. */
+      layer={82}
       onClose={onClose}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      actions={[
+        {
+          kind: "secondary",
+          label: t("cellDialog.copy"),
+          onClick: () => {
+            void copyText(text)
+              .then(() => setFailed(""))
+              .catch((e) => setFailed(errorMessage(t, e)));
+          },
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>{title}</h3>
-            <button
-              type="button"
-              className={styles.close}
-              onClick={() => close(onClose)}
-              title={t("common.close")}
-              aria-label={t("common.close")}
-            >
-              <CloseIcon />
-            </button>
-          </div>
-
-          <div className={styles.body}>
-            {json === null ? <pre className={styles.text}>{text}</pre> : <JsonView value={json} />}
-          </div>
-
-          {failed !== "" && (
-            <p className={styles.failed} role="alert">
-              {failed}
-            </p>
-          )}
-
-          <div className={styles.actions}>
-            <Button
-              size="large"
-              onClick={() => {
-                void copyText(text)
-                  .then(() => setFailed(""))
-                  .catch((e) => setFailed(errorMessage(t, e)));
-              }}
-            >
-              {t("cellDialog.copy")}
-            </Button>
-          </div>
+          <ModalBody fill>
+            <div className={styles.box}>
+              {json === null ? <pre className={styles.text}>{text}</pre> : <JsonView value={json} />}
+            </div>
+          </ModalBody>
+          <ModalErrors messages={[failed]} />
         </>
       )}
     </Modal>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import { CloseIcon, TrashIcon } from "../../../../icons";
+import { TrashIcon } from "../../../../icons";
 import StatusPill from "../../../../components/StatusPill";
 import { useTranslation } from "../../../../i18n";
 import { statusTone } from "../../statusTone";
@@ -13,7 +13,7 @@ import { clearHistory, forgetEntry, useHistory } from "../../historyStore";
 import { findRequest } from "../../requests";
 import { useRequestLists } from "../../requestsStore";
 import styles from "./HistoryDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 
 interface Props {
   /** Opens the request an entry was sent from. The dialog sees itself out on the way. */
@@ -85,159 +85,149 @@ function HistoryDialog({ onOpenRequest, onClose }: Props) {
 
   return (
     <Modal
-      label={t("rest.historyTitle")}
+      title={t("rest.historyTitle")}
+      size="large"
+      layer={70}
+      fixedHeight
       onClose={onClose}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
     >
       {(close) => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>{t("rest.historyTitle")}</h3>
-            <button
-              type="button"
-              className={styles.headerClose}
-              onClick={() => close(onClose)}
-              title={t("common.close")}
-              aria-label={t("common.close")}
-            >
-              <CloseIcon />
-            </button>
-          </div>
+          <ModalBody>
+            <div className={styles.tools}>
+              <Input
+                size="small"
+                value={filter}
+                placeholder={t("rest.historyFilter")}
+                aria-label={t("rest.historyFilter")}
+                onChange={(e) => setFilter(e.target.value)}
+                autoFocus
+              />
+              <Button
+                size="small"
+                disabled={history.length === 0}
+                onClick={() => {
+                  setConfirmDrop(null);
+                  if (confirmClear) {
+                    clearHistory();
+                    setConfirmClear(false);
+                    return;
+                  }
+                  setConfirmClear(true);
+                }}
+              >
+                <TrashIcon size="0.9em" />
+                {/* Two presses rather than a dialog on top of a dialog: the button says what it is
+                    about to do, and a click anywhere else takes the offer back. */}
+                {confirmClear ? t("rest.historyClearConfirm") : t("rest.historyClear")}
+              </Button>
+            </div>
 
-          <div className={styles.tools}>
-            <Input
-              size="small"
-              value={filter}
-              placeholder={t("rest.historyFilter")}
-              aria-label={t("rest.historyFilter")}
-              onChange={(e) => setFilter(e.target.value)}
-              autoFocus
-            />
-            <Button
-              size="small"
-              disabled={history.length === 0}
-              onClick={() => {
-                setConfirmDrop(null);
-                if (confirmClear) {
-                  clearHistory();
+            {shown.length === 0 ? (
+              <p className={`${styles.note} muted`}>
+                {history.length === 0 ? t("rest.historyEmpty") : t("rest.historyNoMatch")}
+              </p>
+            ) : (
+              <ul
+                className={styles.list}
+                onMouseDown={() => {
                   setConfirmClear(false);
-                  return;
-                }
-                setConfirmClear(true);
-              }}
-            >
-              <TrashIcon size="0.9em" />
-              {/* Two presses rather than a dialog on top of a dialog: the button says what it is
-                  about to do, and a click anywhere else takes the offer back. */}
-              {confirmClear ? t("rest.historyClearConfirm") : t("rest.historyClear")}
-            </Button>
-          </div>
-
-          {shown.length === 0 ? (
-            <p className={`${styles.note} muted`}>
-              {history.length === 0 ? t("rest.historyEmpty") : t("rest.historyNoMatch")}
-            </p>
-          ) : (
-            <ul
-              className={styles.list}
-              onMouseDown={() => {
-                setConfirmClear(false);
-                setConfirmDrop(null);
-              }}
-            >
-              {shown.map((entry) => {
-                const open = entry.id === openId;
-                /* Looked up rather than remembered: nothing goes back through the file when a
-                   request is deleted, so this is where an entry finds out it has been orphaned. */
-                const source =
-                  entry.requestId === null ? undefined : findRequest(lists, entry.requestId);
-                return (
-                  <li key={entry.id} className={styles.item}>
-                    <div className={styles.row}>
+                  setConfirmDrop(null);
+                }}
+              >
+                {shown.map((entry) => {
+                  const open = entry.id === openId;
+                  /* Looked up rather than remembered: nothing goes back through the file when a
+                     request is deleted, so this is where an entry finds out it has been orphaned. */
+                  const source =
+                    entry.requestId === null ? undefined : findRequest(lists, entry.requestId);
+                  return (
+                    <li key={entry.id} className={styles.item}>
+                      <div className={styles.row}>
+                        <button
+                          type="button"
+                          className={styles.entry}
+                          aria-expanded={open}
+                          title={entry.url}
+                          onClick={() => setOpenId(open ? null : entry.id)}
+                        >
+                          <span className={styles.line}>
+                            <span className={`${styles.method} rest-method rest-method-${entry.method}`}>
+                              {entry.method}
+                            </span>
+                            <span className={styles.url}>{entry.url}</span>
+                          </span>
+                          <span className={styles.meta}>
+                            <span>{when.format(entry.startedAt)}</span>
+                            {entry.envName !== "" && <span>{entry.envName}</span>}
+                            <span>{t("rest.duration", { ms: entry.durationMs })}</span>
+                            {entry.status === null ? (
+                              <span className={styles.failed}>{t("rest.historyFailed")}</span>
+                            ) : (
+                              <>
+                                <StatusPill tone={statusTone(entry.status)}>
+                                  {entry.status} {entry.statusText}
+                                </StatusPill>
+                                <span>{formatBytes(entry.size)}</span>
+          </>
+                          )}
+                        </span>
+                      </button>
+                      {/* One send forgotten rather than the whole list: the history fills with
+                          attempts at the same call, and dropping them as they are recognised is what
+                          keeps it readable. */}
                       <button
                         type="button"
-                        className={styles.entry}
-                        aria-expanded={open}
-                        title={entry.url}
-                        onClick={() => setOpenId(open ? null : entry.id)}
-                      >
-                        <span className={styles.line}>
-                          <span className={`${styles.method} rest-method rest-method-${entry.method}`}>
-                            {entry.method}
-                          </span>
-                          <span className={styles.url}>{entry.url}</span>
-                        </span>
-                        <span className={styles.meta}>
-                          <span>{when.format(entry.startedAt)}</span>
-                          {entry.envName !== "" && <span>{entry.envName}</span>}
-                          <span>{t("rest.duration", { ms: entry.durationMs })}</span>
-                          {entry.status === null ? (
-                            <span className={styles.failed}>{t("rest.historyFailed")}</span>
-                          ) : (
-                            <>
-                              <StatusPill tone={statusTone(entry.status)}>
-                                {entry.status} {entry.statusText}
-                              </StatusPill>
-                              <span>{formatBytes(entry.size)}</span>
-        </>
-                        )}
-                      </span>
-                    </button>
-                    {/* One send forgotten rather than the whole list: the history fills with
-                        attempts at the same call, and dropping them as they are recognised is what
-                        keeps it readable. */}
-                    <button
-                      type="button"
-                      className={
-                        confirmDrop === entry.id ? `${styles.drop} ${styles.dropArmed}` : styles.drop
-                      }
-                      title={
-                        confirmDrop === entry.id
-                          ? t("rest.historyDropConfirm")
-                          : t("rest.historyDrop")
-                      }
-                      aria-label={t("rest.historyDrop")}
-                      // The list disarms on mouse-down, which lands before this button's click and
-                      // would clear the arming in time for the confirming press to miss it.
-                      onMouseDown={(e) => e.stopPropagation()}
-                      onClick={() => {
-                        if (confirmDrop !== entry.id) {
-                          setConfirmDrop(entry.id);
-                          return;
+                        className={
+                          confirmDrop === entry.id ? `${styles.drop} ${styles.dropArmed}` : styles.drop
                         }
-                        setConfirmDrop(null);
-                        forgetEntry(entry.id);
-                      }}
-                    >
-                      <TrashIcon size="0.9em" />
-                    </button>
-                  </div>
-
-                  {open && (
-                    <div className={styles.detail}>
-                      {entry.error === null ? body(entry) : <p className={styles.error}>{entry.error}</p>}
-                      {source === undefined ? (
-                        <p className={`${styles.note} muted`}>{t("rest.historyRequestGone")}</p>
-                      ) : (
-                        <Button
-                          size="small"
-                          className={styles.openRequest}
-                          onClick={() => {
-                            onOpenRequest(source.id);
-                            close(onClose);
-                          }}
-                        >
-                          {t("rest.historyOpenRequest")}
-                        </Button>
-                      )}
+                        title={
+                          confirmDrop === entry.id
+                            ? t("rest.historyDropConfirm")
+                            : t("rest.historyDrop")
+                        }
+                        aria-label={t("rest.historyDrop")}
+                        // The list disarms on mouse-down, which lands before this button's click and
+                        // would clear the arming in time for the confirming press to miss it.
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={() => {
+                          if (confirmDrop !== entry.id) {
+                            setConfirmDrop(entry.id);
+                            return;
+                          }
+                          setConfirmDrop(null);
+                          forgetEntry(entry.id);
+                        }}
+                      >
+                        <TrashIcon size="0.9em" />
+                      </button>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+
+                    {open && (
+                      <div className={styles.detail}>
+                        {entry.error === null ? body(entry) : <p className={styles.error}>{entry.error}</p>}
+                        {source === undefined ? (
+                          <p className={`${styles.note} muted`}>{t("rest.historyRequestGone")}</p>
+                        ) : (
+                          <Button
+                            size="small"
+                            className={styles.openRequest}
+                            onClick={() => {
+                              onOpenRequest(source.id);
+                              close(onClose);
+                            }}
+                          >
+                            {t("rest.historyOpenRequest")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            )}
+          </ModalBody>
         </>
       )}
     </Modal>

@@ -1,23 +1,41 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "../../i18n";
+import { CloseIcon } from "../../icons";
+import Button from "../Button";
 import { isUnhandledEscape, useDialogExit } from "../dialogMotion";
+import { actionVariant, arrangeActions, type ModalAction } from "./actions";
 import { FOCUSABLE, nextFocusIndex } from "./focus";
+import surface from "./surface.module.css";
+
+export type ModalSize = "small" | "normal" | "large";
 
 interface ModalProps {
-  /** Read aloud in place of the dialog's own text. */
-  label: string;
+  /** The heading, drawn by `Modal` beside the ✕. */
+  title: ReactNode;
+  /** Read aloud in place of the dialog's own text. Defaults to `title` when that is a string. */
+  label?: string;
+  /** The width: `small` 460px, `normal` 600px, `large` 900px — never wider than the window. */
+  size?: ModalSize;
+  /** As tall as the height cap whatever it holds, for a body that scrolls a list or panes itself. */
+  fixedHeight?: boolean;
+  /** The z-index layer, for a dialog that must sit above or below the default 80. */
+  layer?: number;
+  /** The buttons at the foot. `Modal` picks their look, their size and their side — see
+   *  `arrangeActions`. Omitted, the dialog has no action row. */
+  actions?: readonly ModalAction[];
+  /** A short live status at the left of the action row ("Waiting for the system prompt…"). */
+  footerNote?: ReactNode;
+  /** `false`: no ✕, and neither Escape nor the overlay closes it — a dialog the user must answer. */
+  closable?: boolean;
   /** What the dialog closing means. Called after the exit animation, not at the key press. */
   onClose: () => void;
   /**
    * Nothing may close it for now — a request is in flight, and closing would leave the user with
-   * no way to see how it went. Escape and the overlay go quiet; the dialog's own buttons are the
-   * caller's to disable.
+   * no way to see how it went. Escape, the overlay and the ✕ go quiet; the dialog's own buttons are
+   * the caller's to disable.
    */
   locked?: boolean;
-  /** The two classes the dialog is drawn with. Each caller keeps its own geometry; what is shared
-   *  here is the behaviour, which is why these are passed rather than fixed. */
-  overlayClassName: string;
-  className: string;
   /**
    * What this dialog is asking, for a caller that keeps it mounted through its own answer.
    *
@@ -26,13 +44,15 @@ interface ModalProps {
    * being asked. A caller that unmounts on its answer, which is most of them, has no use for it.
    */
   question?: unknown;
-  /** The dialog's contents. Given `close`, which is how a Cancel button sees the dialog out with
-   *  the same animation Escape does. */
+  /** The dialog's body — a `ModalBody`, then a `ModalErrors`. Given `close`, which is how a control
+   *  inside sees the dialog out with the same animation Escape does. */
   children: (close: (reply: () => void) => void) => ReactNode;
 }
 
 /**
- * A dialog: the overlay, the portal, Escape, and the keyboard staying inside it.
+ * A dialog: the overlay, the portal, Escape, the keyboard staying inside it — and the whole frame:
+ * the width, the height cap, the title and its ✕, and the action row. A caller hands over its body
+ * and a list of actions; how every dialog looks is decided here and in `surface.module.css`, once.
  *
  * Thirteen dialogs had their own copy of the first three. None of them had the fourth — focus was
  * left wherever it happened to be, Tab walked straight out into the page behind, and closing the
@@ -44,24 +64,31 @@ interface ModalProps {
  * establishes a containing block for it.
  */
 function Modal({
+  title,
   label,
+  size = "normal",
+  fixedHeight,
+  layer,
+  actions,
+  footerNote,
+  closable = true,
   onClose,
   locked,
-  overlayClassName,
-  className,
   question,
   children,
 }: ModalProps) {
+  const { t } = useTranslation();
   const { close, cls, onEntered } = useDialogExit(question);
   const dialog = useRef<HTMLDivElement | null>(null);
+  const quiet = locked || !closable;
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (isUnhandledEscape(e) && !locked) close(onClose);
+      if (isUnhandledEscape(e) && !quiet) close(onClose);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [close, onClose, locked]);
+  }, [close, onClose, quiet]);
 
   /**
    * Focus in on the way up, and back where it was on the way out.
@@ -101,22 +128,84 @@ function Modal({
     stops[next].focus();
   }
 
+  function press(action: ModalAction) {
+    if (action.kind === "cancel") close(action.onClick ?? onClose);
+    else if (action.closes && action.onClick) close(action.onClick);
+    else action.onClick?.();
+  }
+
+  function button(action: ModalAction, index: number) {
+    return (
+      <Button
+        key={index}
+        size="large"
+        variant={actionVariant(action.kind)}
+        disabled={action.disabled}
+        busy={action.busy}
+        autoFocus={action.autoFocus}
+        onClick={() => press(action)}
+      >
+        {action.icon}
+        {action.label}
+      </Button>
+    );
+  }
+
+  const row = actions === undefined ? null : arrangeActions(actions);
+  const layerStyle =
+    layer === undefined ? undefined : ({ "--dialog-layer": layer } as CSSProperties);
+  const panel = [surface.dialog, surface[size]];
+  if (fixedHeight) panel.push(surface.fixedHeight);
+
   return createPortal(
     <>
-      <div className={cls(overlayClassName)} onClick={locked ? undefined : () => close(onClose)} />
+      <div
+        className={cls(surface.overlay)}
+        style={layerStyle}
+        onClick={quiet ? undefined : () => close(onClose)}
+      />
       <div
         ref={dialog}
-        className={cls(className)}
+        className={cls(panel.join(" "))}
+        style={layerStyle}
         role="dialog"
         aria-modal="true"
-        aria-label={label}
+        aria-label={label ?? (typeof title === "string" ? title : undefined)}
         /* So focus has somewhere to land in a dialog with no controls of its own, and so the
            restore above has something to take it from. Not a Tab stop — see `FOCUSABLE`. */
         tabIndex={-1}
         onKeyDown={trapTab}
         onAnimationEnd={onEntered}
       >
+        <div className={surface.header}>
+          <h3 className={surface.title}>{title}</h3>
+          {closable && (
+            <Button
+              variant="ghost"
+              className={surface.close}
+              disabled={locked}
+              aria-label={t("common.close")}
+              title={t("common.close")}
+              onClick={() => close(onClose)}
+            >
+              <CloseIcon size={18} />
+            </Button>
+          )}
+        </div>
         {children(close)}
+        {(row !== null || footerNote !== undefined) && (
+          <div className={surface.footer}>
+            {(footerNote !== undefined || (row !== null && row.start.length > 0)) && (
+              <div className={surface.start}>
+                {footerNote !== undefined && <span className={surface.note}>{footerNote}</span>}
+                {row?.start.map(button)}
+              </div>
+            )}
+            {row !== null && row.end.length > 0 && (
+              <div className={surface.end}>{row.end.map((action, i) => button(action, i + 100))}</div>
+            )}
+          </div>
+        )}
       </div>
     </>,
     document.body,

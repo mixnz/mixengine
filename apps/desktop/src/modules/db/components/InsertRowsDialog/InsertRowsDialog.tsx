@@ -7,7 +7,7 @@ import { useSqlDialect } from "../../sql/context";
 import type { SqlDialect } from "../../sql/dialect";
 import type { SqlColumnMeta } from "../../types";
 import styles from "./InsertRowsDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 
 /** One cell of a row waiting to be inserted. `isNull` is a mode rather than a value: writing SQL
  * NULL and writing the empty string are different things, and text alone can't tell them apart. */
@@ -219,145 +219,135 @@ function InsertRowsDialog({ table, columns, columnMeta, seedRows, onCancel, onSu
       label={table}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="large"
+      title={t(cloning ? "insertRows.cloneTitle" : "insertRows.title", { table })}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("insertRows.insert", { n: draftRows.length }),
+          onClick: () => void submit(),
+          busy: saving ? t("insertRows.inserting") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>
-              {t(cloning ? "insertRows.cloneTitle" : "insertRows.title", { table })}
-            </h3>
+          <ModalBody>
             <p className={styles.note}>{t("insertRows.transactionNote")}</p>
-          </div>
 
-          <div className={styles.gridWrap}>
-            <table className={styles.grid}>
-              <thead>
-                <tr>
-                  <th className={styles.rowNumber} />
-                  {columns.map((c) => {
-                    const meta = columnMeta[c];
-                    return (
-                      <th key={c}>
-                        <span className={styles.columnName}>
-                          {c}
-                          {meta && !meta.nullable && (
-                            <span className={styles.requiredMark} title={t("insertRows.notNullMarker")}>
-                              *
-                            </span>
-                          )}
-                        </span>
-                        <span className={styles.columnType}>{meta?.dataType ?? ""}</span>
-                      </th>
-                    );
-                  })}
-                  <th className={styles.rowActions} />
-                </tr>
-              </thead>
-              <tbody>
-                {draftRows.map((row, i) => (
-                  <tr key={i}>
-                    <td className={styles.rowNumber}>{i + 1}</td>
+            <div className={styles.gridWrap}>
+              <table className={styles.grid}>
+                <thead>
+                  <tr>
+                    <th className={styles.rowNumber} />
                     {columns.map((c) => {
                       const meta = columnMeta[c];
-                      const cell = row[c];
-                      if (!meta || !cell) return <td key={c} />;
-                      if (dialect.isServerAssigned(meta)) {
-                        const auto = dialect.isAutoIncrement(meta);
-                        return (
-                          <td key={c}>
-                            <span
-                              className={styles.serverAssigned}
-                              title={t(auto ? "insertRows.autoTooltip" : "insertRows.generatedTooltip")}
-                            >
-                              {t(auto ? "insertRows.autoValue" : "insertRows.generatedValue")}
-                            </span>
-                          </td>
-                        );
-                      }
-                      const invalid = invalidCells.has(cellKey(i, c));
-                      const defaultHint = hasDefault(meta) ? (meta.defaultValue ?? "") : "";
                       return (
-                        <td key={c}>
-                          <div className={styles.cell}>
-                            <input
-                              ref={i === 0 && c === firstEditableColumn ? firstInputRef : undefined}
-                              type="text"
-                              className={`${styles.cellInput}${invalid ? ` ${styles.cellInvalid}` : ""}`}
-                              value={cell.isNull ? "" : cell.text}
-                              placeholder={cell.isNull ? "NULL" : defaultHint}
-                              title={
-                                hasDefault(meta)
-                                  ? t("insertRows.defaultTooltip", { value: defaultHint })
-                                  : undefined
-                              }
-                              disabled={cell.isNull || saving}
-                              autoComplete="off"
-                              autoCorrect="off"
-                              autoCapitalize="off"
-                              spellCheck={false}
-                              onChange={(e) => updateCell(i, c, { text: e.target.value, isNull: false })}
-                            />
-                            <button
-                              type="button"
-                              className={`${styles.nullToggle}${cell.isNull ? ` ${styles.nullOn}` : ""}`}
-                              // A NOT NULL column keeps the button, disabled: that it cannot be
-                              // pressed is what shows the constraint, cell by cell.
-                              disabled={!meta.nullable || saving}
-                              title={
-                                meta.nullable
-                                  ? t(cell.isNull ? "insertRows.unsetNull" : "insertRows.setNull")
-                                  : t("insertRows.notNullTooltip", { column: c })
-                              }
-                              onClick={() => updateCell(i, c, { text: cell.text, isNull: !cell.isNull })}
-                            >
-                              NULL
-                            </button>
-                          </div>
-                        </td>
+                        <th key={c}>
+                          <span className={styles.columnName}>
+                            {c}
+                            {meta && !meta.nullable && (
+                              <span className={styles.requiredMark} title={t("insertRows.notNullMarker")}>
+                                *
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.columnType}>{meta?.dataType ?? ""}</span>
+                        </th>
                       );
                     })}
-                    <td className={styles.rowActions}>
-                      <button
-                        type="button"
-                        className={styles.removeRow}
-                        title={t("insertRows.removeRow")}
-                        aria-label={t("insertRows.removeRow")}
-                        disabled={draftRows.length === 1 || saving}
-                        onClick={() => removeRow(i)}
-                      >
-                        <TrashIcon size={14} />
-                      </button>
-                    </td>
+                    <th className={styles.rowActions} />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className={styles.toolbar}>
-            <Button size="small" onClick={addRow} disabled={saving}>
-              <PlusIcon size={12} /> {t("insertRows.addRow")}
-            </Button>
-          </div>
-
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
-              ))}
+                </thead>
+                <tbody>
+                  {draftRows.map((row, i) => (
+                    <tr key={i}>
+                      <td className={styles.rowNumber}>{i + 1}</td>
+                      {columns.map((c) => {
+                        const meta = columnMeta[c];
+                        const cell = row[c];
+                        if (!meta || !cell) return <td key={c} />;
+                        if (dialect.isServerAssigned(meta)) {
+                          const auto = dialect.isAutoIncrement(meta);
+                          return (
+                            <td key={c}>
+                              <span
+                                className={styles.serverAssigned}
+                                title={t(auto ? "insertRows.autoTooltip" : "insertRows.generatedTooltip")}
+                              >
+                                {t(auto ? "insertRows.autoValue" : "insertRows.generatedValue")}
+                              </span>
+                            </td>
+                          );
+                        }
+                        const invalid = invalidCells.has(cellKey(i, c));
+                        const defaultHint = hasDefault(meta) ? (meta.defaultValue ?? "") : "";
+                        return (
+                          <td key={c}>
+                            <div className={styles.cell}>
+                              <input
+                                ref={i === 0 && c === firstEditableColumn ? firstInputRef : undefined}
+                                type="text"
+                                className={`${styles.cellInput}${invalid ? ` ${styles.cellInvalid}` : ""}`}
+                                value={cell.isNull ? "" : cell.text}
+                                placeholder={cell.isNull ? "NULL" : defaultHint}
+                                title={
+                                  hasDefault(meta)
+                                    ? t("insertRows.defaultTooltip", { value: defaultHint })
+                                    : undefined
+                                }
+                                disabled={cell.isNull || saving}
+                                autoComplete="off"
+                                autoCorrect="off"
+                                autoCapitalize="off"
+                                spellCheck={false}
+                                onChange={(e) => updateCell(i, c, { text: e.target.value, isNull: false })}
+                              />
+                              <button
+                                type="button"
+                                className={`${styles.nullToggle}${cell.isNull ? ` ${styles.nullOn}` : ""}`}
+                                // A NOT NULL column keeps the button, disabled: that it cannot be
+                                // pressed is what shows the constraint, cell by cell.
+                                disabled={!meta.nullable || saving}
+                                title={
+                                  meta.nullable
+                                    ? t(cell.isNull ? "insertRows.unsetNull" : "insertRows.setNull")
+                                    : t("insertRows.notNullTooltip", { column: c })
+                                }
+                                onClick={() => updateCell(i, c, { text: cell.text, isNull: !cell.isNull })}
+                              >
+                                NULL
+                              </button>
+                            </div>
+                          </td>
+                        );
+                      })}
+                      <td className={styles.rowActions}>
+                        <button
+                          type="button"
+                          className={styles.removeRow}
+                          title={t("insertRows.removeRow")}
+                          aria-label={t("insertRows.removeRow")}
+                          disabled={draftRows.length === 1 || saving}
+                          onClick={() => removeRow(i)}
+                        >
+                          <TrashIcon size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
 
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={saving}>
-              {saving ? t("insertRows.inserting") : t("insertRows.insert", { n: draftRows.length })}
-            </Button>
-          </div>
+            <div className={styles.toolbar}>
+              <Button size="small" onClick={addRow} disabled={saving}>
+                <PlusIcon size={12} /> {t("insertRows.addRow")}
+              </Button>
+            </div>
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

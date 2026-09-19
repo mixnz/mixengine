@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -107,7 +107,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [installed, setInstalled] = useState<RuntimeSummary[]>([]);
-  const actionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (editing) return;
@@ -134,16 +133,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
       live = false;
     };
   }, []);
-
-  // Dialog dài (khối "tạo nhanh site" mở ra) cuộn được, và nút Lưu nằm ở cuối — lỗi vẽ ra ngay
-  // phía trên nút đó, đúng chỗ người dùng đang nhìn lúc bấm, nhưng chèn thêm nội dung vào giữa
-  // trang không tự kéo trình duyệt theo. Cuộn theo `.actions` (không phải chính khối lỗi) với
-  // `block: "end"` — cuộn theo khối lỗi sẽ đẩy đúng hai nút Cancel/Save ra ngoài tầm nhìn phía dưới,
-  // vì `block: "end"` canh *đáy* của phần tử được nhắm vào đáy khung nhìn; nhắm vào `.actions` (phần
-  // tử cuối cùng) cho cả lỗi lẫn hai nút cùng lọt vào khung một lượt.
-  useEffect(() => {
-    if (error !== "") actionsRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [error]);
 
   async function browseRoot() {
     const picked = await openDialog({ directory: true, multiple: false });
@@ -203,19 +192,23 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
 
   return (
     <Modal
-      label={t(editing ? "mixengine.projects.form.editTitle" : "mixengine.projects.form.createTitle")}
+      title={t(editing ? "mixengine.projects.form.editTitle" : "mixengine.projects.form.createTitle")}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("common.save"),
+          onClick: () => void submit(),
+          disabled: root.trim() === "",
+          busy: saving ? t("mixengine.projects.form.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>
-            {t(editing ? "mixengine.projects.form.editTitle" : "mixengine.projects.form.createTitle")}
-          </h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             <label className={styles.field}>
               {t("mixengine.projects.form.root")}
               <div className={styles.rootRow}>
@@ -276,27 +269,8 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
                 />
               </Disclosure>
             )}
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div ref={actionsRef} className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="primary"
-              onClick={() => void submit()}
-              disabled={saving || root.trim() === ""}
-            >
-              {saving ? t("mixengine.projects.form.saving") : t("common.save")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

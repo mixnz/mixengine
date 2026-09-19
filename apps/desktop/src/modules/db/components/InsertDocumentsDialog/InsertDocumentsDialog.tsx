@@ -6,7 +6,7 @@ import { useTranslation } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
 import type { TypedDocument, TypedValue } from "../../mongo/bsonTypes";
 import styles from "./InsertDocumentsDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 
 /** One document being composed. The data itself lives in the card — `seed` is only what the
  * card was mounted with, kept as the fallback for a draft that has yet to report anything. */
@@ -166,57 +166,48 @@ function InsertDocumentsDialog({ collection, seedDocs, nextIds, onCancel, onSubm
       label={collection}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="large"
+      title={t(cloning ? "insertDocuments.cloneTitle" : "insertDocuments.title", { collection })}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("insertDocuments.insert", { n: drafts.length }),
+          onClick: () => void submit(),
+          disabled: busy || drafts.length === 0,
+          busy: saving ? t("insertDocuments.inserting") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>
-              {t(cloning ? "insertDocuments.cloneTitle" : "insertDocuments.title", { collection })}
-            </h3>
+          <ModalBody>
             <p className={styles.note}>{t("insertDocuments.idNote")}</p>
             <p className={styles.note}>{t("insertDocuments.orderedNote")}</p>
-          </div>
 
-          <div className={styles.list}>
-            {preparing && <p className="muted">{t("insertDocuments.preparing")}</p>}
-            {drafts.map((d, i) => (
-              <Document
-                key={d.key}
-                draft
-                doc={d.seed}
-                displayNumber={i + 1}
-                onChange={(doc) => docsRef.current.set(d.key, doc)}
-                // The last draft standing keeps no remove button: a form with nothing in it has
-                // nothing to insert, and Cancel is what closes it.
-                onRemove={drafts.length > 1 && !saving ? () => removeDraft(d.key) : undefined}
-              />
-            ))}
-          </div>
-
-          <div className={styles.toolbar}>
-            <Button size="small" onClick={() => void addDraft()} disabled={busy || addingDraft}>
-              <PlusIcon size={12} /> {t("insertDocuments.addDocument")}
-            </Button>
-          </div>
-
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
+            <div className={styles.list}>
+              {preparing && <p className="muted">{t("insertDocuments.preparing")}</p>}
+              {drafts.map((d, i) => (
+                <Document
+                  key={d.key}
+                  draft
+                  doc={d.seed}
+                  displayNumber={i + 1}
+                  onChange={(doc) => docsRef.current.set(d.key, doc)}
+                  // The last draft standing keeps no remove button: a form with nothing in it has
+                  // nothing to insert, and Cancel is what closes it.
+                  onRemove={drafts.length > 1 && !saving ? () => removeDraft(d.key) : undefined}
+                />
               ))}
             </div>
-          )}
 
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={busy || drafts.length === 0}>
-              {saving ? t("insertDocuments.inserting") : t("insertDocuments.insert", { n: drafts.length })}
-            </Button>
-          </div>
+            <div className={styles.toolbar}>
+              <Button size="small" onClick={() => void addDraft()} disabled={busy || addingDraft}>
+                <PlusIcon size={12} /> {t("insertDocuments.addDocument")}
+              </Button>
+            </div>
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

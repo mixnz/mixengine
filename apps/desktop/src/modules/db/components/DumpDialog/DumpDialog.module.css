@@ -1,29 +1,5 @@
-.overlay {
-  composes: overlay from "../../../../components/Modal/surface.module.css";
-}
-
-.dialog {
-  composes: dialog from "../../../../components/Modal/surface.module.css";
-  width: min(440px, calc(100vw - 2rem));
-  padding: 22px 24px;
-  gap: 16px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
 .modes {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }

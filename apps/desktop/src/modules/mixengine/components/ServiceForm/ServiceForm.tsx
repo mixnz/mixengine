@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -82,17 +81,24 @@ export default function ServiceForm({ onCancel, onCreated }: Props) {
 
   return (
     <Modal
-      label={t("mixengine.serviceForm.title")}
+      title={t("mixengine.serviceForm.title")}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("common.save"),
+          onClick: () => void submit(),
+          disabled: incomplete,
+          busy: saving ? t("mixengine.serviceForm.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{t("mixengine.serviceForm.title")}</h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             <label className={styles.field}>
               {t("mixengine.serviceForm.package")}
               {/* `searchable`: danh sách dài theo số package đã cài, và mỗi phiên bản là một dòng
@@ -133,27 +139,8 @@ export default function ServiceForm({ onCancel, onCreated }: Props) {
                 {t("mixengine.serviceForm.idPreview", { id })}
               </p>
             )}
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="primary"
-              onClick={() => void submit()}
-              disabled={saving || incomplete}
-            >
-              {saving ? t("mixengine.serviceForm.saving") : t("common.save")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

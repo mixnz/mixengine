@@ -1,30 +1,3 @@
-.overlay {
-  composes: overlay from "../Modal/surface.module.css";
-}
-
-.dialog {
-  composes: dialog from "../Modal/surface.module.css";
-  width: min(480px, calc(100vw - 2rem));
-  max-height: calc(100vh - 3rem);
-  overflow-y: auto;
-  padding: 22px 24px;
-  gap: 16px;
-}
-
-.title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
-/* One field per line: both of them are as wide as the dialog is. */
-.form {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
@@ -45,31 +18,4 @@
   font-size: var(--text-sm);
   line-height: 1.45;
   color: var(--text-muted);
-}
-
-.errors {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 8rem;
-  overflow-y: auto;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: rgb(var(--danger-rgb) / 0.12);
-  box-shadow: inset 0 0 0 1px rgb(var(--danger-rgb) / 0.35);
-  color: var(--danger-text);
-  font-size: var(--text-md);
-  line-height: 1.45;
-}
-
-.errors p {
-  margin: 0;
-  /* Server errors quote the SQL that failed, which may have nothing to break at. */
-  overflow-wrap: anywhere;
-}
-
-.actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }

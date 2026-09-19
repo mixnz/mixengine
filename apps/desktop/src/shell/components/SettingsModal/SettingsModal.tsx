@@ -4,7 +4,7 @@ import type { AccentColor, ThemeMode } from "../../theme";
 import type { TranslationKey } from "../../../i18n";
 import type { IconProps } from "../../../icons";
 import type { ShortcutGroup } from "../../../core/shortcuts";
-import { CloseIcon, DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon } from "../../../icons";
+import { DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import { visibleModules } from "../../profiles";
 import AppearanceSection from "./AppearanceSection";
@@ -12,7 +12,7 @@ import ModulesSection, { type ModuleSettings } from "./ModulesSection";
 import ShortcutsSection from "./ShortcutsSection";
 import UpdateSection from "./UpdateSection";
 import styles from "./SettingsModal.module.css";
-import Modal from "../../../components/Modal";
+import Modal, { ModalBody } from "../../../components/Modal";
 
 interface SettingsModalProps {
   theme: ThemeMode;
@@ -80,98 +80,94 @@ function SettingsModal({
 
   return (
     <Modal
-      label={t("settings.title")}
+      title={t("settings.title")}
+      size="large"
+      layer={60}
+      fixedHeight
       onClose={onClose}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>{t("settings.title")}</h3>
-            <button type="button" className={styles.close} onClick={() => close(onClose)} title={t("settings.close")}>
-              <CloseIcon />
-            </button>
-          </div>
+          <ModalBody flush>
+            <div className={styles.body}>
+              <div className={styles.nav} role="tablist" aria-orientation="vertical">
+                {sections.map(({ id, labelKey, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    id={`settings-tab-${id}`}
+                    aria-selected={id === shown}
+                    aria-controls={`settings-panel-${id}`}
+                    className={id === shown ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
+                    onClick={() => setSection(id)}
+                  >
+                    <Icon size={15} />
+                    <span className={styles.navLabel}>{t(labelKey)}</span>
+                  </button>
+                ))}
+              </div>
 
-          <div className={styles.body}>
-            <div className={styles.nav} role="tablist" aria-orientation="vertical">
-              {sections.map(({ id, labelKey, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  id={`settings-tab-${id}`}
-                  aria-selected={id === shown}
-                  aria-controls={`settings-panel-${id}`}
-                  className={id === shown ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
-                  onClick={() => setSection(id)}
-                >
-                  <Icon size={15} />
-                  <span className={styles.navLabel}>{t(labelKey)}</span>
-                </button>
-              ))}
+              {/* Hidden rather than unmounted: a dump tool downloading under Database carries on when the user
+                  goes to look at something else, and it has to still be there — with its bar where it
+                  left it — when they come back. */}
+              <div
+                className={styles.panel}
+                role="tabpanel"
+                id="settings-panel-appearance"
+                aria-labelledby="settings-tab-appearance"
+                hidden={shown !== "appearance"}
+              >
+                <AppearanceSection
+                  theme={theme}
+                  onThemeChange={onThemeChange}
+                  accent={accent}
+                  onAccentChange={onAccentChange}
+                />
+              </div>
+              <div
+                className={styles.panel}
+                role="tabpanel"
+                id="settings-panel-modules"
+                aria-labelledby="settings-tab-modules"
+                hidden={shown !== "modules"}
+              >
+                <ModulesSection {...modules} />
+              </div>
+              <div
+                className={styles.panel}
+                role="tabpanel"
+                id="settings-panel-shortcuts"
+                aria-labelledby="settings-tab-shortcuts"
+                hidden={shown !== "shortcuts"}
+              >
+                <ShortcutsSection shortcuts={shortcuts} />
+              </div>
+              {visible.map((m) =>
+                m.settings ? (
+                  <div
+                    key={m.id}
+                    className={styles.panel}
+                    role="tabpanel"
+                    id={`settings-panel-${m.id}`}
+                    aria-labelledby={`settings-tab-${m.id}`}
+                    hidden={shown !== m.id}
+                  >
+                    <m.settings.Section />
+                  </div>
+                ) : null,
+              )}
+              <div
+                className={styles.panel}
+                role="tabpanel"
+                id="settings-panel-update"
+                aria-labelledby="settings-tab-update"
+                hidden={shown !== "update"}
+              >
+                <UpdateSection />
+              </div>
             </div>
-
-            {/* Hidden rather than unmounted: a dump tool downloading under Database carries on when the user
-                goes to look at something else, and it has to still be there — with its bar where it
-                left it — when they come back. */}
-            <div
-              className={styles.panel}
-              role="tabpanel"
-              id="settings-panel-appearance"
-              aria-labelledby="settings-tab-appearance"
-              hidden={shown !== "appearance"}
-            >
-              <AppearanceSection
-                theme={theme}
-                onThemeChange={onThemeChange}
-                accent={accent}
-                onAccentChange={onAccentChange}
-              />
-            </div>
-            <div
-              className={styles.panel}
-              role="tabpanel"
-              id="settings-panel-modules"
-              aria-labelledby="settings-tab-modules"
-              hidden={shown !== "modules"}
-            >
-              <ModulesSection {...modules} />
-            </div>
-            <div
-              className={styles.panel}
-              role="tabpanel"
-              id="settings-panel-shortcuts"
-              aria-labelledby="settings-tab-shortcuts"
-              hidden={shown !== "shortcuts"}
-            >
-              <ShortcutsSection shortcuts={shortcuts} />
-            </div>
-            {visible.map((m) =>
-              m.settings ? (
-                <div
-                  key={m.id}
-                  className={styles.panel}
-                  role="tabpanel"
-                  id={`settings-panel-${m.id}`}
-                  aria-labelledby={`settings-tab-${m.id}`}
-                  hidden={shown !== m.id}
-                >
-                  <m.settings.Section />
-                </div>
-              ) : null,
-            )}
-            <div
-              className={styles.panel}
-              role="tabpanel"
-              id="settings-panel-update"
-              aria-labelledby="settings-tab-update"
-              hidden={shown !== "update"}
-            >
-              <UpdateSection />
-            </div>
-          </div>
+          </ModalBody>
         </>
       )}
     </Modal>

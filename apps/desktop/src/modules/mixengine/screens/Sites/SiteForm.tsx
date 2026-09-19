@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
-import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -51,15 +50,6 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const actionsRef = useRef<HTMLDivElement>(null);
-
-  // Dialog dài (nhiều field, danh sách service) cuộn được, nút Lưu ở cuối — lỗi vẽ ra ngay phía
-  // trên nút đó nhưng chèn thêm nội dung không tự kéo trình duyệt theo, nên không cuộn tới thì lỗi
-  // coi như vô hình. Cuộn theo `.actions`, không phải chính khối lỗi — cùng lý do/luật
-  // `ProjectForm.tsx` đã áp (`block: "end"` theo khối lỗi sẽ đẩy hai nút ra ngoài tầm nhìn).
-  useEffect(() => {
-    if (error !== "") actionsRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [error]);
 
   useEffect(() => {
     void Promise.all([api.projects(), api.services()]).then(([projectList, serviceList]) => {
@@ -126,19 +116,23 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
 
   return (
     <Modal
-      label={t(editing ? "mixengine.sites.form.editTitle" : "mixengine.sites.form.createTitle")}
+      title={t(editing ? "mixengine.sites.form.editTitle" : "mixengine.sites.form.createTitle")}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("common.save"),
+          onClick: () => void submit(),
+          disabled: !editing && (project === "" || noProjects),
+          busy: saving ? t("mixengine.sites.form.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>
-            {t(editing ? "mixengine.sites.form.editTitle" : "mixengine.sites.form.createTitle")}
-          </h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             {!editing && (
               <label className={styles.field}>
                 {t("mixengine.sites.form.project")}
@@ -164,27 +158,8 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               disabled={saving}
               showEnabled={editing}
             />
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div ref={actionsRef} className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="primary"
-              onClick={() => void submit()}
-              disabled={saving || (!editing && (project === "" || noProjects))}
-            >
-              {saving ? t("mixengine.sites.form.saving") : t("common.save")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

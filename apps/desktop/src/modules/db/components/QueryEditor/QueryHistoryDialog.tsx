@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CloseIcon, TrashIcon } from "../../../../icons";
+import { TrashIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import {
   clearQueryHistory,
@@ -10,7 +10,7 @@ import {
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import styles from "./QueryEditor.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 
 interface Props {
   /** Only this connection's runs are listed — a query against staging is not an answer to a
@@ -63,117 +63,111 @@ function QueryHistoryDialog({ profileId, onPick, onClose }: Props) {
 
   return (
     <Modal
-      label={t("query.historyTitle")}
+      title={t("query.historyTitle")}
       onClose={onClose}
-      overlayClassName={styles.overlay}
-      className={styles.historyDialog}
+      fixedHeight
     >
       {(close) => (
         <>
-          <div className={styles.historyHeader}>
-            <h3 className={styles.historyTitle}>{t("query.historyTitle")}</h3>
-            <button type="button" className={styles.historyClose} onClick={() => close(onClose)} title={t("common.close")}>
-              <CloseIcon />
-            </button>
-          </div>
+          <ModalBody>
+            <div className={styles.historyTools}>
+              <Input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder={t("query.historyFilter")}
+                aria-label={t("query.historyFilter")}
+                autoFocus
+              />
+              <Button
+                size="small"
+                onClick={() => {
+                  setConfirmDrop(null);
+                  if (confirmClear) {
+                    clearQueryHistory(profileId);
+                    setConfirmClear(false);
+                    return;
+                  }
+                  setConfirmClear(true);
+                }}
+                disabled={mine.length === 0}
+              >
+                <TrashIcon size="0.9em" />
+                {/* Two presses rather than a second dialog on top of this one: the button says what it
+                    is about to do, and clicking anywhere else takes the offer back. */}
+                {confirmClear ? t("query.historyClearConfirm") : t("query.historyClear")}
+              </Button>
+            </div>
 
-          <div className={styles.historyTools}>
-            <Input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder={t("query.historyFilter")}
-              aria-label={t("query.historyFilter")}
-              autoFocus
-            />
-            <Button
-              size="small"
-              onClick={() => {
-                setConfirmDrop(null);
-                if (confirmClear) {
-                  clearQueryHistory(profileId);
+            {shown.length === 0 ? (
+              <p className={styles.historyEmpty}>
+                {mine.length === 0 ? t("query.historyEmpty") : t("query.historyNoMatch")}
+              </p>
+            ) : (
+              <ul
+                className={styles.historyList}
+                onMouseDown={() => {
                   setConfirmClear(false);
-                  return;
-                }
-                setConfirmClear(true);
-              }}
-              disabled={mine.length === 0}
-            >
-              <TrashIcon size="0.9em" />
-              {/* Two presses rather than a second dialog on top of this one: the button says what it
-                  is about to do, and clicking anywhere else takes the offer back. */}
-              {confirmClear ? t("query.historyClearConfirm") : t("query.historyClear")}
-            </Button>
-          </div>
-
-          {shown.length === 0 ? (
-            <p className={styles.historyEmpty}>
-              {mine.length === 0 ? t("query.historyEmpty") : t("query.historyNoMatch")}
-            </p>
-          ) : (
-            <ul
-              className={styles.historyList}
-              onMouseDown={() => {
-                setConfirmClear(false);
-                setConfirmDrop(null);
-              }}
-            >
-              {shown.map((entry) => (
-                <li key={`${entry.startedAt}-${entry.sql.length}`} className={styles.entryRow}>
-                  <button
-                    type="button"
-                    className={styles.historyEntry}
-                    title={entry.sql}
-                    onClick={() => {
-                      onPick(entry.sql);
-                      close(onClose);
-                    }}
-                  >
-                    <span className={styles.historySql}>{oneLine(entry.sql)}</span>
-                    <span className={styles.historyMeta}>
-                      <span>{when.format(entry.startedAt)}</span>
-                      {entry.database !== "" && <span>{entry.database}</span>}
-                      <span>{t("query.duration", { ms: entry.durationMs })}</span>
-                      {entry.error !== null ? (
-                        <span className={styles.historyFailed}>{t("query.historyFailed")}</span>
-                      ) : (
-                        entry.rowCount !== null && <span>{t("query.rowCount", { n: entry.rowCount })}</span>
-                      )}
-                    </span>
-                  </button>
-                  {/* One run forgotten, rather than the whole list. The history fills with attempts
-                      at the same query, and the way to keep it readable is to drop the failures as
-                      they are recognised — not to clear it and lose the one that worked. */}
-                  <button
-                    type="button"
-                    className={
-                      confirmDrop === entry
-                        ? `${styles.entryDelete} ${styles.entryDeleteArmed}`
-                        : styles.entryDelete
-                    }
-                    title={
-                      confirmDrop === entry ? t("query.historyDropConfirm") : t("query.historyDrop")
-                    }
-                    aria-label={t("query.historyDrop")}
-                    // The list disarms on mouse-down, which lands before this button's click and
-                    // would clear `confirmDrop` in time for the confirming press to read it as
-                    // unarmed — the second click re-arming for ever instead of deleting.
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => {
-                      if (confirmDrop !== entry) {
-                        setConfirmDrop(entry);
-                        return;
+                  setConfirmDrop(null);
+                }}
+              >
+                {shown.map((entry) => (
+                  <li key={`${entry.startedAt}-${entry.sql.length}`} className={styles.entryRow}>
+                    <button
+                      type="button"
+                      className={styles.historyEntry}
+                      title={entry.sql}
+                      onClick={() => {
+                        onPick(entry.sql);
+                        close(onClose);
+                      }}
+                    >
+                      <span className={styles.historySql}>{oneLine(entry.sql)}</span>
+                      <span className={styles.historyMeta}>
+                        <span>{when.format(entry.startedAt)}</span>
+                        {entry.database !== "" && <span>{entry.database}</span>}
+                        <span>{t("query.duration", { ms: entry.durationMs })}</span>
+                        {entry.error !== null ? (
+                          <span className={styles.historyFailed}>{t("query.historyFailed")}</span>
+                        ) : (
+                          entry.rowCount !== null && <span>{t("query.rowCount", { n: entry.rowCount })}</span>
+                        )}
+                      </span>
+                    </button>
+                    {/* One run forgotten, rather than the whole list. The history fills with attempts
+                        at the same query, and the way to keep it readable is to drop the failures as
+                        they are recognised — not to clear it and lose the one that worked. */}
+                    <button
+                      type="button"
+                      className={
+                        confirmDrop === entry
+                          ? `${styles.entryDelete} ${styles.entryDeleteArmed}`
+                          : styles.entryDelete
                       }
-                      setConfirmDrop(null);
-                      removeQueryHistoryEntry(entry);
-                    }}
-                  >
-                    <TrashIcon size="0.9em" />
-                    {confirmDrop === entry && <span>{t("query.historyDropConfirm")}</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+                      title={
+                        confirmDrop === entry ? t("query.historyDropConfirm") : t("query.historyDrop")
+                      }
+                      aria-label={t("query.historyDrop")}
+                      // The list disarms on mouse-down, which lands before this button's click and
+                      // would clear `confirmDrop` in time for the confirming press to read it as
+                      // unarmed — the second click re-arming for ever instead of deleting.
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => {
+                        if (confirmDrop !== entry) {
+                          setConfirmDrop(entry);
+                          return;
+                        }
+                        setConfirmDrop(null);
+                        removeQueryHistoryEntry(entry);
+                      }}
+                    >
+                      <TrashIcon size="0.9em" />
+                      {confirmDrop === entry && <span>{t("query.historyDropConfirm")}</span>}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </ModalBody>
         </>
       )}
     </Modal>

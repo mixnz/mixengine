@@ -1,10 +1,9 @@
 import { useState } from "react";
-import Button from "../../../../components/Button";
 import RadioCard from "../../../../components/RadioCard";
 import { useTranslation } from "../../../../i18n";
 import type { SqlDumpMode } from "../../sql/api";
 import styles from "./DumpDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 
 /** The three choices, in the order they are offered: the whole thing first, since that is what a
  * backup means, and the two halves after it. */
@@ -36,13 +35,22 @@ function DumpDialog({ database, modes, onCancel, onSubmit }: Props) {
     <Modal
       label={database}
       onClose={onCancel}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      title={t("dump.dumpTitle", { database })}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel") },
+        {
+          kind: "confirm",
+          label: t("dump.chooseFile"),
+          // The file picker this opens is a window of its own, so the dialog gets out of its way
+          // first rather than being covered mid-animation.
+          onClick: () => onSubmit(mode),
+          closes: true,
+        },
+      ]}
     >
-      {(close) => (
-        <>
-          <h3 className={styles.title}>{t("dump.dumpTitle", { database })}</h3>
-
+      {() => (
+        <ModalBody>
           <div className={styles.modes}>
             {offered.map((option) => (
               <RadioCard
@@ -55,18 +63,7 @@ function DumpDialog({ database, modes, onCancel, onSubmit }: Props) {
               />
             ))}
           </div>
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)}>
-              {t("common.cancel")}
-            </Button>
-            {/* The file picker this opens is a window of its own, so the dialog gets out of its way
-                first rather than being covered mid-animation. */}
-            <Button size="large" variant="primary" onClick={() => close(() => onSubmit(mode))}>
-              {t("dump.chooseFile")}
-            </Button>
-          </div>
-        </>
+        </ModalBody>
       )}
     </Modal>
   );

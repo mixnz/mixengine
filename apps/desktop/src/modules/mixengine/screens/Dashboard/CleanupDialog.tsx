@@ -1,7 +1,6 @@
 import { useState } from "react";
 
-import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -48,51 +47,45 @@ export default function CleanupDialog({ disk, onCancel, onStarted }: Props) {
 
   return (
     <Modal
-      label={t("mixengine.dashboard.diskUsage.cleanup")}
+      title={t("mixengine.dashboard.diskUsage.cleanup")}
       onClose={onCancel}
       locked={submitting}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: submitting },
+        {
+          kind: "confirm",
+          label: t("mixengine.dashboard.diskUsage.cleanup"),
+          onClick: () => void submit(),
+          disabled: submitting,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{t("mixengine.dashboard.diskUsage.cleanup")}</h3>
-
-          <div className={styles.list}>
-            {reclaimable.map((category) => {
-              const flag = cleanupFlagFor(category.id);
-              if (flag === null || category.reclaim.reclaim !== "by_cleanup") return null;
-              return (
-                <Checkbox
-                  key={category.id}
-                  className={styles.item}
-                  label={t("mixengine.dashboard.diskUsage.cleanupKeep", {
-                    category: t(`mixengine.dashboard.diskUsage.category.${category.id}`),
-                  })}
-                  checked={keep[category.id] ?? false}
-                  disabled={submitting}
-                  onChange={(e) =>
-                    setKeep((current) => ({ ...current, [category.id]: e.target.checked }))
-                  }
-                />
-              );
-            })}
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
+          <ModalBody>
+            <div className={styles.list}>
+              {reclaimable.map((category) => {
+                const flag = cleanupFlagFor(category.id);
+                if (flag === null || category.reclaim.reclaim !== "by_cleanup") return null;
+                return (
+                  <Checkbox
+                    key={category.id}
+                    className={styles.item}
+                    label={t("mixengine.dashboard.diskUsage.cleanupKeep", {
+                      category: t(`mixengine.dashboard.diskUsage.category.${category.id}`),
+                    })}
+                    checked={keep[category.id] ?? false}
+                    disabled={submitting}
+                    onChange={(e) =>
+                      setKeep((current) => ({ ...current, [category.id]: e.target.checked }))
+                    }
+                  />
+                );
+              })}
             </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={submitting}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={submitting}>
-              {t("mixengine.dashboard.diskUsage.cleanup")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

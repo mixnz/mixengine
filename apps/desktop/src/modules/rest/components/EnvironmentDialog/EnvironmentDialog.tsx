@@ -14,7 +14,7 @@ import {
   useEnvironments,
 } from "../../environmentsStore";
 import styles from "./EnvironmentDialog.module.css";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 import Checkbox from "../../../../components/Checkbox";
 
 interface Props {
@@ -81,165 +81,154 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
   return (
     <>
       <Modal
-        label={t("rest.envDialogTitle")}
+        title={t("rest.envDialogTitle")}
+        layer={70}
+        fixedHeight
         onClose={done}
-        overlayClassName={styles.overlay}
-        className={styles.dialog}
       >
-        {(close) => (
+        {() => (
           <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>{t("rest.envDialogTitle")}</h3>
-            <button
-              type="button"
-              className={styles.headerClose}
-              onClick={() => close(done)}
-              title={t("common.close")}
-              aria-label={t("common.close")}
-            >
-              <CloseIcon />
-            </button>
-          </div>
-
-          <div className={styles.body}>
-            <div className={styles.list}>
-              {environments.map((env) => (
-                <button
-                  key={env.id}
-                  type="button"
-                  className={`${styles.item}${env.id === chosen?.id ? ` ${styles.itemActive}` : ""}`}
-                  onClick={() => pick(env.id)}
-                >
-                  {env.name}
-                </button>
-              ))}
-              {environments.length === 0 && (
-                <p className={`${styles.empty} muted`}>{t("rest.envEmpty")}</p>
-              )}
-              <Button
-                size="small"
-                className={styles.add}
-                onClick={() => pick(createEnvironment(t("rest.envDefaultName")).id)}
-              >
-                <PlusIcon size="1em" />
-                {t("rest.envNew")}
-              </Button>
-            </div>
-
-            <div className={styles.detail}>
-              {chosen === null ? (
-                <p className={`${styles.empty} muted`}>{t("rest.envNonePicked")}</p>
-              ) : (
-                <>
-                  <div className={styles.nameRow}>
-                    <span className={styles.label}>{t("rest.envNameLabel")}</span>
-                    <Input
-                      className={styles.name}
-                      size="small"
-                      value={chosen.name}
-                      aria-label={t("rest.envNameLabel")}
-                      onChange={(e) => edit({ name: e.target.value })}
-                    />
+            <ModalBody fill>
+              <div className={styles.body}>
+                <div className={styles.list}>
+                  {environments.map((env) => (
                     <button
+                      key={env.id}
                       type="button"
-                      className={styles.delete}
-                      onClick={() => setConfirmDelete(true)}
-                      aria-label={t("rest.envDelete")}
-                      title={t("rest.envDelete")}
+                      className={`${styles.item}${env.id === chosen?.id ? ` ${styles.itemActive}` : ""}`}
+                      onClick={() => pick(env.id)}
                     >
-                      <TrashIcon size="0.9em" />
+                      {env.name}
                     </button>
-                  </div>
+                  ))}
+                  {environments.length === 0 && (
+                    <p className={`${styles.empty} muted`}>{t("rest.envEmpty")}</p>
+                  )}
+                  <Button
+                    size="small"
+                    className={styles.add}
+                    onClick={() => pick(createEnvironment(t("rest.envDefaultName")).id)}
+                  >
+                    <PlusIcon size="1em" />
+                    {t("rest.envNew")}
+                  </Button>
+                </div>
 
-                  <div className={styles.table}>
-                    <div className={`${styles.row} ${styles.head}`}>
-                      <span>{t("rest.envVarName")}</span>
-                      <span>{t("rest.envVarValue")}</span>
-                      <span title={t("rest.envVarSecretHint")}>{t("rest.envVarSecret")}</span>
-                      <span />
-                    </div>
-                    {chosen.vars.map((variable, index) => {
-                      const shown = !variable.secret || revealed.includes(index);
-                      return (
-                        <div key={index} className={styles.row}>
-                          <Input
-                            ref={bind(`${index}:name`)}
-                            size="small"
-                            value={variable.name}
-                            aria-label={t("rest.envVarName")}
-                            onChange={(e) => updateVar(index, { name: e.target.value })}
-                          />
-                          <div className={styles.value}>
-                            <Input
-                              ref={bind(`${index}:value`)}
-                              size="small"
-                              type={shown ? "text" : "password"}
-                              value={variable.value}
-                              aria-label={t("rest.envVarValue")}
-                              onChange={(e) => updateVar(index, { value: e.target.value })}
-                            />
-                            {variable.secret && (
+                <div className={styles.detail}>
+                  {chosen === null ? (
+                    <p className={`${styles.empty} muted`}>{t("rest.envNonePicked")}</p>
+                  ) : (
+                    <>
+                      <div className={styles.nameRow}>
+                        <span className={styles.label}>{t("rest.envNameLabel")}</span>
+                        <Input
+                          className={styles.name}
+                          size="small"
+                          value={chosen.name}
+                          aria-label={t("rest.envNameLabel")}
+                          onChange={(e) => edit({ name: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className={styles.delete}
+                          onClick={() => setConfirmDelete(true)}
+                          aria-label={t("rest.envDelete")}
+                          title={t("rest.envDelete")}
+                        >
+                          <TrashIcon size="0.9em" />
+                        </button>
+                      </div>
+
+                      <div className={styles.table}>
+                        <div className={`${styles.row} ${styles.head}`}>
+                          <span>{t("rest.envVarName")}</span>
+                          <span>{t("rest.envVarValue")}</span>
+                          <span title={t("rest.envVarSecretHint")}>{t("rest.envVarSecret")}</span>
+                          <span />
+                        </div>
+                        {chosen.vars.map((variable, index) => {
+                          const shown = !variable.secret || revealed.includes(index);
+                          return (
+                            <div key={index} className={styles.row}>
+                              <Input
+                                ref={bind(`${index}:name`)}
+                                size="small"
+                                value={variable.name}
+                                aria-label={t("rest.envVarName")}
+                                onChange={(e) => updateVar(index, { name: e.target.value })}
+                              />
+                              <div className={styles.value}>
+                                <Input
+                                  ref={bind(`${index}:value`)}
+                                  size="small"
+                                  type={shown ? "text" : "password"}
+                                  value={variable.value}
+                                  aria-label={t("rest.envVarValue")}
+                                  onChange={(e) => updateVar(index, { value: e.target.value })}
+                                />
+                                {variable.secret && (
+                                  <button
+                                    type="button"
+                                    className={styles.reveal}
+                                    aria-label={shown ? t("rest.hideValue") : t("rest.showValue")}
+                                    title={shown ? t("rest.hideValue") : t("rest.showValue")}
+                                    onClick={() =>
+                                      setRevealed((prev) =>
+                                        shown ? prev.filter((i) => i !== index) : [...prev, index],
+                                      )
+                                    }
+                                  >
+                                    {shown ? <EyeOffIcon size="0.9em" /> : <EyeIcon size="0.9em" />}
+                                  </button>
+                                )}
+                              </div>
+                              <Checkbox
+                                size="small"
+                                checked={variable.secret}
+                                aria-label={t("rest.envVarSecret")}
+                                title={t("rest.envVarSecretHint")}
+                                onChange={(e) => updateVar(index, { secret: e.target.checked })}
+                              />
                               <button
                                 type="button"
-                                className={styles.reveal}
-                                aria-label={shown ? t("rest.hideValue") : t("rest.showValue")}
-                                title={shown ? t("rest.hideValue") : t("rest.showValue")}
-                                onClick={() =>
-                                  setRevealed((prev) =>
-                                    shown ? prev.filter((i) => i !== index) : [...prev, index],
-                                  )
-                                }
+                                className={styles.remove}
+                                aria-label={t("rest.envRemoveVar")}
+                                title={t("rest.envRemoveVar")}
+                                onClick={() => {
+                                  setRevealed([]);
+                                  edit({ vars: chosen.vars.filter((_, i) => i !== index) });
+                                }}
                               >
-                                {shown ? <EyeOffIcon size="0.9em" /> : <EyeIcon size="0.9em" />}
+                                <CloseIcon size="0.9em" />
                               </button>
-                            )}
-                          </div>
-                          <Checkbox
+                            </div>
+                          );
+                        })}
+                        {/* The empty row at the foot is not in the data: typing into it is what adds one,
+                            exactly as in the request tables. */}
+                        <div className={`${styles.row} ${styles.draft}`}>
+                          <Input
                             size="small"
-                            checked={variable.secret}
-                            aria-label={t("rest.envVarSecret")}
-                            title={t("rest.envVarSecretHint")}
-                            onChange={(e) => updateVar(index, { secret: e.target.checked })}
+                            value=""
+                            placeholder={t("rest.envAddVar")}
+                            aria-label={t("rest.envAddVar")}
+                            onChange={(e) => appendVar("name", e.target.value)}
                           />
-                          <button
-                            type="button"
-                            className={styles.remove}
-                            aria-label={t("rest.envRemoveVar")}
-                            title={t("rest.envRemoveVar")}
-                            onClick={() => {
-                              setRevealed([]);
-                              edit({ vars: chosen.vars.filter((_, i) => i !== index) });
-                            }}
-                          >
-                            <CloseIcon size="0.9em" />
-                          </button>
+                          <Input
+                            size="small"
+                            value=""
+                            aria-label={t("rest.envVarValue")}
+                            onChange={(e) => appendVar("value", e.target.value)}
+                          />
+                          <span />
+                          <span />
                         </div>
-                      );
-                    })}
-                    {/* The empty row at the foot is not in the data: typing into it is what adds one,
-                        exactly as in the request tables. */}
-                    <div className={`${styles.row} ${styles.draft}`}>
-                      <Input
-                        size="small"
-                        value=""
-                        placeholder={t("rest.envAddVar")}
-                        aria-label={t("rest.envAddVar")}
-                        onChange={(e) => appendVar("name", e.target.value)}
-                      />
-                      <Input
-                        size="small"
-                        value=""
-                        aria-label={t("rest.envVarValue")}
-                        onChange={(e) => appendVar("value", e.target.value)}
-                      />
-                      <span />
-                      <span />
-                    </div>
-                  </div>
-          </>
-            )}
-          </div>
-        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </ModalBody>
           </>
         )}
       </Modal>

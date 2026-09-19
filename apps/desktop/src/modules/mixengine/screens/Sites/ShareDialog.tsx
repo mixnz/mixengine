@@ -1,8 +1,7 @@
 import { useState } from "react";
 
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -50,17 +49,23 @@ export default function ShareDialog({ domain, onCancel, onShared }: Props) {
 
   return (
     <Modal
-      label={t("mixengine.sites.share.title")}
+      title={t("mixengine.sites.share.title")}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("mixengine.sites.share.title"),
+          onClick: () => void submit(),
+          busy: saving ? t("mixengine.sites.form.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{t("mixengine.sites.share.title")}</h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             <label className={styles.field}>
               {t("mixengine.sites.share.interfaceLabel")}
               <Input
@@ -82,22 +87,8 @@ export default function ShareDialog({ domain, onCancel, onShared }: Props) {
                 placeholder={t("mixengine.sites.share.noExpiry")}
               />
             </label>
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={saving}>
-              {saving ? t("mixengine.sites.form.saving") : t("mixengine.sites.share.title")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

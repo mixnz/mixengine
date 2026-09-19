@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 
-import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -59,90 +58,76 @@ export default function PlanDialog({ source, onCancel, onInstalled }: Props) {
 
   return (
     <Modal
-      label={t("mixengine.extensions.plan.title", { name: plan?.name ?? "" })}
+      title={t("mixengine.extensions.plan.title", { name: plan?.name ?? "" })}
       onClose={onCancel}
       locked={installing}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: installing },
+        {
+          kind: "confirm",
+          label: t("mixengine.extensions.plan.installButton"),
+          onClick: () => void install(),
+          disabled: !plan,
+          busy: installing ? t("mixengine.extensions.plan.installing") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>
-            {t("mixengine.extensions.plan.title", { name: plan?.name ?? "…" })}
-          </h3>
-
-          {plan && (
-            <div className={styles.body}>
-              {!plan.signed && (
-                <p className={styles.warning}>{t("mixengine.extensions.plan.unsigned")}</p>
-              )}
-              <p>{plan.description}</p>
-              {plan.homepage && (
-                <p>{t("mixengine.extensions.plan.homepage", { url: plan.homepage })}</p>
-              )}
-
-              <h4>{t("mixengine.extensions.plan.permissionsTitle")}</h4>
-              <ul className={styles.list}>
-                {plan.permissions.services.map((access, i) => (
-                  <li key={i}>
-                    {access === "read"
-                      ? t("mixengine.extensions.plan.apiRead")
-                      : t("mixengine.extensions.plan.apiWrite")}
-                  </li>
-                ))}
-                <li>{t("mixengine.extensions.plan.network", { reach: plan.permissions.network })}</li>
-                {plan.permissions.filesystem.map((reach, i) => (
-                  <li key={i}>{t("mixengine.extensions.plan.filesystem", { reach })}</li>
-                ))}
-                {plan.site?.signs_in && (
-                  <li>{t("mixengine.extensions.plan.signsIn", { account: plan.site.signs_in })}</li>
+          <ModalBody>
+            {plan && (
+              <div className={styles.body}>
+                {!plan.signed && (
+                  <p className={styles.warning}>{t("mixengine.extensions.plan.unsigned")}</p>
                 )}
-              </ul>
+                <p>{plan.description}</p>
+                {plan.homepage && (
+                  <p>{t("mixengine.extensions.plan.homepage", { url: plan.homepage })}</p>
+                )}
 
-              {plan.site && (
-                <p>
-                  {t("mixengine.extensions.plan.site", {
-                    domain: plan.site.domain,
-                    pool: plan.site.pool,
-                  })}
-                  {plan.site.database && (
-                    <> — {t("mixengine.extensions.plan.database", { database: plan.site.database })}</>
+                <h4>{t("mixengine.extensions.plan.permissionsTitle")}</h4>
+                <ul className={styles.list}>
+                  {plan.permissions.services.map((access, i) => (
+                    <li key={i}>
+                      {access === "read"
+                        ? t("mixengine.extensions.plan.apiRead")
+                        : t("mixengine.extensions.plan.apiWrite")}
+                    </li>
+                  ))}
+                  <li>{t("mixengine.extensions.plan.network", { reach: plan.permissions.network })}</li>
+                  {plan.permissions.filesystem.map((reach, i) => (
+                    <li key={i}>{t("mixengine.extensions.plan.filesystem", { reach })}</li>
+                  ))}
+                  {plan.site?.signs_in && (
+                    <li>{t("mixengine.extensions.plan.signsIn", { account: plan.site.signs_in })}</li>
                   )}
-                </p>
-              )}
+                </ul>
 
-              {plan.ports.map((port, i) => (
-                <p key={i}>
-                  {t("mixengine.extensions.plan.ports", { name: port.name, wanted: port.wanted })}
-                </p>
-              ))}
+                {plan.site && (
+                  <p>
+                    {t("mixengine.extensions.plan.site", {
+                      domain: plan.site.domain,
+                      pool: plan.site.pool,
+                    })}
+                    {plan.site.database && (
+                      <> — {t("mixengine.extensions.plan.database", { database: plan.site.database })}</>
+                    )}
+                  </p>
+                )}
 
-              <p>{t("mixengine.extensions.plan.installDir", { dir: plan.install_dir })}</p>
-              <p>{t("mixengine.extensions.plan.dataDir", { dir: plan.data_dir })}</p>
-            </div>
-          )}
+                {plan.ports.map((port, i) => (
+                  <p key={i}>
+                    {t("mixengine.extensions.plan.ports", { name: port.name, wanted: port.wanted })}
+                  </p>
+                ))}
 
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={installing}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="primary"
-              onClick={() => void install()}
-              disabled={!plan || installing}
-            >
-              {installing
-                ? t("mixengine.extensions.plan.installing")
-                : t("mixengine.extensions.plan.installButton")}
-            </Button>
-          </div>
+                <p>{t("mixengine.extensions.plan.installDir", { dir: plan.install_dir })}</p>
+                <p>{t("mixengine.extensions.plan.dataDir", { dir: plan.data_dir })}</p>
+              </div>
+            )}
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

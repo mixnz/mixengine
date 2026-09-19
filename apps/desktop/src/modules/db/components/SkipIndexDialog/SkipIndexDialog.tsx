@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Select from "../../../../components/Select";
 import { useTranslation } from "../../../../i18n";
 import { errorMessage } from "../../../../core/errors";
 import type { SqlSkipIndex, SqlSkipIndexSpec } from "../../types";
 import { SKIP_INDEX_TYPES, defaultArgs, skipIndexType } from "../../clickhouse/skipIndexTypes";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import styles from "./SkipIndexDialog.module.css";
 
 /** The argument labels to show for one skip index: the whitelist's own when the TYPE is known and
@@ -97,97 +96,82 @@ function SkipIndexDialog({ table, index, onCancel, onSubmit }: Props) {
       label={table}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      title={editing ? t("skipIndexDialog.editTitle", { index: index.name }) : t("skipIndexDialog.addTitle", { table })}
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t(editing ? "skipIndexDialog.submitEdit" : "skipIndexDialog.submitAdd"),
+          onClick: () => void submit(),
+          busy: saving ? t("skipIndexDialog.saving") : undefined,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <div className={styles.header}>
-            <h3 className={styles.title}>
-              {editing
-                ? t("skipIndexDialog.editTitle", { index: index.name })
-                : t("skipIndexDialog.addTitle", { table })}
-            </h3>
+          <ModalBody>
             <p className={styles.note}>{t("skipIndexDialog.granularityHint")}</p>
-          </div>
 
-          <div className={styles.form}>
-            <label className={styles.field}>
-              {t("skipIndexDialog.name")}
-              <Input
-                ref={nameRef}
-                size="normal"
-                value={name}
-                disabled={saving}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("skipIndexDialog.expr")}
-              <Input
-                size="normal"
-                value={expr}
-                placeholder={t("skipIndexDialog.exprPlaceholder")}
-                disabled={saving}
-                onChange={(e) => setExpr(e.target.value)}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("skipIndexDialog.type")}
-              <Select
-                value={typeName}
-                size="normal"
-                options={typeOptions}
-                ariaLabel={t("skipIndexDialog.type")}
-                disabled={saving}
-                onChange={chooseType}
-              />
-            </label>
-
-            <label className={styles.field}>
-              {t("skipIndexDialog.granularity")}
-              <Input
-                size="normal"
-                value={granularity}
-                inputMode="numeric"
-                disabled={saving}
-                onChange={(e) => setGranularity(e.target.value)}
-              />
-            </label>
-
-            {args.map((value, i) => (
-              <label key={i} className={styles.field}>
-                {labels[i]}
+            <div className={styles.form}>
+              <label className={styles.field}>
+                {t("skipIndexDialog.name")}
                 <Input
+                  ref={nameRef}
                   size="normal"
-                  value={value}
+                  value={name}
                   disabled={saving}
-                  onChange={(e) => updateArg(i, e.target.value)}
+                  onChange={(e) => setName(e.target.value)}
                 />
               </label>
-            ))}
-          </div>
 
-          {errors.length > 0 && (
-            <div className={styles.errors} role="alert">
-              {errors.map((message, i) => (
-                <p key={i}>{message}</p>
+              <label className={styles.field}>
+                {t("skipIndexDialog.expr")}
+                <Input
+                  size="normal"
+                  value={expr}
+                  placeholder={t("skipIndexDialog.exprPlaceholder")}
+                  disabled={saving}
+                  onChange={(e) => setExpr(e.target.value)}
+                />
+              </label>
+
+              <label className={styles.field}>
+                {t("skipIndexDialog.type")}
+                <Select
+                  value={typeName}
+                  size="normal"
+                  options={typeOptions}
+                  ariaLabel={t("skipIndexDialog.type")}
+                  disabled={saving}
+                  onChange={chooseType}
+                />
+              </label>
+
+              <label className={styles.field}>
+                {t("skipIndexDialog.granularity")}
+                <Input
+                  size="normal"
+                  value={granularity}
+                  inputMode="numeric"
+                  disabled={saving}
+                  onChange={(e) => setGranularity(e.target.value)}
+                />
+              </label>
+
+              {args.map((value, i) => (
+                <label key={i} className={styles.field}>
+                  {labels[i]}
+                  <Input
+                    size="normal"
+                    value={value}
+                    disabled={saving}
+                    onChange={(e) => updateArg(i, e.target.value)}
+                  />
+                </label>
               ))}
             </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button size="large" variant="primary" onClick={() => void submit()} disabled={saving}>
-              {saving
-                ? t("skipIndexDialog.saving")
-                : t(editing ? "skipIndexDialog.submitEdit" : "skipIndexDialog.submitAdd")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={errors} />
         </>
       )}
     </Modal>

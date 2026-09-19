@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import Select from "../../../../components/Select";
 import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
@@ -49,17 +48,23 @@ export default function AddDomainDialog({ onCancel, onAdded }: Props) {
 
   return (
     <Modal
-      label={t("mixengine.domains.addDomain")}
+      title={t("mixengine.domains.addDomain")}
       onClose={onCancel}
       locked={saving}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        { kind: "cancel", label: t("common.cancel"), disabled: saving },
+        {
+          kind: "confirm",
+          label: t("common.save"),
+          onClick: () => void submit(),
+          disabled: saving || site === "" || domain.trim() === "",
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{t("mixengine.domains.addDomain")}</h3>
-
-          <div className={styles.form}>
+          <ModalBody>
             <label className={styles.field}>
               {t("mixengine.domains.columnSite")}
               <Select
@@ -84,27 +89,8 @@ export default function AddDomainDialog({ onCancel, onAdded }: Props) {
                 onChange={(e) => setAcceptRiskyTld(e.target.checked)}
               />
             )}
-          </div>
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button size="large" onClick={() => close(onCancel)} disabled={saving}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              size="large"
-              variant="primary"
-              onClick={() => void submit()}
-              disabled={saving || site === "" || domain.trim() === ""}
-            >
-              {t("common.save")}
-            </Button>
-          </div>
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

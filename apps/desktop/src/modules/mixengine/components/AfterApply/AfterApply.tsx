@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 import Button from "../../../../components/Button";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody, ModalErrors } from "../../../../components/Modal";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -157,75 +157,67 @@ export default function AfterApply({ applied, onFinished }: Props) {
 
   return (
     <Modal
-      label={heading}
+      title={heading}
       onClose={() => onFinished(done ? phase.url : null)}
       locked={!done}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      actions={[
+        {
+          kind: "cancel",
+          label: t("mixengine.afterApply.close"),
+          onClick: () => onFinished(done ? phase.url : null),
+          disabled: !done,
+        },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{heading}</h3>
+          <ModalBody>
+            {!done && (
+              <div className={styles.status}>
+                <p>{t("mixengine.afterApply.starting")}</p>
+                <progress />
+              </div>
+            )}
 
-          {!done && (
-            <div className={styles.status}>
-              <p>{t("mixengine.afterApply.starting")}</p>
-              <progress />
-            </div>
-          )}
+            {/* Ở **trên** địa chỉ, không phải dưới nó. Bước hỏng là thứ quyết định người ta làm gì
+                tiếp theo, và một khối cảnh báo nằm dưới một nút xanh là một khối không ai đọc. */}
+            {done && failed.length > 0 && (
+              <div className={styles.trouble} role="alert">
+                <p>{t("mixengine.afterApply.troubleTitle")}</p>
+                <ul>
+                  {failed.map((outcome, i) => (
+                    <li key={i}>
+                      {describePlanAction(t, outcome.action)}
+                      {outcome.result.result === "failed" && ` — ${outcome.result.why}`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-          {/* Ở **trên** địa chỉ, không phải dưới nó. Bước hỏng là thứ quyết định người ta làm gì
-              tiếp theo, và một khối cảnh báo nằm dưới một nút xanh là một khối không ai đọc. */}
-          {done && failed.length > 0 && (
-            <div className={styles.trouble} role="alert">
-              <p>{t("mixengine.afterApply.troubleTitle")}</p>
-              <ul>
-                {failed.map((outcome, i) => (
-                  <li key={i}>
-                    {describePlanAction(t, outcome.action)}
-                    {outcome.result.result === "failed" && ` — ${outcome.result.why}`}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {done && (
-            <div className={styles.status}>
-              {phase.url === null ? (
-                <p>{t("mixengine.afterApply.noSite")}</p>
-              ) : failed.length > 0 ? (
-                // **Địa chỉ, không phải lời mời.** Site có thật và đang được phục vụ, nên giấu nó
-                // đi là giấu mất thứ người ta cần khi đã sửa xong; nhưng một nút primary "Mở
-                // website" bên dưới một lệnh khởi tạo hỏng là hộp thoại này tự khen một việc nó
-                // vừa nói là hỏng.
-                <p>{t("mixengine.afterApply.readyWithTrouble", { url: phase.url })}</p>
-              ) : (
-                <>
-                  <p>{t("mixengine.afterApply.ready", { url: phase.url })}</p>
-                  <Button variant="primary" onClick={() => void openUrl(phase.url ?? "")}>
-                    {t("mixengine.afterApply.open", { url: phase.url })}
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-
-          {error !== "" && (
-            <div className={styles.errors} role="alert">
-              <p>{error}</p>
-            </div>
-          )}
-
-          <div className={styles.actions}>
-            <Button
-              size="large"
-              disabled={!done}
-              onClick={() => close(() => onFinished(done ? phase.url : null))}
-            >
-              {t("mixengine.afterApply.close")}
-            </Button>
-          </div>
+            {done && (
+              <div className={styles.status}>
+                {phase.url === null ? (
+                  <p>{t("mixengine.afterApply.noSite")}</p>
+                ) : failed.length > 0 ? (
+                  // **Địa chỉ, không phải lời mời.** Site có thật và đang được phục vụ, nên giấu nó
+                  // đi là giấu mất thứ người ta cần khi đã sửa xong; nhưng một nút primary "Mở
+                  // website" bên dưới một lệnh khởi tạo hỏng là hộp thoại này tự khen một việc nó
+                  // vừa nói là hỏng.
+                  <p>{t("mixengine.afterApply.readyWithTrouble", { url: phase.url })}</p>
+                ) : (
+                  <>
+                    <p>{t("mixengine.afterApply.ready", { url: phase.url })}</p>
+                    <Button variant="primary" onClick={() => void openUrl(phase.url ?? "")}>
+                      {t("mixengine.afterApply.open", { url: phase.url })}
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </ModalBody>
+          <ModalErrors messages={[error]} />
         </>
       )}
     </Modal>

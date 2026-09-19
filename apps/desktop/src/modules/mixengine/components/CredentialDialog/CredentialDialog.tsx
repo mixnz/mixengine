@@ -1,8 +1,7 @@
 import { useState } from "react";
 
-import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
-import Modal from "../../../../components/Modal";
+import Modal, { ModalBody } from "../../../../components/Modal";
 import { copyText } from "../../../../core/clipboard";
 import { useTranslation } from "../../../../i18n";
 import type { DatabaseCredentials } from "@mixengine/api";
@@ -34,52 +33,50 @@ export default function CredentialDialog({
 
   return (
     <Modal
-      label={title}
+      title={title}
       onClose={onClose}
-      overlayClassName={styles.overlay}
-      className={styles.dialog}
+      size="small"
+      footerNote={copied ? t("mixengine.credentials.copied") : undefined}
+      actions={[
+        {
+          kind: "secondary",
+          label: t("mixengine.credentials.copy"),
+          onClick: () => {
+            void copyText(credentials.password);
+            setCopied(true);
+          },
+        },
+        {
+          kind: "secondary",
+          label: t(shown ? "mixengine.credentials.hide" : "mixengine.credentials.show"),
+          onClick: () => setShown((was) => !was),
+        },
+        { kind: "cancel", label: t("mixengine.credentials.close") },
+      ]}
     >
-      {(close) => (
+      {() => (
         <>
-          <h3 className={styles.title}>{title}</h3>
+          <ModalBody>
+            <p className={styles.line}>
+              {t("mixengine.credentials.account", { user: credentials.user })}
+            </p>
 
-          <p className={styles.line}>
-            {t("mixengine.credentials.account", { user: credentials.user })}
-          </p>
+            <label className={styles.field}>
+              {t("mixengine.credentials.password")}
+              {/* `readOnly` chứ không `disabled`: một ô xám không chọn được chữ trong nó, mà chọn tay
+                  là đường dự phòng khi webview từ chối clipboard (xem `core/clipboard.ts`). */}
+              <Input
+                value={credentials.password}
+                type={shown ? "text" : "password"}
+                readOnly
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </label>
 
-          <label className={styles.field}>
-            {t("mixengine.credentials.password")}
-            {/* `readOnly` chứ không `disabled`: một ô xám không chọn được chữ trong nó, mà chọn tay
-                là đường dự phòng khi webview từ chối clipboard (xem `core/clipboard.ts`). */}
-            <Input
-              value={credentials.password}
-              type={shown ? "text" : "password"}
-              readOnly
-              onFocus={(e) => e.currentTarget.select()}
-            />
-          </label>
-
-          <p className={styles.hint}>
-            {t("mixengine.credentials.storedAt", { key: credentials.secret.key })}
-          </p>
-
-          <div className={styles.actions}>
-            <Button
-              variant="primary"
-              onClick={() => {
-                void copyText(credentials.password);
-                setCopied(true);
-              }}
-            >
-              {t("mixengine.credentials.copy")}
-            </Button>
-            <Button onClick={() => setShown((was) => !was)}>
-              {t(shown ? "mixengine.credentials.hide" : "mixengine.credentials.show")}
-            </Button>
-            <Button onClick={() => close(onClose)}>{t("mixengine.credentials.close")}</Button>
-          </div>
-
-          {copied && <p className={styles.copied}>{t("mixengine.credentials.copied")}</p>}
+            <p className={styles.hint}>
+              {t("mixengine.credentials.storedAt", { key: credentials.secret.key })}
+            </p>
+          </ModalBody>
         </>
       )}
     </Modal>
