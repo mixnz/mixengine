@@ -52,6 +52,7 @@ done
 | [19 — MongoDB](phase-19-mongodb.md) | The published MongoDB releases install and run as a service, what they ask of the processor is judged, and MixLab opens one | T153–T156, T164 | 5 / 5 | **M19** `mix service create mongodb@main 8.3.11` keeps a document across a restart, and MixLab's Open lands in a Mongo tab connected to it |
 | [20 — MixLab redesigned](phase-20-mixlab-redesigned.md) | Every screen drawn from one token set, in two themes, at the density its content needs | T157–T163 | 7 / 7 | **M20** every screen renders in both themes with no colour literal outside `App.css`, and the connection editor and Dashboard match their artboards |
 | [21 — A site that stays up](phase-21-a-site-that-stays-up.md) | A site that was up stays up until a person stops it | T167a–T167g | 7 / 7 | **M21** a daemon restart leaves every site answering without a click, and with Save battery off nothing is idle-stopped |
+| [22 — MixEngine in the tray](phase-22-mixengine-in-the-tray.md) | An icon on all three systems that starts and stops services, stops MixEngine and opens MixLab | T168a–T168g | 0 / 7 | **M22** after a login with the switch on, the icon alone stops MariaDB, stops everything and shuts MixEngine down |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -61,6 +62,12 @@ spared `.claude/roadmap/`, reading the number as a milestone still ahead rather 
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
+
+**Phase 22 is in progress.** MixEngine gets an icon in the tray or the menu bar: a webview panel on
+macOS and Windows, and the same panel behind a three-item menu on Linux, which tells an application
+nothing about clicks on its icon. MixLab can start there at login, a switch beside the daemon's
+([ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md)).
+Design: [2026-09-19-t168-mixengine-in-the-tray-design.md](../../docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md).
 
 **Phase 21 is built — 7 of 7, and M21 waits on a measurement.** A site that worked this morning and
 does not open now is the one sentence that ends MixLab's use. On a default home two defaults caused it: idle shutdown was on, and the web
