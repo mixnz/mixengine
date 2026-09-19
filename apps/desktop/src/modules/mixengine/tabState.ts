@@ -1,9 +1,10 @@
 /**
- * Thứ một tab MixEngine mang sang lần chạy sau.
+ * Which screen of the MixEngine tab is on screen.
  *
- * **Ids only.** Đây là `localStorage`: không host, không mật khẩu, không URL, không endpoint. Shell
- * truyền slot này qua mà không kiểm gì, nên `parseMixEngineTabState` là chỗ việc kiểm sống — xem
- * `docs/superpowers/specs/2026-08-23-tab-session-context-design.md`.
+ * **Not persisted.** It used to be kept in the tab's session slot and restored on the next launch;
+ * the tab now always opens on Dashboard, and on Dashboard again every time the daemon comes up —
+ * see `MixEngineTab.tsx`. The slot an older build wrote is cleared the first time a screen is
+ * chosen.
  */
 export type MixEngineScreen =
   | "dashboard"
@@ -18,31 +19,3 @@ export type MixEngineScreen =
   | "extensions"
   | "metrics"
   | "settings";
-
-export interface MixEngineTabState {
-  screen: MixEngineScreen;
-}
-
-const SCREENS: readonly MixEngineScreen[] = [
-  "dashboard",
-  "projects",
-  "sites",
-  "domains",
-  "runtimes",
-  "phpExtensions",
-  "servicesDetail",
-  "logs",
-  "blueprints",
-  "extensions",
-  "metrics",
-  "settings",
-];
-
-/** Slot shell trả lại từ lần chạy trước, đã kiểm. `undefined` nghĩa là không dùng được. */
-export function parseMixEngineTabState(value: unknown): MixEngineTabState | undefined {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
-  const screen = (value as { screen?: unknown }).screen;
-  return SCREENS.includes(screen as MixEngineScreen)
-    ? { screen: screen as MixEngineScreen }
-    : undefined;
-}

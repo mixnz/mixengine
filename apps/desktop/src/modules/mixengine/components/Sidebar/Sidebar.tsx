@@ -106,6 +106,9 @@ export default function Sidebar({
               type="button"
               className={styles.item}
               aria-current={item.screen === screen ? "page" : undefined}
+              // The screen's id, for whatever has to reach one without reading its label: the tab
+              // restores no screen, so the screenshot scenes click their way to one.
+              data-screen={item.screen}
               onClick={() => onSelect(item.screen)}
             >
               <item.Icon size={16} className={styles.icon} />

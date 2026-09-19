@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseSession } from "../src/shell/session";
 import { MODULES } from "../src/shell/registry";
-import { parseMixEngineTabState } from "../src/modules/mixengine/tabState";
 import { parseDbTabState } from "../src/modules/db/tabState";
 import { parseRestTabState } from "../src/modules/rest/tabState";
 import { parseTerminalTabState } from "../src/modules/terminal/tabState";
@@ -13,7 +12,9 @@ import { SCENES } from "./scenes.mjs";
 /* The one test that fails when a redesign changes how a tab is restored — before anyone runs the
    capture and wonders why a scene opens on the wrong screen. */
 const PARSERS = {
-  mixengine: parseMixEngineTabState,
+  // The MixEngine tab restores nothing: it always opens on Dashboard, and a scene that wants another
+  // screen clicks its way there. Whatever a scene put in its slot would be ignored, so it puts none.
+  mixengine: (state) => state,
   db: parseDbTabState,
   rest: parseRestTabState,
   terminal: parseTerminalTabState,

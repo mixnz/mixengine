@@ -30,10 +30,12 @@ not a home: the binaries take it unless an elevated helper could not read it the
 checkout under `/Volumes/` gets `MixEngine-dev` instead
 ([ADR 0040](../decisions/0040-a-development-builds-home-follows-its-checkout.md)). It starts the window
 rather than sitting in front of it behind `&&` because that environment has to reach it. The list it
-stages is `packaging/common.sh`'s `MIX_BINARIES` minus the window; it carries none of its own. A copy
-refused because that daemon is still running from the last window stops it with `mix daemon stop`
-against the same home and retries; one still refused after that is reported as such, rather than as
-os error 5.
+stages is `packaging/common.sh`'s `MIX_BINARIES` minus the window; it carries none of its own. After a
+build that succeeded it **always** runs `mix daemon stop` against the same home, quietly when nothing
+is running: the daemon outlives its window, and macOS — unlike Windows and Linux — lets a running
+executable be replaced, so a stop that waited for the copy to be refused never happened there and
+the window went on talking to the previous build. A copy still refused after the stop (a daemon of
+another home running the same binary) is reported as such, rather than as os error 5.
 
 Environment knobs: `MIXENGINE_HOME` (isolated sandbox root — always set this when experimenting),
 `MIXENGINE_LOG_FORMAT=json`, `MIXENGINE_SYSTEM_TESTS=1`, and the pair `MIXENGINE_INDEX_URL` +

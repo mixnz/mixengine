@@ -50,7 +50,9 @@ can spend seconds transforming a lazily imported screen while the page does noth
 
 A scene in `demo/scenes.mjs` is a module id, the session slot that module restores, an optional
 `act`, and the copy the frame prints. `demo/scenes.test.mjs` runs each slot through its module's
-parser, so a change to how a tab restores fails `npm test` first.
+parser, so a change to how a tab restores fails `npm test` first. The MixEngine tab restores no
+screen — it always opens on Dashboard — so its scenes carry no slot and reach another screen in
+`act`, through the sidebar button's `data-screen`, which is the screen's id.
 
 An `act` may press a shortcut the module registers, find text the fixtures own, or take the only
 element of its kind. Never interface copy and never a CSS class: those are what a redesign changes.

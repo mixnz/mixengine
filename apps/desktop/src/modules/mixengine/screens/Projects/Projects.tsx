@@ -39,6 +39,12 @@ export default function Projects({ active, onOpenSites }: Props) {
       const list = await api.projects();
       setRows(list.projects);
       setError("");
+      // The pins panel follows the list: a project that is gone — deleted here, by `mix`, or
+      // forgotten by a blueprint that failed — takes its panel with it rather than leaving a card
+      // about something the table no longer shows.
+      setDetail((shown) =>
+        shown && list.projects.some((row) => row.name === shown.project.name) ? shown : null,
+      );
     } catch (e) {
       setError(errorMessage(t, e));
     }
@@ -208,6 +214,9 @@ export default function Projects({ active, onOpenSites }: Props) {
           initial={editing}
           onCancel={() => setEditing(null)}
           onSaved={() => {
+            // Pins are what an edit changes, so a panel open on this project is closed rather than
+            // left showing the old ones — and re-reading it by name would fail after a rename.
+            if (detail?.project.name === editing.project.name) setDetail(null);
             setEditing(null);
             void reload();
           }}

@@ -175,6 +175,9 @@
   turns the client on for the tab it opens, and the tab says so.
 - `desktop-app` extensions are gone: `mix database open` opens MixLab, the window MixEngine installs,
   and an install that added MixDB as an extension has it removed on upgrade.
+- MariaDB and MySQL services no longer fail with `Access denied … (using password: NO)` on a
+  machine whose `~/.my.cnf` sets an empty `password=`. MixEngine's own client commands now read
+  none of the machine's option files; the `mysql` and `mariadb` you run yourself still do.
 
 ## v0.0.6
 

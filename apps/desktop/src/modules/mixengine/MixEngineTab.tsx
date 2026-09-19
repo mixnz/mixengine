@@ -36,7 +36,7 @@ import {
   type StorageKey,
   type StorageRow,
 } from "./storagePicker";
-import { parseMixEngineTabState, type MixEngineScreen } from "./tabState";
+import type { MixEngineScreen } from "./tabState";
 import "./mixengine.css";
 
 /** Trang cài đặt của MixEngine, cho một máy chưa có nó. */
@@ -61,12 +61,12 @@ export default function MixEngineTab({
   isModuleVisible,
   onTitleChange,
   onStateChange,
-  restored,
 }: ModuleTabProps) {
-  // Đọc một lần, lúc mount — đọc reactively là module tự ghi đè chính nó ngay khi nó ghi.
-  const [screen, setScreen] = useState<MixEngineScreen>(
-    () => parseMixEngineTabState(restored)?.screen ?? "dashboard",
-  );
+  // **Always Dashboard, never the screen open last.** A tab — restored from the last session or
+  // opened now — lands where a person sees the state of everything first; the screen they left
+  // belonged to a daemon that may since have stopped, changed or been rebuilt. `restored` is not
+  // read, and `selectScreen` writes nothing back.
+  const [screen, setScreen] = useState<MixEngineScreen>("dashboard");
   const [report, setReport] = useState<api.PresenceReport | null>(null);
   const presence = report === null ? null : report.presence;
   const [busy, setBusy] = useState(false);
@@ -125,6 +125,21 @@ export default function MixEngineTab({
   useEffect(() => {
     setMountedScreens((prev) => (prev.includes(screen) ? prev : [...prev, screen]));
   }, [screen]);
+
+  /* Every time the daemon comes up — Start, Retry, or a daemon that came back by itself — the tab
+     starts again at Dashboard, and the screens that stayed mounted behind the gate are dropped: they
+     hold state read from the daemon that went away. `null` until the first answer, so the first
+     look at a daemon already running changes nothing. */
+  const wasRunning = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (presence === null) return;
+    const running = presence === "running";
+    if (running && wasRunning.current === false) {
+      setScreen("dashboard");
+      setMountedScreens(["dashboard"]);
+    }
+    wasRunning.current = running;
+  }, [presence]);
 
   const look = useCallback(async () => {
     setReport(await api.presence());
@@ -260,7 +275,8 @@ export default function MixEngineTab({
 
   function selectScreen(next: MixEngineScreen) {
     setScreen(next);
-    onStateChange({ screen: next });
+    // Forget whatever an older build kept for this tab — this one never reads it.
+    onStateChange(undefined);
   }
 
   /* `render` nhận `active` thay vì nhận thẳng một node dựng sẵn — mỗi màn tự quyết định làm gì với

@@ -77,6 +77,21 @@ pub(super) fn client_env(
     environment
 }
 
+/// The first argument of every client this daemon runs against a MySQL-family server.
+///
+/// **Without it the client reads the person's own option files** — `~/.my.cnf`, `/etc/my.cnf`,
+/// `/etc/mysql/my.cnf` — and an option there beats an environment variable. A `~/.my.cnf` left behind
+/// by a Homebrew MySQL, with `[client] password=` and nothing after it, turned every client of ours
+/// into one sending an empty password: `ERROR 1045 … (using password: NO)` on the readiness-free
+/// paths (the provisioning probe, the shutdown), while the password sat in `MYSQL_PWD` unread.
+/// Found on macOS on 2026-09-19; Windows had no such file.
+///
+/// **First, or it means nothing**: both products honour it only as the first argument. The server
+/// is the one process that must read a file — its own `--defaults-file` — and it never goes through
+/// here. The clients a person runs from a terminal (T130) do not either: those are theirs, and their
+/// `~/.my.cnf` is theirs to have honoured.
+pub(super) const NO_DEFAULTS: &str = "--no-defaults";
+
 pub(super) struct Client {
     /// The SQL client, absolute.
     pub(super) program: PathBuf,

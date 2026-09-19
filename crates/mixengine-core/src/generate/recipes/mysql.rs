@@ -885,6 +885,7 @@ fn bootstrap_log(context: &Context) -> PathBuf {
 /// How a client is told which server to ask and who to be.
 fn connection(addr: SocketAddr) -> Vec<String> {
     vec![
+        super::mysql_family::NO_DEFAULTS.to_owned(),
         "--protocol=TCP".to_owned(),
         format!("--host={}", addr.ip()),
         format!("--port={}", addr.port()),
@@ -898,6 +899,7 @@ fn connection(addr: SocketAddr) -> Vec<String> {
 /// superuser — the T77a design, D13.
 fn as_account(addr: SocketAddr, user: &str, database: &str) -> Vec<String> {
     vec![
+        super::mysql_family::NO_DEFAULTS.to_owned(),
         "--protocol=TCP".to_owned(),
         format!("--host={}", addr.ip()),
         format!("--port={}", addr.port()),
@@ -1729,5 +1731,71 @@ mod tests {
             sql.contains("GRANT ALL PRIVILEGES ON `shop`.* TO 'shop'@'localhost'"),
             "{sql}"
         );
+    }
+
+    /// Every client this recipe runs reads none of the machine's option files — `--no-defaults`,
+    /// first. A `~/.my.cnf` with `[client] password=` otherwise beats `MYSQL_PWD`, and the provisioning
+    /// probe and the shutdown were refused with `using password: NO` on a machine that had one.
+    #[test]
+    fn every_client_it_runs_ignores_the_machines_option_files() {
+        let context = context("{}");
+        let spec = Mysql
+            .spec(&context)
+            .expect("a spec")
+            .build()
+            .expect("a valid spec");
+        let admin = Mysql.databases().expect("mysql administers databases");
+        let ask = crate::generate::Ask {
+            database: "blog".to_owned(),
+            user: "blog".to_owned(),
+        };
+        let credentials = crate::generate::Credentials {
+            root: "a".repeat(32),
+            account: "b".repeat(32),
+        };
+
+        let mut clients: Vec<Vec<String>> = Vec::new();
+
+        let mixengine_proto::ReadyCheck::Command { args, .. } = spec.ready() else {
+            panic!("a database is proved up by a command: {:?}", spec.ready());
+        };
+        clients.push(args.clone());
+
+        if let Some(mixengine_proto::HealthCheck {
+            probe: mixengine_proto::HealthProbe::Command { args, .. },
+            ..
+        }) = spec.health()
+        {
+            clients.push(args.clone());
+        }
+
+        let mixengine_proto::StopBehaviour::Command { args, .. } = spec.stop() else {
+            panic!("a database is asked to stop: {:?}", spec.stop());
+        };
+        clients.push(args.clone());
+
+        clients.push(
+            (admin.probe)(&context, &ask, &credentials.root)
+                .expect("a probe")
+                .args,
+        );
+        for step in (admin.steps)(
+            &context,
+            &ask,
+            crate::generate::Found::default(),
+            &credentials,
+        )
+        .expect("statements")
+        {
+            clients.push(step.args);
+        }
+
+        for args in clients {
+            assert_eq!(
+                args.first().map(String::as_str),
+                Some(super::super::mysql_family::NO_DEFAULTS),
+                "{args:?}"
+            );
+        }
     }
 }

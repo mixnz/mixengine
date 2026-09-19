@@ -9,14 +9,23 @@
  * release default is `MixEngine`, a build out of cargo defaults to `MixEngine-dev` (ADR 0024), and
  * the gate then never leaves "not running".
  *
- * Three things, then `tauri dev`:
+ * Four things, then `tauri dev`:
  *
  *   1. read MIX_BINARIES/MIX_CRATES out of packaging/common.sh, minus the window;
- *   2. `cargo build -p …` the four crates at the repository root, debug profile, like the window;
- *   3. copy them into src-tauri/target/debug/, unconditionally — a stale daemon beside a fresh
+ *   2. `cargo build -p …` the four crates at the repository root, debug profile, like the window —
+ *      cargo rebuilds only what changed, so an unchanged tree costs a second. A build that fails
+ *      ends the script here, with the running daemon left alone;
+ *   3. stop this checkout's daemon with `mix daemon stop`, **always** — it outlives its window by
+ *      design, and a window that finds it still answering talks to the old code. Asking a home
+ *      with no daemon to stop is a no-op;
+ *   4. copy the four into src-tauri/target/debug/, unconditionally — a stale daemon beside a fresh
  *      window is the mismatch this script exists to remove, and comparing timestamps to skip a
- *      copy that takes milliseconds buys nothing. A daemon still running there from the last
- *      window is stopped first with `mix daemon stop` against this home.
+ *      copy that takes milliseconds buys nothing.
+ *
+ * **The stop used to wait for the copy to fail**, which only Windows and Linux do — they refuse to
+ * overwrite a running executable. macOS lets it happen, so there the old daemon was never stopped
+ * and every `npm run dev:app` after a daemon change went on running the previous build (found
+ * 2026-09-19). Stopping unconditionally is the same on all three systems.
  *
  * `tauri dev` is started from here rather than by `&&` in package.json so that one environment
  * reaches both it and `mix daemon stop`: two commands joined by `&&` are two processes, and an
@@ -74,13 +83,49 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-// 3. Copy. The directory is created because the first `tauri dev` on a fresh clone has not made it
+// The daemon a previous `npm run dev:app` started outlives its window by design. It is this home's
+// daemon, stopped the way a person would stop it: through `mix`, services first, with the `mix` just
+// built. `--no-autostart` is `mix daemon stop`'s own behaviour and not a flag here: a stop never
+// starts a daemon in order to stop it.
+//
+// **Quiet when there was nothing to stop**, which is most runs: `mix` says so on stderr and exits 1,
+// and a line reading `Error:` on every clean start is noise somebody learns to ignore — and then
+// ignores the one that mattered. Any other failure is printed, and its exit status is still not the
+// verdict: a copy that fails afterwards is.
+const NOTHING_TO_STOP = "no MixEngine daemon is listening";
+
+function stopTheDevDaemon() {
+  const mix = join(root, "target", "debug", `mix${suffix}`);
+  const stop = spawnSync(mix, ["daemon", "stop"], {
+    cwd: root,
+    env: environment,
+    encoding: "utf8",
+  });
+  if (stop.error) {
+    console.error(`could not run ${mix}: ${stop.error.message}`);
+    return;
+  }
+  if (stop.status === 0) {
+    console.log("stopped this checkout's daemon; the window will start the one just built");
+    return;
+  }
+  if (!stop.stderr.includes(NOTHING_TO_STOP)) {
+    process.stderr.write(stop.stdout);
+    process.stderr.write(stop.stderr);
+  }
+}
+
+// 3. Stop this checkout's daemon, whatever it is running: see the header.
+stopTheDevDaemon();
+
+// 4. Copy. The directory is created because the first `tauri dev` on a fresh clone has not made it
 //    yet.
 const destination = join(app, "src-tauri", "target", "debug");
 mkdirSync(destination, { recursive: true });
 
-// How long a daemon that was asked to stop is given to let go of its executable. `mix daemon stop`
-// is answered before the process exits, so the copy is retried rather than tried once.
+// How long the daemon just asked to stop is given to let go of its executable. `mix daemon stop` is
+// answered before the process exits, so on Windows and Linux the copy is retried rather than tried
+// once.
 const RELEASE_WITHIN_MS = 15_000;
 const RETRY_EVERY_MS = 250;
 
@@ -98,8 +143,8 @@ function isHeldByARunningProcess(error) {
 // with SIGKILL before it prints a word — `Could not start MixEngine`, found 2026-09-19 with a
 // daemon from the last window still running (T166). Unlinking leaves that daemon on its own inode
 // and gives the new binary a fresh one; it is Apple's own advice for replacing a signed binary.
-// Windows and Linux refuse the overwrite instead (os error 5, ETXTBSY), which is what the stop
-// below is for.
+// Windows and Linux refuse the overwrite instead (os error 5, ETXTBSY) until the stopped daemon has
+// exited, which is what the retry below waits out.
 function tryCopy(source, target) {
   try {
     if (process.platform === "darwin") {
@@ -115,23 +160,6 @@ function tryCopy(source, target) {
   }
 }
 
-// The daemon a previous `npm run dev:app` started outlives its window by design, so the next run
-// finds it holding the binary. It is this home's daemon, stopped the way a person would stop it:
-// through `mix`, services first. Its exit status is not the verdict — a copy that still fails is.
-function stopTheDevDaemon() {
-  const mix = join(root, "target", "debug", `mix${suffix}`);
-  console.log("this checkout's daemon is running; stopping it before staging");
-  const stop = spawnSync(mix, ["daemon", "stop"], {
-    cwd: root,
-    stdio: "inherit",
-    env: environment,
-  });
-  if (stop.error) {
-    console.error(`could not run ${mix}: ${stop.error.message}`);
-  }
-}
-
-let stopped = false;
 for (const { binary } of binaries) {
   const file = `${binary}${suffix}`;
   const source = join(root, "target", "debug", file);
@@ -139,11 +167,6 @@ for (const { binary } of binaries) {
 
   if (tryCopy(source, target)) {
     continue;
-  }
-
-  if (!stopped) {
-    stopTheDevDaemon();
-    stopped = true;
   }
 
   let copied = false;
