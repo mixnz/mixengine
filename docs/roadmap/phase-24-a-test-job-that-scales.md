@@ -22,7 +22,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       Windows split in two. **(P)**
 - [x] **T170f** The workspace step runs under `cargo-nextest` in CI, with a `ci` profile and the
       serialisation `secrets.rs` needs; plain `cargo test` stays the contract. **(P)**
-- [ ] **T170g** Every leg of `test`, `services`, `rustdoc`, `bench` and `build` reports its elapsed
+- [x] **T170g** Every leg of `test`, `services`, `rustdoc`, `bench` and `build` reports its elapsed
       time, with a notice past its target and a warning past 30 minutes.
 - [ ] **T170h** A branch's `build` uses a lighter release profile (no LTO, 16 codegen units); a
       tag's builds exactly as before.
