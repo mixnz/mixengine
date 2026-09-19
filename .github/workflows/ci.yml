@@ -315,6 +315,12 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch --locked
 
+      # The runner for the workspace step (T170f). Pinned, and installed while the network is still
+      # there: on Linux the suite runs in a namespace with no route out.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.145
+
       - name: Build tests
         run: cargo test --workspace --all-targets --all-features --locked --offline --no-run
 
@@ -394,15 +400,19 @@ jobs:
 
       # Windows and macOS have no equally cheap isolation primitive, so there the rule is carried by
       # the test harness (T11) plus the offline cargo above.
-      # **`--no-fail-fast`, so a leg reports every failure it found rather than the first.** cargo
-      # stops after the first failing test binary by default, which on a matrix means one answer per
-      # round trip — and a round trip here is three operating systems and ten minutes. The suites
-      # after the first are exactly the ones that say whether a failure is one test or all of them.
+      #
+      # **Under cargo-nextest (T170f)**, which runs every test as a process of its own with as many
+      # at once as the runner has cores: `cargo test` ran the ~145 binaries one after another, and one
+      # slow binary held up the rest (run 35430523430). The `ci` profile in `.config/nextest.toml`
+      # carries what this step's flags used to: `fail-fast = false`, so a leg reports every failure it
+      # found rather than the first, and a slow-test timeout that names a hung test instead of letting
+      # it take the job's 45 minutes. Plain `cargo test` stays the contract: see
+      # docs/standards/testing.md, rule 7.
       - name: Test
         if: runner.os != 'Linux'
         env:
           CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-targets --all-features --locked --offline --no-fail-fast
+        run: cargo nextest run --workspace --all-targets --all-features --locked --offline --profile ci
 
       # `--all-targets` silently excludes doc tests; run them separately so rustdoc examples cannot
       # rot. The Linux runner did this inside the namespace already.

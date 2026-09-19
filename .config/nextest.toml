@@ -1,0 +1,22 @@
+# cargo-nextest, the runner CI uses for the workspace step (T170f). Plain `cargo test` stays the
+# contract: anything a test needs serialised is serialised in the test *and* declared here, never
+# with a flag on one CI job. See docs/standards/testing.md.
+
+[profile.ci]
+# Report every failure a leg found, not the first — the reason `--no-fail-fast` had.
+fail-fast = false
+# A retry hides exactly the flake this repository wants to see.
+retries = 0
+# A hung test gets a name after a minute and an end after five, instead of taking the job's 45.
+slow-timeout = { period = "60s", terminate-after = 5 }
+failure-output = "immediate-final"
+
+[test-groups]
+# The real OS credential store, which `crates/mixengine-platform/tests/secrets.rs` takes turns at
+# through a process-wide `Mutex`. nextest runs every test in a process of its own, where that mutex
+# serialises nothing.
+credential-store = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "binary_id(mixengine-platform::secrets)"
+test-group = "credential-store"

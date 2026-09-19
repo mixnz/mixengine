@@ -141,7 +141,7 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | Job | Runner | Runs |
 | --- | --- | --- |
 | `lint` | ubuntu | `fmt`, `clippy -D warnings`, `cargo deny` (licences + advisories), `sqlx prepare --check`, `node scripts/check-docs.mjs` (documentation links, spec status) |
-| `test` | windows / macos / ubuntu | unit + component + integration, network egress blocked, `cargo doc -D warnings` for the runner's own OS on macOS and Linux |
+| `test` | windows / macos / ubuntu | unit + component + integration under `cargo nextest` (profile `ci` in `.config/nextest.toml`, T170f), network egress blocked, `cargo doc -D warnings` for the runner's own OS on macOS and Linux |
 | `services` | windows ×2 (`web`, `sql`), macos, ubuntu | every `#[ignore]`d suite that needs a real program — Caddy, nginx, PHP, the SQL servers, the caches, MongoDB — plus the connection count against a socket that really is connected; asked for with `test` (T170e). **A new real-program suite joins a group here, never `test`**, and a leg past 15 minutes on a warm cache becomes a new matrix row |
 | `rustdoc` | windows | `cargo doc -D warnings` for Windows, as a job of its own because the Windows `test` leg is the run's critical path (T170d); asked for with `test` |
 | `system` | windows / macos / ubuntu, elevated | `#[ignore]`d system tests, and the only place `MIXENGINE_SYSTEM_TESTS=1` is set — on every run of the workflow |

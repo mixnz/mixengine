@@ -20,7 +20,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       macOS and Linux.
 - [x] **T170e** The real-program suites move to a `services` job, grouped by a matrix field;
       Windows split in two. **(P)**
-- [ ] **T170f** The workspace step runs under `cargo-nextest` in CI, with a `ci` profile and the
+- [x] **T170f** The workspace step runs under `cargo-nextest` in CI, with a `ci` profile and the
       serialisation `secrets.rs` needs; plain `cargo test` stays the contract. **(P)**
 - [ ] **T170g** Every leg of `test`, `services`, `rustdoc`, `bench` and `build` reports its elapsed
       time, with a notice past its target and a warning past 30 minutes.
