@@ -1,5 +1,28 @@
 export default {
   mixengine: {
+    // The tray panel (T168). The slogan is a brand line and stays in English in every language.
+    tray: {
+      slogan: "For Developers. By Developers.",
+      running: "MixEngine is running",
+      counts: "{{up}} of {{total}} services up",
+      stopped: "MixEngine is stopped.",
+      setUp: "Set up in MixLab",
+      services: "Services",
+      noServices: "No services yet.",
+      sites: "Sites",
+      noSites: "No sites yet.",
+      stopAll: "Stop all",
+      confirmStopAll: "Stop {{count}} running services?",
+      shutdown: "Stop MixEngine",
+      confirmShutdown: "Stop MixEngine and {{count}} running services?",
+      cancel: "Cancel",
+      confirm: "Stop",
+      openMain: "Open MixLab",
+      quit: "Quit MixLab (MixEngine keeps running)",
+      shutdownDone: "MixEngine stopped, and {{count}} services with it.",
+      shutdownFailed: "{{service}} would not stop; MixEngine stopped anyway.",
+      unordered: "Stopped without an order: {{message}}",
+    },
     newTabTitle: "MixEngine",
     sidebar: {
       label: "MixEngine screens",

@@ -300,6 +300,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         mixengine::commands::mixengine_update_decide,
         mixengine::commands::mixengine_update_apply,
         mixengine::commands::mixengine_shutdown,
+        mixengine::commands::mixengine_service_stop_all,
         mixengine::commands::mixengine_doctor,
         mixengine::commands::mixengine_doctor_repair,
         mixengine::commands::mixengine_uninstall_plan,

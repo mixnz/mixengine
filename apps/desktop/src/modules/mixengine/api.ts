@@ -578,6 +578,11 @@ export function updateApply(input: UpdateApply): Promise<UpdateApplied> {
   return invoke<UpdateApplied>("mixengine_update_apply", { params: input });
 }
 
+/** `service.stop` for every declared service, in reverse dependency order, waiting until done. */
+export function serviceStopAll(): Promise<unknown> {
+  return invoke("mixengine_service_stop_all");
+}
+
 /**
  * `daemon.shutdown`. Answers after every service has stopped, with what stopped and what would not,
  * and the daemon exits a moment later — a connection closing after this resolves is the shutdown,

@@ -689,6 +689,17 @@ pub async fn mixengine_update_apply(params: Value) -> Result<Value, AppError> {
     rpc::call("update.apply", params).await
 }
 
+/// `service.stop` with no `service` — every declared service, stopped by the daemon in reverse
+/// dependency order (T168, the tray's *Stop all*).
+///
+/// A command of its own rather than `mixengine_service_action` with an empty id, for the reason
+/// `mixengine_service_start_project` gives: "one service" and "all of them" are different
+/// questions, and an empty id is where a typo becomes a stop-everything.
+#[tauri::command]
+pub async fn mixengine_service_stop_all() -> Result<Value, AppError> {
+    rpc::call("service.stop", json!({ "wait": true })).await
+}
+
 /// `daemon.shutdown` — stops every service in reverse dependency order, answers with what it
 /// stopped, then exits. The connection closing after the answer is the shutdown happening, the same
 /// rule `mixengine_update_apply` follows; the answer is read in full before that close.
