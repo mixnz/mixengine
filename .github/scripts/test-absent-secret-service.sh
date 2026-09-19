@@ -18,9 +18,10 @@ set -euo pipefail
 
 cd -- "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/../.."
 
-# `--all-features` matches the job's own "Build tests" step, so these three rounds reuse what it
-# already compiled instead of paying for a second feature resolution of the whole crate.
-suite=(cargo test -p mixengine-platform --test secrets --all-features --locked --offline)
+# `--workspace --all-features` matches the job's own "Build tests" step, so these three rounds reuse
+# what it already compiled. `-p` with `--all-features` was not enough: cargo unifies features over the
+# packages it was asked for, and that narrower selection recompiled for 17.7 s (T170b).
+suite=(cargo test --workspace --all-features --test secrets --locked --offline)
 
 # A session bus of our own that can activate nothing: no `<servicedir>` at all, so the name
 # `org.freedesktop.secrets` has no owner and none can be started. Without this the runner's own bus

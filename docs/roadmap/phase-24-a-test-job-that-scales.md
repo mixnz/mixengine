@@ -12,7 +12,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
 
 - [x] **T170a** `master` writes the Actions cache and branches only read it; `build` stops caching;
       a leg that restored nothing says so.
-- [ ] **T170b** Every cargo invocation in `test` uses `Build tests`' selection and features, so no
+- [x] **T170b** Every cargo invocation in `test` uses `Build tests`' selection and features, so no
       suite step recompiles a dependency.
 - [ ] **T170c** The compression and hashing crates are optimised in dev builds, and each DB suite
       packs its fixture once.
