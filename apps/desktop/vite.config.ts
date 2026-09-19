@@ -15,6 +15,16 @@ export default defineConfig(async () => ({
     },
   },
 
+  // Two pages: the main window, and the tray panel's window (T168, `src-tauri/src/tray.rs`).
+  build: {
+    rollupOptions: {
+      input: {
+        main: fileURLToPath(new URL("index.html", import.meta.url)),
+        tray: fileURLToPath(new URL("tray.html", import.meta.url)),
+      },
+    },
+  },
+
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
   // 1. prevent Vite from obscuring rust errors

@@ -10,6 +10,8 @@ import { errorMessage } from "../../core/errors";
 import { useTranslation, type Language } from "../../i18n";
 import type { ModuleTabProps } from "../../shell/module";
 import * as api from "./api";
+import { isDisconnected } from "./daemonState";
+import { subscribeDaemonWatch } from "./daemonWatch";
 import Sidebar from "./components/Sidebar";
 import Blueprints from "./screens/Blueprints";
 import Dashboard from "./screens/Dashboard";
@@ -38,6 +40,9 @@ import {
 } from "./storagePicker";
 import type { MixEngineScreen } from "./tabState";
 import "./mixengine.css";
+
+/** How often the gate asks whether a daemon has come up somewhere else — the tray, `mix`. */
+const GATE_POLL_MS = 2000;
 
 /** Trang cài đặt của MixEngine, cho một máy chưa có nó. */
 const INSTALL_PAGE_EN = "https://mixnz.github.io/mixengine/en/install/";
@@ -181,6 +186,23 @@ export default function MixEngineTab({
       if (pollTimer.current !== null) window.clearInterval(pollTimer.current);
     },
     [],
+  );
+
+  /* The tray panel starts and stops the same daemon (T168), so this tab cannot assume it is the
+     only one that does. Stopped here and started there: ask again every couple of seconds while
+     the gate is up — one `/health` dial that fails at once when nobody is listening. Running here
+     and stopped there: the event stream ending says so, and the gate comes back. */
+  useEffect(() => {
+    if (presence === null || presence === "running") return;
+    const timer = window.setInterval(() => void look(), GATE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [presence, look]);
+  useEffect(
+    () =>
+      subscribeDaemonWatch((raw) => {
+        if (isDisconnected(raw)) void look();
+      }),
+    [look],
   );
 
   useEffect(() => {

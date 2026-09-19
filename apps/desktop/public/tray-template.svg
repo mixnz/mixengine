@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="6 6 52 52" width="64" height="64">
+  <!-- The macOS menu-bar icon: logo.svg's three fanned platters as one black silhouette on a
+       transparent ground, with no tile. macOS draws a template image from its alpha alone and
+       tints it for the menu bar's light or dark appearance, so colour here would be thrown away.
+
+       The platters overlap in the logo; here each upper one carves a gap out of the one below
+       (the masks), which is what keeps three platters readable at 22 pixels instead of one blob.
+       Rendered by scripts/make-icons.mjs into src-tauri/icons/tray/. -->
+  <defs>
+    <path id="platter" d="M13 0a19 7 0 0 1 38 0v5.5a19 7 0 0 1-38 0z"/>
+    <ellipse id="face" cx="32" cy="0" rx="19" ry="7"/>
+    <mask id="under-middle" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <g transform="translate(0 30)" fill="#000" stroke="#000" stroke-width="3.5">
+        <use href="#platter"/><use href="#face"/>
+      </g>
+    </mask>
+    <mask id="under-top" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+      <rect width="64" height="64" fill="#fff"/>
+      <g transform="rotate(-10 32 17) translate(0 17)" fill="#000" stroke="#000" stroke-width="3.5">
+        <use href="#platter"/><use href="#face"/>
+      </g>
+    </mask>
+  </defs>
+  <g mask="url(#under-top)">
+    <g mask="url(#under-middle)">
+      <g transform="rotate(10 32 43) translate(0 43)"><use href="#platter"/><use href="#face"/></g>
+    </g>
+    <g transform="translate(0 30)"><use href="#platter"/><use href="#face"/></g>
+  </g>
+  <g transform="rotate(-10 32 17) translate(0 17)"><use href="#platter"/><use href="#face"/></g>
+</svg>

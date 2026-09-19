@@ -126,6 +126,13 @@ const vi: SharedDict = {
   },
   // Bản nào đang chạy, và bản mới đến từ đâu. Trình cập nhật của MixEngine mới là thứ thay cửa sổ
   // này — T106 — nên khối này là một tấm biển chỉ đường chứ không phải một trình tải về.
+  // MixEngine in the tray (T168). The Linux tray menu's three items — sent to
+  // `src-tauri/src/tray.rs` rather than kept in Rust.
+  tray: {
+    openPanel: "Mở bảng điều khiển",
+    openMain: "Mở MixLab",
+    quit: "Thoát MixLab",
+  },
   update: {
     title: "Cập nhật",
     unavailable: "MixLab được cập nhật cùng MixEngine.",
@@ -159,6 +166,9 @@ const vi: SharedDict = {
     sshConnectFailed: "Không kết nối được tới máy chủ SSH: {{message}}",
     sshAuthFailed: "Xác thực SSH thất bại: {{message}}",
     sshShellFailed: "Không mở được shell trên máy chủ SSH: {{message}}",
+    trayUnavailable: "Không tạo được icon trên khay hệ thống: {{message}}",
+    loginItemUnsupported: "Bản build phát triển không tự chạy khi đăng nhập.",
+    loginItemFailed: "Không đổi được mục tự chạy khi đăng nhập: {{message}}",
     sshAuthRejected:
       "Máy chủ SSH từ chối đăng nhập (partial success: {{partialSuccess}}). Máy chủ chấp nhận: {{methods}}.",
     sshHostKeyChanged:

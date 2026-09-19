@@ -29,7 +29,7 @@ a line in `src/shell/registry.ts` — see
 | `npm test` | Run the vitest suite (`vitest run`) |
 | `npm run lint` | eslint: hook dependencies, and the rule that nothing outside `src/modules/` imports a module |
 | `npm run build:app` | Full production bundle into `src-tauri/target/release/bundle/` |
-| `npm run icons` | Rebuild `src-tauri/icons/` from the two SVGs in `public/`; macOS gets the padded one |
+| `npm run icons` | Rebuild `src-tauri/icons/` from the SVGs in `public/`; macOS gets the padded one, and its menu bar the tray template (T168) |
 | `npm run screenshots` | The six promotional images — Dashboard, Sites, Database, REST, Terminal, Tools — from sample data, dark and light, raw and framed, into `screenshots/out/`. `-- --check` renders every scene and writes nothing (CI runs it). See [demo-screenshots.md](../../.claude/desktop/conventions/demo-screenshots.md) |
 
 Releasing is MixEngine's — [build-and-release.md](../../.claude/operations/build-and-release.md);
@@ -50,6 +50,7 @@ every tag, and its `build` legs are what prove the window links on all three pla
 ```
 src/                 React frontend
   main.tsx           Entry point
+  tray.tsx           The tray panel's window (`tray.html`) — draws a module's `TrayPanel` (T168)
   shell/             Tab bar, [+] menu, shortcuts, Settings — knows no module
     App.tsx          The gate: which modules this window draws, decided before anything is drawn
     Workspace.tsx    The tab bar itself, and everything that reads the visible module list
@@ -83,6 +84,7 @@ src-tauri/src/       Rust backend
   lib.rs             Tauri builder; reads the opening URL first; each module registers its own state
   error.rs  secrets.rs  ssh/    Shared by every module (the tunnel and open_shell both live in ssh/)
   launch.rs  instance.rs  A connection handed over on the command line, and the channel to a running copy
+  tray.rs  login_item.rs  The tray icon and panel window, and MixLab's login entry (T168)
   modules/
     mod.rs           handler() — every command of every module, one block each
     db/              commands/, drivers/, handoff.rs, models.rs, state.rs

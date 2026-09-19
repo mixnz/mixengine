@@ -12,11 +12,17 @@ import * as api from "./api";
  * Cách của `db/tools.ts` với `tools://progress`: mở kênh đúng một lần cho cả đời app, không bao giờ
  * đóng lại — mỗi bên chỉ thêm/bớt callback của mình khỏi một tập hợp cục bộ, không đụng gì tới daemon.
  */
+/** What `src-tauri/src/modules/mixengine/events.rs` sends when the stream ends. */
+const DISCONNECTED = '{"type":"mixdb_disconnected"}';
+
 const listeners = new Set<(raw: string) => void>();
 let watching: Promise<void> | null = null;
 
 function ensureWatching(): void {
   watching ??= api.watch((raw) => {
+    // A stream that ended is not open any more: the next `ensureDaemonWatch` reopens it (T168 —
+    // the tray panel outlives many daemons, and without this it would never hear from the next).
+    if (raw === DISCONNECTED) watching = null;
     for (const listener of listeners) listener(raw);
   }).catch(() => {
     // Cho phép lần subscribe sau thử lại — một watch hỏng lúc mở kênh không nên khoá vĩnh viễn.
@@ -33,4 +39,10 @@ export function subscribeDaemonWatch(listener: (raw: string) => void): () => voi
   return () => {
     listeners.delete(listener);
   };
+}
+
+/** Opens the channel again if it is not open — after the daemon it was open to has gone and another
+ *  has started. Harmless when it is open. */
+export function ensureDaemonWatch(): void {
+  ensureWatching();
 }

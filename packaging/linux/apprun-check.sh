@@ -43,10 +43,13 @@ printf '\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f0000000000)\n' >
 
 # Stand-ins for the four binaries: each says its own name, and `mix` repeats its arguments so the
 # hand-over at the end of `AppRun` can be checked rather than assumed.
-for binary in mixengined mixengine-shim mixengine-elevate mixlab; do
+for binary in mixengined mixengine-shim mixengine-elevate; do
   printf '#!/usr/bin/env bash\necho %s\n' "$binary" >"$image/usr/bin/$binary"
   chmod 755 "$image/usr/bin/$binary"
 done
+# The window repeats its arguments too, so a login start's `--hidden` can be seen arriving.
+printf '#!/usr/bin/env bash\necho "mixlab${*:+ $*}"\n' >"$image/usr/bin/mixlab"
+chmod 755 "$image/usr/bin/mixlab"
 printf '#!/usr/bin/env bash\necho "mix $*"\n' >"$image/usr/bin/mix"
 chmod 755 "$image/usr/bin/mix"
 
@@ -66,6 +69,19 @@ test "$printed" = "mix --version" || {
 window="$("$image/AppRun")"
 test "$window" = "mixlab" || {
   echo "AppRun with no arguments ran '$window' rather than the window" >&2
+  exit 1
+}
+
+# MixLab's login entry (T168f): `--hidden` alone opens the window, with the flag; beside anything
+# else it is an argument to `mix` like any other.
+hidden="$("$image/AppRun" --hidden)"
+test "$hidden" = "mixlab --hidden" || {
+  echo "AppRun --hidden ran '$hidden' rather than the window, hidden" >&2
+  exit 1
+}
+forwarded="$("$image/AppRun" status --hidden)"
+test "$forwarded" = "mix status --hidden" || {
+  echo "AppRun took '--hidden' out of a command line meant for mix: $forwarded" >&2
   exit 1
 }
 

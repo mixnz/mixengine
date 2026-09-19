@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 
+import type { DaemonShutdown } from "@mixengine/api";
 import type { DaemonStatus } from "@mixengine/api";
 import type { StorageReport } from "@mixengine/api";
 import type { ElevationStatus } from "@mixengine/api";
@@ -575,6 +576,20 @@ export function updateDecide(input: UpdateDecide): Promise<UpdateStatus> {
 /** Daemon tự thoát ngay sau khi trả lời — kết nối đóng theo sau là thành công, không phải lỗi. */
 export function updateApply(input: UpdateApply): Promise<UpdateApplied> {
   return invoke<UpdateApplied>("mixengine_update_apply", { params: input });
+}
+
+/** `service.stop` for every declared service, in reverse dependency order, waiting until done. */
+export function serviceStopAll(): Promise<unknown> {
+  return invoke("mixengine_service_stop_all");
+}
+
+/**
+ * `daemon.shutdown`. Answers after every service has stopped, with what stopped and what would not,
+ * and the daemon exits a moment later — a connection closing after this resolves is the shutdown,
+ * not an error.
+ */
+export function shutdown(): Promise<DaemonShutdown> {
+  return invoke<DaemonShutdown>("mixengine_shutdown");
 }
 
 /** Bản cập nhật vừa rồi có thay chính cửa sổ này không — `src-tauri/src/relaunch.rs`. */

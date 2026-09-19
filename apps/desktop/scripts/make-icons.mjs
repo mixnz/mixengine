@@ -19,6 +19,10 @@
  * before rendering anything and stops if the drawings have drifted apart, so an edit made to one
  * file cannot quietly ship a different icon on macOS.
  *
+ * A third file, public/tray-template.svg, is the macOS menu-bar icon: the same platters as one black
+ * silhouette with no tile, rendered to src-tauri/icons/tray/44x44.png. It is a different drawing
+ * rather than a copy, so the drift check above does not cover it (T168).
+ *
  * Usage:
  *   npm run icons
  *   node scripts/make-icons.mjs
@@ -34,6 +38,7 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const edgeToEdge = join(root, "public", "logo.svg");
 const padded = join(root, "public", "logo-macos.svg");
+const trayTemplate = join(root, "public", "tray-template.svg");
 const iconsDir = join(root, "src-tauri", "icons");
 const tauriCli = join(root, "node_modules", "@tauri-apps", "cli", "tauri.js");
 
@@ -56,9 +61,10 @@ function fail(message) {
   process.exit(1);
 }
 
-function tauriIcon(svgPath, outDir) {
+function tauriIcon(svgPath, outDir, pngSizes = []) {
   const args = [tauriCli, "icon", svgPath];
   if (outDir) args.push("--output", outDir);
+  for (const size of pngSizes) args.push("--png", String(size));
   execFileSync(process.execPath, args, { cwd: root, stdio: "inherit" });
 }
 
@@ -92,5 +98,10 @@ try {
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
+
+/* 44 pixels: macOS draws a status item 18pt tall and scales the image to it, so one image twice the
+   1x height stays sharp on a Retina menu bar. */
+console.log(`Rendering ${relative(root, trayTemplate)} into ${relative(root, join(iconsDir, "tray"))} …`);
+tauriIcon(trayTemplate, join(iconsDir, "tray"), [44]);
 
 console.log("Done: every icon is edge to edge, icon.icns carries the macOS margin.");

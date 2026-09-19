@@ -99,6 +99,23 @@ window_refusal() {
   echo "  $0 status"
 }
 
+# One line when the tray icon will be missing — T168d. Not a refusal: MixLab loads AppIndicator at
+# run time and goes without a tray when it cannot, and everything else works. `ldd` cannot say this,
+# because the window does not link the library; `ldconfig -p` lists what the loader could find.
+# No `ldconfig` anywhere is no line: the window will say so in its own log.
+tray_note() {
+  local ldconfig
+  for ldconfig in ldconfig /sbin/ldconfig /usr/sbin/ldconfig; do
+    command -v "$ldconfig" >/dev/null 2>&1 && break
+    ldconfig=""
+  done
+  [ -n "$ldconfig" ] || return 0
+  "$ldconfig" -p 2>/dev/null | grep -q 'libayatana-appindicator3\.so\|libappindicator3\.so' && return 0
+
+  echo "MixLab will run without its tray icon: AppIndicator is missing. Install it for the icon —"
+  echo "libayatana-appindicator3-1 on Debian, Ubuntu and openSUSE, libayatana-appindicator-gtk3 on Fedora."
+}
+
 # The same words, where a double click can read them.
 #
 # **A person who double-clicked an AppImage in a file manager has no terminal attached** — T105a,
@@ -123,7 +140,12 @@ show_refusal_dialog() {
 # manager passes no arguments and should open MixLab; `./mixengine-<version>-linux-x86_64.AppImage
 # status` passes one and has to stay the CLI it has always been. The AppImage runtime consumes its
 # own `--appimage-*` arguments before this script is reached, so neither branch ever sees one.
-if [ "$#" -eq 0 ]; then
+#
+# **`--hidden` alone is the window too** — T168f. It is what MixLab's login entry starts this image
+# with (ADR 0042), and `mix` has no such flag: sent there, a login would print a usage error into a
+# session nobody is looking at and leave no tray. Only the exact, single argument, so every command
+# line `mix` has ever answered still reaches it.
+if [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && [ "$1" = "--hidden" ]; }; then
   # **This image does not carry WebKitGTK, and since ADR 0028 that is a decision rather than an
   # interim.** Every distribution new enough to run this window already packages the library; the
   # one family that does not is one whose glib is too old for it as well, so carrying WebKitGTK
@@ -137,7 +159,9 @@ if [ "$#" -eq 0 ]; then
     exit 1
   fi
 
-  exec "$cache/mixlab"
+  tray_note >&2
+
+  exec "$cache/mixlab" "$@"
 fi
 
 exec "$cache/mix" "$@"

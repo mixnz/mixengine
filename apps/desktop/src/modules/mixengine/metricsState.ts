@@ -41,6 +41,27 @@ export function readingFor(frame: MetricsFrame | null, subject: string): Metrics
   return frame.samples.find((sample) => sample.subject === subject) ?? null;
 }
 
+/**
+ * Every service in `frame` added up, as one sample — the tray panel's *Services* strip (T168).
+ *
+ * Only what the frame measured is added: a service missing from it is not counted as 0, and a
+ * service whose CPU could not be read adds its memory and nothing to the CPU. `null` when the
+ * frame measured no service at all, and a `null` CPU when it measured no service's CPU — the same
+ * "absent is not zero" rule as `readingFor`.
+ */
+export function servicesTotal(frame: MetricsFrame | null): MetricsSample | null {
+  if (frame === null) return null;
+  const services = frame.samples.filter((sample) => sample.subject.startsWith("service:"));
+  if (services.length === 0) return null;
+  const cpus = services.flatMap((sample) => (sample.cpu_percent === null ? [] : [sample.cpu_percent]));
+  return {
+    subject: "services",
+    cpu_percent: cpus.length === 0 ? null : cpus.reduce((sum, cpu) => sum + cpu, 0),
+    rss_bytes: services.reduce((sum, sample) => sum + sample.rss_bytes, 0),
+    processes: services.reduce((sum, sample) => sum + sample.processes, 0),
+  };
+}
+
 const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB"];
 
 /** Một kích cỡ đọc được liếc qua. Một chữ số thập phân, bỏ luôn nếu là số tròn. */

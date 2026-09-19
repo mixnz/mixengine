@@ -111,4 +111,11 @@ export interface ModuleDefinition {
    *  Settings to list. Contributed exactly the way `settings` is: the shell collects them and
    *  knows nothing about what any of them do. */
   shortcuts?: ShortcutGroup[];
+  /**
+   * What the tray panel draws — T168, `src/tray.tsx`.
+   *
+   * The panel is a second window, and it draws the first visible module that has one of these. A
+   * window where none does gets no tray icon at all, and closing it quits as it always did.
+   */
+  TrayPanel?: ComponentType;
 }

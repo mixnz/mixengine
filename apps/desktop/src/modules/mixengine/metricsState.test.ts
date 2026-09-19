@@ -7,6 +7,7 @@ import {
   metricsSubjectFor,
   parseMetricsFrame,
   readingFor,
+  servicesTotal,
 } from "./metricsState";
 
 describe("metricsSubjectFor", () => {
@@ -87,5 +88,38 @@ describe("formatPercent", () => {
      phân, không cắt về số nguyên chỉ vì giá trị lớn hơn 100. */
   it("keeps the format for a reading over one core", () => {
     expect(formatPercent(250)).toBe("250.0000%");
+  });
+});
+
+describe("servicesTotal", () => {
+  const sample = (subject: string, cpu: number | null, rss: number) => ({
+    subject,
+    cpu_percent: cpu,
+    rss_bytes: rss,
+    processes: 1,
+  });
+
+  it("adds every service and leaves the daemon out", () => {
+    const total = servicesTotal({
+      at: 1,
+      samples: [sample("daemon", 5, 100), sample("service:caddy", 1.5, 10), sample("service:mariadb@main", 2, 30)],
+    });
+    expect(total?.cpu_percent).toBe(3.5);
+    expect(total?.rss_bytes).toBe(40);
+    expect(total?.processes).toBe(2);
+  });
+
+  it("does not count an unreadable CPU as zero", () => {
+    const total = servicesTotal({
+      at: 1,
+      samples: [sample("service:caddy", null, 10), sample("service:redis@main", 1, 5)],
+    });
+    expect(total?.cpu_percent).toBe(1);
+    expect(servicesTotal({ at: 1, samples: [sample("service:caddy", null, 10)] })?.cpu_percent).toBeNull();
+  });
+
+  it("is absent when no service was measured", () => {
+    expect(servicesTotal({ at: 1, samples: [sample("daemon", 5, 100)] })).toBeNull();
+    expect(servicesTotal(null)).toBeNull();
   });
 });

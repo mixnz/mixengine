@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "c1d0f03009ce6e12a8568435bd4bdc35cbe52834604d24177449e9e07ec2bcfb"
+source_sha256 = "c98ef72115643a8e2d16743aa95848628b7838c2994eadcd97ea3591b14c2351"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -101,6 +101,26 @@ cơ sở dữ liệu của ai đó. Kết quả trả về nêu rõ thư mục c
 ```bash
 mix service delete mariadb@legacy
 ```
+
+### Từ khay hệ thống
+
+MixLab đặt một icon MixEngine trên khay hệ thống (Windows, Linux) hoặc thanh menu (macOS). Trên
+Windows và macOS, bấm vào icon sẽ trượt một bảng vào góc màn hình, sát thanh taskbar hoặc menu bar.
+Trên Linux, bấm vào icon sẽ mở một menu ngắn, và **Mở bảng điều khiển** mở cùng bảng đó dưới dạng
+một cửa sổ nhỏ, vì Linux không báo cho ứng dụng biết khi icon được bấm. Bảng liệt kê các service kèm
+nút Chạy và Dừng, có **Dừng tất cả**, liệt kê các site (bấm vào để mở), và cuối bảng có **Mở
+MixLab** và **Tắt MixEngine**; riêng **Tắt MixEngine** hỏi xác nhận trước.
+
+Khi đã có icon, bấm đóng cửa sổ MixLab chỉ ẩn cửa sổ đi. Muốn thoát, dùng nút nguồn trong bảng, hoặc
+⌘Q trên macOS. Thoát MixLab không tắt MixEngine.
+
+Muốn có icon ngay sau khi đăng nhập, bật **Mở MixLab trên khay hệ thống mỗi khi đăng nhập** trong
+Settings của MixLab. Công tắc này tách riêng với **Chạy MixEngine mỗi khi đăng nhập** (`mix
+autostart`); bạn có thể bật một trong hai, hoặc cả hai.
+
+Trên GNOME, icon cần extension *AppIndicator and KStatusNotifierItem Support*. Ubuntu có sẵn
+extension này; Fedora và GNOME gốc thì không. Khi thiếu nó sẽ không có icon, đóng cửa sổ vẫn thoát
+MixLab như trước, và công tắc đăng nhập sẽ mở cửa sổ thay cho icon.
 
 ## Web server nào đang phục vụ site của bạn
 

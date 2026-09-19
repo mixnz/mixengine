@@ -101,6 +101,26 @@ looking:
 mix service delete mariadb@legacy
 ```
 
+### From the tray
+
+MixLab puts a MixEngine icon in the tray (Windows), the menu bar (macOS) or the system tray (Linux).
+On Windows and macOS a click slides a panel into the corner of the screen, beside the taskbar or
+under the menu bar. On Linux a click opens a short menu, and **Open control panel** opens the same
+panel as a small window, because Linux does not tell an application about clicks on its icon. The
+panel lists your services with Start and Stop, has **Stop all**, lists your sites (a click opens
+one), and ends with **Open MixLab** and **Stop MixEngine**, which asks you to confirm first.
+
+Closing MixLab's window while the icon is there only hides the window. Use the power button in the
+panel, or ⌘Q on macOS, to quit. Quitting MixLab leaves MixEngine running.
+
+To have the icon after you log in, turn on **Open MixLab in the tray when I log in** in MixLab's
+Settings. This is a separate switch from **Start MixEngine when I log in** (`mix autostart`), and
+you can turn on either one or both.
+
+On GNOME the icon needs the *AppIndicator and KStatusNotifierItem Support* extension. Ubuntu
+includes it; Fedora and plain GNOME do not. Without it there is no icon, closing the window quits
+MixLab as before, and the login switch opens the window instead.
+
 ## Which web server your sites go through
 
 One of Caddy and Nginx is your front end at a time: every site in the home is reached through it,

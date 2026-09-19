@@ -30,6 +30,7 @@ pub const DISCONNECTED: &str = r#"{"type":"mixdb_disconnected"}"#;
 /// Trả về ngay khi stream đã mở; phần đọc chạy trên một task riêng.
 pub async fn stream_events(
     on_event: Channel<String>,
+    window: &str,
     state: &MixEngineState,
 ) -> Result<(), AppError> {
     let io = transport::connect().await?;
@@ -42,7 +43,7 @@ pub async fn stream_events(
         .body(Full::new(Bytes::new()))
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
-    open(TokioIo::new(io), request, on_event, state).await
+    open(TokioIo::new(io), request, on_event, window, state).await
 }
 
 /// Bắt tay, gửi, rồi giao phần đọc cho một task.
@@ -50,6 +51,7 @@ async fn open<I>(
     io: TokioIo<I>,
     request: Request<Full<Bytes>>,
     on_event: Channel<String>,
+    window: &str,
     state: &MixEngineState,
 ) -> Result<(), AppError>
 where
@@ -71,7 +73,7 @@ where
     // Chỉ giữ token sau khi stream đã mở được: hủy cái đang chạy rồi mới phát hiện cái mới không
     // mở nổi sẽ để người dùng không còn stream nào cả.
     let token = CancellationToken::new();
-    state.keep(token.clone());
+    state.keep(window, token.clone());
 
     tauri::async_runtime::spawn(async move {
         // `sender` phải sống cùng task này: thả nó ra là đóng kết nối mà body đang chảy trên đó.

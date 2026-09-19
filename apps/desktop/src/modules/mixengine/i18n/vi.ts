@@ -2,6 +2,28 @@ import type en from "./en";
 
 const vi: typeof en = {
   mixengine: {
+    // The tray panel (T168). The slogan is a brand line and stays in English in every language.
+    tray: {
+      slogan: "For Developers. By Developers.",
+      counts: "Service đang chạy: {{up}}/{{total}}",
+      setUp: "Thiết lập trong MixLab",
+      services: "Service",
+      noServices: "Chưa có service nào.",
+      sites: "Site",
+      noSites: "Chưa có site nào.",
+      openSite: "Mở {{domain}} trong trình duyệt",
+      stopAll: "Dừng tất cả",
+      shutdown: "Tắt MixEngine",
+      confirmShutdown: "Tắt MixEngine và mọi service nó đang chạy?",
+      cancel: "Huỷ",
+      confirm: "Dừng",
+      openMain: "Mở MixLab",
+      quit: "Thoát MixLab (MixEngine vẫn chạy)",
+      quitAlone: "Thoát MixLab",
+      shutdownDone: "MixEngine đã tắt. Số service đã dừng theo: {{count}}.",
+      shutdownFailed: "{{service}} không chịu dừng; MixEngine vẫn đã tắt.",
+      unordered: "Đã dừng không theo thứ tự: {{message}}",
+    },
     newTabTitle: "MixEngine",
     sidebar: {
       label: "Màn hình MixEngine",
@@ -508,6 +530,14 @@ const vi: typeof en = {
         unsupported: "Máy này không hỗ trợ — chạy tay: {{location}}",
         otherHome: "Mục này đang đăng ký cho một home MixEngine khác.",
         location: "Đã đăng ký ở: {{location}}",
+      },
+      // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
+      loginItem: {
+        title: "MixLab trên khay hệ thống",
+        toggle: "Mở MixLab trên khay hệ thống mỗi khi đăng nhập",
+        about: "Chỉ hiện icon trên khay. Việc này tách riêng với việc chạy MixEngine ở trên.",
+        noTray: "Desktop của bạn không hiện icon trên khay, nên MixLab sẽ mở cửa sổ khi đăng nhập.",
+        unsupported: "Bản build phát triển không tự chạy khi đăng nhập.",
       },
       updates: {
         title: "Cập nhật",

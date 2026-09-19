@@ -19,7 +19,11 @@ use super::state::MetricsState;
 use super::transport;
 
 /// Mở `GET /metrics` và chạy tới khi bị hủy hoặc kết nối đứt.
-pub async fn stream_metrics(on_frame: Channel<String>, state: &MetricsState) -> Result<(), AppError> {
+pub async fn stream_metrics(
+    on_frame: Channel<String>,
+    window: &str,
+    state: &MetricsState,
+) -> Result<(), AppError> {
     let io = transport::connect().await?;
 
     let request = Request::builder()
@@ -30,13 +34,14 @@ pub async fn stream_metrics(on_frame: Channel<String>, state: &MetricsState) -> 
         .body(Full::new(Bytes::new()))
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
-    open(TokioIo::new(io), request, on_frame, state).await
+    open(TokioIo::new(io), request, on_frame, window, state).await
 }
 
 async fn open<I>(
     io: TokioIo<I>,
     request: Request<Full<Bytes>>,
     on_frame: Channel<String>,
+    window: &str,
     state: &MetricsState,
 ) -> Result<(), AppError>
 where
@@ -56,7 +61,7 @@ where
         .map_err(|e| err!("error.mixengineProtocol", message = e))?;
 
     let token = CancellationToken::new();
-    state.keep(token.clone());
+    state.keep(window, token.clone());
 
     tauri::async_runtime::spawn(async move {
         let _sender = sender;

@@ -126,19 +126,22 @@ fn service_start_project_params(project: &str) -> Value {
 }
 
 /// Mở stream sự kiện. Mở lại là đóng cái đang mở.
+///
+/// Only the calling window's: each webview has its own stream since T168a.
 #[tauri::command]
 pub async fn mixengine_watch(
+    webview: tauri::WebviewWindow,
     on_event: Channel<String>,
     state: State<'_, MixEngineState>,
 ) -> Result<(), AppError> {
-    events::stream_events(on_event, &state).await
+    events::stream_events(on_event, webview.label(), &state).await
 }
 
 /// Đóng stream. Gọi khi không có gì mở là vô hại — cleanup của một effect chạy hai lần trong
 /// StrictMode.
 #[tauri::command]
-pub fn mixengine_unwatch(state: State<'_, MixEngineState>) {
-    state.stop();
+pub fn mixengine_unwatch(webview: tauri::WebviewWindow, state: State<'_, MixEngineState>) {
+    state.stop(webview.label());
 }
 
 /// Mọi thao tác đang chờ quyền quản trị, kèm câu mô tả daemon tự viết cho từng cái.
@@ -531,16 +534,20 @@ pub fn mixengine_logs_unwatch(state: State<'_, super::state::LogsState>) {
 /// nó chuyển `false` — không mở suốt đời app như `mixengine_watch`/`/events`, xem `MetricsState`.
 #[tauri::command]
 pub async fn mixengine_metrics_watch(
+    webview: tauri::WebviewWindow,
     on_frame: Channel<String>,
     state: State<'_, super::state::MetricsState>,
 ) -> Result<(), AppError> {
-    super::metrics::stream_metrics(on_frame, &state).await
+    super::metrics::stream_metrics(on_frame, webview.label(), &state).await
 }
 
 /// Đóng stream `/metrics` đang mở. Gọi khi không có gì mở là vô hại.
 #[tauri::command]
-pub fn mixengine_metrics_unwatch(state: State<'_, super::state::MetricsState>) {
-    state.stop();
+pub fn mixengine_metrics_unwatch(
+    webview: tauri::WebviewWindow,
+    state: State<'_, super::state::MetricsState>,
+) {
+    state.stop(webview.label());
 }
 
 /// `daemon.disk_usage` — `refresh: false` đọc bản daemon giữ (tới một phút), `true` đi bộ đĩa lại.
@@ -684,6 +691,25 @@ pub async fn mixengine_update_decide(params: Value) -> Result<Value, AppError> {
 #[tauri::command]
 pub async fn mixengine_update_apply(params: Value) -> Result<Value, AppError> {
     rpc::call("update.apply", params).await
+}
+
+/// `service.stop` with no `service` — every declared service, stopped by the daemon in reverse
+/// dependency order (T168, the tray's *Stop all*).
+///
+/// A command of its own rather than `mixengine_service_action` with an empty id, for the reason
+/// `mixengine_service_start_project` gives: "one service" and "all of them" are different
+/// questions, and an empty id is where a typo becomes a stop-everything.
+#[tauri::command]
+pub async fn mixengine_service_stop_all() -> Result<Value, AppError> {
+    rpc::call("service.stop", json!({ "wait": true })).await
+}
+
+/// `daemon.shutdown` — stops every service in reverse dependency order, answers with what it
+/// stopped, then exits. The connection closing after the answer is the shutdown happening, the same
+/// rule `mixengine_update_apply` follows; the answer is read in full before that close.
+#[tauri::command]
+pub async fn mixengine_shutdown() -> Result<Value, AppError> {
+    rpc::call("daemon.shutdown", json!({})).await
 }
 
 /// `daemon.doctor` — đọc thuần, không tham số, không thể tự bật elevation.

@@ -49,6 +49,7 @@ import {
   type ServiceRow,
 } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
+import DaemonUsage from "../../components/DaemonUsage";
 import type { MetricsFrame } from "@mixengine/api";
 import {
   DAEMON_SUBJECT,
@@ -566,39 +567,7 @@ export default function Dashboard({
                   Luôn vẽ, kể cả trước frame đầu tiên: khung đứng sẵn với "—" thay vì hiện ra sau và
                   đẩy cả màn xuống — `frame` về `null` mỗi lần rời tab, nên cú nhảy đó lặp lại mỗi
                   lần quay lại. */}
-              <div className={styles.usage} role="group" aria-label={t("mixengine.dashboard.daemon")}>
-                <span className={styles.usageCell}>
-                  <span
-                    className={daemon ? styles.liveDot : `${styles.liveDot} ${styles.liveDotIdle}`}
-                    aria-hidden="true"
-                  />
-                  <strong>{t("mixengine.dashboard.daemon")}</strong>
-                </span>
-                <span className={styles.usageCell}>
-                  <span className={styles.usageLabel}>{t("mixengine.dashboard.cpu")}</span>
-                  <span className={styles.usageValue}>
-                    {daemon === null || daemon.cpu_percent === null
-                      ? "—"
-                      : formatPercent(daemon.cpu_percent)}
-                  </span>
-                  <span className={styles.usageBar} aria-hidden="true">
-                    <span
-                      style={{
-                        width:
-                          daemon === null
-                            ? 0
-                            : `${Math.min(100, Math.max(3, daemon.cpu_percent ?? 0))}%`,
-                      }}
-                    />
-                  </span>
-                </span>
-                <span className={styles.usageCell}>
-                  <span className={styles.usageLabel}>{t("mixengine.dashboard.memory")}</span>
-                  <span className={styles.usageValue}>
-                    {daemon === null ? "—" : formatBytes(daemon.rss_bytes)}
-                  </span>
-                </span>
-              </div>
+              <DaemonUsage reading={daemon} />
             </div>
           )
         }

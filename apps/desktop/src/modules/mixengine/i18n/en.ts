@@ -1,5 +1,27 @@
 export default {
   mixengine: {
+    // The tray panel (T168). The slogan is a brand line and stays in English in every language.
+    tray: {
+      slogan: "For Developers. By Developers.",
+      counts: "Services running: {{up}}/{{total}}",
+      setUp: "Set up in MixLab",
+      services: "Services",
+      noServices: "No services yet.",
+      sites: "Sites",
+      noSites: "No sites yet.",
+      openSite: "Open {{domain}} in the browser",
+      stopAll: "Stop all",
+      shutdown: "Stop MixEngine",
+      confirmShutdown: "Stop MixEngine and every service it runs?",
+      cancel: "Cancel",
+      confirm: "Stop",
+      openMain: "Open MixLab",
+      quit: "Quit MixLab (MixEngine keeps running)",
+      quitAlone: "Quit MixLab",
+      shutdownDone: "MixEngine stopped. Services stopped with it: {{count}}.",
+      shutdownFailed: "{{service}} would not stop; MixEngine stopped anyway.",
+      unordered: "Stopped without an order: {{message}}",
+    },
     newTabTitle: "MixEngine",
     sidebar: {
       label: "MixEngine screens",
@@ -518,6 +540,14 @@ export default {
         unsupported: "Not supported on this machine — run by hand: {{location}}",
         otherHome: "This is registered for a different MixEngine home.",
         location: "Registered at: {{location}}",
+      },
+      // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
+      loginItem: {
+        title: "MixLab in the tray",
+        toggle: "Open MixLab in the tray when I log in",
+        about: "Only the tray icon appears. This is separate from starting MixEngine above.",
+        noTray: "Your desktop shows no tray icons, so MixLab will open its window at login instead.",
+        unsupported: "A development build does not start at login.",
       },
       updates: {
         title: "Updates",

@@ -400,6 +400,6 @@ giờ mọc thêm field, vì đó là thứ client đọc trước khi biết c�
 - **Một tab hay nhiều tab — đã trả lời: một tab.** Cả 11 mục sidebar (kể cả Metrics, thêm ở Pha 4)
   ở chung một tab MixEngine, đổi màn qua `mountedScreens` giữ trạng thái — không ai cần Logs và
   Metrics mở cạnh nhau tới mức đáng tách tab riêng khi build tới đó.
-- **Tray/menu-bar.** `client-surface.md` nói một tray item không cần gì hơn dashboard: trạng thái
-  chung, stop-all, danh sách site. Rẻ, nhưng là quyết định về shell của MixDB chứ không phải về
-  module — để sau Pha 1.
+- **Tray/menu-bar — answered by T168.** A webview panel on macOS and Windows, the same panel behind a
+  three-item menu on Linux, and a login switch beside the daemon's (ADR 0042). See
+  `docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md`.

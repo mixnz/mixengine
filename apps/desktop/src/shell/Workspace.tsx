@@ -8,6 +8,8 @@ import ContextMenu from "../components/ContextMenu";
 import { moveTab, Tab, TabAction, tabKeyDown, TabStrip, TabTitle, useTabReorder } from "../components/TabStrip";
 import { PlusIcon, SettingsIcon } from "../icons";
 import { isBlockedReload } from "../core/reload";
+import { configureTray } from "../core/window";
+import { logError } from "../core/log";
 import { useScrollAcceleration } from "../core/scroll";
 import { useShortcut, useShortcutDispatcher } from "../core/shortcuts";
 import { useAccent, useTheme } from "./theme";
@@ -44,7 +46,7 @@ function forgetNotice(notices: Record<string, string>, tabId: string): Record<st
 }
 
 function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
 
   /* Which modules this window has, and everything derived from that. Memoized on the ids flattened
      to a string rather than on the array, because the array is a fresh one whenever the setting is
@@ -54,6 +56,18 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `enabledKey` is `enabled` flattened; depending on the array itself is the thing this exists to avoid.
   const visible = useMemo(() => visibleModules(enabled), [enabledKey]);
   const visibleIds = useMemo(() => visible.map((m) => m.id), [visible]);
+
+  /* The tray icon follows what this window draws (T168): a module with a tray panel puts it up, and
+     hiding the last such module takes it down. Again on a language switch, for the Linux menu's
+     words. `lang` is listed beside `t` because `t` is one function for the life of the app. */
+  const hasTrayPanel = visible.some((module) => module.TrayPanel !== undefined);
+  useEffect(() => {
+    void configureTray(hasTrayPanel, {
+      openPanel: t("tray.openPanel"),
+      openMain: t("tray.openMain"),
+      quit: t("tray.quit"),
+    }).catch((e: unknown) => void logError("tray", e));
+  }, [hasTrayPanel, lang, t]);
 
   function newTab(moduleId: string = defaultModuleId(visible), state?: unknown): TabInfo {
     const def = moduleById(moduleId);

@@ -1,35 +1,59 @@
 //! Thứ module này giữ giữa hai lệnh: đúng một stream sự kiện đang mở.
 //!
+//! **One per window** since T168a: the tray panel is a second webview with its own `daemonWatch.ts`,
+//! and a single slot meant the panel opening its stream closed the main window's — the Dashboard
+//! would silently stop updating whenever somebody clicked the tray icon.
+//!
 //! Một tab một stream là sai. Bus sự kiện bên MixEngine là bus chung, sức chứa 1024 message, và
 //! hai tab MixEngine mở cùng lúc sẽ là hai kết nối `/events` cùng đọc nó. Một stream, mọi tab
 //! nghe cùng một `Channel`, là đủ cho pha này — log có stream riêng theo service ([ADR 0009 bên
 //! MixEngine]: log không bao giờ là sự kiện), giữ trong `LogsState` ngay dưới đây, tách hẳn khỏi
 //! `MixEngineState`.
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use tokio_util::sync::CancellationToken;
 
+/// One cancellable stream per webview label — what `MixEngineState` and `MetricsState` both keep,
+/// since the tray panel (T168) opens each of them beside the main window's.
 #[derive(Default)]
-pub struct MixEngineState {
-    open: Mutex<Option<CancellationToken>>,
+struct PerWindow {
+    open: Mutex<HashMap<String, CancellationToken>>,
 }
 
-impl MixEngineState {
-    /// Hủy stream đang mở, nếu có, rồi giữ cái mới.
-    pub fn keep(&self, token: CancellationToken) {
-        let mut slot = self.open.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(previous) = slot.replace(token) {
+impl PerWindow {
+    fn keep(&self, window: &str, token: CancellationToken) {
+        let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(previous) = open.insert(window.to_owned(), token) {
             previous.cancel();
         }
     }
 
-    /// Đóng stream đang mở. Gọi hai lần là vô hại.
-    pub fn stop(&self) {
-        let mut slot = self.open.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(token) = slot.take() {
+    fn stop(&self, window: &str) {
+        let mut open = self.open.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(token) = open.remove(window) {
             token.cancel();
         }
+    }
+}
+
+#[derive(Default)]
+pub struct MixEngineState {
+    /// Keyed by webview label (`main`, `tray`).
+    streams: PerWindow,
+}
+
+impl MixEngineState {
+    /// Cancels this window's open stream, if any, and keeps the new one. Another window's stream
+    /// is left alone.
+    pub fn keep(&self, window: &str, token: CancellationToken) {
+        self.streams.keep(window, token);
+    }
+
+    /// Closes this window's open stream. Calling it twice is harmless.
+    pub fn stop(&self, window: &str) {
+        self.streams.stop(window);
     }
 }
 
@@ -68,24 +92,22 @@ impl LogsState {
 /// `/metrics` đóng còn đổi hành vi của daemon — mở kết nối này khiến daemon lấy mẫu 1 Hz, đóng nó
 /// trả daemon về 1 lần/phút. `stop()` ở đây phải được gọi đúng lúc Dashboard không còn `active`,
 /// không chỉ lúc unmount.
+///
+/// **One per window since T168.** The tray panel shows the daemon's own CPU and memory while it is
+/// open; with a single slot, opening it closed the Dashboard's stream, and closing it left the
+/// Dashboard with none. The daemon samples at 1 Hz while *any* of them is open.
 #[derive(Default)]
 pub struct MetricsState {
-    open: Mutex<Option<CancellationToken>>,
+    streams: PerWindow,
 }
 
 impl MetricsState {
-    pub fn keep(&self, token: CancellationToken) {
-        let mut slot = self.open.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(previous) = slot.replace(token) {
-            previous.cancel();
-        }
+    pub fn keep(&self, window: &str, token: CancellationToken) {
+        self.streams.keep(window, token);
     }
 
-    pub fn stop(&self) {
-        let mut slot = self.open.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some(token) = slot.take() {
-            token.cancel();
-        }
+    pub fn stop(&self, window: &str) {
+        self.streams.stop(window);
     }
 }
 
@@ -99,16 +121,49 @@ mod tests {
     fn a_second_stream_cancels_the_first() {
         let state = MixEngineState::default();
         let first = CancellationToken::new();
-        state.keep(first.clone());
+        state.keep("main", first.clone());
         assert!(!first.is_cancelled());
 
         let second = CancellationToken::new();
-        state.keep(second.clone());
+        state.keep("main", second.clone());
         assert!(first.is_cancelled());
         assert!(!second.is_cancelled());
 
-        state.stop();
+        state.stop("main");
         assert!(second.is_cancelled());
+    }
+
+    /// The tray panel opening and closing its stream must never touch the main window's.
+    #[test]
+    fn each_window_keeps_its_own_stream() {
+        let state = MixEngineState::default();
+        let main = CancellationToken::new();
+        let tray = CancellationToken::new();
+        state.keep("main", main.clone());
+        state.keep("tray", tray.clone());
+        assert!(!main.is_cancelled());
+        assert!(!tray.is_cancelled());
+
+        state.stop("tray");
+        assert!(tray.is_cancelled());
+        assert!(!main.is_cancelled());
+
+        let tray_again = CancellationToken::new();
+        state.keep("tray", tray_again.clone());
+        assert!(!main.is_cancelled());
+    }
+
+    /// The panel's metrics opening and closing must not touch the Dashboard's.
+    #[test]
+    fn metrics_are_kept_per_window_too() {
+        let state = MetricsState::default();
+        let main = CancellationToken::new();
+        let tray = CancellationToken::new();
+        state.keep("main", main.clone());
+        state.keep("tray", tray.clone());
+        state.stop("tray");
+        assert!(tray.is_cancelled());
+        assert!(!main.is_cancelled());
     }
 
     /// Đóng khi không có gì mở, và đóng hai lần, đều không được panic: `mixengine_unwatch` chạy từ
@@ -116,7 +171,8 @@ mod tests {
     #[test]
     fn stopping_nothing_is_harmless() {
         let state = MixEngineState::default();
-        state.stop();
-        state.stop();
+        state.stop("main");
+        state.stop("main");
+        state.stop("a window that never watched");
     }
 }
