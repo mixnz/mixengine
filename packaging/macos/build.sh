@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# macOS: one universal `.pkg`.
+# macOS: one `.pkg`, universal on a tag and on `master` (T171).
 #
 # **A `.pkg` and not the `.dmg` the roadmap first asked for** — the T85 design, D8. A disk image is a
 # carrier for something you drag out of it, and the thing that used to be dragged was an application
@@ -23,39 +23,73 @@ version="$(mix_version)"
 dist="$MIX_OUT/dist"
 mkdir -p "$dist"
 
-# Both slices, then one binary per name. Apple's toolchain cross-compiles the other architecture
+# Every slice, then one binary per name. Apple's toolchain cross-compiles the other architecture
 # with no extra sysroot, which is why macOS is universal here while Windows and Linux ship the host
 # architecture alone — that second one is roadmap task T85a.
-rustup target add x86_64-apple-darwin aarch64-apple-darwin
-intel="$(bash "$MIX_ROOT/packaging/stage.sh" --target x86_64-apple-darwin | tail -1)"
-arm="$(bash "$MIX_ROOT/packaging/stage.sh" --target aarch64-apple-darwin | tail -1)"
+#
+# **Which slices is `mix_macos_slices`'s to say** — T171, E2: both on a tag, on `master` and on a
+# developer's machine, `aarch64` alone on any other branch in CI. Read into a variable first, because
+# a failing substitution in a `for` list is an empty loop rather than an error under `set -e`.
+slices="$(mix_macos_slices)"
+label="$(mix_macos_label)"
+
+# A tag ships universal and nothing else. A one-slice build names its files `macos-arm64`, which
+# `feed.sh` would not know what to do with; this is the line that keeps one from reaching `release`.
+if [[ "${GITHUB_REF:-}" == refs/tags/* ]] && [ "$label" != "universal" ]; then
+  echo "a tag builds universal, and MIX_MACOS_SLICES is '$MIX_MACOS_SLICES'" >&2
+  exit 1
+fi
+
+stages=()
+for slice in $slices; do
+  # Not under `MIX_PREBUILT`: nothing is compiled then, and CI's `build` job has no toolchain to add
+  # a target to.
+  if [ "${MIX_PREBUILT:-0}" != "1" ]; then
+    rustup target add "$slice-apple-darwin"
+  fi
+  stages+=("$(bash "$MIX_ROOT/packaging/stage.sh" --target "$slice-apple-darwin" | tail -1)")
+done
+
+# One file out of every stage: `lipo` when there are two slices, a copy when there is one, so the
+# rest of this script says "merge" once and does not care which. $1 the name in a stage, $2 the
+# output.
+merge() {
+  local inputs=() stage
+  for stage in "${stages[@]}"; do
+    inputs+=("$stage/$1")
+  done
+  if [ ${#inputs[@]} -eq 1 ]; then
+    cp "${inputs[0]}" "$2"
+  else
+    lipo -create "${inputs[@]}" -output "$2"
+  fi
+}
 
 root="$MIX_OUT/pkgroot"
 rm -rf "$root"
 mkdir -p "$root$MIX_INSTALL_MACOS" "$root/Library/PrivilegedHelperTools" "$root/Applications"
 
-lipo -create "$intel/mix" "$arm/mix" -output "$root$MIX_INSTALL_MACOS/mix"
-lipo -create "$intel/mixengined" "$arm/mixengined" -output "$root$MIX_INSTALL_MACOS/mixengined"
+merge mix "$root$MIX_INSTALL_MACOS/mix"
+merge mixengined "$root$MIX_INSTALL_MACOS/mixengined"
 
-# Beside `mixengined`, which is the only place `core::shims::source` looks — T85c. Universal like
-# its neighbours, because a `.pkg` that is universal in three of four binaries is not universal.
-lipo -create "$intel/mixengine-shim" "$arm/mixengine-shim" \
-  -output "$root$MIX_INSTALL_MACOS/mixengine-shim"
+# Beside `mixengined`, which is the only place `core::shims::source` looks — T85c. Made of the same
+# slices as its neighbours, because a `.pkg` that is universal in three of four binaries is not
+# universal.
+merge mixengine-shim "$root$MIX_INSTALL_MACOS/mixengine-shim"
 
 # The one file that goes somewhere only root can write, at exactly the path
 # `mixengine_platform::install::helper_path()` returns — so a machine installed from this package
 # finds `HelperInstall` already done and answers `AlreadyDone`.
-lipo -create "$intel/mixengine-elevate" "$arm/mixengine-elevate" \
-  -output "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate"
+merge mixengine-elevate "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate"
 
-# MixLab, the window — T105. **Copied and never `lipo`d**: `packaging/desktop.sh` built it with
-# `--target universal-apple-darwin`, so the binary inside is already both slices, and `lipo -create`
-# on a directory is not a thing. `ditto` rather than `cp -R` because this is an application bundle
-# and `ditto` is what preserves one.
+# MixLab, the window — T105. **Copied and never `lipo`d**: `packaging/desktop.sh` built it for the
+# whole slice set at once (`--target universal-apple-darwin` for two), so the binary inside already
+# holds every slice, and `lipo -create` on a directory is not a thing. `ditto` rather than `cp -R`
+# because this is an application bundle and `ditto` is what preserves one.
 #
-# From the Intel stage rather than from the ARM one only because a choice had to be made: both
-# stages hold the same universal bundle, which is what `mix_window_key` arranges.
-ditto "$(mix_window_in "$intel")" "$root/Applications/$MIX_WINDOW_APP"
+# From the first stage only because a choice had to be made: every stage holds the same bundle,
+# which is what `mix_window_key` arranges.
+ditto "$(mix_window_in "${stages[0]}")" "$root/Applications/$MIX_WINDOW_APP"
 
 # What macOS will actually launch, read out of the bundle rather than assumed — so a Tauri release
 # that changes `CFBundleExecutable` is caught here and not by a user double-clicking nothing.
@@ -93,7 +127,7 @@ chmod 755 \
 # home of everybody who upgraded. Nothing else would notice — the binaries run, the installer opens,
 # and the damage appears on a user's machine.
 #
-# Asked of the universal binary rather than of either slice, because that is the file this package
+# Asked of the merged binary rather than of any one slice, because that is the file this package
 # installs and the one a user ends up running.
 printed="$("$root$MIX_INSTALL_MACOS/mix" --version)"
 case "$printed" in
@@ -103,7 +137,7 @@ case "$printed" in
     ;;
 esac
 
-name="mixengine-$version-macos-universal.pkg"
+name="mixengine-$version-macos-$label.pkg"
 rm -f "$dist/$name"
 
 # **The component list, with relocation turned off — and that is not a nicety.**
@@ -173,27 +207,39 @@ for expected in \
   }
 done
 
-# And that "universal" is true rather than asserted by the file name.
+# And that the slices are true rather than asserted by the file name — **exactly** the slices this
+# build made, T171: a universal package missing one is the failure this always caught, and a
+# one-slice package that somehow held two would be a `macos-arm64` file that is not what it says.
+# `lipo` spells `aarch64` as `arm64`.
+#
+# The `case` is in a function and not written inside the `$( … )`: macOS's own bash is 3.2, which
+# reads a `pattern)` inside a command substitution as the end of it — measured on run 35463527479.
+lipo_name() {
+  case "$1" in
+    aarch64) echo arm64 ;;
+    *) echo "$1" ;;
+  esac
+}
+expected_archs="$(for slice in $slices; do lipo_name "$slice"; done | sort | tr '\n' ' ')"
+archs_of() {
+  lipo -archs "$1" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' '
+}
 for binary in mix mixengined mixengine-shim; do
-  architectures="$(lipo -archs "$root$MIX_INSTALL_MACOS/$binary")"
-  for slice in x86_64 arm64; do
-    printf '%s\n' "$architectures" | grep -qw "$slice" || {
-      echo "$binary is missing the $slice slice: $architectures" >&2
-      exit 1
-    }
-  done
-done
-
-# The window too. A `.pkg` that is universal in four of five binaries is not universal, and this one
-# is built by a different command from the other four — `cargo tauri build --target
-# universal-apple-darwin` rather than two `stage.sh` runs and a `lipo`.
-architectures="$(lipo -archs "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe")"
-for slice in x86_64 arm64; do
-  printf '%s\n' "$architectures" | grep -qw "$slice" || {
-    echo "$MIX_WINDOW_APP is missing the $slice slice: $architectures" >&2
+  architectures="$(archs_of "$root$MIX_INSTALL_MACOS/$binary")"
+  test "$architectures" = "$expected_archs" || {
+    echo "$binary holds the slices '$architectures', and this build made '$expected_archs'" >&2
     exit 1
   }
 done
+
+# The window too. A `.pkg` that is universal in four of five binaries is not universal, and this one
+# is built by a different command from the other four — `cargo tauri build --target` the whole slice
+# set, rather than one `stage.sh` run per slice and a `lipo`.
+architectures="$(archs_of "$root/Applications/$MIX_WINDOW_APP/Contents/MacOS/$window_exe")"
+test "$architectures" = "$expected_archs" || {
+  echo "$MIX_WINDOW_APP holds the slices '$architectures', and this build made '$expected_archs'" >&2
+  exit 1
+}
 
 mix_checksum "$dist/$name"
 
@@ -214,11 +260,11 @@ mix_checksum "$dist/$name"
 # **Two roots and not one.** The headless archive below used to be built from this same directory,
 # which was correct while both held the same four files and is a bug the moment one of them gains a
 # fifth — a machine with no display would download a webview it cannot use.
-payload="mixengine-$version-macos-universal.tar.gz"
+payload="mixengine-$version-macos-$label.tar.gz"
 rm -rf "$MIX_OUT/tar" "$MIX_OUT/tar-headless"
 mkdir -p "$MIX_OUT/tar/mixengine" "$MIX_OUT/tar-headless/mixengine"
 for binary in $(mix_headless_binaries); do
-  lipo -create "$intel/$binary" "$arm/$binary" -output "$MIX_OUT/tar/mixengine/$binary"
+  merge "$binary" "$MIX_OUT/tar/mixengine/$binary"
   chmod 755 "$MIX_OUT/tar/mixengine/$binary"
   cp "$MIX_OUT/tar/mixengine/$binary" "$MIX_OUT/tar-headless/mixengine/$binary"
 done
@@ -255,7 +301,7 @@ mix_checksum "$dist/$payload"
 # above, under a name a person can recognise as the one without a window. Since T106 it is built from
 # a root of its own: the payload carries `$MIX_WINDOW_APP` and this one must not, and one shared
 # directory is how it would.
-headless="mixengine-$version-macos-universal-headless.tar.gz"
+headless="mixengine-$version-macos-$label-headless.tar.gz"
 rm -f "$dist/$headless"
 tar -czf "$dist/$headless" -C "$MIX_OUT/tar-headless" mixengine
 
@@ -276,15 +322,15 @@ fi
 mix_checksum "$dist/$headless"
 
 # T88a: the privileged helper on its own, so the `release` job can sign it and `mix elevation
-# upgrade` can fetch it. **The `lipo`d one the `.pkg` installs**, byte for byte, and not a slice —
+# upgrade` can fetch it. **The merged one the `.pkg` installs**, byte for byte, and not a slice —
 # `feed.sh` lists a `macos-universal` helper under both architecture rows, exactly as it lists this
-# leg's payload.
+# leg's payload, and a tag is always universal.
 helper_name="$(mix_publish_helper \
-  "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" macos universal)"
+  "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" macos "$label")"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_pkg="$(mix_publish_alias "$dist/$name" "mixengine-macos-universal.pkg")"
-alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-macos-universal-headless.tar.gz")"
+alias_pkg="$(mix_publish_alias "$dist/$name" "mixengine-macos-$label.pkg")"
+alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-macos-$label-headless.tar.gz")"
 
 echo "$dist/$name"
 echo "$dist/$payload"

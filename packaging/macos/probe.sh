@@ -49,7 +49,7 @@ fail() {
   failed=1
 }
 
-pkg="$dist/mixengine-$version-macos-universal.pkg"
+pkg="$dist/mixengine-$version-macos-$(mix_macos_label).pkg"
 test -f "$pkg" || {
   echo "$pkg was not built — run packaging/macos/build.sh first" >&2
   exit 1

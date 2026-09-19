@@ -6,7 +6,8 @@ parallel leg rather than serial minutes.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t170-a-test-job-that-scales-design.md).
+Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t170-a-test-job-that-scales-design.md),
+then [2026-09-20-t171-a-build-that-fans-out-design.md](../specs/2026-09-20-t171-a-build-that-fans-out-design.md) for `build`.
 
 ---
 
@@ -34,6 +35,12 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       real-time protection is on.
 - [x] **T170l** CI's debug builds carry line tables only (`CARGO_PROFILE_DEV_DEBUG`), set once for the
       whole workflow.
+- [x] **T171a** `packaging/stage.sh` can compile only (`--build-only`) or stage only
+      (`MIX_PREBUILT=1`), so the two halves can run in different jobs.
+- [x] **T171b** Every `build` leg runs as `window` and `binaries` in parallel, then `build` packages
+      what they handed on; `release` downloads `mixengine-*` only.
+- [x] **T171c** On a branch, macOS builds the aarch64 slice alone and still checks x86_64; `master`
+      and tags stay universal.
 
 **Milestone M24**: in a warm branch run, every leg of every job finishes in 15 minutes or less
 except `build`, whose legs finish in 20 or less, and no leg passes 30 minutes.

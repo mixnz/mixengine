@@ -12,16 +12,27 @@
 # script is silently trusting cargo's own default. `--container <image>` additionally builds inside
 # that image rather than on the runner directly, for a leg that wants an older glibc than the runner
 # ships — T85a, D2/D3.
+#
+# **Two halves CI runs in different jobs** — T171, E1. `--build-only` compiles and stops, printing
+# the directory cargo wrote the binaries to instead of a stage. `MIX_PREBUILT=1` is the other half:
+# no cargo at all, the binaries and the window are expected where their own jobs left them, and a
+# missing one is an error rather than a reason to build it here. Neither is set on a developer's
+# machine, where this script still does both halves in one go.
 
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 target=""
 container=""
+build_only=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --target)
       target="$2"
       shift 2
+      ;;
+    --build-only)
+      build_only=1
+      shift
       ;;
     --container)
       container="$2"
@@ -73,20 +84,38 @@ case "${target:-$(mix_host_target)}" in
   *-windows-msvc) export RUSTFLAGS="${RUSTFLAGS:+$RUSTFLAGS }-C target-feature=+crt-static" ;;
 esac
 
-# `--locked`, so a packaging run cannot quietly resolve a dependency the tested build did not have.
-if [ -n "$container" ]; then
-  mix_in_container "$container" \
-    "rustup target add '$target' && cargo build --release --locked --target '$target'$packages_string"
-  built="$MIX_ROOT/target/$target/release"
-  stage="$MIX_OUT/stage/$target"
-elif [ -n "$target" ]; then
-  cargo build --release --locked --target "$target" "${packages[@]}"
+if [ -n "$target" ]; then
   built="$MIX_ROOT/target/$target/release"
   stage="$MIX_OUT/stage/$target"
 else
-  cargo build --release --locked "${packages[@]}"
   built="$MIX_ROOT/target/release"
   stage="$MIX_OUT/stage/host"
+fi
+
+# `--locked`, so a packaging run cannot quietly resolve a dependency the tested build did not have.
+#
+# Under `MIX_PREBUILT` nothing is compiled, and that is checked rather than trusted: a rebuild here
+# would leave CI's `build` job green and exactly as slow as before T171, which is why that job also
+# fails on any trace of cargo in its tree.
+if [ "${MIX_PREBUILT:-0}" = "1" ]; then
+  for binary in $(mix_headless_binaries); do
+    test -f "$built/$binary$(mix_exe_suffix)" || {
+      echo "MIX_PREBUILT is set and $built/$binary$(mix_exe_suffix) is not there" >&2
+      exit 1
+    }
+  done
+elif [ -n "$container" ]; then
+  mix_in_container "$container" \
+    "rustup target add '$target' && cargo build --release --locked --target '$target'$packages_string"
+elif [ -n "$target" ]; then
+  cargo build --release --locked --target "$target" "${packages[@]}"
+else
+  cargo build --release --locked "${packages[@]}"
+fi
+
+if [ "$build_only" -eq 1 ]; then
+  echo "$built"
+  exit 0
 fi
 
 rm -rf "$stage"
@@ -103,6 +132,10 @@ done
 # call this file, so without the guard one leg would build a webview application four times.
 window="$MIX_OUT/window/$(mix_window_key "$target")"
 if [ ! -e "$(mix_window_in "$window")" ]; then
+  if [ "${MIX_PREBUILT:-0}" = "1" ]; then
+    echo "MIX_PREBUILT is set and no window is staged at $window" >&2
+    exit 1
+  fi
   if [ -n "$target" ]; then
     bash "$MIX_ROOT/packaging/desktop.sh" --target "$target" >/dev/null
   else

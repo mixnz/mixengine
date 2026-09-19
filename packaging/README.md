@@ -69,6 +69,11 @@ In the `.deb` and the `.rpm` alone, `<version>` is `mix_native_version` rather t
 written: neither format can hold the `-` of a pre-release, so `0.0.1-beta.1` is named
 `0.0.1~beta.1` there and as written everywhere else. `common.sh` says why.
 
+**On a CI branch other than `master`, the macOS names say `macos-arm64`** instead of
+`macos-universal`: `MIX_MACOS_SLICES=aarch64` builds the one slice and checks x86_64 without
+building it (T171c). Those files do not run on an Intel Mac, and `macos/build.sh` refuses to make
+them for a tag. Unset, as on a developer's machine, both slices are built.
+
 **Every installer in the table above, and every headless archive, is published a second time under a
 name with no version in it** — `mixengine-windows-x86_64-setup.exe` beside
 `mixengine-<version>-windows-x86_64-setup.exe`, and so on for each of the others — through
