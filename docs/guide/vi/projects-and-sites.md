@@ -4,7 +4,7 @@ slug = "projects-and-sites"
 order = 4
 summary = "Hai khái niệm cốt lõi của MixEngine, mỗi cái quản những gì, và cách một bản checkout mang theo cấu hình của chính nó."
 translation_of = "en/projects-and-sites.md"
-source_sha256 = "7264ecc269b00a1115ab0558a6f05f3e0617c7a6000eca2b116e3e215b15072c"
+source_sha256 = "0746659ad55d36a185bf6b53620bd91a76a2b3f8f18c8b20787a34d9c8f4d266"
 +++
 
 # Dự án và site
@@ -138,8 +138,8 @@ nhiên. Không có gì được chạy để tìm ra câu trả lời.
 
 ## Giữ project luôn sẵn sàng
 
-Service có thể tự dừng khi không ai dùng trong một khoảng thời gian. Trong lúc bạn đang làm việc với
-một project thì đây là điều bạn không muốn:
+Khi bật *Tiết kiệm pin*, service không ai dùng trong một lúc sẽ được tạm dừng (xem trang services).
+Trong lúc bạn đang làm việc với một project thì đây là điều bạn không muốn:
 
 ```bash
 mix project keep-warm blog
@@ -149,4 +149,5 @@ mix project keep-warm blog --off
 Đây là một lệnh riêng chứ không phải một thuộc tính của project, vì đó là việc bạn làm trong một
 buổi chiều chứ không phải một phần của bản chất project. Lệnh này tác động tới pool PHP mà các site
 của project dùng. Nó chưa tác động tới cơ sở dữ liệu mà project truy vấn, vì MixEngine chưa ghi lại
-project nào dùng cơ sở dữ liệu nào.
+project nào dùng cơ sở dữ liệu nào. Khi *Tiết kiệm pin* đang tắt thì không có gì bị tạm dừng, nên
+lệnh này không thay đổi gì.

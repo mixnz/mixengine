@@ -95,7 +95,9 @@ binaries. What they state is what the daemon **writes** —
    site's domain — and says the same three things `mix` says: which account, that the password comes
    from the OS keyring when the pool starts, and that nothing writes it to disk.
 4. **Services** — the settings a service accepts (port, bind, data dir, limits, autostart, idle
-   timeout) as data, not as a rendered form;
+   timeout) as data, not as a rendered form, and who left a stopped one stopped
+   (`ServiceSummary::stopped_by`, T167d) — so a client draws a service MixEngine put to rest as
+   resting rather than as a failure;
    **and `autostart` is one of them since T112, which it was not when this line was written.** The
    column existed from `0001_initial.sql`, `service.create` wrote it, and nothing read it: no
    member on `ServiceSummary`, no method to change it, and no caller in the boot path. It is now
@@ -183,6 +185,9 @@ binaries. What they state is what the daemon **writes** —
    the answer says which mechanism this machine has, where the entry lives, and — the one thing a
    client must not work out for itself — whether an entry that *is* registered belongs to this home
    or to another one, which is a switch that must read "on, for a different home" rather than "on".
+   **Save battery is a switch over `service.save_resources` / `service.set_save_resources`** (T167b,
+   ADR 0041): off unless a person turned it on, and while it is off nothing is idle-stopped. It is
+   also `mix service save-resources`.
 
    **"Default web server" is `ServiceSummary::role` and `service.set_front_end`** — **T97**, on
    [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md). The

@@ -12,11 +12,13 @@ Rationale for not using containers: [../decisions/0003-no-container-isolation.md
 Nothing but the daemon runs at login. Services start when something actually needs them:
 
 - **Web traffic**: the front-end web server is the only always-on service (it is tiny — Caddy idles
-  at a few MB). **Always-on means its `autostart` is ticked, and nothing ticks it on anybody's
-  behalf** — `service.create` defaults it off, and an apply sets it only when asked (T116, T129), so
-  it is a switch somebody turns on once, from the Dashboard's ⋮ menu or `mix service autostart`. On a
-  home where nobody has, a restart leaves nothing listening on port 80, and the fallback below cannot
-  help: it lives inside the front end's own configuration. The site file names *two* upstreams — the pool's own address first, and a second,
+  at a few MB). **Always-on means its `autostart` is on, and since T167e that is the default for a
+  front end** ([ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md)):
+  `service.create` turns it on for a recipe whose role is `FrontEnd` unless the request says
+  otherwise, and migration `0027` turned it on once for every `caddy` / `nginx` row that existed.
+  Before that nothing ticked it on anybody's behalf (T116, T129), and a restart left nothing listening
+  on port 80 — which the fallback below cannot help with, because it lives inside the front end's own
+  configuration. Every other service still defaults to off. The site file names *two* upstreams — the pool's own address first, and a second,
   permanent address the daemon holds — so a request to a stopped pool is refused by the first, and
   the front end retries it against the second. That one starts the pool, waits for its `ReadyCheck`,
   and proxies. First hit is slow (~1 s); the rest are normal, and go straight to the pool without
@@ -47,19 +49,27 @@ Idle is measured by real signals — established connections, and a counter read
 where the service publishes one — never by wall-clock alone. A service with an open connection is
 never idle, nor is one something running depends on, nor is one that could not be measured at all.
 
-`services.idle_minutes` has three states, and the third is what makes a later default safe:
+`services.idle_minutes` has three states:
 
 | Value | Means |
 | --- | --- |
-| `NULL` | use the recipe's default |
-| `0` | never idle-stop, whatever the recipe says |
+| `NULL` | nobody said: never idle-stopped, unless the home saves resources — then the recipe's number |
+| `0` | never idle-stop, whatever the home or the recipe says |
 | `n` | idle-stop after `n` minutes |
 
-**A recipe offers a default only once something can start its service again**, because a stopped
-service with nothing to wake it is a site that answers 502 for ever. Each number therefore arrived
-with the task that made its service wakeable:
+**MixEngine stops nothing a person did not ask it to stop** — T167b,
+[ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md). Until T167 the
+numbers below were every home's defaults, and a site that worked in the morning could be down by the
+afternoon for a reason its owner never saw. Now every `Recipe::idle_default()` is `None`, and the
+numbers are `Recipe::idle_when_saving()`: they reach a `NULL` row only while the home's switch — the
+`settings` row `services.save_resources`, *Save battery* in MixLab, `mix service save-resources` —
+is on. It is off unless a person turned it on.
 
-| Recipe | Default | Since |
+**A recipe offers a number only once something can start its service again**, because a stopped
+service with nothing to wake it is a site that answers 502 for ever. Each number therefore arrived
+with the task that made its service wakeable. While *Save battery* is on:
+
+| Recipe | After | Since |
 | --- | --- | --- |
 | php-fpm | 30 min | T70 — the request that finds the pool down is what wakes it |
 | MariaDB, MySQL, PostgreSQL | 60 min | T70a — the connection that finds the server down is what wakes it |
@@ -83,9 +93,20 @@ authenticated user, and the probe lives on a `ServiceSpec`, which never carries 
 ([ADR 0006](../decisions/0006-servicespec-in-proto-and-secret-free.md)). The error is in the safe
 direction: a client connected and idle reads as busy.
 
-Sites can opt out per project ("keep warm") for the one project being worked on all day —
-`mix project keep-warm <name>`. It reaches the PHP pool that project's sites name; it does not yet
-reach the database they query, because nothing in the schema records which database a project uses.
+While *Save battery* is on, a project can opt out ("keep warm") for the one being worked on all
+day — `mix project keep-warm <name>`. It reaches the PHP pool that project's sites name; it does not
+yet reach the database they query, because nothing in the schema records which database a project
+uses. With the switch off it changes nothing, which is why MixLab no longer shows it on the project
+form (T167g); the column, the API field and the verb stay.
+
+**A service MixEngine stopped is drawn as resting, not as stopped.** `ServiceSummary.stopped_by`
+(T167d) and the transition's reason let a client tell the three apart: `daemon` — resting, woken by
+the next request, grey; `person` — stopped, stays stopped; a crash — `failed`, red.
+
+**When a wake does not finish, a PHP site says so.** The 502 or 504 the front end produces for a pool
+it cannot reach is answered with `welcome/<domain>.starting.html` (T167f): the page reloads itself
+three times, two seconds apart, and then says to open MixLab. An application's own 502 passes through
+untouched.
 
 ### 3. Hard limits
 
