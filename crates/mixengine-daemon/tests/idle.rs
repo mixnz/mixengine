@@ -150,6 +150,10 @@ async fn a_running_daemon_stops_a_service_nothing_is_using_and_says_why() {
         .rpc("service.status", json!({ "service": SERVICE }))
         .await;
     assert_eq!(running["state"], "running", "{running}");
+    assert!(
+        running.get("stopped_by").is_none(),
+        "a running service carries no stopped_by (T167d): {running}"
+    );
 
     // **Set after the service is up**, so the first sweep to see it is also the first sweep that
     // has a policy to spend — a policy written before the start would be counted against a service
@@ -179,6 +183,10 @@ async fn a_running_daemon_stops_a_service_nothing_is_using_and_says_why() {
         .rpc("service.status", json!({ "service": SERVICE }))
         .await;
     assert_eq!(stopped["state"], "stopped", "{stopped}");
+    assert_eq!(
+        stopped["stopped_by"], "daemon",
+        "an idle stop is MixEngine's, which a client draws as resting (T167d): {stopped}"
+    );
 
     let log = home.daemon_log();
 

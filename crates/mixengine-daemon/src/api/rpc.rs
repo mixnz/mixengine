@@ -2292,7 +2292,12 @@ pub(super) fn summary(
         // exactly as it has no state — and `false` is the reading that cannot be acted on, which is
         // the safer of the two for something a boot walk reads.
         autostart: record.is_some_and(|record| record.autostart),
-        stopped_by: None,
+        // Only about a service that *is* stopped (T167d): the column keeps the last word after a
+        // start, and a running service reported as "stopped by a person" would be a client drawing
+        // a state that is over.
+        stopped_by: record
+            .filter(|record| record.state == mixengine_proto::ServiceState::Stopped)
+            .map(|record| record.stopped_by.into()),
     }
 }
 

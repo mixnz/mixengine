@@ -92,6 +92,17 @@ pub enum StoppedBy {
     Daemon,
 }
 
+/// The wire's spelling of the same three words — roadmap task **T167d**, where a client learns it.
+impl From<StoppedBy> for mixengine_proto::StoppedBy {
+    fn from(stopped_by: StoppedBy) -> Self {
+        match stopped_by {
+            StoppedBy::Never => Self::Never,
+            StoppedBy::Person => Self::Person,
+            StoppedBy::Daemon => Self::Daemon,
+        }
+    }
+}
+
 impl StoppedBy {
     /// The word the column holds.
     #[must_use]
