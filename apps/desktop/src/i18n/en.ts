@@ -141,6 +141,13 @@ const en = {
   },
   // Which version is running, and where a newer one comes from. MixEngine's updater is the one that
   // replaces this window \u2014 T106 \u2014 so this block is a signpost and not a downloader.
+  // MixEngine in the tray (T168). The Linux tray menu's three items — sent to
+  // `src-tauri/src/tray.rs` rather than kept in Rust.
+  tray: {
+    openPanel: "Open control panel",
+    openMain: "Open MixLab",
+    quit: "Quit MixLab",
+  },
   update: {
     title: "Updates",
     unavailable: "MixLab is updated with MixEngine.",
@@ -175,6 +182,7 @@ const en = {
     sshConnectFailed: "Cannot reach the SSH server: {{message}}",
     sshAuthFailed: "SSH authentication failed: {{message}}",
     sshShellFailed: "Could not open a shell on the SSH server: {{message}}",
+    trayUnavailable: "The tray icon could not be created: {{message}}",
     sshAuthRejected:
       "The SSH server rejected the login (partial success: {{partialSuccess}}). It accepts: {{methods}}.",
     sshHostKeyChanged:

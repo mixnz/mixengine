@@ -22,6 +22,7 @@ and what the script does with them, for when something looks wrong.
 |------|------------|---------------|
 | `public/logo.svg` | The drawing, filling its canvas edge to edge | The favicon (Vite serves it as `/logo.svg`) and every icon in `src-tauri/icons/` except `icon.icns` |
 | `public/logo-macos.svg` | The same drawing on a canvas with a margin | `src-tauri/icons/icon.icns`, the macOS app icon, and nothing else |
+| `public/tray-template.svg` | The platters alone, one black silhouette, no tile | `src-tauri/icons/tray/44x44.png`, the macOS menu-bar icon (a template image: macOS reads its alpha and tints it). Windows and Linux use the app icon in the tray (T168) |
 
 The two are identical except for the `viewBox` on the root element and the comments. In
 `logo.svg` it is `0 0 64 64`: a 64-unit tile on a 64-unit canvas. In `logo-macos.svg` it is

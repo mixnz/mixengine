@@ -18,3 +18,18 @@ export function hideTrayPanel(): Promise<void> {
 export function quitApp(): Promise<void> {
   return invoke("app_quit");
 }
+
+/** The Linux tray menu's words, which Rust does not keep a dictionary for. */
+export interface TrayLabels {
+  openPanel: string;
+  openMain: string;
+  quit: string;
+}
+
+/**
+ * Turns the tray icon on or off. `enabled` is "a module this window draws has a tray panel"; the
+ * backend still decides whether this session can show an icon at all.
+ */
+export function configureTray(enabled: boolean, labels: TrayLabels): Promise<void> {
+  return invoke("tray_configure", { enabled, labels });
+}

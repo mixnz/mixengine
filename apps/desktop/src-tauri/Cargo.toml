@@ -25,7 +25,8 @@ tauri-build = { version = "2", features = [] }
 # here so the import (`import.rs`) can say what it skipped and why: it runs before any window is
 # drawn, and there is nowhere else for it to say it.
 log = "0.4"
-tauri = { version = "2", features = [] }
+# `tray-icon`: MixEngine in the tray or the menu bar — T168, `src/tray.rs`.
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

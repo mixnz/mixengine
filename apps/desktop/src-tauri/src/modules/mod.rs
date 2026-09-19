@@ -26,6 +26,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::import::import_happened,
         crate::relaunch::relaunch_app,
         crate::relaunch::relaunch_after_update,
+        crate::tray::tray_configure,
         crate::tray::tray_open_main,
         crate::tray::tray_hide_panel,
         crate::tray::app_quit,

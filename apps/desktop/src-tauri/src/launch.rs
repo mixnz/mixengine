@@ -253,6 +253,8 @@ fn received<R: Runtime>(app: &AppHandle<R>, line: &str) {
 }
 
 pub(crate) fn bring_to_front<R: Runtime>(app: &AppHandle<R>) {
+    // Back in the Dock first, when closing it to the tray took it out (T168).
+    crate::tray::show_in_dock(app);
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();

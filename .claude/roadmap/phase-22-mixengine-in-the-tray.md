@@ -16,7 +16,7 @@ Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks
       tray panel's stream never closes the main window's.
 - [x] **T168b** The commands the panel needs and MixLab lacked: `mixengine_shutdown`
       (`daemon.shutdown`), `tray_open_main`, `tray_hide_panel`, `app_quit`.
-- [ ] **T168c** `tray.rs` on macOS and Windows: the icon, the hidden `tray` window, `panel_position`,
+- [x] **T168c** `tray.rs` on macOS and Windows: the icon, the hidden `tray` window, `panel_position`,
       blur-hide with its 250 ms debounce, close-to-tray, and the macOS activation policy. **(P)**
 - [ ] **T168d** Linux: the three-item menu, the `dlopen` and StatusNotifierWatcher checks, the
       AppIndicator dependency in the `.deb` and `.rpm`, and `AppRun`'s note. **(P)**

@@ -66,6 +66,8 @@ pub fn run() {
         .plugin(
             tauri_plugin_window_state::Builder::default()
                 .with_state_flags(tauri_plugin_window_state::StateFlags::MAXIMIZED)
+                // The tray panel is placed beside the icon every time it opens (T168).
+                .with_denylist(&[tray::PANEL])
                 .build(),
         )
         // Registers `mixdb://` with the OS through the installers, and on macOS delivers the URLs
@@ -79,6 +81,7 @@ pub fn run() {
     let builder = modules::mixengine::register(builder);
     let builder = modules::rest::register(builder);
     let builder = modules::terminal::register(builder);
+    let builder = tray::register(builder);
 
     builder
         .setup(move |app| {
@@ -90,6 +93,9 @@ pub fn run() {
             import::on_first_launch(app.handle());
 
             launch::start(app.handle(), opening);
+
+            // Hidden until its icon is clicked; the icon itself waits for `tray_configure`.
+            tray::create_panel(app.handle());
 
             /* Housekeeping rather than startup work. A tool download that the app never came back
                from — a crash, a power cut, a force quit — leaves an unpacked server distribution
