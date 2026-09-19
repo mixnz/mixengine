@@ -107,21 +107,24 @@ both of which the webview already does. Using one panel means one set of compone
 
 From top to bottom:
 
-0. **Header.** The MixEngine mark and name on one line. Under it, in the muted secondary text style,
-   the slogan **"For Developers. By Developers."**
-   - It is a brand line, not a sentence about state, so it never changes and nothing depends on it.
-   - It goes through `t("...")` like every other string. Both dictionaries carry it in English, because
-     a slogan is not translated.
-   - It sits in the header rather than the footer. The footer already holds three actions, and a line of
-     text there would read as one more thing to click.
-   - It stays pinned while the lists below scroll.
-1. **Overall state.**
-   - When the daemon is running: *MixEngine is running · N of M services up*, with the counts taken from
-     `service.list`.
-   - When it is not running: *MixEngine is stopped* and a **Start MixEngine** button. On a home that has never started, with
-     `mixengine_storage` saying the choice is still free, the button is **Set up in MixLab** instead. It opens the
-     main window rather than making the storage choice in a 360-pixel panel.
-   - *Not installed* and *Not answering* are shown as the main window shows them, with their hint.
+0. **Header: the application.** The MixLab mark — as tall as the two lines beside it — the name
+   **MixLab**, and under it, in the muted secondary style, the slogan **"For Developers. By
+   Developers."**
+   - The slogan is a brand line, not a sentence about state, so it never changes and nothing
+     depends on it. It goes through `t("...")` like every other string; both dictionaries carry it
+     in English, because a slogan is not translated.
+   - It sits in the header rather than the footer, which holds the actions. It stays pinned while
+     the lists below scroll.
+1. **The engine, as a card of its own.** Running: the engine's mark (`EngineIcon`), **MixEngine**,
+   a *Running* pill and *Services running: N/M*. The header names the application and the card
+   names what it drives, each with its own mark, so "MixLab managing MixEngine" is read off the
+   layout rather than spelled out in a sentence.
+   - Not running: MixLab's own gate, centred in the panel — the engine's mark, the gate's sentence
+     (*MixEngine is installed but not running.*) and **Start MixEngine**, drawn as the tab draws
+     them, without the four folders. On a home that has never started, with `mixengine_storage`
+     saying the choice is still free, the button is **Set up in MixLab** instead: the storage choice
+     belongs to MixLab's screen, not a panel. *Not installed* and *Not answering* use their gate
+     sentences and offer **Open MixLab**.
 2. **Services.** One row per service from `service.list`:
    - Name, version, and the state label and tone from `serviceStateLabel.ts`. The Dashboard's words,
      *Resting* included, are reused, not rewritten.
@@ -137,7 +140,8 @@ From top to bottom:
 5. **Footer.**
    - **Open MixLab**: shows, unminimises and focuses the main window.
    - **Stop MixEngine**: asks for confirmation first (D4), then calls `daemon.shutdown`.
-   - A small **Quit MixLab** icon button, which exits the app and leaves the daemon running.
+   - A small **Quit MixLab** icon button, which exits the app and leaves the daemon running. Its
+     tooltip says the daemon keeps running only when there is one running.
 
 The panel keeps no state of its own that the Dashboard does not also keep. It re-reads `daemon.status`,
 `service.list` and `site.list` each time it is shown, and live updates come from D5.

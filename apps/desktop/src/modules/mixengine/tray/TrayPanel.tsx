@@ -11,7 +11,7 @@ import StatusPill, { type StatusTone } from "../../../components/StatusPill";
 import { errorMessage } from "../../../core/errors";
 import { IS_MAC, IS_WINDOWS } from "../../../core/platform";
 import { hideTrayPanel, openMainWindow, quitApp } from "../../../core/window";
-import { ChevronRightIcon, GlobeIcon, LockIcon, PlayIcon, PowerIcon, StopIcon } from "../../../icons";
+import { ChevronRightIcon, EngineIcon, GlobeIcon, LockIcon, PlayIcon, PowerIcon, StopIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import * as api from "../api";
 import { applyEvent, needsResync, rowsFrom, type ServiceRow } from "../daemonState";
@@ -285,11 +285,11 @@ function TrayPanel() {
 
   return (
     <div className={styles.stage} data-slides={SLIDES || undefined}>
-      <div className={`${styles.panel} ${shown ? styles.shown : ""}`} data-density="compact">
+      <div className={`${styles.panel} ${shown ? styles.shown : ""}`}>
         <header className={styles.header}>
           <img className={styles.logo} src="/logo.svg" alt="" width={32} height={32} />
           <div className={styles.brand}>
-            <span className={styles.name}>MixEngine</span>
+            <span className={styles.name}>MixLab</span>
             <span className={styles.slogan}>{t("mixengine.tray.slogan")}</span>
           </div>
         </header>
@@ -297,54 +297,53 @@ function TrayPanel() {
         <div className={styles.body}>
           {error !== "" && <ErrorBanner message={error} onDismiss={() => setError("")} />}
 
-          <section className={styles.summary}>
-            {presence === null ? null : running ? (
-              <>
-                <StatusPill tone="success">{t("mixengine.tray.running")}</StatusPill>
-                <span className={styles.counts}>
-                  {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
-                </span>
-              </>
-            ) : (
-              <>
-                <p className={styles.state}>
-                  {presence === "notRunning" ? t("mixengine.tray.stopped") : t(`mixengine.gate.${presence}`)}
-                </p>
-                {presence === "notRunning" &&
-                  (setupFree ? (
-                    <Button variant="primary" onClick={() => void openMainWindow()}>
-                      {t("mixengine.tray.setUp")}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="primary"
-                      busy={working === "start" ? t("mixengine.gate.starting") : undefined}
-                      onClick={() =>
-                        void perform("start", async () => {
-                          await api.startDaemon();
-                        })
-                      }
-                    >
-                      {t("mixengine.gate.start")}
-                    </Button>
-                  ))}
-              </>
-            )}
-            {report !== null && (
-              <div className={styles.report} role="status">
-                <p>{t("mixengine.tray.shutdownDone", { count: report.stopped })}</p>
-                {report.failed !== null && (
-                  <p>{t("mixengine.tray.shutdownFailed", { service: report.failed })}</p>
-                )}
-                {report.unordered !== null && (
-                  <p>{t("mixengine.tray.unordered", { message: report.unordered })}</p>
-                )}
-              </div>
-            )}
-          </section>
+          {/* Who is talking, without a sentence saying so: the header is the application, MixLab;
+              this card, with the engine's own mark, is the thing it drives. */}
+          {running && (
+            <section className={styles.engine}>
+              <span className={styles.engineMark}>
+                <EngineIcon size={18} />
+              </span>
+              <span className={styles.engineName}>MixEngine</span>
+              <StatusPill tone="success">{t("mixengine.tray.running")}</StatusPill>
+              <span className={styles.counts}>
+                {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
+              </span>
+            </section>
+          )}
+
+          {/* The daemon is not up: the same gate MixLab's tab draws, in the middle of the panel —
+              without the four folders, which are a choice made in MixLab and not here. */}
+          {presence !== null && !running && (
+            <section className={styles.gate}>
+              <span className={styles.gateMark}>
+                <EngineIcon size={28} />
+              </span>
+              <p className={styles.gateTitle}>{t(`mixengine.gate.${presence}`)}</p>
+              {report !== null && <ShutdownLines report={report} />}
+              {presence === "notRunning" ? (
+                setupFree ? (
+                  <Button onClick={() => void openMainWindow()}>{t("mixengine.tray.setUp")}</Button>
+                ) : (
+                  <Button
+                    busy={working === "start" ? t("mixengine.gate.starting") : undefined}
+                    onClick={() =>
+                      void perform("start", async () => {
+                        await api.startDaemon();
+                      })
+                    }
+                  >
+                    {t("mixengine.gate.start")}
+                  </Button>
+                )
+              ) : (
+                <Button onClick={() => void openMainWindow()}>{t("mixengine.tray.openMain")}</Button>
+              )}
+            </section>
+          )}
 
           {running && (
-            <section className={styles.section}>
+            <section className={styles.section} data-density="compact">
               <div className={styles.sectionHead}>
                 <h2 className={styles.title}>{t("mixengine.tray.services")}</h2>
                 {/* No question first, as on the Dashboard: the services start again with a click. */}
@@ -419,7 +418,7 @@ function TrayPanel() {
           )}
 
           {running && (
-            <section className={styles.section}>
+            <section className={styles.section} data-density="compact">
               <div className={styles.sectionHead}>
                 <h2 className={styles.title}>{t("mixengine.tray.sites")}</h2>
               </div>
@@ -453,7 +452,12 @@ function TrayPanel() {
         {/* One strip at the bottom either way: the three ways out, or the question the last
             click asked — never both squeezed onto one line. */}
         {question !== null ? (
-          <footer className={`${styles.footer} ${styles.asking}`} role="group" aria-label={question}>
+          <footer
+            className={`${styles.footer} ${styles.asking}`}
+            data-density="compact"
+            role="group"
+            aria-label={question}
+          >
             <span className={styles.question}>{question}</span>
             <Button onClick={() => dispatchConfirm({ type: "cancel" })}>{t("mixengine.tray.cancel")}</Button>
             <Button variant="danger" onClick={confirmNow}>
@@ -461,7 +465,7 @@ function TrayPanel() {
             </Button>
           </footer>
         ) : (
-          <footer className={styles.footer}>
+          <footer className={styles.footer} data-density="compact">
             <Button variant="primary" className={styles.footerAction} onClick={() => void openMainWindow()}>
               {t("mixengine.tray.openMain")}
             </Button>
@@ -477,7 +481,8 @@ function TrayPanel() {
                 {
                   key: "quit",
                   icon: PowerIcon,
-                  label: t("mixengine.tray.quit"),
+                  // Whether MixEngine goes on without MixLab is worth saying only while it is running.
+                  label: t(running ? "mixengine.tray.quit" : "mixengine.tray.quitAlone"),
                   onClick: () => void quitApp(),
                 },
               ]}
@@ -485,6 +490,18 @@ function TrayPanel() {
           </footer>
         )}
       </div>
+    </div>
+  );
+}
+
+/** What `daemon.shutdown` answered, under the gate it left behind. */
+function ShutdownLines({ report }: { report: ShutdownReport }) {
+  const { t } = useTranslation();
+  return (
+    <div className={styles.report} role="status">
+      <p>{t("mixengine.tray.shutdownDone", { count: report.stopped })}</p>
+      {report.failed !== null && <p>{t("mixengine.tray.shutdownFailed", { service: report.failed })}</p>}
+      {report.unordered !== null && <p>{t("mixengine.tray.unordered", { message: report.unordered })}</p>}
     </div>
   );
 }

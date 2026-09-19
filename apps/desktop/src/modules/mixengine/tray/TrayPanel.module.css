@@ -67,14 +67,24 @@
   flex-shrink: 0;
 }
 
+/* As tall as the name and the slogan together, whatever the type sizes are: the header's row
+   stretches it to the text beside it, and the ratio keeps it square. */
+.header {
+  align-items: stretch;
+}
+
 .logo {
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius-md);
 }
 
 .brand {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
   min-width: 0;
 }
@@ -101,21 +111,70 @@
   gap: 18px;
 }
 
-.summary {
+/* The engine this application drives, as a thing of its own under the application's header: its
+   own mark, its own name, its own state. */
+.engine {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
+  gap: 8px 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.engineMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--neutral-bg);
+  color: var(--accent-text);
+  flex-shrink: 0;
+}
+
+.engineName {
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.engine .counts {
+  margin-left: auto;
+}
+
+/* The daemon is not up: MixLab's own gate, centred in whatever height the panel has. */
+.gate {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px 8px;
+  text-align: center;
+}
+
+.gateMark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: var(--neutral-bg);
+  color: var(--text-muted);
+}
+
+.gateTitle {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
 }
 
 .counts {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.state {
-  margin: 0;
-  width: 100%;
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
