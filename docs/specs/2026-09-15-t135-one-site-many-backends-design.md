@@ -22,7 +22,7 @@ Read out of the three site tables, the two front-end templates and the daemon's 
 claim that could be measured here was measured, against the Caddy this machine already has installed
 (`packages/caddy/2.11.4`).
 
-**A site is one handler.** [`SiteKind`](../../../crates/mixengine-proto/src/site_api.rs) is an
+**A site is one handler.** [`SiteKind`](../../crates/mixengine-proto/src/site_api.rs) is an
 internally tagged enum with four variants, `sites.config_json` holds its payload, and each of the two
 templates renders exactly one handler rooted at `/`:
 
@@ -102,7 +102,7 @@ renders a different sentence per kind).
 The consequence worth stating: **`/` cannot be a route path.** What answers `/` is the kind, and a
 route that claimed it would be a second answer to a question that has one. A site whose root serves
 nothing is spelled `kind = static` over a directory that is empty, which is already a supported state
-and already answers with the welcome page ([ADR 0031](../../../.claude/decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)).
+and already answers with the welcome page ([ADR 0031](../decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)).
 
 ### D2. One rewriting rule, and it is the upstream's own path
 
@@ -284,12 +284,12 @@ one command.
 `sites.config_json`: that column is the *kind's* payload, and `read_kind` is the one reader of it.
 
 `SiteCreate.routes` and `SiteUpdate.routes` are `Option<Vec<SiteRoute>>` and **replace** the list
-rather than merging into it — [`SiteUpdate`](../../../crates/mixengine-proto/src/site_api.rs)'s
+rather than merging into it — [`SiteUpdate`](../../crates/mixengine-proto/src/site_api.rs)'s
 standing rule, for its stated reason: with a merge there is no way to remove one. `None` leaves the
 list alone; `Some(vec![])` empties it.
 
 `SiteSummary.routes` is optional on the wire —
-[ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md) — so a `mix` from
+[ADR 0019](../decisions/0019-an-added-response-member-is-optional.md) — so a `mix` from
 this build can still read an older daemon's answer.
 
 **On the summary rather than on the detail**, which is where this landed and not where it started.
@@ -316,7 +316,7 @@ built by a command nobody has run yet.
 ### D9. A shared site shares its routes
 
 Sharing binds one more address on the same block
-([lan-sharing.md](../../../.claude/features/lan-sharing.md)), and every route in that block answers
+([lan-sharing.md](../features/lan-sharing.md)), and every route in that block answers
 on it. That is already true of a `reverse-proxy` site and is not widened here — but it is worth
 writing down, because "I shared a site" now means "I shared four backends", and the person who typed
 `mix site share` should be able to read that somewhere.

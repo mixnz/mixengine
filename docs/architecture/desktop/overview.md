@@ -42,7 +42,7 @@ is harder to add to than the thing it replaced.
 The one exception is a single **opaque slot per tab**: the module writes a value through
 `onStateChange`, the shell stores it with the session and hands it back as `restored` next launch,
 and nothing in `src/shell/` ever looks inside it. Ids only — the shape and the reasons are in
-[the spec](../../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
+[the spec](../../specs/2026-08-23-tab-session-context-design.md).
 
 [`shell/registry.ts`](../../../apps/desktop/src/shell/registry.ts) lists the modules and is the only file outside
 `src/modules/` that names one.
@@ -60,7 +60,7 @@ Which modules are visible is a setting, and `shell/App.tsx` is the gate that set
 workspace mounts: `shell/profiles.ts` holds `enabledModules`, and everything above that enumerates
 modules — the `[+]` menu, the number chords, the Settings panes, session restore — reads
 `visibleModules()`. See
-[the T108 design](../../../docs/superpowers/specs/2026-09-09-t108-a-module-visibility-setting-design.md).
+[the T108 design](../../specs/2026-09-09-t108-a-module-visibility-setting-design.md).
 
 The strip survives a restart, and so does what each tab had open: `shell/session.ts` keeps
 `{ id, moduleId, title, state }` per tab and which one was active in `localStorage`. `state` is the
@@ -130,7 +130,7 @@ last:
 events (the Apple Event is the only way a URL reaches a macOS process); on Windows and Linux the
 plugin re-emits `argv`, which `launch.rs` has already handled, and later URLs arrive over the
 channel. The whole design, with the threat model for the variable name, is
-[the spec](../../../docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md).
+[the spec](../../specs/2026-09-03-mixengine-connection-handoff-design.md).
 
 ## MongoDB is the odd one
 

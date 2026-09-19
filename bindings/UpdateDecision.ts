@@ -3,7 +3,7 @@
 /**
  * The two answers that are not *install*.
  *
- * **Both are real and both are remembered** — `.claude/features/updates.md`. A decline that was
+ * **Both are real and both are remembered** — `docs/features/updates.md`. A decline that was
  * forgotten is a prompt that comes back tomorrow, which is how an update prompt becomes something
  * people dismiss without reading.
  */

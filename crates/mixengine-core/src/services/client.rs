@@ -9,7 +9,7 @@
 //!
 //! So a client belongs to an instance, and the instance decides two things at once: which binary
 //! runs, and **where it connects by default**. The second is not a nicety.
-//! `.claude/features/services.md` gives 3306 to whichever of MariaDB and MySQL was created first
+//! `docs/features/services.md` gives 3306 to whichever of MariaDB and MySQL was created first
 //! and the next free port above to the other, so on a home with both, a bare `mysql` that was told
 //! nothing would open a session on the other product's server and report success.
 //!

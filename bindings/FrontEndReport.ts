@@ -33,7 +33,7 @@ outcome: FrontEndOutcome,
  * `cap_net_bind_service` has a front end that will not start, and it had one before this was
  * called too.
  *
- * [ADR 0005]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0005-on-demand-elevation.md
+ * [ADR 0005]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0005-on-demand-elevation.md
  */
 answering: boolean, 
 /**

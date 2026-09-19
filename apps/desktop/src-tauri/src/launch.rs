@@ -15,7 +15,7 @@
 //!
 //! The channel between two copies of the app is `crate::instance`; the URL itself is the database
 //! module's, in `modules/db/handoff.rs`. The design:
-//! `docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md`.
+//! `docs/specs/2026-09-03-mixengine-connection-handoff-design.md`.
 
 use std::sync::Mutex;
 use std::time::Duration;

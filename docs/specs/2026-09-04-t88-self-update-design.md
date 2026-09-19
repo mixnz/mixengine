@@ -5,9 +5,9 @@ Roadmap task **T88**, phase 9: *"Auto-update, MixEngine's own: `mix self-update`
 the JSON is parsed, daemon check at startup + 24 h interval, silent on failure, consent prompt with
 notes and size, stop → update → relaunch → restore running services, skip/later persisted."*
 
-The feature document is [updates.md](../../../.claude/features/updates.md), written when the updater
+The feature document is [updates.md](../features/updates.md), written when the updater
 was Tauri v2's and kept when that left with
-[ADR 0011](../../../.claude/decisions/0011-no-gui-in-this-repository.md).
+[ADR 0011](../decisions/0011-no-gui-in-this-repository.md).
 
 **Three things this task changes about the sentence it was written from**, each argued below:
 the order is **download → verify → stop → swap** and not *stop → download* (D5); the artifact is
@@ -132,7 +132,7 @@ about a security release. A knob whose every setting produces the same behaviour
 documents would have to carry for nothing.
 
 The document — one `schema`, one `generated_at`, and an `artifacts` list whose entries are
-[`Artifact`](../../../crates/mixengine-core/src/index/format.rs) itself (D3):
+[`Artifact`](../../crates/mixengine-core/src/index/format.rs) itself (D3):
 
 ```json
 {
@@ -672,10 +672,10 @@ special-cased.
 
 ## Documentation changed
 
-- `.claude/features/updates.md` — the order (D5), the artifact's chain of trust (D3), the placement
+- `docs/features/updates.md` — the order (D5), the artifact's chain of trust (D3), the placement
   refusal (D7), and what the smoke test is for (D8).
-- `.claude/operations/build-and-release.md` — the update payload beside the installers, `feed.sh` in
+- `docs/operations/build-and-release.md` — the update payload beside the installers, `feed.sh` in
   the `release` job, and which half of the signing row is now built.
 - `packaging/README.md` — the sixth artifact per OS, and the feed.
-- `.claude/roadmap/phase-9-ship.md` — T88 ticked, and **T85c added** for the missing
+- `docs/roadmap/phase-9-ship.md` — T88 ticked, and **T85c added** for the missing
   `mixengine-shim` (the second pass, above).

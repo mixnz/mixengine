@@ -2,7 +2,7 @@
 # Write `latest.json` — what an installed MixEngine reads to find out that a newer one exists.
 #
 # Roadmap task T88, the design's D13.
-# Design: docs/superpowers/specs/2026-09-04-t88-self-update-design.md
+# Design: docs/specs/2026-09-04-t88-self-update-design.md
 #
 # **Run in the `release` job, before `sign.sh`, and nowhere else.** The feed lists the payload
 # archives of *every* leg, and no build leg can see the other four; and it is signed by being in the

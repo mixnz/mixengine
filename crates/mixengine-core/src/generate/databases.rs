@@ -69,7 +69,7 @@ pub struct Credentials {
 /// Written by hand, and both fields are the reason.
 ///
 /// [`Step`] redacts what it carries for this rule, and this type is nothing *but* the thing it
-/// redacts: `.claude/standards/rust.md` says a struct which might hold a secret redacts it rather
+/// redacts: `docs/standards/rust.md` says a struct which might hold a secret redacts it rather
 /// than trusting every caller that ever writes `{:?}`, and a `tracing` field on a provisioning that
 /// failed is one line away at all times. Not "no `Debug` at all", because that only moves the
 /// question to whoever puts this inside something else.

@@ -1,6 +1,6 @@
 # T153 — MongoDB is a service, and MixLab opens it
 
-Roadmap tasks [T153–T156](../../../.claude/roadmap/phase-19-mongodb.md), phase 19. 2026-09-17.
+Roadmap tasks [T153–T156](../roadmap/phase-19-mongodb.md), phase 19. 2026-09-17.
 
 **The case this comes from**: `mixengine-packages` finished its P18 and P18a on 2026-09-15 and the
 published index now carries `mongodb` 6.0.29, 7.0.43, 8.0.32, 8.2.12 and 8.3.11 on five targets,
@@ -300,14 +300,14 @@ macOS, and a block in `.github/scripts/test-no-network.sh` for Linux, with
 
 ## Documentation
 
-- `.claude/features/services.md` — a MongoDB row in the catalogue, `mongodb@main/mongod.conf` in the
+- `docs/features/services.md` — a MongoDB row in the catalogue, `mongodb@main/mongod.conf` in the
   generated tree, MongoDB beside Redis and memcached in *First-start initialisation*, and a paragraph
   saying it has no accounts and what stands in their place.
 - `docs/guide/en/services.md` and `docs/guide/vi/services.md` — the row and one sentence each.
 - `CHANGELOG.md` — each task adds its own line under `## [Unreleased]` in the commit that lands it:
   the AVX refusal (T153), MongoDB as a service (T154), MixLab opening it and dropping the Create form
   for a server that makes no databases (T155).
-- `.claude/roadmap/phase-19-mongodb.md` — created by T153 with all four tasks unticked and D8's
+- `docs/roadmap/phase-19-mongodb.md` — created by T153 with all four tasks unticked and D8's
   follow-ups listed after them, with a row in `todo.md`; each task ticks itself in its own commit.
 
 ## Tasks

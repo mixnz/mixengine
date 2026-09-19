@@ -18,7 +18,7 @@
 //! password the daemon resolves out of the keyring at spawn. Everything else this suite asks the
 //! server is a connection that must be **refused**.
 //!
-//! **The version is 8.4**, the line `.claude/features/services.md` names. The other two routes — 5.6
+//! **The version is 8.4**, the line `docs/features/services.md` names. The other two routes — 5.6
 //! on Unix through its Perl installer, and 5.6 on Windows copying the `data/` directory upstream
 //! ships — are covered by `mixengine-packages`' own smoke test on every published cell, and by the
 //! route table in `recipes::mysql`. What is here is the one a user gets by default.

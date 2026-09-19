@@ -1,7 +1,7 @@
 //! `mix service front-end` and `mix service set-front-end` against a daemon that is really running —
 //! roadmap task **T97**.
 //!
-//! **A fresh home has no front end**, because nothing installs one — `.claude/features/services.md`
+//! **A fresh home has no front end**, because nothing installs one — `docs/features/services.md`
 //! says so — and that is exactly the state worth proving these two commands in. What is asserted
 //! here and nowhere else is that the pair reads the same fact the API answers with: the reading
 //! comes off `service.list`'s `role` and never off a package name, and the switch refuses to install

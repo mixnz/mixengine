@@ -727,7 +727,7 @@ fn override_version(kind: RuntimeKind) -> Result<Option<VersionConstraint>, Refu
 /// `directory`, then everything that was already on `PATH`.
 ///
 /// `join_paths` rather than a separator of our own: the character differs by platform, and a
-/// `#[cfg]` for it in a client is the one thing `.claude/standards/rust.md` will not have. A `PATH`
+/// `#[cfg]` for it in a client is the one thing `docs/standards/rust.md` will not have. A `PATH`
 /// that cannot be rebuilt — an entry containing the separator itself, which Windows allows inside
 /// quotes — leaves the directory on its own rather than failing the command: the program still runs
 /// and still finds its siblings, which is what the entry was for.

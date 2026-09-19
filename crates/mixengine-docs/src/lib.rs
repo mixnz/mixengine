@@ -3,7 +3,7 @@
 //! One Markdown corpus lives at `docs/guide/{en,vi}/` and is published three ways: as a static site,
 //! as raw Markdown at predictable URLs, and — through this crate — compiled into `mix docs`, which
 //! answers with **the same bytes** and needs no daemon. Roadmap task T90; ADR 0021 in
-//! `.claude/decisions/` is why help is not an API method.
+//! `docs/decisions/` is why help is not an API method.
 //!
 //! Nothing here parses anything. The front matter is read by `build.rs`, which writes the metadata
 //! out as constants beside an `include_str!` per file, so the cost of embedding the whole handbook

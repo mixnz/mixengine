@@ -20,7 +20,7 @@ import type { SqlApi, SqlPageQuery, SqlServerInfo } from "../sql/api";
  *
  * DDL is done too (Plan 6) — creating, renaming and dropping databases/tables/columns/indexes.
  * Dump and restore are done as well (Plan 7), the driver's own — no external tool, see
- * `docs/superpowers/specs/2026-09-05-mssql-support-design.md`'s D10. The five methods still
+ * `docs/specs/2026-09-05-mssql-support-design.md`'s D10. The five methods still
  * rejecting below are not on their way in a later plan — they are ClickHouse-only, the same as on
  * `postgresApi`/`mysqlApi`/`sqliteApi`, and SQL Server never gets them.
  */

@@ -98,8 +98,8 @@ plural `pools`.
 
 `mixengine-testkit` — the phpMyAdmin fixture becomes the manifest that shipped, again.
 
-Documentation: [features/extensions.md](../../../.claude/features/extensions.md),
-[features/client-surface.md](../../../.claude/features/client-surface.md), the roadmap.
+Documentation: [features/extensions.md](../features/extensions.md),
+[features/client-surface.md](../features/client-surface.md), the roadmap.
 
 **In, in `mixnz/mixengine-packages`:** `data/extensions/phpmyadmin.toml` declares `signs_in` and its
 generated configuration switches from `auth_type = 'cookie'` to `'config'` with the password read
@@ -433,7 +433,7 @@ first request to https://phpmyadmin.mixengine.test
 
 ## Testing
 
-Where the rule lives, per `.claude/standards/testing.md`.
+Where the rule lives, per `docs/standards/testing.md`.
 
 **Unit, `mixengine-core`.**
 

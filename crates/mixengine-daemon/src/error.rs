@@ -2,7 +2,7 @@
 //!
 //! Every crate below keeps its own `thiserror` enum, shaped for the code that raises it and knowing
 //! nothing about codes, hints or the wire. The translation happens here, once, at the boundary —
-//! `.claude/standards/rust.md`. Three things happen in it, and none of them belong anywhere else:
+//! `docs/standards/rust.md`. Three things happen in it, and none of them belong anywhere else:
 //!
 //! - **The chain is flattened.** A client is handed one string and has no `source()` to walk, so
 //!   every cause is folded into the message before it leaves. That part is
@@ -596,7 +596,7 @@ impl ToWire for mixengine_platform::Error {
 
         match self {
             // `reason` is required to describe the manual workaround where there is one
-            // (`.claude/architecture/platform-abstraction.md`, rule 4), and it is already in the
+            // (`docs/architecture/platform-abstraction.md`, rule 4), and it is already in the
             // message.
             Platform::UnsupportedPlatform { .. } => {
                 Error::new(ErrorCode::UnsupportedPlatform, chain(self))

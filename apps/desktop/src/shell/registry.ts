@@ -35,7 +35,7 @@ export const PRESET_IDS: PresetId[] = ["mixengine", "everything", "databaseTools
  *
  * A **set**, written as an array: nothing reads an order out of it. Here rather than in
  * `shell/profiles.ts` because these are module ids written by hand, and this file is the one place
- * outside `src/modules/` allowed to write one — see `.agent/conventions/adding-a-module.md`.
+ * outside `src/modules/` allowed to write one — see `docs/standards/desktop/adding-a-module.md`.
  */
 export const MODULE_PRESETS: Record<PresetId, string[]> = {
   mixengine: ["mixengine"],

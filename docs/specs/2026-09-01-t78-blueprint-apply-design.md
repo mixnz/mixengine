@@ -2,7 +2,7 @@
 
 Roadmap task **T78**, phase 8. T77 decided what applying a blueprint would do and refused to do it;
 this task carries the list out. The refusal it replaces is a typed `PreconditionFailed` in
-[`daemon/blueprints.rs`](../../../crates/mixengine-daemon/src/blueprints.rs) that names this task by
+[`daemon/blueprints.rs`](../../crates/mixengine-daemon/src/blueprints.rs) that names this task by
 number.
 
 ## Goal
@@ -33,7 +33,7 @@ this build, so every blueprint an apply can reach was captured here.
 capability the daemon already has, and half of them (an install, a rendering, a supervisor reload, a
 keyring write) are things `mixengine-core` deliberately cannot do. So the executor is
 `daemon/src/api/apply.rs`, written as `impl Api` — the arrangement
-[`api/create.rs`](../../../crates/mixengine-daemon/src/api/create.rs) already uses for
+[`api/create.rs`](../../crates/mixengine-daemon/src/api/create.rs) already uses for
 `service.create`, and for the same reason: `Api` is the one type holding `projects`, `runtimes`,
 `packages`, `sites`, `domains`, `certificates`, `extensions` and `databases` at once. A `Blueprints`
 struct given eight more fields would be a second assembly of the same handles.
@@ -49,7 +49,7 @@ a ledger cannot have: it is also correct after a daemon restart, a manual `mix s
 partial cleanup somebody did by hand. A ledger would be a second source of truth that has to be
 reconciled against the first one anyway.
 
-What it costs is one honesty fix in [`plan.rs`](../../../crates/mixengine-core/src/blueprints/plan.rs),
+What it costs is one honesty fix in [`plan.rs`](../../crates/mixengine-core/src/blueprints/plan.rs),
 which today cannot tell *already ours* from *somebody else's*:
 
 - `register`: a project of this name at this root is `Satisfied`. The same name at a different root,
@@ -141,7 +141,7 @@ name and a root, which is not enough to produce the project the blueprint descri
 `ProjectCreate.pins` is what makes `[runtimes] php = "8.2.23"` true on the receiving machine, and
 without it the new site resolves to whatever PHP this machine defaults to. Two things break at once
 — the site runs the wrong runtime, and `blueprint.capture` on the applied project comes back empty,
-because [`capture`](../../../crates/mixengine-core/src/blueprints/capture.rs) keeps only what
+because [`capture`](../../crates/mixengine-core/src/blueprints/capture.rs) keeps only what
 `resolve` reports as *not* the default.
 
 It is also what makes D6 mean anything. Without a pin, "install 8.2.23" and "use the installed
@@ -170,7 +170,7 @@ cannot satisfy fails the job while the ledger is still empty and there is nothin
 is the same reasoning as `service_create`'s ordered checks: the cheapest refusal comes first.
 
 **D10 — An apply queues elevation and never raises a prompt.** The standing rule is
-[`elevation.rs`](../../../crates/mixengine-daemon/src/elevation.rs)'s: *this daemon never raises a
+[`elevation.rs`](../../crates/mixengine-daemon/src/elevation.rs)'s: *this daemon never raises a
 prompt on its own initiative — producers enqueue, and only a client calls `elevation.grant`.* An
 apply is a producer. So the hosts entries and the trust-store work it causes are queued exactly as
 `site.create` already queues them, the job never blocks on a dialog nobody is watching, and the
@@ -327,18 +327,18 @@ that says so names the task.
 
 ## Text that this task makes wrong
 
-- [`features/blueprints.md`](../../../.claude/features/blueprints.md) — the Apply section says
+- [`features/blueprints.md`](../features/blueprints.md) — the Apply section says
   rollback is "limited to what this apply created"; D4 narrows that to what belongs to the *project*
   and lists what is kept. The version-mismatch sentence gains where the answer is given.
-- [`daemon/blueprints.rs`](../../../crates/mixengine-daemon/src/blueprints.rs) — the module note and
+- [`daemon/blueprints.rs`](../../crates/mixengine-daemon/src/blueprints.rs) — the module note and
   the `PreconditionFailed` refusal naming T78, both removed.
-- [`proto/blueprint.rs`](../../../crates/mixengine-proto/src/blueprint.rs) — `PlanStep.elevates` says
+- [`proto/blueprint.rs`](../../crates/mixengine-proto/src/blueprint.rs) — `PlanStep.elevates` says
   the step "asks the OS for an elevation prompt". It queues one (D10). `Disposition::Choice` says
   "T78 is what asks it"; the client asks, and the request carries the answer.
-- [`proto/blueprint_api.rs`](../../../crates/mixengine-proto/src/blueprint_api.rs) — `dry_run`'s note
+- [`proto/blueprint_api.rs`](../../crates/mixengine-proto/src/blueprint_api.rs) — `dry_run`'s note
   that `false` is `Unsupported`.
-- [`proto/rpc.rs`](../../../crates/mixengine-proto/src/rpc.rs) — the same, on `BLUEPRINT_APPLY`.
-- [`daemon/tests/api.rs`](../../../crates/mixengine-daemon/tests/api.rs) — the test asserting the
+- [`proto/rpc.rs`](../../crates/mixengine-proto/src/rpc.rs) — the same, on `BLUEPRINT_APPLY`.
+- [`daemon/tests/api.rs`](../../crates/mixengine-daemon/tests/api.rs) — the test asserting the
   refusal mentions T78; it becomes a test of the apply.
-- [`roadmap/phase-8-differentiators.md`](../../../.claude/roadmap/phase-8-differentiators.md) — T78
+- [`roadmap/phase-8-differentiators.md`](../roadmap/phase-8-differentiators.md) — T78
   ticked, with what it found in T77's plan (D7, D8) written where the next reader will look.

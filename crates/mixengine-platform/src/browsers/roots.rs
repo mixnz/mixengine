@@ -1,6 +1,6 @@
 //! Where the NSS databases are, on a machine that has any.
 //!
-//! **Six roots where `.claude/features/tls.md` names two, and the three extra ones are the
+//! **Six roots where `docs/features/tls.md` names two, and the three extra ones are the
 //! measurement this task started from** — the T49b design, D3. On Ubuntu 22.04 and later the
 //! `firefox` deb is a transitional package to the snap, whose profiles live under `~/snap`, so a
 //! faithful implementation of that table finds nothing on the distribution most people run and
@@ -138,7 +138,7 @@ mod tests {
             .expect("the fixture file is written");
     }
 
-    /// The root `.claude/features/tls.md` does not have, and the one most Ubuntu desktops use.
+    /// The root `docs/features/tls.md` does not have, and the one most Ubuntu desktops use.
     #[test]
     fn a_firefox_snap_profile_is_found() {
         let home = tempfile::tempdir().expect("a temp home");

@@ -1,5 +1,5 @@
 //! Every installed JDK told about this home's authority, inside its own `cacerts` — roadmap task
-//! **T27e**, [ADR 0039](../../../../.claude/decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
+//! **T27e**, [ADR 0039](../../../../docs/decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
 //!
 //! **The browsers' shape, call for call**: a store the user owns, written without a prompt, at
 //! start, on repair, on a rotation and on every removal — plus once after a JDK is installed, since

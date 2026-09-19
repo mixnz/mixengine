@@ -1,6 +1,6 @@
 # T43 — Site → config → reload, end to end
 
-**Roadmap:** T43, `.claude/roadmap/phase-4-sites-and-elevation.md`
+**Roadmap:** T43, `docs/roadmap/phase-4-sites-and-elevation.md`
 **Depends on:** T30 (the generation engine, staging and atomic install), T31 (the Caddy recipe and
 `import sites/*.caddy`), T37 (nginx, `Role::FrontEnd`, `core::services::front_end`), T32 (php-fpm
 pools), T39/T39a (projects, the three site tables, the four kinds), T41 (the hosts entries a
@@ -67,7 +67,7 @@ one — `service.create` refuses a second (T37) — so there is no question of w
 
 ### D3 — One set, one judgement; `Degraded` is deferred and the promise is corrected
 
-`.claude/features/services.md` says today that a site whose configuration is broken "just fails
+`docs/features/services.md` says today that a site whose configuration is broken "just fails
 validation and is skipped, with the site marked `Degraded`". T43 does not do that, and the line is
 corrected rather than left to be discovered.
 
@@ -84,7 +84,7 @@ serving eleven sites out of twelve.
 So: the whole set is judged together, a refusal installs nothing, the front end goes on reading the
 configuration that worked, and the error names the file the checker complained about. `Degraded`
 becomes real when a site can carry a snippet somebody wrote — the extension surface
-(`.claude/features/extensions.md`) is where that arrives, and the deferral is written into
+(`docs/features/extensions.md`) is where that arrives, and the deferral is written into
 `services.md` beside the corrected sentence.
 
 ### D4 — Orphan removal is a swept directory, declared by the recipe
@@ -182,7 +182,7 @@ Nothing starts `npm run dev`, and nothing in this build pretends to.
 
 `services.port` for a front end is what a browser asks for. What the process must listen on is
 `PortBinding::bind`, which on macOS is 8080 for 80 and 8443 for 443 and on the other two systems is
-the same number. Rendering that is T43's, and `.claude/features/services.md` already says so.
+the same number. Rendering that is T43's, and `docs/features/services.md` already says so.
 
 So the front-end templates render the *mapped* value: `http_port` is the binding for the row's port
 — **or for 80 when the row has none**, which is what a front end's row has, since neither recipe
@@ -229,7 +229,7 @@ answer to what `site.start` means when the pool starts and the front end does no
 Both take `SiteQuery` and answer `SiteDetail` — the same request and the same answer as `site.show`,
 because what a caller wants back is the site as it now is. `SiteState` already travels on
 `site.update`, so these two are reachable-by-other-means today; they exist because "start this site"
-is the sentence a person says, and `.claude/features/client-surface.md`'s rule is that a client
+is the sentence a person says, and `docs/features/client-surface.md`'s rule is that a client
 renders what the daemon returns rather than composing an update to express a verb.
 
 ### D10 — A write renders synchronously, and a refusal fails the call

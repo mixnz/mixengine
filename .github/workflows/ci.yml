@@ -1,4 +1,4 @@
-# The eight jobs described in .claude/operations/build-and-release.md: `lint`, `test`, `system`,
+# The eight jobs described in docs/operations/build-and-release.md: `lint`, `test`, `system`,
 # `bench`, `bindings`, `docs`, `desktop` and `build`.
 #
 # `desktop` arrived with T103, the task that brought the desktop application into this repository
@@ -258,7 +258,7 @@ jobs:
           $groups
           $admin = $groups | Select-String -SimpleMatch 'S-1-5-32-544'
           if (-not ($admin -and "$admin" -match 'Enabled group')) {
-            Write-Host '::error::This leg is no longer an elevated administrator, which is good news and not a build failure. Re-read the Privilege section of .claude/standards/testing.md, which concluded the opposite, and delete this step with it.'
+            Write-Host '::error::This leg is no longer an elevated administrator, which is good news and not a build failure. Re-read the Privilege section of docs/standards/testing.md, which concluded the opposite, and delete this step with it.'
             exit 1
           }
 
@@ -524,7 +524,7 @@ jobs:
           "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
 
       # And a real MySQL, for T34c — the other database with these programs' names, and not a
-      # version of the one above. 8.4 is the line `.claude/features/services.md` names; the two 5.x
+      # version of the one above. 8.4 is the line `docs/features/services.md` names; the two 5.x
       # lines take the other two bootstrap routes and are judged by `mixengine-packages`' own smoke
       # test on every published cell, which is where the artifacts that need them are made.
       #
@@ -781,7 +781,7 @@ jobs:
       #
       # Outside the network namespace, deliberately: nothing here reaches a network, and the
       # database it writes into is one it made in a temp directory of its own — which is also what
-      # keeps `.claude/standards/testing.md`'s first rule, since no real browser profile is touched.
+      # keeps `docs/standards/testing.md`'s first rule, since no real browser profile is touched.
       - name: Test against a real certutil
         if: runner.os == 'Linux'
         env:
@@ -950,7 +950,7 @@ jobs:
       # **That the Windows leg runs this at all is T34a.** `postgres` refuses a token holding an
       # enabled `BUILTIN\Administrators`, which the step at the top of this job asserts this runner
       # still has; every supervised child is now created from a restricted copy of it —
-      # `.claude/decisions/0010-supervised-child-never-inherits-administrators.md`.
+      # `docs/decisions/0010-supervised-child-never-inherits-administrators.md`.
       - name: Test against a real PostgreSQL
         if: runner.os != 'Linux' && env.MIXENGINE_POSTGRES_PACKAGE != ''
         timeout-minutes: 15
@@ -1037,7 +1037,7 @@ jobs:
           cargo doc --workspace --no-deps --document-private-items --all-features --locked
           --offline
 
-  # The job `.claude/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
+  # The job `docs/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
   # test. T40 is that task: `mixengine-elevate` creates a root-owned audit directory outside
   # MIXENGINE_HOME, and nothing about that can be proved from an unprivileged process.
   #
@@ -1232,7 +1232,7 @@ jobs:
           sudo -E "$suite" --ignored --nocapture --test-threads=1
 
       # T49a and T54's writes — the only tests in the workspace that touch this machine's own trust
-      # store, and until now the only ones no job ever ran. `.claude/standards/testing.md` rule 1
+      # store, and until now the only ones no job ever ran. `docs/standards/testing.md` rule 1
       # gates them on `MIXENGINE_SYSTEM_TESTS=1` **as well as** `#[ignore]`, because `#[ignore]` alone
       # is not enough: the `test` job runs the `caddy` suite with `--ignored`, and without the second
       # gate a rotation would install and remove a certificate authority on every Windows and macOS
@@ -1355,7 +1355,7 @@ jobs:
           sudo -E "$suite" --ignored --nocapture --test-threads=1
 
       # The daemon's autostart entry — T85b. **This job and no other**, because these tests register a
-      # real logon task and a real systemd user unit: `.claude/standards/testing.md` rule 1 gates them
+      # real logon task and a real systemd user unit: `docs/standards/testing.md` rule 1 gates them
       # on `MIXENGINE_SYSTEM_TESTS=1` as well as `#[ignore]`, and this is the job whose purpose is
       # writing to the machine.
       #
@@ -1541,7 +1541,7 @@ jobs:
           esac
           if [ -f "$log" ]; then cat "$log"; else echo "no log at $log"; fi
 
-  # T29. The performance budgets from .claude/standards/testing.md, of which the shim's is the first
+  # T29. The performance budgets from docs/standards/testing.md, of which the shim's is the first
   # to exist. It is a job of its own rather than a step in `test` for two reasons: these are
   # `#[ignore]`d and would otherwise be skipped there anyway, and they need a **release** build,
   # which is a second compilation of the workspace that no correctness answer should have to wait
@@ -1765,7 +1765,7 @@ jobs:
             'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
              exec cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline -- --ignored --nocapture'
 
-      # **M3**, which is `.claude/features/services.md`'s one number about starting things: caddy,
+      # **M3**, which is `docs/features/services.md`'s one number about starting things: caddy,
       # mariadb and redis healthy in under ten seconds warm. Its own step rather than another
       # `--test` on the line above, for the reason every real-server step in the `test` job has one:
       # a failure should name what failed without anybody reading the log.
@@ -1797,7 +1797,7 @@ jobs:
             'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
              exec cargo test --release -p mixengine-cli --test warm_start --locked --offline -- --ignored --nocapture'
 
-  # T56, and the fifth job of the table in .claude/operations/build-and-release.md: the published
+  # T56, and the fifth job of the table in docs/operations/build-and-release.md: the published
   # TypeScript contract, regenerated from `mixengine-proto` and compared with what is committed.
   # Until this existed, a `ts-rs` type whose committed output had drifted was caught by a person or
   # by nobody.
@@ -1881,7 +1881,7 @@ jobs:
       - name: The corpus builds a site, and the committed command reference is current
         run: bash packaging/docs.sh --check
 
-  # T85, and the sixth job of the table in .claude/operations/build-and-release.md: the artifacts a
+  # T85, and the sixth job of the table in docs/operations/build-and-release.md: the artifacts a
   # person downloads. Three runners and host architecture only — the second architecture on Windows
   # and Linux is a cross-compilation of a workspace that builds SQLite, AWS-LC and libdbus from C on
   # runners that carry no cross toolchain, and it is roadmap task T85a rather than a flag added here.

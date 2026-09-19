@@ -10,7 +10,7 @@ Every Windows PHP from 7.0.33 to 8.5.9, and other Windows builds in the index be
 Visual C++ runtime the index names in `requires.vcredist`. On a machine without it an install
 downloads, unpacks, and ends at a loader error. The runtime is one Microsoft installer, and installing
 it needs administrator rights. Roadmap task T150; design:
-`docs/superpowers/specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md`, D6.
+`docs/specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md`, D6.
 
 ## Decision
 

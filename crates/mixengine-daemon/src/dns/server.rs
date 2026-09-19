@@ -195,7 +195,7 @@ mod tests {
 
     /// A server on a port the operating system chose, and the token that stops it.
     ///
-    /// **Never the configured default**: `.claude/standards/testing.md` forbids a test binding 53,
+    /// **Never the configured default**: `docs/standards/testing.md` forbids a test binding 53,
     /// and an ephemeral port is also what lets several of these run beside each other in one
     /// `cargo test --workspace`.
     async fn answering() -> (SocketAddr, CancellationToken) {

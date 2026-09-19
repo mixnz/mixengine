@@ -147,7 +147,7 @@ builds says so, and is then choosing it rather than discovering it.
   will carry the marker; any step that builds with cargo and then expects the release home moves.
 - **`crates/mixengine-platform/tests/home.rs`** asserts the default path directly.
 - **The documented table lives in three places** — the `HomeDirs` trait doc,
-  `.claude/architecture/overview.md`, and the user guide — and all three would be wrong by half.
+  `docs/architecture/overview.md`, and the user guide — and all three would be wrong by half.
 
 ## Where this sits, and what it does not block
 
@@ -159,7 +159,7 @@ today. Everything that moves, moves for people who build from source.
 release in which a packaging mistake can relocate every user's data, and that risk wants a release
 whose other changes are boring, not one it shares with a rush.
 
-In `.claude/roadmap/phase-9-ship.md` it belongs **immediately after T92 and before the `Milestone M9
+In `docs/roadmap/phase-9-ship.md` it belongs **immediately after T92 and before the `Milestone M9
 — v0.1.0` line**: it is a finding the beta produced, and v0.1.0 is the next milestone that should
 not be declared with it open. It is not appended to the end of the file, which is where a task with
 no argument for its position ends up.
@@ -167,4 +167,4 @@ no argument for its position ends up.
 ## Decision record
 
 Where a user's data lives is a cross-cutting decision, so this lands with an ADR in
-`.claude/decisions/`, not as an edit to an existing one.
+`docs/decisions/`, not as an edit to an existing one.

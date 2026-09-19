@@ -90,8 +90,8 @@ the daemon's and not a client's** because no client may hold that rule — `mix`
 composing it would be a second copy of a charset to keep in step by hand. Nothing is renamed behind
 anybody's back: the composed path is in the plan's `register_project` step, which every client shows
 before anything is created. Roadmap tasks **T120a** and **T120c**;
-designs: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md),
-[2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../../docs/superpowers/specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
+designs: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md),
+[2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
 
 **Quick Start used to compose too, and no longer does** (T120c, withdrawing T120a's D3 and the whole
 of T120b). Two windows meaning different things by *choose a folder* is a longer-lived confusion
@@ -196,7 +196,7 @@ untrusted content when the blueprint came from someone else. **T78a** is what bu
   else is applied and the step is reported not run for that reason. `cmd.exe` never runs a bare
   file with no extension and `bin/` is swept of strangers at every start, so the hint says *put it
   on your PATH and restart the daemon* and never *copy it into `bin/`*. Design:
-  [docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../../docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
+  [docs/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
 - **A command that initialises a project says so, and the directory is checked at plan time.**
   `[scaffold] needs_empty_dir = true` means this command refuses a directory that already holds
   anything — `composer create-project .` stops at the first entry there is, a `.git` included — and

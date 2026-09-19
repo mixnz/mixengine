@@ -9,7 +9,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 
 - [x] **T68** `ResourceLimits` per OS: Job Objects, cgroup v2, macOS QoS; the API reports only
       what the platform really supports, so no client can offer a control that does nothing. **(P)**
-      Design: [2026-08-26-t68-resource-limits-design.md](../../docs/superpowers/specs/2026-08-26-t68-resource-limits-design.md).
+      Design: [2026-08-26-t68-resource-limits-design.md](../specs/2026-08-26-t68-resource-limits-design.md).
       **The macOS watchdog came out of this task and became T71a**, below: warning and restarting at a
       threshold needs a per-process RSS sample taken repeatedly, and that sampler is T71. Building a
       second one here to serve one field on one operating system would put a loop in the supervisor
@@ -37,7 +37,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       different advice. `mix doctor` prints the second and deliberately says nothing about the first.
 - [x] **T69** Idle detection (connections, request counters, query counters) and `IdlePolicy`
       shutdown, with per-project "keep warm". **(P)**
-      Design: [2026-08-26-t69-idle-detection-design.md](../../docs/superpowers/specs/2026-08-26-t69-idle-detection-design.md).
+      Design: [2026-08-26-t69-idle-detection-design.md](../specs/2026-08-26-t69-idle-detection-design.md).
       **It ships switched off, and that is the task's largest decision.** Stopping a pool is only
       safe once something starts it again on the next request, and that is **T70**; so every recipe
       answers `None` to `Recipe::idle_default`, and a home that changes nothing behaves exactly as it
@@ -84,7 +84,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the keep-warm table cannot be read.
 - [x] **T70** On-demand activation, the web path: a stopped php-fpm pool is started by the request
       that needed it, and the front end is what notices. **(P)**
-      Design: [2026-08-29-t70-on-demand-activation-design.md](../../docs/superpowers/specs/2026-08-29-t70-on-demand-activation-design.md),
+      Design: [2026-08-29-t70-on-demand-activation-design.md](../specs/2026-08-29-t70-on-demand-activation-design.md),
       whose D1, D2, D3 and D5 through D9 are this task's; D4 is **T70a**'s.
       **The roadmap line this was split from said "hold the socket", and for a pool that cannot be
       done.** To let php-fpm bind its own socket the daemon has to close its listener and unlink the
@@ -122,7 +122,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the gap is real.
 - [x] **T70a** On-demand activation, the database path: a stopped MariaDB, PostgreSQL, Redis or
       Memcached is started by the connection that needed it. **(P)**
-      Design: [2026-08-29-t70-on-demand-activation-design.md](../../docs/superpowers/specs/2026-08-29-t70-on-demand-activation-design.md),
+      Design: [2026-08-29-t70-on-demand-activation-design.md](../specs/2026-08-29-t70-on-demand-activation-design.md),
       D4 — on T70's mechanism, which is protocol-blind and therefore already suits a client that
       waits to be greeted rather than speaking first.
       **Split out of T70 because it is the half where "hold the socket" is still the answer**, not
@@ -162,7 +162,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       addresses are covered — but the two ends meeting is left to whichever suite runs a real
       database, and it is the same gap T70 recorded rather than a second one.
 - [x] **T71** Metrics history: 1 s sampling while subscribed, 24-hour downsampled retention.
-      Design: [2026-08-30-t71-metrics-history-design.md](../../docs/superpowers/specs/2026-08-30-t71-metrics-history-design.md).
+      Design: [2026-08-30-t71-metrics-history-design.md](../specs/2026-08-30-t71-metrics-history-design.md).
       **The line above and `features/client-surface.md` could not both be kept, and that was the
       task's first decision.** *"Sampled only while watched"* cannot produce a history worth having:
       *what was eating my battery last night* is a question about a night nobody was watching, so a
@@ -216,7 +216,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       because it is the one part of `ResourceLimits` that is not a call on a kernel object — macOS has
       no hard memory cap, so the limit becomes a reading taken repeatedly and compared, which is
       T71's sampler and nothing else. **(P)**
-      Design: [2026-08-30-t71a-macos-memory-watchdog-design.md](../../docs/superpowers/specs/2026-08-30-t71a-macos-memory-watchdog-design.md).
+      Design: [2026-08-30-t71a-macos-memory-watchdog-design.md](../specs/2026-08-30-t71a-macos-memory-watchdog-design.md).
       **It is not macOS-only, and that was the first decision.** The daemon arms the watchdog
       wherever `LimitSupport::memory` is not `Hard`, which is `CLAUDE.md`'s rule about asking the
       platform rather than the operating system's name — and it turns out to buy something: a Linux
@@ -249,7 +249,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the three-state shape T69 had to buy in advance and this gets for nothing.
 - [x] **T72** CI budgets: `mixengined` idle < 32 MB RSS, with the published total reported beside
       it — failing the build on regression. **(P)**
-      Design: [2026-08-30-t72-ci-budgets-design.md](../../docs/superpowers/specs/2026-08-30-t72-ci-budgets-design.md).
+      Design: [2026-08-30-t72-ci-budgets-design.md](../specs/2026-08-30-t72-ci-budgets-design.md).
       **The cold path is not in it, and that is the task's largest finding.** The number was to be a
       real `GET` through Caddy to an idle-stopped php-fpm pool — and on Linux and macOS such a pool
       listens on a *Unix socket*, so `activation_port_needed` and `activator` both answer nothing and
@@ -314,7 +314,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       investigation is a task with a number rather than a paragraph. T72b found most of it and
       lowered the gate to 41 MB.
 - [x] **T72b** Where the five megabytes went — design in
-      [2026-09-07-t72b-one-transport-for-three-signed-documents-design.md](../../docs/superpowers/specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
+      [2026-09-07-t72b-one-transport-for-three-signed-documents-design.md](../specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
       Of T77b, T80, T81, T83, T84, T88, T88a, T96 and T97 — everything that landed between the two
       readings, a longer list than the roadmap had named — one task owned nearly all of it: T88's
       `mix self-update` built its own `reqwest::Client`, on top of the two the package index and the
@@ -336,7 +336,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 - [x] **T72a** The cold path: give a php-fpm pool on a Unix socket the idle probe it never had, and
       gate the published **< 1.5 s** on a real `GET` through the front end. **Split out of T72**,
       which found that the number could not be measured on two of three systems as things stood.
-      Design: [2026-08-30-t72a-cold-path-design.md](../../docs/superpowers/specs/2026-08-30-t72a-cold-path-design.md).
+      Design: [2026-08-30-t72a-cold-path-design.md](../specs/2026-08-30-t72a-cold-path-design.md).
       **The task this entry described did not need doing, and that was the first finding.** It asked
       for the socket to be held while the pool is stopped and rendered as the site's second upstream
       — both of which T70 and T70a had already built: `activator_socket` derives an address beside
@@ -375,7 +375,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       PHP: `php_site.rs`, which proves that and proves a site cannot be asked for its pool's status
       page — mutation-checked by pointing the status path at `/index.php` and watching it go red.
 - [x] **T73** Dev-tuned defaults pass over every service template (buffer pools, memory limits).
-      Design: [2026-08-30-t73-dev-tuned-defaults-design.md](../../docs/superpowers/specs/2026-08-30-t73-dev-tuned-defaults-design.md).
+      Design: [2026-08-30-t73-dev-tuned-defaults-design.md](../specs/2026-08-30-t73-dev-tuned-defaults-design.md).
       **A feature document was promising this and the code was not doing it.**
       `features/resource-isolation.md` said MariaDB's buffer pool was *"tuned down for a dev
       machine"*; every number the three database templates rendered was the one the server would

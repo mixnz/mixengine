@@ -1,6 +1,6 @@
 # T166 — A checkout on an external disk, and a refusal somebody can read
 
-Roadmap task [T166](../../../.claude/roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-19.
+Roadmap task [T166](../roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-19.
 
 **The case this comes from**: this repository checked out on an external SSD
 (`/Volumes/SSD/app/mixengine`), MixLab started with `npm run dev:app`. The window spawned
@@ -198,6 +198,6 @@ the `.cargo/config.toml` entry it describes, and leaves its release/dev split as
   `apps/desktop/src-tauri/src/modules/mixengine/endpoint.rs` — the resolution order.
 - `crates/mixengine-core/src/lib.rs`, `crates/mixengine-core/src/elevation.rs`,
   `crates/mixengine-daemon/src/elevation.rs` — `said` on the error and through the grant.
-- `.claude/decisions/0040-…md`, `.claude/roadmap/phase-17-a-disk-somebody-chose.md` (T166 as a
-  follow-up to T143), `.claude/roadmap/todo.md`, `.claude/architecture/overview.md` (the `run/`
+- `docs/decisions/0040-…md`, `docs/roadmap/phase-17-a-disk-somebody-chose.md` (T166 as a
+  follow-up to T143), `docs/roadmap/todo.md`, `docs/architecture/overview.md` (the `run/`
   paragraph gains the development-home sentence).

@@ -521,7 +521,7 @@ impl Generator {
     /// would be made with, so a caller and a template cannot come to disagree about a value. The
     /// first caller is `mix cert status`, which connects to the front end's `https_port`; the only
     /// other way to learn that number is to read it out of the generated configuration, and
-    /// `.claude/CLAUDE.md` forbids parsing a generated file back into state.
+    /// `CLAUDE.md` forbids parsing a generated file back into state.
     ///
     /// # Errors
     ///
@@ -1949,7 +1949,7 @@ mod tests {
     /// are both refused. [`Generator::generate`] goes through [`Generator::declared`], which
     /// *installs*: a read-only status command would rewrite this home's whole configuration in
     /// order to read one number, and can reload a running server as a side effect of being asked a
-    /// question. Parsing the rendered file back is what `.claude/CLAUDE.md` forbids outright.
+    /// question. Parsing the rendered file back is what `CLAUDE.md` forbids outright.
     #[tokio::test]
     async fn a_services_settings_can_be_read_without_writing_anything() {
         let (_home, generator) = home(r##"{"greeting": "guten tag"}"##).await;

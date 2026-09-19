@@ -1233,7 +1233,7 @@ mod tests {
     /// Three lines, each holding memory or a disk wait that a laptop pays for and never reads:
     /// MyISAM's key cache, the instrumentation MySQL ships on where MariaDB ships it off, and the
     /// flush every commit otherwise waits for. Every one of them exists in 5.6, which is the oldest
-    /// series `.claude/features/services.md` offers — an option file with an unknown directive is
+    /// series `docs/features/services.md` offers — an option file with an unknown directive is
     /// refused whole, so a younger line would stop the server rather than be ignored.
     #[test]
     fn the_configuration_is_tuned_for_a_laptop_rather_than_for_a_server() {

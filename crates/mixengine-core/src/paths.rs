@@ -3,7 +3,7 @@
 //! The layout is identical on all three operating systems — only the root differs, and choosing it
 //! is the platform layer's job ([`mixengine_platform::HomeDirs`]). Nothing outside this root is
 //! ever written except the handful of system files listed in
-//! `.claude/architecture/overview.md`, all of them through `mixengine-elevate` — and the
+//! `docs/architecture/overview.md`, all of them through `mixengine-elevate` — and the
 //! directories the user themselves moved with `[paths]`, which are still MixEngine's to remove.
 
 use std::path::{Path, PathBuf};
@@ -304,7 +304,7 @@ impl Paths {
     /// opens the file, since it is the process that holds the handle.
     ///
     /// A [`ServiceId`] is checked to be a usable directory name when it is parsed (see
-    /// `.claude/architecture/process-supervision.md`), which is what makes this a join rather than
+    /// `docs/architecture/process-supervision.md`), which is what makes this a join rather than
     /// an escaping problem.
     #[must_use]
     pub fn service_logs(&self, service: &ServiceId) -> PathBuf {

@@ -3,7 +3,7 @@
 //!
 //! One function, [`runtime`], used by the shims, the daemon, the CLI and the GUI alike, because two
 //! implementations of this would be two answers to a question that has exactly one. The order is
-//! [runtime-versions.md](../../../.claude/features/runtime-versions.md)'s, and each step is here
+//! [runtime-versions.md](../../../docs/features/runtime-versions.md)'s, and each step is here
 //! rather than in a client for the reason `CLAUDE.md` gives: a GUI that resolved differently from a
 //! shim would make `php -v` in a terminal disagree with the version the window says it is using.
 //!

@@ -31,7 +31,7 @@
 //! Rotating this key is a one-way door. Every installed copy trusts exactly one key, so a build from
 //! before a rotation can never verify a feed signed after it — silently, since T88's client keeps
 //! the last document it verified and logs a refusal nobody reads. See
-//! [updates.md](../../../.claude/features/updates.md) for what a rotation therefore costs and for
+//! [updates.md](../../../docs/features/updates.md) for what a rotation therefore costs and for
 //! the shape of the mitigation nobody has needed yet.
 
 pub mod apply;

@@ -43,6 +43,19 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0041](0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md) | MixEngine stops nothing a person did not ask it to stop | Accepted |
 | [0042](0042-mixlab-starts-at-login-when-a-person-asks-it-to.md) | MixLab starts at login when a person asks it to, and separately from the daemon | Accepted |
 
+### Desktop (recorded in MixDB)
+
+Four decisions the desktop application took before it came to this repository
+([ADR 0027](0027-the-desktop-client-lives-in-this-repository.md)). They keep their dated names:
+renumbering them would make them look like decisions this repository took.
+
+| Date | Decision |
+| --- | --- |
+| [2026-08-10](desktop/2026-08-10-codemirror-for-the-query-editor.md) | CodeMirror 6 for the Query tab's editor |
+| [2026-08-11](desktop/2026-08-11-two-checkers-and-when-they-keep-quiet.md) | Two checkers for the Query tab, and when each keeps quiet |
+| [2026-08-31](desktop/2026-08-31-gpl-and-signpath-for-free-code-signing.md) | GPL-3.0, so that code signing can be free |
+| [2026-09-17](desktop/2026-09-17-mixlab-redesign-tokens-themes-densities.md) | MixLab's redesign: one token set, two themes, two densities, no glass |
+
 ## Template
 
 ```markdown

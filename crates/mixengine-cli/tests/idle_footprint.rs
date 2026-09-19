@@ -38,7 +38,7 @@
 //!
 //! Restarting the daemon and letting the next one adopt Caddy would be much closer to an idle
 //! machine, and cannot be done on two of the three systems: per [ADR
-//! 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md), a daemon leaving
+//! 0007](../../../docs/decisions/0007-supervised-child-owns-a-process-group.md), a daemon leaving
 //! takes its whole job down on Windows and its immediate children on Linux, so there would be
 //! nothing left to adopt and this would measure a daemon standing alone.
 //!
@@ -89,7 +89,7 @@ use harness::json;
 ///
 /// The fix built one transport and handed clones of it to the package index, extension registry
 /// and update feed clients instead of three independent ones — [the T72b
-/// design](../../../docs/superpowers/specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
+/// design](../../../docs/specs/2026-09-07-t72b-one-transport-for-three-signed-documents-design.md).
 /// Re-measured on the same machine, release, five runs: 30.7–34.2 MB. That spread is wider than the
 /// paired A/B the T72b design was measured with — most likely this machine under more background
 /// load by the time of the reading rather than the fix itself — and it is written down rather than

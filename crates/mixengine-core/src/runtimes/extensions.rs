@@ -244,7 +244,7 @@ fn prefix(name: &str) -> &'static str {
 
 /// Where this runtime's generated ini set lives: `etc/<kind>/<version>/conf.d/`.
 ///
-/// **Under `etc/` and not inside the install**, which is what `.claude/features/runtime-versions.md`
+/// **Under `etc/` and not inside the install**, which is what `docs/features/runtime-versions.md`
 /// said before T28 and what this changes: an install is a rename of a staging directory over the
 /// destination, so a generated `conf.d` living inside it is destroyed by reinstalling the same
 /// version — and generated configuration is disposable by the project's own rule.

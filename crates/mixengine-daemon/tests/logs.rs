@@ -4,7 +4,7 @@
 //! a subscription under one lock is provable in one process; that a person watching a service sees
 //! what it printed before they connected *and* what it prints afterwards, over a socket, from a
 //! daemon that is also supervising it, is not. The seam between the two is the whole feature — see
-//! `.claude/decisions/0009-logs-travel-on-their-own-stream.md`.
+//! `docs/decisions/0009-logs-travel-on-their-own-stream.md`.
 //!
 //! **The service is a `fakeservice` row**, rendered into a spec by the daemon's own generator (T30)
 //! through a recipe compiled into debug builds only, so these are ignored in a release build for the

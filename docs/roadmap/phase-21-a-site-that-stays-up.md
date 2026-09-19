@@ -6,7 +6,7 @@ unless a person has turned on Save battery, and the web server comes back with t
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-19-t167-a-site-that-was-up-stays-up-design.md](../../docs/superpowers/specs/2026-09-19-t167-a-site-that-was-up-stays-up-design.md).
+Design: [2026-09-19-t167-a-site-that-was-up-stays-up-design.md](../specs/2026-09-19-t167-a-site-that-was-up-stays-up-design.md).
 Decision: [ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md).
 
 ---

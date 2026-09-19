@@ -1,7 +1,7 @@
 //! The internal certificate authority: making one, reading one, and refusing to replace one.
 //!
 //! **A certificate cannot carry a hash of itself**, which is what
-//! `.claude/architecture/security-model.md` asks for when it names the subject
+//! `docs/architecture/security-model.md` asks for when it names the subject
 //! `MixEngine Local CA <short-fingerprint>`: the subject is inside the bytes the fingerprint is
 //! over, so no ordering produces it. The eight characters in the name come from the **public key**
 //! instead — computable the moment the key pair exists, and stable across re-signing the same key,

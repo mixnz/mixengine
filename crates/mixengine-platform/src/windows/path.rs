@@ -13,7 +13,7 @@
 //!
 //! # Why the API rather than `setx`
 //!
-//! `.claude/architecture/platform-abstraction.md`, rule 5: use the Windows API where there is one.
+//! `docs/architecture/platform-abstraction.md`, rule 5: use the Windows API where there is one.
 //! `setx` would do the job and would also **truncate the value at 1024 characters**, which is a
 //! documented limit of that tool and not of the registry — on a developer's machine a user `Path`
 //! past a kilobyte is ordinary, and the failure mode is losing the second half of somebody's PATH

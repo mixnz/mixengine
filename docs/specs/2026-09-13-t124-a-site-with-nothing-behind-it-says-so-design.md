@@ -18,7 +18,7 @@ An apply of a blueprint with no `[scaffold]` ends with an empty directory, by co
 - `projects.create` writes no `mixengine.toml`. Pins live in SQLite, so there is not even that.
 
 Three of the six shipped blueprints carry no scaffold on purpose — `wordpress`, `django`, `static`
-— and the reasoning in [blueprints.md](../../../.claude/features/blueprints.md) says why: a gallery
+— and the reasoning in [blueprints.md](../features/blueprints.md) says why: a gallery
 command may not write into a shared runtime, which is what removed Django's. So *the empty directory
 is the designed outcome for half the gallery*, not an accident to be scaffolded away.
 
@@ -245,13 +245,13 @@ end-to-end tests already in `crates/mixengine-core/tests/blueprint_gallery.rs`.
 ## What this closes, and where it is written
 
 - Roadmap task **T124** in
-  [.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../../../.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md),
+  [docs/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../roadmap/phase-14-a-window-a-new-user-can-start-from.md),
   where milestone M14 already promises *"a browser open on a working `https://<name>.test`"*. Today
   that promise holds only for a site somebody has already put code into.
-- An ADR in [.claude/decisions/](../../../.claude/decisions/): **a site with nothing behind it is
+- An ADR in [docs/decisions/](../decisions/): **a site with nothing behind it is
   answered by MixEngine, not by the web server's default page**. It is cross-cutting — it changes
   what every generated site configuration contains, for homes that already exist — so it is a
   decision record and not a template edit.
-- [.claude/features/blueprints.md](../../../.claude/features/blueprints.md) gains one sentence under
+- [docs/features/blueprints.md](../features/blueprints.md) gains one sentence under
   *Apply*: an apply that writes no source code still ends at a page, and a blueprint with no
   `[scaffold]` is a complete blueprint rather than half of one.

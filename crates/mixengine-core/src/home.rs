@@ -9,7 +9,7 @@
 //! So a home carries an identity, and [`services::handoff::secret_key`](crate::services::handoff::secret_key)
 //! puts it in front of every address. What that identity is, and why it is not derived from the
 //! path, is argued in `migrations/0021_home_id.sql` and in
-//! [ADR 0032](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md).
+//! [ADR 0032](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md).
 
 use crate::{Error, Result, Store};
 

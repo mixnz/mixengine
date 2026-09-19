@@ -70,11 +70,11 @@ resolves a service to an address and renders the URL. `mixengine-proto` — `dat
 `mix database client` and `mix database open`. `mixengine-testkit` — nothing new; the fixture manifest
 is already there.
 
-Documentation: [features/extensions.md](../../../.claude/features/extensions.md) gains the handoff
-contract; [features/client-surface.md](../../../.claude/features/client-surface.md)'s gap becomes a
-claim; [architecture/daemon-and-ipc.md](../../../.claude/architecture/daemon-and-ipc.md) gains the
+Documentation: [features/extensions.md](../features/extensions.md) gains the handoff
+contract; [features/client-surface.md](../features/client-surface.md)'s gap becomes a
+claim; [architecture/daemon-and-ipc.md](../architecture/daemon-and-ipc.md) gains the
 `database.*` namespace it never listed;
-[architecture/platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md) gains
+[architecture/platform-abstraction.md](../architecture/platform-abstraction.md) gains
 the trait; the roadmap.
 
 **Out:**
@@ -351,7 +351,7 @@ mix database open mariadb@main --user blog --database blog
 
 ## Testing
 
-Where the rule lives, per `.claude/standards/testing.md`.
+Where the rule lives, per `docs/standards/testing.md`.
 
 **Unit, `mixengine-core`.** `handoff::url` renders each protocol, omits `user`/`database`/
 `password_env` when absent, and percent-encodes `@` and a space; the rendered URL for a server with an

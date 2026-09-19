@@ -1,8 +1,8 @@
 # The window is in every installer — design
 
-Roadmap task **T105**, [phase 12](../../../.claude/roadmap/phase-12-one-product.md), on the
+Roadmap task **T105**, [phase 12](../roadmap/phase-12-one-product.md), on the
 merge design's [D8](2026-09-08-the-desktop-client-in-this-repository-design.md#d8-packaging-a-fifth-binary-and-the-same-six-installers)
-and [ADR 0027](../../../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md).
+and [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md).
 
 ## Goal
 
@@ -19,7 +19,7 @@ webview for it. A new **headless** archive per OS/arch carries the four binaries
 and declares nothing.
 
 Nothing about the updater changes here. `updates::apply`, `latest.json` and the Tauri updater plugin
-are [T106](../../../.claude/roadmap/phase-12-one-product.md)'s.
+are [T106](../roadmap/phase-12-one-product.md)'s.
 
 ## Decisions
 

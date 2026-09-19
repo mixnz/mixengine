@@ -2,7 +2,7 @@
 # Sign every artifact in a distribution directory, and prove the signatures are ones MixEngine will
 # accept — roadmap task T86.
 #
-# Design: docs/superpowers/specs/2026-09-04-t86-updater-signing-design.md
+# Design: docs/specs/2026-09-04-t86-updater-signing-design.md
 #
 # **Never add `set -x` to this file.** The password reaches minisign on stdin and the secret key is
 # written to disk for the length of the run; a trace would put both in a log.

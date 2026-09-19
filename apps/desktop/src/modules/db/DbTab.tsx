@@ -911,7 +911,7 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
    * browser, which then asked the backend for Redis things and was told "This is not a Redis
    * connection". The kind reaching here is either one this build knows but cannot browse yet, or
    * one saved by a newer version — see
-   * docs/superpowers/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md, which
+   * docs/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md, which
    * fixed the icon and the label on that path but not this one.
    *
    * Saying so is the whole of it. Rendering some other engine's workspace is worse than rendering

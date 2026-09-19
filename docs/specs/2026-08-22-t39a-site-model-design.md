@@ -1,6 +1,6 @@
 # T39a — The site model, and the domain that can only belong to one site
 
-*Design, 2026-08-22. Roadmap task [T39a](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-22. Roadmap task [T39a](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
@@ -292,7 +292,7 @@ Three rules, and the first is D10 of T39 one level deeper:
 - The kind's keys are written from an exhaustive `match` on `SiteKind`, which the compiler refuses to
   leave unhandled when a fifth kind arrives. `doc_root` is written relative, as stored. Domains are
   written as `domain` plus `aliases` — one key more than the example in
-  [data-model.md](../../../.claude/architecture/data-model.md), which is updated in the same change
+  [data-model.md](../architecture/data-model.md), which is updated in the same change
   rather than left to disagree.
 
 ### D10 — `core::domains` holds the whole policy, and the default name is refused rather than invented
@@ -302,7 +302,7 @@ starting nor ending in `-`; each label at most 63 bytes and the whole name at mo
 labels. No `*` — a wildcard is what T44 answers by pattern, not a row in a table. No IDN: punycode is
 recorded as unsupported rather than half-handled.
 
-The TLD table is [domains-and-dns.md](../../../.claude/features/domains-and-dns.md)'s, unchanged:
+The TLD table is [domains-and-dns.md](../features/domains-and-dns.md)'s, unchanged:
 `.test` is the default, `.localhost` is accepted, `.local` needs the explicit acknowledgement that
 doc already names `--i-know` on the CLI (`accept_risky_tld` on the wire), and every public TLD is
 refused with `.test` in the hint. The managed set is compiled in; if it ever belongs in

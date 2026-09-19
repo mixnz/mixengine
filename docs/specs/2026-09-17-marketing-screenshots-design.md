@@ -213,7 +213,7 @@ guards `src/components`, `src/core`, `src/icons`, `src/shell` and `src/i18n` onl
 ## Documentation
 
 - `apps/desktop/CLAUDE.md` gains the `npm run screenshots` row in its command table.
-- `.claude/desktop/conventions/demo-screenshots.md` explains running it, reading a failure, and the
+- `docs/standards/desktop/demo-screenshots.md` explains running it, reading a failure, and the
   two things a new backend command reached by a scene needs: a fixture, typed.
 
 ## Out of scope

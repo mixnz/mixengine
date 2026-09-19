@@ -2,9 +2,9 @@
 
 Roadmap task **T80**, phase 8. `extension.toml` has been named in this workspace since before there
 was anything to read it: `ServiceSpec`'s own module doc says an `extension.toml` declares one,
-[ADR 0006](../../../.claude/decisions/0006-servicespec-in-proto-and-secret-free.md) was written with
+[ADR 0006](../decisions/0006-servicespec-in-proto-and-secret-free.md) was written with
 that file among its three callers, and
-[security-model.md](../../../.claude/architecture/security-model.md) carries a bullet marked *"not
+[security-model.md](../architecture/security-model.md) carries a bullet marked *"not
 built — arrives with T80"*. This task writes the file format those lines were written against, and
 finds that two of them said something the types cannot do.
 
@@ -28,9 +28,9 @@ what stops an extension reaching the LAN, **enforced rather than documented**.
 the per-kind summaries); `mixengine-core` (`extensions::manifest`, `extensions::render`);
 `mixengine-daemon` (`extension.inspect`); `mixengine-cli` (`mix extension inspect`, one rendering);
 `mixengine-testkit` (four manifest fixtures). Documentation:
-[features/extensions.md](../../../.claude/features/extensions.md),
-[architecture/security-model.md](../../../.claude/architecture/security-model.md),
-[architecture/process-supervision.md](../../../.claude/architecture/process-supervision.md), and a
+[features/extensions.md](../features/extensions.md),
+[architecture/security-model.md](../architecture/security-model.md),
+[architecture/process-supervision.md](../architecture/process-supervision.md), and a
 new ADR 0014.
 
 **Out:** the `extensions` table, install, uninstall, start, stop, the registry, signatures, port
@@ -42,9 +42,9 @@ is the thing T79b's D5 spent a migration correcting.
 
 ### D1 — The manifest is its own type, and the spec is built rather than deserialised
 
-[features/extensions.md](../../../.claude/features/extensions.md) says `[service]` *"deserialises
+[features/extensions.md](../features/extensions.md) says `[service]` *"deserialises
 into the `ServiceSpec` vocabulary"*, and
-[process-supervision.md](../../../.claude/architecture/process-supervision.md) says twice that a
+[process-supervision.md](../architecture/process-supervision.md) says twice that a
 spec arrives by `Deserialize` from an `extension.toml`. **It cannot.**
 
 `ServiceSpec` has sixteen fields and the table in the feature doc has four. It has no `id` — the
@@ -146,7 +146,7 @@ it a placeholder is a task with a consumer, not a field.
 
 ### D6 — `permissions.services` is a disclosure, not a boundary — and there is no token
 
-The roadmap line and [security-model.md](../../../.claude/architecture/security-model.md) both
+The roadmap line and [security-model.md](../architecture/security-model.md) both
 promise extensions "their own scoped token". **It would not be a control.**
 
 An extension runs as the user's own account. The IPC endpoint's access control *is* the account —
@@ -202,7 +202,7 @@ way to have one.
 
 ### D8 — A `web-app` cannot ask for `lan`
 
-[features/extensions.md](../../../.claude/features/extensions.md) says web-app extensions are
+[features/extensions.md](../features/extensions.md) says web-app extensions are
 "never exposed to the LAN". That is a sentence today; here it is the parse refusing
 `network = "lan"` under `kind = "web-app"`.
 

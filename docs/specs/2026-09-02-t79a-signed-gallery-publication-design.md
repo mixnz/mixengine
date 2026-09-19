@@ -24,7 +24,7 @@ mix blueprint import ~/Downloads/laravel.toml --overwrite    # trusted, no --nam
 published files are for, and the case they exist for needs no flag.)
 
 `.minisig` beside the file is not decoration: it is the name
-[`blueprint.import`](../../../crates/mixengine-daemon/src/blueprints.rs) already looks for when the
+[`blueprint.import`](../../crates/mixengine-daemon/src/blueprints.rs) already looks for when the
 request names no signature.
 
 **That command does not work today**, and finding out why is what grew this task past a workflow.
@@ -42,12 +42,12 @@ that stops being true the moment any of them exists — the second-key section o
 `docs/roadmap.md`.
 
 **In, this repository:** D10 — the slug a file arrives under — which touches
-[`blueprints.rs`](../../../crates/mixengine-daemon/src/blueprints.rs)' `import`, the doc comment on
-[`BlueprintImport::name`](../../../crates/mixengine-proto/src/blueprint_api.rs) and the `--name` help
-in [`main.rs`](../../../crates/mixengine-cli/src/main.rs); the two tests D9 names; the download
+[`blueprints.rs`](../../crates/mixengine-daemon/src/blueprints.rs)' `import`, the doc comment on
+[`BlueprintImport::name`](../../crates/mixengine-proto/src/blueprint_api.rs) and the `--name` help
+in [`main.rs`](../../crates/mixengine-cli/src/main.rs); the two tests D9 names; the download
 channel written into
-[`.claude/features/blueprints.md`](../../../.claude/features/blueprints.md); T79a ticked in
-[phase 8](../../../.claude/roadmap/phase-8-differentiators.md).
+[`docs/features/blueprints.md`](../features/blueprints.md); T79a ticked in
+[phase 8](../roadmap/phase-8-differentiators.md).
 
 **Out:** anything that fetches. The daemon does not learn to download a blueprint, now or here —
 T79's D1 refused a gallery that arrives over the network and this does not reopen it; what is
@@ -82,7 +82,7 @@ reads one, and a superseded manifest has nobody to keep working for.
 **D3 — The workflow proves the key chain, not merely the signature.** `publish-index.yml` verifies
 what it signed against the committed `minisign.pub`, which answers *did the secret and the public
 half match*. That is one link short here. The link that matters is
-[`blueprints::trust::PUBLIC_KEY`](../../../crates/mixengine-core/src/blueprints/trust.rs) — the
+[`blueprints::trust::PUBLIC_KEY`](../../crates/mixengine-core/src/blueprints/trust.rs) — the
 constant every installed MixEngine checks against — and the workflow already has that file on disk,
 because D1 checked the repository out. So it reads the constant out of `trust.rs`, compares it with
 the second line of `blueprints.pub`, and fails the run before signing anything when they differ.
@@ -119,7 +119,7 @@ hyphens, no leading or trailing hyphen — and the directory is not empty. The s
 because the stem is what the blueprint gets filed under (D10); `[blueprint] name` is display text and
 is deliberately not a slug. It does **not** hardcode “six” or the six names. How many blueprints the gallery has is this
 repository's decision, asserted by
-[`the_gallery_is_the_six_the_roadmap_names`](../../../crates/mixengine-core/tests/blueprint_gallery.rs);
+[`the_gallery_is_the_six_the_roadmap_names`](../../crates/mixengine-core/tests/blueprint_gallery.rs);
 a number repeated over there would be a roster to keep in step by hand, and the drift check in D6 is
 what makes a deliberate addition or removal visible anyway.
 
@@ -157,7 +157,7 @@ The row has carried both columns since T77 — `slug` is the key, `name` is disp
 gallery is what makes the difference visible: `Static site` and `Next.js` are good names for a
 human and cannot be slugs at all. The stem is also the only fallback that round-trips this
 product's own output: everything MixEngine renders is written as `<slug>.toml` by
-[`store::file`](../../../crates/mixengine-core/src/blueprints/store.rs), so a blueprint exported
+[`store::file`](../../crates/mixengine-core/src/blueprints/store.rs), so a blueprint exported
 from one machine and imported on another keeps its name. The old fallback did that only when the
 two happened to be the same string, which is why T78a's test — a hand-written `borrowed.toml` named
 `borrowed` — never noticed.

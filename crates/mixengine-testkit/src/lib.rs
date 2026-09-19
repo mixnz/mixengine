@@ -2,8 +2,8 @@
 //!
 //! Seven things live here: a home directory that exists only for the test that made it, a way to
 //! stop a process this test is not the parent of, the `fakeservice` binary the supervisor is
-//! tested against (`.claude/standards/testing.md`,
-//! `.claude/architecture/process-supervision.md`), the `services` row a test has to write for
+//! tested against (`docs/standards/testing.md`,
+//! `docs/architecture/process-supervision.md`), the `services` row a test has to write for
 //! itself until T30 can create one, a signed package index over a real socket, and a real archive
 //! to install from it.
 //! The first two were each written twice somewhere else before they were written once here; the third arrives here first, because the four crates that will spawn it

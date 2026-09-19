@@ -334,8 +334,8 @@ pub async fn mssql_drop_index(
 }
 
 /// Writes `database` out as SQL — `mode` is `structure`, `data` or `all`. See
-/// `docs/superpowers/specs/2026-09-05-mssql-support-design.md`'s D10 and
-/// `docs/superpowers/plans/2026-09-05-mssql-plan-7-dump-restore.md`.
+/// `docs/specs/2026-09-05-mssql-support-design.md`'s D10 and
+/// `2026-09-05-mssql-plan-7-dump-restore.md` (a local plan, never committed).
 #[tauri::command]
 pub async fn mssql_dump(
     app: AppHandle,

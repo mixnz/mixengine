@@ -7,7 +7,7 @@ stops being safe.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../../docs/superpowers/specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
+Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
 
 ---
 
@@ -117,7 +117,7 @@ first row has recorded an absolute path.
       helper's reason reaches the error**: `Elevation::run` returns `Raised { outcome, said }`
       (osascript's framing stripped on macOS, pkexec's stderr captured on Linux, nothing on
       Windows), and `ElevateReportMissing` ends in it, where it used to stop at a `debug` line.
-      Design: [2026-09-19-t166-a-checkout-on-an-external-disk-design.md](../../docs/superpowers/specs/2026-09-19-t166-a-checkout-on-an-external-disk-design.md).
+      Design: [2026-09-19-t166-a-checkout-on-an-external-disk-design.md](../specs/2026-09-19-t166-a-checkout-on-an-external-disk-design.md).
 
 **Milestone M17** — on a fresh install the window offers a disk before anything is installed, a
 runtime and a service land on it, `mix uninstall --dry-run` names it, and an elevation prompt still

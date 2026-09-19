@@ -9,7 +9,7 @@ A complaint from somebody using the finished product: a Node program fetching a 
 this home's own sites failed with `unable to verify the first certificate`, while a browser on the
 same machine showed a padlock on the same site at the same moment.
 
-Both were right. `.claude/features/tls.md` has MixEngine install its authority into the **operating
+Both were right. `docs/features/tls.md` has MixEngine install its authority into the **operating
 system's** trust store, which is what a browser reads. No language runtime reads that store:
 
 - **Node** ships a compiled-in copy of the Mozilla set and consults nothing else unless told to.
@@ -23,7 +23,7 @@ system's** trust store, which is what a browser reads. No language runtime reads
 So nothing was broken. MixEngine had simply never told a runtime anything.
 
 Design:
-[docs/superpowers/specs/2026-09-15-t130-what-a-terminal-inherits-design.md](../../docs/superpowers/specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
+[docs/specs/2026-09-15-t130-what-a-terminal-inherits-design.md](../specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
 
 ## Decision
 

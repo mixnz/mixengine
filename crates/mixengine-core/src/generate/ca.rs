@@ -2,11 +2,11 @@
 //!
 //! MixEngine installs its authority into the **operating system's** trust store, which is what
 //! makes a browser show a padlock on `https://blog.test`
-//! ([tls.md](../../../../.claude/features/tls.md)). No language runtime reads that store:
+//! ([tls.md](../../../../docs/features/tls.md)). No language runtime reads that store:
 //!
 //! - **Node** ships a compiled-in copy of the Mozilla set and consults nothing else unless told to.
 //! - **Ruby**'s OpenSSL resolves its default against the loaded `libcrypto` — a `ssl/cert.pem`
-//!   inside the moved tree ([runtime-packaging.md](../../../../.claude/operations/runtime-packaging.md)).
+//!   inside the moved tree ([runtime-packaging.md](../../../../docs/operations/runtime-packaging.md)).
 //! - **Python** uses OpenSSL's default paths, and `certifi`'s vendored bundle above that.
 //! - **PHP** uses `openssl.cafile` and `curl.cainfo`, and the Windows artifact ships no CA file at
 //!   all — so PHP there cannot verify *any* HTTPS through the openssl streams, and a local site is
@@ -32,7 +32,7 @@
 //! corporate laptop with an inspection proxy's certificate in the OS store, a Python script will
 //! now trust that proxy — exactly as the browser beside it already does. That is the intended
 //! behaviour and it is why this has a decision record of its own
-//! ([ADR 0034](../../../../.claude/decisions/0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md)).
+//! ([ADR 0034](../../../../docs/decisions/0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md)).
 //!
 //! # The floor
 //!
@@ -60,7 +60,7 @@ pub const ROOT_FLOOR: usize = 20;
 
 /// Where the bundle goes.
 ///
-/// Under `etc/` and not under `certs/`, because `.claude/CLAUDE.md` puts generated configuration
+/// Under `etc/` and not under `certs/`, because `CLAUDE.md` puts generated configuration
 /// there and says it is disposable: this file is rebuilt from the OS store and the authority on
 /// every start, and nothing ever reads it back into state. `certs/` holds what cannot be rebuilt.
 #[must_use]

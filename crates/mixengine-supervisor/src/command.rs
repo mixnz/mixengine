@@ -13,7 +13,7 @@
 //! with, and handing both to its own commands is not a convenience. `mariadb-admin` finds the socket
 //! it should ask about through `HOME` and the same generated config the server read; a credential
 //! reaches it through the environment, which is the whole point of `EnvValue::Keyring`
-//! (`.claude/decisions/0006-servicespec-in-proto-and-secret-free.md`) and is why it must not travel
+//! (`docs/decisions/0006-servicespec-in-proto-and-secret-free.md`) and is why it must not travel
 //! in an argument list every process table on the machine can read. A
 //! probe given the daemon's surroundings instead would be asking a well-formed question about a
 //! different server, and answering it would be worse than not asking.
@@ -45,7 +45,7 @@ pub struct Surroundings {
 /// Written by hand, and the values are the reason.
 ///
 /// This environment is the resolved one — `EnvValue::Keyring` has already been read by the time it
-/// gets here, so `MYSQL_PWD` is in there as the password itself. `.claude/standards/rust.md`'s rule
+/// gets here, so `MYSQL_PWD` is in there as the password itself. `docs/standards/rust.md`'s rule
 /// is that a struct which *might* hold a secret redacts it rather than trusting every caller that
 /// ever writes `{:?}`, and this type is re-exported from the crate root and held by a
 /// `#[derive(Debug)]` runner in the daemon — a `tracing` field on a stop that went wrong is one

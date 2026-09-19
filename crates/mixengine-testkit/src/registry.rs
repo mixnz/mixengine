@@ -1,6 +1,6 @@
 //! A package index served over a real socket, signed with a real key.
 //!
-//! `.claude/standards/testing.md` forbids network access in tests and CI blocks egress to enforce
+//! `docs/standards/testing.md` forbids network access in tests and CI blocks egress to enforce
 //! it, so everything that reads an index has to read one from here. Deliberately **not** a fake
 //! `Client`: the parts most worth testing are the signature check and the cache policy, and a
 //! double that skipped either would be a test of the double.

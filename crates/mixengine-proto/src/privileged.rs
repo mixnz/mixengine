@@ -3,7 +3,7 @@
 //! The daemon writes a [`PrivilegedRequest`] into a fresh single-use directory, raises the OS
 //! elevation prompt on the helper with that file's path as its one argument, and reads the
 //! [`PrivilegedResponse`] the helper leaves beside it. See
-//! `.claude/decisions/0005-on-demand-elevation.md` and the T40 design for why it is files and not a
+//! `docs/decisions/0005-on-demand-elevation.md` and the T40 design for why it is files and not a
 //! socket: the helper has no listener, no idle state, and exists for seconds.
 //!
 //! **The response file is the protocol.** When it is there, it is the answer and the exit code says
@@ -471,7 +471,7 @@ pub enum TrustTarget {
 
 /// The closed list of things that cross into the elevated process.
 ///
-/// See `.claude/architecture/platform-abstraction.md`: the list is closed against operations **with
+/// See `docs/architecture/platform-abstraction.md`: the list is closed against operations **with
 /// effects**, and adding one of those requires an ADR. [`PrivilegedOp::Probe`] has none.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "op", rename_all = "kebab-case", deny_unknown_fields)]
@@ -578,7 +578,7 @@ pub enum PrivilegedOp {
     /// **It carries nothing, and that is the design** (the T85 design, D2). The alternative — a
     /// `source` field — would hand a compromised daemon a primitive it does not have today: *copy
     /// this file, as root, into a directory only root can write*. That is `Exec { cmd }` with two
-    /// more steps, and the closed-enum rule in `.claude/architecture/security-model.md` exists to
+    /// more steps, and the closed-enum rule in `docs/architecture/security-model.md` exists to
     /// refuse exactly this shape. What is copied is the elevated process's own image; where it goes
     /// is a constant compiled into that binary. Neither end of the copy is anything the caller said.
     ///

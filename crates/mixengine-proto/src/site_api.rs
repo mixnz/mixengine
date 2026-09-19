@@ -364,7 +364,7 @@ pub struct SiteSummary {
     /// Not the order somebody typed: overlaps are resolved by specificity where the configuration is
     /// rendered, so a listing showing declaration order would be showing something the front end
     /// does not do. Optional on the wire,
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
+    /// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub routes: Vec<SiteRoute>,
 

@@ -3,7 +3,7 @@
 Roadmap task **T85c**, phase 9: *"`mixengine-shim` is in none of the six artifacts."*
 
 `packaging/common.sh` names three binaries, `packaging/stage.sh` builds three crates, and
-[`core::shims::source`](../../../crates/mixengine-core/src/shims.rs) looks for a **fourth** beside
+[`core::shims::source`](../../crates/mixengine-core/src/shims.rs) looks for a **fourth** beside
 the running `mixengined`. When it is not there the daemon answers `Error::ShimMissing`, `<root>/bin`
 stays empty, and with it goes **every runtime command the product exists to provide**. A release
 installed from any of the six artifacts starts, reports itself healthy, and cannot run `php`.
@@ -21,7 +21,7 @@ in a project gets PHP. Nothing else about any artifact changes.
 Read on 2026-09-05 out of this tree rather than reasoned about.
 
 1. **`shims::source` has no fallback.** `program.parent().join("mixengine-shim<EXE_SUFFIX>")`, and
-   `Error::ShimMissing` when that is not a file — [shims.rs:260](../../../crates/mixengine-core/src/shims.rs).
+   `Error::ShimMissing` when that is not a file — [shims.rs:260](../../crates/mixengine-core/src/shims.rs).
    There is no `PATH` search and deliberately so: a `PATH` search would find the *copy in `bin/`* on
    a machine already set up, and copying a shim from `bin/` into `bin/` would make an upgrade a
    no-op.
@@ -39,8 +39,8 @@ Read on 2026-09-05 out of this tree rather than reasoned about.
    See D8.
 6. **The shim is 3.7 MB of a 31.8 MB release** on `x86_64-pc-windows-msvc` — `mix` 6.4 MB,
    `mixengined` 24.6 MB, `mixengine-elevate` 0.8 MB. Adding it grows a payload by ~12%.
-7. **Two documents already assert the fix.** `.claude/features/updates.md` and
-   [ADR 0017](../../../.claude/decisions/0017-smart-app-control-is-an-unsupported-configuration.md)
+7. **Two documents already assert the fix.** `docs/features/updates.md` and
+   [ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md)
    both say *"`mix.exe`, `mixengined.exe`, `mixengine-elevate.exe` and `mixengine-shim.exe` are the
    whole of what this project builds. **W1** measures all of them"*. W1 reads the portable zip, so
    that sentence is false today and true the day this lands.
@@ -53,7 +53,7 @@ test that ties `MIX_BINARIES` to the code's own constants; the two documents tha
 
 **Out.** Changing `shims::source` to search anywhere. Changing `apply::swap`'s rule that an update
 never *adds* a binary (see *What this leaves*). Anything about `mixengine-elevate`'s placement,
-which is [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md)'s and unchanged.
+which is [ADR 0015](../decisions/0015-the-helper-installs-itself.md)'s and unchanged.
 
 ## Where the fourth binary goes
 
@@ -164,7 +164,7 @@ line longer, because the thing being asserted there is the layout and not the co
 
 T85c was possible because `MIX_BINARIES` is a list nothing forces to agree with the code that needs
 its entries. `packaging/updates.pub` had the same shape and is pinned by a test in
-[updates.rs](../../../crates/mixengine-core/src/updates.rs) that `include_str!`s the committed file
+[updates.rs](../../crates/mixengine-core/src/updates.rs) that `include_str!`s the committed file
 — *"read at compile time on purpose: a file that is deleted or moved is then a build error, rather
 than a test that reads nothing and passes"*. The same trick applies here.
 

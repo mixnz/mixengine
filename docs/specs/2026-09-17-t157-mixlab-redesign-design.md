@@ -44,7 +44,7 @@ MixEngine cannot do, or leaves out something MixLab already does, this document 
 - **`DiskUsage`** answers five categories, each with `bytes`, `reclaim` and an optional
   `unreadable` note, plus `other_bytes`.
 - **`ServiceRole`** distinguishes only `front_end` from `other`, and
-  [ADR 0026](../../../.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)
+  [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)
   forbids a client from mapping a package name to a role.
 - **`BlueprintSummary`** carries `slug`, `name`, `description`, `created_at`, `source`, `trusted`,
   `signature`, `file` — no category, no stack, no post-apply hint.
@@ -277,7 +277,7 @@ values when it creates a terminal and re-applies them when `data-theme` changes 
 ## Components
 
 All in `src/components/`, one folder each, CSS Modules, per
-[component-structure](../../../.claude/desktop/conventions/component-structure.md). Sizes come from
+[component-structure](../standards/desktop/component-structure.md). Sizes come from
 the density tokens in D5, so none of them takes a `size` prop for density.
 
 ### Restyled
@@ -344,7 +344,7 @@ the density tokens in D5, so none of them takes a `size` prop for density.
 - **EmptyState** — a centred title, a `--text-muted` line and an optional action, drawn inside a
   card or on a dashed `--border-strong` outline.
 
-The [using-shared-components](../../../.claude/skills/using-shared-components/) skill's catalogue is
+The [using-shared-components](../../.claude/skills/using-shared-components/) skill's catalogue is
 updated with every new component in the task that adds it.
 
 ## Shell
@@ -556,7 +556,7 @@ No artboard exists for these, so they take the system and keep their layouts.
 | *Open in dashboard* on the Services screen | The dashboard is one click away in the sidebar |
 | The *Database / Cache / PHP runtime* kind line under a service | Only `front_end` is a role (ADR 0026); anything more is a client mapping names |
 | Every service shown as *Stopped* in the Services list | A placeholder in the canvas; the real state is shown |
-| The database-cylinder logo mark | MixLab keeps its own mark ([icons.md](../../../.claude/desktop/icons.md)) |
+| The database-cylinder logo mark | MixLab keeps its own mark ([icons.md](../standards/desktop/app-icon.md)) |
 | Geist loaded from Google Fonts | The window runs offline under a CSP; the fonts are bundled |
 | Focus drawn outside the control | D6 |
 
@@ -611,10 +611,10 @@ land first and every later task only moves a screen further onto them.
 `App.css`, the contrast test green, and the connection editor, Dashboard and Interaction states
 matching their artboards side by side.
 
-The ADR is `.claude/desktop/decisions/2026-09-17-mixlab-redesign-tokens-themes-densities.md`,
+The ADR is `docs/decisions/desktop/2026-09-17-mixlab-redesign-tokens-themes-densities.md`,
 recording D1–D9 and superseding what `App.css`'s comments say about the four-step type scale, the
-three radii and the glass materials. [css-modules](../../../.claude/desktop/conventions/css-modules.md)
-and [component-structure](../../../.claude/desktop/conventions/component-structure.md) are updated
+three radii and the glass materials. [css-modules](../standards/desktop/css-modules.md)
+and [component-structure](../standards/desktop/component-structure.md) are updated
 where they describe tokens.
 
 ## Testing

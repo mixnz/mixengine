@@ -394,7 +394,7 @@ export default function Dashboard({
    * Một câu hỏi hỏng thì **bỏ id ra khỏi `asked`**: lần `reload()` sau hỏi lại. Giữ nó lại là để
    * một trục trặc thoáng qua khoá nút ⋮ của hàng đó cho tới khi đóng cửa sổ.
    *
-   * [ADR 0026]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md
+   * [ADR 0026]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md
    */
   useEffect(() => {
     const missing = rows.map((row) => row.id).filter((id) => !asked.current.has(id));

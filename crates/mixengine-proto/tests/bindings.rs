@@ -39,7 +39,7 @@ const NOT_ON_THE_WIRE: &[(&str, &str)] = &[
 /// The types whose `Deserialize` is written by hand.
 ///
 /// Each of them accepts more than it emits, and the published contract states only what the daemon
-/// **writes** — `.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md`.
+/// **writes** — `docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md`.
 /// A name arriving here is the moment somebody decides what the contract will and will not say, so
 /// it is a test failure until they have.
 const HAND_WRITTEN_DESERIALIZE: &[&str] = &[
@@ -306,7 +306,7 @@ fn the_hand_written_deserialisers_are_the_ones_that_were_thought_about() {
         found, known,
         "the set of hand-written `Deserialize` impls has changed. Each of these accepts more than \
          it emits, and the published contract states only what the daemon writes — read \
-         .claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md, decide \
+         docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md, decide \
          what the binding should say, and then update HAND_WRITTEN_DESERIALIZE."
     );
 }

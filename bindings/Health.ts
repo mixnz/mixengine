@@ -5,7 +5,7 @@ import type { ProtocolVersion } from "./ProtocolVersion";
  * The body of `GET /health`.
  *
  * Unauthenticated and deliberately trivial: its one job is to tell a client whether to autostart a
- * daemon (`.claude/architecture/daemon-and-ipc.md`), and it must stay answerable while everything
+ * daemon (`docs/architecture/daemon-and-ipc.md`), and it must stay answerable while everything
  * else is still coming up. The version rides along because it is free and saves the caller a second
  * round trip.
  */

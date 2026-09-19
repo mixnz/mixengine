@@ -64,7 +64,7 @@ uptime: Uptime,
  * and this is a status line.
  *
  * **Optional because it arrived after protocol 1 was frozen** —
- * [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md), roadmap
+ * [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md), roadmap
  * task **T88c**. It was required until then, which meant a `mix` from a new build could not
  * *decode* the answer of an older daemon that had not been restarted yet.
  *
@@ -103,7 +103,7 @@ dns?: DnsStatus | null,
  * client renders identically, which is *nothing at all*. This is the only member here whose
  * [`None`] carries more than the wire fact, and **T88c** — which made
  * [`DaemonStatus::elevation`] and [`DaemonStatus::dns`] optional as well, under
- * [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md) — left it
+ * [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md) — left it
  * exactly as it was.
  */
 update?: UpdateOffer | null, };

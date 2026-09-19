@@ -39,7 +39,7 @@ use crate::error::ToWire as _;
 ///
 /// Blocking, and called from inside a `spawn_blocking` by both of its callers: the keyring blocks,
 /// and on Linux it blocks on a D-Bus round trip to a daemon that may be prompting somebody to
-/// unlock it (`.claude/standards/rust.md`).
+/// unlock it (`docs/standards/rust.md`).
 ///
 /// # Errors
 ///

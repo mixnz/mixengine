@@ -9,7 +9,7 @@ import type { ServiceId } from "./ServiceId";
  * **The one exception to this module's own rule.** Every other type here answers *where* a
  * credential is; this answers *what it is*, because its whole purpose is to put a stored password
  * somewhere a person can paste it — into a project's `.env`, most of all. See
- * `docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md`'s D2.
+ * `docs/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md`'s D2.
  */
 export type DatabaseCredentials = { 
 /**

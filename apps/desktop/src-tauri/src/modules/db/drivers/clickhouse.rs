@@ -10,8 +10,8 @@
 //! MySQL and PostgreSQL.
 //!
 //! v1 was read-only throughout — see the plan this was built from
-//! (`docs/superpowers/plans/2026-09-04-clickhouse-db-kind.md`). Row writes (insert/update/delete)
-//! shipped after it — see `docs/superpowers/specs/2026-09-04-clickhouse-row-writes-design.md`. DDL,
+//! (`2026-09-04-clickhouse-db-kind.md`, a local plan, never committed). Row writes (insert/update/delete)
+//! shipped after it — see `docs/specs/2026-09-04-clickhouse-row-writes-design.md`. DDL,
 //! dump/restore and the Query tab's own writes are still closed.
 
 use super::filters::{escape_like, split_list};

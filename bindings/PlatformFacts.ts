@@ -31,7 +31,7 @@ family: string,
 daemon: DaemonVersion, 
 /**
  * What this system promises about a killed daemon's descendants — `total`, `immediate_child`
- * or `none`. See `.claude/decisions/0007-supervised-child-owns-a-process-group.md`.
+ * or `none`. See `docs/decisions/0007-supervised-child-owns-a-process-group.md`.
  */
 orphan_guarantee: string, 
 /**

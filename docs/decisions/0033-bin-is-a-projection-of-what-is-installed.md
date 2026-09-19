@@ -28,7 +28,7 @@ into `bin/` by hand was deleted by the next daemon start, because `bin/` removes
 names.
 
 Design:
-[docs/superpowers/specs/2026-09-15-t130-what-a-terminal-inherits-design.md](../../docs/superpowers/specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
+[docs/specs/2026-09-15-t130-what-a-terminal-inherits-design.md](../specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
 
 ## Decision
 

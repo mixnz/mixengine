@@ -15,7 +15,7 @@ refuses in words naming the package to install. T105a was left as the fork — c
 the measurement that says a distribution floor is cheaper.
 
 Three measurements decide it. The working is in
-[the design](../../docs/superpowers/specs/2026-09-09-t105a-the-appimage-and-webkitgtk-design.md).
+[the design](../specs/2026-09-09-t105a-the-appimage-and-webkitgtk-design.md).
 
 **What carrying would buy.** Every distribution whose glibc is new enough to run the window at all
 already packages WebKitGTK 4.1 — Ubuntu 22.04, Debian 12, Fedora 38, openSUSE Leap 15.6 and

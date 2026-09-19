@@ -114,7 +114,7 @@ Conventions baked into that shape:
   `err!("error.cannotWriteFile", path = path.display(), message = e)`, and add the key under
   `error.*` in **both** halves of whichever dictionary owns it: `src/modules/db/i18n/{en,vi}.ts`
   for a module's failures, `src/i18n/{en,vi}.ts` for the shared layers' — see
-  [i18n](../conventions/i18n.md). A driver's own words are not translated: they ride
+  [i18n](../../standards/desktop/i18n.md). A driver's own words are not translated: they ride
   along as `message` under a code like `error.mysql`. Wrapping one failure in another
   (`err!("error.rowFailed", index = i).caused_by(inner)`) gives the outer message a `{{cause}}`.
 - **The connection map is never locked across a query.** `mysql_pool` / `mongo_client` /

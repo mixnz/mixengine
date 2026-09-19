@@ -100,7 +100,7 @@ export function DatabaseIcon({ kind, size = "1em", className, ...rest }: Databas
     // A kind this build's BRAND_MARKS doesn't list — a connection saved by a newer version, read
     // back by this one. No brand to draw, so the module's own "no engine" mark stands in rather
     // than reading mark.viewBox on undefined. See
-    // docs/superpowers/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md.
+    // docs/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md.
     return <DatabaseGenericIcon size={size} className={className} {...rest} />;
   }
   return (

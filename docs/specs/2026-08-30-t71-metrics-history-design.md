@@ -1,9 +1,9 @@
 # T71 — Metrics history
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "Measuring, not guessing". API surface:
-[.claude/architecture/daemon-and-ipc.md](../../../.claude/architecture/daemon-and-ipc.md).
+[docs/architecture/daemon-and-ipc.md](../architecture/daemon-and-ipc.md).
 
 ## What this is for
 
@@ -26,8 +26,8 @@ across three platforms, taken the same way on each.
 
 Two documents in this repository describe the same sampler and do not agree.
 
-[`resource-isolation.md`](../../../.claude/features/resource-isolation.md) promises a 24-hour history
-that answers *"what is eating my battery"*. [`client-surface.md`](../../../.claude/features/client-surface.md)
+[`resource-isolation.md`](../features/resource-isolation.md) promises a 24-hour history
+that answers *"what is eating my battery"*. [`client-surface.md`](../features/client-surface.md)
 says metrics are *"sampled only while watched"*, because polling a sleeping laptop is the behaviour
 these documents criticise elsewhere.
 
@@ -245,7 +245,7 @@ daemon with no way to know when to stop measuring — a subscription would need 
 `metrics.subscribe`/`unsubscribe` calls, and a client that crashes without the second one leaves the
 daemon sampling every second forever, which is the behaviour the whole design is arranged to avoid.
 
-**No new ADR.** [ADR 0009](../../../.claude/decisions/0009-logs-travel-on-their-own-stream.md) already
+**No new ADR.** [ADR 0009](../decisions/0009-logs-travel-on-their-own-stream.md) already
 makes this argument about log lines; a second record making it again about metrics would be two
 descriptions of one decision, which is the thing this codebase refuses everywhere else. The variant
 is removed from `daemon-and-ipc.md` with the reason written beside it and a pointer to 0009 — the
@@ -318,16 +318,16 @@ the stream had already reported; `mix metrics --json` parses.
 
 ## Documents to update in this task
 
-- `.claude/architecture/daemon-and-ipc.md` — `metrics.history` added to the namespace table,
+- `docs/architecture/daemon-and-ipc.md` — `metrics.history` added to the namespace table,
   `MetricsSample` removed from the event enum with the reason and a pointer to ADR 0009.
-- `.claude/architecture/data-model.md` — the `metrics_minutes` table, its lack of a foreign key, and
+- `docs/architecture/data-model.md` — the `metrics_minutes` table, its lack of a foreign key, and
   its trim.
-- `.claude/features/client-surface.md` — "sampled only while watched" corrected to the two rates, and
+- `docs/features/client-surface.md` — "sampled only while watched" corrected to the two rates, and
   why the history could not be kept under the old rule.
-- `.claude/features/resource-isolation.md` — the sampler is in the platform layer, not the daemon;
+- `docs/features/resource-isolation.md` — the sampler is in the platform layer, not the daemon;
   what `rss_bytes` overstates and what it is not.
-- `.claude/architecture/platform-abstraction.md` — `ProcessMetrics` in the trait list.
-- `.claude/roadmap/phase-7-efficiency.md` — T71 ticked, with what it did not do and who owns that.
+- `docs/architecture/platform-abstraction.md` — `ProcessMetrics` in the trait list.
+- `docs/roadmap/phase-7-efficiency.md` — T71 ticked, with what it did not do and who owns that.
 
 ## Order of work
 

@@ -604,7 +604,7 @@ pub(crate) fn choose(
 ///
 /// **For the one caller that asks before spending a prompt**, which is the daemon deciding to
 /// enqueue `HelperInstall {}`. What it reports is the residual
-/// `.claude/architecture/security-model.md` states for a machine with nothing installed: on Windows,
+/// `docs/architecture/security-model.md` states for a machine with nothing installed: on Windows,
 /// on the portable archives and — since T88d — inside a macOS bundle, the copy MixEngine would
 /// install from sits where an ordinary account can arrange it.
 ///

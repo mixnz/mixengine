@@ -5,7 +5,7 @@
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
+Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
 on [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md).
 
 ---
@@ -23,7 +23,7 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       a module off closes its tabs after a confirmation. A **first-run screen** — one question,
       three presets, one click — appears when there are no settings; T104's import skips it and
       picks *Everything*. A fresh machine that skips it gets *MixEngine*.
-      Design: [2026-09-09-t108-a-module-visibility-setting-design.md](../../docs/superpowers/specs/2026-09-09-t108-a-module-visibility-setting-design.md).
+      Design: [2026-09-09-t108-a-module-visibility-setting-design.md](../specs/2026-09-09-t108-a-module-visibility-setting-design.md).
       **Two things this task settled.** The order is the registry's and never the stored set's —
       `MODULES` leads with `mixengine` and `visibleModules()` is a filter over it, which is what
       keeps a checkbox from moving `Ctrl/Cmd+1` and makes a hand-edited value able to be wrong about
@@ -39,7 +39,7 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       Dashboard, *Database tools* on a Database tab; `DEFAULT_MODULE_ID` becomes a function of the
       setting. Session restore still wins when there is a session, so the default only ever decides
       the very first tab and the tab after the last one is closed.
-      Design: [2026-09-10-t109-the-default-tab-follows-the-profile-design.md](../../docs/superpowers/specs/2026-09-10-t109-the-default-tab-follows-the-profile-design.md).
+      Design: [2026-09-10-t109-the-default-tab-follows-the-profile-design.md](../specs/2026-09-10-t109-the-default-tab-follows-the-profile-design.md).
       **What this settled.** There is no `DEFAULT_MODULE_ID` any more, and no table of a preferred
       module per preset either: the default is the first module the profile shows, which the
       registry's order already decides, and all three rows of D11 fall out of that one line. The
@@ -55,7 +55,7 @@ profile — a sidebar instead of a tab strip, say — is not this phase and has 
       enable the built-in client and open the tab, or hand off to an external client through
       `database.open` where one is installed. A `mixdb://` handoff that arrives with `db` hidden
       enables it for that tab and says so in the tab. Nothing the daemon answers changes.
-      Design: [2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md](../../docs/superpowers/specs/2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md).
+      Design: [2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md](../specs/2026-09-10-t110-the-bridge-when-a-module-is-hidden-design.md).
       **Two things this task settled.** The enabling belongs at the tab-request queue and not at
       either caller: the *open* button and a `mixdb://` URL already push through the same queue, so
       one step in `Workspace`'s drain covers both, generically, for any module — and it fixes what

@@ -4,8 +4,8 @@ What turns a release build into the files a person downloads. One script per ope
 run on that system — there is no cross-packaging here, and CI's `build` job is three legs for that
 reason.
 
-Design: [`docs/superpowers/specs/2026-09-04-t85-installers-design.md`](../docs/superpowers/specs/2026-09-04-t85-installers-design.md).
-Release process: [`.claude/operations/build-and-release.md`](../.claude/operations/build-and-release.md).
+Design: [`docs/specs/2026-09-04-t85-installers-design.md`](../docs/specs/2026-09-04-t85-installers-design.md).
+Release process: [`docs/operations/build-and-release.md`](../docs/operations/build-and-release.md).
 
 ## Running it
 
@@ -27,7 +27,7 @@ a ten-minute webview build inside a packaging run. It is a script of its own bec
 crate is a workspace this one `exclude`s (ADR 0027, rule 5): `cargo build -p mixlab` at the root is
 an error rather than a build, so `stage.sh` copies what `desktop.sh` produced instead of compiling
 it. Roadmap task **T105**,
-[design](../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md).
+[design](../docs/specs/2026-09-09-t105-the-window-in-every-installer-design.md).
 
 Every leg additionally publishes its **`mixengine-elevate` on its own** —
 `mixengine-elevate-<version>-<os>-<arch>` — which is the one artifact here that exists for a program
@@ -35,7 +35,7 @@ rather than for a person. `mix self-update` never replaces the privileged helper
 cannot deliver it inside a payload; what a machine fetches instead is that file and the `.minisig`
 `sign.sh` puts beside it, and the signature's trusted comment is what the elevated process reads to
 learn which version and which machine the bytes are for. Roadmap task **T88a**, and
-[ADR 0018](../.claude/decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md).
+[ADR 0018](../docs/decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md).
 
 Everything lands in `target/packaging/dist/`, with a `.sha256` beside each artifact. Each script
 opens what it just made and checks the five binaries are in it before it exits — four for a headless
@@ -143,9 +143,9 @@ bash packaging/bindings.sh --pack     # archive the committed tree into dist; ru
 
 `bindings/` at the repository root is the MixEngine API as TypeScript: every request, response,
 event and error, generated from `mixengine-proto` with `ts-rs` and committed — roadmap task **T56**,
-[design](../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md). The
+[design](../docs/specs/2026-09-05-t56-the-published-api-contract-design.md). The
 desktop application under `apps/desktop/` is typed against that directory directly
-([ADR 0027](../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md)), and it is
+([ADR 0027](../docs/decisions/0027-the-desktop-client-lives-in-this-repository.md)), and it is
 published as an archive on every release for any other client.
 
 **Every file in it is generated**, the barrel and its README included, which is what lets `--check`
@@ -161,7 +161,7 @@ beside the binaries, and `feed.sh` leaves it alone: a payload is matched by the
 `mixengine-<version>-<os>-…` shape and this is not one.
 
 What the contract states is what the daemon **writes** — a few requests accept more than that, and
-[ADR 0020](../.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md) is
+[ADR 0020](../docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md) is
 why those alternatives are not described.
 
 ## The user handbook
@@ -177,7 +177,7 @@ bash packaging/docs.sh --check      # build into a temp dir, validate it, diff t
 `https://mixnz.github.io/mixengine/` as HTML **and** as plain Markdown at a predictable address, and
 compiled into `mix` so that `mix docs <topic>` answers the same bytes with no network and no running
 daemon — roadmap task **T90**,
-[design](../docs/superpowers/specs/2026-09-05-t90-the-documentation-site-design.md).
+[design](../docs/specs/2026-09-05-t90-the-documentation-site-design.md).
 
 **Unlike `bindings/`, the generated site is not committed**, and the difference is what each is for:
 `bindings/` is source code another repository compiles, and this is what a browser receives at a URL.
@@ -210,7 +210,7 @@ with one unsigned artifact in it is the failure it exists to prevent.
 The private half is not in this repository and never will be. In CI it arrives as
 `MIX_SIGN_SECRET_KEY` / `MIX_SIGN_PASSWORD` and is used by one job on one runner; by hand it is read
 from `~/.config/mixengine/updates.key` and the password is typed. Roadmap task **T86**,
-[design](../docs/superpowers/specs/2026-09-04-t86-updater-signing-design.md).
+[design](../docs/specs/2026-09-04-t86-updater-signing-design.md).
 
 ## Probing
 
@@ -220,8 +220,8 @@ bash packaging/macos/probe.sh        # on macOS,   after macos/build.sh
 ```
 
 What an unsigned release looks like to the machines that judge it — roadmap task **T86a**,
-[design](../docs/superpowers/specs/2026-09-04-t86a-unsigned-distribution-design.md), findings in
-[`.claude/features/updates.md`](../.claude/features/updates.md). Each takes a fixed list of readings
+[design](../docs/specs/2026-09-04-t86a-unsigned-distribution-design.md), findings in
+[`docs/features/updates.md`](../docs/features/updates.md). Each takes a fixed list of readings
 against the artifacts beside it, prints a report, and writes it to `target/packaging/probe/` — which
 is **not** `dist/`, because the release job signs and publishes everything it finds in there.
 
@@ -229,7 +229,7 @@ What they measure is the **mark**, not the verdict: SmartScreen is reached throu
 Mark-of-the-Web and Gatekeeper through `com.apple.quarantine`, so which files ever carry one is a
 property of our own artifacts, while the dialog itself needs a browser and a person. That half is
 release-checklist item 4 in
-[build-and-release.md](../.claude/operations/build-and-release.md).
+[build-and-release.md](../docs/operations/build-and-release.md).
 
 A reading that came back wrong about a MixEngine artifact **fails**; anything the machine could not
 answer is printed as a **void reading** under its own heading, so a green run that measured nothing
@@ -248,12 +248,12 @@ disarmed is about the tampering rather than about the product.
 ## What is not here
 
 **No OS code signing.** Authenticode and an Apple Developer ID are not purchased
-([ADR 0005](../.claude/decisions/0005-on-demand-elevation.md)). The minisign signature above is the
+([ADR 0005](../docs/decisions/0005-on-demand-elevation.md)). The minisign signature above is the
 other column of that table and is not a substitute for it: it says the file is ours, not that the
 operating system will run it without a warning.
 
 **No installer places `mixengine-elevate`.** MixEngine installs it itself, inside the elevation
-prompt first-run setup already costs — [ADR 0015](../.claude/decisions/0015-the-helper-installs-itself.md).
+prompt first-run setup already costs — [ADR 0015](../docs/decisions/0015-the-helper-installs-itself.md).
 The `.deb`, the `.rpm` and the `.pkg` ship it at that same path anyway, because they run as root and
 can; the operation then finds its work already done. The per-user Windows installer, the portable zip
 and the AppImage cannot, which is why the mechanism is not a packager's.

@@ -9,7 +9,7 @@
 //! tests would collide with each other. The name is therefore
 //! `\\.\pipe\mixengine.<sid>.<fingerprint of run/>` — the SID because a second account signing in
 //! runs its own daemon, and the fingerprint because one account can have several homes. This is a
-//! correction to `.claude/architecture/daemon-and-ipc.md`, which described the SID alone.
+//! correction to `docs/architecture/daemon-and-ipc.md`, which described the SID alone.
 //!
 //! **The first instance is claimed, not joined.** `FILE_FLAG_FIRST_PIPE_INSTANCE` is what makes
 //! [`Listener::bind`] refuse a name somebody else already created, rather than quietly adding an
@@ -377,7 +377,7 @@ fn create(address: &OsStr, owner: &str, instance: Instance) -> Result<NamedPipeS
     options
         .first_pipe_instance(instance == Instance::First)
         // A named pipe is reachable over SMB by default. Nothing about MixEngine's API is meant to
-        // leave this machine, and `.claude/architecture/security-model.md` says so.
+        // leave this machine, and `docs/architecture/security-model.md` says so.
         .reject_remote_clients(true);
 
     // `descriptor` is a local and is freed at the end of this function, which is all the contract

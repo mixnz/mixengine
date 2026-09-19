@@ -57,7 +57,7 @@ libsqlite3-sys = { version = "0.37", features = ["bundled"] }
 # tokio, so nothing has to be installed on the user's machine — an ODBC driver manager plus
 # Microsoft's own driver is not something a packaged app should ask for, least of all on Linux and
 # macOS where neither ships by default. See
-# `docs/superpowers/specs/2026-09-05-mssql-support-design.md`'s D1.
+# `docs/specs/2026-09-05-mssql-support-design.md`'s D1.
 #
 # `native-tls` matches sqlx, reqwest and the updater rather than pulling a second TLS stack in.
 # `tds73` is not cosmetic: without it the connection negotiates an older protocol and `date`,

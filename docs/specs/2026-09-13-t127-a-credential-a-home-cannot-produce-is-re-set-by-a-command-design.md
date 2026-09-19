@@ -350,14 +350,14 @@ implementation that threw the data directory away.
 ## What this closes, and where it is written
 
 - Roadmap task **T127** in
-  [.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../../../.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md).
-- [.claude/features/services.md](../../../.claude/features/services.md) gains the reset beside the
+  [docs/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../roadmap/phase-14-a-window-a-new-user-can-start-from.md).
+- [docs/features/services.md](../features/services.md) gains the reset beside the
   first-run ritual: the two operations that write a credential into a data directory, and what
   separates them.
-- [.claude/features/client-surface.md](../../../.claude/features/client-surface.md) gains
+- [docs/features/client-surface.md](../features/client-surface.md) gains
   `service.reset_credential`, so a full graphical client knows the capability exists even though
   this task draws no screen for it.
 - **No ADR.** T126's
-  [0032](../../../.claude/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md) already
+  [0032](../decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md) already
   settled the cross-cutting question — what a credential's address means. This task carries out the
   repair that record's own consequences require, and adds no rule anything else has to obey.

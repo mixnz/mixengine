@@ -5,7 +5,7 @@ the steps below are what each of them did. Read the newest one alongside this: `
 module that has been through the fewest changes of mind.
 
 The shell knows only what [`src/shell/module.ts`](../../../apps/desktop/src/shell/module.ts) declares, so a module
-is a folder plus a line in the registry — see [overview](../architecture/overview.md) for why the
+is a folder plus a line in the registry — see [overview](../../architecture/desktop/overview.md) for why the
 contract is as small as it is.
 
 ## Frontend
@@ -54,7 +54,7 @@ contract is as small as it is.
    - **Ids only.** This is `localStorage`: no host, no password, no URL, no token. Put the shape in
      `modules/<id>/tabState.ts` with a `parseXTabState(value: unknown)` beside it — the shell
      passes the slot through without validating it, so that function is where the checking lives.
-     See [the spec](../../../docs/superpowers/specs/2026-08-23-tab-session-context-design.md).
+     See [the spec](../../specs/2026-08-23-tab-session-context-design.md).
 
 3. **One line in [`src/shell/registry.ts`](../../../apps/desktop/src/shell/registry.ts)**, in `MODULES`. This is
    the only file outside `src/modules/` that may name a module.
@@ -130,7 +130,7 @@ All three are settled now, and all three are worth knowing before adding a fourt
 - **Shortcuts are contributed, not registered centrally.** A module's chords go in
   `src/modules/<id>/shortcuts.ts` and reach the dispatcher through `ModuleDefinition.shortcuts`;
   `src/core/shortcuts/` may not import from `shell/` or `modules/` at all. See
-  [frontend](../architecture/frontend.md).
+  [frontend](../../architecture/desktop/frontend.md).
 - **Secrets and `ssh/` are shared, host lists are not.** The terminal keeps its own saved hosts
   rather than reaching into the database module's — two modules wanting the same *shape* is not two
   modules wanting the same *data*.

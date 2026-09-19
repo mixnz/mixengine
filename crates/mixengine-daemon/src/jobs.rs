@@ -36,7 +36,7 @@ use crate::error::ToWire as _;
 ///
 /// **A ceiling rather than a default** — [`JobWait::timeout`](mixengine_proto::JobWait) is what a
 /// caller chooses, and this is what the daemon will grant. Without it one client could hold a
-/// connection for a day against the rule in `.claude/architecture/daemon-and-ipc.md` that this
+/// connection for a day against the rule in `docs/architecture/daemon-and-ipc.md` that this
 /// method is already the exception to. Two minutes is longer than any interactive wait and short
 /// enough that a wedged client is noticed.
 const LONGEST_WAIT: Duration = Duration::from_secs(120);

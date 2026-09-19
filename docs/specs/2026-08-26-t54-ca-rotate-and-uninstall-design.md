@@ -292,7 +292,7 @@ cannot come to disagree about what reading a trust store means — the reasoning
 already applies to `authority`.
 
 **There is nowhere here a private key could travel**, which is how
-`.claude/architecture/security-model.md`'s rule stays true: no type above has a field to put one in,
+`docs/architecture/security-model.md`'s rule stays true: no type above has a field to put one in,
 and `Ca` has carried only the public half since T48.
 
 ## D13 — The CLI
@@ -349,7 +349,7 @@ prompt, so the grant would always fail and the discard path would always be the 
 
 **Measured on 2026-08-26, that is false.** Running the test on Windows raised a real UAC dialog in
 the middle of `cargo test`, a person clicked Yes, and the run installed a certificate authority into
-`LocalMachine\Root` — which rule 1 of `.claude/standards/testing.md` forbids in as many words, and
+`LocalMachine\Root` — which rule 1 of `docs/standards/testing.md` forbids in as many words, and
 which no arrangement of the *home* can prevent, because the store a rotation reaches belongs to the
 machine and not to the home.
 
@@ -370,7 +370,7 @@ rotation, on the machines that have a Caddy to run it against. This is the accep
 handshake answers it.
 
 No test touches a real trust store, a real NSS database or the real hosts file unless it is
-`#[ignore]`d and gated on `MIXENGINE_SYSTEM_TESTS=1` — `.claude/standards/testing.md`, rule 1.
+`#[ignore]`d and gated on `MIXENGINE_SYSTEM_TESTS=1` — `docs/standards/testing.md`, rule 1.
 
 ## Files
 
@@ -385,7 +385,7 @@ No test touches a real trust store, a real NSS database or the real hosts file u
 | `crates/mixengine-daemon/src/api/rpc.rs` | two routes |
 | `crates/mixengine-cli/src/main.rs` | `CaRotate`, `CaUninstall` |
 | `crates/mixengine-cli/src/render.rs` | `ca_rotate`, `ca_uninstall` |
-| `.claude/features/tls.md`, `.claude/roadmap/phase-5-https.md` | as built |
+| `docs/features/tls.md`, `docs/roadmap/phase-5-https.md` | as built |
 
 The orchestration is its own module rather than a pair of methods on `Certificates`, because
 `Certificates` holds a directory, a host and a store — and this needs the elevation queue, the job

@@ -191,7 +191,7 @@ pub struct Dns {
     ///
     /// A key at all because a machine where something already holds the default needs a way out
     /// that is not "move your home directory" — and because a test cannot legitimately bind the
-    /// real one (`.claude/standards/testing.md`).
+    /// real one (`docs/standards/testing.md`).
     ///
     /// **`0` asks the operating system to pick one**, which is what every suite that starts a real
     /// daemon does (`mixengine_testkit::Home`). It is a real setting rather than a special case,
@@ -422,7 +422,7 @@ pub struct Updates {
 }
 
 /// The default for [`Updates::check_seconds`]: once a day, which is what
-/// `.claude/features/updates.md` promises.
+/// `docs/features/updates.md` promises.
 const DEFAULT_UPDATE_CHECK_SECONDS: u64 = 24 * 60 * 60;
 
 /// [`Updates`] writes its own [`Default`] for [`Sharing`]'s reason: a derived one would be zero
@@ -462,7 +462,7 @@ where
 /// here to consent to. Nothing is transmitted: the file is written into this home and stays there,
 /// and the only thing that ever puts it in an archive is `mix doctor --bundle`, which is a command
 /// somebody types. See
-/// `.claude/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md`.
+/// `docs/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md`.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 pub struct Crash {
@@ -470,7 +470,7 @@ pub struct Crash {
     ///
     /// **`false` stops the file and nothing else.** The daemon log still records that a panic
     /// happened, because that is logging rather than crash reporting and
-    /// `.claude/standards/rust.md` asks for it regardless of this key.
+    /// `docs/standards/rust.md` asks for it regardless of this key.
     pub enabled: bool,
 }
 

@@ -222,7 +222,7 @@ pub struct ServiceSummary {
     /// in the client, of a table the daemon compiles in. This is that table answering.
     ///
     /// **A wire fact and not a domain one**, in
-    /// [ADR 0019](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md)'s
+    /// [ADR 0019](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md)'s
     /// sense: [`None`] means *this daemon was built before the member existed* and never *the role
     /// could not be determined*. A row whose package this build has no recipe for is
     /// [`ServiceRole::Other`], decided rather than absent — which is the same answer the refusal
@@ -244,7 +244,7 @@ pub struct ServiceSummary {
     /// a daemon that predates this member reads `false` — which is what every home had before
     /// anybody could set it.
     ///
-    /// [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
+    /// [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
     #[serde(default)]
     pub autostart: bool,
 
@@ -255,7 +255,7 @@ pub struct ServiceSummary {
     /// request wakes, from one a person stopped — which stays stopped — and draw the first as
     /// resting rather than as a failure ([ADR 0041]).
     ///
-    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped_by: Option<StoppedBy>,
 }
@@ -284,7 +284,7 @@ pub enum StoppedBy {
 /// **Off unless a person turned it on** ([ADR 0041]). While it is off, a service whose own idle
 /// setting is unset is never stopped for being idle; a service somebody gave a number keeps it.
 ///
-/// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+/// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 pub struct SaveResources {
@@ -328,7 +328,7 @@ pub struct ServiceAutostartSet {
 /// it would know that `caddy` is a front end and have no way to name the other one but by writing
 /// the string. With it, the value read off the active row is the value
 /// [`FrontEndSwitch::server`] takes, and
-/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)'s
+/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)'s
 /// *no client may map a package name to a role* is something a client can obey.
 ///
 /// Only the one distinction, because only one exists: every other recipe is a server a home may run
@@ -558,7 +558,7 @@ mod tests {
     /// than refusing the whole answer — which is the state a self-updating product spends every
     /// upgrade in, its binaries replaced and its daemon not yet restarted.
     ///
-    /// [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0019-an-added-response-member-is-optional.md
+    /// [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md
     #[test]
     fn a_summary_from_before_a_role_existed_still_reads() {
         let floor = r#"{
@@ -999,7 +999,7 @@ pub struct ServiceIdleSet {
 /// **Which program, and not which row.** A caller does not name a `ServiceId`, because the id of the
 /// service that is about to exist is the recipe's to decide and the one that is about to go is the
 /// daemon's to find — see
-/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
+/// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
@@ -1057,7 +1057,7 @@ pub struct FrontEndReport {
     /// `cap_net_bind_service` has a front end that will not start, and it had one before this was
     /// called too.
     ///
-    /// [ADR 0005]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0005-on-demand-elevation.md
+    /// [ADR 0005]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0005-on-demand-elevation.md
     pub answering: bool,
 
     /// The old front end's data directory, kept where it was.

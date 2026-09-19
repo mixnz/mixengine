@@ -30,7 +30,7 @@ pub enum TrustStoreMethod {
     ///
     /// **A valid answer, not an error**, exactly as [`ResolverMethod::None`](crate::ResolverMethod)
     /// is. Sites keep working over HTTP, `cert.ca_status` says why in words, and nothing fails —
-    /// which is what `.claude/features/tls.md` asks for, with the correction that what is
+    /// which is what `docs/features/tls.md` asks for, with the correction that what is
     /// unsupported is this machine's configuration rather than the platform.
     None,
 }
@@ -145,7 +145,7 @@ pub trait TrustStore: std::fmt::Debug + Send + Sync {
     ///
     /// **Defaulted here rather than written three times**, because the per-OS work is
     /// `rustls-native-certs`': the Windows `ROOT` store, macOS's trust settings, Linux's
-    /// `ca-certificates` file. What `.claude/architecture/platform-abstraction.md` asks of this
+    /// `ca-certificates` file. What `docs/architecture/platform-abstraction.md` asks of this
     /// crate is that the `#[cfg]` live here and nowhere above it, and a dependency that carries it
     /// satisfies that as squarely as a `match` would.
     ///

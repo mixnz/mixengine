@@ -52,7 +52,7 @@ placement: UpdatePlacement,
  * The services an update would stop and start again.
  *
  * What makes a consent prompt able to say *"3 services will be stopped and started again"* —
- * which is `.claude/features/updates.md`'s *"never update while a supervised service is under
+ * which is `docs/features/updates.md`'s *"never update while a supervised service is under
  * load without asking"* in the only form that rule can take once consent is always required.
  */
 will_restart?: Array<ServiceId>, };

@@ -3,7 +3,7 @@
 //!
 //! **What is not here is the password.** A response says *where* the credential is, in the address
 //! the OS keyring holds it under, and never what it is: the T77a design's D11, and the same rule
-//! [ADR 0006](../../../.claude/decisions/0006-servicespec-in-proto-and-secret-free.md) applies to a
+//! [ADR 0006](../../../docs/decisions/0006-servicespec-in-proto-and-secret-free.md) applies to a
 //! [`ServiceSpec`](crate::ServiceSpec). T83's [`DatabaseHandoff`] keeps it: the password went into
 //! the started process's environment, and what comes back is the same address.
 
@@ -265,7 +265,7 @@ pub struct DatabaseHandoff {
 /// **The one exception to this module's own rule.** Every other type here answers *where* a
 /// credential is; this answers *what it is*, because its whole purpose is to put a stored password
 /// somewhere a person can paste it — into a project's `.env`, most of all. See
-/// `docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md`'s D2.
+/// `docs/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md`'s D2.
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
 pub struct DatabaseCredentials {

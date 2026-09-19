@@ -156,7 +156,7 @@ carries the rule for exactly that reason.
 - **Through `mixengine_platform::process::run_once`**, which already gives a one-shot no window, a
   deadline, captured output and an environment built from a short allow-list — so D3's variables
   never reach `keytool` without a list of their own.
-- **This is the one write into an installed runtime.** `.claude/features/runtime-versions.md` calls
+- **This is the one write into an installed runtime.** `docs/features/runtime-versions.md` calls
   `runtimes/<kind>/<version>/` immutable, and `Error::AlreadyInstalled`'s documentation leans on it.
   ADR 0039 names the exception — one file, `lib/security/cacerts`, one alias per authority — and the
   feature document says so where it states the rule.
@@ -263,17 +263,17 @@ dialog; a dialog is a gate, and `mix` asks nothing, so the window asks nothing e
   alternatives — a generated truststore through `JAVA_TOOL_OPTIONS`, the operating system's store,
   nothing — and why each lost. ADR 0034 stays accepted: it still governs every kind that reads a
   bundle, and 0039 is the one kind that cannot. The decisions README index gains the row.
-- `.claude/features/runtime-versions.md`: Java in the kinds, the shim list and the trust table (row:
+- `docs/features/runtime-versions.md`: Java in the kinds, the shim list and the trust table (row:
   *Java — no variable; the JDK's own `cacerts`, written with its `keytool`*), the immutability rule
   naming its one exception, a paragraph for D5, and one for D13–D17.
-- `.claude/features/tls.md`: the JDKs join the list of stores a rotation and an uninstall touch.
+- `docs/features/tls.md`: the JDKs join the list of stores a rotation and an uninstall touch.
 - `docs/guide/en/runtimes.md`: a *Java* section — install and pin, D5's rule and the `mvn` /
   `gradlew` caveat, HTTPS to `*.test`, D12's limits, and the Linux warning; `index.md` and
   `getting-started.md` as T27d touched them. The `vi/` pages translated, then
   `bash packaging/docs.sh --restamp`; `--reference` if a command's help changed.
 - `README.md`: Java in the list of languages.
 - `CHANGELOG.md`, `## Unreleased` → `### Added`: one line.
-- `.claude/roadmap/phase-2-runtimes.md`: T27e after T27d, pointing here, ticked when it lands with
+- `docs/roadmap/phase-2-runtimes.md`: T27e after T27d, pointing here, ticked when it lands with
   what was measured; `todo.md`'s phase-2 row to 16 / 16.
 
 ## Measured before a line of code is written
@@ -338,8 +338,8 @@ dialog; a dialog is a gate, and `mix` asks nothing, so the window asks nothing e
 
 ## What this closes, and where it is written
 
-- `.claude/roadmap/phase-2-runtimes.md`: T27e after T27d, ticked when it lands.
-- ADR 0039, `.claude/features/runtime-versions.md`, `.claude/features/tls.md` and the handbook, per
+- `docs/roadmap/phase-2-runtimes.md`: T27e after T27d, ticked when it lands.
+- ADR 0039, `docs/features/runtime-versions.md`, `docs/features/tls.md` and the handbook, per
   D19.
 - The packaging repository's two sentences: `requires.libraries` is accepted and judged by D13–D17,
   and `JAVA_HOME` is rendered by D5 — in the shim, as T27d found "the daemon renders" means.

@@ -17,7 +17,7 @@
 //!
 //! **Everything that touches the disk happens on one blocking thread.** Reading a megabyte of log,
 //! deflating five members and unlinking old archives are all blocking calls, and
-//! `.claude/standards/rust.md` puts anything that can hang off the runtime's threads.
+//! `docs/standards/rust.md` puts anything that can hang off the runtime's threads.
 
 use std::io::{Read as _, Seek as _, SeekFrom, Write as _};
 use std::path::{Path, PathBuf};

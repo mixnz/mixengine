@@ -61,7 +61,7 @@ reason that names *that*, and with the repair T127 built — `mix service reset-
   and this new path.
 - The repair named on both paths a user meets it on: the `database.create` error's hint, and the
   walk `mix service start` prints.
-- Bindings regenerated; `.claude/architecture/process-supervision.md` brought back into line.
+- Bindings regenerated; `docs/architecture/process-supervision.md` brought back into line.
 
 **Out.**
 
@@ -158,7 +158,7 @@ Display is the half-sentence the type's contract asks for and nothing more —
 `it refuses the superuser password this home holds` — with the evidence left to the client to lay
 out, which is `StateReason::CrashLoop`'s arrangement and the reason its documentation calls `tail`
 *"the one variant that carries evidence"*. It is two now, and that sentence is corrected in
-`.claude/architecture/process-supervision.md` rather than left to be found.
+`docs/architecture/process-supervision.md` rather than left to be found.
 
 **One line and not a tail.** A crash loop explains nothing without its lines; this reason explains
 itself, and the line is confirmation rather than the substance. One line is also what keeps an event
@@ -259,14 +259,14 @@ once, in the test that exists to prove the repair.
 ## What this closes, and where it is written
 
 T127a in
-[.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../../../.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md),
+[docs/roadmap/phase-14-a-window-a-new-user-can-start-from.md](../roadmap/phase-14-a-window-a-new-user-can-start-from.md),
 ticked with what the task settled.
 
-[.claude/architecture/process-supervision.md](../../../.claude/architecture/process-supervision.md)
+[docs/architecture/process-supervision.md](../architecture/process-supervision.md)
 gains the new reason beside `Uncheckable` and `CrashLoop`, and loses the claim that one variant
 carries evidence.
 
-[.claude/features/services.md](../../../.claude/features/services.md) gains the sentence a failed
+[docs/features/services.md](../features/services.md) gains the sentence a failed
 start now says — and loses one it should not have said. Its reset-credential section claims *"the
 readiness check of all three of these recipes is an authenticated query"*. Two of them are;
 MariaDB's is `mariadb-admin ping`, which answers before authentication, and that difference is the

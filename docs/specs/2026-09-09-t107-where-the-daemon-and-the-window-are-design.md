@@ -1,6 +1,6 @@
 # T107 — Where the daemon is, and where the window is
 
-Roadmap task [T107](../../../.claude/roadmap/phase-12-one-product.md), on
+Roadmap task [T107](../roadmap/phase-12-one-product.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D9 and
 D10, and on [T106](2026-09-09-t106-one-updater-design.md). 2026-09-09.
 

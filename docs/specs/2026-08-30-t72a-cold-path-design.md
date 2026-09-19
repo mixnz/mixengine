@@ -1,9 +1,9 @@
 # T72a — A pool on a socket that can be idle-stopped, and a budget on the first request
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "Cold path". Standard:
-[.claude/standards/testing.md](../../../.claude/standards/testing.md), "Performance guards".
+[docs/standards/testing.md](../standards/testing.md), "Performance guards".
 Predecessors: [T69](2026-08-26-t69-idle-detection-design.md), whose sweeper and whose unused
 `HttpCounter` this finishes; [T70](2026-08-29-t70-on-demand-activation-design.md), whose activator
 the first request walks through; [T72](2026-08-30-t72-ci-budgets-design.md), which split this out and
@@ -281,15 +281,15 @@ for any pool a user installed, and the budget would be gating an arrangement nob
 
 ## Documents to update
 
-- [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md) — the
+- [docs/features/resource-isolation.md](../features/resource-isolation.md) — the
   "Cold path" bullet stops saying *"it is given no activator"*, which is wrong, and the criterion
   *"a request to an idle site succeeds within the cold-path budget"* stops being a promise.
-- [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md) — T72's
+- [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md) — T72's
   entry gains one correcting sentence rather than being rewritten (it is a record of what was
   believed), T72a is ticked with the measured numbers and loses its **(P)**.
-- [.claude/standards/testing.md](../../../.claude/standards/testing.md) — the cold-path guard joins
+- [docs/standards/testing.md](../standards/testing.md) — the cold-path guard joins
   the other three in the same shape.
-- [.claude/operations/build-and-release.md](../../../.claude/operations/build-and-release.md) — the
+- [docs/operations/build-and-release.md](../operations/build-and-release.md) — the
   `bench` job grows a step and two PHP fetches.
 
 No ADR. The number was argued for long before this task, and asking a service about itself rather

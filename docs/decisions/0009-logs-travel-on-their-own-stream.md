@@ -10,7 +10,7 @@ Roadmap task **T16b** owns three things: something that publishes a service's ou
 because the two obvious shapes differ in what they cost the *rest* of the API rather than in how much
 code they are.
 
-`.claude/architecture/daemon-and-ipc.md` lists `LogLine { service_id, stream, line, ts }` among the
+`docs/architecture/daemon-and-ipc.md` lists `LogLine { service_id, stream, line, ts }` among the
 `DaemonEvent`s. Taken literally, that puts every line of every running service on `GET /events` — the
 one stream the GUI watches to learn that a service went `degraded`, that a certificate is expiring,
 that an elevation is needed.
@@ -46,7 +46,7 @@ want to — a supervisor that stalls a service's pipe stalls the service.
 ## Decision
 
 **`DaemonEvent` never carries log lines.** The `LogLine` variant listed in
-`.claude/architecture/daemon-and-ipc.md` is not implemented, and that document is corrected rather
+`docs/architecture/daemon-and-ipc.md` is not implemented, and that document is corrected rather
 than left to be discovered in the GUI. `GET /events` carries state, and its 1024 messages are 1024
 state changes.
 
@@ -104,7 +104,7 @@ connected. The endpoint is a plain HTTP stream, so `curl` reads it, the GUI read
 - **The daemon holds a per-service fanout for as long as somebody is watching**, independent of any
   one run of the service — that is what makes a `follow` survive a restart, and it is a small amount
   of state the registry now owns beyond what is supervising the process.
-- **`.claude/architecture/daemon-and-ipc.md` and `process-supervision.md` are edited**, because both
+- **`docs/architecture/daemon-and-ipc.md` and `process-supervision.md` are edited**, because both
   describe the event that is not being built. An architecture document that keeps promising it would
   be re-implemented by whoever reads it next.
 

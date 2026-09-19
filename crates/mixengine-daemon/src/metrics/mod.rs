@@ -9,7 +9,7 @@
 //! [`ProcessMetrics`](mixengine_platform::ProcessMetrics), in the platform crate with the rest of
 //! what this machine is asked, so that every question above can be answered from invented numbers.
 //!
-//! Design: `docs/superpowers/specs/2026-08-30-t71-metrics-history-design.md`.
+//! Design: `docs/specs/2026-08-30-t71-metrics-history-design.md`.
 
 pub(crate) mod minutes;
 pub(crate) mod sampler;

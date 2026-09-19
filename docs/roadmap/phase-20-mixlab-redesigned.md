@@ -6,7 +6,7 @@ the density its content needs, and matches the design canvas where the canvas co
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-17-t157-mixlab-redesign-design.md](../../docs/superpowers/specs/2026-09-17-t157-mixlab-redesign-design.md).
+Design: [2026-09-17-t157-mixlab-redesign-design.md](../specs/2026-09-17-t157-mixlab-redesign-design.md).
 
 ---
 

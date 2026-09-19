@@ -1,6 +1,6 @@
 # T28 — PHP extensions, and the ini set a runtime carries
 
-*Design for roadmap task [T28](../../../.claude/roadmap/phase-2-runtimes.md). Written 2026-08-20,
+*Design for roadmap task [T28](../roadmap/phase-2-runtimes.md). Written 2026-08-20,
 before any code. What survives implementation goes into `phase-2-runtimes.md`; this file is the
 argument, not the record.*
 
@@ -59,7 +59,7 @@ ALTER TABLE runtime_installs ADD COLUMN extension_choices_json TEXT NOT NULL DEF
 ```
 
 The first two are **the artifact's facts, copied down at install time**, which is `provides_json`'s
-argument from [0002](../../../crates/mixengine-core/migrations/0002_runtime_provides.sql) applied a
+argument from [0002](../../crates/mixengine-core/migrations/0002_runtime_provides.sql) applied a
 second time: the index is a cache with a six-hour life and a network behind it, and whether `redis`
 can be enabled for a PHP that is on this disk must not depend on either. `*_json` for the same reason
 that migration gives — nothing queries into them; one runtime's whole map is read and looked up in
@@ -91,7 +91,7 @@ diff is not decoration here — "identical is not a change" is what keeps a pool
 a daemon restarted.
 
 **`etc/` and not `runtimes/php/<version>/conf.d/`**, which is what
-[runtime-versions.md](../../../.claude/features/runtime-versions.md) says today and which this design
+[runtime-versions.md](../features/runtime-versions.md) says today and which this design
 changes. Two reasons, one of them fatal: an install is a rename of a staging directory over the
 destination, so a generated `conf.d` living inside it is destroyed by reinstalling the same version —
 and the project's own rule is that generated configuration is disposable, lives under `etc/`, and is

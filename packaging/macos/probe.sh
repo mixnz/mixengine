@@ -2,14 +2,14 @@
 # macOS: what an unsigned release looks like to Gatekeeper.
 #
 # Roadmap task T86a, design:
-# docs/superpowers/specs/2026-09-04-t86a-unsigned-distribution-design.md
+# docs/specs/2026-09-04-t86a-unsigned-distribution-design.md
 #
 # **This measures the mark, not the dialog.** Gatekeeper's first-open gate is reached through
 # `com.apple.quarantine`, written by the application that downloaded the file. So what a machine can
 # answer is which files in a MixEngine install ever carry one, and what the assessment says about the
 # package itself. The Finder dialog and macOS 15's System Settings → Privacy & Security → "Open
 # Anyway" path need a person — release checklist item 4 in
-# .claude/operations/build-and-release.md.
+# docs/operations/build-and-release.md.
 #
 # Two rules this script is built on, both from the design:
 #

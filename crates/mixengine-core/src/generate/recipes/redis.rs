@@ -21,7 +21,7 @@
 //!
 //! `save ""` and `appendonly no` mean this instance never writes its dataset anywhere, and the stop
 //! is `SHUTDOWN NOSAVE` so that it does not start writing one on the way out either. That is a
-//! decision rather than an omission: `.claude/features/services.md` says appendonly off by default
+//! decision rather than an omission: `docs/features/services.md` says appendonly off by default
 //! for development, and a cache that half-persists is the arrangement where somebody comes to trust
 //! data that will disappear the next time the process is recycled.
 //!

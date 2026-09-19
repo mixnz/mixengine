@@ -1,6 +1,6 @@
-# AGENT.md
+# CLAUDE.md
 
-Short orientation for agents working on MixLab, MixEngine's desktop application. Details live in [.agent/](../../.claude/desktop/) — read the
+Short orientation for agents working on MixLab, MixEngine's desktop application. Details live in [docs/](../../docs/README.md) — read the
 relevant file there before changing anything in that area.
 
 ## What this is
@@ -16,7 +16,7 @@ MixLab is a desktop app built with **Tauri 2 + React 19 + TypeScript** (frontend
 
 The shell knows nothing about any of them. Adding a fourth is a folder under `src/modules/` and
 a line in `src/shell/registry.ts` — see
-[.agent/conventions/adding-a-module.md](../../.claude/desktop/conventions/adding-a-module.md).
+[docs/standards/desktop/adding-a-module.md](../../docs/standards/desktop/adding-a-module.md).
 
 ## Commands
 
@@ -30,11 +30,11 @@ a line in `src/shell/registry.ts` — see
 | `npm run lint` | eslint: hook dependencies, and the rule that nothing outside `src/modules/` imports a module |
 | `npm run build:app` | Full production bundle into `src-tauri/target/release/bundle/` |
 | `npm run icons` | Rebuild `src-tauri/icons/` from the SVGs in `public/`; macOS gets the padded one, and its menu bar the tray template (T168) |
-| `npm run screenshots` | The six promotional images — Dashboard, Sites, Database, REST, Terminal, Tools — from sample data, dark and light, raw and framed, into `screenshots/out/`. `-- --check` renders every scene and writes nothing (CI runs it). See [demo-screenshots.md](../../.claude/desktop/conventions/demo-screenshots.md) |
+| `npm run screenshots` | The six promotional images — Dashboard, Sites, Database, REST, Terminal, Tools — from sample data, dark and light, raw and framed, into `screenshots/out/`. `-- --check` renders every scene and writes nothing (CI runs it). See [demo-screenshots.md](../../docs/standards/desktop/demo-screenshots.md) |
 
-Releasing is MixEngine's — [build-and-release.md](../../.claude/operations/build-and-release.md);
+Releasing is MixEngine's — [build-and-release.md](../../docs/operations/build-and-release.md);
 this application has no release of its own. The app icon, and why there are two logo files, is
-[icons.md](../../.claude/desktop/icons.md).
+[icons.md](../../docs/standards/desktop/app-icon.md).
 
 There is no linter config. `npm run build` is the fastest verification step; TypeScript runs
 `strict`, `noUnusedLocals` and `noUnusedParameters`, so it catches most mistakes. `npm test` runs
@@ -100,39 +100,39 @@ src-tauri/src/       Rust backend
   `core/`, `components/`, `icons/` or `i18n/` may import from `modules/`, with exactly two
   exceptions — `shell/registry.ts` and `i18n/dicts.ts`, the two places a module is joined to the
   app. `tsc` compiles a broken boundary happily, so `npm run lint` is what says no,
-  in CI and locally — see [adding-a-module](../../.claude/desktop/conventions/adding-a-module.md).
+  in CI and locally — see [adding-a-module](../../docs/standards/desktop/adding-a-module.md).
 - **Every user-visible string goes through `t("...")`**, added to both `en.ts` and `vi.ts`.
 - **Components use CSS Modules** and live in their own folder — see
-  [.agent/conventions/component-structure.md](../../.claude/desktop/conventions/component-structure.md).
+  [docs/standards/desktop/component-structure.md](../../docs/standards/desktop/component-structure.md).
 - **The root element of a workspace needs `width: 100%`**, not just `height` — `.tab-panel` is a
   row-direction flex container, so a root without it is only as wide as its content and hugs the
   left edge. It comes as a block of five properties, `box-sizing` and the `min-*` pair included:
-  [.agent/conventions/workspace-root.md](../../.claude/desktop/conventions/workspace-root.md).
+  [docs/standards/desktop/workspace-root.md](../../docs/standards/desktop/workspace-root.md).
 - **A new backend command touches five places.** Follow
-  [.agent/conventions/adding-a-command.md](../../.claude/desktop/conventions/adding-a-command.md).
+  [docs/standards/desktop/adding-a-command.md](../../docs/standards/desktop/adding-a-command.md).
 - **Every `std::process::Command` goes through `crate::platform::hide_console`.** Without it
   Windows opens a black console window for the child, which flashes over the app and reads as
   malware to the user. See
-  [.agent/conventions/spawning-processes.md](../../.claude/desktop/conventions/spawning-processes.md).
+  [docs/standards/desktop/spawning-processes.md](../../docs/standards/desktop/spawning-processes.md).
 - Commit messages need a `type(scope): message` prefix (see the global rules).
-- **Never link to a file under `docs/superpowers/plans/`.** Those are local-only implementation
-  plans, gitignored and absent on every other machine. Link to `docs/superpowers/specs/` instead —
-  see [.agent/conventions/plans-and-specs.md](../../.claude/desktop/conventions/plans-and-specs.md).
+- **Never link to a file under `docs/plans/`.** Those are local-only implementation
+  plans, gitignored and absent on every other machine. Link to `docs/specs/` instead —
+  see [docs/standards/plans-and-specs.md](../../docs/standards/plans-and-specs.md).
 - **`PG_VERSION` in `src-tauri/src/modules/db/drivers/tools.rs` expires every September.** `pg_dump` will not dump a
   server newer than itself, and nothing in the build says so. Bumping it, or any other pinned
   download, follows
-  [.agent/conventions/bumping-tool-downloads.md](../../.claude/desktop/conventions/bumping-tool-downloads.md).
+  [docs/standards/desktop/bumping-tool-downloads.md](../../docs/standards/desktop/bumping-tool-downloads.md).
 - **A change a user would notice gets a line in `## [Unreleased]`** in the repository's root
   [CHANGELOG.md](../../CHANGELOG.md), under `### Added`, `### Changed` or `### Fixed`, written as
   part of the work rather than at release time. Follow the root's
-  [standards/changelog.md](../../.claude/standards/changelog.md) and this application's own
-  [conventions/changelog.md](../../.claude/desktop/conventions/changelog.md) — one short line each,
+  [standards/changelog.md](../../docs/standards/changelog.md) and this application's own
+  [conventions/changelog.md](../../docs/standards/desktop/changelog.md) — one short line each,
   and a fix to something still unreleased is not a `Fixed` entry. This directory's `CHANGELOG.md`
   is MixDB's history, frozen at 0.0.33.
 
 ## Where to read more
 
-- [.agent/architecture/overview.md](../../.claude/desktop/architecture/overview.md) — process model, connection lifecycle
-- [.agent/architecture/frontend.md](../../.claude/desktop/architecture/frontend.md) — React structure and patterns
-- [.agent/architecture/backend.md](../../.claude/desktop/architecture/backend.md) — Rust structure and patterns
-- [.agent/conventions/](../../.claude/desktop/conventions/) — code conventions, and how changelog entries are written
+- [docs/architecture/desktop/overview.md](../../docs/architecture/desktop/overview.md) — process model, connection lifecycle
+- [docs/architecture/desktop/frontend.md](../../docs/architecture/desktop/frontend.md) — React structure and patterns
+- [docs/architecture/desktop/backend.md](../../docs/architecture/desktop/backend.md) — Rust structure and patterns
+- [docs/standards/desktop/](../../docs/standards/desktop/) — code conventions, and how changelog entries are written

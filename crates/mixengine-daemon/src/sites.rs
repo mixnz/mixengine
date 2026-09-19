@@ -212,7 +212,7 @@ impl Sites {
     ///
     /// **Run after an update as well as a create**, because a site that just gained a domain has a
     /// certificate that no longer covers its names — T50's second reuse question. That is what
-    /// `.claude/features/tls.md` names as the most common "the padlock broke" report.
+    /// `docs/features/tls.md` names as the most common "the padlock broke" report.
     ///
     /// A failure is logged and never returned, exactly as [`Self::wants_the_hosts_file`] is: the
     /// row is already written by the time this runs, a site that exists is worth more than a

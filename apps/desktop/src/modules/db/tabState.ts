@@ -5,7 +5,7 @@
  * An id and a boolean. The connection itself lives in `connections.json` with its password in the
  * OS credential store, both of them guarded; a uuid in `localStorage` says that a connection was
  * once open in this tab and not where it goes. Adding a field here is a decision about that line —
- * see §4 of `docs/superpowers/specs/2026-08-23-tab-session-context-design.md`. `connected` passes
+ * see §4 of `docs/specs/2026-08-23-tab-session-context-design.md`. `connected` passes
  * it because it says nothing about the server: it is a fact about this tab, and it is the
  * difference between a tab that dials on its own next launch and one that comes back holding the
  * form.

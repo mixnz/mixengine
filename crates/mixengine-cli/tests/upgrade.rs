@@ -6,7 +6,7 @@
 //! whether `mix` can list what was in the old file.
 //!
 //! One test and not a suite. Every schema claim is cheaper and clearer one layer down, which is
-//! `.claude/standards/testing.md`'s rule about which layer owns a behaviour; what only this can
+//! `docs/standards/testing.md`'s rule about which layer owns a behaviour; what only this can
 //! prove is that the daemon starts and reads.
 
 mod harness;

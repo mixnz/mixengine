@@ -25,7 +25,7 @@ ts-rs = { workspace = true, optional = true }
 # Generate the published TypeScript contract into `bindings/` at the repository root. Turned on by
 # `packaging/bindings.sh` and by CI's `bindings` job, and by nothing that builds a binary.
 #
-# Design: docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md
+# Design: docs/specs/2026-09-05-t56-the-published-api-contract-design.md
 ts = ["dep:ts-rs"]
 
 [dev-dependencies]

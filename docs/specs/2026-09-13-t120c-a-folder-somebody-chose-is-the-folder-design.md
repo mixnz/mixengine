@@ -74,7 +74,7 @@ MixEngine's words, with the name to rename it to.
 - `projects::validated_name`. T120 refused to narrow it, T120a repeated the refusal, and it stands:
   `Next.js 1` is a fine name for a project. It is the *folder* that npm judges.
 - MixEngine moving or renaming a directory on anybody's behalf. *The files were never ours*
-  ([ADR 0031](../../../.claude/decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)),
+  ([ADR 0031](../decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)),
   and scaffolding into one name and renaming to another is that rule broken from the inside.
 - Changing the gallery's Next.js command. The alternatives — a template MixEngine maintains, a
   `degit` copy of an unpinned example, a shell one-liner that moves dotfiles portably — are each
@@ -258,5 +258,5 @@ the new field or the gallery's canonical-form test fails, which is the test that
   `screens/Blueprints/ApplyDialog.tsx` — D1, and the now-unused `rootIsParent` prop.
 - `apps/desktop/src/modules/mixengine/i18n/{en,vi}.ts` — the Quick Start label returns.
 - `apps/desktop/src/modules/mixengine/screens/Blueprints/ApplyDialog.module.css` — D9.
-- `.claude/features/blueprints.md`, `.claude/roadmap/phase-14-*.md`, `CHANGELOG.md`.
+- `docs/features/blueprints.md`, `docs/roadmap/phase-14-*.md`, `CHANGELOG.md`.
 - **Another repository:** re-run `publish-blueprints` in `mixengine-packages` at the new full SHA.

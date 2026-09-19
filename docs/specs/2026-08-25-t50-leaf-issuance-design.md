@@ -5,7 +5,7 @@ Nothing has yet been signed by it, so no site has a certificate and `https://blo
 to present. This task is the signing: one leaf per site, ninety days, `serverAuth` only, reissued
 when the site's names change.
 
-It is also where three of `.claude/features/tls.md`'s sentences turn out to be stale, and where one
+It is also where three of `docs/features/tls.md`'s sentences turn out to be stale, and where one
 rule that file does not have turns out to be the one that matters after T54.
 
 ---
@@ -17,7 +17,7 @@ The tempting design folds issuance into the configuration generator: it already 
 `https`, and doing both in one pass guarantees that a configuration referring to a certificate is
 never written before that certificate exists — which is exactly T51's problem.
 
-It is still the wrong place. `.claude/CLAUDE.md` states that generated configuration is
+It is still the wrong place. `CLAUDE.md` states that generated configuration is
 **disposable**: everything under `etc/` is regenerated from SQLite and never parsed back. A
 certificate is the opposite — it is state, it cannot be reconstructed from the database, and
 throwing one away costs the trust of every browser holding a cached chain. A generator that
@@ -148,7 +148,7 @@ recognises by name rather than one that looks like a certificate whose key was l
 ## D7. `cert.issue` names a site, never a list of domains
 
 `tls.md` specifies `cert.issue { domains }`. That would put in the client the decision of what a
-certificate covers, which is business logic, and `.claude/CLAUDE.md`'s first non-negotiable rule
+certificate covers, which is business logic, and `CLAUDE.md`'s first non-negotiable rule
 says a client only renders what the daemon returns.
 
 ```rust
@@ -216,7 +216,7 @@ pub struct SiteCert {
 key and a certificate on disk can disagree do not depend on which of the two they are.
 
 **There is no `certificate_pem`.** `Ca` carries one because a client installs it; nothing installs a
-leaf, so the field would be surface with no caller — and `.claude/architecture/security-model.md`'s
+leaf, so the field would be surface with no caller — and `docs/architecture/security-model.md`'s
 guarantee that no type can carry a private key is easier to keep on a type with fewer fields.
 
 ## D9. The producer, and its three triggers

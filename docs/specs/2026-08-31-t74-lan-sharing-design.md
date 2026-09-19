@@ -1,7 +1,7 @@
 # T74 — LAN sharing, first half (design)
 
-Feature spec: [`.claude/features/lan-sharing.md`](../../../.claude/features/lan-sharing.md).
-Roadmap: [T74](../../../.claude/roadmap/phase-8-differentiators.md), Phase 8.
+Feature spec: [`docs/features/lan-sharing.md`](../features/lan-sharing.md).
+Roadmap: [T74](../roadmap/phase-8-differentiators.md), Phase 8.
 
 ## Goal
 

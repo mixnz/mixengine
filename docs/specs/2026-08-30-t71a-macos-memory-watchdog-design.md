@@ -1,7 +1,7 @@
 # T71a — The macOS memory watchdog
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "Hard limits" and "Measuring, not guessing". Predecessors:
 [T68](2026-08-26-t68-resource-limits-design.md), which deferred this, and
 [T71](2026-08-30-t71-metrics-history-design.md), whose sampler is the whole of what it needs.
@@ -93,7 +93,7 @@ persisted, it rides `ServiceStateChanged`, and `mix service list` shows it with 
 anywhere.
 
 **But the watchdog does not write it.** The runner's health loop owns `Running ↔ Degraded` today —
-[`runner.rs`](../../../crates/mixengine-daemon/src/services/runner.rs) moves to `Degraded/Unhealthy`
+[`runner.rs`](../../crates/mixengine-daemon/src/services/runner.rs) moves to `Degraded/Unhealthy`
 on a failed probe and back to `Running/Healthy` on a recovery, from the health verdict alone. A second
 writer would be a bug on both sides: the next healthy probe would clear an over-memory warning while
 the service was still over its ceiling, and a watchdog seeing memory drop would erase a genuine
@@ -279,12 +279,12 @@ run is CI's `test (macos-latest)` leg. The design keeps that exposure to two con
 
 ## Documents to update in this task
 
-- [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md) — the
+- [docs/features/resource-isolation.md](../features/resource-isolation.md) — the
   macOS row stops describing a watchdog in the future tense; the judged quantity, the three minutes
   and the one-restart-per-episode rule are stated where the table is.
-- [.claude/features/client-surface.md](../../../.claude/features/client-surface.md) — how a graphical
+- [docs/features/client-surface.md](../features/client-surface.md) — how a graphical
   client draws an `Advisory` memory control differently from a `Hard` one.
-- [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md) — tick
+- [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md) — tick
   T71a, with what the implementation found that this design did not.
 
 No ADR. The watchdog was argued for in `resource-isolation.md` before T68 deferred it; this builds

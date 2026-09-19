@@ -692,7 +692,7 @@ async fn a_new_site_is_issued_a_certificate_without_being_asked() {
 }
 
 /// **And a domain added is a certificate reissued, before anything renders a config** — T50's
-/// second reuse question, which `.claude/features/tls.md` names as the most common broken-padlock
+/// second reuse question, which `docs/features/tls.md` names as the most common broken-padlock
 /// report.
 ///
 /// The assertion is `cert.issue` answering `reused` over two names: had the update not reissued,

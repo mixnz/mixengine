@@ -1,6 +1,6 @@
 //! A `MIXENGINE_HOME` that exists only for the test that made it.
 //!
-//! Rule 2 in `.claude/standards/testing.md`: every test gets its own home in a `TempDir`, **passed
+//! Rule 2 in `docs/standards/testing.md`: every test gets its own home in a `TempDir`, **passed
 //! as an argument** rather than through the environment. `std::env::set_var` is `unsafe` in edition
 //! 2024 and process-global regardless, so two tests in one binary would rewrite each other's home.
 
@@ -49,7 +49,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 
 /// The one setting written into every home this fixture makes — roadmap task **T44**.
 ///
-/// **Rule 1 in `.claude/standards/testing.md`: no test touches port 53.** Left to its default the
+/// **Rule 1 in `docs/standards/testing.md`: no test touches port 53.** Left to its default the
 /// daemon's DNS server binds 53 on Windows and 53535 on macOS and Linux, so without this every
 /// suite that starts a real daemon would take a port off the machine running it — and two of them
 /// in parallel would race for it, the loser silently falling back to hosts-only mode.

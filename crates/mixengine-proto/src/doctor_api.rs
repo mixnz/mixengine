@@ -65,7 +65,7 @@ pub enum Outcome {
 
     /// A fact worth stating that is not a fault.
     ///
-    /// [ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md) is why
+    /// [ADR 0007](../../../docs/decisions/0007-supervised-child-owns-a-process-group.md) is why
     /// this variant exists: what MixEngine can guarantee about killing a service's descendants
     /// differs by system, and reporting "macOS guarantees nothing" as a *problem* would be reporting
     /// the operating system as broken. Reporting it as nothing at all is the failure that ADR exists
@@ -188,7 +188,7 @@ pub enum ProblemId {
     TrustBundleMissing,
 
     /// An installed JDK does not hold this home's authority in its own `cacerts` — roadmap task
-    /// **T27e**, [ADR 0039](../../../.claude/decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
+    /// **T27e**, [ADR 0039](../../../docs/decisions/0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md).
     ///
     /// **A problem and not a note**, on [`TrustBundleMissing`](Self::TrustBundleMissing)'s
     /// reasoning: without it, every HTTPS request a Java program makes to a site of this home fails

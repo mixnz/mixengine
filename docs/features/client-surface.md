@@ -236,7 +236,7 @@ before its first runtime.
 
 A tray or menu-bar item needs no more than the dashboard does: overall state, stop-all, and the site
 list. MixLab's is built (T168,
-[the design](../../docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md)): a
+[the design](../specs/2026-09-19-t168-mixengine-in-the-tray-design.md)): a
 webview panel that also starts and stops single services and asks `daemon.shutdown` — every one of
 them a method this document already lists, so the tray added nothing to the API.
 

@@ -167,7 +167,7 @@ unreadable entry is survivable on a user's machine on purpose, and here it can o
 generator is older than its own inputs.
 
 Design:
-[docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md](../../docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md).
+[docs/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md](../specs/2026-09-02-t81a-publishing-the-extension-registry-design.md).
 
 ## Opening a database in MixLab
 
@@ -191,7 +191,7 @@ in the CLI is a gap in the product. The desktop application renders the button f
 methods — and inside its own window the *open* goes in-process, never through `mixdb://` (the
 design's D10) — which is why the demand is written down in [client-surface.md](client-surface.md)
 rather than assumed. Design:
-[docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../../docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
+[docs/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
 
 Detection answers a state, not a launch — **two of them, and neither is an error**: `installed`, with
 the window this install would start, and `no_client` for an install with none, which is the headless
@@ -255,7 +255,7 @@ names it alike, because a rule published to another application must not be two 
 agree by inspection.
 
 Design:
-[docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md](../../docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md).
+[docs/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md](../specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md).
 
 
 ## web-app extensions
@@ -304,7 +304,7 @@ like a project site's, and `runtime.uninstall` refuses to remove that PHP withou
 `site.*` it can be shown, started and stopped, and nothing else: an update, a delete, a share or a
 domain change answers *"belongs to the phpmyadmin extension — `mix extension uninstall phpmyadmin`
 removes it"*. Design:
-[docs/superpowers/specs/2026-09-03-t81b-extension-sites-design.md](../../docs/superpowers/specs/2026-09-03-t81b-extension-sites-design.md).
+[docs/specs/2026-09-03-t81b-extension-sites-design.md](../specs/2026-09-03-t81b-extension-sites-design.md).
 
 **And that pool is the extension's own** — **T82a**, which is where this line's "its pool is the
 newest installed PHP" was overturned. The PHP is still chosen that way and still frozen; what
@@ -411,7 +411,7 @@ rather than leaving a `mix service list` entry to be discovered.
   `{db_password_env}` renders it — which is T80's *"there is no check to forget"* applied to a second
   field. A locked keyring costs that one site rather than every project's, which is the same
   dedicated pool paying for itself twice. Design:
-  [docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md](../../docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md).
+  [docs/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md](../specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md).
 - `mix` hands a managed database service to MixLab and it opens with that connection preselected,
   its password never appearing in an argument, a URL or a log.
 - Where the install has no window the same call answers that as a state, not as a failure, and the

@@ -8,7 +8,7 @@
 //! anyway, which is T49b's.
 //!
 //! **Detected by probing for the directories, never by parsing `/etc/os-release`.**
-//! `.claude/features/tls.md` asks for that in a sentence of its own, and a version string is a thing
+//! `docs/features/tls.md` asks for that in a sentence of its own, and a version string is a thing
 //! distributions change.
 //!
 //! **Being in the anchors directory is not the same as being trusted**, which is why the probe

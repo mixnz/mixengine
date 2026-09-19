@@ -6,7 +6,7 @@
 //! the `php` these tests run is the file a daemon start would have put there.
 //!
 //! **No `MIXENGINE_HOME` is ever set in this process.** Every case sets it on the child's own
-//! `Command`, which is what `.claude/standards/testing.md` requires and what lets these run in
+//! `Command`, which is what `docs/standards/testing.md` requires and what lets these run in
 //! parallel: `std::env::set_var` is process-global, and two homes in one binary would overwrite
 //! each other.
 
@@ -416,7 +416,7 @@ impl Home {
     /// **[`Port::Fixed`] and never [`Port::Allocate`]**, which is what keeps this suite honest on a
     /// busy machine: allocation asks the operating system whether a number is free, and whether
     /// 3307 is free is a property of the machine rather than of MixEngine
-    /// (`.claude/standards/testing.md`). What these cases assert is which *row* a command resolves
+    /// (`docs/standards/testing.md`). What these cases assert is which *row* a command resolves
     /// to, and a row is a row whether or not anything is listening on it.
     pub(crate) fn instantiate(&self, package: &str, version: &str, id: &str, port: u16) {
         let database = self.path().join(paths::DATABASE_FILE_NAME);

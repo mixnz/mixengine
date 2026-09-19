@@ -346,7 +346,7 @@ fn the_desktop_application_carries_the_workspace_version() {
 /// The Linux install page, in each language, and the operations page that states the same floors.
 const INSTALL_EN: &str = include_str!("../../../docs/guide/en/install.md");
 const INSTALL_VI: &str = include_str!("../../../docs/guide/vi/install.md");
-const BUILD_AND_RELEASE: &str = include_str!("../../../.claude/operations/build-and-release.md");
+const BUILD_AND_RELEASE: &str = include_str!("../../../docs/operations/build-and-release.md");
 
 /// Every document that promises the window's floor promises the one `packaging/common.sh` declares.
 ///
@@ -364,7 +364,7 @@ fn every_document_promises_the_floor_the_packaging_declares() {
     for (what, text) in [
         ("docs/guide/en/install.md", INSTALL_EN),
         ("docs/guide/vi/install.md", INSTALL_VI),
-        (".claude/operations/build-and-release.md", BUILD_AND_RELEASE),
+        ("docs/operations/build-and-release.md", BUILD_AND_RELEASE),
     ] {
         assert!(
             text.contains(&glibc),

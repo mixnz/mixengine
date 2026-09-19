@@ -1,6 +1,6 @@
 //! A real archive, in each of the three shapes the publishing pipeline produces.
 //!
-//! `.claude/standards/testing.md` named this before it existed and said what it is for: *a tiny
+//! `docs/standards/testing.md` named this before it existed and said what it is for: *a tiny
 //! tarball/zip with a known SHA-256, for install flows without the network*. What it must not be is
 //! a stand-in for unpacking — the install pipeline's most interesting steps are the checksum, the
 //! entry-path check and the mode bits, and every one of them is a property of a genuine archive.

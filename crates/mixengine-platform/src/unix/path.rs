@@ -8,7 +8,7 @@
 //!
 //! # Why a block and not a line
 //!
-//! `.claude/architecture/platform-abstraction.md`'s first rule: every mutation is reversible and
+//! `docs/architecture/platform-abstraction.md`'s first rule: every mutation is reversible and
 //! tagged. Nothing outside [`BEGIN`]…[`END`] is ever read, moved or rewritten, which is what makes
 //! `remove` able to promise that a profile somebody has been editing since 2011 comes back exactly
 //! as it was. The block is also *replaced* rather than added to, so a home that moved leaves one

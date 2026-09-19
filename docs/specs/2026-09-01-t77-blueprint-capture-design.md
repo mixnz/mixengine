@@ -29,15 +29,15 @@ anything. The gallery (T79).
 ## Decisions
 
 **D1 — The blueprint manifest is its own type, overlapping `mixengine.toml` rather than sharing its
-struct.** [`data-model.md`](../../../.claude/architecture/data-model.md) says "same schema as the
+struct.** [`data-model.md`](../architecture/data-model.md) says "same schema as the
 project manifest plus a `[blueprint]` header", and the example in
-[`features/blueprints.md`](../../../.claude/features/blueprints.md) disagrees with it: a blueprint
+[`features/blueprints.md`](../features/blueprints.md) disagrees with it: a blueprint
 carries `domain_pattern = "{project}.test"` where a project manifest carries `domain` and `aliases`,
 and it carries `database` and `user`, which the project manifest deliberately does not interpret.
 
 They are also two different kinds of file. `mixengine.toml` is written by a person, lives in their
 repository under their comments, and is edited byte-preservingly by
-[`manifest::write`](../../../crates/mixengine-core/src/manifest.rs); a blueprint is generated, read
+[`manifest::write`](../../crates/mixengine-core/src/manifest.rs); a blueprint is generated, read
 once and thrown away. Forcing one struct to serve both makes every key an `Option` and hands the
 comment-preserving writer a second file shape to preserve.
 
@@ -50,7 +50,7 @@ leaf vocabulary that is genuinely one thing — `RuntimeKind`, `VersionConstrain
 from any other machine's.** The feature doc's example has
 `ini = { memory_limit = "512M", upload_max_filesize = "64M" }`. There is nothing to read it out of.
 PHP's ini settings are written as **generated constants** in
-[`runtimes::extensions`](../../../crates/mixengine-core/src/runtimes/extensions.rs) — the same
+[`runtimes::extensions`](../../crates/mixengine-core/src/runtimes/extensions.rs) — the same
 `memory_limit = 512M` on every machine this product runs on — and the only per-service override map
 a php-fpm pool has, `config_overrides_json`, holds `max_children`, `max_requests`,
 `request_timeout`, `ready_timeout_ms` and `stop_grace_ms`: process-supervision knobs, not ini.
@@ -70,7 +70,7 @@ requirement, and a blueprint that arrived and disabled `mongodb` for every other
 machine would be doing harm it was never asked to do. So `PlanAction::SetPhpExtension` enables and
 has no `enabled` flag — a field only the "off" direction would need is a field nothing writes.
 
-**D3 — `database` and `user` become read.** [`manifest.rs:137`](../../../crates/mixengine-core/src/manifest.rs)
+**D3 — `database` and `user` become read.** [`manifest.rs:137`](../../crates/mixengine-core/src/manifest.rs)
 says these two keys pass through untouched because "a key read and then quietly ignored is a promise
 not kept". That was right while nothing could act on them. Capture can: it is the one reader, and
 what it does with them is copy them into the blueprint. Two fields are added to `ManifestService`,
@@ -95,7 +95,7 @@ instance whose name is the project's name is written `instance = "per-project"`;
 copied as it stands, which is how `main` stays `main`.
 
 **D4a — A runtime the project never asked for is not a runtime it uses.** `core::resolve`
-answers with a [`RuntimeSource`](../../../crates/mixengine-proto/src/runtime_api.rs), and that is
+answers with a [`RuntimeSource`](../../crates/mixengine-proto/src/runtime_api.rs), and that is
 exactly the fact this task needs: a version decided by `RuntimeSource::Default` was decided by the
 machine, not by the project, and capturing it would write this home's default into a file meant for
 somebody else's. So a kind is captured when its source is the project's pin or its manifest, and
@@ -173,7 +173,7 @@ get five actions into a project directory before discovering the sixth was impos
 - A **non-empty** directory is *not* blocked — applying a blueprint onto a repository somebody just
   cloned is the normal case — **unless** the blueprint carries `[scaffold]`, whose whole shape
   (`composer create-project laravel/laravel .`) requires an empty one.
-- A project name longer than `NAME_LIMIT` (64, [`projects.rs`](../../../crates/mixengine-core/src/projects.rs))
+- A project name longer than `NAME_LIMIT` (64, [`projects.rs`](../../crates/mixengine-core/src/projects.rs))
   is blocked; so is one whose `{project}` expansion exceeds a limit belonging to something else —
   MySQL's user names are 32 characters, and a 60-character project is a failure that must surface at
   dry-run rather than halfway through an apply.
@@ -307,7 +307,7 @@ mix blueprint apply <slug> --project <name> [--path <dir>] --dry-run [--json]
 `--path` absent means `<cwd>/<project>`. `apply` without `--dry-run` is sent, and the daemon's
 `Unsupported` is what gets printed.
 
-The plan renders as words, not glyphs — [`render.rs`](../../../crates/mixengine-cli/src/render.rs)
+The plan renders as words, not glyphs — [`render.rs`](../../crates/mixengine-cli/src/render.rs)
 does not contain a single `✓` or `✗`, and a non-ASCII status column on a Windows console is a
 rendering problem this product does not need:
 
@@ -375,13 +375,13 @@ wrong in the more expensive direction.
 
 ## Text that this task makes wrong
 
-- [`features/blueprints.md`](../../../.claude/features/blueprints.md) — the `[php] ini` line in the
+- [`features/blueprints.md`](../features/blueprints.md) — the `[php] ini` line in the
   example manifest, and "non-default ini values" in the Capture paragraph. Corrected per D2.
-- [`architecture/data-model.md`](../../../.claude/architecture/data-model.md) — "Same schema as the
+- [`architecture/data-model.md`](../architecture/data-model.md) — "Same schema as the
   project manifest" becomes *overlapping*, per D1.
-- [`manifest.rs`](../../../crates/mixengine-core/src/manifest.rs) — the note saying `database` and
+- [`manifest.rs`](../../crates/mixengine-core/src/manifest.rs) — the note saying `database` and
   `user` are not read. They are, as of D3, by exactly one caller.
-- [`projects.rs`](../../../crates/mixengine-core/src/projects.rs) — `kept_warm`'s note says the
+- [`projects.rs`](../../crates/mixengine-core/src/projects.rs) — `kept_warm`'s note says the
   missing half of "which services does this project use" belongs to T77. It does not: the edge is
   `site_service_links`, which has existed since `0006`, and capture *reads* it rather than creating
   anything. The note is corrected to point at the table, so the next person to widen that query

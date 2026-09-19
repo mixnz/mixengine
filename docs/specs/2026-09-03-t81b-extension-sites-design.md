@@ -27,9 +27,9 @@ write and remove the site, `extensions::manifest` checks the label); `mixengine-
 on the wire, and three optional fields on the extension answers); `mixengine-daemon` (`Extensions`
 held after `Sites` and holding it, the refusals on an extension-owned site, `runtime.uninstall`'s
 third refusal); `mixengine-cli` (an `OWNER` column, a `SITE` column, and what `install` prints);
-`mixengine-testkit` where a fixture is missing. Documentation: [architecture/data-model.md](../../../.claude/architecture/data-model.md),
-[features/extensions.md](../../../.claude/features/extensions.md),
-[features/client-surface.md](../../../.claude/features/client-surface.md), and the roadmap.
+`mixengine-testkit` where a fixture is missing. Documentation: [architecture/data-model.md](../architecture/data-model.md),
+[features/extensions.md](../features/extensions.md),
+[features/client-surface.md](../features/client-surface.md), and the roadmap.
 
 **Out:**
 
@@ -131,7 +131,7 @@ as `SiteSummary.owner`. **A replacement and not an `Option` beside the old field
 reader has to agree about is the shape this codebase spends triggers avoiding, and the only client
 that reads `project` ships with the daemon. `SiteDetail.root` becomes *the owner's root* — the
 project's directory or the extension's install directory — which is what `doc_root_full` was always
-joined onto. [features/client-surface.md](../../../.claude/features/client-surface.md)'s sites
+joined onto. [features/client-surface.md](../features/client-surface.md)'s sites
 entry says a listing carries an owner.
 
 `SiteRef::Path` resolves through projects and only projects. A path inside an extension's install
@@ -147,7 +147,7 @@ administrative interface's pool warm.
 ### D4 — The domain is `<label>.mixengine.test`, the label is checked at parse, and nothing is reserved
 
 `[web-app].domain` is one label, and the site is `<label>.mixengine.<DEFAULT_TLD>` —
-`phpmyadmin.mixengine.test`, as [features/extensions.md](../../../.claude/features/extensions.md)
+`phpmyadmin.mixengine.test`, as [features/extensions.md](../features/extensions.md)
 has said since before T80. Composed through `domains::normalised`, so it is lowercased and checked
 like a name a person typed.
 

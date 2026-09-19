@@ -5,7 +5,7 @@
 //! neither means anything asserted inside one process against a mock.
 //!
 //! Every test gets its own `MIXENGINE_HOME` in a `TempDir` **passed as `--home`** — rule 2 in
-//! `.claude/standards/testing.md`. Nothing here touches the network.
+//! `docs/standards/testing.md`. Nothing here touches the network.
 
 use std::process::{Child, Command, Stdio};
 use std::time::Duration;

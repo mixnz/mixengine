@@ -2,7 +2,7 @@
 //!
 //! **"Service" here is the operating system's word, not MixEngine's.** The trait is
 //! [`ServiceInstaller`] because
-//! [ADR 0002](../../../../.claude/decisions/0002-cross-platform-from-day-one.md) named it that on
+//! [ADR 0002](../../../../docs/decisions/0002-cross-platform-from-day-one.md) named it that on
 //! the first day and an accepted decision record is not edited; what it installs is one autostart
 //! entry for `mixengined`, and nothing in it is about MariaDB or php-fpm. Everything a reader meets
 //! more often — this module, the values below, the API, the command — is spelled `autostart`.
@@ -10,7 +10,7 @@
 //! **Nothing here is elevated, on any of the three systems.** A Task Scheduler logon task under this
 //! account's own SID, a plist in this user's `~/Library/LaunchAgents`, a systemd *user* unit in this
 //! user's `~/.config` — all three belong to the account MixEngine runs as, so this capability does
-//! what `.claude/architecture/overview.md` says every other change outside the root needs
+//! what `docs/architecture/overview.md` says every other change outside the root needs
 //! `mixengine-elevate` for, and needs it for none of it. Which is also why it stays out of the
 //! privileged-operation list, exactly as [`PathIntegration`](crate::PathIntegration) does.
 //!
@@ -96,7 +96,7 @@ pub struct AutostartState {
 
 /// Where this OS keeps what it starts at login, and how to put one entry there reversibly.
 ///
-/// Every implementation follows `.claude/architecture/platform-abstraction.md`'s rules the way
+/// Every implementation follows `docs/architecture/platform-abstraction.md`'s rules the way
 /// [`PathIntegration`](crate::PathIntegration) does: a mutation is reversible, a read-modify-write
 /// of a file goes through a temporary in the same directory and a rename, and a machine that cannot
 /// do this at all is *detected* rather than failed against.

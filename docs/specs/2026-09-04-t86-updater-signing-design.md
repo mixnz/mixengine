@@ -1,11 +1,11 @@
 # T86 — the updater key, and what CI does with it (design)
 
 Roadmap task **T86**, phase 9: *"Minisign updater keys: generation, CI signing of artifacts, pubkey
-pinned in the app. **No OS code signing** — see [ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md)
-and [updates.md](../../../.claude/features/updates.md)."*
+pinned in the app. **No OS code signing** — see [ADR 0005](../decisions/0005-on-demand-elevation.md)
+and [updates.md](../features/updates.md)."*
 
-The feature document is [updates.md](../../../.claude/features/updates.md); the release process is
-[build-and-release.md](../../../.claude/operations/build-and-release.md), whose *Signing* section has
+The feature document is [updates.md](../features/updates.md); the release process is
+[build-and-release.md](../operations/build-and-release.md), whose *Signing* section has
 said since T85 that this half is owed and that a `.sha256` is not a signature and is not offered as
 one.
 
@@ -46,7 +46,7 @@ an unsigned artifact in it, because the job that assembles it counts.
 - **`latest.json`** — T88's. It lists the update payloads T88's D6 creates, and there is no honest
   way to generate a feed for archives that do not exist. The release job signs *whatever is in the
   distribution directory*, so T88 adds a step that writes the feed and needs no change here.
-- **OS code signing** — not purchased ([ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md)).
+- **OS code signing** — not purchased ([ADR 0005](../decisions/0005-on-demand-elevation.md)).
   Whether a certificate this project can buy repairs Smart App Control is **T94**, and this task
   changes nothing about that question.
 - **The in-elevate verification** — T88a's. It pins its own copy of the key, because
@@ -316,10 +316,10 @@ packaging/updates.pub                       new — the committed public half
 packaging/sign.sh                           new — sign a dist directory, and prove it
 packaging/README.md                         "Nothing signs anything" stops being true
 .github/workflows/ci.yml                    tag trigger, concurrency, preflight, release, self-test
-.claude/features/updates.md                 the key exists; rotation is a one-way door
-.claude/operations/build-and-release.md      the Signing section's left-hand column is built
-.claude/roadmap/phase-9-ship.md             T86 ticked
-docs/superpowers/specs/2026-09-04-t88-self-update-design.md   D2's ordering note
+docs/features/updates.md                 the key exists; rotation is a one-way door
+docs/operations/build-and-release.md      the Signing section's left-hand column is built
+docs/roadmap/phase-9-ship.md             T86 ticked
+docs/specs/2026-09-04-t88-self-update-design.md   D2's ordering note
 ```
 
 ## What can go wrong, and what each thing does about it

@@ -18,7 +18,7 @@ workspace is excluded from this one
 `cargo clippy --locked --all-targets -- -D warnings` in `apps/desktop/src-tauri`.
 
 **`npm run dev:app` builds the daemon too** — roadmap task **T111**. The window looks for
-`mixengined` beside itself first ([T107](../../docs/superpowers/specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md)),
+`mixengined` beside itself first ([T107](../specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md)),
 and `tauri dev` starts it out of `apps/desktop/src-tauri/target/debug/`, where nothing else ever put
 a daemon — so the MixEngine tab either showed *not installed*, or, on a machine with a release
 installed, found **that** daemon at the second step and started it against the release home while
@@ -196,7 +196,7 @@ and holding `docs/guide/en/cli.md` against what `mix docs --reference` prints.
 ### After changing a `clap` command, or any page of the handbook
 
 The user handbook is `docs/guide/{en,vi}/` — roadmap task **T90**,
-[design](../../docs/superpowers/specs/2026-09-05-t90-the-documentation-site-design.md),
+[design](../specs/2026-09-05-t90-the-documentation-site-design.md),
 [ADR 0021](../decisions/0021-the-handbook-is-one-corpus-published-three-ways.md). Two of its files
 are not written by hand and go stale silently:
 
@@ -312,7 +312,7 @@ measured, because the suite was still starting the daemon from before the fix.
 | Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, the four binaries against glibc 2.28 and the window against glibc 2.35 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
 
 **Every installer in that column places five binaries** since T105 — the four command-line programs
-and MixLab, the window ([the design](../../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md)).
+and MixLab, the window ([the design](../specs/2026-09-09-t105-the-window-in-every-installer-design.md)).
 The **headless** archive beside each is the same release without the window: four binaries, no
 WebKitGTK dependency, for the machine that has no display. It is a download and never an update
 payload — `packaging/feed.sh` skips it by name.
@@ -417,7 +417,7 @@ written by a heredoc and read by nothing else is one an editing mistake can quie
 
 **One artifact in `dist/` is not a binary.** `packaging/bindings.sh --pack` archives the committed
 TypeScript contract as `mixengine-api-<version>-typescript.tar.gz` — roadmap task **T56**,
-[design](../../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md). It is
+[design](../specs/2026-09-05-t56-the-published-api-contract-design.md). It is
 packed in the `release` job from the tree in `bindings/`, which is current because that job needs
 `bindings`; `sign.sh` signs it with everything else, and `feed.sh` does not offer it to
 `mix self-update`, because it matches a payload by the `mixengine-<version>-<os>-…` shape and this is
@@ -476,7 +476,7 @@ design are linked decisions.
   minors; each break is listed in the changelog.
 - Auto-update via `mix self-update` against a `latest.json` published on GitHub Releases. Updates
   are **opt-in**, never silent, because an update restarts the user's running services. **Built by
-  T88** — [design](../../docs/superpowers/specs/2026-09-04-t88-self-update-design.md): the daemon
+  T88** — [design](../specs/2026-09-04-t88-self-update-design.md): the daemon
   checks at start and on a daily clock, both silent on failure; a release is downloaded, hashed
   against the signed feed, unpacked and *run once* before anything is replaced; and a copy of
   MixEngine that a `.deb`, an `.rpm`, a `.pkg` or an AppImage installed is refused in words rather

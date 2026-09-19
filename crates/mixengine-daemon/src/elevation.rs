@@ -7,7 +7,7 @@
 //! batch is announced on is here.
 //!
 //! **This daemon never raises a prompt on its own initiative.**
-//! `.claude/architecture/daemon-and-ipc.md` already carries the rule: *a method that writes outside
+//! `docs/architecture/daemon-and-ipc.md` already carries the rule: *a method that writes outside
 //! `MIXENGINE_HOME` is never called on the daemon's own initiative* (T26). Everything the helper
 //! will ever do — the hosts file, the trust store, the resolver, a firewall rule — is outside the
 //! home by definition; that is why it needs root. So enqueuing and flushing have two different
@@ -224,7 +224,7 @@ impl Elevation {
     /// `mix status` for ever.
     ///
     /// **And it says so when the source is not an administrator's**, which is the whole of what
-    /// `.claude/architecture/security-model.md`'s residual is observable as. Read here, once per
+    /// `docs/architecture/security-model.md`'s residual is observable as. Read here, once per
     /// row asked for, rather than in `mixengine_core::elevation::helper` — which every `mix status`
     /// and every poll a window makes goes through.
     ///
@@ -288,7 +288,7 @@ impl Elevation {
     ///   otherwise driving the helper from the version before it for ever. **That is a replacement
     ///   behind an explicit prompt and not an auto-update**: nothing is copied until somebody
     ///   allows a batch, which is exactly what
-    ///   `.claude/architecture/security-model.md`'s auto-update boundary asks for. The signature
+    ///   `docs/architecture/security-model.md`'s auto-update boundary asks for. The signature
     ///   check that decides whether the new binary deserved that prompt at all is **T88a**;
     /// - **installed and not an administrator's** — nothing is asked for, and a warning is logged.
     ///   The helper would refuse the operation anyway, and `elevation.status` is already saying so
@@ -343,7 +343,7 @@ impl Elevation {
     /// only meaning was "you rebuilt". What decides is what the installed helper says it is — and a
     /// replacement needs a signed candidate, which has to be fetched, which is `mix elevation
     /// upgrade`'s job. A daemon start that reached the network would be a start an offline machine
-    /// pays for, which `.claude/features/updates.md` forbids in as many words.
+    /// pays for, which `docs/features/updates.md` forbids in as many words.
     ///
     /// Called at start, and again after a prompt that installed or replaced the helper: a daemon
     /// that learned the helper's version only at start went on answering *none installed* until it
@@ -502,7 +502,7 @@ impl Elevation {
     /// or another account cleared.
     ///
     /// **And here rather than when the first HTTPS site is created**, which is the ordering T48
-    /// generated the authority for: `.claude/architecture/security-model.md` promises one elevation
+    /// generated the authority for: `docs/architecture/security-model.md` promises one elevation
     /// prompt at first run covering the CA, the resolver and the port grant together, and an install
     /// that first appeared with the first site would be a second batch behind a second prompt.
     ///
@@ -1382,7 +1382,7 @@ mod tests {
 
     /// **The task line's own test**: three operations, one grant, one prompt.
     ///
-    /// `.claude/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a defect, and
+    /// `docs/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a defect, and
     /// this is that rule asserted rather than asserted-about. The pair the mock records is the whole
     /// claim: one prompt, on the request the daemon had just written, with the helper it resolved.
     #[tokio::test]
@@ -1961,7 +1961,7 @@ mod tests {
 
     /// **And a machine that already agrees is still asked for nothing.** The bootstrap sits at the
     /// enqueue rather than at the top of the producer, so a site creation that needed no hosts
-    /// entry raises no prompt — which is the promise `.claude/architecture/security-model.md` makes
+    /// entry raises no prompt — which is the promise `docs/architecture/security-model.md` makes
     /// about creating a site, and the reason this row is here beside the one above.
     #[tokio::test]
     async fn a_producer_that_asks_for_nothing_asks_for_no_helper_either() {

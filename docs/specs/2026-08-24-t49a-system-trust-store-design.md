@@ -1,14 +1,14 @@
 # T49a — the machine's trust store, and the direction of this operation that can do damage
 
-**Task**: T49a, from [phase 5](../../../.claude/roadmap/phase-5-https.md) — install and remove
+**Task**: T49a, from [phase 5](../roadmap/phase-5-https.md) — install and remove
 MixEngine's CA in the operating system's own trust store, on all three systems, batched into the
 single first-run elevation prompt with T42 and T45.
 
-**Authoritative documents**: [`.claude/features/tls.md`](../../../.claude/features/tls.md), the Local
+**Authoritative documents**: [`docs/features/tls.md`](../features/tls.md), the Local
 CA section of
-[`.claude/architecture/security-model.md`](../../../.claude/architecture/security-model.md), and the
+[`docs/architecture/security-model.md`](../architecture/security-model.md), and the
 `TrustStore` row of
-[`.claude/architecture/platform-abstraction.md`](../../../.claude/architecture/platform-abstraction.md).
+[`docs/architecture/platform-abstraction.md`](../architecture/platform-abstraction.md).
 Where this design departs from any of them, it says so and says why.
 
 **Depends on**: T48, which put a certificate at `certs/ca/root.crt` and derived its subject's
@@ -349,7 +349,7 @@ The first draft of this design reached for `x509-parser`, which is already a wor
 after T48. **That was wrong, and measuring it is what showed why.**
 
 `mixengine-elevate`'s dependency closure is pinned in
-[`.github/elevate-dependencies.txt`](../../../.github/elevate-dependencies.txt), which CI regenerates
+[`.github/elevate-dependencies.txt`](../../.github/elevate-dependencies.txt), which CI regenerates
 and diffs, and whose first three lines say *"Everything here runs as root. Adding a line is a
 security decision."* Measured, on this machine, both built on their own:
 
@@ -445,7 +445,7 @@ returns an error — any error — for every one of them.
 
 **Anything that touches a real store is a system test**: `#[ignore]`d and gated on
 `MIXENGINE_SYSTEM_TESTS=1`, run by CI's existing `system` job on all three systems. That is the
-exception `.claude/standards/testing.md` rule 1 names, and it names the trust store by name.
+exception `docs/standards/testing.md` rule 1 names, and it names the trust store by name.
 
 **Two assumptions this design rests on cannot be measured on the machine it was written on, and are
 not assumed in a comment.** Both become real tests, in the *unprivileged* job:

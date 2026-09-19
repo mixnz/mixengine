@@ -288,5 +288,5 @@ starts.
 | `crates/mixengine-core/tests/blueprint_gallery.rs` | every gallery blueprint plans clean for an awkward name |
 | `crates/mixengine-daemon/src/api/apply.rs` | D5: open the ring, narrate each step, forget it at the end |
 | `apps/desktop/src/modules/mixengine/screens/Blueprints/ApplyDialog.tsx` | D6 |
-| `.claude/decisions/0030-the-project-token-expands-to-a-slug.md` | new ADR |
-| `.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md` | T120 |
+| `docs/decisions/0030-the-project-token-expands-to-a-slug.md` | new ADR |
+| `docs/roadmap/phase-14-a-window-a-new-user-can-start-from.md` | T120 |

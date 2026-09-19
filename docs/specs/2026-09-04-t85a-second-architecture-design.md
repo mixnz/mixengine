@@ -91,7 +91,7 @@ built today still runs on an LTS distribution installed two years from now.
 - `packaging/windows/build.sh`, `packaging/linux/build-deb.sh`, `packaging/linux/build-rpm.sh`,
   `packaging/linux/build-appimage.sh` — artifact names and, for `.deb`/`.rpm`, the architecture field
   inside the package itself, all derived from `mix_arch_label()` instead of hardcoded.
-- `.claude/operations/build-and-release.md` — the targets table and the `build` job description,
+- `docs/operations/build-and-release.md` — the targets table and the `build` job description,
   updated to state five rows and the glibc floor.
 - Documentation: this spec, the roadmap line, `runtime-packaging.md` is **not** touched — it is about
   bundled runtimes (PHP, Node, …), not about MixEngine's own three binaries, and the floor this task

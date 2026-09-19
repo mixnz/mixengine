@@ -53,7 +53,7 @@ function topLevelWords(statement: SqlStatement, dialect: SqlDialect): TopWord[] 
  * statement. ClickHouse allows several comma-separated commands in one `ALTER TABLE` (`ALTER TABLE
  * t DROP COLUMN x, UPDATE y = 1 WHERE ...`) — a top-level comma anywhere in the statement means
  * more than one command is packed in, and this returns `null` rather than guess which one governs
- * (D3 of `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md`).
+ * (D3 of `docs/specs/2026-09-04-clickhouse-query-dml-design.md`).
  *
  * `null` on every dialect but ClickHouse: no other engine spells `UPDATE` this way, and MySQL's own
  * `ALTER TABLE` never carries an `UPDATE` clause at all.
@@ -90,7 +90,7 @@ export function clickhouseAlterUpdate(
 /**
  * Whether `statement` is one of the row-level DML verbs a `rowsWritable` dialect may send through
  * the Query tab even while `writable` is false — ClickHouse's four verbs (D5 of
- * `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md`). `INSERT`/`DELETE`/
+ * `docs/specs/2026-09-04-clickhouse-query-dml-design.md`). `INSERT`/`DELETE`/
  * `TRUNCATE` are spelled the same as on every other dialect; `ALTER TABLE <name> UPDATE ...` is
  * ClickHouse's own spelling, recognised by {@link clickhouseAlterUpdate}.
  */

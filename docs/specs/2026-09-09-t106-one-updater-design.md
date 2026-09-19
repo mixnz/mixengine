@@ -1,6 +1,6 @@
 # T106 — One updater
 
-Roadmap task [T106](../../../.claude/roadmap/phase-12-one-product.md), on
+Roadmap task [T106](../roadmap/phase-12-one-product.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D9 and on
 [T105](2026-09-09-t105-the-window-in-every-installer-design.md). 2026-09-09.
 
@@ -333,4 +333,4 @@ script a release runs and nothing else does, in the `lint` job, on every CI run.
 - **The release notes sentence is a person's.** D9 requires an install from before this release to be
   told that the window arrives by installer. The notes are generated from commit subjects before the
   draft exists (`feed.sh`'s own header says why), so this is a line in the release checklist —
-  `.claude/operations/build-and-release.md`, step 4 — and not a line of code.
+  `docs/operations/build-and-release.md`, step 4 — and not a line of code.

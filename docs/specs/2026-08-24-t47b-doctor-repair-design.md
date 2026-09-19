@@ -4,7 +4,7 @@ Roadmap task **T47b**, phase 4, the write half of the **T47** split. Design sett
 before implementation. The read half is
 [T47a](2026-08-24-t47a-doctor-design.md), and every decision below leans on something it built.
 
-Everything under `.claude/` that this build touches is in force: no business logic in clients, no
+Everything under `docs/` that this build touches is in force: no business logic in clients, no
 client-only capability, no OS calls outside `mixengine-platform`, no persistent root process,
 generated config is disposable, cross-platform or not merged.
 
@@ -30,7 +30,7 @@ an argument, which is the same as not having it: every caller would have to read
 know whether the machine was about to change.
 
 Two methods also match what a client was already promised.
-[client-surface.md](../../../.claude/features/client-surface.md) lists `daemon.doctor_repair` by
+[client-surface.md](../features/client-surface.md) lists `daemon.doctor_repair` by
 name, as one action under Settings — one button, not one button per finding. So the method repairs
 **everything it can in one call** and takes no selection. A per-problem form is a thing to add when
 a client asks for it, and nothing has.
@@ -103,7 +103,7 @@ deleted, its id goes with it and this `match` fails to compile until the arm goe
 
 Repairs that need root do not elevate. They **enqueue**, through the same
 `Elevation::require_hosts` / `require_resolver` / `require_port_access` that every other producer
-uses. [ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md) settled that asking more
+uses. [ADR 0005](../decisions/0005-on-demand-elevation.md) settled that asking more
 than once for one batch is the defect, and the daemon's own rule is that enqueuing and flushing have
 different triggers: producers enqueue, and only a client's call flushes.
 

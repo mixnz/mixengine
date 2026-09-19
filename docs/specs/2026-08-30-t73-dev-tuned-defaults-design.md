@@ -1,9 +1,9 @@
 # T73 — Dev-tuned defaults across the service templates
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "Hard limits". Standard:
-[.claude/standards/testing.md](../../../.claude/standards/testing.md), "Performance guards".
+[docs/standards/testing.md](../standards/testing.md), "Performance guards".
 Predecessors: [T68](2026-08-26-t68-resource-limits-design.md), which named this task as the owner of
 recipe-declared defaults; [T72](2026-08-30-t72-ci-budgets-design.md) and
 [T72a](2026-08-30-t72a-cold-path-design.md), which both wrote *"no tuning — that is T73's"* and left
@@ -11,7 +11,7 @@ the `bench` job this one measures in.
 
 ## What this is for
 
-`.claude/features/resource-isolation.md` says, in the middle of a section about cgroups:
+`docs/features/resource-isolation.md` says, in the middle of a section about cgroups:
 
 > Defaults are conservative — MariaDB's `innodb_buffer_pool_size` and PHP's `memory_limit` are tuned
 > down for a dev machine in our config templates, which saves more RAM than any cgroup will.
@@ -67,7 +67,7 @@ the roadmap line would have led somewhere worse:
 
 Redis, memcached, nginx and Caddy get nothing, and the templates already say why: Redis writes
 nothing to disk and carries a `maxmemory` with a policy (T35); memcached's 64 MB is the number
-`.claude/features/services.md` publishes; nginx runs one worker with `access_log off` (T43); Caddy
+`docs/features/services.md` publishes; nginx runs one worker with `access_log off` (T43); Caddy
 runs one process. **They were examined and left, and the spec says so** so that the next person does
 not reopen four files to discover the same thing.
 
@@ -91,7 +91,7 @@ directory will not open has lost the afternoon, and MixEngine would have been th
 
 ## D3 — The new directives are hard-coded in the template, not new settings
 
-A [`Setting`](../../../crates/mixengine-core/src/generate/settings.rs) is a knob offered to the user.
+A [`Setting`](../../crates/mixengine-core/src/generate/settings.rs) is a knob offered to the user.
 These directives are not a knob; they are the sentence *this is a development machine* written in
 each server's own dialect. That is exactly the shape Redis's template already uses for `save ""`,
 `appendonly no` and `daemonize no` — stated, with the paragraph that says why, and no override key.
@@ -109,7 +109,7 @@ settings and only change their default. Nobody's override stops working.
 This is T72a's lesson applied before it can cost anything. `pm.status_listen` was refused there
 because php-fpm rejects an entire file over one unknown directive and this product offers PHP from
 7.0; **MySQL's and MariaDB's option parsers behave the same way**, and
-`.claude/features/services.md` offers MySQL from **5.6**, and the index publishes MariaDB from
+`docs/features/services.md` offers MySQL from **5.6**, and the index publishes MariaDB from
 **10.6**.
 
 So the rule, and it is a rule rather than a checklist because the next person adding a line needs the
@@ -175,15 +175,15 @@ failure that matters — tuning that does nothing — without going red on a slo
 guard stops being read.
 
 The measured saving in megabytes is reported by every run and written into
-`.claude/features/resource-isolation.md`, which is where a number belongs when it describes a
+`docs/features/resource-isolation.md`, which is where a number belongs when it describes a
 machine rather than a rule.
 
 ## D7 — Two documents are part of the deliverable
 
-- **`.claude/features/resource-isolation.md`** — the sentence quoted at the top becomes what the
+- **`docs/features/resource-isolation.md`** — the sentence quoted at the top becomes what the
   templates do, with the measured saving in it. A feature document that promises tuning nobody did is
   worse than one that promises nothing.
-- **`.claude/roadmap/phase-7-efficiency.md`** — T73 is ticked with the number, and phase 7's `Done`
+- **`docs/roadmap/phase-7-efficiency.md`** — T73 is ticked with the number, and phase 7's `Done`
   column and the `Where we are` paragraph in `todo.md` follow it.
 
 ## What this task deliberately does not do

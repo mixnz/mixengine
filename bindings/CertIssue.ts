@@ -4,9 +4,9 @@ import type { SiteRef } from "./SiteRef";
 /**
  * `cert.issue` — give a site the certificate its names need, or every site one.
  *
- * **It names a site and never a list of domains.** `.claude/features/tls.md` specified
+ * **It names a site and never a list of domains.** `docs/features/tls.md` specified
  * `{ domains }`; that would put in the client the decision of *what a certificate covers*, which is
- * business logic, and `.claude/CLAUDE.md`'s first rule is that a client only renders what the
+ * business logic, and `CLAUDE.md`'s first rule is that a client only renders what the
  * daemon returns. The daemon reads the site's domains from its own rows.
  */
 export type CertIssue = { 

@@ -2,7 +2,7 @@
 
 `npm run screenshots` renders MixLab's promotional images from sample data: the real frontend in
 Chromium, every IPC call answered by `apps/desktop/demo/fixtures/`. The design is
-[the spec](../../../docs/superpowers/specs/2026-09-17-marketing-screenshots-design.md).
+[the spec](../../specs/2026-09-17-marketing-screenshots-design.md).
 
 ```bash
 npm run screenshots                                   # every scene, dark and light, macOS frame

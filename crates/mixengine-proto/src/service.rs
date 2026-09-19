@@ -5,7 +5,7 @@
 //! depend on each other, and because a [`ServiceSpec`] is not a supervisor implementation detail: a
 //! row in `services` stores it, the GUI's Services screen edits it, and an `extension.toml` declares
 //! one. The reasoning, and the rule it sets for the rest of the workspace, are in
-//! `.claude/decisions/0006-servicespec-in-proto-and-secret-free.md`.
+//! `docs/decisions/0006-servicespec-in-proto-and-secret-free.md`.
 //!
 //! The consequence worth stating twice: **a spec cannot express a secret by value.** See
 //! [`EnvValue`].
@@ -538,7 +538,7 @@ pub struct Backoff {
 }
 
 impl Default for Backoff {
-    /// The curve `.claude/architecture/process-supervision.md` specifies: 500 ms doubling to 30 s.
+    /// The curve `docs/architecture/process-supervision.md` specifies: 500 ms doubling to 30 s.
     fn default() -> Self {
         Self {
             initial: Millis(500),
@@ -582,7 +582,7 @@ pub enum RestartPolicy {
 
 impl Default for RestartPolicy {
     /// `OnFailure`, five retries in five minutes — the crash-loop cutoff in
-    /// `.claude/architecture/process-supervision.md`.
+    /// `docs/architecture/process-supervision.md`.
     fn default() -> Self {
         Self::OnFailure {
             max_retries: 5,
@@ -639,7 +639,7 @@ impl Default for StopBehaviour {
 
 /// How to hand a running service a configuration that has changed, without stopping it.
 ///
-/// **The whole point is what it is not**: a restart. `.claude/features/services.md` puts it as
+/// **The whole point is what it is not**: a restart. `docs/features/services.md` puts it as
 /// "reload beats restart", and the cost it is avoiding is real — the front-end web server is the
 /// thing every site is reached through, and dropping every connection because one site was edited is
 /// a cost the user did not ask for and cannot see the reason for.
@@ -649,7 +649,7 @@ impl Default for StopBehaviour {
 ///
 /// Two variants, because the two servers this ships with reload by different means: Caddy runs a
 /// program, php-fpm takes a signal. Windows has neither of those signals, so a recipe there returns
-/// no reload at all rather than one that would be refused — `.claude/decisions/0008-no-signal-stop-on-windows.md`.
+/// no reload at all rather than one that would be refused — `docs/decisions/0008-no-signal-stop-on-windows.md`.
 /// `#[non_exhaustive]` is what leaves a third addition additive.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -682,7 +682,7 @@ pub enum ReloadBehaviour {
     /// would not exist on Windows at all.
     ///
     /// **Unavailable on Windows**, where there is no signal a daemon can send a process it gave no
-    /// console to — `.claude/decisions/0008-no-signal-stop-on-windows.md`. A recipe there returns no
+    /// console to — `docs/decisions/0008-no-signal-stop-on-windows.md`. A recipe there returns no
     /// reload at all rather than this, so nothing is ever asked for and then refused: the supervisor
     /// says once, in `daemon.log`, that the running process is still on its previous configuration.
     Signal {
@@ -753,7 +753,7 @@ pub enum Priority {
 /// Applied through the platform layer, which cannot honour all of it everywhere: Windows has Job
 /// Objects and Linux has cgroup v2, but **macOS has no hard memory cap**, so a limit there becomes a
 /// watchdog rather than a wall. That asymmetry is a fact the GUI must show rather than hide — see
-/// `.claude/features/resource-isolation.md`. Enforcement is roadmap task T68; the fields exist now
+/// `docs/features/resource-isolation.md`. Enforcement is roadmap task T68; the fields exist now
 /// so a spec written before it does not have to be revisited.
 #[derive(
     Debug,
@@ -989,7 +989,7 @@ pub struct LogPolicy {
 
 impl Default for LogPolicy {
     /// 10 MB × 5 files, 500 lines in memory — the defaults in
-    /// `.claude/architecture/process-supervision.md`.
+    /// `docs/architecture/process-supervision.md`.
     fn default() -> Self {
         Self {
             max_file_bytes: 10 * 1024 * 1024,
@@ -1739,7 +1739,7 @@ impl RestartPolicy {
 /// A spec that could not be built, or an identifier that could not be parsed.
 ///
 /// This crate's own `thiserror` enum, separate from [`crate::Error`]: that one is the wire failure,
-/// and `.claude/architecture/daemon-and-ipc.md` reserves deciding a code and writing a hint for the
+/// and `docs/architecture/daemon-and-ipc.md` reserves deciding a code and writing a hint for the
 /// daemon boundary. Every variant here maps to `invalid_argument` there.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
@@ -2410,7 +2410,7 @@ mod tests {
         assert!(matches!(built, Err(SpecError::Invalid { ref field, .. }) if field == "restart"));
     }
 
-    /// The defaults are the numbers `.claude/architecture/process-supervision.md` publishes. If this
+    /// The defaults are the numbers `docs/architecture/process-supervision.md` publishes. If this
     /// test needs editing, that document does too.
     #[test]
     fn the_defaults_are_the_documented_ones() {

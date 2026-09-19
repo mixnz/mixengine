@@ -1,6 +1,6 @@
 # T42 — `PortAccess`: being allowed to answer on 80 and 443
 
-**Roadmap:** T42, `.claude/roadmap/phase-4-sites-and-elevation.md`
+**Roadmap:** T42, `docs/roadmap/phase-4-sites-and-elevation.md`
 **Depends on:** T40 (the helper and its file protocol), T40b (the queue), T64 (`mix elevation grant`),
 T41 (the marker-block engine and the first producer), T37 (`core::services::front_end`)
 
@@ -341,7 +341,7 @@ what `mix elevation grant` prints.
 | `mixengine-elevate` | `port_access.rs`: validation per D5, then apply; two arms in `ops.rs` |
 | `mixengine-core` | nothing. The recipes are T43's |
 | `mixengine-daemon` | the start-time producer of D7 |
-| `.claude` | ADR 0012; the trait table and the `PrivilegedOp` list in `architecture/platform-abstraction.md`; the port sentence in `features/services.md`; T42 ticked and T88b closed by it in the roadmap |
+| `docs` | ADR 0012; the trait table and the `PrivilegedOp` list in `architecture/platform-abstraction.md`; the port sentence in `features/services.md`; T42 ticked and T88b closed by it in the roadmap |
 
 ## Testing
 

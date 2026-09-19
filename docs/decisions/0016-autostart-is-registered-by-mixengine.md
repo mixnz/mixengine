@@ -76,7 +76,7 @@ more are this item's own:
   measured, and `<Hidden>true</Hidden>` does not stop it. The daemon therefore releases a console it
   is the only process attached to, which is a discriminator that was also measured: 1 attached
   process under Task Scheduler, 4 from a shell. See the
-  [T85b design](../../docs/superpowers/specs/2026-09-04-t85b-autostart-design.md), D4.
+  [T85b design](../specs/2026-09-04-t85b-autostart-design.md), D4.
 
 ## Alternatives considered
 

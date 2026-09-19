@@ -288,7 +288,7 @@ fn started_marker(data: &Path) -> PathBuf {
 
 /// Read `data` and say which of the four it is.
 ///
-/// `.claude/features/services.md` says a half-finished data directory is "detected and cleaned
+/// `docs/features/services.md` says a half-finished data directory is "detected and cleaned
 /// rather than reused", and [`DataDirectory::Foreign`] is what keeps that sentence from also meaning
 /// *MixEngine deletes a database it did not create*. Deleting a data directory is not reversible, so
 /// it happens only where we left our own evidence that we were mid-ritual.

@@ -1,9 +1,9 @@
 # T72 — CI budgets: idle footprint and cold path
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "Measuring, not guessing" and the two numbers under it. Standard:
-[.claude/standards/testing.md](../../../.claude/standards/testing.md), "Performance guards".
+[docs/standards/testing.md](../standards/testing.md), "Performance guards".
 Predecessors: [T70](2026-08-29-t70-on-demand-activation-design.md), whose activator the cold path
 walks through, and [T71](2026-08-30-t71-metrics-history-design.md), whose sampler the footprint is
 read from.
@@ -109,7 +109,7 @@ comfortably there. A budget that errs strict is a budget doing its job.
 **What was rejected: restarting the daemon and letting the next one adopt Caddy.** It would be much
 closer to an idle daemon — a fresh process supervising a server that was already running — and it
 cannot be done on two of the three systems.
-[ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md) is why: a
+[ADR 0007](../decisions/0007-supervised-child-owns-a-process-group.md) is why: a
 daemon leaving takes its whole job down on Windows and its immediate children on Linux, so there
 would be nothing to adopt on either, and the suite would measure a daemon standing alone. Only macOS leaves the server
 running. One measurement that means three different things is worse than one that is honestly
@@ -152,7 +152,7 @@ No comparison against master, and no per-OS thresholds. The budget is the number
 for the shim's 15 ms and M3's 10 s — the roadmap line says *failing the build on regression*, and a
 fixed ceiling is what those two other guards mean by it. Running the bench on `master` as a control
 when a red looks like noise stays what it is today: something a person does, and a note in
-`.claude/roadmap/`.
+`docs/roadmap/`.
 
 ## D6 — What this task does not do
 
@@ -182,15 +182,15 @@ The suites *are* the tests, so what needs saying is how each of them fails hones
 
 ## Documents to update in this task
 
-- [.claude/standards/testing.md](../../../.claude/standards/testing.md) — the two budgets move from a
+- [docs/standards/testing.md](../standards/testing.md) — the two budgets move from a
   bare line into the same shape the other two guards have: which file, which job, what is gated and
   what is only reported.
-- [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md) — the
+- [docs/features/resource-isolation.md](../features/resource-isolation.md) — the
   acceptance criterion "the CI benchmark fails the build if the idle footprint regresses" stops being
   a promise.
-- [.claude/operations/build-and-release.md](../../../.claude/operations/build-and-release.md) — the
+- [docs/operations/build-and-release.md](../operations/build-and-release.md) — the
   `bench` job's description grows the two steps.
-- [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md) — tick T72,
+- [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md) — tick T72,
   with the measured numbers written down, because the next person to touch either budget needs to
   know what the margin was.
 

@@ -23,7 +23,7 @@ pub const SCHEMA: u32 = 1;
 /// Where the feed is published.
 ///
 /// The stable release-asset redirect and **not** the GitHub API, which is rate-limited to 60
-/// requests an hour per address for unauthenticated callers — `.claude/features/updates.md`. A
+/// requests an hour per address for unauthenticated callers — `docs/features/updates.md`. A
 /// *draft* release is not `latest`, which is what makes tagging and publishing two different acts
 /// and is why the release workflow assembles a draft somebody publishes by hand.
 pub const DEFAULT_URL: &str =
@@ -89,7 +89,7 @@ pub struct Feed {
 ///
 /// Not an [`Artifact`]: there is no archive, no `provides` and no `requires`, and the check is the
 /// `.minisig` beside the file rather than a SHA-256 inside this document — which is the one place
-/// `.claude/features/updates.md` says the feed's own rule deliberately does not extend to.
+/// `docs/features/updates.md` says the feed's own rule deliberately does not extend to.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct HelperArtifact {
     /// Which operating system this build is for.

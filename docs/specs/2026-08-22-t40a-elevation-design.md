@@ -1,20 +1,20 @@
 # T40a — Raising the prompt: the `Elevation` trait and its three launchers
 
-*Design, 2026-08-22. Roadmap task [T40a](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-22. Roadmap task [T40a](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
 [T40](2026-08-22-t40-elevate-design.md) built the helper: a typed request, validated by the elevated
 process itself, applied, reported in a response file, recorded in an audit log the user cannot
 rewrite. Nothing raises it. `Elevation` is a row in the trait table of
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md#the-traits) and
+[platform-abstraction.md](../architecture/platform-abstraction.md#the-traits) and
 appears nowhere in the workspace, and `ElevationOutcome` sits in `mixengine_proto::privileged`
 carrying a doc comment that says "used by T40a" and no user at all.
 
 T40a is the one capability that turns a request file lying on disk into an elevated process reading
 it: `ShellExecuteEx` with the `runas` verb, `do shell script … with administrator privileges`,
 `pkexec` — and, on the third, the polkit-agent gap
-[ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md) calls the worst failure mode of
+[ADR 0005](../decisions/0005-on-demand-elevation.md) calls the worst failure mode of
 the three.
 
 **Nothing calls this either.** The queue that batches pending operations behind one prompt, the
@@ -158,7 +158,7 @@ in order to be able to elevate.
 fn probe(&self) -> ElevationSupport;   // Available | Unavailable { reason }
 ```
 
-Rule 3 of [platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md#rules) —
+Rule 3 of [platform-abstraction.md](../architecture/platform-abstraction.md#rules) —
 detect, then act — and the caller it is for is `mix doctor` (T47) and T40b's degraded mode, both of
 which need to say "this machine cannot elevate" without raising a prompt to find out.
 

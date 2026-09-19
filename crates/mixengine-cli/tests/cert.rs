@@ -67,7 +67,7 @@ async fn ca_status_as_json_is_the_daemons_own_value() {
 /// **The name T48 held open, used** — roadmap task **T53**.
 ///
 /// The test this replaces asserted that `mix cert status` *failed*, so that the short name could
-/// not be taken by anything that was not the per-site check `.claude/features/tls.md` specifies.
+/// not be taken by anything that was not the per-site check `docs/features/tls.md` specifies.
 /// It is that check now.
 ///
 /// **A home with no front end is the case worth asserting**, because it is the state every fresh
@@ -417,7 +417,7 @@ async fn ca_uninstall_refuses_when_there_is_nobody_to_answer() {
 /// "nothing changed". **Measured on 2026-08-26, that assumption is false**: a real UAC dialog
 /// appeared in the middle of `cargo test` on Windows, a person clicked Yes, and the run installed a
 /// certificate authority into `LocalMachine\Root`. That is exactly what rule 1 of
-/// `.claude/standards/testing.md` forbids, and no amount of arranging the *home* prevents it — the
+/// `docs/standards/testing.md` forbids, and no amount of arranging the *home* prevents it — the
 /// store a rotation reaches is the machine's.
 ///
 /// So it is gated, and what it asserts is the **invariant** rather than either outcome: a rotation

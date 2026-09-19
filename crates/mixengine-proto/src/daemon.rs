@@ -56,7 +56,7 @@ pub struct DaemonStatus {
     /// and this is a status line.
     ///
     /// **Optional because it arrived after protocol 1 was frozen** —
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md), roadmap
+    /// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md), roadmap
     /// task **T88c**. It was required until then, which meant a `mix` from a new build could not
     /// *decode* the answer of an older daemon that had not been restarted yet.
     ///
@@ -95,7 +95,7 @@ pub struct DaemonStatus {
     /// client renders identically, which is *nothing at all*. This is the only member here whose
     /// [`None`] carries more than the wire fact, and **T88c** — which made
     /// [`DaemonStatus::elevation`] and [`DaemonStatus::dns`] optional as well, under
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md) — left it
+    /// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md) — left it
     /// exactly as it was.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub update: Option<crate::UpdateOffer>,
@@ -232,7 +232,7 @@ pub struct DaemonShutdown {
 /// The body of `GET /health`.
 ///
 /// Unauthenticated and deliberately trivial: its one job is to tell a client whether to autostart a
-/// daemon (`.claude/architecture/daemon-and-ipc.md`), and it must stay answerable while everything
+/// daemon (`docs/architecture/daemon-and-ipc.md`), and it must stay answerable while everything
 /// else is still coming up. The version rides along because it is free and saves the caller a second
 /// round trip.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -441,7 +441,7 @@ mod tests {
     }
 
     /// Both directions of the skew this field is additive for, as JSON rather than as a claim about
-    /// what `serde` does — which is the sort of sentence `.claude/standards/rust.md` asks for a test
+    /// what `serde` does — which is the sort of sentence `docs/standards/rust.md` asks for a test
     /// instead of.
     #[test]
     fn a_shutdown_decodes_whichever_side_of_this_field_the_daemon_is_from() {

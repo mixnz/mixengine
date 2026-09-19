@@ -23,7 +23,7 @@ Every line below was read off this workspace or off the machine this was designe
   T40b design, D9"*, on the reasoning that *"the directory beside `mixengined` is already exactly as
   trustworthy as `mixengined` itself"*. That reasoning holds for a `cargo build` and stops holding
   the moment an installer puts the two binaries in two directories.
-- **`.claude/operations/build-and-release.md` already says the installer does it**: *"Places
+- **`docs/operations/build-and-release.md` already says the installer does it**: *"Places
   `mixengine-elevate` in a **root-owned** directory (`%ProgramFiles%\MixEngine\`,
   `/usr/local/libexec/`) — it must not sit anywhere the user can write"*, one line under *"Places
   `mixengined` and `mix` (per-user location, so updates need no UAC)"*. The two lines are in tension
@@ -32,7 +32,7 @@ Every line below was read off this workspace or off the machine this was designe
   installer runs under the user's own token by construction; a portable zip is unzipped by the user;
   an AppImage is not installed at all; a `.dmg` is a mounted volume somebody drags out of. Only
   `.deb`, `.rpm` and a macOS `.pkg` run as root.
-- **There is no `.app` to put in a `.dmg`.** [ADR 0011](../../../.claude/decisions/0011-no-gui-in-this-repository.md)
+- **There is no `.app` to put in a `.dmg`.** [ADR 0011](../decisions/0011-no-gui-in-this-repository.md)
   withdrew the GUI; what macOS would ship today is three command-line binaries, and the `.dmg` line
   in the roadmap predates that withdrawal.
 - **`/usr/local` is not root's on every Mac.** Homebrew on Intel takes ownership of `/usr/local`
@@ -87,11 +87,11 @@ Every line below was read off this workspace or off the machine this was designe
   is not root's; `Error::ElevateUntrusted`.
 - `mixengine-daemon` — `Elevation::require_helper`, called at start beside the other three
   `require_*`; the new error mapped to the wire.
-- Documentation: [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md),
-  [build-and-release.md](../../../.claude/operations/build-and-release.md),
-  [security-model.md](../../../.claude/architecture/security-model.md),
-  [platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md),
-  [overview.md](../../../.claude/architecture/overview.md), the roadmap.
+- Documentation: [ADR 0015](../decisions/0015-the-helper-installs-itself.md),
+  [build-and-release.md](../operations/build-and-release.md),
+  [security-model.md](../architecture/security-model.md),
+  [platform-abstraction.md](../architecture/platform-abstraction.md),
+  [overview.md](../architecture/overview.md), the roadmap.
 
 **Out:**
 
@@ -122,7 +122,7 @@ So the mechanism is uniform and belongs to MixEngine rather than to a packager:
 `PrivilegedOp::HelperInstall {}` puts the helper where it belongs, and it is enqueued at daemon start
 like the resolver wiring, the CA install and the port grant — which means it is **applied inside the
 single first-run prompt those three already cost**, not behind a new one.
-`.claude/architecture/security-model.md`'s *"Expected lifetime total: one prompt at first run"*
+`docs/architecture/security-model.md`'s *"Expected lifetime total: one prompt at first run"*
 therefore does not change.
 
 A `.deb`, an `.rpm` or a `.pkg` that has already put the file there is then an optimisation and not a
@@ -175,7 +175,7 @@ Windows therefore resolves both of its directories through `SHGetKnownFolderPath
 `FOLDERID_ProgramFiles` for this task's destination and `FOLDERID_ProgramData` for the audit log,
 which reads a variable today for no better reason and is fixed by the same call. That is roughly
 fifteen lines of `unsafe` in a new `windows/known_folder.rs`, and it is worth it here where
-`.claude/architecture/platform-abstraction.md` refused Security.framework: that was a certificate
+`docs/architecture/platform-abstraction.md` refused Security.framework: that was a certificate
 API with a lifetime discipline, this is one call and one `CoTaskMemFree`, and what it buys is a
 question the audited binary no longer has to answer.
 
@@ -278,7 +278,7 @@ All three per-OS scripts stage the same three binaries and differ only in how th
   the uninstall entry under `HKCU`, appends its own directory to `HKCU\Environment\Path`, and asks
   for no UAC at any point. It does **not** write `<root>/bin` to the PATH: that directory is
   `PathIntegration`'s and is written when `path.install` asks
-  ([overview.md](../../../.claude/architecture/overview.md)). The two therefore write different
+  ([overview.md](../architecture/overview.md)). The two therefore write different
   segments of one value and each removes only its own, which is what makes two authors safe.
 
   **The PATH edit carries a guard, and it is not decoration.** NSIS's `ReadRegStr` silently

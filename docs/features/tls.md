@@ -95,7 +95,7 @@ parses, covers the right names and has eighty days left — and that no browser 
 comparison is the leaf's issuer name against the authority's subject name, which is free because T48
 put the key's identity into that name.
 
-**And issuance runs before configuration is generated, never as part of it.** `.claude/CLAUDE.md`
+**And issuance runs before configuration is generated, never as part of it.** `CLAUDE.md`
 says generated configuration is disposable and rebuilt from SQLite; a certificate is state that
 cannot be rebuilt from a row, and throwing one away costs the trust of every browser holding a cached
 chain. The daemon's start orders it — authority, trust stores, browsers, **certificates**, then the
@@ -135,7 +135,7 @@ wherever it asks the browsers — start, repair, a committed rotation, `cert.ca_
 ## Services
 
 **A managed database gets a leaf from the same authority** — roadmap task **T99**, designed in
-[docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
+[docs/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
 From 11.4 MariaDB turns TLS on by default and, given no certificate, generates a 4096-bit RSA key
 at every start — seconds on a laptop, the whole spread of the M3 bench — while an 11.4 client with
 a password on its command line refuses a server that has turned TLS off. So
@@ -300,7 +300,7 @@ one a browser ever sees, and it is the only check in this system that is not a c
   enumerated nothing cannot pass.
 - `mix cert ca-rotate` completes with all sites still trusted afterwards. **Verified only under
   `MIXENGINE_SYSTEM_TESTS=1`** — a rotation writes the machine's own trust store, which rule 1 of
-  `.claude/standards/testing.md` keeps out of `cargo test`, and finding that out cost a real
+  `docs/standards/testing.md` keeps out of `cargo test`, and finding that out cost a real
   certificate: an earlier draft of the T54 suite raised a UAC prompt in the middle of a test run and
   installed an authority into `LocalMachine\Root`. **CI's `system` job is where that variable is
   set**, and on two of the three systems: Windows holds a full administrator token and macOS runs the

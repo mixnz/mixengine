@@ -34,7 +34,7 @@ be tested by ordinary tests; `crates/mixengine-core/examples/extensions_json.rs`
 shell over it; `impl FromStr for Timestamp` in `index::format`, because this is the first thing in
 the workspace that *makes* a timestamp instead of reading one; the tests below; and the documentation
 that stops being true the moment the document exists — the Registry section of
-[features/extensions.md](../../../.claude/features/extensions.md) and the roadmap tick.
+[features/extensions.md](../features/extensions.md) and the roadmap tick.
 
 **In, `mixengine-packages`:** `data/extensions/` with its `README.md`;
 `.github/workflows/publish-extensions.yml`; `.github/workflows/check-extensions.yml`;
@@ -73,7 +73,7 @@ were possible and two were refused.
 
 A subcommand of `mix` is not available at any price: `mix` depends on `mixengine-proto` and
 `mixengine-platform` and **not** on `mixengine-core`, deliberately, and
-[`workspace_layering.rs`](../../../crates/mixengine-proto/tests/workspace_layering.rs) is the test
+[`workspace_layering.rs`](../../crates/mixengine-proto/tests/workspace_layering.rs) is the test
 that keeps it that way. A CI-only crate in the workspace would be a fourth member of the layout list
 that ships nothing. An example is neither: it is already built by
 `cargo clippy --workspace --all-targets` and by `cargo test --workspace --all-targets`, so it cannot

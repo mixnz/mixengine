@@ -7,7 +7,7 @@ when nothing can be.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md](../../docs/superpowers/specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md).
+Design: [2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md](../specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md).
 
 ---
 

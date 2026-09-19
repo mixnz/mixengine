@@ -316,16 +316,16 @@ it; with standard input closed exits 1 with D5's sentence and sends nothing — 
 
 ## Text that this task makes wrong
 
-- [`roadmap/phase-8-differentiators.md`](../../../.claude/roadmap/phase-8-differentiators.md) —
+- [`roadmap/phase-8-differentiators.md`](../roadmap/phase-8-differentiators.md) —
   **T77b** is inserted after T84, and the phase's count moves from 19 to 20.
-- [`features/services.md`](../../../.claude/features/services.md) — the paragraph beginning *"Nothing
+- [`features/services.md`](../features/services.md) — the paragraph beginning *"Nothing
   prints it or puts it on the wire"* says D7's sentence instead, names both commands, and points
   here.
-- [`features/client-surface.md`](../../../.claude/features/client-surface.md) — `database.credentials`
+- [`features/client-surface.md`](../features/client-surface.md) — `database.credentials`
   joins the surface list, and `database.create`'s entry mentions `password`.
-- [`architecture/security-model.md`](../../../.claude/architecture/security-model.md) — the phantom
+- [`architecture/security-model.md`](../architecture/security-model.md) — the phantom
   `mix service credentials <id>` becomes the real `mix database credentials <id>`.
-- [`.claude/decisions/0025-…`](../../../.claude/decisions/) — new, D2's rule.
+- [`docs/decisions/0025-…`](../decisions/) — new, D2's rule.
 - `crates/mixengine-proto/src/database.rs` — the module note's first paragraph.
 - `docs/guide/en/services.md`, `docs/guide/vi/services.md` — the *"Nothing prints the password"*
   paragraphs, in both languages; `docs/guide/en/cli.md` by regeneration.

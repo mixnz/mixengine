@@ -1,6 +1,6 @@
 # T148 — What a machine lacks is installed, not reported
 
-Roadmap task [T148](../../../.claude/roadmap/phase-18-what-a-machine-lacks.md), phase 18. 2026-09-16.
+Roadmap task [T148](../roadmap/phase-18-what-a-machine-lacks.md), phase 18. 2026-09-16.
 
 **The case this comes from**: a Windows machine with no Visual C++ runtime, and somebody who opens
 the window to get a PHP. Today MixEngine downloads 32.8 MB for 8.3.33, unpacks it, runs `php -v`
@@ -51,7 +51,7 @@ Written down so nothing below is built twice, and because several of these decid
   approval, asks the person, and only then calls the method that raises the prompt. `mix` refuses on
   end of file rather than assuming either answer, `--yes` answers in advance, and `--json` requires
   it.
-- **`mixengine-elevate` is the only elevated component** (`.claude/architecture/security-model.md`),
+- **`mixengine-elevate` is the only elevated component** (`docs/architecture/security-model.md`),
   it is compiled with the `elevated` feature alone, and CI diffs its dependency closure against
   `.github/elevate-dependencies.txt`.
 - **The platform crate already reads `HKLM`.** `windows/app_control.rs` opens a key with

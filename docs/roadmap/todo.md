@@ -19,7 +19,7 @@ five rows of this table had drifted by 2026-09-13, each one a follow-up filed in
 somebody who did not then come back here:
 
 ```bash
-for f in .claude/roadmap/phase-*.md; do
+for f in docs/roadmap/phase-*.md; do
   echo "$f  $(grep -c '^- \[x\]' "$f") / $(grep -c '^- \[.\]' "$f")"
 done
 ```
@@ -58,7 +58,7 @@ done
 
 **The release line is `0.0.x`, and it always was.** M9 shipped as **v0.0.1**, not the `v0.1.0` this
 table named until 2026-09-06; the literal survived here because `66695d0`'s sweep deliberately
-spared `.claude/roadmap/`, reading the number as a milestone still ahead rather than as the stale
+spared `docs/roadmap/`, reading the number as a milestone still ahead rather than as the stale
 half of a rename — which is exactly the reading a version that never shipped invites.
 
 ## Where we are
@@ -68,20 +68,20 @@ in the tray or the menu bar: a webview panel on macOS and Windows, and the same 
 three-item menu on Linux, which tells an application nothing about clicks on its icon. MixLab can
 start there at login, a switch beside the daemon's
 ([ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md)).
-Design: [2026-09-19-t168-mixengine-in-the-tray-design.md](../../docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md).
+Design: [2026-09-19-t168-mixengine-in-the-tray-design.md](../specs/2026-09-19-t168-mixengine-in-the-tray-design.md).
 
 **Phase 21 is built — 7 of 7, and M21 waits on a measurement.** A site that worked this morning and
 does not open now is the one sentence that ends MixLab's use. On a default home two defaults caused it: idle shutdown was on, and the web
 server did not start with the daemon. [ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md)
 turns both around.
-Design: [2026-09-19-t167-a-site-that-was-up-stays-up-design.md](../../docs/superpowers/specs/2026-09-19-t167-a-site-that-was-up-stays-up-design.md).
+Design: [2026-09-19-t167-a-site-that-was-up-stays-up-design.md](../specs/2026-09-19-t167-a-site-that-was-up-stays-up-design.md).
 
 **Phase 19 is built — 4 of 4, and M19 is half measured.** `mixengine-packages` published MongoDB 6.0
 to 8.3 on 2026-09-15, and nothing here could run one. Now a `mongodb` recipe does, with no accounts
 and two locks in their place — loopback only, and 27017 never opened to a network — and the AVX
 every release states is judged before anything downloads. MixLab opens it in a Mongo tab. A real
 8.3.11 keeps a document across a restart on Windows; the window's click waits for a person.
-Design: [2026-09-17-t153-mongodb-is-a-service-design.md](../../docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md).
+Design: [2026-09-17-t153-mongodb-is-a-service-design.md](../specs/2026-09-17-t153-mongodb-is-a-service-design.md).
 
 **Phase 18 is built — 5 of 5, and M18 is half measured.** In Windows Sandbox, with no Visual C++
 runtime, `mix runtime install php 8.3.33 --yes` installed Microsoft's redistributable and then PHP,
@@ -98,7 +98,7 @@ because a glibc or a macOS version is the operating system itself, and the newes
 run is named instead. `SmokeTest` stays in front of every install. The one exception this makes to
 the security model is ADR 0037's to state, and the installer's real behaviour is measured before a
 line of it is written.
-Design: [2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md](../../docs/superpowers/specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md).
+Design: [2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md](../specs/2026-09-16-t148-what-a-machine-lacks-is-installed-not-reported-design.md).
 
 **Phase 17 is done — 5 of 5, and M17 is met.** It comes from a machine with a small internal disk
 and an external SSD, where pointing `MIXENGINE_HOME` at that disk produced an elevation prompt that
@@ -120,7 +120,7 @@ ever installed loaded any of its shared modules, on any system, because the gene
 without the suffix PHP hands the loader verbatim before 7.2 — and the suite written to catch exactly
 that was pinned to 8.3, the branch whose fallback makes a wrong name work. Module names are judged
 against every PHP in `MIXENGINE_PHP_RUNTIMES` now, 7.0.33 among them.
-Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../../docs/superpowers/specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
+Design: [2026-09-15-t143-a-disk-somebody-chose-design.md](../specs/2026-09-15-t143-a-disk-somebody-chose-design.md).
 
 **Phase 16's tasks are done — 8 of 8, and M16 is met.** One more complaint from somebody using the
 finished product — a site can only forward to one place — and reading for it found two holes beside
@@ -153,7 +153,7 @@ phase 14 is about is the first ten minutes after an install rather than what the
 somebody using the finished product, and only one of them — a service's `autostart`, claimed by
 [client-surface.md](../features/client-surface.md) §4 and never read by anything — is a missing
 method rather than a missing affordance.
-Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../../docs/superpowers/specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
+Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
 
 **Phase 11 is done — 4 of 4 — and M11 is reached; phase 12 is next.** Phases 0 to 10 are done and
 v0.0.1 shipped. [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
@@ -162,7 +162,7 @@ reverses ADR 0011, and MixDB — already a complete client of this API — now l
 against a running daemon as MixDB 0.0.33 did ([phase 11](phase-11-the-desktop-app-comes-home.md)).
 What comes now makes it MixEngine's window, named MixLab (phase 12), and makes its database client
 optional to look at (phase 13). The design for all three is one document,
-[2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md).
+[2026-09-08-the-desktop-client-in-this-repository-design.md](../specs/2026-09-08-the-desktop-client-in-this-repository-design.md).
 **Phase 12's tasks are done; what M12 still wants is the clean-machine smoke on each OS.** T104 gave
 the application MixLab's name, identity and this workspace's version, and brings a MixDB user's data
 across once; T105 put it in all six installers and added a **headless** archive per OS/arch for the

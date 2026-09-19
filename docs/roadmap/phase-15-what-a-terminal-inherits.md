@@ -6,7 +6,7 @@ tools it installed into a runtime, and reach its own HTTPS sites.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-15-t130-what-a-terminal-inherits-design.md](../../docs/superpowers/specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
+Design: [2026-09-15-t130-what-a-terminal-inherits-design.md](../specs/2026-09-15-t130-what-a-terminal-inherits-design.md).
 
 ---
 

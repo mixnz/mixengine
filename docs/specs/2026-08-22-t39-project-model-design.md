@@ -1,6 +1,6 @@
 # T39 — The project model, and the first pin that refuses something
 
-*Design, 2026-08-22. Roadmap task [T39](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-22. Roadmap task [T39](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
@@ -10,8 +10,8 @@ exist at all in this build — there are no `project.*` methods until Phase 4, s
 is empty on every machine". Every shim, every `mix runtime resolve`, every GUI panel walks that step
 and finds nothing, on every machine, always. This task is what makes the step live.
 
-It also pays the debt [todo.md](../../../.claude/roadmap/todo.md) records against
-`runtime.uninstall`. [runtime-versions.md](../../../.claude/features/runtime-versions.md) promised
+It also pays the debt [todo.md](../roadmap/todo.md) records against
+`runtime.uninstall`. [runtime-versions.md](../features/runtime-versions.md) promised
 two refusals; T32 delivered the php-fpm pool and left the other written down in a doc comment on
 `Runtimes::uninstall` — "a *project* pinning the version is unchecked because there are no projects
 until Phase 4". T39 is the task that sentence names, so T39 removes both the sentence and the gap it
@@ -61,7 +61,7 @@ The roadmap file is amended in the same change rather than left to disagree with
 the file is that a colleague gets it — not because MixEngine needs it.
 
 This follows the state-ownership table in
-[data-model.md](../../../.claude/architecture/data-model.md): projects are declared state living in
+[data-model.md](../architecture/data-model.md): projects are declared state living in
 `mixengine.db`, and the manifest is the user's file in the user's repository. A daemon that wrote to
 a checked-out working tree on every `project.update` would be a daemon producing diffs nobody asked
 for, in a directory it does not own.
@@ -326,7 +326,7 @@ pub struct ProjectExport { pub path: String, pub created: bool }
 into.
 
 `created_at` is ISO-8601 text, matching the column and
-[data-model.md](../../../.claude/architecture/data-model.md)'s split: it is written once, read by a
+[data-model.md](../architecture/data-model.md)'s split: it is written once, read by a
 person, and branched on by nobody.
 
 In `runtime_api.rs`:

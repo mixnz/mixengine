@@ -969,7 +969,7 @@ mod tests {
 
     /// Ignored because each of these fetches tens to hundreds of megabytes from a vendor, which is
     /// no part of an ordinary test run. `.github/workflows/tool-downloads.yml` runs them on a real
-    /// machine of each kind — see `.agent/conventions/bumping-tool-downloads.md`.
+    /// machine of each kind — see `docs/standards/desktop/bumping-tool-downloads.md`.
     #[test]
     #[ignore = "downloads from the vendor; run it through the tool-downloads workflow"]
     fn the_pinned_mysql_download_still_installs_and_runs() {

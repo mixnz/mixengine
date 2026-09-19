@@ -3,7 +3,7 @@
 //!
 //! `site.create` must prompt for nothing. Writing a hosts entry per domain costs an elevation
 //! prompt per site, which is the repeated cost [ADR
-//! 0005](../../../../.claude/decisions/0005-on-demand-elevation.md) says this product may not pay;
+//! 0005](../../../../docs/decisions/0005-on-demand-elevation.md) says this product may not pay;
 //! a server that answers `*.test` by pattern pays it once, at first-run setup, and never again
 //! however many sites there are.
 //!

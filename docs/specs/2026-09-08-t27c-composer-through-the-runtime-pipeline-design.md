@@ -17,7 +17,7 @@ the PATH the command would run with`, and there is nothing in the product that p
 > … It arrives with the task that installs it.
 
 So this is not the reversal of a decision — T25 deferred Composer to the task that could install it,
-and [runtime-versions.md](../../.claude/features/runtime-versions.md) still lists `composer` in the
+and [runtime-versions.md](../features/runtime-versions.md) still lists `composer` in the
 shim table. It is that task.
 
 Three facts shape it, each checked rather than assumed:
@@ -196,9 +196,9 @@ nothing, since no method is added.
 
 ## What this closes, and where it is written
 
-- `.claude/roadmap/phase-2-runtimes.md`: a `T27c` entry after T27b, ticked when it lands, pointing
-  at this document; `.claude/roadmap/todo.md`'s phase-2 row.
-- `.claude/features/runtime-versions.md`: Composer in the kinds, the `via` sentence under *Shims*,
+- `docs/roadmap/phase-2-runtimes.md`: a `T27c` entry after T27b, ticked when it lands, pointing
+  at this document; `docs/roadmap/todo.md`'s phase-2 row.
+- `docs/features/runtime-versions.md`: Composer in the kinds, the `via` sentence under *Shims*,
   and the T25 note in `crates/mixengine-core/src/shims.rs` rewritten from "arrives with the task
   that installs it" to what the row is.
 - `docs/guide/en/runtimes.md`: the Composer paragraph, with D5's line table. The handbook is one

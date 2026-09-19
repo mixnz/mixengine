@@ -3,7 +3,7 @@
 Roadmap task **T84**, phase 8, and the last of it. T83 found MixDB on three systems and handed it
 one database with the password in the started process's environment and nowhere else. It left two
 things behind, both named in its closing paragraph and both in
-[features/extensions.md](../../../.claude/features/extensions.md)'s integration list: **MixDB in the
+[features/extensions.md](../features/extensions.md)'s integration list: **MixDB in the
 registry**, so `mix extension install mixdb` is the way it arrives rather than a directory somebody
 has on their disk, and **one keyring convention**, so a connection saved in MixDB points at
 MixEngine's credential instead of holding a second copy of it.
@@ -89,14 +89,14 @@ checkouts, or off the machine this was designed on.
   install` repeats it after a successful install of a `desktop-app`; the database renders name both
   halves.
 - `mixengine-testkit` — `fixtures/extensions/mixdb.toml` becomes the real MixDB.
-- Documentation: [features/extensions.md](../../../.claude/features/extensions.md) — the integration
+- Documentation: [features/extensions.md](../features/extensions.md) — the integration
   list's items 3 and 4, the keyring contract beside T83's handoff contract, and what a `desktop-app`
-  entry is; [features/client-surface.md](../../../.claude/features/client-surface.md);
-  [architecture/daemon-and-ipc.md](../../../.claude/architecture/daemon-and-ipc.md) where the
+  entry is; [features/client-surface.md](../features/client-surface.md);
+  [architecture/daemon-and-ipc.md](../architecture/daemon-and-ipc.md) where the
   `database.*` shapes are described; the roadmap.
 
 **Also, in the `mixnz/mixengine-packages` repository** (a separate change, in the repository that
-owns the roster — [features/extensions.md](../../../.claude/features/extensions.md)'s *"no extension
+owns the roster — [features/extensions.md](../features/extensions.md)'s *"no extension
 manifest is compiled into MixEngine"*): `data/extensions/mixdb.toml`, byte-identical to the fixture,
 and the README's list of what is published.
 
@@ -116,7 +116,7 @@ and the README's list of what is published.
 
 ### D1 — A `desktop-app` entry names no artifact, and the entry *is* the identity
 
-[features/extensions.md](../../../.claude/features/extensions.md) offers *"MixDB's own release
+[features/extensions.md](../features/extensions.md) offers *"MixDB's own release
 artifacts listed as a `desktop-app` extension so users can install it from inside MixEngine"*. This
 task refuses the installing half, and keeps the listing half, for three reasons that are each
 sufficient on their own.
@@ -355,7 +355,7 @@ mix database open mariadb@main --user blog
 
 ## Testing
 
-Where the rule lives, per [.claude/standards/testing.md](../../../.claude/standards/testing.md).
+Where the rule lives, per [docs/standards/testing.md](../standards/testing.md).
 
 **Unit, `mixengine-proto`.** `SecretAddress::of` fills the namespace and nothing else;
 `DatabaseAccount` and `DatabaseHandoff` encode `secret` as an object with both halves; a
@@ -407,7 +407,7 @@ value of anything.
 
 ## What this leaves
 
-[features/extensions.md](../../../.claude/features/extensions.md)'s MixDB list is finished: detect
+[features/extensions.md](../features/extensions.md)'s MixDB list is finished: detect
 and launch (T83), the connection handoff (T83), the registry entry (here, with the honest limit that
 MixEngine finds MixDB rather than installing it), and one keyring convention (here). Milestone M8's
 *"open its database in MixDB"* has everything on this side of the line.

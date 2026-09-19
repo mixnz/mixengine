@@ -47,7 +47,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the system store needs root and goes through `mixengine-elevate`, while the NSS databases below
       belong to the user and cannot be batched into a prompt at all, there being no prompt to batch
       them into. Design:
-      [T49a spec](../../docs/superpowers/specs/2026-08-24-t49a-system-trust-store-design.md).
+      [T49a spec](../specs/2026-08-24-t49a-system-trust-store-design.md).
       **Amended after a first macOS install**: the install's "already there" and the probe both
       checked keychain presence, and `add-trusted-cert -d` had put the certificate there and then
       been refused the trust setting (*no user interaction was possible* under the elevation
@@ -149,7 +149,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **What it deliberately did not do**: no database is created — a profile with no `cert9.db` has
       never been opened; no legacy `dbm:` support; no producer for the removal, on T42's D12 and
       T45's D13, because T54 and T87 are the producers. Design:
-      [T49b spec](../../docs/superpowers/specs/2026-08-25-t49b-nss-databases-design.md).
+      [T49b spec](../specs/2026-08-25-t49b-nss-databases-design.md).
       **The Windows half of D14 was answered on 2026-08-25, by handshake.** Firefox 154 on Windows
       **does** read the operating system's trust store: a throwaway authority placed only in
       `Cert:\CurrentUser\Root` produced an ordinary padlock, so `Browsers::NotSearched` is the
@@ -201,7 +201,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       rule unreadable. So the start orders it — authority, trust stores, browsers, **certificates**,
       then the generators — and `site.create` and `site.update` issue before their own walk. T51
       inherits a guarantee rather than a mechanism.
-      **What it found.** `.claude/features/tls.md` specified `cert.issue { domains }`, which puts the
+      **What it found.** `docs/features/tls.md` specified `cert.issue { domains }`, which puts the
       decision of what a certificate covers in the client; the method names a site. Its `localhost`
       alias clause was not implementable and its wildcard sentence had been wrong since T44. `rcgen`
       leaves `use_authority_key_identifier_extension` **off** by default, so a leaf carried no
@@ -218,7 +218,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       handshake and no `mix cert status` (T53), no `force`, no rotation, no removal (T53, T54), and
       **no orphan sweep** — a renamed or deleted site leaves a leaf behind, and removal is the
       direction that can do damage, on T42's D12 and T45's D13 for the third time. Design:
-      [T50 spec](../../docs/superpowers/specs/2026-08-25-t50-leaf-issuance-design.md).
+      [T50 spec](../specs/2026-08-25-t50-leaf-issuance-design.md).
 - [x] **T51** Web server TLS wiring; **disable Caddy's automatic ACME** explicitly.
       **Half of what it was asked for was already done.** `auto_https off` was **measured** against
       Caddy 2.11.4 to serve an explicitly configured `tls` perfectly well, so T43 had already
@@ -250,7 +250,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       schedule (T52), no live handshake and no `mix cert status` (T53), no HSTS, no cipher list, no
       TLS-version pinning, and nothing deleted — a site that stops declaring HTTPS loses its TLS
       block and keeps its certificate, on T42's D12 and T45's D13 for the fourth time. Design:
-      [T51 spec](../../docs/superpowers/specs/2026-08-25-t51-web-server-tls-design.md).
+      [T51 spec](../specs/2026-08-25-t51-web-server-tls-design.md).
 - [x] **T52** Renewal scheduler: daily + on-boot check, < 30 days threshold, reload without restart.
       **Two of the three things this line names already existed.** The on-boot check has run since
       T50 — every start calls `issue(None)`, `leaf::ensure` refuses to reuse a leaf with 30 days or
@@ -304,7 +304,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       T45's D13 for the fifth time; no handshake (T53); and no `cert.renew`, because `cert.issue`
       already reissues anything inside the window and a second name for one operation is two things
       to keep in step. Design:
-      [T52 spec](../../docs/superpowers/specs/2026-08-25-t52-renewal-scheduler-design.md).
+      [T52 spec](../specs/2026-08-25-t52-renewal-scheduler-design.md).
 - [x] **T53** `mix cert status` with a live handshake and SAN-mismatch detection; one-click reissue.
       **The first measurement in this repository that answers whether the padlock is green.**
       Everything phase 5 built before it reads a file: T48 reads an authority, T50 writes a leaf and
@@ -357,7 +357,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       diagnosis reads — separate work; no `mix doctor` check, because adding a `ProblemId` means
       deciding what repairing it is and the answer here is "reload the front end", which is not this
       task's to decide; and nothing written at all. Design:
-      [T53 spec](../../docs/superpowers/specs/2026-08-25-t53-cert-status-design.md).
+      [T53 spec](../specs/2026-08-25-t53-cert-status-design.md).
 - [x] **T54** `cert.ca_rotate` and complete `ca_uninstall`, verified by enumerating the stores.
       **The only two operations in phase 5 that take something away**, and both were half-built
       before this task started: `PrivilegedOp::TrustCaRemove` has been implemented and tested in
@@ -439,7 +439,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `cert.ca_install`; none exists, and each was refused for a recorded reason rather than
       forgotten. And `tls.md`'s `ca-uninstall` criterion now says what the code does — it leaves the
       files. Design:
-      [T54 spec](../../docs/superpowers/specs/2026-08-26-t54-ca-rotate-and-uninstall-design.md).
+      [T54 spec](../specs/2026-08-26-t54-ca-rotate-and-uninstall-design.md).
 
 **Milestone M5** — `https://blog.test` is trusted in Chrome, Firefox, Safari and Edge on their
 platforms; adding a domain keeps the padlock green.
@@ -490,7 +490,7 @@ platforms; adding a domain keeps the padlock green.
       it; no front-end-wide setting, only per site; nothing added to `mix doctor`, since a redirect
       with no usable certificate already renders exactly the plaintext-only gap T51's D4 already
       reports. Design:
-      [T98 spec](../../docs/superpowers/specs/2026-09-07-t98-opt-in-https-redirect-design.md).
+      [T98 spec](../specs/2026-09-07-t98-opt-in-https-redirect-design.md).
 
 ---
 

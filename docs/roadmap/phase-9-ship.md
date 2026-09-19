@@ -7,7 +7,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 
 - [x] **T85** Installers: NSIS per-user + portable zip, ~~`.dmg`~~ **`.pkg`**, AppImage/`.deb`/`.rpm`;
       place `mixengine-elevate` in a root-owned directory. **(P)**
-      Design: [2026-09-04-t85-installers-design.md](../../docs/superpowers/specs/2026-09-04-t85-installers-design.md).
+      Design: [2026-09-04-t85-installers-design.md](../specs/2026-09-04-t85-installers-design.md).
       **Two things this task changed about its own sentence.** macOS ships a **`.pkg`**: a `.dmg` is a
       carrier for something you drag out of it, and the application bundle that used to be dragged
       left with [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) — what is there to ship is
@@ -23,10 +23,10 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `windows-11-arm` and `ubuntu-24.04-arm` for public repositories, so both `aarch64` legs build
       natively, the same way macOS's two slices always have. What was left is the glibc floor, which
       both Linux legs now get from a pinned `manylinux_2_28` container rather than from the runner.
-      Design: [2026-09-04-t85a-second-architecture-design.md](../../docs/superpowers/specs/2026-09-04-t85a-second-architecture-design.md).
+      Design: [2026-09-04-t85a-second-architecture-design.md](../specs/2026-09-04-t85a-second-architecture-design.md).
 - [x] **T85b** `ServiceInstaller`: register the daemon's autostart entry — Task Scheduler logon task,
       LaunchAgent, systemd **user** unit. **(P)**
-      Design: [2026-09-04-t85b-autostart-design.md](../../docs/superpowers/specs/2026-09-04-t85b-autostart-design.md).
+      Design: [2026-09-04-t85b-autostart-design.md](../specs/2026-09-04-t85b-autostart-design.md).
       Item 3 of *"What the installer does"* in
       [build-and-release.md](../operations/build-and-release.md), and the one item of that list that
       had never been built. Named here rather than left implied, because a product that installs
@@ -44,7 +44,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       empty `bin/` and, with it, **every runtime command the product exists to provide**. So a
       release installed from any of the six artifacts starts, reports itself healthy, and cannot run
       `php`. Found by **T88**, which reads the same list.
-      Design: [2026-09-05-t85c-the-shim-in-every-artifact-design.md](../../docs/superpowers/specs/2026-09-05-t85c-the-shim-in-every-artifact-design.md).
+      Design: [2026-09-05-t85c-the-shim-in-every-artifact-design.md](../specs/2026-09-05-t85c-the-shim-in-every-artifact-design.md).
       **Adding the name turned out not to be the whole of the fix, in three places the task's own
       sentence could not see.** Two *other* hardcoded lists of the same three binaries existed:
       `packaging/linux/AppRun`, which fills the cache the AppImage actually executes from — and
@@ -66,7 +66,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 - [x] **T86** Minisign updater keys: generation, CI signing of artifacts, pubkey pinned in the app.
       **No OS code signing** — see [ADR 0005](../decisions/0005-on-demand-elevation.md) and
       [updates.md](../features/updates.md).
-      Design: [2026-09-04-t86-updater-signing-design.md](../../docs/superpowers/specs/2026-09-04-t86-updater-signing-design.md).
+      Design: [2026-09-04-t86-updater-signing-design.md](../specs/2026-09-04-t86-updater-signing-design.md).
       **Two things this task settled that its own sentence left open.** The artifacts are signed
       **once, on one runner** and not in each of the five build legs — the secret would otherwise
       reach five jobs, and `minisign` has no official build for the arm64 Windows runner. And a tag
@@ -79,7 +79,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 - [~] **T86a** Unsigned-distribution reality check for the **installer and the updater**: SmartScreen
       behaviour across two consecutive releases; Gatekeeper flow on macOS 15+. Document the findings
       in `updates.md`. **(P)**
-      Design: [2026-09-04-t86a-unsigned-distribution-design.md](../../docs/superpowers/specs/2026-09-04-t86a-unsigned-distribution-design.md).
+      Design: [2026-09-04-t86a-unsigned-distribution-design.md](../specs/2026-09-04-t86a-unsigned-distribution-design.md).
       **What this task found was that its own sentence asks two questions of different kinds, and
       only one of them needs a person.** Both readings are dialogs as written — but under each dialog
       is a mechanism with an input a machine can read. SmartScreen's gate is reached through
@@ -111,7 +111,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       install and something to update.
 - [x] **T94** Does a certificate this project can buy repair Smart App Control, and what is left if
       it cannot? **(P)**
-      Design: [2026-09-04-t94-application-control-design.md](../../docs/superpowers/specs/2026-09-04-t94-application-control-design.md).
+      Design: [2026-09-04-t94-application-control-design.md](../specs/2026-09-04-t94-application-control-design.md).
       Decision: [ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md).
       Findings beside T86a's in [../features/updates.md](../features/updates.md).
       **Three things this task changed about its own sentence.** **The answer needed no purchase.**
@@ -159,7 +159,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       friendliness against a few hundred dollars a year.
       Findings go in [../features/updates.md](../features/updates.md), beside T41a's and T86a's.
 - [x] **T87** Complete uninstall path + a clean-VM smoke test proving nothing is left behind.
-      Design: [2026-09-04-t87-uninstall-design.md](../../docs/superpowers/specs/2026-09-04-t87-uninstall-design.md).
+      Design: [2026-09-04-t87-uninstall-design.md](../specs/2026-09-04-t87-uninstall-design.md).
       **`--dry-run` is this task's**, and was M4's until 2026-08-24: a milestone three phases earlier
       cannot require a run of something that does not exist yet, and a dry run belongs beside the
       thing it is a run of. What it must list is everything the elevated helper has ever written —
@@ -187,7 +187,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       stop → update → relaunch → restore running services, skip/later persisted. The Tauri updater
       this was written on left with [ADR 0011](../decisions/0011-no-gui-in-this-repository.md);
       the design did not.
-      Design: [2026-09-04-t88-self-update-design.md](../../docs/superpowers/specs/2026-09-04-t88-self-update-design.md).
+      Design: [2026-09-04-t88-self-update-design.md](../specs/2026-09-04-t88-self-update-design.md).
       **Three things this task changed about its own sentence.** The order is **download → verify →
       unpack → smoke → stop → swap**, not *stop → update*: taken the other way a developer's database
       is down for the length of a download on a connection nobody promised anything about, and a
@@ -223,7 +223,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       because CI's Windows runner (2026-09-07) read an uninstall as unfinished when a probe after
       *every* batch ran under the runner's already-elevated token and wrote the audit log the batch
       had just removed.
-      Design: [2026-09-05-t88a-the-helper-update-path-design.md](../../docs/superpowers/specs/2026-09-05-t88a-the-helper-update-path-design.md),
+      Design: [2026-09-05-t88a-the-helper-update-path-design.md](../specs/2026-09-05-t88a-the-helper-update-path-design.md),
       and [ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md),
       which extends [ADR 0015](../decisions/0015-the-helper-installs-itself.md) rather than editing
       it: a path may cross into the elevated process when that process itself checks a signature
@@ -266,7 +266,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the four `require_*` producers ask for the installation rather than only a daemon start does.
       **Lettered after T88c and ordered before it**: it follows T88a's subject, and nothing after it
       is renumbered.
-      Design: [2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md](../../docs/superpowers/specs/2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md),
+      Design: [2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md](../specs/2026-09-11-t88d-a-helper-a-machine-can-reinstall-design.md),
       and [ADR 0029](../decisions/0029-every-install-format-carries-a-helper-to-install-from.md),
       which extends [ADR 0015](../decisions/0015-the-helper-installs-itself.md) rather than editing
       it: `HelperInstall {}` still carries no field, and what changed is where the image it copies is
@@ -312,7 +312,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       is what was avoided. See [phase 4](phase-4-sites-and-elevation.md) and
       [ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md).
 - [x] **T89** Upgrade test: an old `mixengine.db` migrated by a new binary, in CI.
-      Design: [2026-09-05-t89-the-upgrade-test-design.md](../../docs/superpowers/specs/2026-09-05-t89-the-upgrade-test-design.md).
+      Design: [2026-09-05-t89-the-upgrade-test-design.md](../specs/2026-09-05-t89-the-upgrade-test-design.md).
       **Three things this task changed about its own sentence.** *"An old `mixengine.db`"* had to be
       decided rather than assumed: three suites already exercised migrations and **all three built
       the old database out of today's migration files** — `store.rs`' unit tests write two
@@ -353,7 +353,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       against a still-moving API is the same speculative work that ADR withdrew. A client wanting
       them sooner generates them from `mixengine-proto` itself — what this task adds is the
       committed, versioned, checked copy.
-      Design: [2026-09-05-t56-the-published-api-contract-design.md](../../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md).
+      Design: [2026-09-05-t56-the-published-api-contract-design.md](../specs/2026-09-05-t56-the-published-api-contract-design.md).
       Decision: [ADR 0020](../decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md).
       **Three things this task changed about its own sentence.** *"Generated from
       `mixengine-proto`"* was one type short of possible: **two of its types were called
@@ -386,7 +386,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `mixnz.github.io/mixengine`. Content must be structured so an AI agent can easily fetch and
       understand it (e.g. plain Markdown pages, predictable URLs/paths, no JS-only rendering of the
       actual text) — not just human-readable HTML.
-      Design: [2026-09-05-t90-the-documentation-site-design.md](../../docs/superpowers/specs/2026-09-05-t90-the-documentation-site-design.md).
+      Design: [2026-09-05-t90-the-documentation-site-design.md](../specs/2026-09-05-t90-the-documentation-site-design.md).
       Decision: [ADR 0021](../decisions/0021-the-handbook-is-one-corpus-published-three-ways.md).
       **Three things this task changed about its own sentence.** *"In-app help"* is **not an API
       method**, and this repository had already decided why: `client-surface.md`'s *Left to the
@@ -433,10 +433,10 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       **What it leaves.** The page still names one pre-release by hand
       (`v0.0.1-beta.1`) in a paragraph that says so, because GitHub's `/releases/latest/` deliberately
       excludes pre-releases and has no equivalent for "newest, pre-release or not". That paragraph
-      comes out — by hand, per `docs/releasing.md` — the first time a non-pre-release version is
+      comes out — by hand, per `docs/operations/releasing.md` — the first time a non-pre-release version is
       published; nothing else on the page changes after that, ever again, for this reason.
 - [x] **T91** Crash reporting that is opt-in and contains no project paths or credentials.
-      Design: [2026-09-05-t91-crash-reporting-design.md](../../docs/superpowers/specs/2026-09-05-t91-crash-reporting-design.md).
+      Design: [2026-09-05-t91-crash-reporting-design.md](../specs/2026-09-05-t91-crash-reporting-design.md).
       Decision: [ADR 0022](../decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).
       **Three things this task changed about its own sentence.** ***"Opt-in"* is about a network this
       build does not have.** [ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md)
@@ -482,7 +482,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       survives a hang.
 - [x] **T92** Public beta: the packaging pipeline running for all runtimes across six OS/arch targets
       ([../operations/runtime-packaging.md](../operations/runtime-packaging.md)).
-      Design: [2026-09-05-t92-the-six-target-matrix-design.md](../../docs/superpowers/specs/2026-09-05-t92-the-six-target-matrix-design.md).
+      Design: [2026-09-05-t92-the-six-target-matrix-design.md](../specs/2026-09-05-t92-the-six-target-matrix-design.md).
       Decision: [ADR 0023](../decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
       Matrix in [../operations/runtime-packaging.md](../operations/runtime-packaging.md).
       **Three things this task changed about its own sentence.** **It is true on five targets and a
@@ -521,7 +521,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       minimum Windows version anywhere, which is a gap this task noticed and did not fill.
 
 - [x] **T95** A build that is not a release keeps its own home.
-      Design: [2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md](../../docs/superpowers/specs/2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md).
+      Design: [2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md](../specs/2026-09-06-t95-a-build-that-is-not-a-release-keeps-its-own-home-design.md).
       Decision: [ADR 0024](../decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md).
       Found by the first beta install, on the machine this product is written on: `cargo run -p
       mixengine-daemon` and the installed `mixengined.exe` resolved the same `%LOCALAPPDATA%\

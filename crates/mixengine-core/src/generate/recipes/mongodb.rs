@@ -3,7 +3,7 @@
 //! The contract is `mixengine-packages`' P18, taken as published: `mongod` and `mongos` under
 //! `bin/`, no shell, `requires.cpu = "avx"` on every cell. What this recipe decides is what that
 //! contract left to this repository — a rendered `mongod.conf`, a port, a readiness check — and the
-//! design is `docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md`.
+//! design is `docs/specs/2026-09-17-t153-mongodb-is-a-service-design.md`.
 //!
 //! # Nothing to create before it runs
 //!

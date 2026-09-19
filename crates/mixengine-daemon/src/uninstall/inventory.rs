@@ -335,7 +335,7 @@ async fn certificate_rows(uninstall: &Uninstall) -> (Residue, Residue) {
 
 /// **6.** What Firefox and Chrome hold, which is a different question from the store above.
 ///
-/// A process spawn per profile, so off the runtime — `.claude/standards/rust.md`, and the same
+/// A process spawn per profile, so off the runtime — `docs/standards/rust.md`, and the same
 /// arrangement `Certificates::remove_from_browsers` uses for the write.
 async fn browser_row(uninstall: &Uninstall, what: String, der: Vec<u8>) -> Residue {
     let host = uninstall.host.clone();

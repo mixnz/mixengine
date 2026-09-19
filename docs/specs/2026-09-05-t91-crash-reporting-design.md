@@ -57,7 +57,7 @@ Read on 2026-09-05 out of this tree rather than reasoned about.
     could read is `main`, `tokio-runtime-worker` or `tokio-runtime-worker`-like — a literal from
     tokio, never a value from this home.
 12. **Nothing has ever been released from this repository** — recorded by T89 in
-    [phase-9-ship.md](../../../.claude/roadmap/phase-9-ship.md), and the reason it could decline to
+    [phase-9-ship.md](../roadmap/phase-9-ship.md), and the reason it could decline to
     repair two destructive migrations.
 13. **`config::Config` is `deny_unknown_fields`** and `config/template.toml` lists every key
     commented out; a test holds the two in step.
@@ -83,8 +83,8 @@ says so.
 
 The word was written against a design in which a crash report is uploaded. This build uploads
 nothing: there is no endpoint, no client, no queue and no key, and adding one would contradict
-[ADR 0017](../../../.claude/decisions/0017-smart-app-control-is-an-unsupported-configuration.md) and
-[updates.md](../../../.claude/features/updates.md), both of which say in as many words that there is
+[ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md) and
+[updates.md](../features/updates.md), both of which say in as many words that there is
 no telemetry here and that T91's reporter *"is not an inventory of machines"*.
 
 So the consent that "opt-in" is about is spent on a command a person types — `mix doctor --bundle` —
@@ -95,7 +95,7 @@ exists so that somebody who wants no file at all can have that, which is a stron
 one the sentence asked for.
 
 Argued at length, so it is not re-litigated:
-[ADR 0022](../../../.claude/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).
+[ADR 0022](../decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).
 
 ## Decisions
 
@@ -130,7 +130,7 @@ bundle, which carries the log.
 - **`mixengine-elevate`** is excluded and the reason is security, not tidiness: it runs as root, and
   a root-owned file created inside a directory an ordinary account can write is a symlink target
   waiting for one. It is also
-  [excluded from auto-update](../../../.claude/features/updates.md), audited by hand, and has a
+  [excluded from auto-update](../features/updates.md), audited by hand, and has a
   dependency budget in `.github/elevate-dependencies.txt` that a hook would spend for nothing.
 - **`mixengined`** is the one process with no screen, the one whose panic can take a supervision
   loop down silently, and the one three documents already promised this for.

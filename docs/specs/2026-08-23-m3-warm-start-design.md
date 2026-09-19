@@ -1,13 +1,13 @@
 # M3 — three services healthy in under ten seconds, measured
 
-**Roadmap:** M3, `.claude/roadmap/phase-3-services.md` — the milestone Phase 3 closed without
-claiming, listed as an open debt in `.claude/roadmap/todo.md`
+**Roadmap:** M3, `docs/roadmap/phase-3-services.md` — the milestone Phase 3 closed without
+claiming, listed as an open debt in `docs/roadmap/todo.md`
 **Depends on:** T31 (Caddy), T33 (MariaDB), T35 (Redis), T31a (`package.*`, `service.create`), T29
 (the `bench` job, and the shape a budget takes in this workspace)
 
 ## What this closes
 
-`.claude/features/services.md` promises a number:
+`docs/features/services.md` promises a number:
 
 > Fresh install → `mix service start caddy mariadb redis` → all three healthy in under 10 s on a
 > warm cache.
@@ -64,7 +64,7 @@ So this suite measures **two** numbers and gates **one**:
   started and stopped at least once, so the binaries are in the file cache and the data directory is
   built. Measured over several rounds, and its median is what the ten seconds is about.
 
-Whichever way the first number lands, `.claude/features/services.md` gets the distinction written
+Whichever way the first number lands, `docs/features/services.md` gets the distinction written
 into it — one promise, two runs, said out loud — the way T43 corrected that document's `Degraded`
 sentence rather than leaving a claim the code does not make.
 

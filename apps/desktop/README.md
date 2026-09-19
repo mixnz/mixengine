@@ -71,7 +71,7 @@ nơi duy nhất ghi điều đó.
   - `src/core/`, `src/components/`, `src/icons/`, `src/i18n/` — helper, primitive UI, icon và chuỗi dùng chung.
 - `src-tauri/` — Backend Rust (Tauri). Mỗi module có phần backend riêng trong `src-tauri/src/modules/` (`db`, `rest`, `terminal`, `tools`), dùng chung `error.rs`, `secrets.rs` và `ssh/`. Kết nối tới MySQL và PostgreSQL đi qua `sqlx`, MongoDB qua `mongodb`, Redis qua `redis`, HTTP qua `reqwest`, pty qua `portable-pty`, SSH qua `russh`; module Tools gần như chạy trọn trong frontend, backend của nó chỉ có một lệnh đọc danh sách cổng đang nghe. Frontend không nói chuyện trực tiếp với database hay mạng, mọi thứ đi qua `invoke(...)`.
 
-Chi tiết cho người (hoặc agent) sửa code: [AGENT.md](AGENT.md) và [.agent/](.agent/).
+Chi tiết cho người (hoặc agent) sửa code: [CLAUDE.md](CLAUDE.md) và [docs/](../../docs/README.md).
 
 ## Yêu cầu môi trường
 
@@ -125,7 +125,7 @@ Lệnh này sẽ build frontend (`tsc && vite build`) rồi đóng gói thành i
 | `npm run set-version <v>` | Bump version ở sáu file mang version (kể cả dòng version ngay trên README này) và cắt mục changelog cho bản phát hành |
 | `npm run icons` | Sinh lại bộ icon trong `src-tauri/icons/` từ hai file SVG trong `public/` |
 
-Quy trình phát hành: [docs/RELEASING.md](docs/RELEASING.md). Icon app và cách sinh lại: [docs/ICONS.md](docs/ICONS.md).
+Quy trình phát hành: [docs/operations/releasing.md](../../docs/operations/releasing.md). Icon app và cách sinh lại: [docs/standards/desktop/app-icon.md](../../docs/standards/desktop/app-icon.md).
 
 ## Quyền riêng tư
 
@@ -134,12 +134,12 @@ telemetry. App chỉ tự ra mạng để hỏi GitHub xem có bản mới khôn
 khi chính bạn bấm tải.
 
 Bản đầy đủ — kể cả đường dẫn tới nơi app lưu dữ liệu trên từng hệ điều hành — nằm ở
-[chính sách quyền riêng tư](https://mixnz.github.io/mixdb/privacy), nguồn trong [site/privacy/](site/privacy/).
+[chính sách quyền riêng tư](https://mixnz.github.io/mixdb/privacy).
 
 ## Giấy phép
 
 Copyright © 2026 mixnz (Nguyễn Hải Quang).
 
 MixDB phát hành song song theo hai giấy phép, bạn chọn một trong hai:
-[Apache License 2.0](LICENSE-APACHE) hoặc [MIT License](LICENSE-MIT). Bạn được tự do dùng, sửa,
+[Apache License 2.0](../../LICENSE-APACHE) hoặc [MIT License](../../LICENSE-MIT). Bạn được tự do dùng, sửa,
 phân phối lại, kể cả trong phần mềm đóng nguồn, miễn giữ lại thông báo bản quyền.

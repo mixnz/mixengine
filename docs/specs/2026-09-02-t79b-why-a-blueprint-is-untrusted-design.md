@@ -36,7 +36,7 @@ And the reason survives a restart, because it is a column rather than something 
 **In:** `mixengine-proto` (`SignatureCheck`, one field on `BlueprintSummary` and one on
 `BlueprintPlan`); `mixengine-core` (`Trust`, `store::save`'s parameter, `records`, `filed_of`,
 `Filed`, `plan`, `gallery`); migration `0015`; `mixengine-daemon` (`vouched_for` answers `Trust`);
-`mixengine-cli` (three renderings); `.claude/features/blueprints.md`.
+`mixengine-cli` (three renderings); `docs/features/blueprints.md`.
 
 **Out:** any change to what apply *does*. No new flag, no new refusal, no second class of untrusted
 blueprint (D8). No re-verification, ever (D10). No `blueprint.delete`, no way to raise a row's trust

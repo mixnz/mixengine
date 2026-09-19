@@ -24,7 +24,7 @@ message: string,
  * What to do about it, when there is something to do.
  *
  * The GUI renders it as a suggested action next to the message
- * (`.claude/features/gui.md`), so it is advice and not a restatement: a hint that repeats the
+ * (`docs/features/client-surface.md`), so it is advice and not a restatement: a hint that repeats the
  * message makes the same sentence appear twice on screen. `None` is the right answer whenever
  * the message already carries the way out.
  */

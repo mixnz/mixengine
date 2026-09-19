@@ -54,7 +54,7 @@ export interface ModuleTabProps {
    * **Read it once, at mount** — a `useState` initializer — and work from that snapshot. It is a
    * prop rather than an argument only because there is nowhere else to put it: read it reactively
    * and the module overwrites itself the moment it writes. Nothing here can enforce that; it is a
-   * rule, and it is in `.agent/conventions/adding-a-module.md` too.
+   * rule, and it is in `docs/standards/desktop/adding-a-module.md` too.
    *
    * Reading once is not the same as acting once. A module whose store still has a file to read
    * waits for it before deciding whether what it is pointing at is gone.

@@ -1,6 +1,6 @@
 # T165 — The window is the only desktop client
 
-Roadmap task [T165](../../../.claude/roadmap/phase-12-one-product.md), on
+Roadmap task [T165](../roadmap/phase-12-one-product.md), on
 [T107](2026-09-09-t107-where-the-daemon-and-the-window-are-design.md) and
 [T84](2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md). 2026-09-17.
 
@@ -134,7 +134,7 @@ second MixLab to forward a URL back to the first, which its own doc comment alre
 
 - **ADR 0038** — *The window is the only desktop database client, and `desktop-app` is not an
   extension kind*: D1–D3, and the alternative of keeping a general mechanism with no entry.
-- **`.claude/features/extensions.md`** — the kinds table loses its row; "MixDB integration
+- **`docs/features/extensions.md`** — the kinds table loses its row; "MixDB integration
   (`desktop-app`)" becomes "Opening a database in MixLab", keeping the handoff contract and the
   keyring convention, which are the window's now.
 - `client-surface.md`, `services.md`, `architecture/platform-abstraction.md`,

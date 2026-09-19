@@ -5,7 +5,7 @@ import type { ReloadSignal } from "./ReloadSignal";
 /**
  * How to hand a running service a configuration that has changed, without stopping it.
  *
- * **The whole point is what it is not**: a restart. `.claude/features/services.md` puts it as
+ * **The whole point is what it is not**: a restart. `docs/features/services.md` puts it as
  * "reload beats restart", and the cost it is avoiding is real — the front-end web server is the
  * thing every site is reached through, and dropping every connection because one site was edited is
  * a cost the user did not ask for and cannot see the reason for.
@@ -15,7 +15,7 @@ import type { ReloadSignal } from "./ReloadSignal";
  *
  * Two variants, because the two servers this ships with reload by different means: Caddy runs a
  * program, php-fpm takes a signal. Windows has neither of those signals, so a recipe there returns
- * no reload at all rather than one that would be refused — `.claude/decisions/0008-no-signal-stop-on-windows.md`.
+ * no reload at all rather than one that would be refused — `docs/decisions/0008-no-signal-stop-on-windows.md`.
  * `#[non_exhaustive]` is what leaves a third addition additive.
  */
 export type ReloadBehaviour = { "type": "command", 

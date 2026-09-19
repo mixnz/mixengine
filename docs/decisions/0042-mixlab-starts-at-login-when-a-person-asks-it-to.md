@@ -7,7 +7,7 @@
 
 T168 puts MixEngine in the tray: an icon, and a panel that lists services and sites, starts and
 stops them, and opens MixLab
-([the design](../../docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md)). The
+([the design](../specs/2026-09-19-t168-mixengine-in-the-tray-design.md)). The
 icon is drawn by MixLab's process, so it is only there while MixLab runs. A tray icon that exists
 only once somebody has opened the window already is of little use, so MixLab has to be able to start at login,
 with no window.

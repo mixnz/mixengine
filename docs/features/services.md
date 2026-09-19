@@ -190,7 +190,7 @@ Rules:
   opens 27017. It is ready when it prints `Waiting for connections` rather than when its port
   accepts, and on Windows a stop is a kill (ADR 0008) that WiredTiger recovers from at the next
   start. Design:
-  [docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md](../../docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md).
+  [docs/specs/2026-09-17-t153-mongodb-is-a-service-design.md](../specs/2026-09-17-t153-mongodb-is-a-service-design.md).
 
 Init runs inside a job with progress, and is idempotent — a half-finished data dir is detected and
 cleaned rather than reused. **Two markers, and the second one is what keeps that sentence honest**:
@@ -303,7 +303,7 @@ mariadb@main --user blog` prints the password MixEngine holds, and `mix database
 one — through the same ownership rule the paragraph below states, so a correct password for an
 account MixEngine holds no keyring entry for is still refused: knowing a password is not the deed.
 Design, and the rule for when a credential is allowed on the wire at all:
-[docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../../docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md),
+[docs/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md),
 [ADR 0025](../decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md).
 
 Two rules make it repeatable and safe to run twice. **A keyring entry is the deed of ownership**: an

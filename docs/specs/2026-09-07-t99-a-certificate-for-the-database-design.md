@@ -194,7 +194,7 @@ and the next `bench (ubuntu-latest)` run is what closes the roadmap's footnote.
 - `todo.md`'s "M3's tail" debt row, on the next green bench.
 - The "bimodal on ubuntu" footnotes stay as history; `warm_start.rs`'s comment and the phase 3
   milestone note already say what it was.
-- A one-paragraph addition to `.claude/features/tls.md` under a new "Services" heading: databases get
+- A one-paragraph addition to `docs/features/tls.md` under a new "Services" heading: databases get
   a leaf from the same authority, under `certs/services/`, and why.
 - ADR: none proposed. Nothing accepted is changed — `tls.md`'s "SANs = exactly the site's domains" is
   about site leaves, and this is not one.

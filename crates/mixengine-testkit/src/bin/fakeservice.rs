@@ -1,7 +1,7 @@
 //! A program that misbehaves on request, so supervision can be tested against something other than
 //! MariaDB.
 //!
-//! `.claude/architecture/process-supervision.md` lists what it has to be able to do — start slowly,
+//! `docs/architecture/process-supervision.md` lists what it has to be able to do — start slowly,
 //! never become ready, exit with a code after N ms, ignore a request to stop, leave a child behind —
 //! and `mixengine_testkit::FakeService` is the caller's side of every flag below.
 //!

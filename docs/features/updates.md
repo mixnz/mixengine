@@ -28,7 +28,7 @@ intact; what we lose is first-launch friendliness.
 lives in `~/.config/mixengine/`, outside every working tree; its public half is committed as
 `packaging/updates.pub` and pinned as `core::updates::PUBLIC_KEY`; and CI signs every artifact a
 release carries with it before assembling the draft a person publishes — roadmap task **T86**,
-[design](../../docs/superpowers/specs/2026-09-04-t86-updater-signing-design.md). It is a **third**
+[design](../specs/2026-09-04-t86-updater-signing-design.md). It is a **third**
 key rather than the package index's: that one is used from another repository, by that repository's
 workflows, with that repository's secrets, and a compromise there must not additionally hand somebody
 the right to sign the `mixengined` a machine runs as itself.
@@ -48,11 +48,11 @@ project keeps refusing. Changing only the *password* — `minisign -C -s ~/.conf
 — keeps the pair and touches nothing here.
 
 **The whole of this page is now built** — roadmap task **T88**,
-[design](../../docs/superpowers/specs/2026-09-04-t88-self-update-design.md): `core::updates` reads
+[design](../specs/2026-09-04-t88-self-update-design.md): `core::updates` reads
 the feed and swaps the binaries, `mixengined` checks at start and on a daily clock, and
 `mix self-update` asks and relaunches. The elevated helper's own path, which the sections below
 distinguish at every point it matters, is **T88a**,
-[design](../../docs/superpowers/specs/2026-09-05-t88a-the-helper-update-path-design.md), and is built
+[design](../specs/2026-09-05-t88a-the-helper-update-path-design.md), and is built
 too.
 
 ## Feed
@@ -141,7 +141,7 @@ This is the single most important rule on this page: an auto-updated binary that
 no OS signature, is a local privilege-escalation vector.
 
 **All of that is now built** — roadmap task **T88a**,
-[design](../../docs/superpowers/specs/2026-09-05-t88a-the-helper-update-path-design.md) and
+[design](../specs/2026-09-05-t88a-the-helper-update-path-design.md) and
 [ADR 0018](../decisions/0018-a-signed-candidate-is-what-lets-a-path-cross-the-boundary.md). Five
 things it turned out to consist of:
 
@@ -187,7 +187,7 @@ as root at install time and do not have that problem.
 ## Platform reality when unsigned
 
 **Most of this section is now measured rather than reasoned about** — roadmap task **T86a**,
-[design](../../docs/superpowers/specs/2026-09-04-t86a-unsigned-distribution-design.md). Two probes,
+[design](../specs/2026-09-04-t86a-unsigned-distribution-design.md). Two probes,
 `packaging/windows/probe.sh` and `packaging/macos/probe.sh`, run on every `build` job against the
 real installer, the real portable zip and the real `.pkg`, and each reading below carries the name
 the probe gives it (`W1`, `M4`, …) so it can be traced back to a run. A reading that comes back wrong

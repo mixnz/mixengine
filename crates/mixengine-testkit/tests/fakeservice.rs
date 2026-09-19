@@ -3,7 +3,7 @@
 //! A fixture nobody has checked is worse than no fixture: a `fakeservice` that quietly ignored
 //! `--never-ready` would turn a supervisor test about ready timeouts into a test that passes because
 //! the service came up. Each mode below is one of the behaviours
-//! `.claude/architecture/process-supervision.md` requires of it, proved here so that a failure in
+//! `docs/architecture/process-supervision.md` requires of it, proved here so that a failure in
 //! Phase 1 is a failure of the supervisor rather than of the thing it is being measured with.
 //!
 //! Nothing here touches the network, and every file it writes is inside its own `TempDir`.

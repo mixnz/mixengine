@@ -411,7 +411,7 @@ directory, which is where a generated defaults file and a keyring credential rea
       the last line only, which for this server is `Aborting` and no diagnosis; the whole stream is
       logged, capped at forty lines, from the steps handed no credential to quote back.
 - [x] **T99** MariaDB serves a certificate this home's authority signed — design in
-      [docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../../docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
+      [docs/specs/2026-09-07-t99-a-certificate-for-the-database-design.md](../specs/2026-09-07-t99-a-certificate-for-the-database-design.md).
       **What was measured.** Run 34128004289's `bench (ubuntu-latest)` put the M3 warm median at
       11.1 s, and every slow round's `mariadb.err` had the same shape: InnoDB up, four to thirteen
       seconds of nothing, `Server socket created`. Between those lines 11.4 runs `init_ssl`, and
@@ -440,7 +440,7 @@ directory, which is where a generated defaults file and a keyring credential rea
       the daemon's own token, through `CreateProcessAsUserW`. A no-op on an ordinary machine, where
       the interactive token is already filtered, and no elevation: that call needs no privilege for a
       restricted copy of the caller's own token.
-      `.claude/decisions/0010-supervised-child-never-inherits-administrators.md`. What it cost
+      `docs/decisions/0010-supervised-child-never-inherits-administrators.md`. What it cost
       outside the platform crate is two enum variants — `Supervised`'s streams are now `OutputPipe`.
       **Not** `spawn_detached` and **not** the shim; see the ADR for why. Read from upstream rather
       than assumed: exactly `--describe-config` and a leading `-C var` bypass that check, so
@@ -627,7 +627,7 @@ directory, which is where a generated defaults file and a keyring credential rea
 - [x] **T37** Nginx as the alternative front end; parity test suite running both generators.
       Packaged already — what was missing was the recipe, not the artifact.
       **The task's own finding is that "one front end" was a sentence nothing could break until
-      now.** `.claude/features/services.md` has always said exactly one of Caddy and Nginx owns 80
+      now.** `docs/features/services.md` has always said exactly one of Caddy and Nginx owns 80
       and 443, and until this task there was one front-end recipe, so the rule cost nothing to
       state. Two of them make it breakable in a way neither recipe can refuse on its own:
       `Instancing` is about a *package* — how many rows may name `nginx` — and both front ends

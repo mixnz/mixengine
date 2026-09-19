@@ -33,9 +33,9 @@ import styles from "./Sidebar.module.css";
  * nguyên như khi bảng này còn phẳng: `client-surface.md` giả định một client hỏi `project.list` cho
  * đúng một dropdown, trong khi `project.*` đã đủ method (`list, create, show, update, delete,
  * export`) cho một màn quản lý — và Sites không dùng được nếu chưa có project nào (Quyết định D4,
- * `docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`). `metrics` thì là
+ * `docs/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`). `metrics` thì là
  * dữ liệu khác hình dạng: biểu đồ 24 giờ, không phải một hàng trong bảng service (D1,
- * `docs/superpowers/specs/2026-09-07-mixengine-metrics-settings-design.md`).
+ * `docs/specs/2026-09-07-mixengine-metrics-settings-design.md`).
  *
  * **`phpExtensions` cũng không nằm trong đó** — `client-surface.md` đặt công tắc extension bên
  * trong màn Runtimes, và nó vẫn ở đó: cùng một component, vẽ ở hai nơi (T118). Nhóm *Môi trường* là

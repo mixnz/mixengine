@@ -8,7 +8,7 @@ and reads it back, T51 renders a `tls` line naming it, T52 replaces it before it
 one of those is a claim about a *file*. Not one of them establishes that the server running on this
 machine is presenting that file to anything.
 
-That gap is exactly where the reports come from. `.claude/features/tls.md` names it: *"most 'padlock
+That gap is exactly where the reports come from. `docs/features/tls.md` names it: *"most 'padlock
 is broken' reports are a stale cert after adding a domain"* — a case where the file on disk is
 already correct, `mix doctor` is green, and the browser still refuses, because the running server
 holds the old certificate in memory.
@@ -168,7 +168,7 @@ reloading a front end rather than by touching a certificate at all.
 ## D6 — the port comes from the settings the rendering used
 
 The front end's TLS port is `https_port`, a setting T51 made movable on both recipes. The daemon
-needs the number, and the rule that decides where it comes from is `.claude/CLAUDE.md`'s: generated
+needs the number, and the rule that decides where it comes from is `CLAUDE.md`'s: generated
 configuration is disposable and is never parsed back into state.
 
 `mixengine_core::generate::Generated` — what the generator hands back per service — carries the

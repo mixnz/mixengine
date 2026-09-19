@@ -8,7 +8,7 @@ import type { TerminalChoice } from "./types";
  * Nhánh `local` giữ `name` của shell (`powershell`, `wsl:Ubuntu`) chứ không giữ đường dẫn, vì
  * `name` là định danh bền còn đường dẫn thì đổi theo máy. `cwd` là thứ duy nhất trong file này
  * không phải id: nó là một đường dẫn trên máy người dùng, không phải bí mật. Vạch nằm ở đó — §4
- * của `docs/superpowers/specs/2026-08-23-tab-session-context-design.md`.
+ * của `docs/specs/2026-08-23-tab-session-context-design.md`.
  *
  * `targetId` của nhánh `local` là **cộng thêm** vào `shellName`/`cwd`, không thay chúng: nó chỉ để
  * tra lại lệnh mở màn trên entry đang sống, nên một entry bị xoá vẫn để tab mở lại đúng shell của

@@ -6,7 +6,7 @@ nothing.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
+Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
 on [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md).
 
 ---
@@ -21,7 +21,7 @@ nothing that needs reviewing as code.
       [build-and-release.md](../operations/build-and-release.md)'s *"Rust only"*,
       [client-surface.md](../features/client-surface.md)'s opening,
       [extensions.md](../features/extensions.md)'s MixDB section, `packaging/README.md`, and
-      `.claude/README.md`'s table gain a `desktop/` row. The "Non-negotiable rules" gain the two
+      `docs/README.md`'s table gain a `desktop/` row. The "Non-negotiable rules" gain the two
       rules a desktop crate needs — it reaches the daemon only through the API and the published
       contract, and its toolbox modules never reach the daemon at all — and lose *"no frontend
       toolchain"*. The root `rust-toolchain.toml` and `rust-version` move to 1.98.0 in a commit of
@@ -30,7 +30,7 @@ nothing that needs reviewing as code.
 - [x] **T101** MixDB arrives under `apps/desktop/` with its history, as a `git subtree add`. The
       Rust half is a Cargo workspace of its own, excluded from the root one (design, D1 and D5 of
       the ADR); its own pin file is deleted. `AGENT.md` becomes `apps/desktop/CLAUDE.md`, `.agent/`
-      becomes `.claude/desktop/`, the 26 specs join `docs/superpowers/specs/`, and the MixDB
+      becomes `docs/README.md`, the 26 specs join `docs/specs/`, and the MixDB
       changelog is frozen as `apps/desktop/CHANGELOG.md`. `apps/desktop/src-tauri/tests/layering.rs`
       fails on any `path` dependency other than `mixengine-proto` and `mixengine-platform`, with
       `mixengine-testkit` allowed under `[dev-dependencies]` alone. **The version stays MixDB's

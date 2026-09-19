@@ -17,7 +17,7 @@
 //! lifetime, and a killed daemon leaves the whole group running. Linux answers that with
 //! `PR_SET_PDEATHSIG` in `linux/process.rs`, which is why arranging a supervised spawn is the one
 //! thing in this file the two systems do not share; macOS has no answer and says so.
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md` is where the three-way
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md` is where the three-way
 //! difference is recorded.
 
 use std::fs::File;
@@ -128,7 +128,7 @@ pub(crate) fn group() -> Result<Group> {
 /// Whether a group can be *asked* to stop on this system, as opposed to being killed.
 ///
 /// True here, and the mechanism is [`Group::request_stop`]. Windows says `false` and
-/// `.claude/decisions/0008-no-signal-stop-on-windows.md` is why.
+/// `docs/decisions/0008-no-signal-stop-on-windows.md` is why.
 pub(crate) const CAN_ASK_TO_STOP: bool = true;
 
 /// Whether a process can be signalled here. See [`crate::process::CAN_SIGNAL`].
@@ -136,7 +136,7 @@ pub(crate) const CAN_SIGNAL: bool = true;
 
 /// The variables a child is given even though its spec did not name them.
 ///
-/// The spec's environment is the *whole* environment (`.claude/architecture/process-supervision.md`:
+/// The spec's environment is the *whole* environment (`docs/architecture/process-supervision.md`:
 /// "explicit; parent env is NOT inherited wholesale"), and this is the narrow exception: names whose
 /// values belong to the session rather than to the service, inherited from this process **only when
 /// it has them** and never invented. Nothing here is required by the kernel — a POSIX `exec` into an

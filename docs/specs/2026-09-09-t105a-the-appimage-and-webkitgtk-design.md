@@ -1,6 +1,6 @@
 # T105a — The AppImage and WebKitGTK
 
-Roadmap task [T105a](../../../.claude/roadmap/phase-12-one-product.md), on
+Roadmap task [T105a](../roadmap/phase-12-one-product.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D8 and on
 [T105](2026-09-09-t105-the-window-in-every-installer-design.md). 2026-09-09.
 
@@ -105,7 +105,7 @@ Linux build legs, so the number behind this paragraph is regenerable and never h
 
 **The AppImage does not carry WebKitGTK, and the window's floor is the distribution's.** The
 interim T105 shipped is the design. It is recorded as
-[ADR 0028](../../../.claude/decisions/0028-the-appimage-does-not-carry-webkitgtk.md), and it replaces
+[ADR 0028](../decisions/0028-the-appimage-does-not-carry-webkitgtk.md), and it replaces
 one line of D8; the rest of D8 stands.
 
 What the floor is, stated once and promised in the install page:
@@ -185,7 +185,7 @@ dynamic loader gets to speak for itself.
   distribution list and the command line's glibc 2.28, on the AppImage as much as on the packages.
   The existing "Both packages are built against glibc 2.28" is true of four binaries out of five and
   is corrected in place.
-- **`.claude/operations/build-and-release.md`** — the Linux row of the targets table says the same
+- **`docs/operations/build-and-release.md`** — the Linux row of the targets table says the same
   thing: four binaries at glibc 2.28 in a container, the window at `MIX_WINDOW_GLIBC` on the runner.
 - **ADR 0028** — the decision, with M1–M3 as its context and the alternatives below.
 - **The roadmap** — T105a ticked, with what it settled and the measured numbers.

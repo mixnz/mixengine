@@ -65,7 +65,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 # `MockRegistry`: a signed index over a real socket, which is the only way an index client can be
-# tested without the network `.claude/standards/testing.md` forbids. A dev-dependency edge, which is
+# tested without the network `docs/standards/testing.md` forbids. A dev-dependency edge, which is
 # the only kind this crate may have on the testkit.
 mixengine-testkit.workspace = true
 serde_json.workspace = true

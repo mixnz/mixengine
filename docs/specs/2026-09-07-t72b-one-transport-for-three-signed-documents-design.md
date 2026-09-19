@@ -8,7 +8,7 @@ fix or a sentence saying why the memory is worth holding, after which `DAEMON_BU
 ## What was measured, and how
 
 Three paired, repeated runs of
-[`idle_footprint.rs`](../../../crates/mixengine-cli/tests/idle_footprint.rs), release, on one machine,
+[`idle_footprint.rs`](../../crates/mixengine-cli/tests/idle_footprint.rs), release, on one machine,
 each pair separated only by the setting under test — the roadmap's own list of seven suspects turned
 out to be incomplete (T80 and T81 also landed inside the window and are not on it), so rather than
 bisecting seven-plus tasks one at a time, the question was split in two: *how much of the week's
@@ -30,11 +30,11 @@ Two numbers fall out of that:
   pairs of runs. This is this task's "fix," argued below.
 
 `updates.enabled = false` does **not** skip constructing
-[`Updates::new`](../../../crates/mixengine-daemon/src/updates.rs:157) — only the periodic task it
-hands to [`updates::start`](../../../crates/mixengine-daemon/src/updates.rs:758) — so the 3.5 MB is
+[`Updates::new`](../../crates/mixengine-daemon/src/updates.rs:157) — only the periodic task it
+hands to [`updates::start`](../../crates/mixengine-daemon/src/updates.rs:758) — so the 3.5 MB is
 specifically the cost of the **eager startup fetch** `updates.enabled` cannot turn off: an HTTPS
 connection to GitHub, a minisign verification, and a parsed [`Feed`] held in
-[`Updates::last`](../../../crates/mixengine-daemon/src/updates.rs:120) for the rest of the daemon's
+[`Updates::last`](../../crates/mixengine-daemon/src/updates.rs:120) for the rest of the daemon's
 life.
 
 **What this reading is not is a proof of mechanism.** The measurement window is the settle plus five
@@ -82,11 +82,11 @@ Three places build their own transport today, each through the same generic cons
 
 | Client | Document | Built at | Held by |
 | --- | --- | --- | --- |
-| [`runtimes::Fetcher`](../../../crates/mixengine-daemon/src/runtimes.rs:115) | package index | `main`, [runtimes.rs:132](../../../crates/mixengine-daemon/src/runtimes.rs:132) | the daemon's whole life |
-| [`extensions::registry::client`](../../../crates/mixengine-core/src/extensions/registry.rs:149) | extension registry | `main`, [main.rs:1460](../../../crates/mixengine-daemon/src/main.rs:1460) | the daemon's whole life |
-| [`updates::Updates`](../../../crates/mixengine-daemon/src/updates.rs:96) | update feed | `main`, [main.rs:1488](../../../crates/mixengine-daemon/src/main.rs:1488) | the daemon's whole life |
+| [`runtimes::Fetcher`](../../crates/mixengine-daemon/src/runtimes.rs:115) | package index | `main`, [runtimes.rs:132](../../crates/mixengine-daemon/src/runtimes.rs:132) | the daemon's whole life |
+| [`extensions::registry::client`](../../crates/mixengine-core/src/extensions/registry.rs:149) | extension registry | `main`, [main.rs:1460](../../crates/mixengine-daemon/src/main.rs:1460) | the daemon's whole life |
+| [`updates::Updates`](../../crates/mixengine-daemon/src/updates.rs:96) | update feed | `main`, [main.rs:1488](../../crates/mixengine-daemon/src/main.rs:1488) | the daemon's whole life |
 
-All three go through [`index::Client::<D>::with`](../../../crates/mixengine-core/src/index.rs:203),
+All three go through [`index::Client::<D>::with`](../../crates/mixengine-core/src/index.rs:203),
 which builds its own `reqwest::Client::builder().timeout(FETCH_TIMEOUT).user_agent(…).build()` —
 identical settings, three times, three separate TLS configurations and root-certificate stores, three
 connection pools that will only ever hold one host's connections each.
@@ -102,7 +102,7 @@ talks to — not once per host.
 any external caller that has no client to share. A new `index::Client::<D>::with_transport(url,
 public_key, cache_dir, http: reqwest::Client)` takes one in; `with` becomes `with_transport` given a
 freshly built default. `main` builds one `reqwest::Client` immediately before
-[runtimes.rs:132](../../../crates/mixengine-daemon/src/runtimes.rs:132) — beside the check that a
+[runtimes.rs:132](../../crates/mixengine-daemon/src/runtimes.rs:132) — beside the check that a
 supplied `--index-key` parses, since a client that cannot be built should fail the start on the same
 rule the key does — and `.clone()`s it into the fetcher, the registry client and `Updates::new`.
 
@@ -130,7 +130,7 @@ lifetime is worth a second, narrower change, made against a number rather than i
 
 Whatever the daemon measures after this task's change — release, this machine, the same methodology —
 replaces both the 42 MB constant and its comment in
-[idle_footprint.rs](../../../crates/mixengine-cli/tests/idle_footprint.rs:84). The comment names this
+[idle_footprint.rs](../../crates/mixengine-cli/tests/idle_footprint.rs:84). The comment names this
 task and the number it found, the same way the 42 MB one names T72b. What it must not do is repeat the
 36→42 MB move's own mistake of a margin applied without a reading behind it: the new constant is the
 worst of what this task's own re-measurement shows, plus the fifth-above-worst rule already in force,
@@ -139,7 +139,7 @@ and nothing more generous than that.
 ## What this does not do
 
 Does not touch `mix self-update`'s behaviour, the feed's schema, the daily check's interval, or
-anything in [updates.md](../../../.claude/features/updates.md). A person running `mix self-update`
+anything in [updates.md](../features/updates.md). A person running `mix self-update`
 sees nothing different. Does not chase the ~1.3 MB the measurement above already assigned to eight
 other tasks' ordinary growth — reopening that would be measuring noise this task's own numbers show is
 smaller than the spread between consecutive runs.
@@ -159,4 +159,4 @@ comes from, and it is not satisfied by the other three passing.
 ## Documentation changed
 
 - `crates/mixengine-cli/tests/idle_footprint.rs` — `DAEMON_BUDGET` and its comment (D3).
-- `.claude/roadmap/phase-7-efficiency.md` — T72b ticked, with the reading this document found.
+- `docs/roadmap/phase-7-efficiency.md` — T72b ticked, with the reading this document found.

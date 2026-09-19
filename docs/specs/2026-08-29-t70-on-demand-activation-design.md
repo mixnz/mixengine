@@ -1,7 +1,7 @@
 # T70 and T70a — On-demand activation
 
-Roadmap: [.claude/roadmap/phase-7-efficiency.md](../../../.claude/roadmap/phase-7-efficiency.md).
-Feature: [.claude/features/resource-isolation.md](../../../.claude/features/resource-isolation.md),
+Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).
+Feature: [docs/features/resource-isolation.md](../features/resource-isolation.md),
 "1. On-demand start (the big win)".
 
 **One design, two tasks.** T70 is the web path and T70a is the database path, and the split is by

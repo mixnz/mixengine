@@ -11,7 +11,7 @@ use crate::Result;
 pub trait HomeDirs: std::fmt::Debug + Send + Sync {
     /// The default `MIXENGINE_HOME` for the current user.
     ///
-    /// Per `.claude/architecture/overview.md`:
+    /// Per `docs/architecture/overview.md`:
     ///
     /// | OS | Directory | A build that is not a release |
     /// | --- | --- | --- |

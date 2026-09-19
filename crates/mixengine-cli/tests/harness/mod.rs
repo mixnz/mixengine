@@ -117,7 +117,7 @@ impl Home {
     /// it tells the daemon it is in, and whether it reads `MIXENGINE_PHP` at all. Neither is
     /// observable from a `mix` that inherits this test process's own directory and environment — and
     /// the variables go on the child rather than through `std::env::set_var`, which
-    /// `.claude/standards/testing.md` forbids for the reason two tests in one binary would find out
+    /// `docs/standards/testing.md` forbids for the reason two tests in one binary would find out
     /// the hard way.
     pub(crate) fn mix_in(&self, cwd: &Path, environment: &[(&str, &str)], args: &[&str]) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_mix"));

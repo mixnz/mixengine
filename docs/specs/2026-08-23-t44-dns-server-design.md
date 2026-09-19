@@ -1,6 +1,6 @@
 # T44 — The built-in DNS server: a wildcard, and nothing else
 
-**Roadmap:** T44 (and T46a, closed with it), `.claude/roadmap/phase-4-sites-and-elevation.md`
+**Roadmap:** T44 (and T46a, closed with it), `docs/roadmap/phase-4-sites-and-elevation.md`
 **Depends on:** T39a (`core::domains` and the TLD table in `proto::domains`), T41 (the hosts block and
 `Elevation::require_hosts`), T38 (`PortOwner`), T43 (what a front end actually binds)
 **Feeds:** T45 (resolver wiring, which is what turns this on), T46 (`domain.*`), T47 (`mix doctor`)
@@ -8,7 +8,7 @@
 ## What this closes
 
 `site.create` must prompt for nothing. Today it queues a hosts entry per domain and therefore queues
-an elevation prompt per site — the exact cost [ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md)
+an elevation prompt per site — the exact cost [ADR 0005](../decisions/0005-on-demand-elevation.md)
 says the product may not pay repeatedly. A DNS server that answers `*.test` by pattern pays it once
 instead, at first-run setup, and never again however many sites exist.
 
@@ -111,7 +111,7 @@ crate compiles every launcher table everywhere.
 
 `[dns] port` overrides it, and exists for two independent and both-real reasons. A machine where
 something already holds the default needs a way out that is not "move your home directory". And
-**the test suite needs an ephemeral port**: `.claude/standards/testing.md` forbids a test touching
+**the test suite needs an ephemeral port**: `docs/standards/testing.md` forbids a test touching
 port 53, so without a configurable port there is no legitimate integration test of this server at
 all.
 
@@ -361,9 +361,9 @@ let desired = match self.dns.mode() {
 
 ## Documents corrected by this change
 
-- `.claude/features/domains-and-dns.md` — the port (D2), `AAAA → ::1` (D3), and the forwarding
+- `docs/features/domains-and-dns.md` — the port (D2), `AAAA → ::1` (D3), and the forwarding
   paragraph (D1).
-- `.claude/roadmap/phase-4-sites-and-elevation.md` — T44 ticked and rewritten, **T46a ticked and
+- `docs/roadmap/phase-4-sites-and-elevation.md` — T44 ticked and rewritten, **T46a ticked and
   folded into it**, and the port in T45's line corrected.
 
 ## Found while reviewing this change, and left alone
@@ -373,11 +373,11 @@ required field, as `elevation` has been since T40b, so a `mix` from a new build 
 daemon that has not been restarted fails to deserialise the answer — including the note
 `render::status` writes for exactly that skew, which is now unreachable. This change does not
 introduce the problem and cannot fix it alone: making `dns` optional buys nothing while `elevation`
-stays required. It is written down as **T88c** in [phase 9](../../../.claude/roadmap/phase-9-ship.md),
+stays required. It is written down as **T88c** in [phase 9](../roadmap/phase-9-ship.md),
 where one rule can be chosen for the whole struct.
 
 **Every suite that starts a real daemon was about to bind the default DNS port**, which is 53 on
-Windows — rule 1 of `.claude/standards/testing.md` forbids exactly that, and two suites in parallel
+Windows — rule 1 of `docs/standards/testing.md` forbids exactly that, and two suites in parallel
 would have raced for it with the loser silently in hosts-only mode. `mixengine_testkit::Home` now
 writes `[dns] port = 0` into every home it makes: the daemon still binds, still registers both
 transports and still reports where, on a port the operating system hands out. This is what D2's

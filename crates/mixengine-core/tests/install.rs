@@ -8,7 +8,7 @@
 //! does anything half-finished ever appear where a client will look.
 //!
 //! The invariant every test here is a restatement of is
-//! [runtime-versions.md](../../../.claude/features/runtime-versions.md)'s: **a half-extracted version
+//! [runtime-versions.md](../../../docs/features/runtime-versions.md)'s: **a half-extracted version
 //! must never appear in `list`**. So each failing path asserts the absence of the destination, not
 //! only the presence of an error.
 

@@ -1,7 +1,7 @@
 //! What ports may be opened, decided by the binary that will open them.
 //!
 //! **The helper validates the request itself rather than trusting the daemon** —
-//! `.claude/architecture/security-model.md`, and the T74 design, D7. If the daemon is compromised
+//! `docs/architecture/security-model.md`, and the T74 design, D7. If the daemon is compromised
 //! it *is* the attacker, so nothing the request asserts can be believed: not the ports, not the
 //! label, not the length of the list.
 //!

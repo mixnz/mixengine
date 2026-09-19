@@ -67,7 +67,7 @@ The handler stanza — `php_fastcgi`, `file_server`, `reverse_proxy` — is iden
 the cost: it is written twice per HTTPS site. A Caddy snippet (`(name) { … }` plus `import name`)
 would remove the duplication and is **not** taken: a snippet is defined in the Caddyfile and
 imported by the site files, which puts one site's handler in the shared document that
-`.claude/features/` D-notes and `caddy.rs`' own header say must stay empty of per-site content —
+`docs/features/` D-notes and `caddy.rs`' own header say must stay empty of per-site content —
 the whole reason `sites/*.caddy` is one file per site is that a broken site takes only itself down.
 Repeating four lines is cheaper than reintroducing a shared file every site depends on.
 

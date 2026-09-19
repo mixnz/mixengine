@@ -1,6 +1,6 @@
 # MixLab's redesign: one token set, two themes, two densities, no glass
 
-2026-09-17. Design: [2026-09-17-t157-mixlab-redesign-design.md](../../../docs/superpowers/specs/2026-09-17-t157-mixlab-redesign-design.md).
+2026-09-17. Design: [2026-09-17-t157-mixlab-redesign-design.md](../../specs/2026-09-17-t157-mixlab-redesign-design.md).
 
 A design canvas redrew MixLab dark, in Geist, with content in bordered cards and roomier controls.
 Taking it meant replacing several things `shell/App.css` had stated as rules. This records what

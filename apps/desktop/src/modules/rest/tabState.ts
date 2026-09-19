@@ -4,7 +4,7 @@
  *
  * Ids and only ids. The requests themselves — the URL, the headers, the body, the auth — live in
  * `rest-requests.json`, and nothing about them is copied here; see §4 of
- * `docs/superpowers/specs/2026-08-23-tab-session-context-design.md`.
+ * `docs/specs/2026-08-23-tab-session-context-design.md`.
  *
  * Nothing is sent on the way back. Reopening a request is opening its pane, exactly as clicking it
  * in the sidebar is.

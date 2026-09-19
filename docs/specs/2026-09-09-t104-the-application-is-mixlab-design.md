@@ -1,9 +1,9 @@
 # T104 — The application is MixLab — design
 
 **Date**: 2026-09-09
-**Roadmap**: [phase 12](../../../.claude/roadmap/phase-12-one-product.md), task T104
+**Roadmap**: [phase 12](../roadmap/phase-12-one-product.md), task T104
 **Parent design**: [the desktop client in this repository](2026-09-08-the-desktop-client-in-this-repository-design.md),
-D6 and D7 · **Decision**: [ADR 0027](../../../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md)
+D6 and D7 · **Decision**: [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
 
 ## Goal
 

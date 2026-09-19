@@ -1,11 +1,11 @@
 # T48 — the internal CA, and the identifier the specification asked for and cannot have
 
-**Task**: T48, opening [phase 5](../../../.claude/roadmap/phase-5-https.md) — internal CA generation
+**Task**: T48, opening [phase 5](../roadmap/phase-5-https.md) — internal CA generation
 (`rcgen`), key permissions, fingerprint, `cert.ca_status`.
 
-**Authoritative documents**: [`.claude/features/tls.md`](../../../.claude/features/tls.md) and the
+**Authoritative documents**: [`docs/features/tls.md`](../features/tls.md) and the
 Local CA section of
-[`.claude/architecture/security-model.md`](../../../.claude/architecture/security-model.md). Where
+[`docs/architecture/security-model.md`](../architecture/security-model.md). Where
 this design departs from either, it says so and says why.
 
 ---

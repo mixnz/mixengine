@@ -1,7 +1,7 @@
 //! This home's certificate authority: made once, and reported on.
 //!
 //! **Made at start rather than when the first HTTPS site is created.**
-//! `.claude/architecture/security-model.md` promises one elevation prompt at first run, covering the
+//! `docs/architecture/security-model.md` promises one elevation prompt at first run, covering the
 //! CA, the resolver wiring and the port grant together. An authority that first appeared with the
 //! first site would put its trust-store install (roadmap task T49) in a second batch and therefore
 //! behind a second prompt — which is the finding T45 already made about the resolver and wrote down
@@ -156,7 +156,7 @@ impl Certificates {
     pub(crate) async fn ensure(&self) -> Result<CaStatus, Error> {
         let certs = self.certs.clone();
 
-        // Key generation and two file writes. `.claude/standards/rust.md`'s rule for anything that
+        // Key generation and two file writes. `docs/standards/rust.md`'s rule for anything that
         // touches a disk from a runtime worker — and on Windows the private key's ACL is written by
         // running `icacls`, which is a process rather than a syscall.
         //
@@ -357,7 +357,7 @@ impl Certificates {
     ///
     /// **Every branch that cannot ask says why rather than guessing.** A client renders this
     /// sentence, and "not installed" printed because nothing was asked would be the daemon inventing
-    /// an answer — which is the rule `.claude/CLAUDE.md` states as a client rendering only what the
+    /// an answer — which is the rule `CLAUDE.md` states as a client rendering only what the
     /// daemon returns, one layer up.
     fn trust(&self, state: &CaState) -> Trust {
         let CaState::Present { ca } = state else {
@@ -436,7 +436,7 @@ impl Certificates {
             return mixengine_platform::BrowserChange::default();
         };
 
-        // Process spawns and file writes, so off the runtime — `.claude/standards/rust.md`'s rule
+        // Process spawns and file writes, so off the runtime — `docs/standards/rust.md`'s rule
         // for anything that touches a disk from a worker.
         tokio::task::spawn_blocking(move || host.browsers().install(&der))
             .await
@@ -473,7 +473,7 @@ impl Certificates {
 
         let key_id = key_id.to_owned();
 
-        // A process spawn per profile, so off the runtime — `.claude/standards/rust.md`.
+        // A process spawn per profile, so off the runtime — `docs/standards/rust.md`.
         tokio::task::spawn_blocking(move || host.browsers().remove(&key_id))
             .await
             .unwrap_or_else(|_| {
@@ -1121,7 +1121,7 @@ mod tests {
     /// **The acceptance criterion, enumerated** — roadmap task **T54**, and the control that makes
     /// the enumeration mean something.
     ///
-    /// `.claude/features/tls.md` asks that `mix cert ca-uninstall` leave no MixEngine certificate in
+    /// `docs/features/tls.md` asks that `mix cert ca-uninstall` leave no MixEngine certificate in
     /// any store, *"verified by an integration test that enumerates the stores"*. A machine running
     /// `cargo test` has a real trust store it must not touch (testing rule 1) and may have no
     /// `certutil` at all, so the enumeration happens here — against the mock T49b built

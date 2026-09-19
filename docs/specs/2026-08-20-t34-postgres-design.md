@@ -1,6 +1,6 @@
 # T34 — PostgreSQL, as a service MixEngine runs
 
-*Design for roadmap task [T34](../../../.claude/roadmap/phase-3-services.md), and for the platform
+*Design for roadmap task [T34](../roadmap/phase-3-services.md), and for the platform
 task it turned out to need first. Written 2026-08-20, before any code. What survives implementation
 goes into `phase-3-services.md` and into an ADR; this file is the argument, not the record.*
 
@@ -137,13 +137,13 @@ enum Source {
 `run_once` and `run_once_with_input` use `tokio::process::Command`, and a `tokio::process::Child`
 cannot be built from a foreign handle either. On Windows they gain a branch: spawn restricted, drain
 both pipes on threads, and wait with a deadline through `spawn_blocking` — which
-`.claude/standards/rust.md` already requires of anything that waits. Unix does not change by one
+`docs/standards/rust.md` already requires of anything that waits. Unix does not change by one
 line, and the two paths meet again at `Ran`.
 
 ### What proves it
 
 A test in `mixengine-platform` that asserts **structurally**, never by attempting an access —
-`.claude/standards/testing.md` is explicit that an elevated suite proving an exclusion by trying it
+`docs/standards/testing.md` is explicit that an elevated suite proving an exclusion by trying it
 proves nothing. It reads the child's own token with `GetTokenInformation(TokenGroups)` and asserts
 that S-1-5-32-544 is present **and not** `SE_GROUP_ENABLED`. That assertion means the same thing on a
 runner holding a full token and on a developer's filtered one, which is the property the standard
@@ -157,7 +157,7 @@ asks for.
 
 The index publishes `"kind": "postgres"`, and a recipe is found by `packages.name`, so the ids are
 `postgres@main` and the generated directory is `etc/postgres@main/`.
-`.claude/features/services.md` currently writes `postgresql@main/postgresql.conf`; the publisher is
+`docs/features/services.md` currently writes `postgresql@main/postgresql.conf`; the publisher is
 the authority on its own name, so that line is corrected as part of this task rather than worked
 around.
 

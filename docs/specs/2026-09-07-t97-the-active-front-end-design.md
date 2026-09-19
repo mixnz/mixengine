@@ -1,9 +1,9 @@
 # T97 — The active front end is answerable, and switchable (design)
 
 Roadmap task **T97**, phase 10, designed by
-[ADR 0026](../../../.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
+[ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
 It closes the second half of the one acceptance criterion
-[client-surface.md](../../../.claude/features/client-surface.md) currently fails — the Settings
+[client-surface.md](../features/client-surface.md) currently fails — the Settings
 screen's *"default web server"* has nothing behind it, so a client can only get at the fact by
 hardcoding that the package names `caddy` and `nginx` mean "front end". The first half was **T96**.
 

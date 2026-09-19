@@ -1,6 +1,6 @@
 # T110 — The bridge when a module is hidden
 
-Roadmap task [T110](../../../.claude/roadmap/phase-13-profiles.md), on
+Roadmap task [T110](../roadmap/phase-13-profiles.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D11 and on
 [T108](2026-09-09-t108-a-module-visibility-setting-design.md) and
 [T109](2026-09-10-t109-the-default-tab-follows-the-profile-design.md). 2026-09-10.

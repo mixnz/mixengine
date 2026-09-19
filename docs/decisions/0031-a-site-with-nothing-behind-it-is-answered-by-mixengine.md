@@ -21,7 +21,7 @@ single time — `SiteKind::NodeApp` is documented as *"A declaration and no more
 starts `npm run dev`"*, so that 502 cannot be removed by starting something. What can be removed is
 the silence around it.
 
-Design: [docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md](../../docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md).
+Design: [docs/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md](../specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md).
 
 ## Decision
 

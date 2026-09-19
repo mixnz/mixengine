@@ -1,8 +1,12 @@
 # Technical review notes
 
+**These ids are their own namespace.** This folder numbers its findings from `R1`, as MixDB did,
+independently of [the workspace's reviews](../README.md). Cite one as "desktop R3"; a bare `R3`
+means the workspace's.
+
 Every full review of the repository is one `YYYY-MM-DD.md` file in this folder. The folder records
 **the state of the code at a point in time** — which nothing else here does: a spec in
-[docs/superpowers/specs/](../../../docs/superpowers/specs/) says *what to build*, the
+[docs/specs/](../../specs/) says *what to build*, the
 [CHANGELOG](../../../apps/desktop/CHANGELOG.md) says *what shipped*, this says *how good what was built turned out
 to be*.
 
@@ -26,10 +30,10 @@ here** — it has its own place in [build-and-release.md](../../operations/build
 - Every finding cites `file:line` as of the review; line numbers drift, the function or constant
   named beside them is what to search for.
 - A finding that turns into work worth planning gets a spec or a decision, not a longer entry
-  here — see [plans-and-specs](../conventions/plans-and-specs.md). A finding that is a lasting
+  here — see [plans-and-specs](../../standards/plans-and-specs.md). A finding that is a lasting
   rule becomes a convention. The review only points at it.
 - Reviews are not changelog material: fixing a finding follows the usual
-  [changelog](../conventions/changelog.md) rule — a `Fixed` line only if a released version had
+  [changelog](../../standards/desktop/changelog.md) rule — a `Fixed` line only if a released version had
   the bug.
 
 ## Reviews

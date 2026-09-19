@@ -42,7 +42,7 @@ The contract itself is [`shell/module.ts`](../../../apps/desktop/src/shell/modul
 `ModuleTabProps`, `TabBadge`, `ModuleSettingsSection` — and it deliberately has no lifecycle hooks
 and no event bus. It keeps exactly one thing for a module: an opaque per-tab slot, `restored` and
 `onStateChange`, which the shell writes to `localStorage` with the session and never reads. See
-[overview](overview.md) and [adding-a-module](../conventions/adding-a-module.md).
+[overview](overview.md) and [adding-a-module](../../standards/desktop/adding-a-module.md).
 
 **The boundary is not typechecked.** A primitive that imports from `modules/db/` compiles fine.
 What catches it is a grep, which is part of adding a module.
@@ -93,8 +93,8 @@ them in English. Follow whichever the file you are in already uses.
 
 `<Name>/` with `<Name>.tsx`, `<Name>.module.css`, `index.ts`, under `src/components/` if it is a
 primitive and under `src/modules/<id>/components/` otherwise. Import from the folder, never the
-file. See [component-structure](../conventions/component-structure.md) and
-[css-modules](../conventions/css-modules.md).
+file. See [component-structure](../../standards/desktop/component-structure.md) and
+[css-modules](../../standards/desktop/css-modules.md).
 
 - **`src/components/`** — `Button`, `Input` (+`Textarea`), `Checkbox`, `Select`, `ItemList`,
   `Pagination`, `ActionBar`, `ErrorBanner`, `LoadingOverlay`, `ConfirmDialog`, `NameDialog`,
@@ -278,5 +278,5 @@ Tauri converts them (`pageSize` → `page_size`).
 
 ## i18n, icons, filters
 
-See the conventions files: [i18n](../conventions/i18n.md), [icons](../conventions/icons.md),
-[filter-bar](../conventions/filter-bar.md).
+See the conventions files: [i18n](../../standards/desktop/i18n.md), [icons](../../standards/desktop/icons.md),
+[filter-bar](../../standards/desktop/filter-bar.md).

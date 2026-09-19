@@ -14,7 +14,7 @@ import { MODULES, MODULE_PRESETS, PRESET_IDS, type PresetId } from "./registry";
  * Nothing here reads storage at module scope. The functions below are pure, and the ones that do
  * reach `localStorage` take it as an argument — the test suite runs in node, where there is none.
  * The whole design is in
- * `docs/superpowers/specs/2026-09-09-t108-a-module-visibility-setting-design.md`.
+ * `docs/specs/2026-09-09-t108-a-module-visibility-setting-design.md`.
  *
  * **This is visibility, not capability.** A hidden module keeps its backend commands, its state and
  * its files; it is not drawn. Turning it off deletes nothing and turning it back on finds

@@ -1,8 +1,8 @@
 # A window a new user can start from
 
-Roadmap phase [14](../../../.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md), on
+Roadmap phase [14](../roadmap/phase-14-a-window-a-new-user-can-start-from.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md) and on
-[ADR 0027](../../../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md). 2026-09-11.
+[ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md). 2026-09-11.
 
 Phases 11 to 13 brought the window home, made it one product, and let a person who never wanted a
 database client hide one. Every one of them was about what MixLab *is*. This phase is the first one
@@ -24,7 +24,7 @@ Four sentences from somebody using the finished product, and each one is a separ
 
 Three of the four are about affordances over an API that already answers; one of them —
 number 3 — is a genuine hole in the API, and
-[client-surface.md](../../../.claude/features/client-surface.md) has been claiming it was filled
+[client-surface.md](../features/client-surface.md) has been claiming it was filled
 since it was written.
 
 ## What is already true
@@ -65,7 +65,7 @@ Written down first so that nothing below is built twice.
   the flag has to delete the service to get it.
 - **No client can even display it.** `ServiceSummary` has no `autostart` member, so `service.list`
   cannot report it, so the Services screen
-  [client-surface.md](../../../.claude/features/client-surface.md) §4 describes — "the settings a
+  [client-surface.md](../features/client-surface.md) §4 describes — "the settings a
   service accepts (port, bind, data dir, limits, **autostart**, idle timeout)" — cannot be drawn.
   That line has been a gap in the surface since it was written.
 - **A blueprint that declares a `[site]` does not ensure there is a front end to serve it.**
@@ -73,7 +73,7 @@ Written down first so that nothing below is built twice.
   `blueprint.apply wordpress` on a fresh machine ends with a project, a database, a site row, a
   domain and a certificate — and nothing listening. **This is the exact shape of complaint 1 and it
   is not a missing feature; it is a planner that stops one action short.**
-  [services.md](../../../.claude/features/services.md) already names the gap in its own words:
+  [services.md](../features/services.md) already names the gap in its own words:
   *"Nothing installs a front end … a first run that offers to do it for them is not built and has no
   task of its own yet."* T115 is that task.
 - **An apply starts nothing.** No `PlanAction` variant starts a service, and this is correct — see
@@ -216,7 +216,7 @@ project gets to re-decide.
 
 **And the apply still starts nothing.** This was the first thing in this design to be wrong. A
 `PlanAction::StartServices` at the end of the job reads well and is unshippable, because
-[blueprints.md](../../../.claude/features/blueprints.md) is explicit that an apply never raises an
+[blueprints.md](../features/blueprints.md) is explicit that an apply never raises an
 elevation prompt — it *queues* what needs one and the client spends the single prompt afterwards. A
 job that started the front end before that prompt was spent would serve a site at a domain the hosts
 file does not resolve and a certificate no store trusts, and the person would watch a progress bar

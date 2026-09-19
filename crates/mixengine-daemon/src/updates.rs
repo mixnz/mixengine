@@ -11,7 +11,7 @@
 //!
 //! # Silent on failure, and that is a requirement rather than a shrug
 //!
-//! `.claude/features/updates.md`: *an offline machine must never see an error, and never a slower
+//! `docs/features/updates.md`: *an offline machine must never see an error, and never a slower
 //! startup*. Both background callers here — the check at start and the 24 h clock — log at `debug!`
 //! and change nothing when the network is not there, and `mixengine_core::index::Client` keeps the
 //! last document it verified rather than losing it. What a person who *asked* gets is different:
@@ -20,7 +20,7 @@
 //! # What this module deliberately cannot do
 //!
 //! Elevate. Nothing here has an elevation path and nothing here ever will: an updater that could ask
-//! for root would be the local privilege-escalation vector `.claude/features/updates.md` calls the
+//! for root would be the local privilege-escalation vector `docs/features/updates.md` calls the
 //! single most important rule on the page. A copy of MixEngine installed where this account cannot
 //! write is refused in words, before a byte is downloaded — `mixengine_core::updates::placement`.
 
@@ -382,7 +382,7 @@ impl Updates {
     /// smoke-test.
     ///
     /// **In that order and before the stop** — the T88 design, D5. Taken literally,
-    /// `.claude/features/updates.md`'s *"stop → download → verify → install"* would leave a
+    /// `docs/features/updates.md`'s *"stop → download → verify → install"* would leave a
     /// developer's database down for the length of a download, on a connection nobody promised
     /// anything about, to gain nothing: a download that fails after the stop has cost an outage, and
     /// one that succeeds could have happened while everything was still up.
@@ -764,7 +764,7 @@ pub(crate) fn applied(
 /// up for a day should make one. So the first is `catalogue()` and every one after it is `refresh()`.
 ///
 /// **Spawned and never awaited.** A start that waited on a network read would be a start that an
-/// offline machine pays for, which `.claude/features/updates.md` forbids in as many words.
+/// offline machine pays for, which `docs/features/updates.md` forbids in as many words.
 pub(crate) fn start(
     updates: std::sync::Arc<Updates>,
     every: std::time::Duration,

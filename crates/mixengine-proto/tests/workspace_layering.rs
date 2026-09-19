@@ -1,5 +1,5 @@
 //! Enforces the workspace dependency direction described in
-//! `.claude/architecture/overview.md`: strictly downward, `core` never depending on `daemon`.
+//! `docs/architecture/overview.md`: strictly downward, `core` never depending on `daemon`.
 //!
 //! The test lives in `mixengine-proto` because proto is the bottom of the graph and therefore the
 //! cheapest crate to build — but it checks every member of the workspace, not just this one.

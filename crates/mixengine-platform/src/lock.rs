@@ -15,7 +15,7 @@
 //! daemons that get that far can both read the schema as behind and both migrate it.
 //!
 //! **A daemon that finds the lock taken is not a failure**, which is why [`Acquired`] is not a
-//! `Result`: the caller asked for a running daemon and there is one. `.claude/architecture/daemon-and-ipc.md`
+//! `Result`: the caller asked for a running daemon and there is one. `docs/architecture/daemon-and-ipc.md`
 //! has it exit successfully after printing the endpoint, and that is only a sensible thing to do if
 //! the answer arrives as an outcome rather than as an error somebody has to classify.
 //!

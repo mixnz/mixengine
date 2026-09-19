@@ -6,7 +6,7 @@ ask of the processor is read before they download, and MixLab opens one.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-17-t153-mongodb-is-a-service-design.md](../../docs/superpowers/specs/2026-09-17-t153-mongodb-is-a-service-design.md).
+Design: [2026-09-17-t153-mongodb-is-a-service-design.md](../specs/2026-09-17-t153-mongodb-is-a-service-design.md).
 
 ---
 
@@ -48,7 +48,7 @@ became installable.
 - [x] **T164** Two blueprints ask for it — `laravel-mongodb` (PHP-FPM, `[php] extensions =
       ["mongodb"]`, `laravel`'s scaffold) and `express-mongodb` (a `node-app` on 3000, no scaffold).
       Both name `mongodb@main` and no `database`, because the recipe makes none, and both say in
-      their description that MongoDB needs AVX. See `.claude/features/blueprints.md`.
+      their description that MongoDB needs AVX. See `docs/features/blueprints.md`.
 
 ## Follow-ups
 

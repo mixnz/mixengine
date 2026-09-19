@@ -6,7 +6,7 @@ import type { Timestamp } from "./Timestamp";
  *
  * **There is no `certificate_pem` and there is no field a private key could travel in.** [`Ca`]
  * carries its PEM because a client installs it; nothing installs a leaf, so the field would be
- * surface with no caller — and `.claude/architecture/security-model.md`'s guarantee is easier to
+ * surface with no caller — and `docs/architecture/security-model.md`'s guarantee is easier to
  * keep on a type with fewer fields.
  */
 export type SiteCert = { 

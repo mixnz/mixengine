@@ -7,7 +7,7 @@
   --font-mono: "Geist Mono Variable", ui-monospace, Consolas, monospace;
 
   /* The type scale. A size outside it is a mistake, not a choice — see
-     .claude/desktop/decisions/2026-09-17-mixlab-redesign-tokens-themes-densities.md. */
+     docs/decisions/desktop/2026-09-17-mixlab-redesign-tokens-themes-densities.md. */
   --text-2xs: 11.5px; /* badge sub-lines */
   --text-xs: 12px; /* column heads, captions, group labels */
   --text-sm: 12.5px; /* field labels, secondary lines */

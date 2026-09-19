@@ -39,7 +39,7 @@ workers, and a SQL language service we would have to write ourselves.
 server-side check that asks MySQL itself to parse the statement (see P2). Only the server knows the
 dialect of the version actually connected; only the client can be instant. Neither alone is enough.
 
-When P1 lands, record the CodeMirror choice properly in `.agent/decisions/`.
+When P1 lands, record the CodeMirror choice properly in `docs/decisions/desktop/`.
 
 ## Phase 1 — the editor itself
 
@@ -73,7 +73,7 @@ reads one table at a time and is the wrong shape for this.
 `mysql_schema_outline(id, database) -> MysqlSchemaOutline` — one round trip over
 `information_schema.columns`, `.statistics` and `.key_column_usage`, returning per table: column
 names, data types, nullability, key flags, and the foreign keys pointing out of it. Follow
-[adding-a-command](../conventions/adding-a-command.md); it is read-only and cheap enough to fetch
+[adding-a-command](../../standards/desktop/adding-a-command.md); it is read-only and cheap enough to fetch
 on first use of the tab.
 
 Frontend cache in `src/modules/db/sql/schemaCache.ts`, keyed by `connectionId + database`, shaped like
@@ -287,7 +287,7 @@ that from mattering.
   our own escaper.
 - ~~**Result grid work**~~ **Shipped 2026-08-22**: sort theo cột, ô lọc dòng, chọn dòng và chép ra
   TSV/CSV/JSON, mở rộng một ô ra dialog. Spec:
-  [2026-08-22-query-result-grid-design.md](../../../docs/superpowers/specs/2026-08-22-query-result-grid-design.md).
+  [2026-08-22-query-result-grid-design.md](../../specs/2026-08-22-query-result-grid-design.md).
 
   Ba chỗ đi khác kế hoạch cũ, đều có lý do trong spec. *Không ẩn cột* — nằm ngoài phạm vi đã chốt,
   và còn nợ lại. *Không xuất ra `INSERT`* — không có tên bảng để `INSERT INTO` cái gì; `SqlTable`
@@ -352,10 +352,10 @@ what they were is kept here because each says something about the pane that is s
 ## Cross-cutting rules
 
 - Every new string goes through `t("...")` in **both** `en.ts` and `vi.ts` — see
-  [i18n](../conventions/i18n.md). The `query.*` group already exists.
-- New components follow [component-structure](../conventions/component-structure.md) and
-  [css-modules](../conventions/css-modules.md); no hardcoded colours, tokens only.
-- New commands follow [adding-a-command](../conventions/adding-a-command.md) — all five places,
+  [i18n](../../standards/desktop/i18n.md). The `query.*` group already exists.
+- New components follow [component-structure](../../standards/desktop/component-structure.md) and
+  [css-modules](../../standards/desktop/css-modules.md); no hardcoded colours, tokens only.
+- New commands follow [adding-a-command](../../standards/desktop/adding-a-command.md) — all five places,
   including the `generate_handler!` list.
 - Each phase adds its lines to `## [Unreleased]` in [CHANGELOG.md](../../../apps/desktop/CHANGELOG.md) as it is
   written.

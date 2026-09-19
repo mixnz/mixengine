@@ -1,7 +1,7 @@
 //! Windows: Smart App Control's own policy value — roadmap task **T94**.
 //!
 //! **The registry rather than `Get-MpComputerStatus`** (T94 design, D1).
-//! `.claude/architecture/platform-abstraction.md` rule 5 asks for the API where there is one, and
+//! `docs/architecture/platform-abstraction.md` rule 5 asks for the API where there is one, and
 //! the alternative here is not an API — it is spawning PowerShell and parsing a localised object.
 //! And this value is the one with evidence at both ends of its range: it read `1` on a developer
 //! machine with Smart App Control enforcing on 2026-08-13, and `0` on the same machine on

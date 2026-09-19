@@ -5,7 +5,7 @@ Roadmap task **T56**, phase 9: *"Publish the API contract: `ts-rs` bindings gene
 binaries."*
 
 MixEngine ships no graphical client
-([ADR 0011](../../../.claude/decisions/0011-no-gui-in-this-repository.md)), and that ADR's first
+([ADR 0011](../decisions/0011-no-gui-in-this-repository.md)), and that ADR's first
 argument is that *"the API is the product surface"*: the JSON-RPC API and the TypeScript bindings
 generated from `mixengine-proto` are **a released artifact, versioned like any other**. Today they
 are neither generated nor released. A client in another repository can derive them for itself — the
@@ -18,7 +18,7 @@ work ADR 0011 withdrew a whole phase for. What changed is that the API has stopp
 0–8 are closed and phase 9 is a release — so the copy is now worth freezing.
 
 `.github/workflows/ci.yml` has said the rest since T85, in its opening comment: the sixth job of
-[build-and-release.md](../../../.claude/operations/build-and-release.md)'s table, `bindings`,
+[build-and-release.md](../operations/build-and-release.md)'s table, `bindings`,
 *"arrives with the work that gives it something to run — T56 — and until it does, a `ts-rs` type
 whose committed output has drifted is caught by a person or by nobody."*
 
@@ -168,7 +168,7 @@ remember. Regeneration begins with `rm -rf bindings`, so a type that was deleted
 it; `ts-rs` alone would leave it there for ever.
 
 One thing is deliberately **not** in the committed tree: `package.json`. It carries the version, and
-[build-and-release.md](../../../.claude/operations/build-and-release.md) says *"cutting a release is
+[build-and-release.md](../operations/build-and-release.md) says *"cutting a release is
 a version bump and nothing else"*. A committed, versioned `package.json` would make that false — a
 bump would leave the `bindings` job red until somebody regenerated. So the version is stamped at
 **pack** time, into the archive, where a version belongs. D12.
@@ -290,7 +290,7 @@ those leniencies is deliberate and documented where it lives.
 The published contract states the **serialising** shape, which is what a client reads from the
 daemon and the strict form of what it may send. The lenient alternatives are not in it. This is a
 rule for the whole crate rather than a note about three types, so it is
-[ADR 0020](../../../.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md)
+[ADR 0020](../decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md)
 — and the test in *Testing* enumerates the hand-written `Deserialize` impls so a fourth cannot be
 added without somebody reading that ADR.
 
@@ -338,7 +338,7 @@ count of `.ts` files as `bindings/` holds.
 ### D13 — A `bindings` job on ubuntu, and `release` needs it
 
 The sixth row of the table in
-[build-and-release.md](../../../.claude/operations/build-and-release.md), written down since T85 and
+[build-and-release.md](../operations/build-and-release.md), written down since T85 and
 empty until now. Ubuntu alone: generation is OS-independent (measurement 6) and the `test` job
 already runs the generator on all three (measurement 11), so a second and third runner here would
 re-measure one behaviour at twice the cost — the reasoning T86a's `windows-latest` probe uses one
@@ -388,7 +388,7 @@ Tests 1–5 above answer *"is every type present and unambiguous"*; only regener
 opened and its contents asserted, per D12.
 
 **Nothing type-checks the TypeScript.** There is no frontend toolchain in this repository and
-[ADR 0011](../../../.claude/decisions/0011-no-gui-in-this-repository.md) is why; installing one to
+[ADR 0011](../decisions/0011-no-gui-in-this-repository.md) is why; installing one to
 run `tsc --noEmit` over generated output would be a toolchain, a lock file and a version to maintain
 for a check on somebody else's code generator. What stands in its place is that the output is
 `ts-rs`' own and that this crate uses none of the shapes where `ts-rs` is known to need help

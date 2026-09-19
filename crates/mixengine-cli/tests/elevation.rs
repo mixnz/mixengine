@@ -164,7 +164,7 @@ fn granting_refuses_when_there_is_nobody_to_answer() {
     nothing_was_granted(&home, waiting);
 }
 
-/// Saying no is an answer and not an error — `.claude/decisions/0005-on-demand-elevation.md`.
+/// Saying no is an answer and not an error — `docs/decisions/0005-on-demand-elevation.md`.
 ///
 /// What it must not do is lose anything: the queue is exactly as it was, so the same command can be
 /// run again when the person is ready.

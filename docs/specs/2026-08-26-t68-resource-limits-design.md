@@ -6,7 +6,7 @@
 ## What this is for
 
 Phase 7's goal is that idle costs nothing. Three mechanisms carry it —
-[`resource-isolation.md`](../../../.claude/features/resource-isolation.md) names them: on-demand
+[`resource-isolation.md`](../features/resource-isolation.md) names them: on-demand
 start, idle shutdown, and hard limits. T68 is the third, and it is the only one of the three that a
 person sets deliberately rather than one that happens to them.
 

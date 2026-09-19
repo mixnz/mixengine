@@ -32,7 +32,7 @@ have chosen its storage wrong.
 
 **D1 — The gallery is a table compiled into the binary, seeded into rows.** Six `.toml` files under
 `crates/mixengine-core/src/blueprints/gallery/`, `include_str!`d into a `&'static [Entry]` in
-`blueprints/gallery.rs` — [`shims::COMMANDS`](../../../crates/mixengine-core/src/shims.rs)' shape,
+`blueprints/gallery.rs` — [`shims::COMMANDS`](../../crates/mixengine-core/src/shims.rs)' shape,
 and for its reason: a set this build ships is a constant of this build, not a document it fetches.
 `gallery::seed` puts them in the `blueprints` table as ordinary rows.
 
@@ -48,7 +48,7 @@ an answer for what a stale cache means — and `builtin` would stop meaning *thi
 is the only thing that makes D3 sound.
 
 **D2 — The files are canonical renderings, and a test holds them to it.**
-[`manifest::render`](../../../crates/mixengine-core/src/blueprints/manifest.rs) writes one fixed
+[`manifest::render`](../../crates/mixengine-core/src/blueprints/manifest.rs) writes one fixed
 order and keeps no comments, so a hand-written file with commentary would produce three different
 texts for one blueprint: the source in this repository, the `manifest_toml` column, and the file in
 the home. Each gallery file is written in exactly the renderer's output shape, and
@@ -71,7 +71,7 @@ This is a **departure from T78a's design**, which listed the gallery's signed fi
 `.minisig` generation as T79's. Compiling the gallery in (D1) removes the channel those signatures
 were for — nothing downloads a gallery file, so nothing has bytes to check. The need returns the day
 gallery blueprints are published for hand import, and that day is **T79a — publishing the gallery as
-signed files**, added to `.claude/roadmap/phase-8-differentiators.md` immediately after this task
+signed files**, added to `docs/roadmap/phase-8-differentiators.md` immediately after this task
 rather than left as a promise nobody wrote down. `trust::PUBLIC_KEY` stays exactly where it is; it
 is what `blueprint.import` already uses.
 
@@ -102,7 +102,7 @@ the conflict path, so the skip on the next start follows from the row.
 
 **D7 — Version constraints are series, never pins.** `php = "8.3"`, `node = "22"`,
 `python = "3.12"`. `VersionConstraint` accepts a prefix and
-[`apply`](../../../crates/mixengine-daemon/src/api/apply.rs) resolves it with `newest_satisfying`, so
+[`apply`](../../crates/mixengine-daemon/src/api/apply.rs) resolves it with `newest_satisfying`, so
 a series names whatever the index publishes now. A gallery that pinned `8.3.14` would be stale on
 the next patch release and would ask every user a version question about a difference nobody cares
 about — the exact question T78's D7 built the answer machinery for, spent on noise.
@@ -127,7 +127,7 @@ the description, rather than to ship one that half works.
 - **OS-neutral.** It runs through `cmd.exe /C` and `sh -c` (T78a's D9), so `&&` is fine and
   `.venv/bin/…` is not, because Windows spells that `Scripts`.
 - **It does not bootstrap a package manager this product does not ship.** `composer` has no shim —
-  [`shims::COMMANDS`](../../../crates/mixengine-core/src/shims.rs) holds php, node, python and ruby
+  [`shims::COMMANDS`](../../crates/mixengine-core/src/shims.rs) holds php, node, python and ruby
   tools and nothing else — so `composer create-project` needs one on `PATH`. A machine without it
   gets a **failed step naming the command** and a project that still exists, which is T78a's D7 and
   D8 together: a step that ran and failed is its own outcome, and it unwinds nothing. The
@@ -244,9 +244,9 @@ would plan into nonsense fails in CI rather than on somebody's laptop.
 
 ## Text that this task makes wrong
 
-- `.claude/features/blueprints.md`, *Built-in gallery*: it promises the set; after this task it can
+- `docs/features/blueprints.md`, *Built-in gallery*: it promises the set; after this task it can
   say which six, that they are compiled in and trusted, and that three carry a command.
-- `.claude/roadmap/phase-8-differentiators.md`: T79 ticked, with what was found; **T79a added
+- `docs/roadmap/phase-8-differentiators.md`: T79 ticked, with what was found; **T79a added
   immediately after it** (D3).
 - T78a's design listed the `.minisig` generation as this task's. Design records are not edited after
   the fact — this document's D3 is where that moved, and T79a is where it lands.

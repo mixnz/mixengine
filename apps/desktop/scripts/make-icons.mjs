@@ -27,7 +27,7 @@
  *   npm run icons
  *   node scripts/make-icons.mjs
  *
- * The how and why for people, with pictures of what goes wrong: docs/ICONS.md.
+ * The how and why for people, with pictures of what goes wrong: docs/standards/desktop/app-icon.md.
  */
 import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";

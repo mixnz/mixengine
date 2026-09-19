@@ -6,14 +6,14 @@
 ## What this is for
 
 Phase 7's goal is that idle costs nothing, and
-[`resource-isolation.md`](../../../.claude/features/resource-isolation.md) names the three mechanisms
+[`resource-isolation.md`](../features/resource-isolation.md) names the three mechanisms
 that carry it: on-demand start, idle shutdown, and hard limits. T68 built the third. This is the
 second — the one that decides a service has nothing to do and stops it.
 
 **The vocabulary already exists, and so does the column.** `IdlePolicy { after, probe }` and
 `IdleProbe { Connections, HttpCounter }` were written into `mixengine-proto` when `ServiceSpec` was,
 and `IdlePolicy`'s own doc comment says "Enforcement is roadmap task T69". `services.idle_minutes`
-has been a column since the initial migration; [phase 3](../../../.claude/roadmap/phase-3-services.md)
+has been a column since the initial migration; [phase 3](../roadmap/phase-3-services.md)
 recorded it as "read from no row into no `IdlePolicy` until T69". So this task adds no type to
 describe an idle policy. It adds the four things that were deferred:
 
@@ -312,7 +312,7 @@ No benchmark. The idle-footprint budget is T72's, and this sweeper cannot be mea
   `SHOW GLOBAL STATUS` and nowhere else; PostgreSQL through `pg_stat_database`; both are read by
   speaking the database's own protocol as an authenticated user. A probe that could do it would have
   to carry a username and a password, and it lives on `ServiceSpec` —
-  [ADR 0006](../../../.claude/decisions/0006-servicespec-in-proto-and-secret-free.md) is titled
+  [ADR 0006](../decisions/0006-servicespec-in-proto-and-secret-free.md) is titled
   "`ServiceSpec` lives in `mixengine-proto` and never carries a secret" and says of that type "there
   is no field a password fits into". So `IdleProbe` stays at two arms. A database is measured by its
   established connections, which is a weaker signal in exactly one way — a client connected and

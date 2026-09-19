@@ -2,7 +2,7 @@
 
 A change a user would notice gets a line in the repository's root [CHANGELOG.md](../../../CHANGELOG.md)
 **as part of the work**, not at release time — under the root's own rule,
-[standards/changelog.md](../../standards/changelog.md), which this page agrees with. It goes under
+[standards/changelog.md](../changelog.md), which this page agrees with. It goes under
 `## [Unreleased]`, and under one of three headings. (`apps/desktop/CHANGELOG.md` is MixDB's history,
 frozen at 0.0.33; nothing is added there.)
 

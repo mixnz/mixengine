@@ -167,7 +167,7 @@ mix runtime default <RUNTIME> <VERSION>
 
 Which extensions an installed build loads.
 
-Under `runtime` rather than as `mix php ext …`, which is what `.claude/features/runtime-versions.md`
+Under `runtime` rather than as `mix php ext …`, which is what `docs/features/runtime-versions.md`
 wrote: a per-language command family for one language is a noun this CLI would then owe every other
 runtime.
 
@@ -1484,7 +1484,7 @@ mix elevation status
 
 Ask once, for everything that is waiting.
 
-One prompt for the whole queue: `.claude/decisions/0005-on-demand-elevation.md` calls asking inside
+One prompt for the whole queue: `docs/decisions/0005-on-demand-elevation.md` calls asking inside
 a loop a defect. Saying no is a normal answer — the list stays, and this command can be run again
 later.
 

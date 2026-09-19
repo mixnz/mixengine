@@ -3,7 +3,7 @@
 Firefox and Chrome on Linux do not read `/etc/ssl/certs`. They carry their own certificate
 databases, one per profile, in NSS format, and a machine whose system trust store holds MixEngine's
 authority still shows a red padlock in both browsers. T49a made the system store honest; this task
-is the half of `.claude/features/tls.md`'s table that was split off at the privilege boundary,
+is the half of `docs/features/tls.md`'s table that was split off at the privilege boundary,
 because these databases belong to the user and no prompt is involved in writing them.
 
 It starts from two measurements that the specification does not have.
@@ -51,7 +51,7 @@ PATH-resolved `certutil` on Windows finds the wrong program. Confining the searc
 that collision never arises.
 
 `NotSearched` follows `TrustStoreMethod::None`'s precedent from T49a's D7: a system with nothing to
-write is answered, not failed. `.claude/architecture/platform-abstraction.md` rule 4 reserves
+write is answered, not failed. `docs/architecture/platform-abstraction.md` rule 4 reserves
 `Unsupported` for a capability that was asked for and cannot be given; nobody asked for a Firefox
 profile on a machine that has none.
 
@@ -75,7 +75,7 @@ that returns `ENOENT`. A glob that is missing costs a user a red padlock with no
 browser they actually use, on the distribution they most likely run. The asymmetry is the whole
 argument, and it is why the list is generous rather than minimal.
 
-The home directory comes from `HomeDirs`, not from `$HOME` read directly — `.claude/CLAUDE.md`'s
+The home directory comes from `HomeDirs`, not from `$HOME` read directly — `CLAUDE.md`'s
 rule about OS calls, and it is what lets the mock answer.
 
 ## D4. Nothing is created
@@ -114,7 +114,7 @@ precise. `tls.md`'s bare `-n MixEngine` would have two homes overwriting each ot
 error.
 
 `-t C,,` is "trusted CA for SSL", and only SSL: not email, not code signing. The three positions
-are exactly the scope `.claude/architecture/security-model.md` argues for.
+are exactly the scope `docs/architecture/security-model.md` argues for.
 
 **Idempotence is measured, not assumed.** Before writing, `certutil -L -d sql:<dir> -n <nickname>
 -a` prints what is already there; its PEM is decoded and compared to the DER byte for byte, the same
@@ -272,7 +272,7 @@ only part that needs one.
 
 **The round trip is tested against a real `certutil`**, on a database `certutil -N
 --empty-password` creates in a temp directory: install, probe finds it, install again writes
-nothing, remove takes it out, remove again is a no-op. `.claude/standards/testing.md` rule 1 is
+nothing, remove takes it out, remove again is a no-op. `docs/standards/testing.md` rule 1 is
 satisfied without a gate, because a temp database is not the user's store — but it is `#[ignore]`d
 unconditionally, in the shape the real-Caddy suite already uses, so a developer machine without the
 package is not red. CI's `test (ubuntu-latest)` job gains `apt-get install -y libnss3-tools` (about

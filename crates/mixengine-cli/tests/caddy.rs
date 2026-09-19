@@ -262,7 +262,7 @@ async fn cert_status_measures_a_trusted_handshake_against_a_running_caddy() {
 }
 
 /// **A server still holding the certificate that was replaced under it** — roadmap task **T53**,
-/// and the report `.claude/features/tls.md` says most "the padlock is broken" messages really are.
+/// and the report `docs/features/tls.md` says most "the padlock is broken" messages really are.
 ///
 /// Everything that reads files calls this machine healthy: the certificate is present, it covers
 /// the right names, it has eighty days left and `mix doctor` is green. Only the handshake sees it.
@@ -341,7 +341,7 @@ async fn cert_status_notices_a_server_holding_the_previous_certificate() {
 const SETTLE: Duration = Duration::from_secs(30);
 
 /// **The acceptance criterion, measured** — *"`mix cert ca-rotate` completes with all sites still
-/// trusted afterwards"*, from `.claude/features/tls.md`. Roadmap task **T54**.
+/// trusted afterwards"*, from `docs/features/tls.md`. Roadmap task **T54**.
 ///
 /// Every other assertion T54 makes is about a file, a queue or a probe. This is the only one that
 /// asks the running server what it presents *after* a rotation, which is the only thing a browser
@@ -349,7 +349,7 @@ const SETTLE: Duration = Duration::from_secs(30);
 /// underneath it.
 ///
 /// **Gated on `MIXENGINE_SYSTEM_TESTS=1` as well as `#[ignore]`d**, unlike everything else in this
-/// file, and rule 1 of `.claude/standards/testing.md` is why: a rotation writes this *machine's*
+/// file, and rule 1 of `docs/standards/testing.md` is why: a rotation writes this *machine's*
 /// trust store, where the tests above only ever start a server. The `caddy` step in
 /// `.github/workflows/ci.yml` runs this suite with `--ignored`, so without the second gate this
 /// would install and remove a certificate authority on every macOS and Windows runner — and on

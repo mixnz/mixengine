@@ -29,7 +29,7 @@ const PACKAGE: &str = "libnss3-tools";
 /// Trusted as a certificate authority for SSL, and for nothing else — D6.
 ///
 /// The three comma-separated positions are SSL, email and code signing; only the first is asked
-/// for, which is exactly the scope `.claude/architecture/security-model.md` argues the authority
+/// for, which is exactly the scope `docs/architecture/security-model.md` argues the authority
 /// should have.
 const TRUST_FLAGS: &str = "C,,";
 
@@ -51,7 +51,7 @@ const GRACE: Duration = Duration::from_secs(5);
 /// answers where *MixEngine's* data goes; these databases are the user's own, so this is the other
 /// question — and resolving it once, into a field, is what lets `tests/browsers.rs` point the whole
 /// search at a temp directory. That redirection is the entire isolation
-/// `.claude/standards/testing.md`'s first rule needs here: nothing ever goes near a real profile.
+/// `docs/standards/testing.md`'s first rule needs here: nothing ever goes near a real profile.
 #[derive(Debug)]
 pub(crate) struct Browsers {
     home: std::path::PathBuf,

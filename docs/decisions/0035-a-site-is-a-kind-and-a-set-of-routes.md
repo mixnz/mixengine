@@ -33,7 +33,7 @@ The whole rendering is judged by one `caddy validate` where it is staged, so tha
 alone: **every site on the machine kept its old configuration**, because one person typed a URL with
 a path.
 
-Design: [docs/superpowers/specs/2026-09-15-t135-one-site-many-backends-design.md](../../docs/superpowers/specs/2026-09-15-t135-one-site-many-backends-design.md).
+Design: [docs/specs/2026-09-15-t135-one-site-many-backends-design.md](../specs/2026-09-15-t135-one-site-many-backends-design.md).
 
 ## Decision
 

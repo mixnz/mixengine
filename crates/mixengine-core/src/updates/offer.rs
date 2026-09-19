@@ -1,6 +1,6 @@
 //! Whether a release is offered to this machine, and if not, why — roadmap task **T88**.
 //!
-//! **The decision is the daemon's and the sentence is the daemon's.** `.claude/features/updates.md`
+//! **The decision is the daemon's and the sentence is the daemon's.** `docs/features/updates.md`
 //! and `CLAUDE.md` between them say a client renders what it is given and derives nothing, so the
 //! four reasons a perfectly good release is not offered — it is not newer, there is no build for
 //! this machine, somebody skipped it, somebody asked to be reminded later — arrive as whole

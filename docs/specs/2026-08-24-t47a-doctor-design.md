@@ -3,7 +3,7 @@
 Roadmap task **T47a**, phase 4, split out of **T47**. Design settled 2026-08-24, before
 implementation.
 
-Everything under `.claude/` that this build touches is in force: no business logic in clients, no OS
+Everything under `docs/` that this build touches is in force: no business logic in clients, no OS
 calls outside `mixengine-platform`, cross-platform or not merged.
 
 ## Why T47 is split
@@ -19,7 +19,7 @@ The split is by **what the code does to the machine**, not by subsystem:
 - **T47b** — `daemon.doctor_repair`. Acts on what T47a found, and flushes the deferred privileged
   operations.
 
-`daemon.doctor_repair` is already the name [client-surface.md](../../../.claude/features/client-surface.md)
+`daemon.doctor_repair` is already the name [client-surface.md](../features/client-surface.md)
 promises a client, so this names the read half after the write half rather than inventing a pair.
 
 ## Scope
@@ -91,7 +91,7 @@ a repair for an id nothing produces fails to compile against a closed enum.
 
 ## D4 — `Note` is a separate outcome from `Problem`, and the orphan guarantee is why
 
-[ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md) settled that the
+[ADR 0007](../decisions/0007-supervised-child-owns-a-process-group.md) settled that the
 guarantee MixEngine can make about killing a service's descendants is **not the same on the three
 systems**: total on Windows through a Job Object, the immediate child only on Linux, and none on
 macOS. The ADR exists to stop Windows' promise being repeated where it is not true.

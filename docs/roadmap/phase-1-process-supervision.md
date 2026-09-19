@@ -272,7 +272,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       For the whole set the two coincide, which is exactly why deriving one from the other would
       have been a coincidence waiting to be relied on: for a subset they name different services.
       **The failure path is fail-fast**, and it brought the `StateReason` variant
-      `.claude/architecture/` had reserved for this task: `DependencyFailed { dependency }`, fed by
+      `docs/architecture/` had reserved for this task: `DependencyFailed { dependency }`, fed by
       `ServiceGraph::blocked_by`. A dependent spawned anyway would crash against a database that is
       not there, be restarted by its policy, and arrive at `CrashLoop` a minute later with a tail
       saying `connection refused` — an accurate report of the wrong problem. Each service names the

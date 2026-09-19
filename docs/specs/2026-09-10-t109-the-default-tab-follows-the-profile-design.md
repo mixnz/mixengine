@@ -1,6 +1,6 @@
 # T109 — The default tab follows the profile
 
-Roadmap task [T109](../../../.claude/roadmap/phase-13-profiles.md), on
+Roadmap task [T109](../roadmap/phase-13-profiles.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D11 and on
 [T108](2026-09-09-t108-a-module-visibility-setting-design.md). 2026-09-10.
 
@@ -165,4 +165,4 @@ worth walking by hand with `npm run dev:app`, on a profile with `mixdb-session` 
   things `registry.ts` holds.
 - The root `CHANGELOG.md`, under `## Unreleased` → `### Changed`, beside T108's line about the
   number chords.
-- T109 ticked in `.claude/roadmap/phase-13-profiles.md`, with what the task settled.
+- T109 ticked in `docs/roadmap/phase-13-profiles.md`, with what the task settled.

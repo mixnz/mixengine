@@ -103,7 +103,7 @@ pub struct PlannedSite {
 /// What somebody is shown before anything is fetched.
 ///
 /// **`permissions.services` is a declaration and not a boundary** — [ADR
-/// 0014](../../../../.claude/decisions/0014-an-extension-is-not-an-api-client.md) — and every
+/// 0014](../../../../docs/decisions/0014-an-extension-is-not-an-api-client.md) — and every
 /// surface that renders this says so.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Plan {

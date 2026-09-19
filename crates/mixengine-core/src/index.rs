@@ -23,7 +23,7 @@
 //! corporate proxy that installs its own root — where a bundled root store would fail with nothing
 //! the user could do about it — and it is what lets `MIXENGINE_MIRROR_URL` point at a team mirror
 //! with an internal certificate, which
-//! [runtime-packaging.md](../../../.claude/operations/runtime-packaging.md) promises.
+//! [runtime-packaging.md](../../../docs/operations/runtime-packaging.md) promises.
 //!
 //! Being permissive there is affordable precisely because TLS is **not** what decides whether an
 //! index is ours: the Ed25519 signature is, end to end, and it is checked after the bytes arrive
@@ -75,7 +75,7 @@ pub const FRESH_FOR: Duration = Duration::from_secs(6 * 60 * 60);
 
 /// How long a fetch may take before it counts as "no network".
 ///
-/// Every path that touches the network has one, per `.claude/standards/rust.md`. This one is
+/// Every path that touches the network has one, per `docs/standards/rust.md`. This one is
 /// generous because the alternative to waiting is falling back to a cache that may be missing, and
 /// stingy enough that `mix runtime list` on a captive-portal wifi answers rather than hangs.
 const FETCH_TIMEOUT: Duration = Duration::from_secs(30);
@@ -287,7 +287,7 @@ impl<D: Document> Client<D> {
     /// **[`catalogue`](Client::catalogue) without the cache shortcut**, and public because a caller
     /// whose *own* clock is the policy has no use for a second one. The update feed's 24 h check is
     /// that caller — roadmap task **T88** — and so is `mix self-update --check`, which
-    /// `.claude/features/updates.md` says forces an immediate check.
+    /// `docs/features/updates.md` says forces an immediate check.
     ///
     /// Failing still falls back to the cached document, which is what makes this safe to put on a
     /// clock: a machine that goes offline keeps the last document it verified rather than losing it

@@ -1,6 +1,6 @@
 # T33 — MariaDB, as a service MixEngine runs
 
-*Design for roadmap task [T33](../../../.claude/roadmap/phase-3-services.md). Written 2026-08-20,
+*Design for roadmap task [T33](../roadmap/phase-3-services.md). Written 2026-08-20,
 before any code. What survives implementation goes into `phase-3-services.md`; this file is the
 argument, not the record.*
 
@@ -207,7 +207,7 @@ of truth, and a plaintext secret exists on disk where this project has never had
 the cost is borne by nobody using MixEngine as intended — every desktop, on all three systems, has a
 store. It is borne by WSL, by SSH sessions and by CI, and CI already builds one.
 
-**This is the same wound as [T15b](../../../.claude/roadmap/phase-1-process-supervision.md), which is
+**This is the same wound as [T15b](../roadmap/phase-1-process-supervision.md), which is
 still open**: `secrets.rs` maps only `NoStorageAccess` to `Unsupported`, and a Linux session with no
 provider currently arrives as `Error::Secret` — a capability the machine lacks, reported as a
 failure. Whoever hits the refusal designed here on a headless machine will see the wrong error until

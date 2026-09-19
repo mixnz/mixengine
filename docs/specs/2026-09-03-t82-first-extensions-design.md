@@ -69,8 +69,8 @@ and `Recipe::administrator` has a wire-visible consequence in that answer); `mix
 (`Extensions` writes the configurations at install and at boot, and supplies the keyring secret);
 `mixengine-cli` (what `plan`, `install` and `inspect` print); `mixengine-testkit` (the four fixtures
 become the manifests that were actually shipped). Documentation:
-[features/extensions.md](../../../.claude/features/extensions.md),
-[features/client-surface.md](../../../.claude/features/client-surface.md), and the roadmap.
+[features/extensions.md](../features/extensions.md),
+[features/client-surface.md](../features/client-surface.md), and the roadmap.
 
 **In, in `mixnz/mixengine-packages`:** `data/extensions/mailpit.toml`, `data/extensions/phpmyadmin.toml`,
 `data/extensions/adminer.toml`, and `data/extensions/README.md`, which currently says there is no
@@ -388,11 +388,11 @@ fixes.
 
 ## Documentation
 
-- [features/extensions.md](../../../.claude/features/extensions.md): `[web-app].template` becomes
+- [features/extensions.md](../features/extensions.md): `[web-app].template` becomes
   `[web-app.config]` with D1's reasoning; the `web-app` section gains D2, D4 and D5; the acceptance
   criterion about keyring credentials is split between T82 and T82a with D6's argument.
-- [features/client-surface.md](../../../.claude/features/client-surface.md): a plan names the
+- [features/client-surface.md](../features/client-surface.md): a plan names the
   database it would use, so a graphical client can show it.
-- [roadmap/phase-8-differentiators.md](../../../.claude/roadmap/phase-8-differentiators.md): T82
+- [roadmap/phase-8-differentiators.md](../roadmap/phase-8-differentiators.md): T82
   ticked and written up, T82a added after it.
 - `mixnz/mixengine-packages`: `data/extensions/README.md` no longer says the directory is empty.

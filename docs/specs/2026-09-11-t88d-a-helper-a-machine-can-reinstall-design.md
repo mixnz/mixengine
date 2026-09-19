@@ -2,7 +2,7 @@
 
 **Date**: 2026-09-11
 **Roadmap**: phase 9, `T88d`, ordered immediately after
-[T88a](../../../.claude/roadmap/phase-9-ship.md) and lettered after `T88c` because `T88b` and `T88c`
+[T88a](../roadmap/phase-9-ship.md) and lettered after `T88c` because `T88b` and `T88c`
 are taken.
 **Decision record**: ADR 0029, written with this task.
 
@@ -142,7 +142,7 @@ A source has to satisfy two conditions at once, and only one location on macOS d
   tamper-resistant of the three, and it fails condition 2 outright: a person who drags `MixLab.app`
   to the Trash leaves it there for ever, in the directory the uninstall has just reported cleaning.
 - `/usr/local/bin/mixengine-elevate` — beside the other three binaries, and the directory
-  [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md) refuses by name:
+  [ADR 0015](../decisions/0015-the-helper-installs-itself.md) refuses by name:
   Homebrew on an Intel Mac takes ownership of `/usr/local` for the installing user.
 - `<MixLab.app>/Contents/Resources/mixengine-elevate` — satisfies both. It is one of the
   application's own files, in the same category as `/usr/local/bin/mix`, which `mix uninstall`
@@ -201,7 +201,7 @@ archive, the AppImage and every development tree, which is where three of the si
 
 Using it is not a new position. On Windows, on the portable archives, on the AppImage and in every
 development tree, the source beside the program is user-writable today, and
-`.claude/architecture/security-model.md` already states the residual that follows: *on a machine
+`docs/architecture/security-model.md` already states the residual that follows: *on a machine
 where nothing is installed yet, the binary the first prompt elevates is the copy beside the daemon,
 so malware that replaced it before first run gets root once, and is then installed as the permanent
 helper.*

@@ -4,7 +4,7 @@ Roadmap task **T93**, phase 4, and the last of it that can be built from here. D
 2026-08-24, before implementation. It reads what [T47a](2026-08-24-t47a-doctor-design.md) built and
 writes nothing that [T47b](2026-08-24-t47b-doctor-repair-design.md) would repair.
 
-Everything under `.claude/` that this build touches is in force: no business logic in clients, no
+Everything under `docs/` that this build touches is in force: no business logic in clients, no
 client-only capability, no OS calls outside `mixengine-platform`, no persistent root process,
 generated config is disposable, cross-platform or not merged.
 
@@ -25,7 +25,7 @@ T93 reads "credentials redacted". The obvious reading is a scrubber over the log
 looks for `password=` and replaces what follows.
 
 **That is not what this build needs, because
-[ADR 0006](../../../.claude/decisions/0006-servicespec-in-proto-and-secret-free.md) already won
+[ADR 0006](../decisions/0006-servicespec-in-proto-and-secret-free.md) already won
 it, at the type level, and named this bundle while doing so.** A `ServiceSpec` may *name* a
 credential (`EnvValue::Keyring { service, key }`) and cannot carry one; `Step` and `SecretFile`
 have hand-written `Debug` implementations so that a `tracing` field on a failed bootstrap prints a
@@ -119,7 +119,7 @@ failed outright because of it would be an archive lost at exactly the moment som
 So the archive has four members and `omitted` names the fifth with the wire error as its reason.
 
 This is not the same as D5's empty log, and the difference is the one
-[`Keyring::secret`](../../../crates/mixengine-platform/src/traits/keyring.rs) already draws: a
+[`Keyring::secret`](../../crates/mixengine-platform/src/traits/keyring.rs) already draws: a
 daemon that has logged nothing is an *answer*, and a read that failed is a *failure*. An empty
 member says "there was nothing"; an omission says "there was something and I could not get it".
 
@@ -140,7 +140,7 @@ Free, and therefore in:
   and does not belong behind a `mixengine-platform` trait.
 - The daemon's build version and `ProtocolVersion`.
 - `mixengine_platform::orphan_guarantee()` — a constant per OS, and
-  [ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md)'s subject.
+  [ADR 0007](../decisions/0007-supervised-child-owns-a-process-group.md)'s subject.
 - `ElevationSupport`, as the machine-readable value rather than as a sentence.
 - The reserved port ranges, as numbers.
 
@@ -258,7 +258,7 @@ It is the fact a bug report asks for first, and it is genuinely absent: `std::en
 gives `"windows"`, never `"Windows 11 26200"`.
 
 Reading it is a system call, so
-[the workspace rule](../../../.claude/CLAUDE.md) puts it behind a `mixengine-platform` trait, and
+[the workspace rule](../../CLAUDE.md) puts it behind a `mixengine-platform` trait, and
 there is no existing capability it belongs to — `HomeDirs` is about paths, `DirectoryAccess` about
 permissions. It is a new trait with three implementations and a mock, which is a task and not an
 arm of this one. Calling `sysinfo` from the daemon instead would be the direct OS call outside
@@ -266,7 +266,7 @@ arm of this one. Calling `sysinfo` from the daemon instead would be the direct O
 
 What would open it: a `SystemFacts` capability carrying the OS version, the kernel version, the CPU
 count and the physical memory — all four of which the metrics work in
-[client-surface.md](../../../.claude/features/client-surface.md) will want from `sysinfo` anyway.
+[client-surface.md](../features/client-surface.md) will want from `sysinfo` anyway.
 It should be built when that is, and `platform.json` gains a field.
 
 Recorded here rather than left as a gap for a reader to rediscover.

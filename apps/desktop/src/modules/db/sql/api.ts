@@ -201,7 +201,7 @@ export interface SqlApi {
   dropSkipIndex(id: string, database: string, table: string, name: string): Promise<void>;
 
   /** Rebuilds the whole table with a new sorting key — see
-   *  `docs/superpowers/specs/2026-09-04-clickhouse-index-ddl-design.md`. Resolves to the name of a
+   *  `docs/specs/2026-09-04-clickhouse-index-ddl-design.md`. Resolves to the name of a
    *  leftover temporary table when the swap itself succeeded but its own cleanup did not — not a
    *  failure of the rebuild, which has already landed — and to `null` when nothing was left behind. */
   rebuildOrderBy(

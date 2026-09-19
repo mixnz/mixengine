@@ -13,7 +13,7 @@
 //! The alternative that was not taken is a `spec_json` column, which would duplicate three columns
 //! the row already has and keep a second copy of what generation renders — `CLAUDE.md`'s
 //! disposable-generated-config rule read backwards. See
-//! `.claude/roadmap/phase-1-process-supervision.md`.
+//! `docs/roadmap/phase-1-process-supervision.md`.
 
 use std::future::Future;
 use std::pin::Pin;

@@ -1,6 +1,6 @@
 # T111 — The dev loop stages the daemon beside the window
 
-Roadmap task [T111](../../../.claude/roadmap/phase-12-one-product.md), on
+Roadmap task [T111](../roadmap/phase-12-one-product.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D9 and on
 [T107](2026-09-09-t107-where-the-daemon-and-the-window-are-design.md). 2026-09-10.
 
@@ -199,5 +199,5 @@ contributor sees `src-tauri/target/debug` and knows which command they skipped.
 - `apps/desktop/src-tauri/src/modules/mixengine/health.rs` and `commands.rs`: `PresenceReport`.
 - `apps/desktop/src/modules/mixengine/api.ts`, `MixEngineTab.tsx`, `i18n/en.ts`, `i18n/vi.ts`.
 - Documentation: the command table in `apps/desktop/CLAUDE.md`, *Local development* in
-  `.claude/operations/build-and-release.md`, T111 in `phase-12-one-product.md` before M12, one
+  `docs/operations/build-and-release.md`, T111 in `phase-12-one-product.md` before M12, one
   line in `CHANGELOG.md`.

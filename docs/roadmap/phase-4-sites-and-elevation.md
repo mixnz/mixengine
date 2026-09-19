@@ -12,13 +12,13 @@ root process.
 
 - [x] **T39** Project model: `project.create|list|show|update|delete|export`, `mixengine.toml`
       read and write, and the `runtime.uninstall` refusal a project pin earns.
-      Design: [T39 spec](../../docs/superpowers/specs/2026-08-22-t39-project-model-design.md).
+      Design: [T39 spec](../specs/2026-08-22-t39-project-model-design.md).
       **`create` is also the import**: with no `--name` and no `--pin`, both come from the manifest
       lying at the root, so a second method would have been a second code path for one outcome.
 - [x] **T39a** Site model: `sites`, `site_domains`, `site_service_links`, the four site kinds
       (`php-fpm`, `static`, `reverse-proxy`, `node-app`), doc roots, and the `[site]` and
       `[[services]]` halves of `mixengine.toml`.
-      Design: [T39a spec](../../docs/superpowers/specs/2026-08-22-t39a-site-model-design.md).
+      Design: [T39a spec](../specs/2026-08-22-t39a-site-model-design.md).
       T39 left those sections opaque: `core::manifest` reads the file whole and its writer preserves
       them byte for byte, so this task gives them types rather than teaching a second reader about
       them. T43 renders what this declares.
@@ -34,7 +34,7 @@ root process.
       that is the honest outcome and belongs written down there.
 - [x] **T40** **`mixengine-elevate`**: one-shot binary, typed request/response over files, self
       validation, atomic writes under lock, root-owned audit log, distinct "user declined" exit code. **(P)**
-      Design: [T40 spec](../../docs/superpowers/specs/2026-08-22-t40-elevate-design.md).
+      Design: [T40 spec](../specs/2026-08-22-t40-elevate-design.md).
       **The frame plus exactly one operation, `Probe`**, which applies nothing: an empty frame cannot
       be run, and the first time the request/response lifecycle ran for real would otherwise be inside
       a task simultaneously learning what a hosts-file marker block is. `Probe` is also the version
@@ -67,7 +67,7 @@ root process.
       T40b.
 - [x] **T40a** `Elevation` trait: `ShellExecuteEx`/`runas`, osascript `with administrator privileges`,
       `pkexec` — **including polkit-agent detection and the manual-command fallback on Linux**. **(P)**
-      Design: [T40a spec](../../docs/superpowers/specs/2026-08-22-t40a-elevation-design.md).
+      Design: [T40a spec](../specs/2026-08-22-t40a-elevation-design.md).
       **The capability stops at the prompt.** It raises one, waits, and answers `Completed`,
       `Declined` or `Unavailable`; it never opens `response.json`, which is `serde_json` over
       types with no operating system in them and is T40b's. `Completed` therefore means the
@@ -91,7 +91,7 @@ root process.
 - [x] **T40b** Elevation queue in the daemon: batch pending ops into one invocation,
       `ElevationRequired` event, decline → degraded mode with a pending list. Test: no code path
       elevates in a loop.
-      Design: [T40b spec](../../docs/superpowers/specs/2026-08-23-t40b-elevation-queue-design.md).
+      Design: [T40b spec](../specs/2026-08-23-t40b-elevation-queue-design.md).
       The queue is a table whose unique key is the operation itself, so "no code path elevates in a
       loop" is a property of the schema rather than of anybody's discipline; the runtime half is one
       grant slot, and a second is `conflict`. Answered the question T40 recorded and left open: an
@@ -237,7 +237,7 @@ root process.
       The re-probe is the producer: every daemon start asks, which covers "after every app update"
       and the losses that were not updates — **and closes T88b**. `nftables` was not needed and is
       not there: `setcap` was measured to work and to be readable back without privilege. Design in
-      [../../docs/superpowers/specs/2026-08-23-t42-port-access-design.md](../../docs/superpowers/specs/2026-08-23-t42-port-access-design.md).
+      [../specs/2026-08-23-t42-port-access-design.md](../specs/2026-08-23-t42-port-access-design.md).
       **Amended after a first macOS install**: the grant wrote its three files and stopped, so pf
       stayed off until a reboot nobody had done while `mix doctor` called the grant complete; the
       helper now runs the boot job's command itself (D3). In the same install Caddy's template wrote
@@ -255,7 +255,7 @@ root process.
       The bind mapping reaches `mixengine-core` as data, from a pure `PortAccess::bindings`.
       `Degraded` is **deferred** and `features/services.md`'s promise corrected — one set, one
       judgement. Design in
-      [../../docs/superpowers/specs/2026-08-23-t43-site-to-config-design.md](../../docs/superpowers/specs/2026-08-23-t43-site-to-config-design.md).
+      [../specs/2026-08-23-t43-site-to-config-design.md](../specs/2026-08-23-t43-site-to-config-design.md).
 - [x] **T44** Built-in DNS server (`hickory-server`): **53535** on macOS/Linux and **53** on Windows,
       over `[dns] port`, wildcard `A` for every managed TLD at any depth, loopback-only sockets,
       port-in-use detection naming the holder. **Closes T46a with it**, because hosts-only is not a
@@ -274,7 +274,7 @@ root process.
       **The mode has two terms and this task can only produce one**, so it reports `hosts_only`
       everywhere and `site.create` keeps queueing hosts entries exactly as it did — T45 is what
       switches both halves on together. Design in
-      [../../docs/superpowers/specs/2026-08-23-t44-dns-server-design.md](../../docs/superpowers/specs/2026-08-23-t44-dns-server-design.md).
+      [../specs/2026-08-23-t44-dns-server-design.md](../specs/2026-08-23-t44-dns-server-design.md).
 - [x] **T45** Resolver wiring per OS: a marked `/etc/resolver/<tld>` file on macOS, a
       `systemd-networkd` dummy link of our own on Linux, one NRPT rule written as registry values on
       Windows — TLD-scoped only, never global. **The producer of the mode**, so T44's server is now
@@ -309,7 +309,7 @@ root process.
       debt T41 recorded for the hosts block and T42 for the macOS anchor — which on Windows cannot
       even be told apart by port, NRPT having no field for one.
       Design in
-      [../../docs/superpowers/specs/2026-08-23-t45-resolver-wiring-design.md](../../docs/superpowers/specs/2026-08-23-t45-resolver-wiring-design.md).
+      [../specs/2026-08-23-t45-resolver-wiring-design.md](../specs/2026-08-23-t45-resolver-wiring-design.md).
 - [x] **T46** `domain.*` RPC + `domain.dns_status` real-lookup diagnostics.
       Three methods: `domain.add { site, domain }`, `domain.remove { domain }` and
       `domain.dns_status { domain? }`.
@@ -345,7 +345,7 @@ root process.
       domain asked about until it gives up. Written into the function rather than hidden, because a
       timeout that reads like a cancellation is how a thread leak becomes invisible.
       Design in
-      [../../docs/superpowers/specs/2026-08-24-t46-domain-rpc-design.md](../../docs/superpowers/specs/2026-08-24-t46-domain-rpc-design.md).
+      [../specs/2026-08-24-t46-domain-rpc-design.md](../specs/2026-08-24-t46-domain-rpc-design.md).
 - [x] **T46a** Hosts-only fallback mode — **closed by T44**: wildcards disabled and reported as a
       field of their own, the mode and the reason for it on `daemon.status` and on the first line of
       `mix status`, batched hosts prompts unchanged from T41.
@@ -395,7 +395,7 @@ root process.
       correct and the test's premise was not: a suite may assert that *its* condition is absent and
       then present, never that the machine running it is well.
       Design in
-      [../../docs/superpowers/specs/2026-08-24-t47a-doctor-design.md](../../docs/superpowers/specs/2026-08-24-t47a-doctor-design.md).
+      [../specs/2026-08-24-t47a-doctor-design.md](../specs/2026-08-24-t47a-doctor-design.md).
 - [x] **T47b** `daemon.doctor_repair`: act on what T47a found, keyed off `ProblemId`, and flush the
       deferred privileged operations. **(P)**
       Ten conditions, four to the queue, three repaired inside the home with no prompt at all, three
@@ -444,7 +444,7 @@ root process.
       again, and adding one is a task rather than an arm of a match. What would reopen it is evidence
       that the condition is common and transient.
       Design in
-      [../../docs/superpowers/specs/2026-08-24-t47b-doctor-repair-design.md](../../docs/superpowers/specs/2026-08-24-t47b-doctor-repair-design.md).
+      [../specs/2026-08-24-t47b-doctor-repair-design.md](../specs/2026-08-24-t47b-doctor-repair-design.md).
 - [x] **T93** `mix doctor --bundle`: one diagnostics archive — daemon log excerpt, `mix doctor`
       output, versions and platform facts, credentials redacted — so that "copy diagnostics"
       costs a client nothing to assemble
@@ -492,7 +492,7 @@ root process.
       because the archive is deflated and a search of the raw file would have found nothing including
       the control.
       Design in
-      [../../docs/superpowers/specs/2026-08-24-t93-diagnostics-bundle-design.md](../../docs/superpowers/specs/2026-08-24-t93-diagnostics-bundle-design.md).
+      [../specs/2026-08-24-t93-diagnostics-bundle-design.md](../specs/2026-08-24-t93-diagnostics-bundle-design.md).
 
 **Milestone M4** — create a site and open `http://blog.test` in a fresh shell on all three OSes with
 **zero elevation prompts after first-run setup**.

@@ -9,7 +9,7 @@ Since roadmap task **T56**, `mixengine-proto` is not only the single source of t
 it is also the source of a **published** TypeScript contract: `bindings/` at the repository root,
 committed, checked by CI's `bindings` job, and released as
 `mixengine-api-<version>-typescript.tar.gz`
-([design](../../docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md)).
+([design](../specs/2026-09-05-t56-the-published-api-contract-design.md)).
 
 A TypeScript type is **one** shape. Several types on this wire deliberately accept more than they
 emit, and each leniency is argued where it lives:

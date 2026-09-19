@@ -22,7 +22,7 @@ The primitives are not styling wrappers — each carries behaviour a raw element
 That last row is the argument: thirteen dialogs once hand-rolled the first three and none had the
 fourth. A duplicated primitive is a copy missing something, and nobody notices which.
 
-The redesign (phase 20, [design](../../../docs/superpowers/specs/2026-09-17-t157-mixlab-redesign-design.md))
+The redesign (phase 20, [design](../../../docs/specs/2026-09-17-t157-mixlab-redesign-design.md))
 added the parts a screen is built from:
 
 | Primitive | For |

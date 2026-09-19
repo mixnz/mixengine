@@ -1,7 +1,7 @@
 //! The JSON-RPC 2.0 envelope every call travels in.
 //!
 //! The spec is followed rather than approximated, because the reason
-//! `.claude/architecture/daemon-and-ipc.md` chose HTTP in the first place was off-the-shelf clients:
+//! `docs/architecture/daemon-and-ipc.md` chose HTTP in the first place was off-the-shelf clients:
 //! a `jsonrpc` member on both sides, an integer `error.code`, `id` echoed back on every response and
 //! omitted only by a notification, batches as arrays.
 //!
@@ -19,7 +19,7 @@ use crate::{Error, ErrorCode};
 
 /// The methods this build answers, named once so a client and the daemon cannot drift apart.
 ///
-/// Namespaced `namespace.verb` as `.claude/architecture/daemon-and-ipc.md` requires. The list grows
+/// Namespaced `namespace.verb` as `docs/architecture/daemon-and-ipc.md` requires. The list grows
 /// with the phase that implements each namespace; a method not in it is answered with
 /// [`RpcCode::METHOD_NOT_FOUND`].
 pub mod method {
@@ -129,7 +129,7 @@ pub mod method {
     /// Takes [`CaStatusQuery`](crate::CaStatusQuery), answers [`CaStatus`](crate::CaStatus).
     /// Roadmap task **T48**.
     ///
-    /// **Never the private key.** `.claude/architecture/security-model.md` says it is never copied,
+    /// **Never the private key.** `docs/architecture/security-model.md` says it is never copied,
     /// exported by an RPC, or sent to a client, and [`CaStatus`](crate::CaStatus) has no field one
     /// could travel in.
     ///
@@ -310,7 +310,7 @@ pub mod method {
     ///
     /// **Nothing about it is elevated.** The user's own environment is user-writable on all three
     /// systems, which is why this is an ordinary method and not a
-    /// `PrivilegedOp` — see `.claude/architecture/platform-abstraction.md`.
+    /// `PrivilegedOp` — see `docs/architecture/platform-abstraction.md`.
     pub const PATH_INSTALL: &str = "path.install";
 
     /// Take `<root>/bin` back off this user's PATH. Takes no parameters, answers
@@ -358,7 +358,7 @@ pub mod method {
     ///
     /// **Nothing about it is elevated.** A logon task, a LaunchAgent and a systemd *user* unit all
     /// belong to the account MixEngine runs as, which is why this is an ordinary method and not a
-    /// `PrivilegedOp` — see `.claude/architecture/platform-abstraction.md`.
+    /// `PrivilegedOp` — see `docs/architecture/platform-abstraction.md`.
     ///
     /// Answers `unsupported` on a machine with no mechanism at all, with the command to run by hand
     /// in the hint.
@@ -468,7 +468,7 @@ pub mod method {
     /// result is a [`FrontEndReport`](crate::FrontEndReport). Roadmap task **T97**.
     ///
     /// **A job and not a setting**, which is
-    /// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md):
+    /// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md):
     /// the row, the rendered sites and — on Linux — the port-80 grant all have to move together, and
     /// on a machine where nobody grants the honest outcome is that the home **stays on the front end
     /// it had**. That outcome is described rather than left as a home whose sites are rendered for a
@@ -549,7 +549,7 @@ pub mod method {
     /// idle sweep reads the switch, and a service already past its saving policy is stopped by that
     /// sweep, not by this. Off is the default ([ADR 0041]).
     ///
-    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     pub const SERVICE_SET_SAVE_RESOURCES: &str = "service.set_save_resources";
 
     /// Make a database and the account that reaches it, on one running instance. Takes
@@ -569,7 +569,7 @@ pub mod method {
     ///
     /// **Reads only**: starts nothing, launches nothing, touches no credential. It exists so a
     /// client can draw the affordance from data rather than probing the filesystem for an
-    /// application — `.claude/features/client-surface.md`.
+    /// application — `docs/features/client-surface.md`.
     pub const DATABASE_CLIENT: &str = "database.client";
 
     /// Hand one instance to the installed desktop database client. Takes
@@ -631,7 +631,7 @@ pub mod method {
     /// [`MetricsHistory`](crate::MetricsHistory). Roadmap task **T71**.
     ///
     /// **There is no `metrics.subscribe` beside these two**, and the live stream is `GET /metrics`
-    /// rather than a method for [ADR 0009](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0009-logs-travel-on-their-own-stream.md)'s
+    /// rather than a method for [ADR 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)'s
     /// reason: a JSON-RPC call cannot stream, the event bus is 1024 messages shared by every client,
     /// and a subscription that had to be ended by a second call would keep sampling for a client
     /// that crashed. An open connection is the subscription; closing it is the end of it.
@@ -681,7 +681,7 @@ pub mod method {
     ///
     /// **The import too.** `name` and `pins` fall through to the `mixengine.toml` lying at the
     /// root, so a create that names only a directory is how a colleague's checkout is adopted —
-    /// see `.claude/features/runtime-versions.md` for what that file may say.
+    /// see `docs/features/runtime-versions.md` for what that file may say.
     pub const PROJECT_CREATE: &str = "project.create";
 
     /// Every registered project. Takes no parameters, answers

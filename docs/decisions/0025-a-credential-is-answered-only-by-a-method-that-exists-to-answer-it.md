@@ -66,7 +66,7 @@ whole purpose is answering a credential, it is a new method built for that, with
 `Debug` and its own test asserting the value is present on purpose — not a field added to a response
 that already exists.
 
-`docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md` is where
+`docs/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md` is where
 this task's fuller reasoning and its CLI shape live; this records the rule for whoever adds the next
 method and finds two precedents pointing opposite ways.
 

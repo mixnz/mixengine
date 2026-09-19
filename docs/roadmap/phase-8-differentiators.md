@@ -134,7 +134,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       rather than the apply being refused, because there is no flag for *no* and a script must be
       able to apply a blueprint without its command.
 - [x] **T78b** A `[scaffold]`'s program is checked at plan time — design in
-      [docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../../docs/superpowers/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
+      [docs/specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md](../specs/2026-09-08-t78b-a-scaffold-program-checked-at-plan-time-design.md).
       Found by applying `laravel` on a Windows machine without `composer`: eleven steps applied and
       the twelfth was `cmd.exe` saying it did not recognise the word, which is the one step T77's
       D10 had left to the end of the job. The first word of the command, when it is a bare name, is
@@ -189,7 +189,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       under a moved `blueprints` tag in the packaging repository, signed with the key T78a minted.
       T78a's design placed this in T79; T79 compiled the gallery in instead, which removed the
       channel these signatures are for and left this as the task that restores it. Design:
-      [docs/superpowers/specs/2026-09-02-t79a-signed-gallery-publication-design.md](../../docs/superpowers/specs/2026-09-02-t79a-signed-gallery-publication-design.md).
+      [docs/specs/2026-09-02-t79a-signed-gallery-publication-design.md](../specs/2026-09-02-t79a-signed-gallery-publication-design.md).
       **The manifests are never copied into that repository** — its workflow checks this one out at
       a ref and reads them there, so there is one gallery and not two.
       **What the task found, and the one behaviour change here.** `[blueprint] name` is *display*
@@ -215,7 +215,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       needs `--overwrite` and costs that slug its builtin refresh, which is T79's D6 doing what it
       was written to do.
 - [x] **T79b** Say *why* a blueprint is untrusted — design in
-      [docs/superpowers/specs/2026-09-02-t79b-why-a-blueprint-is-untrusted-design.md](../../docs/superpowers/specs/2026-09-02-t79b-why-a-blueprint-is-untrusted-design.md).
+      [docs/specs/2026-09-02-t79b-why-a-blueprint-is-untrusted-design.md](../specs/2026-09-02-t79b-why-a-blueprint-is-untrusted-design.md).
       A file whose signature did not verify and a file that arrived with no signature at all used to
       produce one line — `untrusted: nothing vouches for it, and nothing will` — and they are not
       the same event: the first is a manifest edited after somebody signed it, which is what the
@@ -241,7 +241,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
 
 - [x] **T80** Extension model: `extension.toml` read through the `ServiceSpec` vocabulary in
       `mixengine-proto`, the four kinds, and permission enforcement — design in
-      [docs/superpowers/specs/2026-09-02-t80-extension-model-design.md](../../docs/superpowers/specs/2026-09-02-t80-extension-model-design.md).
+      [docs/specs/2026-09-02-t80-extension-model-design.md](../specs/2026-09-02-t80-extension-model-design.md).
       Nothing is installed and nothing is stored: what this leaves T81 is a format already proved to
       make sense, and one read-only way to see it — `extension.inspect`, and `mix extension inspect`,
       which renders the manifest into the `ServiceSpec` that *would* run rather than describing one.
@@ -283,7 +283,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       with a `CHECK` that exactly one is set, and an installed `service` extension is neither — the
       third origin arrives with the task that writes rows, not with this one.
 - [x] **T81** Extension registry client + install/uninstall/start/stop — design in
-      [docs/superpowers/specs/2026-09-02-t81-extension-registry-and-lifecycle-design.md](../../docs/superpowers/specs/2026-09-02-t81-extension-registry-and-lifecycle-design.md).
+      [docs/specs/2026-09-02-t81-extension-registry-and-lifecycle-design.md](../specs/2026-09-02-t81-extension-registry-and-lifecycle-design.md).
       `extensions.json` is a second signed document beside `index.json`, under the same tag and the
       **same key**: an extension has the package index's blast radius exactly — a binary downloaded
       and supervised — so a key of its own would separate nothing. Two documents rather than one
@@ -355,7 +355,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       is the one this build compiles in before it signs anything. T81 verifies with a key its own
       tests mint, which is what proves the verification path rather than switching it off — but
       until this lands there is nothing published to install. Design:
-      [docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md](../../docs/superpowers/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md).
+      [docs/specs/2026-09-02-t81a-publishing-the-extension-registry-design.md](../specs/2026-09-02-t81a-publishing-the-extension-registry-design.md).
       **The roster lives over there, not here**, which is where this parts company with T79a: that
       task read its manifests out of a `mixengine` checkout because the gallery *is* compiled into
       the binary and a copy would have made two galleries. Nothing of the sort holds for extensions
@@ -382,7 +382,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       generator has to *make* a timestamp, and this workspace has no date library on purpose, so the
       type grew `FromStr` and the shell's `date -u` writes the text.
 - [x] **T81b** The site a `web-app` extension is served on — design in
-      [docs/superpowers/specs/2026-09-03-t81b-extension-sites-design.md](../../docs/superpowers/specs/2026-09-03-t81b-extension-sites-design.md).
+      [docs/specs/2026-09-03-t81b-extension-sites-design.md](../specs/2026-09-03-t81b-extension-sites-design.md).
       `sites` gains an exclusive second parent, `extension_id`, on a fourth rebuild of the table — by
       copy, `-- no-transaction`, and with the two sharing triggers written back, because a drop takes
       a table's triggers with it and a missing trigger fails silently; the seeded test asserts the
@@ -403,7 +403,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       regeneration this task adds — `declare::php_pool` points the row at `fakeservice`, which
       already answered `--test --fpm-config` the way php-fpm does.
 - [x] **T81c** Wire `[recipe] front_end` fragments — design in
-      [docs/superpowers/specs/2026-09-03-t81c-front-end-fragments-design.md](../../docs/superpowers/specs/2026-09-03-t81c-front-end-fragments-design.md).
+      [docs/specs/2026-09-03-t81c-front-end-fragments-design.md](../specs/2026-09-03-t81c-front-end-fragments-design.md).
       Both templates grew their `import`, `swept()` grew a second directory, and T81's refusal by
       name is gone along with `Error::ExtensionRecipeUnsupported` — a check that always returns `Ok`
       reads as if it were checking something. **`server` is required on every fragment, and it names
@@ -443,7 +443,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       site blocks MixEngine renders. This is a declared field made to take effect, which is the debt
       T81 took on when it refused the field by name rather than ignoring it.
 - [x] **T82** First extensions: Mailpit `1.31.0`, phpMyAdmin `5.2.3`, Adminer `6.0.1` — design in
-      [docs/superpowers/specs/2026-09-03-t82-first-extensions-design.md](../../docs/superpowers/specs/2026-09-03-t82-first-extensions-design.md).
+      [docs/specs/2026-09-03-t82-first-extensions-design.md](../specs/2026-09-03-t82-first-extensions-design.md).
       The archive's top-level directory is the manifest's to name, as this line said; **the other
       three things the real artifacts wanted were not in it**. `[web-app].template` cannot be *a file
       inside the extension*, because a registry install's files are upstream's archive verified
@@ -468,7 +468,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       extending `\Adminer\Adminer`. And the manifest cited a `mix service credentials` that does not
       exist.
 - [x] **T82a** phpMyAdmin signs itself in — design in
-      [docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md](../../docs/superpowers/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md).
+      [docs/specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md](../specs/2026-09-03-t82a-a-pool-of-the-extensions-own-design.md).
       A php-fpm pool of the extension's own, carrying an `EnvValue::Keyring` the supervisor resolves
       at spawn, so the database superuser's password is in one process's environment, on no disk,
       and in no other project's. `features/extensions.md`'s second acceptance criterion is whole.
@@ -511,7 +511,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       Adminer does not, and guessing at an unsupported seam for a credential this consequential is
       not a trade this task takes — its manifest needs one line the day upstream grows one.
 - [x] **T83** **MixDB integration** — design in
-      [docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../../docs/superpowers/specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
+      [docs/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
       A `DesktopApps` capability on `Host` — find by the manifest's per-OS hint, start with an
       environment — and two methods: `database.client`, which answers per service what a client
       would speak and whether one is here as **three states, none an error** (`installed`,
@@ -538,7 +538,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       variable, open the tab. **(P)**
 - [x] **T84** **MixDB as a `desktop-app` registry entry + a shared keyring naming convention** —
       design in
-      [docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md](../../docs/superpowers/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md).
+      [docs/specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md](../specs/2026-09-04-t84-mixdb-in-the-registry-and-one-keyring-design.md).
       **The entry names no artifact, and that absence *is* the entry** — which overturns
       `features/extensions.md`'s *"MixDB's own release artifacts … so users can install it from
       inside MixEngine"*, on three grounds each sufficient alone. There is nothing to unpack: MixDB
@@ -577,7 +577,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `mixnz/mixengine-packages` owes `data/extensions/mixdb.toml`, the same file as the fixture.
       **(P)**
 - [x] **T77b** A password a person can read, and a password a person chooses — design in
-      [docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../../docs/superpowers/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md).
+      [docs/specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md](../specs/2026-09-06-t77b-a-password-a-person-can-read-and-choose-design.md).
       T77a's D11 answered one consumer of a database credential — a process MixEngine starts — and
       left no way for a person to get one into a project's `.env`. `mix database credentials`
       reads what is stored; `mix database create --password` lets a person choose one instead of

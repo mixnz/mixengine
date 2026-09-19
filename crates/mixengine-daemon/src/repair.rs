@@ -2,7 +2,7 @@
 //!
 //! **One call, at most one prompt.** Repairs that live inside `MIXENGINE_HOME` are made here and
 //! now; repairs that need root are *enqueued* through the same producers everything else uses. [ADR
-//! 0005](../../../.claude/decisions/0005-on-demand-elevation.md) settled that asking twice for one
+//! 0005](../../../docs/decisions/0005-on-demand-elevation.md) settled that asking twice for one
 //! batch is the defect, and this module is the shape that obeys it.
 //!
 //! **Whether the queue is then flushed in the same call is the caller's to say**, and T64 is why.

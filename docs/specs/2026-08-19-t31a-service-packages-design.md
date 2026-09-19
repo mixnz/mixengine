@@ -1,6 +1,6 @@
 # T31a — Install a service package, and create a service
 
-*Design, 2026-08-19. Roadmap task [T31a](../../../.claude/roadmap/phase-3-services.md), Phase 3.*
+*Design, 2026-08-19. Roadmap task [T31a](../roadmap/phase-3-services.md), Phase 3.*
 
 ## What this closes
 

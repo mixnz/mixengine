@@ -176,7 +176,7 @@ impl Client {
 /// The two places a client would look agree about what is waiting.
 ///
 /// **This used to assert a fresh home had nothing waiting, and T49a made that false — correctly.**
-/// `.claude/architecture/security-model.md` promises one elevation prompt at first run, and the
+/// `docs/architecture/security-model.md` promises one elevation prompt at first run, and the
 /// producers that fill it run at start; a fresh home on a machine with a trust store therefore has
 /// exactly that install waiting, and by this project's own definition — "not zero means degraded" —
 /// is degraded until somebody grants it. `crates/mixengine-daemon/src/elevation.rs` says so in its

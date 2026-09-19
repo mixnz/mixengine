@@ -2,7 +2,7 @@
 //!
 //! Nothing here is a system test: no privileged directory is created, and every assertion reads a
 //! fact rather than attempting an access a token gets to decide. That distinction is the Privilege
-//! section of `.claude/standards/testing.md` — the Windows leg of CI runs under a full administrator
+//! section of `docs/standards/testing.md` — the Windows leg of CI runs under a full administrator
 //! token, so a test that proved something by *trying* it would pass there for a reason that will not
 //! exist on a user's machine.
 

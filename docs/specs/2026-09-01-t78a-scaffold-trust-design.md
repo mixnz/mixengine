@@ -40,7 +40,7 @@ method that flips it and no flag that overrides it — an untrusted blueprint is
 which is the whole of what the roadmap line promises.
 
 **It is not re-verified at apply time, and that is a departure from
-[`index.rs`](../../../crates/mixengine-core/src/index.rs), which re-verifies a document it wrote a
+[`index.rs`](../../crates/mixengine-core/src/index.rs), which re-verifies a document it wrote a
 minute ago.** The difference is what is stored: the index keeps the signed bytes and verifies those,
 while a blueprint's truth is the `manifest_toml` row (the T77 design, D7) and the file beside it is a
 rendering. Re-verifying would mean either keeping a second copy of the bytes as a shadow source of
@@ -58,7 +58,7 @@ Rotating it needs an application release, exactly as the index key does and for 
 key the artifact itself could announce is a key an attacker serving the artifact could announce.
 
 Verification is a free function taking the key, on
-[`Catalog`](../../../crates/mixengine-core/src/index.rs)'s shape, so a test signs a fixture with
+[`Catalog`](../../crates/mixengine-core/src/index.rs)'s shape, so a test signs a fixture with
 `minisign` (already a `mixengine-testkit` dev-dependency) and hands in its own public half. A
 compiled-in constant no test can replace is a constant no test exercises.
 
@@ -66,7 +66,7 @@ compiled-in constant no test can replace is a constant no test exercises.
 optional signature path (defaulting to `<path>.minisig` when that file exists), an optional slug and
 the same `overwrite` flag `blueprint.capture` has. It reads the bytes, verifies them if a signature
 is there, parses the manifest with the parser T77 wrote, validates the slug with
-[`store::validated_slug`](../../../crates/mixengine-core/src/blueprints/store.rs) — the security
+[`store::validated_slug`](../../crates/mixengine-core/src/blueprints/store.rs) — the security
 boundary that keeps a name from escaping the blueprints directory — and writes the row plus its
 rendering. A manifest that does not parse is refused naming what was wrong with it; a signature that
 does not verify is **not** a refusal but an import that lands untrusted, because a file whose
@@ -101,7 +101,7 @@ client show the right warning from the answer it already has, rather than making
 CLI does not need — the client-surface rule, applied before there is a client to apply it to.
 
 **D6 — `{project}` is expanded into the scaffold command, and T77 did not do it.**
-[`plan.rs`](../../../crates/mixengine-core/src/blueprints/plan.rs) clones `scaffold.command`
+[`plan.rs`](../../crates/mixengine-core/src/blueprints/plan.rs) clones `scaffold.command`
 verbatim while every other value it emits goes through `expand()`, so
 `composer create-project laravel/laravel {project}` reaches the plan, the confirmation and the shell
 with the token still in it. The expansion moves to where the others are — once, in core, so no later
@@ -122,7 +122,7 @@ exit code is the command's news, not the apply's.
 failure leaves a project that does not work; a scaffold that exited non-zero leaves a project that
 does — the site serves, the database is there, the pins are set. Destroying that because a
 `composer` post-install script failed is the more expensive direction to be wrong in, and it is the
-position [`site.create`](../../../crates/mixengine-daemon/src/api/create.rs) already takes for a
+position [`site.create`](../../crates/mixengine-daemon/src/api/create.rs) already takes for a
 certificate that would not issue. Running the apply again re-offers the command.
 
 **D9 — Through the OS shell, spawned as a supervised group.** `cmd.exe /C <command>` on Windows and
@@ -131,7 +131,7 @@ is what was confirmed and the shell is what makes `composer install && npm ci` m
 wrote the blueprint meant; a hand-rolled argv split would be a quoting rule of MixEngine's own,
 documented nowhere the blueprint's author is looking.
 
-Spawned with [`spawn_supervised`](../../../crates/mixengine-platform/src/process.rs) rather than
+Spawned with [`spawn_supervised`](../../crates/mixengine-platform/src/process.rs) rather than
 `run_once`, for the process group: `composer` starts children, and `job.cancel` has to stop the tree
 rather than orphan it. A cancellation kills the group and reports the step as
 `NotRun { why: "it was cancelled" }` — T78's rule that a cancellation leaves what was made and is not
@@ -154,7 +154,7 @@ hosts file and the trust store; a blueprint's command is not admitted to it.
 
 **D12 — The Windows command line takes the command as a raw tail.** This spawn does not go through
 `std::process::Command` at all:
-[`windows/restricted.rs`](../../../crates/mixengine-platform/src/windows/restricted.rs) builds the
+[`windows/restricted.rs`](../../crates/mixengine-platform/src/windows/restricted.rs) builds the
 `CreateProcess` line itself, quoting each argument the way `CommandLineToArgvW` parses it back —
 which is the right rule for a program and the wrong one for `cmd.exe`, whose own parser does not
 honour a backslash-escaped quote. A scaffold command with a quote in it would arrive mangled.
@@ -170,13 +170,13 @@ file — no quoting problem, at the cost of a temporary artifact and batch's own
 is a second distortion in place of the first.
 
 **D13 — The log surface grows a second kind of subject.** The registry in
-[`services/logs.rs`](../../../crates/mixengine-daemon/src/services/logs.rs) is keyed by a
+[`services/logs.rs`](../../crates/mixengine-daemon/src/services/logs.rs) is keyed by a
 `LogSubject { Service(ServiceId), Job(JobId) }`, and the route becomes `GET /logs/service/{id}` and
 `GET /logs/job/{id}` — two segments always, so nothing has to decide whether a first segment is a
 package name or a word. The ring, the frames, the `Gap` a slow reader is told about and the
 per-connection back-pressure are the ones that are already there.
 
-This is [ADR 0009](../../../.claude/decisions/0009-logs-travel-on-their-own-stream.md) applied rather
+This is [ADR 0009](../decisions/0009-logs-travel-on-their-own-stream.md) applied rather
 than amended: the volume is decided by somebody else's program, which is exactly what that decision
 keeps off the event stream. Putting scaffold output on `JobProgress` would spend every connected
 client's 1024-message allowance on one chatty `npm install`.
@@ -198,7 +198,7 @@ says so in the line that does it, and so no blanket agreement can grow to cover 
 implied by any other flag.
 
 Interactively, `mix` prints the command and asks, through
-[`confirm.rs`](../../../crates/mixengine-cli/src/confirm.rs).
+[`confirm.rs`](../../crates/mixengine-cli/src/confirm.rs).
 
 **Where there is nobody to ask, the command is left rather than the apply refused, and that is a
 departure from `answered`'s `Unanswerable` rule — found by building it.** A version question has no
@@ -316,18 +316,18 @@ anything that reads logs.
 
 ## Text that this task makes wrong
 
-- [`features/blueprints.md`](../../../.claude/features/blueprints.md) — the scaffold section becomes
+- [`features/blueprints.md`](../features/blueprints.md) — the scaffold section becomes
   what was built: where consent lives, what untrusted costs, and that capture still never writes one.
-- [`features/client-surface.md`](../../../.claude/features/client-surface.md) — a graphical client
+- [`features/client-surface.md`](../features/client-surface.md) — a graphical client
   gains the scaffold confirmation and the untrusted marking as obligations, and `blueprint.import`
   as a method it must reach.
-- [`proto/blueprint.rs`](../../../crates/mixengine-proto/src/blueprint.rs) — `RunScaffold` and
+- [`proto/blueprint.rs`](../../crates/mixengine-proto/src/blueprint.rs) — `RunScaffold` and
   `BlueprintSource` both name T78a as the task that will decide this; it has.
-- [`core/blueprints/plan.rs`](../../../crates/mixengine-core/src/blueprints/plan.rs) — the comment
+- [`core/blueprints/plan.rs`](../../crates/mixengine-core/src/blueprints/plan.rs) — the comment
   saying T78a is what gates the step, and the missing expansion (D6).
-- [`daemon/api/apply/steps.rs`](../../../crates/mixengine-daemon/src/api/apply/steps.rs) — the
+- [`daemon/api/apply/steps.rs`](../../crates/mixengine-daemon/src/api/apply/steps.rs) — the
   `Confirm` arm's sentence about running it yourself.
-- [`cli/main.rs`](../../../crates/mixengine-cli/src/main.rs) — the `BlueprintCommand` note that
+- [`cli/main.rs`](../../crates/mixengine-cli/src/main.rs) — the `BlueprintCommand` note that
   `import` is deliberately absent because importing is where T78a's marking lives.
-- [`roadmap/phase-8-differentiators.md`](../../../.claude/roadmap/phase-8-differentiators.md) — T78a
+- [`roadmap/phase-8-differentiators.md`](../roadmap/phase-8-differentiators.md) — T78a
   ticked, with what it found in T77's plan (D6) written where the next reader will look.

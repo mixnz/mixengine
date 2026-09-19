@@ -1,7 +1,7 @@
 # T168 — MixEngine in the tray
 
-Roadmap task [T168](../../../.claude/roadmap/phase-22-mixengine-in-the-tray.md), phase 22. 2026-09-19. Decision:
-[ADR 0042](../../../.claude/decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md).
+Roadmap task [T168](../roadmap/phase-22-mixengine-in-the-tray.md), phase 22. 2026-09-19. Decision:
+[ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md).
 
 **The case this comes from.** Every other local-server tool a person has used lives in the tray or
 the menu bar: one click shows what is running, starts and stops it, and opens the main window. MixEngine
@@ -9,9 +9,9 @@ has no such place. To stop MariaDB a person opens MixLab, waits for the window, 
 and closes the window again, which quits the app. The CLI can do all of it, but a person who reaches for the
 tray is not going to open a terminal.
 
-[`client-surface.md`](../../../.claude/features/client-surface.md) already says what such an item
+[`client-surface.md`](../features/client-surface.md) already says what such an item
 needs: *"no more than the dashboard does: overall state, stop-all, and the site list."* The
-[desktop roadmap](../../../.claude/desktop/roadmap-mixengine-module.md) left it open as a decision
+[desktop roadmap](../roadmap/desktop/mixengine-module.md) left it open as a decision
 about the shell rather than about the module. This design makes that decision.
 
 ## Principle
@@ -205,7 +205,7 @@ the "open once for the life of the app" logic from `daemonWatch.ts` into Rust fo
 
 - **Setting:** *Open MixLab in the tray at login*, in the mixengine module's Settings screen next to
   `AutostartSection` (the daemon's switch). **Off by default.** No installer turns it on
-  ([ADR 0042](../../../.claude/decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md)).
+  ([ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md)).
 - **Two switches, not one:**
   - *Start MixEngine at login* (`autostart.enable`, the daemon's, unchanged).
   - *Open MixLab in the tray at login* (this one, the window's).
@@ -305,7 +305,7 @@ opening MixLab again.
 - A monochrome template image for the macOS menu bar (`icon_as_template(true)`, so it follows light and
   dark mode).
 - The app icon for Windows and Linux.
-- Both come from `npm run icons`, next to the ones it already builds ([icons.md](../../../.claude/desktop/icons.md)).
+- Both come from `npm run icons`, next to the ones it already builds ([icons.md](../standards/desktop/app-icon.md)).
 
 ## Not in this design
 

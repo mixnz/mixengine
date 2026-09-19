@@ -129,9 +129,9 @@ shim's `install_globally` answers Go with the arm PHP and Composer share.
 `"composer"`, with an empty pin in the form's initial record — the type regenerated in `bindings/`
 makes a missing entry a compile error, which is what finds it.
 
-**D11 — Words.** `.claude/features/runtime-versions.md` gains Go in its kinds, its shim list and its
+**D11 — Words.** `docs/features/runtime-versions.md` gains Go in its kinds, its shim list and its
 trust table; `docs/guide/en/runtimes.md` gains a *Go* section with D5's three rules, and
-`packaging/docs.sh` restamps the translations; `.claude/roadmap/phase-2-runtimes.md` gains T27d after
+`packaging/docs.sh` restamps the translations; `docs/roadmap/phase-2-runtimes.md` gains T27d after
 T27c, pointing here, and `todo.md`'s phase-2 row moves to 15 / 15. No ADR: D5 is ADR 0034's rule
 applied to one more variable.
 
@@ -155,7 +155,7 @@ applied to one more variable.
 
 ## What this closes, and where it is written
 
-- `.claude/roadmap/phase-2-runtimes.md`: T27d after T27c, ticked when it lands.
-- `.claude/features/runtime-versions.md` and `docs/guide/en/runtimes.md`, per D11.
+- `docs/roadmap/phase-2-runtimes.md`: T27d after T27c, ticked when it lands.
+- `docs/features/runtime-versions.md` and `docs/guide/en/runtimes.md`, per D11.
 - The packaging repository's open sentence — *the daemon renders `GOTOOLCHAIN=local`* — is answered
   by D5, in the shim.

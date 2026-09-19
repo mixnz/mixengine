@@ -2,13 +2,13 @@
 
 Roadmap task **T85b**, phase 9: *"`ServiceInstaller`: register the daemon's autostart entry — Task
 Scheduler logon task, LaunchAgent, systemd **user** unit."* Item 3 of *"What the installer does"* in
-[build-and-release.md](../../../.claude/operations/build-and-release.md), and the one item of that
+[build-and-release.md](../operations/build-and-release.md), and the one item of that
 list that has never been built — the trait is a row in
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md)'s table with no
+[platform-abstraction.md](../architecture/platform-abstraction.md)'s table with no
 implementation behind it on any of the three systems.
 
 Two things this task changes about the sentence it was written from, both argued below: **no
-installer registers the entry** (D1, and a new [ADR 0016](../../../.claude/decisions/0016-autostart-is-registered-by-mixengine.md)),
+installer registers the entry** (D1, and a new [ADR 0016](../decisions/0016-autostart-is-registered-by-mixengine.md)),
 and **the Windows leg needs a change inside `mixengined` itself** (D4), because a logon task that
 runs a console program puts a terminal window on the user's desktop at every login — measured on a
 real Windows 11 machine rather than reasoned about.
@@ -29,7 +29,7 @@ entries created and deleted; nothing was left on either machine.
    `LogonTrigger` task with `<LogonType>InteractiveToken</LogonType>`, run through
    `schtasks /Run`, reported `GetConsoleWindow() != 0`, `IsWindowVisible() == true`, and session 1 —
    the user's own interactive session. This is the same mechanism
-   [`windows/command.rs`](../../../crates/mixengine-platform/src/windows/command.rs) already measured
+   [`windows/command.rs`](../../crates/mixengine-platform/src/windows/command.rs) already measured
    from the other direction, for the eight `icacls` calls a daemon makes at start-up: *"one
    `mixengined --detach` produced nine of them"* — a console-subsystem child of a parent with no
    console is handed a new console, and on Windows 11 that is a terminal window.
@@ -65,7 +65,7 @@ entries created and deleted; nothing was left on either machine.
   not a terminal window (D4).
 - API: `autostart.status`, `autostart.enable`, `autostart.disable`, answering `AutostartReport`.
 - CLI: `mix autostart status | enable | disable`, and its rendering.
-- Documentation: [ADR 0016](../../../.claude/decisions/0016-autostart-is-registered-by-mixengine.md),
+- Documentation: [ADR 0016](../decisions/0016-autostart-is-registered-by-mixengine.md),
   `platform-abstraction.md`, `daemon-and-ipc.md`, `overview.md`, `build-and-release.md`, the roadmap.
 
 **Out:**
@@ -116,7 +116,7 @@ pub trait ServiceInstaller: std::fmt::Debug + Send + Sync {
 In `mixengine-proto`, `autostart_api.rs`: `AutostartReport` carries the same five fields plus
 **`for_this_home: bool`**, which the daemon composes by comparing the `--home` inside `command` with
 its own root (D3). That comparison is the daemon's because
-[CLAUDE.md](../../../CLAUDE.md) forbids business logic in a client, and because two clients
+[CLAUDE.md](../../CLAUDE.md) forbids business logic in a client, and because two clients
 disagreeing about whether an entry is "yours" is exactly the class of bug this product exists to
 prevent.
 
@@ -145,7 +145,7 @@ own:
    Windows and off after installing on macOS is one nothing can state truthfully.
 
 So: `autostart.enable` is the mechanism, asked for by a person, and no installer is. Written down as
-[ADR 0016](../../../.claude/decisions/0016-autostart-is-registered-by-mixengine.md) in ADR 0015's
+[ADR 0016](../decisions/0016-autostart-is-registered-by-mixengine.md) in ADR 0015's
 shape, and `build-and-release.md` item 3 is rewritten to say so.
 
 ### D2 — The trait keeps the name `ServiceInstaller`, and nothing else does
@@ -154,8 +154,8 @@ shape, and `build-and-release.md` item 3 is rewritten to say so.
 `ServiceSpec`, `ServiceId`, `service.*`. The obvious move is to rename it to `Autostart`.
 
 **It is not renamed, and the reason is the ADRs.** `ServiceInstaller` is named in
-[ADR 0002](../../../.claude/decisions/0002-cross-platform-from-day-one.md)'s day-one capability list
-and in [ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md); renaming
+[ADR 0002](../decisions/0002-cross-platform-from-day-one.md)'s day-one capability list
+and in [ADR 0007](../decisions/0007-supervised-child-owns-a-process-group.md); renaming
 would mean editing two accepted decision records, which `CLAUDE.md` forbids outright — *"Changing a
 cross-cutting decision requires a new ADR, not an edit to an accepted one"* — and an ADR whose whole
 content is a rename is a bad trade for a name that appears in one trait definition.
@@ -174,7 +174,7 @@ have one entry each, keyed by a hash of the root.
 looking: a `MixEngine (a3f9c1)` task left behind by a home that was deleted is undiscoverable, and
 T87 cannot remove what it cannot enumerate. One home starting at login is also the honest product:
 `mix` starts a daemon for any other home the moment it is asked
-([daemon-and-ipc.md](../../../.claude/architecture/daemon-and-ipc.md), *client autostart*), so the
+([daemon-and-ipc.md](../architecture/daemon-and-ipc.md), *client autostart*), so the
 second home costs a person nothing but the first command.
 
 Enabling from a second home **replaces** the entry and reports `changed: true`. `autostart.status`
@@ -217,7 +217,7 @@ Two details that are the whole of the care this needs:
 
 It lives in `mixengine-platform` — `process::release_unattended_console()`, a no-op on both Unixes —
 because it is `#[cfg(windows)]` by nature and
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md) allows no such
+[platform-abstraction.md](../architecture/platform-abstraction.md) allows no such
 thing in the daemon. It is in `process` and not behind `Host` for the reason that module's four
 neighbours are: it is not a question about the machine that a mock could answer, it is a concrete
 handle being closed.
@@ -228,7 +228,7 @@ remaining a program a terminal can run.
 
 ### D5 — `schtasks.exe` with an XML file, not COM and not `/TR`
 
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md) rule 5 prefers a
+[platform-abstraction.md](../architecture/platform-abstraction.md) rule 5 prefers a
 Windows API to a shell-out. The Task Scheduler API is COM (`ITaskService`, `ITaskDefinition`,
 `IRegisteredTask`), and this workspace depends on `windows-sys`, which is raw FFI with no COM
 support: reaching it would mean hand-written vtable calls and `IUnknown` reference counting for an
@@ -284,7 +284,7 @@ home"*, and it is best-effort for the same reason.
 
 ### D7 — `AutostartMechanism::None` is a valid answer, and Linux is why
 
-[`ResolverMethod::None`](../../../crates/mixengine-platform/src/traits/resolver.rs) is the precedent
+[`ResolverMethod::None`](../../crates/mixengine-platform/src/traits/resolver.rs) is the precedent
 and the sentence is copied deliberately: *a valid answer, not an error*. A Linux machine with no
 systemd user manager — a container, a stripped image, `ubuntu-latest` on GitHub — has no way to start
 something at login that MixEngine is willing to write.
@@ -315,7 +315,7 @@ And no mechanism is told to start the daemon *now*: `enable` registers, it does 
 
 `loginctl enable-linger` is deliberately not called. Without it a systemd user manager stops at
 logout, which is exactly the lifetime
-[overview.md](../../../.claude/architecture/overview.md) states for the daemon — *"login → logout"*.
+[overview.md](../architecture/overview.md) states for the daemon — *"login → logout"*.
 
 ### D8a — Each system is asked in the way that system actually registers, and macOS is asked for nothing
 
@@ -345,7 +345,7 @@ The three legs do not look alike, and the difference is not an inconsistency —
 
 ### D9 — The document is generated where a test can read it, and registered where only the OS can
 
-`.claude/standards/testing.md` rule 1 forbids a test touching the real machine outside a system
+`docs/standards/testing.md` rule 1 forbids a test touching the real machine outside a system
 suite. Every implementation is therefore split in two:
 
 - **A pure function** that renders the entry — the task XML, the plist, the unit file — from an
@@ -370,7 +370,7 @@ different things and the suite prints which it took.
 Scheduler outlives every daemon that ever registered it and is a property of the machine. `path.*` is
 the precedent for a capability holding a namespace of its own with a `status`/`install`/`uninstall`
 shape, and this is the second one. The CLI mirrors it one-for-one, as
-[daemon-and-ipc.md](../../../.claude/architecture/daemon-and-ipc.md) requires: `mix autostart status`,
+[daemon-and-ipc.md](../architecture/daemon-and-ipc.md) requires: `mix autostart status`,
 `mix autostart enable`, `mix autostart disable`, none taking parameters — there is exactly one entry
 and one home this can be about, and an argument would be an API for registering arbitrary programs to
 run at somebody's login.

@@ -28,7 +28,7 @@ pub enum ResolverMethod {
     ///
     /// **A valid answer, not an error.** This home stays on the hosts file,
     /// [`DnsStatus::because`](mixengine_proto::DnsStatus::because) says why in words, and nothing
-    /// fails — which is `.claude/features/domains-and-dns.md`'s own instruction, with the
+    /// fails — which is `docs/features/domains-and-dns.md`'s own instruction, with the
     /// correction that what is unsupported is this machine's configuration rather than the
     /// platform. Linux without systemd is the case it exists for.
     None,

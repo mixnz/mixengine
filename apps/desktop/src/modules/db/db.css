@@ -728,7 +728,7 @@ button.saved-list-new {
   justify-content: center;
   gap: 1rem;
   /* The same root box every workspace in this file takes — see
-     [.agent/conventions/workspace-root.md](../../../.agent/conventions/workspace-root.md). */
+     [docs/standards/desktop/workspace-root.md](../../../../../docs/standards/desktop/workspace-root.md). */
   box-sizing: border-box;
   width: 100%;
   height: 100%;

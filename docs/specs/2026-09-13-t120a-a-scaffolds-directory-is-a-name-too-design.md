@@ -36,12 +36,12 @@ mkdir "next-js-1" && cd "next-js-1" && npx create-next-app@latest . --yes  →  
 
 That directory is MixEngine's doing. `mix blueprint apply --path` documents its default as
 `<current directory>/<project>` and computes it at
-[`crates/mixengine-cli/src/main.rs:3783`](../../../crates/mixengine-cli/src/main.rs) as
+[`crates/mixengine-cli/src/main.rs:3783`](../../crates/mixengine-cli/src/main.rs) as
 `here(None)?.join(&project)` — the project's **name**, untouched.
 
 Meanwhile the same string is slugged for everything else. T120 made `{project}` expand to
-`domains::slug` ([`plan.rs:134`](../../../crates/mixengine-core/src/blueprints/plan.rs)), and
-[ADR 0030](../../../.claude/decisions/0030-the-project-token-expands-to-a-slug.md) settled the rule
+`domains::slug` ([`plan.rs:134`](../../crates/mixengine-core/src/blueprints/plan.rs)), and
+[ADR 0030](../decisions/0030-the-project-token-expands-to-a-slug.md) settled the rule
 as *one project, one human name, one machine handle*. So:
 
 | `Next.js 1` reaches | Through | As |
@@ -66,7 +66,7 @@ blueprint that works for the people who did not need the gallery.
 
 ### 3. The failure sentence is unreadable, and the repository already knows why
 
-`environment()` ([`scaffold.rs:107`](../../../crates/mixengine-daemon/src/api/apply/scaffold.rs))
+`environment()` ([`scaffold.rs:107`](../../crates/mixengine-daemon/src/api/apply/scaffold.rs))
 states that it **invents no environment**: it sets `PATH` and `MIXENGINE_HOME` and stops. Nothing
 tells the child there is no terminal, and nothing scrubs what comes back. `create-next-app` colours
 a pipe regardless, so the escape sequences survive into an error string a GUI renders as text.
@@ -81,20 +81,20 @@ FORCE_COLOR=0    →  Could not create a project called ^[[31m"Next.js 1"^[[39m 
 on it.
 
 **The rule already exists in this daemon and is applied to one side only.**
-[`logging/mod.rs:375`](../../../crates/mixengine-daemon/src/logging/mod.rs) asserts
+[`logging/mod.rs:375`](../../crates/mixengine-daemon/src/logging/mod.rs) asserts
 `!written.contains('\u{1b}')`: what this daemon writes carries no escape. What this daemon *captures
 and re-emits* is not covered. T120's own security note says the narration is safe because
 *"`projects::validated_name` already refuses control characters, so no ANSI escape can reach it"* —
 true of the project's name, and silent about the command's output, which is the other half of the
 same log.
 
-Separately, `failure()` ([`scaffold.rs:316`](../../../crates/mixengine-daemon/src/api/apply/scaffold.rs))
+Separately, `failure()` ([`scaffold.rs:316`](../../crates/mixengine-daemon/src/api/apply/scaffold.rs))
 joins the last lines with `" / "`. The stray slashes in the report above are that, not paths.
 
 ### 4. What is not broken
 
 The empty directory is the design working. *The files were never ours*
-([ADR 0031](../../../.claude/decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)),
+([ADR 0031](../decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md)),
 and `nextjs` is a `node-app`, so a browser pointed at the site gets **T124's welcome page** off the
 502 rather than a dead tab. Nothing here changes that, and nothing here needs to.
 
@@ -211,7 +211,7 @@ schedule for the fourth to be written without it.
 ### D5 — `NO_COLOR=1` is set, and nothing depends on it
 
 `environment()` gains it. `whole_environment`
-([`platform/src/process.rs:732`](../../../crates/mixengine-platform/src/process.rs)) clears and
+([`platform/src/process.rs:732`](../../crates/mixengine-platform/src/process.rs)) clears and
 rebuilds from an allowlist plus the caller's map, so this is one entry and no inheritance question.
 
 This bends `environment()`'s "invents no environment" note, and the note should be amended rather
@@ -325,5 +325,5 @@ argument. The acceptance below measures it rather than leaving it asserted.
 - `apps/desktop/src/modules/mixengine/screens/Dashboard/QuickStart.tsx`,
   `apps/desktop/src/modules/mixengine/screens/Blueprints/ApplyDialog.tsx` and the two `i18n/`
   catalogues — D3.
-- `.claude/features/blueprints.md` — the directory is named from the handle when nobody named it.
-- `.claude/roadmap/phase-14-a-window-a-new-user-can-start-from.md` — T120a.
+- `docs/features/blueprints.md` — the directory is named from the handle when nobody named it.
+- `docs/roadmap/phase-14-a-window-a-new-user-can-start-from.md` — T120a.

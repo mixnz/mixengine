@@ -656,7 +656,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `/opt/homebrew` is not a compiler search path where `/usr/local` is, so the second attempt at
       evenness was still half wrong until Homebrew was asked where it had put the thing.
 - [x] **T27c** Composer through the runtime pipeline — design in
-      [docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../../docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
+      [docs/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
       T25 kept `composer` out of the shim table because it is inside no artifact and said it would
       arrive with the task that installs it; this is that task. **A fifth `RuntimeKind` rather than a
       tool of its own**, because everything the pipeline does — signed index, resumable download,
@@ -677,7 +677,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       the daemon was started with `--home`. T78a's suite never saw it because its command is
       `echo`. The scaffold now carries `MIXENGINE_HOME` naming the daemon's own root.
 - [x] **T27d** Go, the sixth runtime kind — design in
-      [docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md](../../docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md).
+      [docs/specs/2026-09-17-t27d-go-runtime-design.md](../specs/2026-09-17-t27d-go-runtime-design.md).
       `mixengine-packages` published seven Go lines as its P19 — upstream's whole tree, `go.env`
       kept byte for byte — and left one sentence here: the archive says `GOTOOLCHAIN=auto`, which
       lets a `go.mod` asking for a newer Go download that Go and run it instead of the pinned one.
@@ -697,7 +697,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       this machine's store: CryptoAPI on Windows, `SecTrustEvaluateWithError` on macOS, and on Linux
       the two bundles `update-ca-certificates` and `update-ca-trust` regenerate.
 - [x] **T27e** Java, the seventh runtime kind — design in
-      [docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md](../../docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md).
+      [docs/specs/2026-09-18-t27e-java-runtime-design.md](../specs/2026-09-18-t27e-java-runtime-design.md).
       `mixengine-packages` published four JDK lines as its **P20** — 11, 17, 21 and 25, every cell a
       Microsoft Build of OpenJDK — and left two sentences here: accept the new `requires.libraries`,
       and `JAVA_HOME` is two directories above `provides.java`. **The kind came first**:

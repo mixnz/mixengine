@@ -73,7 +73,7 @@ silently run the wrong one.
 `unable to verify the first certificate` is OpenSSL's `UNABLE_TO_VERIFY_LEAF_SIGNATURE`: the chain
 the server presented cannot be linked to a root the client trusts. The browser is fine because
 `certs/ca/root.crt` is installed in the **OS trust store** (and in NSS on Linux) —
-[.claude/features/tls.md](../../../.claude/features/tls.md) first run, step 3.
+[docs/features/tls.md](../features/tls.md) first run, step 3.
 
 No language runtime reads that store:
 
@@ -81,7 +81,7 @@ No language runtime reads that store:
   to (`NODE_EXTRA_CA_CERTS`, or `--use-system-ca` from Node 22).
 - **Ruby**'s OpenSSL is compiled here with its default-path functions resolving against the loaded
   `libcrypto` — `<runtime>/ssl/cert.pem`, a file inside the moved tree
-  ([.claude/operations/runtime-packaging.md](../../../.claude/operations/runtime-packaging.md)).
+  ([docs/operations/runtime-packaging.md](../operations/runtime-packaging.md)).
 - **Python** uses OpenSSL's default paths for `ssl`, and `certifi`'s vendored bundle for anything
   built on `requests`.
 - **PHP** uses `openssl.cafile` and `curl.cainfo`, and the artifact on the reference machine ships

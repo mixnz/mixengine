@@ -6,7 +6,7 @@ and understand it (e.g. plain Markdown pages, predictable URLs/paths, no JS-only
 actual text) — not just human-readable HTML."*
 
 Everything written down in this repository so far is written for the people who build MixEngine.
-`.claude/` is architecture, features, standards, decisions and a roadmap; `docs/superpowers/specs/`
+`docs/` is architecture, features, standards, decisions and a roadmap; `docs/specs/`
 is one design per task. There is no page anywhere that tells somebody who has just installed
 MixEngine how to serve a site out of a directory, and `mix --help` is a list of twenty nouns rather
 than an answer to that question.
@@ -43,12 +43,12 @@ Read on 2026-09-05 out of this tree. Every one of these decided something below.
    `markdown`, `serde_yaml` over every `Cargo.toml` returns nothing. So the corpus format and the
    site generator each cost a dependency decision rather than a `use` line — D5 and D11.
 3. **`toml`, `minijinja` and `serde_json` are already core dependencies**
-   ([../../../.claude/standards/rust.md](../../../.claude/standards/rust.md)). Front matter and the
+   ([../standards/rust.md](../standards/rust.md)). Front matter and the
    page template therefore need no new crate at all.
 4. **`deny.toml` line 58 sets `multiple-versions = "deny"`.** A Markdown crate that drags a second
    copy of something already here fails `lint`. Verified against the real lock file before the
    dependency is added, not after — D11.
-5. **`.claude/features/client-surface.md`, under *Left to the client*, says localisation belongs to
+5. **`docs/features/client-surface.md`, under *Left to the client*, says localisation belongs to
    whoever builds the client.** That is this repository's own answer to the question this task would
    otherwise have to invent: help does not become an RPC — D2.
 6. **`crates/mixengine-cli/src/render.rs` opens with "No colour, and no dependency for one."** The
@@ -58,7 +58,7 @@ Read on 2026-09-05 out of this tree. Every one of these decided something below.
 7. **`docs/` holds exactly one directory, `superpowers/`, and this repository has no root
    `README.md`.** So `docs/guide/` is unoccupied, and the front door a person and a crawler both hit
    first is empty — D14.
-8. **`.gitignore` ignores exactly one thing under `docs/`: `docs/superpowers/plans/`.** A new
+8. **`.gitignore` ignores exactly one thing under `docs/`: `docs/plans/`.** A new
    directory there is tracked by default, with no edit needed.
 9. **T89's rule: a suite that needs nothing downloaded and no privilege runs in `test` on all three
    runners with no edit to the workflow.** Every corpus invariant in this design is a `cargo test`,
@@ -124,12 +124,12 @@ which one is authoritative.
 
 The alternative — a site built from one source and a `--help` text written separately — is two
 tellings of one thing, which
-[../../../.claude/standards/rust.md](../../../.claude/standards/rust.md) already calls out as two
+[../standards/rust.md](../standards/rust.md) already calls out as two
 places for a decision to drift.
 
 ### D2 — Help is not an RPC method, and `mix` answers it with no daemon
 
-`.claude/features/client-surface.md` says localisation is left to whoever builds the client. A
+`docs/features/client-surface.md` says localisation is left to whoever builds the client. A
 `help.get` method carrying Vietnamese prose would be `mixengined` deciding a client's localisation
 policy, which is the line that document draws.
 
@@ -361,7 +361,7 @@ What is left over needs a job: building the site (which compiles `pulldown-cmark
 committed command reference against what `mix` prints. That is `docs`, one ubuntu job running
 `bash packaging/docs.sh --check`, alongside `bindings` and for the same reason — a red job that names
 what broke without anybody opening a log. The table in
-[../../../.claude/operations/build-and-release.md](../../../.claude/operations/build-and-release.md)
+[../operations/build-and-release.md](../operations/build-and-release.md)
 becomes seven jobs.
 
 ### D16 — Publishing is a workflow of its own, on every push to `master`
@@ -418,7 +418,7 @@ reference-style links. Every command shown in a fenced block tagged `bash`. Ever
 paragraph that could stand alone as the summary. Cross-references as `./<slug>.md`.
 
 **Where the content comes from.** Each page is written against the feature document that owns its
-subject in `.claude/features/`, and against the behaviour of the commands themselves. Where the two
+subject in `docs/features/`, and against the behaviour of the commands themselves. Where the two
 disagree, the commands win and the disagreement is worth a line in the roadmap.
 
 ## `packaging/docs.sh`
@@ -449,19 +449,19 @@ tarball rather than cloned one.
 
 - **`README.md`** — new, and this repository's first. What MixEngine is in a paragraph, where the
   handbook is, where `llms.txt` and `bindings/` are, and where a contributor goes instead
-  (`.claude/`). It is the page a person and a crawler both meet first, and it has been empty.
-- **`.claude/decisions/0021-…`** — the ADR for D1 and D2 together: the handbook is one Markdown
+  (`docs/`). It is the page a person and a crawler both meet first, and it has been empty.
+- **`docs/decisions/0021-…`** — the ADR for D1 and D2 together: the handbook is one Markdown
   corpus published three ways, and help is not an API method. Both are cross-cutting, and D2 in
   particular is a question the next client author will ask.
-- **`.claude/operations/build-and-release.md`** — the job table becomes seven, and gains `docs`; a
+- **`docs/operations/build-and-release.md`** — the job table becomes seven, and gains `docs`; a
   paragraph on `pages.yml` and on the one setting a person owns.
-- **`.claude/standards/rust.md`** — one row in the core-dependency table: Markdown rendering,
+- **`docs/standards/rust.md`** — one row in the core-dependency table: Markdown rendering,
   `pulldown-cmark`, dev-dependency only.
-- **`.claude/features/client-surface.md`** — one paragraph under *Left to the client*: where a
+- **`docs/features/client-surface.md`** — one paragraph under *Left to the client*: where a
   graphical client gets help text, and why it is a URL rather than a method.
-- **`.claude/README.md`** — `docs/guide/` named in the map, so the two documentation trees are told
+- **`docs/README.md`** — `docs/guide/` named in the map, so the two documentation trees are told
   apart on the page whose job is telling folders apart.
-- **`.claude/roadmap/phase-9-ship.md`** — T90 ticked, with what the task changed about its own
+- **`docs/roadmap/phase-9-ship.md`** — T90 ticked, with what the task changed about its own
   sentence and what it left.
 
 ## Human steps this task cannot take

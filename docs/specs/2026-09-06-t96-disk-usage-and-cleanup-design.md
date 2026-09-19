@@ -2,7 +2,7 @@
 
 Roadmap task **T96**, phase 10: *"Disk usage broken down by category, and a cleanup that can only
 reach what is safe to lose."* It closes half of the one acceptance criterion
-[client-surface.md](../../../.claude/features/client-surface.md) currently fails — the Dashboard's
+[client-surface.md](../features/client-surface.md) currently fails — the Dashboard's
 *"disk usage broken down by category (runtimes, data, logs, certs) with a cleanup action"* has no
 method behind it. The other half is **T97**.
 
@@ -299,7 +299,7 @@ Files vanishing mid-walk are ordinary: a rotation, an install finishing. `NotFou
 ### D9 — Everything that touches the disk happens off the runtime's threads
 
 Both the walk and the sweep are `tokio::task::spawn_blocking`, per
-`.claude/standards/rust.md`: *"nothing blocks the runtime"*. A `read_dir` of a cold `runtimes/` on a
+`docs/standards/rust.md`: *"nothing blocks the runtime"*. A `read_dir` of a cold `runtimes/` on a
 spinning disk is seconds, and the daemon is supervising processes while it happens.
 
 ### D10 — The act measures what it removed, it does not claim it
@@ -329,7 +329,7 @@ each, and ends with what `mix cleanup` would take back.
 
 Two methods added, no member removed, no member's type or meaning changed. An older client never
 calls them; an older daemon answers `method_not_found`, which is what
-`.claude/decisions/0019-an-added-response-member-is-optional.md` leaves as the ordinary shape of a
+`docs/decisions/0019-an-added-response-member-is-optional.md` leaves as the ordinary shape of a
 mixed-version pair.
 
 ## Data flow

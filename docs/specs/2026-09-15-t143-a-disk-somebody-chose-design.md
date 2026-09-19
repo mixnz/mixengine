@@ -1,6 +1,6 @@
 # T143 — A disk somebody chose, while the choice is still free
 
-Roadmap task [T143](../../../.claude/roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-15.
+Roadmap task [T143](../roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-15.
 
 **The case this comes from**: a machine whose internal disk is small and whose working disk is an
 external SSD, with `MIXENGINE_HOME` pointed at the external disk so that runtimes and databases

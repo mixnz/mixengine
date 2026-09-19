@@ -252,7 +252,7 @@ fn row_to_columns(row: &serde_json::Map<String, Value>, columns: &[String]) -> V
 }
 
 /// One token of a statement's own text that D3/D4 of
-/// `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md` need — nothing more. Walked
+/// `docs/specs/2026-09-04-clickhouse-query-dml-design.md` need — nothing more. Walked
 /// fresh here rather than reusing `split_statements`'s loop: that function only tracks a
 /// statement's own boundaries and its opening verb, never what comes after, and its quoting rules
 /// (backtick/double-quote identifiers, both escape styles, nesting block comments, `#`/`--` line
@@ -489,7 +489,7 @@ async fn run_as_mutation(
 }
 
 /// Sends one statement the way its own shape asks for — D1 of
-/// `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md`. `database` is the Query
+/// `docs/specs/2026-09-04-clickhouse-query-dml-design.md`. `database` is the Query
 /// tab's own active database, used when the statement itself does not qualify the table.
 async fn dispatch_statement(
     conn: &Connection,
@@ -534,7 +534,7 @@ async fn dispatch_statement(
 ///
 /// `INSERT`, `TRUNCATE`, `ALTER TABLE ... UPDATE ... WHERE` and `DELETE FROM ... WHERE` are sent
 /// through [`dispatch_statement`] rather than `query_in_database` — see
-/// `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md`'s D1. Everything else keeps
+/// `docs/specs/2026-09-04-clickhouse-query-dml-design.md`'s D1. Everything else keeps
 /// the original `"rows"`/`"ok"` shape. A failed statement stops the script, the way it would in
 /// `clickhouse-client`.
 pub async fn run(

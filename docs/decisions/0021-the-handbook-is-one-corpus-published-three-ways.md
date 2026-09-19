@@ -17,7 +17,7 @@ means, and — as it turned out — what `mix` prints when it is asked for help.
 Two forces met here. The first is this repository's standing objection to a decision told twice: two
 tellings of one thing are two places for it to drift, and a documentation site plus a separately
 written `--help` corpus is exactly that shape. The second is
-[`.claude/features/client-surface.md`](../features/client-surface.md), which under *Left to the
+[`docs/features/client-surface.md`](../features/client-surface.md), which under *Left to the
 client* puts localisation among the things that belong to whoever builds a client rather than to the
 API — a line written long before anybody asked where a Vietnamese help page should live.
 

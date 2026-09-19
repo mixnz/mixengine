@@ -145,7 +145,7 @@ beside it. All via `mixengine-elevate`, all reversible by `mix doctor --repair` 
 unlinked, and `mixengine-elevate.exe` is the running program when it removes itself — so there the
 operating system is asked to remove it at the next restart, and the report says so rather than
 claiming a removal that has not happened. See the
-[T87 design](../../docs/superpowers/specs/2026-09-04-t87-uninstall-design.md), D8.
+[T87 design](../specs/2026-09-04-t87-uninstall-design.md), D8.
 
 **Two more, and they are the ones that are not elevated**, because both belong to this account rather
 than to the machine. Neither is ever written on the daemon's own initiative.

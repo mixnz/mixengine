@@ -14,7 +14,7 @@ bump outright if `packaging/` or `.github/` types a version out instead of deriv
 `mix_version()`.
 
 CI builds every artifact, signs them, and leaves a **draft** — nothing is public until you publish
-it by hand. Full checklist: [build-and-release.md](../.claude/operations/build-and-release.md)
+it by hand. Full checklist: [build-and-release.md](build-and-release.md)
 
 **The first time you publish a non-pre-release version**, delete the "no stable release exists yet"
 paragraph near the top of `docs/guide/en/install.md` and `docs/guide/vi/install.md` — the download

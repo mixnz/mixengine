@@ -2,7 +2,7 @@
 # The published TypeScript API contract: generate it, check it is current, pack it for a release.
 #
 # Roadmap task T56.
-# Design: docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md
+# Design: docs/specs/2026-09-05-t56-the-published-api-contract-design.md
 #
 #   bash packaging/bindings.sh            regenerate bindings/ in place
 #   bash packaging/bindings.sh --check    regenerate into a temp dir and diff; writes nothing

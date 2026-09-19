@@ -16,7 +16,7 @@
 //!
 //! The PATH is **only ever changed when somebody asks**. It is a file in the user's home on Unix and
 //! a value in their registry hive on Windows — outside the root, and outside what
-//! `.claude/architecture/overview.md` lists as MixEngine's to write on its own account. A daemon
+//! `docs/architecture/overview.md` lists as MixEngine's to write on its own account. A daemon
 //! that edited `~/.zprofile` because it happened to start at login would be a program that changed
 //! the shell of somebody who had only installed it.
 
@@ -279,7 +279,7 @@ impl Shims {
     ///
     /// The shims stay. They are inside the home, they cost a few megabytes there, and removing what
     /// makes the home work in order to undo one line in a profile would be an uninstall wearing a
-    /// smaller command's name — `.claude/architecture/overview.md` has removing the home remove
+    /// smaller command's name — `docs/architecture/overview.md` has removing the home remove
     /// them.
     pub(crate) async fn uninstall(&self) -> Result<PathReport, Error> {
         let state = self

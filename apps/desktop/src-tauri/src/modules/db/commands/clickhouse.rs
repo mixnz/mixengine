@@ -305,7 +305,7 @@ pub async fn clickhouse_row_count(
 }
 
 /// Writes `database` out as SQL — `mode` is `structure`, `data` or `all`. See
-/// `docs/superpowers/specs/2026-09-04-clickhouse-dump-restore-design.md`.
+/// `docs/specs/2026-09-04-clickhouse-dump-restore-design.md`.
 #[tauri::command]
 pub async fn clickhouse_dump(
     app: AppHandle,

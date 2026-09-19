@@ -66,7 +66,7 @@ jobs:
           if [ -z "${GH_TOKEN:-}" ]; then
             echo "::error::PACKAGES_DISPATCH_TOKEN is not set, so ${PACKAGES} was not told that the"
             echo "::error::gallery changed. It needs a token with write access to that repository —"
-            echo "::error::see .claude/features/blueprints.md. Until it is set, the weekly"
+            echo "::error::see docs/features/blueprints.md. Until it is set, the weekly"
             echo "::error::check-blueprints run over there is the only thing still catching this,"
             echo "::error::and it catches it up to a week late."
             exit 1

@@ -5,7 +5,7 @@
 //! the daemon's environment block is not something this workspace establishes — so a binary running
 //! as root that resolves `%ProgramFiles%` is resolving a value it cannot show it chose. The design
 //! rule for that binary is not *prove it is safe*, it is
-//! `.claude/architecture/security-model.md`'s *"validates everything again rather than trusting its
+//! `docs/architecture/security-model.md`'s *"validates everything again rather than trusting its
 //! caller"*; `SHGetKnownFolderPath` removes the question instead of answering it.
 //!
 //! Three callers. Two are about a directory root owns: the audit log's

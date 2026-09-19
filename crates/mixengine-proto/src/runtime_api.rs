@@ -17,7 +17,7 @@
 //!
 //! **`runtime.install` answers a [`JobSummary`](crate::JobSummary) and not a runtime.** An install
 //! is tens of megabytes over somebody's connection, and
-//! `.claude/architecture/daemon-and-ipc.md` says a long operation returns a job rather than holding
+//! `docs/architecture/daemon-and-ipc.md` says a long operation returns a job rather than holding
 //! a call open. What the finished job carries as its result is a [`RuntimeSummary`] — the same
 //! sentence `runtime.list_installed` answers with, so a client renders the ending of an install with
 //! the function it already has.
@@ -336,7 +336,7 @@ pub struct RuntimeRelease {
     /// Composed by the daemon, which is the only party that knows both what the index published and
     /// which triple this build was compiled for. [`None`] means the peer predates the member and
     /// never that nothing could be determined, per
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md). It is
+    /// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md). It is
     /// [`Execution::Emulated`] only on an ARM64 Windows machine, where upstream publishes no build
     /// of its own for six of the eleven kinds MixEngine offers — PHP among them.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -407,7 +407,7 @@ pub struct ResolvedRuntime {
 /// Where the version a directory resolves to was decided.
 ///
 /// The four steps of
-/// [runtime-versions.md](../../../../.claude/features/runtime-versions.md)'s order, in that order,
+/// [runtime-versions.md](../../../docs/features/runtime-versions.md)'s order, in that order,
 /// each carrying the one thing a person would ask next: *which* file, *which* project.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "from", rename_all = "snake_case")]
@@ -514,7 +514,7 @@ mod tests {
         );
     }
 
-    /// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md): a
+    /// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md): a
     /// member added after protocol 1 was frozen is absent on the wire when nobody reported it, and
     /// [`None`] means *"this peer predates the member"* rather than *"could not determine"* —
     /// roadmap task **T92**.

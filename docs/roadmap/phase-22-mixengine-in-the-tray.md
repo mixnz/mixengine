@@ -7,7 +7,7 @@ start there at login with no window.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-19-t168-mixengine-in-the-tray-design.md](../../docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md).
+Design: [2026-09-19-t168-mixengine-in-the-tray-design.md](../specs/2026-09-19-t168-mixengine-in-the-tray-design.md).
 Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks-it-to.md).
 
 ---

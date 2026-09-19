@@ -2,21 +2,21 @@
 
 Roadmap task **T94**, phase 9: *"Does a certificate this project can buy repair Smart App Control,
 and what is left if it cannot?"* Split out of
-[T41a](../../../.claude/roadmap/phase-4-sites-and-elevation.md) on 2026-08-24 and put here because
+[T41a](../roadmap/phase-4-sites-and-elevation.md) on 2026-08-24 and put here because
 of what the answer changes: T41a's half can invalidate
-[ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md) and five phases resting on it;
+[ADR 0005](../decisions/0005-on-demand-elevation.md) and five phases resting on it;
 this half changes how the product is distributed, which is phase 9's business.
 
 **The answer is no, and the interesting part is that it was never a question about money.** A
 certificate signs the four binaries this project builds. Smart App Control judges every image *load*,
 by file — so the binaries MixEngine exists to start are judged separately, and
-[T20a and T27 measured](../../../.claude/operations/runtime-packaging.md) that of the four borrowed
+[T20a and T27 measured](../operations/runtime-packaging.md) that of the four borrowed
 runtimes only Node is signed upstream. A certificate therefore repairs the first image load and the
 product dies at the second. That is the whole of Reading 1 and Reading 2, and it holds without buying
 anything.
 
 What is left is a product decision rather than a purchase, and it is
-[ADR 0017](../../../.claude/decisions/0017-smart-app-control-is-an-unsupported-configuration.md):
+[ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md):
 **a machine with Smart App Control enforced is a configuration MixEngine does not support, names, and
 refuses to work around.** The code in this task exists to make that sentence reach a person, because
 today the same condition reaches them as `os error 4551`.
@@ -24,7 +24,7 @@ today the same condition reaches them as `os error 4551`.
 ## Goal
 
 Three readings, written down where the two beside them already are
-([updates.md](../../../.claude/features/updates.md)), and one behavioural change: on Windows,
+([updates.md](../features/updates.md)), and one behavioural change: on Windows,
 MixEngine can say the word *Smart App Control* rather than a number.
 
 Concretely, after this task:
@@ -35,7 +35,7 @@ Concretely, after this task:
 - A runtime whose post-install smoke test is refused at image load, and a supervised service whose
   spawn is refused, both say so in those words instead of carrying an OS error number to a person who
   has no reason to recognise it.
-- `.claude/features/updates.md`, `runtime-packaging.md`, `testing.md`, `security-model.md`, T41a and
+- `docs/features/updates.md`, `runtime-packaging.md`, `testing.md`, `security-model.md`, T41a and
   T20a all point at one answer instead of at an open question.
 
 ## Scope
@@ -88,7 +88,7 @@ T86a's **W1** measured all of them, plus `setup.exe`, as `NotSigned` today.
 ### Reading 2 — what it leaves uncovered
 
 Every other image a working MixEngine install loads. Measured by T20a and T27 and recorded in
-[runtime-packaging.md](../../../.claude/operations/runtime-packaging.md):
+[runtime-packaging.md](../operations/runtime-packaging.md):
 
 | Image | Authenticode |
 | --- | --- |
@@ -315,7 +315,7 @@ this product borrows arrive signed.
 ### D9 — ADR 0005 is confirmed, not superseded
 
 The roadmap wrote that a bad answer here *supersedes*
-[ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md), because "no OS code signing"
+[ADR 0005](../decisions/0005-on-demand-elevation.md), because "no OS code signing"
 would have stopped being a trade of first-launch friendliness against a few hundred dollars a year.
 
 It has not stopped being that trade, and the reason is Reading 2. ADR 0005 declined to buy

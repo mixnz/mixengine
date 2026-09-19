@@ -2,7 +2,7 @@
 //!
 //! The two renderings are deliberately not the same information twice at different widths. `--json`
 //! is a contract: whatever the daemon answered, serialised, with the client's own identity beside it
-//! so a captured file says which `mix` produced it (`.claude/features/gui.md` calls this "copy
+//! so a captured file says which `mix` produced it (`docs/features/client-surface.md` calls this "copy
 //! diagnostics"). The human one is a person's answer to "is it up, and which one am I talking to",
 //! and leaves out anything they would not read.
 //!
@@ -478,7 +478,7 @@ pub(crate) fn status(status: &DaemonStatus) -> String {
     // **Reachable, from T88c on.** It was written for this skew and tested for it, and until
     // `elevation` and `dns` became optional the answer did not deserialise — so the one thing that
     // explained the situation was the one thing that could not be printed. See ADR 0019,
-    // `.claude/decisions/0019-an-added-response-member-is-optional.md`.
+    // `docs/decisions/0019-an-added-response-member-is-optional.md`.
     //
     // One note and not two: a status somebody reads daily earns at most one, and in the only case
     // where both halves apply the second is the explanation of the first.
@@ -516,7 +516,7 @@ pub(crate) fn status(status: &DaemonStatus) -> String {
 
 /// `mix self-update` and `mix self-update --check`, for a person — roadmap task **T88**.
 ///
-/// **The consent prompt is this text plus one question.** `.claude/features/updates.md` requires
+/// **The consent prompt is this text plus one question.** `docs/features/updates.md` requires
 /// that somebody sees the version, the size and the notes before they answer, and that they are told
 /// what is about to be stopped — so all four are here, and the question that follows is one line.
 ///
@@ -1365,7 +1365,7 @@ fn emulation_column(executions: impl Iterator<Item = Option<Execution>>) -> Opti
 /// What the seventh column says about one release.
 ///
 /// [`None`] is a daemon that predates the member rather than one that could not decide, per
-/// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md), so it reads
+/// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md), so it reads
 /// as the same dash every unstated value in these tables does.
 fn runs(execution: Option<Execution>) -> String {
     execution.map_or_else(|| MISSING.to_owned(), |execution| execution.to_string())
@@ -4131,7 +4131,7 @@ mod tests {
     }
 
     /// A daemon from before the member reports nothing, which is not a claim that anything is
-    /// emulated — [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
+    /// emulated — [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md).
     #[test]
     fn a_daemon_that_reports_no_execution_brings_no_column_either() {
         let rendered = runtime_catalogue(&RuntimeCatalogue {

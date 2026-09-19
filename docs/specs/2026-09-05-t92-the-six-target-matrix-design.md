@@ -2,7 +2,7 @@
 
 Roadmap task **T92**, phase 9: *"Public beta: the packaging pipeline running for all runtimes across
 six OS/arch targets"*, citing
-[runtime-packaging.md](../../../.claude/operations/runtime-packaging.md).
+[runtime-packaging.md](../operations/runtime-packaging.md).
 
 It is the last unticked entry before **milestone M9 — v0.1.0**, and the only entry in the phase whose
 subject is not in this repository at all: the pipeline is
@@ -30,7 +30,7 @@ Read on 2026-09-05 out of the published document and out of this tree, rather th
    `ruby` 4. Against this build: `RuntimeKind::ALL` is `php`, `node`, `python`, `ruby`, and
    `Catalogue::builtin()` is `caddy`, `memcached`, `mariadb`, `mysql`, `nginx`, `php-fpm`,
    `postgres`, `redis` — of which `php-fpm` is not a package, by
-   [`recipes.rs`](../../../crates/mixengine-core/src/generate/recipes.rs)' own note
+   [`recipes.rs`](../../crates/mixengine-core/src/generate/recipes.rs)' own note
    (*"one of them does not come out of a package"*). Four plus seven is eleven, with nothing on
    either side the other does not have.
 3. **Artifacts per target, and this is the finding.**
@@ -55,11 +55,11 @@ Read on 2026-09-05 out of the published document and out of this tree, rather th
 6. **Forty of those forty-one have a `windows/x86_64` twin.** The exception is `redis 7.2.15`, from
    finding 4.
 7. **Two documents in this repository already say what should happen there, and no code does it.**
-   - [runtime-packaging.md:741](../../../.claude/operations/runtime-packaging.md) — *"MixEngine
+   - [runtime-packaging.md:741](../operations/runtime-packaging.md) — *"MixEngine
      itself targets `aarch64-pc-windows-msvc`, so a Windows-on-ARM machine runs the daemon natively
      and **PHP under emulation**."*
-   - [index/format.rs:236](../../../crates/mixengine-core/src/index/format.rs) and
-     [daemon/runtimes.rs:805](../../../crates/mixengine-daemon/src/runtimes.rs) both say an x86_64
+   - [index/format.rs:236](../../crates/mixengine-core/src/index/format.rs) and
+     [daemon/runtimes.rs:805](../../crates/mixengine-daemon/src/runtimes.rs) both say an x86_64
      build under emulation should install x86_64 artifacts — which is the *other* direction, and
      true, and not this one.
 
@@ -83,14 +83,14 @@ Read on 2026-09-05 out of the published document and out of this tree, rather th
     every Linux PostgreSQL cell — state it, and it is prose rather than a version: *"the system
     timezone database at /usr/share/zoneinfo — Debian builds PostgreSQL `--with-system-tzdata`, so
     unlike the Windows and macOS cells this one does not carry its own"*.
-    [`Requires`](../../../crates/mixengine-core/src/index/format.rs) has `vcredist`, `macos` and
+    [`Requires`](../../crates/mixengine-core/src/index/format.rs) has `vcredist`, `macos` and
     `glibc` and nothing else. It parses — the module is deliberately not
     `deny_unknown_fields` — and the sentence is dropped.
 11. **Nothing reads `requires` at all.** `grep` finds no consumer of `Requires` outside the format
     module and one `Requires::default()` in an extension fixture. Its doc comment says
     *"Preconditions the daemon checks before installing, and prompts about rather than silently
     satisfying"*, which is not true of any of the three fields;
-    [`install.rs`](../../../crates/mixengine-core/src/install.rs)' `SmokeTest` note is where the
+    [`install.rs`](../../crates/mixengine-core/src/install.rs)' `SmokeTest` note is where the
     real mechanism is written down — *"every failure the `requires` field describes … is invisible
     until something tries"*.
 12. **`test` runs on `ubuntu-latest`, `windows-latest`, `macos-latest` and no ARM runner.** The two
@@ -150,7 +150,7 @@ and artifacts inside rather than the other way round: a package with both Window
 otherwise be resolved by whichever artifact the generator happened to write first.
 
 **`Arch::host()` is not touched.** It answers *"what did this build compile for"*, and
-[`updates/feed.rs`](../../../crates/mixengine-core/src/updates/feed.rs) is the other caller — a
+[`updates/feed.rs`](../../crates/mixengine-core/src/updates/feed.rs) is the other caller — a
 daemon that self-updates must find the aarch64 MixEngine, not an x86_64 one. Making that function
 generous would make `mix self-update` wrong on the same machine this task exists to fix.
 
@@ -180,7 +180,7 @@ put the entire feature outside CI's reach.
 
 ### D3 — `offered()` returns the selection, and its refusal narrows
 
-[`daemon::runtimes::offered`](../../../crates/mixengine-daemon/src/runtimes.rs) keeps its three
+[`daemon::runtimes::offered`](../../crates/mixengine-daemon/src/runtimes.rs) keeps its three
 told-apart disappointments and returns `(&Package, Selection)`. Its third arm — *"is not published
 for this machine"* — now fires only when the version is published for **neither** the native target
 nor anything this build can emulate, which on five of six targets is unchanged behaviour and on the
@@ -196,7 +196,7 @@ pub execution: Option<Execution>,
 ```
 
 `Option<Execution>` and not `bool`, under
-[ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md): a member added
+[ADR 0019](../decisions/0019-an-added-response-member-is-optional.md): a member added
 after protocol 1 was frozen is optional, `None` means *"this peer predates the member"* and never
 *"could not determine"*, and a defaulted value would make a client state a fact nobody reported.
 `PROTOCOL_VERSION` does not move.
@@ -268,14 +268,14 @@ Recording, with the measurement above as its context:
 
 ### D8 — The documentation catches up with the pipeline
 
-- `.claude/operations/runtime-packaging.md`: replace the *"Still open"* table with the three
+- `docs/operations/runtime-packaging.md`: replace the *"Still open"* table with the three
   answers, add the MySQL and Memcached rows the borrow/build table never had, correct the artifact
   count, and add a short section carrying the measured six-target matrix and the Windows-on-ARM
   consequence.
-- `.claude/roadmap/phase-9-ship.md`: tick T92 and write down what it changed about its own sentence.
+- `docs/roadmap/phase-9-ship.md`: tick T92 and write down what it changed about its own sentence.
 - `docs/guide/en/runtimes.md` and its Vietnamese twin: one paragraph, because a Surface owner
   installing PHP will see a word no other machine shows. The translation's front-matter SHA-256
-  moves with it, per [ADR 0021](../../../.claude/decisions/0021-the-handbook-is-one-corpus-published-three-ways.md).
+  moves with it, per [ADR 0021](../decisions/0021-the-handbook-is-one-corpus-published-three-ways.md).
 - `Requires`' doc comment stops claiming the daemon checks these (finding 11) and points at
   `SmokeTest`, which is the mechanism that actually exists.
 - `bindings/` is regenerated: `Execution` is a new exported type and two response types changed.

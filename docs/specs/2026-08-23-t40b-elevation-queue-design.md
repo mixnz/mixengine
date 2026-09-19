@@ -1,6 +1,6 @@
 # T40b — The elevation queue: one prompt for everything that is waiting
 
-*Design, 2026-08-23. Roadmap task [T40b](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-23. Roadmap task [T40b](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
@@ -12,7 +12,7 @@ outside its own tests, and `ErrorCode::PrivilegedRequired` has carried a doc com
 task since the error set was written.
 
 T40b is the half that decides *when* a prompt is worth spending. It is the sentence
-[ADR 0005](../../../.claude/decisions/0005-on-demand-elevation.md) writes as a rule and calls a
+[ADR 0005](../decisions/0005-on-demand-elevation.md) writes as a rule and calls a
 defect to break:
 
 > Pending privileged operations are queued and flushed in a **single** elevated invocation.
@@ -51,7 +51,7 @@ firewall rule — is outside `MIXENGINE_HOME` by definition; that is *why* it ne
 and flushing are two different things with two different triggers. Producers enqueue. Only a client
 flushes, by calling `elevation.grant`.
 
-This is also what makes [T64](../../../.claude/roadmap/phase-4-sites-and-elevation.md) expressible at
+This is also what makes [T64](../roadmap/phase-4-sites-and-elevation.md) expressible at
 all: a client cannot print "here is every operation and what each will literally change" *before* the
 prompt if the daemon raises the prompt itself. The ordering T64 asks for is a property of this split,
 not something the CLI arranges afterwards.
@@ -98,7 +98,7 @@ degraded mode nobody can ever clear — the same argument D5 makes for `Unsuppor
 
 ### D3 — Core owns the document, the daemon owns the prompt
 
-The same cut [`crate::jobs`](../../../crates/mixengine-daemon/src/jobs.rs) documents: `mixengine-core`
+The same cut [`crate::jobs`](../../crates/mixengine-daemon/src/jobs.rs) documents: `mixengine-core`
 owns the row and the state machine and has no loop, no clock and no task; the daemon owns the timing,
 the cancellation and the events.
 
@@ -239,7 +239,7 @@ shipped install, where the binaries travel together.
 **There is no environment variable and no config key.** A setting that chooses which file is run as
 root is a setting that chooses which file is run as root; the directory beside `mixengined` is
 already exactly as trustworthy as `mixengined` itself, which is the trust boundary
-[security-model.md](../../../.claude/architecture/security-model.md) and ADR 0005 both already
+[security-model.md](../architecture/security-model.md) and ADR 0005 both already
 accept, and an override would widen it for nothing. D3's split is what removes the reason anyone
 would want one: the round trip is testable in core without a prompt, so no test needs to redirect
 what the daemon spawns.
@@ -253,7 +253,7 @@ and `elevation.grant` answers `DependencyMissing` — which is D11's other half.
 
 ### D10 — An elevated daemon is reported, not refused
 
-The question [T40 recorded and did not answer](../../../.claude/roadmap/phase-4-sites-and-elevation.md).
+The question [T40 recorded and did not answer](../roadmap/phase-4-sites-and-elevation.md).
 `is_elevated()` is read once at startup: a `tracing::warn!` line, and `DaemonStatus.elevation.elevated`
 so `mix status` and later `mix doctor` (T47) both say it out loud.
 

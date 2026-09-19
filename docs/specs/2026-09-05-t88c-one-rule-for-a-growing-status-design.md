@@ -1,7 +1,7 @@
 # T88c — one rule for a growing `DaemonStatus`
 
 **Date**: 2026-09-05
-**Roadmap**: [T88c](../../../.claude/roadmap/phase-9-ship.md), Phase 9
+**Roadmap**: [T88c](../roadmap/phase-9-ship.md), Phase 9
 **Status**: design
 
 ## The bug
@@ -173,9 +173,9 @@ what one protocol version is allowed to contain, not about serving two of them.
 
 | File | Change |
 | --- | --- |
-| `.claude/decisions/0019-*.md` | New ADR: an added member is optional; the protocol bumps for the rest |
+| `docs/decisions/0019-*.md` | New ADR: an added member is optional; the protocol bumps for the rest |
 | `crates/mixengine-proto/src/daemon.rs` | `elevation` and `dns` become `Option`; docs; floor fixture test |
 | `crates/mixengine-proto/src/lib.rs` | `PROTOCOL_VERSION` doc states what does and does not bump it |
 | `crates/mixengine-cli/src/render.rs` | `status` handles absence; the note names it; tests |
-| `.claude/architecture/daemon-and-ipc.md` | The rule, under **Protocol**, pointing at the ADR |
-| `.claude/roadmap/phase-9-ship.md` | Tick T88c |
+| `docs/architecture/daemon-and-ipc.md` | The rule, under **Protocol**, pointing at the ADR |
+| `docs/roadmap/phase-9-ship.md` | Tick T88c |

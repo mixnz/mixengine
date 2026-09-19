@@ -16,7 +16,7 @@ pub use roots::{Database, databases_under};
 ///
 /// **For `tests/browsers.rs`, and `#[doc(hidden)]` because it is not a capability.** That suite
 /// makes a database in a temp directory with `certutil -N`, and pointing the whole search at that
-/// directory is what keeps `.claude/standards/testing.md`'s first rule: nothing it writes into is a
+/// directory is what keeps `docs/standards/testing.md`'s first rule: nothing it writes into is a
 /// store anybody's browser reads.
 ///
 /// Linux only, because it is the only system with an implementation to point anywhere.

@@ -1,7 +1,7 @@
 # T75 — a name for the phone, and the authority it has to install (design)
 
-Feature spec: [`.claude/features/lan-sharing.md`](../../../.claude/features/lan-sharing.md).
-Roadmap: [T75](../../../.claude/roadmap/phase-8-differentiators.md), Phase 8.
+Feature spec: [`docs/features/lan-sharing.md`](../features/lan-sharing.md).
+Roadmap: [T75](../roadmap/phase-8-differentiators.md), Phase 8.
 Predecessor: [T74](2026-08-31-t74-lan-sharing-design.md), whose D9 and D11 this task extends.
 
 ## Goal
@@ -71,7 +71,7 @@ multi-label form was already unusable before any phone had an opinion.
 and deriving the name rather than storing it means the name cannot drift from the site it names.
 
 - A label that is not a legal mDNS label is normalised by the same
-  [`domains::slug`](../../../crates/mixengine-core/src/domains.rs) this crate already uses for
+  [`domains::slug`](../../crates/mixengine-core/src/domains.rs) this crate already uses for
   project names, so there is one definition of what a slug is in this repository.
 - A primary domain with no dot uses the whole thing; an empty result is a typed refusal rather than
   a name like `-mixengine.local`.
@@ -149,7 +149,7 @@ so the daemon says so and gives the manual command — T74's D8 again, applied t
 that a machine can refuse us.
 
 **D9 — The CA is served from a directory that contains only the CA.**
-[`ca::key_path`](../../../crates/mixengine-core/src/certs/ca.rs) puts `certs/ca/root.key` beside
+[`ca::key_path`](../../crates/mixengine-core/src/certs/ca.rs) puts `certs/ca/root.key` beside
 `certs/ca/root.crt`. Pointing a front end's file server at that directory — the obvious rendering,
 and one `rewrite` away from correct — would publish this home's certificate authority **private
 key** on the local network. That is the most dangerous single line this task could write.
@@ -172,11 +172,11 @@ change, the server reloads.
   the path does not 404 on the scheme somebody happens to try.
 
 **D10 — SAN comparison happens in two places, and the second one is already wrong on `master`.**
-[`covered()`](../../../crates/mixengine-core/src/certs/leaf.rs) composes the list that
+[`covered()`](../../crates/mixengine-core/src/certs/leaf.rs) composes the list that
 `leaf::reusable` compares against, and that path is correct: it includes what sharing added, so
 reissue is idempotent.
 
-The second place is [`certs.rs`](../../../crates/mixengine-daemon/src/certs.rs), where `problem()`
+The second place is [`certs.rs`](../../crates/mixengine-daemon/src/certs.rs), where `problem()`
 is handed `&record.domains` — the bare domain list, with nothing sharing added — and answers
 `CertProblem::NamesDiffer` whenever `cert.sans` differs from it. **Every shared site therefore
 reports `NamesDiffer` today**, because T74 put an IP SAN in the certificate and left this comparison
@@ -308,7 +308,7 @@ rather than answered here.
 Three places assert something that stops being true the moment this lands, and each is a line
 somebody will otherwise trust:
 
-- [`SiteSharing::url`](../../../crates/mixengine-proto/src/site_api.rs) — *"HTTP, and http alone
+- [`SiteSharing::url`](../../crates/mixengine-proto/src/site_api.rs) — *"HTTP, and http alone
   until T75"*.
 - Item 3 of the feature spec — *"`<slug>.mixengine.local`"*, and *"T75, not T74: until it lands the
   URL is the address"*.

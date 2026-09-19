@@ -2,7 +2,7 @@
 # Windows: what an unsigned release looks like to SmartScreen.
 #
 # Roadmap task T86a, design:
-# docs/superpowers/specs/2026-09-04-t86a-unsigned-distribution-design.md
+# docs/specs/2026-09-04-t86a-unsigned-distribution-design.md
 #
 # **This measures the mark, not the verdict.** SmartScreen's Application Reputation gate is reached
 # through `ShellExecute` on a file carrying Mark-of-the-Web — the `Zone.Identifier` stream a browser
@@ -10,7 +10,7 @@
 # see the warning" reduces to "which files in a MixEngine install ever carry a mark", and that is a
 # property of our own artifacts rather than of a cloud service. The verdict itself needs a browser, a
 # reputation lookup and a person — release checklist item 4 in
-# .claude/operations/build-and-release.md.
+# docs/operations/build-and-release.md.
 #
 # Two rules this script is built on, both from the design:
 #

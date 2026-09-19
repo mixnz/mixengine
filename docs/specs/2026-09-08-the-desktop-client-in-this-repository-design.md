@@ -1,10 +1,10 @@
 # The desktop client in this repository — design
 
 **Date**: 2026-09-08
-**Decision**: [ADR 0027](../../../.claude/decisions/0027-the-desktop-client-lives-in-this-repository.md)
-**Roadmap**: [phase 11](../../../.claude/roadmap/phase-11-the-desktop-app-comes-home.md) ·
-[phase 12](../../../.claude/roadmap/phase-12-one-product.md) ·
-[phase 13](../../../.claude/roadmap/phase-13-profiles.md)
+**Decision**: [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)
+**Roadmap**: [phase 11](../roadmap/phase-11-the-desktop-app-comes-home.md) ·
+[phase 12](../roadmap/phase-12-one-product.md) ·
+[phase 13](../roadmap/phase-13-profiles.md)
 
 ## Goal
 
@@ -32,8 +32,8 @@ have its own spec.
 | --- | --- | --- |
 | `src/` — React frontend, five modules, shell, i18n | ~100k lines TS/CSS, 1547 vitest tests | `apps/desktop/src/` |
 | `src-tauri/` — Rust: drivers, SSH, pty, REST, the MixEngine transport | ~36k lines | `apps/desktop/src-tauri/`, its own Cargo workspace |
-| `AGENT.md`, `.agent/` | conventions and architecture | `apps/desktop/CLAUDE.md`, `.claude/desktop/` |
-| `docs/superpowers/specs/` | 26 design documents | `docs/superpowers/specs/`, same names |
+| `AGENT.md`, `.agent/` | conventions and architecture | `apps/desktop/CLAUDE.md`, `docs/README.md` |
+| `docs/specs/` | 26 design documents | `docs/specs/`, same names |
 | `CHANGELOG.md` | 0.0.1 → 0.0.33 | `apps/desktop/CHANGELOG.md`, frozen as history |
 | `.github/workflows/` | ci, release, audit, tool-downloads, update-notes | not moved; see D12 |
 | `scripts/set-version.mjs`, `release-notes.mjs`, `fetch-bindings.mjs` | release tooling | retired; see D6, D4 |
@@ -61,7 +61,7 @@ apps/desktop/
 
 The root `Cargo.toml` gains `exclude = ["apps/desktop/src-tauri"]`. `cargo` invoked at the root
 never sees the desktop crate; `cargo` invoked in `apps/desktop/src-tauri` sees only it and the two
-path dependencies. `.claude/README.md`'s table gains a `desktop/` row, and `CLAUDE.md`'s workspace
+path dependencies. `docs/README.md`'s table gains a `desktop/` row, and `CLAUDE.md`'s workspace
 layout gains `apps/desktop/`.
 
 The git history comes along: `git subtree add --prefix=apps/desktop <mixdb> master` in the
@@ -119,7 +119,7 @@ fingerprint pin the desktop kept becomes a test on the platform side, where the 
 template offers it. `mixengine-core` parses it and nothing — not `Paths`, not the daemon — ever
 uses it, and `mix` never reads it either. A client that dialled a configured path would be dialling
 somewhere no daemon listens. The key stays a config-file debt for this repository, noted in
-[phase 11](../../../.claude/roadmap/phase-11-the-desktop-app-comes-home.md), and the desktop crate
+[phase 11](../roadmap/phase-11-the-desktop-app-comes-home.md), and the desktop crate
 computes its endpoint from the home alone, like the CLI.
 
 ### D6. Identity and version
@@ -168,7 +168,7 @@ MixDB's installer over whatever directory the test build sits in. The version be
 the same task that gives the application MixEngine's name, two tasks before the updater leaves.
 
 `apps/desktop/CHANGELOG.md` is frozen at 0.0.33 with one line at its top saying so. From the merge
-on, the root `CHANGELOG.md` is the only one, under [changelog.md](../../../.claude/standards/changelog.md).
+on, the root `CHANGELOG.md` is the only one, under [changelog.md](../standards/changelog.md).
 
 ### D7. A MixDB user's data comes across, once, and the old copy is never touched
 
@@ -307,7 +307,7 @@ once D9 lands.
 
 Versions in the release feed, the archive names and the handbook's install page do not change
 shape; the artifacts merely carry one more file. The handbook gains a page for the window,
-in both languages, under [ADR 0021](../../../.claude/decisions/0021-the-handbook-is-one-corpus-published-three-ways.md)'s rules.
+in both languages, under [ADR 0021](../decisions/0021-the-handbook-is-one-corpus-published-three-ways.md)'s rules.
 
 ### D13. What `mixnz/mixdb` does after this
 

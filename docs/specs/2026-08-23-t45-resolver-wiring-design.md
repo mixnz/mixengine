@@ -1,6 +1,6 @@
 # T45 — `ResolverConfig`: making one TLD arrive at our own server
 
-**Roadmap:** T45, `.claude/roadmap/phase-4-sites-and-elevation.md`
+**Roadmap:** T45, `docs/roadmap/phase-4-sites-and-elevation.md`
 **Depends on:** T44 (the server and the mode), T40 (the helper and its file protocol), T40b (the
 queue), T64 (`mix elevation grant`), T41 (the marker-block engine, the atomic replace, the TLD
 table), T42 (the read-capability-plus-operation shape this copies)
@@ -9,7 +9,7 @@ table), T42 (the read-capability-plus-operation shape this copies)
 
 T44 built half of a name mechanism. A `hickory-server` answers `A 127.0.0.1` for every name under a
 managed TLD, at any depth — and nothing on any machine sends it a single query, so
-[`Dns::start`](../../../crates/mixengine-daemon/src/dns/mod.rs) hard-codes `ResolverRouting::NotWired`,
+[`Dns::start`](../../crates/mixengine-daemon/src/dns/mod.rs) hard-codes `ResolverRouting::NotWired`,
 every home reports `hosts_only`, and `site.create` goes on queueing a hosts entry per domain and
 spending an elevation prompt per batch.
 
@@ -68,7 +68,7 @@ not installed at all** (`nmcli: command not found`).
   `example.com`, and the fake server was asked about both. A global routing domain does not scope
   the global DNS servers — the global scope still matches everything. This is precisely the
   "never change the machine's global DNS server" that
-  [domains-and-dns.md](../../../.claude/features/domains-and-dns.md) forbids, and it is the reason
+  [domains-and-dns.md](../features/domains-and-dns.md) forbids, and it is the reason
   the measurement existed.
 - **`resolvectl dns lo …` is refused outright**: `Failed to set DNS configuration: Link lo is
   loopback device.` So is `resolvectl domain lo` and `resolvectl revert lo`. The roadmap's own
@@ -178,7 +178,7 @@ the honest end-to-end check is a real lookup, which is T46's.
 
 `ResolverConfig` answers which mechanism this machine has and whether the wiring is already in
 place. It never prompts and never writes, exactly as
-[`PortAccess`](../../../crates/mixengine-platform/src/traits/port_access.rs) does and for the same
+[`PortAccess`](../../crates/mixengine-platform/src/traits/port_access.rs) does and for the same
 reason: the write needs a token the daemon does not have, so a capability the daemon can call is by
 definition one it holds no token for.
 
@@ -208,13 +208,13 @@ difference is the whole of D2 and is why `method()` returns a `Result` here and 
 
 **This is the security decision of the task.** The obvious shape for the operation is "point these
 names at this address", and it is wrong. `mixengine-elevate` exists because a compromised daemon *is*
-the attacker (`.claude/architecture/security-model.md`), so an operation that accepts a nameserver
+the attacker (`docs/architecture/security-model.md`), so an operation that accepts a nameserver
 address from the request is an operation that lets whoever owns the daemon redirect the machine's
 name resolution anywhere — with a valid signature, through the audited binary, with the user's own
 Allow click.
 
 So `127.0.0.1` is **compiled into the helper**, exactly as `PERMITTED` is in
-[`hosts.rs`](../../../crates/mixengine-elevate/src/hosts.rs). So is the Linux link name
+[`hosts.rs`](../../crates/mixengine-elevate/src/hosts.rs). So is the Linux link name
 `mixengine0`, its link-local address, and the Windows registry GUID. The request carries only two
 things the helper cannot know: **which of the managed TLDs to wire**, and **which port the server is
 listening on**.
@@ -258,7 +258,7 @@ the helper. The reload is `systemd-networkd` and nothing else.
 ### D6 — The wiring is per TLD, so the hosts block is per TLD too
 
 T44 gave this home one `DnsMode` and
-[`require_hosts`](../../../crates/mixengine-daemon/src/elevation.rs) branches on it: `HostsOnly`
+[`require_hosts`](../../crates/mixengine-daemon/src/elevation.rs) branches on it: `HostsOnly`
 means a line per declared domain, `Dns` means an empty block. That was right while nothing was
 wired, because both terms were false for every TLD at once.
 
@@ -394,7 +394,7 @@ itself as right rather than as convenient.
 
 ### D15 — The operation is already sanctioned; its shape is narrowed, and that needs no ADR
 
-`.claude/architecture/platform-abstraction.md` keeps the closed list of things that cross into
+`docs/architecture/platform-abstraction.md` keeps the closed list of things that cross into
 `mixengine-elevate`, and says adding an operation **with effects** requires an ADR. Resolver wiring
 is already on that list, so T45 adds no capability — but it is on the list in a shape this design
 refuses:
@@ -510,7 +510,7 @@ been promising since T40a.
 - **`mixengine-daemon`** — `Dns.routing` becomes interior-mutable, `Dns::start` probes,
   `Dns::reprobe`, `Elevation::require_resolver`, and the call after `flush`.
 - **`.github/workflows/ci.yml`** — a `resolver` leg in the `system` job on all three OSes.
-- **`.claude/architecture/platform-abstraction.md`** — the `PrivilegedOp` listing and the
+- **`docs/architecture/platform-abstraction.md`** — the `PrivilegedOp` listing and the
   `ResolverConfig` row (D15), in the commit that changes the types.
 
 ## Testing

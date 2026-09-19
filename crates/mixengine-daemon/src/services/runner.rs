@@ -1679,7 +1679,7 @@ impl Runner {
     /// environment read in [`Runner::where_commands_run`] that an adopted service's stop command
     /// waits on before any of it begins. Those are constants rather than anything the spec asks for,
     /// and a constant charged outside the budget is a constant the budget does not bound — which is
-    /// the whole of what `.claude/architecture/daemon-and-ipc.md` promises when it says the budget
+    /// the whole of what `docs/architecture/daemon-and-ipc.md` promises when it says the budget
     /// bounds the total.
     ///
     /// [`None`] is the ordinary non-shutdown state and means the constant entire: nothing is
@@ -1902,7 +1902,7 @@ impl Runner {
     /// In that order: killing first is what makes the drain finish, because a worker still holding a
     /// copy of the service's stdout keeps the pipe open long after the leader has gone.
     ///
-    /// Off the runtime, because both halves block — `.claude/standards/rust.md` requires it of
+    /// Off the runtime, because both halves block — `docs/standards/rust.md` requires it of
     /// anything that waits. A blocking task that panicked leaves an empty capture rather than taking
     /// the supervisor of every other service down with it.
     ///

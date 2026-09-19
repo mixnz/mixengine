@@ -1,6 +1,6 @@
 # T167 — A site that was up stays up
 
-Roadmap task [T167](../../../.claude/roadmap/phase-21-a-site-that-stays-up.md), phase 21. 2026-09-19. Decision: [ADR 0041](../../../.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md).
+Roadmap task [T167](../roadmap/phase-21-a-site-that-stays-up.md), phase 21. 2026-09-19. Decision: [ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md).
 
 **The case this comes from** is not a bug report. It is the sentence a person says before they
 uninstall: *the site worked this morning, now it does not open.* Nobody using MixLab cares how
@@ -175,6 +175,6 @@ chose (not their mechanism). `resource-isolation.md` is rewritten to match: sect
   site template.
 - `apps/desktop` — Settings toggle, `ProjectForm` / `Projects` (drop keep-warm), `serviceStateLabel`,
   Dashboard / Services rows, i18n `en`/`vi`.
-- `.claude/decisions/0041-…`, `.claude/features/resource-isolation.md`, `client-surface.md`
+- `docs/decisions/0041-…`, `docs/features/resource-isolation.md`, `client-surface.md`
   (Settings gains the toggle), roadmap phase + `todo.md`, `CHANGELOG.md`, the `[services]` comment
   in `config.rs`'s template, `docs/guide` pages for keep-warm and idle.

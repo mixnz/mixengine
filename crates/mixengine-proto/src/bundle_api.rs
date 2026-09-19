@@ -6,7 +6,7 @@
 //! in the crate every client already links is what lets a client open one without a daemon.
 //!
 //! **What is *not* here is a redaction pass.**
-//! `.claude/decisions/0006-servicespec-in-proto-and-secret-free.md` keeps a credential out of the
+//! `docs/decisions/0006-servicespec-in-proto-and-secret-free.md` keeps a credential out of the
 //! spec, the database and the log at the type level, and names this bundle while doing so. A filter
 //! layered on top would be a guess that a pattern matched — and worse than nothing, because it would
 //! invite the next reader to believe the log is filtered rather than clean.
@@ -63,7 +63,7 @@ pub enum Part {
     ///
     /// **The one member of this archive that is clean by construction.** Everything else here is
     /// clean because
-    /// [ADR 0006](../../../.claude/decisions/0006-servicespec-in-proto-and-secret-free.md) keeps a
+    /// [ADR 0006](../../../docs/decisions/0006-servicespec-in-proto-and-secret-free.md) keeps a
     /// credential out of the types it is built from; a [`CrashReport`](crate::CrashReport) is clean
     /// because of what it is *allowed to contain* — constants of the build and symbol names — which
     /// is why one can be attached to a public issue on its own, without the archive around it.
@@ -108,9 +108,9 @@ impl Part {
 /// **A `Part` added after v0.1.0 is a [`PROTOCOL_VERSION`](crate::PROTOCOL_VERSION) bump**, because
 /// this enum also travels on the wire inside [`Member::part`] and an older `mix` cannot decode a
 /// variant it does not have.
-/// [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md) settles an
+/// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md) settles an
 /// added *member* and not an added variant;
-/// [ADR 0022](../../../.claude/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md)
+/// [ADR 0022](../../../docs/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md)
 /// settles this one. It was free in T91 because nothing had been released.
 pub const MANIFEST_FORMAT: u32 = 2;
 
@@ -197,7 +197,7 @@ pub struct PlatformFacts {
     pub daemon: DaemonVersion,
 
     /// What this system promises about a killed daemon's descendants — `total`, `immediate_child`
-    /// or `none`. See `.claude/decisions/0007-supervised-child-owns-a-process-group.md`.
+    /// or `none`. See `docs/decisions/0007-supervised-child-owns-a-process-group.md`.
     pub orphan_guarantee: String,
 
     /// The same answer as the sentence a person reads.

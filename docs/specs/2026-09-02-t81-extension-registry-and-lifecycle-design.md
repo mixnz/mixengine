@@ -27,15 +27,15 @@ did on the strength of something checked rather than something claimed:
 (`extension_api`: list, search, install, uninstall, start, stop, and the consent type);
 `mixengine-daemon` (those methods, and the install job); `mixengine-cli` (`mix extension <same>`);
 `mixengine-core/migrations/0016_extensions.sql`; `mixengine-testkit` (a registry fixture and a
-packaged fake extension). Documentation: [features/extensions.md](../../../.claude/features/extensions.md),
-[architecture/security-model.md](../../../.claude/architecture/security-model.md), and the roadmap.
+packaged fake extension). Documentation: [features/extensions.md](../features/extensions.md),
+[architecture/security-model.md](../architecture/security-model.md), and the roadmap.
 
 **Out:**
 
 - **Publishing `extensions.json`.** T81 verifies; nothing yet produces the document it verifies,
   and nothing needs to until there is an extension worth publishing. That is **T81a**, on the
   T79→T79a shape, and this task's tests sign their fixture with a key the test itself makes
-  ([`MockRegistry`](../../../crates/mixengine-testkit/src/registry.rs)) — which is what proves the
+  ([`MockRegistry`](../../crates/mixengine-testkit/src/registry.rs)) — which is what proves the
   verification path rather than switching it off.
 - **`desktop-app` detection and handoff.** A `desktop-app` extension may be listed and its row
   written; *finding* an installed application is platform-layer work and stays T83's.
@@ -188,7 +188,7 @@ would re-earn each of those, one forgotten feature at a time.
 
 ### D7 — The spec comes from the manifest, through a recipe made at run time
 
-[`Generator::prepare`](../../../crates/mixengine-core/src/generate.rs) looks a `Recipe` up by
+[`Generator::prepare`](../../crates/mixengine-core/src/generate.rs) looks a `Recipe` up by
 `packages.name`. An extension has no compiled-in recipe and must not have one — a recipe is what
 *this build* knows, and an extension is what a home installed.
 
@@ -206,7 +206,7 @@ extension quietly not honouring one of them.
 
 Mailpit asks for two ports and `services` has one `port` column. Keeping the second in a JSON blob
 would hide it from
-[`ports::allocate`](../../../crates/mixengine-core/src/services/ports.rs), which reads
+[`ports::allocate`](../../crates/mixengine-core/src/services/ports.rs), which reads
 `SELECT port FROM services`: a MariaDB created afterwards could be handed Mailpit's SMTP port, and
 the failure would surface as a refused bind with nothing attached to it explaining why. That is the
 exact hazard `allocate_activation` is annotated against — *every port any row holds is taken,
@@ -234,7 +234,7 @@ document was refused entirely. `signed` is two-valued because the situation is.
 ### D10 — `php_ini` is wired; `front_end` is refused
 
 `[recipe] php_ini` becomes one generated `.ini` in every installed PHP's `conf.d`, through
-[`runtimes::extensions`](../../../crates/mixengine-core/src/runtimes/extensions.rs), whose `render`
+[`runtimes::extensions`](../../crates/mixengine-core/src/runtimes/extensions.rs), whose `render`
 already removes generated files that stopped being declared — so uninstalling an extension takes its
 ini with it, on machinery that exists.
 
@@ -294,7 +294,7 @@ needs no check here.
 1. Resolve the entry — from the verified registry, or from a directory for `--path`.
 2. Pick the artifact for this OS/arch; **no artifact is an answer**, not a failure to install.
 3. Ask for consent (D9). Nothing has been fetched.
-4. Download with resume, verify SHA-256, unpack into staging — [`install`](../../../crates/mixengine-core/src/install.rs) whole.
+4. Download with resume, verify SHA-256, unpack into staging — [`install`](../../crates/mixengine-core/src/install.rs) whole.
 5. Allocate every `[ports]` entry, under the allocation lock (D8).
 6. Render the `ServiceSpec` — a manifest that cannot render here fails now, with the staging
    directory removed, rather than at first start.
@@ -318,7 +318,7 @@ half-installed extension must never appear in a listing.
   spec matches what `inspect` answered before the install.
 - **Uninstall**: leaves no row, no port, no directory, no generated ini — and leaves the data dir.
 - **CLI end-to-end**: install → start → stop → uninstall against a packaged fake extension, on the
-  shape [`declare.rs`](../../../crates/mixengine-testkit/src/declare.rs) uses for Caddy.
+  shape [`declare.rs`](../../crates/mixengine-testkit/src/declare.rs) uses for Caddy.
 
 ## Documentation
 

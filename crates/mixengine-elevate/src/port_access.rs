@@ -1,7 +1,7 @@
 //! What port access may be granted, decided by the binary that will grant it.
 //!
 //! **The helper validates the request itself rather than trusting the daemon** —
-//! `.claude/architecture/security-model.md`, and the T42 design, D5. If the daemon is compromised it
+//! `docs/architecture/security-model.md`, and the T42 design, D5. If the daemon is compromised it
 //! *is* the attacker, so nothing the request asserts can be believed: not the binary, not the ports,
 //! not the numbers a redirect names. This module is the whole of that decision, next door to
 //! `hosts.rs`, which is the same shape for the same reason.

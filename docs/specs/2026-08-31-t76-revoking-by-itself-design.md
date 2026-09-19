@@ -30,8 +30,8 @@ follow you from home to a café network*.
 **D1 — One loop, shaped like `certs::renewal::start`, with a period a test can move.** A new
 `sites::revoke` module holds `once()` — one pass, taking the rows and the interface list and
 answering what should end — and `start()`, the loop around it: first tick thrown away, cancellation
-token, nothing catching up. That is [`certs::renewal`](../../../crates/mixengine-daemon/src/certs/renewal.rs)
-and [`services::idle`](../../../crates/mixengine-daemon/src/services/idle.rs) exactly, and the
+token, nothing catching up. That is [`certs::renewal`](../../crates/mixengine-daemon/src/certs/renewal.rs)
+and [`services::idle`](../../crates/mixengine-daemon/src/services/idle.rs) exactly, and the
 third instance of a shape is the point at which copying it is the cheap decision.
 
 The period is `[sharing] check_seconds`, defaulting to 30, validated against zero the way
@@ -127,7 +127,7 @@ for `mixengined.exe` on the Private *and* Public profiles. Wider than this featu
 created outside `mixengine-elevate`, and not removed by `site.unshare` because MixEngine never made
 it. The roadmap offers three answers; this takes the first and third and refuses the second.
 
-*Bind late.* [`Mdns::start`](../../../crates/mixengine-daemon/src/mdns.rs) currently builds its
+*Bind late.* [`Mdns::start`](../../crates/mixengine-daemon/src/mdns.rs) currently builds its
 `ServiceDaemon` at daemon start, so the dialog arrives on a machine where nothing is shared and
 nobody has asked for anything — the worst possible moment to be asked a firewall question. The
 responder is instead built on the first advertisement and shut down when the set empties, which is
@@ -203,7 +203,7 @@ Unit, beside the module, with no daemon and no disk:
 - The event serialises flat and round-trips, as every variant in `event.rs` is asserted to.
 
 Integration, against a real `mixengined` in a sandbox home, in the shape
-[`tests/renewal.rs`](../../../crates/mixengine-daemon/tests/renewal.rs) established — the loop is
+[`tests/renewal.rs`](../../crates/mixengine-daemon/tests/renewal.rs) established — the loop is
 driven by setting `check_seconds` low rather than by waiting:
 
 - A share with a one-second expiry ends by itself, the row goes `NULL`, and the event arrives.
@@ -225,7 +225,7 @@ firewall half is the test below and the real run.
 **No rule left behind.** Windows only, and CI's answer rather than this machine's: the daemon suites
 run under a full token there, and a dev machine's `cargo test` does not. The test invokes
 `mixengine-elevate` directly, the way
-[`core/tests/elevation.rs`](../../../crates/mixengine-core/tests/elevation.rs) does — apply a plan
+[`core/tests/elevation.rs`](../../crates/mixengine-core/tests/elevation.rs) does — apply a plan
 carrying ports, apply the empty plan, then enumerate by label and assert nothing matches. Gated on
 `is_elevated()` and skipped with its reason otherwise, because a test that quietly passes when it
 did not run is worse than one that says it was skipped. `ufw` has no comment field to name a rule
@@ -324,7 +324,7 @@ it reaches the trust store through `mixengine-elevate` (T49a), and it does that 
 user agreed to. A supervised front end adding a second by default is that whole argument undone —
 and the more privilege the daemon holds, the further the install gets. CI's Windows leg runs under a
 full administrative token, which supervised children inherit (the hazard
-[ADR 0010](../../../.claude/decisions/0010-supervised-child-never-inherits-administrators.md) is
+[ADR 0010](../decisions/0010-supervised-child-never-inherits-administrators.md) is
 about, and which the daemon warns about on that leg).
 
 **The readiness timeout was the same fact wearing a different hat**, and the runner's log is precise
@@ -380,5 +380,5 @@ trust anchors on somebody's behalf is the other half of the same mistake.
   the case that narrowing gives up belongs in that document rather than only in this one.
 - T74's data-model note, *"T76 adds `shared_until` here"*, which stops being a promise and becomes a
   description.
-- `.claude/features/client-surface.md`, which gains the revocation reason: a CLI user reads it from
+- `docs/features/client-surface.md`, which gains the revocation reason: a CLI user reads it from
   the log, and a graphical client is where it becomes a notification.

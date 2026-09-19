@@ -43,7 +43,7 @@ What is missing is exactly three things:
 
 ## D2 — the check runs hourly, and the 30-day margin is why it may be imprecise
 
-`.claude/features/tls.md` says *"a daily scheduler task"*. Taken literally that is a 24-hour
+`docs/features/tls.md` says *"a daily scheduler task"*. Taken literally that is a 24-hour
 `tokio::time::interval`, and a 24-hour interval on a laptop is not 24 hours: Tokio measures from
 `std::time::Instant`, which is `CLOCK_MONOTONIC` on Linux and `mach_absolute_time` on macOS, and
 neither advances while the machine is suspended. A laptop closed over a weekend counts none of it.

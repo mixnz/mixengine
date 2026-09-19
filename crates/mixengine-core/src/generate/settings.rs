@@ -11,7 +11,7 @@
 //! and they find out when the database falls over under load rather than when they typed it.
 //!
 //! **One key belongs to no recipe**, and every service has it: [`EXTRA`] is the free-form blob
-//! `.claude/features/services.md` promises — the directives MixEngine has no opinion about, pasted
+//! `docs/features/services.md` promises — the directives MixEngine has no opinion about, pasted
 //! into the generated file verbatim. It is deliberately not a [`Setting`], because a recipe cannot
 //! choose whether to offer it: a config format this build models incompletely is the normal case,
 //! and a user who cannot add a line to it is a user editing the generated file by hand.

@@ -3,7 +3,7 @@
 # and check that all of it is current.
 #
 # Roadmap task T90.
-# Design: docs/superpowers/specs/2026-09-05-t90-the-documentation-site-design.md
+# Design: docs/specs/2026-09-05-t90-the-documentation-site-design.md
 #
 #   bash packaging/docs.sh              build the site into target/site/
 #   bash packaging/docs.sh --reference  regenerate docs/guide/en/cli.md from `mix` itself

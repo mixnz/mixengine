@@ -1,6 +1,6 @@
 # T108 — A module visibility setting with three presets
 
-Roadmap task [T108](../../../.claude/roadmap/phase-13-profiles.md), on
+Roadmap task [T108](../roadmap/phase-13-profiles.md), on
 [the desktop client design](2026-09-08-the-desktop-client-in-this-repository-design.md)'s D11 and
 on [T104](2026-09-09-t104-the-application-is-mixlab-design.md)'s import. 2026-09-09.
 

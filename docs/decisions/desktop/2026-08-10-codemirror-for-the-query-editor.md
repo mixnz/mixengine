@@ -1,7 +1,7 @@
 # CodeMirror 6 for the Query tab's editor
 
 The Query tab used a `<textarea>`. Replacing it meant picking an editor to build the rest of the
-[roadmap](../notes/query-editor-roadmap.md) on — completion, linting, hover docs, all of it.
+[roadmap](../../roadmap/desktop/query-editor.md) on — completion, linting, hover docs, all of it.
 
 ## The choice
 

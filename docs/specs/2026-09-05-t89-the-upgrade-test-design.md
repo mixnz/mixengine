@@ -4,7 +4,7 @@ Roadmap task **T89**, phase 9: *"Upgrade test: an old `mixengine.db` migrated by
 CI."*
 
 `mixengine.db` is the one thing MixEngine owns that cannot be regenerated —
-[data-model.md](../../../.claude/architecture/data-model.md) opens by saying so. Everything under
+[data-model.md](../architecture/data-model.md) opens by saying so. Everything under
 `etc/` is rendered from it, `runtimes/` can be downloaded again, `logs/` is history; this file is
 the one whose loss costs a person their sites. An upgrade is the only routine event that rewrites
 it, and until this task nothing in this repository has ever run a migration against a database
@@ -36,7 +36,7 @@ Read on 2026-09-05 out of this tree rather than reasoned about.
    earlier, by the build running the test.
 3. **The migration set is 1..=17**, `0001_initial.sql` … `0017_extension_sites.sql`, embedded by
    `static MIGRATIONS: Migrator = sqlx::migrate!("./migrations")` in
-   [store.rs:27](../../../crates/mixengine-core/src/store.rs).
+   [store.rs:27](../../crates/mixengine-core/src/store.rs).
 4. **`Store::open` already does the whole of the upgrade behaviour** — `schema_state` classifies
    `Empty` / `Current` / `Behind`, `back_up` takes a `VACUUM INTO` copy to
    `mixengine.db.bak-<version>` when and only when `Behind`, and `migration_failure` sorts the three
@@ -46,8 +46,8 @@ Read on 2026-09-05 out of this tree rather than reasoned about.
 6. **Release-checklist item 2 already asks for this test, and asks a person to run it**:
    *"verify the migration path from the previous release with a real upgrade test (old
    `mixengine.db` → new binary)"* —
-   [build-and-release.md](../../../.claude/operations/build-and-release.md).
-7. **`.claude/standards/testing.md` names one home for fixtures**: `crates/mixengine-testkit`, a
+   [build-and-release.md](../operations/build-and-release.md).
+7. **`docs/standards/testing.md` names one home for fixtures**: `crates/mixengine-testkit`, a
    dev-dependency and never anything else, enforced by
    `crates/mixengine-proto/tests/workspace_layering.rs`. It does not depend on `mixengine-core` —
    `home.rs` restates three of `Paths`' answers rather than taking the edge — so a fixture placed
@@ -118,12 +118,12 @@ Three things stand against it, and none of them is a lock:
 2. A modified binary file is visible in a diff in a way a modified line is not — `git` reports
    `Binary files differ` and nothing else, which is exactly the sentence a reviewer should stop at.
 3. The rule is written into
-   [data-model.md](../../../.claude/architecture/data-model.md)'s compatibility list, beside *"never
+   [data-model.md](../architecture/data-model.md)'s compatibility list, beside *"never
    rewrite an existing migration file"*, which is the same rule about the same thing.
 
 ### D2 — The fixtures live in `mixengine-testkit`, and only `copy_into` reaches them
 
-`.claude/standards/testing.md` names one home for fixtures and this is it. Two crates read them —
+`docs/standards/testing.md` names one home for fixtures and this is it. Two crates read them —
 `mixengine-core`'s suite and `mixengine-cli`'s — and a path like
 `../mixengine-core/tests/fixtures/…` written from the CLI crate is a dependency nothing declares
 and nothing checks.

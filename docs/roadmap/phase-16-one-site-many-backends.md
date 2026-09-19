@@ -6,7 +6,7 @@ pool, a directory on disk — and a prefix may be rewritten on the way out.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-15-t135-one-site-many-backends-design.md](../../docs/superpowers/specs/2026-09-15-t135-one-site-many-backends-design.md).
+Design: [2026-09-15-t135-one-site-many-backends-design.md](../specs/2026-09-15-t135-one-site-many-backends-design.md).
 
 ---
 

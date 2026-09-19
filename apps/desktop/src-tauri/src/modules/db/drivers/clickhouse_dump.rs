@@ -1,5 +1,5 @@
 //! Dumping and restoring a ClickHouse database over its HTTP interface — no `clickhouse-client`,
-//! no child process. See `docs/superpowers/specs/2026-09-04-clickhouse-dump-restore-design.md` for
+//! no child process. See `docs/specs/2026-09-04-clickhouse-dump-restore-design.md` for
 //! the decisions this implements (referenced as D1..D9 below).
 
 use super::clickhouse::{self, Connection};

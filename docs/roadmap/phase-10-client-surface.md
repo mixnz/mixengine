@@ -72,7 +72,7 @@ subscription that is supposed to gate it.
       before it is deleted and `RolledBack` is what a refused rendering answers.
       Reachable as `mix service front-end` and `mix service set-front-end <caddy|nginx>`.
       Design:
-      [docs/superpowers/specs/2026-09-07-t97-the-active-front-end-design.md](../../docs/superpowers/specs/2026-09-07-t97-the-active-front-end-design.md).
+      [docs/specs/2026-09-07-t97-the-active-front-end-design.md](../specs/2026-09-07-t97-the-active-front-end-design.md).
 
 **Milestone M10 — MixDB's Dashboard and Settings screens draw whole, with no business logic in the
 client.** Not *a client can call these methods*: the test is that the screen `client-surface.md`

@@ -259,7 +259,7 @@ it is the end of it, and a socket cannot forget to close.
   console-subsystem program a *visible* console window in the user's session, and `<Hidden>true</Hidden>`
   does not stop it. So the daemon releases a console it is the only process attached to — 1 attached
   process under Task Scheduler, 4 from a shell — which leaves `mixengined` in a terminal exactly as
-  it was. See the [T85b design](../../docs/superpowers/specs/2026-09-04-t85b-autostart-design.md), D4.
+  it was. See the [T85b design](../specs/2026-09-04-t85b-autostart-design.md), D4.
 - **Client autostart**: if a client cannot connect, it spawns `mixengined --detach`, which returns
   only once the daemon answers on its endpoint and prints that endpoint on stdout. No backoff loop in
   the client: the wait belongs to the process that knows whether its child is still alive. This is

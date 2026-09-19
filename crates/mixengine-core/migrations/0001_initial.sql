@@ -1,4 +1,4 @@
--- The schema from .claude/architecture/data-model.md, in dependency order so that every foreign key
+-- The schema from docs/architecture/data-model.md, in dependency order so that every foreign key
 -- points at a table that already exists.
 --
 -- Four conventions hold throughout, and none of them is worth re-deciding per table:

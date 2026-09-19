@@ -24,7 +24,7 @@ Out: `database.list` and `database.drop` — nothing needs either, and dropping 
 different decision with different stakes (D9). Reading a password back out: that is T83's shape, and
 building it here would be guessing at it (D11). Writing the credential into a project's `.env`: a
 scaffold's job, not MixEngine's. Anything about *browsing* data — that is MixDB, and
-[`features/services.md`](../../../.claude/features/services.md) already says so.
+[`features/services.md`](../features/services.md) already says so.
 
 ## Decisions
 
@@ -32,8 +32,8 @@ scaffold's job, not MixEngine's. Anything about *browsing* data — that is MixD
 in `mixengine-core`, which has no business reaching an OS credential store or spawning a process; the
 daemon holds the `Keyring` and the process runner. So a recipe answers *what statements*, and the
 daemon answers *with which credential, in what order, against which running server*. This is exactly
-the split [`generate::first_run`](../../../crates/mixengine-core/src/generate/first_run.rs) and
-[`services/first_run.rs`](../../../crates/mixengine-daemon/src/services/first_run.rs) already draw,
+the split [`generate::first_run`](../../crates/mixengine-core/src/generate/first_run.rs) and
+[`services/first_run.rs`](../../crates/mixengine-daemon/src/services/first_run.rs) already draw,
 and reusing it means the keyring appears in one place in this workspace rather than two.
 
 Two alternatives were weighed. A separate `DatabaseAdmin` trait beside `Recipe` is tidier on paper
@@ -146,7 +146,7 @@ to the new database** and creates and drops a table in it — a real table in `p
 which is also the only thing that proves D6's ownership, and a temporary one would not.
 
 The reason this is a step rather than an assertion in a test is
-[`tests/mariadb.rs`](../../../crates/mixengine-cli/tests/mariadb.rs)'s own finding: on macOS a
+[`tests/mariadb.rs`](../../crates/mixengine-cli/tests/mariadb.rs)'s own finding: on macOS a
 keychain item carries an ACL naming the application that created it, so a **test process** reading
 the daemon's credential raises a dialog nobody can answer — measured once at twenty-seven minutes
 before the job timed out. The daemon already holds the password, so the proof costs it one local
@@ -244,9 +244,9 @@ keyring holds, so the three branches are a table test with no process and no dat
 adopted-and-realigned, refused. The rule the whole task rests on is provable in milliseconds.
 
 **Against real servers, and reading no credential.** Extending
-[`tests/mariadb.rs`](../../../crates/mixengine-cli/tests/mariadb.rs),
-[`tests/mysql.rs`](../../../crates/mixengine-cli/tests/mysql.rs) and
-[`tests/postgres.rs`](../../../crates/mixengine-cli/tests/postgres.rs), which already install and
+[`tests/mariadb.rs`](../../crates/mixengine-cli/tests/mariadb.rs),
+[`tests/mysql.rs`](../../crates/mixengine-cli/tests/mysql.rs) and
+[`tests/postgres.rs`](../../crates/mixengine-cli/tests/postgres.rs), which already install and
 start a server: `mix database create` succeeds — which by D13 *is* the assertion that the credential
 works and that the account can create a table, made by the daemon that owns the credential — then
 succeeds again reporting `existing`/`existing`, and a connection as the new account with a wrong
@@ -277,14 +277,14 @@ contract, and if it moves the probe is where it is felt.
 
 ## Text that this task makes wrong
 
-- [`roadmap/phase-8-differentiators.md`](../../../.claude/roadmap/phase-8-differentiators.md) —
+- [`roadmap/phase-8-differentiators.md`](../roadmap/phase-8-differentiators.md) —
   **T77a** is inserted between T77 and T78, in the order it has to be built.
-- [`features/services.md`](../../../.claude/features/services.md) — "Database management scope" lists
+- [`features/services.md`](../features/services.md) — "Database management scope" lists
   credentials as in scope without saying that creating a database and an account for a project is
   what that means. One sentence, pointing here.
-- [`features/client-surface.md`](../../../.claude/features/client-surface.md) — a graphical client
+- [`features/client-surface.md`](../features/client-surface.md) — a graphical client
   needs `database.create` reachable; it is added to the surface list, per `CLAUDE.md`'s rule that a
   gap in `mix` is a gap in the product.
-- [`features/blueprints.md`](../../../.claude/features/blueprints.md) — the Apply section's "create DB
+- [`features/blueprints.md`](../features/blueprints.md) — the Apply section's "create DB
   `blog`" is now a real operation with a named owner and a keyring address, and the rollback sentence
   gains D9's exception.

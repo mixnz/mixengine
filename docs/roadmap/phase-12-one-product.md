@@ -6,7 +6,7 @@ loses nothing by switching.*
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../../docs/superpowers/specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
+Design: [2026-09-08-the-desktop-client-in-this-repository-design.md](../specs/2026-09-08-the-desktop-client-in-this-repository-design.md),
 on [ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md).
 
 ---
@@ -30,7 +30,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       last tab strip are not things a person made. An import found sets the profile to *Everything* once T108
       exists; until then it changes nothing visible. **(P)** — three application-data locations,
       three keyrings.
-      Design: [2026-09-09-t104-the-application-is-mixlab-design.md](../../docs/superpowers/specs/2026-09-09-t104-the-application-is-mixlab-design.md).
+      Design: [2026-09-09-t104-the-application-is-mixlab-design.md](../specs/2026-09-09-t104-the-application-is-mixlab-design.md).
       **Three things this task settled.** The mark is drawn here rather than handed over: the
       design's D6 expects the owner's SVGs and they have not arrived, so `public/logo.svg` draws
       D6's description — a ring open at the lower right, an `ML` ligature whose `L` leaves through
@@ -53,7 +53,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       `mixengine-<version>-<os>-<arch>-headless` archive carries the four binaries and nothing
       else. Each script's own check — *the binaries are really in there* — counts five, or four
       for the headless one. **(P)**
-      Design: [2026-09-09-t105-the-window-in-every-installer-design.md](../../docs/superpowers/specs/2026-09-09-t105-the-window-in-every-installer-design.md).
+      Design: [2026-09-09-t105-the-window-in-every-installer-design.md](../specs/2026-09-09-t105-the-window-in-every-installer-design.md).
       **Two things this task settled.** The executable is `mixlab` on every operating system and not
       D6's `MixLab.exe` on Windows: `updates::apply::swap` looks a payload's name up as
       `directory.join(binary_name(name))` and `binary_name` appends `EXE_SUFFIX` and nothing else,
@@ -81,7 +81,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       AppImage's window uses the system's WebKitGTK 4.1, `AppRun` says which floor was missed rather
       than always naming the webview, and the command line inside the same image is unaffected either
       way. **(P)**
-      Design: [2026-09-09-t105a-the-appimage-and-webkitgtk-design.md](../../docs/superpowers/specs/2026-09-09-t105a-the-appimage-and-webkitgtk-design.md).
+      Design: [2026-09-09-t105a-the-appimage-and-webkitgtk-design.md](../specs/2026-09-09-t105a-the-appimage-and-webkitgtk-design.md).
       **Three measurements settled it, on run 34298077029.** *What carrying would buy*: every
       distribution new enough to run the window already packages WebKitGTK 4.1, and the ones that do
       not are below the window's own glibc floor, which no bundle lowers — the window is built on
@@ -117,7 +117,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       before this release is told in the release notes that the window arrives by installer. After
       `UpdateApplied` the window relaunches itself the way the daemon does. **(P)** — on Windows a
       running executable is renamed, never overwritten, and the window is the running one.
-      Design: [2026-09-09-t106-one-updater-design.md](../../docs/superpowers/specs/2026-09-09-t106-one-updater-design.md).
+      Design: [2026-09-09-t106-one-updater-design.md](../specs/2026-09-09-t106-one-updater-design.md).
       **Three things this task settled.** **The window's payload entry is a directory on macOS, and
       three layers had to learn it.** `feed.sh` skipped every directory entry it saw, so a payload
       carrying `MixLab.app` would have been described as four binaries and no window;
@@ -148,7 +148,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       application's location beside standalone MixDB's, so `mix database open` from a terminal
       opens a tab in the running window, password in the environment and nowhere else, exactly as
       T83 specified. `mixdb://`, `launch.rs` and `instance.rs` stay. **(P)**
-      Design: [2026-09-09-t107-where-the-daemon-and-the-window-are-design.md](../../docs/superpowers/specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md).
+      Design: [2026-09-09-t107-where-the-daemon-and-the-window-are-design.md](../specs/2026-09-09-t107-where-the-daemon-and-the-window-are-design.md).
       **Four things this task settled.** **The window is looked for where this install is, and
       nowhere else** — not on `PATH`, not in App Paths, not through Spotlight, which is the opposite
       of how the same crate finds standalone MixDB. Two reasons, and the second is the one that
@@ -181,7 +181,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       already set. The *not installed* gate says which directories it looked in and offers a
       reinstall rather than a first download, which is what that state has meant since ADR 0027.
       **(P)** — the executable suffix, the copy refusal and the home path.
-      Design: [2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md](../../docs/superpowers/specs/2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md).
+      Design: [2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md](../specs/2026-09-10-t111-the-dev-loop-stages-the-daemon-design.md).
       **Three things this task settled.** The script **starts `tauri dev` itself** rather than
       standing in front of it behind `&&`: two commands joined that way are two processes, and the
       home the daemon must share would not survive the first one ending. The list is read out of
@@ -204,7 +204,7 @@ inside MixEngine's installers, replaced by MixEngine's updater.
       MixLab. `database.client` answers `installed` for this install's window or `no_client`; the
       per-OS lookups and T107's scheme rule go with it. **(P)** — three lookups deleted.
       [ADR 0038](../decisions/0038-the-window-is-the-only-desktop-database-client.md).
-      Design: [2026-09-17-t165-the-window-is-the-only-desktop-client-design.md](../../docs/superpowers/specs/2026-09-17-t165-the-window-is-the-only-desktop-client-design.md).
+      Design: [2026-09-17-t165-the-window-is-the-only-desktop-client-design.md](../specs/2026-09-17-t165-the-window-is-the-only-desktop-client-design.md).
       **No protocol bump**, for the reason the ADR gives: everything removed was written only by a
       daemon. **And the one real handoff test kept a real client**: `mariadb.rs` runs a copy of the
       daemon out of its own directory with a script named `mixlab` beside it, since beside the

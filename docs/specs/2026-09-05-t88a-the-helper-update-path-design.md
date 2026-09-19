@@ -6,7 +6,7 @@ negotiation."*
 
 Two of those four clauses are already true and one of them is true only on paper.
 [T85](2026-09-04-t85-installers-design.md) gave the helper an elevation prompt of its own —
-`PrivilegedOp::HelperInstall {}`, [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md)
+`PrivilegedOp::HelperInstall {}`, [ADR 0015](../decisions/0015-the-helper-installs-itself.md)
 — and [T88](2026-09-04-t88-self-update-design.md) excluded it from the automatic path by name. What
 neither built is the half that decides *whether a replacement deserved that prompt at all*, and
 without it the helper on a machine is the helper that machine will have for ever.
@@ -25,30 +25,30 @@ and says what to do about it.
 Read out of this tree on 2026-09-05.
 
 1. **The upgrade path silently answers "already done".**
-   [`elevation::choose`](../../../crates/mixengine-core/src/elevation.rs) prefers the *installed*
+   [`elevation::choose`](../../crates/mixengine-core/src/elevation.rs) prefers the *installed*
    helper, so the elevated process on any machine past its first prompt **is** the installed copy.
-   [`helper::install`](../../../crates/mixengine-elevate/src/helper.rs) then compares
+   [`helper::install`](../../crates/mixengine-elevate/src/helper.rs) then compares
    `current_exe()` with `helper_path()`, finds them the same file, and returns
    `OpOutcome::AlreadyDone`. `AlreadyDone` deletes the queue row
-   ([`elevation::settle`](../../../crates/mixengine-core/src/elevation.rs)), so the next daemon start
+   ([`elevation::settle`](../../crates/mixengine-core/src/elevation.rs)), so the next daemon start
    asks again, is answered the same way, and nothing ever changes.
 2. **Nothing puts a newer helper where the daemon could see one.**
-   [`updates::apply::swap`](../../../crates/mixengine-core/src/updates/apply.rs) skips
-   [`KEPT`](../../../crates/mixengine-core/src/updates/apply.rs) — so after `mix self-update`, the
+   [`updates::apply::swap`](../../crates/mixengine-core/src/updates/apply.rs) skips
+   [`KEPT`](../../crates/mixengine-core/src/updates/apply.rs) — so after `mix self-update`, the
    copy of `mixengine-elevate` *beside `mixengined`* is still the old one, and
    `Elevation::require_helper`'s byte comparison finds two identical old files and asks for nothing.
 3. **`require_helper` compares bytes, not versions.** A `cargo build` in a development tree that
    changes one byte of the helper puts a row on `mix status` whose only meaning is "you rebuilt".
 4. **The protocol is a point, not a window.**
-   [`request::read`](../../../crates/mixengine-elevate/src/request.rs) refuses any request whose
+   [`request::read`](../../crates/mixengine-elevate/src/request.rs) refuses any request whose
    `version` is not exactly the helper's own — exit 65, no response file at all — and
-   [`elevation::read_report`](../../../crates/mixengine-core/src/elevation.rs) refuses any response
+   [`elevation::read_report`](../../crates/mixengine-core/src/elevation.rs) refuses any response
    whose version is not exactly the daemon's. So *"an old elevate keeps serving the operations it
-   knows"* ([`.claude/features/updates.md`](../../../.claude/features/updates.md)) is false at the
+   knows"* ([`docs/features/updates.md`](../features/updates.md)) is false at the
    envelope, before the per-operation tolerance `ops::decode` was written for is ever reached.
 5. **The two facts that would drive a negotiation are reported and read by nobody.**
    `PrivilegedResponse::elevate_version` and `PrivilegedResponse::supported_ops` are filled in by
-   [`main.rs`](../../../crates/mixengine-elevate/src/main.rs) and reach exactly one `tracing::info!`
+   [`main.rs`](../../crates/mixengine-elevate/src/main.rs) and reach exactly one `tracing::info!`
    field in the daemon.
 6. **`minisign-verify` 0.2.5 has no dependencies at all** — `Cargo.lock` carries no `dependencies`
    block for it — and it exposes `Signature::trusted_comment()`, which the global signature covers.
@@ -56,7 +56,7 @@ Read out of this tree on 2026-09-05.
    binary over eight crates and hand-wrote a DER reader instead; the currency this crate's
    dependency list is counted in is crates, and this costs one.
 7. **The signing key is only ever on the `release` job.**
-   [`ci.yml`](../../../.github/workflows/ci.yml) hands `UPDATE_SECRET_KEY` to one step, in one job,
+   [`ci.yml`](../../.github/workflows/ci.yml) hands `UPDATE_SECRET_KEY` to one step, in one job,
    after all five `build` legs have uploaded. No build leg can sign anything, so nothing signed can
    be inside an artifact a build leg produced.
 
@@ -78,7 +78,7 @@ assert the state this changes.
 Changing which file `elevation::helper` chooses ([the T40b design's D9](2026-08-23-t40b-elevation-queue-design.md):
 there is no override, and there will not be). An offline helper upgrade — see *What this leaves*.
 Signing anything with the operating system's machinery, which is
-[ADR 0017](../../../.claude/decisions/0017-smart-app-control-is-an-unsupported-configuration.md)'s
+[ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md)'s
 closed question.
 
 ## The shape
@@ -109,13 +109,13 @@ The interesting line is the one that says *those same bytes*. See D5.
 
 ### D1 — `HelperReplace {}` carries no fields, and the candidate lives at a fixed path under the request's home
 
-[ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md) refuses
+[ADR 0015](../decisions/0015-the-helper-installs-itself.md) refuses
 `HelperInstall { source: PathBuf }` in one line: *"it is `Exec { cmd }` with two more steps, and the
 closed-enum rule in the security model exists to refuse that shape."* That reasoning is untouched
 here, and the new operation obeys it: it carries nothing.
 
 Where the candidate is, is composed by the elevated process from two things it already has — the
-`home` the request names, which [`request::read`](../../../crates/mixengine-elevate/src/request.rs)
+`home` the request names, which [`request::read`](../../crates/mixengine-elevate/src/request.rs)
 has already established belongs to the caller and contains the request file, and a constant. Both
 sides compose it through one function so the two cannot drift:
 
@@ -154,7 +154,7 @@ the helper could replace the check.
 On a machine with nothing installed, `elevation::choose` runs the copy beside the daemon and the
 right operation is `HelperInstall {}`, which copies its own image and checks no signature. **That is
 unchanged and it is stated rather than hidden**:
-[`security-model.md`](../../../.claude/architecture/security-model.md) already says malware that
+[`security-model.md`](../architecture/security-model.md) already says malware that
 replaced that copy before first run gets root once and is then installed as the permanent helper,
 and that nothing but an OS signature closes it. T88a does not close it either. What T88a closes is
 the *second* and every later replacement.
@@ -176,7 +176,7 @@ minisign-verify.workspace = true
 above it that the file's existing comments set the pattern for.
 
 The key is `mixengine_elevate::PUBLIC_KEY`, pinned the same way
-[`core::updates::PUBLIC_KEY`](../../../crates/mixengine-core/src/updates.rs) is, and kept honest by
+[`core::updates::PUBLIC_KEY`](../../crates/mixengine-core/src/updates.rs) is, and kept honest by
 the same test read at compile time:
 
 ```rust
@@ -278,7 +278,7 @@ and `latest.json` gains an array naming them:
 ```
 
 `#[serde(default)]`, so a feed written before this field still reads and
-[`feed::SCHEMA`](../../../crates/mixengine-core/src/updates/feed.rs) does not move — that file
+[`feed::SCHEMA`](../../crates/mixengine-core/src/updates/feed.rs) does not move — that file
 already states the rule: *"Bumped only for a change an existing client cannot read. Adding an
 optional field is not one."* The signature's URL is the asset's plus `.minisig`, which is the
 convention `index::Client` already appends and `sign.sh` already writes.
@@ -366,7 +366,7 @@ anything"*, the difference is running the candidate once, here, as an ordinary p
 
 It is the same mechanism as D7's handshake pointed at the staged file, and it answers exactly the
 things a signature cannot: a Windows Code Integrity refusal
-([`.claude/features/updates.md`](../../../.claude/features/updates.md) records `os error 4551` as a
+([`docs/features/updates.md`](../features/updates.md) records `os error 4551` as a
 refusal rather than a warning, re-judged after every update, per file), a Linux build past this
 machine's glibc floor, and a binary that will not load for a reason nobody predicted.
 
@@ -394,7 +394,7 @@ refusal and no sentence.
 
 **Nothing here reaches the network**, which is why the enqueue moved out of `require_helper` and into
 `elevation.upgrade`: a daemon start that downloaded a binary would be a start an offline machine
-pays for, which `.claude/features/updates.md` forbids in as many words.
+pays for, which `docs/features/updates.md` forbids in as many words.
 
 ### D11 — Windows replaces by renaming, and the `.old` is cleaned by the next elevated run
 
@@ -451,7 +451,7 @@ you to grant it. A command that raised the prompt itself would be a second door 
 `elevation.grant` is deliberately the only one.
 
 **A copy of MixEngine a package manager installed is refused in words**, reusing
-[`updates::Placement`](../../../crates/mixengine-core/src/updates/placement.rs) and its sentence: a
+[`updates::Placement`](../../crates/mixengine-core/src/updates/placement.rs) and its sentence: a
 `.deb`, an `.rpm` or a `.pkg` put the helper at that path as root, and the same package manager
 replaces it.
 
@@ -460,12 +460,12 @@ replaces it.
 The signature is checked in the daemon before anything is staged, and again inside the elevated
 process. The second one is the security boundary; the first one is the user interface. Without it,
 a mirror that answered with rubbish would cost an elevation prompt to discover — and the acceptance
-criterion in `.claude/features/updates.md` is *"a tampered artifact fails the minisign check and is
+criterion in `docs/features/updates.md` is *"a tampered artifact fails the minisign check and is
 refused, **with the reason shown**"*, which is a sentence somebody has to be able to read without
 having clicked Allow first.
 
 `core::updates::helper::verify` takes the public key as a parameter, on
-[`blueprints::trust::verify`](../../../crates/mixengine-core/src/blueprints/trust.rs)'s precedent and
+[`blueprints::trust::verify`](../../crates/mixengine-core/src/blueprints/trust.rs)'s precedent and
 for its reason: a compiled-in key cannot answer *does verification refuse everything else*, because
 no test can produce a signature under it. `mixengine-testkit`'s `Signer` gains a trusted comment so
 both halves are exercised with a key a test owns.
@@ -535,14 +535,14 @@ which file is a candidate for running as root, and the signature makes it *safe*
 needs it.
 
 **Rotating the updater key is now a heavier one-way door**, and this is the sentence
-`.claude/features/updates.md` gains. Every installed helper pins exactly one key, compiled in; after
+`docs/features/updates.md` gains. Every installed helper pins exactly one key, compiled in; after
 a rotation, no helper installed before it will ever accept a candidate again, and the only way to
 replace one is a package manager running as root. The mitigation is the one that page already
 describes and has not needed — accepting a set of keys rather than one — and the cost of not having
 built it just went up by one binary.
 
 **The first prompt on a fresh machine is still unchecked**, which is D2's second half and
-[`security-model.md`](../../../.claude/architecture/security-model.md)'s stated residual. That
+[`security-model.md`](../architecture/security-model.md)'s stated residual. That
 document's line — *"the only thing that closes it is a signature the operating system checks before
 the prompt: T94's question, and T88a's check"* — needs its second half corrected rather than ticked:
 T88a's check closes every replacement after the first and does not close the first.
@@ -554,13 +554,13 @@ T88a's check closes every replacement after the first and does not close the fir
   `CLAUDE.md` says is a new record's job: what makes a path acceptable here is not that the caller is
   trusted — it is not — but that the bytes it points at must carry a signature the elevated process
   checks itself, against a key it was compiled with.
-- [`.claude/features/updates.md`](../../../.claude/features/updates.md) — *"What must never
+- [`docs/features/updates.md`](../features/updates.md) — *"What must never
   auto-update"* becomes built rather than promised; the rotation paragraph gains the sentence above;
   the acceptance criteria gain the helper's own.
-- [`.claude/architecture/security-model.md`](../../../.claude/architecture/security-model.md) — both
+- [`docs/architecture/security-model.md`](../architecture/security-model.md) — both
   places that say the check is *"not built yet"*, and the residual's second half.
-- [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md) — its *Consequences*
+- [ADR 0015](../decisions/0015-the-helper-installs-itself.md) — its *Consequences*
   section names T88a twice as the thing still ahead; those two sentences point at the new ADR.
-- [`.claude/roadmap/phase-9-ship.md`](../../../.claude/roadmap/phase-9-ship.md) — T88a ticked, with
+- [`docs/roadmap/phase-9-ship.md`](../roadmap/phase-9-ship.md) — T88a ticked, with
   what the implementation changed about its own sentence.
-- [`packaging/README.md`](../../../packaging/README.md) — the sixth asset per leg.
+- [`packaging/README.md`](../../packaging/README.md) — the sixth asset per leg.

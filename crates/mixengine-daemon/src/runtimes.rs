@@ -10,7 +10,7 @@
 //!
 //! # Five of the six methods answer inline, and one returns a job
 //!
-//! The split is the download and nothing else. `.claude/architecture/daemon-and-ipc.md` says a long
+//! The split is the download and nothing else. `docs/architecture/daemon-and-ipc.md` says a long
 //! operation returns a job rather than holding a call open; removing a directory, reading a table
 //! and moving a default are none of them long, and making every one of them return a job would make
 //! a client learn a second protocol to hear an answer that was ready before it asked.
@@ -53,7 +53,7 @@ use crate::requirements;
 ///
 /// **Both, or neither.** A team hosting its own mirror cannot sign with our private key, so an index
 /// URL that could be pointed elsewhere while the key stayed compiled in would be a setting that can
-/// only ever fail — which is why `.claude/operations/runtime-packaging.md` promises the pair and not
+/// only ever fail — which is why `docs/operations/runtime-packaging.md` promises the pair and not
 /// the URL alone.
 ///
 /// Overriding them is trusting a different publisher, and that is a decision only somebody who
@@ -592,7 +592,7 @@ impl Runtimes {
         };
 
         // **After the row and never before it**, because the pool points at that row: this is the
-        // post-install hook `.claude/features/runtime-versions.md` describes, and it is the same
+        // post-install hook `docs/features/runtime-versions.md` describes, and it is the same
         // idempotent call the daemon makes at boot. A failure here is reported and does not undo the
         // install — a PHP with no pool is a PHP the next boot gives one to, where an install rolled
         // back for it would be eighty megabytes thrown away over a row.
@@ -974,7 +974,7 @@ pub(crate) fn offered<'a>(
 /// something re-derivable from the index at any time.
 ///
 /// [`None`] for the native case, so a caller writes no branch of its own. See
-/// [ADR 0023](../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md),
+/// [ADR 0023](../../../docs/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md),
 /// whose whole rule is that this is automatic and never silent.
 pub(crate) fn emulation_notice(
     what: &str,

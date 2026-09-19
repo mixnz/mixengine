@@ -1,6 +1,6 @@
 # T32 — php-fpm pools
 
-*Design, 2026-08-19. Roadmap task [T32](../../../.claude/roadmap/phase-3-services.md), Phase 3.*
+*Design, 2026-08-19. Roadmap task [T32](../roadmap/phase-3-services.md), Phase 3.*
 
 ## What this closes
 
@@ -9,9 +9,9 @@ writes the row. Every part of that assumes the thing supplying the binary is a *
 php-fpm is the first service where it is not. A PHP that a user installed with `runtime.install`
 lives in `runtime_installs`, and the process that serves their sites lives inside it.
 
-It is also what the other half of [T28](../../../.claude/roadmap/phase-2-runtimes.md) has been
+It is also what the other half of [T28](../roadmap/phase-2-runtimes.md) has been
 waiting for — a per-pool reload needs a pool — and it is the first refusal `runtime.uninstall` can
-make, which [todo.md](../../../.claude/roadmap/todo.md) has been carrying as an open promise.
+make, which [todo.md](../roadmap/todo.md) has been carrying as an open promise.
 
 ## What was measured, not assumed
 
@@ -101,12 +101,12 @@ be deleted; CI builds one from nothing every run.
 
 `php-fpm@8.3.33`, not `php-fpm@8.3`. `runtime_installs` is `UNIQUE (kind, version)` on the full
 version, so 8.3.33 and 8.3.34 can both be installed — and `php-fpm@8.3` would then name neither.
-`.claude/architecture/data-model.md` and `.claude/features/services.md` use the short form in their
+`docs/architecture/data-model.md` and `docs/features/services.md` use the short form in their
 examples and are corrected by this task.
 
 ### Nobody calls `service.create` for it
 
-[runtime-versions.md](../../../.claude/features/runtime-versions.md) already decided this: PHP's
+[runtime-versions.md](../features/runtime-versions.md) already decided this: PHP's
 post-install hook creates the `php-fpm@<version>` service record. The hook is written **idempotent
 and also run at boot**, so a PHP installed before this task has a service without a data migration,
 and a home whose row was deleted by hand repairs itself. `service.create` refuses `php-fpm` with a
@@ -131,7 +131,7 @@ ever been able to make, and the one `--force` now has something to force past.
 
 The program is read out of the artifact's `provides` rather than written down, so the index decides
 which binary this is and no recipe carries a platform conditional. The socket-versus-port split is
-`.claude/features/services.md`'s own — "unix socket / `127.0.0.1:9xxx` on Windows".
+`docs/features/services.md`'s own — "unix socket / `127.0.0.1:9xxx` on Windows".
 
 **Where each of those comes from.** The Windows port is allocated when the hook creates the row: the
 lowest free port from 9000 that no `services` row already holds, written into `services.port` so it
@@ -149,7 +149,7 @@ and an override that works on two systems out of three is the divide this task e
 
 ### One pool per version, shared by every site
 
-`.claude/features/services.md` sketches `php-fpm/8.3/pool.d/<site>.conf`, and a pool per site is
+`docs/features/services.md` sketches `php-fpm/8.3/pool.d/<site>.conf`, and a pool per site is
 Unix-only — Windows has one master with one set of children and no pool vocabulary at all. Choosing
 it would create exactly the split this design refuses everywhere else, in the layer Phase 4 builds
 on. So every site on a PHP version shares that version's pool.

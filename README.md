@@ -30,7 +30,7 @@ cargo run -p mixengine-cli -- status
 
 ## Working on MixEngine
 
-[`CLAUDE.md`](CLAUDE.md) is the whole system on one page, and [`.claude/`](.claude/README.md) holds
+[`CLAUDE.md`](CLAUDE.md) is the whole system on one page, and [`docs/`](docs/README.md) holds
 the detail it deliberately keeps out: architecture, feature specifications, coding standards,
 decision records, and the ordered build plan.
 

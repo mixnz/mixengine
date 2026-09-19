@@ -1,12 +1,12 @@
 # T40 — The one-shot elevated helper, and the protocol it answers
 
-*Design, 2026-08-22. Roadmap task [T40](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-22. Roadmap task [T40](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
 `crates/mixengine-elevate/src/main.rs` is thirty-six lines that refuse every request, and its
 `Cargo.toml` has no dependencies at all. `PrivilegedOp` exists in
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md#privileged-operations)
+[platform-abstraction.md](../architecture/platform-abstraction.md#privileged-operations)
 and nowhere in the workspace. Everything Phase 4 and the whole of Phase 5 do to a machine goes
 through this binary, and today there is nothing there to go through.
 
@@ -21,7 +21,7 @@ caller afterwards — and the reason is the same: a request protocol argued abou
 is being written is a protocol shaped by that method.
 
 T40 is also the task that creates the `system` CI job.
-[build-and-release.md](../../../.claude/operations/build-and-release.md) says that job arrives with
+[build-and-release.md](../operations/build-and-release.md) says that job arrives with
 "the first `#[ignore]`d system test". This is it.
 
 ## What already exists, and is reused unchanged
@@ -53,12 +53,12 @@ inside a task that is simultaneously learning what a hosts file marker block is.
 - where its audit log is.
 
 Three things depend on it. The lifecycle is proved end to end on all three systems inside T40.
-[T41a](../../../.claude/roadmap/phase-4-sites-and-elevation.md) gets a real, complete binary to put in
+[T41a](../roadmap/phase-4-sites-and-elevation.md) gets a real, complete binary to put in
 front of Smart App Control — the half of that task that needs no code from this phase and should not
 wait for it. And the third is the other half of D2: `Probe` **is** the version negotiation.
 
 `mixengine-elevate` is excluded from auto-update and installed once into a root-owned directory
-([security-model.md](../../../.claude/architecture/security-model.md)). The consequence is not a risk
+([security-model.md](../architecture/security-model.md)). The consequence is not a risk
 but a certainty: an old helper will meet a new daemon, routinely, for as long as the product ships.
 Without `Probe` the only way for a daemon to learn what the installed helper can do is to send a
 batch and read the failures — which spends a prompt, the one resource ADR 0005 budgets, to learn a
@@ -140,12 +140,12 @@ operation that needs a privilege the process does not hold is `Refused` at its o
 Two things fall out. `Probe` runs under an ordinary token, so the request/response lifecycle is
 covered by the existing `test` job rather than only by the elevated one. And the assertions that
 genuinely need a full token are the only ones left in `system`, which is the distinction
-[testing.md](../../../.claude/standards/testing.md) draws: prove a privilege claim by reading a fact,
+[testing.md](../standards/testing.md) draws: prove a privilege claim by reading a fact,
 never by attempting an action the token gets to decide.
 
 ### D6 — `Probe` joins the closed list, and the list is closed against powers
 
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md#privileged-operations)
+[platform-abstraction.md](../architecture/platform-abstraction.md#privileged-operations)
 says the list is closed and that adding to it requires an ADR. `Probe` is an addition.
 
 The rule exists to stop a new capability being granted quietly. `Probe` grants none: it is the only
@@ -156,7 +156,7 @@ decided. Removing an entry already needs no ADR, for the symmetric reason, and T
 
 ### D7 — The audit log lives outside `MIXENGINE_HOME`, and it is evidence rather than a defence
 
-[security-model.md](../../../.claude/architecture/security-model.md) says "root-owned, append-only
+[security-model.md](../architecture/security-model.md) says "root-owned, append-only
 `logs/elevate.log`". `logs/` is inside `MIXENGINE_HOME`, which the user owns and writes. A root-owned
 file in a user-owned directory can be renamed or unlinked by that user whatever its own mode says, so
 "append-only" there is a promise the filesystem does not keep.
@@ -358,7 +358,7 @@ and is reported at its index.
 
 And `Probe` runs to completion, because D5 lets it.
 
-The trap here is the one [testing.md](../../../.claude/standards/testing.md) names: the Windows leg of
+The trap here is the one [testing.md](../standards/testing.md) names: the Windows leg of
 `test` runs under a **full administrator token** (T2b), so an assertion phrased "refused because the
 token is not elevated" would be red there and green elsewhere for reasons that have nothing to do
 with the code. The assertion is therefore about consistency with what `Probe` reports — elevated
@@ -375,13 +375,13 @@ branch touches `platform` or `elevate`.
 
 **What T40 does not prove**, so that nobody reads the green as covering it: nothing tests raising an
 OS prompt (T40a), and there is no "unrelated lines survive" regression test, because the rule in
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md) is about editing a
+[platform-abstraction.md](../architecture/platform-abstraction.md) is about editing a
 system file and this task edits none except its own log. That test arrives with T41.
 
 ## The threat model this frame answers to
 
 Stated because the frame's shape is an answer to it, and because
-[security-model.md](../../../.claude/architecture/security-model.md) is explicit that some of it is
+[security-model.md](../architecture/security-model.md) is explicit that some of it is
 accepted rather than solved.
 
 | Path | What an attacker gets | What stands in the way |

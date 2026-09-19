@@ -172,9 +172,9 @@ sentence that its first word has to be a program, because the plan now reads it 
 
 ## What this closes, and where it is written
 
-- `.claude/roadmap/phase-8-differentiators.md`: a `T78b` entry after T78a, ticked when it lands,
+- `docs/roadmap/phase-8-differentiators.md`: a `T78b` entry after T78a, ticked when it lands,
   pointing at this document.
-- `.claude/features/blueprints.md`, *Scaffold commands*: one bullet for D1–D5, and the gallery
+- `docs/features/blueprints.md`, *Scaffold commands*: one bullet for D1–D5, and the gallery
   paragraph's first-word rule (D6).
 - The next task, whether MixEngine ships `composer`, starts from the sentence this one leaves in
   every plan: the gap is now on the screen instead of at the end of the job.

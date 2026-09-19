@@ -7,10 +7,10 @@ beside the thing it is a run of.
 
 What has to come off is written down in three places already, and this task is the first thing that
 reads all three at once:
-[overview.md](../../../.claude/architecture/overview.md)'s *"Nothing is written outside this root
-except…"*, [ADR 0015](../../../.claude/decisions/0015-the-helper-installs-itself.md) (*"Uninstall
+[overview.md](../architecture/overview.md)'s *"Nothing is written outside this root
+except…"*, [ADR 0015](../decisions/0015-the-helper-installs-itself.md) (*"Uninstall
 gains a second root-owned file outside `MIXENGINE_HOME` to remove, beside the audit log"*), and
-[ADR 0016](../../../.claude/decisions/0016-autostart-is-registered-by-mixengine.md) (*"Uninstall
+[ADR 0016](../decisions/0016-autostart-is-registered-by-mixengine.md) (*"Uninstall
 gains one more thing to remove, and `autostart.disable` to remove it with"*).
 
 Two things this task changes about the sentence it was written from, both argued below: it is
@@ -200,7 +200,7 @@ directory it is running out of. That is `OnExit`, and D9 is who measures it.
 D2): the path is a constant compiled into `mixengine-elevate`, so neither operation hands a
 compromised daemon a *delete this file as root* primitive. A `path` field here would be `Exec { cmd }`
 with two more steps, which the closed-enum rule in
-[security-model.md](../../../.claude/architecture/security-model.md) exists to refuse.
+[security-model.md](../architecture/security-model.md) exists to refuse.
 
 Dedupe keys: `HelperInstall` and `HelperRemove` share `"helper"` — two values of one question, *is
 the helper where it belongs?* — so a removal enqueued behind a pending install replaces it, which is

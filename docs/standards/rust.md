@@ -105,7 +105,7 @@ the signature.
   and `# Panics` sections where applicable.
 - **A comment earns its place by carrying what the code cannot**: an alternative that was tried and
   rejected, a constraint found by experiment, a hazard in somebody else's crate. One that restates
-  the line below it is a line to delete — and one that restates a note in `.claude/` is worse, since
+  the line below it is a line to delete — and one that restates a note in `docs/` is worse, since
   two tellings of a decision are two places for it to drift (see
   [../roadmap/todo.md](../roadmap/todo.md), "Working on this file", for which telling wins).
 - Where the claim is about **another crate's behaviour** — that `sqlx` reports this as that, that

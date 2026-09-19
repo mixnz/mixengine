@@ -8,7 +8,7 @@
 -- exists to prevent.
 --
 -- **`dedupe_key` is where "no code path elevates in a loop" stops being a matter of discipline.**
--- `.claude/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a defect. A producer
+-- `docs/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a defect. A producer
 -- that enqueues the same operation on every start, on every `site.create`, or inside a retry writes
 -- one row — enforced by the index below, so no caller has to remember it and no reviewer has to
 -- check for it. The runtime half of the same rule is the daemon's one-grant-at-a-time slot.

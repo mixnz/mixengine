@@ -1,25 +1,38 @@
-# MixEngine documentation map
+# MixEngine documentation
 
-**This folder is for whoever builds MixEngine. [`docs/guide/`](../docs/guide/) is for whoever uses
-it** — the user handbook, sixteen pages in English and Vietnamese, published at
-`https://mixnz.github.io/mixengine/` and compiled into `mix docs` (T90,
-[ADR 0021](decisions/0021-the-handbook-is-one-corpus-published-three-ways.md)). The two trees never
-restate each other: a fact about *why* MixEngine is shaped this way belongs here, and a fact about
-*how to use it* belongs there.
+Everything written for people lives in this folder, for two audiences, and the two parts never
+restate each other:
 
-This folder holds the detail that [CLAUDE.md](../CLAUDE.md) deliberately keeps out. Each folder has
-one job:
+- **[guide/](guide/)** is for whoever *uses* MixEngine: the handbook, sixteen pages in English and
+  Vietnamese, published at `https://mixnz.github.io/mixengine/` and compiled into `mix docs` (T90,
+  [ADR 0021](decisions/0021-the-handbook-is-one-corpus-published-three-ways.md)).
+- **Everything else** is for whoever *builds* it: why MixEngine is shaped the way it is, and how
+  to change it. [CLAUDE.md](../CLAUDE.md) is the short entry point; this is the detail it keeps out.
+
+`.claude/` holds only the agent tooling's configuration
+([ADR 0043](decisions/0043-documentation-lives-under-docs.md)). `node scripts/check-docs.mjs`
+checks every link into this tree and every spec's status header, and CI's `lint` job runs it.
+
+## Folders
 
 | Folder | Answers | Read it when |
 | --- | --- | --- |
 | [architecture/](architecture/) | *How the system is put together* | Adding a subsystem, changing a boundary |
-| [features/](features/) | *What each user-facing feature must do* | Implementing or changing a feature |
+| [features/](features/) | *What each user-facing feature must do* — authoritative | Implementing or changing a feature |
+| [specs/](specs/README.md) | *How one piece of work was designed, and whether it was built* | Picking up or questioning a task |
+| [decisions/](decisions/README.md) | *Why it is this way* | Questioning an existing choice |
 | [standards/](standards/) | *How we write code here* | Writing anything |
 | [operations/](operations/) | *How it gets built, packaged, shipped* | Touching CI, installers, runtime bundles |
-| [decisions/](decisions/) | *Why it is this way* | Questioning an existing choice |
-| [roadmap/](roadmap/) | *What to build next, in order* | Picking up work |
-| [reviews/](reviews/) | *How good what is built actually is, at a date* | Reviewing the codebase, or checking whether a past finding was fixed |
-| [desktop/](desktop/) | *How the desktop application under `apps/desktop/` is put together, and its conventions* | Touching anything under `apps/desktop/` |
+| [roadmap/](roadmap/todo.md) | *What to build next, in order* | Picking up work |
+| [reviews/](reviews/README.md) | *How good what is built actually is, at a date* | Reviewing the codebase, or checking whether a past finding was fixed |
+| `plans/` | *Local implementation plans* — gitignored, never linked | — |
+
+The desktop application under `apps/desktop/` (MixLab) keeps its part of a folder in a `desktop/`
+subfolder: `architecture/desktop/`, `standards/desktop/`, `decisions/desktop/`,
+`roadmap/desktop/` and `reviews/desktop/`. [apps/desktop/CLAUDE.md](../apps/desktop/CLAUDE.md) is
+its short entry point.
+
+A new top-level folder is created once three documents fit nowhere above.
 
 ## Reading order for a newcomer
 
@@ -27,6 +40,7 @@ one job:
 2. [architecture/daemon-and-ipc.md](architecture/daemon-and-ipc.md) — how clients talk to the core
 3. [architecture/data-model.md](architecture/data-model.md) — the nouns and their relationships
 4. [roadmap/todo.md](roadmap/todo.md) — where we are (index over the per-phase files)
+5. [specs/README.md](specs/README.md) — every design, oldest first, with its status
 
 ## Index
 
@@ -37,6 +51,8 @@ one job:
 - [platform-abstraction.md](architecture/platform-abstraction.md) — the OS traits and their impls
 - [data-model.md](architecture/data-model.md) — SQLite schema, config files, state ownership
 - [security-model.md](architecture/security-model.md) — privilege split, authn, secrets, threat notes
+- desktop: [overview.md](architecture/desktop/overview.md) — process model, connection lifecycle ·
+  [frontend.md](architecture/desktop/frontend.md) · [backend.md](architecture/desktop/backend.md)
 
 ### features
 - [runtime-versions.md](features/runtime-versions.md) — multi-version PHP/Node/Python/Ruby
@@ -50,39 +66,60 @@ one job:
 - [resource-isolation.md](features/resource-isolation.md) — lightweight limits, on-demand start
 - [updates.md](features/updates.md) — auto-update from GitHub Releases without OS code signing
 
+### specs
+- [specs/README.md](specs/README.md) — generated from each spec's header: date, task, status
+
 ### standards
 - [rust.md](standards/rust.md) · [testing.md](standards/testing.md) ·
   [git-and-reviews.md](standards/git-and-reviews.md) ·
-  [plans-and-specs.md](standards/plans-and-specs.md) — which of the two `docs/superpowers/`
-  folders is shared, and which never gets linked to ·
-  [changelog.md](standards/changelog.md) — one tag per section, in order, three subheadings
+  [plans-and-specs.md](standards/plans-and-specs.md) — where specs and plans go, and what a spec's
+  status means · [changelog.md](standards/changelog.md) — one tag per section, in order, three
+  subheadings
+- desktop: [adding-a-command.md](standards/desktop/adding-a-command.md) ·
+  [adding-a-module.md](standards/desktop/adding-a-module.md) ·
+  [app-icon.md](standards/desktop/app-icon.md) ·
+  [bumping-tool-downloads.md](standards/desktop/bumping-tool-downloads.md) ·
+  [changelog.md](standards/desktop/changelog.md) ·
+  [component-structure.md](standards/desktop/component-structure.md) ·
+  [css-modules.md](standards/desktop/css-modules.md) ·
+  [demo-screenshots.md](standards/desktop/demo-screenshots.md) ·
+  [filter-bar.md](standards/desktop/filter-bar.md) · [i18n.md](standards/desktop/i18n.md) ·
+  [icons.md](standards/desktop/icons.md) ·
+  [spawning-processes.md](standards/desktop/spawning-processes.md) ·
+  [workspace-root.md](standards/desktop/workspace-root.md)
 
 ### operations
-- [build-and-release.md](operations/build-and-release.md) · [runtime-packaging.md](operations/runtime-packaging.md)
+- [build-and-release.md](operations/build-and-release.md) ·
+  [runtime-packaging.md](operations/runtime-packaging.md) ·
+  [releasing.md](operations/releasing.md) — cutting a release, step by step
 
 ### decisions
-- [decisions/README.md](decisions/README.md) — ADR index and template
+- [decisions/README.md](decisions/README.md) — ADR index and template; MixLab's four dated
+  decisions from MixDB are indexed there too
 
 ### roadmap
 - [todo.md](roadmap/todo.md) — the index: phases, task ranges, milestones, where we are
-- one file per phase: [phase-0-foundations.md](roadmap/phase-0-foundations.md) ·
-  [phase-1-process-supervision.md](roadmap/phase-1-process-supervision.md) ·
-  [phase-2-runtimes.md](roadmap/phase-2-runtimes.md) ·
-  [phase-3-services.md](roadmap/phase-3-services.md) ·
-  [phase-4-sites-and-elevation.md](roadmap/phase-4-sites-and-elevation.md) ·
-  [phase-5-https.md](roadmap/phase-5-https.md) ·
-  [phase-7-efficiency.md](roadmap/phase-7-efficiency.md) ·
-  [phase-8-differentiators.md](roadmap/phase-8-differentiators.md) ·
-  [phase-9-ship.md](roadmap/phase-9-ship.md) ·
-  [phase-10-client-surface.md](roadmap/phase-10-client-surface.md) ·
-  [phase-11-the-desktop-app-comes-home.md](roadmap/phase-11-the-desktop-app-comes-home.md) ·
-  [phase-12-one-product.md](roadmap/phase-12-one-product.md) ·
-  [phase-13-profiles.md](roadmap/phase-13-profiles.md) · [parked.md](roadmap/parked.md)
+- one file per phase: [0](roadmap/phase-0-foundations.md) ·
+  [1](roadmap/phase-1-process-supervision.md) · [2](roadmap/phase-2-runtimes.md) ·
+  [3](roadmap/phase-3-services.md) · [4](roadmap/phase-4-sites-and-elevation.md) ·
+  [5](roadmap/phase-5-https.md) · [7](roadmap/phase-7-efficiency.md) ·
+  [8](roadmap/phase-8-differentiators.md) · [9](roadmap/phase-9-ship.md) ·
+  [10](roadmap/phase-10-client-surface.md) · [11](roadmap/phase-11-the-desktop-app-comes-home.md) ·
+  [12](roadmap/phase-12-one-product.md) · [13](roadmap/phase-13-profiles.md) ·
+  [14](roadmap/phase-14-a-window-a-new-user-can-start-from.md) ·
+  [15](roadmap/phase-15-what-a-terminal-inherits.md) ·
+  [16](roadmap/phase-16-one-site-many-backends.md) ·
+  [17](roadmap/phase-17-a-disk-somebody-chose.md) ·
+  [18](roadmap/phase-18-what-a-machine-lacks.md) · [19](roadmap/phase-19-mongodb.md) ·
+  [20](roadmap/phase-20-mixlab-redesigned.md) · [21](roadmap/phase-21-a-site-that-stays-up.md) ·
+  [22](roadmap/phase-22-mixengine-in-the-tray.md) ·
+  [23](roadmap/phase-23-one-home-for-the-documentation.md) · [parked.md](roadmap/parked.md)
+  (phase 6 is a gap, not a missing file — see todo.md)
+- desktop: [mixengine-module.md](roadmap/desktop/mixengine-module.md) ·
+  [query-editor.md](roadmap/desktop/query-editor.md)
 
 ### reviews
 - [reviews/README.md](reviews/README.md) — conventions (`R<n>` ids, status legend) and the index
-- one file per full review, dated: [2026-08-27.md](reviews/2026-08-27.md)
-
-### desktop
-- [desktop/README.md](desktop/README.md) — the application's architecture, conventions, decisions and
-  reviews, as MixDB kept them; `apps/desktop/CLAUDE.md` is the short entry point
+- [2026-08-27.md](reviews/2026-08-27.md) · [2026-08-29.md](reviews/2026-08-29.md)
+- desktop: [README.md](reviews/desktop/README.md) · [2026-08-27.md](reviews/desktop/2026-08-27.md)
+  — ids are their own namespace, cited as "desktop R3"

@@ -2,7 +2,7 @@
 
 Roadmap task **T81c**, phase 8. T80 gave `[recipe]` two forms and T81 wired one of them: `php_ini`
 becomes a generated `60-<id>.ini` in every managed PHP's `conf.d`, through
-[`runtimes::extensions`](../../../crates/mixengine-core/src/runtimes/extensions.rs). The other form
+[`runtimes::extensions`](../../crates/mixengine-core/src/runtimes/extensions.rs). The other form
 was **refused by name** — T81's D10 — because both front-end templates would have had to grow an
 `import`, each rendering would have had to be revalidated against the real server, and no extension
 in T82 asks for one. The choice T81 faced was between wiring it for nobody and *accepting a fragment
@@ -46,8 +46,8 @@ method, `generate::document` grows a judge-only path, `generate::recipes::caddy`
 `mixengine-daemon` (the install refuses a fragment the front end refuses; a recipe-carrying
 extension regenerates on install and on uninstall); `mixengine-cli` (`inspect` prints which server a
 fragment is for). Documentation:
-[features/extensions.md](../../../.claude/features/extensions.md),
-[features/services.md](../../../.claude/features/services.md) where it describes what a front end
+[features/extensions.md](../features/extensions.md),
+[features/services.md](../features/services.md) where it describes what a front end
 renders, and the roadmap.
 
 **Out:**
@@ -102,7 +102,7 @@ has ever stored needs no migration.
 ### D2 — The fragment is rendered by the same substitution `php_ini` uses, and gains nothing
 
 `{install_dir}`, `{data_dir}`, `{listen}` and each name in `[ports]`, through
-[`extensions::render::fragment`](../../../crates/mixengine-core/src/extensions/render.rs), which is
+[`extensions::render::fragment`](../../crates/mixengine-core/src/extensions/render.rs), which is
 `value` told where the text it renders is going — D4. No new
 placeholder: an extension still cannot write an address, and every path it can name still grows from
 a directory it was handed. A fragment is rendered into the *front end's* file, and that is exactly
@@ -219,7 +219,7 @@ fragment the front end will not accept is a refusal.
 It also settles where the code goes. `install::install` lives in `mixengine-core` and holds a
 `Store`, a `Paths` and a `Host`; a `Generator` additionally needs the recipe catalogue and this
 system's port bindings, both of which the daemon has already assembled in
-[`services::spec::generator`](../../../crates/mixengine-daemon/src/services/spec.rs). Threading a
+[`services::spec::generator`](../../crates/mixengine-daemon/src/services/spec.rs). Threading a
 generator into a core function to check one field would put the daemon's assembly into core; calling
 the check where the generator already lives does not.
 
@@ -379,8 +379,8 @@ regenerated before deleting the row would fail it.
 
 ## Documentation
 
-- [features/extensions.md](../../../.claude/features/extensions.md): the *"Not yet wired, and refused
+- [features/extensions.md](../features/extensions.md): the *"Not yet wired, and refused
   rather than ignored"* paragraph becomes what it now is, including what a fragment cannot express.
-- [features/services.md](../../../.claude/features/services.md): the swept set of a front end is two
+- [features/services.md](../features/services.md): the swept set of a front end is two
   directories, not one.
 - The roadmap's T81c line, ticked, with what the task found.

@@ -17,13 +17,13 @@ Every rule in CLAUDE.md still applies — commit format, branch naming, PR body,
 
 ## Phase 1 — Design & critique
 
-1. Read the relevant specs in `.claude/features/` and the code involved, then propose a detailed architecture/solution.
+1. Read the relevant specs in `docs/features/` and the code involved, then propose a detailed architecture/solution.
 2. Switch role to Staff Principal Engineer and attack it: latent bugs, edge cases, performance and security risks, cross-platform
    gaps. Revise the design until none of those findings stand.
 
 ## Phase 2 — Spec & Git
 
-3. Write the full spec to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`, then re-read it against the design: no
+3. Write the full spec to `docs/specs/YYYY-MM-DD-<topic>-design.md`, then re-read it against the design: no
    placeholders, no contradictions, nothing ambiguous.
 4. Confirm `master` is pushed and in sync, then create a new branch off it.
 5. Commit the spec alone.

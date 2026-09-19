@@ -4,10 +4,10 @@ Roadmap task **T86a**, phase 9: *"Unsigned-distribution reality check for the **
 updater**: SmartScreen behaviour across two consecutive releases; Gatekeeper flow on macOS 15+.
 Document the findings in `updates.md`."*
 
-The feature document is [updates.md](../../../.claude/features/updates.md), whose *Platform reality
+The feature document is [updates.md](../features/updates.md), whose *Platform reality
 when unsigned* section is what this task is here to replace with measurements. The elevation half of
-the same question is [T41a](../../../.claude/roadmap/phase-4-sites-and-elevation.md); the certificate
-half is [T94](../../../.claude/roadmap/phase-9-ship.md). All three are debts against **v0.1.0**.
+the same question is [T41a](../roadmap/phase-4-sites-and-elevation.md); the certificate
+half is [T94](../roadmap/phase-9-ship.md). All three are debts against **v0.1.0**.
 
 ## What this task actually is
 
@@ -25,7 +25,7 @@ But under each dialog is a mechanism, and **each mechanism has an input a machin
 - Gatekeeper's first-open gate is reached through **`com.apple.quarantine`**, likewise written by the
   application that downloaded the file. So *"is an update blocked"* reduces to **"does a file this
   product writes for itself carry quarantine"** — which is exactly the sentence
-  [updates.md](../../../.claude/features/updates.md) already carries with *"Verify this empirically
+  [updates.md](../features/updates.md) already carries with *"Verify this empirically
   before relying on it"* against it.
 
 So this task splits the question in two along a line the roadmap sentence did not draw: **the marks,
@@ -52,10 +52,10 @@ instead of a user discovering it.
   the ad-hoc signature is enough to execute, and the same written-file reading.
 - Two steps in the `build` job of `.github/workflows/ci.yml`, one per OS, each printing its report
   into the step summary.
-- The findings, in [updates.md](../../../.claude/features/updates.md) — replacing the reasoned
+- The findings, in [updates.md](../features/updates.md) — replacing the reasoned
   paragraphs with dated, sourced measurements and keeping the reasoning that survives them.
 - The procedure for the two readings a machine cannot take, in
-  [build-and-release.md](../../../.claude/operations/build-and-release.md)'s release checklist, which
+  [build-and-release.md](../operations/build-and-release.md)'s release checklist, which
   is where a person is already standing in front of a draft release.
 - `packaging/README.md` and the roadmap entry.
 
@@ -66,8 +66,8 @@ instead of a user discovering it.
   measurement of the machine a user has. Where a protection is already off, the probe says the
   reading is void — D9.
 - **Smart App Control.** It is a different mechanism with a different answer, it is
-  [T41a](../../../.claude/roadmap/phase-4-sites-and-elevation.md)'s and
-  [T94](../../../.claude/roadmap/phase-9-ship.md)'s, and neither a GitHub runner nor this project's
+  [T41a](../roadmap/phase-4-sites-and-elevation.md)'s and
+  [T94](../roadmap/phase-9-ship.md)'s, and neither a GitHub runner nor this project's
   development machine has it enforcing — the developer machine's
   `VerifiedAndReputablePolicyState` reads `0` as of 2026-08-31. A probe cannot measure a policy that
   is not on, and pretending otherwise is the "green job that proves nothing" this repository keeps
@@ -75,10 +75,10 @@ instead of a user discovering it.
 - **Defender's `HostsFileHijack` heuristic.** T41a's second question, and it needs the elevated write
   rather than the artifact.
 - **Replacing a running `mixengined.exe`.** A property of the update *sequence* and therefore
-  [T88](../../../.claude/roadmap/phase-9-ship.md)'s, whose design already stops the daemon first.
+  [T88](../roadmap/phase-9-ship.md)'s, whose design already stops the daemon first.
   This task measures what the operating system does to a *distributed file*, not what an updater does
   to a running process.
-- **Linux.** [updates.md](../../../.claude/features/updates.md) records "no obstacle", and there is
+- **Linux.** [updates.md](../features/updates.md) records "no obstacle", and there is
   no signature gate there to measure — `dpkg -i` and `rpm -i` on an unsigned package are
   unremarkable. The one real first-run friction on that platform, a browser dropping the AppImage's
   executable bit, is a browser's behaviour and not a signing question; it is documented in
@@ -90,7 +90,7 @@ instead of a user discovering it.
 ### D1 — A packaging script, not an `#[ignore]`d system test
 
 Every other machine measurement in this product is a `cargo test` gated on `MIXENGINE_SYSTEM_TESTS=1`
-in the `system` job ([testing.md](../../../.claude/standards/testing.md), rule 1). This one is not,
+in the `system` job ([testing.md](../standards/testing.md), rule 1). This one is not,
 for one reason that decides it: **what is under test is an artifact, and artifacts exist only in the
 `build` job.** The `system` job never runs `packaging/*/build.sh`, has no `.pkg` and no
 `setup.exe`, and giving it one would mean a second release build on a third runner to feed a test
@@ -201,7 +201,7 @@ Against the `.pkg`, on the `macos-latest` leg.
   it.** If it installs, then the macOS story for a command-line product is not "System Settings →
   Privacy & Security → Open Anyway"; it is one command, in the terminal the user already has open,
   and the documented instruction changes accordingly. If it refuses, the drop-off
-  [updates.md](../../../.claude/features/updates.md) predicts is real and the recommendation to ship
+  [updates.md](../features/updates.md) predicts is real and the recommendation to ship
   macOS only with a Developer ID gets its evidence.
 - **M5 — nothing the package installs carries quarantine.** `xattr` on the three installed paths:
   empty. So the first run of `mix` after an install is not gated at all.
@@ -230,7 +230,7 @@ that is never true, and on a developer's machine it means the probe would overwr
 and then delete it. It says which path is occupied and exits non-zero.
 
 A variable of its own rather than `MIXENGINE_SYSTEM_TESTS`, because
-[testing.md](../../../.claude/standards/testing.md) rule 1 says that one is set in exactly one place
+[testing.md](../standards/testing.md) rule 1 says that one is set in exactly one place
 — the `system` job — and that sentence is worth keeping true.
 
 ### D8 — Cleanup is a `trap`, and the Windows uninstall is synchronous or it is nothing
@@ -354,6 +354,6 @@ assertion script asserts would be ceremony. What keeps them honest instead:
 | `packaging/macos/probe.sh` | new — M0–M7 |
 | `.github/workflows/ci.yml` | two steps in `build`, one per OS |
 | `packaging/README.md` | what the probes are and how to run one by hand |
-| `.claude/features/updates.md` | the findings, replacing the reasoned paragraphs |
-| `.claude/operations/build-and-release.md` | the two manual readings, in checklist item 4 |
-| `.claude/roadmap/phase-9-ship.md` | T86a's entry: what is measured, what remains, what it gates |
+| `docs/features/updates.md` | the findings, replacing the reasoned paragraphs |
+| `docs/operations/build-and-release.md` | the two manual readings, in checklist item 4 |
+| `docs/roadmap/phase-9-ship.md` | T86a's entry: what is measured, what remains, what it gates |

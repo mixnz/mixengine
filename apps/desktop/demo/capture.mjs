@@ -6,7 +6,7 @@
  *   npm run screenshots -- --platform windows
  *   npm run screenshots -- --check               render and verify every scene, write nothing
  *
- * The design is docs/superpowers/specs/2026-09-17-marketing-screenshots-design.md.
+ * The design is docs/specs/2026-09-17-marketing-screenshots-design.md.
  */
 import { mkdir, rm } from "node:fs/promises";
 import { createServer as createNetServer } from "node:net";
@@ -264,7 +264,7 @@ async function main() {
   if (failed.length > 0) {
     console.log(`failed: ${failed.map((report) => report.name).join(", ")}`);
     console.log(
-      "An `unmocked` line names a command to add to demo/fixtures — see .claude/desktop/conventions/demo-screenshots.md.",
+      "An `unmocked` line names a command to add to demo/fixtures — see docs/standards/desktop/demo-screenshots.md.",
     );
     process.exitCode = 1;
   } else if (!options.check) {

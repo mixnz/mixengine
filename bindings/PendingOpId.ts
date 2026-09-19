@@ -3,7 +3,7 @@
 /**
  * One row of the queue, by its rowid.
  *
- * A newtype rather than a bare `i64` on `.claude/standards/rust.md`'s rule: the one method that
+ * A newtype rather than a bare `i64` on `docs/standards/rust.md`'s rule: the one method that
  * takes one is `elevation.drop`, and an integer there could be a job, an operation or a mistake.
  */
 export type PendingOpId = number;

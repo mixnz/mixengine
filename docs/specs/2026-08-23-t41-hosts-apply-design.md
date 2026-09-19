@@ -1,6 +1,6 @@
 # T41 — `HostsApply`: the first privileged operation with an effect
 
-*Design, 2026-08-23. Roadmap task [T41](../../../.claude/roadmap/phase-4-sites-and-elevation.md), Phase 4.*
+*Design, 2026-08-23. Roadmap task [T41](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*
 
 ## What this closes
 
@@ -23,7 +23,7 @@ regression is the one users never forgive, and it is the acceptance criterion th
 arranged around.
 
 No ADR is needed. `HostsApply` is already on the closed list in
-[platform-abstraction.md](../../../.claude/architecture/platform-abstraction.md#privileged-operations);
+[platform-abstraction.md](../architecture/platform-abstraction.md#privileged-operations);
 the rule exists to stop a *new* capability being granted quietly, and this is the one the list was
 written for.
 
@@ -126,7 +126,7 @@ publish names — and an unconstrained address is precisely the hosts-file hijac
 heuristic for.
 
 The producer emits `127.0.0.1` alone, one line per domain.
-[domains-and-dns.md](../../../.claude/features/domains-and-dns.md) draws its example block with a
+[domains-and-dns.md](../features/domains-and-dns.md) draws its example block with a
 matching `::1` line, and that example is wrong for today's build: nothing decides that the web server
 binds `::1` until T43, and a name that resolves to an address nothing is listening on is a browser
 timing out before it retries. The feature document is corrected as part of this task rather than

@@ -12,7 +12,7 @@
 //! parse, the data directory belongs to another version. Treating that as "not ready yet" means
 //! waiting out the whole timeout — thirty seconds of a service that has been dead for one — and then
 //! reporting the wrong thing. `Starting → Restarting` is an edge in the state machine for exactly
-//! this reason (see `.claude/architecture/process-supervision.md`), and [`Ready::Exited`] is what
+//! this reason (see `docs/architecture/process-supervision.md`), and [`Ready::Exited`] is what
 //! feeds it.
 //!
 //! # What a check that cannot be made answers

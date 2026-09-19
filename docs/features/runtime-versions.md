@@ -16,20 +16,20 @@ instantly, and have each project use the right one without the user thinking abo
   smoke-tested with `go version`. `GOROOT` is wherever the tree is, derived by `go` itself, and
   `GOPATH`, `GOMODCACHE`, `GOCACHE` and `GOBIN` stay Go's own defaults. What `go install` writes into
   `GOBIN` is not fronted: that directory is outside every install and shared by all of them. Design:
-  [docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md](../../docs/superpowers/specs/2026-09-17-t27d-go-runtime-design.md).
+  [docs/specs/2026-09-17-t27d-go-runtime-design.md](../specs/2026-09-17-t27d-go-runtime-design.md).
 - **Java** — T27e. A Microsoft Build of OpenJDK under `runtimes/java/<version>/` (the LTS lines 11,
   17, 21 and 25), fronted by `java`, `javac`, `jar`, `jshell`, `keytool` and `jlink`, smoke-tested
   with `java --version` — run without `JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`,
   `CLASSPATH` or `JAVA_HOME`, so a daemon started from a session carrying one of them does not refuse
   every JDK for a reason that has nothing to do with the JDK. No globals directory: Maven and Gradle
   keep their programs outside every install. Design:
-  [docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md](../../docs/superpowers/specs/2026-09-18-t27e-java-runtime-design.md).
+  [docs/specs/2026-09-18-t27e-java-runtime-design.md](../specs/2026-09-18-t27e-java-runtime-design.md).
 - **Composer is a kind, not a language** — T27c. It installs, pins, lists and defaults like the
   languages above, into `runtimes/composer/<version>/composer.phar`, and the `composer` shim runs
   that file under the PHP the same directory resolves to. Composer 2.3+ needs PHP 7.2.5 or newer; a
   project on an older PHP pins `composer = "2.2"`. No service, no smoke test at install (nothing
   starts on its own), no `conf.d`. Design:
-  [docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../../docs/superpowers/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
+  [docs/specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md](../specs/2026-09-08-t27c-composer-through-the-runtime-pipeline-design.md).
 
 ## Version resolution
 

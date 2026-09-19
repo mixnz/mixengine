@@ -6,7 +6,7 @@ after a reboot, and can find the settings they need without being told where the
 Part of the [build plan](todo.md). Legend: `[ ]` todo · `[~]` in progress · `[x]` done · **(P)** =
 has a platform-layer component and needs verification on Windows + macOS + Linux.
 
-Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../../docs/superpowers/specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
+Design: [2026-09-11-a-window-a-new-user-can-start-from-design.md](../specs/2026-09-11-a-window-a-new-user-can-start-from-design.md).
 
 ---
 
@@ -195,7 +195,7 @@ readable, writable setting since it was written, and nothing has ever read the c
       project's *name*, which `validated_name` guards, and silently not for the command's output.
       `NO_COLOR` is set as a complement and never as the guarantee: measured, `FORCE_COLOR=0` does
       nothing here.
-      Design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../../docs/superpowers/specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
+      Design: [2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md](../specs/2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md).
 
 - [x] **T120c** A folder somebody chose is the folder, and a scaffold says what it needs of one.
       T120a's fix reached `mix` and Quick Start and left the door labelled *Blueprints* exactly as
@@ -227,7 +227,7 @@ readable, writable setting since it was written, and nothing has ever read the c
       that died over a network would have told somebody their folder was the problem. That is this
       task's own mistake pointed back at itself, and it is the one place a guess about the command
       is allowed: it may add a hint after a failure, never refuse anybody up front.
-      Design: [2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../../docs/superpowers/specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
+      Design: [2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md](../specs/2026-09-13-t120c-a-folder-somebody-chose-is-the-folder-design.md).
 
 - [x] **T121** An apply says what an unticked consent box means, and a finished apply ends at the
       site it made. Two halves of one complaint: a person applies a blueprint, watches it download
@@ -327,7 +327,7 @@ readable, writable setting since it was written, and nothing has ever read the c
       they stopped.
 
 - [x] **T124** A site with nothing behind it says so, instead of answering 404 or 502. Design:
-      [docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md](../../docs/superpowers/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md);
+      [docs/specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md](../specs/2026-09-13-t124-a-site-with-nothing-behind-it-says-so-design.md);
       ADR [0031](../decisions/0031-a-site-with-nothing-behind-it-is-answered-by-mixengine.md).
       **What this task settled.** A welcome page is a `Document` like any other — `welcome/<primary>.html`
       beside the site's own configuration, swept by the same pass — so nothing is written into a
@@ -430,7 +430,7 @@ readable, writable setting since it was written, and nothing has ever read the c
 
 - [x] **T127** A credential a home cannot produce any more is re-set by a command rather than by
       hand. `mix service reset-credential <service>`, and the design is
-      [docs/superpowers/specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md](../../docs/superpowers/specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md).
+      [docs/specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md](../specs/2026-09-13-t127-a-credential-a-home-cannot-produce-is-re-set-by-a-command-design.md).
       **What this task settled.** Every recipe already owned its own repair and none of them knew
       it: a ritual is *create the data directory, then set the password through a server that
       listens on nothing*, and a repair is the second half alone. So `Ritual` grew a third field
@@ -477,7 +477,7 @@ readable, writable setting since it was written, and nothing has ever read the c
 
 - [x] **T127a** A database that cannot start because its superuser password is wrong says so, rather
       than reporting a ready check that timed out. `StateReason::SuperuserRefused`, and the design is
-      [docs/superpowers/specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md](../../docs/superpowers/specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md).
+      [docs/specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md](../specs/2026-09-13-t127a-a-refused-superuser-is-named-by-the-start-that-failed-design.md).
       **What this task settled.** The reading happens *after* the start has failed and never while
       one is running — T38's shape exactly, where the daemon asks the OS who holds the port before it
       settles on a reason. The obvious alternative was to race the log against `ready::wait` and
