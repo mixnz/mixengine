@@ -38,7 +38,7 @@
  *   node scripts/stage-daemon.mjs --stage-only     # build and copy, no window
  */
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
@@ -91,8 +91,20 @@ function isHeldByARunningProcess(error) {
 }
 
 // Whether the copy happened; false only when a running process holds the target.
+//
+// **On macOS the old file is removed first, so the copy lands on a new inode.** macOS lets a
+// running executable be overwritten in place, and the kernel keeps the code signature it validated
+// for that inode while anything maps it: every later start of the rewritten file is then killed
+// with SIGKILL before it prints a word — `Could not start MixEngine`, found 2026-09-19 with a
+// daemon from the last window still running (T166). Unlinking leaves that daemon on its own inode
+// and gives the new binary a fresh one; it is Apple's own advice for replacing a signed binary.
+// Windows and Linux refuse the overwrite instead (os error 5, ETXTBSY), which is what the stop
+// below is for.
 function tryCopy(source, target) {
   try {
+    if (process.platform === "darwin") {
+      rmSync(target, { force: true });
+    }
     copyFileSync(source, target);
     return true;
   } catch (error) {
