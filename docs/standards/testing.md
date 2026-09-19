@@ -44,6 +44,14 @@ it.
 5. **Supervision is tested against `fakeservice`**, never against real MariaDB — see
    [../architecture/process-supervision.md](../architecture/process-supervision.md).
 6. **Bug fixes ship with the failing test first.** No exceptions for "obvious" fixes.
+7. **A test passes under both `cargo test` and `cargo nextest run`.** CI runs the workspace step
+   under nextest, which gives every test a process of its own (T170f); a developer runs
+   `cargo test`, which gives every binary one. Whatever a test needs serialised is serialised in the
+   test — a lock, or a counter in a `static`, that `cargo test` honours — **and** declared as a test
+   group in `.config/nextest.toml`, where anything process-wide serialises nothing: the port-window
+   counters in `activation`, `hold`, `activate` and `ports` raced on the first nextest run. Never
+   by a flag on one CI job: that is a fix nobody running the suite at home gets. `tests/secrets.rs`
+   is the example of both halves.
 
 ## Fixtures
 
@@ -138,6 +146,12 @@ building the binary at all — the one thing `FakeService::program` needs to be 
 
 CI runs the full unit/component/integration suite on `windows-latest`, `macos-latest` and
 `ubuntu-latest`. A PR touching `mixengine-platform` additionally runs the system suite on all three.
+
+**A suite that needs a real program runs in the `services` job, never in `test`** (T170e). It is
+`#[ignore]`d, gets a step of its own in `.github/workflows/ci.yml` guarded by the package variable it
+reads, and joins one of the job's groups — and on Linux a block in `.github/scripts/test-no-network.sh`
+that calls `missing` when the variable is unset. A group whose leg passes 15 minutes on a warm cache
+is split into two matrix rows.
 "Works on my machine" is not a merge criterion here — the platform layer is the riskiest code we own.
 
 ## The machine the suite runs on is part of the test

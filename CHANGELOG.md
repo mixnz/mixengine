@@ -104,6 +104,8 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- On Windows, `mix` and MixLab no longer fail with "All pipe instances are busy" when they reach
+  MixEngine while it is still starting: they wait for their answer instead.
 - Dumping or restoring a MySQL database in MixLab no longer fails with "Access denied … (using
   password: NO)" when `~/.my.cnf` holds an empty `password=`: the connection's own credentials win.
 - A long text cell in MixLab's database grids shows its text instead of a blank cell ending in `…`

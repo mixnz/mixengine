@@ -22,6 +22,20 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 script_path="$script_dir/$(basename -- "${BASH_SOURCE[0]}")"
 cd -- "$script_dir/../.."
 
+# What this run is for (T170e): `workspace` is the unit and integration suites plus the doc tests,
+# for the `test` job; `services` is the `#[ignore]`d suites that need a real program, for the
+# `services` job. One script rather than two, so the namespace, the credential store and the list of
+# forwarded variables below stay in one place: that list has let a green leg run nothing three times.
+# Every re-exec below passes it along.
+mode="${1:-}"
+case "$mode" in
+  workspace|services) ;;
+  *)
+    echo "usage: $0 workspace|services" >&2
+    exit 2
+    ;;
+esac
+
 # Whether anything owns the secret service's name on this run's session bus.
 #
 # `gnome-keyring-daemon` returns as soon as it has forked, so a bus with nothing on that name yet is
@@ -120,7 +134,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
     # reason this lives in a CI script rather than in anything a developer runs by habit.
     exec dbus-run-session -- sh -c \
       'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
-       exec env MIXENGINE_TEST_KEYRING=1 bash "$1"' sh "$script_path"
+       exec env MIXENGINE_TEST_KEYRING=1 bash "$1" "$2"' sh "$script_path" "$mode"
   fi
 
   if [ "${MIXENGINE_TEST_KEYRING:-}" != "1" ]; then
@@ -147,24 +161,36 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
     done
   fi
 
-  # `--all-targets` silently excludes doc tests, so they get their own invocation — inside the same
-  # namespace, otherwise a doc example could reach the network unnoticed.
-  if ! cargo test --workspace --all-targets --all-features --locked --offline; then
-    aftermath
-    exit 1
+  if [ "$mode" = "workspace" ]; then
+    # Under cargo-nextest, as on the other two systems (T170f): see the `Test` step in ci.yml and
+    # `.config/nextest.toml`. It does not run doc tests, and `--all-targets` would exclude them
+    # anyway, so they get their own `cargo test` — inside the same namespace, otherwise a doc example
+    # could reach the network unnoticed.
+    if ! cargo nextest run --workspace --all-targets --all-features --locked --offline --profile ci; then
+      aftermath
+      exit 1
+    fi
+
+    if ! cargo test --workspace --all-features --locked --offline --doc; then
+      aftermath
+      exit 1
+    fi
+
+    exit 0
   fi
 
-  if ! cargo test --workspace --all-features --locked --offline --doc; then
-    aftermath
-    exit 1
-  fi
-
+  # `services` from here on: every `#[ignore]`d suite that needs a real program.
+  #
+  # Every suite below runs with `--workspace --all-features`, never `-p`, like the `services` job's
+  # build step: cargo unifies features over the packages it was asked for, and a narrower selection
+  # recompiles what that step already built (T170b).
+  #
   # The first of the `#[ignore]`d suites this job runs: the Caddy recipe against a real Caddy, which
   # the workflow fetched before the network was taken away. Inside the namespace like everything
   # else — a server on loopback needs no route out, and running it outside would leave the one test
   # that binds a port as the one test nothing stops from reaching the internet.
   if [ -n "${MIXENGINE_CADDY_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test caddy --locked --offline -- --ignored
+    cargo test --workspace --all-features --test caddy --locked --offline -- --ignored
   else
     missing "No Caddy" "MIXENGINE_CADDY_PACKAGE is not set, so the Caddy recipe was not judged against a real server on this leg."
   fi
@@ -173,7 +199,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # sequence of assertions in `tests/harness/frontend.rs`, driven by both `caddy.rs` and `nginx.rs`.
   # Inside the namespace for the reason Caddy is — an nginx on loopback needs no route out.
   if [ -n "${MIXENGINE_NGINX_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test nginx --locked --offline -- --ignored
+    cargo test --workspace --all-features --test nginx --locked --offline -- --ignored
   else
     missing "No nginx" "MIXENGINE_NGINX_PACKAGE is not set, so the nginx recipe was not judged against a real server on this leg."
   fi
@@ -181,7 +207,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # And the php-fpm recipe against a real PHP (T32), on the same reasoning: the pool listens on a
   # Unix socket in the home directory, and a FastCGI request to it needs no route out either.
   if [ -n "${MIXENGINE_PHP_RUNTIME:-}" ]; then
-    cargo test -p mixengine-cli --test php_fpm --locked --offline -- --ignored
+    cargo test --workspace --all-features --test php_fpm --locked --offline -- --ignored
   else
     missing "No PHP" "MIXENGINE_PHP_RUNTIME is not set, so the php-fpm recipe was not judged against a real PHP on this leg."
   fi
@@ -191,7 +217,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # socket in it. **This is the leg that measures `SIGUSR2`** — whether a reload picks up a newly
   # enabled extension is a question only a system with signals can answer.
   if [ -n "${MIXENGINE_PHP_RUNTIME:-}" ]; then
-    cargo test -p mixengine-cli --test php_extensions --locked --offline -- --ignored
+    cargo test --workspace --all-features --test php_extensions --locked --offline -- --ignored
   else
     missing "No PHP" "MIXENGINE_PHP_RUNTIME is not set, so the generated ini set was not judged against a real PHP on this leg."
   fi
@@ -201,7 +227,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # fallback that appends the suffix, so the suite above — pinned to 8.3 — is green either way. This
   # one needs no route out for the same reason the others do not: it runs `php -m` and reads it.
   if [ -n "${MIXENGINE_PHP_RUNTIMES:-}" ]; then
-    cargo test -p mixengine-core --test php_modules --locked --offline -- --ignored
+    cargo test --workspace --all-features --test php_modules --locked --offline -- --ignored
   else
     missing "No PHP" "MIXENGINE_PHP_RUNTIMES is not set, so the generated module names were not judged against the branch that can falsify them."
   fi
@@ -211,7 +237,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # generated root password in the OS credential store and refuses a machine with none, and this is
   # where a `gnome-keyring` is running on a session bus of its own.
   if [ -n "${MIXENGINE_MARIADB_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test mariadb --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test mariadb --locked --offline -- --ignored --nocapture
   else
     missing "No MariaDB" "MIXENGINE_MARIADB_PACKAGE is not set, so the MariaDB recipe was not judged against a real server on this leg."
   fi
@@ -222,7 +248,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # the whole claim is that the two are different versions, so one of them alone proves nothing this
   # suite is for.
   if [ -n "${MIXENGINE_MARIADB_PACKAGE:-}" ] && [ -n "${MIXENGINE_MARIADB_LEGACY_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test instances --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test instances --locked --offline -- --ignored --nocapture
   else
     missing "No second MariaDB" "MIXENGINE_MARIADB_LEGACY_PACKAGE is not set, so two instances of one server were not run side by side on this leg."
   fi
@@ -232,7 +258,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # refuses a machine with none, and this is where a `gnome-keyring` runs on a session bus of its
   # own.
   if [ -n "${MIXENGINE_MYSQL_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test mysql --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test mysql --locked --offline -- --ignored --nocapture
   else
     missing "No MySQL" "MIXENGINE_MYSQL_PACKAGE is not set, so the MySQL recipe was not judged against a real server on this leg."
   fi
@@ -242,7 +268,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # generated superuser password in the OS credential store and refuses a machine with none, and
   # this is where a `gnome-keyring` is running on a session bus of its own.
   if [ -n "${MIXENGINE_POSTGRES_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test postgres --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test postgres --locked --offline -- --ignored --nocapture
   else
     missing "No PostgreSQL" "MIXENGINE_POSTGRES_PACKAGE is not set, so the PostgreSQL recipe was not judged against a real server on this leg."
   fi
@@ -250,20 +276,20 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   # And the two caches (T35), which need the namespace and nothing else in it: neither has a
   # credential to store, and both are spoken to over loopback in their own protocols.
   if [ -n "${MIXENGINE_REDIS_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test redis --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test redis --locked --offline -- --ignored --nocapture
   else
     missing "No Redis" "MIXENGINE_REDIS_PACKAGE is not set, so the Redis recipe was not judged against a real server on this leg."
   fi
 
   if [ -n "${MIXENGINE_MEMCACHED_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test memcached --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test memcached --locked --offline -- --ignored --nocapture
   else
     missing "No memcached" "MIXENGINE_MEMCACHED_PACKAGE is not set, so the Memcached recipe was not judged against a real server on this leg."
   fi
 
   # And MongoDB (T156), which like the caches needs nothing but the namespace's loopback.
   if [ -n "${MIXENGINE_MONGODB_PACKAGE:-}" ]; then
-    cargo test -p mixengine-cli --test mongodb --locked --offline -- --ignored --nocapture
+    cargo test --workspace --all-features --test mongodb --locked --offline -- --ignored --nocapture
   else
     missing "No MongoDB" "MIXENGINE_MONGODB_PACKAGE is not set, so the MongoDB recipe was not judged against a real server on this leg."
   fi
@@ -283,7 +309,7 @@ for mapping in --map-current-user --map-root-user; do
     echo "Network isolation: unprivileged user + network namespace ($mapping)."
     exec unshare --user "$mapping" --net -- \
       sh -c 'ip link set lo up || exit 1; exec "$@"' \
-      sh env MIXENGINE_TEST_ISOLATED=1 bash "$script_path"
+      sh env MIXENGINE_TEST_ISOLATED=1 bash "$script_path" "$mode"
   fi
 done
 
@@ -315,8 +341,8 @@ if sudo -n unshare --net -- sh -c 'ip link set lo up && command -v runuser' >/de
 
   exec sudo -n unshare --net -- \
     sh -c 'ip link set lo up || exit 1; user="$1"; shift; exec runuser -u "$user" -- "$@"' \
-    sh "$(id -un)" env "${env_args[@]}" bash "$script_path"
+    sh "$(id -un)" env "${env_args[@]}" bash "$script_path" "$mode"
 fi
 
 echo "::warning title=No network isolation::Neither unprivileged namespaces nor sudo are available on this runner; the suite ran with network access. Tests reaching the network will not be caught here."
-exec env MIXENGINE_TEST_ISOLATED=1 bash "$script_path"
+exec env MIXENGINE_TEST_ISOLATED=1 bash "$script_path" "$mode"

@@ -84,6 +84,7 @@ cargo check --workspace --all-targets   # fast feedback loop
 cargo clippy --workspace -- -D warnings  # must be clean before commit
 cargo fmt --all --check                  # CI's lint job gates on this too; clippy clean != fmt clean
 cargo test --workspace                   # unit + integration
+cargo nextest run --workspace --all-targets --all-features --profile ci  # what CI runs; optional here, cargo test stays the contract
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --document-private-items --all-features  # intra-doc links, for this OS only
 cargo sqlx prepare --workspace -- --all-targets --all-features  # after editing any sqlx::query!
 bash packaging/bindings.sh               # after changing a type in mixengine-proto (T56)

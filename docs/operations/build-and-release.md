@@ -116,11 +116,11 @@ for the verdict and prints the failing steps rather than a URL.
 
 ### Asking about one job
 
-A full run is nine jobs across three operating systems, and there is a loop where eight of them have
+A full run is eleven jobs across three operating systems, and there is a loop where eight of them have
 nothing to say yet: one job is red, and what you want is that job again as soon as possible.
 
 ```bash
-bash scripts/ask-ci.sh --jobs test     # only the three `test` legs; every other job is skipped
+bash scripts/ask-ci.sh --jobs test     # `test`, `services` and `rustdoc`; every other job is skipped
 bash scripts/ask-ci.sh                 # every job, which is the default and the thing to end on
 ```
 
@@ -141,13 +141,15 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | Job | Runner | Runs |
 | --- | --- | --- |
 | `lint` | ubuntu | `fmt`, `clippy -D warnings`, `cargo deny` (licences + advisories), `sqlx prepare --check`, `node scripts/check-docs.mjs` (documentation links, spec status) |
-| `test` | windows / macos / ubuntu | unit + component + integration, network egress blocked, one real Caddy (below), the connection count against a socket that really is connected, `cargo doc -D warnings` for the runner's own OS |
+| `test` | windows / macos / ubuntu | unit + component + integration under `cargo nextest` (profile `ci` in `.config/nextest.toml`, T170f), network egress blocked, `cargo doc -D warnings` for the runner's own OS on macOS and Linux |
+| `services` | windows ×2 (`web`, `sql`), macos, ubuntu | every `#[ignore]`d suite that needs a real program — Caddy, nginx, PHP, the SQL servers, the caches, MongoDB — plus the connection count against a socket that really is connected; asked for with `test` (T170e). **A new real-program suite joins a group here, never `test`**, and a leg past 15 minutes on a warm cache becomes a new matrix row |
+| `rustdoc` | windows | `cargo doc -D warnings` for Windows, as a job of its own because the Windows `test` leg is the run's critical path (T170d); asked for with `test` |
 | `system` | windows / macos / ubuntu, elevated | `#[ignore]`d system tests, and the only place `MIXENGINE_SYSTEM_TESTS=1` is set — on every run of the workflow |
-| `bench` | windows / macos / ubuntu | performance budgets from [../standards/testing.md](../standards/testing.md), in a **release** build |
+| `bench` | windows ×2 (`budgets`, `footprint`), macos, ubuntu | performance budgets from [../standards/testing.md](../standards/testing.md), in a **release** build; Windows split in two because its measurements alone took 13.5 minutes (T170j) — `budgets` is the shim overhead and the cold path, `footprint` the idle and tuned footprints and M3 |
 | `bindings` | ubuntu | regenerates ts-rs bindings and fails if the committed output differs |
 | `docs` | ubuntu | builds the user handbook's site and fails if the committed command reference is not what `mix` prints |
 | `desktop` | ubuntu-22.04 | the desktop application: `npm run build`, `npm test`, `npm run lint`, then its own workspace's `clippy -D warnings`, `cargo test` and `cargo audit` |
-| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
+| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts — **on a branch built without LTO and with 16 codegen units, on a tag exactly as `[profile.release]` says** (T170h: a branch proves the packaging, which does not depend on LTO, and only a tag feeds `release`); the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
 **Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on

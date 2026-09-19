@@ -1,0 +1,38 @@
+# cargo-nextest, the runner CI uses for the workspace step (T170f). Plain `cargo test` stays the
+# contract: anything a test needs serialised is serialised in the test *and* declared here, never
+# with a flag on one CI job. See docs/standards/testing.md.
+
+[profile.ci]
+# Report every failure a leg found, not the first — the reason `--no-fail-fast` had.
+fail-fast = false
+# A retry hides exactly the flake this repository wants to see.
+retries = 0
+# A hung test gets a name after a minute and an end after five, instead of taking the job's 45.
+slow-timeout = { period = "60s", terminate-after = 5 }
+failure-output = "immediate-final"
+
+[test-groups]
+# The real OS credential store, which `crates/mixengine-platform/tests/secrets.rs` takes turns at
+# through a process-wide `Mutex`. nextest runs every test in a process of its own, where that mutex
+# serialises nothing.
+credential-store = { max-threads = 1 }
+
+# The tests that search a fixed window of loopback ports on Windows and keep their place in it with a
+# process-wide counter (`static NEXT` and its siblings), so two tests never search the same window.
+# Under nextest every one of them starts at the same counter in a process of its own, and the first
+# CI run found two of them racing for one port (T170f). One at a time across every binary restores
+# what the counters promise; they take milliseconds each.
+port-windows = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "binary_id(mixengine-platform::secrets)"
+test-group = "credential-store"
+
+[[profile.default.overrides]]
+filter = """
+    (binary_id(mixengine-daemon::bin/mixengined) & test(/^services::(hold|activate)::tests::/))
+    | (binary_id(mixengine-platform) & test(/^activation::tests::/))
+    | binary_id(mixengine-platform::activation)
+    | (binary_id(mixengine-core) & test(/^services::ports::tests::/))
+"""
+test-group = "port-windows"

@@ -203,8 +203,9 @@ host = [
 # The local endpoint: a Unix socket on one family and a named pipe on the other, both tokio types.
 # `AsyncRead`/`AsyncWrite`, which the connection implements so the daemon can serve HTTP over it, are
 # part of tokio's core. `io-util` is the extension traits that give them methods, and `time` is the
-# accept loop's backoff after a transient error.
-ipc = ["dep:tokio", "tokio/io-util", "tokio/net", "tokio/time"]
+# accept loop's backoff after a transient error. `rt` and `sync` are the backlog's task and the
+# channel it queues connections on (T170).
+ipc = ["dep:tokio", "tokio/io-util", "tokio/net", "tokio/rt", "tokio/sync", "tokio/time"]
 
 # `run_once`, and the async child rather than the standard library's for one reason: a probe with a
 # deadline has to be able to give up, and a blocking `wait` cannot be — a `timeout` around one would

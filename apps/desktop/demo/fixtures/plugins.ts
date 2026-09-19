@@ -16,4 +16,6 @@ export const pluginHandlers: Handlers = {
   "plugin:path|resolve_directory": returns("/Users/ada/Library/Application Support/MixLab"),
   launch_take_requests: returns([]),
   import_happened: returns(false),
+  // Every window asks for the tray icon on start (T168); a picture has no tray to put one in.
+  tray_configure: returns(null),
 };

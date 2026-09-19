@@ -100,6 +100,61 @@ async fn a_second_client_is_served_after_the_first() {
     }
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn clients_that_arrive_before_the_daemon_accepts_wait_in_the_backlog() {
+    // The daemon binds its endpoint long before it reaches its accept loop. On Windows a bound pipe
+    // with nobody accepting has exactly one instance, so every client after the first was refused
+    // with `ERROR_PIPE_BUSY` once its one second of retries ran out — which a parallel test run on
+    // a loaded machine did, dozens of times (T170). The backlog is what a Unix socket's listen queue
+    // already was: a client that arrives early waits, it is not turned away.
+    let run = run_dir();
+    let endpoint = Endpoint::in_run_dir(run.path()).unwrap();
+    let mut backlog = Listener::bind(&endpoint).unwrap().backlog();
+
+    let clients: Vec<_> = (0..5)
+        .map(|_| {
+            let endpoint = endpoint.clone();
+            tokio::spawn(async move { Connection::connect(&endpoint).await })
+        })
+        .collect();
+
+    // Longer than a client keeps retrying a busy pipe, and nothing reads the backlog meanwhile.
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+
+    for _ in 0..5 {
+        trusted(backlog.accept().await.unwrap());
+    }
+
+    for client in clients {
+        client
+            .await
+            .unwrap()
+            .expect("a client that dialled before the daemon accepted was refused");
+    }
+}
+
+#[tokio::test]
+async fn dropping_the_backlog_releases_the_endpoint() {
+    let run = run_dir();
+    let endpoint = Endpoint::in_run_dir(run.path()).unwrap();
+
+    drop(Listener::bind(&endpoint).unwrap().backlog());
+
+    // The task holding the listener is aborted on drop and lets it go at its next poll, so the
+    // name is free a moment later rather than at once.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    loop {
+        match Listener::bind(&endpoint) {
+            Ok(_) => break,
+            Err(error) if std::time::Instant::now() < deadline => {
+                let _ = error;
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+            Err(error) => panic!("the endpoint was never released: {error}"),
+        }
+    }
+}
+
 #[tokio::test]
 async fn a_second_daemon_is_told_who_has_the_endpoint() {
     let run = run_dir();
