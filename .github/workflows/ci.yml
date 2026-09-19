@@ -1,5 +1,7 @@
-# The eight jobs described in docs/operations/build-and-release.md: `lint`, `test`, `system`,
-# `bench`, `bindings`, `docs`, `desktop` and `build`.
+# The nine jobs described in docs/operations/build-and-release.md: `lint`, `test`, `rustdoc`,
+# `system`, `bench`, `bindings`, `docs`, `desktop` and `build`.
+#
+# `rustdoc` arrived with T170d, split out of the Windows `test` leg (see the job).
 #
 # `desktop` arrived with T103, the task that brought the desktop application into this repository
 # (ADR 0027).
@@ -1062,8 +1064,53 @@ jobs:
       # broken intra-doc link until that test was fixed — a check that only runs when everything
       # else already passed is not much of a check. `success() || failure()` rather than
       # `always()`, which would also start it after the job had been cancelled.
+      #
+      # **Not on Windows (T170d).** There it is a job of its own, `rustdoc`, because the Windows `test`
+      # leg is the run's critical path and 2.5 minutes of it were this step. On macOS and Linux the
+      # leg is short, and a job of its own there would cost one of macOS's five concurrent slots.
       - name: rustdoc
-        if: success() || failure()
+        if: (success() || failure()) && runner.os != 'Windows'
+        env:
+          RUSTDOCFLAGS: -D warnings
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo doc --workspace --no-deps --document-private-items --all-features --locked
+          --offline
+
+  # **rustdoc for Windows (T170d)**, split out of the Windows `test` leg, which is the run's critical
+  # path; macOS and Linux still run it as the last step of `test`. What it checks, and why once per
+  # operating system, is the comment on that step.
+  rustdoc:
+    # `jobs: test` answers "is test green yet", and after T170 that answer takes `test`, `services`
+    # and this job together, so the one option runs all three.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
+    name: rustdoc (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # Measured at 2.5 minutes cold as a step of `test` (run 35430523430).
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows only: the `rustdoc` step of `test` covers the other two (T170d).
+        os: [windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rustdoc
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: rustdoc
         env:
           RUSTDOCFLAGS: -D warnings
           CARGO_NET_OFFLINE: "true"

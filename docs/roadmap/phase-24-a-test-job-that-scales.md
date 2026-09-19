@@ -16,7 +16,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       suite step recompiles a dependency.
 - [x] **T170c** The compression and hashing crates are optimised in dev builds, and each DB suite
       packs its fixture once.
-- [ ] **T170d** rustdoc moves to a job of its own on Windows, and stays the last step of `test` on
+- [x] **T170d** rustdoc moves to a job of its own on Windows, and stays the last step of `test` on
       macOS and Linux.
 - [ ] **T170e** The real-program suites move to a `services` job, grouped by a matrix field;
       Windows split in two. **(P)**
