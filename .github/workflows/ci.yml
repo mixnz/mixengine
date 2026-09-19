@@ -1,7 +1,7 @@
-# The nine jobs described in docs/operations/build-and-release.md: `lint`, `test`, `rustdoc`,
-# `system`, `bench`, `bindings`, `docs`, `desktop` and `build`.
+# The ten jobs described in docs/operations/build-and-release.md: `lint`, `test`, `rustdoc`,
+# `services`, `system`, `bench`, `bindings`, `docs`, `desktop` and `build`.
 #
-# `rustdoc` arrived with T170d, split out of the Windows `test` leg (see the job).
+# `rustdoc` and `services` arrived with T170d and T170e, both split out of `test` (see each job).
 #
 # `desktop` arrived with T103, the task that brought the desktop application into this repository
 # (ADR 0027).
@@ -315,435 +315,6 @@ jobs:
       - name: Fetch dependencies
         run: cargo fetch --locked
 
-      # The one thing in this job that is downloaded rather than built, and the reason it is worth
-      # it: `crates/mixengine-cli/tests/caddy.rs` is the only test in the workspace that judges a
-      # recipe against the program it configures. Everything else about T31 is provable in one
-      # process; that Caddy *accepts what MixEngine generates* is not, and a template with a Windows
-      # path in it is exactly the kind of thing that is fine on two systems and broken on the third.
-      #
-      # From our own signed index's release rather than from upstream, pinned, so this leg installs
-      # the same artifact a user would. It is a **test fixture and not an install**: nothing here
-      # checks a signature or a hash, because the code that does is `core::index` and `core::install`
-      # and both have their own suites. What would break if the download were wrong is this test,
-      # loudly.
-      #
-      # Before the offline steps below, because from there on there is no network — and on Linux no
-      # route out at all.
-      - name: Fetch a real Caddy
-        env:
-          CADDY: "2.11.4"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no Caddy for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/caddy"
-          archive="$RUNNER_TEMP/caddy.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/caddy-$CADDY/caddy-$CADDY-$target.$ext"
-
-          # Two different `tar`s, and on Windows the one on the PATH is the wrong one. Git Bash
-          # ships GNU tar, which reads `D:\a\_temp\caddy.zip` as a *remote host* called `D` — and
-          # cannot read a zip even once told otherwise. Windows itself ships bsdtar, which reads
-          # both, so it is named outright rather than reached through the PATH.
-          #
-          # Elsewhere the archive is `.tar.zst`: bsdtar decompresses it by magic and GNU tar shells
-          # out to `zstd`, so the pipe is the fallback for a tar built without it.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_CADDY_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/caddy$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" version
-
-      # **And the other front end — T37.** The same reasoning as the Caddy step, plus one thing only
-      # this program can settle: an `include` inside an nginx configuration resolves against the
-      # *prefix* rather than against the file, so whether `include sites/*.conf` is judged in the
-      # staging directory — which is what makes a broken rendering refused before it is installed —
-      # is a question about nginx's own path handling and about nothing MixEngine can assert.
-      #
-      # **The whole tree, not the binary.** A generated `nginx.conf` includes the archive's own
-      # `conf/mime.types` by absolute path, so the fixture packs what was unpacked here.
-      - name: Fetch a real nginx
-        shell: bash
-        env:
-          NGINX: "1.31.3"
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64)
-              echo "::notice::nginx.org publishes one Windows build and it is 32-bit x86, so this cell is empty on purpose"
-              exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no nginx for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/nginx"
-          archive="$RUNNER_TEMP/nginx.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/nginx-$NGINX/nginx-$NGINX-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_NGINX_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `-v` and not `-t`: the second reads a configuration, and there is none here. It is also
-          # what the recipe's smoke test runs, so a build that fails this fails an install too.
-          "$into/nginx$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -v
-
-      # **A second real program, and it buys what the Caddy one cannot.** Caddy is one binary that
-      # behaves the same on all three systems; PHP is the opposite, and T32 is the task about that:
-      # a Unix artifact publishes `php-fpm` and a Windows one publishes `php-cgi`, which are
-      # different SAPIs configured by different mechanisms — a file on one, an environment on the
-      # other. A recipe that renders correctly on both is not a recipe that runs on both, and only
-      # the program can tell the two apart.
-      - name: Fetch a real PHP
-        env:
-          PHP: "8.3.33"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no PHP for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/php"
-          archive="$RUNNER_TEMP/php.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive"             "https://github.com/mixnz/mixengine-packages/releases/download/php-$PHP/php-$PHP-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_PHP_RUNTIME=$into" >> "$GITHUB_ENV"
-          # `bin/php` on Unix, `php.exe` at the root on Windows — the layout is the publisher's, and
-          # the suite probes for it rather than writing it down. This is only the smoke check.
-          "$into/bin/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version ||             "$into/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      # And the oldest PHP on offer, which is the only one that can falsify a module name — the
-      # branch above cannot. PHP 7.2 added a fallback that appends the shared-library suffix to an
-      # `extension =` value it cannot open, so a *wrong* name loads anyway from 7.2 on; 7.0 and 7.1
-      # hand the value to the loader verbatim. A suite pinned to 8.3 measured the spelling and could
-      # not have caught it, which is what happened: five modules were silently absent from every PHP
-      # 7.0 this product installed, and the warnings were on every command.
-      - name: Fetch the oldest PHP the module names have to satisfy
-        shell: bash
-        run: |
-          set -euo pipefail
-          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
-
-          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
-          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php" >> "$GITHUB_ENV"
-
-      # And a real MariaDB, for T33 — the first recipe that has to *create* something before it can
-      # run at all, and the one whose every platform difference is upstream's rather than ours: two
-      # different `mariadb-install-db` programs, a bootstrap that refuses `SET PASSWORD`, and an
-      # option parser that reads a backslash as an escape.
-      #
-      # **A cost worth stating.** MariaDB is much larger than Caddy or PHP, and this adds a download
-      # plus a real bootstrap to every `test` job on every runner. If it pushes CI past what is
-      # tolerable, the answer is a separate job rather than a quieter test.
-      - name: Fetch a real MariaDB
-        env:
-          MARIADB: "11.4.12"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mariadb"
-          archive="$RUNNER_TEMP/mariadb.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB/mariadb-$MARIADB-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MARIADB_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/mariadbd` on every system — the layout is the publisher's, and the suite probes for
-          # it rather than writing it down. This is only the smoke check.
-          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      # And a *second* MariaDB, of another series, for T36 — two instances of one server, at two
-      # versions, running side by side. 10.6 is the oldest line the index publishes and is chosen
-      # for what it does not share with 11.4: upstream renamed every program the bootstrap runs
-      # between the two, and their `share/` layouts differ. Two instances of one version would
-      # share a `packages` row and prove only that two directories can have two names.
-      #
-      # **The cost is a second download and a second bootstrap**, and it is why the suite that uses
-      # it is its own step: if that becomes intolerable, the answer is a job of its own rather than
-      # a suite that stops running two servers.
-      - name: Fetch a second MariaDB, of an older series
-        env:
-          MARIADB_LEGACY: "10.6.28"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) target=windows-aarch64; ext=zip ;;
-            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mariadb-legacy"
-          archive="$RUNNER_TEMP/mariadb-legacy.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB_LEGACY/mariadb-$MARIADB_LEGACY-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MARIADB_LEGACY_PACKAGE=$into" >> "$GITHUB_ENV"
-          # This series ships `bin/mysqld` and a `bin/mariadbd` beside it; the suite probes for
-          # every program it needs and this is only the smoke check.
-          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      # And a real MySQL, for T34c — the other database with these programs' names, and not a
-      # version of the one above. 8.4 is the line `docs/features/services.md` names; the two 5.x
-      # lines take the other two bootstrap routes and are judged by `mixengine-packages`' own smoke
-      # test on every published cell, which is where the artifacts that need them are made.
-      #
-      # **There is no Windows-on-ARM cell in any MySQL line** — upstream has never published one and
-      # nothing here compiles Windows — so that leg fetches nothing and the test step below skips
-      # itself rather than failing on a download that could not succeed.
-      - name: Fetch a real MySQL
-        shell: bash
-        env:
-          MYSQL: "8.4.10"
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64)
-              echo "::notice::mixengine-packages publishes no MySQL for Windows on ARM, and neither does upstream"
-              exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no MySQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mysql"
-          archive="$RUNNER_TEMP/mysql.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mysql-$MYSQL/mysql-$MYSQL-$target.$ext"
-
-          # The same two `tar`s for the same reason as the Caddy step above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MYSQL_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/mysqld` on every system this fetches. Only the smoke check; the suite probes.
-          "$into/bin/mysqld$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      # And a real PostgreSQL, for T34 — the recipe that made T34a necessary. It is the smaller of
-      # the two databases, and it is the one whose Windows leg only runs at all because a supervised
-      # child is now created from a restricted token: `postgres` refuses the full token the step at
-      # the top of this job asserts this runner holds.
-      - name: Fetch a real PostgreSQL
-        env:
-          POSTGRES: "18.6"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Upstream does not compile PostgreSQL there before 19, so the index offers nothing on
-            # this cell and neither does this step. The suite below is skipped rather than failed.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no PostgreSQL for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no PostgreSQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/postgres"
-          archive="$RUNNER_TEMP/postgres.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/postgres-$POSTGRES/postgres-$POSTGRES-$target.$ext"
-
-          # The same two `tar`s for the same reason as the two steps above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_POSTGRES_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `bin/postgres` on every route — one spelling, which the Debian cell buys with a symlink.
-          "$into/bin/postgres$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      # And the two caches, for T35. Small downloads next to the two databases above, and the pair
-      # of them is one roadmap task because neither is big enough to be one on its own.
-      - name: Fetch a real Redis
-        env:
-          REDIS: "8.10.0"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Cygwin has no aarch64 port, so the Windows cells of both caches are built for x86_64
-            # and that one alone — see mixengine-packages' `docs/packages/redis-memcached.md`.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no Redis for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no Redis for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/redis"
-          archive="$RUNNER_TEMP/redis.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/redis-$REDIS/redis-$REDIS-$target.$ext"
-
-          # The same two `tar`s for the same reason as the steps above.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_REDIS_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/bin/redis-server$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
-      - name: Fetch a real memcached
-        env:
-          MEMCACHED: "1.6.45"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no memcached for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no memcached for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/memcached"
-          archive="$RUNNER_TEMP/memcached.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/memcached-$MEMCACHED/memcached-$MEMCACHED-$target.$ext"
-
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MEMCACHED_PACKAGE=$into" >> "$GITHUB_ENV"
-          # `-V` and not `--version`: the short flag is in every line the index publishes.
-          "$into/bin/memcached$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -V
-
-      # And MongoDB, for T156. The newest line: 8.x needs macOS 14 and glibc 2.34, and every leg of
-      # this job is newer than both.
-      - name: Fetch a real MongoDB
-        env:
-          MONGODB: "8.3.11"
-        shell: bash
-        run: |
-          set -euo pipefail
-          case "$RUNNER_OS-$RUNNER_ARCH" in
-            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
-            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
-            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
-            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
-            Windows-X64)   target=windows-x86_64;  ext=zip ;;
-            # Upstream has never built MongoDB for Windows on ARM, at any version.
-            Windows-ARM64) echo "::notice::mixengine-packages publishes no MongoDB for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
-            *) echo "::error::mixengine-packages publishes no MongoDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
-          esac
-
-          into="$RUNNER_TEMP/mongodb"
-          archive="$RUNNER_TEMP/mongodb.$ext"
-          mkdir -p "$into"
-
-          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
-            "https://github.com/mixnz/mixengine-packages/releases/download/mongodb-$MONGODB/mongodb-$MONGODB-$target.$ext"
-
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
-          else
-            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
-          fi
-
-          echo "MIXENGINE_MONGODB_PACKAGE=$into" >> "$GITHUB_ENV"
-          "$into/bin/mongod$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
-
       - name: Build tests
         run: cargo test --workspace --all-targets --all-features --locked --offline --no-run
 
@@ -786,12 +357,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends gnome-keyring dbus libnss3-tools
 
       # Linux is the leg that actually proves "no network in tests": the suite runs in a namespace
-      # with nothing but loopback. The script runs the doc tests too, inside the same namespace.
+      # with nothing but loopback. The script runs the doc tests too, inside the same namespace. The
+      # real-program suites are the `services` job's, through the same script (T170e).
       - name: Test (no network)
         if: runner.os == 'Linux'
         env:
           CARGO_NET_OFFLINE: "true"
-        run: bash .github/scripts/test-no-network.sh
+        run: bash .github/scripts/test-no-network.sh workspace
 
       # T15b. Every other leg of this job hands the tests a store that works, on purpose — so the
       # answer a machine *without* one gets is a branch every green run steps past, which is how the
@@ -831,205 +403,6 @@ jobs:
         env:
           CARGO_NET_OFFLINE: "true"
         run: cargo test --workspace --all-targets --all-features --locked --offline --no-fail-fast
-
-      # T69's connection count, against a connection that really is established. `01`,
-      # `MIB_TCP_STATE_ESTAB` and `-sTCP:ESTABLISHED` are three claims about three unrelated
-      # mechanisms, and the captured tables the unit tests parse prove the parsing and say nothing
-      # about the constant — so a socket somebody is on the other end of is the only thing that can
-      # check any of them, and CI is where all three of those mechanisms exist.
-      #
-      # **This job and not `system`**, which is what the suite's own note used to claim: counting
-      # connections needs no administrative token, and `system` is the job for what an unprivileged
-      # process cannot prove. What this needs is a real socket on each of the three operating
-      # systems, and this is the job that runs on all three. `#[ignore]`d and given a step rather
-      # than left to the workspace run, in the certutil step's shape: a leg where it did not run
-      # says so instead of quietly reporting a pass.
-      #
-      # On Linux outside the network namespace, deliberately. Inside it the tables hold this test's
-      # own sockets and nothing else; picking one port out of the machine's whole table is the
-      # harder question, and it is the one the idle sweeper asks.
-      # **`--workspace --all-features` on every suite in this job, never `-p` (T170b).** Cargo unifies
-      # features over the packages it was asked for, so `-p mixengine-platform` is a different feature
-      # set from `Build tests`' and recompiled 43 crates to run a test that took 0.00 s (run
-      # 35430523430); `--test <suite>` still picks the one suite, in whichever member has it.
-      - name: Test against a real connection
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test connections --locked --offline -- --ignored --nocapture
-
-      # The suite that needs the archive above. `#[ignore]`d rather than skipped, so a system where
-      # it does not run says so instead of reporting a pass — see the note at the top of
-      # `crates/mixengine-cli/tests/caddy.rs`. The Linux runner did this inside the namespace
-      # already; a Caddy on loopback does not need a route out.
-      - name: Test against a real Caddy
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test caddy --locked --offline -- --ignored
-
-      # What a *shared* site puts on the network, against the same real Caddy — roadmap task T76.
-      # Its own step rather than a second `--test` above, for the reason every suite here has one: a
-      # failure should name what failed without anybody reading the log.
-      #
-      # It proves what is listening rather than what a firewall allows — every connection it makes is
-      # to this machine's own address and so never crosses one — which is the half T74's first real
-      # run found broken, with `netstat` and not with a firewall. The rule half is
-      # `mixengine-core --test firewall`, on the Windows leg below.
-      #
-      # Not on Linux, for the same reason the Caddy step above is not: that runner does its front-end
-      # work inside a network namespace.
-      - name: Test what a shared site listens on
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test sharing --locked --offline -- --ignored
-
-      # And the other front end through the same arc — T37. Its own step rather than a second
-      # `--test` on the line above, for the reason every suite below has one: a failure should name
-      # which recipe failed without anybody reading the log. The two run the *same* sequence of
-      # assertions from `tests/harness/frontend.rs`, which is what makes them a parity suite rather
-      # than two files that resemble each other.
-      #
-      # The guard on the variable is what would make a Windows-on-ARM leg green: there is no nginx to
-      # fetch there and no upstream that publishes one.
-      - name: Test against a real nginx
-        if: runner.os != 'Linux' && env.MIXENGINE_NGINX_PACKAGE != ''
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test nginx --locked --offline -- --ignored
-
-      # **One site, many backends, through both front ends** — roadmap task T135. Two steps for one
-      # suite, on the rule every pair here follows: a failure should name which server disagreed
-      # without anybody reading the log. The suite drives a proxy route, a rewriting proxy route and
-      # a files route; it needs no PHP, which is why it sits above the PHP steps rather than among
-      # them.
-      - name: Test one site's routes against a real Caddy
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test routes --locked --offline -- --ignored caddy_
-
-      # The same guard the nginx step above carries, for its reason: there is no nginx to fetch on
-      # Windows-on-ARM and no upstream that publishes one.
-      - name: Test one site's routes against a real nginx
-        if: runner.os != 'Linux' && env.MIXENGINE_NGINX_PACKAGE != ''
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test routes --locked --offline -- --ignored nginx_
-
-      # And the one that needs the PHP. Its own step rather than a second `--test` on the line above,
-      # because a failure should name which recipe failed without anybody reading the log.
-      - name: Test against a real PHP
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test php_fpm --locked --offline -- --ignored
-
-      # And the ini set that PHP reads — T28. Its own step for the reason the one above has: a
-      # failure should name which half failed without anybody reading the log.
-      - name: Test the generated PHP ini set
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test php_extensions --locked --offline -- --ignored
-
-      # And the module names against *both* branches — the suite above proves the set reaches PHP,
-      # this one proves the names in it name files that exist. Its own step for the same reason: a
-      # failure should say which of the two questions went unanswered.
-      - name: Test the module names against every branch
-        if: runner.os != 'Linux'
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test php_modules --locked --offline -- --ignored
-
-      # And the one that needs the MariaDB. Its own step for the reason the PHP one is: a failure
-      # should name which recipe failed without anybody reading the log.
-      #
-      # The Linux leg runs this from inside `test-no-network.sh` rather than here, and the
-      # difference is the credential store: the bootstrap refuses a machine without one **by
-      # design**, and that script is where a `gnome-keyring` is started on a session bus of its own.
-      #
-      # **`--nocapture`, and a timeout of its own.** libtest holds a running test's output until the
-      # test ends, so the first run of this suite on macOS reported twenty-seven minutes of silence
-      # and then the job's own timeout. The suite says what it is doing as it goes; this is what
-      # lets a reader see it, and the step timeout is what leaves the doc tests below enough of the
-      # job to still run.
-      - name: Test against a real MariaDB
-        if: runner.os != 'Linux'
-        timeout-minutes: 15
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test mariadb --locked --offline -- --ignored --nocapture
-
-      # And the one that runs two of them at once — T36. Its own step rather than more of the one
-      # above, because what it proves is a different claim and because it is the expensive half:
-      # two installs, two bootstraps, two servers up together. Measured at fifty seconds on a
-      # local Linux, against that suite's thirty-six.
-      #
-      # The Linux leg runs this from inside `test-no-network.sh`, for the reason MariaDB's own
-      # suite does: two first-run rituals, two generated root passwords, and a credential store
-      # that only exists inside that script's session bus.
-      - name: Test two instances of one server, at two versions
-        if: runner.os != 'Linux'
-        timeout-minutes: 25
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test instances --locked --offline -- --ignored --nocapture
-
-      # And the one that needs the PostgreSQL — T34. Its own step for the reason the three above
-      # have one: a failure should name which recipe failed without anybody reading the log.
-      #
-      # The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
-      # puts the generated superuser password in the OS credential store and refuses a machine with
-      # none, and that script is where a `gnome-keyring` runs on a session bus of its own.
-      #
-      # **That the Windows leg runs this at all is T34a.** `postgres` refuses a token holding an
-      # enabled `BUILTIN\Administrators`, which the step at the top of this job asserts this runner
-      # still has; every supervised child is now created from a restricted copy of it —
-      # `docs/decisions/0010-supervised-child-never-inherits-administrators.md`.
-      - name: Test against a real PostgreSQL
-        if: runner.os != 'Linux' && env.MIXENGINE_POSTGRES_PACKAGE != ''
-        timeout-minutes: 15
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test postgres --locked --offline -- --ignored --nocapture
-
-      # And the one that needs the MySQL — T34c. Its own step for the reason every one above has
-      # one: a failure should name which recipe failed without anybody reading the log.
-      #
-      # The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
-      # stores a generated root password in the OS credential store and refuses a machine with none.
-      #
-      # The guard on the variable is what makes the Windows-on-ARM leg green: there is no MySQL to
-      # fetch there, and a suite that is `#[ignore]`d until a real server exists has nothing to say.
-      - name: Test against a real MySQL
-        if: runner.os != 'Linux' && env.MIXENGINE_MYSQL_PACKAGE != ''
-        timeout-minutes: 15
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test mysql --locked --offline -- --ignored --nocapture
-
-      # And the two caches — T35. Two steps rather than one for the reason the PHP pair are two: a
-      # failure should name which recipe failed without anybody reading the log.
-      - name: Test against a real Redis
-        if: runner.os != 'Linux' && env.MIXENGINE_REDIS_PACKAGE != ''
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test redis --locked --offline -- --ignored --nocapture
-
-      - name: Test against a real memcached
-        if: runner.os != 'Linux' && env.MIXENGINE_MEMCACHED_PACKAGE != ''
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test memcached --locked --offline -- --ignored --nocapture
-
-      # And MongoDB — T156. Spoken to over the wire by the suite itself, so nothing else is needed.
-      - name: Test against a real MongoDB
-        if: runner.os != 'Linux' && env.MIXENGINE_MONGODB_PACKAGE != ''
-        timeout-minutes: 15
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo test --workspace --all-features --test mongodb --locked --offline -- --ignored --nocapture
 
       # `--all-targets` silently excludes doc tests; run them separately so rustdoc examples cannot
       # rot. The Linux runner did this inside the namespace already.
@@ -1117,6 +490,772 @@ jobs:
         run: >
           cargo doc --workspace --no-deps --document-private-items --all-features --locked
           --offline
+
+  # **The suites that need a real program (T170e)**, split out of `test` so that a new package adds
+  # a leg that runs in parallel rather than minutes to one that does not. The groups are a matrix
+  # field, and every fetch and every suite below is guarded by one: a new suite joins a group, and a
+  # leg past 15 minutes on a warm cache becomes a new row. Windows is split because it is the slow
+  # system; macOS and Linux took 8.5 and 6.6 minutes for all of them in run 35430523430. The design
+  # is docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md, part B.
+  #
+  # Every step keeps the guard it had in `test`, so a leg with no package for a suite still says so
+  # rather than skipping it quietly.
+  services:
+    # `jobs: test` answers "is test green yet", and after T170 that answer takes `test`, this job and
+    # `rustdoc` together, so the one option runs all three.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
+    name: services (${{ matrix.os }}, ${{ matrix.group }})
+    runs-on: ${{ matrix.os }}
+    # The suites carry clocks of their own; this is the ceiling every job in this file shares.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Caddy, nginx, PHP, the caches and MongoDB.
+          - { os: windows-latest, group: web }
+          # The SQL servers: MariaDB twice, PostgreSQL, MySQL.
+          - { os: windows-latest, group: sql }
+          - { os: macos-latest, group: all }
+          # Inside the network namespace, as they ran in `test`.
+          - { os: ubuntu-latest, group: all }
+    steps:
+      - uses: actions/checkout@v4
+
+      # T2b, answered: this leg holds `BUILTIN\Administrators` as an *enabled* group at High
+      # Mandatory Level — a full token, not the UAC-filtered one where that group is present
+      # deny-only and grants nothing. The account name in the cache paths, `runneradmin`, never
+      # settled that; only `/groups` does.
+      #
+      # It stays as an assertion rather than being deleted with the question, because
+      # standards/testing.md now states the answer and derives a rule from it — write Windows
+      # exclusion tests structurally, never by attempting an access this token would win — and a
+      # runner image that quietly de-escalated would leave that page confidently wrong. Failing on
+      # the good news is the point: the news is only good once somebody acts on it.
+      - name: What this leg runs as (T2b)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $groups = whoami /groups
+          $groups
+          $admin = $groups | Select-String -SimpleMatch 'S-1-5-32-544'
+          if (-not ($admin -and "$admin" -match 'Enabled group')) {
+            Write-Host '::error::This leg is no longer an elevated administrator, which is good news and not a build failure. Re-read the Privilege section of docs/standards/testing.md, which concluded the opposite, and delete this step with it.'
+            exit 1
+          }
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          # `test`'s own entry: the same profile and features, and this job only reads it. See the
+          # note on `test`'s cache (T170a).
+          shared-key: test
+          key: test
+          save-if: false
+
+      # T170a: a leg that restored nothing says so. A cold build is the first explanation for a slow
+      # leg, and it belongs in the run summary rather than in a log line nobody reads. The action's
+      # `cache-hit` output cannot say it: it is true only for an exact key match, and a branch whose
+      # `Cargo.lock` changed restores a partial one.
+      - name: Say whether the cache was cold
+        shell: bash
+        run: |
+          if [ -n "$(ls -A target/debug/deps 2>/dev/null)" ]; then
+            echo "Restored a build cache."
+          else
+            echo "::warning title=Cold cache::This leg restored no build cache and compiles from scratch. On a branch that means master has no entry for this key yet; request a run on master."
+          fi
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      # The one thing in this job that is downloaded rather than built, and the reason it is worth
+      # it: `crates/mixengine-cli/tests/caddy.rs` is the only test in the workspace that judges a
+      # recipe against the program it configures. Everything else about T31 is provable in one
+      # process; that Caddy *accepts what MixEngine generates* is not, and a template with a Windows
+      # path in it is exactly the kind of thing that is fine on two systems and broken on the third.
+      #
+      # From our own signed index's release rather than from upstream, pinned, so this leg installs
+      # the same artifact a user would. It is a **test fixture and not an install**: nothing here
+      # checks a signature or a hash, because the code that does is `core::index` and `core::install`
+      # and both have their own suites. What would break if the download were wrong is this test,
+      # loudly.
+      #
+      # Before the offline steps below, because from there on there is no network — and on Linux no
+      # route out at all.
+      - name: Fetch a real Caddy
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CADDY: "2.11.4"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64) target=windows-aarch64; ext=zip ;;
+            *) echo "::error::mixengine-packages publishes no Caddy for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/caddy"
+          archive="$RUNNER_TEMP/caddy.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/caddy-$CADDY/caddy-$CADDY-$target.$ext"
+
+          # Two different `tar`s, and on Windows the one on the PATH is the wrong one. Git Bash
+          # ships GNU tar, which reads `D:\a\_temp\caddy.zip` as a *remote host* called `D` — and
+          # cannot read a zip even once told otherwise. Windows itself ships bsdtar, which reads
+          # both, so it is named outright rather than reached through the PATH.
+          #
+          # Elsewhere the archive is `.tar.zst`: bsdtar decompresses it by magic and GNU tar shells
+          # out to `zstd`, so the pipe is the fallback for a tar built without it.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_CADDY_PACKAGE=$into" >> "$GITHUB_ENV"
+          "$into/caddy$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" version
+
+      # **And the other front end — T37.** The same reasoning as the Caddy step, plus one thing only
+      # this program can settle: an `include` inside an nginx configuration resolves against the
+      # *prefix* rather than against the file, so whether `include sites/*.conf` is judged in the
+      # staging directory — which is what makes a broken rendering refused before it is installed —
+      # is a question about nginx's own path handling and about nothing MixEngine can assert.
+      #
+      # **The whole tree, not the binary.** A generated `nginx.conf` includes the archive's own
+      # `conf/mime.types` by absolute path, so the fixture packs what was unpacked here.
+      - name: Fetch a real nginx
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        shell: bash
+        env:
+          NGINX: "1.31.3"
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64)
+              echo "::notice::nginx.org publishes one Windows build and it is 32-bit x86, so this cell is empty on purpose"
+              exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no nginx for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/nginx"
+          archive="$RUNNER_TEMP/nginx.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/nginx-$NGINX/nginx-$NGINX-$target.$ext"
+
+          # The same two `tar`s for the same reason as the Caddy step above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_NGINX_PACKAGE=$into" >> "$GITHUB_ENV"
+          # `-v` and not `-t`: the second reads a configuration, and there is none here. It is also
+          # what the recipe's smoke test runs, so a build that fails this fails an install too.
+          "$into/nginx$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -v
+
+      # **A second real program, and it buys what the Caddy one cannot.** Caddy is one binary that
+      # behaves the same on all three systems; PHP is the opposite, and T32 is the task about that:
+      # a Unix artifact publishes `php-fpm` and a Windows one publishes `php-cgi`, which are
+      # different SAPIs configured by different mechanisms — a file on one, an environment on the
+      # other. A recipe that renders correctly on both is not a recipe that runs on both, and only
+      # the program can tell the two apart.
+      - name: Fetch a real PHP
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          PHP: "8.3.33"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64) target=windows-aarch64; ext=zip ;;
+            *) echo "::error::mixengine-packages publishes no PHP for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/php"
+          archive="$RUNNER_TEMP/php.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive"             "https://github.com/mixnz/mixengine-packages/releases/download/php-$PHP/php-$PHP-$target.$ext"
+
+          # The same two `tar`s for the same reason as the Caddy step above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_PHP_RUNTIME=$into" >> "$GITHUB_ENV"
+          # `bin/php` on Unix, `php.exe` at the root on Windows — the layout is the publisher's, and
+          # the suite probes for it rather than writing it down. This is only the smoke check.
+          "$into/bin/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version ||             "$into/php$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # And the oldest PHP on offer, which is the only one that can falsify a module name — the
+      # branch above cannot. PHP 7.2 added a fallback that appends the shared-library suffix to an
+      # `extension =` value it cannot open, so a *wrong* name loads anyway from 7.2 on; 7.0 and 7.1
+      # hand the value to the loader verbatim. A suite pinned to 8.3 measured the spelling and could
+      # not have caught it, which is what happened: five modules were silently absent from every PHP
+      # 7.0 this product installed, and the warnings were on every command.
+      - name: Fetch the oldest PHP the module names have to satisfy
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
+          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php" >> "$GITHUB_ENV"
+
+      # And a real MariaDB, for T33 — the first recipe that has to *create* something before it can
+      # run at all, and the one whose every platform difference is upstream's rather than ours: two
+      # different `mariadb-install-db` programs, a bootstrap that refuses `SET PASSWORD`, and an
+      # option parser that reads a backslash as an escape.
+      #
+      # **A cost worth stating.** MariaDB is much larger than Caddy or PHP, and this adds a download
+      # plus a real bootstrap to every `test` job on every runner. If it pushes CI past what is
+      # tolerable, the answer is a separate job rather than a quieter test.
+      - name: Fetch a real MariaDB
+        if: contains(fromJSON('["sql","all"]'), matrix.group)
+        env:
+          MARIADB: "11.4.12"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64) target=windows-aarch64; ext=zip ;;
+            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/mariadb"
+          archive="$RUNNER_TEMP/mariadb.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB/mariadb-$MARIADB-$target.$ext"
+
+          # The same two `tar`s for the same reason as the Caddy step above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MARIADB_PACKAGE=$into" >> "$GITHUB_ENV"
+          # `bin/mariadbd` on every system — the layout is the publisher's, and the suite probes for
+          # it rather than writing it down. This is only the smoke check.
+          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # And a *second* MariaDB, of another series, for T36 — two instances of one server, at two
+      # versions, running side by side. 10.6 is the oldest line the index publishes and is chosen
+      # for what it does not share with 11.4: upstream renamed every program the bootstrap runs
+      # between the two, and their `share/` layouts differ. Two instances of one version would
+      # share a `packages` row and prove only that two directories can have two names.
+      #
+      # **The cost is a second download and a second bootstrap**, and it is why the suite that uses
+      # it is its own step: if that becomes intolerable, the answer is a job of its own rather than
+      # a suite that stops running two servers.
+      - name: Fetch a second MariaDB, of an older series
+        if: contains(fromJSON('["sql","all"]'), matrix.group)
+        env:
+          MARIADB_LEGACY: "10.6.28"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64) target=windows-aarch64; ext=zip ;;
+            *) echo "::error::mixengine-packages publishes no MariaDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/mariadb-legacy"
+          archive="$RUNNER_TEMP/mariadb-legacy.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/mariadb-$MARIADB_LEGACY/mariadb-$MARIADB_LEGACY-$target.$ext"
+
+          # The same two `tar`s for the same reason as the Caddy step above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MARIADB_LEGACY_PACKAGE=$into" >> "$GITHUB_ENV"
+          # This series ships `bin/mysqld` and a `bin/mariadbd` beside it; the suite probes for
+          # every program it needs and this is only the smoke check.
+          "$into/bin/mariadbd$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # And a real MySQL, for T34c — the other database with these programs' names, and not a
+      # version of the one above. 8.4 is the line `docs/features/services.md` names; the two 5.x
+      # lines take the other two bootstrap routes and are judged by `mixengine-packages`' own smoke
+      # test on every published cell, which is where the artifacts that need them are made.
+      #
+      # **There is no Windows-on-ARM cell in any MySQL line** — upstream has never published one and
+      # nothing here compiles Windows — so that leg fetches nothing and the test step below skips
+      # itself rather than failing on a download that could not succeed.
+      - name: Fetch a real MySQL
+        if: contains(fromJSON('["sql","all"]'), matrix.group)
+        shell: bash
+        env:
+          MYSQL: "8.4.10"
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64)
+              echo "::notice::mixengine-packages publishes no MySQL for Windows on ARM, and neither does upstream"
+              exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no MySQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/mysql"
+          archive="$RUNNER_TEMP/mysql.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/mysql-$MYSQL/mysql-$MYSQL-$target.$ext"
+
+          # The same two `tar`s for the same reason as the Caddy step above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MYSQL_PACKAGE=$into" >> "$GITHUB_ENV"
+          # `bin/mysqld` on every system this fetches. Only the smoke check; the suite probes.
+          "$into/bin/mysqld$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # And a real PostgreSQL, for T34 — the recipe that made T34a necessary. It is the smaller of
+      # the two databases, and it is the one whose Windows leg only runs at all because a supervised
+      # child is now created from a restricted token: `postgres` refuses the full token the step at
+      # the top of this job asserts this runner holds.
+      - name: Fetch a real PostgreSQL
+        if: contains(fromJSON('["sql","all"]'), matrix.group)
+        env:
+          POSTGRES: "18.6"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            # Upstream does not compile PostgreSQL there before 19, so the index offers nothing on
+            # this cell and neither does this step. The suite below is skipped rather than failed.
+            Windows-ARM64) echo "::notice::mixengine-packages publishes no PostgreSQL for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no PostgreSQL for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/postgres"
+          archive="$RUNNER_TEMP/postgres.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/postgres-$POSTGRES/postgres-$POSTGRES-$target.$ext"
+
+          # The same two `tar`s for the same reason as the two steps above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_POSTGRES_PACKAGE=$into" >> "$GITHUB_ENV"
+          # `bin/postgres` on every route — one spelling, which the Debian cell buys with a symlink.
+          "$into/bin/postgres$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # And the two caches, for T35. Small downloads next to the two databases above, and the pair
+      # of them is one roadmap task because neither is big enough to be one on its own.
+      - name: Fetch a real Redis
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          REDIS: "8.10.0"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            # Cygwin has no aarch64 port, so the Windows cells of both caches are built for x86_64
+            # and that one alone — see mixengine-packages' `docs/packages/redis-memcached.md`.
+            Windows-ARM64) echo "::notice::mixengine-packages publishes no Redis for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no Redis for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/redis"
+          archive="$RUNNER_TEMP/redis.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/redis-$REDIS/redis-$REDIS-$target.$ext"
+
+          # The same two `tar`s for the same reason as the steps above.
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_REDIS_PACKAGE=$into" >> "$GITHUB_ENV"
+          "$into/bin/redis-server$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      - name: Fetch a real memcached
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          MEMCACHED: "1.6.45"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            Windows-ARM64) echo "::notice::mixengine-packages publishes no memcached for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no memcached for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/memcached"
+          archive="$RUNNER_TEMP/memcached.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/memcached-$MEMCACHED/memcached-$MEMCACHED-$target.$ext"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MEMCACHED_PACKAGE=$into" >> "$GITHUB_ENV"
+          # `-V` and not `--version`: the short flag is in every line the index publishes.
+          "$into/bin/memcached$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" -V
+
+      # And MongoDB, for T156. The newest line: 8.x needs macOS 14 and glibc 2.34, and every leg of
+      # this job is newer than both.
+      - name: Fetch a real MongoDB
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          MONGODB: "8.3.11"
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS-$RUNNER_ARCH" in
+            Linux-X64)     target=linux-x86_64;    ext=tar.zst ;;
+            Linux-ARM64)   target=linux-aarch64;   ext=tar.zst ;;
+            macOS-ARM64)   target=macos-aarch64;   ext=tar.zst ;;
+            macOS-X64)     target=macos-x86_64;    ext=tar.zst ;;
+            Windows-X64)   target=windows-x86_64;  ext=zip ;;
+            # Upstream has never built MongoDB for Windows on ARM, at any version.
+            Windows-ARM64) echo "::notice::mixengine-packages publishes no MongoDB for Windows on ARM; the recipe suite is skipped on this leg"; exit 0 ;;
+            *) echo "::error::mixengine-packages publishes no MongoDB for $RUNNER_OS-$RUNNER_ARCH"; exit 1 ;;
+          esac
+
+          into="$RUNNER_TEMP/mongodb"
+          archive="$RUNNER_TEMP/mongodb.$ext"
+          mkdir -p "$into"
+
+          curl --fail --silent --show-error --location --retry 3 --output "$archive" \
+            "https://github.com/mixnz/mixengine-packages/releases/download/mongodb-$MONGODB/mongodb-$MONGODB-$target.$ext"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            "$SYSTEMROOT/System32/tar.exe" -xf "$archive" -C "$into"
+          else
+            tar -xf "$archive" -C "$into" || zstd -dc "$archive" | tar -xf - -C "$into"
+          fi
+
+          echo "MIXENGINE_MONGODB_PACKAGE=$into" >> "$GITHUB_ENV"
+          "$into/bin/mongod$( [ "$RUNNER_OS" = "Windows" ] && echo .exe )" --version
+
+      # Only this leg's suites, plus the binaries the harness spawns (`mix`, `mixengined`,
+      # `mixengine-shim`), which cargo builds for any `mixengine-cli` integration test. With the
+      # workspace's features, for T170b's reason.
+      - name: Build the suites this leg runs
+        shell: bash
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          case "${{ matrix.group }}" in
+            web) suites="connections caddy sharing nginx routes php_fpm php_extensions php_modules redis memcached mongodb" ;;
+            sql) suites="mariadb instances postgres mysql" ;;
+            all) suites="connections caddy sharing nginx routes php_fpm php_extensions php_modules redis memcached mongodb mariadb instances postgres mysql" ;;
+          esac
+          args=()
+          for suite in $suites; do args+=(--test "$suite"); done
+          cargo test --workspace --all-features --locked --offline --no-run "${args[@]}"
+
+      # The credential store the SQL suites' first-run rituals need, for the reason `test`'s step of
+      # the same name gives. Bounded the same way.
+      - name: Install the packages this leg's tests need
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && break
+            echo "::warning title=apt-get update failed::attempt $attempt of 3"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
+
+      # Linux runs every suite below from inside the network namespace, with a credential store of
+      # its own — see the script. The steps after this one are the other two systems'.
+      - name: Test the suites (no network)
+        if: runner.os == 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: bash .github/scripts/test-no-network.sh services
+
+      # T69's connection count, against a connection that really is established. `01`,
+      # `MIB_TCP_STATE_ESTAB` and `-sTCP:ESTABLISHED` are three claims about three unrelated
+      # mechanisms, and the captured tables the unit tests parse prove the parsing and say nothing
+      # about the constant — so a socket somebody is on the other end of is the only thing that can
+      # check any of them, and CI is where all three of those mechanisms exist.
+      #
+      # **This job and not `system`**, which is what the suite's own note used to claim: counting
+      # connections needs no administrative token, and `system` is the job for what an unprivileged
+      # process cannot prove. What this needs is a real socket on each of the three operating
+      # systems, and this is the job that runs on all three. `#[ignore]`d and given a step rather
+      # than left to the workspace run, in the certutil step's shape: a leg where it did not run
+      # says so instead of quietly reporting a pass.
+      #
+      # On Linux outside the network namespace, deliberately. Inside it the tables hold this test's
+      # own sockets and nothing else; picking one port out of the machine's whole table is the
+      # harder question, and it is the one the idle sweeper asks.
+      # **`--workspace --all-features` on every suite in this job, never `-p` (T170b).** Cargo unifies
+      # features over the packages it was asked for, so `-p mixengine-platform` is a different feature
+      # set from `Build tests`' and recompiled 43 crates to run a test that took 0.00 s (run
+      # 35430523430); `--test <suite>` still picks the one suite, in whichever member has it.
+      - name: Test against a real connection
+        if: contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test connections --locked --offline -- --ignored --nocapture
+
+      # The suite that needs the archive above. `#[ignore]`d rather than skipped, so a system where
+      # it does not run says so instead of reporting a pass — see the note at the top of
+      # `crates/mixengine-cli/tests/caddy.rs`. The Linux runner did this inside the namespace
+      # already; a Caddy on loopback does not need a route out.
+      - name: Test against a real Caddy
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test caddy --locked --offline -- --ignored
+
+      # What a *shared* site puts on the network, against the same real Caddy — roadmap task T76.
+      # Its own step rather than a second `--test` above, for the reason every suite here has one: a
+      # failure should name what failed without anybody reading the log.
+      #
+      # It proves what is listening rather than what a firewall allows — every connection it makes is
+      # to this machine's own address and so never crosses one — which is the half T74's first real
+      # run found broken, with `netstat` and not with a firewall. The rule half is
+      # `mixengine-core --test firewall`, on the Windows leg below.
+      #
+      # Not on Linux, for the same reason the Caddy step above is not: that runner does its front-end
+      # work inside a network namespace.
+      - name: Test what a shared site listens on
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test sharing --locked --offline -- --ignored
+
+      # And the other front end through the same arc — T37. Its own step rather than a second
+      # `--test` on the line above, for the reason every suite below has one: a failure should name
+      # which recipe failed without anybody reading the log. The two run the *same* sequence of
+      # assertions from `tests/harness/frontend.rs`, which is what makes them a parity suite rather
+      # than two files that resemble each other.
+      #
+      # The guard on the variable is what would make a Windows-on-ARM leg green: there is no nginx to
+      # fetch there and no upstream that publishes one.
+      - name: Test against a real nginx
+        if: runner.os != 'Linux' && env.MIXENGINE_NGINX_PACKAGE != '' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test nginx --locked --offline -- --ignored
+
+      # **One site, many backends, through both front ends** — roadmap task T135. Two steps for one
+      # suite, on the rule every pair here follows: a failure should name which server disagreed
+      # without anybody reading the log. The suite drives a proxy route, a rewriting proxy route and
+      # a files route; it needs no PHP, which is why it sits above the PHP steps rather than among
+      # them.
+      - name: Test one site's routes against a real Caddy
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test routes --locked --offline -- --ignored caddy_
+
+      # The same guard the nginx step above carries, for its reason: there is no nginx to fetch on
+      # Windows-on-ARM and no upstream that publishes one.
+      - name: Test one site's routes against a real nginx
+        if: runner.os != 'Linux' && env.MIXENGINE_NGINX_PACKAGE != '' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test routes --locked --offline -- --ignored nginx_
+
+      # And the one that needs the PHP. Its own step rather than a second `--test` on the line above,
+      # because a failure should name which recipe failed without anybody reading the log.
+      - name: Test against a real PHP
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test php_fpm --locked --offline -- --ignored
+
+      # And the ini set that PHP reads — T28. Its own step for the reason the one above has: a
+      # failure should name which half failed without anybody reading the log.
+      - name: Test the generated PHP ini set
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test php_extensions --locked --offline -- --ignored
+
+      # And the module names against *both* branches — the suite above proves the set reaches PHP,
+      # this one proves the names in it name files that exist. Its own step for the same reason: a
+      # failure should say which of the two questions went unanswered.
+      - name: Test the module names against every branch
+        if: runner.os != 'Linux' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test php_modules --locked --offline -- --ignored
+
+      # And the one that needs the MariaDB. Its own step for the reason the PHP one is: a failure
+      # should name which recipe failed without anybody reading the log.
+      #
+      # The Linux leg runs this from inside `test-no-network.sh` rather than here, and the
+      # difference is the credential store: the bootstrap refuses a machine without one **by
+      # design**, and that script is where a `gnome-keyring` is started on a session bus of its own.
+      #
+      # **`--nocapture`, and a timeout of its own.** libtest holds a running test's output until the
+      # test ends, so the first run of this suite on macOS reported twenty-seven minutes of silence
+      # and then the job's own timeout. The suite says what it is doing as it goes; this is what
+      # lets a reader see it, and the step timeout is what leaves the doc tests below enough of the
+      # job to still run.
+      - name: Test against a real MariaDB
+        if: runner.os != 'Linux' && contains(fromJSON('["sql","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test mariadb --locked --offline -- --ignored --nocapture
+
+      # And the one that runs two of them at once — T36. Its own step rather than more of the one
+      # above, because what it proves is a different claim and because it is the expensive half:
+      # two installs, two bootstraps, two servers up together. Measured at fifty seconds on a
+      # local Linux, against that suite's thirty-six.
+      #
+      # The Linux leg runs this from inside `test-no-network.sh`, for the reason MariaDB's own
+      # suite does: two first-run rituals, two generated root passwords, and a credential store
+      # that only exists inside that script's session bus.
+      - name: Test two instances of one server, at two versions
+        if: runner.os != 'Linux' && contains(fromJSON('["sql","all"]'), matrix.group)
+        timeout-minutes: 25
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test instances --locked --offline -- --ignored --nocapture
+
+      # And the one that needs the PostgreSQL — T34. Its own step for the reason the three above
+      # have one: a failure should name which recipe failed without anybody reading the log.
+      #
+      # The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
+      # puts the generated superuser password in the OS credential store and refuses a machine with
+      # none, and that script is where a `gnome-keyring` runs on a session bus of its own.
+      #
+      # **That the Windows leg runs this at all is T34a.** `postgres` refuses a token holding an
+      # enabled `BUILTIN\Administrators`, which the step at the top of this job asserts this runner
+      # still has; every supervised child is now created from a restricted copy of it —
+      # `docs/decisions/0010-supervised-child-never-inherits-administrators.md`.
+      - name: Test against a real PostgreSQL
+        if: runner.os != 'Linux' && env.MIXENGINE_POSTGRES_PACKAGE != '' && contains(fromJSON('["sql","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test postgres --locked --offline -- --ignored --nocapture
+
+      # And the one that needs the MySQL — T34c. Its own step for the reason every one above has
+      # one: a failure should name which recipe failed without anybody reading the log.
+      #
+      # The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
+      # stores a generated root password in the OS credential store and refuses a machine with none.
+      #
+      # The guard on the variable is what makes the Windows-on-ARM leg green: there is no MySQL to
+      # fetch there, and a suite that is `#[ignore]`d until a real server exists has nothing to say.
+      - name: Test against a real MySQL
+        if: runner.os != 'Linux' && env.MIXENGINE_MYSQL_PACKAGE != '' && contains(fromJSON('["sql","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test mysql --locked --offline -- --ignored --nocapture
+
+      # And the two caches — T35. Two steps rather than one for the reason the PHP pair are two: a
+      # failure should name which recipe failed without anybody reading the log.
+      - name: Test against a real Redis
+        if: runner.os != 'Linux' && env.MIXENGINE_REDIS_PACKAGE != '' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test redis --locked --offline -- --ignored --nocapture
+
+      - name: Test against a real memcached
+        if: runner.os != 'Linux' && env.MIXENGINE_MEMCACHED_PACKAGE != '' && contains(fromJSON('["web","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test memcached --locked --offline -- --ignored --nocapture
+
+      # And MongoDB — T156. Spoken to over the wire by the suite itself, so nothing else is needed.
+      - name: Test against a real MongoDB
+        if: runner.os != 'Linux' && env.MIXENGINE_MONGODB_PACKAGE != '' && contains(fromJSON('["web","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test mongodb --locked --offline -- --ignored --nocapture
 
   # The job `docs/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
   # test. T40 is that task: `mixengine-elevate` creates a root-owned audit directory outside

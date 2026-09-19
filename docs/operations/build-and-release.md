@@ -116,11 +116,11 @@ for the verdict and prints the failing steps rather than a URL.
 
 ### Asking about one job
 
-A full run is ten jobs across three operating systems, and there is a loop where eight of them have
+A full run is eleven jobs across three operating systems, and there is a loop where eight of them have
 nothing to say yet: one job is red, and what you want is that job again as soon as possible.
 
 ```bash
-bash scripts/ask-ci.sh --jobs test     # the `test` legs and `rustdoc`; every other job is skipped
+bash scripts/ask-ci.sh --jobs test     # `test`, `services` and `rustdoc`; every other job is skipped
 bash scripts/ask-ci.sh                 # every job, which is the default and the thing to end on
 ```
 
@@ -141,7 +141,8 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | Job | Runner | Runs |
 | --- | --- | --- |
 | `lint` | ubuntu | `fmt`, `clippy -D warnings`, `cargo deny` (licences + advisories), `sqlx prepare --check`, `node scripts/check-docs.mjs` (documentation links, spec status) |
-| `test` | windows / macos / ubuntu | unit + component + integration, network egress blocked, one real Caddy (below), the connection count against a socket that really is connected, `cargo doc -D warnings` for the runner's own OS on macOS and Linux |
+| `test` | windows / macos / ubuntu | unit + component + integration, network egress blocked, `cargo doc -D warnings` for the runner's own OS on macOS and Linux |
+| `services` | windows ×2 (`web`, `sql`), macos, ubuntu | every `#[ignore]`d suite that needs a real program — Caddy, nginx, PHP, the SQL servers, the caches, MongoDB — plus the connection count against a socket that really is connected; asked for with `test` (T170e). **A new real-program suite joins a group here, never `test`**, and a leg past 15 minutes on a warm cache becomes a new matrix row |
 | `rustdoc` | windows | `cargo doc -D warnings` for Windows, as a job of its own because the Windows `test` leg is the run's critical path (T170d); asked for with `test` |
 | `system` | windows / macos / ubuntu, elevated | `#[ignore]`d system tests, and the only place `MIXENGINE_SYSTEM_TESTS=1` is set — on every run of the workflow |
 | `bench` | windows / macos / ubuntu | performance budgets from [../standards/testing.md](../standards/testing.md), in a **release** build |

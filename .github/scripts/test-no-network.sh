@@ -22,6 +22,20 @@ script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 script_path="$script_dir/$(basename -- "${BASH_SOURCE[0]}")"
 cd -- "$script_dir/../.."
 
+# What this run is for (T170e): `workspace` is the unit and integration suites plus the doc tests,
+# for the `test` job; `services` is the `#[ignore]`d suites that need a real program, for the
+# `services` job. One script rather than two, so the namespace, the credential store and the list of
+# forwarded variables below stay in one place: that list has let a green leg run nothing three times.
+# Every re-exec below passes it along.
+mode="${1:-}"
+case "$mode" in
+  workspace|services) ;;
+  *)
+    echo "usage: $0 workspace|services" >&2
+    exit 2
+    ;;
+esac
+
 # Whether anything owns the secret service's name on this run's session bus.
 #
 # `gnome-keyring-daemon` returns as soon as it has forked, so a bus with nothing on that name yet is
@@ -120,7 +134,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
     # reason this lives in a CI script rather than in anything a developer runs by habit.
     exec dbus-run-session -- sh -c \
       'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
-       exec env MIXENGINE_TEST_KEYRING=1 bash "$1"' sh "$script_path"
+       exec env MIXENGINE_TEST_KEYRING=1 bash "$1" "$2"' sh "$script_path" "$mode"
   fi
 
   if [ "${MIXENGINE_TEST_KEYRING:-}" != "1" ]; then
@@ -147,21 +161,27 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
     done
   fi
 
-  # `--all-targets` silently excludes doc tests, so they get their own invocation — inside the same
-  # namespace, otherwise a doc example could reach the network unnoticed.
-  if ! cargo test --workspace --all-targets --all-features --locked --offline; then
-    aftermath
-    exit 1
+  if [ "$mode" = "workspace" ]; then
+    # `--all-targets` silently excludes doc tests, so they get their own invocation — inside the
+    # same namespace, otherwise a doc example could reach the network unnoticed.
+    if ! cargo test --workspace --all-targets --all-features --locked --offline; then
+      aftermath
+      exit 1
+    fi
+
+    if ! cargo test --workspace --all-features --locked --offline --doc; then
+      aftermath
+      exit 1
+    fi
+
+    exit 0
   fi
 
-  if ! cargo test --workspace --all-features --locked --offline --doc; then
-    aftermath
-    exit 1
-  fi
-
-  # Every suite below runs with the workspace run's `--workspace --all-features`, never `-p`: cargo
-  # unifies features over the packages it was asked for, and a narrower selection recompiles what
-  # the run above already built (T170b).
+  # `services` from here on: every `#[ignore]`d suite that needs a real program.
+  #
+  # Every suite below runs with `--workspace --all-features`, never `-p`, like the `services` job's
+  # build step: cargo unifies features over the packages it was asked for, and a narrower selection
+  # recompiles what that step already built (T170b).
   #
   # The first of the `#[ignore]`d suites this job runs: the Caddy recipe against a real Caddy, which
   # the workflow fetched before the network was taken away. Inside the namespace like everything
@@ -287,7 +307,7 @@ for mapping in --map-current-user --map-root-user; do
     echo "Network isolation: unprivileged user + network namespace ($mapping)."
     exec unshare --user "$mapping" --net -- \
       sh -c 'ip link set lo up || exit 1; exec "$@"' \
-      sh env MIXENGINE_TEST_ISOLATED=1 bash "$script_path"
+      sh env MIXENGINE_TEST_ISOLATED=1 bash "$script_path" "$mode"
   fi
 done
 
@@ -319,8 +339,8 @@ if sudo -n unshare --net -- sh -c 'ip link set lo up && command -v runuser' >/de
 
   exec sudo -n unshare --net -- \
     sh -c 'ip link set lo up || exit 1; user="$1"; shift; exec runuser -u "$user" -- "$@"' \
-    sh "$(id -un)" env "${env_args[@]}" bash "$script_path"
+    sh "$(id -un)" env "${env_args[@]}" bash "$script_path" "$mode"
 fi
 
 echo "::warning title=No network isolation::Neither unprivileged namespaces nor sudo are available on this runner; the suite ran with network access. Tests reaching the network will not be caught here."
-exec env MIXENGINE_TEST_ISOLATED=1 bash "$script_path"
+exec env MIXENGINE_TEST_ISOLATED=1 bash "$script_path" "$mode"

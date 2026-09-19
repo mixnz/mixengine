@@ -4,7 +4,7 @@
 #   scripts/ask-ci.sh                 # the branch you are on, every job
 #   scripts/ask-ci.sh some-branch     # a branch by name
 #   scripts/ask-ci.sh --watch         # request it, then wait for the verdict
-#   scripts/ask-ci.sh --jobs test     # only the `test` legs; every other job is skipped
+#   scripts/ask-ci.sh --jobs test     # `test`, `services` and `rustdoc`; every other job is skipped
 #
 # **`--jobs` narrows the question, and a narrowed answer is not an answer about the workspace.**
 # The groups are the job names in `ci.yml` — `lint test system bench bindings docs desktop build` —
