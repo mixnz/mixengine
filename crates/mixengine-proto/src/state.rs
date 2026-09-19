@@ -5,7 +5,7 @@
 //! the machine currently believes and changes several times a minute. One is edited in the GUI, the
 //! other is watched there.
 //!
-//! Three types, and the split is the sentence `.claude/architecture/process-supervision.md` writes:
+//! Three types, and the split is the sentence `docs/architecture/process-supervision.md` writes:
 //! *every transition is persisted and emitted with a reason.* [`ServiceState`] is the where,
 //! [`StateReason`] is the why, and [`ServiceTransition`] is the pair travelling together — persisted
 //! by `mixengine-core` and published by the daemon from the very same value, so the row and the
@@ -454,7 +454,7 @@ pub enum StateReason {
     ///
     /// The other half of [`StateReason::Vanished`], and the rarer one: on Windows it takes the
     /// one-call-wide window
-    /// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` accepts, on Linux a
+    /// `docs/decisions/0007-supervised-child-owns-a-process-group.md` accepts, on Linux a
     /// grandchild, on macOS every killed daemon. Adoption needs both a declaration to supervise the
     /// process against and a state it can be resumed from, and a survivor that has neither is not
     /// left running: it would be holding the port and the data directory that the next start
@@ -514,7 +514,7 @@ impl std::fmt::Display for StateReason {
     /// **Here rather than in each client, for the reason the type is here at all.** `mix` and the
     /// GUI show a user the same event, and two renderings written independently would disagree
     /// about what `crash_loop` means the week one of them is updated and the other is not — the
-    /// same argument `.claude/decisions/0006-servicespec-in-proto-and-secret-free.md` makes for the
+    /// same argument `docs/decisions/0006-servicespec-in-proto-and-secret-free.md` makes for the
     /// vocabulary itself. What is left
     /// to a client is layout: [`StateReason::CrashLoop`]'s `tail` is evidence to be printed as
     /// lines, and it is deliberately not in this sentence.

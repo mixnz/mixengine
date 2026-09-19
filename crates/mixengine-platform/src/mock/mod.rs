@@ -1,6 +1,6 @@
 //! An in-memory host. Always compiled — tests and `--dry-run` both run against it.
 //!
-//! Tests never touch the real machine (`.claude/standards/testing.md`), so every capability added
+//! Tests never touch the real machine (`docs/standards/testing.md`), so every capability added
 //! here answers from memory and, once mutations exist, records what it was asked to do so
 //! assertions can be made on the recorded sequence rather than on side effects.
 

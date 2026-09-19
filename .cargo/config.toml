@@ -1,6 +1,6 @@
 # What cargo puts in the environment of everything it runs here.
 #
-# Design: docs/superpowers/specs/2026-09-05-t56-the-published-api-contract-design.md
+# Design: docs/specs/2026-09-05-t56-the-published-api-contract-design.md
 #
 # `ts-rs` reads both of these at run time, so putting them here rather than in
 # `packaging/bindings.sh` means the obvious command — `cargo test -p mixengine-proto --features ts`

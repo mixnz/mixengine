@@ -876,7 +876,7 @@ impl Doctor {
     }
 
     /// **8.** Always a `Note`, on every system — the whole of the design's D4, and
-    /// [ADR 0007](../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md)'s own
+    /// [ADR 0007](../../../docs/decisions/0007-supervised-child-owns-a-process-group.md)'s own
     /// table read out loud.
     fn descendants(&self) -> Check {
         Check {

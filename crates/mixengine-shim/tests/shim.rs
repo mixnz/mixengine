@@ -16,7 +16,7 @@
 //! are those three.
 //!
 //! **No `MIXENGINE_HOME` is ever set in this process.** Each case sets it on the child's own
-//! `Command`, which is what `.claude/standards/testing.md` requires and what lets these run in
+//! `Command`, which is what `docs/standards/testing.md` requires and what lets these run in
 //! parallel: `std::env::set_var` is process-global, and two homes in one binary would overwrite each
 //! other.
 //!

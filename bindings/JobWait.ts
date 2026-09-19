@@ -6,7 +6,7 @@ import type { Millis } from "./Millis";
  * Which job to wait for, and how long to wait.
  *
  * **`job.wait` is the one call in this API that blocks on purpose**, and the timeout is what keeps
- * that from contradicting the rule it is an exception to. `.claude/architecture/daemon-and-ipc.md`
+ * that from contradicting the rule it is an exception to. `docs/architecture/daemon-and-ipc.md`
  * says never to block an RPC call for minutes; a script that has nothing to do but wait for a
  * download is the case that rule was not written about, and it still does not get to hold a
  * connection open forever. What comes back when the time runs out is the job as it stands, not an

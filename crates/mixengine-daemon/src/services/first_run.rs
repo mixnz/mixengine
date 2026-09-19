@@ -152,7 +152,7 @@ fn patience_for(plan: &FirstRun) -> Millis {
 ///
 /// Whoever meets this on a headless Linux is told which of the three ways this machine has no
 /// secret service and what to do about each — **T15b**, argued in
-/// `.claude/decisions/0013-reading-the-d-bus-error-name-to-tell-an-absent-store.md`. The refusal
+/// `docs/decisions/0013-reading-the-d-bus-error-name-to-tell-an-absent-store.md`. The refusal
 /// itself is unchanged; what changed is that it stopped reporting MixEngine as broken.
 async fn store_the_secrets(
     host: &Arc<dyn Host>,
@@ -167,7 +167,7 @@ async fn store_the_secrets(
         let (host, key, value) = (Arc::clone(host), address(spec.key), secret.clone());
 
         // The keyring blocks, and on Linux it blocks on a D-Bus round trip to a daemon that may be
-        // prompting the user to unlock their keyring. `.claude/standards/rust.md`'s rule for
+        // prompting the user to unlock their keyring. `docs/standards/rust.md`'s rule for
         // anything that can hang.
         tokio::task::spawn_blocking(move || {
             host.keyring().set_secret(KEYRING_SERVICE, &key, &value)
@@ -282,7 +282,7 @@ mod tests {
 
     /// A data directory that is not ours is refused, and is still there afterwards.
     ///
-    /// `.claude/features/services.md` says a half-finished data directory is cleaned; this is the
+    /// `docs/features/services.md` says a half-finished data directory is cleaned; this is the
     /// assertion that keeps it from also meaning *MixEngine deletes a database it did not create*.
     #[tokio::test]
     async fn a_foreign_data_directory_is_refused_and_left_alone() {

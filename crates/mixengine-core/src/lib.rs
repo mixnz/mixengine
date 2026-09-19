@@ -94,7 +94,7 @@ pub enum Error {
         /// `"service"`, `"job"`, `"domain"`, `"blueprint"`, `"extension"`.
         ///
         /// Not free text. The daemon turns this into the hint `mix <kind> list`, which is a
-        /// command only because the namespaces in `.claude/architecture/daemon-and-ipc.md` are
+        /// command only because the namespaces in `docs/architecture/daemon-and-ipc.md` are
         /// also the nouns the CLI uses — a `kind` invented outside that list would send the user
         /// to a command that does not exist.
         kind: &'static str,
@@ -1067,7 +1067,7 @@ pub enum Error {
     /// A download does not hash to what the signed index promised.
     ///
     /// The download is deleted, which
-    /// [security-model.md](../../../.claude/architecture/security-model.md) requires and which is
+    /// [security-model.md](../../../docs/architecture/security-model.md) requires and which is
     /// also what stops a `.part` that can never verify from being resumed forever. Whether this is
     /// a corrupted transfer or a mirror serving something else, the next step is the same one.
     #[error("{url} does not match the checksum the index publishes for it")]
@@ -1173,7 +1173,7 @@ pub enum Error {
     /// A `.deb`, an `.rpm`, a `.pkg` or an AppImage put it where it is, and whatever did that is
     /// what updates it. **Refused before a byte is downloaded**, and never by attempting an
     /// elevation: an updater that could ask for root would be the local privilege-escalation path
-    /// `.claude/features/updates.md` is written to avoid.
+    /// `docs/features/updates.md` is written to avoid.
     #[error("MixEngine cannot replace its own binaries in {}: {because}", directory.display())]
     UpdateNotWritable {
         /// Where this copy is installed.
@@ -1213,7 +1213,7 @@ pub enum Error {
     ///
     /// Checked here as well as inside the elevated process, and the two are not one check twice:
     /// the elevated one is the security boundary, and this one is what stops a mirror serving
-    /// rubbish from costing an elevation prompt to discover. `.claude/features/updates.md` asks
+    /// rubbish from costing an elevation prompt to discover. `docs/features/updates.md` asks
     /// that a tampered artifact be refused *with the reason shown*, and a reason nobody sees until
     /// after they have clicked Allow is not shown.
     #[error("{what} did not verify against MixEngine's update key")]

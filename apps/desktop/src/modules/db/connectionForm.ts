@@ -190,7 +190,7 @@ export const KIND_LABEL: Record<DbKind, TranslationKey> = {
  * `connections.json` — nothing verifies it at runtime — so a connection saved by a newer version,
  * read back by this one, can carry a kind that isn't in the table.
  *
- * See docs/superpowers/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md.
+ * See docs/specs/2026-09-05-unknown-db-kind-crash-and-error-logging-design.md.
  */
 export function kindLabel(kind: DbKind): TranslationKey {
   return (KIND_LABEL as Partial<Record<string, TranslationKey>>)[kind] ?? "connection.kindUnknown";

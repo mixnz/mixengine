@@ -40,7 +40,7 @@ still_pending: number,
  * grant did not do it, and this is why.
  *
  * Optional on the wire, so an older client reading a newer daemon is unaffected
- * ([ADR 0019](../../.claude/decisions/0019-an-added-response-member-is-optional.md)).
+ * ([ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md)).
  */
 problems?: Array<string>, } & ({ "outcome": "completed" } | { "outcome": "declined" } | { "outcome": "unavailable", 
 /**

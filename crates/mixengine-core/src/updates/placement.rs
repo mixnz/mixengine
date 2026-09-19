@@ -8,7 +8,7 @@
 //!
 //! **Nothing here ever elevates, and nothing here ever will.** An updater that could ask for root
 //! would be the local privilege-escalation path this whole feature is written to avoid —
-//! `.claude/features/updates.md`, and [ADR 0005](../../../../.claude/decisions/0005-on-demand-elevation.md).
+//! `docs/features/updates.md`, and [ADR 0005](../../../../docs/decisions/0005-on-demand-elevation.md).
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -46,7 +46,7 @@ pub enum Placement {
 /// Read the placement of the daemon at `daemon_exe`.
 ///
 /// `appimage` is `APPIMAGE` from the environment, passed in rather than read here: configuration
-/// enters at `main` and is passed down (`.claude/standards/rust.md`), and it is also what lets this
+/// enters at `main` and is passed down (`docs/standards/rust.md`), and it is also what lets this
 /// be tested without `set_var`, which is `unsafe` in edition 2024 and process-global regardless.
 ///
 /// **The AppImage question is asked before the probe**, which matters for the case that is not the

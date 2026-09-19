@@ -6,7 +6,7 @@
 //! CI's `test (ubuntu-latest)` job installs the package and runs this with `--ignored`, which is
 //! what makes the claim measured rather than optional.
 //!
-//! **Nothing here touches a real profile.** `.claude/standards/testing.md`'s first rule is about the
+//! **Nothing here touches a real profile.** `docs/standards/testing.md`'s first rule is about the
 //! user's own stores; the database below is made by `certutil -N` inside a temp directory that the
 //! whole search is rooted at, and it is deleted with it.
 

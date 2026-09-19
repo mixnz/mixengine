@@ -11,14 +11,14 @@ import type { SqlApi, SqlDumpMode, SqlPageQuery, SqlServerInfo } from "../sql/ap
 
 /**
  * ClickHouse's side of {@link SqlApi}. Row writes and DDL both call real commands — see
- * `docs/superpowers/specs/2026-09-04-clickhouse-row-writes-design.md` and
- * `docs/superpowers/specs/2026-09-04-clickhouse-ddl-design.md`.
+ * `docs/specs/2026-09-04-clickhouse-row-writes-design.md` and
+ * `docs/specs/2026-09-04-clickhouse-ddl-design.md`.
  *
  * What is left as `notSupported()` is the three index methods: no Tauri command exists for any of
  * them, and none is ever registered — a call here fails as a rejected promise carrying
  * `error.clickhouseReadOnly` rather than as "command not found". `editing.indexKinds` being empty
  * keeps the index dialog from offering a path to them. Dump and restore are real commands now — see
- * `docs/superpowers/specs/2026-09-04-clickhouse-dump-restore-design.md`.
+ * `docs/specs/2026-09-04-clickhouse-dump-restore-design.md`.
  */
 export const clickhouseApi: SqlApi = {
   listDatabases(id) {

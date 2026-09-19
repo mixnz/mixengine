@@ -3,7 +3,7 @@
 //!
 //! **Written only when somebody asks**, which is [`crate::shims`]' rule and the same one: a logon
 //! task, a LaunchAgent and a systemd user unit are all outside `MIXENGINE_HOME`, and
-//! `.claude/architecture/daemon-and-ipc.md` has no method that writes there on the daemon's own
+//! `docs/architecture/daemon-and-ipc.md` has no method that writes there on the daemon's own
 //! initiative. `path.*` is the first of them and `autostart.*` is the second. So nothing here is
 //! called at start-up, and this type holds no state of its own to refresh.
 //!

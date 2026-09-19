@@ -7,7 +7,7 @@
  * **Off unless a person turned it on** ([ADR 0041]). While it is off, a service whose own idle
  * setting is unset is never stopped for being idle; a service somebody gave a number keeps it.
  *
- * [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+ * [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
  */
 export type SaveResources = { 
 /**

@@ -109,7 +109,7 @@ function shellShortcuts(visible: ModuleDefinition[], openable: ModuleDefinition[
  * Every chord in the app, the shell's and the visible modules'.
  *
  * Assembled here rather than inside `core/shortcuts/`: that folder is the mechanism and may not
- * import from `shell/` or `modules/` at all — see `.agent/architecture/frontend.md`. The
+ * import from `shell/` or `modules/` at all — see `docs/architecture/desktop/frontend.md`. The
  * dispatcher is handed this list; it never goes looking for one.
  *
  * A hidden module contributes nothing: its panes are never mounted, so nothing would answer its

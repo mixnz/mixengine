@@ -380,7 +380,7 @@ enum Command {
 
 /// `mix cert …` — one subcommand per `cert.*` method, and nothing that is not one.
 ///
-/// **`ca-status` and not `status`.** `.claude/features/tls.md` gives the short name to the per-site
+/// **`ca-status` and not `status`.** `docs/features/tls.md` gives the short name to the per-site
 /// diagnostics with a live TLS handshake, which is roadmap task **T53**, and names this command's
 /// siblings `ca-uninstall` and `ca-rotate`. Taking the short name here would mean renaming it later,
 /// or giving one command two unrelated jobs.
@@ -1231,7 +1231,7 @@ enum ElevationCommand {
 
     /// Ask once, for everything that is waiting.
     ///
-    /// One prompt for the whole queue: `.claude/decisions/0005-on-demand-elevation.md` calls asking
+    /// One prompt for the whole queue: `docs/decisions/0005-on-demand-elevation.md` calls asking
     /// inside a loop a defect. Saying no is a normal answer — the list stays, and this command can
     /// be run again later.
     Grant {
@@ -1343,7 +1343,7 @@ enum RuntimeCommand {
     /// Which extensions an installed build loads.
     ///
     /// Under `runtime` rather than as `mix php ext …`, which is what
-    /// `.claude/features/runtime-versions.md` wrote: a per-language command family for one language
+    /// `docs/features/runtime-versions.md` wrote: a per-language command family for one language
     /// is a noun this CLI would then owe every other runtime.
     Ext {
         #[command(subcommand)]
@@ -1619,7 +1619,7 @@ enum ServiceCommand {
     /// The one `mix service` subcommand that is not a `service.*` method: output is a stream, and a
     /// JSON-RPC call cannot be one, so the lines arrive on a connection of their own.
     //
-    // The reasoning is ADR 0009, `.claude/decisions/0009-logs-travel-on-their-own-stream.md`. It is
+    // The reasoning is ADR 0009, `docs/decisions/0009-logs-travel-on-their-own-stream.md`. It is
     // a `//` comment and not a `///` one deliberately: this text is `mix service logs --help`, and
     // since T90 it is also a page of the user handbook — a link to a path only a checkout of this
     // repository has is a dead link for every reader of both.
@@ -4735,7 +4735,7 @@ async fn elevation(
             // An empty queue is `elevation.grant`'s own refusal to make, and it is left to it. What
             // is skipped is the question: there is nothing to put in front of somebody.
             if !waiting.pending.is_empty() && !yes && !confirmed(&waiting, json)? {
-                // Saying no is an answer and not a failure — `.claude/decisions/0005-on-demand-
+                // Saying no is an answer and not a failure — `docs/decisions/0005-on-demand-
                 // elevation.md`. Nothing was written and nothing was dropped, so the same command
                 // works when the person is ready.
                 return Ok(ExitCode::SUCCESS);
@@ -4908,7 +4908,7 @@ fn subject_of(action: &PlanAction) -> Option<AnswerSubject> {
 
 /// Spend the one elevation prompt an apply queued, having asked first unless told not to.
 ///
-/// **A client is the only thing allowed to raise one** — `.claude/architecture/daemon-and-ipc.md`'s
+/// **A client is the only thing allowed to raise one** — `docs/architecture/daemon-and-ipc.md`'s
 /// rule, which the daemon's own elevation queue is built around. An apply enqueues; this is where
 /// somebody says yes.
 async fn granted(client: &mut Client, grant: bool, json: bool) -> Result<ExitCode, Error> {
@@ -5480,7 +5480,7 @@ async fn which_php(
 /// The wire shape of "which version does this directory use", and the one place `mix` reads the
 /// environment below `main`.
 ///
-/// **It has to be read here rather than at `main`**, which is where `.claude/standards/rust.md` puts
+/// **It has to be read here rather than at `main`**, which is where `docs/standards/rust.md` puts
 /// configuration, and the exception is narrow enough to state exactly: the variable's *name* depends
 /// on the kind the user just named — `MIXENGINE_PHP`, `MIXENGINE_NODE` — so nothing above the parse
 /// knows which one to look at. The name itself is still not this client's to invent:

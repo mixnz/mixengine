@@ -23,7 +23,7 @@
 //! since the service started has the better answer already, and stitching the two would mean
 //! guessing where one ends in a file something else is still appending to.
 //!
-//! See `.claude/decisions/0009-logs-travel-on-their-own-stream.md` for why none of this is an event.
+//! See `docs/decisions/0009-logs-travel-on-their-own-stream.md` for why none of this is an event.
 
 use std::collections::HashMap;
 use std::collections::VecDeque;

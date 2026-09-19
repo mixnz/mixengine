@@ -13,7 +13,7 @@ pub use mixengine_proto::KEYRING_SERVICE;
 
 /// The operating system's credential store.
 ///
-/// `.claude/decisions/0006-servicespec-in-proto-and-secret-free.md` is what makes this a capability
+/// `docs/decisions/0006-servicespec-in-proto-and-secret-free.md` is what makes this a capability
 /// rather than a convenience: a `ServiceSpec` can *name* a credential and cannot carry one, so the
 /// value has to come from somewhere at the moment a child is built, and that somewhere is the
 /// Credential Manager, the login Keychain or the session's secret service. MariaDB's generated root
@@ -32,7 +32,7 @@ pub use mixengine_proto::KEYRING_SERVICE;
 ///
 /// Every method blocks, and on Linux it blocks on a D-Bus round trip to a daemon that may be
 /// prompting the user to unlock their keyring. A caller inside the async runtime goes through
-/// `spawn_blocking`, as `.claude/standards/rust.md` requires of anything that can hang.
+/// `spawn_blocking`, as `docs/standards/rust.md` requires of anything that can hang.
 pub trait Keyring: std::fmt::Debug + Send + Sync {
     /// The credential stored at `(service, key)`, or `None` when there is none.
     ///

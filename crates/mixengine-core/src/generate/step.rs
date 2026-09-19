@@ -7,7 +7,7 @@
 //!
 //! Both hand-written [`Debug`] impls came with it, and they are why this is a file rather than a
 //! pair of struct definitions: a step may hold a generated password on its standard input, and
-//! `.claude/standards/rust.md` says a type that *might* hold a secret redacts it rather than
+//! `docs/standards/rust.md` says a type that *might* hold a secret redacts it rather than
 //! trusting every caller that ever writes `{:?}`.
 
 use std::collections::BTreeMap;
@@ -82,7 +82,7 @@ impl fmt::Debug for SecretFile {
 
 /// Written by hand, and [`Step::stdin`] is the reason.
 ///
-/// It carries a generated password. `.claude/standards/rust.md`'s rule is that a struct which
+/// It carries a generated password. `docs/standards/rust.md`'s rule is that a struct which
 /// *might* hold a secret redacts it rather than trusting every caller that ever writes `{:?}`, and a
 /// `tracing` field on a step that failed is one line away at all times. The length stays, because it
 /// is what a reader debugging a bootstrap actually needs.

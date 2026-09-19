@@ -100,7 +100,7 @@ pub enum Execution {
     /// One case exists today: an ARM64 Windows machine installing an x86_64 build, because upstream
     /// publishes no ARM64 Windows build of six of the eleven kinds MixEngine offers — PHP among
     /// them. See
-    /// [ADR 0023](../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
+    /// [ADR 0023](../../../docs/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
     Emulated,
 }
 
@@ -418,7 +418,7 @@ pub struct VersionError {
 ///
 /// What a `--version` flag, a `MIXENGINE_PHP`, a `mixengine.toml` pin and a project record all
 /// carry. Three forms, which is what
-/// [runtime-versions.md](../../../../.claude/features/runtime-versions.md) promises:
+/// [runtime-versions.md](../../../docs/features/runtime-versions.md) promises:
 ///
 /// | Written | Means |
 /// | --- | --- |

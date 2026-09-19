@@ -16,7 +16,7 @@
 //! Rendering the templates into the spec is [`super::render`].
 //!
 //! [`ServiceSpec`]: mixengine_proto::ServiceSpec
-//! [ADR 0006]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0006-servicespec-in-proto-and-secret-free.md
+//! [ADR 0006]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0006-servicespec-in-proto-and-secret-free.md
 
 use std::collections::BTreeMap;
 use std::path::Path;

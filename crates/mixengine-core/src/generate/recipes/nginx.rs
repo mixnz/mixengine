@@ -1,6 +1,6 @@
 //! Nginx: the alternative front end — roadmap task **T37**.
 //!
-//! The second of the two programs `.claude/features/services.md` will let a site be reached through,
+//! The second of the two programs `docs/features/services.md` will let a site be reached through,
 //! and the one that makes "exactly one active front end" a rule somebody can break — which is why
 //! [`Role`] arrived with it. Everything else here is [`caddy`](super::caddy)'s shape answered by a
 //! server that has none of Caddy's mechanisms:
@@ -2232,7 +2232,7 @@ zz
 
     /// There is one nginx, which is what stops `service.create` being asked for a second one.
     ///
-    /// The same answer as Caddy's and for the same sentence in `.claude/features/services.md`:
+    /// The same answer as Caddy's and for the same sentence in `docs/features/services.md`:
     /// exactly one active front end. What stops a *Caddy* being created beside this one is
     /// [`Recipe::role`], which is a different rule about a different mistake.
     #[test]

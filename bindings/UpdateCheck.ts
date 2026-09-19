@@ -7,7 +7,7 @@ export type UpdateCheck = {
 /**
  * Go to the network even if what is cached is still fresh.
  *
- * What `mix self-update --check` sets, because `.claude/features/updates.md` says that command
+ * What `mix self-update --check` sets, because `docs/features/updates.md` says that command
  * forces an immediate check. The daemon's own startup check leaves it `false`, so a daemon
  * restarted ten times in an hour makes one request.
  */

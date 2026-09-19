@@ -320,7 +320,7 @@ struct Args {
 
     /// Read the package index from here instead of the one MixEngine publishes.
     ///
-    /// A team mirror, or a test's own registry. `.claude/operations/runtime-packaging.md` promises
+    /// A team mirror, or a test's own registry. `docs/operations/runtime-packaging.md` promises
     /// this and promises that the signature requirement stays — which is why it is useless without
     /// the flag below, and why the two are read together.
     #[arg(long, env = "MIXENGINE_INDEX_URL", value_name = "URL")]
@@ -379,7 +379,7 @@ impl Args {
     /// Where the package index comes from: what was asked for, or what MixEngine publishes.
     ///
     /// The one place either value is read. Configuration enters at `main` and is passed down —
-    /// `.claude/standards/rust.md` — so nothing below this reaches for an environment variable to
+    /// `docs/standards/rust.md` — so nothing below this reaches for an environment variable to
     /// find out where to download from.
     fn index_source(&self) -> runtimes::IndexSource {
         let default = runtimes::IndexSource::default();
@@ -642,7 +642,7 @@ async fn run() -> anyhow::Result<()> {
     // both migrate it. A single-instance lock acquired afterwards would guard nothing.
     let Some(lock) = take_over(home.paths.lock_file(), &endpoint).await? else {
         // Not a failure, and the exit status says so. The caller asked for a running daemon for this
-        // home and there is one — `.claude/architecture/daemon-and-ipc.md` has this print the
+        // home and there is one — `docs/architecture/daemon-and-ipc.md` has this print the
         // endpoint and stop, which is also what makes two clients autostarting at the same instant
         // (roadmap task T10) produce one daemon and no error message.
         println!("{endpoint}");
@@ -1435,7 +1435,7 @@ async fn serve(
     });
 
     // **And every site that declares HTTPS gets the certificate its names need** — roadmap task
-    // T50, here and not inside any of the generator blocks below. `.claude/CLAUDE.md` says generated
+    // T50, here and not inside any of the generator blocks below. `CLAUDE.md` says generated
     // configuration is disposable and rebuilt from the database; a certificate is state, cannot be
     // rebuilt from a row, and throwing one away costs the trust of every browser holding a cached
     // chain. So issuance is a *precondition* of generation rather than part of it, and the ordering
@@ -1896,7 +1896,7 @@ async fn serve(
     // restarting it.
     crate::services::autostart::start(Arc::clone(&services), store.clone(), shutdown.clone());
 
-    // Connections are tracked rather than detached, because `.claude/standards/rust.md` forbids a
+    // Connections are tracked rather than detached, because `docs/standards/rust.md` forbids a
     // task that outlives shutdown and because a `/events` stream would otherwise be cut mid-frame.
     let mut connections = tokio::task::JoinSet::new();
 

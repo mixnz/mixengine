@@ -1,7 +1,7 @@
 //! What may be routed where, decided by the binary that will route it.
 //!
 //! **The helper validates the request itself rather than trusting the daemon** —
-//! `.claude/architecture/security-model.md`, and the T45 design, D3 and D5. If the daemon is
+//! `docs/architecture/security-model.md`, and the T45 design, D3 and D5. If the daemon is
 //! compromised it *is* the attacker, so nothing the request asserts can be believed: not the TLDs,
 //! not the port, not the length of the list.
 //!

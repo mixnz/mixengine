@@ -1,7 +1,7 @@
 //! What may be written into the hosts file, decided by the binary that will write it.
 //!
 //! **The helper validates the request itself rather than trusting the daemon** —
-//! `.claude/architecture/security-model.md`, and the T41 design, D3. If the daemon is compromised it
+//! `docs/architecture/security-model.md`, and the T41 design, D3. If the daemon is compromised it
 //! *is* the attacker, so nothing the request asserts can be believed: not the address, not the
 //! domain, not the size of the list. This module is the whole of that decision and is meant to be
 //! read in one sitting.

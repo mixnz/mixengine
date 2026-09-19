@@ -30,7 +30,7 @@ use crate::logs::Capture;
 
 /// How many lines of a service's output are attached to a crash-loop failure.
 ///
-/// The number `.claude/architecture/process-supervision.md` names. Enough to hold a stack trace and
+/// The number `docs/architecture/process-supervision.md` names. Enough to hold a stack trace and
 /// the line above it that says what was actually wrong; small enough that an event carrying one is
 /// still an event.
 pub const TAIL_LINES: usize = 200;

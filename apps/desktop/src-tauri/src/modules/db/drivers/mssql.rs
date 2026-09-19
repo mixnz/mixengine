@@ -1,5 +1,5 @@
 //! SQL Server, over TDS rather than through sqlx — see
-//! `docs/superpowers/specs/2026-09-05-mssql-support-design.md` (D1..D15).
+//! `docs/specs/2026-09-05-mssql-support-design.md` (D1..D15).
 //!
 //! Closest to `postgres.rs` in shape, since both put a schema between the database and its tables
 //! and so name a table `schema.table`; closest to `mysql.rs` in connection model, since both reach

@@ -2,7 +2,7 @@
 //!
 //! # The first recipe that renders nothing
 //!
-//! `.claude/features/services.md` opens with "no hand-written config files", and every recipe before
+//! `docs/features/services.md` opens with "no hand-written config files", and every recipe before
 //! this one answered that by rendering one. **Memcached has no configuration file format at all** —
 //! not one it declines to use, one that does not exist: every setting is a command-line flag, and
 //! what distributions call `/etc/memcached.conf` is a list of flags their init script pastes onto
@@ -35,7 +35,7 @@
 //! `shutdown` on a loopback port that anything served by this machine can reach, to save flushing a
 //! cache that has nothing to flush.
 //!
-//! [`ADR 0008`]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0008-no-signal-stop-on-windows.md
+//! [`ADR 0008`]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0008-no-signal-stop-on-windows.md
 //! [`ServiceSpec::args`]: mixengine_proto::ServiceSpec::args
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -107,7 +107,7 @@ impl Recipe for Memcached {
                 default: Preset::Number(1024),
             },
             Setting {
-                // Memcached's own default, and the number `.claude/features/services.md` names.
+                // Memcached's own default, and the number `docs/features/services.md` names.
                 key: MEMORY_MB,
                 default: Preset::Number(64),
             },

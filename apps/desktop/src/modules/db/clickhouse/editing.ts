@@ -37,7 +37,7 @@ const TYPES: SqlTypeSpec[] = [
 
 /**
  * What the Structure tab's dialogs offer on ClickHouse — see
- * `docs/superpowers/specs/2026-09-04-clickhouse-ddl-design.md`.
+ * `docs/specs/2026-09-04-clickhouse-ddl-design.md`.
  *
  * Most of it is `false`, and each one is a clause ClickHouse has not got: no `UNSIGNED` (the type
  * carries its own sign), no position to put a column in (`MODIFY COLUMN` cannot move one, so

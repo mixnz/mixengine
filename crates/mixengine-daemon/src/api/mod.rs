@@ -8,9 +8,9 @@
 //! - [`logs`] is the other stream. `GET /logs/service/{id}` and `GET /logs/job/{id}`, which carry
 //!   one subject's output and are
 //!   separate from [`events`] on purpose — see
-//!   `.claude/decisions/0009-logs-travel-on-their-own-stream.md`.
+//!   `docs/decisions/0009-logs-travel-on-their-own-stream.md`.
 //!
-//! Nothing in here is business logic — `.claude/CLAUDE.md` puts that in `mixengine-core` — and the
+//! Nothing in here is business logic — `CLAUDE.md` puts that in `mixengine-core` — and the
 //! handlers are the proof: each one turns state the daemon already holds into a `mixengine-proto`
 //! type and does nothing else.
 
@@ -46,7 +46,7 @@ pub(crate) use http::serve_connection;
 /// Everything a request handler is allowed to see.
 ///
 /// Constructed once at startup and shared by every connection, per the injected-dependencies rule in
-/// `.claude/standards/rust.md` — no globals, and nothing below this point reads the environment or
+/// `docs/standards/rust.md` — no globals, and nothing below this point reads the environment or
 /// resolves a path of its own.
 #[derive(Debug)]
 pub(crate) struct Api {

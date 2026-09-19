@@ -2,7 +2,7 @@
 //!
 //! # The whole of it is one transaction, and the rename is the commit
 //!
-//! `.claude/features/runtime-versions.md` states the invariant this module exists to hold: *a
+//! `docs/features/runtime-versions.md` states the invariant this module exists to hold: *a
 //! half-extracted version must never appear in `list`*. So nothing is written where a reader will
 //! look for it. The archive is unpacked into a staging directory beside the destination, everything
 //! that could still refuse it happens there — the paths it promised are checked, the binary is made
@@ -31,7 +31,7 @@
 //! to run as a smoke test arrives as a [`SmokeTest`], because "which flag prints the version" is a
 //! fact about PHP and Node, not about downloading.
 //!
-//! [T23]: ../../../../.claude/roadmap/phase-2-runtimes.md
+//! [T23]: ../../../docs/roadmap/phase-2-runtimes.md
 
 use std::ffi::OsString;
 use std::io::Read as _;
@@ -59,7 +59,7 @@ const PART_SUFFIX: &str = ".part";
 /// A download has no *total* budget on purpose — an artifact is tens of megabytes and a slow
 /// connection is not a broken one, so a ceiling large enough to be safe would be too large to mean
 /// anything. What is bounded instead is silence: this, and [`READ_TIMEOUT`] between two reads. That
-/// is what `.claude/standards/rust.md` asks for when it says every network path carries a timeout —
+/// is what `docs/standards/rust.md` asks for when it says every network path carries a timeout —
 /// the failure being guarded against is a socket that stops answering, not a file that is big.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -283,7 +283,7 @@ impl Installer {
     ///
     /// `into` must not exist: an install never mutates a version that is already there, which is
     /// what makes a runtime directory immutable in the sense
-    /// [runtime-versions.md](../../../../.claude/features/runtime-versions.md) means it.
+    /// [runtime-versions.md](../../../docs/features/runtime-versions.md) means it.
     ///
     /// `not_an_archive` says what a URL that names no archive means here — [`NotAnArchive`], roadmap
     /// task **T82**.
@@ -537,7 +537,7 @@ impl Installer {
     /// Check what arrived against the hash the signed index promised.
     ///
     /// A mismatch **deletes the download**, which
-    /// [security-model.md](../../../../.claude/architecture/security-model.md) requires and which is
+    /// [security-model.md](../../../docs/architecture/security-model.md) requires and which is
     /// also the only way out of a loop: a `.part` that cannot verify would otherwise be resumed
     /// forever, arriving at the same wrong answer each time.
     async fn verify<W: Watcher>(
@@ -568,7 +568,7 @@ impl Installer {
     /// Fill the staging directory from the downloaded file, off the runtime.
     ///
     /// **Both arms go through [`blocking`]**, because copying an artifact is as much disk work as
-    /// decompressing one and `.claude/standards/rust.md`'s rule is about the runtime rather than
+    /// decompressing one and `docs/standards/rust.md`'s rule is about the runtime rather than
     /// about compression.
     async fn unpack<W: Watcher>(
         &self,

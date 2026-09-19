@@ -1,6 +1,6 @@
 //! What this daemon leaves behind when it hits a bug in itself. Roadmap task **T91**.
 //!
-//! **Three documents described this before it existed.** `.claude/standards/rust.md` says the RPC
+//! **Three documents described this before it existed.** `docs/standards/rust.md` says the RPC
 //! layer turns a panic into `internal`; `api/rpc.rs` says the message *"has already
 //! gone to the log through the panic hook"*; `Cargo.toml`'s release profile keeps symbol names
 //! because *"a daemon crash report is worthless without function names"*. There was no hook, and
@@ -14,7 +14,7 @@
 //! `daemon.log` — where paths a person chose already are, and always have been.
 //!
 //! **Nothing here sends anything anywhere.** See
-//! `.claude/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md`.
+//! `docs/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md`.
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -238,7 +238,7 @@ impl Reports {
 
     /// Every report that parses, newest first, and the file names of the ones that did not.
     ///
-    /// **Blocking**, so callers put it where `.claude/standards/rust.md` puts blocking work.
+    /// **Blocking**, so callers put it where `docs/standards/rust.md` puts blocking work.
     ///
     /// **A report that will not parse is named rather than dropped**, which is
     /// [`diagnostics`](crate::diagnostics)' own rule about a member it could not read: an archive
@@ -459,7 +459,7 @@ mod tests {
     }
 
     /// A real capture survives the filter. The claim is about `std`'s behaviour, so
-    /// `.claude/standards/rust.md` asks for a test rather than a sentence.
+    /// `docs/standards/rust.md` asks for a test rather than a sentence.
     #[test]
     fn a_real_backtrace_survives_the_filter_with_no_separator_in_it() {
         let rendered = std::backtrace::Backtrace::force_capture().to_string();

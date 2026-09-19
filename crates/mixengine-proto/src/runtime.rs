@@ -84,7 +84,7 @@ impl RuntimeKind {
     /// The environment variable that overrides which version of this language is used.
     ///
     /// `MIXENGINE_PHP=8.1 php -v` is the first step of the resolution order
-    /// [runtime-versions.md](../../../../.claude/features/runtime-versions.md) states, and the name
+    /// [runtime-versions.md](../../../docs/features/runtime-versions.md) states, and the name
     /// is here — in the crate every client links — because **the process that reads it has to be the
     /// one the user invoked**. A daemon reading its own environment would answer with whatever it
     /// was started with, which is nobody's shell; so `mix` and the shim read this and send what they

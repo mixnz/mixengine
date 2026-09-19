@@ -44,7 +44,7 @@
 //! cannot be read with overlapped I/O at all — `tokio::process` gets around that by creating named
 //! pipes for its own children, which is not what this crate spawns. So the choice is a thread per
 //! stream or a polling loop that would either add latency to every line or spin; a blocking read on
-//! a thread is what `.claude/standards/rust.md` means by "a dedicated task".
+//! a thread is what `docs/standards/rust.md` means by "a dedicated task".
 //!
 //! **Since T16 that thread also writes the file, unbuffered, one line per call.** Said plainly
 //! because it cuts against the paragraph above: the reason to drain a pipe promptly is that a
@@ -347,7 +347,7 @@ impl Capture {
     /// # Blocking
     ///
     /// This blocks the calling thread for up to `within`. A caller inside the async runtime goes
-    /// through `spawn_blocking`, as `.claude/standards/rust.md` requires of anything that waits.
+    /// through `spawn_blocking`, as `docs/standards/rust.md` requires of anything that waits.
     ///
     /// Takes `&mut self` rather than `self`, because reading the ring is the whole reason to wait
     /// for the last lines: a crash-loop cutoff finishes the capture and *then* asks for the last two

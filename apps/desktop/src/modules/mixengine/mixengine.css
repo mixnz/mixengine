@@ -1,6 +1,6 @@
 /* A workspace root needs all five properties: `.tab-panel` is a horizontal flex row, so a root
    without `width` is only as wide as its content and sticks to the left edge —
-   see .agent/conventions/workspace-root.md. */
+   see docs/standards/desktop/workspace-root.md. */
 .mixengine-root {
   display: flex;
   flex-direction: column;

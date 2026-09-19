@@ -115,7 +115,7 @@ async fn a_first_run_gets_the_documented_schema() {
     .await
     .unwrap();
 
-    // The list in .claude/architecture/data-model.md. Both halves are the contract: a table added
+    // The list in docs/architecture/data-model.md. Both halves are the contract: a table added
     // here without a line there is a schema nobody agreed to.
     assert_eq!(
         tables,

@@ -11,7 +11,7 @@ import type { TrustTarget } from "./TrustTarget";
 /**
  * The closed list of things that cross into the elevated process.
  *
- * See `.claude/architecture/platform-abstraction.md`: the list is closed against operations **with
+ * See `docs/architecture/platform-abstraction.md`: the list is closed against operations **with
  * effects**, and adding one of those requires an ADR. [`PrivilegedOp::Probe`] has none.
  */
 export type PrivilegedOp = { "op": "probe", } | { "op": "hosts-apply", 

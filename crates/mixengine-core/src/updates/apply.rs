@@ -18,7 +18,7 @@
 //!
 //! `mixengine-elevate`. It is installed once to a root-owned location, and replacing it needs its
 //! own elevation prompt with a minisign check performed *inside* the elevated context — roadmap task
-//! **T88a**. `.claude/features/updates.md` calls this the single most important rule on the page: an
+//! **T88a**. `docs/features/updates.md` calls this the single most important rule on the page: an
 //! auto-updated binary that runs as root, with no OS signature, is a local privilege-escalation
 //! vector. Here it is one name in one constant, [`KEPT`], and a test that a payload containing the
 //! helper does not get to replace it.
@@ -82,7 +82,7 @@ pub struct Swapped {
 /// **Every step is [`Installer::install`]'s**, which is what makes this function short. The one
 /// worth naming on its own is the last: running the staged `mixengined` before anything is replaced
 /// is the difference between *"the update was refused and nothing changed"* and *"MixEngine no
-/// longer starts"*. `.claude/features/updates.md` records that Windows Code Integrity judges each
+/// longer starts"*. `docs/features/updates.md` records that Windows Code Integrity judges each
 /// file separately, again after every update, with refusal rather than a warning at the end of it —
 /// and a payload for the wrong architecture or past this machine's glibc floor fails here too.
 ///
@@ -470,7 +470,7 @@ mod tests {
         );
     }
 
-    /// `.claude/features/updates.md`'s single most important rule, as a test: an auto-updated binary
+    /// `docs/features/updates.md`'s single most important rule, as a test: an auto-updated binary
     /// that runs as root, with no OS signature, is a local privilege-escalation vector.
     #[test]
     fn the_elevated_helper_is_never_replaced_and_is_reported_as_kept() {

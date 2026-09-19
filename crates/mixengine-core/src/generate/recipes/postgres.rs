@@ -14,7 +14,7 @@
 //! - **`postgres` refuses an elevated Windows token.** `check_root()` asks `pgwin32_is_admin()` and
 //!   exits. That is not a database problem and is not solved here: every child MixEngine starts to
 //!   run a user's software is created from a restricted token — roadmap task **T34a**, and
-//!   `.claude/decisions/0010-supervised-child-never-inherits-administrators.md`.
+//!   `docs/decisions/0010-supervised-child-never-inherits-administrators.md`.
 //! - **`initdb` inherits the machine's locale when it is not told one**, reports *could not find
 //!   suitable text search configuration* on a machine whose locale it does not recognise, sets the
 //!   default to `simple`, and **exits zero**. Two developers, two databases that answer

@@ -10,7 +10,7 @@
 //! `dump_data` cannot do the same trick: every row's value has to come back out as a SQL literal,
 //! quoting text, writing blobs as `x'…'` hex, keeping NULL apart from the empty string, and
 //! skipping the generated columns that must not be inserted — see A1/A2 of
-//! `docs/superpowers/specs/2026-09-04-sqlite-completion-design.md` for the decisions this
+//! `docs/specs/2026-09-04-sqlite-completion-design.md` for the decisions this
 //! implements.
 //!
 //! Restore is complete for either kind of dump: the file is replayed statement by statement, so a

@@ -24,7 +24,7 @@
 //! need to be: the set was validated as a set, and the window between two renames is microseconds
 //! inside which nothing has been asked to reload yet.
 //!
-//! [`features/services.md`]: ../../../../../.claude/features/services.md
+//! [`features/services.md`]: ../../../../docs/features/services.md
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;

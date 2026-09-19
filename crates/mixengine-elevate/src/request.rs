@@ -100,7 +100,7 @@ pub(crate) fn read(path: &Path) -> Result<Accepted, Rejected> {
     // **A window and not a point** — roadmap task T88a. This binary is excluded from auto-update, so
     // a daemon newer than it is routine rather than a fault; refusing the whole request over the
     // envelope's number would mean an old helper served nothing at all, where
-    // `.claude/features/updates.md` asks that it go on serving everything it knows — and the
+    // `docs/features/updates.md` asks that it go on serving everything it knows — and the
     // per-operation tolerance in `crate::ops::decode` never gets a chance.
     //
     // **Above the ceiling is refused too**, and that is not symmetry for its own sake: a fixed old

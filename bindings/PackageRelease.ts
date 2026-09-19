@@ -39,7 +39,7 @@ installed: boolean,
  * Composed by the daemon, which is the only party that knows both what the index published and
  * which triple this build was compiled for. [`None`] means the peer predates the member and
  * never that nothing could be determined, per
- * [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md). It is
+ * [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md). It is
  * [`Execution::Emulated`] only on an ARM64 Windows machine, where upstream publishes no build
  * of its own for six of the eleven kinds MixEngine offers — PHP among them.
  */

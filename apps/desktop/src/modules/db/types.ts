@@ -200,7 +200,7 @@ export interface SqlIndexSpec {
 
 /** One data skipping index — ClickHouse's only secondary index. Not a lookup structure: an
  *  approximate filter that lets the server skip whole blocks a `WHERE` clause cannot match. See
- *  `docs/superpowers/specs/2026-09-04-clickhouse-index-ddl-design.md`. */
+ *  `docs/specs/2026-09-04-clickhouse-index-ddl-design.md`. */
 export interface SqlSkipIndex {
   name: string;
   /** An expression, not necessarily a bare column name — `lower(note)` is as common as `note`. */

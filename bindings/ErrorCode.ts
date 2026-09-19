@@ -10,7 +10,7 @@
  * means. Growth happens in the library enums; this list is the vocabulary they are translated
  * into.
  *
- * The set is the one in `.claude/architecture/daemon-and-ipc.md`; the strings are wire format and
+ * The set is the one in `docs/architecture/daemon-and-ipc.md`; the strings are wire format and
  * never change.
  */
 export type ErrorCode = "not_found" | "already_exists" | "invalid_argument" | "conflict" | "precondition_failed" | "port_in_use" | "privileged_required" | "unsupported_platform" | "dependency_missing" | "process_failed" | "io" | "internal";

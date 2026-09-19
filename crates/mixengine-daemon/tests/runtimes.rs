@@ -213,7 +213,7 @@ impl Daemon {
                 .arg("--home")
                 .arg(home.path())
                 // Passed as arguments rather than through the environment, per rule 2 in
-                // `.claude/standards/testing.md`: two of these running at once under `cargo test`
+                // `docs/standards/testing.md`: two of these running at once under `cargo test`
                 // would otherwise be pointed at each other's registry.
                 .arg("--index-url")
                 .arg(registry.url())
@@ -806,7 +806,7 @@ async fn a_question_a_daemon_cannot_make_sense_of_is_refused_as_a_bad_argument()
 /// An installed PHP arrives with the pool that serves its sites, and nobody asked for one.
 ///
 /// **The post-install hook, seen from the outside** — roadmap task T32.
-/// `.claude/features/runtime-versions.md` decided this before there was a pool to create: a PHP
+/// `docs/features/runtime-versions.md` decided this before there was a pool to create: a PHP
 /// without one is a language no site can be served by, so `runtime.install` makes the record and
 /// `service.create` refuses to. The other half of the pair is here too, because the two are one
 /// promise: the runtime cannot be removed while its pool is a row, and removing it takes the row.
@@ -922,7 +922,7 @@ async fn extensions_are_listed_with_a_reason_and_turned_round_one_at_a_time() {
 /// **The other half of the promise [runtime-versions.md] made.** T32 delivered the running-pool
 /// refusal and left this one written down in a doc comment; this is the test that comment named.
 ///
-/// [runtime-versions.md]: ../../../.claude/features/runtime-versions.md
+/// [runtime-versions.md]: ../../../docs/features/runtime-versions.md
 #[tokio::test]
 async fn a_runtime_a_project_pins_is_not_removed_by_accident() {
     let fixture = Fixture::start().await;

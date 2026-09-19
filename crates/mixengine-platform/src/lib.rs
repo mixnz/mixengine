@@ -4,7 +4,7 @@
 //! lives here behind traits, with `windows/`, `macos/`, `linux/` implementations and an in-memory
 //! `mock/` one that is always compiled and used by tests and `--dry-run`.
 //!
-//! See `.claude/architecture/platform-abstraction.md` for the trait list and the rules every
+//! See `docs/architecture/platform-abstraction.md` for the trait list and the rules every
 //! implementation follows (reversible and tagged mutations, atomic read-modify-write, `probe()`
 //! before acting, [`Error::UnsupportedPlatform`] instead of `unimplemented!()`).
 //!
@@ -177,7 +177,7 @@ compile_error!(
 /// whatever database it opens; if that is the home a person keeps real projects in, their data ends
 /// up on a schema no release can read, and editing that migration afterwards — normal, while it is
 /// unreleased — leaves it openable by nothing. See
-/// `.claude/decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md`.
+/// `docs/decisions/0024-a-build-that-is-not-a-release-keeps-its-own-home.md`.
 ///
 /// **Provenance and not optimisation.** `cfg!(debug_assertions)` would need no packaging change and
 /// would answer this for `cargo run` and `cargo test`, but it calls a developer's

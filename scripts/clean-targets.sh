@@ -22,7 +22,7 @@
 #   * `--all` is both directories, `release/`, `doc/`, `packaging/` and the sqlx development
 #     databases with them. `.sqlx/` is committed and is not here, so this costs build time and
 #     nothing else — but `DATABASE_URL=sqlite:target/sqlx-dev.db` will need its database created
-#     again (see .claude/operations/build-and-release.md).
+#     again (see docs/operations/build-and-release.md).
 #
 # Exit status: 0 when the requested directories are gone, 1 when something refused, 64 for a misuse
 # of this script.

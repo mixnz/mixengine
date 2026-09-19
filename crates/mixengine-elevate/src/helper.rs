@@ -3,7 +3,7 @@
 //! **The source is this process's own image and the destination is a compiled-in constant** — the
 //! T85 design, D2. There is nothing here for a caller to aim: the operation carries no field, so a
 //! compromised daemon gains no *copy this file as root* primitive from this existing. That is the
-//! same reasoning `.claude/architecture/security-model.md` refuses `Exec { cmd }` with, applied to
+//! same reasoning `docs/architecture/security-model.md` refuses `Exec { cmd }` with, applied to
 //! an operation whose whole job is a file copy.
 //!
 //! **The directory is checked before it is used**, on the rule the whole binary follows.
@@ -15,7 +15,7 @@
 //! **[`install`] decides nothing about whether an upgrade deserves to be installed**, and it
 //! cannot: the binary it copies is its own image, so a check it made would be a check made by the
 //! thing being checked. On a machine with nothing installed that is the only candidate there is,
-//! and `.claude/architecture/security-model.md` states the residual plainly rather than hiding it.
+//! and `docs/architecture/security-model.md` states the residual plainly rather than hiding it.
 //!
 //! **[`replace`] is the one that decides** — roadmap task **T88a**. It runs only as the
 //! *installed* copy, in a directory an ordinary account cannot write, and it checks a detached
@@ -109,7 +109,7 @@ pub(crate) fn install() -> OpOutcome {
 /// Take this helper off the machine — roadmap task **T87**.
 ///
 /// The mirror of [`install`], and the reversal
-/// [ADR 0015](../../../../.claude/decisions/0015-the-helper-installs-itself.md) owed uninstall: the
+/// [ADR 0015](../../../docs/decisions/0015-the-helper-installs-itself.md) owed uninstall: the
 /// helper installs itself, so the helper is what removes itself. Where the file is, and which
 /// directory is MixEngine's own, are `mixengine_platform::install`'s answers exactly as they are on
 /// the way in; what is decided here is only what to call the result.

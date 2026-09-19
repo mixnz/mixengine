@@ -10,13 +10,13 @@
 //!
 //! **So why check it twice?** The second check is the security boundary — this process runs as the
 //! user and is, if it has been compromised, the attacker. The first one is the user interface:
-//! `.claude/features/updates.md` asks that a tampered artifact be refused *with the reason shown*,
+//! `docs/features/updates.md` asks that a tampered artifact be refused *with the reason shown*,
 //! and a reason that only appears after somebody has clicked Allow is not shown. See the T88a
 //! design, D13.
 //!
 //! **And why a detached signature rather than the SHA-256 inside the signed feed**, which is how
 //! every other artifact this product installs is bound? Because the process that has to be
-//! convinced never fetched the feed and must not trust the daemon that did. `.claude/features/`
+//! convinced never fetched the feed and must not trust the daemon that did. `docs/features/`
 //! `updates.md` states that exception in the same paragraph that states the rule.
 
 use std::path::Path;
@@ -32,7 +32,7 @@ const SIGNATURE_SUFFIX: &str = ".minisig";
 
 /// How long a fetch of one small file may take.
 ///
-/// Every path that touches the network has one, per `.claude/standards/rust.md`. Shorter than the
+/// Every path that touches the network has one, per `docs/standards/rust.md`. Shorter than the
 /// index's is not warranted and longer is not either: the two files together are about a megabyte,
 /// there is no cache to fall back to, and somebody typed `mix elevation upgrade` and is watching.
 const FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);

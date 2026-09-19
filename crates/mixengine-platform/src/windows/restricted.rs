@@ -12,7 +12,7 @@
 //!
 //! **So every supervised child is created from a restricted token, not only PostgreSQL's.** The
 //! decision and its reasons are
-//! `.claude/decisions/0010-supervised-child-never-inherits-administrators.md`; the shortest of them
+//! `docs/decisions/0010-supervised-child-never-inherits-administrators.md`; the shortest of them
 //! is that on a normal machine this changes nothing, because disabling a group that is already
 //! deny-only is a no-op.
 //!
@@ -501,7 +501,7 @@ impl Drop for Sid {
 /// Every group in `token`, as `(SID, attributes)`.
 ///
 /// **For the test that proves the exclusion structurally**, and for nothing else: reading a token is
-/// how `.claude/standards/testing.md` says a Windows exclusion must be asserted.
+/// how `docs/standards/testing.md` says a Windows exclusion must be asserted.
 ///
 /// # Errors
 ///
@@ -1049,7 +1049,7 @@ mod tests {
 
     /// **The assertion T34a exists to make**, and it is made by reading rather than by trying.
     ///
-    /// `.claude/standards/testing.md` says why: this repository's Windows CI leg holds a *full*
+    /// `docs/standards/testing.md` says why: this repository's Windows CI leg holds a *full*
     /// token where `BUILTIN\Administrators` is an enabled group, so a test that proved the exclusion
     /// by attempting an access would pass on a developer's filtered token and prove nothing at all
     /// on the runner — the one machine where it matters. What is asserted instead is the token's own
@@ -1125,7 +1125,7 @@ mod tests {
 
     /// **The entry really is in the list**, asserted by reading rather than by starting a child.
     ///
-    /// `.claude/standards/testing.md`'s rule for Windows exclusions, applied to the repair: an
+    /// `docs/standards/testing.md`'s rule for Windows exclusions, applied to the repair: an
     /// ordinary machine's token already grants its own user, so a child started from a restricted
     /// copy of it would run whether or not this code did anything at all. What is asserted here is
     /// the list's own contents, which mean the same thing on a developer's filtered token and on

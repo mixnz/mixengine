@@ -37,7 +37,7 @@ use crate::{Error, Paths, Result, Store};
 /// Where one version of one runtime lives.
 ///
 /// `runtimes/<kind>/<version>/`, which is the layout
-/// [runtime-versions.md](../../../.claude/features/runtime-versions.md) states and the reason a
+/// [runtime-versions.md](../../../docs/features/runtime-versions.md) states and the reason a
 /// version is a validated path component ([`PackageVersion`]) rather than a string: this is a `join`
 /// and not an escaping problem.
 #[must_use]
@@ -279,7 +279,7 @@ pub async fn forget(store: &Store, kind: RuntimeKind, version: &PackageVersion) 
 /// two rows both claiming to be it.
 ///
 /// Idempotent: making the current default the default again writes the same two rows and answers the
-/// same summary, which is what `.claude/architecture/daemon-and-ipc.md` asks of every verb it makes
+/// same summary, which is what `docs/architecture/daemon-and-ipc.md` asks of every verb it makes
 /// sense for.
 ///
 /// # Errors

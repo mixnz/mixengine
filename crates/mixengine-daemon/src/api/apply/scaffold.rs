@@ -64,7 +64,7 @@ pub(crate) trait Sink: Send + Sync {
     /// Lines that were lost because this daemon fell behind the command's own output.
     ///
     /// **Said rather than swallowed**, which is
-    /// [ADR 0009](../../../../../.claude/decisions/0009-logs-travel-on-their-own-stream.md)'s own
+    /// [ADR 0009](../../../../../docs/decisions/0009-logs-travel-on-their-own-stream.md)'s own
     /// rule one subject along: a `npm install` can outrun the reader below, and a hole nobody
     /// mentions is worse than one that is named.
     fn missed(&self, lines: u64);
@@ -100,7 +100,7 @@ impl Sink for Discarding {
 /// inventing that list is not something a daemon can do honestly.
 ///
 /// **`std::env::join_paths` rather than a separator of our own**, which is what keeps this file free
-/// of a `#[cfg(windows)]` the way `.claude/CLAUDE.md` asks of everything above
+/// of a `#[cfg(windows)]` the way `CLAUDE.md` asks of everything above
 /// `mixengine-platform`: the standard library already knows what this system puts between two `PATH`
 /// entries. A `PATH` this cannot be joined back into — an entry holding the separator itself — leaves
 /// the command with the shims alone, which is the half that matters here.

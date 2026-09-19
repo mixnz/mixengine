@@ -25,12 +25,12 @@ Every entry sits under one of three headings — `### Added`, `### Changed`, `##
 short line. The bracketed version in each heading is a link, defined at the foot of the file; the
 release script writes the new definition as it cuts a section, so there is nothing to remember. `Fixed` is for bugs in a *released* version: repairing something still sitting unreleased
 above it means editing that entry, not adding a new one. The full rules, for whoever is writing:
-[.agent/conventions/changelog.md](.agent/conventions/changelog.md).
+[docs/standards/desktop/changelog.md](../../docs/standards/desktop/changelog.md).
 
 From there the release workflow reads this file: the section for the version being tagged becomes
 the `## Changes` part of the draft release body, which in turn becomes the update notes every
 installed copy of MixDB is shown. So what is written here is what users read — see
-[docs/RELEASING.md](docs/RELEASING.md).
+[docs/operations/releasing.md](../../docs/operations/releasing.md).
 
 **Released sections are not edited or deleted.** They are the record of what shipped in which
 version, which is exactly what someone three versions behind needs when deciding whether to

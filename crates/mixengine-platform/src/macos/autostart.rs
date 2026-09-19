@@ -21,7 +21,7 @@ use crate::{AutostartMechanism, AutostartPlan, AutostartState, Error, Result, Se
 
 /// The agent's label, which is also the plist's file name.
 ///
-/// Named in `.claude/architecture/daemon-and-ipc.md`, and reversed-domain as launchd expects.
+/// Named in `docs/architecture/daemon-and-ipc.md`, and reversed-domain as launchd expects.
 const LABEL: &str = "dev.mixengine.daemon";
 
 /// This user's LaunchAgents directory, and the agent inside it.
@@ -249,7 +249,7 @@ fn unescape(value: &str) -> String {
 
 /// A temporary in the same directory, then a rename.
 ///
-/// `.claude/architecture/platform-abstraction.md`'s second rule. A plist half written is one launchd
+/// `docs/architecture/platform-abstraction.md`'s second rule. A plist half written is one launchd
 /// refuses at the next login, and the machine that would produce it is the one that lost power in
 /// the middle of `mix autostart enable`.
 fn write_atomically(path: &Path, contents: &str) -> Result<()> {
@@ -369,7 +369,7 @@ mod tests {
         assert!(!state.changed, "a status never claims a write");
     }
 
-    /// `.claude/standards/testing.md` rule 4: nothing outside the entry is touched.
+    /// `docs/standards/testing.md` rule 4: nothing outside the entry is touched.
     #[test]
     fn a_neighbouring_agent_is_left_byte_for_byte_alone() {
         let directory = tempfile::TempDir::new().expect("a temporary directory");

@@ -218,7 +218,7 @@ pub(crate) struct Registry {
     /// something that is: a `follow` has to survive the run it started in, and an entry that lived
     /// in the map above would be dropped by the crash it is most worth watching. See
     /// [`logs::Logs`], and
-    /// `.claude/decisions/0009-logs-travel-on-their-own-stream.md` for why output is not an event.
+    /// `docs/decisions/0009-logs-travel-on-their-own-stream.md` for why output is not an event.
     logs: Arc<Logs>,
 
     /// One entry per stop in flight, so a second caller waits for it instead of racing it — see
@@ -655,7 +655,7 @@ impl Registry {
     /// **From the settings a rendering would be made with**, which is the only source that cannot
     /// come to disagree with the configuration on disk. The other two are both refused: a second
     /// `Settings::merge` here could drift from the generator's, and reading the number out of the
-    /// rendered file is what `.claude/CLAUDE.md` forbids outright — generated configuration is
+    /// rendered file is what `CLAUDE.md` forbids outright — generated configuration is
     /// disposable and is never parsed back into state.
     ///
     /// **`settings` and never `generate`.** [`generate`](mixengine_core::generate::Generator::generate)

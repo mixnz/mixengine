@@ -1,7 +1,7 @@
 //! One line a service printed.
 //!
 //! Here rather than in `mixengine-supervisor`, for the reason
-//! `.claude/decisions/0006-servicespec-in-proto-and-secret-free.md` gives for `ServiceSpec`: proto
+//! `docs/decisions/0006-servicespec-in-proto-and-secret-free.md` gives for `ServiceSpec`: proto
 //! owns the vocabulary, and a line that is captured, kept in a ring, written to a file and served on
 //! `GET /logs/{id}` is one value rather than four descriptions of one. T14 set the same precedent
 //! for [`ServiceTransition`](crate::ServiceTransition) — the row that is persisted and the event
@@ -13,7 +13,7 @@
 //! the id is in the path of the endpoint that served it.
 //!
 //! **A line is never a `DaemonEvent`** —
-//! `.claude/decisions/0009-logs-travel-on-their-own-stream.md`. What a client reads is a
+//! `docs/decisions/0009-logs-travel-on-their-own-stream.md`. What a client reads is a
 //! [`LogFrame`], on a connection it opened for one service.
 
 use crate::{JobId, ServiceId, Timestamp};
@@ -80,7 +80,7 @@ pub struct LogLine {
 ///
 /// **A second kind of subject rather than a second surface.** The ring, the frames, the [`Gap`] a
 /// slow reader is told about and the per-connection back-pressure are the ones
-/// [ADR 0009](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0009-logs-travel-on-their-own-stream.md)
+/// [ADR 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)
 /// argued for a service's output, and a blueprint's `[scaffold]` command needs every one of them for
 /// the same reason: how much it prints is decided by somebody else's program.
 ///

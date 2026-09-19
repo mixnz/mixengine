@@ -287,7 +287,7 @@ fn installable_kinds() -> Vec<String> {
 /// runs with egress blocked on purpose, so this cannot be part of it — but the things it checks are
 /// exactly the things every other test here cannot: that [`mixengine_core::index::PUBLIC_KEY`] and
 /// [`mixengine_core::index::DEFAULT_URL`] still describe reality, and that
-/// `.claude/operations/runtime-packaging.md`'s claim of *"all runtimes across six OS/arch targets"*
+/// `docs/operations/runtime-packaging.md`'s claim of *"all runtimes across six OS/arch targets"*
 /// is still true of the document rather than of a plan. `MockRegistry` proves the client accepts a
 /// correctly signed index; only this proves it accepts *ours*, and only this reads what ours says.
 ///
@@ -298,7 +298,7 @@ fn installable_kinds() -> Vec<String> {
 /// It is a test rather than an example because there was already a test here reaching the same
 /// document with the same key; a second door to one question is a second thing to keep in step.
 /// Run it deliberately — after a key rotation, a change to the publishing pipeline, or before
-/// cutting a release, where `.claude/operations/build-and-release.md` now asks for it:
+/// cutting a release, where `docs/operations/build-and-release.md` now asks for it:
 ///
 /// ```text
 /// cargo test -p mixengine-core --test index -- --ignored --nocapture

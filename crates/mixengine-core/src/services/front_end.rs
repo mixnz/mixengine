@@ -1,6 +1,6 @@
 //! Which service is already the home's front end — roadmap task **T37**.
 //!
-//! `.claude/features/services.md`: *exactly one of Caddy/Nginx is the active front end*. Until T37
+//! `docs/features/services.md`: *exactly one of Caddy/Nginx is the active front end*. Until T37
 //! there was one front-end recipe and the sentence could not be broken; with two, a home can hold a
 //! `caddy` row and an `nginx` row, and what that is on the day sites arrive (T43) is two programs
 //! generated against 80 and 443 with the second one failing to bind — or worse, succeeding, because

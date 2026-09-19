@@ -311,7 +311,7 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
         "the update did not record the service it stopped: {applied}"
     );
 
-    // **And the helper did not.** `.claude/features/updates.md`'s single most important rule, as the
+    // **And the helper did not.** `docs/features/updates.md`'s single most important rule, as the
     // one assertion that can be made about it from outside: an auto-updated binary that runs as
     // root, with no OS signature, is a local privilege-escalation vector — so T88a replaces it,
     // inside an elevation prompt, and this task does not.
@@ -340,7 +340,7 @@ async fn an_update_replaces_the_binaries_relaunches_and_starts_what_was_running(
     );
 
     // **What was running is running.** The restore is the daemon's own pass over the list the stop
-    // produced, so what this asserts is the property `.claude/features/updates.md` states:
+    // produced, so what this asserts is the property `docs/features/updates.md` states:
     // *accepting an update restarts exactly the services that were running before it*.
     let restarted = wait_until_running(&installed, &home);
     assert!(
@@ -446,7 +446,7 @@ async fn a_release_with_no_build_for_this_machine_is_not_offered() {
 
 /// A payload whose bytes are not the ones the signed feed named is refused, and nothing is swapped.
 ///
-/// **The acceptance criterion `.claude/features/updates.md` states first**: *a tampered artifact
+/// **The acceptance criterion `docs/features/updates.md` states first**: *a tampered artifact
 /// fails the minisign check and is refused, with the reason shown*. The check is a SHA-256 inside a
 /// minisign-signed document, so tampering with the payload is what an attacker who can answer the
 /// URL actually gets to do — and this is that attempt.

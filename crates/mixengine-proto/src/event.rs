@@ -1,6 +1,6 @@
 //! What arrives on `GET /events`.
 //!
-//! The vocabulary in `.claude/architecture/daemon-and-ipc.md` — `MetricsSample`, `CertExpiring` and
+//! The vocabulary in `docs/architecture/daemon-and-ipc.md` — `MetricsSample`, `CertExpiring` and
 //! the rest — is declared here **one variant at a time, as the code that emits it lands**. Writing
 //! them all up front would mean inventing identifier types before the code that issues them has an
 //! opinion, and publishing a wire contract nothing can produce.
@@ -10,7 +10,7 @@
 //! document named the type.
 //!
 //! `LogLine` is the one variant listed there that will never be built: output travels on its own
-//! endpoint, per [ADR 0009](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0009-logs-travel-on-their-own-stream.md).
+//! endpoint, per [ADR 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md).
 //!
 //! What is here is the part of the stream that belongs to the stream itself, and the rule the
 //! architecture states plainly: **events are best-effort and must never be the only way state is
@@ -84,7 +84,7 @@ pub enum DaemonEvent {
     /// allowance on a progress bar — losing exactly the
     /// [`ServiceStateChanged`](DaemonEvent::ServiceStateChanged) the client opened the stream for.
     /// That is the same argument [ADR
-    /// 0009](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0009-logs-travel-on-their-own-stream.md)
+    /// 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)
     /// makes about log lines, and it lands differently here: a job's progress *is* state, there are
     /// a handful of jobs rather than thousands of lines a second, and it is the producer's job to
     /// report a change and not a heartbeat.
@@ -121,7 +121,7 @@ pub enum DaemonEvent {
     /// A site went onto the local network, or came off it — roadmap task **T76**.
     ///
     /// **One variant for both directions**, because a client has one question: *is anything shared,
-    /// and why did that change?* That is the tray icon `.claude/features/lan-sharing.md` asks for,
+    /// and why did that change?* That is the tray icon `docs/features/lan-sharing.md` asks for,
     /// and two variants would leave a client that missed one of them drawing the wrong one.
     ///
     /// [`sharing`](Self::SiteSharingChanged::sharing) is the value `site.share` answers with,
@@ -150,7 +150,7 @@ pub enum DaemonEvent {
     /// having happened to be connected when this arrived.
     ///
     /// **Nothing installs itself off the back of this.** It is news; `update.apply` is a decision,
-    /// and `.claude/features/updates.md` requires explicit consent for it, because installing one
+    /// and `docs/features/updates.md` requires explicit consent for it, because installing one
     /// restarts the daemon and therefore every supervised service.
     UpdateAvailable {
         /// The version that is waiting.

@@ -224,7 +224,7 @@ impl Client {
 /// `data:` line per message, a blank line between messages, and comment lines beginning with `:`
 /// that exist so an idle connection stays distinguishable from a dead one. A whole SSE parser would
 /// be answering questions — event types, ids, retry hints — that
-/// `.claude/architecture/daemon-and-ipc.md` settled by not using any of them.
+/// `docs/architecture/daemon-and-ipc.md` settled by not using any of them.
 #[derive(Debug)]
 pub(crate) struct Stream {
     body: hyper::body::Incoming,
@@ -457,7 +457,7 @@ fn started_and_gone(endpoint: &Endpoint) -> Error {
 
 /// A response that never became a call: the daemon's own envelope statuses, and their error body.
 fn envelope(status: StatusCode, body: &[u8]) -> Error {
-    // `.claude/architecture/daemon-and-ipc.md`: the body of one of these is the plain wire error and
+    // `docs/architecture/daemon-and-ipc.md`: the body of one of these is the plain wire error and
     // not a JSON-RPC response, because there is no `id` to answer and no method that ran.
     if let Ok(error) = serde_json::from_slice::<Error>(body) {
         return error;

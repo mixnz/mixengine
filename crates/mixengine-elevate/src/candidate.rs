@@ -3,7 +3,7 @@
 //!
 //! **This is the only place in MixEngine where a signature is checked by a process running as
 //! root.** Everything else the updater verifies is verified by the daemon, which runs as the user
-//! and is, if it has been compromised, the attacker. `.claude/features/updates.md` calls this the
+//! and is, if it has been compromised, the attacker. `docs/features/updates.md` calls this the
 //! single most important rule on its page: an auto-updated binary that runs as root, with no OS
 //! signature, is a local privilege-escalation vector — so the copy already installed, in a
 //! directory an ordinary account cannot write, is the one that decides.
@@ -35,7 +35,7 @@ use mixengine_proto::privileged::{HelperStamp, OpOutcome};
 ///
 /// **A second constant rather than `mixengine_core::updates::PUBLIC_KEY`**, because this crate may
 /// not depend on that one — `workspace_layering.rs` — and because *"pinned in the currently
-/// installed copy"* is the property `.claude/features/updates.md` asks for and this is what it
+/// installed copy"* is the property `docs/features/updates.md` asks for and this is what it
 /// means. Both constants are checked against the same committed `packaging/updates.pub`, by the
 /// same test read at compile time, so the two cannot drift apart without a build failing.
 ///

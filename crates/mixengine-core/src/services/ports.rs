@@ -1,7 +1,7 @@
 //! Which port a new service is given — roadmap task **T34c**.
 //!
 //! MariaDB and MySQL name the same default, and so do two instances of either, which is one problem
-//! and not two. `.claude/features/services.md` answers it in one rule and this module is that rule:
+//! and not two. `docs/features/services.md` answers it in one rule and this module is that rule:
 //! **a port is allocated once, when the row is written, and never computed again.** What a recipe
 //! names is a wish ([`Recipe::preferred_port`]); the first row to ask for it is given it, and the
 //! next is given the first free port above.

@@ -680,7 +680,7 @@ async fn an_upgraded_database_takes_the_writes_a_current_build_makes() {
 /// **This records the fact; it does not close the window.** Closing it is a question about start-up
 /// ordering and about what a shim should say when it finds a database older than itself, which is
 /// somebody's design and not a line slipped into a test. See
-/// `.claude/architecture/data-model.md`.
+/// `docs/architecture/data-model.md`.
 #[tokio::test]
 async fn the_shims_door_opens_an_old_database_and_leaves_it_old() {
     let oldest = Fixture::all()

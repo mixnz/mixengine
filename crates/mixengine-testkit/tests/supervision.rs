@@ -23,7 +23,7 @@
 //!
 //! # What each system is allowed to promise
 //!
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md` sets it out, and the last two
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md` sets it out, and the last two
 //! tests here are that ADR written as code: a **killed** supervisor takes its child down on Windows
 //! (the job object, a kernel guarantee) and on Linux (`PR_SET_PDEATHSIG`), and takes nothing down
 //! on macOS, where crash recovery at the next boot (roadmap task T18) is what covers it. The macOS
@@ -360,7 +360,7 @@ fn a_group_that_is_asked_to_stop_shuts_itself_down() {
 /// The other half of the same claim, on the system that cannot make it.
 ///
 /// Windows has no signal a daemon can send to a process it gave no console to, and
-/// `.claude/decisions/0008-no-signal-stop-on-windows.md` records why the alternatives are worse than
+/// `docs/decisions/0008-no-signal-stop-on-windows.md` records why the alternatives are worse than
 /// saying so. Asserted rather than skipped, exactly as ADR 0007's macOS gap is: the day this becomes
 /// possible, this test fails and points at the paragraph that has to change.
 #[cfg(windows)]

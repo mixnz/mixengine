@@ -4,7 +4,7 @@
  * What an extension says it would call on the daemon API.
  *
  * **A disclosure, not a boundary** — see
- * `.claude/decisions/0014-an-extension-is-not-an-api-client.md`. Nothing is minted and nothing
+ * `docs/decisions/0014-an-extension-is-not-an-api-client.md`. Nothing is minted and nothing
  * checks it: an extension runs as the user's own account, and the endpoint's access control *is*
  * the account, so a token an extension held is one it could ignore by opening its own connection.
  * What this is for is telling somebody what they are about to install.

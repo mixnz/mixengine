@@ -1,6 +1,6 @@
 //! No firewall rule left behind — roadmap task **T76**, the second of two enforcement tests.
 //!
-//! `.claude/features/lan-sharing.md` promises that *disabling sharing leaves no firewall rule
+//! `docs/features/lan-sharing.md` promises that *disabling sharing leaves no firewall rule
 //! behind, verified by enumerating rules by label*. This is that verification, and it is the half
 //! `crates/mixengine-cli/tests/sharing.rs` explicitly cannot make: that suite asks what is
 //! *listening*, from the machine to its own address, which never crosses a firewall at all.

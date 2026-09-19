@@ -17,7 +17,7 @@
 //! short enough to read in one screen, which is where the guarantee actually lives.
 //!
 //! Decided in
-//! [ADR 0022](../../../.claude/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).
+//! [ADR 0022](../../../docs/decisions/0022-a-crash-report-is-recorded-by-default-and-sent-by-nothing.md).
 
 use crate::{DaemonVersion, Timestamp};
 

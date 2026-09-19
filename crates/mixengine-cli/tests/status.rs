@@ -12,7 +12,7 @@
 //! apart: a `mix` that looked in the wrong place would simply autostart a second daemon, forever.
 //!
 //! Every test gets its own `MIXENGINE_HOME` in a `TempDir` **passed as `--home`** — rule 2 in
-//! `.claude/standards/testing.md`. Nothing here touches the network; a Unix socket and a named pipe
+//! `docs/standards/testing.md`. Nothing here touches the network; a Unix socket and a named pipe
 //! are neither.
 
 mod harness;

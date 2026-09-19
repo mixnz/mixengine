@@ -4,7 +4,7 @@
 //! This module understands the URL and keeps the result until the tab opened for it asks. It never
 //! touches the environment: `crate::launch` reads the variable, and takes it out, on the first line
 //! of `run()`, before this or anything else has started. The contract both sides implement is
-//! written up in `docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md`.
+//! written up in `docs/specs/2026-09-03-mixengine-connection-handoff-design.md`.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

@@ -4,7 +4,7 @@
 //! MixEngine authority, so `installed: false` is the expected answer; the claim under test is that
 //! an *ordinary account* can ask at all.
 //!
-//! **These are deliberately not `#[ignore]`d.** `.claude/standards/testing.md` rule 1 names the trust
+//! **These are deliberately not `#[ignore]`d.** `docs/standards/testing.md` rule 1 names the trust
 //! store, and the gate it asks for is for tests that **touch** one — these only read. Being in CI's
 //! ordinary `test` job, on all three runners and under no administrative token, is the entire point:
 //! the T49a design's D13 records that neither of the two assumptions below could be measured on the

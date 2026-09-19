@@ -1,6 +1,6 @@
 //! The local endpoint the daemon listens on and every client dials.
 //!
-//! One shape, two implementations, exactly as `.claude/architecture/daemon-and-ipc.md` describes
+//! One shape, two implementations, exactly as `docs/architecture/daemon-and-ipc.md` describes
 //! them: a Unix domain socket in `run/` on Linux and macOS, a named pipe on Windows. Neither is a
 //! network socket — the daemon opens no TCP port by default, so there is nothing for another
 //! machine to reach and nothing for a firewall to have an opinion about.

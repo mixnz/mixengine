@@ -11,7 +11,7 @@
 //!
 //! That is a real gap and it is deliberately not papered over — `mix doctor` and the GUI say which
 //! of the three platforms they are on rather than repeating a guarantee only Windows keeps.
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md` records why the alternatives
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md` records why the alternatives
 //! lost: a watchdog inside the child only works for a child we wrote, and MixEngine supervises
 //! `php-fpm`, `mariadbd` and `caddy`. What covers the gap instead is crash recovery at the next boot
 //! (roadmap task T18) — pid *and* start time, reconciled — which has to exist on every platform
@@ -38,7 +38,7 @@ pub(crate) use crate::unix::process::{
 /// **This is the reading the whole of crash recovery rests on here**, because macOS is the system
 /// that has no `PR_SET_PDEATHSIG` and no job object: a killed daemon leaves every service it was
 /// supervising running, and the daemon that starts next has nothing but a pid and this number to
-/// tell what it found. `.claude/decisions/0007-supervised-child-owns-a-process-group.md` is where
+/// tell what it found. `docs/decisions/0007-supervised-child-owns-a-process-group.md` is where
 /// that gap is recorded, and roadmap task T18 is what closes it.
 ///
 /// `proc_pidinfo` rather than the `sysctl` route to `kinfo_proc`: it asks for the one struct the
@@ -151,7 +151,7 @@ pub(crate) fn arrange(command: &mut Command, group: &crate::unix::process::Group
 /// `crate::unix::process::set_priority`.
 ///
 /// The type exists so that `unix/process.rs` has one shape on both systems. The standing-in
-/// watchdog `.claude/features/resource-isolation.md` describes is **roadmap task T71a**, which needs
+/// watchdog `docs/features/resource-isolation.md` describes is **roadmap task T71a**, which needs
 /// T71's sampler.
 #[derive(Debug)]
 pub(crate) struct Attachment;

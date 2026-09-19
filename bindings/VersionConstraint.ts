@@ -5,7 +5,7 @@
  *
  * What a `--version` flag, a `MIXENGINE_PHP`, a `mixengine.toml` pin and a project record all
  * carry. Three forms, which is what
- * [runtime-versions.md](../../../../.claude/features/runtime-versions.md) promises:
+ * [runtime-versions.md](../../../docs/features/runtime-versions.md) promises:
  *
  * | Written | Means |
  * | --- | --- |

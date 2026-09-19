@@ -7,7 +7,7 @@
 //! reason (T46): report the independent facts, and refuse to collapse them into a verdict.
 //!
 //! **And there is nowhere here a private key could travel.**
-//! `.claude/architecture/security-model.md` says the key is never copied, exported by an RPC, or
+//! `docs/architecture/security-model.md` says the key is never copied, exported by an RPC, or
 //! sent to a client, and the way that stays true is that no type below has a field to put one in.
 
 use crate::{SiteRef, Timestamp};
@@ -152,7 +152,7 @@ pub enum CertState {
 ///
 /// **There is no `certificate_pem` and there is no field a private key could travel in.** [`Ca`]
 /// carries its PEM because a client installs it; nothing installs a leaf, so the field would be
-/// surface with no caller — and `.claude/architecture/security-model.md`'s guarantee is easier to
+/// surface with no caller — and `docs/architecture/security-model.md`'s guarantee is easier to
 /// keep on a type with fewer fields.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
@@ -190,9 +190,9 @@ pub struct SiteCert {
 
 /// `cert.issue` — give a site the certificate its names need, or every site one.
 ///
-/// **It names a site and never a list of domains.** `.claude/features/tls.md` specified
+/// **It names a site and never a list of domains.** `docs/features/tls.md` specified
 /// `{ domains }`; that would put in the client the decision of *what a certificate covers*, which is
-/// business logic, and `.claude/CLAUDE.md`'s first rule is that a client only renders what the
+/// business logic, and `CLAUDE.md`'s first rule is that a client only renders what the
 /// daemon returns. The daemon reads the site's domains from its own rows.
 #[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]

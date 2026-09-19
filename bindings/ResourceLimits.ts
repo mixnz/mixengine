@@ -7,7 +7,7 @@ import type { Priority } from "./Priority";
  * Applied through the platform layer, which cannot honour all of it everywhere: Windows has Job
  * Objects and Linux has cgroup v2, but **macOS has no hard memory cap**, so a limit there becomes a
  * watchdog rather than a wall. That asymmetry is a fact the GUI must show rather than hide — see
- * `.claude/features/resource-isolation.md`. Enforcement is roadmap task T68; the fields exist now
+ * `docs/features/resource-isolation.md`. Enforcement is roadmap task T68; the fields exist now
  * so a spec written before it does not have to be revisited.
  */
 export type ResourceLimits = { 

@@ -66,7 +66,7 @@ const RUNNABLE_ON_WINDOWS: &[&str] = &["exe", "cmd", "bat", "com"];
 ///
 /// A fact about each language's package manager, and the `cfg!` is a **path spelling** rather than a
 /// call into the operating system — [`crate::shims::file_name`] sets that exception and
-/// `.claude/architecture/platform-abstraction.md` draws the line at behaviour a trait could be
+/// `docs/architecture/platform-abstraction.md` draws the line at behaviour a trait could be
 /// written for. "Where does npm put a binary" is not something either side of `bin/` can be asked.
 ///
 /// [`None`] for PHP: Composer's global bindir is `~/.composer/vendor/bin`, outside every install

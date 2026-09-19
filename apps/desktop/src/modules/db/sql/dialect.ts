@@ -140,12 +140,12 @@ export interface SqlDialect {
    * opening this flag to reach `ALTER TABLE` would open hand-typed `INSERT` along with it), and
    * dump/restore got `dumpRestoreWritable` of its own for the same shape of reason — see that
    * field's own doc and
-   * `docs/superpowers/specs/2026-09-04-clickhouse-dump-restore-design.md`.
+   * `docs/specs/2026-09-04-clickhouse-dump-restore-design.md`.
    *
    * Row-level writes — the Data tab's grid inserting, updating or deleting rows — are gated
    * separately by `rowsWritable`, since an engine can have one open without the other: ClickHouse's
    * row writes shipped before its DDL did, see
-   * `docs/superpowers/specs/2026-09-04-clickhouse-row-writes-design.md`.
+   * `docs/specs/2026-09-04-clickhouse-row-writes-design.md`.
    *
    * True on every engine but ClickHouse. `DbTab` folds this into the same `readOnly` a connection
    * can be marked with by hand: see `SqlWorkspace`'s `readOnly` prop.
@@ -153,7 +153,7 @@ export interface SqlDialect {
    * The Query tab's own four DML verbs are an exception to this false: they may be sent even while
    * this is `false`, as long as `rowsWritable` is `true` and the connection itself is not marked
    * read-only by hand — see `SqlWorkspaceProps.dmlEvenIfReadOnly` and
-   * `docs/superpowers/specs/2026-09-04-clickhouse-query-dml-design.md`.
+   * `docs/specs/2026-09-04-clickhouse-query-dml-design.md`.
    */
   writable: boolean;
 
@@ -164,7 +164,7 @@ export interface SqlDialect {
    * without the Query tab: dump/restore runs entirely over the same HTTP interface every other
    * ClickHouse read/write already uses, with no hand-typed-DDL risk the way opening `writable`
    * itself would carry. See
-   * `docs/superpowers/specs/2026-09-04-clickhouse-dump-restore-design.md`'s D8.
+   * `docs/specs/2026-09-04-clickhouse-dump-restore-design.md`'s D8.
    *
    * True on every engine, ClickHouse included. `DbTab` folds this into `SqlWorkspace`'s
    * `dumpRestoreReadOnly` prop, which only `DatabaseActions`' dump/restore buttons read (the Drop
@@ -177,7 +177,7 @@ export interface SqlDialect {
    *
    * Independent of `writable` for the reason that flag's own doc gives. True on every engine,
    * ClickHouse included — see
-   * `docs/superpowers/specs/2026-09-04-clickhouse-ddl-design.md`. `DbTab` folds this into
+   * `docs/specs/2026-09-04-clickhouse-ddl-design.md`. `DbTab` folds this into
    * `SqlWorkspace`'s `schemaReadOnly` prop, which the Structure tab, the sidebar's "Add table" and
    * the Drop button read.
    */

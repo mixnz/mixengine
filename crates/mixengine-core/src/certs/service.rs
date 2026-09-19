@@ -7,7 +7,7 @@
 //! the M3 warm start's spread. Turning TLS off is not an answer, because an 11.4 client with a
 //! password on its command line insists on it and is refused by a server without it. A pair on disk
 //! costs the server two file reads. The design is
-//! `docs/superpowers/specs/2026-09-07-t99-a-certificate-for-the-database-design.md`.
+//! `docs/specs/2026-09-07-t99-a-certificate-for-the-database-design.md`.
 //!
 //! **Shaped like [`super::leaf`] on purpose, and made of it.** The same four exports, the same
 //! four questions before a pair is reused, the same order of writes — because the body *is*

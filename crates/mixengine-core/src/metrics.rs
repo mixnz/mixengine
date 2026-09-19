@@ -4,7 +4,7 @@
 //! that decides what a minute *is* lives in the daemon**, beside the loop that takes the readings;
 //! what is here is the store and nothing else.
 //!
-//! Design: `docs/superpowers/specs/2026-08-30-t71-metrics-history-design.md`.
+//! Design: `docs/specs/2026-08-30-t71-metrics-history-design.md`.
 
 use mixengine_proto::{
     MetricsHistory, MetricsHistoryQuery, MetricsMinute, MetricsSubject, Timestamp,

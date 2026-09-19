@@ -4,7 +4,7 @@
  * Where the version a directory resolves to was decided.
  *
  * The four steps of
- * [runtime-versions.md](../../../../.claude/features/runtime-versions.md)'s order, in that order,
+ * [runtime-versions.md](../../../docs/features/runtime-versions.md)'s order, in that order,
  * each carrying the one thing a person would ask next: *which* file, *which* project.
  */
 export type RuntimeSource = { "from": "explicit" } | { "from": "manifest", 

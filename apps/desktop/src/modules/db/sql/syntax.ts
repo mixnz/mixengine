@@ -133,7 +133,7 @@ export const CLICKHOUSE_SYNTAX: SqlSyntax = {
  * rather than ported from a running Rust splitter the way the other four are: there is no
  * `mssql_script.rs` yet for this to mirror — that is Plan 5, and it keeps in step with this one by
  * a parallel test suite, not a shared shape (see D4/D9 of
- * `docs/superpowers/specs/2026-09-05-mssql-support-design.md`).
+ * `docs/specs/2026-09-05-mssql-support-design.md`).
  */
 export const MSSQL_SYNTAX: SqlSyntax = {
   // `#` opens a temporary table's name here (`#t`, `##t`), not a comment.

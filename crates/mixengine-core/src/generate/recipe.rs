@@ -822,7 +822,7 @@ pub struct Endpoints {
 /// How many instances of this package a home may have, which is what an id may look like.
 ///
 /// **A recipe must answer**, which is why [`Recipe::instancing`] has no default body: the question
-/// has a different answer for every server in `.claude/features/services.md`'s catalogue, and a
+/// has a different answer for every server in `docs/features/services.md`'s catalogue, and a
 /// default here would be a decision made by whoever wrote this enum on behalf of a recipe nobody had
 /// written yet. It is also the half of T36 that `service.create` cannot avoid — what a *second*
 /// instance of one package means — while running two of them side by side stays T36's.
@@ -856,7 +856,7 @@ pub enum Source {
 /// What a service is *for*, where two packages can be for the same thing — roadmap task **T37**.
 ///
 /// **[`Instancing`] cannot say this**, which is why there are two enums rather than one. Instancing
-/// is about a package: how many rows may name `nginx`. This is about a *job*: `.claude/features/services.md`
+/// is about a package: how many rows may name `nginx`. This is about a *job*: `docs/features/services.md`
 /// says exactly one of Caddy and Nginx is the active front end, and both of them answering
 /// [`Instancing::Single`] leaves a home with one of each — two programs that both own 80 and 443 the
 /// moment sites arrive.
@@ -1094,7 +1094,7 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
     /// from *somebody said no*, and so a recipe for a program that should idle regardless has a
     /// place to say so. None does.
     ///
-    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     fn idle_default(&self) -> Option<mixengine_proto::Millis> {
         None
     }
@@ -1262,7 +1262,7 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
     /// **This is the one place [`activator`](Self::activator)'s permanent address does not hold**,
     /// and it cannot: the address belongs to the service, so it is bound only while nothing is
     /// serving it. What that costs is the window between the release and the service's own bind,
-    /// which is the service's start time — stated in `.claude/features/resource-isolation.md`
+    /// which is the service's start time — stated in `docs/features/resource-isolation.md`
     /// rather than hidden.
     ///
     /// # Errors
@@ -1377,7 +1377,7 @@ pub struct Catalogue {
 impl Catalogue {
     /// What this build knows how to run.
     ///
-    /// Nine recipes, which is `.claude/features/services.md`'s catalogue — arrived one roadmap task
+    /// Nine recipes, which is `docs/features/services.md`'s catalogue — arrived one roadmap task
     /// at a time, because a template written before the server it configures is a guess nobody can
     /// check. A home whose `services` table names none of them is answered by this without a special
     /// case.

@@ -6,7 +6,7 @@
 //! directory" rule exists for.
 //!
 //! **It is a guard, not a guarantee**, and the difference is written down in
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md` rather than quietly averaged
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md` rather than quietly averaged
 //! into the Windows promise. `PR_SET_PDEATHSIG` reaches the process we started and nothing it
 //! starts, so a php-fpm master dies and its pool workers are reparented to init; it is keyed to the
 //! parent *thread*, so in a daemon with a thread pool it arrives when whichever worker did the spawn
@@ -46,7 +46,7 @@ pub(crate) use crate::unix::process::{
 /// building a wall-clock moment out of it would refuse to adopt a perfectly healthy service after an
 /// NTP correction — trading a rare wrong identification for a rare killed database. The residual is
 /// therefore accepted and written down, exactly as
-/// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` accepts its pid-recycling race:
+/// `docs/decisions/0007-supervised-child-owns-a-process-group.md` accepts its pid-recycling race:
 /// a collision needs the same pid *and* the same centisecond of two different boots, and the only
 /// pids ever compared are ones this product recorded for itself.
 ///

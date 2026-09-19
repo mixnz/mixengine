@@ -564,7 +564,7 @@ impl Extensions {
         let key = self.secret_address(id).await?;
 
         // The keyring blocks, and on Linux it blocks on a D-Bus round trip to a daemon that may be
-        // prompting somebody to unlock it. `.claude/standards/rust.md`'s rule for anything that can
+        // prompting somebody to unlock it. `docs/standards/rust.md`'s rule for anything that can
         // hang.
         let read = {
             let (host, key) = (Arc::clone(&host), key.clone());

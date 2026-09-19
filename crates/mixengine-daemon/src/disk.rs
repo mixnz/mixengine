@@ -10,7 +10,7 @@
 //! for [`FRESH_FOR`] and [`DiskUsageQuery::refresh`] forces a new one.
 //!
 //! **Everything that touches the disk happens on a blocking thread**, per
-//! `.claude/standards/rust.md`: a `read_dir` of a cold `runtimes/` is seconds, and the daemon is
+//! `docs/standards/rust.md`: a `read_dir` of a cold `runtimes/` is seconds, and the daemon is
 //! supervising processes while it happens.
 
 mod measure;

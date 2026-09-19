@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run the workspace test suite on Linux CI with no route to the outside world.
 #
-# .claude/standards/testing.md forbids network access in tests outside of MockRegistry, which serves
+# docs/standards/testing.md forbids network access in tests outside of MockRegistry, which serves
 # its index and artifacts over loopback. This script enforces that rule by putting the suite in a
 # private network namespace containing nothing but `lo`: an accidental outbound connection fails in
 # CI instead of turning into a flaky test that only breaks when GitHub is slow.

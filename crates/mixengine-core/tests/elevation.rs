@@ -8,7 +8,7 @@
 //! `mixengine-platform`'s and is asserted in its own suite.
 //!
 //! Every test gets its own home in a `TempDir`, passed as a path — rule 2 in
-//! `.claude/standards/testing.md`.
+//! `docs/standards/testing.md`.
 
 use std::path::PathBuf;
 use std::process::Command;

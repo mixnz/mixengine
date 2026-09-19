@@ -732,7 +732,7 @@ async fn a_cluster_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_
 /// one: *"Execution of PostgreSQL by a user with administrative permissions is not permitted."* The
 /// daemon does not meet that, because a child it starts is created from a restricted token with
 /// `Administrators` taken out —
-/// [ADR 0010](../../../.claude/decisions/0010-supervised-child-never-inherits-administrators.md).
+/// [ADR 0010](../../../docs/decisions/0010-supervised-child-never-inherits-administrators.md).
 /// A bare `Command` here inherits this process's token instead and is refused, so what looked like a
 /// simpler spawn was a test running the server in a way MixEngine never does. `run_once_with_input`
 /// is the call the daemon's own steps go through, and it carries the statement on standard input for

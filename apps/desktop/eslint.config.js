@@ -17,7 +17,7 @@ import reactHooks from "eslint-plugin-react-hooks";
  *   from a module type-checks; this is what says no, and it says it in the editor rather than in
  *   CI ten minutes later.
  *
- * `.agent/conventions/adding-a-module.md` is where the boundary rule is written down. The two
+ * `docs/standards/desktop/adding-a-module.md` is where the boundary rule is written down. The two
  * exceptions below are the point of it: `shell/registry.ts` joins a module to the tab bar and
  * `i18n/dicts.ts` joins its strings to the dictionary, one line each per module.
  */
@@ -69,7 +69,7 @@ export default tseslint.config(
             {
               group: ["**/modules/*", "**/modules/*/**"],
               message:
-                "The shared layer knows no module. See .agent/conventions/adding-a-module.md — only shell/registry.ts and i18n/dicts.ts may name one.",
+                "The shared layer knows no module. See docs/standards/desktop/adding-a-module.md — only shell/registry.ts and i18n/dicts.ts may name one.",
             },
           ],
         },

@@ -4,7 +4,7 @@
 //! reads an authority off disk, T50 writes a leaf and reads it back, T51 renders a `tls` line
 //! naming it and T52 replaces it before it expires — every one of those is a claim about a *file*,
 //! and none of them establishes that the running server presents that file to anything. The report
-//! `.claude/features/tls.md` calls the most common of all, a certificate a server still holds in
+//! `docs/features/tls.md` calls the most common of all, a certificate a server still holds in
 //! memory after the file beside it was replaced, is invisible to all of them and obvious to this.
 //!
 //! **Loopback, with the site's name as SNI, and never a resolved address** — the T53 design, D2.
@@ -214,7 +214,7 @@ mod tests {
 
     /// Serve TLS on an ephemeral loopback port until one connection has been accepted.
     ///
-    /// Port `0`, on rule 1 of `.claude/standards/testing.md`: the operating system chooses, so no
+    /// Port `0`, on rule 1 of `docs/standards/testing.md`: the operating system chooses, so no
     /// test claims a number that belongs to the machine it is running on.
     async fn serving(leaf: Vec<u8>, key: Vec<u8>) -> u16 {
         let chain = vec![CertificateDer::from(leaf)];

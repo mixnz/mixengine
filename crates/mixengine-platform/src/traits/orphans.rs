@@ -1,6 +1,6 @@
 //! What survives a daemon that was killed — roadmap task **T47a**, reporting what **T13** built.
 //!
-//! [ADR 0007](../../../../.claude/decisions/0007-supervised-child-owns-a-process-group.md) settled
+//! [ADR 0007](../../../../docs/decisions/0007-supervised-child-owns-a-process-group.md) settled
 //! that this promise is **not the same on the three systems**, and the ADR exists to stop Windows'
 //! promise being repeated where it is not true. `mix doctor` states it rather than assuming it.
 //!

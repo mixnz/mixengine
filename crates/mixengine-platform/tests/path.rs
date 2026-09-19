@@ -1,6 +1,6 @@
 //! The [`PathIntegration`] contract, against the host that answers from memory.
 //!
-//! `.claude/architecture/platform-abstraction.md` splits this deliberately: trait-level behaviour is
+//! `docs/architecture/platform-abstraction.md` splits this deliberately: trait-level behaviour is
 //! proved against `mock`, and each real implementation proves *its own* mechanism in its own module
 //! — the registry round trip inside `windows/path.rs`, the marked block inside `unix/path.rs`, each
 //! against a key or a home directory the test creates and deletes. What is left for this file is the
@@ -70,7 +70,7 @@ fn asking_is_not_one_of_the_operations_the_host_records() {
 }
 
 /// The account with no home directory to write a profile into — a service account, a stripped-down
-/// container. `.claude/architecture/platform-abstraction.md` rule 4: `Unsupported` is a valid
+/// container. `docs/architecture/platform-abstraction.md` rule 4: `Unsupported` is a valid
 /// answer, and `reason` describes the way out.
 #[test]
 fn a_machine_that_cannot_do_this_says_so_rather_than_claiming_it_did() {

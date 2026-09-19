@@ -1,7 +1,7 @@
 //! The leaves this home's authority signs — roadmap task **T50**.
 //!
 //! One certificate per site, ninety days, `serverAuth` and nothing else, covering exactly the names
-//! that site answers to. `.claude/features/tls.md` gives the reason ninety days is short for a
+//! that site answers to. `docs/features/tls.md` gives the reason ninety days is short for a
 //! certificate nothing public will ever see: browsers already refuse public certificates over 398
 //! days, the direction of travel is downwards, and a private authority that had drifted to ten-year
 //! leaves would meet the next tightening as a support load rather than as a renewal.
@@ -29,7 +29,7 @@ use sha2::Digest as _;
 use super::ca;
 use crate::{Error, Result};
 
-/// Ninety days, as `.claude/features/tls.md` asks for.
+/// Ninety days, as `docs/features/tls.md` asks for.
 const LIFETIME: Duration = Duration::from_secs(90 * 24 * 60 * 60);
 
 /// Below this many days left, a certificate is reissued rather than reused.
@@ -223,7 +223,7 @@ pub enum Issued {
 /// 3. More than [`RENEW_WITHIN_DAYS`] remain.
 /// 4. It was signed by the authority this home has **now**.
 ///
-/// The fourth is what makes rotation work, and it is the one `.claude/features/tls.md` does not
+/// The fourth is what makes rotation work, and it is the one `docs/features/tls.md` does not
 /// have: after T54 replaces the authority, every old leaf still parses, still covers the right
 /// names and still has eighty days left, so a three-question rule would declare every site fine
 /// while every browser rejected it. The comparison is the leaf's issuer name against the

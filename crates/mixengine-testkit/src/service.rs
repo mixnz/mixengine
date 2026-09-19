@@ -1,6 +1,6 @@
 //! `fakeservice` — the program supervision is tested against.
 //!
-//! `.claude/architecture/process-supervision.md` names it and says what it has to be able to do:
+//! `docs/architecture/process-supervision.md` names it and says what it has to be able to do:
 //! start slowly, never become ready, exit with a code after N ms, ignore a request to stop, or leave
 //! a child behind that outlives it. Every one of those is a supervisor policy that only a real,
 //! badly behaved process can exercise — and none of them should be exercised against real MariaDB,
@@ -162,7 +162,7 @@ impl FakeService {
     /// own, and the handle owning it lives as long as this process does. Ending this process
     /// *gracefully* drops that handle and takes the child with it; killing this process is the case
     /// that separates the three platforms, and
-    /// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` says which does what.
+    /// `docs/decisions/0007-supervised-child-owns-a-process-group.md` says which does what.
     #[must_use]
     pub fn supervise(self, lock: impl AsRef<Path>) -> Self {
         self.arg("--supervise").arg(lock.as_ref())

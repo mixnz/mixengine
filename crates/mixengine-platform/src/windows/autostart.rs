@@ -2,7 +2,7 @@
 //!
 //! # Why a tool and not the API
 //!
-//! `.claude/architecture/platform-abstraction.md` rule 5 prefers a Windows API to a shell-out, and
+//! `docs/architecture/platform-abstraction.md` rule 5 prefers a Windows API to a shell-out, and
 //! the Task Scheduler's is COM — `ITaskService`, `ITaskDefinition`, `IRegisteredTask`. This
 //! workspace depends on `windows-sys`, which is raw FFI with no COM support, so reaching it would
 //! mean hand-written vtable calls and `IUnknown` reference counting for an operation that runs when
@@ -443,7 +443,7 @@ mod tests {
 
     /// A real task, created and deleted, under a name nobody's daemon depends on.
     ///
-    /// `#[ignore]` **and** `MIXENGINE_SYSTEM_TESTS`, per `.claude/standards/testing.md` rule 1: this
+    /// `#[ignore]` **and** `MIXENGINE_SYSTEM_TESTS`, per `docs/standards/testing.md` rule 1: this
     /// writes the Task Scheduler library of whoever runs it.
     #[test]
     #[ignore = "registers a real logon task on this machine"]

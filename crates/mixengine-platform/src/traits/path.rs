@@ -1,13 +1,13 @@
 //! Putting `<root>/bin` on the PATH that every shell this user starts inherits.
 //!
 //! **One entry, never one per version.** What goes on the PATH is the directory of shims
-//! ([runtime-versions.md](../../../../.claude/features/runtime-versions.md)), and the shim is what
+//! ([runtime-versions.md](../../../../docs/features/runtime-versions.md)), and the shim is what
 //! decides which PHP a directory uses — so the PATH is written once, at the moment somebody asks
 //! for it, and never touched again when a version is installed or removed.
 //!
 //! **Nothing here is elevated, on any of the three systems.** The user's own environment is a
 //! user-writable registry value on Windows and a file in the user's home on both others, so this
-//! capability does what `.claude/architecture/overview.md` says every other change outside the root
+//! capability does what `docs/architecture/overview.md` says every other change outside the root
 //! needs `mixengine-elevate` for — and needs it for none of it. Which is also why it stays out of
 //! the privileged-operation list: an operation that would prompt for a password to edit
 //! `~/.zprofile` would be teaching people to type one for no reason.
@@ -74,7 +74,7 @@ impl PathState {
 
 /// Where this OS keeps the PATH, and how to add one directory to it reversibly.
 ///
-/// Every implementation follows `.claude/architecture/platform-abstraction.md`'s first two rules
+/// Every implementation follows `docs/architecture/platform-abstraction.md`'s first two rules
 /// literally, because this is the capability they were written for: a mutation is **tagged** — the
 /// Unix block sits between `# BEGIN MixEngine` and `# END MixEngine` and nothing outside it is ever
 /// read or written — and a read-modify-write is **atomic**, through a temporary file in the same

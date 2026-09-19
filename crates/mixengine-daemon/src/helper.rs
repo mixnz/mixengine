@@ -170,7 +170,7 @@ pub(crate) fn upgrade_sentence(facts: &HelperFacts, daemon: &str) -> Option<Stri
 /// machine can no longer elevate anything"* the difference is exactly that — the same argument T88
 /// makes for running the staged `mixengined` before a swap, one binary further in, where the cost
 /// of being wrong is higher. It is also the only thing that catches a Windows Code Integrity
-/// refusal, which `.claude/features/updates.md` records as a refusal rather than a warning, judged
+/// refusal, which `docs/features/updates.md` records as a refusal rather than a warning, judged
 /// per file and again after every update.
 ///
 /// **Nothing is installed by this call.** It leaves a row, and `elevation.grant` is what raises the
@@ -338,7 +338,7 @@ mod tests {
         assert!(said.contains("mix elevation upgrade"), "{said}");
     }
 
-    /// The row `.claude/features/updates.md` describes in words: an old elevate keeps serving the
+    /// The row `docs/features/updates.md` describes in words: an old elevate keeps serving the
     /// operations it knows while the app asks the user to upgrade it. Without `supported_ops` the
     /// only way to find this out is to spend a prompt and be told `Unsupported`.
     #[test]

@@ -279,7 +279,7 @@ impl HelperRemoval {
 /// Take the privileged helper off this machine — roadmap task **T87**.
 ///
 /// The other end of [`own_as_root`], and the reversal
-/// [ADR 0015](../../../../.claude/decisions/0015-the-helper-installs-itself.md) owed uninstall: the
+/// [ADR 0015](../../../docs/decisions/0015-the-helper-installs-itself.md) owed uninstall: the
 /// helper installs itself, so the helper is what removes itself.
 ///
 /// Removes the file, and then the directory holding it **only where that directory is MixEngine's

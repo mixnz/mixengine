@@ -226,5 +226,5 @@ if (dryRun) {
 
 console.log(
   "\nNext: commit Cargo.toml, Cargo.lock, cli.md and the handbook pages above, then tag — see " +
-    "docs/releasing.md",
+    "docs/operations/releasing.md",
 );

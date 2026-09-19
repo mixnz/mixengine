@@ -18,7 +18,7 @@ use tokio::sync::broadcast;
 
 /// How many events a receiver may fall behind by before it is told to resync.
 ///
-/// The 1024 from `.claude/architecture/daemon-and-ipc.md`. Large enough that an ordinary burst — a
+/// The 1024 from `docs/architecture/daemon-and-ipc.md`. Large enough that an ordinary burst — a
 /// blueprint applying, a dozen services coming up at once — never trips it, small enough that a
 /// client which has stopped reading costs a bounded amount of memory.
 const CAPACITY: usize = 1024;

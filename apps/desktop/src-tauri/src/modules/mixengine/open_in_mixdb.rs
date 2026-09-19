@@ -4,7 +4,7 @@
 //! Lặp lại đúng ba bước Pha 0 đã dùng cho `mixdb://connect` — dựng một `Handoff`, giữ nó trong
 //! `HandoffState`, gọi `crate::launch::request` — chỉ khác nguồn dựng `Handoff` là `database.client`
 //! gọi thẳng ở đây, không phải một URL đọc từ dòng lệnh. Xem
-//! `docs/superpowers/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`, mục 4 và
+//! `docs/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`, mục 4 và
 //! Quyết định D2.
 
 use serde_json::{json, Value};

@@ -1,7 +1,7 @@
 //! The arc a front end has to walk, whichever program is being asked to be one — roadmap task
 //! **T37**.
 //!
-//! `.claude/roadmap/phase-3-services.md` asks T37 for "a parity test suite running both generators",
+//! `docs/roadmap/phase-3-services.md` asks T37 for "a parity test suite running both generators",
 //! and this is the parity: one sequence of assertions, driven twice. What each front end supplies is
 //! a [`FrontEnd`] — where its archive is, what its overrides are called, which line in the rendering
 //! carries its control port — and everything a *user* meets is here, once.

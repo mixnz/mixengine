@@ -54,7 +54,7 @@ pub struct Package {
     ///
     /// Not normalised and not parsed here: it is the string a user pinned in `mixengine.toml`, and
     /// a client that rewrote it would stop matching what they wrote. Comparing versions is
-    /// [T24](../../../../.claude/roadmap/phase-2-runtimes.md)'s problem and it needs the constraint
+    /// [T24](../../../../docs/roadmap/phase-2-runtimes.md)'s problem and it needs the constraint
     /// grammar this type does not have.
     pub version: String,
 
@@ -346,7 +346,7 @@ pub struct Target {
 /// Every target MixEngine ships a build for, in the order a coverage matrix reads them.
 ///
 /// Six, and the number is a fact about this product rather than about the index: it is what
-/// [build-and-release.md](../../../../.claude/operations/build-and-release.md) produces and what
+/// [build-and-release.md](../../../../docs/operations/build-and-release.md) produces and what
 /// roadmap task **T92** measured the packaging pipeline against.
 pub const TARGETS: [Target; 6] = [
     Target::new(Os::Windows, Arch::X86_64),
@@ -375,11 +375,11 @@ impl Target {
     ///
     /// **One entry everywhere but ARM64 Windows**, and that exception is the operating system's own
     /// rather than ours: Windows 11 on ARM runs an x86_64 user-mode process under emulation, which
-    /// is what [runtime-packaging.md](../../../../.claude/operations/runtime-packaging.md) already
+    /// is what [runtime-packaging.md](../../../../docs/operations/runtime-packaging.md) already
     /// means when it says *"a Windows-on-ARM machine runs the daemon natively and PHP under
     /// emulation"*. Upstream publishes no ARM64 Windows PHP in any branch, and forty of the
     /// forty-one empty cells on that target have an x86_64 twin — see
-    /// [ADR 0023](../../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
+    /// [ADR 0023](../../../../docs/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md).
     ///
     /// macOS is **not** given Rosetta here, for two reasons that agree: the packaging document
     /// refuses emulation for it by name, and all four Unix targets are complete anyway, so there is
@@ -528,7 +528,7 @@ impl<'de> Deserialize<'de> for Timestamp {
 /// selection knows: the artifact says what it *is*, and whether the machine that asked runs it
 /// natively is a comparison against the target that asked. A caller that dropped it would install
 /// an x86_64 build on an ARM machine without saying so, which is the one thing
-/// [ADR 0023](../../../../.claude/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md)
+/// [ADR 0023](../../../../docs/decisions/0023-an-arm64-windows-machine-runs-the-x86_64-build.md)
 /// forbids.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Selection<'a> {

@@ -12,7 +12,7 @@ import { mssqlEditing } from "./editing";
  * `GO` scripts included, with Cancel and syntax checking as you type — the Structure tab writes
  * too: database/table/column/index create, change and drop — and a database can be dumped to a
  * `.sql` file and restored back. Every write flag is `true`. See
- * `docs/superpowers/specs/2026-09-05-mssql-support-design.md`.
+ * `docs/specs/2026-09-05-mssql-support-design.md`.
  */
 export const mssqlDialect: SqlDialect = {
   kind: "mssql",

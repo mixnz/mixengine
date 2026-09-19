@@ -8,7 +8,7 @@ import type { TabInfo } from "./tabs";
  * that slot and never looks: only the module that wrote it can say whether `{ savedId: "…" }` is a
  * connection that still exists, and a shell that could tell would be a shell that knows the
  * database module by name. Everything about the shape of it, and about what may go in there, is in
- * `docs/superpowers/specs/2026-08-23-tab-session-context-design.md` — §4 in particular: ids only,
+ * `docs/specs/2026-08-23-tab-session-context-design.md` — §4 in particular: ids only,
  * because this is `localStorage`.
  *
  * A restored tab is a place on the strip, and the module behind it decides what to do with its own

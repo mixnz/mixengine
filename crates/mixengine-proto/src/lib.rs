@@ -170,7 +170,7 @@ pub use version::{Execution, PackageChannel, PackageVersion, VersionConstraint, 
 /// `mixengine-elevate`. Bump it when a change is not backwards compatible for an older peer.
 ///
 /// **Adding a member to a response is not one of those changes** —
-/// [ADR 0019](../../.claude/decisions/0019-an-added-response-member-is-optional.md), roadmap task
+/// [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md), roadmap task
 /// **T88c**. Every member added after a version is frozen is optional on the wire —
 /// `#[serde(default, skip_serializing_if = "Option::is_none")]` on an `Option<T>` — so a peer that
 /// predates it sends nothing and one that has it encodes exactly what it did before. What bumps this
@@ -188,7 +188,7 @@ pub const PROTOCOL_VERSION: ProtocolVersion = ProtocolVersion(1);
 /// **A window and not a point** — roadmap task **T88a**. `mixengine-elevate` is excluded from
 /// auto-update, so a daemon newer than the installed helper is the ordinary state of a machine
 /// rather than a fault; refusing the whole request over the number in its envelope would mean an
-/// old helper served nothing at all, where `.claude/features/updates.md` asks that it go on serving
+/// old helper served nothing at all, where `docs/features/updates.md` asks that it go on serving
 /// everything it knows — and the per-operation tolerance
 /// [`OpOutcome::Unsupported`](privileged::OpOutcome::Unsupported) exists for never gets a chance.
 ///

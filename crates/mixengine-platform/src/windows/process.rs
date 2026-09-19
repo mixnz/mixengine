@@ -39,7 +39,7 @@
 //! membership down when the last handle to it closes, which a killed daemon does exactly as reliably
 //! as an exiting one. No code of ours runs, and grandchildren are covered — neither of which is true
 //! of the Unix side, and
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md` is where that difference is
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md` is where that difference is
 //! written down rather than averaged out.
 
 use std::fs::File;
@@ -195,7 +195,7 @@ impl Drop for Detaching {
 /// closes, the kernel terminates every process in it. A daemon that *exits* closes this handle, and
 /// so does a daemon that is killed — there is no cleanup code that has to run for the guarantee to
 /// hold, which is why Windows is the strongest of the three platforms in
-/// `.claude/decisions/0007-supervised-child-owns-a-process-group.md`.
+/// `docs/decisions/0007-supervised-child-owns-a-process-group.md`.
 ///
 /// One job per service rather than one for the daemon, so `TerminateJobObject` means "stop this
 /// service and its children" and not "stop everything". It is also the object Phase 7 hangs CPU and
@@ -256,13 +256,13 @@ pub(crate) fn group() -> Result<Group> {
 // **There is no `arrange` on this system, and its absence is the point.** A supervised child is
 // created by `CreateProcessAsUserW` rather than by a `Command` — see
 // [`restricted`](super::restricted) and
-// `.claude/decisions/0010-supervised-child-never-inherits-administrators.md` — so the flags that
+// `docs/decisions/0010-supervised-child-never-inherits-administrators.md` — so the flags that
 // used to go on a `Command` are passed to that call directly. `CREATE_NO_WINDOW` is still among
 // them, for the reason it always was: a daemon has no console of its own, so a console subsystem
 // child would otherwise be given a new one, which is a black window on the user's desktop every
 // time a service starts. Still deliberately **not** `CREATE_NEW_PROCESS_GROUP`, whose only purpose
 // is to make a child addressable by `GenerateConsoleCtrlEvent`, which a daemon with no console
-// cannot send — `.claude/decisions/0008-no-signal-stop-on-windows.md`. The Unix counterpart keeps
+// cannot send — `docs/decisions/0008-no-signal-stop-on-windows.md`. The Unix counterpart keeps
 // its `arrange`, because there the child is still started by a `Command`.
 
 // **And no `arrange_one_shot` either, for the same reason.** A one-shot is created by
@@ -370,12 +370,12 @@ fn ignore_console_interrupts() -> Result<()> {
 /// handler, `GenerateConsoleCtrlEvent`, and putting all three back — process-wide state, changed
 /// from one thread of a daemon that is supervising other services on the others. The services that
 /// need a graceful stop here have a command for it (`mariadb-admin shutdown`), which is what
-/// `StopBehaviour::Command` is for. `.claude/decisions/0008-no-signal-stop-on-windows.md` has the
+/// `StopBehaviour::Command` is for. `docs/decisions/0008-no-signal-stop-on-windows.md` has the
 /// alternatives that lost.
 pub(crate) const CAN_ASK_TO_STOP: bool = false;
 
 /// There are no signals here. See [`crate::process::CAN_SIGNAL`], and
-/// `.claude/decisions/0008-no-signal-stop-on-windows.md` for the alternatives that lost.
+/// `docs/decisions/0008-no-signal-stop-on-windows.md` for the alternatives that lost.
 pub(crate) const CAN_SIGNAL: bool = false;
 
 /// The variables a child is given even though its spec did not name them.
@@ -763,7 +763,7 @@ fn ticks(time: FILETIME) -> u64 {
 /// object that made a service's group killable belonged to the daemon that created it and went with
 /// it. A survivor here exists at all only through the one-call-wide window between `CreateProcessW`
 /// and `AssignProcessToJobObject` that
-/// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` accepts, so it is a process
+/// `docs/decisions/0007-supervised-child-owns-a-process-group.md` accepts, so it is a process
 /// that had not yet been assigned to anything and, in every case that has ever been reproduced, has
 /// not started children of its own either.
 ///
@@ -924,7 +924,7 @@ fn stop_handing_on_the_standard_handles() -> Vec<usize> {
 ///
 /// **Not a [`std::process::Child`]**, and it cannot be: `CreateProcessAsUserW` hands back a raw handle and the
 /// standard library offers no way to build a [`std::process::Child`] from one. See [`restricted`](super::restricted)
-/// for the call, and `.claude/decisions/0010-supervised-child-never-inherits-administrators.md` for
+/// for the call, and `docs/decisions/0010-supervised-child-never-inherits-administrators.md` for
 /// why the token is restricted at all.
 #[derive(Debug)]
 pub(crate) struct RawChild {

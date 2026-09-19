@@ -1,6 +1,6 @@
 //! The HTTP/1.1 half: routing, limits, and the connection each client gets.
 //!
-//! HTTP is what `.claude/architecture/daemon-and-ipc.md` chose over a bespoke frame format, and the
+//! HTTP is what `docs/architecture/daemon-and-ipc.md` chose over a bespoke frame format, and the
 //! reason is visible here — streaming, back-pressure and body limits are all `hyper`'s, and the CLI,
 //! the GUI and any future extension get a client library for free instead of a hand-written framer
 //! each.
@@ -39,7 +39,7 @@ const MAX_BODY: usize = 1024 * 1024;
 
 /// How long a client may take to finish sending its headers.
 ///
-/// `.claude/standards/rust.md` calls a missing timeout on anything touching a socket a review
+/// `docs/standards/rust.md` calls a missing timeout on anything touching a socket a review
 /// blocker, and this is the one that matters here: a connection that opens and then says nothing
 /// would otherwise hold a task for as long as the daemon runs. The body is bounded by [`MAX_BODY`]
 /// rather than by a clock, because a slow client is not a fault and a large one is already refused.

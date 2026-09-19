@@ -1,7 +1,7 @@
 //! Who is listening on a local TCP port, against the real OS.
 //!
 //! Not `#[ignore]`d and not a system test: every port here is an ephemeral one the OS handed this
-//! process for the length of one test. `.claude/standards/testing.md` rules out 53, 80 and 443,
+//! process for the length of one test. `docs/standards/testing.md` rules out 53, 80 and 443,
 //! which is a different question from binding whatever is free.
 //!
 //! **The subject is this process.** A test that went looking for somebody else's server would be

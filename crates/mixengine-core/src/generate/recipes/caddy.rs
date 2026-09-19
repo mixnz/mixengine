@@ -19,7 +19,7 @@
 //! # Judged against the real server
 //!
 //! Every one of those was measured against Caddy 2.11.4 rather than read about, which is what
-//! `.claude/roadmap/phase-3-services.md` means by a recipe being judged against the real server.
+//! `docs/roadmap/phase-3-services.md` means by a recipe being judged against the real server.
 //! Two of the findings are in the template beside the lines they explain — backtick-quoted paths,
 //! `persist_config off`. The third is here because it is about the *spec* and not the file:
 //! **`caddy run`, not `caddy start`.** `start` spawns a child, hands it the parent's stdout and
@@ -213,7 +213,7 @@ impl Recipe for Caddy {
 
     /// And it is one of the two programs a site is reached through — roadmap task **T37**.
     ///
-    /// What `.claude/features/services.md` calls "exactly one active front end" needs both halves:
+    /// What `docs/features/services.md` calls "exactly one active front end" needs both halves:
     /// this one is about the *job*, and it is what [`instancing`](Self::instancing) cannot say —
     /// one Caddy and one nginx are two rows that each obey their own recipe and still leave a home
     /// with two front ends. [`nginx`](super::nginx) is the other side of it.

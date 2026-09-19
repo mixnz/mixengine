@@ -105,7 +105,7 @@ const INSTANCES: [&str; 2] = [TUNED, STOCK];
 /// than ten times the noise, so tuning that quietly stopped working cannot pass it.
 ///
 /// **What was actually saved is printed on every run**, and
-/// `.claude/features/resource-isolation.md` carries the figure.
+/// `docs/features/resource-isolation.md` carries the figure.
 const SAVED_AT_LEAST: f64 = 0.05;
 
 /// How long an instance is left alone before the first reading.

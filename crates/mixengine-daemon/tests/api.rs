@@ -5,10 +5,10 @@
 //! would be worth avoiding anyway. What is proved here is the part the unit tests next to the code
 //! cannot reach: that a daemon started the way a user starts one binds the endpoint its home
 //! implies, speaks HTTP over a socket that is not a network socket, and answers each route the way
-//! `.claude/architecture/daemon-and-ipc.md` says it does.
+//! `docs/architecture/daemon-and-ipc.md` says it does.
 //!
 //! Every test gets its own `MIXENGINE_HOME` in a `TempDir` **passed as `--home`** — rule 2 in
-//! `.claude/standards/testing.md`: the environment is process-global, and two of these running at
+//! `docs/standards/testing.md`: the environment is process-global, and two of these running at
 //! once under `cargo test` would rewrite each other's home. Nothing here touches the network; a
 //! Unix socket and a named pipe are neither.
 

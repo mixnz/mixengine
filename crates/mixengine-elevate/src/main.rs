@@ -4,7 +4,7 @@
 //! it validates that request **itself** rather than trusting the daemon, applies it, writes
 //! `response.json` beside it, and exits. It never listens on a socket, never runs an arbitrary
 //! command, and is never resident. Keep it small enough to audit in one sitting; see
-//! `.claude/architecture/security-model.md` and roadmap task T40.
+//! `docs/architecture/security-model.md` and roadmap task T40.
 //!
 //! **The response file is the protocol.** Exit 0 means "the batch was processed and there is a report
 //! to read" — *even when every operation in it failed*. It does not mean "it worked". Every other

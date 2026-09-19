@@ -14,7 +14,7 @@
 //! run by hand.
 //!
 //! **`loginctl enable-linger` is deliberately not called.** Without it a systemd user manager stops
-//! at logout, which is exactly the lifetime `.claude/architecture/overview.md` states for the
+//! at logout, which is exactly the lifetime `docs/architecture/overview.md` states for the
 //! daemon: *login → logout*.
 //!
 //! `Restart=on-failure` and **not** `Restart=always`: `mix daemon stop` must stay stopped. macOS
@@ -25,7 +25,7 @@ use std::process::Command;
 
 use crate::{AutostartMechanism, AutostartPlan, AutostartState, Error, Result, ServiceInstaller};
 
-/// The unit's file name, named in `.claude/architecture/daemon-and-ipc.md`.
+/// The unit's file name, named in `docs/architecture/daemon-and-ipc.md`.
 const UNIT: &str = "mixengined.service";
 
 /// The tool. Off the `PATH`, because systemd is not always in the same place and there is no
@@ -360,7 +360,7 @@ fn split(value: &str) -> Vec<String> {
 
 /// A temporary in the same directory, then a rename.
 ///
-/// `.claude/architecture/platform-abstraction.md`'s second rule. A unit half written is one systemd
+/// `docs/architecture/platform-abstraction.md`'s second rule. A unit half written is one systemd
 /// refuses at the next login, and the machine that would produce it is the one that lost power in
 /// the middle of `mix autostart enable`.
 fn write_atomically(path: &Path, contents: &str) -> Result<()> {
@@ -506,7 +506,7 @@ mod tests {
 
     /// The whole cycle against a **real** `systemctl`, under a unit name nobody's daemon depends on.
     ///
-    /// `#[ignore]` **and** `MIXENGINE_SYSTEM_TESTS`, per `.claude/standards/testing.md` rule 1: this
+    /// `#[ignore]` **and** `MIXENGINE_SYSTEM_TESTS`, per `docs/standards/testing.md` rule 1: this
     /// writes the systemd configuration of whoever runs it.
     ///
     /// **Two branches, and each asserts something different.** A machine with a user manager has to
@@ -561,7 +561,7 @@ mod tests {
         );
     }
 
-    /// `.claude/standards/testing.md` rule 4: nothing outside the entry is touched.
+    /// `docs/standards/testing.md` rule 4: nothing outside the entry is touched.
     #[test]
     fn a_neighbouring_unit_is_left_byte_for_byte_alone() {
         let directory = tempfile::TempDir::new().expect("a temporary directory");

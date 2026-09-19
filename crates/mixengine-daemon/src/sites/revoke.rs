@@ -8,7 +8,7 @@
 //!
 //! **What is compared is the interface and its address, and nothing else** — the T76 design, D3.
 //! Two networks that hand one adapter the same address are indistinguishable to this module; that
-//! is written down as a limitation of this build in `.claude/features/lan-sharing.md` rather than
+//! is written down as a limitation of this build in `docs/features/lan-sharing.md` rather than
 //! guessed at with an SSID this workspace would have to read three different ways.
 //!
 //! **A finding has to survive two passes before it is acted on** — D2, and the correction this

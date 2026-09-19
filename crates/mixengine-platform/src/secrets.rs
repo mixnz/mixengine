@@ -2,7 +2,7 @@
 //!
 //! **The one capability with a single implementation instead of three.** Everything else in this
 //! crate is a per-OS directory, or `unix/` where two of the three agree; this is a level below that,
-//! because the `keyring` crate `.claude/standards/rust.md` names *is* the abstraction — one API over
+//! because the `keyring` crate `docs/standards/rust.md` names *is* the abstraction — one API over
 //! the Windows Credential Manager, the macOS Keychain and a Linux secret service. Writing three
 //! wrappers around one library would produce three copies of the same eleven lines and three places
 //! for the error mapping to drift.
@@ -77,7 +77,7 @@ fn entry(service: &str, key: &str) -> Result<Entry> {
 /// Turn a `keyring` failure into this crate's, without ever touching the value.
 ///
 /// A machine with no credential store becomes [`Error::UnsupportedPlatform`] rather than a generic
-/// failure, because rule 4 in `.claude/architecture/platform-abstraction.md` says a capability the
+/// failure, because rule 4 in `docs/architecture/platform-abstraction.md` says a capability the
 /// machine does not have is a normal answer carrying a workaround, not a bug. Everything else is the
 /// store refusing, which is a bug — a locked keyring, a dismissed prompt, a vault denying access.
 ///

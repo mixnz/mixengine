@@ -1,7 +1,7 @@
 //! The queue of privileged operations, and what a client is told about it.
 //!
 //! The daemon batches everything that needs an administrative token and spends **one** prompt on the
-//! whole of it — `.claude/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a
+//! whole of it — `docs/decisions/0005-on-demand-elevation.md` calls elevating inside a loop a
 //! defect. What is here is the vocabulary that makes the waiting visible: what is in the queue, what
 //! each operation will change, whether this machine can raise a prompt at all, and what the last
 //! grant did.
@@ -14,7 +14,7 @@ use crate::{JobId, Timestamp};
 
 /// One row of the queue, by its rowid.
 ///
-/// A newtype rather than a bare `i64` on `.claude/standards/rust.md`'s rule: the one method that
+/// A newtype rather than a bare `i64` on `docs/standards/rust.md`'s rule: the one method that
 /// takes one is `elevation.drop`, and an integer there could be a job, an operation or a mistake.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
@@ -194,7 +194,7 @@ pub struct GrantOutcome {
     /// grant did not do it, and this is why.
     ///
     /// Optional on the wire, so an older client reading a newer daemon is unaffected
-    /// ([ADR 0019](../../.claude/decisions/0019-an-added-response-member-is-optional.md)).
+    /// ([ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md)).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub problems: Vec<String>,
 }

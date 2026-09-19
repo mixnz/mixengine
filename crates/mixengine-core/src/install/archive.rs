@@ -10,7 +10,7 @@
 //! for what is the single most attacked step in installing anything.
 //!
 //! What is deliberately **not** re-implemented here is everything below the path: the mode bits, the
-//! symlinks, the hardlinks. Those are the operating system's business, `.claude/standards/rust.md`
+//! symlinks, the hardlinks. Those are the operating system's business, `docs/standards/rust.md`
 //! says a `#[cfg]` outside `mixengine-platform` fails review, and a hand-rolled unpacker would need
 //! one per entry type. Delegating that to the crate whose job it is *is* the platform abstraction
 //! here.
@@ -68,7 +68,7 @@ impl Format {
 ///
 /// **Blocking on purpose.** Every byte of an eighty-megabyte archive is decompressed and written by
 /// this call, so it belongs on a blocking thread; the caller in [`super`] is what puts it there, on
-/// the rule in `.claude/standards/rust.md` that nothing blocks the runtime.
+/// the rule in `docs/standards/rust.md` that nothing blocks the runtime.
 ///
 /// # Errors
 ///

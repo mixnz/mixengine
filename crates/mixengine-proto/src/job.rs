@@ -1,6 +1,6 @@
 //! Long operations that outlive the call that asked for them.
 //!
-//! `.claude/architecture/daemon-and-ipc.md` states the rule this module exists to serve: *long
+//! `docs/architecture/daemon-and-ipc.md` states the rule this module exists to serve: *long
 //! operations return a job*, because a download of eighty megabytes cannot be an RPC call a client
 //! waits inside. What comes back from `runtime.install` is a [`JobId`]; what happens afterwards
 //! arrives as [`crate::DaemonEvent::JobProgress`] and [`crate::DaemonEvent::JobFinished`], and

@@ -47,7 +47,7 @@ state: SiteState,
  * Not the order somebody typed: overlaps are resolved by specificity where the configuration is
  * rendered, so a listing showing declaration order would be showing something the front end
  * does not do. Optional on the wire,
- * [ADR 0019](../../../.claude/decisions/0019-an-added-response-member-is-optional.md).
+ * [ADR 0019](../../../docs/decisions/0019-an-added-response-member-is-optional.md).
  */
 routes?: Array<SiteRoute>, 
 /**

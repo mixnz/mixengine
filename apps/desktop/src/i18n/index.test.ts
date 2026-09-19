@@ -8,7 +8,7 @@ describe("resolve", () => {
   });
 
   it("returns the key itself when the dictionary doesn't have it", () => {
-    // Documented behaviour, per .agent/conventions/i18n.md: "An unknown key resolves to the key
+    // Documented behaviour, per docs/standards/desktop/i18n.md: "An unknown key resolves to the key
     // string itself rather than throwing."
     expect(resolve(EN, "no.such.key" as never)).toBe("no.such.key");
   });

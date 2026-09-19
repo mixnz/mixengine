@@ -173,7 +173,7 @@ async fn dispatch(api: &Arc<Api>, call: Value) -> Option<Response> {
 /// Run one method, containing anything it does to itself.
 ///
 /// The call happens inside a spawned task purely so that a panic becomes a value. A handler that
-/// panics must not take the daemon with it — `.claude/standards/rust.md` is explicit that a panic
+/// panics must not take the daemon with it — `docs/standards/rust.md` is explicit that a panic
 /// here kills every managed service — and the connection alone is not enough to sacrifice either:
 /// the client would see a dropped socket and have no idea whether its request had been carried out.
 /// `panic = "abort"` in the release profile would defeat this, which is why the workspace manifest
@@ -920,7 +920,7 @@ async fn call_method(
 
 /// Run a handler's blocking half where blocking work belongs.
 ///
-/// `.claude/standards/rust.md` keeps anything that waits on a disk off the runtime threads that
+/// `docs/standards/rust.md` keeps anything that waits on a disk off the runtime threads that
 /// have connections to serve, and `path.*` is the first *method* here with such a half: nineteen
 /// file copies, a directory walk, and on Windows a registry write that broadcasts to every window
 /// on the desktop. Every other handler answers from memory or through `sqlx`, which does its own.
@@ -1282,7 +1282,7 @@ impl Api {
     ///
     /// **The order is download → verify → unpack → smoke → stop → swap → answer → exit**, and the
     /// first four happening before the stop is this task's one departure from
-    /// `.claude/features/updates.md`'s wording (the T88 design, D5): a download that fails after the
+    /// `docs/features/updates.md`'s wording (the T88 design, D5): a download that fails after the
     /// stop has cost an outage, and one that succeeds could have happened while everything was still
     /// up. What is down is the swap and the restart, which is seconds.
     ///
@@ -1355,7 +1355,7 @@ impl Api {
     /// The services an update would stop and start again.
     ///
     /// **What is running now**, which is what the stop walk will reach. Reported so a consent prompt
-    /// can say *"3 services will be stopped and started again"* — `.claude/features/updates.md`'s
+    /// can say *"3 services will be stopped and started again"* — `docs/features/updates.md`'s
     /// *"never update while a supervised service is under load without asking"* in the only form
     /// that rule can take once consent is always required.
     async fn running_services(&self) -> Vec<ServiceId> {
@@ -2122,7 +2122,7 @@ impl Api {
     /// Run a walk here, or behind the answer — the whole of what [`ServiceTarget::wait`] chooses.
     ///
     /// **A walk that is not waited for is still bounded by the daemon's own life.** It is cancelled
-    /// by the root token rather than detached, per the rule in `.claude/standards/rust.md` against a
+    /// by the root token rather than detached, per the rule in `docs/standards/rust.md` against a
     /// task that outlives shutdown: the services it started keep their runners, which are the
     /// registry's and were never this task's to hold.
     ///
@@ -4092,7 +4092,7 @@ mod tests {
 
     /// A daemon with no feed to read answers the question anyway — roadmap task **T88**.
     ///
-    /// **What it must not do is fail.** `.claude/features/updates.md` says an offline machine never
+    /// **What it must not do is fail.** `docs/features/updates.md` says an offline machine never
     /// sees an error and never a slower startup, and this is the same rule one call along: the
     /// fixture's feed URL answers nothing, and `update.status` still says what version is running,
     /// where it lives, and that it has been offered nothing.

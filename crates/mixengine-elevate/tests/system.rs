@@ -6,7 +6,7 @@
 //!
 //! **The permissions are asserted structurally — by reading them, never by attempting an access.**
 //! An elevated process can open anything, so a test that proved exclusion by trying it would pass
-//! for a privilege the user will not have. That is the rule in `.claude/standards/testing.md`, and
+//! for a privilege the user will not have. That is the rule in `docs/standards/testing.md`, and
 //! `crates/mixengine-platform/tests/access.rs` is where this codebase already keeps it.
 
 mod harness;

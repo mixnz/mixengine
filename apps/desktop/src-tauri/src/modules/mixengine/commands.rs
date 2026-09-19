@@ -464,7 +464,7 @@ pub async fn mixengine_database_client(service: String) -> Result<Value, AppErro
 /// `user` vắng nghĩa là quản trị viên của server — mặc định của chính `database.open`, vì hai lệnh
 /// là một câu hỏi được hỏi bởi một tiến trình và bởi một người.
 ///
-/// [ADR 0025]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md
+/// [ADR 0025]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md
 #[tauri::command]
 pub async fn mixengine_database_credentials(
     service: String,

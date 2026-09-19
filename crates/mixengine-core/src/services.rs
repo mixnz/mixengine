@@ -206,7 +206,7 @@ pub struct ServiceRecord {
     /// see [`started`].
     ///
     /// An `i64` rather than the platform type: this crate stores what it is given and does not
-    /// interpret it, and the column is `.claude/architecture/data-model.md`'s "exists to be
+    /// interpret it, and the column is `docs/architecture/data-model.md`'s "exists to be
     /// compared, never read".
     pub pid_start_time: Option<i64>,
 

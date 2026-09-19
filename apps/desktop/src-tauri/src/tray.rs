@@ -2,7 +2,7 @@
 //!
 //! The icon and a second webview window, label [`PANEL`], that draws the same React code as the
 //! Dashboard (`src/tray.tsx`). The design, including why Linux gets a menu in front of the panel
-//! rather than a popover, is `docs/superpowers/specs/2026-09-19-t168-mixengine-in-the-tray-design.md`.
+//! rather than a popover, is `docs/specs/2026-09-19-t168-mixengine-in-the-tray-design.md`.
 //!
 //! **The icon exists only while the frontend says so.** `tray_configure` is called by the main
 //! window once it knows which modules it draws: a MixLab used only as a database client (T108) has

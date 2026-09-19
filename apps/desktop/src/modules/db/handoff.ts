@@ -7,7 +7,7 @@ import type { ConnectionConfig } from "./types";
  *
  * The backend read it off a `mixdb://connect?…` URL and the password off one environment
  * variable, and keeps it until this call; see
- * `docs/superpowers/specs/2026-09-03-mixengine-connection-handoff-design.md`. From here it is a
+ * `docs/specs/2026-09-03-mixengine-connection-handoff-design.md`. From here it is a
  * config in the form like any typed by hand: `connect_db`, the workspace, Save if the user wants.
  */
 export interface Handoff {

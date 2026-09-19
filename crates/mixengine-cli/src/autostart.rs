@@ -1,6 +1,6 @@
 //! Starting a daemon for a home that has none.
 //!
-//! `.claude/architecture/daemon-and-ipc.md`: *if a client cannot connect, it spawns
+//! `docs/architecture/daemon-and-ipc.md`: *if a client cannot connect, it spawns
 //! `mixengined --detach`, which returns only once the daemon answers on its endpoint.* That is the
 //! whole of the mechanism, and the reason it is this short is that the waiting belongs on the other
 //! side — the process that knows whether its child is still alive is the one that started it, so
@@ -205,7 +205,7 @@ fn cannot_run(program: &OsString, action: &str, source: &std::io::Error) -> Erro
 ///    getting it subtly wrong on Windows.
 fn program() -> OsString {
     // Read here and passed down rather than looked up inside `choose`, per the rule in
-    // `.claude/standards/rust.md` that configuration enters at the top: it is also what lets the
+    // `docs/standards/rust.md` that configuration enters at the top: it is also what lets the
     // search be tested without `set_var`, which is `unsafe` in edition 2024 and process-global.
     let mix = std::env::current_exe().ok();
 

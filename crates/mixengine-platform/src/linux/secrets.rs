@@ -18,7 +18,7 @@
 //! quotes is "without a $DISPLAY for X11", and `dbus-broker` need not agree with `dbus-daemon`
 //! about any of it. The names below are in the D-Bus specification, which is what makes them worth
 //! matching. Reaching them is the whole reason this crate depends on `keyring`'s backend directly,
-//! which `.claude/decisions/0013-reading-the-d-bus-error-name-to-tell-an-absent-store.md` argues.
+//! which `docs/decisions/0013-reading-the-d-bus-error-name-to-tell-an-absent-store.md` argues.
 //!
 //! Every name here was measured rather than looked up, on a real machine, one environment each.
 

@@ -18,7 +18,7 @@ use std::fmt;
 /// means. Growth happens in the library enums; this list is the vocabulary they are translated
 /// into.
 ///
-/// The set is the one in `.claude/architecture/daemon-and-ipc.md`; the strings are wire format and
+/// The set is the one in `docs/architecture/daemon-and-ipc.md`; the strings are wire format and
 /// never change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // A closed set of codes is the most useful thing the published contract can hand a client, so the
@@ -67,7 +67,7 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    /// Every code, in the order `.claude/architecture/daemon-and-ipc.md` lists them.
+    /// Every code, in the order `docs/architecture/daemon-and-ipc.md` lists them.
     ///
     /// Exposed for the clients that render one row per code and for the tests that pin the wire
     /// strings — and load-bearing besides, because [`ErrorCode::from_wire`] reads a code back by
@@ -170,7 +170,7 @@ pub struct Error {
     /// What to do about it, when there is something to do.
     ///
     /// The GUI renders it as a suggested action next to the message
-    /// (`.claude/features/gui.md`), so it is advice and not a restatement: a hint that repeats the
+    /// (`docs/features/client-surface.md`), so it is advice and not a restatement: a hint that repeats the
     /// message makes the same sentence appear twice on screen. `None` is the right answer whenever
     /// the message already carries the way out.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -260,7 +260,7 @@ pub fn flatten(error: &dyn std::error::Error) -> String {
 mod tests {
     use super::*;
 
-    /// The list in `.claude/architecture/daemon-and-ipc.md`, in its order. Both halves are the
+    /// The list in `docs/architecture/daemon-and-ipc.md`, in its order. Both halves are the
     /// contract: if this test needs editing, a client somewhere needs editing too.
     const DOCUMENTED: [&str; 12] = [
         "not_found",

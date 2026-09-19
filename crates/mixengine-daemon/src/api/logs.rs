@@ -9,7 +9,7 @@
 //! sized for state changes, shared by every client; a service in debug mode prints more in a second
 //! than it holds, and putting output on it would cost every connected client exactly the transitions
 //! it opened that stream for. See
-//! `.claude/decisions/0009-logs-travel-on-their-own-stream.md`, which is also why there is no
+//! `docs/decisions/0009-logs-travel-on-their-own-stream.md`, which is also why there is no
 //! `service.logs` method beside this: a JSON-RPC call cannot stream, and `?tail=N` with no `follow`
 //! *is* the snapshot such a method would have been.
 //!
@@ -201,7 +201,7 @@ pub(crate) async fn respond(api: &Arc<Api>, ask: Ask) -> Response<ResponseBody> 
             let directory = api.paths().service_logs(id);
 
             // Reading the end of a file that may be ten megabytes is not work for a runtime thread
-            // with connections to serve — `.claude/standards/rust.md` on anything that blocks.
+            // with connections to serve — `docs/standards/rust.md` on anything that blocks.
             tokio::task::spawn_blocking(move || logs::historic(&directory, ask.tail))
                 .await
                 .unwrap_or_default()

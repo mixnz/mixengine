@@ -1,6 +1,6 @@
 //! The service a runtime install creates for itself — roadmap task **T32**.
 //!
-//! Nobody calls `service.create` for a pool. `.claude/features/runtime-versions.md` decided this
+//! Nobody calls `service.create` for a pool. `docs/features/runtime-versions.md` decided this
 //! before there was a pool to create: PHP's post-install hook makes the `php-fpm@<version>` record,
 //! and an uninstall takes it away. What is here is that hook, and it is written **idempotent and run
 //! at boot as well as after an install** — which is what gives a PHP installed before this task a

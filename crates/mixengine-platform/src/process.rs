@@ -46,7 +46,7 @@
 //! child leads a process group of its own — a Job Object on Windows, a session on Unix — so that
 //! stopping it means stopping everything it started, and so that a daemon which goes away takes it
 //! along. How completely that last part is true depends on the system and is set out in
-//! `.claude/decisions/0007-supervised-child-owns-a-process-group.md`: a kernel guarantee on Windows,
+//! `docs/decisions/0007-supervised-child-owns-a-process-group.md`: a kernel guarantee on Windows,
 //! a guard that covers the immediate child on Linux, and nothing at all on macOS, where crash
 //! recovery at the next boot (roadmap task T18) is what closes the gap.
 
@@ -69,7 +69,7 @@ use crate::{Error, Result};
 ///
 /// True on Unix, where [`Supervised::ask_to_stop`] sends `SIGTERM` to the group. **False on
 /// Windows**, where there is no signal a daemon can send to a process it gave no console to — see
-/// `.claude/decisions/0008-no-signal-stop-on-windows.md`.
+/// `docs/decisions/0008-no-signal-stop-on-windows.md`.
 ///
 /// A supervisor reads this before it starts a grace period: waiting out five seconds for a request
 /// that was never sent is not patience, it is five seconds added to every stop. On a system that
@@ -313,7 +313,7 @@ impl Detached {
 ///
 /// **A type of this crate's rather than the standard library's, and T34a is why.** On Windows a
 /// supervised child is created by `CreateProcessAsUserW` from a restricted token — see
-/// `.claude/decisions/0010-supervised-child-never-inherits-administrators.md` — and a
+/// `docs/decisions/0010-supervised-child-never-inherits-administrators.md` — and a
 /// [`std::process::ChildStdout`] cannot be built from a handle that call returns. A [`File`] can, on
 /// both systems, and a pipe read to end of file is the whole of what either caller wants.
 ///
@@ -340,7 +340,7 @@ impl Read for OutputPipe {
 /// `PR_SET_PDEATHSIG`; anything *it* started is reparented and carries on. Everything on macOS,
 /// which has neither mechanism. Crash recovery at the next boot (roadmap task T18) is what covers
 /// the difference, and
-/// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` is where it is written down
+/// `docs/decisions/0007-supervised-child-owns-a-process-group.md` is where it is written down
 /// rather than rounded up.
 #[derive(Debug)]
 pub struct Supervised {
@@ -511,7 +511,7 @@ impl Supervised {
     /// "gone" is also the state a stop is *trying* to reach, so making it a precondition read the
     /// question backwards. What the old guard bought was not signalling a pgid the OS may have given
     /// away since; that window is the residual race
-    /// `.claude/decisions/0007-supervised-child-owns-a-process-group.md` already accepts, and this
+    /// `docs/decisions/0007-supervised-child-owns-a-process-group.md` already accepts, and this
     /// handle remembers that it has killed so it cannot enter that window twice.
     ///
     /// # Errors
@@ -1190,7 +1190,7 @@ pub fn hand_over(
 /// another, and on Linux a value from one boot means nothing in the next.
 ///
 /// It is stored, so it crosses a process boundary as an integer and comes back as one: `services.pid_start_time`
-/// holds exactly [`stored`](Self::stored), which `.claude/architecture/data-model.md` describes as a
+/// holds exactly [`stored`](Self::stored), which `docs/architecture/data-model.md` describes as a
 /// column that "exists to be compared, never read".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StartTime(i64);
@@ -1370,7 +1370,7 @@ impl Adopted {
     /// between the two being the whole of a boot's reconciliation, or the days a service runs for —
     /// and what fills that window is the process ending and its number being handed to somebody else.
     /// This narrows the race to the two instructions between the check and the `kill`, which is the
-    /// same residual `.claude/decisions/0007-supervised-child-owns-a-process-group.md` already
+    /// same residual `docs/decisions/0007-supervised-child-owns-a-process-group.md` already
     /// accepts for a `Supervised`.
     ///
     /// It is also what makes Unix's fallback to signalling the bare pid defensible: a group id could

@@ -12,7 +12,7 @@
 //! type, a default or a collation actually differs) and only when the column is not part of a
 //! table-level constraint, generated, or the table's own rowid alias — those stay refused by name,
 //! same as adding a primary key to a table that never had one. See
-//! `docs/superpowers/specs/2026-09-04-sqlite-completion-design.md` (B1-B8) for the decisions this
+//! `docs/specs/2026-09-04-sqlite-completion-design.md` (B1-B8) for the decisions this
 //! implements.
 
 use super::sqlite::{map_error, quote_ident};

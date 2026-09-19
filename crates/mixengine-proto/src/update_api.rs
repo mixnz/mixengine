@@ -20,7 +20,7 @@ use crate::{ServiceId, Timestamp};
 pub struct UpdateCheck {
     /// Go to the network even if what is cached is still fresh.
     ///
-    /// What `mix self-update --check` sets, because `.claude/features/updates.md` says that command
+    /// What `mix self-update --check` sets, because `docs/features/updates.md` says that command
     /// forces an immediate check. The daemon's own startup check leaves it `false`, so a daemon
     /// restarted ten times in an hour makes one request.
     #[serde(default)]
@@ -44,7 +44,7 @@ pub struct UpdateDecide {
 
 /// The two answers that are not *install*.
 ///
-/// **Both are real and both are remembered** — `.claude/features/updates.md`. A decline that was
+/// **Both are real and both are remembered** — `docs/features/updates.md`. A decline that was
 /// forgotten is a prompt that comes back tomorrow, which is how an update prompt becomes something
 /// people dismiss without reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -114,7 +114,7 @@ pub struct UpdateStatus {
     /// The services an update would stop and start again.
     ///
     /// What makes a consent prompt able to say *"3 services will be stopped and started again"* —
-    /// which is `.claude/features/updates.md`'s *"never update while a supervised service is under
+    /// which is `docs/features/updates.md`'s *"never update while a supervised service is under
     /// load without asking"* in the only form that rule can take once consent is always required.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub will_restart: Vec<ServiceId>,

@@ -12,7 +12,7 @@ import type { FrontEndServer } from "./FrontEndServer";
  * it would know that `caddy` is a front end and have no way to name the other one but by writing
  * the string. With it, the value read off the active row is the value
  * [`FrontEndSwitch::server`] takes, and
- * [ADR 0026](https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)'s
+ * [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md)'s
  * *no client may map a package name to a role* is something a client can obey.
  *
  * Only the one distinction, because only one exists: every other recipe is a server a home may run

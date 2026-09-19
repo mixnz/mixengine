@@ -1,7 +1,7 @@
 //! Which commands `<root>/bin` fronts, and what each one runs.
 //!
 //! A shim is one binary, copied once per name it answers to, that reads its own file name to find
-//! out which command was invoked ([runtime-versions.md](../../../.claude/features/runtime-versions.md)).
+//! out which command was invoked ([runtime-versions.md](../../../docs/features/runtime-versions.md)).
 //! This module is the table that name is looked up in, and it is here rather than in the shim binary
 //! for the reason every table like it is in `core`: the process that *fills* `<root>/bin` needs the
 //! same list, and two lists would be a `bin/` holding a name nothing dispatches — a program that
@@ -36,7 +36,7 @@
 //! per row, under the row's name. It is what turns T25's binary into commands a person can type.
 //!
 //! **`bin/` is entirely MixEngine's**, which is what lets a refresh remove what it does not
-//! recognise. `.claude/architecture/overview.md` describes the directory as "version-resolving
+//! recognise. `docs/architecture/overview.md` describes the directory as "version-resolving
 //! shims" and nothing else, so a file in there answering to no command is a command that was
 //! renamed or dropped between releases — a program that exists, runs, and refuses to be anything.
 //! Somebody who wants a script of their own on the PATH has every other directory on the machine to
@@ -46,7 +46,7 @@
 //! on a machine with no Node.js: the shim there resolves nothing and says which command to type,
 //! which is a better answer than `node: command not found` for a tool whose whole job is managing
 //! versions of Node. That is also why nothing calls this after an install —
-//! [runtime-versions.md](../../../.claude/features/runtime-versions.md) lists "refresh shims" as the
+//! [runtime-versions.md](../../../docs/features/runtime-versions.md) lists "refresh shims" as the
 //! last step of one, and there is nothing to refresh.
 
 use std::collections::HashSet;
@@ -699,7 +699,7 @@ fn place(shim: &Path, target: &Path) -> Result<bool> {
 /// it started, and the file it came from is nobody's any more.
 ///
 /// The `cfg!` is the same one [`dispatch`] and [`fold`] use: a constant this module reads, not a
-/// call into the operating system — `.claude/architecture/platform-abstraction.md` draws that line
+/// call into the operating system — `docs/architecture/platform-abstraction.md` draws that line
 /// at behaviour a trait can be written for, and "does a running program hold its own file" is not
 /// something either side of `bin/` can be asked.
 fn link(shim: &Path, target: &Path) -> bool {

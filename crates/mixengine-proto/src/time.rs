@@ -6,7 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 ///
 /// Not [`SystemTime`], whose serde representation is a two-field object nobody would choose, and not
 /// an RFC 3339 string, which cannot be produced without a date library — and the crate list in
-/// `.claude/standards/rust.md` has none, because until now nothing needed one. A number is
+/// `docs/standards/rust.md` has none, because until now nothing needed one. A number is
 /// unambiguous, sorts, needs no parser, and is `new Date(ms)` in the GUI.
 ///
 /// Milliseconds rather than seconds because log lines (roadmap task T14) arrive faster than one a
@@ -40,7 +40,7 @@ impl Timestamp {
         Self(millis)
     }
 
-    /// This moment as `YYYY-MM-DDTHH:MM:SSZ`, which is how `.claude/architecture/data-model.md`
+    /// This moment as `YYYY-MM-DDTHH:MM:SSZ`, which is how `docs/architecture/data-model.md`
     /// spells an `_at` column that a person reads rather than one the daemon does arithmetic on.
     ///
     /// **T23 is the first task that had to write one at runtime**, which is the mirror of the
@@ -306,7 +306,7 @@ mod tests {
         assert_eq!(Timestamp::from_system_time(time), Timestamp(-1_500));
     }
 
-    /// The shape `.claude/architecture/data-model.md` writes in its own example, produced from the
+    /// The shape `docs/architecture/data-model.md` writes in its own example, produced from the
     /// number this type actually holds.
     #[test]
     fn a_moment_is_also_the_iso_8601_a_text_column_holds() {

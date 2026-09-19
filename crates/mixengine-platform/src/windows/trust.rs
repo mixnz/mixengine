@@ -1,6 +1,6 @@
 //! Windows: the `Root` store under `LocalMachine`, through the certificate-store API.
 //!
-//! **Through the API rather than `certutil.exe`** — the T49a design, D6. `.claude/features/tls.md`
+//! **Through the API rather than `certutil.exe`** — the T49a design, D6. `docs/features/tls.md`
 //! names CryptoAPI first with `certutil` as a fallback; the fallback is not built. This crate
 //! already reaches Windows through `windows-sys` for the resolver's registry work and the named
 //! pipe's DACL, and a process spawned from a context holding an administrative token is a larger

@@ -5,7 +5,7 @@
  *
  * Not [`SystemTime`], whose serde representation is a two-field object nobody would choose, and not
  * an RFC 3339 string, which cannot be produced without a date library — and the crate list in
- * `.claude/standards/rust.md` has none, because until now nothing needed one. A number is
+ * `docs/standards/rust.md` has none, because until now nothing needed one. A number is
  * unambiguous, sorts, needs no parser, and is `new Date(ms)` in the GUI.
  *
  * Milliseconds rather than seconds because log lines (roadmap task T14) arrive faster than one a
