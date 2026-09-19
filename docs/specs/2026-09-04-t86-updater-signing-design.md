@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T86
+---
+
 # T86 — the updater key, and what CI does with it (design)
 
 Roadmap task **T86**, phase 9: *"Minisign updater keys: generation, CI signing of artifacts, pubkey

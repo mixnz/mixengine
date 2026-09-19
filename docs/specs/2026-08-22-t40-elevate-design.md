@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-22
+task: T40
+---
+
 # T40 — The one-shot elevated helper, and the protocol it answers
 
 *Design, 2026-08-22. Roadmap task [T40](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-02
+task: T79b
+---
+
 # T79b — saying why a blueprint is untrusted (design)
 
 Roadmap task **T79b**, phase 8. T78a made `blueprint.import` check a detached minisign signature

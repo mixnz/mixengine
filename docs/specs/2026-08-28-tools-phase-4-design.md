@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-28
+---
+
 # Module Tools — Giai đoạn 4: kết nối và hạ tầng
 
 Ngày: 2026-08-28

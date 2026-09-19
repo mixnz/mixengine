@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-16
+task: T148
+---
+
 # T148 — What a machine lacks is installed, not reported
 
 Roadmap task [T148](../roadmap/phase-18-what-a-machine-lacks.md), phase 18. 2026-09-16.

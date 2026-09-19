@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T104
+---
+
 # T104 — The application is MixLab — design
 
 **Date**: 2026-09-09

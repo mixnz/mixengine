@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-01
+task: T78a
+---
+
 # T78a — scaffold trust (design)
 
 Roadmap task **T78a**, phase 8. T77 put a blueprint's own command in the plan and T78 applied

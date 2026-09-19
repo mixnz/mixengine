@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-18
+---
+
 # Tách MixDB thành shell + module
 
 Ngày: 2026-08-18

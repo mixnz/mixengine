@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-08
+task: T78b
+---
+
 # T78b — a scaffold's program is checked at plan time (design)
 
 Proposed roadmap task **T78b**, phase 8, following T78a: *"A `[scaffold]` whose program is not on

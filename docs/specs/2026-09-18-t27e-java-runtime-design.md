@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-18
+task: T27e
+---
+
 # T27e — Java, the seventh runtime kind (design)
 
 Proposed roadmap task **T27e**, phase 2, following T27d: *"A JDK is installed, pinned, listed and run

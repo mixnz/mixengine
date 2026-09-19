@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T43
+---
+
 # T43 — Site → config → reload, end to end
 
 **Roadmap:** T43, `docs/roadmap/phase-4-sites-and-elevation.md`

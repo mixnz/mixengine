@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T85b
+---
+
 # T85b — `ServiceInstaller`, and the console window nobody asked for (design)
 
 Roadmap task **T85b**, phase 9: *"`ServiceInstaller`: register the daemon's autostart entry — Task

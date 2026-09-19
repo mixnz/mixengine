@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-07
+task: T98
+---
+
 # T98 — opt-in per-site HTTP→HTTPS redirect
 
 **Roadmap task:** T98, phase 5. **Depends on:** T51 (web server TLS wiring).

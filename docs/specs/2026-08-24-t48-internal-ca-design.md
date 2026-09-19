@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T48
+---
+
 # T48 — the internal CA, and the identifier the specification asked for and cannot have
 
 **Task**: T48, opening [phase 5](../roadmap/phase-5-https.md) — internal CA generation

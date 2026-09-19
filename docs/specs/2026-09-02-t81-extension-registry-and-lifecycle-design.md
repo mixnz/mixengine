@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-02
+task: T81
+---
+
 # T81 — the extension registry, and installing what it lists (design)
 
 Roadmap task **T81**, phase 8. T80 wrote the format and one read-only way to look at it:

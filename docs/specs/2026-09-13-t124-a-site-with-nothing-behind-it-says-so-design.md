@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-13
+task: T124
+---
+
 # T124 — a site with nothing behind it says so (design)
 
 Proposed roadmap task **T124**, phase 14, following T123: *"A site whose front end has nothing to

@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-28
+---
+
 # Module Tools — Giai đoạn 3: chuyển đổi và văn bản
 
 Ngày: 2026-08-28

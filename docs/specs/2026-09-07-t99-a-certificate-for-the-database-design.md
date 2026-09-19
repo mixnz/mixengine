@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-07
+task: T99
+---
+
 # T99 — a certificate for the database (design)
 
 Proposed roadmap task **T99**, phase 3: *"MariaDB serves a certificate this home's authority signed,

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T84
+---
+
 # T84 — MixDB in the registry, and one keyring both applications read (design)
 
 Roadmap task **T84**, phase 8, and the last of it. T83 found MixDB on three systems and handed it

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-31
+task: T75
+---
+
 # T75 — a name for the phone, and the authority it has to install (design)
 
 Feature spec: [`docs/features/lan-sharing.md`](../features/lan-sharing.md).

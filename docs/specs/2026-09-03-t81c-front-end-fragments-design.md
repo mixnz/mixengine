@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-03
+task: T81c
+---
+
 # T81c — wiring `[recipe] front_end` fragments (design)
 
 Roadmap task **T81c**, phase 8. T80 gave `[recipe]` two forms and T81 wired one of them: `php_ini`

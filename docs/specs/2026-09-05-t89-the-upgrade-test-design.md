@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T89
+---
+
 # T89 — The upgrade test (design)
 
 Roadmap task **T89**, phase 9: *"Upgrade test: an old `mixengine.db` migrated by a new binary, in

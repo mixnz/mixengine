@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T93
+---
+
 # T93 — `daemon.bundle`, the diagnostics archive a client does not assemble
 
 Roadmap task **T93**, phase 4, and the last of it that can be built from here. Design settled

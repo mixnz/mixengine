@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-03
+task: T82
+---
+
 # T82 — the first three extensions (design)
 
 Roadmap task **T82**, phase 8. T80 gave the manifest its format, T81 gave it a registry and a

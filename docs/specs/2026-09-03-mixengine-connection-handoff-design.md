@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-03
+---
+
 # Nhận kết nối từ MixEngine: `mixdb://connect` và mật khẩu trong môi trường
 
 Ngày: 2026-09-03

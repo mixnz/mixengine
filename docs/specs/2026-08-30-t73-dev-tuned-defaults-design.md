@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-30
+task: T73
+---
+
 # T73 — Dev-tuned defaults across the service templates
 
 Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).

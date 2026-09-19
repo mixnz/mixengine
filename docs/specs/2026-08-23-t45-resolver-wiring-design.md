@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T45
+---
+
 # T45 — `ResolverConfig`: making one TLD arrive at our own server
 
 **Roadmap:** T45, `docs/roadmap/phase-4-sites-and-elevation.md`

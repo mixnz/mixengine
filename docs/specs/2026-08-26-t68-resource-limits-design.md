@@ -1,8 +1,12 @@
+---
+status: implemented
+date: 2026-08-26
+task: T68
+---
+
 # T68 — `ResourceLimits` per OS
 
 **Roadmap task:** T68, the first of phase 7.
-**Status:** design, agreed 2026-08-26.
-
 ## What this is for
 
 Phase 7's goal is that idle costs nothing. Three mechanisms carry it —

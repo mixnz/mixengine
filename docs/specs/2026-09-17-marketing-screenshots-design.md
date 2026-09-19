@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-17
+---
+
 # Marketing screenshots — one command, sample data, survives a redesign
 
 2026-09-17.

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T92
+---
+
 # T92 — The six-target matrix (design)
 
 Roadmap task **T92**, phase 9: *"Public beta: the packaging pipeline running for all runtimes across

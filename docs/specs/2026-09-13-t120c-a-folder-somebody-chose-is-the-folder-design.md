@@ -1,7 +1,12 @@
+---
+status: implemented
+date: 2026-09-13
+task: T120c
+---
+
 # T120c — a folder somebody chose is the folder, and a scaffold says what it needs of one
 
 **Date:** 2026-09-13
-**Status:** accepted
 **Roadmap:** phase 14, task **T120c** — the product answer to
 [T120a](2026-09-13-t120a-a-scaffolds-directory-is-a-name-too-design.md), and the withdrawal of
 **T120b**, which was written, measured, tried by hand and then rejected on what it did not fix.

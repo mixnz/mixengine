@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-23
+---
+
 # M3 — three services healthy in under ten seconds, measured
 
 **Roadmap:** M3, `docs/roadmap/phase-3-services.md` — the milestone Phase 3 closed without

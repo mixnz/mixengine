@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T56
+---
+
 # T56 — The published API contract (design)
 
 Roadmap task **T56**, phase 9: *"Publish the API contract: `ts-rs` bindings generated from

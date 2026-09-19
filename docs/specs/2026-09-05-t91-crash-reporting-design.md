@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T91
+---
+
 # T91 — Crash reporting (design)
 
 Roadmap task **T91**, phase 9: *"Crash reporting that is opt-in and contains no project paths or

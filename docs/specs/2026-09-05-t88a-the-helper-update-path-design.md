@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T88a
+---
+
 # T88a — The helper's own update path (design)
 
 Roadmap task **T88a**, phase 9: *"`mixengine-elevate` update path: excluded from auto-update, own

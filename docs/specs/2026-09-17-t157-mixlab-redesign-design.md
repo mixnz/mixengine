@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-17
+task: T157
+---
+
 # T157 — MixLab, redesigned: two themes, two densities, one set of parts
 
 Roadmap tasks T157–T163, phase 20. 2026-09-17.

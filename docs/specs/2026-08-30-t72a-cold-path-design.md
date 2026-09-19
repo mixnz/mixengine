@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-30
+task: T72a
+---
+
 # T72a — A pool on a socket that can be idle-stopped, and a budget on the first request
 
 Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).

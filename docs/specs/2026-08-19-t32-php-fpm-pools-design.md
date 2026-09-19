@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-19
+task: T32
+---
+
 # T32 — php-fpm pools
 
 *Design, 2026-08-19. Roadmap task [T32](../roadmap/phase-3-services.md), Phase 3.*

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-22
+task: T40a
+---
+
 # T40a — Raising the prompt: the `Elevation` trait and its three launchers
 
 *Design, 2026-08-22. Roadmap task [T40a](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

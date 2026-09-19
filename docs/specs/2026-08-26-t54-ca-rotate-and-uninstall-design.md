@@ -1,8 +1,12 @@
+---
+status: implemented
+date: 2026-08-26
+task: T54
+---
+
 # T54 — `cert.ca_rotate` and `cert.ca_uninstall`
 
 **Roadmap task:** T54, the last of phase 5.
-**Status:** design, agreed 2026-08-26.
-
 ## What this is for
 
 Phase 5 has spent five tasks putting a certificate authority into this machine and keeping the

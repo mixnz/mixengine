@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-25
+task: T50
+---
+
 # T50 — the leaf certificates, and the four questions "is this one still good" has to ask
 
 T48 made an authority. T49a and T49b put it into every store on the machine that a browser reads.

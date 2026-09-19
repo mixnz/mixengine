@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-31
+task: T76
+---
+
 # T76 — revoking by itself (design)
 
 Roadmap task **T76**, phase 8. The half of LAN sharing that happens when nobody is typing: T74

@@ -1,8 +1,11 @@
+---
+status: implemented
+date: 2026-09-04
+---
+
 # ClickHouse: mở Query tab cho DML
 
 Ngày: 2026-09-04
-
-Trạng thái: đã brainstorm, đã chốt quyết định thiết kế — sẵn sàng viết plan.
 
 ## Mục tiêu
 

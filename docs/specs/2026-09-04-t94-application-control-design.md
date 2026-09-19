@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T94
+---
+
 # T94 — What a certificate would repair, and what is left when it cannot (design)
 
 Roadmap task **T94**, phase 9: *"Does a certificate this project can buy repair Smart App Control,

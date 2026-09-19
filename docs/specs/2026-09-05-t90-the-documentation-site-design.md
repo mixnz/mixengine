@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T90
+---
+
 # T90 — The documentation site (design)
 
 Roadmap task **T90**, phase 9: *"User documentation site + in-app help; English and Vietnamese.

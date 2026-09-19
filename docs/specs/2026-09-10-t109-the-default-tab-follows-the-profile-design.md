@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-10
+task: T109
+---
+
 # T109 — The default tab follows the profile
 
 Roadmap task [T109](../roadmap/phase-13-profiles.md), on

@@ -23,7 +23,7 @@ Every rule in CLAUDE.md still applies — commit format, branch naming, PR body,
 
 ## Phase 2 — Spec & Git
 
-3. Write the full spec to `docs/specs/YYYY-MM-DD-<topic>-design.md`, then re-read it against the design: no
+3. Write the full spec to `docs/specs/YYYY-MM-DD-<topic>-design.md`, opening with a `status: draft` header (docs/standards/plans-and-specs.md), then re-read it against the design: no
    placeholders, no contradictions, nothing ambiguous.
 4. Confirm `master` is pushed and in sync, then create a new branch off it.
 5. Commit the spec alone.

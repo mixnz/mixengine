@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T105a
+---
+
 # T105a — The AppImage and WebKitGTK
 
 Roadmap task [T105a](../roadmap/phase-12-one-product.md), on

@@ -1,8 +1,12 @@
+---
+status: implemented
+date: 2026-08-26
+task: T69
+---
+
 # T69 — Idle detection and `IdlePolicy` shutdown
 
 **Roadmap task:** T69, the second of phase 7.
-**Status:** design, agreed 2026-08-26.
-
 ## What this is for
 
 Phase 7's goal is that idle costs nothing, and

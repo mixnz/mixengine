@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-20
+task: T33
+---
+
 # T33 — MariaDB, as a service MixEngine runs
 
 *Design for roadmap task [T33](../roadmap/phase-3-services.md). Written 2026-08-20,

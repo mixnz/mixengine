@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-22
+task: T39a
+---
+
 # T39a — The site model, and the domain that can only belong to one site
 
 *Design, 2026-08-22. Roadmap task [T39a](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

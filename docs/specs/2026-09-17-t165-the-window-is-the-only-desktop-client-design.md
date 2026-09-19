@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-17
+task: T165
+---
+
 # T165 — The window is the only desktop client
 
 Roadmap task [T165](../roadmap/phase-12-one-product.md), on

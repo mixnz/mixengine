@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-20
+task: T28
+---
+
 # T28 — PHP extensions, and the ini set a runtime carries
 
 *Design for roadmap task [T28](../roadmap/phase-2-runtimes.md). Written 2026-08-20,

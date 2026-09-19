@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T85
+---
+
 # T85 — Installers, and a helper in a directory the user cannot write (design)
 
 Roadmap task **T85**, phase 9, the first of it: *"Installers: NSIS per-user + portable zip, `.dmg`,

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T108
+---
+
 # T108 — A module visibility setting with three presets
 
 Roadmap task [T108](../roadmap/phase-13-profiles.md), on

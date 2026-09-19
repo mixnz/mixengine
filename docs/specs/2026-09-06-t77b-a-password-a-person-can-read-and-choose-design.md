@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-06
+task: T77b
+---
+
 # T77b — A password a person can read, and a password a person chooses (design)
 
 Roadmap task **T77b**, phase 8, a follow-up to T77a inserted after T84. T77a made

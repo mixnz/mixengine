@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-25
+task: T52
+---
+
 # T52 — renewal scheduler
 
 **Roadmap task:** T52, phase 5. **Depends on:** T50 (leaf issuance), T51 (the front end serves the

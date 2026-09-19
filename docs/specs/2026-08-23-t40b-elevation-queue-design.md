@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T40b
+---
+
 # T40b — The elevation queue: one prompt for everything that is waiting
 
 *Design, 2026-08-23. Roadmap task [T40b](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

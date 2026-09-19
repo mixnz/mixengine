@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-22
+---
+
 # Lưới kết quả của tab Query
 
 Ngày: 2026-08-22

@@ -1,3 +1,9 @@
+---
+status: approved
+date: 2026-09-04
+task: T86a
+---
+
 # T86a — what an unsigned release does on the machines that judge it (design)
 
 Roadmap task **T86a**, phase 9: *"Unsigned-distribution reality check for the **installer and the

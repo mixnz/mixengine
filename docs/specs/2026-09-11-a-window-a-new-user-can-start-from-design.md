@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-11
+---
+
 # A window a new user can start from
 
 Roadmap phase [14](../roadmap/phase-14-a-window-a-new-user-can-start-from.md), on

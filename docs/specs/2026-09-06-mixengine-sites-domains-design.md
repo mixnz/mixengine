@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-06
+---
+
 # Sites, Domains & TLS: màn hình thứ hai và thứ ba của module `mixengine`
 
 Ngày 2026-09-06. Pha 2 của [roadmap/mixengine-module.md](../roadmap/desktop/mixengine-module.md).

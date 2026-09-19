@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-25
+task: T53
+---
+
 # T53 — `mix cert status`, with a live handshake
 
 **Roadmap task:** T53, phase 5. **Depends on:** T48 (the authority), T50 (leaf issuance), T51 (the

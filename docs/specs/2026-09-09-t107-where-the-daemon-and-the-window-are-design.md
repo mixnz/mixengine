@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T107
+---
+
 # T107 — Where the daemon is, and where the window is
 
 Roadmap task [T107](../roadmap/phase-12-one-product.md), on

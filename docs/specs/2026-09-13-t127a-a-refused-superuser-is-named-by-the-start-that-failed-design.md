@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-13
+task: T127a
+---
+
 # T127a — a refused superuser is named by the start that failed (design)
 
 Roadmap task **T127a**, phase 14, following T127: *"A database that cannot start because its

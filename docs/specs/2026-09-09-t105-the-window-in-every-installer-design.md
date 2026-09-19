@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T105
+---
+
 # The window is in every installer — design
 
 Roadmap task **T105**, [phase 12](../roadmap/phase-12-one-product.md), on the

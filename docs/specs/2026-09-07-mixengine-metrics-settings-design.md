@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-07
+---
+
 # Metrics và Settings: phần còn lại của Pha 4, module `mixengine`
 
 Ngày 2026-09-07. Phần cuối của Pha 4 trong [roadmap/mixengine-module.md](../roadmap/desktop/mixengine-module.md)

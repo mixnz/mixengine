@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-09
+task: T106
+---
+
 # T106 — One updater
 
 Roadmap task [T106](../roadmap/phase-12-one-product.md), on

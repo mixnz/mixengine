@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-19
+task: T167
+---
+
 # T167 — A site that was up stays up
 
 Roadmap task [T167](../roadmap/phase-21-a-site-that-stays-up.md), phase 21. 2026-09-19. Decision: [ADR 0041](../decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md).

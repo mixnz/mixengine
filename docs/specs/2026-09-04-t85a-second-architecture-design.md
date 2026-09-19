@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T85a
+---
+
 # T85a — The second architecture, and the roadmap's own premise corrected (design)
 
 Roadmap task **T85a**, phase 9, split out of T85: *"The second architecture:

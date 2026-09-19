@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T49a
+---
+
 # T49a — the machine's trust store, and the direction of this operation that can do damage
 
 **Task**: T49a, from [phase 5](../roadmap/phase-5-https.md) — install and remove

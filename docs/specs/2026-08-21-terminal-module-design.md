@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-21
+---
+
 # Module Terminal
 
 Ngày: 2026-08-21

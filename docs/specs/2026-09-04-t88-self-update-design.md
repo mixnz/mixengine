@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T88
+---
+
 # T88 — `mix self-update`, and the one command that outlives the daemon (design)
 
 Roadmap task **T88**, phase 9: *"Auto-update, MixEngine's own: `mix self-update` against

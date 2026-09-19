@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-04
+task: T87
+---
+
 # T87 — Complete uninstall, and proving nothing is left behind (design)
 
 Roadmap task **T87**, phase 9: *"Complete uninstall path + a clean-VM smoke test proving nothing is

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T46
+---
+
 # T46 — `domain.*` and the diagnostic that answers "why doesn't it work?"
 
 Roadmap task **T46**, phase 4. Design settled 2026-08-24, before implementation.

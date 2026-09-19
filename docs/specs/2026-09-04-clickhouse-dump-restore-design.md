@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-04
+---
+
 # ClickHouse: dump/restore
 
 Ngày: 2026-09-04

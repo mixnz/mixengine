@@ -1,7 +1,12 @@
+---
+status: implemented
+date: 2026-09-12
+task: T120
+---
+
 # T120 — `{project}` expands to a slug, and a plan says so before an apply finds out
 
 **Date:** 2026-09-12
-**Status:** accepted
 **Roadmap:** phase 14, task **T120** — a defect in **T77** (the planner) and **T78/T78a** (the
 executor), found by **T117**'s Quick Start, which is the first place a person who has never read a
 naming rule types a project name.

@@ -1,3 +1,9 @@
+---
+status: superseded
+date: 2026-08-29
+superseded_by: 2026-09-17-t157-mixlab-redesign-design.md
+---
+
 # Bản sắc giao diện: từ "chạy được" sang "có người quyết định"
 
 Ngày: 2026-08-29

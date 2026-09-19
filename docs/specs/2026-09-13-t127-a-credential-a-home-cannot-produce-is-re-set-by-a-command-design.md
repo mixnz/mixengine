@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-13
+task: T127
+---
+
 # T127 — a credential a home cannot produce any more is re-set by a command (design)
 
 Roadmap task **T127**, phase 14, following T126: *"A credential a home cannot produce any more is

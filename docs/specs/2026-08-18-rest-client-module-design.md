@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-18
+---
+
 # Module REST client
 
 Ngày: 2026-08-18

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T42
+---
+
 # T42 — `PortAccess`: being allowed to answer on 80 and 443
 
 **Roadmap:** T42, `docs/roadmap/phase-4-sites-and-elevation.md`

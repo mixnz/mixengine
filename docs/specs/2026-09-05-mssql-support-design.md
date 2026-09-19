@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-05
+---
+
 # Hỗ trợ SQL Server (MSSQL)
 
 Ngày: 2026-09-05

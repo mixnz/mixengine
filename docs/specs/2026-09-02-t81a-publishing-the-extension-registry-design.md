@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-02
+task: T81a
+---
+
 # T81a — publishing the extension registry (design)
 
 Roadmap task **T81a**, phase 8. T81 built everything that *reads* `extensions.json`: the signed

@@ -1,3 +1,13 @@
+---
+status: implemented
+date: 2026-09-08
+task:
+  - T100
+  - T101
+  - T102
+  - T103
+---
+
 # The desktop client in this repository — design
 
 **Date**: 2026-09-08

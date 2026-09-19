@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-03
+task: T83
+---
+
 # T83 — MixDB integration: the connection handoff (design)
 
 Roadmap task **T83**, phase 8. T77a made a database and stored its account's password in the OS

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-22
+task: T39
+---
+
 # T39 — The project model, and the first pin that refuses something
 
 *Design, 2026-08-22. Roadmap task [T39](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T41
+---
+
 # T41 — `HostsApply`: the first privileged operation with an effect
 
 *Design, 2026-08-23. Roadmap task [T41](../roadmap/phase-4-sites-and-elevation.md), Phase 4.*

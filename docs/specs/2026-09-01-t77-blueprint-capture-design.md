@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-01
+task: T77
+---
+
 # T77 — the blueprint manifest, `blueprint.capture`, and the plan (design)
 
 Roadmap task **T77**, phase 8. The first half of blueprints: a file that says what a project is made

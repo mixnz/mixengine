@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-03
+task: T82a
+---
+
 # T82a — phpMyAdmin signs itself in (design)
 
 Roadmap task **T82a**, phase 8. T81b gave a `web-app` extension a site, T82 gave it a generated

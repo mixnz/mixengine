@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-01
+task: T79
+---
+
 # T79 — the built-in blueprint gallery (design)
 
 Roadmap task **T79**, phase 8. T77 wrote a blueprint down, T78 carried one out, and T78a decided

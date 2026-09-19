@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-06
+task: T96
+---
+
 # T96 — Disk usage by category, and a cleanup that can only reach what is safe to lose (design)
 
 Roadmap task **T96**, phase 10: *"Disk usage broken down by category, and a cleanup that can only

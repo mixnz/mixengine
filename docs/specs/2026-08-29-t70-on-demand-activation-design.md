@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-29
+task: T70
+---
+
 # T70 and T70a — On-demand activation
 
 Roadmap: [docs/roadmap/phase-7-efficiency.md](../roadmap/phase-7-efficiency.md).

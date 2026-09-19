@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-20
+task: T34
+---
+
 # T34 — PostgreSQL, as a service MixEngine runs
 
 *Design for roadmap task [T34](../roadmap/phase-3-services.md), and for the platform

@@ -1,6 +1,10 @@
+---
+status: draft
+date: 2026-09-19
+---
+
 # One dialog layout for every modal in MixLab
 
-**Status:** draft 3, 2026-09-19
 **Scope:** `apps/desktop/src` only. No daemon, no contract, no Rust.
 
 ## Problem

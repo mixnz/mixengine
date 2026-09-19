@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-04
+---
+
 # ClickHouse: index DDL (data skipping index + rebuild ORDER BY)
 
 Ngày: 2026-09-04

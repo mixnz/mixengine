@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-06
+---
+
 # Nói chuyện với MixEngine: transport, và màn hình đầu tiên của module `mixengine`
 
 Ngày 2026-09-06. Pha 1 của [roadmap/mixengine-module.md](../roadmap/desktop/mixengine-module.md).

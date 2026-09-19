@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-05
+task: T85c
+---
+
 # T85c — The shim in every artifact (design)
 
 Roadmap task **T85c**, phase 9: *"`mixengine-shim` is in none of the six artifacts."*

@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-04
+---
+
 # ClickHouse: ghi dòng qua lưới (insert / update / delete)
 
 Ngày: 2026-09-04

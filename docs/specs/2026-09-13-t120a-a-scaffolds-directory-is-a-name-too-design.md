@@ -1,7 +1,12 @@
+---
+status: implemented
+date: 2026-09-13
+task: T120a
+---
+
 # T120a — a scaffold's directory is a name too, and its output is not a terminal
 
 **Date:** 2026-09-13
-**Status:** accepted
 **Roadmap:** phase 14, task **T120a** — the fifth name space
 [T120](2026-09-12-t120-the-project-token-expands-to-a-slug-design.md) did not count, plus a defect
 in **T78b**'s command capture. Found by applying `nextjs` from the desktop application.

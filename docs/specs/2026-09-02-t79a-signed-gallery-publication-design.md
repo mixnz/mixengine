@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-02
+task: T79a
+---
+
 # T79a — publishing the gallery as signed files (design)
 
 Roadmap task **T79a**, phase 8. T78a taught `blueprint.import` to check a detached minisign

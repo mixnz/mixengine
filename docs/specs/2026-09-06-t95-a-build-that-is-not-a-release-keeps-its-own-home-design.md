@@ -1,6 +1,11 @@
+---
+status: implemented
+date: 2026-09-06
+task: T95
+---
+
 # T95 — a build that is not a release keeps its own home
 
-**Status:** design, awaiting feedback
 **Roadmap:** T95, phase 9
 
 ## The failure

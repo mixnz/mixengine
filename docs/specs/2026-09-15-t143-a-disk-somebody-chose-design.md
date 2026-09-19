@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-15
+task: T143
+---
+
 # T143 — A disk somebody chose, while the choice is still free
 
 Roadmap task [T143](../roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-15.

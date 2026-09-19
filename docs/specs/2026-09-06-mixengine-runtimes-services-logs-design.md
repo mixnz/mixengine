@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-06
+---
+
 # Projects, Runtimes & Packages, Services chi tiết và Logs: bốn màn hình mới của module `mixengine`
 
 Ngày 2026-09-06. Pha 3 của [roadmap/mixengine-module.md](../roadmap/desktop/mixengine-module.md) — mở

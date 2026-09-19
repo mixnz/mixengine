@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-10
+task: T110
+---
+
 # T110 — The bridge when a module is hidden
 
 Roadmap task [T110](../roadmap/phase-13-profiles.md), on

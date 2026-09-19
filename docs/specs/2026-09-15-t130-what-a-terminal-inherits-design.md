@@ -1,7 +1,12 @@
+---
+status: implemented
+date: 2026-09-15
+task: T130
+---
+
 # T130–T134 — What a terminal inherits
 
 **Date**: 2026-09-15
-**Status**: accepted
 **Roadmap**: phase 15, tasks T130–T134
 **Decision records this asks for**: `0033-bin-is-a-projection-of-what-is-installed.md`,
 `0034-mixengines-authority-reaches-a-runtime-through-a-generated-bundle.md`

@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-06
+---
+
 # Blueprints và Extensions: hai màn hình đầu của Pha 4, module `mixengine`
 
 Ngày 2026-09-06. Một phần của Pha 4 trong [roadmap/mixengine-module.md](../roadmap/desktop/mixengine-module.md)

@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-04
+---
+
 # SQLite: dump dữ liệu + sửa cột đầy đủ (đóng nốt D3, D4)
 
 Ngày: 2026-09-04

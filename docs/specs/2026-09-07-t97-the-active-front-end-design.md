@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-07
+task: T97
+---
+
 # T97 — The active front end is answerable, and switchable (design)
 
 Roadmap task **T97**, phase 10, designed by

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T47a
+---
+
 # T47a — `mix doctor`, which reports and does not repair
 
 Roadmap task **T47a**, phase 4, split out of **T47**. Design settled 2026-08-24, before

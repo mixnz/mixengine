@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-19
+task: T168
+---
+
 # T168 — MixEngine in the tray
 
 Roadmap task [T168](../roadmap/phase-22-mixengine-in-the-tray.md), phase 22. 2026-09-19. Decision:

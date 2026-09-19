@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-23
+---
+
 # Ngữ cảnh của tab, giữa các lần mở app
 
 Ngày: 2026-08-23

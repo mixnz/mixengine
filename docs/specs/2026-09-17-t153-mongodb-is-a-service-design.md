@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-17
+task: T153
+---
+
 # T153 — MongoDB is a service, and MixLab opens it
 
 Roadmap tasks [T153–T156](../roadmap/phase-19-mongodb.md), phase 19. 2026-09-17.

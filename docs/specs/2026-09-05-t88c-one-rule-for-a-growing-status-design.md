@@ -1,9 +1,13 @@
+---
+status: implemented
+date: 2026-09-05
+task: T88c
+---
+
 # T88c — one rule for a growing `DaemonStatus`
 
 **Date**: 2026-09-05
 **Roadmap**: [T88c](../roadmap/phase-9-ship.md), Phase 9
-**Status**: design
-
 ## The bug
 
 A `mix` from a new build, talking to an older daemon that has not been restarted yet, **fails to

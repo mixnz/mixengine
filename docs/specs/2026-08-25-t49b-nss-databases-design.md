@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-25
+task: T49b
+---
+
 # T49b — the databases the browsers read instead, and the tool that is not installed
 
 Firefox and Chrome on Linux do not read `/etc/ssl/certs`. They carry their own certificate

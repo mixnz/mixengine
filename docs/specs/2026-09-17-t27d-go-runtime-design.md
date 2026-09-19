@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-17
+task: T27d
+---
+
 # T27d — Go, the sixth runtime kind (design)
 
 Proposed roadmap task **T27d**, phase 2, following T27c: *"Go is installed, pinned, listed and run

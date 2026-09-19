@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-01
+task: T77a
+---
+
 # T77a — creating a database and the account that reaches it (design)
 
 Roadmap task **T77a**, phase 8. `PlanAction::CreateDatabase` names something nothing in this

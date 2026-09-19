@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-08-20
+---
+
 # SSH tunnel tự phục hồi
 
 Ngày: 2026-08-20

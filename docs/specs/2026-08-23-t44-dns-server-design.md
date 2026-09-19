@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-23
+task: T44
+---
+
 # T44 — The built-in DNS server: a wildcard, and nothing else
 
 **Roadmap:** T44 (and T46a, closed with it), `docs/roadmap/phase-4-sites-and-elevation.md`

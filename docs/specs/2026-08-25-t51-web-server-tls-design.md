@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-25
+task: T51
+---
+
 # T51 — web server TLS wiring
 
 **Roadmap task:** T51, phase 5. **Depends on:** T50 (leaf issuance), T43 (the site generator).

@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-10
+task: T111
+---
+
 # T111 — The dev loop stages the daemon beside the window
 
 Roadmap task [T111](../roadmap/phase-12-one-product.md), on

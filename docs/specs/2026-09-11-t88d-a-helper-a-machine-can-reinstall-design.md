@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-11
+task: T88d
+---
+
 # T88d — A privileged helper the machine can put back
 
 **Date**: 2026-09-11

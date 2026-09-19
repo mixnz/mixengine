@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-08
+task: T27c
+---
+
 # T27c — Composer through the runtime pipeline (design)
 
 Proposed roadmap task **T27c**, phase 2, following T27b: *"Composer is installed, pinned, listed and

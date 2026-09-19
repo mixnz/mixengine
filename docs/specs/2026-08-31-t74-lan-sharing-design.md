@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-31
+task: T74
+---
+
 # T74 — LAN sharing, first half (design)
 
 Feature spec: [`docs/features/lan-sharing.md`](../features/lan-sharing.md).

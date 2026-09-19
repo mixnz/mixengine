@@ -1,3 +1,8 @@
+---
+status: implemented
+date: 2026-09-05
+---
+
 # Kind lạ không được làm app trắng màn hình, và có log để chẩn đoán
 
 Ngày: 2026-09-05

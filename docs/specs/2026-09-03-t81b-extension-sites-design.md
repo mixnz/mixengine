@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-03
+task: T81b
+---
+
 # T81b — the site a `web-app` extension is served on (design)
 
 Roadmap task **T81b**, phase 8. T81 installs a `web-app` extension and then serves nothing: its

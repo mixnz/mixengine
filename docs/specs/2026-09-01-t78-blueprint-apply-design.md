@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-01
+task: T78
+---
+
 # T78 — executing a plan (design)
 
 Roadmap task **T78**, phase 8. T77 decided what applying a blueprint would do and refused to do it;

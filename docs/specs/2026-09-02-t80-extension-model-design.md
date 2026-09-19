@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-02
+task: T80
+---
+
 # T80 — the extension model (design)
 
 Roadmap task **T80**, phase 8. `extension.toml` has been named in this workspace since before there

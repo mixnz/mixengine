@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-07
+task: T72b
+---
+
 # T72b — one transport for three signed documents (design)
 
 Roadmap task **T72b**, phase 7: *"Where the five megabytes went: find what the idle daemon holds on

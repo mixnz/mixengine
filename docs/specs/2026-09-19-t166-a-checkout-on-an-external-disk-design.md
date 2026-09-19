@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-09-19
+task: T166
+---
+
 # T166 — A checkout on an external disk, and a refusal somebody can read
 
 Roadmap task [T166](../roadmap/phase-17-a-disk-somebody-chose.md), phase 17. 2026-09-19.

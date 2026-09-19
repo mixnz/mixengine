@@ -1,3 +1,9 @@
+---
+status: implemented
+date: 2026-08-24
+task: T47b
+---
+
 # T47b — `daemon.doctor_repair`, which acts on what T47a found
 
 Roadmap task **T47b**, phase 4, the write half of the **T47** split. Design settled 2026-08-24,
