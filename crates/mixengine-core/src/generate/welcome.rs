@@ -22,6 +22,55 @@ use crate::generate::served::ServedKind;
 /// edit and then owns forever.
 const PAGE: &str = include_str!("welcome/page.html");
 
+/// The page a site whose backend MixEngine manages answers while that backend is not answering —
+/// roadmap task **T167f**. Compiled in for [`PAGE`]'s reason.
+const STARTING: &str = include_str!("welcome/starting.html");
+
+/// Where a site's starting page is written, inside the welcome directory.
+///
+/// Beside its welcome page and named after the same domain, so the two templates route to it with
+/// the same `{{ primary }}` they already have.
+#[must_use]
+pub fn starting_file(primary: &str) -> String {
+    format!("{primary}.starting.html")
+}
+
+/// What the starting page is told: the domain, and nothing else about this machine (T124's D5 —
+/// the page can be fetched from the local network).
+#[derive(Debug, serde::Serialize)]
+struct StartingPage<'a> {
+    domain: &'a str,
+}
+
+/// The starting page for `primary`, rendered — or [`None`] for a site of a kind MixEngine does not
+/// start the backend of.
+///
+/// **A php-fpm site only.** A pool is MixEngine's to start: the request that finds it down wakes it,
+/// and a 502 here means that wake has not finished or has failed, which is what this page says. A
+/// reverse proxy or a Node app points at a program the person runs themselves, and the welcome page
+/// already tells them to start it; a static site has no backend to be down.
+///
+/// # Errors
+///
+/// [`crate::Error::TemplateBroken`] naming the page, as [`render`].
+pub fn render_starting(
+    service: &ServiceId,
+    primary: &str,
+    kind: &ServedKind,
+) -> Result<Option<String>> {
+    if !matches!(kind, ServedKind::PhpFpm { .. }) {
+        return Ok(None);
+    }
+
+    crate::generate::served::render(
+        STARTING,
+        "welcome/starting.html",
+        service,
+        &StartingPage { domain: primary },
+    )
+    .map(Some)
+}
+
 /// What the template is told to say about one site.
 #[derive(Debug, serde::Serialize)]
 pub struct WelcomePage<'a> {
@@ -111,6 +160,38 @@ mod tests {
 
     fn id() -> ServiceId {
         ServiceId::parse("caddy").expect("an id")
+    }
+
+    /// **T167f: a PHP site gets a starting page, and it says nothing about the machine.** Anything
+    /// else gets none — its backend is either the person's own program or absent.
+    #[test]
+    fn only_a_php_site_gets_a_starting_page_and_it_names_only_the_domain() {
+        let php = ServedKind::PhpFpm {
+            upstream: crate::generate::recipe::Upstream::Tcp(
+                "127.0.0.1:9000".parse().expect("an address"),
+            ),
+            activator: None,
+        };
+
+        let page = render_starting(&id(), "blog.test", &php)
+            .expect("the page renders")
+            .expect("a php site has one");
+        assert!(page.contains("blog.test"), "{page}");
+        assert!(page.contains("Open MixLab"), "{page}");
+        for fact in ["127.0.0.1", "9000", "/Users/", "/home/", "root@"] {
+            assert!(!page.contains(fact), "the page names {fact}: {page}");
+        }
+
+        assert!(
+            render_starting(&id(), "blog.test", &ServedKind::Static)
+                .expect("renders")
+                .is_none()
+        );
+        assert!(
+            render_starting(&id(), "app.test", &ServedKind::NodeApp { port: 3000 })
+                .expect("renders")
+                .is_none()
+        );
     }
 
     /// **A site served from the project root still gets a sentence.** The row holds an empty string
