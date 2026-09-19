@@ -225,12 +225,18 @@ export function PinIcon(props: IconProps) {
   );
 }
 
-/** Run what has been written — the SQL editor's Run button. Filled, so it holds its shape at the
- * button's font size the way an outlined triangle would not. */
+/** Run or start something — the SQL editor's Run button, a service's Start. Filled, so it holds
+ * its shape at the button's font size the way an outlined triangle would not; its corners are
+ * rounded to match the round joins of the rest of the set, and its centroid sits on the grid's
+ * centre so it does not lean left inside a square button. Paired with {@link StopIcon}. */
 export function PlayIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M8 5.2v13.6L19 12z" fill="currentColor" stroke="none" />
+      <path
+        d="M8.5 6.2v11.6a1 1 0 0 0 1.5.9l9-5.8a1 1 0 0 0 0-1.8l-9-5.8a1 1 0 0 0-1.5.9z"
+        fill="currentColor"
+        stroke="none"
+      />
     </Icon>
   );
 }
@@ -396,7 +402,6 @@ export function SendIcon(props: IconProps) {
   );
 }
 
-/** Cancel something already in flight — the same button as {@link SendIcon}, mid-request. */
 /** Turn this off: the power symbol, on the button that closes a database connection. Read the
  *  same way on every appliance anyone owns, which no drawing of a plug manages at 14px. */
 export function PowerIcon(props: IconProps) {
@@ -408,10 +413,13 @@ export function PowerIcon(props: IconProps) {
   );
 }
 
+/** Stop something running — a service, or a request in flight on {@link SendIcon}'s button.
+ * Filled like {@link PlayIcon}, its pair, and a little smaller than the triangle's extent: a
+ * square carries more ink than a triangle, so matching their sizes would make Stop the louder. */
 export function StopIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <rect x="6" y="6" width="12" height="12" rx="2" />
+      <rect x="6.5" y="6.5" width="11" height="11" rx="2.5" fill="currentColor" stroke="none" />
     </Icon>
   );
 }
