@@ -20,7 +20,7 @@ Decision: [ADR 0043](../decisions/0043-documentation-lives-under-docs.md).
       fixed, `docs/README.md` rewritten as the map, and a stub left in `.claude/`.
 - [x] **T169c** A `status`/`date` header on every spec, the old prose status lines removed, and
       `docs/specs/README.md` generated from the headers.
-- [ ] **T169d** `scripts/check-docs.mjs` and its tests, run in the `lint` job.
+- [x] **T169d** `scripts/check-docs.mjs` and its tests, run in the `lint` job.
 
 **Milestone M23**: on `master`, the `lint` job runs `node scripts/check-docs.mjs` and it passes;
 `.claude/` holds no document but its README; every spec's status agrees with the roadmap.

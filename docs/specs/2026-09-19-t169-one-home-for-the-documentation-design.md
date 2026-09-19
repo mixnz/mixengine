@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-19
 task: T169
 ---
@@ -55,10 +55,17 @@ The move is expensive: **1,284 path references in 488 tracked files**.
 | `scripts/` | 2 |
 | `Cargo.toml`, `deny.toml`, `.cargo/`, `.gitignore`, `CLAUDE.md` | 1 each |
 
-No code reads a documentation file at build or test time outside `docs/guide/`.
+Almost no code reads a documentation file at build or test time outside `docs/guide/`.
 `crates/mixengine-docs/build.rs` and `packaging/docs.sh` read `docs/guide/{en,vi}` and nothing else.
-Every other reference is a comment, a doc comment or a Markdown link. That is what makes a scripted
-move safe.
+The one exception, found during the move, is `crates/mixengine-core/tests/packaging.rs`: it
+`include_str!`s `build-and-release.md`. Every other reference is one of the following:
+
+- a comment or a doc comment;
+- a Markdown link or a rustdoc reference link;
+- an absolute GitHub URL.
+
+That is what makes a scripted move safe, once the rewrite also covers rustdoc reference links, links
+that were already written at the wrong depth, and URLs.
 
 ## Goals
 

@@ -89,6 +89,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # T169, ADR 0043. Every link into the documentation resolves, every spec's status header is
+      # valid and agrees with the roadmap, and docs/specs/README.md is what the script generates.
+      # First because it needs no toolchain: ubuntu-latest ships Node.
+      - name: Documentation links and spec status
+        run: |
+          node --test scripts/check-docs.test.mjs
+          node scripts/check-docs.mjs
+
       # No toolchain action: rust-toolchain.toml is the single source of truth for the version and
       # for the clippy/rustfmt components. Given no argument, `rustup toolchain install` installs
       # exactly what that file pins — note that `rustup show` stopped installing anything in 1.28.
