@@ -77,6 +77,13 @@ env:
   CARGO_TERM_COLOR: always
   # CI builds are never incremental: it only costs cache size and hurts a cold runner.
   CARGO_INCREMENTAL: 0
+  # **Line tables only in debug builds (T170l).** A failing test's backtrace still names files and
+  # lines; what goes is variable and type information nobody reads from a CI log. On Windows the MSVC
+  # linker writes a PDB for each of ~150 test binaries, and a smaller PDB is much of what `Build
+  # tests` spends there. Set once for the whole workflow and not per job: rust-cache hashes the
+  # `CARGO_*` environment into its key, and `test` and `services` share one entry. Release builds are
+  # unaffected, because the variable names the `dev` profile, and so are developers' machines.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
   RUST_BACKTRACE: 1
 
 jobs:
