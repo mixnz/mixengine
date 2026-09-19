@@ -7,12 +7,13 @@ import {
   needsResync,
   rowsFrom,
   type JobRow,
+  stoppedByReason,
   type ServiceRow,
 } from "./daemonState";
 
 const rows: ServiceRow[] = [
-  { id: "mariadb@main", state: "running", port: 3306, autostart: true },
-  { id: "caddy@main", state: "stopped", port: null, autostart: false },
+  { id: "mariadb@main", state: "running", port: 3306, autostart: true, stoppedBy: null },
+  { id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: null },
 ];
 
 describe("rowsFrom", () => {
@@ -32,7 +33,7 @@ describe("rowsFrom", () => {
       },
     ]);
 
-    expect(made).toEqual([{ id: "redis@main", state: "stopped", port: null, autostart: true }]);
+    expect(made).toEqual([{ id: "redis@main", state: "stopped", port: null, autostart: true, stoppedBy: null }]);
   });
 });
 
@@ -172,5 +173,32 @@ describe("movesARow", () => {
 
   it("says no to something it cannot parse", () => {
     expect(movesARow("not json")).toBe(false);
+  });
+});
+
+/* T167g: who stopped a service rides on the transition's reason, by the same rule MixEngine's
+   `StoppedBy::of` uses — so the Dashboard can draw an idle stop as resting without a second read. */
+describe("stoppedBy from a transition", () => {
+  const stop = (reason: unknown) =>
+    applyEvent(
+      rows,
+      JSON.stringify({ type: "service_state_changed", service: "mariadb@main", to: "stopped", reason }),
+    ).rows.find((row) => row.id === "mariadb@main")?.stoppedBy;
+
+  it("is the daemon for an idle stop and a person for a requested one", () => {
+    expect(stop({ kind: "idle", after: 60000 })).toBe("daemon");
+    expect(stop({ kind: "requested" })).toBe("person");
+    expect(stop({ kind: "credential_reset" })).toBe("person");
+  });
+
+  it("is unknown when the reason cannot be read, and cleared by a start", () => {
+    expect(stop(undefined)).toBeNull();
+    expect(stoppedByReason({ kind: 3 })).toBeNull();
+
+    const started = applyEvent(
+      [{ id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: "daemon" }],
+      JSON.stringify({ type: "service_state_changed", service: "caddy@main", to: "starting", reason: { kind: "requested" } }),
+    ).rows[0];
+    expect(started.stoppedBy).toBeNull();
   });
 });

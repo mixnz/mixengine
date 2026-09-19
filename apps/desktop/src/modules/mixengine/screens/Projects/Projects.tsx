@@ -24,7 +24,7 @@ interface Props {
   onOpenSites: (project: string) => void;
 }
 
-/** Every project registered in the home — create, edit (name/root/pins/keep_warm), delete. */
+/** Every project registered in the home — create, edit (name/root/pins), delete. */
 export default function Projects({ active, onOpenSites }: Props) {
   const [rows, setRows] = useState<ProjectSummary[]>([]);
   const [error, setError] = useState("");
@@ -109,7 +109,6 @@ export default function Projects({ active, onOpenSites }: Props) {
                 <th>{t("mixengine.projects.columnName")}</th>
                 <th>{t("mixengine.projects.columnRoot")}</th>
                 <th>{t("mixengine.projects.columnManifest")}</th>
-                <th>{t("mixengine.projects.columnKeepWarm")}</th>
                 <th data-align="end">{t("mixengine.sites.columnActions")}</th>
               </tr>
             </thead>
@@ -145,9 +144,6 @@ export default function Projects({ active, onOpenSites }: Props) {
                   </td>
                   <td className={row.manifest ? undefined : styles.none}>
                     {row.manifest ? t("mixengine.projects.present") : t("mixengine.projects.notFound")}
-                  </td>
-                  <td className={row.keep_warm ? undefined : styles.none}>
-                    {row.keep_warm ? t("mixengine.projects.yes") : "—"}
                   </td>
                   <td data-align="end" data-nowrap>
                     <span className={styles.rowActions}>

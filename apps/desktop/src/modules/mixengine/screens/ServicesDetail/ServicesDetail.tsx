@@ -11,7 +11,7 @@ import { PlusIcon, TrashIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { ServiceCreation, ServiceSummary } from "@mixengine/api";
+import type { ServiceCreation, ServiceSummary, StoppedBy } from "@mixengine/api";
 import { movesARow, needsResync } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
 import { serviceStateKey, serviceStateTone } from "../../serviceStateLabel";
@@ -36,8 +36,8 @@ function serviceInstance(id: string): string {
 }
 
 /** The state as a pill tone: whether it is serving, not which of the seven states it is in. */
-function pillTone(state: string | null | undefined): StatusTone {
-  const tone = serviceStateTone(state);
+function pillTone(state: string | null | undefined, stoppedBy?: StoppedBy | null): StatusTone {
+  const tone = serviceStateTone(state, stoppedBy);
   if (tone === "ok") return "success";
   if (tone === "bad") return "danger";
   if (tone === "busy") return "warning";
@@ -45,8 +45,11 @@ function pillTone(state: string | null | undefined): StatusTone {
 }
 
 /** The same answer for the small dot in a list row. */
-function dotTone(state: string | null | undefined): "dotSuccess" | "dotDanger" | "dotWarning" | "dotNeutral" {
-  const tone = pillTone(state);
+function dotTone(
+  state: string | null | undefined,
+  stoppedBy?: StoppedBy | null,
+): "dotSuccess" | "dotDanger" | "dotWarning" | "dotNeutral" {
+  const tone = pillTone(state, stoppedBy);
   return tone === "success" ? "dotSuccess" : tone === "danger" ? "dotDanger" : tone === "warning" ? "dotWarning" : "dotNeutral";
 }
 
@@ -87,8 +90,8 @@ export default function ServicesDetail({ active }: { active: boolean }) {
   }, [reload]);
 
   /** Trạng thái đã dịch; một trạng thái daemon mới hơn build này hiện nguyên văn. */
-  function stateLabel(state: string | null | undefined): string {
-    const key = serviceStateKey(state);
+  function stateLabel(state: string | null | undefined, stoppedBy?: StoppedBy | null): string {
+    const key = serviceStateKey(state, stoppedBy);
     return key === null ? (state ?? "—") : t(key);
   }
 
@@ -182,8 +185,8 @@ export default function ServicesDetail({ active }: { active: boolean }) {
                   <span className={styles.instance}>{serviceInstance(service.id)}</span>
                 </span>
                 <span className={styles.rowState}>
-                  <span className={`${styles.dot} ${styles[dotTone(service.state)]}`} aria-hidden="true" />
-                  {stateLabel(service.state)}
+                  <span className={`${styles.dot} ${styles[dotTone(service.state, service.stopped_by)]}`} aria-hidden="true" />
+                  {stateLabel(service.state, service.stopped_by)}
                 </span>
               </span>
             </button>
@@ -203,7 +206,9 @@ export default function ServicesDetail({ active }: { active: boolean }) {
               title={selected}
               badges={
                 current !== undefined && (
-                  <StatusPill tone={pillTone(current.state)}>{stateLabel(current.state)}</StatusPill>
+                  <StatusPill tone={pillTone(current.state, current.stopped_by)}>
+                    {stateLabel(current.state, current.stopped_by)}
+                  </StatusPill>
                 )
               }
               meta={

@@ -33,6 +33,7 @@ import * as api from "../../api";
 import type { DaemonStatus } from "@mixengine/api";
 import type { DatabaseClientReport } from "@mixengine/api";
 import type { DatabaseCredentials } from "@mixengine/api";
+import type { StoppedBy } from "@mixengine/api";
 import type { DiskUsage } from "@mixengine/api";
 import CredentialDialog from "../../components/CredentialDialog";
 import ElevationDialog from "../../components/ElevationDialog";
@@ -484,8 +485,8 @@ export default function Dashboard({
     menuReport !== undefined && opensADatabase(menuReport) ? menuReport : undefined;
 
   /** The state as a pill tone: whether it is serving, not which of the seven states it is in. */
-  function pillTone(state: string | null | undefined): StatusTone {
-    const tone = serviceStateTone(state);
+  function pillTone(state: string | null | undefined, stoppedBy?: StoppedBy | null): StatusTone {
+    const tone = serviceStateTone(state, stoppedBy);
     if (tone === "ok") return "success";
     if (tone === "bad") return "danger";
     if (tone === "busy") return "warning";
@@ -493,8 +494,8 @@ export default function Dashboard({
   }
 
   /** Trạng thái đã dịch; một trạng thái daemon mới hơn build này hiện nguyên văn. */
-  function stateLabel(state: string | null | undefined): string {
-    const key = serviceStateKey(state);
+  function stateLabel(state: string | null | undefined, stoppedBy?: StoppedBy | null): string {
+    const key = serviceStateKey(state, stoppedBy);
     return key === null ? (state ?? "—") : t(key);
   }
 
@@ -722,8 +723,8 @@ export default function Dashboard({
                           {t(PENDING_LABEL[busy[row.id]])}
                         </StatusPill>
                       ) : (
-                        <StatusPill tone={pillTone(row.state)} pulse={mode === "moving"}>
-                          {stateLabel(row.state)}
+                        <StatusPill tone={pillTone(row.state, row.stoppedBy)} pulse={mode === "moving"}>
+                          {stateLabel(row.state, row.stoppedBy)}
                         </StatusPill>
                       )}
                     </td>
@@ -754,7 +755,7 @@ export default function Dashboard({
                           <Button
                             size="small"
                             className={styles.toggle}
-                            busy={busy[row.id] ? t(PENDING_LABEL[busy[row.id]]) : stateLabel(row.state)}
+                            busy={busy[row.id] ? t(PENDING_LABEL[busy[row.id]]) : stateLabel(row.state, row.stoppedBy)}
                             aria-label={t("mixengine.dashboard.moving", { service: row.id })}
                           />
                         ) : mode === "up" ? (

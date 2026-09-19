@@ -42,7 +42,7 @@ import type { PackageRemoval } from "@mixengine/api";
 import type { ServiceLimitsReport } from "@mixengine/api";
 import type { ResourceLimits } from "@mixengine/api";
 import type { FrontEndSwitch } from "@mixengine/api";
-import type { ServiceAutostartSet } from "@mixengine/api";
+import type { SaveResources, SaveResourcesSet, ServiceAutostartSet } from "@mixengine/api";
 import type { ServiceIdleSet } from "@mixengine/api";
 import type { ServiceSummary } from "@mixengine/api";
 import type { ServiceCreate } from "@mixengine/api";
@@ -360,6 +360,19 @@ export function serviceIdle(service: string): Promise<unknown> {
 
 export function serviceSetIdle(params: ServiceIdleSet): Promise<unknown> {
   return invoke("mixengine_service_set_idle", { params });
+}
+
+/** `service.save_resources` — home này có dừng service không ai dùng không ("Save battery",
+ *  T167b). Tắt trừ khi người dùng đã bật (ADR 0041). */
+export function saveResources(): Promise<SaveResources> {
+  return invoke<SaveResources>("mixengine_service_save_resources");
+}
+
+/** `service.set_save_resources` — bật/tắt "Save battery". Không dừng và không khởi động gì: lượt
+ *  quét idle kế tiếp mới đọc nó. Trả trạng thái mới. */
+export function setSaveResources(on: boolean): Promise<SaveResources> {
+  const params: SaveResourcesSet = { on };
+  return invoke<SaveResources>("mixengine_service_set_save_resources", { params });
 }
 
 /** `service.set_autostart` — service này có khởi động cùng MixEngine không (T112).

@@ -1,4 +1,4 @@
-import type { ServiceState } from "@mixengine/api";
+import type { ServiceState, StoppedBy } from "@mixengine/api";
 
 /**
  * Khoá dịch cho một `ServiceState`, hoặc `null` nếu không có khoá nào.
@@ -13,9 +13,21 @@ import type { ServiceState } from "@mixengine/api";
  * phải hiện ra đúng như daemon viết, không được biến thành ô trống hay thành một khoá dịch không
  * tồn tại.
  */
-export type ServiceStateKey = `mixengine.serviceState.${ServiceState}`;
+export type ServiceStateKey =
+  | `mixengine.serviceState.${ServiceState}`
+  | "mixengine.serviceState.resting";
 
-export function serviceStateKey(state: string | null | undefined): ServiceStateKey | null {
+/**
+ * `stoppedBy` là thứ tách **"đang nghỉ"** khỏi "đã dừng" — T167g, ADR 0041. Một service MixEngine tự
+ * dừng vì rảnh (`stopped` + `daemon`) sẽ được bật lại ở request kế tiếp, nên nó không phải hỏng và
+ * cũng không phải thứ người dùng đã tắt: vẽ nó là `Stopped` đỏ là nói dối về thứ người dùng sẽ thấy.
+ * Daemon cũ hơn không gửi `stopped_by`, và khi đó mọi thứ hiện y như trước.
+ */
+export function serviceStateKey(
+  state: string | null | undefined,
+  stoppedBy?: StoppedBy | null,
+): ServiceStateKey | null {
+  if (state === "stopped" && stoppedBy === "daemon") return "mixengine.serviceState.resting";
   return state != null && isServiceState(state) ? `mixengine.serviceState.${state}` : null;
 }
 
@@ -28,9 +40,14 @@ export function serviceStateKey(state: string | null | undefined): ServiceStateK
  *
  * Đi cùng `serviceStateKey` trong một file vì hai hàm phải bao đúng một tập tên; test bắt điều đó.
  */
-export type ServiceTone = "ok" | "bad" | "busy";
+export type ServiceTone = "ok" | "bad" | "busy" | "resting";
 
-export function serviceStateTone(state: string | null | undefined): ServiceTone | null {
+/** `resting` là sắc thái thứ tư, xám: không phục vụ lúc này, nhưng cũng chẳng có gì hỏng. */
+export function serviceStateTone(
+  state: string | null | undefined,
+  stoppedBy?: StoppedBy | null,
+): ServiceTone | null {
+  if (state === "stopped" && stoppedBy === "daemon") return "resting";
   return state != null && isServiceState(state) ? TONE[state] : null;
 }
 

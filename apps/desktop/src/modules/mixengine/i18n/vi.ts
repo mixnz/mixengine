@@ -175,11 +175,9 @@ const vi: typeof en = {
       copyRoot: "Sao chép đường dẫn thư mục của project",
       present: "Có",
       notFound: "Không có",
-      yes: "Có",
       columnName: "Tên",
       columnRoot: "Root",
       columnManifest: "mixengine.toml",
-      columnKeepWarm: "Giữ ấm (keep warm)",
       openSites: "Sites",
       edit: "Sửa",
       delete: "Xoá",
@@ -199,7 +197,6 @@ const vi: typeof en = {
         pinPlaceholder: "Một phiên bản, hoặc một khoảng như ^8.3",
         quickSiteSummary: "Tạo luôn một site cho project này",
         siteFailed: "Đã tạo project, nhưng tạo site thất bại: {{error}}",
-        keepWarm: "Giữ service của project này ngoài diện tự dừng khi rảnh",
         saving: "Đang lưu…",
       },
       detail: {
@@ -280,6 +277,7 @@ const vi: typeof en = {
       stopping: "Đang dừng",
       restarting: "Đang khởi động lại",
       failed: "Hỏng",
+      resting: "Đang nghỉ — tự bật ở lần truy cập tới",
     },
     serviceForm: {
       newService: "Tạo service",
@@ -495,6 +493,13 @@ const vi: typeof en = {
         notAnswering: "Web server mới có thể chưa được phép trả lời trên cổng 80 và 443 của máy này.",
         keptData: "Dữ liệu của server trước được giữ tại {{path}}.",
         notCarried: "Không mang được sang server mới:",
+      },
+      saveResources: {
+        title: "Tiết kiệm pin",
+        toggle: "Tạm dừng dịch vụ không ai dùng tới",
+        off: "Đang tắt: không dịch vụ nào bị dừng chỉ vì rảnh. Site đang chạy thì cứ chạy.",
+        on: "Pool PHP không ai dùng trong nửa tiếng, hoặc database/cache trong một tiếng, sẽ được tạm dừng. Lần truy cập tiếp theo sẽ bật lại — lần tải đầu có thể chậm một chút.",
+        keepWarm: "Muốn một project luôn chạy, hãy chạy: mix project keep-warm <tên>",
       },
       autostart: {
         title: "Khởi động cùng máy",

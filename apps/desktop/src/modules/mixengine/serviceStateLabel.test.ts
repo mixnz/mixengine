@@ -91,3 +91,24 @@ describe("toggleMode", () => {
     expect(toggleMode(undefined, false)).toBe("down");
   });
 });
+
+/* T167g, ADR 0041: a service MixEngine put to rest is neither broken nor something a person turned
+   off, so it is drawn as resting — and only that combination changes anything. */
+describe("a service MixEngine stopped", () => {
+  it("is resting, in a tone of its own", () => {
+    expect(serviceStateKey("stopped", "daemon")).toBe("mixengine.serviceState.resting");
+    expect(serviceStateTone("stopped", "daemon")).toBe("resting");
+  });
+
+  it("changes nothing when a person stopped it, nobody did, or the daemon did not say", () => {
+    for (const stoppedBy of ["person", "never", null, undefined] as const) {
+      expect(serviceStateKey("stopped", stoppedBy)).toBe("mixengine.serviceState.stopped");
+      expect(serviceStateTone("stopped", stoppedBy)).toBe("bad");
+    }
+  });
+
+  it("changes nothing for a service that is not stopped", () => {
+    expect(serviceStateKey("running", "daemon")).toBe("mixengine.serviceState.running");
+    expect(serviceStateTone("failed", "daemon")).toBe("bad");
+  });
+});
