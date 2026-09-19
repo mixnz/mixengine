@@ -560,3 +560,807 @@ design are linked decisions.
    point of taking it is that the prediction is checked rather than assumed.
 5. Publish the updated package index if runtimes changed
    ([runtime-packaging.md](runtime-packaging.md)).
+
+## Why CI is shaped this way
+
+The reasoning behind `.github/workflows/`, moved here from the workflow's own comments in T172d
+so that a step carries a line or two and this page carries the argument. Grouped by job, in the
+order the jobs are written; each entry is named by the step it explains, or stands for the job
+itself when it has no name.
+
+### The workflow as a whole
+
+The ten jobs described in docs/operations/build-and-release.md: `lint`, `test`, `rustdoc`,
+`services`, `system`, `bench`, `bindings`, `docs`, `desktop` and `build`.
+
+`rustdoc` and `services` arrived with T170d and T170e, both split out of `test` (see each job).
+
+`desktop` arrived with T103, the task that brought the desktop application into this repository
+(ADR 0027).
+
+`system` arrived with the first `#[ignore]`d system test (T40), `build` with T85, the task that
+produced something to install, `bindings` with T56, the task that produced a contract to check, and
+`docs` with T90, the task that produced a site to build. Each was "a green job that proves nothing"
+until then, which is the rule this comment exists to record rather than the list it happens to
+name — and it is why T90's *corpus* invariants added no step anywhere: they are `cargo test`, so
+`test` already runs them on all three operating systems.
+
+Publishing the site is not here at all. It needs `pages: write` and `id-token: write`, and this
+workflow is `contents: read` and stays that way: see `.github/workflows/pages.yml`.
+
+**Line tables only in debug builds (T170l).** A failing test's backtrace still names files and
+lines; what goes is variable and type information nobody reads from a CI log. On Windows the MSVC
+linker writes a PDB for each of ~150 test binaries, and a smaller PDB is much of what `Build
+tests` spends there. Set once for the whole workflow and not per job: rust-cache hashes the
+`CARGO_*` environment into its key, and `test` and `services` share one entry. Release builds are
+unaffected, because the variable names the `dev` profile, and so are developers' machines.
+
+### Triggers
+
+**No branch fires on its own, `master` included.** The `test` job is the only thing in this
+repository that compiles the workspace for all three operating systems, and two thirds of
+`mixengine-platform` is behind a `#[path]` that a developer machine never builds — so a change that
+breaks Linux or macOS is invisible until something compiles it there. That answer is worth a
+runner when somebody is asking for it, and a push is not the same thing as asking: a merge, a
+documentation fix and a work-in-progress save all look identical to a `push` trigger, and only one
+of them wanted an answer.
+
+So every ref asks for itself, `master` the same as any other. Push, then request a run on it:
+
+    git push origin HEAD
+    gh workflow run ci.yml --ref "$(git branch --show-current)"
+
+The run is labelled with the ref that asked, so two questions in flight are told apart by their ref
+instead of overwriting each other on one shared lane.
+
+**A tag is the one exception**, and it is not a branch. Pushing `v*` fires the run that *is*
+release-checklist item 1 — "all CI green on all three OSes" — and then `preflight` and `release` at
+the bottom of this file: sign what `build` made, and assemble a draft somebody publishes. That one
+has to be automatic, because a tag whose run was never requested is a release nobody checked.
+
+The dispatch list is read from the default branch: a workflow file only becomes requestable once
+this file is on `master`, and a branch that edits it runs its own version once selected.
+
+Pull requests are not a trigger. A pull request's head is a branch you can request a run on like
+any other, and leaving `pull_request` on would mean the same commit builds twice.
+
+### The `jobs` input
+
+**One group at a time, not a list**, because the reason to narrow a run is always one
+question: *is `test` green yet.* A run that answered about three of nine jobs is not an
+answer about this workspace, and `all` is the default so narrowing is something somebody
+chose rather than something they inherited.
+
+A group is a job's own name, so adding a job adds an option and nothing else has to move.
+
+### `lint`
+
+**The elevated helper builds without the rest of the platform.** D8 of the T40 design. `mixengine-elevate` runs as root, and its whole dependency closure is a
+security decision — its own manifest says so. Cargo unifies features across a workspace build,
+so `cargo build --workspace` compiles `mixengine-platform` with tokio and keyring and links
+the helper against that; the lean tree is a property of building the helper **on its own**,
+which is what both of these steps do and what the release pipeline does.
+
+A change here is not a lint failure to be waved through: read the diff, and if the new
+dependency belongs in a binary that runs as root, commit the updated list in the same change.
+
+**One dbus-secret-service in the tree, or the Linux keyring reading is silently dead.** ADR 0013. `linux/secrets.rs` reads a machine with no secret service by downcasting `keyring`'s
+boxed source to `dbus_secret_service::Error`, which works only while our direct dependency and
+the one `keyring` resolves are the **same** package. Two versions in one tree is not a build
+failure and not a test failure: the downcast simply answers `None` for ever, and every machine
+without a keyring goes back to being told its store refused.
+
+So it is counted rather than trusted. The day `keyring` moves to a version we do not follow,
+this step is what says so — and the fix is to follow it in the same change, not to widen the
+match here.
+
+**`--color never` is load-bearing.** This job sets `CARGO_TERM_COLOR: always`, so a repeated
+subtree's `(*)` marker arrives wrapped in escape sequences and the `sed` below stops matching
+it — which counts one package as two and fails a tree that is fine. Locally the same command
+passes, because cargo drops colour on its own when it is not writing to a terminal.
+
+**Install sqlx-cli.** `sqlx::query!` checks its SQL against a real database at compile time. Nobody building
+MixEngine has one — so the answers are committed as `.sqlx/`, and every other build reads
+those instead of connecting (T14). The failure this step exists for is a query edited
+without re-running `prepare`: the author's machine still builds, because DATABASE_URL is set
+there, and everyone else's stops. `--check` regenerates the answers and fails if they differ
+from what is committed.
+
+Prebuilt binary rather than `cargo install sqlx-cli`, which is a four-minute compile of a
+tool this job uses for six seconds.
+
+Pinned to the `sqlx` version in Cargo.lock, and it has to stay in step with it: the contents
+of `.sqlx/` are a version-specific format, so an unpinned CLI would start regenerating them
+differently the day sqlx releases and fail `--check` on whichever unrelated PR ran next.
+
+**Install minisign.** T86's D9. `packaging/sign.sh` drives an external tool, and the only other thing that would
+ever run it is a release — so it is run here, on every CI run, against a throwaway key.
+
+In `lint` rather than in `test` for two reasons: it is a check on this repository and the
+tools it uses, which is what every step above it is; and `test` runs on three operating
+systems with network egress blocked, where installing minisign would be three problems in
+exchange for two answers nobody needs.
+
+**The AppImage's AppRun fills its cache and refuses in the right words.** T105a. `AppRun` is the first thing a person who downloaded the AppImage meets, and since
+ADR 0028 its refusal is this product's whole answer to a machine below the window's floor —
+which distributions those are is a promise on the install page. `apprun-check.sh` has been in
+this repository since T85c and nothing has ever run it: it was written to be run by hand by
+whoever was editing `AppRun`, and a fixture nothing runs is not a test. Same reasoning as the
+two steps above it — the only other thing that would ever exercise this script is somebody
+downloading a release.
+
+No AppImage and no `appimagetool` is involved: the fixture is a directory, five shell scripts
+standing in for the five binaries, and a stubbed `ldd`. It costs seconds.
+
+### `test`
+
+**45 since phase 11, and it is the line past which waiting stops being the answer, not a
+budget.** The Windows leg took 24.5 minutes warm on master (run 34149551423) and was cut off
+at 30 on the first branch to change the toolchain pin (run 34235885258): a new pin is a new
+cache key, `Build tests` went from 313 s to 602 s with nothing to restore, and every suite ran
+a third slower on that runner. Nothing hung — the leg was killed installing PostgreSQL, the
+ninth of eleven suites. The same reasoning as `system`'s 45.
+
+**What this leg runs as (T2b).** T2b, answered: this leg holds `BUILTIN\Administrators` as an *enabled* group at High
+Mandatory Level — a full token, not the UAC-filtered one where that group is present
+deny-only and grants nothing. The account name in the cache paths, `runneradmin`, never
+settled that; only `/groups` does.
+
+It stays as an assertion rather than being deleted with the question, because
+standards/testing.md now states the answer and derives a rule from it — write Windows
+exclusion tests structurally, never by attempting an access this token would win — and a
+runner image that quietly de-escalated would leave that page confidently wrong. Failing on
+the good news is the point: the news is only good once somebody acts on it.
+
+**Defender's state.** **Defender's state, recorded rather than assumed (T170k).** The runner image turns real-time
+protection off and excludes C:\ and D:\ (`images/windows/scripts/build/Configure-WindowsDefender.ps1`
+in actions/runner-images), which is why Windows being slower here is the linker and
+CreateProcess, not a scanner. That is a promise about today's image; this makes the log say
+which image a run had, and warns rather than fails, because a scanner makes a leg slower,
+not wrong.
+
+**Only `master` writes (T170a).** A branch or a tag restores `master`'s entry for this key —
+or, when its `Cargo.lock` differs, the newest entry with the same prefix — and saves
+nothing. Before this, one run wrote about a whole 10 GB quota, every branch run evicted
+`master`'s entries, and every run built cold (run 35430523430). The arithmetic is in
+docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md. **No run fires on `master` by
+itself**, so a run requested on `master` after a merge is what refreshes what every branch
+starts from.
+
+**Install the packages this leg's tests need.** The keyring capability talks to a D-Bus secret service on Linux, and a runner has a session
+bus with no provider on it — which since T15b the tests read for what it is, a machine with
+no credential store, and therefore **skip**. Supplying a real one is what turns those eight
+tests back into coverage; the run that proves the skipping branch itself is the separate
+"no secret service" step below, which takes the store away on purpose and asserts it is
+gone. Installed as a job step rather than from the script: the suite
+runs in a namespace with no route out, so nothing inside it can fetch a package. Starting
+the daemon is the script's job, since it has to happen inside that namespace.
+
+Windows and macOS need no equivalent: their stores are part of the OS.
+
+**Bounded, because an unbounded one cost a whole run.** `apt-get` waits on a stalled mirror
+for as long as the mirror likes: one run spent twenty-seven minutes inside `apt-get update`
+and was killed by the job's own timeout, having proved nothing about anything. A per-request
+deadline and three attempts is what a mirror having a bad minute deserves; a step timeout
+well under the job's is what says *this* is what went wrong when it is having a bad hour.
+
+**And `libnss3-tools`, which is T49b's whole starting measurement.** `certutil` is not
+installed on a stock Ubuntu 24.04 and `libnss3` does not pull it in, so the round trip in
+`crates/mixengine-platform/tests/browsers.rs` is `#[ignore]`d and this is the only leg that
+runs it. About 2 MB, and in this step rather than one of its own so that the job holds one
+`apt-get update` and not two.
+
+**Test the answer a machine with no secret service gets.** T15b. Every other leg of this job hands the tests a store that works, on purpose — so the
+answer a machine *without* one gets is a branch every green run steps past, which is how the
+bug this step exists for lived long enough to be found by a stack trace on somebody's
+console. This takes the store away in the three ways a Linux can lose it and asserts, rather
+than skips: `MIXENGINE_TEST_NO_KEYRING=1` makes finding a store a failure, so a round whose
+sabotage silently did not work says so instead of passing.
+
+Outside the network namespace deliberately. The point here is which D-Bus the tests reach,
+and the script builds a bus of its own to control exactly that.
+
+**Test against a real certutil.** The suite that needs a real `certutil` — T49b. `#[ignore]`d rather than skipped, in the
+shape every real-program suite in this job uses: a machine without `libnss3-tools` says the
+test did not run instead of quietly reporting a pass, and this is the only leg that has the
+package.
+
+Outside the network namespace, deliberately: nothing here reaches a network, and the
+database it writes into is one it made in a temp directory of its own — which is also what
+keeps `docs/standards/testing.md`'s first rule, since no real browser profile is touched.
+
+**Test.** Windows and macOS have no equally cheap isolation primitive, so there the rule is carried by
+the test harness (T11) plus the offline cargo above.
+
+**Under cargo-nextest (T170f)**, which runs every test as a process of its own with as many
+at once as the runner has cores: `cargo test` ran the ~145 binaries one after another, and one
+slow binary held up the rest (run 35430523430). The `ci` profile in `.config/nextest.toml`
+carries what this step's flags used to: `fail-fast = false`, so a leg reports every failure it
+found rather than the first, and a slow-test timeout that names a hung test instead of letting
+it take the job's 45 minutes. Plain `cargo test` stays the contract: see
+docs/standards/testing.md, rule 7.
+
+**rustdoc.** rustdoc is the only tool that resolves intra-doc links, and nothing else in CI runs it:
+clippy does not build the docs, and `cargo test --doc` compiles the examples without
+checking a single link. `--document-private-items` because most of this workspace is
+private — a link inside a `mod` that is never exported is exactly the kind that rots. It
+does not make this a documentation-coverage gate: `missing_docs` still exempts private
+items, checked by deleting one of their doc comments.
+
+`rustdoc::all` is denied in the workspace manifest, so this fails on a developer machine
+too; RUSTDOCFLAGS stays because it also covers the rustc warnings rustdoc's compile pass
+raises, which no `[lints]` table can express.
+
+Once per OS, not once: every OS directory in mixengine-platform is mapped onto `sys` by
+`#[path]`, so a host-only run leaves two thirds of that crate unbuilt, and the broken link
+that created T2a was in the macOS half. It lives in this job rather than in `lint` because
+`--target` stopped being enough the moment T6 added a dependency that compiles C: rustdoc
+does not link, but cargo still runs `libsqlite3-sys`'s build script, and cross-compiling
+SQLite needs a toolchain for the foreign OS that no runner has. Reproduced before moving
+it — `cargo doc --target x86_64-unknown-linux-gnu` from another host fails in cc-rs with
+"failed to find tool x86_64-linux-gnu-gcc", not in rustdoc.
+
+It runs even when a test failed. In `lint` this check was parallel with the tests; as the
+last step of `test` it would be skipped by the first failing test instead, hiding every
+broken intra-doc link until that test was fixed — a check that only runs when everything
+else already passed is not much of a check. `success() || failure()` rather than
+`always()`, which would also start it after the job had been cancelled.
+
+**Not on Windows (T170d).** There it is a job of its own, `rustdoc`, because the Windows `test`
+leg is the run's critical path and 2.5 minutes of it were this step. On macOS and Linux the
+leg is short, and a job of its own there would cost one of macOS's five concurrent slots.
+
+### `services`
+
+**The suites that need a real program (T170e)**, split out of `test` so that a new package adds
+a leg that runs in parallel rather than minutes to one that does not. The groups are a matrix
+field, and every fetch and every suite below is guarded by one: a new suite joins a group, and a
+leg past 15 minutes on a warm cache becomes a new row. Windows is split because it is the slow
+system; macOS and Linux took 8.5 and 6.6 minutes for all of them in run 35430523430. The design
+is docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md, part B.
+
+Every step keeps the guard it had in `test`, so a leg with no package for a suite still says so
+rather than skipping it quietly.
+
+**Fetch a real Caddy.** The one thing in this job that is downloaded rather than built, and the reason it is worth
+it: `crates/mixengine-cli/tests/caddy.rs` is the only test in the workspace that judges a
+recipe against the program it configures. Everything else about T31 is provable in one
+process; that Caddy *accepts what MixEngine generates* is not, and a template with a Windows
+path in it is exactly the kind of thing that is fine on two systems and broken on the third.
+
+From our own signed index's release rather than from upstream, pinned, so this leg installs
+the same artifact a user would. It is a **test fixture and not an install**: nothing here
+checks a signature or a hash, because the code that does is `core::index` and `core::install`
+and both have their own suites. What would break if the download were wrong is this test,
+loudly.
+
+Before the offline steps below, because from there on there is no network — and on Linux no
+route out at all.
+
+**Fetch a real nginx.** **And the other front end — T37.** The same reasoning as the Caddy step, plus one thing only
+this program can settle: an `include` inside an nginx configuration resolves against the
+*prefix* rather than against the file, so whether `include sites/*.conf` is judged in the
+staging directory — which is what makes a broken rendering refused before it is installed —
+is a question about nginx's own path handling and about nothing MixEngine can assert.
+
+**The whole tree, not the binary.** A generated `nginx.conf` includes the archive's own
+`conf/mime.types` by absolute path, so the fixture packs what was unpacked here.
+
+**Fetch a real PHP.** **A second real program, and it buys what the Caddy one cannot.** Caddy is one binary that
+behaves the same on all three systems; PHP is the opposite, and T32 is the task about that:
+a Unix artifact publishes `php-fpm` and a Windows one publishes `php-cgi`, which are
+different SAPIs configured by different mechanisms — a file on one, an environment on the
+other. A recipe that renders correctly on both is not a recipe that runs on both, and only
+the program can tell the two apart.
+
+**Fetch the oldest PHP the module names have to satisfy.** And the oldest PHP on offer, which is the only one that can falsify a module name — the
+branch above cannot. PHP 7.2 added a fallback that appends the shared-library suffix to an
+`extension =` value it cannot open, so a *wrong* name loads anyway from 7.2 on; 7.0 and 7.1
+hand the value to the loader verbatim. A suite pinned to 8.3 measured the spelling and could
+not have caught it, which is what happened: five modules were silently absent from every PHP
+7.0 this product installed, and the warnings were on every command.
+
+**Fetch a real MariaDB.** And a real MariaDB, for T33 — the first recipe that has to *create* something before it can
+run at all, and the one whose every platform difference is upstream's rather than ours: two
+different `mariadb-install-db` programs, a bootstrap that refuses `SET PASSWORD`, and an
+option parser that reads a backslash as an escape.
+
+**A cost worth stating.** MariaDB is much larger than Caddy or PHP, and this adds a download
+plus a real bootstrap to every `test` job on every runner. If it pushes CI past what is
+tolerable, the answer is a separate job rather than a quieter test.
+
+**Fetch a second MariaDB, of an older series.** And a *second* MariaDB, of another series, for T36 — two instances of one server, at two
+versions, running side by side. 10.6 is the oldest line the index publishes and is chosen
+for what it does not share with 11.4: upstream renamed every program the bootstrap runs
+between the two, and their `share/` layouts differ. Two instances of one version would
+share a `packages` row and prove only that two directories can have two names.
+
+**The cost is a second download and a second bootstrap**, and it is why the suite that uses
+it is its own step: if that becomes intolerable, the answer is a job of its own rather than
+a suite that stops running two servers.
+
+**Fetch a real MySQL.** And a real MySQL, for T34c — the other database with these programs' names, and not a
+version of the one above. 8.4 is the line `docs/features/services.md` names; the two 5.x
+lines take the other two bootstrap routes and are judged by `mixengine-packages`' own smoke
+test on every published cell, which is where the artifacts that need them are made.
+
+**There is no Windows-on-ARM cell in any MySQL line** — upstream has never published one and
+nothing here compiles Windows — so that leg fetches nothing and the test step below skips
+itself rather than failing on a download that could not succeed.
+
+**Build the suites this leg runs.** Only this leg's suites, plus the binaries the harness spawns. **`--bins` is not optional**:
+cargo builds a package's own binaries for its integration tests, so `--test caddy` gets `mix`,
+but `mixengined` and `mixengine-shim` belong to other packages, and the harness finds them
+beside `mix` or panics. In `test` the `--all-targets` build made them in passing; here nothing
+would (the first run of this job failed on exactly that). With the workspace's features, for
+T170b's reason.
+
+**Test against a real connection.** T69's connection count, against a connection that really is established. `01`,
+`MIB_TCP_STATE_ESTAB` and `-sTCP:ESTABLISHED` are three claims about three unrelated
+mechanisms, and the captured tables the unit tests parse prove the parsing and say nothing
+about the constant — so a socket somebody is on the other end of is the only thing that can
+check any of them, and CI is where all three of those mechanisms exist.
+
+**This job and not `system`**, which is what the suite's own note used to claim: counting
+connections needs no administrative token, and `system` is the job for what an unprivileged
+process cannot prove. What this needs is a real socket on each of the three operating
+systems, and this is the job that runs on all three. `#[ignore]`d and given a step rather
+than left to the workspace run, in the certutil step's shape: a leg where it did not run
+says so instead of quietly reporting a pass.
+
+On Linux outside the network namespace, deliberately. Inside it the tables hold this test's
+own sockets and nothing else; picking one port out of the machine's whole table is the
+harder question, and it is the one the idle sweeper asks.
+**`--workspace --all-features` on every suite in this job, never `-p` (T170b).** Cargo unifies
+features over the packages it was asked for, so `-p mixengine-platform` is a different feature
+set from `Build tests`' and recompiled 43 crates to run a test that took 0.00 s (run
+35430523430); `--test <suite>` still picks the one suite, in whichever member has it.
+
+**Test what a shared site listens on.** What a *shared* site puts on the network, against the same real Caddy — roadmap task T76.
+Its own step rather than a second `--test` above, for the reason every suite here has one: a
+failure should name what failed without anybody reading the log.
+
+It proves what is listening rather than what a firewall allows — every connection it makes is
+to this machine's own address and so never crosses one — which is the half T74's first real
+run found broken, with `netstat` and not with a firewall. The rule half is
+`mixengine-core --test firewall`, on the Windows leg below.
+
+Not on Linux, for the same reason the Caddy step above is not: that runner does its front-end
+work inside a network namespace.
+
+**Test against a real nginx.** And the other front end through the same arc — T37. Its own step rather than a second
+`--test` on the line above, for the reason every suite below has one: a failure should name
+which recipe failed without anybody reading the log. The two run the *same* sequence of
+assertions from `tests/harness/frontend.rs`, which is what makes them a parity suite rather
+than two files that resemble each other.
+
+The guard on the variable is what would make a Windows-on-ARM leg green: there is no nginx to
+fetch there and no upstream that publishes one.
+
+**Test against a real MariaDB.** And the one that needs the MariaDB. Its own step for the reason the PHP one is: a failure
+should name which recipe failed without anybody reading the log.
+
+The Linux leg runs this from inside `test-no-network.sh` rather than here, and the
+difference is the credential store: the bootstrap refuses a machine without one **by
+design**, and that script is where a `gnome-keyring` is started on a session bus of its own.
+
+**`--nocapture`, and a timeout of its own.** libtest holds a running test's output until the
+test ends, so the first run of this suite on macOS reported twenty-seven minutes of silence
+and then the job's own timeout. The suite says what it is doing as it goes; this is what
+lets a reader see it, and the step timeout is what leaves the doc tests below enough of the
+job to still run.
+
+**Test two instances of one server, at two versions.** And the one that runs two of them at once — T36. Its own step rather than more of the one
+above, because what it proves is a different claim and because it is the expensive half:
+two installs, two bootstraps, two servers up together. Measured at fifty seconds on a
+local Linux, against that suite's thirty-six.
+
+The Linux leg runs this from inside `test-no-network.sh`, for the reason MariaDB's own
+suite does: two first-run rituals, two generated root passwords, and a credential store
+that only exists inside that script's session bus.
+
+**Test against a real PostgreSQL.** And the one that needs the PostgreSQL — T34. Its own step for the reason the three above
+have one: a failure should name which recipe failed without anybody reading the log.
+
+The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
+puts the generated superuser password in the OS credential store and refuses a machine with
+none, and that script is where a `gnome-keyring` runs on a session bus of its own.
+
+**That the Windows leg runs this at all is T34a.** `postgres` refuses a token holding an
+enabled `BUILTIN\Administrators`, which the step at the top of this job asserts this runner
+still has; every supervised child is now created from a restricted copy of it —
+`docs/decisions/0010-supervised-child-never-inherits-administrators.md`.
+
+**Test against a real MySQL.** And the one that needs the MySQL — T34c. Its own step for the reason every one above has
+one: a failure should name which recipe failed without anybody reading the log.
+
+The Linux leg runs this from inside `test-no-network.sh`, for MariaDB's reason: the ritual
+stores a generated root password in the OS credential store and refuses a machine with none.
+
+The guard on the variable is what makes the Windows-on-ARM leg green: there is no MySQL to
+fetch there, and a suite that is `#[ignore]`d until a real server exists has nothing to say.
+
+### `system`
+
+The job `docs/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
+test. T40 is that task: `mixengine-elevate` creates a root-owned audit directory outside
+MIXENGINE_HOME, and nothing about that can be proved from an unprivileged process.
+
+It runs on every run of this workflow rather than only on branches that touch `platform` or
+`elevate`, which is what that table used to say: the triggers here are `push: master` and
+`workflow_dispatch`, and a dispatch carries no diff to test a path filter against.
+
+**35 minutes and not 20** since the certificate suites joined it. Those build the CLI and the
+daemon — which this job had no reason to compile before — and then drive a real Caddy through a
+rotation on each of the three systems. The number is the shape of the job, not a measurement of
+one run: the steps that could hang rather than fail have clocks of their own.
+
+**45 since T87's**, which adds one more suite that drives the CLI and the daemon and then takes
+the machine apart — with a clock of its own, on the rule above.
+
+**Build the port-access suite.** T42's port access, against each machine's own mechanism. The unit tests drive the codec and
+the pf text against strings; what only a real machine answers is whether the kernel
+recognises the attribute this writes, whether it clears it on a write, and whether pf
+actually sends 80 to a server on 8080. Both tests take a copy of whatever they touch and
+assert the machine came back as it was.
+
+Windows has no leg: that system grants nothing, its whole answer is a refusal, and a refusal
+needs no token — so it is asserted in the `test` job with everything else.
+
+**Build the resolver suite.** T45's resolver wiring, against each machine's own mechanism. **A leg on all three**, unlike
+port access: Windows has a real mechanism here rather than a refusal.
+
+Every test that concludes anything from a name that did not resolve first proves its own DNS
+server is answering — the T45 design, D14. That rule exists because four of the six
+measurement rounds behind this task were void: the fake server was started in one step and
+asked from the next, the runner killed it with the step, and nothing noticed until a control
+was added. Which is also why the suite is one test rather than several sharing a server.
+
+**Fetch a real Caddy.** T49a and T54's writes — the only tests in the workspace that touch this machine's own trust
+store, and until now the only ones no job ever ran. `docs/standards/testing.md` rule 1
+gates them on `MIXENGINE_SYSTEM_TESTS=1` **as well as** `#[ignore]`, because `#[ignore]` alone
+is not enough: the `test` job runs the `caddy` suite with `--ignored`, and without the second
+gate a rotation would install and remove a certificate authority on every Windows and macOS
+runner in it. Nothing set the variable anywhere, so what the second gate bought was that a
+rotation had never been measured at all — while T52, T53 and T54 are ticked `[x]`.
+
+This is the job both designs name for them, and the job whose whole purpose is writing to the
+machine. The Caddy comes down here rather than in the fetch block of `test` because this job
+has no network namespace to get in ahead of; nothing below it is offline but cargo.
+
+**The certificate authority this machine ends up trusting (Windows).** `--test-threads=1` for the hosts suite's reason, with the store in place of the file: there is
+one trust store on this machine.
+
+**The whole `caddy` suite and not the one gated test in it.** A `--exact` filter would be
+precise today and silent the day somebody renames the test — cargo answers a filter that
+matched nothing with `0 tests` and exit 0, which is the reporting-a-pass this job exists to
+avoid. The four front-end tests it re-runs are not waste: they ran unprivileged in `test`, and
+here they run under a token that can actually write, which is a different machine.
+
+**The certificate authority this machine ends up trusting (macOS).** As root, in the elevated suite's shape, and **that is what makes this leg meaningful**: `do
+shell script … with administrator privileges` on a process that is already root runs straight
+through, which the launcher step above measured rather than assumed. So a rotation here is
+granted, and the gated `caddy` test — which asserts `outcome == "rotated"` and then asks the
+running server what it presents — has something to assert about.
+
+`timeout-minutes` of its own for the launcher step's reason: if a prompt does appear after
+all, nothing on this runner can answer it, and this is the clock that ends the wait.
+
+**The certificate authority this machine ends up trusting (Linux).** **`cert` and not `caddy`, and root changes nothing about that.** A runner has no polkit agent
+— which is not a gap in this job but ADR 0005's worst branch, asserted for real by the
+launcher step above — so `probe()` answers `Unavailable` whoever is asking and a rotation is
+never granted here. The gated `caddy` test requires `outcome == "rotated"`, so on this system
+it could only ever fail; the four front-end tests beside it already run in `test`, inside the
+network namespace. What Linux does answer is the refusal, and that is exactly what the `cert`
+test asserts: replaced or left exactly as it was, and in neither case a candidate private key
+left on disk.
+
+**The daemon's autostart entry.** The daemon's autostart entry — T85b. **This job and no other**, because these tests register a
+real logon task and a real systemd user unit: `docs/standards/testing.md` rule 1 gates them
+on `MIXENGINE_SYSTEM_TESTS=1` as well as `#[ignore]`, and this is the job whose purpose is
+writing to the machine.
+
+A scratch name on both systems — `MixEngineSystemSuite`, `mixengine-system-suite.service` —
+never the entry a person's daemon depends on, and each test removes what it made. macOS runs
+nothing extra here: that leg writes one file and drives no tool (the T85b design, D8a), so its
+whole cycle is already proved unignored in the `test` job against a directory it owns.
+
+**The Linux leg asserts one of two things** and prints which: a runner with a systemd user
+manager registers and reads back, and one without has to refuse with a reason naming the
+command to run by hand. Neither branch passes by doing nothing.
+
+`--test-threads=1` for the hosts suite's reason with the login configuration in place of the
+file: there is one of it on this machine. As the ordinary user, deliberately: every mechanism
+here is per-user and nothing about it needs root.
+
+**Build the uninstall suite.** T87. **The clean-VM smoke test the roadmap asks for, and a fresh runner is the clean VM**: it
+has never had MixEngine on it, so what the suite finds on the machine after a grant is what
+MixEngine put there and nothing else.
+
+**Last of the suites in this job, and that ordering is the whole of why it is here rather than
+beside `cert`.** It removes the hosts block, the resolver wiring, the port grant, the
+certificate authority, the privileged helper and the audit log; every suite above it would
+then be running against a machine this one had already taken apart.
+
+Built as the ordinary user and run as root on Unix, which is this job's standing arrangement.
+`--test-threads=1` for the hosts suite's reason: there is one of each of these on a machine.
+
+**The trust store this job left behind.** T49a's store, for the packet filter's reason and one more. This job's macOS leg is the only
+place `security add-trusted-cert` and `remove-trusted-cert` are ever run, and the round trip
+asks two different questions of them: whether the certificate is *in* the keychain, which is
+what `TrustStore::probe` measures, and whether the machine actually *trusts* it, which is
+what the operation is for. Those are not the same fact, and nothing before this printed
+either of them — the first run of this suite hung for twenty minutes and produced no
+evidence at all.
+
+**What the uninstall suite left behind.** T87. What the uninstall suite left, which on a passing run is nothing — and on a failing one
+is the whole answer. `always()` for the reason every step in this block has it: what an
+elevated job left on a machine is worth printing whether or not the assertions about it held.
+
+**Windows prints its pending-rename queue**, because there the helper cannot be unlinked while
+it is running and what the suite asserts is that the operating system accepted the removal —
+the T87 design, D8.
+
+### `bench`
+
+T29. The performance budgets from docs/standards/testing.md, of which the shim's is the first
+to exist. It is a job of its own rather than a step in `test` for two reasons: these are
+`#[ignore]`d and would otherwise be skipped there anyway, and they need a **release** build,
+which is a second compilation of the workspace that no correctness answer should have to wait
+behind.
+
+On all three systems, unlike the single-runner row the ops document first sketched: the gate is
+the same everywhere, but the hand-over it stands in front of is not one mechanism — Unix `exec`s
+and Windows starts a child inside a Job Object — and the reported wall clock is the only place
+that difference is ever written down as a number.
+
+**Fetch the three servers M3 is about.** **M3's three servers**, fetched before the offline steps below because from there on there is
+no network, through the script every fetch in CI uses (T172a).
+
+The versions are the ones the `test` job's own steps pin, and they are pinned in two places
+deliberately: a bench comparing itself against last month's number has to be measuring the
+same programs, and a suite bumped by somebody else's step would move the number without
+anybody deciding to.
+
+**Fetch the three PHPs the cold path wakes.** **Three PHPs, and three different versions on purpose** — roadmap task T72a. The cold path is
+measured three times because one CI measurement has misled this project before: the M3 bench
+is bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Three
+rounds need three *cold* pools, and a pool is only cold once — so three pools, which means
+three runtime installs, which means three versions.
+
+7.0.33 is the floor this product offers, 7.4.33 is the legacy version people still run, and
+8.3.33 is what the `test` job pins. **The first two predate `pm.status_listen` entirely**, so
+this is also the standing proof of T72a's decision to read a pool's status page off its own
+socket: the day somebody reaches for the cleaner arithmetic, two thirds of this measurement
+go red rather than a paragraph being disbelieved.
+
+A directory each, because the script's default would have them overwrite one another, and
+`MIXENGINE_PHP_RUNTIMES` is the list the suite reads — separated the way this system
+separates a PATH.
+
+**Install a secret service.** T33's requirement, seen from the job that is not `test`: the MariaDB bootstrap puts the
+generated root password in the OS credential store and refuses a machine with none. Windows
+and macOS have one in the OS. On Linux this installs it, and the measuring step below wraps
+itself in a session bus of its own — the smaller half of what
+`.github/scripts/test-no-network.sh` does, rather than teaching that script a second profile.
+
+The network namespace that script also sets up is deliberately not reproduced: this suite
+talks to a `MockRegistry` on loopback like every other, and the isolation the `test` job adds
+is a belt the `bench` job has never worn.
+
+**Build the program the shim is measured against.** `fakeservice` is the program the shim is measured in front of, and it is a **binary of a
+dev-dependency crate**: selecting one test target does not build it, and a release copy left
+by an earlier build is used as it is. A stale one is what this step exists for — it was
+found by the benchmark's own check that the fronted program really ran, having been built
+before that program learned `--version`, and a benchmark that measures a binary nobody
+rebuilt is a benchmark measuring last month.
+
+**Idle footprint.** **The idle footprint**, and it runs *before* M3 deliberately — `features/resource-isolation.md`'s first published number, and the
+third thing this job gates. Its own step rather than another `--test` on a line above, on
+this job's rule: a failure should name what failed without anybody reading the log.
+
+It needs the Caddy fetched above and nothing else — one daemon, one web server, and nothing
+running. It spends thirty seconds settling before the first reading, deliberately: what is
+measured is a home doing nothing, and a reading taken the instant a start walk returned would
+measure the walk.
+
+**No `dbus-run-session` wrapper**, unlike the M3 steps: nothing here starts a MariaDB, so
+nothing here has a password to put in a credential store.
+
+**Ahead of M3 because a failing step ends the job.** This one takes forty seconds and
+needs one server; M3 starts three of them eight times over and is bimodal on ubuntu. The
+first run of this budget was skipped on that runner for exactly that reason, which is a
+measurement lost to somebody else's bad minute.
+
+**Cold path.** **The cold path**, `features/resource-isolation.md`'s second published number and the fourth
+thing this job gates — roadmap task T72a. Its own step for this job's rule: a failure should
+name what failed without anybody reading the log.
+
+**Ahead of M3 for the idle footprint's reason**, and it needs the reason more: a failing step
+ends the job, and this one waits a full minute for the sweeper before it can measure
+anything. Losing that to somebody else's bimodal warm start would cost the whole
+measurement.
+
+It needs the Caddy and the three PHPs fetched above and nothing else — no MariaDB, so no
+`dbus-run-session` wrapper and no credential store on Linux.
+
+**What it waits for is a sweep, not a clock.** The pools must be stopped by the sweeper and
+not by a person, because a service somebody stopped is one the activator deliberately refuses
+to wake (T70's D8). An idle policy is a whole number of minutes, so the wait is about ninety
+seconds and is paid once for all three rounds.
+
+**What the tuned defaults save.** **What the tuned templates save** — roadmap task T73, and the fifth thing this job measures.
+Two MariaDB instances in one home, one on the recipe's defaults and one put back to the
+server's own, started in turn and read through the daemon's own sampler.
+
+**What is gated is the difference between them**, never either number on its own: an
+absolute budget on MariaDB's RSS would be a promise held hostage to next month's MariaDB, on
+a quantity this project does not control. The suite's module note argues it in full.
+
+**Ahead of M3 for the idle footprint's reason** — a failing step ends the job, and M3 is
+bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Behind the
+cold path because this one bootstraps two databases and that one waits out a sweep; neither
+should be paying for the other's bad luck.
+
+It needs the MariaDB fetched above, and a credential store with it: the bootstrap generates a
+root password and refuses a machine that cannot hold one. Windows and macOS have one in the
+OS; Linux gets the same `dbus-run-session` wrapper the M3 step below uses.
+
+**M3 — three services, warm.** **M3**, which is `docs/features/services.md`'s one number about starting things: caddy,
+mariadb and redis healthy in under ten seconds warm. Its own step rather than another
+`--test` on the line above, for the reason every real-server step in the `test` job has one:
+a failure should name what failed without anybody reading the log.
+
+`--nocapture` because the numbers are the output. A timeout of its own because this starts
+three servers eight times over and a hang inside libtest prints nothing until it ends — the
+suite carries a watchdog of `mariadb.rs`' kind for that, and this is the outer bound.
+
+Windows and macOS run it directly; Linux wraps it in a session bus with a `gnome-keyring` on
+it, because the MariaDB bootstrap has a password to store and refuses a machine that cannot.
+
+### `bindings`
+
+T56, and the fifth job of the table in docs/operations/build-and-release.md: the published
+TypeScript contract, regenerated from `mixengine-proto` and compared with what is committed.
+Until this existed, a `ts-rs` type whose committed output had drifted was caught by a person or
+by nobody.
+
+**Ubuntu alone.** Generation is OS-independent — measured, and the `test` job runs the generator
+on all three every run, because it passes `--all-features` and the exporter is a `#[test]`. So a
+second and third runner here would re-measure one behaviour at twice the cost, which is the
+reasoning T86a's `windows-latest` probe uses one job along.
+
+### `docs`
+
+T90: the user handbook. The corpus's own invariants — parity between the two languages,
+resolvable links, a translation that was revisited after its source changed, prose that is
+wrapped — are `cargo test` and therefore run in `test` on all three runners with no step here.
+That is T89's rule: a suite that needs nothing downloaded and no privilege arrives without a job.
+
+What needs a job is the part that is not a test: building the site, which compiles a Markdown
+renderer, and holding the committed command reference against what `mix` prints — the same shape
+as `bindings`, for the same reason. A red job here names which of the two broke.
+
+**Ubuntu alone**, again for `bindings`' reason: the generator reads embedded strings and writes
+files, and a second and third runner would re-measure one behaviour at twice the cost.
+
+### `desktop`
+
+T85, and the sixth job of the table in docs/operations/build-and-release.md: the artifacts a
+person downloads. Three runners and host architecture only — the second architecture on Windows
+and Linux is a cross-compilation of a workspace that builds SQLite, AWS-LC and libdbus from C on
+runners that carry no cross toolchain, and it is roadmap task T85a rather than a flag added here.
+macOS is the exception and is universal, because Apple's toolchain builds the other slice with no
+extra sysroot.
+
+**Nothing here is signed.** Authenticode and an Apple Developer ID are not purchased (ADR 0005),
+and the minisign signature that actually protects an update is T86's. Each script writes a
+`.sha256` beside its artifact, which is not the same thing and is not offered as one.
+
+Each script also opens what it just made and checks the five binaries are in it — four for the
+headless archives T105 added, which additionally refuse a webview they find. That is where this
+job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with no
+helper in it installs cleanly and leaves the machine one file short of being able to elevate.
+T103, ADR 0027: the desktop application under apps/desktop. Its frontend's build, tests and
+lint, then its own Cargo workspace's clippy and tests — on one OS, because nearly all of it is
+pure logic (MixDB's own CI made the same choice), and `build` is what proves the window links
+on all three. It gates `release` the way `bindings` does, and for the same reason: a type
+reshaped in `mixengine-proto` fails `tsc` here, in the same run — the check ADR 0011 gave up.
+
+`cargo audit` is here rather than on a schedule of its own: this workflow only runs when
+somebody asks, so an advisory published overnight turns red at the moment somebody is looking.
+Its documented ignores are `apps/desktop/src-tauri/.cargo/audit.toml`'s.
+
+### `window`
+
+**`build` is three jobs per leg since T171**: `window` and `binaries` are the two release builds,
+neither of which reads anything the other writes, so each gets a runner of its own and they run
+at the same time; `build` then only packages what they handed on. T170's C2 ran the same two
+builds side by side on one runner and was slower, because they split its CPUs — two runners is
+what that measurement left. docs/specs/2026-09-20-t171-a-build-that-fans-out-design.md.
+
+The three matrices are the same five rows and must stay so: `build` downloads by `matrix.os`.
+Actions has no YAML anchors, so the rows are written three times and the comments once, here.
+
+T85a, D2: the four binaries are built in a manylinux_2_28 container so the artifact links
+an older glibc than this runner ships, rather than whatever `ubuntu-latest` happens to
+carry this month. Same architecture as the runner in both rows below — never
+cross-compilation, only an older sysroot. The tag is pinned and dated for the reason every
+other toolchain in this product is: "whatever the runner has" is not reproducible.
+
+T103: the window is built on the host of these two legs, not in the container — the
+manylinux image is AlmaLinux 8, whose WebKitGTK is the 4.0 API on libsoup 2, and Tauri 2
+links 4.1 on libsoup 3. The container step does not care what its host runs, so the host
+is pinned to 22.04 to give the window the glibc 2.35 floor MixDB's own releases had.
+
+### `binaries`
+
+**Smoke test this leg's toolchain.** T85a, D8 wanted a toolchain that is broken on a new leg to fail in under a minute rather than
+sixty minutes into a packaging run, and it built `mix` on its own first to get that. Since
+T171 this job *is* the build and packaging is another job, so there is nothing long to fail
+ahead of. What is left worth asking is whether this runner's toolchain makes a binary that
+runs — asked of the one just built, rather than of a second compile of `mix` without
+`crt-static`, which cost 89 s.
+
+### `build`
+
+**Install the packaging tools this runner is missing.** Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
+quietly not built is a release that is quietly missing one.
+
+`desktop-file-utils` is appimagetool's, and it is a hard requirement rather than a nicety —
+measured on a machine without it, where the tool exits with "desktop-file-validate command is
+missing" before it looks at the AppDir at all.
+
+**Install the packaging tools this runner is missing.** **NSIS is not on the windows image**, measured: the first run of this job got through the
+release build and the portable zip and then stopped at "missing tools: makensis". `7z` and
+`unzip` *are* there, which is why only this one is installed.
+
+Chocolatey puts it at `C:\Program Files (x86)\NSIS`, which is the path
+`packaging/windows/build.sh` looks at first.
+
+**What an unsigned release shows SmartScreen.** T86a. What an unsigned release looks like to the machines that judge it, measured on the
+artifacts this leg just built: the Mark-of-the-Web and quarantine attributes SmartScreen and
+Gatekeeper actually read. Neither dialog can be seen from here — those two readings are a
+person's, on the draft release, and are release-checklist item 4.
+
+**`windows-latest` alone.** Mark-of-the-Web is not architecture-dependent, so the arm64 leg
+would re-measure one behaviour on a different file at twice the runner cost — the design, D12.
+
+`MIX_PROBE_INSTALL` is set here and in no other place. The readings behind it install for
+real: the NSIS installer into a temporary directory and this account's `PATH`, and on macOS
+the `.pkg` into `/usr/local/bin` and `/Library/PrivilegedHelperTools` as root, because there
+is no `-target` that isolates that. Both probes put the machine back as they found it, and
+the macOS one refuses outright if MixEngine is already installed on it.
+
+Each probe *fails* on a statement about our own artifact that came back wrong — an installer
+that started propagating a mark, a package that acquired a signature nobody bought — and
+records a *void reading* for anything this machine could not answer. So a red leg here is a
+change to the release story, and a green one that measured nothing says so in its report.
+
+### `release`
+
+T86, D4. Signing happens once, on one runner, and this is it. The five build legs are untouched:
+the secret would otherwise reach five jobs, and `minisign` has no official build for the arm64
+Windows runner.
+
+`needs` deliberately omits `system` and `bench`. Both run on the tag and a person reads them, but
+neither gates: `bench` is bimodal on ubuntu, and a release blocked by somebody else's bad minute
+is a release process nobody trusts. What gates is "the repository is consistent", "the code is
+correct on three operating systems", and "the artifacts were built".
+
+**Pack the published API contract.** T56. The API contract, packed from the committed tree — which is current because this job
+needs `bindings`, rather than because a second generation happened here. Before the signing
+step, like the feed below, because being in this directory is how a file gets signed;
+`feed.sh` does not pick it up, since it matches a payload by the
+`mixengine-<version>-<os>-…` shape and a helper by `mixengine-elevate-<version>-…`, and this
+is neither.
+
+**Assemble the draft release.** **A draft, and a person publishes it.** T88's feed lives at `releases/latest/download/`, and
+that URL must not move because somebody pushed a tag to see what would happen; T86a has to
+watch a real download's SmartScreen behaviour and needs a moment to be ready for it; and
+publishing to the world is not the same deliberate act as tagging.
+
+Notes are generated from the commits and are a starting point: the draft exists to be edited.
+The unsigned-binary warning is prepended ahead of the generated list rather than left to
+CHANGELOG.md, because a release page is what a downloader actually reads before running
+SmartScreen or Gatekeeper past its warning.
