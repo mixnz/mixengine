@@ -1499,24 +1499,7 @@ jobs:
       - name: What the uninstall suite left behind
         if: always()
         shell: bash
-        run: |
-          case "${{ runner.os }}" in
-            Windows)
-              reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v PendingFileRenameOperations || echo "nothing scheduled for the next restart"
-              ls -l "${ProgramFiles:-C:/Program Files}/MixEngine" 2>/dev/null || echo "no MixEngine directory under Program Files, which is the answer"
-              ;;
-            macOS)
-              ls -la /etc/resolver/ 2>/dev/null || echo "no /etc/resolver, which is the answer"
-              ls -l /Library/PrivilegedHelperTools/ | grep -i mixengine || echo "no helper, which is the answer"
-              ls -l /Library/Logs/MixEngine 2>/dev/null || echo "no audit log directory, which is the answer"
-              ;;
-            *)
-              ls -l /usr/local/libexec/mixengine 2>/dev/null || echo "no helper directory, which is the answer"
-              ls -l /var/log/mixengine 2>/dev/null || echo "no audit log directory, which is the answer"
-              ;;
-          esac
-          echo "--- the managed hosts block ---"
-          grep -c "BEGIN MixEngine" /etc/hosts 2>/dev/null || grep -c "BEGIN MixEngine" "${SystemRoot:-C:/Windows}/System32/drivers/etc/hosts" 2>/dev/null || echo "no block, which is the answer"
+        run: bash .github/scripts/system-uninstall-leftovers.sh
 
       - name: The audit log this job produced
         if: always()
@@ -2229,23 +2212,7 @@ jobs:
       # `.fingerprint/` arriving in this tar would be one.
       - name: Hand the binaries on
         shell: bash
-        run: |
-          set -euo pipefail
-          source packaging/common.sh
-          files=()
-          for dir in target/*/release; do
-            for binary in $(mix_headless_binaries); do
-              if [ -f "$dir/$binary$(mix_exe_suffix)" ]; then
-                files+=("$dir/$binary$(mix_exe_suffix)")
-              fi
-            done
-          done
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "nothing under target/*/release to hand on" >&2
-            exit 1
-          fi
-          tar -cf binaries.tar "${files[@]}"
-          tar -tvf binaries.tar
+        run: bash .github/scripts/binaries-hand-on.sh
 
       # One day: it exists to reach `build` in the same run, and nobody installs from it.
       - uses: actions/upload-artifact@v4
@@ -2481,30 +2448,7 @@ jobs:
         env:
           UPDATE_SECRET_KEY: ${{ secrets.UPDATE_SECRET_KEY }}
           UPDATE_PASSWORD: ${{ secrets.UPDATE_PASSWORD }}
-        run: |
-          source packaging/common.sh
-          version="$(mix_version)"
-          test "$GITHUB_REF_NAME" = "v$version" || {
-            echo "the tag is $GITHUB_REF_NAME and the workspace version is $version" >&2
-            exit 1
-          }
-
-          pinned="$(sed -n 's/^pub const PUBLIC_KEY: &str = "\(.*\)";$/\1/p' \
-            crates/mixengine-core/src/updates.rs)"
-          committed="$(sed -n '2p' packaging/updates.pub | tr -d '\r')"
-          test -n "$pinned" || {
-            echo "no PUBLIC_KEY in crates/mixengine-core/src/updates.rs" >&2
-            exit 1
-          }
-          test "$pinned" = "$committed" || {
-            echo "packaging/updates.pub is not the key this build pins" >&2
-            exit 1
-          }
-
-          test -n "$UPDATE_SECRET_KEY" || { echo "the UPDATE_SECRET_KEY secret is not set" >&2; exit 1; }
-          test -n "$UPDATE_PASSWORD" || { echo "the UPDATE_PASSWORD secret is not set" >&2; exit 1; }
-
-          echo "v$version, to be signed by $pinned"
+        run: bash .github/scripts/preflight.sh
 
   # T86, D4. Signing happens once, on one runner, and this is it. The five build legs are untouched:
   # the secret would otherwise reach five jobs, and `minisign` has no official build for the arm64
@@ -2609,26 +2553,7 @@ jobs:
       - name: Verify what was published, and not only what was signed
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          mkdir -p published
-          gh release download "$GITHUB_REF_NAME" --dir published --pattern '*'
-          pubkey="$(sed -n '2p' packaging/updates.pub | tr -d '\r')"
-          checked=0
-          for signature in published/*.minisig; do
-            artifact="${signature%.minisig}"
-            test -f "$artifact" || {
-              echo "$signature was published with no artifact beside it" >&2
-              exit 1
-            }
-            minisign -V -H -P "$pubkey" -m "$artifact" -q
-            checked=$((checked + 1))
-          done
-          test "$checked" -gt 0 || {
-            echo "the release carries no signatures" >&2
-            exit 1
-          }
-          echo "$checked published artifacts verify against $pubkey"
+        run: bash .github/scripts/release-verify.sh
 
       - name: Where it is
         run: |
