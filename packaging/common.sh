@@ -218,12 +218,16 @@ mix_in_container() {
   # PHP/Ruby builds, named here rather than reached for blind.
   uid="$(id -u)"
   gid="$(id -g)"
-  # `-e MIXENGINE_RELEASE` with no value passes the caller's through — T95. The two Linux legs build
-  # in here, and a variable that stopped at the container boundary would make exactly those two the
-  # artifacts that rename a user's home.
+  # `-e NAME` with no value passes the caller's through, and passes nothing when it is unset.
+  # `MIXENGINE_RELEASE` is T95's: the two Linux legs build in here, and a variable that stopped at
+  # the container boundary would make exactly those two the artifacts that rename a user's home. The
+  # two profile variables are T170h's: a branch's `build` leg builds without LTO, and a container
+  # that did not hear it would keep the slowest settings cargo has on exactly the legs it runs on.
   docker run --rm \
     -v "$MIX_ROOT:/work" -w /work \
     -e MIXENGINE_RELEASE \
+    -e CARGO_PROFILE_RELEASE_LTO \
+    -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS \
     "$container" \
     bash -c "
       set -euo pipefail

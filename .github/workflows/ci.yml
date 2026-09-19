@@ -2356,6 +2356,25 @@ jobs:
         shell: bash
         run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
 
+      # **A branch builds without LTO (T170h).** `[profile.release]`'s `lto = "thin"` and
+      # `codegen-units = 1` make the binary a user gets smaller and faster, and they are the slowest
+      # settings cargo has. A branch's `build` proves that every artifact packages, installs and is
+      # probed, which does not depend on LTO. A tag builds exactly as `Cargo.toml` says, and only a
+      # tag run feeds `release` — so an LTO-only bug is found by the tag run, which the release
+      # checklist requires to be green anyway. `MIXENGINE_RELEASE`, `crt-static` and the strip
+      # setting are untouched: they are what makes an artifact a release, and a branch still proves
+      # them. `packaging/common.sh` forwards both variables into the manylinux container.
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: actions/checkout@v4
 
       # Only the legs that build on the runner itself rather than inside a container: the two Linux

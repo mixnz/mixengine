@@ -149,7 +149,7 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | `bindings` | ubuntu | regenerates ts-rs bindings and fails if the committed output differs |
 | `docs` | ubuntu | builds the user handbook's site and fails if the committed command reference is not what `mix` prints |
 | `desktop` | ubuntu-22.04 | the desktop application: `npm run build`, `npm test`, `npm run lint`, then its own workspace's `clippy -D warnings`, `cargo test` and `cargo audit` |
-| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts; the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
+| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts — **on a branch built without LTO and with 16 codegen units, on a tag exactly as `[profile.release]` says** (T170h: a branch proves the packaging, which does not depend on LTO, and only a tag feeds `release`); the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
 | `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
 **Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
