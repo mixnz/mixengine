@@ -1,60 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 
 import Button from "../../../../components/Button";
-import Input, { Textarea } from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
-import Checkbox from "../../../../components/Checkbox";
-import Switch from "../../../../components/Switch";
 import { errorMessage } from "../../../../core/errors";
-import { PlusIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { SiteDetail } from "@mixengine/api";
-import type { RouteTarget, SiteKind, SiteRoute } from "@mixengine/api";
-import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
+import SiteFields, {
+  emptySiteDraft,
+  siteCreateFields,
+  siteDraftFromDetail,
+  siteUpdateFields,
+} from "../../components/SiteFields";
 import styles from "./SiteForm.module.css";
-
-type Kind = SiteKind["kind"];
-type Target = RouteTarget["target"];
-
-/**
- * Một route trong lúc đang sửa — T135.
- *
- * Phẳng, không phải union: người dùng đổi qua lại giữa các target và ô họ vừa gõ phải còn nguyên khi
- * họ đổi lại. `toApi` là chỗ nó hẹp lại đúng hình dạng daemon nhận.
- */
-interface RouteRow {
-  path: string;
-  target: Target;
-  upstream: string;
-  pool: string;
-  root: string;
-}
-
-/** Một `SiteRoute` từ daemon, mở rộng thành dòng đang sửa. */
-function fromApi(route: SiteRoute): RouteRow {
-  return {
-    path: route.path,
-    target: route.target,
-    upstream: route.target === "proxy" ? route.upstream : "",
-    pool: route.target === "php-fpm" ? (route.pool ?? "") : "",
-    root: route.target === "static" ? route.root : "",
-  };
-}
-
-/** Và ngược lại — chỉ gửi đúng field của target đang chọn. */
-function toApi(row: RouteRow): SiteRoute {
-  switch (row.target) {
-    case "proxy":
-      return { path: row.path, target: "proxy", upstream: row.upstream };
-    case "php-fpm":
-      return { path: row.path, target: "php-fpm", pool: row.pool === "" ? null : row.pool };
-    case "static":
-      return { path: row.path, target: "static", root: row.root };
-  }
-}
 
 interface Props {
   /** `undefined` = tạo mới. Có giá trị = sửa, khoá project lại. */
@@ -88,33 +47,7 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
   // lệ (không project nào chọn, hoặc project rỗng thật). Chỉ chặn Modal ở lần đầu; đổi project sau
   // khi Modal đã mở không đóng nó lại, xem chỗ dùng ngay trước `return`.
   const [projectRootReady, setProjectRootReady] = useState(editing);
-  const [domainsText, setDomainsText] = useState(editing ? initial.domains.join(", ") : "");
-  const [docRoot, setDocRoot] = useState(editing ? initial.site.doc_root : "");
-  const [kind, setKind] = useState<Kind>(editing ? initial.site.kind.kind : "php-fpm");
-  const [pool, setPool] = useState(
-    editing && initial.site.kind.kind === "php-fpm" ? (initial.site.kind.pool ?? "") : "",
-  );
-  const [upstream, setUpstream] = useState(
-    editing && initial.site.kind.kind === "reverse-proxy" ? initial.site.kind.upstream : "",
-  );
-  const [port, setPort] = useState(
-    editing && initial.site.kind.kind === "node-app" ? String(initial.site.kind.port) : "",
-  );
-  // T135. `?? []` vì một daemon build trước T135 không gửi trường này.
-  const [routes, setRoutes] = useState<RouteRow[]>(
-    editing ? (initial.site.routes ?? []).map(fromApi) : [],
-  );
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(
-    new Set(editing ? initial.services.map((s) => s.service) : []),
-  );
-  const [https, setHttps] = useState(editing ? initial.site.https : false);
-  /** T98. `?? false` vì một daemon build trước T98 không gửi trường này. Chỉ có nghĩa khi `https`
-   *  bật — daemon từ chối `true` bên cạnh `https: false`, nên UI không bao giờ gửi tổ hợp đó. */
-  const [httpsRedirect, setHttpsRedirect] = useState(
-    editing ? (initial.site.https_redirect ?? false) : false,
-  );
-  const [acceptRiskyTld, setAcceptRiskyTld] = useState(false);
-  const [enabled, setEnabled] = useState(editing ? initial.site.state === "enabled" : true);
+  const [draft, setDraft] = useState(() => (editing ? siteDraftFromDetail(initial) : emptySiteDraft()));
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -162,8 +95,6 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
     };
   }, [editing, project]);
 
-  const domains = parseDomains(domainsText);
-  const needsRiskyTldConsent = domains.some((d) => d.endsWith(".local"));
   const noProjects = !editing && projectNames.length === 0;
 
   // Chưa đủ dữ liệu để biết hình dạng cuối cùng của form — chưa mở Modal. Không chờ thì danh sách
@@ -176,84 +107,14 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
   // còn tốt hơn một cái giật hình sau khi đã mở.
   if (!listsReady || !projectRootReady) return null;
 
-  function toggleService(id: string) {
-    setSelectedServices((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function updateRoute(index: number, change: Partial<RouteRow>) {
-    setRoutes((current) =>
-      current.map((route, at) => (at === index ? { ...route, ...change } : route)),
-    );
-  }
-
-  function kindPayload(): SiteKind {
-    switch (kind) {
-      case "php-fpm":
-        return { kind: "php-fpm", pool: pool === "" ? null : pool };
-      case "static":
-        return { kind: "static" };
-      case "reverse-proxy":
-        return { kind: "reverse-proxy", upstream };
-      case "node-app":
-        return { kind: "node-app", port: Number(port) };
-    }
-  }
-
-  /**
-   * Dialog luôn trả một đường dẫn tuyệt đối — cắt bỏ phần project root trước khi lưu vào state, vì
-   * đó là hình dạng thật `SiteSummary.doc_root` giữ ("Relative to the project's root, as stored").
-   * Không cắt thì ô này hiện tuyệt đối ngay sau khi chọn nhưng lại hiện phần còn lại sau khi lưu
-   * rồi mở lại — hai lần hiện khác nhau cho cùng một site.
-   *
-   * `defaultPath` mở sẵn đúng chỗ đang chọn (root, hoặc root/doc_root hiện tại) để bấm Browse là
-   * đi thẳng vào project, không phải mò lại từ đầu ổ đĩa.
-   */
-  async function browseDocRoot() {
-    const picked = await openDialog({
-      directory: true,
-      multiple: false,
-      defaultPath: projectRoot === "" ? undefined : joinDocRoot(projectRoot, docRoot),
-    });
-    if (typeof picked !== "string") return;
-    setDocRoot(projectRoot === "" ? picked : relativeToRoot(projectRoot, picked));
-  }
-
   async function submit() {
     setSaving(true);
     setError("");
     try {
       if (editing) {
-        await api.siteUpdate({
-          site: { domain: initial.site.domain },
-          domains,
-          doc_root: docRoot,
-          kind: kindPayload(),
-          services: [...selectedServices],
-          routes: routes.map(toApi),
-          https,
-          https_redirect: https && httpsRedirect,
-          state: enabled ? "enabled" : "disabled",
-          accept_risky_tld: acceptRiskyTld,
-        });
+        await api.siteUpdate({ site: { domain: initial.site.domain }, ...siteUpdateFields(draft) });
       } else {
-        await api.siteCreate({
-          project: { name: project },
-          domains: domains.length > 0 ? domains : null,
-          doc_root: docRoot === "" ? null : docRoot,
-          kind: kindPayload(),
-          services: [...selectedServices].length > 0 ? [...selectedServices] : null,
-          // `null` chứ không phải `[]`: không khai gì thì để `site.create` rơi xuống
-          // `[[site.routes]]` trong mixengine.toml, đúng như `kind` và `doc_root`.
-          routes: routes.length > 0 ? routes.map(toApi) : null,
-          https,
-          https_redirect: https && httpsRedirect,
-          accept_risky_tld: acceptRiskyTld,
-        });
+        await api.siteCreate({ project: { name: project }, ...siteCreateFields(draft) });
       }
       onSaved();
     } catch (e) {
@@ -295,267 +156,14 @@ export default function SiteForm({ initial, defaultProject, onCancel, onSaved }:
               </label>
             )}
 
-            <label className={styles.field}>
-              {t("mixengine.sites.form.domains")}
-              <Textarea
-                mono
-                maxRows={6}
-                value={domainsText}
-                disabled={saving}
-                onChange={(e) => setDomainsText(e.target.value)}
-                placeholder={t("mixengine.sites.form.domainsPlaceholder")}
-              />
-            </label>
-
-            {needsRiskyTldConsent && (
-              <Checkbox
-                className={styles.checkbox}
-                label={t("mixengine.sites.form.acceptRiskyTld")}
-                checked={acceptRiskyTld}
-                disabled={saving}
-                onChange={(e) => setAcceptRiskyTld(e.target.checked)}
-              />
-            )}
-
-            <label className={styles.field}>
-              {t("mixengine.sites.form.docRoot")}
-              <div className={styles.docRoot}>
-                <Input
-                  mono
-                  value={docRoot}
-                  disabled={saving}
-                  onChange={(e) => setDocRoot(e.target.value)}
-                />
-                <Button onClick={() => void browseDocRoot()} disabled={saving}>
-                  {t("common.browse")}
-                </Button>
-              </div>
-              {/* Ô trên chỉ giữ phần còn lại sau root (đúng cái daemon lưu) — dòng này là chỗ
-                  duy nhất người dùng thấy root của project và đường dẫn đầy đủ thật sự là gì.
-                  `projectRoot` đã chắc chắn có giá trị cuối cùng trước khi Modal này được mở (xem
-                  `listsReady`/`projectRootReady` phía trên), nên render có điều kiện ở đây không
-                  còn đổi chiều cao dialog sau khi nó đã mở. */}
-              {projectRoot !== "" && (
-                <p className={styles.hint}>
-                  {t("mixengine.sites.form.docRootFull", {
-                    path: joinDocRoot(projectRoot, docRoot),
-                  })}
-                </p>
-              )}
-            </label>
-
-            {/* The kind beside the one field that kind needs; `static` needs none and has the row. */}
-            <div className={styles.pair}>
-              <label className={styles.field}>
-                {t("mixengine.sites.form.kind")}
-                <Select
-                  value={kind}
-                  disabled={saving}
-                  onChange={(value) => setKind(value)}
-                  options={[
-                    { value: "php-fpm", label: "php-fpm" },
-                    { value: "static", label: "static" },
-                    { value: "reverse-proxy", label: "reverse-proxy" },
-                    { value: "node-app", label: "node-app" },
-                  ]}
-                />
-              </label>
-
-              {kind === "php-fpm" && (
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.pool")}
-                  <Select
-                    value={pool}
-                    disabled={saving}
-                    onChange={setPool}
-                    placeholder={t("mixengine.sites.form.poolAuto")}
-                    options={[
-                      { value: "", label: t("mixengine.sites.form.poolAuto") },
-                      ...serviceIds
-                        .filter((id) => id.startsWith("php-fpm@"))
-                        .map((id) => ({ value: id, label: id })),
-                    ]}
-                  />
-                </label>
-              )}
-
-              {kind === "reverse-proxy" && (
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.upstream")}
-                  <Input
-                    mono
-                    value={upstream}
-                    disabled={saving}
-                    onChange={(e) => setUpstream(e.target.value)}
-                    placeholder="http://127.0.0.1:3000"
-                  />
-                </label>
-              )}
-
-              {kind === "node-app" && (
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.port")}
-                  <Input
-                    type="number"
-                    value={port}
-                    disabled={saving}
-                    onChange={(e) => setPort(e.target.value)}
-                  />
-                </label>
-              )}
-            </div>
-
-            {/* T135. Khối này không kiểm tra gì cả — đường dẫn sai quay về bằng đúng câu daemon
-                nói, giống mọi thứ khác trong form này. */}
-            <div className={styles.field}>
-              {t("mixengine.sites.form.routes")}
-              <p className={styles.hint}>{t("mixengine.sites.form.routesHint")}</p>
-
-              {routes.length === 0 ? (
-                <p className={styles.hint}>{t("mixengine.sites.form.routesEmpty")}</p>
-              ) : (
-                <div className={styles.routeList}>
-                  {routes.map((route, index) => (
-                    <div key={index} className={styles.route}>
-                      <Input
-                        value={route.path}
-                        disabled={saving}
-                        placeholder="/api"
-                        aria-label={t("mixengine.sites.form.routePath")}
-                        onChange={(e) => updateRoute(index, { path: e.target.value })}
-                      />
-                      <Select
-                        value={route.target}
-                        disabled={saving}
-                        onChange={(value) => updateRoute(index, { target: value as Target })}
-                        options={[
-                          { value: "proxy", label: "proxy" },
-                          { value: "php-fpm", label: "php-fpm" },
-                          { value: "static", label: "static" },
-                        ]}
-                      />
-                      {route.target === "proxy" && (
-                        <Input
-                          value={route.upstream}
-                          disabled={saving}
-                          placeholder="http://127.0.0.1:3003/xyz"
-                          aria-label={t("mixengine.sites.form.routeUpstream")}
-                          onChange={(e) => updateRoute(index, { upstream: e.target.value })}
-                        />
-                      )}
-                      {route.target === "php-fpm" && (
-                        <Select
-                          value={route.pool}
-                          disabled={saving}
-                          onChange={(value) => updateRoute(index, { pool: value })}
-                          placeholder={t("mixengine.sites.form.poolAuto")}
-                          options={[
-                            { value: "", label: t("mixengine.sites.form.poolAuto") },
-                            ...serviceIds
-                              .filter((id) => id.startsWith("php-fpm@"))
-                              .map((id) => ({ value: id, label: id })),
-                          ]}
-                        />
-                      )}
-                      {route.target === "static" && (
-                        <Input
-                          value={route.root}
-                          disabled={saving}
-                          placeholder="dist"
-                          aria-label={t("mixengine.sites.form.routeRoot")}
-                          onChange={(e) => updateRoute(index, { root: e.target.value })}
-                        />
-                      )}
-                      <Button
-                        variant="danger"
-                        disabled={saving}
-                        aria-label={t("mixengine.sites.form.routesRemove")}
-                        onClick={() =>
-                          setRoutes((current) => current.filter((_, at) => at !== index))
-                        }
-                      >
-                        {t("common.delete")}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <Button
-                className={styles.addRoute}
-                disabled={saving}
-                onClick={() =>
-                  setRoutes((current) => [
-                    ...current,
-                    { path: "", target: "proxy", upstream: "", pool: "", root: "" },
-                  ])
-                }
-              >
-                <PlusIcon size={14} />
-                {t("mixengine.sites.form.routesAdd")}
-              </Button>
-            </div>
-
-            <div className={styles.field}>
-              <span className={styles.fieldHead}>
-                {t("mixengine.sites.form.services")}
-                <span className={styles.count}>
-                  {t("mixengine.sites.form.servicesSelected", {
-                    count: selectedServices.size,
-                    total: serviceIds.length,
-                  })}
-                </span>
-              </span>
-              <div className={styles.serviceList}>
-                {serviceIds.map((id) => (
-                  <Checkbox
-                    key={id}
-                    className={styles.checkbox}
-                    label={id}
-                    checked={selectedServices.has(id)}
-                    disabled={saving}
-                    onChange={() => toggleService(id)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Settings that take effect as the site is saved, as switch rows in one inset panel. */}
-            <div className={styles.toggles}>
-              <div className={styles.toggle}>
-                <span id="site-form-https">{t("mixengine.sites.form.https")}</span>
-                <Switch
-                  aria-labelledby="site-form-https"
-                  checked={https}
-                  disabled={saving}
-                  onChange={(next) => {
-                    setHttps(next);
-                    // Bỏ HTTPS là bỏ luôn redirect: không có địa chỉ HTTPS nào để chuyển tới.
-                    if (!next) setHttpsRedirect(false);
-                  }}
-                />
-              </div>
-              <div className={https ? styles.toggle : `${styles.toggle} ${styles.toggleOff}`}>
-                <span id="site-form-redirect">{t("mixengine.sites.form.httpsRedirect")}</span>
-                <Switch
-                  aria-labelledby="site-form-redirect"
-                  checked={https && httpsRedirect}
-                  disabled={saving || !https}
-                  onChange={setHttpsRedirect}
-                />
-              </div>
-              {editing && (
-                <div className={styles.toggle}>
-                  <span id="site-form-enabled">{t("mixengine.sites.form.enabled")}</span>
-                  <Switch
-                    aria-labelledby="site-form-enabled"
-                    checked={enabled}
-                    disabled={saving}
-                    onChange={setEnabled}
-                  />
-                </div>
-              )}
-            </div>
+            <SiteFields
+              value={draft}
+              onChange={setDraft}
+              serviceIds={serviceIds}
+              projectRoot={projectRoot}
+              disabled={saving}
+              showEnabled={editing}
+            />
           </div>
 
           {error !== "" && (

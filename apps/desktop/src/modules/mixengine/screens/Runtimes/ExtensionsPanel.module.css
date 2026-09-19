@@ -46,43 +46,6 @@ td > .panel {
   }
 }
 
-.tile {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  height: 46px;
-  padding: 0 10px 0 12px;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-bg);
-  cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.tile:hover {
-  border-color: var(--border-hover);
-}
-
-.tileName {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  color: var(--text);
-}
-
-.off {
-  background: var(--surface-sunken);
-}
-
-.off .tileName {
-  color: var(--text-muted);
-}
-
 .builtInTitle {
   display: inline-flex;
   align-items: center;

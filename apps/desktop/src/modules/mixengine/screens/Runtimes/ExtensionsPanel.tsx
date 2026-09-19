@@ -5,7 +5,7 @@ import EmptyState from "../../../../components/EmptyState";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import Input from "../../../../components/Input";
 import SegmentedControl from "../../../../components/SegmentedControl";
-import Switch from "../../../../components/Switch";
+import SwitchTile from "../../../../components/SwitchTile";
 import { errorMessage } from "../../../../core/errors";
 import { LockIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
@@ -138,24 +138,17 @@ export default function ExtensionsPanel({
           <EmptyState title={t("mixengine.runtimes.extensions.noMatches")} />
         ) : (
           <ul className={styles.grid}>
-            {shown.map((ext) => {
-              const id = `php-ext-${target.version}-${ext.name}`;
-              return (
-                <li key={ext.name}>
-                  {/* The whole tile is the switch's label, so a click anywhere on it flips it. */}
-                  <label htmlFor={id} className={ext.enabled ? styles.tile : `${styles.tile} ${styles.off}`}>
-                    <span className={styles.tileName}>{ext.name}</span>
-                    <Switch
-                      small
-                      id={id}
-                      checked={ext.enabled}
-                      disabled={busy === ext.name}
-                      onChange={(next) => void toggle(ext.name, next)}
-                    />
-                  </label>
-                </li>
-              );
-            })}
+            {shown.map((ext) => (
+              <li key={ext.name}>
+                <SwitchTile
+                  mono
+                  label={ext.name}
+                  checked={ext.enabled}
+                  disabled={busy === ext.name}
+                  onChange={(next) => void toggle(ext.name, next)}
+                />
+              </li>
+            ))}
           </ul>
         )}
       </Card>

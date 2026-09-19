@@ -438,6 +438,7 @@ export default {
         https: "HTTPS",
         httpsRedirect: "Redirect HTTP to HTTPS",
         enabled: "Enabled",
+        options: "Options",
         saving: "Saving…",
       },
       share: {

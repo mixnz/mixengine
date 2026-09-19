@@ -7,14 +7,14 @@ import ErrorBanner from "../../../../components/ErrorBanner";
 import MonogramBadge from "../../../../components/MonogramBadge";
 import PageHeader from "../../../../components/PageHeader";
 import StatusPill, { type StatusTone } from "../../../../components/StatusPill";
-import { PlusIcon, TrashIcon } from "../../../../icons";
+import { PlayIcon, PlusIcon, ReloadIcon, StopIcon, TrashIcon } from "../../../../icons";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { ServiceCreation, ServiceSummary, StoppedBy } from "@mixengine/api";
 import { movesARow, needsResync } from "../../daemonState";
 import { subscribeDaemonWatch } from "../../daemonWatch";
-import { serviceStateKey, serviceStateTone } from "../../serviceStateLabel";
+import { serviceStateKey, serviceStateTone, toggleMode } from "../../serviceStateLabel";
 import { afterRefusal } from "../../forceStep";
 import ServiceForm from "../../components/ServiceForm";
 import AutostartPanel from "./AutostartPanel";
@@ -22,6 +22,13 @@ import DatabasePanel from "./DatabasePanel";
 import IdlePanel from "./IdlePanel";
 import LimitsPanel from "./LimitsPanel";
 import styles from "./ServicesDetail.module.css";
+
+/* The same explicit table as the Dashboard's: a key built by string concatenation is one nobody can grep. */
+const PENDING_LABEL = {
+  start: "mixengine.dashboard.starting",
+  stop: "mixengine.dashboard.stopping",
+  restart: "mixengine.dashboard.restarting",
+} as const;
 
 /** `mysql@main` → `mysql`; an id with no instance is its own name. */
 function serviceName(id: string): string {
@@ -63,6 +70,8 @@ export default function ServicesDetail({ active }: { active: boolean }) {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [forceHint, setForceHint] = useState<string | null>(null);
   const [error, setError] = useState("");
+  /** The action in flight on a service, keyed by id — so a click on one service does not lock another. */
+  const [busy, setBusy] = useState<Record<string, api.ServiceAction>>({});
   const { t } = useTranslation();
 
   const reload = useCallback(async () => {
@@ -126,6 +135,24 @@ export default function ServicesDetail({ active }: { active: boolean }) {
     })} ${holder}`;
   }
 
+  /** Send one action, then read again: the stream is best-effort, never the only way to learn state. */
+  async function act(id: string, action: api.ServiceAction) {
+    setError("");
+    setBusy((current) => ({ ...current, [id]: action }));
+    try {
+      await api.serviceAction(id, action);
+    } catch (e) {
+      setError(errorMessage(t, e));
+    } finally {
+      setBusy((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+    }
+    await reload();
+  }
+
   async function deleteService(id: string, force: boolean) {
     setError("");
     try {
@@ -155,6 +182,8 @@ export default function ServicesDetail({ active }: { active: boolean }) {
   }
 
   const current = services.find((service) => service.id === selected);
+  const pending = selected === null ? undefined : busy[selected];
+  const mode = toggleMode(current?.state, pending !== undefined);
 
   return (
     <div className={styles.screen}>
@@ -205,29 +234,54 @@ export default function ServicesDetail({ active }: { active: boolean }) {
               leading={<MonogramBadge name={selected} size={50} />}
               title={selected}
               badges={
+                // State, role and port on the title's own line: one glance reads the whole service.
                 current !== undefined && (
-                  <StatusPill tone={pillTone(current.state, current.stopped_by)}>
-                    {stateLabel(current.state, current.stopped_by)}
-                  </StatusPill>
-                )
-              }
-              meta={
-                current !== undefined && (
-                  <span className={styles.meta}>
+                  <>
+                    <StatusPill tone={pillTone(current.state, current.stopped_by)} pulse={mode === "moving"}>
+                      {pending !== undefined ? t(PENDING_LABEL[pending]) : stateLabel(current.state, current.stopped_by)}
+                    </StatusPill>
                     {current.role?.role === "front_end" && (
                       <span className={styles.tag}>{t("mixengine.servicesDetail.frontEnd")}</span>
                     )}
                     {current.port != null && (
                       <span className={styles.port}>{t("mixengine.servicesDetail.port", { port: current.port })}</span>
                     )}
-                  </span>
+                  </>
                 )
               }
               actions={
-                <Button variant="danger" onClick={() => setDeleteTarget(selected)}>
-                  <TrashIcon size={14} />
-                  {t("mixengine.servicesDetail.delete")}
-                </Button>
+                <>
+                  <Button
+                    variant="positive"
+                    busy={pending === "start" ? t(PENDING_LABEL.start) : undefined}
+                    disabled={current === undefined || mode !== "down"}
+                    onClick={() => void act(selected, "start")}
+                  >
+                    <PlayIcon size={13} />
+                    {t("mixengine.dashboard.start")}
+                  </Button>
+                  <Button
+                    className={styles.stop}
+                    busy={pending === "stop" ? t(PENDING_LABEL.stop) : undefined}
+                    disabled={current === undefined || mode !== "up"}
+                    onClick={() => void act(selected, "stop")}
+                  >
+                    <StopIcon size={13} className={styles.stopMark} />
+                    {t("mixengine.dashboard.stop")}
+                  </Button>
+                  <Button
+                    busy={pending === "restart" ? t(PENDING_LABEL.restart) : undefined}
+                    disabled={current === undefined || mode !== "up"}
+                    onClick={() => void act(selected, "restart")}
+                  >
+                    <ReloadIcon size={14} />
+                    {t("mixengine.dashboard.restart")}
+                  </Button>
+                  <Button variant="danger" onClick={() => setDeleteTarget(selected)}>
+                    <TrashIcon size={14} />
+                    {t("mixengine.servicesDetail.delete")}
+                  </Button>
+                </>
               }
             />
             {moved !== null && moved.service.id === selected && (

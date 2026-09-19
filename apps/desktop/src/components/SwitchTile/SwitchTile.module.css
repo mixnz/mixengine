@@ -1,0 +1,49 @@
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 46px;
+  padding: 0 10px 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-bg);
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.tile:hover {
+  border-color: var(--border-hover);
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.off {
+  background: var(--surface-sunken);
+}
+
+.off .name {
+  color: var(--text-muted);
+}
+
+/* The switch inside is greyed on its own; the tile stops inviting a click. */
+.disabled {
+  cursor: default;
+}
+
+.disabled:hover {
+  border-color: var(--border);
+}

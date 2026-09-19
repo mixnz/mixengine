@@ -73,6 +73,7 @@
 - A service MixEngine paused shows as *Resting* in grey on the Dashboard and Services, not as a red
   *Stopped*.
 - A PHP site whose pool is still starting shows a page that reloads itself, instead of a bare 502.
+- MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
 - MixLab is set in Geist, with a new colour scheme for its light and dark themes and mint as the
@@ -94,6 +95,8 @@
   where you had turned it off.
 - The project form no longer shows *keep warm*; it only matters with *Save battery* on, and
   `mix project keep-warm` still sets it.
+- Creating a site from MixLab's project form offers everything the site form does, routes included,
+  and both pick a site's services with switches.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

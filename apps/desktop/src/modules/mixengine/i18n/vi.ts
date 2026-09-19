@@ -433,6 +433,7 @@ const vi: typeof en = {
         https: "HTTPS",
         httpsRedirect: "Tự chuyển HTTP sang HTTPS",
         enabled: "Bật",
+        options: "Tuỳ chọn",
         saving: "Đang lưu…",
       },
       share: {

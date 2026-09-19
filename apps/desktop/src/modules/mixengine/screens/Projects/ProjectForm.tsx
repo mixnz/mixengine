@@ -5,7 +5,6 @@ import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
 import Modal from "../../../../components/Modal";
 import Select from "../../../../components/Select";
-import Checkbox from "../../../../components/Checkbox";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { ChevronRightIcon } from "../../../../icons";
@@ -13,9 +12,8 @@ import * as api from "../../api";
 import type { ProjectDetail } from "@mixengine/api";
 import type { RuntimeKind } from "@mixengine/api";
 import type { RuntimeSummary } from "@mixengine/api";
-import type { SiteKind } from "@mixengine/api";
 import { installedVersions } from "../../runtimeState";
-import { joinDocRoot, parseDomains, relativeToRoot } from "../../siteState";
+import SiteFields, { draftDomains, emptySiteDraft, siteCreateFields } from "../../components/SiteFields";
 import styles from "./ProjectForm.module.css";
 
 // Every kind the contract knows, in the order the form shows them. `composer` arrived with
@@ -24,7 +22,6 @@ import styles from "./ProjectForm.module.css";
 // `go` arrived with T27d, before `composer`, in the order the contract's own list keeps; `java`
 // arrived with T27e, after `go`.
 const RUNTIME_KINDS: readonly RuntimeKind[] = ["php", "node", "python", "ruby", "go", "java", "composer"];
-type Kind = SiteKind["kind"];
 
 /**
  * Một khối gấp/mở dựng tay — thay cho `<details>` gốc vì hai lý do:
@@ -102,20 +99,9 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
 
   // "Tạo nhanh site" — chỉ hiện lúc tạo project mới (xem JSX). Bỏ trống domains là bỏ qua hẳn bước
   // này, không phải một site rỗng gửi lên daemon.
-  const [siteDomainsText, setSiteDomainsText] = useState("");
   // Root của site này luôn là `root` (field ngay phía trên) — cùng project, biết ngay từ đầu, không
-  // cần đọc lại như `SiteForm` phải làm khi project là một lựa chọn tách rời. Giá trị gửi lên daemon
-  // vẫn là phần còn lại một mình, đúng `SiteSummary.doc_root`.
-  const [siteDocRoot, setSiteDocRoot] = useState("");
-  const [siteKind, setSiteKind] = useState<Kind>("php-fpm");
-  const [sitePool, setSitePool] = useState("");
-  const [siteUpstream, setSiteUpstream] = useState("");
-  const [sitePort, setSitePort] = useState("");
-  const [siteHttps, setSiteHttps] = useState(false);
-  /** T98 — cùng luật `SiteForm`: chỉ có nghĩa khi `siteHttps` bật, daemon từ chối tổ hợp ngược. */
-  const [siteHttpsRedirect, setSiteHttpsRedirect] = useState(false);
-  const [siteAcceptRiskyTld, setSiteAcceptRiskyTld] = useState(false);
-  const [siteSelectedServices, setSiteSelectedServices] = useState<Set<string>>(new Set());
+  // cần đọc lại như `SiteForm` phải làm khi project là một lựa chọn tách rời.
+  const [siteDraft, setSiteDraft] = useState(emptySiteDraft);
   const [serviceIds, setServiceIds] = useState<string[]>([]);
 
   const [saving, setSaving] = useState(false);
@@ -164,27 +150,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
     if (typeof picked === "string") setRoot(picked);
   }
 
-  /** Cùng luật `SiteForm.browseDocRoot`: dialog trả tuyệt đối, cắt bỏ phần root trước khi lưu, mở
-   *  sẵn đúng chỗ đang chọn. */
-  async function browseSiteDocRoot() {
-    const picked = await openDialog({
-      directory: true,
-      multiple: false,
-      defaultPath: root === "" ? undefined : joinDocRoot(root, siteDocRoot),
-    });
-    if (typeof picked !== "string") return;
-    setSiteDocRoot(root === "" ? picked : relativeToRoot(root, picked));
-  }
-
-  function toggleSiteService(id: string) {
-    setSiteSelectedServices((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   function pinsPayload(): Partial<Record<RuntimeKind, string>> | undefined {
     const entries = RUNTIME_KINDS.filter((kind) => pins[kind].trim() !== "").map((kind) => [
       kind,
@@ -193,21 +158,7 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
     return entries.length > 0 ? Object.fromEntries(entries) : undefined;
   }
 
-  const siteDomains = parseDomains(siteDomainsText);
-  const siteNeedsRiskyTldConsent = siteDomains.some((d) => d.endsWith(".local"));
-
-  function siteKindPayload(): SiteKind {
-    switch (siteKind) {
-      case "php-fpm":
-        return { kind: "php-fpm", pool: sitePool === "" ? null : sitePool };
-      case "static":
-        return { kind: "static" };
-      case "reverse-proxy":
-        return { kind: "reverse-proxy", upstream: siteUpstream };
-      case "node-app":
-        return { kind: "node-app", port: Number(sitePort) };
-    }
-  }
+  const siteDomains = draftDomains(siteDraft);
 
   async function submit() {
     setSaving(true);
@@ -233,16 +184,7 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
       });
       if (siteDomains.length > 0) {
         try {
-          await api.siteCreate({
-            project: { name: created.project.name },
-            domains: siteDomains,
-            doc_root: siteDocRoot === "" ? null : siteDocRoot,
-            kind: siteKindPayload(),
-            services: siteSelectedServices.size > 0 ? [...siteSelectedServices] : null,
-            https: siteHttps,
-            https_redirect: siteHttps && siteHttpsRedirect,
-            accept_risky_tld: siteAcceptRiskyTld,
-          });
+          await api.siteCreate({ project: { name: created.project.name }, ...siteCreateFields(siteDraft) });
         } catch (e) {
           // Project đã lưu xong — đây là một cảnh báo về riêng cái site, không phải một lần lưu
           // thất bại. Đóng dialog vẫn đúng: mở lại nó chỉ để gõ lại y hệt phần project sẽ đụng
@@ -325,140 +267,12 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
                 site của nó (nếu có) đã sửa được riêng ở màn Sites. */}
             {!editing && (
               <Disclosure summary={t("mixengine.projects.form.quickSiteSummary")}>
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.domains")}
-                  <textarea
-                    className={styles.textarea}
-                    value={siteDomainsText}
-                    disabled={saving}
-                    onChange={(e) => setSiteDomainsText(e.target.value)}
-                    placeholder={t("mixengine.sites.form.domainsPlaceholder")}
-                  />
-                </label>
-
-                {siteNeedsRiskyTldConsent && (
-                  <Checkbox
-                    className={styles.checkbox}
-                    label={t("mixengine.sites.form.acceptRiskyTld")}
-                    checked={siteAcceptRiskyTld}
-                    disabled={saving}
-                    onChange={(e) => setSiteAcceptRiskyTld(e.target.checked)}
-                  />
-                )}
-
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.docRoot")}
-                  <div className={styles.rootRow}>
-                    <Input
-                      value={siteDocRoot}
-                      disabled={saving}
-                      onChange={(e) => setSiteDocRoot(e.target.value)}
-                    />
-                    <Button onClick={() => void browseSiteDocRoot()} disabled={saving}>
-                      {t("common.browse")}
-                    </Button>
-                  </div>
-                  {/* `root` luôn có sẵn (field ngay đầu form) — không cần chờ gì, không có lý do
-                      ẩn/hiện dòng này theo dữ liệu bất đồng bộ như `SiteForm` phải làm. */}
-                  {root !== "" && (
-                    <p className={styles.hint}>
-                      {t("mixengine.sites.form.docRootFull", {
-                        path: joinDocRoot(root, siteDocRoot),
-                      })}
-                    </p>
-                  )}
-                </label>
-
-                <label className={styles.field}>
-                  {t("mixengine.sites.form.kind")}
-                  <Select
-                    value={siteKind}
-                    disabled={saving}
-                    onChange={(value) => setSiteKind(value)}
-                    options={[
-                      { value: "php-fpm", label: "php-fpm" },
-                      { value: "static", label: "static" },
-                      { value: "reverse-proxy", label: "reverse-proxy" },
-                      { value: "node-app", label: "node-app" },
-                    ]}
-                  />
-                </label>
-
-                {siteKind === "php-fpm" && (
-                  <label className={styles.field}>
-                    {t("mixengine.sites.form.pool")}
-                    <Select
-                      value={sitePool}
-                      disabled={saving}
-                      onChange={setSitePool}
-                      placeholder={t("mixengine.sites.form.poolAuto")}
-                      options={[
-                        { value: "", label: t("mixengine.sites.form.poolAuto") },
-                        ...serviceIds
-                          .filter((id) => id.startsWith("php-fpm@"))
-                          .map((id) => ({ value: id, label: id })),
-                      ]}
-                    />
-                  </label>
-                )}
-
-                {siteKind === "reverse-proxy" && (
-                  <label className={styles.field}>
-                    {t("mixengine.sites.form.upstream")}
-                    <Input
-                      value={siteUpstream}
-                      disabled={saving}
-                      onChange={(e) => setSiteUpstream(e.target.value)}
-                      placeholder="http://127.0.0.1:3000"
-                    />
-                  </label>
-                )}
-
-                {siteKind === "node-app" && (
-                  <label className={styles.field}>
-                    {t("mixengine.sites.form.port")}
-                    <Input
-                      type="number"
-                      value={sitePort}
-                      disabled={saving}
-                      onChange={(e) => setSitePort(e.target.value)}
-                    />
-                  </label>
-                )}
-
-                <div className={styles.field}>
-                  {t("mixengine.sites.form.services")}
-                  <div className={styles.serviceList}>
-                    {serviceIds.map((id) => (
-                      <Checkbox
-                        key={id}
-                        className={styles.checkbox}
-                        label={id}
-                        checked={siteSelectedServices.has(id)}
-                        disabled={saving}
-                        onChange={() => toggleSiteService(id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <Checkbox
-                  className={styles.checkbox}
-                  label={t("mixengine.sites.form.https")}
-                  checked={siteHttps}
+                <SiteFields
+                  value={siteDraft}
+                  onChange={setSiteDraft}
+                  serviceIds={serviceIds}
+                  projectRoot={root}
                   disabled={saving}
-                  onChange={(e) => {
-                    setSiteHttps(e.target.checked);
-                    if (!e.target.checked) setSiteHttpsRedirect(false);
-                  }}
-                />
-
-                <Checkbox
-                  className={styles.checkbox}
-                  label={t("mixengine.sites.form.httpsRedirect")}
-                  checked={siteHttps && siteHttpsRedirect}
-                  disabled={saving || !siteHttps}
-                  onChange={(e) => setSiteHttpsRedirect(e.target.checked)}
                 />
               </Disclosure>
             )}

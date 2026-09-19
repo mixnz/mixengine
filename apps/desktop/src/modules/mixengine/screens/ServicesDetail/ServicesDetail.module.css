@@ -150,13 +150,6 @@
   overflow-y: auto;
 }
 
-.meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
 .tag {
   padding: 2px 8px;
   border-radius: var(--radius-xs);
@@ -164,6 +157,18 @@
   color: var(--accent-text);
   font-size: var(--text-xs);
   font-weight: 500;
+}
+
+/* Same as the Dashboard's Stop: a red mark, and red under the pointer — a warning before
+   stopping, not after. */
+.stopMark {
+  color: var(--danger);
+}
+
+.stop:hover:not(:disabled) {
+  background-color: rgb(var(--danger-rgb) / 0.14);
+  border-color: rgb(var(--danger-rgb) / 0.55);
+  color: var(--danger-text);
 }
 
 .port {
