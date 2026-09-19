@@ -44,6 +44,16 @@ export const IGNORED_FILES = new Set([
   'docs/decisions/0043-documentation-lives-under-docs.md',
 ]);
 
+// **A shipped migration is never read.** sqlx checksums the whole file, comments included, and every
+// user's database holds that checksum: T169 rewrote a path in the comments of two of them, and a
+// daemon on an existing home refused to start. A path in one of these is a record of when it was
+// written, not a link to keep current.
+const IGNORED_FILE_PATTERNS = [/^crates\/[^/]+\/migrations\/[^/]+\.sql$/];
+
+export function isIgnoredFile(file) {
+  return IGNORED_FILES.has(file) || IGNORED_FILE_PATTERNS.some((pattern) => pattern.test(file));
+}
+
 // A mention holding one of these is a pattern, not a path.
 const PLACEHOLDER = /YYYY|NNNN|\.\.\.\./;
 
@@ -199,7 +209,7 @@ function checkLayoutAndLinks(files) {
     if (/^\.claude\/.+\.md$/.test(file) && !/^\.claude\/(README\.md|commands\/.+|skills\/.+)$/.test(file)) {
       errors.push(`${file}: documentation lives under docs/, not .claude/ (ADR 0043)`);
     }
-    if (!isText(file) || IGNORED_FILES.has(file)) continue;
+    if (!isText(file) || isIgnoredFile(file)) continue;
     const raw = readFileSync(file, 'utf8');
     const isMarkdown = file.endsWith('.md');
     for (const target of linkTargets(isMarkdown ? stripCode(raw) : raw)) {

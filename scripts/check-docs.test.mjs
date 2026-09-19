@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseFrontMatter, checkSpecHeader, roadmapTicks, taskState, checkSpecAgainstRoadmap,
-  stripCode, linkTargets, targetPath, rootedMentions, renderSpecIndex,
+  stripCode, linkTargets, targetPath, rootedMentions, renderSpecIndex, isIgnoredFile,
 } from './check-docs.mjs';
 
 const specs = new Set(['2026-08-22-t40a-elevation-design.md']);
@@ -110,4 +110,12 @@ test('the index lists each spec with its task and status, escaping pipes', () =>
   assert.match(out, /superseded by \[2026-08-22-t40a-elevation-design\.md\]\(2026-08-22-t40a-elevation-design\.md\)/);
   assert.match(out, /\| superseded by ADR 0043 \|$/m);
   assert.ok(out.endsWith('\n'));
+});
+
+test('a shipped migration is never read: its bytes are a checksum every user database holds', () => {
+  assert.equal(isIgnoredFile('crates/mixengine-core/migrations/0001_initial.sql'), true);
+  assert.equal(isIgnoredFile('crates/mixengine-daemon/migrations/0002_x.sql'), true);
+  assert.equal(isIgnoredFile('crates/mixengine-core/src/store.rs'), false);
+  assert.equal(isIgnoredFile('docs/architecture/data-model.md'), false);
+  assert.equal(isIgnoredFile('scripts/check-docs.mjs'), true);
 });
