@@ -35,7 +35,7 @@ mod harness;
 use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use harness::{Home, json};
@@ -410,6 +410,28 @@ fn with_the_password(root: &Path, port: u16, user: &str, password: &str) -> Stri
     said
 }
 
+/// The archive every test in this suite installs, packed by the first test that asks for it.
+///
+/// Every test packs the same [`package`] directory into the same archive, and on Windows deflating
+/// a real server is the slowest thing this suite does (T170c). The tests run in parallel, so the
+/// others wait on the lock rather than packing a copy each.
+fn packed() -> Packed {
+    static PACKED: OnceLock<Packed> = OnceLock::new();
+
+    PACKED
+        .get_or_init(|| {
+            let packing = if cfg!(windows) {
+                Packing::Zip
+            } else {
+                Packing::TarZst
+            };
+            FakePackage::new(packing)
+                .directory(&package())
+                .build(&format!("mariadb-{VERSION}"))
+        })
+        .clone()
+}
+
 /// A home with a real MariaDB installed in it, a service created over it, and the port it will use.
 ///
 /// The archive is packed here out of the directory the CI step unpacked, served by a registry that
@@ -424,14 +446,7 @@ async fn created_as(service: &str) -> (Home, harness::Daemon, MockRegistry, Path
     let root = package();
     let port = free_port();
 
-    let packing = if cfg!(windows) {
-        Packing::Zip
-    } else {
-        Packing::TarZst
-    };
-    let packed = FakePackage::new(packing)
-        .directory(&root)
-        .build(&format!("mariadb-{VERSION}"));
+    let packed = packed();
 
     let registry = MockRegistry::start(&serde_json::json!({
         "schema": 1, "generated_at": "2026-08-19T06:55:12Z", "packages": []
@@ -868,14 +883,7 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
     // `created()`'s steps, with a daemon run from the fake install.
     let root = package();
     let port = free_port();
-    let packing = if cfg!(windows) {
-        Packing::Zip
-    } else {
-        Packing::TarZst
-    };
-    let packed = FakePackage::new(packing)
-        .directory(&root)
-        .build(&format!("mariadb-{VERSION}"));
+    let packed = packed();
     let registry = MockRegistry::start(&serde_json::json!({
         "schema": 1, "generated_at": "2026-08-19T06:55:12Z", "packages": []
     }))

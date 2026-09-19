@@ -395,3 +395,27 @@ lto = "thin"
 strip = "debuginfo"
 # `panic = "abort"` must never be set: the RPC layer catches a panic per request and returns
 # `internal` instead of taking every managed service down with it.
+
+# **The compressors and the hash run optimised even in a debug build (T170c).** The real-server
+# suites pack a distribution of several hundred megabytes into an archive, and the daemon unpacks and
+# hashes it again; at opt-level 0 that was most of what those suites did — MySQL spent 88 s before
+# its first install on Windows, against 14 s on macOS (run 35430523430). None of these crates is ever
+# stepped through in a debugger, and a release build is unaffected.
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.adler2]
+opt-level = 3
+[profile.dev.package.crc32fast]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.zip]
+opt-level = 3
+[profile.dev.package.zstd-sys]
+opt-level = 3
+[profile.dev.package.zstd-safe]
+opt-level = 3
+[profile.dev.package.ruzstd]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
