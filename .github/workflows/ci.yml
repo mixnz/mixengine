@@ -1856,7 +1856,7 @@ jobs:
     # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
     # runs every job whatever a dispatch might once have narrowed.
     if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bench' }}
-    name: bench (${{ matrix.os }})
+    name: bench (${{ matrix.os }}, ${{ matrix.group }})
     runs-on: ${{ matrix.os }}
     # Ninety rather than the thirty this job started with: M3 added a release build of the
     # daemon and the client, three archives to fetch, and a suite that starts three real servers
@@ -1868,7 +1868,15 @@ jobs:
       # are only comparable when they were all taken.
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # **Windows runs as two legs (T170j)**: its measurements alone took 13.5 minutes in run
+        # 35430523430, on top of an 11-minute release build. macOS and Linux measure in about 7 and
+        # stay one leg. A group is a set of measurements, and each leg builds only what its group
+        # needs; the fetches are shared, because Caddy is in both and all of them cost seconds.
+        include:
+          - { os: windows-latest, group: budgets }
+          - { os: windows-latest, group: footprint }
+          - { os: macos-latest, group: all }
+          - { os: ubuntu-latest, group: all }
     steps:
       # T170g: when this leg started, for the budget line at its end.
       - name: Start the clock
@@ -1885,8 +1893,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: bench
-          # See the note on `test`'s cache (T170a).
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          # See the note on `test`'s cache (T170a). The two Windows legs share one key, so one of
+          # them writes it (T170j).
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.group != 'footprint' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
@@ -1965,6 +1974,7 @@ jobs:
       # before that program learned `--version`, and a benchmark that measures a binary nobody
       # rebuilt is a benchmark measuring last month.
       - name: Build the program the shim is measured against
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
         env:
           CARGO_NET_OFFLINE: "true"
         run: cargo build --release -p mixengine-testkit --bin fakeservice --locked --offline
@@ -1982,6 +1992,7 @@ jobs:
       # for the same difference on the same machine. `--nocapture` because the numbers are the
       # output, and a passing test's stdout is otherwise swallowed.
       - name: Performance budgets
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
         env:
           CARGO_NET_OFFLINE: "true"
         run: >
@@ -2005,6 +2016,7 @@ jobs:
       # first run of this budget was skipped on that runner for exactly that reason, which is a
       # measurement lost to somebody else's bad minute.
       - name: Idle footprint
+        if: contains(fromJSON('["footprint","all"]'), matrix.group)
         timeout-minutes: 10
         env:
           CARGO_NET_OFFLINE: "true"
@@ -2029,6 +2041,7 @@ jobs:
       # to wake (T70's D8). An idle policy is a whole number of minutes, so the wait is about ninety
       # seconds and is paid once for all three rounds.
       - name: Cold path
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
         timeout-minutes: 15
         env:
           CARGO_NET_OFFLINE: "true"
@@ -2053,7 +2066,7 @@ jobs:
       # root password and refuses a machine that cannot hold one. Windows and macOS have one in the
       # OS; Linux gets the same `dbus-run-session` wrapper the M3 step below uses.
       - name: What the tuned defaults save
-        if: runner.os != 'Linux'
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
         timeout-minutes: 20
         env:
           CARGO_NET_OFFLINE: "true"
@@ -2062,7 +2075,7 @@ jobs:
           -- --ignored --nocapture
 
       - name: What the tuned defaults save
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
         timeout-minutes: 20
         env:
           CARGO_NET_OFFLINE: "true"
@@ -2085,7 +2098,7 @@ jobs:
       # Windows and macOS run it directly; Linux wraps it in a session bus with a `gnome-keyring` on
       # it, because the MariaDB bootstrap has a password to store and refuses a machine that cannot.
       - name: M3 — three services, warm
-        if: runner.os != 'Linux'
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
         timeout-minutes: 20
         env:
           CARGO_NET_OFFLINE: "true"
@@ -2094,7 +2107,7 @@ jobs:
           -- --ignored --nocapture
 
       - name: M3 — three services, warm
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
         timeout-minutes: 20
         env:
           CARGO_NET_OFFLINE: "true"
