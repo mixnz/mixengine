@@ -211,9 +211,12 @@ opening MixLab again.
   owner.** If it has none, there is no tray and no close-to-tray (D6). The login switch (D7) is still
   offered but says *"Your desktop shows no tray icons. MixLab will open its window at login instead."*,
   and a `--hidden` start then shows the window.
-- **The runtime library.** `libayatana-appindicator3-1` becomes a runtime dependency of the `.deb` and
-  the `.rpm`. The AppImage uses the system's copy, as ADR 0028 decided for WebKitGTK, and `AppRun`
-  names the package when it is missing.
+- **The runtime library** is a **weak** dependency: `Recommends:` in the `.deb` and the `.rpm`,
+  which apt, dnf and zypper install by default. It is not `Depends:`, because MixLab runs without it
+  and only the icon is lost; a hard dependency would refuse the whole window on a distribution that
+  does not package it. The AppImage uses the system's copy, as ADR 0028 decided for WebKitGTK, and
+  `AppRun` prints one line naming the package when `ldconfig` cannot find it, then starts the window
+  anyway.
 - **Measured (from the source, 2026-09-19): a missing library is a panic, not an error.**
   - `libappindicator-sys` 0.9.0, the version `tray-icon` 0.24.2 pulls in, loads the library in a
     `Lazy` static. It tries `libayatana-appindicator3.so.1`, then `libappindicator3.so.1` (and, behind

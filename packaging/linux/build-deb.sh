@@ -85,6 +85,11 @@ install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" \
 # enough to carry only 4.0 cannot run this window at all, so a package that refuses to install there
 # says the true thing at the moment a person can still act on it. The headless archive
 # `build-tarball.sh` publishes is what that person downloads instead, and it declares nothing.
+#
+# **AppIndicator is `Recommends:`, not `Depends:`** — T168d. It is what draws MixEngine's tray icon,
+# and MixLab loads it at run time and goes without a tray when it is missing; nothing else stops
+# working. apt installs recommends by default, so the ordinary install gets the icon, and a machine
+# without the package still gets the window.
 cat >"$root/DEBIAN/control" <<EOF
 Package: mixengine
 Version: $version
@@ -92,6 +97,7 @@ Section: devel
 Priority: optional
 Architecture: $deb_arch
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0
+Recommends: libayatana-appindicator3-1 | libappindicator3-1
 Maintainer: MixEngine <noreply@mixengine.dev>
 Homepage: https://github.com/mixnz/mixengine
 Description: A local web development environment
@@ -133,6 +139,15 @@ case "$depends" in
   *libwebkit2gtk-4.1-0*) ;;
   *)
     echo "the package declares Depends: $depends, which does not name WebKitGTK 4.1" >&2
+    exit 1
+    ;;
+esac
+
+recommends="$(dpkg-deb -f "$dist/$name" Recommends)"
+case "$recommends" in
+  *appindicator3*) ;;
+  *)
+    echo "the package declares Recommends: $recommends, which does not name AppIndicator" >&2
     exit 1
     ;;
 esac

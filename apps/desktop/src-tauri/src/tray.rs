@@ -16,8 +16,7 @@ use std::time::{Duration, Instant};
 use serde::Deserialize;
 use tauri::tray::TrayIconBuilder;
 use tauri::{
-    AppHandle, Builder, Manager, PhysicalPosition, Runtime, WebviewUrl, WebviewWindowBuilder,
-    Window, WindowEvent,
+    AppHandle, Builder, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
 };
 
 use crate::error::AppError;
@@ -37,6 +36,8 @@ const PANEL_HEIGHT: f64 = 520.0;
 
 /// A click on the icon this soon after the panel hid itself on blur is the same gesture, not a
 /// new one: clicking the icon takes focus from the panel first, and the click arrives after.
+/// Not on Linux, where the panel is a window and does not hide on blur.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 const BLUR_DEBOUNCE: Duration = Duration::from_millis(250);
 
 /// The three words the Linux menu needs, sent by the frontend so that Rust holds no dictionary.
@@ -54,6 +55,7 @@ pub struct TrayState {
     /// Whether the icon is up, and with it whether closing the main window hides it.
     enabled: AtomicBool,
     /// When the panel last hid itself because it lost focus — see [`BLUR_DEBOUNCE`].
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     blur_hidden_at: Mutex<Option<Instant>>,
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     labels: Mutex<Labels>,
@@ -70,6 +72,7 @@ impl TrayState {
         *self.host.get_or_init(has_host)
     }
 
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     fn mark_blur_hide(&self) {
         *self
             .blur_hidden_at
@@ -77,6 +80,7 @@ impl TrayState {
             .unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
     }
 
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     fn just_blur_hidden(&self) -> bool {
         self.blur_hidden_at
             .lock()
@@ -253,6 +257,7 @@ fn create_icon(app: &AppHandle) -> Result<(), AppError> {
 #[cfg(not(target_os = "linux"))]
 fn on_icon_event(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
     use tauri::tray::{MouseButtonState, TrayIconEvent};
+    use tauri::PhysicalPosition;
 
     // Either button: a right click on a Windows tray icon is expected to do something.
     let TrayIconEvent::Click {
@@ -308,32 +313,122 @@ fn has_host() -> bool {
     true
 }
 
-/// Linux lands in T168d; until then there is no tray there.
+/// Whether this session can show a tray icon, on Linux — the spec's D8. Two questions, both of
+/// which have to be yes:
+///
+/// 1. **Is AppIndicator there to load?** `libappindicator-sys` loads it on first use and *panics*
+///    when it cannot — on the main thread, inside `TrayIconBuilder::build` — so the same names it
+///    tries are tried here first, where a no is only a no.
+/// 2. **Is anybody drawing StatusNotifierItems?** GNOME without the AppIndicator extension is not,
+///    and there the library falls back to a GtkStatusIcon the shell never draws: `build` succeeds
+///    and the icon is invisible. Hiding the main window on close would then hide it for good.
 #[cfg(target_os = "linux")]
 fn has_host() -> bool {
-    false
+    let library = appindicator_loads();
+    let watcher = status_notifier_watcher();
+    if !(library && watcher) {
+        log::info!("tray: no tray on this session (AppIndicator {library}, a StatusNotifierItem host {watcher})");
+    }
+    library && watcher
 }
 
+/// The names `libappindicator-sys` 0.9 tries, in its order.
+#[cfg(target_os = "linux")]
+fn appindicator_loads() -> bool {
+    const NAMES: [&str; 4] = [
+        "libayatana-appindicator3.so.1",
+        "libappindicator3.so.1",
+        "libayatana-appindicator3.so",
+        "libappindicator3.so",
+    ];
+    NAMES.iter().any(|name| {
+        let Ok(name) = std::ffi::CString::new(*name) else {
+            return false;
+        };
+        // SAFETY: a NUL-terminated name and flags libc defines. The handle is left open on
+        // purpose: the tray is about to load the same library and would only reopen it.
+        let handle = unsafe { libc::dlopen(name.as_ptr(), libc::RTLD_LAZY | libc::RTLD_LOCAL) };
+        !handle.is_null()
+    })
+}
+
+/// Whether `org.kde.StatusNotifierWatcher` has an owner on the session bus — the name every
+/// StatusNotifierItem host (KDE, the GNOME extension, waybar, …) takes. Any failure is a no.
+#[cfg(target_os = "linux")]
+fn status_notifier_watcher() -> bool {
+    use zbus::blocking::{connection, fdo::DBusProxy};
+    use zbus::names::BusName;
+
+    let ask = || -> zbus::Result<bool> {
+        let connection = connection::Builder::session()?
+            .method_timeout(Duration::from_millis(500))
+            .build()?;
+        let name = BusName::try_from("org.kde.StatusNotifierWatcher")
+            .map_err(|e| zbus::Error::Failure(e.to_string()))?;
+        Ok(DBusProxy::new(&connection)?.name_has_owner(name)?)
+    };
+    ask().unwrap_or(false)
+}
+
+/// The menu a Linux tray opens on any click: the panel, the main window, quit. Linux tells an
+/// application nothing about clicks on its icon, so the panel cannot open on one (D1).
 #[cfg(target_os = "linux")]
 fn linux_menu(
     app: &AppHandle,
     state: &TrayState,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, AppError> {
-    let _ = (app, state);
-    Err(err!("error.trayUnavailable", message = "not yet"))
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+
+    let labels = state
+        .labels
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone();
+    let fail = |e: tauri::Error| err!("error.trayUnavailable", message = e);
+    let open_panel = MenuItem::with_id(app, "open_panel", &labels.open_panel, true, None::<&str>)
+        .map_err(fail)?;
+    let open_main =
+        MenuItem::with_id(app, "open_main", &labels.open_main, true, None::<&str>).map_err(fail)?;
+    let separator = PredefinedMenuItem::separator(app).map_err(fail)?;
+    let quit = MenuItem::with_id(app, "quit", &labels.quit, true, None::<&str>).map_err(fail)?;
+    Menu::with_items(app, &[&open_panel, &open_main, &separator, &quit]).map_err(fail)
 }
 
+/// The same menu in the language the main window now speaks.
 #[cfg(target_os = "linux")]
 fn refresh_menu(app: &AppHandle, state: &TrayState) {
-    let _ = (app, state);
+    let Some(tray) = app.tray_by_id(ICON) else {
+        return;
+    };
+    match linux_menu(app, state) {
+        Ok(menu) => {
+            let _ = tray.set_menu(Some(menu));
+        }
+        Err(e) => log::error!("tray: the menu could not be rebuilt: {}", e.code),
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn on_menu_event(app: &AppHandle, id: &str) {
-    let _ = (app, id);
+    match id {
+        "open_panel" => {
+            if let Some(panel) = app.get_webview_window(PANEL) {
+                let _ = panel.center();
+                let _ = panel.show();
+                let _ = panel.set_focus();
+            }
+        }
+        "open_main" => {
+            hide_panel(app);
+            crate::launch::bring_to_front(app);
+        }
+        "quit" => app.exit(0),
+        _ => {}
+    }
 }
 
-/// A rectangle in physical pixels.
+/// A rectangle in physical pixels. Linux is never told where its icon is, so it has no use for one.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Bounds {
     x: f64,
@@ -349,6 +444,7 @@ struct Bounds {
 /// taskbar moved to the top — and above it otherwise; centred on the icon, then kept inside the
 /// area. A taskbar on the left or right puts the icon in neither half in particular, and the clamp
 /// is what keeps the panel on screen there.
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 fn panel_position(icon: Bounds, panel: (f64, f64), work: Bounds) -> (f64, f64) {
     let (width, height) = panel;
     let icon_centre_y = icon.y + icon.height / 2.0;

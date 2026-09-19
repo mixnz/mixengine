@@ -99,6 +99,23 @@ window_refusal() {
   echo "  $0 status"
 }
 
+# One line when the tray icon will be missing — T168d. Not a refusal: MixLab loads AppIndicator at
+# run time and goes without a tray when it cannot, and everything else works. `ldd` cannot say this,
+# because the window does not link the library; `ldconfig -p` lists what the loader could find.
+# No `ldconfig` anywhere is no line: the window will say so in its own log.
+tray_note() {
+  local ldconfig
+  for ldconfig in ldconfig /sbin/ldconfig /usr/sbin/ldconfig; do
+    command -v "$ldconfig" >/dev/null 2>&1 && break
+    ldconfig=""
+  done
+  [ -n "$ldconfig" ] || return 0
+  "$ldconfig" -p 2>/dev/null | grep -q 'libayatana-appindicator3\.so\|libappindicator3\.so' && return 0
+
+  echo "MixLab will run without its tray icon: AppIndicator is missing. Install it for the icon —"
+  echo "libayatana-appindicator3-1 on Debian, Ubuntu and openSUSE, libayatana-appindicator-gtk3 on Fedora."
+}
+
 # The same words, where a double click can read them.
 #
 # **A person who double-clicked an AppImage in a file manager has no terminal attached** — T105a,
@@ -136,6 +153,8 @@ if [ "$#" -eq 0 ]; then
     show_refusal_dialog "$refusal"
     exit 1
   fi
+
+  tray_note >&2
 
   exec "$cache/mixlab"
 fi

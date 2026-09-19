@@ -72,6 +72,16 @@ case "$requires" in
     ;;
 esac
 
+recommends="$(rpm -qp --recommends "$dist/$name" 2>/dev/null)"
+case "$recommends" in
+  *appindicator*) ;;
+  *)
+    echo "the package's Recommends does not name AppIndicator:" >&2
+    printf '%s\n' "$recommends" >&2
+    exit 1
+    ;;
+esac
+
 mix_checksum "$dist/$name"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.

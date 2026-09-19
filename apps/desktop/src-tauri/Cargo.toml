@@ -121,6 +121,12 @@ portable-pty = "0.9"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+# Whether a StatusNotifierItem host is on the session bus, before a tray icon nobody would draw is
+# made (`src/tray.rs`, T168d). The same major version and features `tauri-plugin-opener` already
+# pulls in on Linux, so this compiles nothing new.
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "5"
+
 # `test-util` không nằm trong feature `full`, mà bộ gom lô chỉ test được khi tua nhanh được
 # đồng hồ — 5ms thật thì test nào cũng thành test đo thời gian.
 [dev-dependencies]

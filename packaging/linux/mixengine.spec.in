@@ -12,6 +12,11 @@ BuildArch:      @ARCH@
 # openSUSE calls it `libwebkit2gtk-4_1-0`, and the install page offers this file to both.
 Requires:       (webkit2gtk4.1 or libwebkit2gtk-4_1-0)
 
+# **AppIndicator, for the tray icon, is a weak dependency** — T168d, `build-deb.sh`'s reason. dnf and
+# zypper install `Recommends:` by default. Fedora ships it as `libayatana-appindicator-gtk3` (and the
+# older `libappindicator-gtk3`), openSUSE as `libayatana-appindicator3-1`.
+Recommends:     (libayatana-appindicator-gtk3 or libappindicator-gtk3 or libayatana-appindicator3-1)
+
 # The binaries are already built and already stripped of debug info by the release profile, so
 # rpmbuild's own build-id links and strip pass have nothing to do and only fail on a static binary
 # it did not compile.

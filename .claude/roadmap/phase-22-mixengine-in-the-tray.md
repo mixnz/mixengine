@@ -18,7 +18,7 @@ Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks
       (`daemon.shutdown`), `tray_open_main`, `tray_hide_panel`, `app_quit`.
 - [x] **T168c** `tray.rs` on macOS and Windows: the icon, the hidden `tray` window, `panel_position`,
       blur-hide with its 250 ms debounce, close-to-tray, and the macOS activation policy. **(P)**
-- [ ] **T168d** Linux: the three-item menu, the `dlopen` and StatusNotifierWatcher checks, the
+- [x] **T168d** Linux: the three-item menu, the `dlopen` and StatusNotifierWatcher checks, the
       AppIndicator dependency in the `.deb` and `.rpm`, and `AppRun`'s note. **(P)**
 - [ ] **T168e** The panel: the `TrayPanel` slot on `ModuleDefinition`, the `tray.html` entry, the
       header with the slogan, services, stop-all, sites, the footer, and inline confirmation.
