@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use mixengine_core::config::PathOverrides;
-use mixengine_core::paths::{Paths, resolve_root_with};
+use mixengine_core::paths::{Paths, resolve_root};
 use mixengine_platform::mock;
 use mixengine_platform::paths::in_full;
 use mixengine_proto::ServiceId;
@@ -279,10 +279,7 @@ fn the_platform_default_is_used_when_nothing_overrides_it() {
     let home = TempDir::new().unwrap();
     let host = mock::Host::with_home(home.path());
 
-    assert_eq!(
-        resolve_root_with(None, None, &host).unwrap(),
-        in_full(home.path())
-    );
+    assert_eq!(resolve_root(None, &host).unwrap(), in_full(home.path()));
 }
 
 /// **A home is spelled the way the filesystem spells it**, which on one system is not the way it
@@ -294,31 +291,13 @@ fn a_home_reached_through_an_alias_is_resolved_to_the_name_behind_it() {
     let home = TempDir::new().unwrap();
     let host = mock::Host::with_home(home.path());
 
-    let root = resolve_root_with(None, None, &host).unwrap();
+    let root = resolve_root(None, &host).unwrap();
 
     assert_eq!(
         root,
         in_full(&root),
         "{} is not spelled in full",
         root.display()
-    );
-}
-
-/// T166: a development checkout's suggestion sits between an override and the platform default.
-#[test]
-fn a_checkout_suggestion_beats_the_default_and_an_override_beats_it() {
-    let home = TempDir::new().unwrap();
-    let suggested = home.path().join("checkout-home");
-    let chosen = home.path().join("chosen");
-    let host = mock::Host::with_home(home.path().join("default"));
-
-    assert_eq!(
-        resolve_root_with(None, Some(suggested.as_os_str()), &host).unwrap(),
-        in_full(&suggested)
-    );
-    assert_eq!(
-        resolve_root_with(Some(&chosen), Some(suggested.as_os_str()), &host).unwrap(),
-        in_full(&chosen)
     );
 }
 
@@ -329,7 +308,7 @@ fn an_override_beats_the_platform_default() {
     let host = mock::Host::with_home(home.path());
 
     assert_eq!(
-        resolve_root_with(Some(&chosen), None, &host).unwrap(),
+        resolve_root(Some(&chosen), &host).unwrap(),
         in_full(&chosen)
     );
 }
@@ -338,7 +317,7 @@ fn an_override_beats_the_platform_default() {
 fn a_relative_override_becomes_absolute() {
     let host = mock::Host::with_home("/unused");
 
-    let root = resolve_root_with(Some(Path::new("relative-home")), None, &host).unwrap();
+    let root = resolve_root(Some(Path::new("relative-home")), &host).unwrap();
 
     assert!(root.is_absolute(), "{} is not absolute", root.display());
     assert!(root.ends_with("relative-home"), "{}", root.display());
@@ -352,7 +331,7 @@ fn an_empty_override_is_refused_rather_than_treated_as_absent() {
     let home = TempDir::new().unwrap();
     let host = mock::Host::with_home(home.path());
 
-    let error = resolve_root_with(Some(Path::new("")), None, &host).unwrap_err();
+    let error = resolve_root(Some(Path::new("")), &host).unwrap_err();
 
     assert!(
         matches!(error, mixengine_core::Error::EmptyHome),
@@ -364,7 +343,7 @@ fn an_empty_override_is_refused_rather_than_treated_as_absent() {
 fn a_host_with_no_answer_is_reported_rather_than_guessed() {
     let host = mock::Host::without_home();
 
-    let error = resolve_root_with(None, None, &host).unwrap_err();
+    let error = resolve_root(None, &host).unwrap_err();
 
     assert!(
         matches!(error, mixengine_core::Error::Platform(_)),
