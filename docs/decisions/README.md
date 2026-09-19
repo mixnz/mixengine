@@ -42,6 +42,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0039](0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md) | A JDK is told about the authority inside its own `cacerts` | Accepted |
 | [0041](0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md) | MixEngine stops nothing a person did not ask it to stop | Accepted |
 | [0042](0042-mixlab-starts-at-login-when-a-person-asks-it-to.md) | MixLab starts at login when a person asks it to, and separately from the daemon | Accepted |
+| [0043](0043-documentation-lives-under-docs.md) | Documentation for people lives under `docs/`; `.claude/` holds only agent configuration | Accepted |
 
 ### Desktop (recorded in MixDB)
 
