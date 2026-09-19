@@ -22,7 +22,7 @@ Decision: [ADR 0042](../decisions/0042-mixlab-starts-at-login-when-a-person-asks
       AppIndicator dependency in the `.deb` and `.rpm`, and `AppRun`'s note. **(P)**
 - [x] **T168e** The panel: the `TrayPanel` slot on `ModuleDefinition`, the `tray.html` entry, the
       header with the slogan, services, stop-all, sites, the footer, and inline confirmation.
-- [ ] **T168f** MixLab at login: `tauri-plugin-autostart` with `--hidden`, `main` hidden until shown,
+- [x] **T168f** MixLab at login: `tauri-plugin-autostart` with `--hidden`, `main` hidden until shown,
       the Settings switch beside the daemon's, and the AppImage and development-build names. **(P)**
 - [ ] **T168g** The tray icons, and `client-surface.md`, the desktop roadmap, the architecture notes
       and the handbook brought up to date.

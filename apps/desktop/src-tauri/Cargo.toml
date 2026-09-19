@@ -152,6 +152,9 @@ tauri-plugin-window-state = "2"
 # Registers the `mixdb://` scheme with the OS at install time (NSIS, Info.plist, the .desktop
 # file) and hands the app the URLs the OS opens it with. The URL's meaning is `launch.rs`'s.
 tauri-plugin-deep-link = "2"
+# MixLab at login, when a person turns it on in Settings — ADR 0042, T168f. A LaunchAgent on macOS,
+# `HKCU\...\Run` on Windows, an XDG autostart entry on Linux, each starting MixLab with `--hidden`.
+tauri-plugin-autostart = "2"
 
 
 # A workspace of its own, and deliberately empty: without this section cargo would walk up to the

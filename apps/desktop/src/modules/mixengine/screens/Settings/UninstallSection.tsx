@@ -4,6 +4,7 @@ import Button from "../../../../components/Button";
 import Checkbox from "../../../../components/Checkbox";
 import type { AppError } from "../../../../core/errors";
 import { errorMessage } from "../../../../core/errors";
+import { setLoginItem } from "../../../../core/window";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { Error as WireError } from "@mixengine/api";
@@ -171,6 +172,10 @@ export default function UninstallSection({
   }
 
   async function startUninstall() {
+    // A MixLab that starts at login for a MixEngine that is going away would come back to a gate
+    // saying nothing is installed (ADR 0042). Best effort: a login entry that could not be removed
+    // is not a reason to refuse the uninstall somebody just confirmed.
+    if (!keepHome) await setLoginItem(false).catch(() => undefined);
     const summary = await api.uninstall({ keep_home: keepHome, grant: true });
     setDeclined(false);
     setJob(summary);

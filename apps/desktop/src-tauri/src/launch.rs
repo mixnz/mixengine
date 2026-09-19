@@ -31,6 +31,8 @@ use crate::secrets::Redacted;
 pub struct Opening {
     pub url: Option<String>,
     pub secret: Option<String>,
+    /// `--hidden`: started by the login entry, so only the tray comes up (ADR 0042, T168f).
+    pub hidden: bool,
 }
 
 /// Written out so the secret cannot reach a log line — see `ConnectionConfig`'s for the reasoning.
@@ -39,6 +41,7 @@ impl std::fmt::Debug for Opening {
         f.debug_struct("Opening")
             .field("url", &self.url)
             .field("secret", &self.secret.as_ref().map(|_| Redacted))
+            .field("hidden", &self.hidden)
             .finish()
     }
 }
@@ -65,14 +68,23 @@ impl Opening {
     /// The pure half: `args` without the program name, and `take_env` standing in for reading
     /// a variable and removing it. Asked for exactly the variable the URL names, and only when
     /// that name is one a launcher would use — see [`handoff::credential_name`].
+    ///
+    /// `--hidden` may stand anywhere; the URL is still the first argument or nothing.
     pub fn from_args(
-        mut args: impl Iterator<Item = String>,
+        args: impl Iterator<Item = String>,
         mut take_env: impl FnMut(&str) -> Option<String>,
     ) -> Self {
-        let Some(url) = args.next().filter(|arg| arg.starts_with("mixdb://")) else {
+        let args: Vec<String> = args.collect();
+        let hidden = args.iter().any(|arg| arg == HIDDEN);
+        let Some(url) = args
+            .into_iter()
+            .next()
+            .filter(|arg| arg.starts_with("mixdb://"))
+        else {
             return Self {
                 url: None,
                 secret: None,
+                hidden,
             };
         };
         let secret = handoff::credential_name(&url)
@@ -81,9 +93,13 @@ impl Opening {
         Self {
             url: Some(url),
             secret,
+            hidden,
         }
     }
 }
+
+/// The argument the login entry starts MixLab with — `tauri-plugin-autostart` in `lib.rs`.
+pub const HIDDEN: &str = "--hidden";
 
 /// A tab the backend wants opened: which module, and the state that module reads on mount — the
 /// same slot `restored` carries between launches, so the shell learns nothing new.
@@ -159,6 +175,9 @@ pub fn accept<R: Runtime>(app: &AppHandle<R>, url: &str, secret: Option<String>)
 struct Message {
     url: Option<String>,
     secret: Option<String>,
+    /// Left off the line when false, so a copy from before T168f reads every line it ever did.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    hidden: bool,
 }
 
 impl Message {
@@ -166,6 +185,7 @@ impl Message {
         Self {
             url: opening.url.clone(),
             secret: opening.secret.clone(),
+            hidden: opening.hidden,
         }
     }
 
@@ -240,15 +260,29 @@ pub fn stop<R: Runtime>(app: &AppHandle<R>) {
 }
 
 /// A line from another copy: bring the window up, and open what it carried, if anything.
+///
+/// Except a login start with nothing to open: the login entry firing while MixLab already runs
+/// — somebody started it by hand first — must not throw a window at them (T168f).
 fn received<R: Runtime>(app: &AppHandle<R>, line: &str) {
-    bring_to_front(app);
     match serde_json::from_str::<Message>(line) {
+        Ok(Message {
+            url: None,
+            hidden: true,
+            ..
+        }) => {}
         Ok(Message {
             url: Some(url),
             secret,
-        }) => accept(app, &url, secret),
-        Ok(Message { url: None, .. }) => {}
-        Err(e) => eprintln!("mixdb: ignoring a line from another copy: {e}"),
+            ..
+        }) => {
+            bring_to_front(app);
+            accept(app, &url, secret);
+        }
+        Ok(Message { url: None, .. }) => bring_to_front(app),
+        Err(e) => {
+            bring_to_front(app);
+            eprintln!("mixdb: ignoring a line from another copy: {e}");
+        }
     }
 }
 
@@ -272,6 +306,7 @@ mod tests {
         let line = Message::from(&Opening {
             url: Some("mixdb://connect?x".to_string()),
             secret: Some("s".to_string()),
+            hidden: false,
         })
         .line()
         .unwrap();
@@ -283,10 +318,39 @@ mod tests {
         let bare = Message::from(&Opening {
             url: None,
             secret: None,
+            hidden: false,
         })
         .line()
         .unwrap();
         assert_eq!(bare, r#"{"url":null,"secret":null}"#);
+    }
+
+    /// A login start says so; a line from a copy that predates it still parses, as not hidden.
+    #[test]
+    fn a_hidden_start_crosses_the_channel_and_old_lines_still_parse() {
+        let line = Message::from(&Opening {
+            url: None,
+            secret: None,
+            hidden: true,
+        })
+        .line()
+        .unwrap();
+        assert_eq!(line, r#"{"url":null,"secret":null,"hidden":true}"#);
+
+        let old: Message = serde_json::from_str(r#"{"url":null,"secret":null}"#).unwrap();
+        assert!(!old.hidden);
+    }
+
+    #[test]
+    fn hidden_is_read_wherever_it_stands() {
+        assert!(Opening::from_args(args(&["--hidden"]), |_| panic!("asked")).hidden);
+        let both = Opening::from_args(
+            args(&["mixdb://connect?kind=redis&host=h&port=1", "--hidden"]),
+            |_| panic!("asked"),
+        );
+        assert!(both.hidden);
+        assert!(both.url.is_some());
+        assert!(!Opening::from_args(args(&["--flag"]), |_| panic!("asked")).hidden);
     }
 
     fn args(list: &[&str]) -> impl Iterator<Item = String> {
@@ -369,6 +433,7 @@ mod tests {
         let opening = Opening {
             url: Some("mixdb://connect".to_string()),
             secret: Some("hunter2".to_string()),
+            hidden: false,
         };
         let printed = format!("{opening:?}");
         assert!(!printed.contains("hunter2"), "{printed}");

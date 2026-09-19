@@ -167,6 +167,8 @@ const vi: SharedDict = {
     sshAuthFailed: "Xác thực SSH thất bại: {{message}}",
     sshShellFailed: "Không mở được shell trên máy chủ SSH: {{message}}",
     trayUnavailable: "Không tạo được icon trên khay hệ thống: {{message}}",
+    loginItemUnsupported: "Bản build phát triển không tự chạy khi đăng nhập.",
+    loginItemFailed: "Không đổi được mục tự chạy khi đăng nhập: {{message}}",
     sshAuthRejected:
       "Máy chủ SSH từ chối đăng nhập (partial success: {{partialSuccess}}). Máy chủ chấp nhận: {{methods}}.",
     sshHostKeyChanged:

@@ -532,6 +532,14 @@ const vi: typeof en = {
         otherHome: "Mục này đang đăng ký cho một home MixEngine khác.",
         location: "Đã đăng ký ở: {{location}}",
       },
+      // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
+      loginItem: {
+        title: "MixLab trên khay hệ thống",
+        toggle: "Mở MixLab trên khay hệ thống mỗi khi đăng nhập",
+        about: "Chỉ hiện icon trên khay. Việc này tách riêng với việc chạy MixEngine ở trên.",
+        noTray: "Desktop của bạn không hiện icon trên khay, nên MixLab sẽ mở cửa sổ khi đăng nhập.",
+        unsupported: "Bản build phát triển không tự chạy khi đăng nhập.",
+      },
       updates: {
         title: "Cập nhật",
         current: "Đang chạy bản {{version}}",

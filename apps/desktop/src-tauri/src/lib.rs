@@ -5,6 +5,7 @@ mod error;
 mod import;
 mod instance;
 mod launch;
+mod login_item;
 mod modules;
 mod platform;
 mod relaunch;
@@ -74,6 +75,17 @@ pub fn run() {
         // the OS opens the app with — see `launch::start` for which systems listen to it.
         .plugin(tauri_plugin_deep_link::init());
 
+    // MixLab at login, starting with `--hidden` — ADR 0042. Not in a development build: the entry
+    // is named after the product, so a debug build would overwrite the release's, and it would
+    // name an executable under `target/` that the next `cargo clean` removes.
+    #[cfg(all(desktop, not(debug_assertions)))]
+    let builder = builder.plugin(
+        tauri_plugin_autostart::Builder::new()
+            .macos_launcher(tauri_plugin_autostart::MacosLauncher::LaunchAgent)
+            .arg(launch::HIDDEN)
+            .build(),
+    );
+
     // Each module puts its own state in; the list of commands they add up to is
     // `modules::handler`.
     let builder = launch::register(builder);
@@ -83,6 +95,7 @@ pub fn run() {
     let builder = modules::terminal::register(builder);
     let builder = tray::register(builder);
 
+    let hidden = opening.hidden;
     builder
         .setup(move |app| {
             /* Before anything else: a MixDB user's stores, copied while nothing else can touch
@@ -96,6 +109,14 @@ pub fn run() {
 
             // Hidden until its icon is clicked; the icon itself waits for `tray_configure`.
             tray::create_panel(app.handle());
+
+            // `main` is declared hidden so that a login start never flashes it; every other start
+            // shows it here.
+            if hidden {
+                tray::hidden_start(app.handle());
+            } else {
+                launch::bring_to_front(app.handle());
+            }
 
             /* Housekeeping rather than startup work. A tool download that the app never came back
                from — a crash, a power cut, a force quit — leaves an unpacked server distribution

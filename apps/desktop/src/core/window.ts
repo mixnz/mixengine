@@ -33,3 +33,20 @@ export interface TrayLabels {
 export function configureTray(enabled: boolean, labels: TrayLabels): Promise<void> {
   return invoke("tray_configure", { enabled, labels });
 }
+
+/** MixLab at login — ADR 0042, `src-tauri/src/login_item.rs`. What the operating system holds now. */
+export interface LoginItem {
+  /** `false` in a development build, which never registers an entry. */
+  supported: boolean;
+  enabled: boolean;
+  /** Whether this session can show a tray icon; without one a login start opens the window. */
+  trayHost: boolean;
+}
+
+export function loginItemStatus(): Promise<LoginItem> {
+  return invoke<LoginItem>("login_item_status");
+}
+
+export function setLoginItem(enabled: boolean): Promise<LoginItem> {
+  return invoke<LoginItem>("login_item_set", { enabled });
+}

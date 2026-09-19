@@ -30,6 +30,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::tray::tray_open_main,
         crate::tray::tray_hide_panel,
         crate::tray::app_quit,
+        crate::login_item::login_item_status,
+        crate::login_item::login_item_set,
         // ── db ──
         db::commands::connect_db,
         db::commands::disconnect_db,

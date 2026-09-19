@@ -183,6 +183,8 @@ const en = {
     sshAuthFailed: "SSH authentication failed: {{message}}",
     sshShellFailed: "Could not open a shell on the SSH server: {{message}}",
     trayUnavailable: "The tray icon could not be created: {{message}}",
+    loginItemUnsupported: "A development build does not start at login.",
+    loginItemFailed: "The login entry could not be changed: {{message}}",
     sshAuthRejected:
       "The SSH server rejected the login (partial success: {{partialSuccess}}). It accepts: {{methods}}.",
     sshHostKeyChanged:

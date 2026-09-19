@@ -542,6 +542,14 @@ export default {
         otherHome: "This is registered for a different MixEngine home.",
         location: "Registered at: {{location}}",
       },
+      // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
+      loginItem: {
+        title: "MixLab in the tray",
+        toggle: "Open MixLab in the tray when I log in",
+        about: "Only the tray icon appears. This is separate from starting MixEngine above.",
+        noTray: "Your desktop shows no tray icons, so MixLab will open its window at login instead.",
+        unsupported: "A development build does not start at login.",
+      },
       updates: {
         title: "Updates",
         current: "Running version {{version}}",

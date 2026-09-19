@@ -61,6 +61,9 @@ pub struct TrayState {
     labels: Mutex<Labels>,
     /// Whether this session can show a tray icon at all, asked once — see [`has_host`].
     host: OnceLock<bool>,
+    /// Started by the login entry, with the main window kept hidden until the tray is up. Cleared
+    /// the moment either the icon appears or it turns out there will be none — see [`hidden_start`].
+    hidden_start: AtomicBool,
 }
 
 impl TrayState {
@@ -94,6 +97,43 @@ pub fn register<R: Runtime>(builder: Builder<R>) -> Builder<R> {
     builder
         .manage(TrayState::default())
         .on_window_event(on_window_event)
+}
+
+/// How long a login start waits for the main window to turn the icon on before showing the window
+/// instead. The frontend calls `tray_configure` within a second of loading; this is for the start
+/// where it never does — a first-run screen, a module set with no tray panel, a broken page.
+const HIDDEN_START_GRACE: Duration = Duration::from_secs(8);
+
+/// Whether this session can show a tray icon — for Settings' note under the login switch.
+pub fn has_tray_host<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<TrayState>().host()
+}
+
+/// A start from the login entry: keep the main window hidden, out of the Dock on macOS, until the
+/// tray is up — and show it after all if no tray comes. Nobody is ever left with a running MixLab
+/// and nothing on screen.
+pub fn hidden_start<R: Runtime>(app: &AppHandle<R>) {
+    let state = app.state::<TrayState>();
+    state.hidden_start.store(true, Ordering::SeqCst);
+    // Declared hidden, but restoring a maximized window shows it on Windows — so say it again.
+    if let Some(main) = app.get_webview_window(MAIN) {
+        let _ = main.hide();
+    }
+    #[cfg(target_os = "macos")]
+    let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(HIDDEN_START_GRACE);
+        if app
+            .state::<TrayState>()
+            .hidden_start
+            .swap(false, Ordering::SeqCst)
+        {
+            log::info!("tray: no icon came up after a login start; showing the window");
+            crate::launch::bring_to_front(&app);
+        }
+    });
 }
 
 /// Creates the panel's window, hidden. Called from `setup`, once.
@@ -152,7 +192,8 @@ pub fn tray_configure(
     }
 
     let was = state.enabled.swap(enabled, Ordering::SeqCst);
-    if was && !enabled {
+    let waiting = state.hidden_start.swap(false, Ordering::SeqCst);
+    if !enabled && (was || waiting) {
         // Nobody may be left with a running app and no way to see it.
         crate::launch::bring_to_front(&app);
     }
