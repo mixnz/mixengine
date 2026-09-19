@@ -211,12 +211,16 @@ done
 # build made, T171: a universal package missing one is the failure this always caught, and a
 # one-slice package that somehow held two would be a `macos-arm64` file that is not what it says.
 # `lipo` spells `aarch64` as `arm64`.
-expected_archs="$(for slice in $slices; do
-  case "$slice" in
+#
+# The `case` is in a function and not written inside the `$( … )`: macOS's own bash is 3.2, which
+# reads a `pattern)` inside a command substitution as the end of it — measured on run 35463527479.
+lipo_name() {
+  case "$1" in
     aarch64) echo arm64 ;;
-    *) echo "$slice" ;;
+    *) echo "$1" ;;
   esac
-done | sort | tr '\n' ' ')"
+}
+expected_archs="$(for slice in $slices; do lipo_name "$slice"; done | sort | tr '\n' ' ')"
 archs_of() {
   lipo -archs "$1" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' '
 }
