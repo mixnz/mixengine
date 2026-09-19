@@ -1,6 +1,6 @@
 //! Where MixEngine's root directory goes when the user has not chosen one.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::Result;
 
@@ -30,4 +30,22 @@ pub trait HomeDirs: std::fmt::Debug + Send + Sync {
     /// [`Error::NoHomeDirectory`](crate::Error::NoHomeDirectory) when the environment does not say
     /// where the user's data lives.
     fn default_home(&self) -> Result<PathBuf>;
+
+    /// Could a process elevated through this OS's prompt read files under `path`?
+    ///
+    /// **A question about where a home may go, asked before one is chosen** — roadmap task T166. On
+    /// macOS the answer is no for any volume but the boot one: TCC gates removable and network
+    /// volumes, and `mixengine-elevate` arrives through `osascript` and `authtrampoline` with no
+    /// responsible process to inherit a grant from, so it cannot read the request in `<home>/run`.
+    ///
+    /// **`true` by default, which is Linux's and Windows' answer.** Root and an elevated token read
+    /// an external disk there. The Linux mounts that fail the same way — FUSE without `allow_other`,
+    /// NFS with `root_squash` — are not guessed at; the helper's own refusal names them instead.
+    ///
+    /// `path` need not exist. An answer this layer cannot work out is `true`: not knowing is not a
+    /// reason to put somebody's home somewhere else.
+    fn elevated_can_read(&self, path: &Path) -> bool {
+        let _ = path;
+        true
+    }
 }

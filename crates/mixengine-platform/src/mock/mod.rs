@@ -102,6 +102,14 @@ impl Host {
         Self::answering(Some(home.into()))
     }
 
+    /// This host, where an elevated process cannot read anything under `path` — macOS' TCC-gated
+    /// volume, on any OS a test runs on (T166).
+    #[must_use]
+    pub fn elevated_cannot_read(mut self, path: impl Into<PathBuf>) -> Self {
+        self.home.blind_to(path.into());
+        self
+    }
+
     /// A host that cannot say where the user's data belongs — the service-account case.
     #[must_use]
     pub fn without_home() -> Self {
