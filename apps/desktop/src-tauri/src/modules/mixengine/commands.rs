@@ -534,16 +534,20 @@ pub fn mixengine_logs_unwatch(state: State<'_, super::state::LogsState>) {
 /// nó chuyển `false` — không mở suốt đời app như `mixengine_watch`/`/events`, xem `MetricsState`.
 #[tauri::command]
 pub async fn mixengine_metrics_watch(
+    webview: tauri::WebviewWindow,
     on_frame: Channel<String>,
     state: State<'_, super::state::MetricsState>,
 ) -> Result<(), AppError> {
-    super::metrics::stream_metrics(on_frame, &state).await
+    super::metrics::stream_metrics(on_frame, webview.label(), &state).await
 }
 
 /// Đóng stream `/metrics` đang mở. Gọi khi không có gì mở là vô hại.
 #[tauri::command]
-pub fn mixengine_metrics_unwatch(state: State<'_, super::state::MetricsState>) {
-    state.stop();
+pub fn mixengine_metrics_unwatch(
+    webview: tauri::WebviewWindow,
+    state: State<'_, super::state::MetricsState>,
+) {
+    state.stop(webview.label());
 }
 
 /// `daemon.disk_usage` — `refresh: false` đọc bản daemon giữ (tới một phút), `true` đi bộ đĩa lại.

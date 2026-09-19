@@ -143,6 +143,16 @@
   margin-left: auto;
 }
 
+/* The Dashboard's strip, across the card's full width under the name. */
+.usage {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.usage > span {
+  flex: 1 1 auto;
+}
+
 /* The daemon is not up: MixLab's own gate, centred in whatever height the panel has. */
 .gate {
   flex: 1;

@@ -116,7 +116,11 @@ From top to bottom:
    - It sits in the header rather than the footer, which holds the actions. It stays pinned while
      the lists below scroll.
 1. **The engine, as a card of its own.** Running: the engine's mark (`EngineIcon`), **MixEngine**,
-   a *Running* pill and *Services running: N/M*. The header names the application and the card
+   a *Running* pill and *Services running: N/M*, and under them the Dashboard's own strip of the
+   daemon's CPU and memory (`DaemonUsage`, shared). That strip holds `/metrics` open — which is
+   what makes the daemon sample every second — only while the panel is shown, focused and the
+   daemon is up; `MetricsState` keeps one stream per window, like `MixEngineState` (D5), so the
+   panel's never closes the Dashboard's. The header names the application and the card
    names what it drives, each with its own mark, so "MixLab managing MixEngine" is read off the
    layout rather than spelled out in a sentence.
    - Not running: MixLab's own gate, centred in the panel — the engine's mark, the gate's sentence

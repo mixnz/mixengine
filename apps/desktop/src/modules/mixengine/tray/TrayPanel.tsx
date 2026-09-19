@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { SiteSummary } from "@mixengine/api";
+import type { MetricsFrame, SiteSummary } from "@mixengine/api";
 
 import ActionBar from "../../../components/ActionBar";
 import Button from "../../../components/Button";
@@ -14,9 +14,11 @@ import { hideTrayPanel, openMainWindow, quitApp } from "../../../core/window";
 import { ChevronRightIcon, EngineIcon, GlobeIcon, LockIcon, PlayIcon, PowerIcon, StopIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import * as api from "../api";
+import DaemonUsage from "../components/DaemonUsage";
 import { applyEvent, needsResync, rowsFrom, type ServiceRow } from "../daemonState";
 import { ensureDaemonWatch, subscribeDaemonWatch } from "../daemonWatch";
 import { serviceStateKey, serviceStateTone, toggleMode } from "../serviceStateLabel";
+import { DAEMON_SUBJECT, parseMetricsFrame, readingFor } from "../metricsState";
 import { siteVisit } from "../siteState";
 import { isFree } from "../storagePicker";
 import {
@@ -62,6 +64,10 @@ function TrayPanel() {
   /* Off to the right until the window is focused, and back there the moment it is not — so that
      the next show starts from the edge instead of flashing where it was. */
   const [shown, setShown] = useState(!SLIDES);
+  /* On Linux the window is never slid away, so "shown" is always true there; what matters for the
+     metrics stream is whether the window has the person's attention, which is focus. */
+  const [focused, setFocused] = useState(false);
+  const [frame, setFrame] = useState<MetricsFrame | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /* The hide waiting for the slide out to finish — cancelled when the panel is shown again before
      it has, so a quick re-open is not hidden from under the person. */
@@ -129,6 +135,7 @@ function TrayPanel() {
     let live = true;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
+        setFocused(focused);
         if (focused) {
           if (leaving.current !== null) {
             clearTimeout(leaving.current);
@@ -151,6 +158,32 @@ function TrayPanel() {
       unlisten?.();
     };
   }, [refresh, dispatchConfirm]);
+
+  /* The daemon's CPU and memory, only while the panel is in front of somebody and the daemon is up.
+     Opening `/metrics` is what makes the daemon sample every second, so a hidden panel holding it
+     open would keep it doing so for nobody (`MetricsState`, and the Dashboard's same rule). */
+  const measuring = shown && focused && presence === "running";
+  useEffect(() => {
+    if (!measuring) return;
+    let live = true;
+    void api
+      .metricsWatch((raw) => {
+        if (!live) return;
+        const next = parseMetricsFrame(raw);
+        if (next !== null) setFrame(next);
+      })
+      // A panel put away while the stream was still opening: the unwatch below ran first and
+      // found nothing to close, so close what just opened.
+      .then(() => {
+        if (!live) void api.metricsUnwatch();
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+      setFrame(null);
+      void api.metricsUnwatch();
+    };
+  }, [measuring]);
 
   /* Stopped here and started from MixLab or `mix` while the panel is open: nothing else would tell
      it, because a stopped daemon has no event stream to send the news on. */
@@ -314,6 +347,7 @@ function TrayPanel() {
               <span className={styles.counts}>
                 {t("mixengine.tray.counts", { up: counts.up, total: counts.total })}
               </span>
+              <DaemonUsage className={styles.usage} reading={readingFor(frame, DAEMON_SUBJECT)} />
             </section>
           )}
 
