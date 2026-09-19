@@ -279,6 +279,27 @@ jobs:
             exit 1
           }
 
+      # **Defender's state, recorded rather than assumed (T170k).** The runner image turns real-time
+      # protection off and excludes C:\ and D:\ (`images/windows/scripts/build/Configure-WindowsDefender.ps1`
+      # in actions/runner-images), which is why Windows being slower here is the linker and
+      # CreateProcess, not a scanner. That is a promise about today's image; this makes the log say
+      # which image a run had, and warns rather than fails, because a scanner makes a leg slower,
+      # not wrong.
+      - name: Defender's state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            $status | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled | Format-List
+            'Exclusions: ' + ((Get-MpPreference -ErrorAction Stop).ExclusionPath -join ', ')
+            if ($status.RealTimeProtectionEnabled) {
+              Write-Host '::warning title=Defender is scanning::Real-time protection is on in this runner image, so every file this leg writes is scanned. Expect it to be slower than usual.'
+            }
+          } catch {
+            Write-Host "Defender's state could not be read on this runner: $_"
+          }
+
       - name: Install pinned toolchain
         run: |
           rustup toolchain install --no-self-update
@@ -603,6 +624,27 @@ jobs:
           if (-not ($admin -and "$admin" -match 'Enabled group')) {
             Write-Host '::error::This leg is no longer an elevated administrator, which is good news and not a build failure. Re-read the Privilege section of docs/standards/testing.md, which concluded the opposite, and delete this step with it.'
             exit 1
+          }
+
+      # **Defender's state, recorded rather than assumed (T170k).** The runner image turns real-time
+      # protection off and excludes C:\ and D:\ (`images/windows/scripts/build/Configure-WindowsDefender.ps1`
+      # in actions/runner-images), which is why Windows being slower here is the linker and
+      # CreateProcess, not a scanner. That is a promise about today's image; this makes the log say
+      # which image a run had, and warns rather than fails, because a scanner makes a leg slower,
+      # not wrong.
+      - name: Defender's state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            $status | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled | Format-List
+            'Exclusions: ' + ((Get-MpPreference -ErrorAction Stop).ExclusionPath -join ', ')
+            if ($status.RealTimeProtectionEnabled) {
+              Write-Host '::warning title=Defender is scanning::Real-time protection is on in this runner image, so every file this leg writes is scanned. Expect it to be slower than usual.'
+            }
+          } catch {
+            Write-Host "Defender's state could not be read on this runner: $_"
           }
 
       - name: Install pinned toolchain

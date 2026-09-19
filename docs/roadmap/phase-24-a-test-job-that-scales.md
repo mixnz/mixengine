@@ -29,7 +29,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
 - [x] **T170i** `build` compiles the window and the binaries at the same time, through
       `stage.sh --build-only`.
 - [x] **T170j** `bench` on Windows runs as two legs, `budgets` and `footprint`. **(P)**
-- [ ] **T170k** Every Windows leg of `test` and `services` records Defender's state, and warns when
+- [x] **T170k** Every Windows leg of `test` and `services` records Defender's state, and warns when
       real-time protection is on.
 - [ ] **T170l** CI's debug builds carry line tables only (`CARGO_PROFILE_DEV_DEBUG`), set once for the
       whole workflow.
