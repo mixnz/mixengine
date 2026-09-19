@@ -37,7 +37,7 @@ then [2026-09-20-t171-a-build-that-fans-out-design.md](../specs/2026-09-20-t171-
       whole workflow.
 - [x] **T171a** `packaging/stage.sh` can compile only (`--build-only`) or stage only
       (`MIX_PREBUILT=1`), so the two halves can run in different jobs.
-- [ ] **T171b** Every `build` leg runs as `window` and `binaries` in parallel, then `build` packages
+- [x] **T171b** Every `build` leg runs as `window` and `binaries` in parallel, then `build` packages
       what they handed on; `release` downloads `mixengine-*` only.
 - [ ] **T171c** On a branch, macOS builds the aarch64 slice alone and still checks x86_64; `master`
       and tags stay universal.

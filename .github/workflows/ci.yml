@@ -2369,19 +2369,24 @@ jobs:
         working-directory: apps/desktop/src-tauri
         run: cargo audit
 
-  build:
+  # **`build` is three jobs per leg since T171**: `window` and `binaries` are the two release builds,
+  # neither of which reads anything the other writes, so each gets a runner of its own and they run
+  # at the same time; `build` then only packages what they handed on. T170's C2 ran the same two
+  # builds side by side on one runner and was slower, because they split its CPUs — two runners is
+  # what that measurement left. docs/specs/2026-09-20-t171-a-build-that-fans-out-design.md.
+  #
+  # The three matrices are the same five rows and must stay so: `build` downloads by `matrix.os`.
+  # Actions has no YAML anchors, so the rows are written three times and the comments once, here.
+  window:
     # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
-    # runs every job whatever a dispatch might once have narrowed.
+    # runs every job whatever a dispatch might once have narrowed. The `build` option covers all
+    # three jobs.
     if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
-    name: build (${{ matrix.os }})
+    name: window (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # A release build of the whole workspace, and twice over on macOS for the two slices, and again
-    # from scratch inside a container for both Linux legs — T85a, D3: nothing in this job's cache
-    # reaches a location inside a container's bind mount, so those two legs pay for a cold `cargo
-    # build --release` on every run. Accepted there rather than solved, until it is measured to cost
-    # more than this timeout allows. T103 added a Tauri release build of the window to every leg,
-    # which is roughly ten more minutes; the timeout moved from 60 to 75 for it.
-    timeout-minutes: 75
+    # One Tauri release build, twice over on macOS for the two slices (T103). Measured at 8 to 17
+    # minutes cold in run 35458805745; there is no cache to make it warm (T170a).
+    timeout-minutes: 45
     strategy:
       # An artifact that failed to build on one system is not a reason to stop producing the other
       # four — the same rule `test` and `bench` state one job up.
@@ -2400,11 +2405,11 @@ jobs:
           - os: macos-latest
             target: ""
             container: ""
-          # T85a, D2: moved into a manylinux_2_28 container so the artifact links an older glibc than
-          # this runner ships, rather than whatever `ubuntu-latest` happens to carry this month. Same
-          # architecture as the runner in both rows below — never cross-compilation, only an older
-          # sysroot. The tag is pinned and dated for the reason every other toolchain in this product
-          # is: "whatever the runner has" is not reproducible.
+          # T85a, D2: the four binaries are built in a manylinux_2_28 container so the artifact links
+          # an older glibc than this runner ships, rather than whatever `ubuntu-latest` happens to
+          # carry this month. Same architecture as the runner in both rows below — never
+          # cross-compilation, only an older sysroot. The tag is pinned and dated for the reason every
+          # other toolchain in this product is: "whatever the runner has" is not reproducible.
           #
           # T103: the window is built on the host of these two legs, not in the container — the
           # manylinux image is AlmaLinux 8, whose WebKitGTK is the 4.0 API on libsoup 2, and Tauri 2
@@ -2430,6 +2435,117 @@ jobs:
       # checklist requires to be green anyway. `MIXENGINE_RELEASE`, `crt-static` and the strip
       # setting are untouched: they are what makes an artifact a release, and a branch still proves
       # them. `packaging/common.sh` forwards both variables into the manylinux container.
+      #
+      # The same step in all three jobs, so that each reports what it was built with.
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+
+      # On every leg, the Linux ones included: the window is built on the runner itself, never in
+      # the container.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      # **No Actions cache (T170a).** This job's release artifacts, with `binaries`', are several GB,
+      # and with them one `master` run writes more than the repository's 10 GB, so `master`'s own
+      # entries would evict each other and every job would build cold.
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install the libraries the window links against
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # T105: the window, through `packaging/desktop.sh` — which runs `npm ci`, `cargo tauri build`
+      # (`--bundles app` on macOS, where a webview application is a `.app` directory), adds the
+      # macOS slices itself, exports `MIXENGINE_RELEASE` and asserts what it produced.
+      - name: Build the window
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+        run: bash packaging/desktop.sh
+
+      # **A tar, not the files** (T171, E1). `upload-artifact` keeps neither file modes nor
+      # symlinks: the window would arrive not executable, and a macOS bundle does not survive the
+      # trip without its links. The tar holds `window/<key>/…`, relative to `target/packaging`,
+      # which is where `build` unpacks it and where `stage.sh` looks.
+      - name: Hand the window on
+        shell: bash
+        run: tar -cf window.tar -C target/packaging window
+
+      # Kept 14 days, like `desktop-<os>` before it: a window someone wants to try without the
+      # installer is a reason to download one.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+          path: window.tar
+          if-no-files-found: error
+          retention-days: 14
+
+      # T170g, and T171's targets.
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "15"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt 1800 ]; then
+            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
+          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
+
+  binaries:
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
+    name: binaries (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # The four headless binaries, in release: twice on macOS for the two slices, and from scratch
+    # inside a container on both Linux legs (T85a, D3), where no cache would reach anyway.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      # `window`'s five rows; the comments are there.
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            container: ""
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            container: ""
+          - os: macos-latest
+            target: ""
+            container: ""
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
+    steps:
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Choose the release profile
         shell: bash
         run: |
@@ -2452,59 +2568,161 @@ jobs:
           rustup toolchain install --no-self-update
           rustup show active-toolchain
 
-      # **No Actions cache (T170a).** This job's three runner-built legs were 3.6 GB of release
-      # artifacts, and with them one `master` run writes more than the repository's 10 GB, so
-      # `master`'s own entries would evict each other and every job would build cold. What makes
-      # this job faster without one is T170h: see part C of
-      # docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md.
-
       - name: Fetch dependencies
         if: matrix.container == ''
         run: cargo fetch --locked
 
-      # T103: the desktop application, on every leg, on the runner itself.
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: apps/desktop/.nvmrc
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-
-      - name: Install the libraries the window links against
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
-
-      # The two Linux legs install Rust inside the container for the four binaries; the window is
-      # built out here and needs a toolchain of its own.
-      - name: Install pinned toolchain for the window
-        if: matrix.container != ''
-        run: |
-          rustup toolchain install --no-self-update
-          rustup show active-toolchain
-
-      # T105: the window, through `packaging/desktop.sh` — which runs `npm ci`, `cargo tauri build`
-      # (`--bundles app` on macOS, where a webview application is a `.app` directory), adds the two
-      # macOS slices itself, exports `MIXENGINE_RELEASE` and asserts what it produced. It also sets
-      # up both slices on macOS, which is why the `rustup target add` step that used to be here is
-      # gone.
-      #
-      # **A step of its own rather than left to `packaging/stage.sh`**, which calls the same script
-      # when nothing has staged the window: the four Linux packaging scripts each call `stage.sh`,
-      # and a step here means one of them is not paying for a ten-minute build inside a packaging
-      # run — and that a failure to build the window is its own red step.
-      - name: Build the window
+      # `stage.sh --build-only` (T171a): the compile half of what the per-OS packaging scripts used
+      # to do, with the same flags — `MIXENGINE_RELEASE`, `crt-static` on Windows, the container on
+      # Linux — because it is the same file doing it.
+      - name: Build the binaries
         shell: bash
         env:
           MIX_TARGET: ${{ matrix.target }}
-        run: bash packaging/desktop.sh
+          MIX_CONTAINER: ${{ matrix.container }}
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            rustup target add x86_64-apple-darwin aarch64-apple-darwin
+            for triple in x86_64-apple-darwin aarch64-apple-darwin; do
+              bash packaging/stage.sh --build-only --target "$triple"
+            done
+          else
+            args=(--build-only --target "$MIX_TARGET")
+            if [ -n "$MIX_CONTAINER" ]; then
+              args+=(--container "$MIX_CONTAINER")
+            fi
+            bash packaging/stage.sh "${args[@]}"
+          fi
 
+      # T85a, D8 wanted a toolchain that is broken on a new leg to fail in under a minute rather than
+      # sixty minutes into a packaging run, and it built `mix` on its own first to get that. Since
+      # T171 this job *is* the build and packaging is another job, so there is nothing long to fail
+      # ahead of. What is left worth asking is whether this runner's toolchain makes a binary that
+      # runs — asked of the one just built, rather than of a second compile of `mix` without
+      # `crt-static`, which cost 89 s.
+      - name: Smoke test this leg's toolchain
+        if: matrix.os == 'windows-11-arm'
+        shell: bash
+        run: '"target/${{ matrix.target }}/release/mix.exe" --version'
+
+      # A tar for the reason `window` gives, of exactly the binaries `common.sh` names and nothing
+      # else of cargo's: `build` fails on any trace of a compile in its tree, and `deps/` or
+      # `.fingerprint/` arriving in this tar would be one.
+      - name: Hand the binaries on
+        shell: bash
+        run: |
+          set -euo pipefail
+          source packaging/common.sh
+          files=()
+          for dir in target/*/release; do
+            for binary in $(mix_headless_binaries); do
+              if [ -f "$dir/$binary$(mix_exe_suffix)" ]; then
+                files+=("$dir/$binary$(mix_exe_suffix)")
+              fi
+            done
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "nothing under target/*/release to hand on" >&2
+            exit 1
+          fi
+          tar -cf binaries.tar "${files[@]}"
+          tar -tvf binaries.tar
+
+      # One day: it exists to reach `build` in the same run, and nobody installs from it.
       - uses: actions/upload-artifact@v4
         with:
-          name: desktop-${{ matrix.os }}
-          path: target/packaging/window/*
+          name: binaries-${{ matrix.os }}
+          path: binaries.tar
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 1
+
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "15"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt 1800 ]; then
+            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
+          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
+
+  build:
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
+    name: build (${{ matrix.os }})
+    needs: [window, binaries]
+    runs-on: ${{ matrix.os }}
+    # Packaging and the two probes, nothing compiled: about three to five minutes. The ceiling is
+    # generous because the macOS probe installs a `.pkg` for real.
+    timeout-minutes: 30
+    # `actions: read` for "The whole path", which asks the jobs API when `window` and `binaries`
+    # started.
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      # `window`'s five rows; the comments are there.
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            container: ""
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            container: ""
+          - os: macos-latest
+            target: ""
+            container: ""
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
+    steps:
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+
+      # From this run only, which is `download-artifact`'s default and never overridden here: an
+      # artifact belongs to the commit its run built.
+      - uses: actions/download-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+
+      # Back where the two builds left them, so every packaging script below runs as it would after
+      # compiling here — with `MIX_PREBUILT` telling `stage.sh` that it must not (T171a).
+      - name: Put both where their builds left them
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target/packaging
+          tar -xf window.tar -C target/packaging
+          tar -xf binaries.tar
+          rm window.tar binaries.tar
+          echo "MIX_PREBUILT=1" >> "$GITHUB_ENV"
 
       # Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
       # quietly not built is a release that is quietly missing one.
@@ -2528,29 +2746,6 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: choco install nsis --no-progress --yes
-
-      # T85a, D8: a minimal build fails in under a minute with a plain compiler error, rather than the
-      # first sign of a broken toolchain or a missing container package being sixty minutes into a
-      # full packaging run that then also exercises makensis/dpkg-deb/rpmbuild/appimagetool for
-      # nothing. Only the two new legs — the other three have been proven by every run of this job
-      # since T85.
-      - name: Smoke test this leg's toolchain
-        if: matrix.os == 'windows-11-arm' || matrix.os == 'ubuntu-24.04-arm'
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-          MIX_CONTAINER: ${{ matrix.container }}
-        run: |
-          set -euo pipefail
-          source packaging/common.sh
-          if [ -n "$MIX_CONTAINER" ]; then
-            mix_in_container "$MIX_CONTAINER" \
-              "rustup target add '$MIX_TARGET' && cargo build --release --locked --target '$MIX_TARGET' -p mixengine-cli"
-            "target/$MIX_TARGET/release/mix" --version
-          else
-            cargo build --release --locked --target "$MIX_TARGET" -p mixengine-cli
-            "target/$MIX_TARGET/release/mix.exe" --version
-          fi
 
       - name: Windows artifacts
         if: runner.os == 'Windows'
@@ -2623,21 +2818,49 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
+      # **T171's tripwire.** The two tars carry finished binaries and nothing of cargo's, so a `deps`
+      # or `.fingerprint` directory, or the window's own `target`, exists here only if something
+      # compiled in this job. `stage.sh` refuses to under `MIX_PREBUILT`; this is for whatever else
+      # might start to, since the result would be a green job exactly as slow as before T171.
+      - name: Nothing was compiled here
+        if: always()
+        shell: bash
+        run: |
+          found="$(find target -maxdepth 4 \( -name deps -o -name .fingerprint \) 2>/dev/null || true)"
+          if [ -d apps/desktop/src-tauri/target ]; then
+            found="$found apps/desktop/src-tauri/target"
+          fi
+          if [ -n "${found// /}" ]; then
+            echo "::error title=Compiled in build::cargo left $found; this job packages what window and binaries built and compiles nothing"
+            exit 1
+          fi
+
+      # What a person waits for is the path, not this job: from the first of `window` and `binaries`
+      # starting to here. Read from the jobs API so neither has to pass a timestamp along.
+      - name: The whole path
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OS: ${{ matrix.os }}
+        run: |
+          first="$(gh run view "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs --jq \
+            "[.jobs[] | select(.name == \"window ($OS)\" or .name == \"binaries ($OS)\") | .startedAt | fromdate] | min")"
+          elapsed=$(( $(date +%s) - first ))
+          printf 'build path (%s): %dm%02ds, target 18 minutes.\n' "$OS" $((elapsed / 60)) $((elapsed % 60)) >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt $((18 * 60)) ]; then
+            echo "::notice title=Path over its target::window, binaries and build took $((elapsed / 60)) minutes against a target of 18."
+          fi
+
       - name: Budget
         if: always()
         shell: bash
         env:
-          TARGET_MINUTES: "20"
+          TARGET_MINUTES: "5"
         run: |
           elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 30.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
             echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
           fi
 
@@ -2706,9 +2929,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes minisign
 
+      # `mixengine-*` and nothing else. Since T171 a run also carries each leg's `window-<os>` and
+      # `binaries-<os>`, which are what `build` was made from and not release files, and the gather
+      # below would move them into `dist` along with the rest.
       - uses: actions/download-artifact@v4
         with:
           path: legs
+          pattern: mixengine-*
 
       # Five uploads into one directory. `merge-multiple` would let a name that appears twice be one
       # artifact silently replacing another, and "silently" is the word that rules it out.

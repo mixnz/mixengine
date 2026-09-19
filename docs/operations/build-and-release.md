@@ -116,7 +116,7 @@ for the verdict and prints the failing steps rather than a URL.
 
 ### Asking about one job
 
-A full run is eleven jobs across three operating systems, and there is a loop where eight of them have
+A full run is thirteen jobs across three operating systems, and there is a loop where eight of them have
 nothing to say yet: one job is red, and what you want is that job again as soon as possible.
 
 ```bash
@@ -149,8 +149,10 @@ narrowed dispatch on a tag ref cannot produce half a release.
 | `bindings` | ubuntu | regenerates ts-rs bindings and fails if the committed output differs |
 | `docs` | ubuntu | builds the user handbook's site and fails if the committed command reference is not what `mix` prints |
 | `desktop` | ubuntu-22.04 | the desktop application: `npm run build`, `npm test`, `npm run lint`, then its own workspace's `clippy -D warnings`, `cargo test` and `cargo audit` |
-| `build` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | release binaries + installers for both architectures per OS (macOS ships one universal artifact), uploaded as artifacts — **on a branch built without LTO and with 16 codegen units, on a tag exactly as `[profile.release]` says** (T170h: a branch proves the packaging, which does not depend on LTO, and only a tag feeds `release`); the desktop application on every leg, built on the runner (never in the container) by `packaging/desktop.sh`, uploaded as `desktop-<os>` — and, since T105, placed by every installer |
-| `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
+| `window` | windows, windows arm64, macos, ubuntu, ubuntu arm64 | the desktop application in release, built on the runner (never in the container) by `packaging/desktop.sh`, handed on as `window-<os>` (a tar, kept 14 days) — asked for with `build` (T171b) |
+| `binaries` | the same five | the four headless binaries in release, by `packaging/stage.sh --build-only` (in the manylinux container on Linux), handed on as `binaries-<os>` (a tar, kept one day) — asked for with `build` (T171b) |
+| `build` | the same five, after `window` and `binaries` of its own leg | installers for each OS (macOS ships one universal artifact), packaged from the two tars under `MIX_PREBUILT=1` and uploaded as `mixengine-<os>`; **fails if anything was compiled in it**, and reports the whole path's time against 18 minutes. All three jobs build **on a branch without LTO and with 16 codegen units, on a tag exactly as `[profile.release]` says** (T170h: a branch proves the packaging, which does not depend on LTO, and only a tag feeds `release`); the window has been placed by every installer since T105 |
+| `release` | ubuntu | **on a `v*` tag only**: gathers the five legs' `mixengine-*` artifacts, packs the API contract, writes `latest.json`, signs each with the updater key, verifies what it published, and leaves a **draft** GitHub Release a person publishes |
 
 **Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
 their own, which is the thing that file will not do.
