@@ -1027,12 +1027,13 @@ async fn serve(
     // and is only ever done when somebody asks.
     //
     // **Before the endpoint is bound**, unlike the two recovery passes below, and the reason is the
-    // endpoint rather than the work: a bound listener that is not yet in `accept` has exactly one
-    // pending connection on Windows, so every moment between the two is a moment a second client
-    // meets `ERROR_PIPE_BUSY`. Recovery is a database read and a handful of process lookups;
-    // nineteen file copies are not, and putting them after the bind made an ordinary parallel test
-    // run fail. Nothing is listening yet while this runs, and a client that finds nothing there
-    // retries — which is the same thing it does for the migrations that ran a moment ago.
+    // endpoint rather than the work: a client that dials after the bind waits in the backlog for
+    // its answer, so every moment between the two is a moment it is kept waiting. Recovery is a
+    // database read and a handful of process lookups; nineteen file copies are not. (Before T170
+    // that wait was a refusal on Windows — `ERROR_PIPE_BUSY` — and putting these copies after the
+    // bind made an ordinary parallel test run fail.) Nothing is listening yet while this runs, and a
+    // client that finds nothing there retries — which is the same thing it does for the migrations
+    // that ran a moment ago.
     //
     // Nothing here fails the start, on the rule the recovery passes follow: a `bin/` that could not
     // be written leaves a home whose shims are missing, which a person can see and act on, where
@@ -1126,7 +1127,17 @@ async fn serve(
     // Through the wire mapping, and for the same reason the startup steps above are: the failure a
     // person actually meets here is "something else is already listening for this home", and the
     // sentence that says what to do about it is written at the boundary and nowhere else.
-    let mut listener = ipc::Listener::bind(endpoint).map_err(|error| error.to_wire())?;
+    //
+    // **Accepting from here on, not from the loop at the end of this function** (T170). Everything
+    // between this line and that loop — recovery, the trust store, the registry — used to be a
+    // window in which a bound named pipe had one instance and nobody taking it, so a second client
+    // met `ERROR_PIPE_BUSY` and gave up after its second of retries. The backlog accepts now and
+    // queues, which is what a Unix socket's listen queue always did: an early client waits for its
+    // answer rather than being told nobody is there. The blocks below that are spawned rather than
+    // awaited still are, because a queued client is still a client waiting.
+    let mut listener = ipc::Listener::bind(endpoint)
+        .map_err(|error| error.to_wire())?
+        .backlog();
 
     // Registered before the first client rather than inside the loop. `select!` builds its futures
     // afresh on every turn, so registering there would tear the handlers down and reinstall them
@@ -1382,11 +1393,12 @@ async fn serve(
     // bundle is what they can be pointed at: every root this machine trusts, and then ours.
     //
     // **Spawned rather than awaited, and that is not a preference.** The endpoint was bound some
-    // way above and nothing is in `accept` yet, so — as the extension block near the end of this
-    // function says in as many words — every moment spent here is a moment a second client on
-    // Windows meets `ERROR_PIPE_BUSY`. Reading this machine's whole trust store and writing a
-    // quarter of a megabyte is the most expensive thing that was ever put between those two
-    // points, and it was measured: ten of `tests/api.rs`' twenty-four daemons stopped answering.
+    // way above and the accept loop is still far below, so — as the extension block near the end of
+    // this function says in as many words — every moment spent here is a moment a queued client
+    // waits for its answer. Reading this machine's whole trust store and writing a quarter of a
+    // megabyte is the most expensive thing that was ever put between those two points, and it was
+    // measured: before T170's backlog, when that wait was a refusal on Windows, ten of
+    // `tests/api.rs`' twenty-four daemons stopped answering.
     //
     // Nothing about it can fail the start, on the rule the block above follows.
     tokio::spawn({
@@ -1565,13 +1577,13 @@ async fn serve(
     // for each, for as long as this daemon runs.
     //
     // **Spawned because of where this sits**, and that is not a preference. The endpoint is bound
-    // and nothing is in `accept` yet, which is the window the `bin/` block far above warns about in
-    // as many words: a bound listener that is not yet accepting has exactly one pending connection
-    // on Windows, so every moment spent here is a moment a second client meets `ERROR_PIPE_BUSY`.
-    // Awaiting these two was measured doing exactly that — three `test (windows-latest)` legs in a
-    // row, in three different suites, each failing on `All pipe instances are busy` — because
-    // between them they are a full render pass and a bind per service, which is precisely the
-    // "nineteen file copies" that block says must not go here.
+    // and the accept loop is still below, which is the window the `bin/` block far above warns
+    // about in as many words: every moment spent here is a moment a queued client waits for its
+    // answer. Awaiting these two was measured, before T170's backlog turned that wait from a
+    // refusal into a queue, failing three `test (windows-latest)` legs in a row, in three different
+    // suites, each on `All pipe instances are busy` — because between them they are a full render
+    // pass and a bind per service, which is precisely the "nineteen file copies" that block says
+    // must not go here.
     //
     // Being a moment late costs nothing it could cost: nothing dials an activator until a site is
     // being served, and a site is served by a front end this daemon has not started yet.
@@ -1814,8 +1826,8 @@ async fn serve(
     // to start would leave the user with no daemon at all. Each extension is logged on its own.
     //
     // Spawned rather than awaited, for the reason the activation block gives in as many words: the
-    // endpoint is bound and nothing is in `accept` yet, and every moment spent here is a moment a
-    // second client on Windows meets `ERROR_PIPE_BUSY`.
+    // endpoint is bound and the accept loop is still below, and every moment spent here is a moment
+    // a queued client waits for its answer.
     tokio::spawn({
         let extensions = Arc::clone(&api.extensions);
 
@@ -1850,8 +1862,8 @@ async fn serve(
     // the services that were running. On every ordinary start it reads two absent rows and returns.
     //
     // Spawned rather than awaited, on the extension-configuration block's reasoning in as many
-    // words: the endpoint is bound and nothing is in `accept` yet, and every moment spent here is a
-    // moment a second client on Windows meets `ERROR_PIPE_BUSY`.
+    // words: the endpoint is bound and the accept loop is still below, and every moment spent here
+    // is a moment a queued client waits for its answer.
     tokio::spawn({
         let updates = Arc::clone(&updates);
         let services = Arc::clone(&services);

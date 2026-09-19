@@ -140,6 +140,7 @@ pub enum Accepted {
 #[derive(Debug)]
 pub struct Listener {
     inner: sys::Listener,
+    endpoint: Endpoint,
 }
 
 impl Listener {
@@ -177,7 +178,10 @@ impl Listener {
     /// cannot be set, and [`Error::Os`](crate::Error::Os) for the Windows security calls that build
     /// the pipe's DACL.
     pub fn bind(endpoint: &Endpoint) -> Result<Self> {
-        sys::Listener::bind(endpoint).map(|inner| Self { inner })
+        sys::Listener::bind(endpoint).map(|inner| Self {
+            inner,
+            endpoint: endpoint.clone(),
+        })
     }
 
     /// Wait for the next client and find out who it is.
@@ -194,6 +198,91 @@ impl Listener {
     /// asking about it fails here and means nothing.
     pub async fn accept(&mut self) -> Result<Accepted> {
         self.inner.accept().await
+    }
+
+    /// Start accepting now, and queue what arrives until somebody asks for it.
+    ///
+    /// **What a Unix socket's listen queue already is, made true on Windows too** (T170). A bound
+    /// named pipe that nobody is accepting on has exactly one instance, so every client after the
+    /// first meets `ERROR_PIPE_BUSY` — and the daemon binds its endpoint a long way before it
+    /// reaches its accept loop. A client retries a busy pipe for a second; a loaded machine starting
+    /// many daemons at once kept that window open for longer, and clients were refused by a daemon
+    /// that was about to serve them. The task spawned here accepts from the moment of the call, so a
+    /// client that dials early is connected and waits for its answer instead.
+    ///
+    /// At most [`BACKLOG`] accepted connections wait; past that the task stops accepting until one
+    /// is taken, and the endpoint pushes back the way it always did. An error from the endpoint is
+    /// queued like a connection, so the caller still sees it and still decides how long to pause.
+    ///
+    /// Must be called from inside a Tokio runtime, as [`Listener::bind`] must.
+    #[must_use]
+    pub fn backlog(mut self) -> Backlog {
+        let (queue, waiting) = tokio::sync::mpsc::channel(BACKLOG);
+        let endpoint = self.endpoint.clone();
+
+        let task = tokio::spawn(async move {
+            loop {
+                let accepted = self.accept().await;
+
+                // The receiving half is gone: the `Backlog` was dropped, and this task and the
+                // listener it owns go with it.
+                if queue.send(accepted).await.is_err() {
+                    return;
+                }
+            }
+        });
+
+        Backlog {
+            waiting,
+            task,
+            endpoint,
+        }
+    }
+}
+
+/// How many accepted connections [`Listener::backlog`] holds before it stops accepting.
+///
+/// A daemon start takes seconds and a burst of clients is a handful; this is generous for both and
+/// still a bound, so a runaway client cannot grow the queue without limit.
+pub const BACKLOG: usize = 64;
+
+/// A [`Listener`] that is already accepting, with what it accepted waiting in order.
+///
+/// Dropping it stops the task and releases the endpoint, as dropping the listener does — a moment
+/// later rather than at once, because the task lets the listener go at its next poll.
+#[derive(Debug)]
+pub struct Backlog {
+    waiting: tokio::sync::mpsc::Receiver<Result<Accepted>>,
+    task: tokio::task::JoinHandle<()>,
+    endpoint: Endpoint,
+}
+
+impl Backlog {
+    /// The next connection, in the order they were accepted — or the next error the endpoint
+    /// reported, with the same meaning [`Listener::accept`] gives it.
+    ///
+    /// Cancel safe, like [`Listener::accept`]: receiving from the channel is, and a connection that
+    /// was not taken stays queued for the next call.
+    ///
+    /// # Errors
+    ///
+    /// Whatever [`Listener::accept`] returned for that turn, and [`Error::Io`](crate::Error::Io)
+    /// if the accepting task itself has ended, which only a panic inside it can cause.
+    pub async fn accept(&mut self) -> Result<Accepted> {
+        match self.waiting.recv().await {
+            Some(accepted) => accepted,
+            None => Err(crate::Error::Io {
+                action: "accept a connection on",
+                path: std::path::PathBuf::from(self.endpoint.as_os_str()),
+                source: std::io::Error::other("the task accepting connections has ended"),
+            }),
+        }
+    }
+}
+
+impl Drop for Backlog {
+    fn drop(&mut self) {
+        self.task.abort();
     }
 }
 
