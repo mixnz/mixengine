@@ -68,6 +68,11 @@
 - MixLab asks on first run what it will be used for — MixEngine alone, everything, or the database
   tools — and Settings has a Modules pane that changes the answer. Turning a module off closes its
   tabs and hides it; nothing saved is deleted, and turning it back on finds it where it was.
+- *Save battery* in MixLab's Settings, and `mix service save-resources`: pause services nobody is
+  using, and start them again on the next visit. Off unless you turn it on.
+- A service MixEngine paused shows as *Resting* in grey on the Dashboard and Services, not as a red
+  *Stopped*.
+- A PHP site whose pool is still starting shows a page that reloads itself, instead of a bare 502.
 
 ### Changed
 - MixLab is set in Geist, with a new colour scheme for its light and dark themes and mint as the
@@ -83,6 +88,12 @@
   connection string to copy that never includes the password.
 - MixLab's terminal follows the light and dark theme and the accent; REST methods and response statuses
   are drawn as coloured tags and pills.
+- Services are no longer stopped for being idle unless *Save battery* is on. A site that is up
+  stays up. A service you gave its own idle time with `mix service idle` keeps it.
+- The web server starts with MixEngine. Existing homes have it turned on once, including one
+  where you had turned it off.
+- The project form no longer shows *keep warm*; it only matters with *Save battery* on, and
+  `mix project keep-warm` still sets it.
 
 ### Fixed
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,

@@ -180,11 +180,9 @@ export default {
       copyRoot: "Copy the project's folder path",
       present: "Present",
       notFound: "Not found",
-      yes: "Yes",
       columnName: "Name",
       columnRoot: "Root",
       columnManifest: "mixengine.toml",
-      columnKeepWarm: "Keep warm",
       openSites: "Sites",
       edit: "Edit",
       delete: "Delete",
@@ -204,7 +202,6 @@ export default {
         pinPlaceholder: "A version, or a range like ^8.3",
         quickSiteSummary: "Also create a site for it",
         siteFailed: "The project was created, but the site could not be: {{error}}",
-        keepWarm: "Keep this project's services out of idle shutdown",
         saving: "Saving…",
       },
       detail: {
@@ -285,6 +282,7 @@ export default {
       stopping: "Stopping",
       restarting: "Restarting",
       failed: "Failed",
+      resting: "Resting — starts on the next visit",
     },
     serviceForm: {
       newService: "New service",
@@ -505,6 +503,13 @@ export default {
         notAnswering: "The new web server may not be allowed to answer on ports 80 and 443 on this machine yet.",
         keptData: "The previous server's data was kept at {{path}}.",
         notCarried: "Not carried over to the new server:",
+      },
+      saveResources: {
+        title: "Save battery",
+        toggle: "Pause services nobody is using",
+        off: "Off: nothing is stopped for being idle. A site that is up stays up.",
+        on: "A PHP pool nobody used for half an hour, or a database or cache for an hour, is paused. The next visit starts it again — that first load can take a second.",
+        keepWarm: "To keep one project running all the time, run: mix project keep-warm <name>",
       },
       autostart: {
         title: "Start at login",

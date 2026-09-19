@@ -297,7 +297,10 @@ impl Recipe for PhpFpm {
     /// The row still outranks this in both directions — `0` is a person saying never, and a number
     /// is a person saying how long — so a home whose owner switched idle-stopping off does not have
     /// it switched back on by this default arriving.
-    fn idle_default(&self) -> Option<Millis> {
+    ///
+    /// **Only while the home saves resources** — roadmap task **T167b**, ADR 0041. Until then this
+    /// number was the default for every home; now a service nobody set is never idle-stopped.
+    fn idle_when_saving(&self) -> Option<Millis> {
         Some(Millis::from_secs(30 * 60))
     }
 
@@ -801,7 +804,9 @@ mod tests {
     /// cannot be the thing that gets stopped.
     #[test]
     fn a_pool_is_idle_stopped_after_half_an_hour() {
-        assert_eq!(PhpFpm.idle_default(), Some(Millis::from_secs(30 * 60)));
+        // Only while the home saves resources (T167b); by default nothing is idle-stopped.
+        assert_eq!(PhpFpm.idle_when_saving(), Some(Millis::from_secs(30 * 60)));
+        assert_eq!(PhpFpm.idle_default(), None);
     }
 
     /// A pool is the one service a memory watchdog may restart — roadmap task **T71a**.

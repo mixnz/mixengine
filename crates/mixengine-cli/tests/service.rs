@@ -259,6 +259,10 @@ fn a_service_starts_stops_and_says_so_in_both_renderings() {
     assert_eq!(listed["services"][0]["id"], "fakeservice@main");
     assert_eq!(listed["services"][0]["state"], "stopped");
     assert_eq!(listed["services"][0]["supervised"], false);
+    assert_eq!(
+        listed["services"][0]["stopped_by"], "never",
+        "a service that has not run was stopped by nobody (T167d)"
+    );
 
     // The whole of T19b in one line: a person types four words and a process is running.
     let started = json(&home.mix(&["service", "start", "fakeservice@main", "--json"]));
@@ -270,6 +274,10 @@ fn a_service_starts_stops_and_says_so_in_both_renderings() {
     assert_eq!(status["state"], "running", "{status}");
     assert_eq!(status["supervised"], true, "{status}");
     assert!(status["pid"].as_u64().is_some(), "{status}");
+    assert!(
+        status.get("stopped_by").is_none(),
+        "a running service carries no stopped_by: {status}"
+    );
 
     // The human rendering of the same answer, which is the half a person actually reads.
     let rendered = stdout(&home.mix(&["service", "status", "fakeservice@main"]));
@@ -286,6 +294,10 @@ fn a_service_starts_stops_and_says_so_in_both_renderings() {
     let after = json(&home.mix(&["service", "status", "fakeservice@main", "--json"]));
     assert_eq!(after["state"], "stopped", "{after}");
     assert_eq!(after["supervised"], false, "{after}");
+    assert_eq!(
+        after["stopped_by"], "person",
+        "a person's stop stays theirs: {after}"
+    );
     assert!(after["last_started_at"].as_i64().is_some(), "{after}");
 
     // The field survives the stop, so the rendering has to be the part that stops calling it the
@@ -607,6 +619,29 @@ fn asking_for_both_autostart_answers_at_once_is_refused() {
         !both.status.success(),
         "two contradictory flags were accepted"
     );
+}
+
+/// **T167b, ADR 0041: a home saves nothing until somebody asks it to**, and the switch goes both
+/// ways and reads back — from the command line, which is the client-surface rule.
+#[test]
+fn save_resources_is_off_until_turned_on_and_reads_back() {
+    let (home, _daemon) = running(&[]);
+
+    let first = json(&home.mix(&["service", "save-resources", "--json"]));
+    assert_eq!(
+        first["on"],
+        Value::Bool(false),
+        "a new home saves nothing: {first}"
+    );
+
+    let on = json(&home.mix(&["service", "save-resources", "--on", "--json"]));
+    assert_eq!(on["on"], Value::Bool(true), "{on}");
+
+    let read_back = stdout(&home.mix(&["service", "save-resources"]));
+    assert!(read_back.starts_with("on"), "{read_back}");
+
+    let off = json(&home.mix(&["service", "save-resources", "--off", "--json"]));
+    assert_eq!(off["on"], Value::Bool(false), "{off}");
 }
 
 /// **The repair T127 exists to provide is reachable from `mix`** — the client-surface rule.

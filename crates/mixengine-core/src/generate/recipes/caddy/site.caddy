@@ -195,6 +195,20 @@
 {%- endif %}
 	file_server
 	}
+{%- if welcome %}
+
+	# **A pool that is not answering is a site that is starting** — roadmap task T167f. The
+	# activator above wakes a stopped pool inside one request's patience; a 502 or 504 Caddy
+	# produced itself means that wake has not finished, or has failed, and the person sees a page
+	# that reloads itself and then says to open MixLab — not a bare gateway error. An application's
+	# own 502 is a response and not a handler error, so it reaches the browser untouched.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.starting.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
 {%- elif kind == "static" %}
 {%- if welcome %}
 	# The same route a php-fpm site gets, with the index files a static site would have
@@ -359,6 +373,20 @@
 {%- endif %}
 	file_server
 	}
+{%- if welcome %}
+
+	# **A pool that is not answering is a site that is starting** — roadmap task T167f. The
+	# activator above wakes a stopped pool inside one request's patience; a 502 or 504 Caddy
+	# produced itself means that wake has not finished, or has failed, and the person sees a page
+	# that reloads itself and then says to open MixLab — not a bare gateway error. An application's
+	# own 502 is a response and not a handler error, so it reaches the browser untouched.
+	handle_errors 502 504 {
+		root * `{{ welcome }}`
+		rewrite * /{{ primary }}.starting.html
+		header Cache-Control "no-store"
+		file_server
+	}
+{%- endif %}
 {%- elif kind == "static" %}
 {%- if welcome %}
 	# The same route a php-fpm site gets, with the index files a static site would have

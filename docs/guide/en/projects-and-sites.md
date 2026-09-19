@@ -132,8 +132,8 @@ is the half people actually want when a version surprises them. Nothing is run t
 
 ## Keeping a project warm
 
-Services can be stopped automatically when nothing has used them for a while. While you are working
-on a project, that is a pause you do not want:
+With *Save battery* on, services nobody has used for a while are paused (see the services page).
+While you are working on a project, that is a pause you do not want:
 
 ```bash
 mix project keep-warm blog
@@ -143,4 +143,4 @@ mix project keep-warm blog --off
 This is a verb of its own rather than a setting on the project, because it is something you do for
 an afternoon and not part of what the project *is*. It reaches the PHP pool the project's sites
 name; it does not yet reach a database they query, because nothing in MixEngine records which
-database a project uses.
+database a project uses. With *Save battery* off nothing is paused, and this changes nothing.

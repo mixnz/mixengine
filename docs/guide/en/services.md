@@ -194,8 +194,13 @@ recipe permits, restarts. A control drawn as a guarantee when it is advisory wou
 your data.
 
 `idle` says when a service is stopped for being unused, and what is currently holding it open.
-**Nothing idles by default**: a stopped service stays stopped until you start it, so switching this
-on is a choice you make per service.
+**Nothing is stopped for being idle unless you ask**: a site that is up stays up. To save battery,
+turn on *Save battery* in MixLab's Settings, or run `mix service save-resources --on`; a PHP pool
+nobody used for half an hour, or a database or cache for an hour, is then paused, and the next
+request that needs it starts it again — that first load can take a second. `mix service idle`
+gives one service its own time either way, and `--after 0` means never.
+
+The web server itself is never stopped for being idle, and it starts with MixEngine.
 
 ## The generated configuration
 

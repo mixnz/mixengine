@@ -40,6 +40,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0038](0038-the-window-is-the-only-desktop-database-client.md) | The window is the only desktop database client, and `desktop-app` is not an extension kind | Accepted |
 | [0040](0040-a-development-builds-home-follows-its-checkout.md) | A development build's home follows its checkout, unless root cannot read it there | Accepted |
 | [0039](0039-a-jdk-is-told-about-the-authority-inside-its-own-cacerts.md) | A JDK is told about the authority inside its own `cacerts` | Accepted |
+| [0041](0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md) | MixEngine stops nothing a person did not ask it to stop | Accepted |
 
 ## Template
 

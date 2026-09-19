@@ -396,6 +396,20 @@ pub async fn mixengine_service_set_autostart(params: Value) -> Result<Value, App
     rpc::call("service.set_autostart", params).await
 }
 
+/// `service.save_resources` — T167b / ADR 0041. Trả `SaveResources { on }`: home này có dừng
+/// service không ai dùng hay không. Tắt trừ khi người dùng đã bật.
+#[tauri::command]
+pub async fn mixengine_service_save_resources() -> Result<Value, AppError> {
+    rpc::call("service.save_resources", json!({})).await
+}
+
+/// `params` đúng hình `SaveResourcesSet { on }` — bật hoặc tắt "Save battery". Không dừng và
+/// không khởi động gì: lượt quét idle kế tiếp mới đọc công tắc.
+#[tauri::command]
+pub async fn mixengine_service_set_save_resources(params: Value) -> Result<Value, AppError> {
+    rpc::call("service.set_save_resources", params).await
+}
+
 /// `service.set_front_end` — T97 / ADR 0026. `params` đúng hình `FrontEndSwitch { server, version?,
 /// grant }`; trả một `JobSummary` (dừng server cũ, dựng server mới là một job), kết quả job là
 /// `FrontEndReport`. Không có method đọc riêng: server đang active đọc từ `ServiceSummary.role`.

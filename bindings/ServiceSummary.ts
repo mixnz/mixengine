@@ -2,6 +2,7 @@
 import type { ServiceId } from "./ServiceId";
 import type { ServiceRole } from "./ServiceRole";
 import type { ServiceState } from "./ServiceState";
+import type { StoppedBy } from "./StoppedBy";
 import type { Timestamp } from "./Timestamp";
 
 /**
@@ -97,4 +98,15 @@ role?: ServiceRole | null,
  *
  * [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
  */
-autostart: boolean, };
+autostart: boolean, 
+/**
+ * Who left it stopped, while it is — roadmap task **T167d**.
+ *
+ * **Absent while the service is not `stopped`**, and from a daemon older than this member
+ * (ADR 0019). It is what lets a client tell a service MixEngine put to rest, which the next
+ * request wakes, from one a person stopped — which stays stopped — and draw the first as
+ * resting rather than as a failure ([ADR 0041]).
+ *
+ * [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+ */
+stopped_by?: StoppedBy | null, };

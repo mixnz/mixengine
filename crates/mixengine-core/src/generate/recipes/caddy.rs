@@ -362,6 +362,22 @@ impl Recipe for Caddy {
                     format!("{WELCOME_DIR}/{}.html", site.primary()),
                     crate::generate::welcome::render(context.service(), &page)?,
                 ));
+
+                // And, for a site whose pool MixEngine starts, the page its 502 is answered with
+                // while that pool is not answering — roadmap task T167f.
+                if let Some(starting) = crate::generate::welcome::render_starting(
+                    context.service(),
+                    site.primary(),
+                    &site.kind,
+                )? {
+                    documents.push(Document::new(
+                        format!(
+                            "{WELCOME_DIR}/{}",
+                            crate::generate::welcome::starting_file(site.primary())
+                        ),
+                        starting,
+                    ));
+                }
             }
         }
 
@@ -880,8 +896,14 @@ mod tests {
             .sites(&context("{}"), &served)
             .expect("four site files");
 
-        // Four configurations, then the four welcome pages T124 appends after them.
-        assert_eq!(documents.len(), 8);
+        // Four configurations, then the four welcome pages T124 appends after them, and the one
+        // starting page the PHP site among them gets (T167f).
+        assert_eq!(documents.len(), 9);
+        assert!(
+            documents.iter().any(|document| document.relative()
+                == Path::new("welcome").join("php.test.starting.html")),
+            "the PHP site's starting page is written"
+        );
         assert_eq!(
             documents[0].relative(),
             Path::new("sites").join("blog.test.caddy")
@@ -1556,6 +1578,32 @@ zz
     /// `Caddy.sites` and not `served::render`, because that is the path `sites()` actually takes —
     /// a mistake in how the rendering is assembled is caught here rather than only by the
     /// integration suite.
+    /// **T167f: a PHP site answers a pool that is not answering with the starting page**, in both
+    /// the plaintext and the TLS block, and never with the empty-site welcome page.
+    #[test]
+    fn a_php_site_answers_a_dead_pool_with_the_starting_page() {
+        let rendered = render_site(&Served {
+            kind: ServedKind::PhpFpm {
+                upstream: Upstream::Tcp("127.0.0.1:9000".parse().expect("an address")),
+                activator: None,
+            },
+            ..a_site_with_a_certificate()
+        });
+
+        assert_eq!(
+            rendered.matches("handle_errors 502 504 {").count(),
+            2,
+            "one handler per block, plaintext and TLS: {rendered}"
+        );
+        assert_eq!(
+            rendered
+                .matches("rewrite * /blog.test.starting.html")
+                .count(),
+            2,
+            "{rendered}"
+        );
+    }
+
     fn render_site(site: &Served) -> String {
         Caddy
             .sites(&context("{}"), std::slice::from_ref(site))

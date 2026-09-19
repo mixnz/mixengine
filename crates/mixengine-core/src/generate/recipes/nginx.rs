@@ -383,6 +383,22 @@ impl Recipe for Nginx {
                     format!("{WELCOME_DIR}/{}.html", site.primary()),
                     crate::generate::welcome::render(context.service(), &page)?,
                 ));
+
+                // And, for a site whose pool MixEngine starts, the page its 502 is answered with
+                // while that pool is not answering — roadmap task T167f.
+                if let Some(starting) = crate::generate::welcome::render_starting(
+                    context.service(),
+                    site.primary(),
+                    &site.kind,
+                )? {
+                    documents.push(Document::new(
+                        format!(
+                            "{WELCOME_DIR}/{}",
+                            crate::generate::welcome::starting_file(site.primary())
+                        ),
+                        starting,
+                    ));
+                }
             }
         }
 
@@ -1254,9 +1270,12 @@ mod tests {
         );
     }
 
-    /// **An application's own 404 is still its own** — the T124 design, D3. The `error_page` above
-    /// lives in an exact-match location on `/`, so it cannot be reached by any other path, and once
-    /// the index module has redirected, the location answering the request is another one.
+    /// **An application's own error is still its own** — the T124 design, D3, and T167f.
+    ///
+    /// The `error_page` for a 404 lives in an exact-match location on `/`, so no other path reaches
+    /// it. The php handler carries exactly one, for the 502 and 504 nginx produces when the pool
+    /// cannot be reached — the starting page — and never `fastcgi_intercept_errors`, which is what
+    /// would make an application's own 502 reach it too.
     #[test]
     fn the_error_page_is_scoped_to_the_root_and_not_to_the_php_handler() {
         let rendered = render_site(&a_php_site());
@@ -1264,12 +1283,25 @@ mod tests {
         let php_block = rendered
             .split(r"location ~ \.php$ {")
             .nth(1)
+            .and_then(|rest| rest.split("\n    }").next())
             .expect("a php location");
 
-        assert!(
-            !php_block.contains("error_page"),
-            "the php handler must answer with whatever the application said:
+        assert_eq!(
+            php_block
+                .lines()
+                .filter(|line| line.trim_start().starts_with("error_page"))
+                .count(),
+            1,
+            "the php handler answers with whatever the application said, except nginx's own 502:
 {php_block}"
+        );
+        assert!(
+            php_block.contains("error_page 502 504 = @mixengine_starting;"),
+            "{php_block}"
+        );
+        assert!(
+            rendered.contains("location @mixengine_starting {"),
+            "the named location the error page names: {rendered}"
         );
         assert!(
             !rendered.contains("fastcgi_intercept_errors"),

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ domain }} — starting</title>
+<style>
+:root { color-scheme: light dark; --ink: #16181d; --dim: #5c6370; --ground: #fbfbfc; --line: #e3e5ea; }
+@media (prefers-color-scheme: dark) {
+  :root { --ink: #e8eaf0; --dim: #9aa2b1; --ground: #16181d; --line: #2a2e37; }
+}
+body { margin: 0; background: var(--ground); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+main { max-width: 34rem; padding: 2rem; }
+h1 { font-size: 1.5rem; margin: 0 0 .25rem; font-weight: 600; }
+p { margin: 0 0 1rem; }
+.dim { color: var(--dim); }
+.what { border-left: 3px solid var(--line); padding-left: 1rem; }
+[hidden] { display: none; }
+footer { margin-top: 2rem; font-size: .875rem; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+<h1>{{ domain }}</h1>
+<p id="starting" class="dim">This site is starting. The page will reload by itself in a moment.</p>
+<p id="stuck" class="what" hidden>MixEngine could not start what this site needs. Open MixLab to see why, then reload this page.</p>
+<noscript><p class="what">Reload this page in a few seconds.</p></noscript>
+<footer>This page is MixEngine's, not your site's. It stops appearing as soon as your site answers.</footer>
+</main>
+<script>
+// Three tries, two seconds apart, counted per page in this tab. No query string: a parameter added
+// to the URL would reach the application once it answers.
+(function () {
+  var key = "mixengine-starting:" + location.pathname;
+  var tries = 0;
+  try { tries = Number(sessionStorage.getItem(key) || "0"); } catch (e) {}
+  if (tries >= 3) {
+    try { sessionStorage.removeItem(key); } catch (e) {}
+    document.getElementById("starting").hidden = true;
+    document.getElementById("stuck").hidden = false;
+    return;
+  }
+  try { sessionStorage.setItem(key, String(tries + 1)); } catch (e) {}
+  setTimeout(function () { location.reload(); }, 2000);
+})();
+</script>
+</body>
+</html>

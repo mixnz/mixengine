@@ -350,7 +350,11 @@ impl Api {
                     // **T116.** Only reached for an instance this apply is creating — a step that
                     // planned `Satisfied` never gets here — so the flag cannot re-decide a service
                     // somebody else's project left stopped on purpose.
-                    autostart: Some(context.autostart),
+                    //
+                    // **`None` and not `Some(false)` when nobody asked** — T167e. `Some(false)` is a
+                    // person saying no, and would keep a front end this apply creates from starting
+                    // with the daemon, which `service.create` now does for a front end by default.
+                    autostart: context.autostart.then_some(true),
                     overrides: None,
                 })
                 .await?;

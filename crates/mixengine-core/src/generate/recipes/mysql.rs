@@ -346,7 +346,10 @@ impl Recipe for Mysql {
     /// again, and a default that idled it would have been a default that broke a home which changed
     /// nothing — which is why the number arrives in the last commit of that task rather than the
     /// first.
-    fn idle_default(&self) -> Option<mixengine_proto::Millis> {
+    ///
+    /// **Only while the home saves resources** — roadmap task **T167b**, ADR 0041. Until then this
+    /// number was the default for every home; now a service nobody set is never idle-stopped.
+    fn idle_when_saving(&self) -> Option<mixengine_proto::Millis> {
         Some(mixengine_proto::Millis::from_secs(60 * 60))
     }
 

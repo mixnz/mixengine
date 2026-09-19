@@ -771,3 +771,49 @@ fn a_lost_row_is_found_and_an_added_one_is_not() {
         "a migration that seeded a row was reported as one that lost one"
     );
 }
+
+/// **0027 turns autostart on for the front ends a home already has, and for nothing else** —
+/// roadmap task **T167e**, ADR 0041.
+///
+/// Every fixture's Caddy already has autostart on, so the census suites above would pass whether or
+/// not this migration did anything. This one turns it off first, along with MariaDB's, and checks
+/// that the upgrade puts back Caddy's and only Caddy's.
+#[tokio::test]
+async fn an_upgrade_starts_the_front_end_with_the_daemon_and_nothing_else() {
+    let fixture = Fixture::all()
+        .into_iter()
+        .max_by_key(Fixture::schema)
+        .expect("a fixture");
+    let (_temp, file) = laid_out(&fixture);
+
+    {
+        let mut connection = sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(&file)
+            .connect()
+            .await
+            .expect("the fixture");
+        sqlx::query("UPDATE services SET autostart = 0")
+            .execute(&mut connection)
+            .await
+            .expect("every autostart off");
+        connection.close().await.expect("the writer closes");
+    }
+
+    Store::open(&file).await.expect("the upgrade").close().await;
+
+    let after = census(&file).await;
+    let autostart_of = |id: &str| {
+        after["services"]
+            .iter()
+            .find(|row| row["id"] == format!("'{id}'"))
+            .map(|row| row["autostart"].clone())
+            .unwrap_or_else(|| panic!("{} has no {id}", fixture.name()))
+    };
+
+    assert_eq!(
+        autostart_of("caddy@main"),
+        "1",
+        "the front end starts with the daemon"
+    );
+    assert_eq!(autostart_of("mariadb@main"), "0", "nothing else is touched");
+}

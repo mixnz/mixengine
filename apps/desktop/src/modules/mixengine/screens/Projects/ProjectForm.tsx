@@ -84,10 +84,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
 
   const [root, setRoot] = useState(editing ? initial.project.root : "");
   const [name, setName] = useState(editing ? initial.project.name : "");
-  // Mặc định tick khi tạo mới: một project mới thường vẫn đang được cấu hình, chưa muốn nó tự
-  // dừng service giữa chừng. `project.create` không nhận `keep_warm` — tạo xong, `submit()` tự gọi
-  // thêm `project.update` nếu ô này vẫn đang tick.
-  const [keepWarm, setKeepWarm] = useState(editing ? initial.project.keep_warm : true);
   const [pins, setPins] = useState<Record<RuntimeKind, string>>(() => {
     const initialPins: Record<RuntimeKind, string> = {
       php: "",
@@ -222,8 +218,9 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
           project: { name: initial.project.name },
           name: name !== initial.project.name ? name : undefined,
           root: root !== initial.project.root ? root : undefined,
+          // No `keep_warm`: absent leaves the column as it is. The form no longer shows it — it
+          // only matters while Save battery is on, and `mix project keep-warm` sets it (T167g).
           pins: pinsPayload() ?? {},
-          keep_warm: keepWarm,
         });
         onSaved();
         return;
@@ -234,18 +231,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
         name: name.trim() === "" ? undefined : name,
         pins: pinsPayload(),
       });
-      // `project.create` không có tham số `keep_warm` — đây là cách duy nhất áp nó ngay từ lúc
-      // tạo. Bỏ qua khi vẫn đang tắt: mặc định phía daemon cho một project mới đã là tắt.
-      //
-      // `created.project.name`, không phải `created.name` — `project.create` trả `ProjectDetail
-      // { project, pins }`, không phải một `ProjectSummary` trần. Đọc nhầm tầng này gửi
-      // `project: { name: undefined }` xuống `project.update`, JSON bỏ luôn field rỗng, và
-      // daemon từ chối với "invalid value: map, expected map with a single key" — đúng lỗi đã
-      // báo.
-      if (keepWarm) {
-        await api.projectUpdate({ project: { name: created.project.name }, keep_warm: true });
-      }
-
       if (siteDomains.length > 0) {
         try {
           await api.siteCreate({
@@ -309,14 +294,6 @@ export default function ProjectForm({ initial, onCancel, onSaved }: Props) {
                 placeholder={t("mixengine.projects.form.namePlaceholder")}
               />
             </label>
-
-            <Checkbox
-              className={styles.checkbox}
-              label={t("mixengine.projects.form.keepWarm")}
-              checked={keepWarm}
-              disabled={saving}
-              onChange={(e) => setKeepWarm(e.target.checked)}
-            />
 
             <Disclosure summary={t("mixengine.projects.form.pinsSummary")}>
               {/* `freeText` chứ không phải một Select thường: giá trị ở đây là một

@@ -1,4 +1,4 @@
-import type { ServiceState } from "@mixengine/api";
+import type { ServiceState, StoppedBy } from "@mixengine/api";
 import type { ServiceSummary } from "@mixengine/api";
 
 /**
@@ -19,6 +19,9 @@ export interface ServiceRow {
    *  chương trình còn đó không). Sự kiện `service_state_changed` không đổi nó, nên `applyEvent`
    *  giữ nguyên giá trị cũ và chỉ một lần đọc lại `service.list` mới đổi được. */
   autostart: boolean;
+  /** Ai để nó dừng, khi nó đang dừng — T167g. `daemon` nghĩa là MixEngine tự dừng (vì rảnh), và
+   *  request kế tiếp sẽ bật lại; `null` khi đang chạy hoặc daemon cũ không gửi. */
+  stoppedBy: StoppedBy | null;
 }
 
 /** Một câu trả lời `service.list`, thành các dòng. */
@@ -28,6 +31,7 @@ export function rowsFrom(list: ServiceSummary[]): ServiceRow[] {
     state: service.state ?? null,
     port: service.port ?? null,
     autostart: service.autostart,
+    stoppedBy: service.stopped_by ?? null,
   }));
 }
 
@@ -90,7 +94,7 @@ export function applyEvent(
   rows: ServiceRow[],
   raw: string,
 ): { rows: ServiceRow[]; resync: boolean } {
-  let event: { type?: unknown; service?: unknown; to?: unknown };
+  let event: { type?: unknown; service?: unknown; to?: unknown; reason?: unknown };
   try {
     event = JSON.parse(raw) as typeof event;
   } catch {
@@ -112,8 +116,9 @@ export function applyEvent(
       if (id === null || to === null) return { rows, resync: false };
       // Không dựng hàng cho một service chưa biết: `service.list` là chỗ một hàng ra đời, và nó
       // biết những thứ sự kiện này không mang theo.
+      const stoppedBy = to === "stopped" ? stoppedByReason(event.reason) : null;
       return {
-        rows: rows.map((row) => (row.id === id ? { ...row, state: to } : row)),
+        rows: rows.map((row) => (row.id === id ? { ...row, state: to, stoppedBy } : row)),
         resync: false,
       };
     }
@@ -123,6 +128,18 @@ export function applyEvent(
       // internally tagged chính là để chuyện này xảy ra được.
       return { rows, resync: false };
   }
+}
+
+/**
+ * Ai dừng một service, đọc từ `reason` của sự kiện chuyển sang `stopped` — cùng luật với
+ * `StoppedBy::of` bên MixEngine: `requested` và `credential_reset` là một người, mọi lý do khác là
+ * máy. Một `reason` không đọc được thì không đoán: `null`, và hàng hiện như trước T167.
+ */
+export function stoppedByReason(reason: unknown): StoppedBy | null {
+  if (typeof reason !== "object" || reason === null) return null;
+  const kind = (reason as { kind?: unknown }).kind;
+  if (typeof kind !== "string") return null;
+  return kind === "requested" || kind === "credential_reset" ? "person" : "daemon";
 }
 
 /** Một thao tác dài đang chạy. `id` là rowid của hàng `jobs` bên MixEngine. */

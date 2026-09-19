@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "43b7a8d478df2554a1c7e4f25b209e5e5ca1e5639125b013ac9a35d142c1bd86"
+source_sha256 = "c1d0f03009ce6e12a8568435bd4bdc35cbe52834604d24177449e9e07ec2bcfb"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -195,8 +195,14 @@ thể vượt qua, khi đó MixEngine cảnh báo và, nếu recipe cho phép, k
 cảnh báo như thể nó là một bảo đảm thì đó là nói dối về dữ liệu của bạn.
 
 `idle` cho biết khi nào service bị dừng vì không ai dùng, và hiện tại cái gì đang giữ nó mở.
-**Mặc định không có gì tự dừng**: service đã dừng thì cứ dừng cho tới khi bạn khởi động lại, nên
-bật tính năng này là lựa chọn bạn đưa ra cho từng service.
+**Không có gì bị dừng chỉ vì rảnh, trừ khi bạn yêu cầu**: site đang chạy thì cứ chạy. Muốn tiết kiệm
+pin, bật *Tiết kiệm pin* trong Settings của MixLab, hoặc chạy `mix service save-resources --on`. Khi
+đó pool PHP không ai dùng trong nửa tiếng, hoặc database/cache trong một tiếng, sẽ được tạm dừng, và
+request tiếp theo cần tới sẽ bật lại — lần tải đầu có thể chậm một chút. Dù bật hay tắt,
+`mix service idle` vẫn đặt được thời gian riêng cho một service, và `--after 0` nghĩa là không bao
+giờ.
+
+Bản thân web server không bao giờ bị dừng vì rảnh, và nó khởi động cùng MixEngine.
 
 ## Cấu hình sinh tự động
 
