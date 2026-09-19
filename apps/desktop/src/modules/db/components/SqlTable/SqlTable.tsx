@@ -25,6 +25,7 @@ import {
   type SqlFilter,
 } from "../../sql/filters";
 import {
+  cellPreview,
   columnEdges,
   gridStyle,
   measureColumns,
@@ -1562,11 +1563,8 @@ function SqlTable({
                       }
                       const raw = row[c];
                       const isNull = raw === null || raw === undefined;
-                      const value = isNull
-                        ? "NULL"
-                        : typeof raw === "object"
-                          ? JSON.stringify(raw)
-                          : String(raw);
+                      // What the cell draws, not the value: see `cellPreview`.
+                      const value = cellPreview(displayValue(raw));
                       const isDirty =
                         pendingRowRef.current?.rowIndex === i &&
                         Object.prototype.hasOwnProperty.call(pendingRowRef.current.changes, c);

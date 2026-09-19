@@ -51,6 +51,12 @@ impl DumpMode {
 ///
 /// The alternative is `--password=` on the command line, which every other process on the machine
 /// can read out of the process list for as long as the dump runs.
+///
+/// Handed to the tools as `--defaults-file`, never `--defaults-extra-file`: the extra file is read
+/// *before* the user's own `~/.my.cnf`, so a `[client]` there holding `password=` — which a local
+/// install commonly leaves behind — wins over the credentials in here, and the tool connects with
+/// no password at all. `--defaults-file` reads this file alone. (`~/.mylogin.cnf` is still read;
+/// MySQL makes no exception for it.)
 struct OptionFile {
     path: PathBuf,
 }
@@ -638,8 +644,9 @@ fn mysqldump_args(
     database: &str,
 ) -> Vec<String> {
     let mut args = vec![
-        // Must come first: mysqldump reads its option files before anything else on the line.
-        format!("--defaults-extra-file={}", defaults_file.display()),
+        // Must come first: mysqldump reads its option files before anything else on the line. The
+        // only one, not an extra one — see [`OptionFile`].
+        format!("--defaults-file={}", defaults_file.display()),
         format!("--default-character-set={charset}"),
         // Names each table on standard error as it reaches it, which is the only account mysqldump
         // gives of how far along it is. It goes nowhere near the dump itself, which is standard
@@ -757,7 +764,7 @@ pub fn mysql_dump(
 /// The command line the `mysql` client is given, with the database to restore into last.
 fn mysql_restore_args(defaults_file: &Path, database: &str) -> Vec<String> {
     vec![
-        format!("--defaults-extra-file={}", defaults_file.display()),
+        format!("--defaults-file={}", defaults_file.display()),
         // Only the initial setting: a dump carries its own `SET NAMES`, which takes over from here.
         "--default-character-set=utf8mb4".to_string(),
         // Stop at the first statement the server rejects instead of carrying on and leaving a
@@ -1353,6 +1360,20 @@ mod tests {
             assert_eq!(args[args.len() - 2], "--", "{args:?}");
             // And exactly one: a second would be handed to the tool as a table name.
             assert_eq!(args.iter().filter(|arg| *arg == "--").count(), 1, "{args:?}");
+        }
+    }
+
+    /// The credentials file is the only option file the tools read, first on the line. As an
+    /// extra file it lost to a `password=` left in the user's `~/.my.cnf`, and the dump connected
+    /// with no password — see [`OptionFile`].
+    #[test]
+    fn the_mysql_tools_read_the_credentials_file_alone() {
+        for args in [
+            mysqldump_args(Path::new("opts.cnf"), "utf8mb4", false, true, DumpMode::All, "db"),
+            mysql_restore_args(Path::new("opts.cnf"), "db"),
+        ] {
+            assert_eq!(args[0], "--defaults-file=opts.cnf", "{args:?}");
+            assert!(!args.iter().any(|arg| arg.starts_with("--defaults-extra-file")), "{args:?}");
         }
     }
 

@@ -392,6 +392,31 @@ export function displayValue(raw: unknown): string {
   return typeof raw === "object" ? JSON.stringify(raw) : String(raw);
 }
 
+/** The most characters a cell ever draws. A cell is a few hundred pixels at most, so anything past
+ *  this is laid out for nobody to see. */
+export const PREVIEW_CHARS = 500;
+
+/** Whitespace of every kind, the zero-width ones included — `\s` alone misses those. */
+const ANY_SPACE = /[\s​-‍]+/g;
+
+/**
+ * What a cell draws of `text` (a {@link displayValue}): one line, starting at the first visible
+ * character, and no longer than {@link PREVIEW_CHARS}.
+ *
+ * Only the drawing — copying, editing and exporting read the value itself. A cell is `nowrap`,
+ * which folds ordinary spaces and newlines but not a run of `&nbsp;` or ideographic spaces: text
+ * pasted in from an HTML editor could lead with enough of them to fill the cell, leaving it blank
+ * but for its ellipsis. And a long text column handed over whole — hundreds of kilobytes on one
+ * line — is more than the webview will paint in a cell, on every row of the page.
+ */
+export function cellPreview(text: string): string {
+  // Cut before folding, so a document-sized value is never scanned end to end. Twice the limit
+  // leaves room for the runs the fold is about to shrink.
+  const head = text.trimStart().slice(0, PREVIEW_CHARS * 2);
+  const line = head.replace(ANY_SPACE, " ").trimStart();
+  return line.length > PREVIEW_CHARS ? line.slice(0, PREVIEW_CHARS) : line;
+}
+
 /**
  * The few longest values in every column, taken from every row.
  *

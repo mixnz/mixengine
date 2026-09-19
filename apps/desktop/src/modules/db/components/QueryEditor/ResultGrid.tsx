@@ -10,6 +10,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
+  cellPreview,
   displayValue,
   gridStyle,
   measureColumns,
@@ -185,7 +186,7 @@ const ResultRow = memo(function ResultRow({
     >
       <td className={styles.rowNumber}>{index + 1}</td>
       {columns.map((_, c) => {
-        const value = displayValue(row[c]);
+        const value = cellPreview(displayValue(row[c]));
         const isNull = row[c] === null || row[c] === undefined;
         return (
           <td

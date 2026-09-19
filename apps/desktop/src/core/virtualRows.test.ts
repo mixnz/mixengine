@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { columnEdges, columnWindow, rowWindow, widestValues } from "./virtualRows";
+import {
+  cellPreview,
+  columnEdges,
+  columnWindow,
+  PREVIEW_CHARS,
+  rowWindow,
+  widestValues,
+} from "./virtualRows";
 
 /** The grid's own constants, repeated rather than imported: a test that reads the number it is
  *  checking against cannot notice that number changing. */
@@ -369,5 +376,27 @@ describe("widestValues", () => {
 
   it("copes with a result of no rows at all", () => {
     expect(widestValues([], 2, cell)).toEqual([[], []]);
+  });
+});
+
+describe("cellPreview", () => {
+  it("draws text past a lead of spaces nowrap does not fold", () => {
+    // What an HTML editor leaves behind: non-breaking and ideographic spaces, a zero-width one.
+    expect(cellPreview("  　​\n\t<p>Hello</p>")).toBe("<p>Hello</p>");
+  });
+
+  it("puts a multi-line value on one line", () => {
+    expect(cellPreview("line one\r\n  line two")).toBe("line one line two");
+  });
+
+  it("draws no more of a long value than a cell can show", () => {
+    const preview = cellPreview("x".repeat(500_000));
+    expect(preview).toHaveLength(PREVIEW_CHARS);
+  });
+
+  it("leaves a short value and NULL as they are", () => {
+    expect(cellPreview("42")).toBe("42");
+    expect(cellPreview("NULL")).toBe("NULL");
+    expect(cellPreview("")).toBe("");
   });
 });

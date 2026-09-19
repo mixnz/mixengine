@@ -101,6 +101,10 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- Dumping or restoring a MySQL database in MixLab no longer fails with "Access denied … (using
+  password: NO)" when `~/.my.cnf` holds an empty `password=`: the connection's own credentials win.
+- A long text cell in MixLab's database grids shows its text instead of a blank cell ending in `…`
+  when the value leads with non-breaking spaces or runs to hundreds of kilobytes.
 - MixEngine starts on a Windows machine that has no Microsoft Visual C++ runtime. `mix`,
   `mixengined`, the shim and the elevation helper carried a dependency on `vcruntime140.dll` and
   failed to launch without it; every Windows binary now carries its C runtime inside.
