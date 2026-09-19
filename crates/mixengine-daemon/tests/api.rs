@@ -128,6 +128,78 @@ impl Daemon {
             .expect("the daemon answers")
     }
 
+    /// A `POST /rpc` whose body the daemon stops reading, and its answer.
+    ///
+    /// Not through [`Self::send`]. The daemon answers `413` once the limit is reached and closes the
+    /// connection with the rest of the body unread, and a client still writing that rest meets a
+    /// broken pipe. `hyper`'s client then reports the failed write and drops the answer it was never
+    /// asked to read yet, which is a race this test lost on macOS in CI. Here the request is written on a task of its own, its failure ignored, while the
+    /// answer is read as it arrives: what is proved is what the daemon says, not how a client copes
+    /// with being cut off.
+    async fn send_unread(&self, body: Bytes) -> (StatusCode, Value) {
+        use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+        let connection = Connection::connect(&self.endpoint)
+            .await
+            .expect("the daemon is listening");
+        let (mut reader, mut writer) = tokio::io::split(connection);
+
+        let head = format!(
+            "POST /rpc HTTP/1.1\r\nhost: mixengine\r\ncontent-type: application/json\r\n\
+             content-length: {}\r\n\r\n",
+            body.len()
+        );
+        let writing = tokio::spawn(async move {
+            let _ = writer.write_all(head.as_bytes()).await;
+            let _ = writer.write_all(&body).await;
+        });
+
+        // Read until the whole answer is in rather than until the connection ends: on Windows a
+        // closed pipe is an error to its reader, not an end of file.
+        let mut answer = Vec::new();
+        let mut chunk = [0_u8; 8192];
+        let (end_of_head, length) = loop {
+            let read = reader.read(&mut chunk).await.expect("the daemon answers");
+            assert_ne!(
+                read,
+                0,
+                "the connection ended mid-answer:\n{}",
+                String::from_utf8_lossy(&answer)
+            );
+            answer.extend_from_slice(&chunk[..read]);
+
+            let Some(end) = answer.windows(4).position(|w| w == b"\r\n\r\n") else {
+                continue;
+            };
+            let head = String::from_utf8_lossy(&answer[..end]).to_ascii_lowercase();
+            let length = head
+                .lines()
+                .find_map(|line| line.strip_prefix("content-length:"))
+                .and_then(|value| value.trim().parse::<usize>().ok())
+                .unwrap_or_else(|| panic!("the answer names its length:\n{head}"));
+            if answer.len() >= end + 4 + length {
+                break (end, length);
+            }
+        };
+        writing.abort();
+
+        let status_line = String::from_utf8_lossy(&answer[..end_of_head]);
+        let status = status_line
+            .split_whitespace()
+            .nth(1)
+            .and_then(|code| code.parse::<u16>().ok())
+            .and_then(|code| StatusCode::from_u16(code).ok())
+            .unwrap_or_else(|| panic!("an HTTP status line: {status_line}"));
+        let body = &answer[end_of_head + 4..end_of_head + 4 + length];
+        let body = serde_json::from_slice(body).unwrap_or_else(|error| {
+            panic!(
+                "the daemon answers JSON: {error}\n{}",
+                String::from_utf8_lossy(body)
+            )
+        });
+        (status, body)
+    }
+
     /// A `GET`, answered.
     async fn get(&self, path: &str) -> Response<hyper::body::Incoming> {
         self.send(build(Method::GET, path, Bytes::new())).await
@@ -506,12 +578,10 @@ async fn a_body_larger_than_the_limit_is_refused_rather_than_read() {
         r#"{{"jsonrpc":"2.0","method":"{}","id":1}}"#,
         "x".repeat(2 * 1024 * 1024)
     );
-    let response = daemon
-        .send(build(Method::POST, "/rpc", Bytes::from(oversized)))
-        .await;
+    let (status, body) = daemon.send_unread(Bytes::from(oversized)).await;
 
-    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
-    assert_eq!(json(response).await["code"], "invalid_argument");
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+    assert_eq!(body["code"], "invalid_argument");
 }
 
 #[tokio::test]
