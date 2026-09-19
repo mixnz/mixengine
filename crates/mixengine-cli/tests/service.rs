@@ -294,7 +294,10 @@ fn a_service_starts_stops_and_says_so_in_both_renderings() {
     let after = json(&home.mix(&["service", "status", "fakeservice@main", "--json"]));
     assert_eq!(after["state"], "stopped", "{after}");
     assert_eq!(after["supervised"], false, "{after}");
-    assert_eq!(after["stopped_by"], "person", "a person's stop stays theirs: {after}");
+    assert_eq!(
+        after["stopped_by"], "person",
+        "a person's stop stays theirs: {after}"
+    );
     assert!(after["last_started_at"].as_i64().is_some(), "{after}");
 
     // The field survives the stop, so the rendering has to be the part that stops calling it the

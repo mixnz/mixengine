@@ -201,7 +201,7 @@ impl Api {
                 port,
                 bind_addr: create.bind_addr.clone(),
                 data_dir: create.data_dir.clone(),
-                autostart: create.autostart.unwrap_or(false),
+                autostart: autostart_for(create.autostart, &recipe.role()),
                 overrides,
             },
         )
@@ -397,5 +397,35 @@ impl Api {
                 "a partly rendered configuration directory could not be removed"
             );
         }
+    }
+}
+
+/// Whether a service being created starts with the daemon.
+///
+/// **A front end does unless somebody said otherwise** — roadmap task **T167e**, ADR 0041. It is the
+/// one service whose absence takes every site down at once, and while nobody had ticked it a reboot
+/// left port 80 empty. An explicit answer is taken as given; every other service defaults to off.
+fn autostart_for(asked: Option<bool>, role: &Role) -> bool {
+    asked.unwrap_or(matches!(role, Role::FrontEnd(_)))
+}
+
+#[cfg(test)]
+mod autostart_tests {
+    use super::*;
+
+    #[test]
+    fn a_front_end_starts_with_the_daemon_unless_told_not_to() {
+        let front_end = Role::FrontEnd(mixengine_proto::FrontEndServer::Caddy);
+
+        assert!(autostart_for(None, &front_end));
+        assert!(
+            !autostart_for(Some(false), &front_end),
+            "a person's no stands"
+        );
+        assert!(
+            !autostart_for(None, &Role::Other),
+            "anything else stays off"
+        );
+        assert!(autostart_for(Some(true), &Role::Other));
     }
 }
