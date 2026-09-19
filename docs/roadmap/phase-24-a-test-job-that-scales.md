@@ -26,7 +26,7 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       time, with a notice past its target and a warning past 30 minutes.
 - [x] **T170h** A branch's `build` uses a lighter release profile (no LTO, 16 codegen units); a
       tag's builds exactly as before.
-- [ ] **T170i** `build` compiles the window and the binaries at the same time, through
+- [x] **T170i** `build` compiles the window and the binaries at the same time, through
       `stage.sh --build-only`.
 - [ ] **T170j** `bench` on Windows runs as two legs, `budgets` and `footprint`. **(P)**
 - [ ] **T170k** Every Windows leg of `test` and `services` records Defender's state, and warns when

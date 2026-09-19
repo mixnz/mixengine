@@ -2427,11 +2427,58 @@ jobs:
       # when nothing has staged the window: the four Linux packaging scripts each call `stage.sh`,
       # and a step here means one of them is not paying for a ten-minute build inside a packaging
       # run — and that a failure to build the window is its own red step.
-      - name: Build the window
+      #
+      # **And the binaries beside it, at the same time (T170i).** The window and the four binaries
+      # are two Cargo workspaces that share nothing, and one after the other the tail of each build
+      # left most cores idle. `stage.sh --build-only` is the compile half of staging, with every flag
+      # staging uses, so the packaging steps below call `stage.sh` again and find nothing to compile.
+      # Both logs are kept and printed apart, and the step fails when either build did. macOS gets its
+      # two slices' targets first, because both `desktop.sh` and the two stagings want them and
+      # `rustup` installing one twice at once is not something to rely on.
+      - name: Build the window and the binaries
         shell: bash
         env:
           MIX_TARGET: ${{ matrix.target }}
-        run: bash packaging/desktop.sh
+          MIX_CONTAINER: ${{ matrix.container }}
+        run: |
+          set -euo pipefail
+          logs="$RUNNER_TEMP/build-logs"
+          mkdir -p "$logs"
+
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            rustup target add x86_64-apple-darwin aarch64-apple-darwin
+          fi
+
+          bash packaging/desktop.sh >"$logs/window.log" 2>&1 &
+          window=$!
+
+          binaries=0
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            { bash packaging/stage.sh --target x86_64-apple-darwin --build-only \
+                && bash packaging/stage.sh --target aarch64-apple-darwin --build-only; } \
+              >"$logs/binaries.log" 2>&1 || binaries=$?
+          elif [ -n "$MIX_CONTAINER" ]; then
+            bash packaging/stage.sh --target "$MIX_TARGET" --container "$MIX_CONTAINER" --build-only \
+              >"$logs/binaries.log" 2>&1 || binaries=$?
+          else
+            bash packaging/stage.sh --target "$MIX_TARGET" --build-only \
+              >"$logs/binaries.log" 2>&1 || binaries=$?
+          fi
+
+          window_status=0
+          wait "$window" || window_status=$?
+
+          echo "::group::The window"; cat "$logs/window.log"; echo "::endgroup::"
+          echo "::group::The binaries"; cat "$logs/binaries.log"; echo "::endgroup::"
+
+          if [ "$window_status" -ne 0 ]; then
+            echo "::error::The window did not build (exit $window_status); see the group above."
+            exit 1
+          fi
+          if [ "$binaries" -ne 0 ]; then
+            echo "::error::The binaries did not build (exit $binaries); see the group above."
+            exit 1
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
@@ -2467,7 +2514,8 @@ jobs:
       # first sign of a broken toolchain or a missing container package being sixty minutes into a
       # full packaging run that then also exercises makensis/dpkg-deb/rpmbuild/appimagetool for
       # nothing. Only the two new legs — the other three have been proven by every run of this job
-      # since T85.
+      # since T85. After T170i the binaries are already built by this point, so this checks them
+      # rather than building a copy of its own, and costs seconds.
       - name: Smoke test this leg's toolchain
         if: matrix.os == 'windows-11-arm' || matrix.os == 'ubuntu-24.04-arm'
         shell: bash

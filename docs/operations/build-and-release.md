@@ -400,6 +400,12 @@ a ten-minute webview build inside a packaging run. The window's crate is a works
 this one excludes (ADR 0027, rule 5), which is why `stage.sh` cannot build it with `cargo -p` like
 the other four.
 
+**`bash packaging/stage.sh --target <triple> --build-only`** compiles the four binaries with every
+flag staging uses — `MIXENGINE_RELEASE`, `crt-static` on Windows, `--locked`, the container when
+`--container` is given — and stops there. The `build` job runs it beside `desktop.sh`, the two
+workspaces compiling at the same time, and the packaging scripts that call `stage.sh` afterwards
+find nothing left to compile (T170i).
+
 Everything lands in `target/packaging/dist/` with a `.sha256` beside it. **A checksum is not a
 signature** and is not offered as one: it is what lets a person who downloaded twice tell whether
 they got the same file. The signature is `packaging/sign.sh`, which T86 added and which the `release`

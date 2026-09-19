@@ -17,6 +17,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 target=""
 container=""
+build_only=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --target)
@@ -26,6 +27,10 @@ while [ $# -gt 0 ]; do
     --container)
       container="$2"
       shift 2
+      ;;
+    --build-only)
+      build_only=1
+      shift
       ;;
     *)
       echo "unknown argument: $1" >&2
@@ -87,6 +92,14 @@ else
   cargo build --release --locked "${packages[@]}"
   built="$MIX_ROOT/target/release"
   stage="$MIX_OUT/stage/host"
+fi
+
+# `--build-only` (T170i): the compile and nothing else, so CI can run it beside `desktop.sh` and the
+# packaging scripts that call this file afterwards find every binary fresh. Every flag above —
+# `MIXENGINE_RELEASE`, `crt-static`, `--locked`, the container — applies to it unchanged, which is why
+# this is a flag here and not a second copy of the command in the workflow.
+if [ -n "$build_only" ]; then
+  exit 0
 fi
 
 rm -rf "$stage"
