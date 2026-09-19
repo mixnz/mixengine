@@ -107,7 +107,7 @@ both of which the webview already does. Using one panel means one set of compone
 
 From top to bottom:
 
-0. **Header: the application.** The MixLab mark — as tall as the two lines beside it — the name
+0. **Header: the application.** The MixLab mark — 38px, the height of the two lines beside it — the name
    **MixLab**, and under it, in the muted secondary style, the slogan **"For Developers. By
    Developers."**
    - The slogan is a brand line, not a sentence about state, so it never changes and nothing

@@ -226,10 +226,15 @@ function TrayPanel() {
       await run();
     } catch (e) {
       setError(errorMessage(t, e));
+    }
+    /* Read the new state before letting the button go: released first, it would say *Start
+       MixEngine* again for the moment between the start returning and the panel learning the
+       daemon is up. */
+    try {
+      await refresh();
     } finally {
       setWorking(null);
     }
-    await refresh();
   }
 
   async function visit(site: SiteSummary) {
@@ -287,7 +292,7 @@ function TrayPanel() {
     <div className={styles.stage} data-slides={SLIDES || undefined}>
       <div className={`${styles.panel} ${shown ? styles.shown : ""}`}>
         <header className={styles.header}>
-          <img className={styles.logo} src="/logo.svg" alt="" width={32} height={32} />
+          <img className={styles.logo} src="/logo.svg" alt="" width={38} height={38} />
           <div className={styles.brand}>
             <span className={styles.name}>MixLab</span>
             <span className={styles.slogan}>{t("mixengine.tray.slogan")}</span>

@@ -67,18 +67,14 @@
   flex-shrink: 0;
 }
 
-/* As tall as the name and the slogan together, whatever the type sizes are: the header's row
-   stretches it to the text beside it, and the ratio keeps it square. */
-.header {
-  align-items: stretch;
-}
-
+/* As tall as the name and the slogan together: 20px and 16px of line, and the 2px between them.
+   A number rather than a stretch — a stretched image counts its own height into the row it is
+   stretched to, and the row grows to fit it. */
 .logo {
   flex-shrink: 0;
-  width: auto;
-  height: auto;
-  aspect-ratio: 1;
-  border-radius: var(--radius-md);
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
 }
 
 .brand {
@@ -91,12 +87,14 @@
 
 .name {
   font-size: var(--text-lg);
+  line-height: 20px;
   font-weight: 600;
 }
 
 /* The brand line: read, never acted on — muted, and smaller than anything that is a control. */
 .slogan {
   font-size: var(--text-xs);
+  line-height: 16px;
   color: var(--text-muted);
 }
 
