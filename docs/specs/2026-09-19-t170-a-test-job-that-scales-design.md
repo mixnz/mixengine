@@ -371,6 +371,14 @@ build leave most cores idle.
 The cost is two builds competing for four cores and the runner's memory. The plan measures the
 step against the sum of the two it replaces, and reverts C2 if it is not faster.
 
+**Withdrawn after measurement (2026-09-19).** In run 35453209479 the parallel step took 31.1
+minutes on `macos-latest` and 21.7 on `windows-latest`. The whole sequential job took 22.7 and
+17.4 minutes before, packaging included. Two release builds on the same runner, one of them
+universal on macOS, competed for three or four cores and for memory, and lost more than the idle
+tail had cost. The ARM legs looked faster, but their window build failed on an unrelated error,
+so that reading proves nothing. The window and the binaries build one after the other again, as
+before. `stage.sh --build-only` went with the revert.
+
 ### C3. `bench` on Windows runs as two legs
 
 The Windows measurements alone took 13.5 minutes. `bench` becomes a matrix of `os` × `group`:
@@ -519,7 +527,8 @@ Agreed 2026-09-19. These were open questions in the draft.
 3. **`jobs: test` runs `test`, `services` and `rustdoc`,** and the dispatch input gains no option
    (B1).
 4. **Part C is part of T170** (2026-09-19): C1 lighter branch profile, C2 parallel window and
-   binaries, C3 Windows `bench` in two legs, C4 rustdoc as a job only on Windows.
+   binaries (withdrawn after measurement, see C2), C3 Windows `bench` in two legs, C4 rustdoc as a
+   job only on Windows.
 5. **No paid cache storage.** `build` therefore targets 20 minutes rather than 15.
 6. **Part D is part of T170** (2026-09-19): D1 records Defender's state on every Windows leg, and D2
    builds CI's debug profile with line tables only.

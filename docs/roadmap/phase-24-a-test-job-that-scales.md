@@ -26,8 +26,9 @@ Design: [2026-09-19-t170-a-test-job-that-scales-design.md](../specs/2026-09-19-t
       time, with a notice past its target and a warning past 30 minutes.
 - [x] **T170h** A branch's `build` uses a lighter release profile (no LTO, 16 codegen units); a
       tag's builds exactly as before.
-- [x] **T170i** `build` compiles the window and the binaries at the same time, through
-      `stage.sh --build-only`.
+- [x] **T170i** ~~`build` compiles the window and the binaries at the same time~~ — **measured and
+      withdrawn**: run 35453209479 took 31.1 minutes on `macos-latest` and 21.7 on `windows-latest`
+      for the parallel step, against 22.7 and 17.4 for the whole sequential job before. See the spec, C2.
 - [x] **T170j** `bench` on Windows runs as two legs, `budgets` and `footprint`. **(P)**
 - [x] **T170k** Every Windows leg of `test` and `services` records Defender's state, and warns when
       real-time protection is on.
