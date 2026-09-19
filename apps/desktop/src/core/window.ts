@@ -9,7 +9,7 @@ export function openMainWindow(): Promise<void> {
   return invoke("tray_open_main");
 }
 
-/** Hides the tray panel. */
+/** Hides the tray panel's window now. Only the panel calls it, once its card has slid out. */
 export function hideTrayPanel(): Promise<void> {
   return invoke("tray_hide_panel");
 }

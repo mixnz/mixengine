@@ -85,10 +85,14 @@ both of which the webview already does. Using one panel means one set of compone
   right** each time the window is shown (560 ms, eased out; a plain fade under reduced motion).
 - **Showing and hiding:**
   - A click on the icon toggles the panel.
-  - On macOS and Windows, `WindowEvent::Focused(false)` hides it, and the page puts the card back
-    off the edge so the next show slides again.
-  - Clicking the icon while the panel is open raises both events: the focus loss hides the panel and the
-    click would show it again. So a click that arrives **within 250 ms of a blur-hide is ignored**.
+  - **The page hides the window, not Rust.** Every way the panel goes — a click elsewhere
+    (`WindowEvent::Focused(false)`, macOS and Windows), a click on the icon, Open MixLab, Esc —
+    becomes one `tray://dismiss` event: the page slides the card out (420 ms, eased in) and only
+    then calls `tray_hide_panel`. A window hidden mid-show keeps its last frame, so hiding first
+    made the next show flash the card in place before it slid. Rust hides the window itself after
+    1.2 s if the page has not, unless it was shown again meanwhile.
+  - Clicking the icon while the panel is open raises both events, and both mean "away": the panel
+    is still visible while it slides out, so the click dismisses rather than re-opens.
 - **Position: the corner, not the icon.** The window goes in the right-hand corner of the usable
   area on the bar's side — under the menu bar on macOS, against a bottom taskbar in the bottom
   corner, under a top one in the top corner — the way the system's own tray panels sit. Two pure

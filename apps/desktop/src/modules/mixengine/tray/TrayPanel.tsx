@@ -34,6 +34,9 @@ import styles from "./TrayPanel.module.css";
    ordinary window the window manager placed, and content sliding about inside it would look broken. */
 const SLIDES = IS_MAC || IS_WINDOWS;
 
+/** The slide out, to the millisecond of `TrayPanel.module.css`'s exit transition. */
+const SLIDE_OUT_MS = 420;
+
 /**
  * The tray panel — T168, the spec's D3. What the Dashboard would say about this machine, in 360
  * pixels: the daemon, its services with Start and Stop, *Stop all*, the sites, and the way into
@@ -57,6 +60,27 @@ function TrayPanel() {
      the next show starts from the edge instead of flashing where it was. */
   const [shown, setShown] = useState(!SLIDES);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* The hide waiting for the slide out to finish — cancelled when the panel is shown again before
+     it has, so a quick re-open is not hidden from under the person. */
+  const leaving = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Put the panel away: slide the card out, and only then hide the window. Hiding first would
+   * leave the card where it was in the window's last frame, and the next show would flash it in
+   * place before sliding it in. On Linux there is no slide, so the window goes at once.
+   */
+  const dismiss = useCallback(() => {
+    if (!SLIDES) {
+      void hideTrayPanel();
+      return;
+    }
+    if (leaving.current !== null) return;
+    setShown(false);
+    leaving.current = setTimeout(() => {
+      leaving.current = null;
+      void hideTrayPanel();
+    }, SLIDE_OUT_MS);
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -103,13 +127,16 @@ function TrayPanel() {
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
         if (focused) {
+          if (leaving.current !== null) {
+            clearTimeout(leaving.current);
+            leaving.current = null;
+          }
           setReport(null);
           void refresh();
           // One frame at the edge first, or the browser skips straight to the end of the slide.
           if (SLIDES) requestAnimationFrame(() => setShown(true));
         } else {
           dispatchConfirm({ type: "hide" });
-          if (SLIDES) setShown(false);
         }
       })
       .then((stop) => {
@@ -131,17 +158,35 @@ function TrayPanel() {
     [refresh],
   );
 
+  /* Every way the panel goes — a click elsewhere, a click on the icon, Open MixLab — arrives from
+     `src-tauri/src/tray.rs` as this one event, so all of them slide out the same way. */
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let live = true;
+    void getCurrentWindow()
+      .listen("tray://dismiss", dismiss)
+      .then((stop) => {
+        if (live) unlisten = stop;
+        else stop();
+      });
+    return () => {
+      live = false;
+      unlisten?.();
+    };
+  }, [dismiss]);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") void hideTrayPanel();
+      if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [dismiss]);
 
   useEffect(
     () => () => {
       if (timer.current !== null) clearTimeout(timer.current);
+      if (leaving.current !== null) clearTimeout(leaving.current);
     },
     [],
   );
@@ -181,7 +226,7 @@ function TrayPanel() {
     try {
       if (startProject !== null) await api.serviceStartProject(startProject);
       await openUrl(url);
-      await hideTrayPanel();
+      dismiss();
     } catch (e) {
       setError(errorMessage(t, e));
     }

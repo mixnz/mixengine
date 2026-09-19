@@ -9,14 +9,15 @@
 //! nothing to put in a panel and gets no icon. While there is an icon, closing the main window
 //! hides it instead of quitting; without one, closing quits, as it always did.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde::Deserialize;
 use tauri::tray::TrayIconBuilder;
 use tauri::{
-    AppHandle, Builder, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, Window, WindowEvent,
+    AppHandle, Builder, Emitter, Manager, Runtime, WebviewUrl, WebviewWindowBuilder, Window,
+    WindowEvent,
 };
 
 use crate::error::AppError;
@@ -40,11 +41,15 @@ const PANEL_HEIGHT: f64 = 600.0;
 #[cfg_attr(target_os = "linux", allow(dead_code))]
 const PANEL_MARGIN: f64 = 0.0;
 
-/// A click on the icon this soon after the panel hid itself on blur is the same gesture, not a
-/// new one: clicking the icon takes focus from the panel first, and the click arrives after.
-/// Not on Linux, where the panel is a window and does not hide on blur.
-#[cfg_attr(target_os = "linux", allow(dead_code))]
-const BLUR_DEBOUNCE: Duration = Duration::from_millis(250);
+/// The event that asks the panel's page to put itself away: slide the card out, then call
+/// `tray_hide_panel`. The page hides the window, not Rust, so that the card is already back at
+/// the edge when the window goes — a window hidden mid-show keeps its last frame, and the next show
+/// would flash the card in place before sliding it in.
+const DISMISS_EVENT: &str = "tray://dismiss";
+
+/// How long Rust waits for the page to hide the window itself before doing it: longer than the
+/// slide out, for a page that is broken or not loaded yet.
+const DISMISS_FALLBACK: Duration = Duration::from_millis(1200);
 
 /// The three words the Linux menu needs, sent by the frontend so that Rust holds no dictionary.
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -60,9 +65,9 @@ pub struct Labels {
 pub struct TrayState {
     /// Whether the icon is up, and with it whether closing the main window hides it.
     enabled: AtomicBool,
-    /// When the panel last hid itself because it lost focus — see [`BLUR_DEBOUNCE`].
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
-    blur_hidden_at: Mutex<Option<Instant>>,
+    /// Counts the panel's shows, so that a fallback hide from before a show never hides the
+    /// panel it shows — see [`request_dismiss`].
+    shows: AtomicU64,
     #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     labels: Mutex<Labels>,
     /// Whether this session can show a tray icon at all, asked once — see [`has_host`].
@@ -79,22 +84,6 @@ impl TrayState {
 
     fn host(&self) -> bool {
         *self.host.get_or_init(has_host)
-    }
-
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
-    fn mark_blur_hide(&self) {
-        *self
-            .blur_hidden_at
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(Instant::now());
-    }
-
-    #[cfg_attr(target_os = "linux", allow(dead_code))]
-    fn just_blur_hidden(&self) -> bool {
-        self.blur_hidden_at
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .is_some_and(|at| at.elapsed() < BLUR_DEBOUNCE)
     }
 }
 
@@ -213,11 +202,12 @@ pub fn tray_configure(
 /// Shows, unminimises and focuses the main window, and puts the panel away.
 #[tauri::command]
 pub fn tray_open_main(app: AppHandle) {
-    hide_panel(&app);
     crate::launch::bring_to_front(&app);
+    request_dismiss(&app);
 }
 
-/// Puts the panel away — Esc, or a click on a row that opens something elsewhere.
+/// Hides the panel's window, now. The page calls it once its card has slid out; nothing else
+/// should, because a window hidden before that shows a stale frame on its next show.
 #[tauri::command]
 pub fn tray_hide_panel(app: AppHandle) {
     hide_panel(&app);
@@ -239,6 +229,29 @@ pub(crate) fn show_in_dock<R: Runtime>(app: &AppHandle<R>) {
     let _ = app;
 }
 
+/// Asks the page to slide the card out and hide the window — and hides it anyway if the page has
+/// not after [`DISMISS_FALLBACK`], unless the panel was shown again in between.
+fn request_dismiss<R: Runtime>(app: &AppHandle<R>) {
+    let _ = app.emit_to(PANEL, DISMISS_EVENT, ());
+    let shows = app.state::<TrayState>().shows.load(Ordering::SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(DISMISS_FALLBACK);
+        if app.state::<TrayState>().shows.load(Ordering::SeqCst) == shows {
+            hide_panel(&app);
+        }
+    });
+}
+
+/// Shows the panel's window and focuses it; the page slides the card in when it gets the focus.
+fn show_panel<R: Runtime>(app: &AppHandle<R>, panel: &tauri::WebviewWindow<R>) {
+    app.state::<TrayState>()
+        .shows
+        .fetch_add(1, Ordering::SeqCst);
+    let _ = panel.show();
+    let _ = panel.set_focus();
+}
+
 fn hide_panel<R: Runtime>(app: &AppHandle<R>) {
     if let Some(panel) = app.get_webview_window(PANEL) {
         let _ = panel.hide();
@@ -253,14 +266,13 @@ fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
         #[cfg(not(target_os = "linux"))]
         (PANEL, WindowEvent::Focused(false)) => {
             if window.is_visible().unwrap_or(false) {
-                let _ = window.hide();
-                state.mark_blur_hide();
+                request_dismiss(app);
             }
         }
         // The panel is never destroyed: Alt+F4 or its close button only puts it away.
         (PANEL, WindowEvent::CloseRequested { api, .. }) => {
             api.prevent_close();
-            let _ = window.hide();
+            request_dismiss(app);
         }
         (MAIN, WindowEvent::CloseRequested { api, .. }) if state.enabled() => {
             api.prevent_close();
@@ -324,11 +336,9 @@ fn on_icon_event(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
         return;
     };
 
+    // Open, or sliding out after the click took its focus: either way the click means "away".
     if panel.is_visible().unwrap_or(false) {
-        let _ = panel.hide();
-        return;
-    }
-    if app.state::<TrayState>().just_blur_hidden() {
+        request_dismiss(app);
         return;
     }
 
@@ -361,8 +371,7 @@ fn on_icon_event(app: &AppHandle, event: tauri::tray::TrayIconEvent) {
         }
         None => log::warn!("tray: no monitor found for a click at {position:?}"),
     }
-    let _ = panel.show();
-    let _ = panel.set_focus();
+    show_panel(app, &panel);
 }
 
 /// Whether this session can show a tray icon. macOS and Windows always can.
@@ -472,13 +481,12 @@ fn on_menu_event(app: &AppHandle, id: &str) {
         "open_panel" => {
             if let Some(panel) = app.get_webview_window(PANEL) {
                 let _ = panel.center();
-                let _ = panel.show();
-                let _ = panel.set_focus();
+                show_panel(app, &panel);
             }
         }
         "open_main" => {
-            hide_panel(app);
             crate::launch::bring_to_front(app);
+            request_dismiss(app);
         }
         "quit" => app.exit(0),
         _ => {}
