@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-20
 task: T172
 ---
@@ -126,7 +126,7 @@ A comment that would still be true with the step deleted belongs there, not besi
 | `_system.yml` | `system` |
 | `_bench.yml` | `bench` |
 | `_build.yml` | `window`, `binaries`, `build` |
-| `_release.yml` | `preflight`, `release` |
+| `_release.yml` | `release` |
 
 Each called workflow is `on: workflow_call` with one input, `jobs`, and keeps its jobs' `if:` as it
 is. `ci.yml` passes `inputs.jobs` through. The leading underscore sorts them together and marks them
@@ -142,18 +142,31 @@ What moving into called workflows changes, all known in advance:
   (`CARGO_TERM_COLOR`, `CARGO_INCREMENTAL`, `CARGO_PROFILE_DEV_DEBUG`, `RUST_BACKTRACE`) are declared
   again at the top of each called workflow. A comment in `ci.yml` says that is where they live.
 - **`release` needs `build` across files.** In `ci.yml` the entry for `_release.yml` has
-  `needs: [lint, test, build]`, naming the calling jobs, with `secrets: inherit` for the signing
-  keys.
+  `needs: [preflight, lint, test, build]`, naming the calling jobs, with `secrets: inherit` for the
+  signing keys.
 - **Concurrency stays in `ci.yml`.** A called workflow runs inside its caller's group.
+
+Two things were decided while building this, not before:
+
+- **`preflight` stays in `ci.yml`.** This spec first put it in `_release.yml`, which would have made
+  it wait behind `release`'s `needs` — and the whole of T86's argument for that job is that it
+  answers in thirty seconds instead of an hour. It is twelve lines, it gates `release` from the
+  caller, and it keeps its meaning where it is.
+- **Pointers into the workflow are repointed.** About sixty `#[ignore]` messages and module notes
+  name "the `caddy` step in `ci.yml`" and its like. Those steps now live in `_services.yml`,
+  `_bench.yml`, `_test.yml`, `_system.yml` or `_build.yml`, and each pointer names the file it is
+  in. Left alone: accepted ADRs, past reviews and closed roadmap phases, which describe the
+  workflow as it was.
 
 ## Expected result
 
-| File | Lines, estimated |
+| File | Lines |
 | --- | --- |
-| `ci.yml` | ~200 |
-| `_services.yml` | ~350 (the largest) |
-| every other called workflow | 60–300 |
-| total across `.github/workflows/` and `.github/actions/` | ~1600, against 3094 |
+| `ci.yml` | 105 |
+| `_build.yml` | 435 (the largest) |
+| `_services.yml` / `_system.yml` / `_lint.yml` / `_test.yml` / `_bench.yml` / `_release.yml` | 389 / 396 / 273 / 248 / 213 / 114 |
+| the two composite actions | 37 and 32 |
+| total, against 3094 in one file before | 2242 |
 
 ## Verification
 

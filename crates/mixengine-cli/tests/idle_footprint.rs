@@ -187,7 +187,7 @@ fn reading(home: &harness::Home) -> Reading {
 
 /// **A daemon supervising a web server and nothing else stays inside what it is allowed.**
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "a budget, measured by the bench job — see the module note and ci.yml"]
+#[ignore = "a budget, measured by the bench job — see the module note and _bench.yml"]
 async fn an_idle_daemon_stays_inside_its_budget_and_the_total_is_reported_beside_it() {
     let (home, _daemon, _registry, _site, _control) = declared(&CADDY).await;
 

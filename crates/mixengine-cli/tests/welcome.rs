@@ -122,13 +122,13 @@ async fn a_sites_home_page_is_never_its_own_source(front: &'static FrontEnd) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in ci.yml"]
+#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in _services.yml"]
 async fn caddy_says_so_when_a_site_has_nothing_in_it() {
     a_site_with_nothing_in_it_says_so(&CADDY).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx and a real PHP — see the module note, and the `nginx` and `php` steps in ci.yml"]
+#[ignore = "needs a real nginx and a real PHP — see the module note, and the `nginx` and `php` steps in _services.yml"]
 async fn nginx_says_so_when_a_site_has_nothing_in_it() {
     a_site_with_nothing_in_it_says_so(&NGINX).await;
 }

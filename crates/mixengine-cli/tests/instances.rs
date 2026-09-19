@@ -115,7 +115,7 @@ fn package(line: &Line) -> PathBuf {
     let directory = std::env::var_os(variable).unwrap_or_else(|| {
         panic!(
             "{variable} is not set, so there is no MariaDB {version} to run beside the other one. \
-             The `mariadb-instances` step in .github/workflows/ci.yml fetches both; by hand, \
+             The `mariadb-instances` step in .github/workflows/_services.yml fetches both; by hand, \
              unpack MariaDB {version} from mixengine-packages' releases and point {variable} at \
              the directory it unpacked to."
         )
@@ -343,7 +343,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, [u16; 2]) {
 /// previous one's precondition, and the expensive part — two real bootstraps — would be paid again
 /// by every test that split off.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs two real MariaDBs — see the module note, and `mariadb-instances` in ci.yml"]
+#[ignore = "needs two real MariaDBs — see the module note, and `mariadb-instances` in _services.yml"]
 async fn two_instances_of_one_server_run_at_two_versions_without_knowing_about_each_other() {
     let (home, _daemon, _registry, _ports) = created().await;
 

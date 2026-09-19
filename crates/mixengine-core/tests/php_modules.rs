@@ -62,7 +62,7 @@ fn runtimes() -> Vec<PathBuf> {
         .unwrap_or_else(|| {
             panic!(
                 "neither {RUNTIMES} nor {RUNTIME} is set, so there is no PHP to judge these module \
-                 names against. The `php` steps in .github/workflows/ci.yml fetch them; by hand, \
+                 names against. The `php` steps in .github/workflows/_services.yml fetch them; by hand, \
                  unpack any PHP from mixengine-packages' releases and point {RUNTIME} at the \
                  directory it unpacked to."
             )
@@ -219,7 +219,7 @@ fn loaded(php: &Path, empty: &Path, scan: Option<&Path>) -> (BTreeSet<String>, S
 /// The defect this pins: a bare `extension = igbinary` names a file no PHP build ships, and only
 /// 7.2 and later recover from it by appending the suffix themselves.
 #[test]
-#[ignore = "needs a real PHP — see the module note, and the `php` steps in ci.yml"]
+#[ignore = "needs a real PHP — see the module note, and the `php` steps in _services.yml"]
 fn every_shipped_module_loads_on_every_branch() {
     let empty = tempfile::TempDir::new().expect("a directory with no php.ini in it");
 

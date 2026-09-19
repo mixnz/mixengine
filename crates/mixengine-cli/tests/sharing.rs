@@ -105,7 +105,7 @@ fn bindable(address: Ipv4Addr) -> bool {
 /// machine's web server. It is bound to loopback by the recipe, and this is what says so after a
 /// share rather than before one.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn a_shared_home_listens_on_the_web_port_and_nothing_else() {
     let (home, _daemon, _registry, site_port, control) = frontend::declared(&CADDY).await;
 

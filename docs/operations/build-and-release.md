@@ -165,6 +165,14 @@ narrowed dispatch on a tag ref cannot produce half a release.
 So a branch's macOS artifacts do not run on an Intel Mac. The `lipo` path and the x86_64 release
 build are proved by every `master` run, before any tag.
 
+**One workflow per job family since T172e.** `ci.yml` holds the triggers, the `jobs` choice,
+concurrency and one entry per family; each family is a called workflow of its own —
+`_lint.yml` (`lint`, `bindings`, `docs`, `desktop`), `_test.yml` (`test`, `rustdoc`),
+`_services.yml`, `_system.yml`, `_bench.yml`, `_build.yml` (`window`, `binaries`, `build`) and
+`_release.yml`. `preflight` stays in `ci.yml`, so that it still answers in seconds rather than
+behind the build. A called workflow does not inherit the caller's `env:`, so each declares the same
+four variables, and job names read `<family> / <job>` in the run and in the API.
+
 **Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
 their own, which is the thing that file will not do.
 

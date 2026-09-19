@@ -155,7 +155,7 @@ impl FakePackage {
     /// Add a file from disk, executable, under a name of the caller's choosing.
     ///
     /// [`executable`](Self::executable)'s sibling for a program that is not `fakeservice`: a suite
-    /// with a **real** server fetched onto the machine — the Caddy `.github/workflows/ci.yml`
+    /// with a **real** server fetched onto the machine — the Caddy `.github/workflows/_services.yml`
     /// unpacks — packs it into an archive here and installs it through the API, rather than pointing
     /// a row at a directory nothing put there.
     ///

@@ -8,7 +8,7 @@
 //! An ordinary machine never meets that: an interactive administrator carries a UAC-*filtered*
 //! token where the group is present deny-only and grants nothing. The machine that meets it is this
 //! repository's own Windows CI leg, which holds a full token deliberately and asserts that it still
-//! does (T2b, `.github/workflows/ci.yml`).
+//! does (T2b, `.github/workflows/_test.yml`).
 //!
 //! **So every supervised child is created from a restricted token, not only PostgreSQL's.** The
 //! decision and its reasons are

@@ -1,0 +1,396 @@
+# What only a privileged process can prove (T40).
+# Called from ci.yml, never run on its own (T172e); the triggers, the `jobs` choice and
+# concurrency live there. `inputs.jobs` below is the caller's choice, passed through.
+name: system
+
+on:
+  workflow_call:
+    inputs:
+      jobs:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # CI builds are never incremental: it only costs cache size and hurts a cold runner.
+  CARGO_INCREMENTAL: 0
+  # T170l: line tables only in debug builds. Set in every workflow rather than per job because
+  # rust-cache hashes the `CARGO_*` environment into its key.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  RUST_BACKTRACE: 1
+
+jobs:
+  # T40: what only a privileged process can prove. On every run, because a dispatch has no diff
+  # to filter on. 45 minutes since the certificate and uninstall suites joined.
+  system:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'system' }}
+    name: system (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: system
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      # Built as the ordinary user and *run* as root below. `sudo cargo test` would compile a second
+      # copy of everything into a target directory root owns, and leave it there for the next job.
+      - name: Build the system suite
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-elevate --test system --locked --offline --no-run
+
+      # This leg already holds a full administrator token (T2b, asserted in the `test` job), so there
+      # is nothing to raise: running the binary directly is running it elevated.
+      # `--test-threads=1`: every test in this suite writes the one audit directory this machine has,
+      # which is the whole point of it being a system suite. Run in parallel they interleave on that
+      # one directory and assert about each other's half-finished work rather than about the code.
+      - name: Elevated suite (Windows)
+        if: runner.os == 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-elevate --test system --locked --offline -- --ignored --nocapture --test-threads=1
+
+      # `sudo -E` keeps SUDO_UID and the cargo environment: the suite hands its request file back to
+      # the invoking user, because a root-owned request is exactly what the helper refuses.
+      - name: Elevated suite (Unix)
+        if: runner.os != 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-elevate --test system --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T40a's launchers, which are in `mixengine-platform` rather than in the helper: what is under
+      # test is the thing that *raises* the prompt. The helper is built explicitly rather than left to
+      # the step above, because this suite finds it beside the test binary and a reordering of these
+      # steps should not silently turn that into a skip.
+      - name: Build the launcher suite
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          cargo build -p mixengine-elevate --locked --offline
+          cargo test -p mixengine-platform --test elevation --locked --offline --no-run
+
+      # As the elevated suite above: this leg already holds a full administrator token, so `runas`
+      # raises nothing and the round trip runs unattended.
+      - name: Launchers (Windows)
+        if: runner.os == 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test elevation --locked --offline -- --ignored --nocapture --test-threads=1
+
+      # `timeout-minutes` of its own, rather than the job's 20. The macOS leg is a **measurement**:
+      # whether `do shell script … with administrator privileges` authenticates on a process that is
+      # already root is not something this project can settle by reading. If it prompts, it hangs, and
+      # this is the clock that ends it — see the T40a design, "Testing". The Linux leg needs no token
+      # at all and asserts the opposite: that a machine with no authentication agent says so.
+      - name: Launchers (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 5
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-platform --test elevation --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T41's hosts engine, against the machine's own `/etc/hosts`. Its unit tests drive the same
+      # `apply` against files they own; what only a real machine can answer is whether the replace
+      # keeps the file's owner and its ACL, and whether an ordinary token is refused. The test takes
+      # a copy first and asserts the file came back byte for byte, so a runner is left as it was.
+      - name: Build the hosts suite
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test hosts --locked --offline --no-run
+
+      - name: The hosts file (Windows)
+        if: runner.os == 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test hosts --locked --offline -- --ignored --nocapture --test-threads=1
+
+      # `--test-threads=1` for the elevated suite's reason: there is one hosts file on this machine.
+      - name: The hosts file (Unix)
+        if: runner.os != 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-platform --test hosts --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T42: port access against each machine's own mechanism; the tests restore what they touch.
+      # No Windows leg: that system only refuses, which `test` asserts.
+      - name: Build the port-access suite
+        if: runner.os != 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test port_access --locked --offline --no-run
+
+      # `--test-threads=1` for the hosts suite's reason: there is one `/etc/pf.conf` on this machine
+      # and one packet filter, and two tests interleaving on them would assert about each other's
+      # half-finished work.
+      - name: Port access (Unix)
+        if: runner.os != 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-platform --test port_access --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T45: every test that concludes from a failed name first proves its DNS server answers (D14).
+      - name: Build the resolver suite
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test resolver --locked --offline --no-run
+
+      - name: The resolver (Windows)
+        if: runner.os == 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-platform --test resolver --locked --offline -- --ignored --nocapture --test-threads=1
+
+      # `--test-threads=1` for the hosts suite's reason: there is one resolver configuration on this
+      # machine, and two tests interleaving on it would assert about each other's half-finished work.
+      - name: The resolver (Unix)
+        if: runner.os != 'Windows'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-platform --test resolver --locked --offline --no-run             --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T49a, T54: the only tests that touch this machine's trust store, gated on
+      # `MIXENGINE_SYSTEM_TESTS=1` as well as `#[ignore]` (docs/standards/testing.md, rule 1).
+      - name: Fetch a real Caddy
+        if: runner.os != 'Linux'
+        shell: bash
+        run: bash .github/scripts/fetch-package.sh --probe "caddy version" caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
+
+      # Both suites drive a real `mix` against a real `mixengined`, and a rotation reaches the store
+      # through the `mixengine-elevate` beside it — three binaries in one directory, which is what
+      # `cargo test --workspace` hands the other jobs and what this one has to ask for. The helper is
+      # named here as well as in the launcher step above, for that step's reason: a reordering should
+      # not silently turn it into a skip.
+      - name: Build the certificate suites
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          cargo build -p mixengine-daemon -p mixengine-elevate --locked --offline
+          cargo test -p mixengine-cli --test cert --locked --offline --no-run
+
+      - name: Build the certificate suite that needs a front end
+        if: runner.os != 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-cli --test caddy --locked --offline --no-run
+
+      # One trust store, so one test at a time. The whole `caddy` suite, because an `--exact` filter
+      # on a renamed test passes as `0 tests`.
+      - name: The certificate authority this machine ends up trusting (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 12
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: |
+          cargo test -p mixengine-cli --test cert --locked --offline -- --ignored --nocapture --test-threads=1
+          cargo test -p mixengine-cli --test caddy --locked --offline -- --ignored --nocapture --test-threads=1
+
+      # As root, so a rotation is granted and the gated test has something to assert. Its own
+      # timeout, because nothing here could answer a prompt.
+      - name: The certificate authority this machine ends up trusting (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 12
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: |
+          set -euo pipefail
+          for name in cert caddy; do
+            suite=$(cargo test -p mixengine-cli --test "$name" --locked --offline --no-run \
+              --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+            echo "running $suite as root"
+            sudo -E "$suite" --ignored --nocapture --test-threads=1
+          done
+
+      # `cert`, not `caddy`: with no polkit agent a rotation is never granted (ADR 0005), so what
+      # Linux answers is the refusal.
+      - name: The certificate authority this machine ends up trusting (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 12
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-cli --test cert --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # T85b: a real logon task and systemd user unit under scratch names, removed afterwards. The
+      # Linux leg asserts register-or-refuse-with-a-reason. Ordinary user, one test at a time.
+      - name: The daemon's autostart entry
+        if: runner.os != 'macOS'
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: cargo test -p mixengine-platform --lib --locked --offline autostart -- --ignored --nocapture --test-threads=1
+
+      # What that suite left behind, on the resolver step's shape below and for its reason.
+      - name: The autostart entries this job left behind
+        if: always() && runner.os != 'macOS'
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Windows) schtasks /Query /FO LIST | grep -i mixengine || echo "no MixEngine task, which is how a runner starts" ;;
+            *)       ls -la ~/.config/systemd/user/ 2>/dev/null || echo "no user units, which is how a runner starts" ;;
+          esac
+
+      # T87: the clean-VM smoke test. Last of the suites, because it takes the machine apart.
+      - name: Build the uninstall suite
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test -p mixengine-cli --test uninstall --locked --offline --no-run
+
+      - name: Nothing of ours is left on this machine (Windows)
+        if: runner.os == 'Windows'
+        timeout-minutes: 12
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: cargo test -p mixengine-cli --test uninstall --locked --offline -- --ignored --nocapture --test-threads=1
+
+      - name: Nothing of ours is left on this machine (Unix)
+        if: runner.os != 'Windows'
+        timeout-minutes: 12
+        env:
+          CARGO_NET_OFFLINE: "true"
+          MIXENGINE_SYSTEM_TESTS: "1"
+        run: |
+          set -euo pipefail
+          suite=$(cargo test -p mixengine-cli --test uninstall --locked --offline --no-run \
+            --message-format=json | jq -r 'select(.profile.test == true) | .executable' | tail -n 1)
+          echo "running $suite as root"
+          sudo -E "$suite" --ignored --nocapture --test-threads=1
+
+      # What the resolver suite left behind, so a failure has the evidence beside it — the packet
+      # filter step's shape, for its reason. The suite puts the machine back; this is how we find out
+      # on the run where it did not.
+      - name: The resolver configuration this job left behind
+        if: always()
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Windows) reg query "HKLM\SYSTEM\CurrentControlSet\services\Dnscache\Parameters\DnsPolicyConfig" /s || echo "no policy rules, which is how a runner starts" ;;
+            macOS)   ls -la /etc/resolver/ 2>/dev/null || echo "no /etc/resolver, which is how a runner starts" ;;
+            *)       ls -la /etc/systemd/network/ 2>/dev/null || true ; resolvectl status 2>/dev/null | head -30 || echo "no systemd-resolved here" ;;
+          esac
+
+      # What the macOS leg left in the packet filter, so a failure has the evidence beside it. The
+      # test puts pf back the way it found it; this is how we find out on the run where it did not.
+      - name: The packet filter this job left behind
+        if: always() && runner.os == 'macOS'
+        run: |
+          # `sudo`, because `/dev/pf` belongs to root — which is D9's whole point and the reason the
+          # daemon compares three files instead of asking pf. Without it this step printed
+          # "pfctl: /dev/pf: Permission denied" and no evidence at all.
+          sudo /sbin/pfctl -s info || true
+          sudo /sbin/pfctl -s nat || true
+          echo "--- /etc/pf.conf ---"
+          cat /etc/pf.conf
+          ls -l /etc/pf.anchors/ /Library/LaunchDaemons/ | grep -i mixengine || echo "nothing of ours"
+
+      # T49a: whether the certificate is in the keychain and whether it is trusted are two facts.
+      - name: The trust store this job left behind
+        if: always()
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            Windows) certutil -store Root | grep -i -A 2 mixengine || echo "nothing of ours in LocalMachine\Root" ;;
+            macOS)
+              # Bounded and given no console, for the reason this step exists: a `security` that
+              # waits for an answer nobody can give is exactly what the suite ran into, and a
+              # diagnostic that inherits the fault it was added to diagnose burns the job's twenty
+              # minutes a second time. `alarm` survives `exec`, so the limit lands on `security`.
+              bounded() { perl -e 'alarm 30; exec @ARGV' "$@" </dev/null; }
+              echo "--- certificates in the System keychain ---"
+              bounded security find-certificate -a -c "MixEngine" /Library/Keychains/System.keychain || echo "nothing of ours, or the read did not answer"
+              echo "--- admin trust settings ---"
+              bounded sudo security dump-trust-settings -d || echo "no admin trust settings, or the read did not answer"
+              ;;
+            *)
+              ls -l /usr/local/share/ca-certificates/ /etc/pki/ca-trust/source/anchors/ 2>/dev/null | grep -i mixengine || echo "nothing of ours in the anchors directories"
+              ;;
+          esac
+
+      # What the suite left behind, so a failure has the evidence beside it.
+      # T85. The privileged helper this job installed, and where. `always()` for the reason every
+      # step in this block has it: what an elevated job left on a machine is worth printing whether
+      # or not the assertions about it held.
+      - name: The privileged helper this job installed
+        if: always()
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            # `ProgramFiles`, in the runner's own spelling, for the reason the audit log's step
+            # below records about `ProgramData`: bash is case-sensitive about a name Windows is not.
+            Windows) helper="${ProgramFiles:-C:/Program Files}/MixEngine/mixengine-elevate.exe" ;;
+            macOS)   helper="/Library/PrivilegedHelperTools/dev.mixengine.elevate" ;;
+            *)       helper="/usr/local/libexec/mixengine/mixengine-elevate" ;;
+          esac
+          if [ -e "$helper" ]; then ls -l "$helper"; else echo "no helper at $helper"; fi
+
+      # T87: prints what the uninstall suite left; Windows includes its pending-rename queue (D8).
+      - name: What the uninstall suite left behind
+        if: always()
+        shell: bash
+        run: bash .github/scripts/system-uninstall-leftovers.sh
+
+      - name: The audit log this job produced
+        if: always()
+        shell: bash
+        run: |
+          case "${{ runner.os }}" in
+            # `ProgramData`, not `PROGRAMDATA`: Windows itself is case-insensitive about the name,
+            # but bash is not, and the runner exports it in this spelling. The first run of this
+            # step printed "no log at /MixEngine/elevate.log".
+            Windows) log="${ProgramData:-C:/ProgramData}/MixEngine/elevate.log" ;;
+            macOS)   log="/Library/Logs/MixEngine/elevate.log" ;;
+            *)       log="/var/log/mixengine/elevate.log" ;;
+          esac
+          if [ -f "$log" ]; then cat "$log"; else echo "no log at $log"; fi

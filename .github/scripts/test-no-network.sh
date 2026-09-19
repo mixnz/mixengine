@@ -162,7 +162,7 @@ if [ "${MIXENGINE_TEST_ISOLATED:-}" = "1" ]; then
   fi
 
   if [ "$mode" = "workspace" ]; then
-    # Under cargo-nextest, as on the other two systems (T170f): see the `Test` step in ci.yml and
+    # Under cargo-nextest, as on the other two systems (T170f): see the `Test` step in _test.yml and
     # `.config/nextest.toml`. It does not run doc tests, and `--all-targets` would exclude them
     # anyway, so they get their own `cargo test` — inside the same namespace, otherwise a doc example
     # could reach the network unnoticed.

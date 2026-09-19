@@ -27,7 +27,7 @@ it.
 
 1. **No test touches the real hosts file, trust store, resolver config or port 53/80/443** unless it
    is a system test explicitly marked `#[ignore]` and gated on `MIXENGINE_SYSTEM_TESTS=1`. **That
-   variable is set in exactly one place** — the `system` job in `.github/workflows/ci.yml`, the job
+   variable is set in exactly one place** — the `system` job in `.github/workflows/_system.yml`, the job
    whose purpose is writing to the machine. It is worth naming here because for three tasks it was
    set in *no* place, and a gate nothing ever opens is a test that does not exist.
 2. **Every test gets its own `MIXENGINE_HOME`** in a `tempfile::TempDir`, **passed as an argument,
@@ -148,7 +148,7 @@ CI runs the full unit/component/integration suite on `windows-latest`, `macos-la
 `ubuntu-latest`. A PR touching `mixengine-platform` additionally runs the system suite on all three.
 
 **A suite that needs a real program runs in the `services` job, never in `test`** (T170e). It is
-`#[ignore]`d, gets a step of its own in `.github/workflows/ci.yml` guarded by the package variable it
+`#[ignore]`d, gets a step of its own in `.github/workflows/_services.yml` guarded by the package variable it
 reads, and joins one of the job's groups — and on Linux a block in `.github/scripts/test-no-network.sh`
 that calls `missing` when the variable is unset. A group whose leg passes 15 minutes on a warm cache
 is split into two matrix rows.

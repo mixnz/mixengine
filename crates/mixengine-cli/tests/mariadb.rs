@@ -119,7 +119,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(PACKAGE).unwrap_or_else(|| {
         panic!(
             "{PACKAGE} is not set, so there is no MariaDB to judge this recipe against. The \
-             `mariadb` step in .github/workflows/ci.yml fetches one; by hand, unpack any MariaDB \
+             `mariadb` step in .github/workflows/_services.yml fetches one; by hand, unpack any MariaDB \
              11.4 from mixengine-packages' releases and point {PACKAGE} at the directory it \
              unpacked to."
         )
@@ -499,7 +499,7 @@ async fn created_as(service: &str) -> (Home, harness::Daemon, MockRegistry, Path
 /// One test rather than eight, deliberately: each step is the previous one's precondition, and eight
 /// tests would be eight real bootstraps performed to re-reach the state this one is already in.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in ci.yml"]
+#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in _services.yml"]
 async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped_twice() {
     let (home, _daemon, _registry, installed_at, port) = created().await;
     let data = data_directory(&home, "main");
@@ -853,7 +853,7 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
 /// collision itself is written down in the roadmap beside T33.
 #[cfg(target_os = "linux")]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in ci.yml"]
+#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in _services.yml"]
 async fn the_root_credential_reaches_the_client_through_its_environment_and_not_the_url() {
     use std::os::unix::fs::PermissionsExt as _;
 
@@ -994,7 +994,7 @@ fn set_the_root_password_behind_mixengines_back(root: &Path, data: &Path, passwo
 /// that threw the data directory away and bootstrapped a new one, which is the thing this command
 /// must never be.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in ci.yml"]
+#[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in _services.yml"]
 async fn a_superuser_credential_is_re_set_and_the_databases_are_kept() {
     let (home, _daemon, _registry, installed_at, _port) = created_as(RESET).await;
     let data = data_directory(&home, "reset");

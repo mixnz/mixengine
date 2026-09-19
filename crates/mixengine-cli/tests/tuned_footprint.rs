@@ -466,7 +466,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry) {
 /// the pair beside it says whether the tuned side grew or the stock side shrank — which is the
 /// difference between a regression here and a new MariaDB.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "a budget, measured by the bench job — see the module note and ci.yml"]
+#[ignore = "a budget, measured by the bench job — see the module note and _bench.yml"]
 async fn the_tuned_defaults_hold_less_than_the_servers_own() {
     let (home, _daemon, _registry) = created().await;
 

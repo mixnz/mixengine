@@ -7,7 +7,7 @@
 //!
 //! **It is `#[ignore]`d rather than skipped**, for `caddy.rs`' reason: a test that quietly returns
 //! when it cannot find a Redis is a green suite that proved nothing on the day the download broke.
-//! The `redis` step in `.github/workflows/ci.yml` fetches a real archive; without one, everything
+//! The `redis` step in `.github/workflows/_services.yml` fetches a real archive; without one, everything
 //! here panics saying so.
 //!
 //! # The two claims only a real server can settle
@@ -52,7 +52,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(PACKAGE).unwrap_or_else(|| {
         panic!(
             "{PACKAGE} is not set, so there is no Redis to judge this recipe against. The `redis` \
-             step in .github/workflows/ci.yml fetches one; by hand, unpack any Redis from \
+             step in .github/workflows/_services.yml fetches one; by hand, unpack any Redis from \
              mixengine-packages' releases and point {PACKAGE} at the directory it unpacked to."
         )
     });
@@ -215,7 +215,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, u16) {
 /// precondition, and five tests would be five real servers started to re-reach the state this one is
 /// already in.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Redis — see the module note, and the `redis` step in ci.yml"]
+#[ignore = "needs a real Redis — see the module note, and the `redis` step in _services.yml"]
 async fn a_cache_is_generated_started_written_to_restarted_empty_and_stopped() {
     let (home, _daemon, _registry, port) = created().await;
 
