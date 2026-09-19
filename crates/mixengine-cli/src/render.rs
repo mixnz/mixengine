@@ -806,6 +806,17 @@ pub(crate) fn service_autostart(service: &ServiceSummary) -> String {
     )
 }
 
+/// `mix service save-resources`, for a person.
+pub(crate) fn save_resources(answer: mixengine_proto::SaveResources) -> String {
+    match answer.on {
+        true => "on — a service nobody is using is stopped, and started again when it is needed\n"
+            .to_owned(),
+        false => "off — nothing is stopped for being idle unless you gave it a time with \
+                  `mix service idle`\n"
+            .to_owned(),
+    }
+}
+
 /// `mix service status <service>`, for a person.
 pub(crate) fn service_status(service: &ServiceSummary) -> String {
     let mut rendered = format!("{} — {}\n", service.id, state(service));

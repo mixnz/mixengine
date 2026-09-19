@@ -609,6 +609,25 @@ fn asking_for_both_autostart_answers_at_once_is_refused() {
     );
 }
 
+/// **T167b, ADR 0041: a home saves nothing until somebody asks it to**, and the switch goes both
+/// ways and reads back — from the command line, which is the client-surface rule.
+#[test]
+fn save_resources_is_off_until_turned_on_and_reads_back() {
+    let (home, _daemon) = running(&[]);
+
+    let first = json(&home.mix(&["service", "save-resources", "--json"]));
+    assert_eq!(first["on"], Value::Bool(false), "a new home saves nothing: {first}");
+
+    let on = json(&home.mix(&["service", "save-resources", "--on", "--json"]));
+    assert_eq!(on["on"], Value::Bool(true), "{on}");
+
+    let read_back = stdout(&home.mix(&["service", "save-resources"]));
+    assert!(read_back.starts_with("on"), "{read_back}");
+
+    let off = json(&home.mix(&["service", "save-resources", "--off", "--json"]));
+    assert_eq!(off["on"], Value::Bool(false), "{off}");
+}
+
 /// **The repair T127 exists to provide is reachable from `mix`** — the client-surface rule.
 ///
 /// Help only: the repair itself against a real server is `mariadb.rs`, `mysql.rs` and `postgres.rs`,

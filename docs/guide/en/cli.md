@@ -1111,6 +1111,26 @@ mix service idle <SERVICE> [OPTIONS]
 | `--never` | Never stop it for being unused, whatever a later release makes the default |
 | `--default` | Go back to whatever its recipe wants, which in this build is never |
 
+### mix service save-resources
+
+Whether this home stops services nobody is using ("Save battery" in MixLab).
+
+With no flag: read it. Off unless you turn it on. While it is off, a service is never stopped for
+being idle unless you gave it a time with `mix service idle`. While it is on, a PHP pool nobody used
+for half an hour, or a database or cache for an hour, is stopped and started again by the next
+request that needs it.
+
+Setting this starts and stops nothing. The next idle check reads it.
+
+```
+mix service save-resources [OPTIONS]
+```
+
+| Flag | What it does |
+| --- | --- |
+| `--on` | Stop services nobody is using |
+| `--off` | Do not |
+
 ### mix service autostart
 
 Whether this service starts when MixEngine does.

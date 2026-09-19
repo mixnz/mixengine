@@ -47,14 +47,15 @@ use mixengine_proto::{
     ProjectRemoval, ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement,
     Requirements, ResetCredential, ResolvedRuntime, ResourceLimits, RouteTarget, RuntimeCatalogue,
     RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
-    RuntimeSummary, RuntimeTarget, RuntimeUninstall, ScaffoldConsent, ServiceAutostartSet,
-    ServiceCreate, ServiceCreation, ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport,
-    ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary,
-    ServiceTarget, ServiceWalk, SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind,
-    SiteList, SiteListQuery, SiteQuery, SiteRef, SiteRemoval, SiteRoute, SiteShare, SiteSharing,
-    SiteState, SiteUpdate, StorageReport, Timestamp, UninstallQuery, UninstallReport,
-    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdatePlacement,
-    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources, SaveResourcesSet,
+    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
+    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
+    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
+    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
+    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
+    UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint,
+    rpc,
 };
 
 use autostart::Autostart;
@@ -1673,6 +1674,24 @@ enum ServiceCommand {
         /// Go back to whatever its recipe wants, which in this build is never.
         #[arg(long, group = "idle_change")]
         default: bool,
+    },
+
+    /// Whether this home stops services nobody is using ("Save battery" in MixLab).
+    ///
+    /// With no flag: read it. Off unless you turn it on. While it is off, a service is never
+    /// stopped for being idle unless you gave it a time with `mix service idle`. While it is on, a
+    /// PHP pool nobody used for half an hour, or a database or cache for an hour, is stopped and
+    /// started again by the next request that needs it.
+    ///
+    /// Setting this starts and stops nothing. The next idle check reads it.
+    SaveResources {
+        /// Stop services nobody is using.
+        #[arg(long, group = "save_resources_change")]
+        on: bool,
+
+        /// Do not.
+        #[arg(long, group = "save_resources_change")]
+        off: bool,
     },
 
     /// Whether this service starts when MixEngine does.
@@ -5787,6 +5806,26 @@ async fn service(
             };
 
             emit(&rendered(json, &report, || render::service_idle(&report)))?;
+            return Ok(ExitCode::SUCCESS);
+        }
+
+        ServiceCommand::SaveResources { on, off } => {
+            // The two flags are one `clap` group, so at most one is set and neither means read.
+            let answer: SaveResources = match (*on, *off) {
+                (false, false) => {
+                    ask(&mut client, rpc::method::SERVICE_SAVE_RESOURCES, None).await?
+                }
+                (wanted, _) => {
+                    ask(
+                        &mut client,
+                        rpc::method::SERVICE_SET_SAVE_RESOURCES,
+                        encode(&SaveResourcesSet { on: wanted }),
+                    )
+                    .await?
+                }
+            };
+
+            emit(&rendered(json, &answer, || render::save_resources(answer)))?;
             return Ok(ExitCode::SUCCESS);
         }
 
