@@ -2,7 +2,7 @@
 //!
 //! `#[ignore]`d rather than skipped, for `caddy.rs`' reason: a test that quietly returns when it
 //! cannot find a memcached is a green suite that proved nothing on the day the download broke. The
-//! `memcached` step in `.github/workflows/ci.yml` fetches a real archive; without one, everything
+//! `memcached` step in `.github/workflows/_services.yml` fetches a real archive; without one, everything
 //! here panics saying so.
 //!
 //! # This suite speaks the protocol itself, and has to
@@ -49,7 +49,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(PACKAGE).unwrap_or_else(|| {
         panic!(
             "{PACKAGE} is not set, so there is no memcached to judge this recipe against. The \
-             `memcached` step in .github/workflows/ci.yml fetches one; by hand, unpack any \
+             `memcached` step in .github/workflows/_services.yml fetches one; by hand, unpack any \
              memcached 1.6 from mixengine-packages' releases and point {PACKAGE} at the directory \
              it unpacked to."
         )
@@ -196,7 +196,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, u16) {
 
 /// **The whole of T35's memcached half, in the order a user meets it.**
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real memcached — see the module note, and the `memcached` step in ci.yml"]
+#[ignore = "needs a real memcached — see the module note, and the `memcached` step in _services.yml"]
 async fn a_cache_with_no_configuration_file_is_started_written_to_and_stopped() {
     let (home, _daemon, _registry, port) = created().await;
 

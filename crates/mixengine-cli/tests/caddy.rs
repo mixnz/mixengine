@@ -8,7 +8,7 @@
 //!
 //! **It is `#[ignore]`d rather than skipped**, and the difference is the point. A test that quietly
 //! returns when it cannot find a Caddy is a green suite that proved nothing on the day the download
-//! broke; an ignored one is *visibly* not run, and the `caddy` step in `.github/workflows/ci.yml`
+//! broke; an ignored one is *visibly* not run, and the `caddy` step in `.github/workflows/_services.yml`
 //! fetches a real archive on all three systems and runs it. Without one, everything here panics
 //! saying so.
 //!
@@ -26,7 +26,7 @@ use harness::frontend::{self, CADDY};
 
 /// **The whole of T31, in the order a user meets it.**
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn caddy_is_generated_validated_started_reloaded_and_stopped() {
     frontend::is_generated_validated_started_reloaded_and_stopped(&CADDY).await;
 }
@@ -37,7 +37,7 @@ async fn caddy_is_generated_validated_started_reloaded_and_stopped() {
 /// can say whether one is a configuration is Caddy. The sequence is [`frontend`]'s, driven twice for
 /// T37's reason.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn caddy_serves_what_an_extension_s_fragment_adds() {
     frontend::serves_what_an_extension_s_fragment_adds(&CADDY).await;
 }
@@ -50,7 +50,7 @@ async fn caddy_serves_what_an_extension_s_fragment_adds() {
 /// connection policies`. What is proved here is that the shape the templates settled on is a shape
 /// the program will load.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn caddy_accepts_a_site_served_over_tls() {
     let (home, _daemon, _registry, _site_port, _control) = frontend::declared(&CADDY).await;
 
@@ -152,7 +152,7 @@ async fn caddy_accepts_a_site_served_over_tls() {
 /// only the running program can make, on the test above's own precedent — and the `redir` syntax
 /// itself was never run through `caddy validate` until this suite did.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn caddy_redirects_a_site_that_asks_for_it() {
     let (home, _daemon, _registry, site_port, _control) = frontend::declared(&CADDY).await;
 
@@ -211,7 +211,7 @@ async fn caddy_redirects_a_site_that_asks_for_it() {
 /// then asks MixEngine itself what that server hands a client — which is the only thing a browser
 /// ever sees.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn cert_status_measures_a_trusted_handshake_against_a_running_caddy() {
     let (home, _daemon, _registry, _site_port, _control) = frontend::declared(&CADDY).await;
 
@@ -271,7 +271,7 @@ async fn cert_status_measures_a_trusted_handshake_against_a_running_caddy() {
 /// the mechanism: `cert.issue` writes a certificate and tells nothing, so the running server goes
 /// on holding the one it loaded at start.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn cert_status_notices_a_server_holding_the_previous_certificate() {
     let (home, _daemon, _registry, _site_port, _control) = frontend::declared(&CADDY).await;
 
@@ -351,7 +351,7 @@ const SETTLE: Duration = Duration::from_secs(30);
 /// **Gated on `MIXENGINE_SYSTEM_TESTS=1` as well as `#[ignore]`d**, unlike everything else in this
 /// file, and rule 1 of `docs/standards/testing.md` is why: a rotation writes this *machine's*
 /// trust store, where the tests above only ever start a server. The `caddy` step in
-/// `.github/workflows/ci.yml` runs this suite with `--ignored`, so without the second gate this
+/// `.github/workflows/_services.yml` runs this suite with `--ignored`, so without the second gate this
 /// would install and remove a certificate authority on every macOS and Windows runner — and on
 /// Windows it can raise a dialog, which a CI job has nobody to answer. That is not hypothetical: an
 /// earlier draft of the T54 suite raised a real UAC prompt in the middle of `cargo test`.

@@ -75,7 +75,7 @@ fn state(served: &php_site::Served, pool: &str) -> String {
 
 /// **A request to a site whose pool the sweeper stopped is served inside the published budget.**
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "a budget, measured by the bench job — see the module note and ci.yml"]
+#[ignore = "a budget, measured by the bench job — see the module note and _bench.yml"]
 async fn a_first_request_to_a_sleeping_site_is_served_inside_the_budget() {
     let served = php_site::served(php_site::FRONT, &php_site::runtimes()).await;
 

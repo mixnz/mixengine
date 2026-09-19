@@ -84,7 +84,7 @@ pub(crate) fn runtimes() -> Vec<PathBuf> {
         .unwrap_or_else(|| {
             panic!(
                 "neither {RUNTIMES} nor {RUNTIME} is set, so there is no PHP to serve. The `php` \
-                 steps in .github/workflows/ci.yml fetch them; by hand, unpack any PHP from \
+                 steps in .github/workflows/_services.yml fetch them; by hand, unpack any PHP from \
                  mixengine-packages' releases and point {RUNTIME} at the directory."
             )
         });

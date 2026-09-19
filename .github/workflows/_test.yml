@@ -1,0 +1,248 @@
+# `test` on three systems, and `rustdoc` for Windows.
+# Called from ci.yml, never run on its own (T172e); the triggers, the `jobs` choice and
+# concurrency live there. `inputs.jobs` below is the caller's choice, passed through.
+name: test
+
+on:
+  workflow_call:
+    inputs:
+      jobs:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # CI builds are never incremental: it only costs cache size and hurts a cold runner.
+  CARGO_INCREMENTAL: 0
+  # T170l: line tables only in debug builds. Set in every workflow rather than per job because
+  # rust-cache hashes the `CARGO_*` environment into its key.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
+    name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # 45 is where waiting stops being the answer, not a budget (phase 11).
+    timeout-minutes: 45
+    strategy:
+      # One OS failing must not hide the result on the other two — the platform layer is exactly
+      # where per-OS divergence shows up.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      # T2b: this leg holds an enabled `BUILTIN\Administrators` (a full token). Kept as an assertion
+      # because docs/standards/testing.md derives a rule from it.
+      - name: What this leg runs as (T2b)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $groups = whoami /groups
+          $groups
+          $admin = $groups | Select-String -SimpleMatch 'S-1-5-32-544'
+          if (-not ($admin -and "$admin" -match 'Enabled group')) {
+            Write-Host '::error::This leg is no longer an elevated administrator, which is good news and not a build failure. Re-read the Privilege section of docs/standards/testing.md, which concluded the opposite, and delete this step with it.'
+            exit 1
+          }
+
+      # T170k: the image turns Defender's real-time protection off; this records that it still does.
+      # It warns and never fails: a scanner makes a leg slower, not wrong.
+      - name: Defender's state
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          try {
+            $status = Get-MpComputerStatus -ErrorAction Stop
+            $status | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled | Format-List
+            'Exclusions: ' + ((Get-MpPreference -ErrorAction Stop).ExclusionPath -join ', ')
+            if ($status.RealTimeProtectionEnabled) {
+              Write-Host '::warning title=Defender is scanning::Real-time protection is on in this runner image, so every file this leg writes is scanned. Expect it to be slower than usual.'
+            }
+          } catch {
+            Write-Host "Defender's state could not be read on this runner: $_"
+          }
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: test
+          # T170a: only `master` writes the cache; branches and tags restore its entry. A run requested
+          # on `master` after a merge is what refreshes it.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+          # Saved by a `master` leg that failed or was cut off too — the action's default saves only
+          # from a green job, which is how a cold cache and a timeout feed each other: the first cold
+          # leg is cut off, saves nothing, and the rerun is cold again (run 34235885258). A cache is a
+          # record of what compiled, and a red test says nothing about that.
+          cache-on-failure: true
+
+      # T170a: a leg that restored nothing says so. A cold build is the first explanation for a slow
+      # leg, and it belongs in the run summary rather than in a log line nobody reads. The action's
+      # `cache-hit` output cannot say it: it is true only for an exact key match, and a branch whose
+      # `Cargo.lock` changed restores a partial one.
+      - name: Say whether the cache was cold
+        shell: bash
+        run: |
+          if [ -n "$(ls -A target/debug/deps 2>/dev/null)" ]; then
+            echo "Restored a build cache."
+          else
+            echo "::warning title=Cold cache::This leg restored no build cache and compiles from scratch. On a branch that means master has no entry for this key yet; request a run on master."
+          fi
+
+      # Everything the build needs is downloaded here, while the network is still allowed. From this
+      # point on cargo runs offline, so a dependency that is not in Cargo.lock fails the job instead
+      # of being fetched silently.
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      # The runner for the workspace step (T170f). Pinned, and installed while the network is still
+      # there: on Linux the suite runs in a namespace with no route out.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest@0.9.145
+
+      - name: Build tests
+        run: cargo test --workspace --all-targets --all-features --locked --offline --no-run
+
+      # A D-Bus secret service so the keyring tests run rather than skip (T15b), and `libnss3-tools`
+      # for `certutil` (T49b). A job step because the suite runs with no route out; bounded, because
+      # a stalled mirror once cost a whole run.
+      - name: Install the packages this leg's tests need
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && break
+            echo "::warning title=apt-get update failed::attempt $attempt of 3"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus libnss3-tools
+
+      # Linux is the leg that actually proves "no network in tests": the suite runs in a namespace
+      # with nothing but loopback. The script runs the doc tests too, inside the same namespace. The
+      # real-program suites are the `services` job's, through the same script (T170e).
+      - name: Test (no network)
+        if: runner.os == 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: bash .github/scripts/test-no-network.sh workspace
+
+      # T15b: takes the store away in three ways and asserts the answer. Outside the network
+      # namespace, because the script builds the D-Bus it needs.
+      - name: Test the answer a machine with no secret service gets
+        if: runner.os == 'Linux'
+        run: bash .github/scripts/test-absent-secret-service.sh
+
+      # T49b: `#[ignore]`d, and run only on this leg, the one that has `libnss3-tools`.
+      - name: Test against a real certutil
+        if: runner.os == 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --test browsers --locked --offline -- --ignored
+
+      # Windows and macOS rely on the harness (T11) and offline cargo for isolation. Under
+      # cargo-nextest (T170f, `.config/nextest.toml`); plain `cargo test` stays the contract.
+      - name: Test
+        if: runner.os != 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo nextest run --workspace --all-targets --all-features --locked --offline --profile ci
+
+      # `--all-targets` silently excludes doc tests; run them separately so rustdoc examples cannot
+      # rot. The Linux runner did this inside the namespace already.
+      - name: Doc tests
+        if: runner.os != 'Linux'
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo test --workspace --all-features --locked --offline --doc
+
+      # The only tool that resolves intra-doc links, once per OS because each OS directory of
+      # `mixengine-platform` builds only on its own OS. Windows runs it as `rustdoc` (T170d).
+      - name: rustdoc
+        if: (success() || failure()) && runner.os != 'Windows'
+        env:
+          RUSTDOCFLAGS: -D warnings
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo doc --workspace --no-deps --document-private-items --all-features --locked
+          --offline
+
+      - uses: ./.github/actions/leg-budget
+        if: always()
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"
+
+  # **rustdoc for Windows (T170d)**, split out of the Windows `test` leg, which is the run's critical
+  # path; macOS and Linux still run it as the last step of `test`. What it checks, and why once per
+  # operating system, is the comment on that step.
+  rustdoc:
+    # `jobs: test` answers "is test green yet", and after T170 that answer takes `test`, `services`
+    # and this job together, so the one option runs all three.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
+    name: rustdoc (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # Measured at 2.5 minutes cold as a step of `test` (run 35430523430).
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows only: the `rustdoc` step of `test` covers the other two (T170d).
+        os: [windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rustdoc
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo doc --workspace --no-deps --document-private-items --all-features --locked
+          --offline
+
+      - uses: ./.github/actions/leg-budget
+        if: always()
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"

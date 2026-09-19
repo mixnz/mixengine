@@ -8,7 +8,7 @@
 //!
 //! **It is `#[ignore]`d rather than skipped**, for Caddy's reason: a test that quietly returns when
 //! it cannot find an nginx is a green suite that proved nothing on the day the download broke. The
-//! `nginx` step in `.github/workflows/ci.yml` fetches a real archive on all three systems.
+//! `nginx` step in `.github/workflows/_services.yml` fetches a real archive on all three systems.
 //!
 //! # What only a real nginx can answer
 //!
@@ -38,7 +38,7 @@ use harness::frontend;
 
 /// **The whole of T37, in the order a user meets it.**
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in _services.yml"]
 async fn nginx_is_generated_validated_started_reloaded_and_stopped() {
     frontend::is_generated_validated_started_reloaded_and_stopped(&frontend::NGINX).await;
 }
@@ -49,7 +49,7 @@ async fn nginx_is_generated_validated_started_reloaded_and_stopped() {
 /// nginx fragment's `{install_dir}` is forward-slashed whatever system this is, because
 /// `ngx_conf_read_token` eats a backslash — which no unit test on Linux could ever have shown.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in _services.yml"]
 async fn nginx_serves_what_an_extension_s_fragment_adds() {
     frontend::serves_what_an_extension_s_fragment_adds(&frontend::NGINX).await;
 }
@@ -61,7 +61,7 @@ async fn nginx_serves_what_an_extension_s_fragment_adds() {
 /// proves the two-block rendering is a configuration nginx actually accepts and runs — not only one
 /// this repository's unit tests can parse.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in _services.yml"]
 async fn nginx_redirects_a_site_that_asks_for_it() {
     let (home, _daemon, _registry, site_port, _status) = frontend::declared(&frontend::NGINX).await;
 
@@ -119,7 +119,7 @@ async fn nginx_redirects_a_site_that_asks_for_it() {
 /// — so a home with no Caddy at all still hears about the nginx it has, rather than being told to go
 /// and fetch the thing it is about to be refused.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in _services.yml"]
 async fn a_home_that_already_has_a_front_end_is_refused_the_other_one() {
     let (home, _daemon, _registry, _site, _status) = frontend::declared(&frontend::NGINX).await;
 

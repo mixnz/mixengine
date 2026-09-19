@@ -289,13 +289,13 @@ async fn one_site_answers_from_four_places(front: &'static FrontEnd) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in ci.yml"]
+#[ignore = "needs a real Caddy — see the module note, and the `caddy` step in _services.yml"]
 async fn caddy_answers_one_site_from_four_places() {
     one_site_answers_from_four_places(&CADDY).await;
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real nginx — see the module note, and the `nginx` step in ci.yml"]
+#[ignore = "needs a real nginx — see the module note, and the `nginx` step in _services.yml"]
 async fn nginx_answers_one_site_from_four_places() {
     one_site_answers_from_four_places(&NGINX).await;
 }

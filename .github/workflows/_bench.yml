@@ -1,0 +1,213 @@
+# The performance budgets (T29).
+# Called from ci.yml, never run on its own (T172e); the triggers, the `jobs` choice and
+# concurrency live there. `inputs.jobs` below is the caller's choice, passed through.
+name: bench
+
+on:
+  workflow_call:
+    inputs:
+      jobs:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # CI builds are never incremental: it only costs cache size and hurts a cold runner.
+  CARGO_INCREMENTAL: 0
+  # T170l: line tables only in debug builds. Set in every workflow rather than per job because
+  # rust-cache hashes the `CARGO_*` environment into its key.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  RUST_BACKTRACE: 1
+
+jobs:
+  # T29: the performance budgets, in a release build, on all three systems because the shim's
+  # hand-over differs (`exec` on Unix, a Job Object on Windows).
+  bench:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bench' }}
+    name: bench (${{ matrix.os }}, ${{ matrix.group }})
+    runs-on: ${{ matrix.os }}
+    # Ninety rather than the thirty this job started with: M3 added a release build of the
+    # daemon and the client, three archives to fetch, and a suite that starts three real servers
+    # eight times; T72a added three PHP archives and a suite that waits out a sweep before it
+    # can measure anything; and T73 added one that bootstraps two databases and settles each.
+    timeout-minutes: 90
+    strategy:
+      # A budget missed on one system is not a reason to stop measuring the other two: the numbers
+      # are only comparable when they were all taken.
+      fail-fast: false
+      matrix:
+        # **Windows runs as two legs (T170j)**: its measurements alone took 13.5 minutes in run
+        # 35430523430, on top of an 11-minute release build. macOS and Linux measure in about 7 and
+        # stay one leg. A group is a set of measurements, and each leg builds only what its group
+        # needs; the fetches are shared, because Caddy is in both and all of them cost seconds.
+        include:
+          - { os: windows-latest, group: budgets }
+          - { os: windows-latest, group: footprint }
+          - { os: macos-latest, group: all }
+          - { os: ubuntu-latest, group: all }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/leg-budget
+        with:
+          phase: start
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench
+          # See the note on `test`'s cache (T170a). The two Windows legs share one key, so one of
+          # them writes it (T170j).
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.group != 'footprint' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      # M3's three servers, before the offline steps, pinned to `services`' versions on purpose.
+      - name: Fetch the three servers M3 is about
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
+          bash .github/scripts/fetch-package.sh mariadb 11.4.12 MIXENGINE_MARIADB_PACKAGE
+          bash .github/scripts/fetch-package.sh redis 8.10.0 MIXENGINE_REDIS_PACKAGE
+
+      # T72a: three cold pools need three versions. 7.0 and 7.4 predate `pm.status_listen`, which
+      # keeps T72a's status-page decision honest.
+      - name: Fetch the three PHPs the cold path wakes
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
+          bash .github/scripts/fetch-package.sh php 7.4.33 MIXENGINE_PHP_74 "$RUNNER_TEMP/php-74"
+          bash .github/scripts/fetch-package.sh php 8.3.33 MIXENGINE_PHP_83 "$RUNNER_TEMP/php-83"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
+          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php-74$separator$RUNNER_TEMP/php-83" >> "$GITHUB_ENV"
+
+      # The MariaDB bootstrap needs a credential store: Linux installs one, and each measuring step
+      # wraps itself in a D-Bus session of its own.
+      - name: Install a secret service
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && break
+            echo "::warning title=apt-get update failed::attempt $attempt of 3"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
+
+      # `fakeservice` is a dev-dependency's binary: selecting a test target does not rebuild it.
+      - name: Build the program the shim is measured against
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo build --release -p mixengine-testkit --bin fakeservice --locked --offline
+
+      # And the daemon the M3 suite drives, for the same reason and a different one: `mixengined` is
+      # another package, so `cargo test -p mixengine-cli` never builds it — the suite finds it beside
+      # the `mix` it was given, which is exactly how a released `mix` finds it at run time.
+      - name: Build the daemon M3 measures
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo build --release -p mixengine-daemon --locked --offline
+
+      # `--test-threads=1` is load-bearing rather than tidiness: both tests spend their whole time
+      # creating processes, so run in parallel each of them measures the other — 34 ms against 21 ms
+      # for the same difference on the same machine. `--nocapture` because the numbers are the
+      # output, and a passing test's stdout is otherwise swallowed.
+      - name: Performance budgets
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-shim --test overhead --locked --offline
+          -- --ignored --nocapture --test-threads=1
+
+      # The idle footprint. Before M3, which is bimodal on ubuntu, because a failing step ends the
+      # job.
+      - name: Idle footprint
+        if: contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 10
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test idle_footprint --locked --offline
+          -- --ignored --nocapture
+
+      # T72a: the cold path. It waits for a sweep, not a clock (T70, D8). Before M3, as above.
+      - name: Cold path
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test cold_path --locked --offline
+          -- --ignored --nocapture
+
+      # T73: gates the difference between tuned and default MariaDB, never either number. Before M3.
+      - name: What the tuned defaults save
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline
+          -- --ignored --nocapture
+
+      - name: What the tuned defaults save
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+
+          dbus-run-session -- sh -c \
+            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
+             exec cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline -- --ignored --nocapture'
+
+      # M3: caddy, mariadb and redis healthy in under ten seconds warm. `--nocapture` because the
+      # numbers are the output.
+      - name: M3 — three services, warm
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test warm_start --locked --offline
+          -- --ignored --nocapture
+
+      - name: M3 — three services, warm
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+
+          dbus-run-session -- sh -c \
+            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
+             exec cargo test --release -p mixengine-cli --test warm_start --locked --offline -- --ignored --nocapture'
+
+      - uses: ./.github/actions/leg-budget
+        if: always()
+        with:
+          phase: end
+          target-minutes: "15"
+          ceiling-minutes: "45"

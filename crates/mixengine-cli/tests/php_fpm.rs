@@ -53,7 +53,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(RUNTIME).unwrap_or_else(|| {
         panic!(
             "{RUNTIME} is not set, so there is no PHP to judge this recipe against. The `php` step \
-             in .github/workflows/ci.yml fetches one; by hand, unpack any PHP 8.3 from \
+             in .github/workflows/_services.yml fetches one; by hand, unpack any PHP 8.3 from \
              mixengine-packages' releases and point {RUNTIME} at the directory it unpacked to."
         )
     });
@@ -204,7 +204,7 @@ async fn installed() -> (Home, harness::Daemon, MockRegistry, Pool) {
 /// One test rather than six, deliberately: each step is the previous one's precondition, and six
 /// tests would be six real PHP installs performed to re-reach the state this one is already in.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real PHP — see the module note, and the `php` step in ci.yml"]
+#[ignore = "needs a real PHP — see the module note, and the `php` step in _services.yml"]
 async fn a_pool_is_created_started_serves_php_reloaded_and_stopped() {
     let (home, _daemon, _registry, listen) = installed().await;
     let pool = pool();
@@ -360,7 +360,7 @@ async fn a_pool_is_created_started_serves_php_reloaded_and_stopped() {
 /// own test rather than a line in the one above: what it needs is a *running* pool, and that test
 /// ends with a stopped one.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real PHP — see the module note, and the `php` step in ci.yml"]
+#[ignore = "needs a real PHP — see the module note, and the `php` step in _services.yml"]
 async fn a_running_pool_refuses_to_have_its_php_removed() {
     let (home, _daemon, _registry, _listen) = installed().await;
     let pool = pool();
@@ -415,7 +415,7 @@ async fn a_running_pool_refuses_to_have_its_php_removed() {
 /// versions are measured on every CI run rather than by hand.
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real PHP — see the module note, and the `php` step in ci.yml"]
+#[ignore = "needs a real PHP — see the module note, and the `php` step in _services.yml"]
 async fn a_status_probe_costs_the_pool_exactly_one_connection() {
     let (home, _daemon, _registry, listen) = installed().await;
 

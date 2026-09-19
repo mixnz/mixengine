@@ -42,7 +42,7 @@ vitest over the pure-logic modules (virtual rows, SQL statement splitting and gu
 parsing, request building, tab badges). None of them say anything about CSS or about whether a
 Tauri command is registered — only `npm run dev:app` and a click do.
 
-The root [ci.yml](../../.github/workflows/ci.yml)'s `desktop` job runs all of it on request and on
+The root workflow's [`desktop` job](../../.github/workflows/_lint.yml) runs all of it on request and on
 every tag, and its `build` legs are what prove the window links on all three platforms.
 
 ## Layout

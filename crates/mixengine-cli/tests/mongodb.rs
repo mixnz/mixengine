@@ -7,7 +7,7 @@
 //!
 //! **It is `#[ignore]`d rather than skipped**, for `redis.rs`' reason: a test that quietly returns
 //! when it cannot find a MongoDB is a green suite that proved nothing on the day the download broke.
-//! The `mongodb` step in `.github/workflows/ci.yml` fetches a real archive; without one, everything
+//! The `mongodb` step in `.github/workflows/_services.yml` fetches a real archive; without one, everything
 //! here panics saying so.
 //!
 //! # Spoken to over the wire, not through a shell
@@ -49,7 +49,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(PACKAGE).unwrap_or_else(|| {
         panic!(
             "{PACKAGE} is not set, so there is no MongoDB to judge this recipe against. The \
-             `mongodb` step in .github/workflows/ci.yml fetches one; by hand, unpack any MongoDB \
+             `mongodb` step in .github/workflows/_services.yml fetches one; by hand, unpack any MongoDB \
              from mixengine-packages' releases and point {PACKAGE} at the directory it unpacked to."
         )
     });
@@ -300,7 +300,7 @@ async fn created() -> (Home, harness::Daemon, MockRegistry, u16) {
 ///
 /// One test rather than five, for `redis.rs`' reason: each step is the previous one's precondition.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real MongoDB — see the module note, and the `mongodb` step in ci.yml"]
+#[ignore = "needs a real MongoDB — see the module note, and the `mongodb` step in _services.yml"]
 async fn a_database_is_generated_started_written_to_restarted_whole_and_stopped() {
     let (home, _daemon, _registry, port) = created().await;
 

@@ -29,7 +29,7 @@ use harness::php_site;
 /// The precondition for everything else here, and worth its own assertion: a 404 to the status page
 /// means nothing if the site answers nothing either.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in ci.yml"]
+#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in _services.yml"]
 async fn a_site_is_served_by_the_pool_behind_it() {
     let served = php_site::served(php_site::FRONT, &php_site::runtimes()[..1]).await;
     let site = &served.sites[0];
@@ -62,7 +62,7 @@ async fn a_site_is_served_by_the_pool_behind_it() {
 /// many workers its pool has and how many requests it has served, and the answer is to change the
 /// arrangement rather than the assertion.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in ci.yml"]
+#[ignore = "needs a real Caddy and a real PHP — see the module note, and the `caddy` and `php` steps in _services.yml"]
 async fn a_site_cannot_be_asked_for_the_pools_status_page() {
     let served = php_site::served(php_site::FRONT, &php_site::runtimes()[..1]).await;
     let site = &served.sites[0];

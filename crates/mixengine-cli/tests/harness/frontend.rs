@@ -115,7 +115,7 @@ impl FrontEnd {
         let directory = std::env::var_os(self.variable).unwrap_or_else(|| {
             panic!(
                 "{} is not set, so there is no {} to judge this recipe against. The `{}` step in \
-                 .github/workflows/ci.yml fetches one; by hand, unpack any {} and point {} at the \
+                 .github/workflows/_services.yml fetches one; by hand, unpack any {} and point {} at the \
                  directory holding the binary.",
                 self.variable, self.package, self.package, self.package, self.variable
             )
@@ -510,7 +510,7 @@ fn overrides(admin: u16, extra: Option<String>) -> String {
 
 /// A home with this server **installed** in it, on ports nothing else is using, and a daemon over it.
 ///
-/// The archive is packed out of what the `ci.yml` step fetched, served by a registry that signs its
+/// The archive is packed out of what the `_services.yml` step fetched, served by a registry that signs its
 /// own index, and installed through `package.install` — so this covers the whole T31a path against a
 /// real artifact on all three systems at no extra cost, and the service it then creates is one
 /// `service.create` wrote rather than one a fixture inserted.

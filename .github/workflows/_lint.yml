@@ -1,0 +1,273 @@
+# The ubuntu-only checks: `lint`, `bindings`, `docs` and `desktop`.
+# Called from ci.yml, never run on its own (T172e); the triggers, the `jobs` choice and
+# concurrency live there. `inputs.jobs` below is the caller's choice, passed through.
+name: lint
+
+on:
+  workflow_call:
+    inputs:
+      jobs:
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # CI builds are never incremental: it only costs cache size and hurts a cold runner.
+  CARGO_INCREMENTAL: 0
+  # T170l: line tables only in debug builds. Set in every workflow rather than per job because
+  # rust-cache hashes the `CARGO_*` environment into its key.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'lint' }}
+    name: lint
+    runs-on: ubuntu-latest
+    # Generous, but far short of the six-hour default: a job that hangs should free the runner.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # T169, ADR 0043. Every link into the documentation resolves, every spec's status header is
+      # valid and agrees with the roadmap, and docs/specs/README.md is what the script generates.
+      # First because it needs no toolchain: ubuntu-latest ships Node.
+      - name: Documentation links and spec status
+        run: |
+          node --test scripts/check-docs.test.mjs
+          node scripts/check-docs.mjs
+
+      # No toolchain action: rust-toolchain.toml is the single source of truth for the version and
+      # for the clippy/rustfmt components. Given no argument, `rustup toolchain install` installs
+      # exactly what that file pins — note that `rustup show` stopped installing anything in 1.28.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: lint
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: rustfmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      # T40, D8: the helper runs as root, so its dependency tree is a security decision. A change
+      # here means reading the diff and committing the updated list in the same change.
+      - name: The elevated helper builds without the rest of the platform
+        run: cargo check -p mixengine-elevate --locked
+
+      - name: The elevated helper's dependency budget
+        run: |
+          set -euo pipefail
+          cargo tree -p mixengine-elevate --no-default-features --edges normal             --prefix none --format '{p}' | sed 's/ v[0-9].*//' | sort -u > /tmp/elevate-dependencies.txt
+          grep -v '^#' .github/elevate-dependencies.txt | diff -u - /tmp/elevate-dependencies.txt
+
+      # ADR 0013: `linux/secrets.rs` works only while the tree holds one `dbus-secret-service`.
+      # `--color never` is load-bearing: coloured `(*)` markers break the count.
+      - name: One dbus-secret-service in the tree, or the Linux keyring reading is silently dead
+        run: |
+          set -euo pipefail
+          found=$(cargo tree --workspace --locked --color never --target x86_64-unknown-linux-gnu             --prefix none --format '{p}' | sed 's/ (\*)$//'             | grep '^dbus-secret-service ' | sort -u)
+          echo "$found"
+          test "$(printf '%s\n' "$found" | grep -c .)" -eq 1
+
+      # T14: `--check` fails when a query changed without `cargo sqlx prepare`. Prebuilt, and pinned
+      # to Cargo.lock's sqlx, because `.sqlx/` is a version-specific format.
+      - name: Install sqlx-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli@0.9.0
+
+      - name: sqlx offline data is current
+        env:
+          DATABASE_URL: sqlite:target/sqlx-ci.db
+        run: |
+          cargo sqlx database create
+          cargo sqlx migrate run --source crates/mixengine-core/migrations
+          cargo sqlx prepare --workspace --check -- --all-targets --all-features
+
+      # rustdoc runs in the `test` job instead, once per runner — see the note there. It has to be
+      # built on the OS it documents, and this job only has one.
+      #
+      # Licences and advisories. Configuration lives in deny.toml, including the six release targets.
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # `check` alone would also run `sources`, which is fine, but being explicit means a new
+          # check category added upstream cannot silently start failing our builds.
+          arguments: --all-features
+          command-arguments: advisories bans licenses sources
+
+      # T86, D9: `packaging/sign.sh` would otherwise only ever run in a release, so it runs here,
+      # against a throwaway key.
+      - name: Install minisign
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes minisign
+
+      - name: The signing script signs everything, and refuses a key that is not the product's
+        run: bash .github/scripts/test-sign.sh
+
+      # T88. The other half of what a release depends on and no ordinary run exercises: the document
+      # every installed copy reads to find out that a newer one exists. Same reasoning as the step
+      # above — the only other thing that would ever run `feed.sh` is a release.
+      - name: The feed describes the archives beside it
+        run: bash .github/scripts/test-feed.sh
+
+      # T105a: `AppRun`'s refusal below the window's floor, against a fixture directory with stubbed
+      # binaries. Nothing else would run it but somebody downloading a release.
+      - name: The AppImage's AppRun fills its cache and refuses in the right words
+        run: bash packaging/linux/apprun-check.sh
+
+  # T56: regenerates the TypeScript contract and fails on drift. Ubuntu alone: generation is
+  # OS-independent, and `test` runs the exporter on all three.
+  bindings:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bindings' }}
+    name: bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bindings
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      # The gate. It regenerates into a temporary directory and diffs, so a red job is a message and
+      # not also a dirty checkout — and so it answers the same way on a machine that unpacked a
+      # tarball rather than cloned one.
+      - name: The committed contract is what mixengine-proto generates
+        run: bash packaging/bindings.sh --check
+
+      # Redundant with `lint`, which passes `--all-features`, and kept: this is the job somebody
+      # opens when the contract is the thing that broke, and the crate is already compiled here.
+      - name: The contract's own feature is clean
+        run: cargo clippy -p mixengine-proto --features ts --all-targets --locked -- -D warnings
+
+      # So the packing path runs on every CI run rather than for the first time during a release —
+      # the rule `lint` already applies to `sign.sh` and `feed.sh`, whose only other caller is also
+      # a release. The script opens the archive it just made and asserts what is in it.
+      - name: The archive a release publishes can be built
+        run: bash packaging/bindings.sh --pack
+
+  # T90: builds the handbook's site and holds the command reference against what `mix` prints.
+  docs:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'docs' }}
+    name: docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: docs
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: The corpus builds a site, and the committed command reference is current
+        run: bash packaging/docs.sh --check
+
+  # T103, ADR 0027: the desktop application, on one OS; `build` proves the window links on all
+  # three. `cargo audit` is here because this workflow runs when somebody is looking.
+  desktop:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'desktop' }}
+    name: desktop
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Frontend — install, typecheck and build, test, lint
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build
+          npm test
+          npm run lint
+
+      # Every scene `npm run screenshots` takes still renders from its sample data — a command a
+      # scene reaches with no fixture, or a screen that crashes on one, fails here rather than on the
+      # day the images are needed. Nothing is written. See apps/desktop/demo/capture.mjs.
+      - name: Frontend — demo scenes render
+        working-directory: apps/desktop
+        run: |
+          npx playwright install --with-deps chromium
+          npm run screenshots -- --check
+
+      # The Tauri crates link against webkit2gtk, so even `cargo check` wants it present.
+      - name: Install the libraries the window links against
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # The root's rust-toolchain.toml is the nearest pin walking up from apps/desktop.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop
+          workspaces: "apps/desktop/src-tauri -> target"
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: clippy
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: test
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Advisories against the window's dependency tree
+        working-directory: apps/desktop/src-tauri
+        run: cargo audit

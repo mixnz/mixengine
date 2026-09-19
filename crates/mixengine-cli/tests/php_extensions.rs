@@ -60,7 +60,7 @@ fn package() -> PathBuf {
     let directory = std::env::var_os(RUNTIME).unwrap_or_else(|| {
         panic!(
             "{RUNTIME} is not set, so there is no PHP to judge this ini set against. The `php` \
-             step in .github/workflows/ci.yml fetches one; by hand, unpack any PHP 8.3 from \
+             step in .github/workflows/_services.yml fetches one; by hand, unpack any PHP 8.3 from \
              mixengine-packages' releases and point {RUNTIME} at the directory it unpacked to."
         )
     });
@@ -342,7 +342,7 @@ fn eventually(
 /// precondition, and seven tests would be seven real PHP installs performed to re-reach the state
 /// this one is already in.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "needs a real PHP — see the module note, and the `php` step in ci.yml"]
+#[ignore = "needs a real PHP — see the module note, and the `php` step in _services.yml"]
 async fn one_ini_set_reaches_the_terminal_and_the_pool_and_moves_when_it_is_told_to() {
     let (home, _daemon, _registry, listen) = installed().await;
     let pool = pool();
