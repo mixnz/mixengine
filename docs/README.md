@@ -113,7 +113,8 @@ A new top-level folder is created once three documents fit nowhere above.
   [18](roadmap/phase-18-what-a-machine-lacks.md) · [19](roadmap/phase-19-mongodb.md) ·
   [20](roadmap/phase-20-mixlab-redesigned.md) · [21](roadmap/phase-21-a-site-that-stays-up.md) ·
   [22](roadmap/phase-22-mixengine-in-the-tray.md) ·
-  [23](roadmap/phase-23-one-home-for-the-documentation.md) · [parked.md](roadmap/parked.md)
+  [23](roadmap/phase-23-one-home-for-the-documentation.md) ·
+  [24](roadmap/phase-24-a-test-job-that-scales.md) · [parked.md](roadmap/parked.md)
   (phase 6 is a gap, not a missing file — see todo.md)
 - desktop: [mixengine-module.md](roadmap/desktop/mixengine-module.md) ·
   [query-editor.md](roadmap/desktop/query-editor.md)
