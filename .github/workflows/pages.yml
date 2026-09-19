@@ -51,6 +51,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: pages
+          # Only `master` writes, as in ci.yml (T170a). This workflow runs on `master`, so it keeps
+          # writing; a dispatch from a branch reads it and adds nothing to the quota.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked

@@ -108,6 +108,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: lint
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: rustfmt
         run: cargo fmt --all --check
@@ -278,12 +280,32 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: test
-          # Saved by a leg that failed or was cut off too — the action's default saves only from a
-          # green job, which is how a cold cache and a timeout feed each other: the first cold leg is
-          # cut off, saves nothing, and the rerun is cold again (run 34235885258, and the two before
-          # it on the same branch). A cache is a record of what compiled, and a red test says nothing
-          # about that.
+          # **Only `master` writes (T170a).** A branch or a tag restores `master`'s entry for this key —
+          # or, when its `Cargo.lock` differs, the newest entry with the same prefix — and saves
+          # nothing. Before this, one run wrote about a whole 10 GB quota, every branch run evicted
+          # `master`'s entries, and every run built cold (run 35430523430). The arithmetic is in
+          # docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md. **No run fires on `master` by
+          # itself**, so a run requested on `master` after a merge is what refreshes what every branch
+          # starts from.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+          # Saved by a `master` leg that failed or was cut off too — the action's default saves only
+          # from a green job, which is how a cold cache and a timeout feed each other: the first cold
+          # leg is cut off, saves nothing, and the rerun is cold again (run 34235885258). A cache is a
+          # record of what compiled, and a red test says nothing about that.
           cache-on-failure: true
+
+      # T170a: a leg that restored nothing says so. A cold build is the first explanation for a slow
+      # leg, and it belongs in the run summary rather than in a log line nobody reads. The action's
+      # `cache-hit` output cannot say it: it is true only for an exact key match, and a branch whose
+      # `Cargo.lock` changed restores a partial one.
+      - name: Say whether the cache was cold
+        shell: bash
+        run: |
+          if [ -n "$(ls -A target/debug/deps 2>/dev/null)" ]; then
+            echo "Restored a build cache."
+          else
+            echo "::warning title=Cold cache::This leg restored no build cache and compiles from scratch. On a branch that means master has no entry for this key yet; request a run on master."
+          fi
 
       # Everything the build needs is downloaded here, while the network is still allowed. From this
       # point on cargo runs offline, so a dependency that is not in Cargo.lock fails the job instead
@@ -1082,6 +1104,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: system
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
@@ -1587,6 +1611,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: bench
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
@@ -1832,6 +1858,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: bindings
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
@@ -1882,6 +1910,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: docs
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
@@ -1962,6 +1992,8 @@ jobs:
         with:
           key: desktop
           workspaces: "apps/desktop/src-tauri -> target"
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: clippy
         working-directory: apps/desktop/src-tauri
@@ -2038,13 +2070,11 @@ jobs:
           rustup toolchain install --no-self-update
           rustup show active-toolchain
 
-      - uses: Swatinem/rust-cache@v2
-        if: matrix.container == ''
-        with:
-          key: build
-          workspaces: |
-            . -> target
-            apps/desktop/src-tauri -> target
+      # **No Actions cache (T170a).** This job's three runner-built legs were 3.6 GB of release
+      # artifacts, and with them one `master` run writes more than the repository's 10 GB, so
+      # `master`'s own entries would evict each other and every job would build cold. What makes
+      # this job fast without one is T170h and T170i: see part C of
+      # docs/specs/2026-09-19-t170-a-test-job-that-scales-design.md.
 
       - name: Fetch dependencies
         if: matrix.container == ''
