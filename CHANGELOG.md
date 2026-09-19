@@ -104,6 +104,11 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- A PHP pool is given thirty seconds to come up instead of fifteen, which is what a first start on
+  Windows can take while the runtime is read off the disk; a pool that was still starting is no
+  longer reported as failed.
+- A service that is not ready in time now says what it last printed, in `daemon.log` beside the
+  timeout, instead of leaving "not ready within 30s" as the whole report.
 - On Windows, `mix` and MixLab no longer fail with "All pipe instances are busy" when they reach
   MixEngine while it is still starting: they wait for their answer instead.
 - Dumping or restoring a MySQL database in MixLab no longer fails with "Access denied … (using

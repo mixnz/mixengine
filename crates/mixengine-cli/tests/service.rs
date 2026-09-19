@@ -390,6 +390,40 @@ fn a_service_that_never_becomes_ready_fails_the_command_and_names_the_one_to_fix
     assert_eq!(blocked["pid"], Value::Null, "{blocked}");
 }
 
+/// **A timeout with nothing beside it says only that something was slow.**
+///
+/// The service's own lines are in `logs/services/<id>/current.log` whatever happens. What this is
+/// about is `daemon.log`, which is the file a person reads when the failure reaches them somewhere
+/// else — a CI log, a bug report, a screenshot. Measured on run 35470533602: a php-fpm pool on
+/// Windows was reported as "not ready within 15s" and nothing the pool had printed travelled with
+/// it, so there was nothing to diagnose and the only move left was to run it again.
+#[test]
+#[cfg_attr(
+    not(debug_assertions),
+    ignore = "the fakeservice recipe is compiled into debug builds only"
+)]
+fn a_service_that_was_not_ready_in_time_has_its_last_lines_in_the_daemon_log() {
+    let (home, _daemon) = running(&[Service::new("fakeservice@main")
+        .never_ready()
+        // Long enough that a few lines are printed before the check gives up, short enough that
+        // this test is not two seconds of waiting for each of them.
+        .log_every(100)
+        .ready_timeout(2_000)]);
+
+    let output = home.mix(&["service", "start"]);
+    assert!(!output.status.success(), "{}", stdout(&output));
+
+    let log = home.daemon_log();
+    assert!(
+        log.contains("these are its last lines"),
+        "the daemon did not report what the service last said:\n{log}"
+    );
+    assert!(
+        log.contains("fakeservice: line"),
+        "the report holds no line the service printed:\n{log}"
+    );
+}
+
 /// `mix service logs` — roadmap task **T16b**, from the side a person types it.
 ///
 /// **The human rendering is the service's own output and nothing else**, which is what makes
