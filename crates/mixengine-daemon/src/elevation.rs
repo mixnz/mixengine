@@ -795,19 +795,14 @@ impl Elevation {
 
         let path = request.path().to_path_buf();
         let machine = Arc::clone(&self.host);
-        let raised = tokio::task::spawn_blocking(move || {
-            machine
-                .elevation()
-                .run(&helper, &path)
-                .map(|raised| raised.outcome)
-        })
-        .await
-        .map_err(|join| {
-            Error::new(
-                ErrorCode::Internal,
-                format!("the elevation prompt could not be waited on: {join}"),
-            )
-        })?;
+        let raised = tokio::task::spawn_blocking(move || machine.elevation().run(&helper, &path))
+            .await
+            .map_err(|join| {
+                Error::new(
+                    ErrorCode::Internal,
+                    format!("the elevation prompt could not be waited on: {join}"),
+                )
+            })?;
 
         let answer = self.judge(handle, &request, raised, &waiting).await;
 
@@ -851,10 +846,11 @@ impl Elevation {
         &self,
         handle: &crate::jobs::JobHandle,
         request: &mixengine_core::elevation::Request,
-        raised: mixengine_platform::Result<ElevationOutcome>,
+        raised: mixengine_platform::Result<mixengine_platform::Raised>,
         waiting: &[mixengine_proto::PendingOp],
     ) -> Result<serde_json::Value, Error> {
-        let outcome = raised.map_err(|error| mixengine_core::Error::Platform(error).to_wire())?;
+        let mixengine_platform::Raised { outcome, said } =
+            raised.map_err(|error| mixengine_core::Error::Platform(error).to_wire())?;
         let asked = waiting.len();
         let mut problems: Vec<String> = Vec::new();
 
@@ -885,6 +881,19 @@ impl Elevation {
 
                 let report = match mixengine_core::elevation::read_report(request) {
                     Ok(report) => report,
+                    // What the helper said is the only account of why it left nothing — a refusal
+                    // writes no file beside a request it does not trust (T166, D6). `warn`, because
+                    // until now it reached nothing above `debug`.
+                    Err(mixengine_core::Error::ElevateReportMissing { path, .. }) => {
+                        tracing::warn!(
+                            said = said.as_deref().unwrap_or(""),
+                            "the elevation helper ran and left no report"
+                        );
+                        self.remember(handle, &outcome, 0, asked, Vec::new());
+                        return Err(
+                            mixengine_core::Error::ElevateReportMissing { path, said }.to_wire()
+                        );
+                    }
                     Err(error) => {
                         self.remember(handle, &outcome, 0, asked, Vec::new());
                         return Err(error.to_wire());
@@ -1422,6 +1431,32 @@ mod tests {
             1,
             "nothing was reported, so nothing may be assumed applied"
         );
+    }
+
+    /// T166: a helper that refused its request writes nothing beside it, and what it said on stderr
+    /// is the only account of why. It has to reach the job's error, where the person who has just
+    /// typed a password reads it — not stop at a `debug` line.
+    #[tokio::test]
+    async fn a_helper_that_left_no_report_says_why_in_the_error() {
+        let said = "mixengine-elevate: cannot read /Volumes/SSD/home/run/elevate/x/request.json: \
+                    Operation not permitted (os error 1)";
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::elevation_saying("/tmp/mixengine", said)).await;
+        elevation.enqueue(&PrivilegedOp::Probe {}).await.unwrap();
+
+        let started = elevation.grant().await.unwrap();
+        let ended = finished(&elevation.jobs, started.id).await;
+
+        let Some(mixengine_proto::JobOutcome::Failed { error }) = ended.outcome else {
+            panic!("a grant with no report fails: {:?}", ended.outcome);
+        };
+        assert!(error.message.ends_with(said), "{}", error.message);
+        assert!(
+            error.message.contains("left no report beside"),
+            "{}",
+            error.message
+        );
+        assert_eq!(elevation.summary().await.unwrap().pending, 1);
     }
 
     /// ADR 0005: **a declined prompt is a normal outcome, never an error.** A failed job would put a
