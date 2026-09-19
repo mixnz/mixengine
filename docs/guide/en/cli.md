@@ -1484,8 +1484,8 @@ mix elevation status
 
 Ask once, for everything that is waiting.
 
-One prompt for the whole queue: `docs/decisions/0005-on-demand-elevation.md` calls asking inside
-a loop a defect. Saying no is a normal answer — the list stays, and this command can be run again
+One prompt for the whole queue: `docs/decisions/0005-on-demand-elevation.md` calls asking inside a
+loop a defect. Saying no is a normal answer — the list stays, and this command can be run again
 later.
 
 ```
