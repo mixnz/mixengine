@@ -47,9 +47,11 @@ it.
 7. **A test passes under both `cargo test` and `cargo nextest run`.** CI runs the workspace step
    under nextest, which gives every test a process of its own (T170f); a developer runs
    `cargo test`, which gives every binary one. Whatever a test needs serialised is serialised in the
-   test — a lock `cargo test` honours — **and** declared as a test group in `.config/nextest.toml`,
-   where a process-wide lock serialises nothing. Never by a flag on one CI job: that is a fix
-   nobody running the suite at home gets. `tests/secrets.rs` is the example of both halves.
+   test — a lock, or a counter in a `static`, that `cargo test` honours — **and** declared as a test
+   group in `.config/nextest.toml`, where anything process-wide serialises nothing: the port-window
+   counters in `activation`, `hold`, `activate` and `ports` raced on the first nextest run. Never
+   by a flag on one CI job: that is a fix nobody running the suite at home gets. `tests/secrets.rs`
+   is the example of both halves.
 
 ## Fixtures
 
