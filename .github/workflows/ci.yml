@@ -87,611 +87,28 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # **The jobs are in the order a full run should start them** — T171c. This account runs 20 jobs
-  # and 5 macOS jobs at once, a full run asks for 29 before `build` can start, and the queue fills
-  # in roughly the order the jobs are written. So the longest paths come first — the two builds,
-  # then `bench`, `test`, `services` — and the jobs that finish in minutes come last, where waiting
-  # for a runner costs the run nothing. `bench` sits before `system` so that the macOS job left
-  # waiting is `system` (5 minutes), not `bench` (16). GitHub does not promise this order; it makes
-  # the likely one the cheap one.
-  #
-  # **`build` is three jobs per leg since T171**: `window` and `binaries` are the two release builds,
-  # neither of which reads anything the other writes, so each gets a runner of its own and they run
-  # at the same time; `build` then only packages what they handed on. T170's C2 ran the same two
-  # builds side by side on one runner and was slower, because they split its CPUs — two runners is
-  # what that measurement left. docs/specs/2026-09-20-t171-a-build-that-fans-out-design.md.
-  #
-  # The three matrices are the same five rows and must stay so: `build` downloads by `matrix.os`.
-  # Actions has no YAML anchors, so the rows are written three times and the comments once, here.
-  window:
-    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
-    # runs every job whatever a dispatch might once have narrowed. The `build` option covers all
-    # three jobs.
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
-    name: window (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    # One Tauri release build, twice over on macOS for the two slices (T103). Measured at 8 to 17
-    # minutes cold in run 35458805745; there is no cache to make it warm (T170a).
-    timeout-minutes: 45
-    strategy:
-      # An artifact that failed to build on one system is not a reason to stop producing the other
-      # four — the same rule `test` and `bench` state one job up.
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            container: ""
-          # T85a: native, not cross. GitHub's own arm64-hosted runners exist and are free for this
-          # (public) repository, so this leg is the same shape as the row above rather than a
-          # cross-compilation of it — see the design's "Measured, not assumed".
-          - os: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            container: ""
-          - os: macos-latest
-            target: ""
-            container: ""
-          # T85a, D2: the four binaries are built in a manylinux_2_28 container so the artifact links
-          # an older glibc than this runner ships, rather than whatever `ubuntu-latest` happens to
-          # carry this month. Same architecture as the runner in both rows below — never
-          # cross-compilation, only an older sysroot. The tag is pinned and dated for the reason every
-          # other toolchain in this product is: "whatever the runner has" is not reproducible.
-          #
-          # T103: the window is built on the host of these two legs, not in the container — the
-          # manylinux image is AlmaLinux 8, whose WebKitGTK is the 4.0 API on libsoup 2, and Tauri 2
-          # links 4.1 on libsoup 3. The container step does not care what its host runs, so the host
-          # is pinned to 22.04 to give the window the glibc 2.35 floor MixDB's own releases had.
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
-          - os: ubuntu-22.04-arm
-            target: aarch64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
-    steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      # **A branch builds without LTO (T170h).** `[profile.release]`'s `lto = "thin"` and
-      # `codegen-units = 1` make the binary a user gets smaller and faster, and they are the slowest
-      # settings cargo has. A branch's `build` proves that every artifact packages, installs and is
-      # probed, which does not depend on LTO. A tag builds exactly as `Cargo.toml` says, and only a
-      # tag run feeds `release` — so an LTO-only bug is found by the tag run, which the release
-      # checklist requires to be green anyway. `MIXENGINE_RELEASE`, `crt-static` and the strip
-      # setting are untouched: they are what makes an artifact a release, and a branch still proves
-      # them. `packaging/common.sh` forwards both variables into the manylinux container.
-      #
-      # The same step in all three jobs, so that each reports what it was built with.
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
-      - uses: actions/checkout@v4
-
-      # On every leg, the Linux ones included: the window is built on the runner itself, never in
-      # the container.
-      - name: Install pinned toolchain
-        run: |
-          rustup toolchain install --no-self-update
-          rustup show active-toolchain
-
-      # **No Actions cache (T170a).** This job's release artifacts, with `binaries`', are several GB,
-      # and with them one `master` run writes more than the repository's 10 GB, so `master`'s own
-      # entries would evict each other and every job would build cold.
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: apps/desktop/.nvmrc
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-
-      - name: Install the libraries the window links against
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
-
-      # T105: the window, through `packaging/desktop.sh` — which runs `npm ci`, `cargo tauri build`
-      # (`--bundles app` on macOS, where a webview application is a `.app` directory), adds the
-      # macOS slices itself, exports `MIXENGINE_RELEASE` and asserts what it produced.
-      - name: Build the window
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-        run: bash packaging/desktop.sh
-
-      # T171c, E3: the window's half of `binaries`' x86_64 check, after the build above because
-      # `tauri::generate_context!` reads the frontend it built at compile time.
-      - name: Compile the window for x86_64 as well
-        if: runner.os == 'macOS' && env.MIX_MACOS_SLICES == 'aarch64'
-        shell: bash
-        working-directory: apps/desktop/src-tauri
-        run: |
-          rustup target add x86_64-apple-darwin
-          MIXENGINE_RELEASE=1 cargo check --release --locked --target x86_64-apple-darwin
-
-      # **A tar, not the files** (T171, E1). `upload-artifact` keeps neither file modes nor
-      # symlinks: the window would arrive not executable, and a macOS bundle does not survive the
-      # trip without its links. The tar holds `window/<key>/…`, relative to `target/packaging`,
-      # which is where `build` unpacks it and where `stage.sh` looks.
-      - name: Hand the window on
-        shell: bash
-        run: tar -cf window.tar -C target/packaging window
-
-      # Kept 14 days, like `desktop-<os>` before it: a window someone wants to try without the
-      # installer is a reason to download one.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: window-${{ matrix.os }}
-          path: window.tar
-          if-no-files-found: error
-          retention-days: 14
-
-      # T170g, and T171's targets.
-      - name: Budget
-        if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
-
-  binaries:
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
-    name: binaries (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    # The four headless binaries, in release: twice on macOS for the two slices, and from scratch
-    # inside a container on both Linux legs (T85a, D3), where no cache would reach anyway.
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      # `window`'s five rows; the comments are there.
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            container: ""
-          - os: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            container: ""
-          - os: macos-latest
-            target: ""
-            container: ""
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
-          - os: ubuntu-22.04-arm
-            target: aarch64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
-    steps:
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
-      - uses: actions/checkout@v4
-
-      # Only the legs that build on the runner itself rather than inside a container: the two Linux
-      # legs install their own pinned toolchain inside `stage.sh --container`'s `docker run`, since
-      # nothing installed here is visible from there.
-      - name: Install pinned toolchain
-        if: matrix.container == ''
-        run: |
-          rustup toolchain install --no-self-update
-          rustup show active-toolchain
-
-      - name: Fetch dependencies
-        if: matrix.container == ''
-        run: cargo fetch --locked
-
-      # `stage.sh --build-only` (T171a): the compile half of what the per-OS packaging scripts used
-      # to do, with the same flags — `MIXENGINE_RELEASE`, `crt-static` on Windows, the container on
-      # Linux — because it is the same file doing it.
-      - name: Build the binaries
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-          MIX_CONTAINER: ${{ matrix.container }}
-        run: |
-          set -euo pipefail
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            source packaging/common.sh
-            slices="$(mix_macos_slices)"
-            for slice in $slices; do
-              rustup target add "$slice-apple-darwin"
-              bash packaging/stage.sh --build-only --target "$slice-apple-darwin"
-            done
-          else
-            args=(--build-only --target "$MIX_TARGET")
-            if [ -n "$MIX_CONTAINER" ]; then
-              args+=(--container "$MIX_CONTAINER")
-            fi
-            bash packaging/stage.sh "${args[@]}"
-          fi
-
-      # **T171c, E3.** A branch that builds only `aarch64` would otherwise stop noticing code that
-      # does not compile for Intel Macs until a tag. `check` over the same `-p` list `stage.sh`
-      # builds, with `MIXENGINE_RELEASE` as it sets it: it proves the code compiles for x86_64 without
-      # paying for a second release build. Linking that slice and `lipo` are left to `master`.
-      - name: Compile for x86_64 as well
-        if: runner.os == 'macOS' && env.MIX_MACOS_SLICES == 'aarch64'
-        shell: bash
-        run: |
-          set -euo pipefail
-          source packaging/common.sh
-          rustup target add x86_64-apple-darwin
-          packages=()
-          for crate in "${MIX_CRATES[@]}"; do
-            if [ "$crate" != "$MIX_WINDOW" ]; then
-              packages+=(-p "$crate")
-            fi
-          done
-          MIXENGINE_RELEASE=1 cargo check --release --locked --target x86_64-apple-darwin "${packages[@]}"
-
-      # T85a, D8 wanted a toolchain that is broken on a new leg to fail in under a minute rather than
-      # sixty minutes into a packaging run, and it built `mix` on its own first to get that. Since
-      # T171 this job *is* the build and packaging is another job, so there is nothing long to fail
-      # ahead of. What is left worth asking is whether this runner's toolchain makes a binary that
-      # runs — asked of the one just built, rather than of a second compile of `mix` without
-      # `crt-static`, which cost 89 s.
-      - name: Smoke test this leg's toolchain
-        if: matrix.os == 'windows-11-arm'
-        shell: bash
-        run: '"target/${{ matrix.target }}/release/mix.exe" --version'
-
-      # A tar for the reason `window` gives, of exactly the binaries `common.sh` names and nothing
-      # else of cargo's: `build` fails on any trace of a compile in its tree, and `deps/` or
-      # `.fingerprint/` arriving in this tar would be one.
-      - name: Hand the binaries on
-        shell: bash
-        run: |
-          set -euo pipefail
-          source packaging/common.sh
-          files=()
-          for dir in target/*/release; do
-            for binary in $(mix_headless_binaries); do
-              if [ -f "$dir/$binary$(mix_exe_suffix)" ]; then
-                files+=("$dir/$binary$(mix_exe_suffix)")
-              fi
-            done
-          done
-          if [ ${#files[@]} -eq 0 ]; then
-            echo "nothing under target/*/release to hand on" >&2
-            exit 1
-          fi
-          tar -cf binaries.tar "${files[@]}"
-          tar -tvf binaries.tar
-
-      # One day: it exists to reach `build` in the same run, and nobody installs from it.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: binaries-${{ matrix.os }}
-          path: binaries.tar
-          if-no-files-found: error
-          retention-days: 1
-
-      - name: Budget
-        if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
-
-  build:
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
-    name: build (${{ matrix.os }})
-    # **The whole of both matrices, not this leg's row** — Actions has no per-leg `needs`, so every
-    # leg here waits for the slowest `window` or `binaries` anywhere. Accepted in the T171 spec (E1):
-    # the run ends with its slowest leg either way, and five matrix-free copies of this job would
-    # cost more to keep than the minutes they save.
-    needs: [window, binaries]
-    runs-on: ${{ matrix.os }}
-    # Packaging and the two probes, nothing compiled: about three to five minutes. The ceiling is
-    # generous because the macOS probe installs a `.pkg` for real.
-    timeout-minutes: 30
-    # `actions: read` for "The whole path", which asks the jobs API when `window` and `binaries`
-    # started.
-    permissions:
-      contents: read
-      actions: read
-    strategy:
-      fail-fast: false
-      # `window`'s five rows; the comments are there.
-      matrix:
-        include:
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            container: ""
-          - os: windows-11-arm
-            target: aarch64-pc-windows-msvc
-            container: ""
-          - os: macos-latest
-            target: ""
-            container: ""
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
-          - os: ubuntu-22.04-arm
-            target: aarch64-unknown-linux-gnu
-            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
-    steps:
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
-      - name: Choose the release profile
-        shell: bash
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
-          else
-            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
-            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
-            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
-            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
-            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
-              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
-              if [ "$RUNNER_OS" = "macOS" ]; then
-                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
-              fi
-            fi
-          fi
-
-      - uses: actions/checkout@v4
-
-      # From this run only, which is `download-artifact`'s default and never overridden here: an
-      # artifact belongs to the commit its run built.
-      - uses: actions/download-artifact@v4
-        with:
-          name: window-${{ matrix.os }}
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: binaries-${{ matrix.os }}
-
-      # Back where the two builds left them, so every packaging script below runs as it would after
-      # compiling here — with `MIX_PREBUILT` telling `stage.sh` that it must not (T171a).
-      - name: Put both where their builds left them
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p target/packaging
-          tar -xf window.tar -C target/packaging
-          tar -xf binaries.tar
-          rm window.tar binaries.tar
-          echo "MIX_PREBUILT=1" >> "$GITHUB_ENV"
-
-      # Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
-      # quietly not built is a release that is quietly missing one.
-      #
-      # `desktop-file-utils` is appimagetool's, and it is a hard requirement rather than a nicety —
-      # measured on a machine without it, where the tool exits with "desktop-file-validate command is
-      # missing" before it looks at the AppDir at all.
-      - name: Install the packaging tools this runner is missing
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes rpm desktop-file-utils
-
-      # **NSIS is not on the windows image**, measured: the first run of this job got through the
-      # release build and the portable zip and then stopped at "missing tools: makensis". `7z` and
-      # `unzip` *are* there, which is why only this one is installed.
-      #
-      # Chocolatey puts it at `C:\Program Files (x86)\NSIS`, which is the path
-      # `packaging/windows/build.sh` looks at first.
-      - name: Install the packaging tools this runner is missing
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: choco install nsis --no-progress --yes
-
-      - name: Windows artifacts
-        if: runner.os == 'Windows'
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-        run: bash packaging/windows/build.sh
-
-      - name: macOS artifacts
-        if: runner.os == 'macOS'
-        shell: bash
-        run: bash packaging/macos/build.sh
-
-      # T86a. What an unsigned release looks like to the machines that judge it, measured on the
-      # artifacts this leg just built: the Mark-of-the-Web and quarantine attributes SmartScreen and
-      # Gatekeeper actually read. Neither dialog can be seen from here — those two readings are a
-      # person's, on the draft release, and are release-checklist item 4.
-      #
-      # **`windows-latest` alone.** Mark-of-the-Web is not architecture-dependent, so the arm64 leg
-      # would re-measure one behaviour on a different file at twice the runner cost — the design, D12.
-      #
-      # `MIX_PROBE_INSTALL` is set here and in no other place. The readings behind it install for
-      # real: the NSIS installer into a temporary directory and this account's `PATH`, and on macOS
-      # the `.pkg` into `/usr/local/bin` and `/Library/PrivilegedHelperTools` as root, because there
-      # is no `-target` that isolates that. Both probes put the machine back as they found it, and
-      # the macOS one refuses outright if MixEngine is already installed on it.
-      #
-      # Each probe *fails* on a statement about our own artifact that came back wrong — an installer
-      # that started propagating a mark, a package that acquired a signature nobody bought — and
-      # records a *void reading* for anything this machine could not answer. So a red leg here is a
-      # change to the release story, and a green one that measured nothing says so in its report.
-      - name: What an unsigned release shows SmartScreen
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-          MIX_PROBE_INSTALL: "1"
-        run: bash packaging/windows/probe.sh
-
-      - name: What an unsigned release shows Gatekeeper
-        if: runner.os == 'macOS'
-        shell: bash
-        env:
-          MIX_PROBE_INSTALL: "1"
-        run: bash packaging/macos/probe.sh
-
-      - name: Linux artifacts
-        if: runner.os == 'Linux'
-        shell: bash
-        env:
-          MIX_TARGET: ${{ matrix.target }}
-          MIX_CONTAINER: ${{ matrix.container }}
-        run: |
-          set -euo pipefail
-          bash packaging/linux/build-deb.sh
-          bash packaging/linux/build-rpm.sh
-          bash packaging/linux/build-appimage.sh
-          bash packaging/linux/build-tarball.sh
-
-      # For a person reading the log rather than for the gate: every script has already opened what
-      # it made and refused if a binary was missing from it.
-      - name: What this leg produced
-        shell: bash
-        run: ls -l target/packaging/dist
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: mixengine-${{ matrix.os }}
-          path: target/packaging/dist/*
-          if-no-files-found: error
-          retention-days: 14
-
-      # **T171's tripwire.** The two tars carry finished binaries and nothing of cargo's, so a `deps`
-      # or `.fingerprint` directory, or the window's own `target`, exists here only if something
-      # compiled in this job. `stage.sh` refuses to under `MIX_PREBUILT`; this is for whatever else
-      # might start to, since the result would be a green job exactly as slow as before T171.
-      - name: Nothing was compiled here
-        if: always()
-        shell: bash
-        run: |
-          found="$(find target -maxdepth 4 \( -name deps -o -name .fingerprint \) 2>/dev/null || true)"
-          if [ -d apps/desktop/src-tauri/target ]; then
-            found="$found apps/desktop/src-tauri/target"
-          fi
-          if [ -n "${found// /}" ]; then
-            echo "::error title=Compiled in build::cargo left $found; this job packages what window and binaries built and compiles nothing"
-            exit 1
-          fi
-
-      # What a person waits for is the path, not this job: from the first of `window` and `binaries`
-      # starting to here. Read from the jobs API so neither has to pass a timestamp along.
-      - name: The whole path
-        if: always()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OS: ${{ matrix.os }}
-        run: |
-          first="$(gh run view "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs --jq \
-            "[.jobs[] | select(.name == \"window ($OS)\" or .name == \"binaries ($OS)\") | .startedAt | fromdate] | min")"
-          elapsed=$(( $(date +%s) - first ))
-          printf 'build path (%s): %dm%02ds, target 18 minutes.\n' "$OS" $((elapsed / 60)) $((elapsed % 60)) >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt $((18 * 60)) ]; then
-            echo "::notice title=Path over its target::window, binaries and build took $((elapsed / 60)) minutes against a target of 18."
-          fi
-
-      - name: Budget
-        if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "5"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 30.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
-
-  # T29. The performance budgets from docs/standards/testing.md, of which the shim's is the first
-  # to exist. It is a job of its own rather than a step in `test` for two reasons: these are
-  # `#[ignore]`d and would otherwise be skipped there anyway, and they need a **release** build,
-  # which is a second compilation of the workspace that no correctness answer should have to wait
-  # behind.
-  #
-  # On all three systems, unlike the single-runner row the ops document first sketched: the gate is
-  # the same everywhere, but the hand-over it stands in front of is not one mechanism — Unix `exec`s
-  # and Windows starts a child inside a Job Object — and the reported wall clock is the only place
-  # that difference is ever written down as a number.
-  bench:
+  lint:
     # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
     # runs every job whatever a dispatch might once have narrowed.
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bench' }}
-    name: bench (${{ matrix.os }}, ${{ matrix.group }})
-    runs-on: ${{ matrix.os }}
-    # Ninety rather than the thirty this job started with: M3 added a release build of the
-    # daemon and the client, three archives to fetch, and a suite that starts three real servers
-    # eight times; T72a added three PHP archives and a suite that waits out a sweep before it
-    # can measure anything; and T73 added one that bootstraps two databases and settles each.
-    timeout-minutes: 90
-    strategy:
-      # A budget missed on one system is not a reason to stop measuring the other two: the numbers
-      # are only comparable when they were all taken.
-      fail-fast: false
-      matrix:
-        # **Windows runs as two legs (T170j)**: its measurements alone took 13.5 minutes in run
-        # 35430523430, on top of an 11-minute release build. macOS and Linux measure in about 7 and
-        # stay one leg. A group is a set of measurements, and each leg builds only what its group
-        # needs; the fetches are shared, because Caddy is in both and all of them cost seconds.
-        include:
-          - { os: windows-latest, group: budgets }
-          - { os: windows-latest, group: footprint }
-          - { os: macos-latest, group: all }
-          - { os: ubuntu-latest, group: all }
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'lint' }}
+    name: lint
+    runs-on: ubuntu-latest
+    # Generous, but far short of the six-hour default: a job that hangs should free the runner.
+    timeout-minutes: 20
     steps:
-      # T170g: when this leg started, for the budget line at its end.
-      - name: Start the clock
-        shell: bash
-        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
-
       - uses: actions/checkout@v4
 
+      # T169, ADR 0043. Every link into the documentation resolves, every spec's status header is
+      # valid and agrees with the roadmap, and docs/specs/README.md is what the script generates.
+      # First because it needs no toolchain: ubuntu-latest ships Node.
+      - name: Documentation links and spec status
+        run: |
+          node --test scripts/check-docs.test.mjs
+          node scripts/check-docs.mjs
+
+      # No toolchain action: rust-toolchain.toml is the single source of truth for the version and
+      # for the clippy/rustfmt components. Given no argument, `rustup toolchain install` installs
+      # exactly what that file pins — note that `rustup show` stopped installing anything in 1.28.
       - name: Install pinned toolchain
         run: |
           rustup toolchain install --no-self-update
@@ -699,249 +116,126 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: bench
-          # See the note on `test`'s cache (T170a). The two Windows legs share one key, so one of
-          # them writes it (T170j).
-          save-if: ${{ github.ref == 'refs/heads/master' && matrix.group != 'footprint' }}
+          key: lint
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
-      - name: Fetch dependencies
-        run: cargo fetch --locked
+      - name: rustfmt
+        run: cargo fmt --all --check
 
-      # **M3's three servers**, fetched before the offline steps below because from there on there is
-      # no network. One script rather than three more copies of the `test` job's fetch steps — see
-      # the note at the top of `.github/scripts/fetch-package.sh`.
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+
+      # D8 of the T40 design. `mixengine-elevate` runs as root, and its whole dependency closure is a
+      # security decision — its own manifest says so. Cargo unifies features across a workspace build,
+      # so `cargo build --workspace` compiles `mixengine-platform` with tokio and keyring and links
+      # the helper against that; the lean tree is a property of building the helper **on its own**,
+      # which is what both of these steps do and what the release pipeline does.
       #
-      # The versions are the ones the `test` job's own steps pin, and they are pinned in two places
-      # deliberately: a bench comparing itself against last month's number has to be measuring the
-      # same programs, and a suite bumped by somebody else's step would move the number without
-      # anybody deciding to.
-      - name: Fetch the three servers M3 is about
-        shell: bash
+      # A change here is not a lint failure to be waved through: read the diff, and if the new
+      # dependency belongs in a binary that runs as root, commit the updated list in the same change.
+      - name: The elevated helper builds without the rest of the platform
+        run: cargo check -p mixengine-elevate --locked
+
+      - name: The elevated helper's dependency budget
         run: |
           set -euo pipefail
-          bash .github/scripts/fetch-package.sh caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
-          bash .github/scripts/fetch-package.sh mariadb 11.4.12 MIXENGINE_MARIADB_PACKAGE
-          bash .github/scripts/fetch-package.sh redis 8.10.0 MIXENGINE_REDIS_PACKAGE
+          cargo tree -p mixengine-elevate --no-default-features --edges normal             --prefix none --format '{p}' | sed 's/ v[0-9].*//' | sort -u > /tmp/elevate-dependencies.txt
+          grep -v '^#' .github/elevate-dependencies.txt | diff -u - /tmp/elevate-dependencies.txt
 
-      # **Three PHPs, and three different versions on purpose** — roadmap task T72a. The cold path is
-      # measured three times because one CI measurement has misled this project before: the M3 bench
-      # is bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Three
-      # rounds need three *cold* pools, and a pool is only cold once — so three pools, which means
-      # three runtime installs, which means three versions.
+      # ADR 0013. `linux/secrets.rs` reads a machine with no secret service by downcasting `keyring`'s
+      # boxed source to `dbus_secret_service::Error`, which works only while our direct dependency and
+      # the one `keyring` resolves are the **same** package. Two versions in one tree is not a build
+      # failure and not a test failure: the downcast simply answers `None` for ever, and every machine
+      # without a keyring goes back to being told its store refused.
       #
-      # 7.0.33 is the floor this product offers, 7.4.33 is the legacy version people still run, and
-      # 8.3.33 is what the `test` job pins. **The first two predate `pm.status_listen` entirely**, so
-      # this is also the standing proof of T72a's decision to read a pool's status page off its own
-      # socket: the day somebody reaches for the cleaner arithmetic, two thirds of this measurement
-      # go red rather than a paragraph being disbelieved.
+      # So it is counted rather than trusted. The day `keyring` moves to a version we do not follow,
+      # this step is what says so — and the fix is to follow it in the same change, not to widen the
+      # match here.
       #
-      # A directory each, because the script's default would have them overwrite one another, and
-      # `MIXENGINE_PHP_RUNTIMES` is the list the suite reads — separated the way this system
-      # separates a PATH.
-      - name: Fetch the three PHPs the cold path wakes
-        shell: bash
+      # **`--color never` is load-bearing.** This job sets `CARGO_TERM_COLOR: always`, so a repeated
+      # subtree's `(*)` marker arrives wrapped in escape sequences and the `sed` below stops matching
+      # it — which counts one package as two and fails a tree that is fine. Locally the same command
+      # passes, because cargo drops colour on its own when it is not writing to a terminal.
+      - name: One dbus-secret-service in the tree, or the Linux keyring reading is silently dead
         run: |
           set -euo pipefail
-          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
-          bash .github/scripts/fetch-package.sh php 7.4.33 MIXENGINE_PHP_74 "$RUNNER_TEMP/php-74"
-          bash .github/scripts/fetch-package.sh php 8.3.33 MIXENGINE_PHP_83 "$RUNNER_TEMP/php-83"
+          found=$(cargo tree --workspace --locked --color never --target x86_64-unknown-linux-gnu             --prefix none --format '{p}' | sed 's/ (\*)$//'             | grep '^dbus-secret-service ' | sort -u)
+          echo "$found"
+          test "$(printf '%s\n' "$found" | grep -c .)" -eq 1
 
-          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
-          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php-74$separator$RUNNER_TEMP/php-83" >> "$GITHUB_ENV"
-
-      # T33's requirement, seen from the job that is not `test`: the MariaDB bootstrap puts the
-      # generated root password in the OS credential store and refuses a machine with none. Windows
-      # and macOS have one in the OS. On Linux this installs it, and the measuring step below wraps
-      # itself in a session bus of its own — the smaller half of what
-      # `.github/scripts/test-no-network.sh` does, rather than teaching that script a second profile.
+      # `sqlx::query!` checks its SQL against a real database at compile time. Nobody building
+      # MixEngine has one — so the answers are committed as `.sqlx/`, and every other build reads
+      # those instead of connecting (T14). The failure this step exists for is a query edited
+      # without re-running `prepare`: the author's machine still builds, because DATABASE_URL is set
+      # there, and everyone else's stops. `--check` regenerates the answers and fails if they differ
+      # from what is committed.
       #
-      # The network namespace that script also sets up is deliberately not reproduced: this suite
-      # talks to a `MockRegistry` on loopback like every other, and the isolation the `test` job adds
-      # is a belt the `bench` job has never worn.
-      - name: Install a secret service
-        if: runner.os == 'Linux'
-        timeout-minutes: 6
+      # Prebuilt binary rather than `cargo install sqlx-cli`, which is a four-minute compile of a
+      # tool this job uses for six seconds.
+      #
+      # Pinned to the `sqlx` version in Cargo.lock, and it has to stay in step with it: the contents
+      # of `.sqlx/` are a version-specific format, so an unpinned CLI would start regenerating them
+      # differently the day sqlx releases and fail `--check` on whichever unrelated PR ran next.
+      - name: Install sqlx-cli
+        uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli@0.9.0
+
+      - name: sqlx offline data is current
         env:
-          DEBIAN_FRONTEND: noninteractive
+          DATABASE_URL: sqlite:target/sqlx-ci.db
         run: |
-          set -euo pipefail
+          cargo sqlx database create
+          cargo sqlx migrate run --source crates/mixengine-core/migrations
+          cargo sqlx prepare --workspace --check -- --all-targets --all-features
 
-          for attempt in 1 2 3; do
-            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && break
-            echo "::warning title=apt-get update failed::attempt $attempt of 3"
-            sleep 5
-          done
+      # rustdoc runs in the `test` job instead, once per runner — see the note there. It has to be
+      # built on the OS it documents, and this job only has one.
+      #
+      # Licences and advisories. Configuration lives in deny.toml, including the six release targets.
+      - name: cargo-deny
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+          # `check` alone would also run `sources`, which is fine, but being explicit means a new
+          # check category added upstream cannot silently start failing our builds.
+          arguments: --all-features
+          command-arguments: advisories bans licenses sources
 
-          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
-
-      # `fakeservice` is the program the shim is measured in front of, and it is a **binary of a
-      # dev-dependency crate**: selecting one test target does not build it, and a release copy left
-      # by an earlier build is used as it is. A stale one is what this step exists for — it was
-      # found by the benchmark's own check that the fronted program really ran, having been built
-      # before that program learned `--version`, and a benchmark that measures a binary nobody
-      # rebuilt is a benchmark measuring last month.
-      - name: Build the program the shim is measured against
-        if: contains(fromJSON('["budgets","all"]'), matrix.group)
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo build --release -p mixengine-testkit --bin fakeservice --locked --offline
-
-      # And the daemon the M3 suite drives, for the same reason and a different one: `mixengined` is
-      # another package, so `cargo test -p mixengine-cli` never builds it — the suite finds it beside
-      # the `mix` it was given, which is exactly how a released `mix` finds it at run time.
-      - name: Build the daemon M3 measures
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: cargo build --release -p mixengine-daemon --locked --offline
-
-      # `--test-threads=1` is load-bearing rather than tidiness: both tests spend their whole time
-      # creating processes, so run in parallel each of them measures the other — 34 ms against 21 ms
-      # for the same difference on the same machine. `--nocapture` because the numbers are the
-      # output, and a passing test's stdout is otherwise swallowed.
-      - name: Performance budgets
-        if: contains(fromJSON('["budgets","all"]'), matrix.group)
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: >
-          cargo test --release -p mixengine-shim --test overhead --locked --offline
-          -- --ignored --nocapture --test-threads=1
-
-      # **The idle footprint**, and it runs *before* M3 deliberately — `features/resource-isolation.md`'s first published number, and the
-      # third thing this job gates. Its own step rather than another `--test` on a line above, on
-      # this job's rule: a failure should name what failed without anybody reading the log.
+      # T86's D9. `packaging/sign.sh` drives an external tool, and the only other thing that would
+      # ever run it is a release — so it is run here, on every CI run, against a throwaway key.
       #
-      # It needs the Caddy fetched above and nothing else — one daemon, one web server, and nothing
-      # running. It spends thirty seconds settling before the first reading, deliberately: what is
-      # measured is a home doing nothing, and a reading taken the instant a start walk returned would
-      # measure the walk.
-      #
-      # **No `dbus-run-session` wrapper**, unlike the M3 steps: nothing here starts a MariaDB, so
-      # nothing here has a password to put in a credential store.
-      #
-      # **Ahead of M3 because a failing step ends the job.** This one takes forty seconds and
-      # needs one server; M3 starts three of them eight times over and is bimodal on ubuntu. The
-      # first run of this budget was skipped on that runner for exactly that reason, which is a
-      # measurement lost to somebody else's bad minute.
-      - name: Idle footprint
-        if: contains(fromJSON('["footprint","all"]'), matrix.group)
-        timeout-minutes: 10
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: >
-          cargo test --release -p mixengine-cli --test idle_footprint --locked --offline
-          -- --ignored --nocapture
-
-      # **The cold path**, `features/resource-isolation.md`'s second published number and the fourth
-      # thing this job gates — roadmap task T72a. Its own step for this job's rule: a failure should
-      # name what failed without anybody reading the log.
-      #
-      # **Ahead of M3 for the idle footprint's reason**, and it needs the reason more: a failing step
-      # ends the job, and this one waits a full minute for the sweeper before it can measure
-      # anything. Losing that to somebody else's bimodal warm start would cost the whole
-      # measurement.
-      #
-      # It needs the Caddy and the three PHPs fetched above and nothing else — no MariaDB, so no
-      # `dbus-run-session` wrapper and no credential store on Linux.
-      #
-      # **What it waits for is a sweep, not a clock.** The pools must be stopped by the sweeper and
-      # not by a person, because a service somebody stopped is one the activator deliberately refuses
-      # to wake (T70's D8). An idle policy is a whole number of minutes, so the wait is about ninety
-      # seconds and is paid once for all three rounds.
-      - name: Cold path
-        if: contains(fromJSON('["budgets","all"]'), matrix.group)
-        timeout-minutes: 15
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: >
-          cargo test --release -p mixengine-cli --test cold_path --locked --offline
-          -- --ignored --nocapture
-
-      # **What the tuned templates save** — roadmap task T73, and the fifth thing this job measures.
-      # Two MariaDB instances in one home, one on the recipe's defaults and one put back to the
-      # server's own, started in turn and read through the daemon's own sampler.
-      #
-      # **What is gated is the difference between them**, never either number on its own: an
-      # absolute budget on MariaDB's RSS would be a promise held hostage to next month's MariaDB, on
-      # a quantity this project does not control. The suite's module note argues it in full.
-      #
-      # **Ahead of M3 for the idle footprint's reason** — a failing step ends the job, and M3 is
-      # bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Behind the
-      # cold path because this one bootstraps two databases and that one waits out a sweep; neither
-      # should be paying for the other's bad luck.
-      #
-      # It needs the MariaDB fetched above, and a credential store with it: the bootstrap generates a
-      # root password and refuses a machine that cannot hold one. Windows and macOS have one in the
-      # OS; Linux gets the same `dbus-run-session` wrapper the M3 step below uses.
-      - name: What the tuned defaults save
-        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
-        timeout-minutes: 20
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: >
-          cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline
-          -- --ignored --nocapture
-
-      - name: What the tuned defaults save
-        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
-        timeout-minutes: 20
-        env:
-          CARGO_NET_OFFLINE: "true"
+      # In `lint` rather than in `test` for two reasons: it is a check on this repository and the
+      # tools it uses, which is what every step above it is; and `test` runs on three operating
+      # systems with network egress blocked, where installing minisign would be three problems in
+      # exchange for two answers nobody needs.
+      - name: Install minisign
         run: |
-          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install --yes minisign
 
-          dbus-run-session -- sh -c \
-            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
-             exec cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline -- --ignored --nocapture'
+      - name: The signing script signs everything, and refuses a key that is not the product's
+        run: bash .github/scripts/test-sign.sh
 
-      # **M3**, which is `docs/features/services.md`'s one number about starting things: caddy,
-      # mariadb and redis healthy in under ten seconds warm. Its own step rather than another
-      # `--test` on the line above, for the reason every real-server step in the `test` job has one:
-      # a failure should name what failed without anybody reading the log.
+      # T88. The other half of what a release depends on and no ordinary run exercises: the document
+      # every installed copy reads to find out that a newer one exists. Same reasoning as the step
+      # above — the only other thing that would ever run `feed.sh` is a release.
+      - name: The feed describes the archives beside it
+        run: bash .github/scripts/test-feed.sh
+
+      # T105a. `AppRun` is the first thing a person who downloaded the AppImage meets, and since
+      # ADR 0028 its refusal is this product's whole answer to a machine below the window's floor —
+      # which distributions those are is a promise on the install page. `apprun-check.sh` has been in
+      # this repository since T85c and nothing has ever run it: it was written to be run by hand by
+      # whoever was editing `AppRun`, and a fixture nothing runs is not a test. Same reasoning as the
+      # two steps above it — the only other thing that would ever exercise this script is somebody
+      # downloading a release.
       #
-      # `--nocapture` because the numbers are the output. A timeout of its own because this starts
-      # three servers eight times over and a hang inside libtest prints nothing until it ends — the
-      # suite carries a watchdog of `mariadb.rs`' kind for that, and this is the outer bound.
-      #
-      # Windows and macOS run it directly; Linux wraps it in a session bus with a `gnome-keyring` on
-      # it, because the MariaDB bootstrap has a password to store and refuses a machine that cannot.
-      - name: M3 — three services, warm
-        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
-        timeout-minutes: 20
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: >
-          cargo test --release -p mixengine-cli --test warm_start --locked --offline
-          -- --ignored --nocapture
-
-      - name: M3 — three services, warm
-        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
-        timeout-minutes: 20
-        env:
-          CARGO_NET_OFFLINE: "true"
-        run: |
-          set -euo pipefail
-
-          dbus-run-session -- sh -c \
-            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
-             exec cargo test --release -p mixengine-cli --test warm_start --locked --offline -- --ignored --nocapture'
-
-      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
-      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
-      # limit should say so before the limit does. The cache save after this step is not counted;
-      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
-      - name: Budget
-        if: always()
-        shell: bash
-        env:
-          TARGET_MINUTES: "15"
-        run: |
-          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
-          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$elapsed" -gt 1800 ]; then
-            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
-          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
-            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
-          fi
+      # No AppImage and no `appimagetool` is involved: the fixture is a directory, five shell scripts
+      # standing in for the five binaries, and a stubbed `ldd`. It costs seconds.
+      - name: The AppImage's AppRun fills its cache and refuses in the right words
+        run: bash packaging/linux/apprun-check.sh
 
   test:
     # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
@@ -1192,6 +486,70 @@ jobs:
       # leg is short, and a job of its own there would cost one of macOS's five concurrent slots.
       - name: rustdoc
         if: (success() || failure()) && runner.os != 'Windows'
+        env:
+          RUSTDOCFLAGS: -D warnings
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo doc --workspace --no-deps --document-private-items --all-features --locked
+          --offline
+
+      # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
+      # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
+      # limit should say so before the limit does. The cache save after this step is not counted;
+      # on `master` it takes up to about three minutes. The targets are the T170 spec's Goals.
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "15"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt 1800 ]; then
+            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
+          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
+
+  # **rustdoc for Windows (T170d)**, split out of the Windows `test` leg, which is the run's critical
+  # path; macOS and Linux still run it as the last step of `test`. What it checks, and why once per
+  # operating system, is the comment on that step.
+  rustdoc:
+    # `jobs: test` answers "is test green yet", and after T170 that answer takes `test`, `services`
+    # and this job together, so the one option runs all three.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
+    name: rustdoc (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # Measured at 2.5 minutes cold as a step of `test` (run 35430523430).
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows only: the `rustdoc` step of `test` covers the other two (T170d).
+        os: [windows-latest]
+    steps:
+      # T170g: when this leg started, for the budget line at its end.
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v4
+
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: rustdoc
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: Fetch dependencies
+        run: cargo fetch --locked
+
+      - name: rustdoc
         env:
           RUSTDOCFLAGS: -D warnings
           CARGO_NET_OFFLINE: "true"
@@ -2031,98 +1389,6 @@ jobs:
             echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
           fi
 
-  # T85, and the sixth job of the table in docs/operations/build-and-release.md: the artifacts a
-  # person downloads. Three runners and host architecture only — the second architecture on Windows
-  # and Linux is a cross-compilation of a workspace that builds SQLite, AWS-LC and libdbus from C on
-  # runners that carry no cross toolchain, and it is roadmap task T85a rather than a flag added here.
-  # macOS is the exception and is universal, because Apple's toolchain builds the other slice with no
-  # extra sysroot.
-  #
-  # **Nothing here is signed.** Authenticode and an Apple Developer ID are not purchased (ADR 0005),
-  # and the minisign signature that actually protects an update is T86's. Each script writes a
-  # `.sha256` beside its artifact, which is not the same thing and is not offered as one.
-  #
-  # Each script also opens what it just made and checks the five binaries are in it — four for the
-  # headless archives T105 added, which additionally refuse a webview they find. That is where this
-  # job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with no
-  # helper in it installs cleanly and leaves the machine one file short of being able to elevate.
-  # T103, ADR 0027: the desktop application under apps/desktop. Its frontend's build, tests and
-  # lint, then its own Cargo workspace's clippy and tests — on one OS, because nearly all of it is
-  # pure logic (MixDB's own CI made the same choice), and `build` is what proves the window links
-  # on all three. It gates `release` the way `bindings` does, and for the same reason: a type
-  # reshaped in `mixengine-proto` fails `tsc` here, in the same run — the check ADR 0011 gave up.
-  #
-  # `cargo audit` is here rather than on a schedule of its own: this workflow only runs when
-  # somebody asks, so an advisory published overnight turns red at the moment somebody is looking.
-  # Its documented ignores are `apps/desktop/src-tauri/.cargo/audit.toml`'s.
-  desktop:
-    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
-    # runs every job whatever a dispatch might once have narrowed.
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'desktop' }}
-    name: desktop
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: apps/desktop/.nvmrc
-          cache: npm
-          cache-dependency-path: apps/desktop/package-lock.json
-
-      - name: Frontend — install, typecheck and build, test, lint
-        working-directory: apps/desktop
-        run: |
-          npm ci
-          npm run build
-          npm test
-          npm run lint
-
-      # Every scene `npm run screenshots` takes still renders from its sample data — a command a
-      # scene reaches with no fixture, or a screen that crashes on one, fails here rather than on the
-      # day the images are needed. Nothing is written. See apps/desktop/demo/capture.mjs.
-      - name: Frontend — demo scenes render
-        working-directory: apps/desktop
-        run: |
-          npx playwright install --with-deps chromium
-          npm run screenshots -- --check
-
-      # The Tauri crates link against webkit2gtk, so even `cargo check` wants it present.
-      - name: Install the libraries the window links against
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
-
-      # The root's rust-toolchain.toml is the nearest pin walking up from apps/desktop.
-      - name: Install pinned toolchain
-        run: |
-          rustup toolchain install --no-self-update
-          rustup show active-toolchain
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: desktop
-          workspaces: "apps/desktop/src-tauri -> target"
-          # See the note on `test`'s cache (T170a).
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-
-      - name: clippy
-        working-directory: apps/desktop/src-tauri
-        run: cargo clippy --locked --all-targets -- -D warnings
-
-      - name: test
-        working-directory: apps/desktop/src-tauri
-        run: cargo test --locked
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-audit
-
-      - name: Advisories against the window's dependency tree
-        working-directory: apps/desktop/src-tauri
-        run: cargo audit
-
   # The job `docs/operations/build-and-release.md` says arrives with the first `#[ignore]`d system
   # test. T40 is that task: `mixengine-elevate` creates a root-owned audit directory outside
   # MIXENGINE_HOME, and nothing about that can be proved from an unprivileged process.
@@ -2629,22 +1895,41 @@ jobs:
           esac
           if [ -f "$log" ]; then cat "$log"; else echo "no log at $log"; fi
 
-  # **rustdoc for Windows (T170d)**, split out of the Windows `test` leg, which is the run's critical
-  # path; macOS and Linux still run it as the last step of `test`. What it checks, and why once per
-  # operating system, is the comment on that step.
-  rustdoc:
-    # `jobs: test` answers "is test green yet", and after T170 that answer takes `test`, `services`
-    # and this job together, so the one option runs all three.
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'test' }}
-    name: rustdoc (${{ matrix.os }})
+  # T29. The performance budgets from docs/standards/testing.md, of which the shim's is the first
+  # to exist. It is a job of its own rather than a step in `test` for two reasons: these are
+  # `#[ignore]`d and would otherwise be skipped there anyway, and they need a **release** build,
+  # which is a second compilation of the workspace that no correctness answer should have to wait
+  # behind.
+  #
+  # On all three systems, unlike the single-runner row the ops document first sketched: the gate is
+  # the same everywhere, but the hand-over it stands in front of is not one mechanism — Unix `exec`s
+  # and Windows starts a child inside a Job Object — and the reported wall clock is the only place
+  # that difference is ever written down as a number.
+  bench:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'bench' }}
+    name: bench (${{ matrix.os }}, ${{ matrix.group }})
     runs-on: ${{ matrix.os }}
-    # Measured at 2.5 minutes cold as a step of `test` (run 35430523430).
-    timeout-minutes: 20
+    # Ninety rather than the thirty this job started with: M3 added a release build of the
+    # daemon and the client, three archives to fetch, and a suite that starts three real servers
+    # eight times; T72a added three PHP archives and a suite that waits out a sweep before it
+    # can measure anything; and T73 added one that bootstraps two databases and settles each.
+    timeout-minutes: 90
     strategy:
+      # A budget missed on one system is not a reason to stop measuring the other two: the numbers
+      # are only comparable when they were all taken.
       fail-fast: false
       matrix:
-        # Windows only: the `rustdoc` step of `test` covers the other two (T170d).
-        os: [windows-latest]
+        # **Windows runs as two legs (T170j)**: its measurements alone took 13.5 minutes in run
+        # 35430523430, on top of an 11-minute release build. macOS and Linux measure in about 7 and
+        # stay one leg. A group is a set of measurements, and each leg builds only what its group
+        # needs; the fetches are shared, because Caddy is in both and all of them cost seconds.
+        include:
+          - { os: windows-latest, group: budgets }
+          - { os: windows-latest, group: footprint }
+          - { os: macos-latest, group: all }
+          - { os: ubuntu-latest, group: all }
     steps:
       # T170g: when this leg started, for the budget line at its end.
       - name: Start the clock
@@ -2660,20 +1945,231 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: rustdoc
-          # See the note on `test`'s cache (T170a).
-          save-if: ${{ github.ref == 'refs/heads/master' }}
+          key: bench
+          # See the note on `test`'s cache (T170a). The two Windows legs share one key, so one of
+          # them writes it (T170j).
+          save-if: ${{ github.ref == 'refs/heads/master' && matrix.group != 'footprint' }}
 
       - name: Fetch dependencies
         run: cargo fetch --locked
 
-      - name: rustdoc
+      # **M3's three servers**, fetched before the offline steps below because from there on there is
+      # no network. One script rather than three more copies of the `test` job's fetch steps — see
+      # the note at the top of `.github/scripts/fetch-package.sh`.
+      #
+      # The versions are the ones the `test` job's own steps pin, and they are pinned in two places
+      # deliberately: a bench comparing itself against last month's number has to be measuring the
+      # same programs, and a suite bumped by somebody else's step would move the number without
+      # anybody deciding to.
+      - name: Fetch the three servers M3 is about
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh caddy 2.11.4 MIXENGINE_CADDY_PACKAGE
+          bash .github/scripts/fetch-package.sh mariadb 11.4.12 MIXENGINE_MARIADB_PACKAGE
+          bash .github/scripts/fetch-package.sh redis 8.10.0 MIXENGINE_REDIS_PACKAGE
+
+      # **Three PHPs, and three different versions on purpose** — roadmap task T72a. The cold path is
+      # measured three times because one CI measurement has misled this project before: the M3 bench
+      # is bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Three
+      # rounds need three *cold* pools, and a pool is only cold once — so three pools, which means
+      # three runtime installs, which means three versions.
+      #
+      # 7.0.33 is the floor this product offers, 7.4.33 is the legacy version people still run, and
+      # 8.3.33 is what the `test` job pins. **The first two predate `pm.status_listen` entirely**, so
+      # this is also the standing proof of T72a's decision to read a pool's status page off its own
+      # socket: the day somebody reaches for the cleaner arithmetic, two thirds of this measurement
+      # go red rather than a paragraph being disbelieved.
+      #
+      # A directory each, because the script's default would have them overwrite one another, and
+      # `MIXENGINE_PHP_RUNTIMES` is the list the suite reads — separated the way this system
+      # separates a PATH.
+      - name: Fetch the three PHPs the cold path wakes
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash .github/scripts/fetch-package.sh php 7.0.33 MIXENGINE_PHP_70 "$RUNNER_TEMP/php-70"
+          bash .github/scripts/fetch-package.sh php 7.4.33 MIXENGINE_PHP_74 "$RUNNER_TEMP/php-74"
+          bash .github/scripts/fetch-package.sh php 8.3.33 MIXENGINE_PHP_83 "$RUNNER_TEMP/php-83"
+
+          if [ "$RUNNER_OS" = "Windows" ]; then separator=';'; else separator=':'; fi
+          echo "MIXENGINE_PHP_RUNTIMES=$RUNNER_TEMP/php-70$separator$RUNNER_TEMP/php-74$separator$RUNNER_TEMP/php-83" >> "$GITHUB_ENV"
+
+      # T33's requirement, seen from the job that is not `test`: the MariaDB bootstrap puts the
+      # generated root password in the OS credential store and refuses a machine with none. Windows
+      # and macOS have one in the OS. On Linux this installs it, and the measuring step below wraps
+      # itself in a session bus of its own — the smaller half of what
+      # `.github/scripts/test-no-network.sh` does, rather than teaching that script a second profile.
+      #
+      # The network namespace that script also sets up is deliberately not reproduced: this suite
+      # talks to a `MockRegistry` on loopback like every other, and the isolation the `test` job adds
+      # is a belt the `bench` job has never worn.
+      - name: Install a secret service
+        if: runner.os == 'Linux'
+        timeout-minutes: 6
         env:
-          RUSTDOCFLAGS: -D warnings
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          set -euo pipefail
+
+          for attempt in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update && break
+            echo "::warning title=apt-get update failed::attempt $attempt of 3"
+            sleep 5
+          done
+
+          sudo apt-get install -y --no-install-recommends gnome-keyring dbus
+
+      # `fakeservice` is the program the shim is measured in front of, and it is a **binary of a
+      # dev-dependency crate**: selecting one test target does not build it, and a release copy left
+      # by an earlier build is used as it is. A stale one is what this step exists for — it was
+      # found by the benchmark's own check that the fronted program really ran, having been built
+      # before that program learned `--version`, and a benchmark that measures a binary nobody
+      # rebuilt is a benchmark measuring last month.
+      - name: Build the program the shim is measured against
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo build --release -p mixengine-testkit --bin fakeservice --locked --offline
+
+      # And the daemon the M3 suite drives, for the same reason and a different one: `mixengined` is
+      # another package, so `cargo test -p mixengine-cli` never builds it — the suite finds it beside
+      # the `mix` it was given, which is exactly how a released `mix` finds it at run time.
+      - name: Build the daemon M3 measures
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: cargo build --release -p mixengine-daemon --locked --offline
+
+      # `--test-threads=1` is load-bearing rather than tidiness: both tests spend their whole time
+      # creating processes, so run in parallel each of them measures the other — 34 ms against 21 ms
+      # for the same difference on the same machine. `--nocapture` because the numbers are the
+      # output, and a passing test's stdout is otherwise swallowed.
+      - name: Performance budgets
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        env:
           CARGO_NET_OFFLINE: "true"
         run: >
-          cargo doc --workspace --no-deps --document-private-items --all-features --locked
-          --offline
+          cargo test --release -p mixengine-shim --test overhead --locked --offline
+          -- --ignored --nocapture --test-threads=1
+
+      # **The idle footprint**, and it runs *before* M3 deliberately — `features/resource-isolation.md`'s first published number, and the
+      # third thing this job gates. Its own step rather than another `--test` on a line above, on
+      # this job's rule: a failure should name what failed without anybody reading the log.
+      #
+      # It needs the Caddy fetched above and nothing else — one daemon, one web server, and nothing
+      # running. It spends thirty seconds settling before the first reading, deliberately: what is
+      # measured is a home doing nothing, and a reading taken the instant a start walk returned would
+      # measure the walk.
+      #
+      # **No `dbus-run-session` wrapper**, unlike the M3 steps: nothing here starts a MariaDB, so
+      # nothing here has a password to put in a credential store.
+      #
+      # **Ahead of M3 because a failing step ends the job.** This one takes forty seconds and
+      # needs one server; M3 starts three of them eight times over and is bimodal on ubuntu. The
+      # first run of this budget was skipped on that runner for exactly that reason, which is a
+      # measurement lost to somebody else's bad minute.
+      - name: Idle footprint
+        if: contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 10
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test idle_footprint --locked --offline
+          -- --ignored --nocapture
+
+      # **The cold path**, `features/resource-isolation.md`'s second published number and the fourth
+      # thing this job gates — roadmap task T72a. Its own step for this job's rule: a failure should
+      # name what failed without anybody reading the log.
+      #
+      # **Ahead of M3 for the idle footprint's reason**, and it needs the reason more: a failing step
+      # ends the job, and this one waits a full minute for the sweeper before it can measure
+      # anything. Losing that to somebody else's bimodal warm start would cost the whole
+      # measurement.
+      #
+      # It needs the Caddy and the three PHPs fetched above and nothing else — no MariaDB, so no
+      # `dbus-run-session` wrapper and no credential store on Linux.
+      #
+      # **What it waits for is a sweep, not a clock.** The pools must be stopped by the sweeper and
+      # not by a person, because a service somebody stopped is one the activator deliberately refuses
+      # to wake (T70's D8). An idle policy is a whole number of minutes, so the wait is about ninety
+      # seconds and is paid once for all three rounds.
+      - name: Cold path
+        if: contains(fromJSON('["budgets","all"]'), matrix.group)
+        timeout-minutes: 15
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test cold_path --locked --offline
+          -- --ignored --nocapture
+
+      # **What the tuned templates save** — roadmap task T73, and the fifth thing this job measures.
+      # Two MariaDB instances in one home, one on the recipe's defaults and one put back to the
+      # server's own, started in turn and read through the daemon's own sampler.
+      #
+      # **What is gated is the difference between them**, never either number on its own: an
+      # absolute budget on MariaDB's RSS would be a promise held hostage to next month's MariaDB, on
+      # a quantity this project does not control. The suite's module note argues it in full.
+      #
+      # **Ahead of M3 for the idle footprint's reason** — a failing step ends the job, and M3 is
+      # bimodal on ubuntu, where a red has meant a bad minute rather than a regression. Behind the
+      # cold path because this one bootstraps two databases and that one waits out a sweep; neither
+      # should be paying for the other's bad luck.
+      #
+      # It needs the MariaDB fetched above, and a credential store with it: the bootstrap generates a
+      # root password and refuses a machine that cannot hold one. Windows and macOS have one in the
+      # OS; Linux gets the same `dbus-run-session` wrapper the M3 step below uses.
+      - name: What the tuned defaults save
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline
+          -- --ignored --nocapture
+
+      - name: What the tuned defaults save
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+
+          dbus-run-session -- sh -c \
+            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
+             exec cargo test --release -p mixengine-cli --test tuned_footprint --locked --offline -- --ignored --nocapture'
+
+      # **M3**, which is `docs/features/services.md`'s one number about starting things: caddy,
+      # mariadb and redis healthy in under ten seconds warm. Its own step rather than another
+      # `--test` on the line above, for the reason every real-server step in the `test` job has one:
+      # a failure should name what failed without anybody reading the log.
+      #
+      # `--nocapture` because the numbers are the output. A timeout of its own because this starts
+      # three servers eight times over and a hang inside libtest prints nothing until it ends — the
+      # suite carries a watchdog of `mariadb.rs`' kind for that, and this is the outer bound.
+      #
+      # Windows and macOS run it directly; Linux wraps it in a session bus with a `gnome-keyring` on
+      # it, because the MariaDB bootstrap has a password to store and refuses a machine that cannot.
+      - name: M3 — three services, warm
+        if: runner.os != 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: >
+          cargo test --release -p mixengine-cli --test warm_start --locked --offline
+          -- --ignored --nocapture
+
+      - name: M3 — three services, warm
+        if: runner.os == 'Linux' && contains(fromJSON('["footprint","all"]'), matrix.group)
+        timeout-minutes: 20
+        env:
+          CARGO_NET_OFFLINE: "true"
+        run: |
+          set -euo pipefail
+
+          dbus-run-session -- sh -c \
+            'printf "mixengine-ci" | gnome-keyring-daemon --unlock --components=secrets >/dev/null || exit 1
+             exec cargo test --release -p mixengine-cli --test warm_start --locked --offline -- --ignored --nocapture'
 
       # T170g: how much of the ceiling this leg used. A notice past its target and a warning past 30
       # minutes, two thirds of the ceiling, while the leg is still green: a leg growing toward the
@@ -2692,156 +2188,6 @@ jobs:
           elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
             echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
           fi
-
-  lint:
-    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
-    # runs every job whatever a dispatch might once have narrowed.
-    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'lint' }}
-    name: lint
-    runs-on: ubuntu-latest
-    # Generous, but far short of the six-hour default: a job that hangs should free the runner.
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      # T169, ADR 0043. Every link into the documentation resolves, every spec's status header is
-      # valid and agrees with the roadmap, and docs/specs/README.md is what the script generates.
-      # First because it needs no toolchain: ubuntu-latest ships Node.
-      - name: Documentation links and spec status
-        run: |
-          node --test scripts/check-docs.test.mjs
-          node scripts/check-docs.mjs
-
-      # No toolchain action: rust-toolchain.toml is the single source of truth for the version and
-      # for the clippy/rustfmt components. Given no argument, `rustup toolchain install` installs
-      # exactly what that file pins — note that `rustup show` stopped installing anything in 1.28.
-      - name: Install pinned toolchain
-        run: |
-          rustup toolchain install --no-self-update
-          rustup show active-toolchain
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: lint
-          # See the note on `test`'s cache (T170a).
-          save-if: ${{ github.ref == 'refs/heads/master' }}
-
-      - name: rustfmt
-        run: cargo fmt --all --check
-
-      - name: clippy
-        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-
-      # D8 of the T40 design. `mixengine-elevate` runs as root, and its whole dependency closure is a
-      # security decision — its own manifest says so. Cargo unifies features across a workspace build,
-      # so `cargo build --workspace` compiles `mixengine-platform` with tokio and keyring and links
-      # the helper against that; the lean tree is a property of building the helper **on its own**,
-      # which is what both of these steps do and what the release pipeline does.
-      #
-      # A change here is not a lint failure to be waved through: read the diff, and if the new
-      # dependency belongs in a binary that runs as root, commit the updated list in the same change.
-      - name: The elevated helper builds without the rest of the platform
-        run: cargo check -p mixengine-elevate --locked
-
-      - name: The elevated helper's dependency budget
-        run: |
-          set -euo pipefail
-          cargo tree -p mixengine-elevate --no-default-features --edges normal             --prefix none --format '{p}' | sed 's/ v[0-9].*//' | sort -u > /tmp/elevate-dependencies.txt
-          grep -v '^#' .github/elevate-dependencies.txt | diff -u - /tmp/elevate-dependencies.txt
-
-      # ADR 0013. `linux/secrets.rs` reads a machine with no secret service by downcasting `keyring`'s
-      # boxed source to `dbus_secret_service::Error`, which works only while our direct dependency and
-      # the one `keyring` resolves are the **same** package. Two versions in one tree is not a build
-      # failure and not a test failure: the downcast simply answers `None` for ever, and every machine
-      # without a keyring goes back to being told its store refused.
-      #
-      # So it is counted rather than trusted. The day `keyring` moves to a version we do not follow,
-      # this step is what says so — and the fix is to follow it in the same change, not to widen the
-      # match here.
-      #
-      # **`--color never` is load-bearing.** This job sets `CARGO_TERM_COLOR: always`, so a repeated
-      # subtree's `(*)` marker arrives wrapped in escape sequences and the `sed` below stops matching
-      # it — which counts one package as two and fails a tree that is fine. Locally the same command
-      # passes, because cargo drops colour on its own when it is not writing to a terminal.
-      - name: One dbus-secret-service in the tree, or the Linux keyring reading is silently dead
-        run: |
-          set -euo pipefail
-          found=$(cargo tree --workspace --locked --color never --target x86_64-unknown-linux-gnu             --prefix none --format '{p}' | sed 's/ (\*)$//'             | grep '^dbus-secret-service ' | sort -u)
-          echo "$found"
-          test "$(printf '%s\n' "$found" | grep -c .)" -eq 1
-
-      # `sqlx::query!` checks its SQL against a real database at compile time. Nobody building
-      # MixEngine has one — so the answers are committed as `.sqlx/`, and every other build reads
-      # those instead of connecting (T14). The failure this step exists for is a query edited
-      # without re-running `prepare`: the author's machine still builds, because DATABASE_URL is set
-      # there, and everyone else's stops. `--check` regenerates the answers and fails if they differ
-      # from what is committed.
-      #
-      # Prebuilt binary rather than `cargo install sqlx-cli`, which is a four-minute compile of a
-      # tool this job uses for six seconds.
-      #
-      # Pinned to the `sqlx` version in Cargo.lock, and it has to stay in step with it: the contents
-      # of `.sqlx/` are a version-specific format, so an unpinned CLI would start regenerating them
-      # differently the day sqlx releases and fail `--check` on whichever unrelated PR ran next.
-      - name: Install sqlx-cli
-        uses: taiki-e/install-action@v2
-        with:
-          tool: sqlx-cli@0.9.0
-
-      - name: sqlx offline data is current
-        env:
-          DATABASE_URL: sqlite:target/sqlx-ci.db
-        run: |
-          cargo sqlx database create
-          cargo sqlx migrate run --source crates/mixengine-core/migrations
-          cargo sqlx prepare --workspace --check -- --all-targets --all-features
-
-      # rustdoc runs in the `test` job instead, once per runner — see the note there. It has to be
-      # built on the OS it documents, and this job only has one.
-      #
-      # Licences and advisories. Configuration lives in deny.toml, including the six release targets.
-      - name: cargo-deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check
-          # `check` alone would also run `sources`, which is fine, but being explicit means a new
-          # check category added upstream cannot silently start failing our builds.
-          arguments: --all-features
-          command-arguments: advisories bans licenses sources
-
-      # T86's D9. `packaging/sign.sh` drives an external tool, and the only other thing that would
-      # ever run it is a release — so it is run here, on every CI run, against a throwaway key.
-      #
-      # In `lint` rather than in `test` for two reasons: it is a check on this repository and the
-      # tools it uses, which is what every step above it is; and `test` runs on three operating
-      # systems with network egress blocked, where installing minisign would be three problems in
-      # exchange for two answers nobody needs.
-      - name: Install minisign
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes minisign
-
-      - name: The signing script signs everything, and refuses a key that is not the product's
-        run: bash .github/scripts/test-sign.sh
-
-      # T88. The other half of what a release depends on and no ordinary run exercises: the document
-      # every installed copy reads to find out that a newer one exists. Same reasoning as the step
-      # above — the only other thing that would ever run `feed.sh` is a release.
-      - name: The feed describes the archives beside it
-        run: bash .github/scripts/test-feed.sh
-
-      # T105a. `AppRun` is the first thing a person who downloaded the AppImage meets, and since
-      # ADR 0028 its refusal is this product's whole answer to a machine below the window's floor —
-      # which distributions those are is a promise on the install page. `apprun-check.sh` has been in
-      # this repository since T85c and nothing has ever run it: it was written to be run by hand by
-      # whoever was editing `AppRun`, and a fixture nothing runs is not a test. Same reasoning as the
-      # two steps above it — the only other thing that would ever exercise this script is somebody
-      # downloading a release.
-      #
-      # No AppImage and no `appimagetool` is involved: the fixture is a directory, five shell scripts
-      # standing in for the five binaries, and a stubbed `ldd`. It costs seconds.
-      - name: The AppImage's AppRun fills its cache and refuses in the right words
-        run: bash packaging/linux/apprun-check.sh
 
   # T56, and the fifth job of the table in docs/operations/build-and-release.md: the published
   # TypeScript contract, regenerated from `mixengine-proto` and compared with what is committed.
@@ -2930,6 +2276,652 @@ jobs:
 
       - name: The corpus builds a site, and the committed command reference is current
         run: bash packaging/docs.sh --check
+
+  # T85, and the sixth job of the table in docs/operations/build-and-release.md: the artifacts a
+  # person downloads. Three runners and host architecture only — the second architecture on Windows
+  # and Linux is a cross-compilation of a workspace that builds SQLite, AWS-LC and libdbus from C on
+  # runners that carry no cross toolchain, and it is roadmap task T85a rather than a flag added here.
+  # macOS is the exception and is universal, because Apple's toolchain builds the other slice with no
+  # extra sysroot.
+  #
+  # **Nothing here is signed.** Authenticode and an Apple Developer ID are not purchased (ADR 0005),
+  # and the minisign signature that actually protects an update is T86's. Each script writes a
+  # `.sha256` beside its artifact, which is not the same thing and is not offered as one.
+  #
+  # Each script also opens what it just made and checks the five binaries are in it — four for the
+  # headless archives T105 added, which additionally refuse a webview they find. That is where this
+  # job's real assertion lives: an empty archive is a perfectly valid archive, and a `.deb` with no
+  # helper in it installs cleanly and leaves the machine one file short of being able to elevate.
+  # T103, ADR 0027: the desktop application under apps/desktop. Its frontend's build, tests and
+  # lint, then its own Cargo workspace's clippy and tests — on one OS, because nearly all of it is
+  # pure logic (MixDB's own CI made the same choice), and `build` is what proves the window links
+  # on all three. It gates `release` the way `bindings` does, and for the same reason: a type
+  # reshaped in `mixengine-proto` fails `tsc` here, in the same run — the check ADR 0011 gave up.
+  #
+  # `cargo audit` is here rather than on a schedule of its own: this workflow only runs when
+  # somebody asks, so an advisory published overnight turns red at the moment somebody is looking.
+  # Its documented ignores are `apps/desktop/src-tauri/.cargo/audit.toml`'s.
+  desktop:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'desktop' }}
+    name: desktop
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Frontend — install, typecheck and build, test, lint
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run build
+          npm test
+          npm run lint
+
+      # Every scene `npm run screenshots` takes still renders from its sample data — a command a
+      # scene reaches with no fixture, or a screen that crashes on one, fails here rather than on the
+      # day the images are needed. Nothing is written. See apps/desktop/demo/capture.mjs.
+      - name: Frontend — demo scenes render
+        working-directory: apps/desktop
+        run: |
+          npx playwright install --with-deps chromium
+          npm run screenshots -- --check
+
+      # The Tauri crates link against webkit2gtk, so even `cargo check` wants it present.
+      - name: Install the libraries the window links against
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # The root's rust-toolchain.toml is the nearest pin walking up from apps/desktop.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: desktop
+          workspaces: "apps/desktop/src-tauri -> target"
+          # See the note on `test`'s cache (T170a).
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      - name: clippy
+        working-directory: apps/desktop/src-tauri
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: test
+        working-directory: apps/desktop/src-tauri
+        run: cargo test --locked
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Advisories against the window's dependency tree
+        working-directory: apps/desktop/src-tauri
+        run: cargo audit
+
+  # **`build` is three jobs per leg since T171**: `window` and `binaries` are the two release builds,
+  # neither of which reads anything the other writes, so each gets a runner of its own and they run
+  # at the same time; `build` then only packages what they handed on. T170's C2 ran the same two
+  # builds side by side on one runner and was slower, because they split its CPUs — two runners is
+  # what that measurement left. docs/specs/2026-09-20-t171-a-build-that-fans-out-design.md.
+  #
+  # The three matrices are the same five rows and must stay so: `build` downloads by `matrix.os`.
+  # Actions has no YAML anchors, so the rows are written three times and the comments once, here.
+  window:
+    # **`inputs` is empty for a tag push**, which is what the first arm is for: a release
+    # runs every job whatever a dispatch might once have narrowed. The `build` option covers all
+    # three jobs.
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
+    name: window (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # One Tauri release build, twice over on macOS for the two slices (T103). Measured at 8 to 17
+    # minutes cold in run 35458805745; there is no cache to make it warm (T170a).
+    timeout-minutes: 45
+    strategy:
+      # An artifact that failed to build on one system is not a reason to stop producing the other
+      # four — the same rule `test` and `bench` state one job up.
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            container: ""
+          # T85a: native, not cross. GitHub's own arm64-hosted runners exist and are free for this
+          # (public) repository, so this leg is the same shape as the row above rather than a
+          # cross-compilation of it — see the design's "Measured, not assumed".
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            container: ""
+          - os: macos-latest
+            target: ""
+            container: ""
+          # T85a, D2: the four binaries are built in a manylinux_2_28 container so the artifact links
+          # an older glibc than this runner ships, rather than whatever `ubuntu-latest` happens to
+          # carry this month. Same architecture as the runner in both rows below — never
+          # cross-compilation, only an older sysroot. The tag is pinned and dated for the reason every
+          # other toolchain in this product is: "whatever the runner has" is not reproducible.
+          #
+          # T103: the window is built on the host of these two legs, not in the container — the
+          # manylinux image is AlmaLinux 8, whose WebKitGTK is the 4.0 API on libsoup 2, and Tauri 2
+          # links 4.1 on libsoup 3. The container step does not care what its host runs, so the host
+          # is pinned to 22.04 to give the window the glibc 2.35 floor MixDB's own releases had.
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
+    steps:
+      # T170g: when this leg started, for the budget line at its end.
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      # **A branch builds without LTO (T170h).** `[profile.release]`'s `lto = "thin"` and
+      # `codegen-units = 1` make the binary a user gets smaller and faster, and they are the slowest
+      # settings cargo has. A branch's `build` proves that every artifact packages, installs and is
+      # probed, which does not depend on LTO. A tag builds exactly as `Cargo.toml` says, and only a
+      # tag run feeds `release` — so an LTO-only bug is found by the tag run, which the release
+      # checklist requires to be green anyway. `MIXENGINE_RELEASE`, `crt-static` and the strip
+      # setting are untouched: they are what makes an artifact a release, and a branch still proves
+      # them. `packaging/common.sh` forwards both variables into the manylinux container.
+      #
+      # The same step in all three jobs, so that each reports what it was built with.
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
+            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
+            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
+              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
+              if [ "$RUNNER_OS" = "macOS" ]; then
+                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+
+      # On every leg, the Linux ones included: the window is built on the runner itself, never in
+      # the container.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      # **No Actions cache (T170a).** This job's release artifacts, with `binaries`', are several GB,
+      # and with them one `master` run writes more than the repository's 10 GB, so `master`'s own
+      # entries would evict each other and every job would build cold.
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: apps/desktop/.nvmrc
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Install the libraries the window links against
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libxdo-dev libssl-dev build-essential
+
+      # T105: the window, through `packaging/desktop.sh` — which runs `npm ci`, `cargo tauri build`
+      # (`--bundles app` on macOS, where a webview application is a `.app` directory), adds the
+      # macOS slices itself, exports `MIXENGINE_RELEASE` and asserts what it produced.
+      - name: Build the window
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+        run: bash packaging/desktop.sh
+
+      # T171c, E3: the window's half of `binaries`' x86_64 check, after the build above because
+      # `tauri::generate_context!` reads the frontend it built at compile time.
+      - name: Compile the window for x86_64 as well
+        if: runner.os == 'macOS' && env.MIX_MACOS_SLICES == 'aarch64'
+        shell: bash
+        working-directory: apps/desktop/src-tauri
+        run: |
+          rustup target add x86_64-apple-darwin
+          MIXENGINE_RELEASE=1 cargo check --release --locked --target x86_64-apple-darwin
+
+      # **A tar, not the files** (T171, E1). `upload-artifact` keeps neither file modes nor
+      # symlinks: the window would arrive not executable, and a macOS bundle does not survive the
+      # trip without its links. The tar holds `window/<key>/…`, relative to `target/packaging`,
+      # which is where `build` unpacks it and where `stage.sh` looks.
+      - name: Hand the window on
+        shell: bash
+        run: tar -cf window.tar -C target/packaging window
+
+      # Kept 14 days, like `desktop-<os>` before it: a window someone wants to try without the
+      # installer is a reason to download one.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+          path: window.tar
+          if-no-files-found: error
+          retention-days: 14
+
+      # T170g, and T171's targets.
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "15"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt 1800 ]; then
+            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
+          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
+
+  binaries:
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
+    name: binaries (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    # The four headless binaries, in release: twice on macOS for the two slices, and from scratch
+    # inside a container on both Linux legs (T85a, D3), where no cache would reach anyway.
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      # `window`'s five rows; the comments are there.
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            container: ""
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            container: ""
+          - os: macos-latest
+            target: ""
+            container: ""
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
+    steps:
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
+            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
+            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
+              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
+              if [ "$RUNNER_OS" = "macOS" ]; then
+                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+
+      # Only the legs that build on the runner itself rather than inside a container: the two Linux
+      # legs install their own pinned toolchain inside `stage.sh --container`'s `docker run`, since
+      # nothing installed here is visible from there.
+      - name: Install pinned toolchain
+        if: matrix.container == ''
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - name: Fetch dependencies
+        if: matrix.container == ''
+        run: cargo fetch --locked
+
+      # `stage.sh --build-only` (T171a): the compile half of what the per-OS packaging scripts used
+      # to do, with the same flags — `MIXENGINE_RELEASE`, `crt-static` on Windows, the container on
+      # Linux — because it is the same file doing it.
+      - name: Build the binaries
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+          MIX_CONTAINER: ${{ matrix.container }}
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            source packaging/common.sh
+            slices="$(mix_macos_slices)"
+            for slice in $slices; do
+              rustup target add "$slice-apple-darwin"
+              bash packaging/stage.sh --build-only --target "$slice-apple-darwin"
+            done
+          else
+            args=(--build-only --target "$MIX_TARGET")
+            if [ -n "$MIX_CONTAINER" ]; then
+              args+=(--container "$MIX_CONTAINER")
+            fi
+            bash packaging/stage.sh "${args[@]}"
+          fi
+
+      # **T171c, E3.** A branch that builds only `aarch64` would otherwise stop noticing code that
+      # does not compile for Intel Macs until a tag. `check` over the same `-p` list `stage.sh`
+      # builds, with `MIXENGINE_RELEASE` as it sets it: it proves the code compiles for x86_64 without
+      # paying for a second release build. Linking that slice and `lipo` are left to `master`.
+      - name: Compile for x86_64 as well
+        if: runner.os == 'macOS' && env.MIX_MACOS_SLICES == 'aarch64'
+        shell: bash
+        run: |
+          set -euo pipefail
+          source packaging/common.sh
+          rustup target add x86_64-apple-darwin
+          packages=()
+          for crate in "${MIX_CRATES[@]}"; do
+            if [ "$crate" != "$MIX_WINDOW" ]; then
+              packages+=(-p "$crate")
+            fi
+          done
+          MIXENGINE_RELEASE=1 cargo check --release --locked --target x86_64-apple-darwin "${packages[@]}"
+
+      # T85a, D8 wanted a toolchain that is broken on a new leg to fail in under a minute rather than
+      # sixty minutes into a packaging run, and it built `mix` on its own first to get that. Since
+      # T171 this job *is* the build and packaging is another job, so there is nothing long to fail
+      # ahead of. What is left worth asking is whether this runner's toolchain makes a binary that
+      # runs — asked of the one just built, rather than of a second compile of `mix` without
+      # `crt-static`, which cost 89 s.
+      - name: Smoke test this leg's toolchain
+        if: matrix.os == 'windows-11-arm'
+        shell: bash
+        run: '"target/${{ matrix.target }}/release/mix.exe" --version'
+
+      # A tar for the reason `window` gives, of exactly the binaries `common.sh` names and nothing
+      # else of cargo's: `build` fails on any trace of a compile in its tree, and `deps/` or
+      # `.fingerprint/` arriving in this tar would be one.
+      - name: Hand the binaries on
+        shell: bash
+        run: |
+          set -euo pipefail
+          source packaging/common.sh
+          files=()
+          for dir in target/*/release; do
+            for binary in $(mix_headless_binaries); do
+              if [ -f "$dir/$binary$(mix_exe_suffix)" ]; then
+                files+=("$dir/$binary$(mix_exe_suffix)")
+              fi
+            done
+          done
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "nothing under target/*/release to hand on" >&2
+            exit 1
+          fi
+          tar -cf binaries.tar "${files[@]}"
+          tar -tvf binaries.tar
+
+      # One day: it exists to reach `build` in the same run, and nobody installs from it.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+          path: binaries.tar
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "15"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 45.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt 1800 ]; then
+            echo "::warning title=Leg over budget::This leg took $((elapsed / 60)) minutes; past 30 it has to be split (T170 spec, B1 and C3)."
+          elif [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
+
+  build:
+    if: ${{ inputs.jobs == '' || inputs.jobs == 'all' || inputs.jobs == 'build' }}
+    name: build (${{ matrix.os }})
+    # **The whole of both matrices, not this leg's row** — Actions has no per-leg `needs`, so every
+    # leg here waits for the slowest `window` or `binaries` anywhere. Accepted in the T171 spec (E1):
+    # the run ends with its slowest leg either way, and five matrix-free copies of this job would
+    # cost more to keep than the minutes they save.
+    needs: [window, binaries]
+    runs-on: ${{ matrix.os }}
+    # Packaging and the two probes, nothing compiled: about three to five minutes. The ceiling is
+    # generous because the macOS probe installs a `.pkg` for real.
+    timeout-minutes: 30
+    # `actions: read` for "The whole path", which asks the jobs API when `window` and `binaries`
+    # started.
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      # `window`'s five rows; the comments are there.
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            container: ""
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            container: ""
+          - os: macos-latest
+            target: ""
+            container: ""
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_x86_64:2026.09.02-0
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            container: quay.io/pypa/manylinux_2_28_aarch64:2026.09.02-0
+    steps:
+      - name: Start the clock
+        shell: bash
+        run: echo "LEG_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Choose the release profile
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
+            echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
+            echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+            # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
+            # build before a tag does; any other branch builds `aarch64` and checks x86_64.
+            if [ "$GITHUB_REF" != "refs/heads/master" ]; then
+              echo "MIX_MACOS_SLICES=aarch64" >> "$GITHUB_ENV"
+              if [ "$RUNNER_OS" = "macOS" ]; then
+                echo "macOS: the aarch64 slice alone, x86_64 checked but not built (a branch, T171c)." | tee -a "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          fi
+
+      - uses: actions/checkout@v4
+
+      # From this run only, which is `download-artifact`'s default and never overridden here: an
+      # artifact belongs to the commit its run built.
+      - uses: actions/download-artifact@v4
+        with:
+          name: window-${{ matrix.os }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: binaries-${{ matrix.os }}
+
+      # Back where the two builds left them, so every packaging script below runs as it would after
+      # compiling here — with `MIX_PREBUILT` telling `stage.sh` that it must not (T171a).
+      - name: Put both where their builds left them
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p target/packaging
+          tar -xf window.tar -C target/packaging
+          tar -xf binaries.tar
+          rm window.tar binaries.tar
+          echo "MIX_PREBUILT=1" >> "$GITHUB_ENV"
+
+      # Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
+      # quietly not built is a release that is quietly missing one.
+      #
+      # `desktop-file-utils` is appimagetool's, and it is a hard requirement rather than a nicety —
+      # measured on a machine without it, where the tool exits with "desktop-file-validate command is
+      # missing" before it looks at the AppDir at all.
+      - name: Install the packaging tools this runner is missing
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes rpm desktop-file-utils
+
+      # **NSIS is not on the windows image**, measured: the first run of this job got through the
+      # release build and the portable zip and then stopped at "missing tools: makensis". `7z` and
+      # `unzip` *are* there, which is why only this one is installed.
+      #
+      # Chocolatey puts it at `C:\Program Files (x86)\NSIS`, which is the path
+      # `packaging/windows/build.sh` looks at first.
+      - name: Install the packaging tools this runner is missing
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis --no-progress --yes
+
+      - name: Windows artifacts
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+        run: bash packaging/windows/build.sh
+
+      - name: macOS artifacts
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash packaging/macos/build.sh
+
+      # T86a. What an unsigned release looks like to the machines that judge it, measured on the
+      # artifacts this leg just built: the Mark-of-the-Web and quarantine attributes SmartScreen and
+      # Gatekeeper actually read. Neither dialog can be seen from here — those two readings are a
+      # person's, on the draft release, and are release-checklist item 4.
+      #
+      # **`windows-latest` alone.** Mark-of-the-Web is not architecture-dependent, so the arm64 leg
+      # would re-measure one behaviour on a different file at twice the runner cost — the design, D12.
+      #
+      # `MIX_PROBE_INSTALL` is set here and in no other place. The readings behind it install for
+      # real: the NSIS installer into a temporary directory and this account's `PATH`, and on macOS
+      # the `.pkg` into `/usr/local/bin` and `/Library/PrivilegedHelperTools` as root, because there
+      # is no `-target` that isolates that. Both probes put the machine back as they found it, and
+      # the macOS one refuses outright if MixEngine is already installed on it.
+      #
+      # Each probe *fails* on a statement about our own artifact that came back wrong — an installer
+      # that started propagating a mark, a package that acquired a signature nobody bought — and
+      # records a *void reading* for anything this machine could not answer. So a red leg here is a
+      # change to the release story, and a green one that measured nothing says so in its report.
+      - name: What an unsigned release shows SmartScreen
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+          MIX_PROBE_INSTALL: "1"
+        run: bash packaging/windows/probe.sh
+
+      - name: What an unsigned release shows Gatekeeper
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MIX_PROBE_INSTALL: "1"
+        run: bash packaging/macos/probe.sh
+
+      - name: Linux artifacts
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          MIX_TARGET: ${{ matrix.target }}
+          MIX_CONTAINER: ${{ matrix.container }}
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-deb.sh
+          bash packaging/linux/build-rpm.sh
+          bash packaging/linux/build-appimage.sh
+          bash packaging/linux/build-tarball.sh
+
+      # For a person reading the log rather than for the gate: every script has already opened what
+      # it made and refused if a binary was missing from it.
+      - name: What this leg produced
+        shell: bash
+        run: ls -l target/packaging/dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mixengine-${{ matrix.os }}
+          path: target/packaging/dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+      # **T171's tripwire.** The two tars carry finished binaries and nothing of cargo's, so a `deps`
+      # or `.fingerprint` directory, or the window's own `target`, exists here only if something
+      # compiled in this job. `stage.sh` refuses to under `MIX_PREBUILT`; this is for whatever else
+      # might start to, since the result would be a green job exactly as slow as before T171.
+      - name: Nothing was compiled here
+        if: always()
+        shell: bash
+        run: |
+          found="$(find target -maxdepth 4 \( -name deps -o -name .fingerprint \) 2>/dev/null || true)"
+          if [ -d apps/desktop/src-tauri/target ]; then
+            found="$found apps/desktop/src-tauri/target"
+          fi
+          if [ -n "${found// /}" ]; then
+            echo "::error title=Compiled in build::cargo left $found; this job packages what window and binaries built and compiles nothing"
+            exit 1
+          fi
+
+      # What a person waits for is the path, not this job: from the first of `window` and `binaries`
+      # starting to here. Read from the jobs API so neither has to pass a timestamp along.
+      - name: The whole path
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OS: ${{ matrix.os }}
+        run: |
+          first="$(gh run view "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs --jq \
+            "[.jobs[] | select(.name == \"window ($OS)\" or .name == \"binaries ($OS)\") | .startedAt | fromdate] | min")"
+          elapsed=$(( $(date +%s) - first ))
+          printf 'build path (%s): %dm%02ds, target 18 minutes.\n' "$OS" $((elapsed / 60)) $((elapsed % 60)) >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt $((18 * 60)) ]; then
+            echo "::notice title=Path over its target::window, binaries and build took $((elapsed / 60)) minutes against a target of 18."
+          fi
+
+      - name: Budget
+        if: always()
+        shell: bash
+        env:
+          TARGET_MINUTES: "5"
+        run: |
+          elapsed=$(( $(date +%s) - ${LEG_STARTED:-$(date +%s)} ))
+          printf '%s (%s): %dm%02ds, target %s minutes, ceiling 30.\n' "$GITHUB_JOB" "$RUNNER_OS" $((elapsed / 60)) $((elapsed % 60)) "$TARGET_MINUTES" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$elapsed" -gt $((TARGET_MINUTES * 60)) ]; then
+            echo "::notice title=Leg over its target::This leg took $((elapsed / 60)) minutes against a target of $TARGET_MINUTES."
+          fi
 
   # T86. Three questions that need no compiler, so a release that cannot work fails in thirty seconds
   # instead of in an hour. It gates `release` and nothing else — a conditional `needs` is not a thing

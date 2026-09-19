@@ -151,7 +151,7 @@ summary, the time from the earlier of its two dependencies starting to its own e
 from the jobs API through `gh run view --json jobs`, so neither dependency has to pass a timestamp
 along.
 
-## Expected result (to be measured)
+## Expected result
 
 Cold branch run, estimated from run 35458805745's step times plus about 1.5 min of setup per job and
 3–4 min of packaging:
@@ -168,6 +168,35 @@ Cold branch run, estimated from run 35458805745's step times plus about 1.5 min 
 packaging). The M24 target of 20 minutes for `build` holds on `master` too. It is not below 15 on
 every leg, and this spec does not promise that. Windows ARM is limited by one release build of the
 window on that runner.
+
+### Measured (2026-09-19, cold, branch `ci/t171-build-fans-out`)
+
+| Run | What | Before T171 | After |
+| --- | --- | --- | --- |
+| 35461808066 | `--jobs build`, E1 only (macOS still universal) | 29.5 min (`master` 35458805745) | 21.6 min |
+| 35464754026 | every job, E1–E3 | about 30 min (`master` 35458805745) | 23.9 min |
+
+In the full run, `window` and `binaries` took these times per leg, with `build` after them:
+
+| Leg | `window` | `binaries` | `build` |
+| --- | --- | --- | --- |
+| windows-latest | 18.3 min | 11.5 | 2.2 |
+| windows-11-arm | 15.0 | 7.4 | 3.7 |
+| macos-latest | 15.3 (aarch64 + 97 s x86_64 check) | 7.0 (+ 77 s check) | 0.6 |
+| ubuntu-22.04 | 11.9 | 4.5 | 2.1 |
+| ubuntu-22.04-arm | 9.0 | 5.3 | 1.6 |
+
+The artifacts came out as the same 80 file names as `master`'s. The Gatekeeper probe read the same
+things it always reads, and no `build` job compiled anything.
+
+**The 18-minute goal is not met**, for three reasons:
+
+- `window (windows-latest)` took 17–18 min in all three T171 runs. Its build step is untouched by
+  this spec and took 604 s in run 35458805745, so it varies between 600 and 1030 s. It is now the
+  slowest job in the run and the next thing to look at.
+- `needs` waits for the whole matrix (E1). The Linux legs were ready 8 minutes before `build`
+  started.
+- The queue, described under Concurrency.
 
 ## Rollout
 
@@ -188,12 +217,13 @@ another finishes, which is most likely `test (macos)` at 7 min. That delay is pa
 measurement in Rollout step 2 is for.
 
 The 20-job limit matters more. A full run asks for 29 jobs before any `build` can start, so 9 wait,
-and the queue fills in roughly the order `ci.yml` writes the jobs. `window` and `binaries` were
-written last, and one of them left waiting 8 minutes would put that leg's path near 25 minutes. So
-T171c also reorders the file: the two builds first, then `bench`, `test` and `services`, and the
-jobs that finish in minutes (`system`, `rustdoc`, `lint`, `bindings`, `docs`) last. `bench` goes
-before `system`, so the macOS job left waiting is `system` (5 min), not `bench` (16). GitHub does
-not promise this order. Estimated full-run wall time is 18–20 minutes against about 30 today.
+and whichever of them waits is not ours to choose.
+
+**Reordering the jobs in `ci.yml` was tried and withdrawn.** The idea was to write the longest
+paths first, on the guess that the queue fills in file order. Run 35464754026 disproved that guess.
+`system`, `rustdoc` and `docs`, which were written last, started at once. `window (windows-11-arm)`
+and `window (macos-latest)`, written first, waited about 4.5 minutes. With no effect to show for
+it, the reorder only moved about 2000 lines, so it was reverted before merge.
 
 ## Documentation
 

@@ -40,7 +40,7 @@ then [2026-09-20-t171-a-build-that-fans-out-design.md](../specs/2026-09-20-t171-
 - [x] **T171b** Every `build` leg runs as `window` and `binaries` in parallel, then `build` packages
       what they handed on; `release` downloads `mixengine-*` only.
 - [x] **T171c** On a branch, macOS builds the aarch64 slice alone and still checks x86_64; `master`
-      and tags stay universal; the jobs in `ci.yml` are ordered longest path first.
+      and tags stay universal.
 
 **Milestone M24**: in a warm branch run, every leg of every job finishes in 15 minutes or less
 except `build`, whose legs finish in 20 or less, and no leg passes 30 minutes.
