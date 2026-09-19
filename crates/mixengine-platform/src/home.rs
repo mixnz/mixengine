@@ -1,0 +1,106 @@
+//! The home a development build suggests for itself, and whether it may take it.
+//!
+//! Roadmap task T166, ADR 0040. `.cargo/config.toml` sets [`DEV_HOME_VAR`] to the checkout's own
+//! `.mixengine-home` for everything cargo runs — the window's daemon, a terminal's `cargo run`, the
+//! window itself — so that they are one daemon. It used to set `MIXENGINE_HOME`, which is an
+//! override: a checkout on an external disk then put `run/` where macOS will not let the elevated
+//! helper read its own request, and every Allow on the prompt ended in *no report*.
+//!
+//! So the checkout **suggests**, and the three places that resolve a home — `mix`, `mixengined`
+//! and the window — weigh the suggestion here, in one function, after `--home` and
+//! `MIXENGINE_HOME` and before [`HomeDirs::default_home`](crate::HomeDirs::default_home). One
+//! function is what keeps them agreeing, which is the property the suggestion exists for.
+
+use std::ffi::OsStr;
+use std::path::PathBuf;
+
+use crate::Host;
+
+/// The variable a development checkout names its suggested home in.
+pub const DEV_HOME_VAR: &str = "MIXENGINE_DEV_HOME";
+
+/// The checkout's suggested home, if this build may take it — read from the environment.
+///
+/// `None` sends the caller on to the platform default, which for a development build is ADR 0024's
+/// `MixEngine-dev`.
+#[must_use]
+pub fn development_home(host: &dyn Host) -> Option<PathBuf> {
+    development_home_from(host, std::env::var_os(DEV_HOME_VAR).as_deref())
+}
+
+/// [`development_home`] over a value the caller read, so that a test does not depend on the
+/// environment cargo gives it — which, in this repository, always carries the variable.
+///
+/// `None` in a release build, whatever the value: a shipped binary has no checkout. `None` for an
+/// absent or empty value, and for a directory an elevated process could not read — that one with a
+/// `warn`, because a developer whose home just moved should be able to find out why.
+#[must_use]
+pub fn development_home_from(host: &dyn Host, value: Option<&OsStr>) -> Option<PathBuf> {
+    decide(host, value, crate::RELEASE)
+}
+
+fn decide(host: &dyn Host, value: Option<&OsStr>, release: bool) -> Option<PathBuf> {
+    if release {
+        return None;
+    }
+
+    let value = value.filter(|value| !value.is_empty())?;
+    let path = std::path::absolute(value).ok()?;
+
+    if !host.home_dirs().elevated_can_read(&path) {
+        tracing::warn!(
+            passed_over = %path.display(),
+            "this checkout's home is on a volume the elevation helper cannot read; using the \
+             default home instead"
+        );
+        return None;
+    }
+
+    Some(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::mock;
+
+    fn suggested() -> &'static OsStr {
+        OsStr::new("/checkout/.mixengine-home")
+    }
+
+    #[test]
+    fn a_readable_suggestion_is_taken() {
+        let host = mock::Host::with_home("/default");
+
+        assert_eq!(
+            decide(&host, Some(suggested()), false),
+            // Made absolute the way `decide` does, which on Windows puts a drive in front.
+            Some(std::path::absolute(suggested()).unwrap())
+        );
+    }
+
+    #[test]
+    fn no_suggestion_or_an_empty_one_is_none() {
+        let host = mock::Host::with_home("/default");
+
+        assert_eq!(decide(&host, None, false), None);
+        assert_eq!(decide(&host, Some(OsStr::new("")), false), None);
+    }
+
+    /// The incident T166 comes from: a checkout on a volume TCC gates.
+    #[test]
+    fn a_suggestion_the_helper_could_not_read_is_passed_over() {
+        let host = mock::Host::with_home("/default")
+            .elevated_cannot_read(std::path::absolute("/checkout").unwrap());
+
+        assert_eq!(decide(&host, Some(suggested()), false), None);
+    }
+
+    #[test]
+    fn a_release_build_has_no_checkout() {
+        let host = mock::Host::with_home("/default");
+
+        assert_eq!(decide(&host, Some(suggested()), true), None);
+    }
+}

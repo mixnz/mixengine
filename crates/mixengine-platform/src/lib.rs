@@ -31,6 +31,9 @@ pub mod elevated;
 /// not the same thing: see the module note.
 #[cfg(feature = "ipc")]
 pub mod activation;
+// Documented by its own `//!` header. `host` only: the helper never chooses a home.
+#[cfg(feature = "host")]
+pub mod home;
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub mod hosts;
 // Documented by its own `//!` header. Under both features because it is the one question both
