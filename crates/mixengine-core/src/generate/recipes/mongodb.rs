@@ -195,7 +195,10 @@ impl Recipe for Mongodb {
     }
 
     /// An hour, T70a's number for every database.
-    fn idle_default(&self) -> Option<Millis> {
+    ///
+    /// **Only while the home saves resources** — roadmap task **T167b**, ADR 0041. Until then this
+    /// number was the default for every home; now a service nobody set is never idle-stopped.
+    fn idle_when_saving(&self) -> Option<Millis> {
         Some(Millis::from_secs(60 * 60))
     }
 }

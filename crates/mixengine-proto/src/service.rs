@@ -891,7 +891,8 @@ pub struct IdlePolicy {
 pub enum IdleSource {
     /// The column is null and the recipe supplies the duration.
     ///
-    /// Unreachable until **T70**: every recipe this build ships answers `None`.
+    /// Reached only while the home saves resources (**T167b**, ADR 0041): no recipe supplies one
+    /// otherwise, and the duration is then the recipe's saving number.
     Recipe,
 
     /// The column holds a duration, and it is the one in force.

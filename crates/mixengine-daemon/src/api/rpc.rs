@@ -21,12 +21,12 @@ use mixengine_proto::{
     JobQuery, JobState, JobSummary, JobWait, LimitSupport, MemoryWatchdog, MetricsFrame,
     MetricsHistory, MetricsHistoryQuery, PackageFilter, PackageInstall, PackageTarget,
     ProjectCreate, ProjectQuery, ProjectRef, ProjectUpdate, ResetCredential, ResourceLimits,
-    RuntimeFilter, RuntimeInstall, RuntimeQuestion, RuntimeTarget, RuntimeUninstall,
-    ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId, ServiceIdleSet,
-    ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole, ServiceSpec,
-    ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery, SiteShare,
-    SiteUpdate, StateReason, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide,
-    UpdateStatus, Uptime,
+    RuntimeFilter, RuntimeInstall, RuntimeQuestion, RuntimeTarget, RuntimeUninstall, SaveResources,
+    SaveResourcesSet, ServiceAutostartSet, ServiceCreate, ServiceDelete, ServiceFailure, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery, ServiceRole,
+    ServiceSpec, ServiceSummary, ServiceTarget, ServiceWalk, SiteCreate, SiteListQuery, SiteQuery,
+    SiteShare, SiteUpdate, StateReason, UninstallQuery, UpdateApplied, UpdateApply, UpdateCheck,
+    UpdateDecide, UpdateStatus, Uptime,
 };
 use serde_json::Value;
 use tracing::Instrument as _;
@@ -762,6 +762,20 @@ async fn call_method(
                 rpc::method::SERVICE_SET_AUTOSTART => {
                     let asked: ServiceAutostartSet = arguments(params)?;
                     encode_result(&api.service_set_autostart(&asked).await.map_err(refused)?)
+                }
+
+                rpc::method::SERVICE_SAVE_RESOURCES => {
+                    no_params(params.as_ref())?;
+                    encode_result(&api.service_save_resources().await.map_err(refused)?)
+                }
+
+                rpc::method::SERVICE_SET_SAVE_RESOURCES => {
+                    let asked: SaveResourcesSet = arguments(params)?;
+                    encode_result(
+                        &api.service_set_save_resources(asked)
+                            .await
+                            .map_err(refused)?,
+                    )
                 }
 
                 rpc::method::SERVICE_SET_FRONT_END => {
@@ -1582,11 +1596,19 @@ impl Api {
             .await
             .map_err(|error| error.to_wire())?;
 
-        // The recipe's own default, asked of the same catalogue the generator renders with, so this
-        // report and the policy actually in force cannot disagree about what "unset" means.
+        // The recipe's own default, asked of the same catalogue the generator renders with and
+        // through the same rule — its saving number while the home saves resources (T167b) — so
+        // this report and the policy actually in force cannot disagree about what "unset" means.
+        let saving = mixengine_core::services::save_resources::get(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
         let recipe_default = crate::services::catalogue()
             .recipe(id.name())
-            .and_then(|recipe| recipe.idle_default());
+            .and_then(|recipe| {
+                recipe
+                    .idle_default()
+                    .or_else(|| saving.then(|| recipe.idle_when_saving()).flatten())
+            });
 
         Ok(IdleReport {
             source: IdleSource::of(column, recipe_default, spec.idle()),
@@ -1620,6 +1642,31 @@ impl Api {
             wait: false,
         })
         .await
+    }
+
+    /// `service.save_resources` — whether this home stops services nobody is using (T167b).
+    async fn service_save_resources(&self) -> Result<SaveResources, Error> {
+        let on = mixengine_core::services::save_resources::get(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        Ok(SaveResources { on })
+    }
+
+    /// `service.set_save_resources` — turn it on or off.
+    ///
+    /// **Nothing is stopped or started here**, on [`Self::service_set_idle`]'s reasoning: the next
+    /// idle sweep rebuilds its graph from the rows and reads the switch there, so a service already
+    /// past its saving policy is stopped by that sweep and not by this call.
+    async fn service_set_save_resources(
+        &self,
+        asked: SaveResourcesSet,
+    ) -> Result<SaveResources, Error> {
+        mixengine_core::services::save_resources::set(&self.store, asked.on)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        self.service_save_resources().await
     }
 
     /// `service.set_autostart` — replace whether this service starts when the daemon does.

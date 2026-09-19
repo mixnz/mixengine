@@ -43,6 +43,7 @@ pub mod graph;
 pub mod handoff;
 pub mod pools;
 pub mod ports;
+pub mod save_resources;
 
 pub use graph::{GraphError, Plan, ServiceGraph};
 

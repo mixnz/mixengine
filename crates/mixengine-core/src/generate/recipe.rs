@@ -1082,22 +1082,33 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
         None
     }
 
-    /// How long this service should look idle before it is stopped, when nobody has said.
+    /// How long this service should look idle before it is stopped, when nobody has said and the
+    /// home is not saving resources.
+    ///
+    /// **[`None`] for every recipe, and that is the decision** — [ADR 0041]: MixEngine stops nothing
+    /// a person did not ask it to stop. A site that was up stays up. The numbers T70 and T70a chose
+    /// are [`idle_when_saving`](Self::idle_when_saving)'s, and reach a service only while the home's
+    /// *Save battery* switch is on.
+    ///
+    /// Kept as a method rather than deleted so that `idle_minutes` can still tell *nobody said*
+    /// from *somebody said no*, and so a recipe for a program that should idle regardless has a
+    /// place to say so. None does.
+    ///
+    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/.claude/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    fn idle_default(&self) -> Option<mixengine_proto::Millis> {
+        None
+    }
+
+    /// How long this service should look idle before it is stopped, when nobody has said and the
+    /// home **is** saving resources — roadmap task **T167b**.
     ///
     /// **A recipe answers a number only once something can start its service again.** Stopping a
-    /// service nothing can wake is a site that answers 502 for ever, so each number arrives with
-    /// the task that makes its service wakeable and never before it: php-fpm names half an hour
+    /// service nothing can wake is a site that answers 502 for ever, so php-fpm names half an hour
     /// (**T70** — the request that finds the pool down is what wakes it), the databases and the
-    /// caches name an hour (**T70a** — the connection that finds the server down is what wakes it),
-    /// and the two front ends answer [`None`] for ever, because the thing that starts everything
-    /// else back up cannot be the thing that gets stopped.
-    ///
-    /// It exists now rather than with T70 so that `idle_minutes` can tell *nobody said* from
-    /// *somebody said no* before either is reachable. Every existing row is `NULL`; if `NULL` also
-    /// meant "never", a default turned on later would either ignore the person who switched it off
-    /// or fail to reach the person who never touched it, and separating them afterwards means a
-    /// migration that has to guess which of the two each `NULL` was.
-    fn idle_default(&self) -> Option<mixengine_proto::Millis> {
+    /// caches an hour (**T70a** — the connection that finds the server down is what wakes it), and
+    /// the two front ends [`None`] for ever, because the thing that starts everything else back up
+    /// cannot be the thing that gets stopped.
+    fn idle_when_saving(&self) -> Option<mixengine_proto::Millis> {
         None
     }
 
@@ -1582,22 +1593,45 @@ mod tests {
         }
     }
 
-    /// **Sixty minutes for the databases and the caches, and only now** — the design's D9.
+    /// **While saving resources: an hour for the databases and the caches, half an hour for a pool,
+    /// never for a front end** — T70, T70a, and T167b which moved them behind the switch.
     ///
-    /// A default that idles a service nothing can start again is a home that changed nothing and
-    /// broke, so these five answer a number in the same commit that makes them wakeable and not one
-    /// commit earlier. php-fpm has answered half an hour since **T70**, and the two front ends stay
-    /// [`None`] for ever: the thing that starts everything else back up cannot be the thing that
-    /// gets stopped.
+    /// A number that idles a service nothing can start again is a home that broke, so each of these
+    /// names only a service something can wake; the two front ends stay [`None`] for ever, because
+    /// the thing that starts everything else back up cannot be the thing that gets stopped.
+    /// **No recipe idle-stops a service nobody asked about** — ADR 0041. A site that was up stays
+    /// up; the numbers above apply only while the home saves resources.
     #[test]
-    fn a_recipe_answers_an_idle_default_once_something_can_start_it_again() {
+    fn no_recipe_idles_anything_by_default() {
+        let catalogue = Catalogue::builtin();
+
+        for package in [
+            "php-fpm",
+            "mariadb",
+            "mysql",
+            "postgres",
+            "redis",
+            "memcached",
+            "mongodb",
+            "caddy",
+            "nginx",
+        ] {
+            let recipe = catalogue
+                .recipe(package)
+                .unwrap_or_else(|| panic!("{package} is a builtin recipe"));
+            assert_eq!(recipe.idle_default(), None, "{package}");
+        }
+    }
+
+    #[test]
+    fn a_recipe_answers_an_idle_time_for_saving_once_something_can_start_it_again() {
         let catalogue = Catalogue::builtin();
 
         let default_of = |package: &str| {
             catalogue
                 .recipe(package)
                 .unwrap_or_else(|| panic!("{package} is a builtin recipe"))
-                .idle_default()
+                .idle_when_saving()
         };
 
         for package in [

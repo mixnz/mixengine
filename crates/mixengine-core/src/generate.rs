@@ -444,8 +444,20 @@ impl Generator {
         // question of the same table once per service for ever.
         let home = crate::home::id(&self.store).await?;
 
+        // **Whether the home saves resources, read once for the whole walk** — roadmap task
+        // **T167b**. It decides the idle policy of every row nobody set, so it is one answer for
+        // the walk rather than one read per row.
+        let saving = crate::services::save_resources::get(&self.store).await?;
+
         for row in rows {
-            prepared.push(self.prepare(row, &home, &installed, &fragments, &credentials)?);
+            prepared.push(self.prepare(
+                row,
+                &home,
+                &installed,
+                &fragments,
+                &credentials,
+                saving,
+            )?);
         }
 
         let mut upstreams = BTreeMap::new();
@@ -786,6 +798,7 @@ impl Generator {
         installed: &BTreeMap<String, crate::extensions::store::Installed>,
         fragments: &[(FrontEndServer, FrontEndAddition)],
         credentials: &BTreeMap<ServiceId, crate::extensions::pools::Credential>,
+        saving: bool,
     ) -> Result<Prepared> {
         let service =
             ServiceId::parse(row.id.clone()).map_err(|source| Error::UnreadableServiceRow {
@@ -873,9 +886,11 @@ impl Generator {
         // endpoint, which is computed a few lines below this. What is decided here is only whether
         // there is a policy at all and how long it waits.
         let idle_after = match row.idle_minutes {
-            // Nobody has said. Whatever the recipe wants — which since T70 is half an hour for a
-            // php-fpm pool and nothing for everything else, until T70a can start a database again.
-            None => recipe.idle_default(),
+            // Nobody has said. The recipe's default, which is nothing for every recipe (ADR 0041),
+            // unless the home is saving resources — then the recipe's saving number (T167b).
+            None => recipe
+                .idle_default()
+                .or_else(|| saving.then(|| recipe.idle_when_saving()).flatten()),
 
             // Said, and said no. Outranks the recipe deliberately: a default arriving in a later
             // release must not switch idle-stopping back on behind the person who turned it off.
@@ -1223,6 +1238,12 @@ mod tests {
             context
                 .port()
                 .map(|port| mixengine_proto::IdleProbe::Connections { port })
+        }
+
+        /// Forty-five minutes while the home saves resources — T167b. A number of its own so the
+        /// test below can tell it from the row's.
+        fn idle_when_saving(&self) -> Option<mixengine_proto::Millis> {
+            Some(mixengine_proto::Millis::from_secs(45 * 60))
         }
 
         /// On the port the row allocated, as every database recipe answers — T70a.
@@ -1852,6 +1873,40 @@ mod tests {
             idle_of(&generator, Some(0)).await,
             None,
             "zero minutes is never, not immediately"
+        );
+    }
+
+    /// **T167b, ADR 0041.** A row nobody set is idle-stopped only while the home saves resources,
+    /// and then on the recipe's saving number; a row somebody set means what they said either way.
+    #[tokio::test]
+    async fn a_row_nobody_set_idles_only_while_the_home_saves_resources() {
+        let (_home, generator) = home("{}").await;
+        let minutes = |policy: Option<mixengine_proto::IdlePolicy>| policy.map(|p| p.after);
+
+        assert_eq!(
+            idle_of(&generator, None).await,
+            None,
+            "off: nothing is stopped"
+        );
+
+        crate::services::save_resources::set(&generator.store, true)
+            .await
+            .expect("the switch is written");
+
+        assert_eq!(
+            minutes(idle_of(&generator, None).await),
+            Some(mixengine_proto::Millis::from_secs(45 * 60)),
+            "on: the recipe's saving number"
+        );
+        assert_eq!(
+            minutes(idle_of(&generator, Some(10)).await),
+            Some(mixengine_proto::Millis::from_secs(10 * 60)),
+            "a person's number outranks the switch"
+        );
+        assert_eq!(
+            idle_of(&generator, Some(0)).await,
+            None,
+            "never stays never"
         );
     }
 

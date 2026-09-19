@@ -818,7 +818,10 @@ mod tests {
         let summary: ServiceSummary = serde_json::from_value(older).expect("an older daemon's row");
         assert_eq!(summary.stopped_by, None);
         assert!(
-            serde_json::to_value(&summary).unwrap().get("stopped_by").is_none(),
+            serde_json::to_value(&summary)
+                .unwrap()
+                .get("stopped_by")
+                .is_none(),
             "an absent reason is not written as null"
         );
     }

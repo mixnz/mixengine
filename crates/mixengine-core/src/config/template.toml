@@ -87,10 +87,11 @@
 #rescan_seconds = 2
 
 [services]
-# A service nothing is using can be stopped, so that a project you are not working on costs nothing.
-# You turn that on per service: "mix service idle mariadb@main --after 60m". Nothing does it by
-# itself yet — until MixEngine can start a service again on the first request that needs it, a
-# stopped one stays stopped until you start it.
+# MixEngine stops nothing on its own unless you ask it to. Turn on "Save battery" in MixLab's
+# Settings, or run "mix service save-resources --on", and a service nobody has used for a while is
+# stopped — half an hour for a PHP pool, an hour for a database or a cache — and started again by the
+# next request that needs it. One service can be given its own time with
+# "mix service idle mariadb@main --after 60m", or never be stopped with "--after 0".
 #
 # This is how often MixEngine looks, not how long it waits. A service is stopped after it has been
 # seen idle this many times in a row, so "--after 60m" at the default period is 120 readings — which
