@@ -710,6 +710,34 @@ the storage for every user**, whatever the ceiling is. The reason that file is n
 is that it holds somebody else's production data; the capacity is a second dividend from a decision
 made for another reason entirely.
 
+### Moving the default instance
+
+**The two implementations do not share an account id, and it does not matter.** The Worker
+addresses an account by `idFromName(SHA-256(lowercased address))`; the native server gives it a row
+number. Neither is ever on the wire. What *is* on the wire — the opaque `collection` and `id` of D3
+— is `HMAC(K_id, …)`, derived on the client from `MK`, so it is a property of the account's own key
+and not of whichever server is holding it.
+
+**But the Worker cannot list its accounts, and that is deliberate.** D8 above has no account table
+and no index, because nothing in this design ever queries across accounts. The direct consequence
+is that **the operator has no list of addresses to migrate** and cannot perform a bulk server-side
+move. That is a cost of the privacy property, not an oversight, and it is written here so nobody
+discovers it on the day they want to move.
+
+**It is also not needed, because the client is the source of truth.** Everything in an account is
+derived from files MixLab already holds in plaintext on the machine, plus an `MK` the person holds
+two wrappings of. The server is a carrier. So moving the default instance is a thing a *person*
+does — point MixLab at the new server, make an account, push — and it is lossless, because nothing
+was only ever on the server. The records arrive under a new `MK` with new opaque ids and a `seq`
+that starts again, and no other machine can tell the difference once it has signed in too.
+
+**The one person this fails** is somebody whose only copy *was* the server: one machine, lost, with
+sync as the backup. For them a move that is not a migration is data loss. Two things follow. An
+operator who moves the default instance announces it and leaves the old one answering until
+everybody has signed in to the new one — a deprecation, not a switch. And **if a silent migration
+ever becomes necessary, the thing that has to change first is the no-index decision**, in a new
+spec that argues for the index and says what it costs, rather than in a hurry.
+
 **These limits are per Cloudflare account**, so somebody who deploys this Worker to their own gets
 the whole allowance for themselves. The middle row of the table above scales without anybody paying
 for it, which is not usually true of a self-hosting story.
