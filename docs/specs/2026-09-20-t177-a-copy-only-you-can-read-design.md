@@ -238,7 +238,9 @@ particular to that code and optional.
 ### `/v1/capabilities`
 
 `200`, no authentication, `Cache-Control: public, max-age=3600`. It never reaches an account object
-(D8).
+(D8). *No authentication* means exactly that: an `Authorization` header that is absent, malformed
+or expired changes nothing about the answer, because a client reads this route before it has an
+account at all.
 
 ```json
 {
@@ -265,14 +267,35 @@ server. A client must run against an empty list forever.
 | `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
 | `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
 | `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
+| `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
 | `POST /v1/auth/reset` | `email`, `token`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 214}` | `400 invalid-token` |
 
+- **`/v1/auth/reset` is one path with two shapes**, told apart by whether `token` is present: ask
+  for the letter, then complete with what it carried. Two shapes rather than a second path because
+  D4's table is the frozen surface, and a forgotten password is one operation a person performs in
+  two steps rather than two operations.
+- **Asking for a reset always answers `202`**, whether or not that address has an account. Unlike
+  registration — which has to refuse a taken address and therefore leaks one (see below) — this
+  route has no such obligation, so it does not leak.
+- **Verification is the gate on signing in, not on writing.** Until an address is verified,
+  `/v1/auth/login` answers `403 email-not-verified` and issues nothing, so in v1 **no token exists
+  that could reach a record route with `verified` false**. D4's *"no record may be written before
+  this"* is therefore enforced at the door, and the `403 email-not-verified` listed on the record
+  routes below is defence in depth that `/v1` cannot currently reach. `server/conformance/` asserts
+  the login refusal and does not assert the record one, because a suite that claimed to test an
+  unreachable path would be claiming something false. Issuing tokens for an unverified address was
+  the alternative, and it means handing credentials to whoever typed an address that may not be
+  theirs.
 - **A verification token lives 24 hours**; a reset token, one hour.
 - **`400 invalid-token` covers wrong, expired and already-used alike.** Telling them apart is an
   oracle and buys a client nothing: the remedy is the same sentence in all three cases.
 - **`POST /v1/auth/reset` deletes every record** and says how many (D6, case 3). It is the only
   route in `/v1` that destroys data, and the count exists so the client can show what it did rather
-  than claim it.
+  than claim it. It deletes them outright rather than writing tombstones — a tombstone exists to
+  tell another machine that something it can read is gone, and after a reset no machine can read
+  anything. Every refresh token is revoked with them, so the other machines are signed out rather
+  than left syncing an account whose `MK` they still hold and the server no longer serves. `seq`
+  does not restart: it is monotonic for the life of the account.
 - **`POST /v1/auth/password` re-wraps and does not re-encrypt.** `MK` is unchanged, so no record is
   touched and no `seq` moves (D6, case 1). Every refresh token except the calling device's is
   revoked.
@@ -307,10 +330,17 @@ stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
 | `DELETE`, never existed | `404 unknown-record` |
 | body over `maxRecordBytes` | `413 record-too-large` |
 | account over `accountQuotaBytes` | `507 quota-exceeded`, with `used` and `limit` |
-| address not yet verified | `403 email-not-verified` |
+| `collection` or `id` not 64 lowercase hex characters | `400 invalid-request` |
+| address not yet verified | `403 email-not-verified`, unreachable in v1 — see above |
 
 The tombstone rule is worth its row: without it, a delete retried after a dropped connection bumps
 `seq` and every other machine pulls a change that is not one.
+
+**A tombstone is a version like any other.** `If-Match` on its version writes over it and the
+record comes back — which is what happens when somebody deletes a saved query on one machine and
+the same local uuid is written again from another — and `If-None-Match: *` counts it as existing
+and answers `412`. The alternative, treating a deleted row as absent, would let a creation slip
+past a deletion and leave the two machines disagreeing about which one won.
 
 `GET /v1/records?collection={c}&since={seq}`:
 
@@ -367,6 +397,14 @@ Verification arrives by email, which no HTTP suite can read. A server under test
 it was started with that mode explicitly enabled**. It is outside `/v1` so that the frozen surface
 stays frozen, and a deployed server cannot be asked for it. Both implementations carry it, because
 `server/conformance/` requires it.
+
+```json
+{ "messages": [ { "kind": "verification", "token": "…", "sentAt": 1758300000 } ] }
+```
+
+Oldest first, so the newest of a kind is the last one. `kind` is `verification` or `reset`. This
+shape is written down for the same reason everything else here is: it is the seam between the suite
+and both implementations, and a seam nobody specified is a seam that differs.
 
 ### Four choices that could have gone the other way
 
