@@ -70,6 +70,12 @@ The other half of that rule: **an event already reported is not an event.** A lo
 finished job every ninety seconds will say the same thing forty times and be stopped for the volume.
 Keep what was last printed in a variable and print the difference, not the state.
 
+And **name the states you mean, never filter by negation.** `gh run view --json jobs` gives a
+running job `conclusion: ""`, not `null`, so `select(.conclusion != null and .conclusion !=
+"success")` reports every job still working as a failure — twenty-nine of them, once, four minutes
+into a healthy run. Write `select(.conclusion == "failure" or .conclusion == "cancelled" or
+.conclusion == "timed_out")`.
+
 ```bash
 command -v gh >/dev/null || { echo "FATAL: no gh on PATH"; exit 3; }          # dependencies, at the top
 [ -z "$state" ] && { echo "FATAL: gh run view said nothing"; exit 3; }        # empty is a failure, not "not yet"
