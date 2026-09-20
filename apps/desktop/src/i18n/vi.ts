@@ -185,6 +185,8 @@ const vi: SharedDict = {
     cannotSavePassword: "Không lưu được mật khẩu: {{message}}",
     cannotReadPassword: "Không đọc lại được mật khẩu đã lưu: {{message}}",
     syncKeyDerivation: "Không dẫn xuất được khóa đồng bộ: {{message}}",
+    syncCannotWrapKey: "Không bảo vệ được khóa đồng bộ.",
+    syncCannotUnwrapKey: "Sai mật khẩu, hoặc khóa của tài khoản này đã hỏng.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng

@@ -6,7 +6,11 @@
 
 use crate::error::AppError;
 use argon2::{Algorithm, Argon2, Params, Version};
+use chacha20poly1305::aead::{Aead, KeyInit};
+use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
+use rand::TryRngCore;
+use rand::rngs::OsRng;
 use sha2::Sha256;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
@@ -75,6 +79,61 @@ pub fn derive_password_keys(password: &str, salt: &[u8]) -> Result<PasswordKeys,
     Ok(keys)
 }
 
+/// How many bytes an XChaCha20-Poly1305 nonce is, and therefore what a sealed value starts with.
+pub const NONCE_LEN: usize = 24;
+
+/// `N` bytes from the operating system.
+///
+/// A failure here is not a case to handle: a machine whose randomness is unavailable cannot be
+/// given a key at all, and carrying on with a predictable one would be the worse answer.
+fn random<const N: usize>() -> [u8; N] {
+    let mut out = [0u8; N];
+    OsRng
+        .try_fill_bytes(&mut out)
+        .expect("the operating system's randomness is not optional");
+    out
+}
+
+/// A fresh master key.
+///
+/// **Random rather than derived from the password**, which is the whole reason changing a password
+/// re-wraps 32 bytes instead of re-encrypting an account — the design's D2.
+pub fn new_master_key() -> [u8; 32] {
+    random::<32>()
+}
+
+/// `nonce || ciphertext`, sealed under `wrapping`.
+///
+/// No associated data: a wrapped master key is not addressed by anything, unlike a record — see
+/// [`seal_record`]'s argument for why that one is.
+pub fn wrap_master_key(wrapping: &[u8; 32], master: &[u8; 32]) -> Result<Vec<u8>, AppError> {
+    let nonce = random::<NONCE_LEN>();
+    let sealed = XChaCha20Poly1305::new(wrapping.into())
+        .encrypt(XNonce::from_slice(&nonce), master.as_slice())
+        .map_err(|_| err!("error.syncCannotWrapKey"))?;
+
+    let mut out = Vec::with_capacity(NONCE_LEN + sealed.len());
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(&sealed);
+    Ok(out)
+}
+
+/// The inverse.
+///
+/// A wrong key, a truncated value and a flipped byte all end here as the same error. There is
+/// nothing useful to tell apart, and saying which went wrong would be a hint.
+pub fn unwrap_master_key(wrapping: &[u8; 32], sealed: &[u8]) -> Result<[u8; 32], AppError> {
+    let (nonce, body) = sealed
+        .split_at_checked(NONCE_LEN)
+        .ok_or_else(|| err!("error.syncCannotUnwrapKey"))?;
+
+    XChaCha20Poly1305::new(wrapping.into())
+        .decrypt(XNonce::from_slice(nonce), body)
+        .map_err(|_| err!("error.syncCannotUnwrapKey"))?
+        .try_into()
+        .map_err(|_| err!("error.syncCannotUnwrapKey"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,5 +171,44 @@ mod tests {
             first.wrap, other.wrap,
             "a different salt is a different account"
         );
+    }
+
+    #[test]
+    fn a_master_key_survives_a_round_trip_and_refuses_the_wrong_key() {
+        let master = new_master_key();
+        let right = [1u8; 32];
+        let wrong = [2u8; 32];
+
+        let sealed = wrap_master_key(&right, &master).expect("wraps");
+        assert_eq!(unwrap_master_key(&right, &sealed).expect("unwraps"), master);
+        assert!(
+            unwrap_master_key(&wrong, &sealed).is_err(),
+            "a wrong password must fail, not return rubbish"
+        );
+    }
+
+    #[test]
+    fn wrapping_twice_produces_different_bytes() {
+        let master = new_master_key();
+        let key = [3u8; 32];
+        assert_ne!(
+            wrap_master_key(&key, &master).expect("wraps"),
+            wrap_master_key(&key, &master).expect("wraps"),
+            "a fresh nonce each time, or two wrappings leak that they hold the same key"
+        );
+    }
+
+    #[test]
+    fn a_truncated_wrapping_is_refused_rather_than_panicking() {
+        let master = new_master_key();
+        let key = [4u8; 32];
+        let sealed = wrap_master_key(&key, &master).expect("wraps");
+
+        for cut in [0, 1, NONCE_LEN - 1, NONCE_LEN, sealed.len() - 1] {
+            assert!(
+                unwrap_master_key(&key, &sealed[..cut]).is_err(),
+                "a value cut to {cut} bytes must be an error, never a panic"
+            );
+        }
     }
 }
