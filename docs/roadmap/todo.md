@@ -60,7 +60,7 @@ done
 | [27 — A rehearsal of the release build](phase-27-a-rehearsal-of-the-release-build.md) | What a release is built with is built every week, so a tag is never the first time | T174a–T174d | 4 / 4 | **M27** a `release-exact` run on `master` is green inside every timeout, happens weekly unasked, and the checklist names it before tagging — **two halves met** by run 35491317573 (LTO links; the widest leg uses half its timeout), the weekly one waits for the first Monday after this lands |
 | [28 — Dependencies that earn their place](phase-28-dependencies-that-earn-their-place.md) | Nothing is compiled, shipped or audited because a plugin's default feature asked for it | T175a–T175c | 3 / 3 | **M28** no `image` and no `moxcms` in the window's `--timings`, terminal paste still works, and both the bson and the db-crate questions are answered with a number — **met**, 898 units against 908, and two measured refusals |
 | [29 — One name to find it by](phase-29-one-name-to-find-it-by.md) | One name for the product, and the engine keeps its own where that is still the right word | T176a–T176e | 5 / 5 | **M29** searching for MixLab reaches the repository, the handbook and the download page, the *do I need both* question is answered in one sentence, and no identifier moved — **met**, and the redirects were measured rather than predicted |
-| [30 — A copy only you can read](phase-30-a-copy-only-you-can-read.md) | A person's second machine has what they ticked, and the server that carried it cannot read it | T177a–T177g | 1 / 7 | **M30** two machines agree on exactly what was ticked, a revoked device stops syncing, and the server's database yields no plaintext |
+| [30 — A copy only you can read](phase-30-a-copy-only-you-can-read.md) | A person's second machine has what they ticked, and the server that carried it cannot read it | T177a–T177h | 1 / 8 | **M30** two machines agree on exactly what was ticked, a revoked device stops syncing, and the server's database yields no plaintext |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -84,8 +84,9 @@ verification email and a second repository.
 **Phase 30 is designed and not started — 0 of 7.** MixLab gains an account so a second machine has
 the saved connections, REST collection and snippets the first one has. The server holds ciphertext
 and opaque ids and can read none of it, nothing syncs until a person ticks it, and credentials are
-rows of their own. Its server is a repository of its own, `mixlab-sync`
-([ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-not.md)); the protocol is
+rows of their own. Its server is `server/` in this repository — two implementations of one
+protocol, and one CI run to prove they agree
+([ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)); the protocol is
 normative here. Design: [2026-09-20-t177-a-copy-only-you-can-read-design.md](../specs/2026-09-20-t177-a-copy-only-you-can-read-design.md).
 
 **Phase 22 is built — 7 of 7, and M22 waits on a person at three desktops.** MixEngine has an icon

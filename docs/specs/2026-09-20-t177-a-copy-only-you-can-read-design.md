@@ -7,7 +7,8 @@ task: T177
 # T177 — A copy only you can read
 
 Roadmap task [T177](../roadmap/phase-30-a-copy-only-you-can-read.md), phase 30. 2026-09-20.
-Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-not.md).
+Decisions: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-not.md) and
+[ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md).
 
 **The case this comes from.** A person who uses MixLab on a machine at work and a machine at home
 keeps two of everything by hand: the same saved connections typed twice, a REST collection that
@@ -92,6 +93,13 @@ MK     = random                                                        -> 32 byt
 K_data = HKDF-SHA256(MK, info = "mixlab-sync/data/v1")             -> 32 bytes
 K_id   = HKDF-SHA256(MK, info = "mixlab-sync/id/v1")               -> 32 bytes
 ```
+
+**The five labels contain `mixlab-sync`, and that is not a repository name to be tidied up.** They
+are domain-separation strings, frozen, in released ciphertext: a change to one makes every record
+written under it undecryptable. The server has since moved to `server/` in this repository
+([ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)) and the
+repository that name once referred to no longer exists, but the strings stay exactly as they are.
+`sync/crypto.rs` has a test that fails if anybody edits one.
 
 `A` arriving at the server does not put `K_wrap` within reach: they are two HKDF expansions of one
 secret, and neither yields the other.
@@ -190,7 +198,7 @@ own.
 **Nothing in this section is part of the protocol.** The server never sees a single name in the
 table below: a collection reaches it as `HMAC(K_id, name)`, 32 bytes it cannot invert and cannot
 enumerate. This list is a decision MixLab makes about its own files, and it grows whenever MixLab
-grows — without a line changing in `mixlab-sync`, which is the point D9 is built around.
+grows — without a line changing under `server/`, which is the point D9 is built around.
 
 Every row is **off** until a person turns it on. A secret row cannot be turned on until the row it
 belongs to is.
@@ -252,8 +260,22 @@ Three cases, and the third is the one a person has to be told about before they 
 
 ## D8. The server
 
-`mixlab-sync`, its own repository (ADR 0045), holds **two implementations of one protocol**, and
-that is deliberate rather than a duplication to be cleaned up later.
+**`server/` in this repository** holds **two implementations of one protocol**, and that is
+deliberate rather than a duplication to be cleaned up later:
+
+```
+server/
+  conformance/   the suite both implementations answer to
+  worker/        Cloudflare Workers and Durable Objects — the default instance
+  native/        Rust and a SQLite file, for a machine somebody runs themselves
+```
+
+It lives here rather than in a repository of its own so that **one CI run can prove the two halves
+agree** — the Worker started, the suite pointed at it — which is
+[ADR 0027](../decisions/0027-the-desktop-client-lives-in-this-repository.md)'s argument for bringing
+the client home, applied to the server. [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
+records the reversal and what would undo it; `server/native/` is excluded from the root Cargo
+workspace the way `apps/desktop/src-tauri` is.
 
 **The default instance runs on Cloudflare Workers, with one Durable Object per account.** That
 single primitive answers the three things this design actually needs from a server: execution is
@@ -307,13 +329,12 @@ succeeds, registration succeeds, and a person waits for a letter that was never 
 startup turns a silence into a sentence. It costs a few lines and is the difference between an
 afternoon and a weekend for the first person who self-hosts this.
 
-**The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is written
-when somebody asks for it.** The promise is that `/v1` is a protocol and not a description of one
-codebase, and a second implementation is the only thing that can ever prove it. Sequencing it after
-the Worker is a schedule, not a retreat: what makes it still possible in a year is the conformance
-suite, which is therefore written *before or alongside* the Worker and never after. Left until
-later, `/v1` quietly becomes "whatever the Worker does" and the second implementation stops being
-writable at all.
+**The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is built
+alongside the Worker rather than after it.** The promise is that `/v1` is a protocol and not a
+description of one codebase, and a second implementation is the only thing that can ever prove it.
+This is also why **the conformance suite is written before the first server**: a suite written
+afterwards describes what was built, `/v1` quietly becomes "whatever the Worker does", and the
+second implementation stops being writable at all. Built together, each is the other's proof.
 
 Either implementation owns the same closed set: registration and verification, tokens and their
 revocation, the record table with its compare-and-swap, tombstone reaping, a per-account quota, and
@@ -327,11 +348,16 @@ the capability document. Neither owns any knowledge of what a record is.
 | The same Worker | the person's own Cloudflare account | them, on Cloudflare |
 | The native binary, or a container built from it | a machine of their choosing | them, entirely |
 
-**A container is a packaging of the second implementation, not a third one.** The middle row is
-nearly free — the same source as the default instance, plus a `wrangler.toml` and a page of
-instructions — which is why it exists from the start. The bottom row is the one that costs real
-work, and it is the only one that answers somebody whose objection to a hosted service *is*
-Cloudflare.
+**A container is a packaging of `server/native/`, not a third implementation.** The middle row is
+nearly free: the same source as the default instance, reached by forking this repository and
+pointing Workers Builds at `server/worker/` as its root directory. The bottom row is the one that
+costs real work, and it is the only one that answers somebody whose objection to a hosted service
+*is* Cloudflare.
+
+**Forking a repository this size to deploy a directory is the price of
+[ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)**, and it is a
+worse sentence than *clone this small thing* for anyone who reads what they cloned. Nobody on this
+path does: they fork and point a build at a directory, or they pull an image.
 
 ### What the free tier holds, and what that decides
 
@@ -349,7 +375,7 @@ of object life a day, and an object stays resident for a short while after its l
 costs money is not how much data moves but **how often a client wakes an object up**: one sync that
 pulls and pushes in a single burst holds one window open, while the same calls scattered through the
 day open a dozen. Three of the four things that follow are therefore rules about **MixLab**, not
-about the server, which is why they are in this design rather than in `mixlab-sync`.
+about the server, which is why they are in this design rather than in `server/`.
 
 1. **Sync in bursts, never on a poll.** On launch, on a local change after a debounce, on window
    focus, and a long idle interval. A five-minute poll costs several times what this does and
@@ -389,12 +415,16 @@ made for another reason entirely.
 the whole allowance for themselves. The middle row of the table above scales without anybody paying
 for it, which is not usually true of a self-hosting story.
 
-**The contract is normative here**, in D2 to D4 of this document. The server repository carries a
-conformance suite written against it that runs against any base URL — in both implementations' CI,
-and in the hands of anybody self-hosting. Two repositories can drift; what `mixengine-packages`
-teaches, and what `.github/workflows/gallery.yml` was built to answer, is that a coupling maintained
-by memory goes stale. So `/v1` is frozen at D4, and a change to it is a new path rather than an
-edit.
+**The contract is normative here**, in D2 to D4 of this document, and `server/conformance/` is
+written against *it* rather than against either implementation — which is why the suite sits beside
+both rather than inside one, and why it is written before the first server exists. It runs against
+any base URL: against the Worker and the native binary in CI, and against whatever a self-hoster
+has deployed.
+
+**`/v1` is frozen at D4** and a change to it is a new path rather than an edit. That was the
+mitigation for two repositories drifting when the server had one of its own; with both halves in
+one tree the drift cannot happen at all, and the freeze now earns its place for the other reason —
+a server somebody else is running does not update when this document does (D9, R4).
 
 In MixLab the server is a setting. It defaults to the hosted instance, and changing it signs the
 person out: records written under one account's `MK` are not readable under another's, and
@@ -402,7 +432,7 @@ pretending otherwise would quietly produce an account full of rows that decrypt 
 
 ## D9. MixLab grows; the server does not
 
-**Neither the hosted instance nor a self-hoster should have to deploy `mixlab-sync` because MixLab
+**Neither the hosted instance nor a self-hoster should have to deploy `server/` because MixLab
 shipped a release.** The design mostly achieves this already — a collection reaches the server as an
 opaque 32-byte address and a payload as ciphertext, so a new module, a new kind of record or a new
 field inside one costs the server nothing. Four rules turn that from an accident into a property.

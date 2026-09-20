@@ -1,6 +1,7 @@
 # 0045. MixLab has an account, and MixEngine does not
 
-**Status**: Accepted
+**Status**: Accepted — decision 4 is superseded by
+[0046](0046-the-sync-server-lives-beside-the-client-it-serves.md)
 **Date**: 2026-09-20
 
 ## Context
