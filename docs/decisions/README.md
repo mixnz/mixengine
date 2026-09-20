@@ -33,7 +33,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0024](0024-a-build-that-is-not-a-release-keeps-its-own-home.md) | A build that is not a release keeps its own home | Accepted |
 | [0025](0025-a-credential-is-answered-only-by-a-method-that-exists-to-answer-it.md) | A credential is answered only by a method that exists to answer it | Accepted |
 | [0026](0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md) | The active front end is a row, and switching it is a job | Accepted |
-| [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted |
+| [0027](0027-the-desktop-client-lives-in-this-repository.md) | The desktop client lives in this repository, behind the same API | Accepted; naming superseded by 0044 |
 | [0028](0028-the-appimage-does-not-carry-webkitgtk.md) | The AppImage does not carry WebKitGTK, and the window's floor is the distribution's | Accepted |
 | [0029](0029-every-install-format-carries-a-helper-to-install-from.md) | Every install format carries a helper to install from | Accepted |
 | [0030](0030-the-project-token-expands-to-a-slug.md) | A blueprint's `{project}` expands to a slug, not to the project's name | Accepted |
@@ -43,6 +43,8 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0041](0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md) | MixEngine stops nothing a person did not ask it to stop | Accepted |
 | [0042](0042-mixlab-starts-at-login-when-a-person-asks-it-to.md) | MixLab starts at login when a person asks it to, and separately from the daemon | Accepted |
 | [0043](0043-documentation-lives-under-docs.md) | Documentation for people lives under `docs/`; `.claude/` holds only agent configuration | Accepted |
+| [0044](0044-mixlab-is-the-product-and-mixengine-is-the-engine.md) | MixLab is the product; MixEngine is the engine inside it and the headless distribution | Accepted |
+| [0045](0045-mixlab-has-an-account-and-mixengine-does-not.md) | MixLab has an end-to-end encrypted account; MixEngine has none, and its server is its own repository | Accepted |
 
 ### Desktop (recorded in MixDB)
 

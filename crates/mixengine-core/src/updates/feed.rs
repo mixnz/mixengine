@@ -27,7 +27,7 @@ pub const SCHEMA: u32 = 1;
 /// *draft* release is not `latest`, which is what makes tagging and publishing two different acts
 /// and is why the release workflow assembles a draft somebody publishes by hand.
 pub const DEFAULT_URL: &str =
-    "https://github.com/mixnz/mixengine/releases/latest/download/latest.json";
+    "https://github.com/mixnz/mixlab/releases/latest/download/latest.json";
 
 /// One published release, and where its payload is for each machine.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -156,7 +156,7 @@ mod tests {
             "version": "0.2.0",
             "published_at": "2026-09-05T09:12:00Z",
             "notes": "feat(cli): mix self-update",
-            "notes_url": "https://github.com/mixnz/mixengine/releases/tag/v0.2.0",
+            "notes_url": "https://github.com/mixnz/mixlab/releases/tag/v0.2.0",
             "artifacts": [{
                 "os": "windows",
                 "arch": "x86_64",

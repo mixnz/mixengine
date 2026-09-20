@@ -28,7 +28,7 @@ fn a_topic_prints_the_page_and_needs_no_daemon() {
     let text = String::from_utf8(output.stdout).expect("utf-8");
     assert!(text.starts_with("# MixEngine\n"), "{text}");
     assert!(
-        text.contains("https://mixnz.github.io/mixengine/en/index/"),
+        text.contains("https://mixnz.github.io/mixlab/en/index/"),
         "{text}"
     );
 }
@@ -116,7 +116,7 @@ fn json_carries_the_same_body() {
     assert_eq!(value["topic"], "index");
     assert_eq!(value["locale"], "en");
     assert_eq!(value["title"], "MixEngine");
-    assert_eq!(value["url"], "https://mixnz.github.io/mixengine/en/index/");
+    assert_eq!(value["url"], "https://mixnz.github.io/mixlab/en/index/");
     assert!(
         value["body"]
             .as_str()

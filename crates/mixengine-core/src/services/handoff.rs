@@ -37,7 +37,7 @@ pub use crate::extensions::pools::CREDENTIAL_ENV;
 /// had been running for a day, and that home's server — which keeps its own copy in its data
 /// directory — answered `ERROR 1045` to everything from that second on, including its own shutdown
 /// command. [`crate::home`] is what the prefix comes from, and
-/// [ADR 0032](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md)
+/// [ADR 0032](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md)
 /// is why it is an id the home carries rather than a hash of where it sits.
 ///
 /// **One composition, and roadmap task T84 is why it is here rather than in three places.** Until

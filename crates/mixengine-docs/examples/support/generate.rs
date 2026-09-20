@@ -296,7 +296,7 @@ fn llms() -> String {
          the SHA-256 of its Markdown.\n\
          - [Every English page in one file]({BASE_URL}en/llms-full.txt)\n\
          - [Every Vietnamese page in one file]({BASE_URL}vi/llms-full.txt)\n\
-         - [The daemon's API contract](https://github.com/mixnz/mixengine/tree/master/bindings):\n\
+         - [The daemon's API contract](https://github.com/mixnz/mixlab/tree/master/bindings):\n\
          TypeScript types for every request, response, event and error `mixengined` speaks.\n\n\
          The same pages are compiled into the `mix` binary: `mix docs <topic>` prints one with no\n\
          network and no running daemon, and `mix docs <topic> --json` wraps it in an object.\n"

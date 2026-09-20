@@ -10,7 +10,7 @@
 //! is the bytes and no more.
 
 /// The published site's root. Every URL this crate hands out is built from it.
-pub const BASE_URL: &str = "https://mixnz.github.io/mixengine/";
+pub const BASE_URL: &str = "https://mixnz.github.io/mixlab/";
 
 /// The MixEngine version this handbook describes.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

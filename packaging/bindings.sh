@@ -172,7 +172,7 @@ case "$mode" in
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mixnz/mixengine.git"
+    "url": "git+https://github.com/mixnz/mixlab.git"
   },
   "types": "./index.ts",
   "sideEffects": false
