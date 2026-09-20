@@ -301,10 +301,12 @@ jobs:
             --env MIXLAB_SYNC_TEST_OUTBOX=1 \
             --env MIXLAB_SYNC_MAX_RECORD_BYTES=65536 \
             --env MIXLAB_SYNC_MAX_BATCH_OPERATIONS=25 \
+            --env MIXLAB_SYNC_MAX_BATCH_BYTES=1048576 \
             --env MIXLAB_SYNC_MAX_PAGE_RECORDS=10 \
             --env MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES=1048576 \
             --env MIXLAB_SYNC_REGISTRATIONS_PER_HOUR=100000 \
             --env MIXLAB_SYNC_RESETS_PER_HOUR=100000 \
+            --env MIXLAB_SYNC_AUTH_PER_HOUR=100000 \
             mixlab-sync:candidate
           for _ in $(seq 60); do
             if curl -fsS -m 2 http://127.0.0.1:8765/v1/capabilities > /dev/null; then
