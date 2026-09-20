@@ -16,6 +16,7 @@ use crate::crypto::{
 };
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
+use crate::relocation::guard;
 use crate::validate::{is_base64, is_email};
 
 const RESET_TOKEN_SECONDS: i64 = 60 * 60;
@@ -57,6 +58,9 @@ pub async fn change_password(
             .into_response();
     };
 
+    if let Some(failure) = guard(&state, &headers, true).await {
+        return failure.into_response();
+    }
     let presented = peppered(&state.config.pepper, a);
     let replacement = peppered(&state.config.pepper, new_a);
     let (new_salt, new_wrapped) = (new_salt.to_owned(), new_wrapped.to_owned());

@@ -22,6 +22,11 @@ export interface Env {
   /** `resend` or `mailtrap`. They differ in body shape and in the header that carries the key. */
   EMAIL_PROVIDER?: string;
 
+  /** Which endpoint a retired account is sent to (D4b). A symbolic id, never a URL. */
+  RELOCATE_TO?: string;
+  /** How long a freeze lasts before it lapses. Short on the instance that tests lapsing. */
+  RELOCATION_LEASE_SECONDS?: string;
+
   /** `"1"` serves `/__test__/outbox` and sends no mail. Never set this on a real deployment. */
   TEST_OUTBOX?: string;
 
@@ -58,6 +63,8 @@ export interface Config {
   emailEndpoint: string;
   emailProvider: import("./email").ProviderName;
   testOutbox: boolean;
+  relocateTo: string | null;
+  relocationLeaseSeconds: number;
   /**
    * Not reported by `/v1/capabilities`, deliberately: publishing the number that stops abuse helps
    * only the abuser (D4a).
@@ -122,6 +129,8 @@ export function readConfig(env: Env): ConfigResult {
       emailEndpoint: env.EMAIL_ENDPOINT ?? "https://api.resend.com/emails",
       emailProvider: isProviderName(providerName) ? providerName : "resend",
       testOutbox,
+      relocateTo: env.RELOCATE_TO ?? null,
+      relocationLeaseSeconds: number(env.RELOCATION_LEASE_SECONDS, 900),
       limits: {
         registrationsPerHour: number(env.REGISTRATIONS_PER_HOUR, 10),
         resetsPerHour: number(env.RESETS_PER_HOUR, 10),

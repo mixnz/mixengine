@@ -19,6 +19,7 @@ use crate::accounts::{authenticate, parse};
 use crate::config::Capabilities;
 use crate::crypto::now;
 use crate::http::{Failure, invalid_request, invalid_token};
+use crate::relocation::guard;
 use crate::validate::{decoded_length, is_base64, is_opaque_id};
 
 /// What the quota counts for one record beyond its payload: the row's own metadata, in round
@@ -461,6 +462,9 @@ pub async fn write(
     headers: HeaderMap,
     body: String,
 ) -> Response {
+    if let Some(failure) = guard(&state, &headers, true).await {
+        return failure.into_response();
+    }
     let limits = state.config.capabilities.clone();
     let precondition = precondition_from(&headers);
     let parsed = if method == axum::http::Method::PUT {
@@ -520,6 +524,9 @@ pub async fn batch(
         Ok(fields) => fields,
         Err(failure) => return failure.into_response(),
     };
+    if let Some(failure) = guard(&state, &headers, true).await {
+        return failure.into_response();
+    }
     let limits = state.config.capabilities.clone();
     let Some(operations) = fields.get("operations").and_then(Value::as_array).cloned() else {
         return invalid_request("A batch carries a list of operations.").into_response();
@@ -617,6 +624,9 @@ pub async fn list(
     Query(cursor): Query<Cursor>,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(failure) = guard(&state, &headers, false).await {
+        return failure.into_response();
+    }
     let limits = state.config.capabilities.clone();
     let Some(since) = cursor
         .since

@@ -59,6 +59,11 @@ a test that quietly passes against a server it never exercised is not:
   minutes of runner time for one assertion.
 - **Cursor expiry**, unless the server reports `tombstoneRetentionDays: 0`. The real value is
   ninety days and no test can wait it out.
+- **A relocation freeze lapsing**, unless the server leases one for a few seconds. The real lease is
+  fifteen minutes. This one is worth the trouble: it is the failure D4b exists to survive — a
+  machine freezes the account, starts copying, and loses the network or the power.
+- **Retiring an account**, unless the server has somewhere to send one, and the refusal to let go
+  of one, unless it has not. Those two are mutually exclusive, so they need two instances.
 
 CI covers both. The quota falls out of the small limits the `conformance` environment reports, and
 cursor expiry gets **a second instance** with a retention of zero, because reaping at once would

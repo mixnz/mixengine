@@ -521,14 +521,46 @@ because each one keys its own verifier.
 | `frozen` | yes | **no** | A move is under way. The client is copying; nothing may change under it |
 | `retired` | no | no | The account lives somewhere else now, and this server says where |
 
-`GET /v1/account/relocation` answers `{"state": …, "home": "<endpoint id>" | null}`.
-`POST` takes `{"state": …}` and moves between them. Both need an access token.
+`GET /v1/account/relocation` answers
+`{"state": …, "home": "<endpoint id>" | null, "frozenUntil": <seconds> | null}`.
+`POST` takes `{"state": …}` and moves between them. Both need an access token, and **`GET` answers
+in every state**, including `retired` — a machine that meets a refusal has to be able to find out
+why.
 
 - `active` → `frozen`, and `frozen` → `active`. **Thawing has to exist**: a copy that fails halfway
   must not leave an account nobody can write to.
 - `frozen` → `retired`. **`active` → `retired` is refused**, with `409 must-freeze-first`.
 - `retired` is terminal, and it deletes every record here. What stays is the signpost: the
-  `account_key`, the verifier and `salt_account`.
+  `account_key`, the address, the verifier and `salt_account`.
+
+### The freeze is a lease, and that is the whole answer to the interesting failure
+
+**A freeze expires.** It carries `frozenUntil`, and once that passes the account is `active` again
+whatever the column says. A client that is still copying re-arms it by posting `frozen` again,
+which is idempotent and pushes the lease out.
+
+This is not tidiness. Consider the case the design has to survive: a machine freezes the account,
+starts uploading, and **loses the network or the power**. The new server has part of the data or
+none of it; the old one is read-only; and the machine that knew what it was doing may never come
+back. With a latch, that account is unwritable for ever and nobody on earth can fix it without an
+operator. With a lease it repairs itself in minutes, and the worst a person sees is an application
+that could not save for a while.
+
+**Resuming needs no bookkeeping.** The client keeps `MK`, so the records it re-uploads are the same
+opaque ids and the same bytes as the ones that already arrived: pushing the whole set again with
+`If-None-Match: *` and treating `412 already-exists` as success is exactly the right behaviour, and
+it is correct whether the previous attempt copied nothing, half, or everything. There is no
+progress to record and nothing to reconcile.
+
+**Any machine can take over, or give up.** A second machine that meets `423` reads
+`GET /v1/account/relocation`, sees `frozen`, and either continues the copy — it can read everything
+from the old server, which is still readable — or posts `active` and abandons the move. What it
+must not do is guess.
+
+**Retire only after the copy has been checked**, because retiring deletes. The client compares what
+the new server holds against what the old one still shows before it takes the last step, and if
+they disagree it thaws instead. A server cannot enforce this; it is written here because it is the
+one place where the client can destroy something.
 
 **Freeze first, then copy — not copy, then freeze.** With the other order there is a window between
 the last record the client reads and the moment the account stops accepting writes, and anything a
@@ -538,10 +570,20 @@ right order is a short read-only period, which a local-first application does no
 
 ### What a moved account answers
 
-- Every authenticated route: **`421 Misdirected Request`**, code `account-moved`, with `home`. The
-  status is the one HTTP already has for *this server cannot answer for this authority; ask
-  another*.
-- `POST /v1/auth/login`: `421` **only after the verifier matches**. A wrong password still gets
+- Every authenticated route: **`410 Gone`**, code `account-moved`, with `home`. Retirement is
+  permanent, which is what `410` says.
+
+  **`421 Misdirected Request` reads better and was tried first.** Its prose is exactly this case —
+  *this server cannot answer for this authority; ask another* — but RFC 9110 lets a client retry a
+  `421` **on a different connection**, and real clients do: Node's `fetch` retried, found the body
+  already sent, and failed the request with a content-length mismatch instead of surfacing the
+  answer. A status whose meaning is *retry elsewhere at the transport level* is the wrong vehicle
+  for *this account is at a different service*. `server/conformance/` found this, on a reused
+  keep-alive connection, which is where it would have found MixLab too.
+
+  `410` is also what `cursor-expired` uses. That is fine and is what the `code` is for: a client
+  switches on the code, and the status is only the class of answer.
+- `POST /v1/auth/login`: `410` **only after the verifier matches**. A wrong password still gets
   `401`. Otherwise a fresh install could ask *"where does this address live"* without proving
   anything, and that is a cheaper enumeration oracle than the `409` registration already admits to.
 - `POST /v1/auth/register` on the address: `409 email-taken`, unchanged. Registration proves

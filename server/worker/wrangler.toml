@@ -54,6 +54,8 @@ TOMBSTONE_RETENTION_DAYS = "90"
 # deliberately (D4a), and one runner opening fifty accounts is what the suite does on purpose.
 REGISTRATIONS_PER_HOUR = "100000"
 RESETS_PER_HOUR = "100000"
+# Somewhere to send a retired account, so the whole of D4b is reachable here.
+RELOCATE_TO = "mixlab-sync-native"
 
 [[env.conformance.durable_objects.bindings]]
 name = "ACCOUNT"
@@ -80,6 +82,10 @@ ACCOUNT_QUOTA_BYTES = "1048576"
 TOMBSTONE_RETENTION_DAYS = "0"
 REGISTRATIONS_PER_HOUR = "100000"
 RESETS_PER_HOUR = "100000"
+# The instance where slow things are fast: a freeze lapses in seconds here, so the failure D4b
+# exists to survive — a copy cut off by a dead network or a dead machine — is testable. And
+# deliberately no RELOCATE_TO, so the refusal to let go of an account with nowhere to go is too.
+RELOCATION_LEASE_SECONDS = "2"
 
 [[env.reaper.durable_objects.bindings]]
 name = "ACCOUNT"

@@ -26,6 +26,7 @@ pub mod http;
 pub mod reaper;
 pub mod records;
 pub mod recovery;
+pub mod relocation;
 pub mod validate;
 
 use std::sync::Arc;
@@ -59,6 +60,10 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/v1/auth/reset", post(recovery::reset))
         .route("/v1/devices", get(devices::list))
         .route("/v1/devices/{id}", delete(devices::remove))
+        .route(
+            "/v1/account/relocation",
+            get(relocation::read).post(relocation::set),
+        )
         .route("/v1/records", get(records::list))
         .route("/v1/records/batch", post(records::batch))
         .route(

@@ -37,6 +37,10 @@ pub struct Limits {
 
 #[derive(Clone, Debug)]
 pub struct Config {
+    /// Which endpoint a retired account is sent to (D4b). A symbolic id, never a URL.
+    pub relocate_to: Option<String>,
+    /// How long a freeze lasts before it lapses.
+    pub relocation_lease_seconds: i64,
     pub bind: String,
     pub database: String,
     pub pepper: String,
@@ -119,6 +123,8 @@ impl Config {
                 .unwrap_or_else(|| "https://api.resend.com/emails".to_owned()),
             email_provider: email_provider.unwrap_or(crate::email::Provider::Resend),
             test_outbox,
+            relocate_to: text("MIXLAB_SYNC_RELOCATE_TO"),
+            relocation_lease_seconds: number("MIXLAB_SYNC_RELOCATION_LEASE_SECONDS", 900) as i64,
             limits: Limits {
                 registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
                 resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),

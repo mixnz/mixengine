@@ -103,7 +103,13 @@ CREATE TABLE IF NOT EXISTS account (
   created_at           INTEGER NOT NULL,
   next_seq             INTEGER NOT NULL DEFAULT 0,
   stored_bytes         INTEGER NOT NULL DEFAULT 0,
-  reaped_below_seq     INTEGER NOT NULL DEFAULT 0
+  reaped_below_seq     INTEGER NOT NULL DEFAULT 0,
+  -- Whether this account still lives here (D4b). relocation_until is the lease on a freeze:
+  -- past it the account is active again, whatever this column says, so a copy interrupted by
+  -- a dead network or a dead machine repairs itself.
+  relocation_state     TEXT    NOT NULL DEFAULT 'active',
+  relocation_until     INTEGER,
+  relocation_home      TEXT
 );
 
 CREATE TABLE IF NOT EXISTS device (

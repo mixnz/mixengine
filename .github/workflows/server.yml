@@ -120,7 +120,7 @@ jobs:
         working-directory: server/conformance
         env:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8788
-        run: npx vitest run src/tombstones.test.ts
+        run: npx vitest run src/tombstones.test.ts src/relocation.test.ts
 
       - name: The workers' logs
         if: failure()
@@ -193,6 +193,8 @@ jobs:
           MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES: '1048576'
           MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
           MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+          # Somewhere to send a retired account, so the whole of D4b is reachable here.
+          MIXLAB_SYNC_RELOCATE_TO: mixlab-sync-worker
         run: |
           nohup cargo run --locked --quiet > "$RUNNER_TEMP/native.log" 2>&1 &
           for _ in $(seq 60); do
@@ -227,6 +229,9 @@ jobs:
           MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS: '0'
           MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
           MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+          # A freeze that lapses in seconds, and nowhere to send an account: the two things D4b
+          # cannot otherwise reach. Deliberately no MIXLAB_SYNC_RELOCATE_TO.
+          MIXLAB_SYNC_RELOCATION_LEASE_SECONDS: '2'
         run: |
           nohup cargo run --locked --quiet > "$RUNNER_TEMP/reaper-native.log" 2>&1 &
           for _ in $(seq 60); do
@@ -243,7 +248,7 @@ jobs:
         working-directory: server/conformance
         env:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8766
-        run: npx vitest run src/tombstones.test.ts
+        run: npx vitest run src/tombstones.test.ts src/relocation.test.ts
 
       - name: The servers' logs
         if: failure()

@@ -97,6 +97,8 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_RESETS_PER_HOUR` | How often one source may ask for a reset letter |
 | `MIXLAB_SYNC_LOGINS_PER_WINDOW` | Attempts on one account in fifteen minutes, right or wrong |
 | `MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW` | Codes tried against one account in fifteen minutes |
+| `MIXLAB_SYNC_RELOCATE_TO` | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL. Unset means this server will not let go of an account |
+| `MIXLAB_SYNC_RELOCATION_LEASE_SECONDS` | How long a freeze lasts before it lapses. 900 by default |
 | `MIXLAB_SYNC_TEST_OUTBOX` | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
 The four rate limits are not reported by `/v1/capabilities`, unlike every other number here:

@@ -474,6 +474,7 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
     let presented = peppered(&state.config.pepper, a);
     let device_name = device_name.trim().to_owned();
     let allowance = state.config.limits.logins_per_window;
+    let config = state.config.clone();
 
     let outcome = state
         .db
@@ -518,6 +519,16 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
                     "email-not-verified",
                     "Confirm the address before signing in.",
                 )));
+            }
+
+            // **Only now.** A wrong password still gets a 401: otherwise a fresh install could ask
+            // where an address lives without proving anything, which is a cheaper enumeration
+            // oracle than the 409 registration already admits to (D4b).
+            if let Some(failure) =
+                crate::relocation::blocked(&transaction, &config, account_id, false)?
+            {
+                transaction.commit()?;
+                return Ok(Err(failure));
             }
 
             let device_id = random_token();

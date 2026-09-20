@@ -122,6 +122,10 @@ export class Account implements DurableObject {
         return this.reset(config, body);
       case "GET /v1/devices":
         return this.listDevices(request);
+      case "GET /v1/account/relocation":
+        return this.readRelocation(config, request);
+      case "POST /v1/account/relocation":
+        return this.setRelocation(config, request, body);
       case "GET /v1/records":
         return this.readRecords(config, request, url);
       case "POST /v1/records/batch":
@@ -146,11 +150,115 @@ export class Account implements DurableObject {
     return notFound();
   }
 
+  // --- moving to another server (D4b) -------------------------------------------------------
+
+  /**
+   * The effective state, which is not always the stored one: **a freeze is a lease**. Once it
+   * lapses the account is active again, so a copy interrupted by a dead network, a dead machine or
+   * somebody who simply changed their mind repairs itself rather than leaving an account nobody
+   * can write to and nobody but an operator can rescue.
+   */
+  private relocation(config: Config): { state: string; home: string | null; frozenUntil: number | null } {
+    const account = this.account();
+    if (!account) return { state: "active", home: null, frozenUntil: null };
+
+    if (account.relocation_state === "frozen" && (account.relocation_until ?? 0) <= now()) {
+      this.sql.exec(
+        `UPDATE account SET relocation_state = 'active', relocation_until = NULL WHERE id = 1`,
+      );
+      return { state: "active", home: config.relocateTo, frozenUntil: null };
+    }
+    return {
+      state: account.relocation_state,
+      home: account.relocation_home ?? config.relocateTo,
+      frozenUntil: account.relocation_until ?? null,
+    };
+  }
+
+  /** What every route owes a moved or frozen account, before it does anything else. */
+  private moved(config: Config, mutating: boolean): Response | null {
+    const current = this.relocation(config);
+    if (current.state === "retired") {
+      return fail(410, "account-moved", "This account lives on another server now.", {
+        home: current.home,
+      });
+    }
+    if (mutating && current.state === "frozen") {
+      return fail(423, "account-frozen", "This account is being moved and cannot change.");
+    }
+    return null;
+  }
+
+  private async readRelocation(config: Config, request: Request): Promise<Response> {
+    // Answered in every state, `retired` included: a machine that meets a refusal has to be able
+    // to find out why, and where to go instead.
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    return json(200, this.relocation(config));
+  }
+
+  private async setRelocation(config: Config, request: Request, body: unknown): Promise<Response> {
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+
+    const current = this.relocation(config);
+    if (current.state === "retired") {
+      return fail(410, "account-moved", "This account lives on another server now.", {
+        home: current.home,
+      });
+    }
+
+    const wanted = asObject(body)?.["state"];
+    if (wanted !== "active" && wanted !== "frozen" && wanted !== "retired") {
+      return fail(400, "invalid-request", "`state` is active, frozen or retired.");
+    }
+
+    if (wanted === "active") {
+      this.sql.exec(
+        `UPDATE account SET relocation_state = 'active', relocation_until = NULL WHERE id = 1`,
+      );
+      return json(200, this.relocation(config));
+    }
+
+    if (wanted === "frozen") {
+      // Idempotent, and re-arming is how a client that is still copying keeps the lease alive.
+      this.sql.exec(
+        `UPDATE account SET relocation_state = 'frozen', relocation_until = ? WHERE id = 1`,
+        now() + config.relocationLeaseSeconds,
+      );
+      return json(200, this.relocation(config));
+    }
+
+    // **Freeze first.** Retiring straight from active would leave a window in which a second
+    // machine writes something the copy never saw, and two servers cannot be reconciled afterwards
+    // — their sequence numbers are independent.
+    if (current.state !== "frozen") {
+      return fail(409, "must-freeze-first", "Freeze the account before retiring it.");
+    }
+    if (!config.relocateTo) {
+      return fail(
+        409,
+        "relocation-not-configured",
+        "This server has nowhere to send the account, so it will not let go of it.",
+      );
+    }
+
+    this.sql.exec(`DELETE FROM record`);
+    this.sql.exec(
+      `UPDATE account SET relocation_state = 'retired', relocation_until = NULL,
+                          relocation_home = ?, stored_bytes = 0 WHERE id = 1`,
+      config.relocateTo,
+    );
+    return json(200, this.relocation(config));
+  }
+
   // --- records ------------------------------------------------------------------------------
 
   private async readRecords(config: Config, request: Request, url: URL): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    const moved = this.moved(config, false);
+    if (moved) return moved;
 
     const result = listSince(
       this.sql,
@@ -169,6 +277,8 @@ export class Account implements DurableObject {
   ): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    const moved = this.moved(config, true);
+    if (moved) return moved;
 
     const parts = url.pathname.slice("/v1/records/".length).split("/");
     if (parts.length !== 2) return notFound();
@@ -187,6 +297,8 @@ export class Account implements DurableObject {
   private async batch(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    const moved = this.moved(config, true);
+    if (moved) return moved;
 
     const operations = asObject(body)?.["operations"];
     const limits = config.capabilities;
@@ -337,6 +449,8 @@ export class Account implements DurableObject {
   private async changePassword(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    const moved = this.moved(config, true);
+    if (moved) return moved;
 
     const fields = asObject(body);
     if (
@@ -451,6 +565,11 @@ export class Account implements DurableObject {
     if (account.verified !== 1) {
       return fail(403, "email-not-verified", "Confirm the address before signing in.");
     }
+    // **Only now.** A wrong password still gets a 401: otherwise a fresh install could ask
+    // where an address lives without proving anything, which is a cheaper enumeration oracle
+    // than the 409 registration already admits to (D4b).
+    const moved = this.moved(config, false);
+    if (moved) return moved;
 
     const deviceId = randomToken();
     const at = now();

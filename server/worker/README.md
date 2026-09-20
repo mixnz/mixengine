@@ -71,6 +71,8 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `RESETS_PER_HOUR` | var | How often one source may ask for a reset letter |
 | `LOGINS_PER_WINDOW` | var | Attempts on one account in fifteen minutes, right or wrong |
 | `VERIFY_ATTEMPTS_PER_WINDOW` | var | Codes tried against one account in fifteen minutes |
+| `RELOCATE_TO` | var | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL: a server that could name an address could send people to one that collects their verifier. Unset means this server will not let go of an account |
+| `RELOCATION_LEASE_SECONDS` | var | How long a freeze lasts before it lapses. 900 by default |
 | `TEST_OUTBOX` | var | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
 The four rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:

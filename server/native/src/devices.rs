@@ -12,8 +12,12 @@ use serde_json::json;
 use crate::AppState;
 use crate::accounts::authenticate;
 use crate::http::{Failure, invalid_token};
+use crate::relocation::guard;
 
 pub async fn list(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Response {
+    if let Some(failure) = guard(&state, &headers, false).await {
+        return failure.into_response();
+    }
     let outcome = state
         .db
         .call(move |connection| {
@@ -60,6 +64,9 @@ pub async fn remove(
     Path(id): Path<String>,
     headers: HeaderMap,
 ) -> Response {
+    if let Some(failure) = guard(&state, &headers, false).await {
+        return failure.into_response();
+    }
     let outcome = state
         .db
         .call(move |connection| {
