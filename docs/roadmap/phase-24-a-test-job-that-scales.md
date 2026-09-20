@@ -43,4 +43,17 @@ then [2026-09-20-t171-a-build-that-fans-out-design.md](../specs/2026-09-20-t171-
       and tags stay universal.
 
 **Milestone M24**: in a warm branch run, every leg of every job finishes in 15 minutes or less
-except `build`, whose legs finish in 20 or less, and no leg passes 30 minutes.
+except `build`, whose legs finish in 20 or less, and no leg passes 30 minutes — **met**, measured on
+2026-09-20 by run 35481399561: a full request on a throwaway branch off `master` (`e98bf944`), on the
+cache run 35477364909 had just written. Thirty-four jobs green, 18.4 minutes of wall time against
+33.4 for the last full run on `master`, which still builds macOS universal.
+
+| | Longest leg | |
+| --- | --- | --- |
+| any job | `bench (windows-latest, footprint)` | 14.9 min |
+| `build` | `build / window (macos-latest)` | 14.2 min |
+| for comparison | `build / window (windows-latest)`, the long pole through T170 | 13.8 min |
+
+The first row clears its threshold by six seconds. The next leg that drifts fails M24 without
+anything having regressed, so treat that number as the one to watch — and `bench`, not `window`, is
+now where the next minute is.
