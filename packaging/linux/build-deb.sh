@@ -99,7 +99,7 @@ Architecture: $deb_arch
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0
 Recommends: libayatana-appindicator3-1 | libappindicator3-1
 Maintainer: MixEngine <noreply@mixengine.dev>
-Homepage: https://github.com/mixnz/mixengine
+Homepage: https://github.com/mixnz/mixlab
 Description: A local web development environment
  Run and switch multiple PHP, Node.js, Python and Ruby versions with a bundled
  web server, databases and caches, local domains and automatic HTTPS - without

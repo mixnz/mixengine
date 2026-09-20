@@ -105,7 +105,7 @@ would be forty megabytes nothing looks up. Putting it there is T106's, with the 
 makes it readable.
 
 ```bash
-bash packaging/feed.sh --tag v0.2.0 --repo mixnz/mixengine
+bash packaging/feed.sh --tag v0.2.0 --repo mixnz/mixlab
 ```
 
 `latest.json` lists, per operating system and architecture, the payload's URL, its SHA-256 and its
@@ -179,7 +179,7 @@ bash packaging/docs.sh --check      # build into a temp dir, validate it, diff t
 ```
 
 `docs/guide/{en,vi}/` is the handbook: sixteen Markdown pages per language, published at
-`https://mixnz.github.io/mixengine/` as HTML **and** as plain Markdown at a predictable address, and
+`https://mixnz.github.io/mixlab/` as HTML **and** as plain Markdown at a predictable address, and
 compiled into `mix` so that `mix docs <topic>` answers the same bytes with no network and no running
 daemon — roadmap task **T90**,
 [design](../docs/specs/2026-09-05-t90-the-documentation-site-design.md).

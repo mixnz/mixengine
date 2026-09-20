@@ -3,7 +3,7 @@ Version:        @VERSION@
 Release:        1
 Summary:        A local web development environment
 License:        MIT OR Apache-2.0
-URL:            https://github.com/mixnz/mixengine
+URL:            https://github.com/mixnz/mixlab
 BuildArch:      @ARCH@
 
 # **`Requires:` exists because of the window** — T105. WebKitGTK is a runtime dependency the four

@@ -1,4 +1,4 @@
-; MixEngine — a per-user installer.
+; MixLab — a per-user installer.
 ;
 ; `RequestExecutionLevel user` is the whole point: nothing here asks for UAC, so an update needs no
 ; administrator. The one file that must live somewhere an ordinary account cannot rewrite,
@@ -16,8 +16,8 @@ SetCompressor /SOLID lzma
 !include "WinMessages.nsh"
 !include "LogicLib.nsh"
 
-!define NAME "MixEngine"
-!define PUBLISHER "MixEngine"
+!define NAME "MixLab"
+!define PUBLISHER "MixLab"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MixEngine"
 
 ; Past this, `ReadRegStr` may have handed back a truncated value — see `AddToPath`.
@@ -83,7 +83,7 @@ UninstPage instfiles
   ${Loop}
 !macroend
 
-Section "MixEngine" SecCore
+Section "MixLab" SecCore
   SectionIn RO
   SetOutPath "$INSTDIR"
   File "${STAGE}\mix.exe"
@@ -220,12 +220,12 @@ Function un.RemoveScheme
 FunctionEnd
 
 Section "Uninstall"
-  ; **Only the files this installer wrote.** What MixEngine did to the *machine* — the hosts block,
+  ; **Only the files this installer wrote.** What MixLab did to the *machine* — the hosts block,
   ; the resolver wiring, the CA in every store, the port grant, and the helper it installed — is
   ; `mix uninstall`'s, which is roadmap task T87 and does not exist yet. Saying so in the log beats
   ; pretending this removed it.
   DetailPrint "Removing the files this installer wrote."
-  DetailPrint "What MixEngine changed on this machine is removed by `mix uninstall` (not yet built)."
+  DetailPrint "What MixLab changed on this machine is removed by `mix uninstall` (not yet built)."
 
   Call un.RemoveFromPath
   Call un.RemoveScheme
