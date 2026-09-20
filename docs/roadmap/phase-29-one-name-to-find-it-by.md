@@ -51,6 +51,12 @@ It carries the scope table; this phase is the order the work happens in.
 - [x] **T176e** `mixnz/mixengine-sync` is renamed `mixnz/mixlab-sync` before it has a first commit,
       and the working copy beside it. Phase 30 is written against the new name already.
 
+      **That repository no longer exists.** It was deleted without ever receiving a commit, and the
+      server moved into `server/` in this one —
+      [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md). Nothing
+      here is wrong about what was done at the time; this note is so that a reader does not go
+      looking for it.
+
 **Milestone M29** — **met.** `mixnz/mixlab` serves the repository and `mixnz.github.io/mixlab/` the
 handbook; `README.md` answers *"do I need both?"* above the fold; no name among `mix`, `mixengined`,
 `MIXENGINE_HOME`, `Programs\MixEngine`, `Package: mixengine`, the payload's `mixengine/` directory
