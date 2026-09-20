@@ -70,6 +70,10 @@ jobs:
 
       - uses: ./.github/actions/release-profile
 
+      # T173b: before anything compiles, and after checkout because the action reads the workspace's
+      # path. Nothing on the three legs that are not Windows.
+      - uses: ./.github/actions/defender-aside
+
       # On every leg, the Linux ones included: the window is built on the runner itself, never in
       # the container.
       - name: Install pinned toolchain
@@ -171,6 +175,9 @@ jobs:
           phase: start
 
       - uses: ./.github/actions/release-profile
+
+      # T173b, as in `window` above.
+      - uses: ./.github/actions/defender-aside
 
       # Only the legs that build on the runner itself rather than inside a container: the two Linux
       # legs install their own pinned toolchain inside `stage.sh --container`'s `docker run`, since
