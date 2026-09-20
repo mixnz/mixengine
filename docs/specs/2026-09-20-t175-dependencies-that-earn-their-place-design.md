@@ -112,7 +112,7 @@ call in `dump.rs` to bson 3, and prove that an archive written before the port s
 it. Twenty-six seconds of compile is not a reason to touch a dump format; a bson 3 migration for its
 own sake, some day, is.
 
-## D3 — `mixlab`'s own 306 seconds, measured before any refactor
+## D3 — ~~`mixlab`'s own 306 seconds~~ — **measured, and the split is not taken**
 
 `modules/db` is **28,786 of the 34,000 lines** of Rust in this crate; `terminal` is 1,143, `rest`
 609, `tools` 406 and `mixengine` 2,321. One crate means one single-threaded front end, and
@@ -124,12 +124,30 @@ opinion**, and the instrument already exists: build once with `db` split out beh
 never merged if the number does not appear, and read `--timings` for when `mixlab` starts and how
 long it takes.
 
-**The bar: two minutes off the `window` leg's cargo wall**, at the same profile, or the split is
-abandoned and this section records that it was tried. Below that it is 29,000 lines moved for a
-saving the host-to-host variance can hide.
+**The bar was two minutes off the `window` leg's cargo wall.** It was not reached, and the reason
+was found for the price of two local builds rather than the refactor:
 
-The split must keep ADR 0027: the new crate may depend on `mixengine-proto` and `mixengine-platform`
-and nothing else in this workspace, which `apps/desktop/src-tauri/tests/layering.rs` already checks.
+| `mixlab`, whole | **88.4 s** |
+| --- | --- |
+| `mixlab` with `modules/db` unhooked | **47.0 s** |
+| so `db`'s share | **41.4 s — 47%** |
+
+**The line count was a bad guide.** `db` is 28,786 of 34,000 lines and under half the compile: the
+other 5,000 lines are the shell, the tray and the `mixengine` module, where `#[tauri::command]`,
+serde derives and generics expand. Two halves of roughly equal size do not pipeline into a large
+win — `mixlab` cannot start before `mixlab-db`'s metadata — so the ceiling is something between 20%
+and 45% of the crate's time, 60 to 150 s in CI. The bar sits inside that range, and settling which
+side would cost the refactor it was meant to justify.
+
+The refactor is not small either. `db` reaches `crate::error` 37 times, and `crate::ssh`,
+`crate::platform`, `crate::secrets` and `crate::launch` besides; `launch.rs` and
+`modules/mixengine/open_in_mixdb.rs` reach back into `db`. A split needs a third crate for the
+shared halves and a cut through the `db` ↔ `launch` cycle, and it must keep ADR 0027, which
+`apps/desktop/src-tauri/tests/layering.rs` checks.
+
+**What the measurement did find is worth writing down for whoever revisits this:** the same split
+would halve a local rebuild for anyone editing the shell — 88 s to 47 s, on every build, every day.
+That is a better argument than the CI one, and it is a different spec, with a different bar.
 
 ## How this is judged
 
@@ -156,8 +174,9 @@ against `window (windows-latest)`'s post-T173 band.
   and `image`, `moxcms` and the plugin leave the tree.
 - **T175b** ~~`mongodb` without default features~~ — **tried and withdrawn**: `mongodb::bson` *is*
   bson 2, and 23 call sites are written against it. The finding is recorded in F2 and D2.
-- **T175c** Whether `modules/db` becomes a crate of its own is decided by one measured build against
-  the bar in D3, and the answer — either way — is written into the phase file.
+- **T175c** Whether `modules/db` becomes a crate of its own — **measured and answered: no.** 88.4 s
+  whole against 47.0 s without it, so the two halves are 47/53 and the pipeline ceiling straddles
+  the bar. Recorded in D3.
 
 **Milestone M28**: the `--timings` report for the `window` leg holds no `image` and no `moxcms`,
 terminal paste still works on all three systems, and both measured answers — T175b's and T175c's —
