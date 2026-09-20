@@ -66,6 +66,30 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       and one file it buys nothing. And `410 cursor-expired` needed **a second instance** of each
       server with a retention of zero, because reaping at once breaks every other tombstone test —
       four conformance legs in one run rather than two.
+- [x] **T177i** — *what the server learned after T177b and T177h were ticked.* An account is
+      **copied and deleted rather than relocated**: `/v1/account/freeze` holds it still, the client
+      carries it across with the ordinary paged read and batch write, and `/v1/account/delete` ends
+      it. Nothing is forwarded — a symbolic `home` was readable exactly when it was redundant and
+      unreadable exactly when it was needed, and a URL instead would have been a phishing primitive
+      because the destination learns `A`. A freeze has **no expiry**: thawing is reachable from
+      every signed-in machine, while an expiry let a finished copy reopen the old server on a timer
+      for a machine nobody had repointed. `closingOn` in `/v1/capabilities` is the whole of what an
+      old server contributes — a date, never a destination — and the old server can now be switched
+      off, which the forwarding design could never allow.
+      Then the three things the rate limits had missed. **A letter is counted against the address
+      it reaches**, not only against the network that asked for it, and that counter lives outside
+      the account because registering over an unverified one replaces it. **A source is the peer
+      address**, not `X-Forwarded-For`: measured on six forged values against a server allowing two
+      an hour, the old code accepted six and the new one two. And **D6 case 2** — forgotten
+      password, recovery key held — is reachable at last, in two requests so the client can unwrap
+      `MK` before it re-wraps it: the letter proves who, the recovery key preserves what, and the
+      records survive.
+      The wire also left the spec for `docs/features/sync-protocol.md`, where it can be edited as
+      `/v1` grows; a design document stops being edited when its work is implemented, and `/v1`
+      does not stop.
+
+      **152 conformance assertions, 147 green and 5 skipped against each implementation**, the
+      same numbers on both — which is the claim two implementations exist to make.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.
