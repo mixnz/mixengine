@@ -23,10 +23,10 @@ export interface Env {
    *  and in what they call the sender — see `email.ts`. */
   EMAIL_PROVIDER?: string;
 
-  /** Which endpoint a retired account is sent to (D4b). A symbolic id, never a URL. */
-  RELOCATE_TO?: string;
-  /** How long a freeze lasts before it lapses. Short on the instance that tests lapsing. */
-  RELOCATION_LEASE_SECONDS?: string;
+  /** When the operator intends to switch this server off: a date, or seconds since the
+   *  epoch. Advisory (D4a) — nothing here enforces it, and the date passing is not an event
+   *  in the protocol. It is reported so a person has warning enough to move. */
+  CLOSING_ON?: string;
 
   /** A shared token that closes this deployment to everybody who has not been given it. The
    *  hosted instances never set one; somebody running this for their own company may. */
@@ -66,6 +66,8 @@ export interface Capabilities {
   maxPageRecords: number;
   accountQuotaBytes: number;
   tombstoneRetentionDays: number;
+  /** When this server will be switched off, or null. A notice, never a deadline. */
+  closingOn: number | null;
   features: string[];
 }
 
@@ -79,8 +81,6 @@ export interface Config {
   testOutbox: boolean;
   /** `null` means this deployment is open, which is what the hosted ones are. */
   accessToken: string | null;
-  relocateTo: string | null;
-  relocationLeaseSeconds: number;
   /**
    * Not reported by `/v1/capabilities`, deliberately: publishing the number that stops abuse helps
    * only the abuser (D4a).
@@ -116,6 +116,19 @@ export type ConfigResult =
   | { ok: true; config: Config }
   | { ok: false; missing: string[] };
 
+/**
+ * A closing date the operator typed, as seconds. `2027-03-01` and a raw timestamp both work,
+ * and anything else is configuration that is wrong rather than absent: a typo that silently
+ * became `null` would leave an operator believing they had announced a date.
+ */
+function closingOn(raw: string | undefined): number | null | "invalid" {
+  if (raw === undefined || raw.trim() === "") return null;
+  const text = raw.trim();
+  if (/^[0-9]+$/.test(text)) return Number(text);
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? "invalid" : Math.floor(parsed / 1000);
+}
+
 function number(raw: string | undefined, fallback: number): number {
   if (raw === undefined) return fallback;
   const parsed = Number(raw);
@@ -150,7 +163,13 @@ export function readConfig(env: Env): ConfigResult {
       missing.push("EMAIL_ENDPOINT");
     }
   }
+  const closing = closingOn(env.CLOSING_ON);
+  if (closing === "invalid") missing.push("CLOSING_ON (a date, such as 2027-03-01)");
+
   if (missing.length > 0) return { ok: false, missing };
+
+  // Unreachable once the check above has run, and written so that it stays unreachable.
+  const announced: number | null = closing === "invalid" ? null : closing;
 
   return {
     ok: true,
@@ -164,8 +183,6 @@ export function readConfig(env: Env): ConfigResult {
       emailProvider: isProviderName(providerName) ? providerName : "resend",
       testOutbox,
       accessToken: env.ACCESS_TOKEN || null,
-      relocateTo: env.RELOCATE_TO ?? null,
-      relocationLeaseSeconds: number(env.RELOCATION_LEASE_SECONDS, 900),
       limits: {
         registrationsPerHour: number(env.REGISTRATIONS_PER_HOUR, 10),
         resetsPerHour: number(env.RESETS_PER_HOUR, 10),
@@ -185,6 +202,9 @@ export function readConfig(env: Env): ConfigResult {
           env.TOMBSTONE_RETENTION_DAYS,
           DEFAULTS.tombstoneRetentionDays,
         ),
+        // A notice and never a deadline: nothing here refuses a request after it passes, and the
+        // date passing is not an event in the protocol at all (D4a).
+        closingOn: announced,
         // A complete v1 server announces nothing optional, and a client must run against an
         // empty list forever (D4a).
         features: [],

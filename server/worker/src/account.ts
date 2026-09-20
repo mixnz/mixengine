@@ -128,10 +128,12 @@ export class Account implements DurableObject {
         return this.reset(config, body);
       case "GET /v1/devices":
         return this.listDevices(request);
-      case "GET /v1/account/relocation":
-        return this.readRelocation(config, request);
-      case "POST /v1/account/relocation":
-        return this.setRelocation(config, request, body);
+      case "GET /v1/account/freeze":
+        return this.readFreeze(request);
+      case "POST /v1/account/freeze":
+        return this.setFreeze(request, body);
+      case "POST /v1/account/delete":
+        return this.deleteAccount(config, request, body);
       case "GET /v1/records":
         return this.readRecords(config, request, url);
       case "POST /v1/records/batch":
@@ -156,106 +158,108 @@ export class Account implements DurableObject {
     return notFound();
   }
 
-  // --- moving to another server (D4b) -------------------------------------------------------
+  // --- holding still while a client copies the account (D4b) --------------------------------
 
   /**
-   * The effective state, which is not always the stored one: **a freeze is a lease**. Once it
-   * lapses the account is active again, so a copy interrupted by a dead network, a dead machine or
-   * somebody who simply changed their mind repairs itself rather than leaving an account nobody
-   * can write to and nobody but an operator can rescue.
+   * **A freeze ends when a client ends it, and not before.** There is no expiry: posting `active`
+   * is reachable from every signed-in machine, and signing in works while frozen, so a copy cut
+   * off by a dead machine is one request away from over. A timeout would instead let a copy that
+   * finished and was never followed up reopen this server on a clock, for a machine nobody
+   * repointed to write into (D4b).
    */
-  private relocation(config: Config): { state: string; home: string | null; frozenUntil: number | null } {
+  private freeze(): { state: string; frozenAt: number | null } {
     const account = this.account();
-    if (!account) return { state: "active", home: null, frozenUntil: null };
-
-    if (account.relocation_state === "frozen" && (account.relocation_until ?? 0) <= now()) {
-      this.sql.exec(
-        `UPDATE account SET relocation_state = 'active', relocation_until = NULL WHERE id = 1`,
-      );
-      return { state: "active", home: config.relocateTo, frozenUntil: null };
-    }
-    return {
-      state: account.relocation_state,
-      home: account.relocation_home ?? config.relocateTo,
-      frozenUntil: account.relocation_until ?? null,
-    };
+    if (!account) return { state: "active", frozenAt: null };
+    return { state: account.freeze_state, frozenAt: account.freeze_at ?? null };
   }
 
-  /** What every route owes a moved or frozen account, before it does anything else. */
-  private moved(config: Config, mutating: boolean): Response | null {
-    const current = this.relocation(config);
-    if (current.state === "retired") {
-      return fail(410, "account-moved", "This account lives on another server now.", {
-        home: current.home,
-      });
-    }
-    if (mutating && current.state === "frozen") {
-      return fail(423, "account-frozen", "This account is being moved and cannot change.");
-    }
-    return null;
+  /**
+   * What every mutating route owes an account that is being copied. Reads are not asked: the
+   * machine doing the copying needs them, and so does a second machine deciding whether to take
+   * the copy over.
+   */
+  private frozen(): Response | null {
+    if (this.freeze().state !== "frozen") return null;
+    return fail(423, "account-frozen", "This account is being copied and cannot change.");
   }
 
-  private async readRelocation(config: Config, request: Request): Promise<Response> {
-    // Answered in every state, `retired` included: a machine that meets a refusal has to be able
-    // to find out why, and where to go instead.
+  private async readFreeze(request: Request): Promise<Response> {
+    // Answered in both states: a machine that meets a refusal has to be able to find out why.
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-    return json(200, this.relocation(config));
+    return json(200, this.freeze());
   }
 
-  private async setRelocation(config: Config, request: Request, body: unknown): Promise<Response> {
+  private async setFreeze(request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-
-    const current = this.relocation(config);
-    if (current.state === "retired") {
-      return fail(410, "account-moved", "This account lives on another server now.", {
-        home: current.home,
-      });
-    }
 
     const wanted = asObject(body)?.["state"];
-    if (wanted !== "active" && wanted !== "frozen" && wanted !== "retired") {
-      return fail(400, "invalid-request", "`state` is active, frozen or retired.");
+    if (wanted !== "active" && wanted !== "frozen") {
+      return fail(400, "invalid-request", "`state` is active or frozen.");
     }
 
     if (wanted === "active") {
-      this.sql.exec(
-        `UPDATE account SET relocation_state = 'active', relocation_until = NULL WHERE id = 1`,
-      );
-      return json(200, this.relocation(config));
+      // **Thawing is the only way out.** This is how the client that finished copying ends the
+      // freeze, and how one that gave up abandons it.
+      this.sql.exec(`UPDATE account SET freeze_state = 'active', freeze_at = NULL WHERE id = 1`);
+      return json(200, this.freeze());
     }
 
-    if (wanted === "frozen") {
-      // Idempotent, and re-arming is how a client that is still copying keeps the lease alive.
-      this.sql.exec(
-        `UPDATE account SET relocation_state = 'frozen', relocation_until = ? WHERE id = 1`,
-        now() + config.relocationLeaseSeconds,
-      );
-      return json(200, this.relocation(config));
-    }
-
-    // **Freeze first.** Retiring straight from active would leave a window in which a second
-    // machine writes something the copy never saw, and two servers cannot be reconciled afterwards
-    // — their sequence numbers are independent.
-    if (current.state !== "frozen") {
-      return fail(409, "must-freeze-first", "Freeze the account before retiring it.");
-    }
-    if (!config.relocateTo) {
-      return fail(
-        409,
-        "relocation-not-configured",
-        "This server has nowhere to send the account, so it will not let go of it.",
-      );
-    }
-
-    this.sql.exec(`DELETE FROM record`);
+    // Idempotent, and the clock does not restart: `freeze_at` is when this began, which is what a
+    // client shows somebody being told their account has been read-only for a while.
     this.sql.exec(
-      `UPDATE account SET relocation_state = 'retired', relocation_until = NULL,
-                          relocation_home = ?, stored_bytes = 0 WHERE id = 1`,
-      config.relocateTo,
+      `UPDATE account SET freeze_state = 'frozen', freeze_at = COALESCE(freeze_at, ?) WHERE id = 1`,
+      now(),
     );
-    return json(200, this.relocation(config));
+    return json(200, this.freeze());
+  }
+
+  /**
+   * **Deleting an account leaves this object as it was before the account existed** (D4b): no
+   * tombstone, no row saying the address was once here, and the address free to register again.
+   * Keeping any of it would be keeping the one fact D1 promises a server does not accumulate.
+   */
+  private async deleteAccount(config: Config, request: Request, body: unknown): Promise<Response> {
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+
+    const fields = asObject(body);
+    if (!fields || !isBase64(fields["a"], VERIFIER_BYTES)) {
+      return fail(400, "invalid-request", "The current verifier is required.");
+    }
+
+    // **A session is not enough.** A borrowed unlocked machine already holds one, so this asks for
+    // the verifier: the person deleting the account is then the person who knows the password.
+    // Wrong ones are counted where a wrong password is counted, so the route cannot become an
+    // oracle for guessing one.
+    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
+    if (retryAfter !== null) {
+      return fail(
+        429,
+        "too-many-attempts",
+        "Too many attempts on this account.",
+        { retryAfter },
+        { "Retry-After": String(retryAfter) },
+      );
+    }
+
+    const account = this.account();
+    const presented = await peppered(config.pepper, fields["a"] as string);
+    if (!account || !sameSecret(account.verifier, presented)) {
+      return fail(401, "invalid-credentials", "That password does not match this account.");
+    }
+
+    const counted = this.sql
+      .exec<{ total: number }>(`SELECT COUNT(*) AS total FROM record`)
+      .toArray()[0];
+
+    // **A frozen account may be deleted**, because the last step of a move is deleting the source
+    // and the source is frozen at that point. Refusing here would mean thawing first, which is a
+    // window for a second machine to write something the copy never saw.
+    this.wipe();
+    await this.state.storage.deleteAlarm();
+    return json(200, { recordsDeleted: Number(counted?.total ?? 0) });
   }
 
   // --- records ------------------------------------------------------------------------------
@@ -263,9 +267,6 @@ export class Account implements DurableObject {
   private async readRecords(config: Config, request: Request, url: URL): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-    const moved = this.moved(config, false);
-    if (moved) return moved;
-
     // `Number("")` is 0, which would have quietly turned `?since=` into "from the beginning"
     // here while `server/native/` refused it. Digits or nothing.
     const raw = url.searchParams.get("since");
@@ -288,8 +289,8 @@ export class Account implements DurableObject {
   ): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-    const moved = this.moved(config, true);
-    if (moved) return moved;
+    const frozen = this.frozen();
+    if (frozen) return frozen;
 
     const parts = url.pathname.slice("/v1/records/".length).split("/");
     if (parts.length !== 2) return notFound();
@@ -308,8 +309,8 @@ export class Account implements DurableObject {
   private async batch(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-    const moved = this.moved(config, true);
-    if (moved) return moved;
+    const frozen = this.frozen();
+    if (frozen) return frozen;
 
     const operations = asObject(body)?.["operations"];
     const limits = config.capabilities;
@@ -486,8 +487,8 @@ export class Account implements DurableObject {
   private async changePassword(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is not usable.");
-    const moved = this.moved(config, true);
-    if (moved) return moved;
+    const frozen = this.frozen();
+    if (frozen) return frozen;
 
     const fields = asObject(body);
     if (
@@ -614,12 +615,6 @@ export class Account implements DurableObject {
     if (account.verified !== 1) {
       return fail(403, "email-not-verified", "Confirm the address before signing in.");
     }
-    // **Only now.** A wrong password still gets a 401: otherwise a fresh install could ask
-    // where an address lives without proving anything, which is a cheaper enumeration oracle
-    // than the 409 registration already admits to (D4b).
-    const moved = this.moved(config, false);
-    if (moved) return moved;
-
     const deviceId = randomToken();
     const at = now();
     this.sql.exec(
