@@ -7,7 +7,7 @@ import type { ServiceId } from "./ServiceId";
  *
  * **A second kind of subject rather than a second surface.** The ring, the frames, the [`Gap`] a
  * slow reader is told about and the per-connection back-pressure are the ones
- * [ADR 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)
+ * [ADR 0009](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)
  * argued for a service's output, and a blueprint's `[scaffold]` command needs every one of them for
  * the same reason: how much it prints is decided by somebody else's program.
  *

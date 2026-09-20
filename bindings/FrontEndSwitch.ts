@@ -8,7 +8,7 @@ import type { PackageVersion } from "./PackageVersion";
  * **Which program, and not which row.** A caller does not name a `ServiceId`, because the id of the
  * service that is about to exist is the recipe's to decide and the one that is about to go is the
  * daemon's to find — see
- * [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
+ * [ADR 0026](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
  */
 export type FrontEndSwitch = { 
 /**

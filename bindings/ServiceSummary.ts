@@ -74,7 +74,7 @@ depends_on: Array<ServiceId>,
  * in the client, of a table the daemon compiles in. This is that table answering.
  *
  * **A wire fact and not a domain one**, in
- * [ADR 0019](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md)'s
+ * [ADR 0019](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md)'s
  * sense: [`None`] means *this daemon was built before the member existed* and never *the role
  * could not be determined*. A row whose package this build has no recipe for is
  * [`ServiceRole::Other`], decided rather than absent — which is the same answer the refusal
@@ -96,7 +96,7 @@ role?: ServiceRole | null,
  * a daemon that predates this member reads `false` — which is what every home had before
  * anybody could set it.
  *
- * [ADR 0020]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
+ * [ADR 0020]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md
  */
 autostart: boolean, 
 /**
@@ -107,6 +107,6 @@ autostart: boolean,
  * request wakes, from one a person stopped — which stays stopped — and draw the first as
  * resting rather than as a failure ([ADR 0041]).
  *
- * [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+ * [ADR 0041]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
  */
 stopped_by?: StoppedBy | null, };
