@@ -204,6 +204,8 @@ const en = {
     syncKeyDerivation: "Could not derive the sync keys: {{message}}",
     syncCannotWrapKey: "Could not protect the sync key.",
     syncCannotUnwrapKey: "Wrong password, or this account's key has been damaged.",
+    syncRecoveryKeyUnreadable:
+      "That is not a recovery key. Check it against what you wrote down.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

@@ -134,6 +134,95 @@ pub fn unwrap_master_key(wrapping: &[u8; 32], sealed: &[u8]) -> Result<[u8; 32],
         .map_err(|_| err!("error.syncCannotUnwrapKey"))
 }
 
+/// Crockford's alphabet: the digits and the letters, less `I`, `L`, `O` and `U`.
+///
+/// Nothing here can be mistaken for a digit in somebody's handwriting, which is the whole point of
+/// a value whose only copy is on paper.
+const BASE32: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/// How many characters 32 bytes become at five bits each, rounded up.
+const RECOVERY_CHARS: usize = 52;
+/// How many of those go between separators.
+const RECOVERY_GROUP: usize = 4;
+
+/// A fresh recovery key. The same 32 bytes as a master key, and it protects one.
+pub fn new_recovery_key() -> [u8; 32] {
+    random::<32>()
+}
+
+/// What actually wraps the master key.
+///
+/// The recovery key is what a person holds; this is what it becomes, so that the secret on paper
+/// and the secret in the ciphertext are not the same bytes.
+pub fn recovery_wrapping_key(key: &[u8; 32]) -> [u8; 32] {
+    expand(key, INFO_RECOVERY)
+}
+
+/// 52 characters in 13 groups of four, separated by `-`.
+///
+/// Thirteen groups of four rather than the ten groups of five an early draft of the design asked
+/// for: fifty characters carry 250 bits and this key is 256.
+pub fn format_recovery_key(key: &[u8; 32]) -> String {
+    let mut chars = String::with_capacity(RECOVERY_CHARS);
+    let mut acc = 0u16;
+    let mut bits = 0u8;
+
+    for byte in key {
+        acc = (acc << 8) | u16::from(*byte);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            chars.push(BASE32[usize::from((acc >> bits) & 0b1_1111)] as char);
+        }
+    }
+    if bits > 0 {
+        chars.push(BASE32[usize::from((acc << (5 - bits)) & 0b1_1111)] as char);
+    }
+
+    chars
+        .as_bytes()
+        .chunks(RECOVERY_GROUP)
+        .map(|chunk| std::str::from_utf8(chunk).expect("the alphabet is ASCII"))
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+/// The inverse, forgiving about how it was typed: any case, and any separator at all.
+///
+/// Forgiving about spacing and strict about everything else — a value read off paper is retyped
+/// with whatever spacing the reader felt like, but a character outside the alphabet means they have
+/// the wrong thing in front of them and should be told so.
+pub fn parse_recovery_key(text: &str) -> Result<[u8; 32], AppError> {
+    let mut key = [0u8; 32];
+    let mut acc = 0u16;
+    let mut bits = 0u8;
+    let mut written = 0usize;
+
+    for ch in text.chars().filter(|c| c.is_ascii_alphanumeric()) {
+        let upper = ch.to_ascii_uppercase() as u8;
+        let value = BASE32
+            .iter()
+            .position(|c| *c == upper)
+            .ok_or_else(|| err!("error.syncRecoveryKeyUnreadable"))?;
+
+        acc = (acc << 5) | value as u16;
+        bits += 5;
+        if bits >= 8 {
+            bits -= 8;
+            if written == key.len() {
+                return Err(err!("error.syncRecoveryKeyUnreadable"));
+            }
+            key[written] = ((acc >> bits) & 0xFF) as u8;
+            written += 1;
+        }
+    }
+
+    match written == key.len() {
+        true => Ok(key),
+        false => Err(err!("error.syncRecoveryKeyUnreadable")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +299,53 @@ mod tests {
                 "a value cut to {cut} bytes must be an error, never a panic"
             );
         }
+    }
+
+    #[test]
+    fn a_recovery_key_round_trips_through_what_a_person_would_type() {
+        let key = new_recovery_key();
+        let shown = format_recovery_key(&key);
+
+        assert_eq!(shown.len(), 52 + 12, "52 characters in 13 groups of four");
+        assert_eq!(shown.matches('-').count(), 12);
+        assert_eq!(parse_recovery_key(&shown).expect("parses"), key);
+    }
+
+    #[test]
+    fn a_recovery_key_is_read_back_the_way_it_was_written_down() {
+        let key = new_recovery_key();
+        let shown = format_recovery_key(&key);
+
+        let sloppy = shown.to_lowercase().replace('-', " ");
+        assert_eq!(parse_recovery_key(&sloppy).expect("parses"), key);
+
+        assert!(parse_recovery_key("not a key").is_err(), "too short");
+        assert!(
+            parse_recovery_key(&format!("{shown}-ABCD")).is_err(),
+            "too long"
+        );
+        let mut outside_the_alphabet = shown.clone();
+        outside_the_alphabet.replace_range(0..1, "I");
+        assert!(
+            parse_recovery_key(&outside_the_alphabet).is_err(),
+            "I, L, O and U are not in the alphabet, so one of them means the wrong thing was typed"
+        );
+    }
+
+    #[test]
+    fn the_recovery_key_opens_the_same_master_key() {
+        let master = new_master_key();
+        let recovery = new_recovery_key();
+        let wrapping = recovery_wrapping_key(&recovery);
+
+        let sealed = wrap_master_key(&wrapping, &master).expect("wraps");
+        assert_eq!(
+            unwrap_master_key(&wrapping, &sealed).expect("unwraps"),
+            master
+        );
+        assert_ne!(
+            wrapping, recovery,
+            "what a person holds and what wraps the key are not the same secret"
+        );
     }
 }
