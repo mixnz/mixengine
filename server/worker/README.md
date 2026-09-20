@@ -86,6 +86,7 @@ MixLab rather than about this server.
 | `PARAMS_PER_HOUR` | var | `200` | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
 | `AUTH_PER_HOUR` | var | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
 | `LETTERS_PER_ACCOUNT_PER_HOUR` | var | `3` | How many letters **one address** may receive. The counters above bound what one network sends and nothing about what one mailbox receives |
+| `RESET_TICKET_SECONDS` | var | `600` | How long the ticket from a recovery-key reset lasts (D6). It is a lifetime rather than an allowance, so it is not one of the rate limits below |
 | `CLOSING_ON` | var | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to copy their account elsewhere (D4b). **Advisory**: nothing refuses a request after it |
 | `ACCESS_TOKEN` | secret | none, so open | A shared token that closes this deployment to everybody who has not been given it, for somebody running it for their own company. **The hosted instances never set one** |
 | `TEST_OUTBOX` | var | off | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |

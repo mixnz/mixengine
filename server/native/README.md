@@ -149,6 +149,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_PARAMS_PER_HOUR` | `200` | How often one source may ask where an address's salt is |
 | `MIXLAB_SYNC_AUTH_PER_HOUR` | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
 | `MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR` | `3` | How many letters **one address** may receive. The counters above bound what one network sends and nothing about what one mailbox receives |
+| `MIXLAB_SYNC_RESET_TICKET_SECONDS` | `600` | How long the ticket from a recovery-key reset lasts (D6). Long enough to type a new password twice; short enough that one left in a log is worthless by the time it is read |
 | `MIXLAB_SYNC_TRUST_FORWARDED_FOR` | off | `1` reads the source address from `X-Forwarded-For`. **Set this if and only if a proxy you run is in front**, and see below |
 | `MIXLAB_SYNC_CLOSING_ON` | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to move their account. **Advisory**: nothing here refuses a request after it |
 | `MIXLAB_SYNC_ACCESS_TOKEN` | none, so open | A shared token that closes this server to everybody who has not been given it. Open is what the hosted instances are |
