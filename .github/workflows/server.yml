@@ -121,7 +121,7 @@ jobs:
         env:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8788
           CONFORMANCE_ACCESS_TOKEN: conformance-shared-token
-        run: npx vitest run src/tombstones.test.ts src/relocation.test.ts src/access.test.ts
+        run: npx vitest run src/tombstones.test.ts src/freeze.test.ts src/access.test.ts
 
       - name: The workers' logs
         if: failure()
@@ -196,8 +196,6 @@ jobs:
           MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
           MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
           MIXLAB_SYNC_AUTH_PER_HOUR: '100000'
-          # Somewhere to send a retired account, so the whole of D4b is reachable here.
-          MIXLAB_SYNC_RELOCATE_TO: mixlab-sync-worker
         run: |
           nohup cargo run --locked --quiet > "$RUNNER_TEMP/native.log" 2>&1 &
           for _ in $(seq 60); do
@@ -234,9 +232,9 @@ jobs:
           MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
           MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
           MIXLAB_SYNC_AUTH_PER_HOUR: '100000'
-          # A freeze that lapses in seconds, and nowhere to send an account: the two things D4b
-          # cannot otherwise reach. Deliberately no MIXLAB_SYNC_RELOCATE_TO.
-          MIXLAB_SYNC_RELOCATION_LEASE_SECONDS: '2'
+          # A date this instance says it will close on, so a client is checked against a server
+          # that names one. Advisory: nothing refuses a request after it (D4a).
+          MIXLAB_SYNC_CLOSING_ON: '2027-03-01'
           # And closed with a shared token, the way a company running this for itself would.
           MIXLAB_SYNC_ACCESS_TOKEN: conformance-shared-token
         run: |
@@ -256,7 +254,7 @@ jobs:
         env:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8766
           CONFORMANCE_ACCESS_TOKEN: conformance-shared-token
-        run: npx vitest run src/tombstones.test.ts src/relocation.test.ts src/access.test.ts
+        run: npx vitest run src/tombstones.test.ts src/freeze.test.ts src/access.test.ts
 
       - name: The servers' logs
         if: failure()

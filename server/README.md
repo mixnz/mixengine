@@ -36,7 +36,7 @@ One run answers for both implementations, which is what
 [ADR 0046](../docs/decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) was decided
 to buy. It runs the suite **four times**: against the Worker, against the native binary, and
 against a second instance of each configured for the things that are otherwise out of reach in a
-test: tombstones reaped at once, a relocation freeze that lapses in seconds, and nowhere to send a
-retired account. `410 cursor-expired` is ninety days away otherwise, and a status no suite reaches
-is a status the two implementations are free to disagree about. On `master` it also builds the image and runs the suite against the
+test: tombstones reaped at once, a closing date announced, and a shared access token.
+`410 cursor-expired` is ninety days away otherwise, and a status no suite reaches is a status
+the two implementations are free to disagree about. On `master` it also builds the image and runs the suite against the
 container before publishing it, so what is published is what was tested.

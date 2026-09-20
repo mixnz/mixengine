@@ -73,8 +73,7 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `LOGINS_PER_WINDOW` | var | Attempts on one account in fifteen minutes, right or wrong |
 | `VERIFY_ATTEMPTS_PER_WINDOW` | var | Codes tried against one account in fifteen minutes |
 | `PARAMS_PER_HOUR` | var | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
-| `RELOCATE_TO` | var | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL: a server that could name an address could send people to one that collects their verifier. Unset means this server will not let go of an account |
-| `RELOCATION_LEASE_SECONDS` | var | How long a freeze lasts before it lapses. 900 by default |
+| `CLOSING_ON` | var | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to copy their account elsewhere (D4b). **Advisory**: nothing refuses a request after it |
 | `ACCESS_TOKEN` | secret | A shared token that closes this deployment to everybody who has not been given it, for somebody running it for their own company. **The hosted instances never set one** |
 | `TEST_OUTBOX` | var | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 

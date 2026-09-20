@@ -50,24 +50,26 @@ person types — eight characters — and forty bits is only safe because guessi
 bound is therefore part of the protocol rather than a deployment detail, and a server without it
 would pass everything else here. Every *other* limit the suite only reads.
 
-## Two things it cannot reach on its own
+## Three things it cannot reach on its own
 
-Both skip loudly rather than passing quietly — a skipped test that announces itself is honest, and
+All three skip loudly rather than passing quietly — a skipped test that announces itself is honest, and
 a test that quietly passes against a server it never exercised is not:
 
 - **Quota**, when the server reports an account quota larger than 8 MB. Filling one over HTTP is
   minutes of runner time for one assertion.
 - **Cursor expiry**, unless the server reports `tombstoneRetentionDays: 0`. The real value is
   ninety days and no test can wait it out.
-- **A relocation freeze lapsing**, unless the server leases one for a few seconds. The real lease is
-  fifteen minutes. This one is worth the trouble: it is the failure D4b exists to survive — a
-  machine freezes the account, starts copying, and loses the network or the power.
-- **Retiring an account**, unless the server has somewhere to send one, and the refusal to let go
-  of one, unless it has not. Those two are mutually exclusive, so they need two instances.
+- **A closed deployment**, unless the server was started with a shared access token. A server
+  that is open cannot answer for one that is not (D4a).
 
-CI covers both. The quota falls out of the small limits the `conformance` environment reports, and
-cursor expiry gets **a second instance** with a retention of zero, because reaping at once would
-break every other tombstone test on the first one.
+CI covers all three. The quota falls out of the small limits the `conformance` environment
+reports, and cursor expiry gets **a second instance** with a retention of zero — reaping at once
+would break every other tombstone test on the first one — which is also the instance that is
+closed with a token and that announces a closing date.
+
+**A freeze has nothing left that needs a second instance**, which it used to: it was a lease,
+and lapsing could only be watched on a server that leased one for seconds. A freeze now ends
+when a client ends it, so the whole of it is reachable against any server (D4b).
 
 **Reaping is asynchronous**, so the expiry test polls rather than asserting straight after the
 delete: D8 schedules an alarm rather than sweeping inline, and a test that assumed otherwise would

@@ -69,6 +69,9 @@ MIXLAB_SYNC_EMAIL_API_KEY=
 # MIXLAB_SYNC_SMTP_PASSWORD=
 # Set this to close the server to everybody who has not been told the string. See below.
 # MIXLAB_SYNC_ACCESS_TOKEN=
+# Set this when you know the date you will switch this server off, so the people using it are
+# told in the application instead of on the day.
+# MIXLAB_SYNC_CLOSING_ON=2027-03-01
 EOF
 ```
 
@@ -144,8 +147,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_LOGINS_PER_WINDOW` | Attempts on one account in fifteen minutes, right or wrong |
 | `MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW` | Codes tried against one account in fifteen minutes |
 | `MIXLAB_SYNC_PARAMS_PER_HOUR` | How often one source may ask where an address's salt is |
-| `MIXLAB_SYNC_RELOCATE_TO` | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL. Unset means this server will not let go of an account |
-| `MIXLAB_SYNC_RELOCATION_LEASE_SECONDS` | How long a freeze lasts before it lapses. 900 by default |
+| `MIXLAB_SYNC_CLOSING_ON` | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to move their account. **Advisory**: nothing here refuses a request after it |
 | `MIXLAB_SYNC_ACCESS_TOKEN` | A shared token that closes this server to everybody who has not been given it. Unset means open, which is what the hosted instances are |
 | `MIXLAB_SYNC_TEST_OUTBOX` | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
