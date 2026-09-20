@@ -24,9 +24,9 @@ than the first — setting one at a time and restarting is the slow way to find 
 
 ```bash
 MIXLAB_SYNC_PEPPER=$(head -c 32 /dev/urandom | base64) \
+MIXLAB_SYNC_EMAIL_PROVIDER=one-of-the-seven-below \
 MIXLAB_SYNC_EMAIL_API_KEY=… \
 MIXLAB_SYNC_EMAIL_FROM=noreply@example.com \
-MIXLAB_SYNC_EMAIL_PROVIDER=resend \
 cargo run --release
 ```
 
@@ -43,6 +43,39 @@ MIXLAB_SYNC_TEST_OUTBOX=1 cargo run
 docker pull ghcr.io/mixnz/mixlab-sync-server:latest
 ```
 
+**Make the pepper first, once, and then never again.** It is keyed into every stored password
+verifier and into the salt this server answers with for an address that has no account, so a
+deployment that generates a fresh one on its next redeploy has locked out everybody who already had
+an account — permanently, with a reset letter each and their records gone, because the records were
+never readable by this server to begin with. Treat it the way you treat the database: back it up,
+somewhere that losing the machine does not lose it.
+
+```bash
+umask 077
+cat > .env <<EOF
+MIXLAB_SYNC_PEPPER=$(head -c 32 /dev/urandom | base64)
+MIXLAB_SYNC_EMAIL_FROM=noreply@example.com
+# One of: smtp, brevo, mailgun, mailtrap, postmark, resend, sendgrid. There is no default.
+MIXLAB_SYNC_EMAIL_PROVIDER=
+# Every provider except smtp.
+MIXLAB_SYNC_EMAIL_API_KEY=
+# mailtrap and mailgun only: their URL carries an inbox id or a sending domain, so nothing can
+# guess it for you. Leave it out for the other five.
+# MIXLAB_SYNC_EMAIL_ENDPOINT=
+# smtp only, in place of the API key above. Username and password are optional — a mail server on
+# your own network often wants neither.
+# MIXLAB_SYNC_SMTP_HOST=smtp.example.com
+# MIXLAB_SYNC_SMTP_USERNAME=
+# MIXLAB_SYNC_SMTP_PASSWORD=
+# Set this to close the server to everybody who has not been told the string. See below.
+# MIXLAB_SYNC_ACCESS_TOKEN=
+EOF
+```
+
+`openssl rand -base64 32` does the same job where reaching `/dev/urandom` is awkward. Any 32 bytes
+of real randomness will do, and nobody ever types it: it is an HMAC key, not a password. `umask 077`
+is there because that file is now the most valuable thing on the machine after the database itself.
+
 ```yaml
 services:
   sync:
@@ -50,13 +83,20 @@ services:
     restart: unless-stopped
     ports: ["8765:8765"]
     volumes: ["mixlab-sync:/data"]
-    environment:
-      MIXLAB_SYNC_PEPPER: "…"              # 32 random bytes, base64
-      MIXLAB_SYNC_EMAIL_API_KEY: "…"
-      MIXLAB_SYNC_EMAIL_FROM: "noreply@example.com"
+    # Everything the server refuses to start without is in that file, and nothing else has to be:
+    # the image already binds 0.0.0.0:8765 and puts the database inside the volume.
+    env_file: [".env"]
 volumes:
   mixlab-sync:
 ```
+
+```bash
+docker compose up -d && docker compose logs sync
+```
+
+A container that exits immediately has already said why. **It names everything it is missing at
+once rather than the first thing** — `mixlab-sync will not start without: …`, exit code 78 — so one
+reading of the log is enough to finish the file.
 
 The image follows `master` and carries two tags: `latest`, and `sha-<short>` for anyone who wants a
 fixed target to pin. **It is deliberately not attached to a release tag** — giving the server a
