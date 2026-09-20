@@ -1290,6 +1290,36 @@ what that measurement left. docs/specs/2026-09-20-t171-a-build-that-fans-out-des
 The three matrices are the same five rows and must stay so: `build` downloads by `matrix.os`.
 Actions has no YAML anchors, so the rows are written three times and the comments once, here.
 
+**T173a: off a tag this builds at `opt-level = 0`**, the third variable `release-profile` writes
+after LTO and codegen units. The whole `build` group fell from 111.2 leg-minutes to 77.1, and this
+leg from a 17.5–18.5 band to 9.1 in a full run and 7.1 in a `jobs=build` one. Level 1 was measured
+first and moved only `binaries` (about 9%), never `window`: `mixlab` is one crate of 306 seconds'
+codegen, and level 1 barely touches it.
+docs/specs/2026-09-20-t173-a-window-that-builds-in-under-ten-design.md.
+
+The saving is not free and the price is measured: a branch's installers grew by 16 to 76%, and
+the five packaging legs pay 5.5 leg-minutes more to tar and upload them. A `window-<os>` somebody
+downloads to try the application is now an unoptimised build.
+
+**What the `--timings` report settled (T173c).** The report is behind the `MIX_TIMINGS` repository
+variable — `gh variable set MIX_TIMINGS --body 1`, dispatch, `gh variable delete MIX_TIMINGS` — so
+asking costs no commit. It said the tail of this job is `mixlab`'s own codegen, 306.3 s, against
+4.4 s to link it, which is why `rust-lld` was dropped rather than adopted: there is no link time
+for a faster linker to take. What is left is 624 s of dependencies before `mixlab` starts, and
+`mixlab` itself, whose front end is single-threaded — both belong to `apps/desktop/src-tauri`'s
+dependency list, not to CI.
+
+**T173b: Defender steps aside on the Windows legs** (`.github/actions/defender-aside`), because a
+release build writes tens of thousands of object files and each is read again as it lands. A
+refusal is a `::notice::` and never a failure: `Add-MpPreference` needs a privilege the runner may
+not grant, and an exclusion that silently did not apply would make the next measurement of this job
+a lie.
+
+**This leg is bimodal, so one run proves nothing about it.** Eleven samples before T173 ran 18.5,
+18.5, 18.4, 18.3, 18.3, 18.2, 18.2, 18.0, 17.5, 15.0, 13.8 — the same commit on a fast or a slow
+host, four and a half minutes apart. Read a small change on `binaries (windows-latest)`, whose band
+is 10.4–11.6, and accept this leg as evidence only when a change leaves the band entirely.
+
 T85a, D2: the four binaries are built in a manylinux_2_28 container so the artifact links
 an older glibc than this runner ships, rather than whatever `ubuntu-latest` happens to
 carry this month. Same architecture as the runner in both rows below — never

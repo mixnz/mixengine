@@ -70,6 +70,10 @@ jobs:
 
       - uses: ./.github/actions/release-profile
 
+      # T173b: before anything compiles, and after checkout because the action reads the workspace's
+      # path. Nothing on the three legs that are not Windows.
+      - uses: ./.github/actions/defender-aside
+
       # On every leg, the Linux ones included: the window is built on the runner itself, never in
       # the container.
       - name: Install pinned toolchain
@@ -100,7 +104,21 @@ jobs:
         shell: bash
         env:
           MIX_TARGET: ${{ matrix.target }}
+          # T173c: a repository variable, not a committed line — `gh variable set MIX_TIMINGS 1`
+          # turns the report on for the next run and `gh variable delete` turns it off again, so
+          # measuring this job costs no commit in either direction.
+          MIX_TIMINGS: ${{ vars.MIX_TIMINGS }}
         run: bash packaging/desktop.sh
+
+      # Where the build's minutes went, when somebody asked. `if-no-files-found: error` because a
+      # measurement that quietly uploaded nothing is the failure this whole task exists to avoid.
+      - uses: actions/upload-artifact@v4
+        if: vars.MIX_TIMINGS == '1'
+        with:
+          name: timings-${{ matrix.os }}
+          path: apps/desktop/src-tauri/target/**/cargo-timings/cargo-timing*.html
+          if-no-files-found: error
+          retention-days: 14
 
       # T171c, E3: the window's half of `binaries`' x86_64 check, after the build above because
       # `tauri::generate_context!` reads the frontend it built at compile time.
@@ -171,6 +189,9 @@ jobs:
           phase: start
 
       - uses: ./.github/actions/release-profile
+
+      # T173b, as in `window` above.
+      - uses: ./.github/actions/defender-aside
 
       # Only the legs that build on the runner itself rather than inside a container: the two Linux
       # legs install their own pinned toolchain inside `stage.sh --container`'s `docker run`, since

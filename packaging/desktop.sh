@@ -41,6 +41,14 @@ export MIXENGINE_RELEASE=1
 
 app="$MIX_ROOT/apps/desktop"
 
+# **`MIX_TIMINGS=1` asks cargo where the build went** (T173c). `tauri build` passes what follows a
+# second `--` to the runner, so the flag reaches cargo and the report lands in
+# `src-tauri/target/cargo-timings/`. Opt-in, because it is read only when somebody is measuring —
+# CI turns it on through a repository variable rather than a commit. The `${a[@]+"${a[@]}"}` below
+# is not decoration: under `set -u`, macOS's bash 3.2 fails on an empty array without it.
+timings=()
+[ "${MIX_TIMINGS:-0}" = "1" ] && timings=(-- --timings)
+
 # `npm ci` and not `npm install`: a packaging run may not quietly resolve a dependency the tested
 # build did not have, which is `stage.sh`'s `--locked` said in the other language.
 (cd "$app" && npm ci)
@@ -57,7 +65,7 @@ case "$(uname -s)" in
     for slice in $(mix_macos_slices); do
       rustup target add "$slice-apple-darwin"
     done
-    (cd "$app" && npm run tauri -- build --bundles app --target "$window_target")
+    (cd "$app" && npm run tauri -- build --bundles app --target "$window_target" ${timings[@]+"${timings[@]}"})
 
     bundles=("$app/src-tauri/target/$window_target/release/bundle/macos"/*.app)
     if [ ${#bundles[@]} -ne 1 ]; then
@@ -78,7 +86,7 @@ case "$(uname -s)" in
   *)
     # `--no-bundle`: packaging is `packaging/`'s, and Tauri's own installers are not what this
     # product ships.
-    (cd "$app" && npm run tauri -- build --no-bundle --target "$target")
+    (cd "$app" && npm run tauri -- build --no-bundle --target "$target" ${timings[@]+"${timings[@]}"})
 
     built="$app/src-tauri/target/$target/release/$MIX_WINDOW$(mix_exe_suffix)"
     test -f "$built" || {
