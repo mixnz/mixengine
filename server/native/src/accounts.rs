@@ -14,7 +14,9 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Value, json};
 
 use crate::AppState;
-use crate::crypto::{now, peppered, random_token, same_secret, sha256_hex};
+use crate::crypto::{
+    normalise_code, now, peppered, random_code, random_token, same_secret, sha256_hex,
+};
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
@@ -229,20 +231,31 @@ pub async fn register(
                 return Ok(Err(retry_after(seconds)));
             }
 
-            let taken: Option<i64> = transaction
+            let existing: Option<(i64, i64)> = transaction
                 .query_row(
-                    "SELECT id FROM account WHERE email = ?1",
+                    "SELECT id, verified FROM account WHERE email = ?1",
                     params![email],
-                    |row| row.get(0),
+                    |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .optional()?;
-            if taken.is_some() {
-                transaction.commit()?;
-                return Ok(Err(Failure::new(
-                    StatusCode::CONFLICT,
-                    "email-taken",
-                    "That address already has an account.",
-                )));
+            match existing {
+                Some((_, 1)) => {
+                    transaction.commit()?;
+                    return Ok(Err(Failure::new(
+                        StatusCode::CONFLICT,
+                        "email-taken",
+                        "That address already has an account.",
+                    )));
+                }
+                // **An unverified account is replaced rather than defended.** A verification token
+                // lives a day; once it expires the person cannot verify, cannot register again,
+                // and cannot reset — a reset is only offered to an address that proved itself.
+                // Replacing loses nothing, because D4 forbids writing any record before
+                // verification, so there is never anything there to lose.
+                Some((previous, _)) => {
+                    transaction.execute("DELETE FROM account WHERE id = ?1", params![previous])?;
+                }
+                None => {}
             }
 
             transaction.execute(
@@ -253,70 +266,78 @@ pub async fn register(
             )?;
             let account_id = transaction.last_insert_rowid();
 
-            let token = random_token();
+            let code = random_code();
             transaction.execute(
                 "INSERT INTO mail_token (hash, account_id, kind, expires_at) VALUES (?1, ?2, ?3, ?4)",
                 params![
-                    sha256_hex(&token),
+                    sha256_hex(&code.replace('-', "")),
                     account_id,
                     LetterKind::Verification.as_str(),
                     now() + VERIFICATION_TOKEN_SECONDS
                 ],
             )?;
             transaction.commit()?;
-            Ok(Ok(token))
+            Ok(Ok(code))
         })
         .await;
 
     match outcome {
         Err(error) => internal(error).into_response(),
         Ok(Err(failure)) => failure.into_response(),
-        Ok(Ok(token)) => {
-            deliver(&state, LetterKind::Verification, &letter_email, &token).await;
-            (StatusCode::CREATED, Json(json!({}))).into_response()
+        Ok(Ok(code)) => {
+            // **Registration is not complete until the letter is accepted.** Keeping an account
+            // whose letter never went out would hand somebody an address they can never use and
+            // never free: registering again answers 409, and `/v1` has no route that re-sends one.
+            if deliver(&state, LetterKind::Verification, &letter_email, &code).await {
+                (StatusCode::CREATED, Json(json!({}))).into_response()
+            } else {
+                let _ = state
+                    .db
+                    .call(move |connection| {
+                        connection.execute(
+                            "DELETE FROM account WHERE email = ?1",
+                            params![letter_email],
+                        )
+                    })
+                    .await;
+                Failure::new(
+                    StatusCode::BAD_GATEWAY,
+                    "letter-not-sent",
+                    "This server could not send the confirmation letter, so no account was made.",
+                )
+                .into_response()
+            }
         }
     }
 }
 
-/// Either records the letter where the suite can read it, or sends it. The first is refused unless
-/// the server was started in test-outbox mode, which is checked where the route is.
-pub async fn deliver(state: &Arc<AppState>, kind: LetterKind, email: &str, token: &str) {
+/// Either records the letter where the suite can read it, or sends it. `false` means the provider
+/// refused it, and the caller decides what that costs.
+pub async fn deliver(state: &Arc<AppState>, kind: LetterKind, email: &str, code: &str) -> bool {
     if state.config.test_outbox {
-        let (email, token, kind) = (email.to_owned(), token.to_owned(), kind.as_str());
+        let (email, code, kind) = (email.to_owned(), code.to_owned(), kind.as_str());
         let _ = state
             .db
             .call(move |connection| {
                 connection.execute(
                     "INSERT INTO outbox (account_id, kind, token, sent_at)
                      SELECT id, ?2, ?3, ?4 FROM account WHERE email = ?1",
-                    params![email, kind, token, now()],
+                    params![email, kind, code, now()],
                 )
             })
             .await;
-        return;
+        return true;
     }
 
-    let verify_url = format!(
-        "{}/v1/auth/verify?email={}&token={}",
-        state.config.public_url.trim_end_matches('/'),
-        urlencode(email),
-        token
-    );
-    if let Err(reason) = crate::email::send(&state.config, kind, email, token, &verify_url).await {
-        tracing::error!("could not send the {} letter: {reason}", kind.as_str());
+    // **A code, not a link** (D4a). A link would need this server to know the address it is
+    // reachable at, which is a setting that is wrong silently until the first person clicks one.
+    match crate::email::send(&state.config, kind, email, code).await {
+        Ok(()) => true,
+        Err(reason) => {
+            tracing::error!("could not send the {} letter: {reason}", kind.as_str());
+            false
+        }
     }
-}
-
-fn urlencode(value: &str) -> String {
-    value
-        .bytes()
-        .map(|byte| match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                (byte as char).to_string()
-            }
-            _ => format!("%{byte:02X}"),
-        })
-        .collect()
 }
 
 // --- verification, signing in, tokens ----------------------------------------------------------
@@ -326,10 +347,11 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
         Ok(fields) => fields,
         Err(failure) => return failure.into_response(),
     };
-    let (Some(email), Some(token)) = (text(&fields, "email"), text(&fields, "token")) else {
-        return bad_link().into_response();
+    let Some(email) = text(&fields, "email").map(|email| email.trim().to_lowercase()) else {
+        return bad_code().into_response();
     };
-    let (email, token) = (email.trim().to_lowercase(), token.to_owned());
+    let code = text(&fields, "token").and_then(normalise_code);
+    let allowance = state.config.limits.verify_attempts_per_window;
 
     let outcome = state
         .db
@@ -344,37 +366,55 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
                 )
                 .optional()?;
 
-            // Already verified and the token already spent look alike on purpose: wrong, expired
-            // and used answer with one code, because the sentence a person needs is the same.
-            let Some((account_id, 0)) = account else {
+            // **Eight characters are only safe because guessing is bounded** (D4a). Counted
+            // before the code is looked at, so a wrong one costs an attempt whatever was wrong
+            // about it.
+            if let Some((account_id, _)) = account
+                && let Some(seconds) = window(
+                    &transaction,
+                    "attempt",
+                    &account_id,
+                    "verify",
+                    allowance,
+                    LOGIN_WINDOW_SECONDS,
+                )?
+            {
                 transaction.commit()?;
-                return Ok(false);
+                return Ok(Err(seconds));
+            }
+
+            // Already verified, a spent code and a wrong one look alike on purpose: the sentence a
+            // person needs is the same in all three cases.
+            let (Some((account_id, 0)), Some(code)) = (account, code) else {
+                transaction.commit()?;
+                return Ok(Ok(false));
             };
-            if !spend(&transaction, account_id, &token, LetterKind::Verification)? {
+            if !spend(&transaction, account_id, &code, LetterKind::Verification)? {
                 transaction.commit()?;
-                return Ok(false);
+                return Ok(Ok(false));
             }
             transaction.execute(
                 "UPDATE account SET verified = 1 WHERE id = ?1",
                 params![account_id],
             )?;
             transaction.commit()?;
-            Ok(true)
+            Ok(Ok(true))
         })
         .await;
 
     match outcome {
         Err(error) => internal(error).into_response(),
-        Ok(false) => bad_link().into_response(),
-        Ok(true) => Json(json!({})).into_response(),
+        Ok(Err(seconds)) => retry_after(seconds).into_response(),
+        Ok(Ok(false)) => bad_code().into_response(),
+        Ok(Ok(true)) => Json(json!({})).into_response(),
     }
 }
 
-fn bad_link() -> Failure {
+pub(crate) fn bad_code() -> Failure {
     Failure::new(
         StatusCode::BAD_REQUEST,
         "invalid-token",
-        "That link is not usable.",
+        "That code is not usable.",
     )
 }
 

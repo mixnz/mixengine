@@ -32,7 +32,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::{Query, State};
-use axum::response::{Html, IntoResponse, Response};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use config::Config;
 use db::Db;
@@ -50,10 +50,9 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/v1/capabilities", get(capabilities))
         .route("/v1/auth/register", post(accounts::register))
-        .route(
-            "/v1/auth/verify",
-            get(verification_page).post(accounts::verify),
-        )
+        // **There is no GET here.** The letter carries a code the person types, not a link they
+        // click (D4a), so there is no page to serve and no public address to get wrong.
+        .route("/v1/auth/verify", post(accounts::verify))
         .route("/v1/auth/login", post(accounts::login))
         .route("/v1/auth/refresh", post(accounts::refresh))
         .route("/v1/auth/password", post(recovery::change_password))
@@ -86,69 +85,6 @@ async fn capabilities(State(state): State<Arc<AppState>>) -> Response {
 #[derive(serde::Deserialize)]
 struct Link {
     email: Option<String>,
-    token: Option<String>,
-}
-
-/// The page the emailed link opens. **It does not spend the token**: mail scanners and link
-/// previewers fetch every URL in a message, and a `GET` that verified would be spent before the
-/// person read the letter — a bug that reads as "the link never works" and is nearly impossible to
-/// reproduce. The button posts, and the post is what verifies (D4a).
-///
-/// The one piece of HTML in this server, and it validates nothing, so it touches no database.
-async fn verification_page(Query(link): Query<Link>) -> Response {
-    let (Some(email), Some(token)) = (link.email, link.token) else {
-        return http::not_found().into_response();
-    };
-    if !validate::is_email(&email) {
-        return http::not_found().into_response();
-    }
-
-    let escaped = email
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;");
-    let payload = json!({ "email": email, "token": token });
-
-    Html(format!(
-        r##"<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Confirm your MixLab address</title>
-<style>
-  body {{ font: 16px/1.5 system-ui, sans-serif; margin: 0; display: grid; place-items: center;
-         min-height: 100vh; background: #f6f7f9; color: #14161a; }}
-  main {{ background: #fff; padding: 2rem; border-radius: 12px; max-width: 26rem;
-         box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }}
-  h1 {{ font-size: 1.25rem; margin: 0 0 .5rem; }}
-  p {{ margin: 0 0 1.5rem; color: #4a5059; }}
-  button {{ font: inherit; padding: .6rem 1.2rem; border: 0; border-radius: 8px;
-           background: #14161a; color: #fff; cursor: pointer; }}
-</style>
-<main>
-  <h1>Confirm your address</h1>
-  <p>{escaped}</p>
-  <form><button type="submit">Confirm</button></form>
-  <p id="done" hidden>Confirmed. You can sign in to MixLab now.</p>
-</main>
-<script type="module">
-  const form = document.querySelector("form");
-  form.addEventListener("submit", async (event) => {{
-    event.preventDefault();
-    const response = await fetch("/v1/auth/verify", {{
-      method: "POST",
-      headers: {{ "Content-Type": "application/json" }},
-      body: JSON.stringify({payload}),
-    }});
-    form.hidden = true;
-    const done = document.querySelector("#done");
-    done.hidden = false;
-    if (!response.ok) done.textContent = "That link is not usable. Ask MixLab for another.";
-  }});
-</script>
-</html>"##
-    ))
-    .into_response()
 }
 
 /// Verification arrives by email, which no HTTP suite can read, so a server under test hands the

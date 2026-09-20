@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { call, type ErrorBody, newAccount, register, registerBody } from "./client.js";
+import {
+  call,
+  type ErrorBody,
+  latestToken,
+  newAccount,
+  register,
+  registerBody,
+  verify,
+} from "./client.js";
 
 describe("POST /v1/auth/register", () => {
   it("creates an account and answers 201", async () => {
@@ -7,13 +15,48 @@ describe("POST /v1/auth/register", () => {
     expect(result.status).toBe(201);
   });
 
-  it("refuses an address that already has one", async () => {
+  it("refuses an address that already has a verified account", async () => {
     const account = newAccount();
     expect((await register(account)).status).toBe(201);
+    await verify(account);
 
     const again = await call<ErrorBody>("/v1/auth/register", { body: registerBody(account) });
     expect(again.status).toBe(409);
     expect(again.body.error.code).toBe("email-taken");
+  });
+
+  it("replaces an account whose address was never confirmed", async () => {
+    // A verification token lives a day. Without this rule, letting one expire leaves a person who
+    // cannot verify, cannot register again and cannot reset — a reset is only offered to an
+    // address that proved itself. Replacing loses nothing: no record may be written before
+    // verification, so there is never anything there to lose (D4a).
+    const first = newAccount();
+    expect((await register(first)).status).toBe(201);
+    const stale = await latestToken(first.email, "verification");
+
+    const second = newAccount({ email: first.email });
+    expect((await register(second)).status).toBe(201);
+
+    // The letter that went out is a new one, and the old token is not the account's any more.
+    const fresh = await latestToken(first.email, "verification");
+    expect(fresh).not.toBe(stale);
+
+    const replayed = await call<ErrorBody>("/v1/auth/verify", {
+      body: { email: first.email, token: stale },
+    });
+    expect(replayed.status).toBe(400);
+
+    // And the account that exists is the second one: its verifier is what signs in.
+    expect((await call("/v1/auth/verify", { body: { email: first.email, token: fresh } })).status)
+      .toBe(200);
+    const withSecond = await call("/v1/auth/login", {
+      body: { email: second.email, a: second.a, deviceName: "conformance" },
+    });
+    expect(withSecond.status).toBe(200);
+    const withFirst = await call<ErrorBody>("/v1/auth/login", {
+      body: { email: first.email, a: first.a, deviceName: "conformance" },
+    });
+    expect(withFirst.status).toBe(401);
   });
 
   it("treats an address as one address whatever its casing", async () => {
@@ -22,6 +65,7 @@ describe("POST /v1/auth/register", () => {
     // sign in, and the server holds two accounts it can never tell apart.
     const account = newAccount({ email: `Conformance-${Date.now()}@Example.Invalid` });
     expect((await register(account)).status).toBe(201);
+    await verify(account);
 
     const lowercased = { ...account, email: account.email.toLowerCase() };
     const again = await call<ErrorBody>("/v1/auth/register", { body: registerBody(lowercased) });

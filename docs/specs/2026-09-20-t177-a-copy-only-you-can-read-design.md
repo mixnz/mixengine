@@ -171,7 +171,7 @@ whatever this repository's layout is. A change to `/v1` is a new path, not an ed
 | --- | --- | --- |
 | `GET` | `/v1/capabilities` | **No authentication.** Protocol versions this server speaks, the largest record and batch it accepts, the per-account quota, and the optional features it has |
 | `POST` | `/v1/auth/register` | email, `A`, `salt_account`, the Argon2 parameters, both wrapped copies of `MK` |
-| `POST` | `/v1/auth/verify` | completes the emailed link; **no record may be written before this** |
+| `POST` | `/v1/auth/verify` | completes with the emailed code; **no record may be written before this** |
 | `POST` | `/v1/auth/login` | email, `A`, a device name → a short access token and a per-device refresh token |
 | `POST` | `/v1/auth/password` | current `A`, new `A`, new `salt_account`, new `wrapped_mk` |
 | `POST` | `/v1/auth/reset` | emailed proof only; restores the login and **abandons the data** (D6) |
@@ -261,8 +261,7 @@ server. A client must run against an empty list forever.
 
 | Route | Body in | Out | Refuses with |
 | --- | --- | --- | --- |
-| `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` |
-| `GET /v1/auth/verify?email=&token=` | — | `200`, an HTML page with a button that posts | — |
+| `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` · `502 letter-not-sent` |
 | `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
 | `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
 | `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
@@ -270,6 +269,18 @@ server. A client must run against an empty list forever.
 | `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
 | `POST /v1/auth/reset` | `email`, `token`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 214}` | `400 invalid-token` |
 
+- **Registration is not complete until the letter is accepted.** If the provider refuses it, the
+  account is removed again and the answer is `502 letter-not-sent`. Keeping the account would be
+  worse than it sounds: the address is now taken, so registering again answers `409`, and there is
+  no route in `/v1` that re-sends a verification letter. A provider outage would hand somebody an
+  address they can never use and never free.
+- **Registering over an *unverified* account replaces it**, and sends a fresh letter. `409
+  email-taken` is for an address with a **verified** account and for nothing else. Without this, a
+  verification token that expires unused — twenty-four hours is not long — leaves the same trap by
+  a different road: cannot verify, cannot register, and cannot reset, because a reset is only
+  offered to an address that proved itself. Replacing it loses nothing, since D4 forbids writing
+  any record before verification, so there is never anything there to lose. It also narrows the
+  enumeration below: an address with an unverified account no longer answers differently.
 - **`/v1/auth/reset` is one path with two shapes**, told apart by whether `token` is present: ask
   for the letter, then complete with what it carried. Two shapes rather than a second path because
   D4's table is the frozen surface, and a forgotten password is one operation a person performs in
@@ -286,7 +297,22 @@ server. A client must run against an empty list forever.
   unreachable path would be claiming something false. Issuing tokens for an unverified address was
   the alternative, and it means handing credentials to whoever typed an address that may not be
   theirs.
-- **A verification token lives 24 hours**; a reset token, one hour.
+- **Both codes are eight Crockford base32 characters**, shown as `XXXX-XXXX`: the same alphabet the
+  recovery key uses (D2), without `I`, `L`, `O` and `U`, so nothing read off a screen is ambiguous.
+  A server accepts them in any case and with any separators, and is strict about the alphabet —
+  the rule `parse_recovery_key` already applies, so a person learns one way of typing a code from
+  this product rather than two.
+- **A code, and not a link.** A link has to carry an address the server believes it is reachable
+  at, which is a second piece of configuration that is silently wrong until the first person clicks
+  one — and this is a desktop application, so the person is already in front of the window that
+  wants the code. It also removes a class of bug worth naming: mail scanners and link previewers
+  fetch every URL in a message, so a link that verified on `GET` would be spent before the person
+  read the letter, and a link that did not would need a page with a button. There is no link, so
+  there is nothing to prefetch and no page to serve.
+- **Eight characters are only safe because guessing is bounded**, so verification attempts are rate
+  limited per account and `server/conformance/` asserts that they are. This is the one allowance
+  the suite deliberately exhausts; every other limit it only reads.
+- **A verification code lives 24 hours**; a reset code, one hour.
 - **`400 invalid-token` covers wrong, expired and already-used alike.** Telling them apart is an
   oracle and buys a client nothing: the remedy is the same sentence in all three cases.
 - **`POST /v1/auth/reset` deletes every record** and says how many (D6, case 3). It is the only
@@ -411,7 +437,7 @@ and both implementations, and a seam nobody specified is a seam that differs.
 
 ### Four choices that could have gone the other way
 
-1. **`409 email-taken` lets an attacker learn which addresses have an account.** The alternative —
+1. **`409 email-taken` lets an attacker learn which addresses have a *verified* account.** The alternative —
    always answer `201`, and send a *"somebody tried to register your address"* letter instead — is
    what a password manager does, and it costs a client that cannot tell a person they already have
    an account, plus a new way to send mail to a stranger. The leak it prevents is *"this address
@@ -419,10 +445,12 @@ and both implementations, and a seam nobody specified is a seam that differs.
    the database, not about an enumerator. Rate limiting makes the sweep slow and loud. **Revisit
    this if MixLab ever holds something where membership itself is sensitive** — this is a developer
    tool, and it does not.
-2. **The verification link does not consume the token.** `GET` returns a page with a button; the
-   `POST` behind it is what verifies. Mail scanners and link previewers fetch every URL in a
-   message, and a `GET` that verified would be spent before the person read the letter — a bug that
-   reads as *"the link never works"* and is nearly impossible to reproduce.
+2. **A code the person types, rather than a link they click.** The link is the obvious design and
+   it loses on three counts: it needs the server to know its own public address, which is a setting
+   that is wrong silently; it is fetched by mail scanners before the person reads the letter, so
+   either it does not verify on `GET` and needs a page with a button, or it is spent; and the
+   person is already looking at the window that wants it. The cost is eight characters of typing
+   and a rate limit that has to be real.
 3. **Reusing a rotated refresh token revokes the chain** rather than being ignored. It is the one
    signal this design gets for free that a token has been copied.
 4. **`updatedAt` is never compared by the server**, including here, where it would have been easy

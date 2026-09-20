@@ -7,7 +7,42 @@ use rand::RngCore;
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
 
-/// 32 random bytes as hex: a token, a device id, a code in a letter.
+/// Crockford base32: the alphabet without `I`, `L`, `O` and `U`, so nothing read off a screen is
+/// ambiguous. The same one the recovery key uses (D2), so a person learns one way of typing a
+/// code from this product rather than two.
+const BASE32: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const CODE_CHARS: usize = 8;
+
+/// A code a person types, shown as `XXXX-XXXX`. Forty bits, which is why guessing is rate limited.
+pub fn random_code() -> String {
+    let mut bytes = [0u8; CODE_CHARS];
+    rand::rng().fill_bytes(&mut bytes);
+    let code: String = bytes
+        .iter()
+        .map(|byte| BASE32[usize::from(*byte) % 32] as char)
+        .collect();
+    format!("{}-{}", &code[..4], &code[4..])
+}
+
+/// Forgiving about case and separators, strict about the alphabet — the rule
+/// `parse_recovery_key` already applies on the client. A character outside the alphabet means the
+/// person has the wrong thing in front of them and should be told so.
+pub fn normalise_code(presented: &str) -> Option<String> {
+    let stripped: String = presented
+        .chars()
+        .filter(|character| !character.is_whitespace() && *character != '-')
+        .map(|character| character.to_ascii_uppercase())
+        .collect();
+    if stripped.len() != CODE_CHARS {
+        return None;
+    }
+    stripped
+        .bytes()
+        .all(|byte| BASE32.contains(&byte))
+        .then_some(stripped)
+}
+
+/// 32 random bytes as hex: a session token, a device id. Never something a person types.
 pub fn random_token() -> String {
     let mut bytes = [0u8; 32];
     rand::rng().fill_bytes(&mut bytes);

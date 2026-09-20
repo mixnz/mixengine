@@ -54,7 +54,10 @@ async fn main() {
     let listener = match tokio::net::TcpListener::bind(&bind).await {
         Ok(listener) => listener,
         Err(error) => {
+            // A port is a property of the machine, not of this program: say which one, say who
+            // to tell, and stop rather than half-starting.
             eprintln!("mixlab-sync cannot listen on {bind}: {error}");
+            eprintln!("Set MIXLAB_SYNC_BIND to a free address.");
             std::process::exit(74); // EX_IOERR
         }
     };

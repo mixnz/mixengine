@@ -26,7 +26,7 @@ than the first — setting one at a time and restarting is the slow way to find 
 MIXLAB_SYNC_PEPPER=$(head -c 32 /dev/urandom | base64) \
 MIXLAB_SYNC_EMAIL_API_KEY=… \
 MIXLAB_SYNC_EMAIL_FROM=noreply@example.com \
-MIXLAB_SYNC_PUBLIC_URL=https://sync.example.com \
+MIXLAB_SYNC_EMAIL_PROVIDER=resend \
 cargo run --release
 ```
 
@@ -48,13 +48,12 @@ services:
   sync:
     image: ghcr.io/mixnz/mixlab-sync-server:latest
     restart: unless-stopped
-    ports: ["8080:8080"]
+    ports: ["8765:8765"]
     volumes: ["mixlab-sync:/data"]
     environment:
       MIXLAB_SYNC_PEPPER: "…"              # 32 random bytes, base64
       MIXLAB_SYNC_EMAIL_API_KEY: "…"
       MIXLAB_SYNC_EMAIL_FROM: "noreply@example.com"
-      MIXLAB_SYNC_PUBLIC_URL: "https://sync.example.com"
 volumes:
   mixlab-sync:
 ```
@@ -70,21 +69,25 @@ self-hosted instance and the default one on the same generation of `/v1`.
 Cloudflare from `../worker/`. This image exists for the row of D8's table that is run on a machine
 of somebody's choosing, and nowhere else.
 
-Put a reverse proxy with TLS in front of it and set `MIXLAB_SYNC_PUBLIC_URL` to what the proxy
-answers on: that string is what the verification link in the letter points at, and a link to
-`http://0.0.0.0:8080` helps nobody.
+**The port is the machine's business, not this program's.** 8765 is a default, not a reservation:
+if something already holds it, the server says so and stops rather than half-starting. Set
+`MIXLAB_SYNC_BIND` to whatever is free.
+
+Put a reverse proxy with TLS in front of it. **There is no public-URL setting to get wrong**: the
+letters carry a code the person types into MixLab, not a link (D4a), so this server never has to
+know the address it is reachable at.
 
 ## Configuration
 
 | Name | What it is |
 | --- | --- |
-| `MIXLAB_SYNC_BIND` | Address to listen on. `127.0.0.1:8080` by default |
+| `MIXLAB_SYNC_BIND` | Address to listen on. `127.0.0.1:8765` by default — **not 8080**, which MixEngine's own front end binds on a machine running MixLab |
 | `MIXLAB_SYNC_DATABASE` | The SQLite file. `mixlab-sync.db` by default |
-| `MIXLAB_SYNC_PUBLIC_URL` | What the verification link points at. Required in practice behind a proxy |
 | `MIXLAB_SYNC_PEPPER` | Keyed into the stored password verifier, so a stolen database is not a list of verifiers |
 | `MIXLAB_SYNC_EMAIL_API_KEY` | The email provider's key |
 | `MIXLAB_SYNC_EMAIL_FROM` | The address the two letters are sent from |
 | `MIXLAB_SYNC_EMAIL_ENDPOINT` | The provider's HTTP endpoint |
+| `MIXLAB_SYNC_EMAIL_PROVIDER` | `resend` or `mailtrap`. They differ in body shape and in the header that carries the key, which is why this is a name and not just a URL |
 | `MIXLAB_SYNC_MAX_RECORD_BYTES` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_MAX_BATCH_OPERATIONS` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_MAX_PAGE_RECORDS` | Reported by `/v1/capabilities` |
@@ -93,10 +96,13 @@ answers on: that string is what the verification link in the letter points at, a
 | `MIXLAB_SYNC_REGISTRATIONS_PER_HOUR` | How many accounts one source may open in an hour |
 | `MIXLAB_SYNC_RESETS_PER_HOUR` | How often one source may ask for a reset letter |
 | `MIXLAB_SYNC_LOGINS_PER_WINDOW` | Attempts on one account in fifteen minutes, right or wrong |
+| `MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW` | Codes tried against one account in fifteen minutes |
 | `MIXLAB_SYNC_TEST_OUTBOX` | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
-The three rate limits are not reported by `/v1/capabilities`, unlike every other number here:
-publishing the figure that stops abuse helps only the abuser.
+The four rate limits are not reported by `/v1/capabilities`, unlike every other number here:
+publishing the figure that stops abuse helps only the abuser. The verification one is the only
+allowance `../conformance/` deliberately exhausts — eight characters typed by a person are safe
+only because guessing is bounded, so that bound is part of the protocol.
 
 ## How it differs from the Worker, and where it does not
 

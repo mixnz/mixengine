@@ -28,13 +28,13 @@ FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
 COPY --from=build /src/target/release/mixlab-sync /usr/local/bin/mixlab-sync
 COPY --from=build --chown=65532:65532 /data /data
 
-ENV MIXLAB_SYNC_BIND=0.0.0.0:8080
+ENV MIXLAB_SYNC_BIND=0.0.0.0:8765
 ENV MIXLAB_SYNC_DATABASE=/data/mixlab-sync.db
 
 # The two secrets are not here and never will be. A container started without them refuses to
 # start and names what is missing, which is the difference between an afternoon and a weekend for
 # the first person who self-hosts this.
-EXPOSE 8080
+EXPOSE 8765
 VOLUME ["/data"]
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/mixlab-sync"]

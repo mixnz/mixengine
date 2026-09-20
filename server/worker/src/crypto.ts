@@ -9,9 +9,35 @@ function hex(bytes: ArrayBuffer | Uint8Array): string {
   return [...view].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-/** 32 random bytes as hex: a token, a device id, a link. */
+/** 32 random bytes as hex: a session token, a device id. Never something a person types. */
 export function randomToken(): string {
   return hex(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+/**
+ * Crockford base32: the alphabet without `I`, `L`, `O` and `U`, so nothing read off a screen is
+ * ambiguous. The same one the recovery key uses (D2), so a person learns one way of typing a code
+ * from this product rather than two.
+ */
+const BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const CODE_CHARS = 8;
+
+/** A code a person types, shown as `XXXX-XXXX`. Forty bits, which is why guessing is rate limited. */
+export function randomCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(CODE_CHARS));
+  const code = [...bytes].map((byte) => BASE32[byte % 32]).join("");
+  return `${code.slice(0, 4)}-${code.slice(4)}`;
+}
+
+/**
+ * Forgiving about case and separators, strict about the alphabet — the rule `parse_recovery_key`
+ * already applies on the client. A character outside the alphabet means the person has the wrong
+ * thing in front of them and should be told so.
+ */
+export function normaliseCode(presented: string): string | null {
+  const stripped = presented.toUpperCase().replace(/[\s-]/g, "");
+  if (stripped.length !== CODE_CHARS) return null;
+  return [...stripped].every((character) => BASE32.includes(character)) ? stripped : null;
 }
 
 export async function sha256Hex(value: string): Promise<string> {

@@ -31,6 +31,8 @@ pub struct Limits {
     pub registrations_per_hour: u64,
     pub resets_per_hour: u64,
     pub logins_per_window: u64,
+    /// Eight characters are only safe because this one is real (D4a).
+    pub verify_attempts_per_window: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -41,7 +43,7 @@ pub struct Config {
     pub email_api_key: Option<String>,
     pub email_from: String,
     pub email_endpoint: String,
-    pub public_url: String,
+    pub email_provider: crate::email::Provider,
     /// Serves `/__test__/outbox` and sends no mail. Never set on a real deployment.
     pub test_outbox: bool,
     pub limits: Limits,
@@ -89,13 +91,25 @@ impl Config {
                 missing.push("MIXLAB_SYNC_EMAIL_FROM");
             }
         }
+        let provider_name = text("MIXLAB_SYNC_EMAIL_PROVIDER").unwrap_or_else(|| "resend".into());
+        let email_provider = crate::email::Provider::parse(&provider_name);
+        // A name nobody implements is a piece of configuration that is missing rather than wrong:
+        // the deploy would otherwise succeed and the first letter would be the thing that failed.
+        if email_provider.is_none() {
+            missing.push("MIXLAB_SYNC_EMAIL_PROVIDER (one of: resend, mailtrap)");
+        }
+
         if !missing.is_empty() {
             return Err(missing);
         }
 
-        let bind = text("MIXLAB_SYNC_BIND").unwrap_or_else(|| "127.0.0.1:8080".to_owned());
+        // **Not 8080.** The machine most likely to run this is somebody's own, and on a MixLab
+        // machine 8080 is already taken: MixEngine's front end binds it to answer on 80 without
+        // privileges (`crates/mixengine-core/src/generate/recipes/caddy.rs`). A default that
+        // collides with the product it belongs to is a default that is wrong for its own audience.
+        // 8765 is not claimed anywhere in this repository; any port is still the operator's to set.
+        let bind = text("MIXLAB_SYNC_BIND").unwrap_or_else(|| "127.0.0.1:8765".to_owned());
         Ok(Self {
-            public_url: text("MIXLAB_SYNC_PUBLIC_URL").unwrap_or_else(|| format!("http://{bind}")),
             bind,
             database: text("MIXLAB_SYNC_DATABASE").unwrap_or_else(|| "mixlab-sync.db".to_owned()),
             pepper: pepper.unwrap_or_else(|| TEST_PEPPER.to_owned()),
@@ -103,11 +117,13 @@ impl Config {
             email_from: email_from.unwrap_or_else(|| "conformance@example.invalid".to_owned()),
             email_endpoint: text("MIXLAB_SYNC_EMAIL_ENDPOINT")
                 .unwrap_or_else(|| "https://api.resend.com/emails".to_owned()),
+            email_provider: email_provider.unwrap_or(crate::email::Provider::Resend),
             test_outbox,
             limits: Limits {
                 registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
                 resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),
                 logins_per_window: number("MIXLAB_SYNC_LOGINS_PER_WINDOW", 20),
+                verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
             },
             capabilities: Capabilities {
                 protocol_versions: vec!["v1".to_owned()],

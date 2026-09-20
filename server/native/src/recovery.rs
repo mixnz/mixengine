@@ -10,8 +10,8 @@ use rusqlite::{OptionalExtension, params};
 use serde_json::{Value, json};
 
 use crate::AppState;
-use crate::accounts::{authenticate, parse};
-use crate::crypto::{now, peppered, random_token, same_secret, sha256_hex};
+use crate::accounts::{authenticate, bad_code, parse};
+use crate::crypto::{normalise_code, now, peppered, random_code, same_secret, sha256_hex};
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
@@ -32,14 +32,6 @@ fn server_error(error: impl std::fmt::Display) -> Failure {
         StatusCode::INTERNAL_SERVER_ERROR,
         "server-error",
         "Something went wrong here.",
-    )
-}
-
-fn bad_code() -> Failure {
-    Failure::new(
-        StatusCode::BAD_REQUEST,
-        "invalid-token",
-        "That code is not usable.",
     )
 }
 
@@ -174,31 +166,34 @@ async fn ask(state: Arc<AppState>, headers: HeaderMap, email: String) -> Respons
                 )
                 .optional()?;
 
-            let token = account.map(|account_id| {
-                let token = random_token();
+            let code = account.map(|account_id| {
+                let code = random_code();
                 let _ = transaction.execute(
                     "INSERT INTO mail_token (hash, account_id, kind, expires_at)
                      VALUES (?1, ?2, ?3, ?4)",
                     params![
-                        sha256_hex(&token),
+                        sha256_hex(&code.replace('-', "")),
                         account_id,
                         LetterKind::Reset.as_str(),
                         now() + RESET_TOKEN_SECONDS
                     ],
                 );
-                token
+                code
             });
             transaction.commit()?;
-            Ok(Ok(token))
+            Ok(Ok(code))
         })
         .await;
 
     match outcome {
         Err(error) => server_error(error).into_response(),
         Ok(Err(seconds)) => crate::accounts::retry_after(seconds).into_response(),
-        Ok(Ok(token)) => {
-            if let Some(token) = token {
-                crate::accounts::deliver(&state, LetterKind::Reset, &email, &token).await;
+        Ok(Ok(code)) => {
+            if let Some(code) = code {
+                // A reset letter that cannot be sent still answers 202: saying otherwise would
+                // tell a stranger which addresses have an account, which is the whole reason this
+                // route answers the same either way.
+                let _ = crate::accounts::deliver(&state, LetterKind::Reset, &email, &code).await;
             }
             // **Always 202**, whether or not that address has an account. Registration has to
             // refuse a taken address and therefore leaks one; this route has no such obligation,
@@ -208,7 +203,15 @@ async fn ask(state: Arc<AppState>, headers: HeaderMap, email: String) -> Respons
     }
 }
 
-async fn complete(state: Arc<AppState>, fields: Value, email: String, token: String) -> Response {
+async fn complete(
+    state: Arc<AppState>,
+    fields: Value,
+    email: String,
+    presented: String,
+) -> Response {
+    let Some(code) = normalise_code(&presented) else {
+        return bad_code().into_response();
+    };
     let (Some(a), Some(salt), Some(wrapped_password), Some(wrapped_recovery)) = (
         field(&fields, "a"),
         field(&fields, "saltAccount"),
@@ -241,7 +244,7 @@ async fn complete(state: Arc<AppState>, fields: Value, email: String, token: Str
                 transaction.commit()?;
                 return Ok(None);
             };
-            if !crate::accounts::spend(&transaction, account_id, &token, LetterKind::Reset)? {
+            if !crate::accounts::spend(&transaction, account_id, &code, LetterKind::Reset)? {
                 transaction.commit()?;
                 return Ok(None);
             }

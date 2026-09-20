@@ -45,6 +45,11 @@ against a server that had learned to do it.
 `/v1/capabilities` (D4a). The suite asserts that a server honours the value it reported, never that
 it reported a particular one.
 
+**One allowance is the exception, and it is exhausted on purpose.** Verification takes a code a
+person types — eight characters — and forty bits is only safe because guessing is bounded. That
+bound is therefore part of the protocol rather than a deployment detail, and a server without it
+would pass everything else here. Every *other* limit the suite only reads.
+
 ## Two things it cannot reach on its own
 
 Both skip loudly rather than passing quietly — a skipped test that announces itself is honest, and

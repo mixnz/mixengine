@@ -42,20 +42,65 @@ describe("verifying an address", () => {
     expect(replay.body.error.code).toBe("invalid-token");
   });
 
-  it("serves the emailed link as a page, and does not spend the token doing it", async () => {
-    // Mail scanners and link previewers fetch every URL in a message. A GET that verified would be
-    // spent before the person read the letter, and the bug would read as "the link never works".
+  it("sends a code a person can type, not a link", async () => {
+    // A link would need the server to know the address it is reachable at — a setting that is
+    // wrong silently until somebody clicks one — and mail scanners fetch every URL in a message.
+    // This is a desktop application: the person is already in front of the window (D4a).
     const account = newAccount();
     await register(account);
-    const token = await latestToken(account.email, "verification");
+    const code = await latestToken(account.email, "verification");
 
-    const query = new URLSearchParams({ email: account.email, token });
-    const page = await fetch(`${baseUrl()}/v1/auth/verify?${query}`);
-    expect(page.status).toBe(200);
-    expect(page.headers.get("content-type") ?? "").toContain("text/html");
+    expect(code).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/);
+    expect(code).not.toContain("http");
+  });
 
-    const completed = await call("/v1/auth/verify", { body: { email: account.email, token } });
-    expect(completed.status).toBe(200);
+  it("accepts the code however it was typed", async () => {
+    // Forgiving about case and separators, which is how a person retypes something read off a
+    // screen — the rule the recovery key already follows, so there is one way to type a code.
+    const account = newAccount();
+    await register(account);
+    const code = await latestToken(account.email, "verification");
+
+    const retyped = code.toLowerCase().replace("-", " ");
+    const result = await call("/v1/auth/verify", { body: { email: account.email, token: retyped } });
+    expect(result.status).toBe(200);
+  });
+
+  it("refuses a character the alphabet does not have", async () => {
+    // Strict about the alphabet: `I`, `L`, `O` and `U` are not in it, so a code containing one
+    // means the person has the wrong thing in front of them and should be told so.
+    const account = newAccount();
+    await register(account);
+
+    const result = await call<ErrorBody>("/v1/auth/verify", {
+      body: { email: account.email, token: "IIII-IIII" },
+    });
+    expect(result.status).toBe(400);
+    expect(result.body.error.code).toBe("invalid-token");
+  });
+
+  it("stops somebody guessing at eight characters", async () => {
+    // **The one allowance this suite deliberately exhausts.** Forty bits typed by a person is
+    // only safe because guessing is bounded, so the bound is part of the protocol rather than a
+    // deployment detail, and a server without it would pass everything else here (D4a).
+    const account = newAccount();
+    await register(account);
+
+    let refusal: Awaited<ReturnType<typeof call<ErrorBody>>> | undefined;
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const result = await call<ErrorBody>("/v1/auth/verify", {
+        body: { email: account.email, token: "ZZZZ-ZZZZ" },
+      });
+      if (result.status === 429) {
+        refusal = result;
+        break;
+      }
+      expect(result.status).toBe(400);
+    }
+
+    expect(refusal, "a wrong code could be tried forty times").toBeDefined();
+    expect(refusal?.body.error.code).toBe("too-many-requests");
+    expect(Number(refusal?.headers.get("retry-after"))).toBeGreaterThan(0);
   });
 
   it("refuses to sign in until the address is verified", async () => {

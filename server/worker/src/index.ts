@@ -26,62 +26,6 @@ function capabilities(reported: Capabilities): Response {
   return json(200, reported, { "Cache-Control": "public, max-age=3600" });
 }
 
-/**
- * The page the emailed link opens. **It does not spend the token**: mail scanners and link
- * previewers fetch every URL in a message, and a `GET` that verified would be spent before the
- * person read the letter — a bug that reads as "the link never works" and is nearly impossible to
- * reproduce. The button posts, and the post is what verifies (D4a).
- *
- * The one piece of HTML in this server, and it validates nothing, so it reaches no object.
- */
-function verificationPage(email: string, token: string): Response {
-  const escape = (value: string) =>
-    value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
-
-  return new Response(
-    `<!doctype html>
-<html lang="en">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Confirm your MixLab address</title>
-<style>
-  body { font: 16px/1.5 system-ui, sans-serif; margin: 0; display: grid; place-items: center;
-         min-height: 100vh; background: #f6f7f9; color: #14161a; }
-  main { background: #fff; padding: 2rem; border-radius: 12px; max-width: 26rem;
-         box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
-  h1 { font-size: 1.25rem; margin: 0 0 0.5rem; }
-  p { margin: 0 0 1.5rem; color: #4a5059; }
-  button { font: inherit; padding: 0.6rem 1.2rem; border: 0; border-radius: 8px;
-           background: #14161a; color: #fff; cursor: pointer; }
-</style>
-<main>
-  <h1>Confirm your address</h1>
-  <p>${escape(email)}</p>
-  <form method="post" action="/v1/auth/verify" enctype="application/json">
-    <button type="submit" id="confirm">Confirm</button>
-  </form>
-  <p id="done" hidden>Confirmed. You can sign in to MixLab now.</p>
-</main>
-<script type="module">
-  const form = document.querySelector("form");
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const response = await fetch("/v1/auth/verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: ${JSON.stringify(email)}, token: ${JSON.stringify(token)} }),
-    });
-    form.hidden = true;
-    const done = document.querySelector("#done");
-    done.hidden = false;
-    if (!response.ok) done.textContent = "That link is not usable. Ask MixLab for another.";
-  });
-</script>
-</html>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
-}
-
 /** The object that holds an address. This is the whole of what replaces an index (D8). */
 async function objectForEmail(env: Env, email: string): Promise<DurableObjectStub> {
   return env.ACCOUNT.get(env.ACCOUNT.idFromName(await accountName(email)));
@@ -137,13 +81,6 @@ export default {
       return request.method === "GET" ? capabilities(config.capabilities) : methodNotAllowed();
     }
 
-    if (path === "/v1/auth/verify" && request.method === "GET") {
-      const email = url.searchParams.get("email");
-      const token = url.searchParams.get("token");
-      if (!isEmail(email) || !token) return notFound();
-      return verificationPage(email, token);
-    }
-
     // Read once, here: routing needs the address out of the body, and a body can only be read
     // once. Everything downstream is handed the text.
     const body = request.method === "GET" || request.method === "DELETE" ? null : await request.text();
@@ -156,6 +93,9 @@ export default {
     }
 
     if (BY_EMAIL.has(path)) {
+      // These four take a body and nothing else. **There is no link to click** (D4a), so there is
+      // no GET here to serve a page for.
+      if (request.method !== "POST") return methodNotAllowed();
       const fields = asObject(body === null ? null : safeParse(body));
       const email = fields?.["email"];
       if (!isEmail(email)) return fail(400, "invalid-request", "An address is required.");

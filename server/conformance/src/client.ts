@@ -173,8 +173,8 @@ export async function register(account: Account): Promise<Result<unknown>> {
 }
 
 export async function verify(account: Account): Promise<Result<unknown>> {
-  const token = await latestToken(account.email, "verification");
-  return call("/v1/auth/verify", { body: { email: account.email, token } });
+  const code = await latestToken(account.email, "verification");
+  return call("/v1/auth/verify", { body: { email: account.email, token: code } });
 }
 
 export async function login(account: Account, deviceName = "conformance"): Promise<Session> {

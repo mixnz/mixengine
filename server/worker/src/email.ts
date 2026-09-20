@@ -19,9 +19,8 @@ export type LetterKind = "verification" | "reset";
 export interface Letter {
   kind: LetterKind;
   to: string;
-  token: string;
-  /** Where the address is confirmed, for the one letter that carries a link. */
-  verifyUrl?: string;
+  /** What the person types back. **Not a link** — see D4a for the three reasons. */
+  code: string;
 }
 
 export interface EmailSender {
@@ -35,18 +34,18 @@ function subject(kind: LetterKind): string {
 function text(letter: Letter): string {
   if (letter.kind === "verification") {
     return [
-      "Confirm this address to finish setting up your MixLab account:",
+      "Type this code into MixLab to confirm your address:",
       "",
-      letter.verifyUrl ?? letter.token,
+      `    ${letter.code}`,
       "",
-      "The link works for 24 hours. If you did not ask for an account, ignore this message —",
+      "It works for 24 hours. If you did not ask for an account, ignore this message —",
       "nothing was created that you have to undo.",
     ].join("\n");
   }
   return [
     "Somebody asked to reset the password on this MixLab account. The code is:",
     "",
-    letter.token,
+    `    ${letter.code}`,
     "",
     "It works for one hour.",
     "",
@@ -59,34 +58,47 @@ function text(letter: Letter): string {
 }
 
 /**
- * A provider with an HTTP API, in the shape most of them use: a bearer key and a JSON body. Adding
- * a second provider is a second class here and one line in `senderFor` — which is the whole reason
- * this interface exists.
+ * **Two providers, because one does not prove anything.** The paragraph above claims the provider
+ * is replaceable; a single implementation cannot test that claim, in exactly the way `/v1` needs
+ * two servers before it is a protocol rather than a description of one.
+ *
+ * They differ in more than a URL — the body shape and the header that carries the key are both
+ * per-provider, which is the thing a "just change the endpoint" design gets wrong.
  */
+export type ProviderName = "resend" | "mailtrap";
+
+export function isProviderName(value: string): value is ProviderName {
+  return value === "resend" || value === "mailtrap";
+}
+
 class HttpProvider implements EmailSender {
   constructor(
+    private readonly provider: ProviderName,
     private readonly endpoint: string,
     private readonly key: string,
     private readonly from: string,
   ) {}
 
   async send(letter: Letter): Promise<void> {
+    const body =
+      this.provider === "resend"
+        ? { from: this.from, to: [letter.to] }
+        : { from: { email: this.from }, to: [{ email: letter.to }] };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.provider === "resend") headers["Authorization"] = `Bearer ${this.key}`;
+    else headers["Api-Token"] = this.key;
+
     const response = await fetch(this.endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: this.from,
-        to: [letter.to],
-        subject: subject(letter.kind),
-        text: text(letter),
-      }),
+      headers,
+      body: JSON.stringify({ ...body, subject: subject(letter.kind), text: text(letter) }),
     });
     if (!response.ok) {
-      // Loud, because the alternative is a person waiting for a letter that was never sent.
-      throw new Error(`the email provider answered ${response.status}`);
+      // The body, not just the status: a provider that refuses a message says why, and that
+      // sentence is the difference between a minute and an afternoon.
+      throw new Error(
+        `the email provider answered ${response.status}: ${await response.text().catch(() => "")}`,
+      );
     }
   }
 }
@@ -95,7 +107,12 @@ export function senderFor(config: Config): EmailSender | null {
   // In test-outbox mode nothing is sent: the object records the letter in a table the suite reads,
   // because no HTTP suite can read an inbox. `null` is what says "record it instead".
   if (config.testOutbox || !config.emailApiKey) return null;
-  return new HttpProvider(config.emailEndpoint, config.emailApiKey, config.emailFrom);
+  return new HttpProvider(
+    config.emailProvider,
+    config.emailEndpoint,
+    config.emailApiKey,
+    config.emailFrom,
+  );
 }
 
 export { subject, text };

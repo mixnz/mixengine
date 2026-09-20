@@ -15,7 +15,14 @@
 // **Nothing in here parses a ciphertext.**
 
 import { readConfig, type Config, type Env } from "./config";
-import { peppered, randomToken, sameSecret, sha256Hex } from "./crypto";
+import {
+  normaliseCode,
+  peppered,
+  randomCode,
+  randomToken,
+  sameSecret,
+  sha256Hex,
+} from "./crypto";
 import { senderFor, type LetterKind } from "./email";
 import { fail, json, notFound } from "./http";
 import {
@@ -45,6 +52,9 @@ const now = (): number => Math.floor(Date.now() / 1000);
 
 /** A token is `<object name>.<secret>`; only the second half is stored, and only as its hash. */
 const secretOf = (token: string): string => token.split(".").at(-1) ?? "";
+
+/** Wrong, expired and already-used answer alike: the sentence a person needs is the same. */
+const badCode = (): Response => fail(400, "invalid-token", "That code is not usable.");
 
 /** `If-Match: "41"` and `If-None-Match: *`, which are how a write states what it believes. */
 function readPrecondition(headers: Headers): Precondition {
@@ -98,9 +108,9 @@ export class Account implements DurableObject {
 
     switch (`${request.method} ${url.pathname}`) {
       case "POST /v1/auth/register":
-        return this.register(config, body, url);
+        return this.register(config, body);
       case "POST /v1/auth/verify":
-        return this.verifyAddress(body);
+        return this.verifyAddress(config, body);
       case "POST /v1/auth/login":
         return this.login(config, body);
       case "POST /v1/auth/refresh":
@@ -108,7 +118,7 @@ export class Account implements DurableObject {
       case "POST /v1/auth/password":
         return this.changePassword(config, request, body);
       case "POST /v1/auth/reset":
-        return this.reset(config, body, url);
+        return this.reset(config, body);
       case "GET /v1/devices":
         return this.listDevices(request);
       case "GET /v1/records":
@@ -230,7 +240,7 @@ export class Account implements DurableObject {
 
   // --- the account itself ------------------------------------------------------------------
 
-  private async register(config: Config, body: unknown, url: URL): Promise<Response> {
+  private async register(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
     if (
       !fields ||
@@ -255,9 +265,15 @@ export class Account implements DurableObject {
 
     // The race settles here and nowhere else: two attempts on one address reach one object, and
     // the second finds this row (D8).
-    if (this.account()) {
+    const existing = this.account();
+    if (existing?.verified === 1) {
       return fail(409, "email-taken", "That address already has an account.");
     }
+    // **An unverified account is replaced rather than defended.** A verification token lives a day;
+    // once it expires the person cannot verify, cannot register again, and cannot reset — a reset
+    // is only offered to an address that proved itself. Replacing loses nothing, because D4 forbids
+    // writing any record before verification, so there is never anything there to lose.
+    if (existing) this.wipe();
 
     this.sql.exec(
       `INSERT INTO account (id, email, verifier, salt_account, argon_m, argon_t, argon_p,
@@ -274,25 +290,40 @@ export class Account implements DurableObject {
       now(),
     );
 
-    await this.sendLetter(config, "verification", url);
+    // **Registration is not complete until the letter is accepted.** Keeping an account whose
+    // letter never went out would hand somebody an address they can never use and never free.
+    if (!(await this.sendLetter(config, "verification"))) {
+      this.wipe();
+      return fail(
+        502,
+        "letter-not-sent",
+        "This server could not send the confirmation letter, so no account was made.",
+      );
+    }
     return json(201, {});
   }
 
-  private async verifyAddress(body: unknown): Promise<Response> {
-    const fields = asObject(body);
-    const token = fields?.["token"];
-    if (typeof token !== "string") return fail(400, "invalid-token", "That link is not usable.");
+  private async verifyAddress(config: Config, body: unknown): Promise<Response> {
+    // **Eight characters are only safe because guessing is bounded** (D4a). Counted before the
+    // code is looked at, so a wrong one costs an attempt whatever was wrong about it.
+    const retryAfter = this.tooMany(
+      "verify",
+      config.limits.verifyAttemptsPerWindow,
+      LOGIN_WINDOW_SECONDS,
+    );
+    if (retryAfter !== null) {
+      return fail(429, "too-many-requests", "Too many codes tried on this account.", {}, {
+        "Retry-After": String(retryAfter),
+      });
+    }
 
+    const presented = asObject(body)?.["token"];
+    const code = typeof presented === "string" ? normaliseCode(presented) : null;
     const account = this.account();
-    if (!account) return fail(400, "invalid-token", "That link is not usable.");
-    if (account.verified === 1) {
-      // Already verified and the token already spent look alike on purpose: wrong, expired and
-      // used answer with one code, because the sentence a person needs is the same (D4a).
-      return fail(400, "invalid-token", "That link is not usable.");
-    }
-    if (!(await this.spendMailToken(token, "verification"))) {
-      return fail(400, "invalid-token", "That link is not usable.");
-    }
+    // Already verified, a spent code and a wrong one look alike on purpose: the sentence a
+    // person needs is the same in all three cases (D4a).
+    if (!code || !account || account.verified === 1) return badCode();
+    if (!(await this.spendMailToken(code, "verification"))) return badCode();
 
     this.sql.exec(`UPDATE account SET verified = 1 WHERE id = 1`);
     return json(200, {});
@@ -345,18 +376,21 @@ export class Account implements DurableObject {
    * under an MK no surviving key unwraps, so leaving them would leave an account full of bytes
    * that decrypt for nobody.
    */
-  private async reset(config: Config, body: unknown, url: URL): Promise<Response> {
+  private async reset(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
     if (!fields) return fail(400, "invalid-request", "An address is required.");
 
     if (fields["token"] === undefined) {
       const account = this.account();
-      if (account && account.verified === 1) await this.sendLetter(config, "reset", url);
+      // A reset letter that could not be sent still answers 202: saying otherwise would tell a
+      // stranger which addresses have an account, which is the whole point of this answer.
+      if (account && account.verified === 1) await this.sendLetter(config, "reset");
       return json(202, {});
     }
 
+    const code = typeof fields["token"] === "string" ? normaliseCode(fields["token"]) : null;
     if (
-      typeof fields["token"] !== "string" ||
+      code === null ||
       !isBase64(fields["a"]) ||
       !isBase64(fields["saltAccount"]) ||
       !isBase64(fields["wrappedMkPassword"]) ||
@@ -364,7 +398,7 @@ export class Account implements DurableObject {
     ) {
       return fail(400, "invalid-token", "That code is not usable.");
     }
-    if (!this.account() || !(await this.spendMailToken(fields["token"], "reset"))) {
+    if (!this.account() || !(await this.spendMailToken(code, "reset"))) {
       return fail(400, "invalid-token", "That code is not usable.");
     }
 
@@ -502,6 +536,13 @@ export class Account implements DurableObject {
 
   // --- the small things everything else stands on ------------------------------------------
 
+  /** Everything this object holds about one account, for when the account stops existing. */
+  private wipe(): void {
+    for (const table of ["record", "token", "mail_token", "outbox", "device", "attempt", "account"]) {
+      this.sql.exec(`DELETE FROM ${table}`);
+    }
+  }
+
   private account(): AccountRow | null {
     return this.sql.exec<AccountRow>(`SELECT * FROM account WHERE id = 1`).toArray()[0] ?? null;
   }
@@ -572,8 +613,8 @@ export class Account implements DurableObject {
     return { deviceId: row.device_id };
   }
 
-  private async spendMailToken(presented: string, kind: LetterKind): Promise<boolean> {
-    const hash = await sha256Hex(presented);
+  private async spendMailToken(code: string, kind: LetterKind): Promise<boolean> {
+    const hash = await sha256Hex(code);
     const row = this.sql
       .exec<{ hash: string; kind: string; expires_at: number; used: number }>(
         `SELECT * FROM mail_token WHERE hash = ?`,
@@ -657,15 +698,16 @@ export class Account implements DurableObject {
     await this.scheduleReaping(days);
   }
 
-  private async sendLetter(config: Config, kind: LetterKind, url: URL): Promise<void> {
+  /** `false` means the provider refused it, and the caller decides what that costs. */
+  private async sendLetter(config: Config, kind: LetterKind): Promise<boolean> {
     const account = this.account();
-    if (!account) return;
+    if (!account) return false;
 
-    const token = randomToken();
+    const code = randomCode();
     const lifetime = kind === "verification" ? VERIFICATION_TOKEN_SECONDS : RESET_TOKEN_SECONDS;
     this.sql.exec(
       `INSERT INTO mail_token (hash, kind, expires_at) VALUES (?, ?, ?)`,
-      await sha256Hex(token),
+      await sha256Hex(code.replace("-", "")),
       kind,
       now() + lifetime,
     );
@@ -675,18 +717,18 @@ export class Account implements DurableObject {
       this.sql.exec(
         `INSERT INTO outbox (kind, token, sent_at) VALUES (?, ?, ?)`,
         kind,
-        token,
+        code,
         now(),
       );
-      return;
+      return true;
     }
 
-    const query = new URLSearchParams({ email: account.email, token });
-    await sender.send({
-      kind,
-      to: account.email,
-      token,
-      verifyUrl: `${url.origin}/v1/auth/verify?${query}`,
-    });
+    try {
+      await sender.send({ kind, to: account.email, code });
+      return true;
+    } catch (reason) {
+      console.error(`could not send the ${kind} letter:`, reason);
+      return false;
+    }
   }
 }

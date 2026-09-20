@@ -5,6 +5,8 @@
 // `503` carrying the names. The failure it replaces is otherwise invisible: the deploy succeeds,
 // registration succeeds, and a person waits for a letter that was never sent.
 
+import { isProviderName } from "./email";
+
 export interface Env {
   ACCOUNT: DurableObjectNamespace;
   SOURCE_LIMIT: DurableObjectNamespace;
@@ -17,6 +19,8 @@ export interface Env {
   EMAIL_FROM?: string;
   /** The provider's HTTP endpoint. A provider is a deployment decision, not a protocol one. */
   EMAIL_ENDPOINT?: string;
+  /** `resend` or `mailtrap`. They differ in body shape and in the header that carries the key. */
+  EMAIL_PROVIDER?: string;
 
   /** `"1"` serves `/__test__/outbox` and sends no mail. Never set this on a real deployment. */
   TEST_OUTBOX?: string;
@@ -26,6 +30,9 @@ export interface Env {
   RESETS_PER_HOUR?: string;
   /** How many times one account may be signed in to, right or wrong, in fifteen minutes. */
   LOGINS_PER_WINDOW?: string;
+  /** How many codes may be tried against one account in fifteen minutes. Eight characters are
+   *  only safe because this one is real (D4a). */
+  VERIFY_ATTEMPTS_PER_WINDOW?: string;
 
   MAX_RECORD_BYTES?: string;
   MAX_BATCH_OPERATIONS?: string;
@@ -49,12 +56,18 @@ export interface Config {
   emailApiKey: string | null;
   emailFrom: string;
   emailEndpoint: string;
+  emailProvider: import("./email").ProviderName;
   testOutbox: boolean;
   /**
    * Not reported by `/v1/capabilities`, deliberately: publishing the number that stops abuse helps
    * only the abuser (D4a).
    */
-  limits: { registrationsPerHour: number; resetsPerHour: number; loginsPerWindow: number };
+  limits: {
+    registrationsPerHour: number;
+    resetsPerHour: number;
+    loginsPerWindow: number;
+    verifyAttemptsPerWindow: number;
+  };
   capabilities: Capabilities;
 }
 
@@ -89,10 +102,14 @@ export function readConfig(env: Env): ConfigResult {
 
   // In test-outbox mode nothing is emailed, so a provider key would have no use; every other
   // deployment needs one, and a silent absence is the failure this check exists for.
+  const providerName = env.EMAIL_PROVIDER ?? "resend";
   if (!testOutbox) {
     if (!env.PEPPER) missing.push("PEPPER");
     if (!env.EMAIL_API_KEY) missing.push("EMAIL_API_KEY");
     if (!env.EMAIL_FROM) missing.push("EMAIL_FROM");
+    // A name nobody implements is configuration that is missing rather than wrong: the deploy
+    // would otherwise succeed and the first letter would be the thing that failed.
+    if (!isProviderName(providerName)) missing.push("EMAIL_PROVIDER (one of: resend, mailtrap)");
   }
   if (missing.length > 0) return { ok: false, missing };
 
@@ -103,11 +120,13 @@ export function readConfig(env: Env): ConfigResult {
       emailApiKey: env.EMAIL_API_KEY ?? null,
       emailFrom: env.EMAIL_FROM ?? "conformance@example.invalid",
       emailEndpoint: env.EMAIL_ENDPOINT ?? "https://api.resend.com/emails",
+      emailProvider: isProviderName(providerName) ? providerName : "resend",
       testOutbox,
       limits: {
         registrationsPerHour: number(env.REGISTRATIONS_PER_HOUR, 10),
         resetsPerHour: number(env.RESETS_PER_HOUR, 10),
         loginsPerWindow: number(env.LOGINS_PER_WINDOW, 20),
+        verifyAttemptsPerWindow: number(env.VERIFY_ATTEMPTS_PER_WINDOW, 10),
       },
       capabilities: {
         protocolVersions: ["v1"],
