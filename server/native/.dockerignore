@@ -1,0 +1,10 @@
+# The build context is tarred and sent to the daemon before the first line of the Dockerfile runs,
+# so anything left here is paid for on every build. `target/` alone is gigabytes, and the image is
+# built from source inside the container anyway.
+target/
+*.db
+*.db-shm
+*.db-wal
+Dockerfile
+.dockerignore
+README.md
