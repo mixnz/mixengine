@@ -10,7 +10,6 @@
     "opener:allow-reveal-item-in-dir",
     "dialog:default",
     "store:default",
-    "clipboard-manager:allow-read-text",
     "log:default"
   ]
 }

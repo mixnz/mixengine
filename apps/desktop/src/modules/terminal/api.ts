@@ -46,3 +46,8 @@ export function resizeSession(id: string, cols: number, rows: number): Promise<v
 export function closeSession(id: string): Promise<void> {
   return invoke("terminal_close", { id });
 }
+
+/** Văn bản trên clipboard hệ thống. Rust đọc hộ — `src-tauri/src/modules/terminal/commands.rs`. */
+export function terminalClipboardText(): Promise<string> {
+  return invoke<string>("terminal_clipboard_text");
+}
