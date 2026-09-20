@@ -21,6 +21,8 @@ use crate::http::{Failure, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
 
 const RESET_TOKEN_SECONDS: i64 = 60 * 60;
+/// The kind a reset ticket is stored under, beside the letters and never sent as one (D6).
+const RESET_TICKET_KIND: &str = "reset-ticket";
 const SOURCE_WINDOW_SECONDS: i64 = 60 * 60;
 
 /// Fixed lengths, for the reason `accounts::sized_field` gives (D4a).
@@ -138,9 +140,19 @@ pub async fn reset(
     };
     let email = email.trim().to_lowercase();
 
-    match fields.get("token").and_then(Value::as_str) {
-        None => ask(state, headers, email).await,
-        Some(token) => complete(state, fields.clone(), email, token.to_owned()).await,
+    match (
+        fields.get("ticket").and_then(Value::as_str),
+        fields.get("token").and_then(Value::as_str),
+    ) {
+        // D6 case 2, second request: the ticket was earned by spending the code.
+        (Some(ticket), _) => keep(state, fields.clone(), email, ticket.to_owned()).await,
+        // D6 case 2, first request: a code and nothing else asks for the wrapped key.
+        (None, Some(token)) if fields.get("a").is_none() => {
+            open(state, email, token.to_owned()).await
+        }
+        // D6 case 3, unchanged: the code carries the new keys and the records go.
+        (None, Some(token)) => complete(state, fields.clone(), email, token.to_owned()).await,
+        (None, None) => ask(state, headers, email).await,
     }
 }
 
@@ -317,5 +329,144 @@ async fn complete(
         Ok(Some(records_deleted)) => {
             Json(json!({ "recordsDeleted": records_deleted })).into_response()
         }
+    }
+}
+
+/// **D6 case 2, first request.** A code and nothing else asks for the copy of `MK` wrapped under
+/// the recovery key. Spending the code here is what earns it, so one code cannot mint two tickets.
+async fn open(state: Arc<AppState>, email: String, presented: String) -> Response {
+    let Some(code) = normalise_code(&presented) else {
+        return bad_code().into_response();
+    };
+    let key = account_key(&email);
+    let lifetime = state.config.limits.reset_ticket_seconds;
+
+    let outcome = state
+        .db
+        .call(move |connection| {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let account: Option<(i64, String)> = transaction
+                .query_row(
+                    "SELECT id, wrapped_mk_recovery FROM account
+                     WHERE account_key = ?1 AND verified = 1",
+                    params![key],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+
+            let Some((account_id, wrapped_recovery)) = account else {
+                transaction.commit()?;
+                return Ok(None);
+            };
+            if !crate::accounts::spend(&transaction, account_id, &code, LetterKind::Reset)? {
+                transaction.commit()?;
+                return Ok(None);
+            }
+
+            let ticket = crate::crypto::random_token();
+            transaction.execute(
+                "INSERT INTO mail_token (hash, account_id, kind, expires_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![
+                    sha256_hex(&ticket),
+                    account_id,
+                    RESET_TICKET_KIND,
+                    now() + lifetime
+                ],
+            )?;
+            transaction.commit()?;
+            Ok(Some((wrapped_recovery, ticket)))
+        })
+        .await;
+
+    match outcome {
+        Err(error) => server_error(error).into_response(),
+        Ok(None) => bad_code().into_response(),
+        Ok(Some((wrapped_recovery, ticket))) => Json(json!({
+            "wrappedMkRecovery": wrapped_recovery,
+            "ticket": ticket,
+            "expiresIn": lifetime,
+        }))
+        .into_response(),
+    }
+}
+
+/// **D6 case 2, second request.** The client unwrapped `MK` with the recovery key and is setting a
+/// new password. The records stay, because the client says it re-wrapped the same `MK` — which
+/// this server cannot check and does not try.
+async fn keep(state: Arc<AppState>, fields: Value, email: String, ticket: String) -> Response {
+    let (Some(a), Some(salt), Some(wrapped_password), Some(wrapped_recovery)) = (
+        field(&fields, "a", VERIFIER_BYTES),
+        field(&fields, "saltAccount", SALT_BYTES),
+        field(&fields, "wrappedMkPassword", WRAPPED_KEY_BYTES),
+        field(&fields, "wrappedMkRecovery", WRAPPED_KEY_BYTES),
+    ) else {
+        return invalid_request("A verifier, a salt and two wrapped keys.").into_response();
+    };
+
+    let key = account_key(&email);
+    let verifier = peppered(&state.config.pepper, a);
+    let (salt, wrapped_password, wrapped_recovery) = (
+        salt.to_owned(),
+        wrapped_password.to_owned(),
+        wrapped_recovery.to_owned(),
+    );
+
+    let outcome = state
+        .db
+        .call(move |connection| {
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let account_id: Option<i64> = transaction
+                .query_row(
+                    "SELECT id FROM account WHERE account_key = ?1",
+                    params![key],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            let Some(account_id) = account_id else {
+                transaction.commit()?;
+                return Ok(false);
+            };
+            if !crate::accounts::spend_kind(&transaction, account_id, &ticket, RESET_TICKET_KIND)? {
+                transaction.commit()?;
+                return Ok(false);
+            }
+
+            transaction.execute(
+                "UPDATE account SET verifier = ?1, salt_account = ?2, wrapped_mk_password = ?3,
+                                    wrapped_mk_recovery = ?4
+                 WHERE id = ?5",
+                params![
+                    verifier,
+                    salt,
+                    wrapped_password,
+                    wrapped_recovery,
+                    account_id
+                ],
+            )?;
+            // Every machine is signed out, as in case 3. **`record`, `stored_bytes` and `next_seq`
+            // are untouched**: a machine still holding a cursor must not be told that nothing has
+            // changed.
+            transaction.execute(
+                "DELETE FROM token WHERE account_id = ?1",
+                params![account_id],
+            )?;
+            transaction.commit()?;
+            Ok(true)
+        })
+        .await;
+
+    match outcome {
+        Err(error) => server_error(error).into_response(),
+        Ok(false) => Failure::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid-token",
+            "That ticket is not usable.",
+        )
+        .into_response(),
+        Ok(true) => Json(json!({ "recordsDeleted": 0 })).into_response(),
     }
 }

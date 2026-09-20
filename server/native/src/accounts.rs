@@ -579,12 +579,23 @@ pub(crate) fn spend(
     presented: &str,
     kind: LetterKind,
 ) -> rusqlite::Result<bool> {
+    spend_kind(connection, account_id, presented, kind.as_str())
+}
+
+/// The same, for a token that is not a letter. **A reset ticket has no message** and must never
+/// reach the letter composer, so it is a kind rather than a `LetterKind` (D6).
+pub(crate) fn spend_kind(
+    connection: &Connection,
+    account_id: i64,
+    presented: &str,
+    kind: &str,
+) -> rusqlite::Result<bool> {
     let hash = sha256_hex(presented);
     let found: Option<i64> = connection
         .query_row(
             "SELECT 1 FROM mail_token
              WHERE hash = ?1 AND account_id = ?2 AND kind = ?3 AND used = 0 AND expires_at > ?4",
-            params![hash, account_id, kind.as_str(), now()],
+            params![hash, account_id, kind, now()],
             |row| row.get(0),
         )
         .optional()?;

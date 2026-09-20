@@ -46,6 +46,9 @@ pub struct Limits {
     /// How many letters one address may receive in an hour. Small: somebody who did not get
     /// the letter asks again once or twice, and a mailbox is a fixed target (D4a).
     pub letters_per_account_per_hour: u64,
+    /// How long the ticket from a recovery-key reset lasts. Long enough to type a new
+    /// password twice, short enough that one left in a log is worthless when it is read (D6).
+    pub reset_ticket_seconds: i64,
 }
 
 #[derive(Clone, Debug)]
@@ -243,6 +246,7 @@ impl Config {
                 auth_per_hour: number("MIXLAB_SYNC_AUTH_PER_HOUR", 300),
                 verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
                 letters_per_account_per_hour: number("MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR", 3),
+                reset_ticket_seconds: number("MIXLAB_SYNC_RESET_TICKET_SECONDS", 600) as i64,
             },
             capabilities: Capabilities {
                 protocol_versions: vec!["v1".to_owned()],
