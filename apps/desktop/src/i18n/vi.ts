@@ -189,6 +189,9 @@ const vi: SharedDict = {
     syncCannotUnwrapKey: "Sai mật khẩu, hoặc khóa của tài khoản này đã hỏng.",
     syncRecoveryKeyUnreadable:
       "Đây không phải khóa khôi phục. Đối chiếu lại với bản bạn đã ghi.",
+    syncCannotSealRecord: "Không mã hóa được mục này để đồng bộ.",
+    syncCannotOpenRecord:
+      "Không đọc được một mục từ máy chủ. Có thể nó đã bị sửa đổi.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng

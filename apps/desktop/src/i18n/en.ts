@@ -206,6 +206,9 @@ const en = {
     syncCannotUnwrapKey: "Wrong password, or this account's key has been damaged.",
     syncRecoveryKeyUnreadable:
       "That is not a recovery key. Check it against what you wrote down.",
+    syncCannotSealRecord: "Could not encrypt this item for sync.",
+    syncCannotOpenRecord:
+      "An item from the server could not be read. It may have been tampered with.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

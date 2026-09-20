@@ -6,7 +6,7 @@
 
 use crate::error::AppError;
 use argon2::{Algorithm, Argon2, Params, Version};
-use chacha20poly1305::aead::{Aead, KeyInit};
+use chacha20poly1305::aead::{Aead, KeyInit, Payload};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
 use hmac::{Hmac, Mac};
@@ -258,6 +258,79 @@ pub fn opaque_id(id_key: &[u8; 32], name: &str) -> String {
         })
 }
 
+/// Where a record lives, and the fact of its deletion.
+///
+/// **This is the associated data** — the design's D3. Without it a server could move a blob into
+/// another record's slot, or unset a deletion, and the client would decrypt it happily. With it,
+/// either edit fails authentication rather than arriving as plausible data.
+pub struct RecordAddress<'a> {
+    pub collection: &'a str,
+    pub id: &'a str,
+    pub deleted: bool,
+}
+
+impl RecordAddress<'_> {
+    /// `collection || id || deleted`, as bytes.
+    ///
+    /// The `\0` separators are what stop two different addresses producing one string: without
+    /// them `("ab", "c")` and `("a", "bc")` would authenticate each other's ciphertext.
+    fn aad(&self) -> Vec<u8> {
+        format!(
+            "{}\0{}\0{}",
+            self.collection,
+            self.id,
+            u8::from(self.deleted)
+        )
+        .into_bytes()
+    }
+}
+
+/// One sealed payload, as it travels.
+pub struct Sealed {
+    pub nonce: [u8; NONCE_LEN],
+    pub ciphertext: Vec<u8>,
+}
+
+/// Seal a payload to one address.
+pub fn seal_record(
+    data_key: &[u8; 32],
+    address: &RecordAddress,
+    plaintext: &[u8],
+) -> Result<Sealed, AppError> {
+    let nonce = random::<NONCE_LEN>();
+    let ciphertext = XChaCha20Poly1305::new(data_key.into())
+        .encrypt(
+            XNonce::from_slice(&nonce),
+            Payload {
+                msg: plaintext,
+                aad: &address.aad(),
+            },
+        )
+        .map_err(|_| err!("error.syncCannotSealRecord"))?;
+
+    Ok(Sealed { nonce, ciphertext })
+}
+
+/// Open a payload, or refuse.
+///
+/// The wrong key, the wrong address and a tampered byte are one error for the same reason
+/// [`unwrap_master_key`] gives: telling them apart would be telling somebody something.
+pub fn open_record(
+    data_key: &[u8; 32],
+    address: &RecordAddress,
+    sealed: &Sealed,
+) -> Result<Vec<u8>, AppError> {
+    XChaCha20Poly1305::new(data_key.into())
+        .decrypt(
+            XNonce::from_slice(&sealed.nonce),
+            Payload {
+                msg: &sealed.ciphertext,
+                aad: &address.aad(),
+            },
+        )
+        .map_err(|_| err!("error.syncCannotOpenRecord"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -417,6 +490,99 @@ mod tests {
             id_key(&master),
             data_key(&master),
             "recognising a record must not be the same power as reading it"
+        );
+    }
+
+    /// The addresses one account produces, so each test below reads as what it is about.
+    fn addresses(master: &[u8; 32]) -> (String, String, String) {
+        let ids = id_key(master);
+        (
+            opaque_id(&ids, "connections"),
+            opaque_id(&ids, "0f1c2d3e-4a5b-6c7d-8e9f-a0b1c2d3e4f5"),
+            opaque_id(&ids, "11111111-2222-3333-4444-555555555555"),
+        )
+    }
+
+    #[test]
+    fn a_record_opens_at_the_address_it_was_sealed_to() {
+        let master = new_master_key();
+        let key = data_key(&master);
+        let (collection, id, _) = addresses(&master);
+
+        let here = RecordAddress {
+            collection: &collection,
+            id: &id,
+            deleted: false,
+        };
+        let plaintext = br#"{"host":"db.internal"}"#;
+        let sealed = seal_record(&key, &here, plaintext).expect("seals");
+
+        assert_eq!(open_record(&key, &here, &sealed).expect("opens"), plaintext);
+        assert_ne!(
+            sealed.ciphertext, plaintext,
+            "the payload must not travel in the clear"
+        );
+    }
+
+    #[test]
+    fn a_record_moved_to_another_slot_is_refused() {
+        let master = new_master_key();
+        let key = data_key(&master);
+        let (collection, id, elsewhere) = addresses(&master);
+
+        let here = RecordAddress {
+            collection: &collection,
+            id: &id,
+            deleted: false,
+        };
+        let sealed = seal_record(&key, &here, b"secret").expect("seals");
+
+        let moved = RecordAddress {
+            collection: &collection,
+            id: &elsewhere,
+            deleted: false,
+        };
+        assert!(
+            open_record(&key, &moved, &sealed).is_err(),
+            "a server that moves a blob into another record's slot must be caught"
+        );
+
+        let undeleted = RecordAddress {
+            collection: &collection,
+            id: &id,
+            deleted: true,
+        };
+        assert!(
+            open_record(&key, &undeleted, &sealed).is_err(),
+            "a server that unsets a deletion must be caught"
+        );
+    }
+
+    #[test]
+    fn a_tampered_record_is_refused() {
+        let master = new_master_key();
+        let key = data_key(&master);
+        let (collection, id, _) = addresses(&master);
+        let here = RecordAddress {
+            collection: &collection,
+            id: &id,
+            deleted: false,
+        };
+
+        let sealed = seal_record(&key, &here, b"secret").expect("seals");
+        let mut flipped = Sealed {
+            nonce: sealed.nonce,
+            ciphertext: sealed.ciphertext.clone(),
+        };
+        flipped.ciphertext[0] ^= 1;
+
+        assert!(
+            open_record(&key, &here, &flipped).is_err(),
+            "one flipped bit"
+        );
+        assert!(
+            open_record(&data_key(&new_master_key()), &here, &sealed).is_err(),
+            "another account's data key"
         );
     }
 }
