@@ -64,6 +64,7 @@ in full, because a list that is not written down grows.
 | It sees | Why it must |
 | --- | --- |
 | An email address | It is the login, and the only channel for verification and for a reset |
+| `account_key`, a stable hash of that address | It is the account's only name, and it means the same thing on any server (D4a) |
 | A password *verifier* (D2), never the password | To answer "is this the account holder" |
 | An opaque collection id and an opaque record id, 32 bytes each | To address a record without being told what kind of thing it is (D3) |
 | A version number and a per-account sequence number | To refuse a lost update, and to answer "what changed since" |
@@ -75,6 +76,15 @@ in full, because a list that is not written down grows.
 **What it never sees:** a plaintext value of any kind, the name of any collection, the name or host
 of any connection, a URL, a file name, how many of each kind of thing there are, or anything
 derived from the master key other than ciphertext.
+
+**The address is kept, and that was decided rather than assumed.** A draft of this design dropped
+it — every route that needs one is handed it in the same request, so nothing here has to remember
+one — and a database would then have held hashes of addresses and no addresses. What that costs is
+the row of D8's table where somebody runs this for their own team: **an operator who cannot see who
+has an account cannot administer one**, and that is a real need rather than a convenience. The same
+binary serves both rows, so the choice is made once, for everybody, in favour of the deployment
+that has an operator. What is given up is that a stolen database holds a list of addresses, which
+the rest of this design does not make any worse and does not pretend to fix.
 
 Record sizes and counts leak a shape, and that is accepted rather than concealed: padding every
 record to a fixed size costs bandwidth on every sync to defeat an observer who has already taken
@@ -180,6 +190,7 @@ whatever this repository's layout is. A change to `/v1` is a new path, not an ed
 | `PUT` | `/v1/records/{c}/{id}` | `If-Match: {version}`, or `If-None-Match: *` to create |
 | `DELETE` | `/v1/records/{c}/{id}` | writes a tombstone; `If-Match` applies |
 | `POST` | `/v1/records/batch` | many of the above in one round trip, each with its own outcome |
+| `GET` `POST` | `/v1/account/relocation` | read, and set, whether this account still lives here (D4b) |
 
 **`/v1/capabilities` is what stops a limit from becoming a release.** A client that assumes the
 largest record or the size of a batch has to be updated in step with every server that disagrees,
@@ -224,6 +235,30 @@ defaults are what this project's instance ships with.
 - `Authorization: Bearer <access token>` on every route except `/v1/capabilities`.
 - Times on the wire are **seconds** since the epoch. `updatedAt` is the client's clock and the
   server stores it without ever comparing it (D1).
+
+### The account key
+
+```
+account_key = SHA-256("mixlab-sync/account/v1" || 0x00 || lowercase(trim(email)))   -> 32 bytes, hex
+```
+
+**Frozen, and deployment-independent on purpose.** It is the only name an account has. The Worker
+uses it as the name of the Durable Object that holds the account; the native server uses it as the
+unique key of the row. Both arrive at the same value for the same address, which is what makes a
+row mean the same thing on either — see *Moving the default instance* in D8.
+
+It carries no pepper, and that is the trade this makes: a peppered value could not be moved between
+servers, which is the whole point of it. What is given up is that somebody holding a stolen
+database and a list of candidate addresses can confirm which of them have accounts. What is bought
+is that the database holds no addresses at all.
+
+The label is a frozen constant in the same way the five HKDF labels of D2 are: changing it does not
+corrupt anything, it makes every existing account unfindable. One vector, which both
+implementations assert:
+
+```
+alice@example.com -> 176d00c0673f7e1e711ea55a7d9345f43949376bd9777c4854be01448b5b74a4
+```
 
 ### One shape for every failure
 
@@ -457,6 +492,92 @@ and both implementations, and a seam nobody specified is a seam that differs.
    to reject a write whose clock runs backwards. D1 promises the server compares nothing; a client
    with a wrong clock is a client problem, and a server that enforced monotonic clocks would be
    unable to accept a legitimate write from a machine that had just fixed its own.
+
+## D4b. Moving an account to another server
+
+**This is in `/v1` from the first commit, and that is the only reason it can ever be used.** `/v1`
+is frozen and a server somebody else runs does not update when this document does (D9, R4), so a
+client that meets an answer it does not understand stops syncing with a strange error. A way for a
+server to say *"this account is not here any more"* added later would only work for clients written
+after it — which is exactly the population that does not need it. Migration is hypothetical; the
+place to say it is not.
+
+**The client moves the account, and the server is told.** Nothing here asks a server to export
+anything, and nothing asks it to enumerate its accounts — which it cannot do, because addressing by
+`account_key` is what this design has instead of an index (D8). The machine that already holds the
+data is the one that carries it across.
+
+**The data crosses unchanged.** The client keeps `MK`, so it registers on the new server with the
+*same* `salt_account` and the same two wrapped copies, and `K_id` and `K_data` come out the same on
+the other side: the opaque ids and the ciphertexts are identical bytes, and the recovery key still
+opens the account. Nothing is re-encrypted, and the peppers of the two servers never have to match,
+because each one keys its own verifier.
+
+### Three states
+
+| State | Reads | Writes | What it means |
+| --- | --- | --- | --- |
+| `active` | yes | yes | The normal state. Nothing has moved |
+| `frozen` | yes | **no** | A move is under way. The client is copying; nothing may change under it |
+| `retired` | no | no | The account lives somewhere else now, and this server says where |
+
+`GET /v1/account/relocation` answers `{"state": …, "home": "<endpoint id>" | null}`.
+`POST` takes `{"state": …}` and moves between them. Both need an access token.
+
+- `active` → `frozen`, and `frozen` → `active`. **Thawing has to exist**: a copy that fails halfway
+  must not leave an account nobody can write to.
+- `frozen` → `retired`. **`active` → `retired` is refused**, with `409 must-freeze-first`.
+- `retired` is terminal, and it deletes every record here. What stays is the signpost: the
+  `account_key`, the verifier and `salt_account`.
+
+**Freeze first, then copy — not copy, then freeze.** With the other order there is a window between
+the last record the client reads and the moment the account stops accepting writes, and anything a
+*second* machine writes in that window is lost silently. Two machines writing to two servers cannot
+be reconciled afterwards either, because their `seq` counters are independent. The cost of the
+right order is a short read-only period, which a local-first application does not show anybody.
+
+### What a moved account answers
+
+- Every authenticated route: **`421 Misdirected Request`**, code `account-moved`, with `home`. The
+  status is the one HTTP already has for *this server cannot answer for this authority; ask
+  another*.
+- `POST /v1/auth/login`: `421` **only after the verifier matches**. A wrong password still gets
+  `401`. Otherwise a fresh install could ask *"where does this address live"* without proving
+  anything, and that is a cheaper enumeration oracle than the `409` registration already admits to.
+- `POST /v1/auth/register` on the address: `409 email-taken`, unchanged. Registration proves
+  nothing, so it learns nothing new.
+- While `frozen`, any mutation — a record, a batch, a password change — answers **`423 Locked`**,
+  code `account-frozen`. Reads and sessions are untouched, because the client needs both to do the
+  copying.
+
+### `home` names an endpoint, and never a URL
+
+`home` is a short symbolic id, and the client resolves it against the list of servers **it already
+ships**. It is not an address the server supplies.
+
+A server that could send a client to an arbitrary URL is a phishing primitive: the destination
+learns `A`, which is the login verifier, and `A` is the same value on every server because it comes
+from the password. It could not read a record — it has no `MK` — but it would not need to. Letting
+the old server choose only *which of the destinations you already trust* costs nothing and closes
+that.
+
+The consequence is that **this is for the default instance**. Somebody self-hosting who moves their
+own server tells their own users, the way they already choose the address in the first place (D8);
+a symbolic id would mean nothing to a client that has never heard of them. `home` is `null` until
+a deployment is configured with one, and `frozen` → `retired` is refused while it is, with
+`409 relocation-not-configured` — so no client can strand an account somewhere with nowhere to go.
+
+### What it does not solve
+
+**The old server cannot be switched off.** This moves the data, not the obligation: for as long as
+an old client exists — including an old installer somebody runs again — the old server has to be
+there to answer `421`. Auto-update bounds that, but it does not end it on a date.
+
+**And the client needs `A` to register on the far side**, which is derived from the password it does
+not keep. Either it holds `A` beside `MK` — defensible, since anything that reaches one locally has
+already reached the other — or it asks for the password once and says what it is doing. This
+document does not decide that: it is a decision about the client, and it belongs with the account
+screen in T177e.
 
 ## D5. What syncs, and what never does — a client-side catalogue
 

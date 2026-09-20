@@ -10,7 +10,7 @@
 // one: `/v1/capabilities`, answered from configuration, and the verification page, which renders a
 // form and validates nothing.
 
-import { accountName } from "./crypto";
+import { accountKey } from "./crypto";
 import { readConfig, type Capabilities, type Env } from "./config";
 import { fail, json, methodNotAllowed, misconfigured, notFound } from "./http";
 import { askSource } from "./ratelimit";
@@ -28,7 +28,7 @@ function capabilities(reported: Capabilities): Response {
 
 /** The object that holds an address. This is the whole of what replaces an index (D8). */
 async function objectForEmail(env: Env, email: string): Promise<DurableObjectStub> {
-  return env.ACCOUNT.get(env.ACCOUNT.idFromName(await accountName(email)));
+  return env.ACCOUNT.get(env.ACCOUNT.idFromName(await accountKey(email)));
 }
 
 /**

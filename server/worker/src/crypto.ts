@@ -75,7 +75,26 @@ export function sameSecret(left: string, right: string): boolean {
   return difference === 0;
 }
 
-/** The object that holds an address, and the only lookup this design performs (D8). */
-export async function accountName(email: string): Promise<string> {
-  return sha256Hex(email.trim().toLowerCase());
+/**
+ * The only name an account has (D4a):
+ *
+ *     account_key = SHA-256("mixlab-sync/account/v1" || 0x00 || lowercase(trim(email)))
+ *
+ * **Frozen, and deployment-independent on purpose.** It is the name of the Durable Object here and
+ * the unique key of the row in `../native/`, so the same address is the same account on either.
+ * It carries no pepper: a peppered value could not mean the same thing on two servers, which is
+ * the whole point of it.
+ *
+ * The label is frozen the way D2's five HKDF labels are. Changing it corrupts nothing; it makes
+ * every existing account unfindable.
+ */
+export async function accountKey(email: string): Promise<string> {
+  const encoded = encoder.encode(email.trim().toLowerCase());
+  const labelled = new Uint8Array(ACCOUNT_LABEL.length + 1 + encoded.length);
+  labelled.set(ACCOUNT_LABEL, 0);
+  labelled[ACCOUNT_LABEL.length] = 0;
+  labelled.set(encoded, ACCOUNT_LABEL.length + 1);
+  return hex(await crypto.subtle.digest("SHA-256", labelled));
 }
+
+const ACCOUNT_LABEL = new TextEncoder().encode("mixlab-sync/account/v1");

@@ -11,7 +11,9 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::accounts::{authenticate, bad_code, parse};
-use crate::crypto::{normalise_code, now, peppered, random_code, same_secret, sha256_hex};
+use crate::crypto::{
+    account_key, normalise_code, now, peppered, random_code, same_secret, sha256_hex,
+};
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
@@ -160,8 +162,8 @@ async fn ask(state: Arc<AppState>, headers: HeaderMap, email: String) -> Respons
 
             let account: Option<i64> = transaction
                 .query_row(
-                    "SELECT id FROM account WHERE email = ?1 AND verified = 1",
-                    params![looked_up],
+                    "SELECT id FROM account WHERE account_key = ?1 AND verified = 1",
+                    params![account_key(&looked_up)],
                     |row| row.get(0),
                 )
                 .optional()?;
@@ -235,8 +237,8 @@ async fn complete(
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
             let account_id: Option<i64> = transaction
                 .query_row(
-                    "SELECT id FROM account WHERE email = ?1",
-                    params![email],
+                    "SELECT id FROM account WHERE account_key = ?1",
+                    params![account_key(&email)],
                     |row| row.get(0),
                 )
                 .optional()?;

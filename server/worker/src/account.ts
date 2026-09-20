@@ -16,6 +16,7 @@
 
 import { readConfig, type Config, type Env } from "./config";
 import {
+  accountKey,
   normaliseCode,
   peppered,
   randomCode,
@@ -276,9 +277,10 @@ export class Account implements DurableObject {
     if (existing) this.wipe();
 
     this.sql.exec(
-      `INSERT INTO account (id, email, verifier, salt_account, argon_m, argon_t, argon_p,
-                            wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      `INSERT INTO account (id, account_key, email, verifier, salt_account, argon_m, argon_t,
+                            argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+      await accountKey(fields["email"] as string),
       (fields["email"] as string).trim().toLowerCase(),
       await peppered(config.pepper, fields["a"] as string),
       fields["saltAccount"],

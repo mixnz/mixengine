@@ -88,7 +88,10 @@ impl Db {
 pub const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS account (
   id                   INTEGER PRIMARY KEY,
-  email                TEXT    NOT NULL UNIQUE,
+  -- The account's only name, and the same value the Worker uses for its object (D4a). The address
+  -- is kept beside it so that whoever runs this for their own team can administer it.
+  account_key          TEXT    NOT NULL UNIQUE,
+  email                TEXT    NOT NULL,
   verifier             TEXT    NOT NULL,
   salt_account         TEXT    NOT NULL,
   argon_m              INTEGER NOT NULL,

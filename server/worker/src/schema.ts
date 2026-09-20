@@ -9,6 +9,7 @@ export const SCHEMA = [
   // a property of the database rather than of the code that writes to it.
   `CREATE TABLE IF NOT EXISTS account (
      id                   INTEGER PRIMARY KEY CHECK (id = 1),
+     account_key          TEXT    NOT NULL,
      email                TEXT    NOT NULL,
      verifier             TEXT    NOT NULL,
      salt_account         TEXT    NOT NULL,
@@ -94,6 +95,7 @@ export const SCHEMA = [
 // Each row type carries an index signature because `SqlStorage.exec<T>` constrains `T` to a record
 // of storable values; without it the type is rejected rather than the query.
 export interface AccountRow extends Record<string, SqlStorageValue> {
+  account_key: string;
   email: string;
   verifier: string;
   salt_account: string;

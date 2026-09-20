@@ -98,7 +98,7 @@ async fn outbox(State(state): State<Arc<AppState>>, Query(link): Query<Link>) ->
     let Some(email) = link.email.filter(|email| validate::is_email(email)) else {
         return http::not_found().into_response();
     };
-    let email = email.trim().to_lowercase();
+    let key = crypto::account_key(&email);
 
     let messages = state
         .db
@@ -106,10 +106,10 @@ async fn outbox(State(state): State<Arc<AppState>>, Query(link): Query<Link>) ->
             let mut statement = connection.prepare(
                 "SELECT o.kind, o.token, o.sent_at FROM outbox o
                  JOIN account a ON a.id = o.account_id
-                 WHERE a.email = ?1 ORDER BY o.id ASC",
+                 WHERE a.account_key = ?1 ORDER BY o.id ASC",
             )?;
             statement
-                .query_map(params![email], |row| {
+                .query_map(params![key], |row| {
                     Ok(json!({
                         "kind": row.get::<_, String>(0)?,
                         "token": row.get::<_, String>(1)?,

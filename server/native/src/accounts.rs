@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::crypto::{
-    normalise_code, now, peppered, random_code, random_token, same_secret, sha256_hex,
+    account_key, normalise_code, now, peppered, random_code, random_token, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
@@ -199,6 +199,7 @@ pub async fn register(
     };
 
     let email = email.trim().to_lowercase();
+    let key = account_key(&email);
     let verifier = peppered(&state.config.pepper, a);
     let (salt, wrapped_password, wrapped_recovery) = (
         salt.to_owned(),
@@ -233,8 +234,8 @@ pub async fn register(
 
             let existing: Option<(i64, i64)> = transaction
                 .query_row(
-                    "SELECT id, verified FROM account WHERE email = ?1",
-                    params![email],
+                    "SELECT id, verified FROM account WHERE account_key = ?1",
+                    params![key],
                     |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .optional()?;
@@ -259,10 +260,22 @@ pub async fn register(
             }
 
             transaction.execute(
-                "INSERT INTO account (email, verifier, salt_account, argon_m, argon_t, argon_p,
-                                      wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9)",
-                params![email, verifier, salt, m, t, p, wrapped_password, wrapped_recovery, now()],
+                "INSERT INTO account (account_key, email, verifier, salt_account, argon_m,
+                                      argon_t, argon_p, wrapped_mk_password, wrapped_mk_recovery,
+                                      verified, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10)",
+                params![
+                    key,
+                    email,
+                    verifier,
+                    salt,
+                    m,
+                    t,
+                    p,
+                    wrapped_password,
+                    wrapped_recovery,
+                    now()
+                ],
             )?;
             let account_id = transaction.last_insert_rowid();
 
@@ -295,8 +308,8 @@ pub async fn register(
                     .db
                     .call(move |connection| {
                         connection.execute(
-                            "DELETE FROM account WHERE email = ?1",
-                            params![letter_email],
+                            "DELETE FROM account WHERE account_key = ?1",
+                            params![account_key(&letter_email)],
                         )
                     })
                     .await;
@@ -321,8 +334,8 @@ pub async fn deliver(state: &Arc<AppState>, kind: LetterKind, email: &str, code:
             .call(move |connection| {
                 connection.execute(
                     "INSERT INTO outbox (account_id, kind, token, sent_at)
-                     SELECT id, ?2, ?3, ?4 FROM account WHERE email = ?1",
-                    params![email, kind, code, now()],
+                     SELECT id, ?2, ?3, ?4 FROM account WHERE account_key = ?1",
+                    params![account_key(&email), kind, code, now()],
                 )
             })
             .await;
@@ -347,7 +360,7 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
         Ok(fields) => fields,
         Err(failure) => return failure.into_response(),
     };
-    let Some(email) = text(&fields, "email").map(|email| email.trim().to_lowercase()) else {
+    let Some(key) = text(&fields, "email").map(account_key) else {
         return bad_code().into_response();
     };
     let code = text(&fields, "token").and_then(normalise_code);
@@ -360,8 +373,8 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
             let account: Option<(i64, i64)> = transaction
                 .query_row(
-                    "SELECT id, verified FROM account WHERE email = ?1",
-                    params![email],
+                    "SELECT id, verified FROM account WHERE account_key = ?1",
+                    params![key],
                     |row| Ok((row.get(0)?, row.get(1)?)),
                 )
                 .optional()?;
@@ -457,7 +470,7 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
             .into_response();
     };
 
-    let email = email.trim().to_lowercase();
+    let key = account_key(email);
     let presented = peppered(&state.config.pepper, a);
     let device_name = device_name.trim().to_owned();
     let allowance = state.config.limits.logins_per_window;
@@ -469,8 +482,8 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
             let account: Option<(i64, String, i64)> = transaction
                 .query_row(
-                    "SELECT id, verifier, verified FROM account WHERE email = ?1",
-                    params![email],
+                    "SELECT id, verifier, verified FROM account WHERE account_key = ?1",
+                    params![key],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
                 )
                 .optional()?;

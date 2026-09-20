@@ -71,9 +71,97 @@ pub fn same_secret(left: &str, right: &str) -> bool {
     left.as_bytes().ct_eq(right.as_bytes()).into()
 }
 
+/// The only name an account has (D4a):
+///
+/// ```text
+/// account_key = SHA-256("mixlab-sync/account/v1" || 0x00 || lowercase(trim(email)))
+/// ```
+///
+/// **Frozen, and deployment-independent on purpose.** It is the unique key of the row here and the
+/// name of the Durable Object in `../worker/`, so the same address is the same account on either,
+/// and a row means the same thing wherever it is carried. It carries no pepper: a peppered value
+/// could not mean the same thing on two servers, which is the whole point of it.
+///
+/// The label is frozen the way D2's five HKDF labels are. Changing it corrupts nothing; it makes
+/// every existing account unfindable.
+pub fn account_key(email: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(ACCOUNT_LABEL);
+    hasher.update([0u8]);
+    hasher.update(email.trim().to_lowercase().as_bytes());
+    hex::encode(hasher.finalize())
+}
+
+const ACCOUNT_LABEL: &[u8] = b"mixlab-sync/account/v1";
+
 pub fn now() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|since| since.as_secs() as i64)
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// **The vector both implementations assert**, from D4a. If this and the one in
+    /// `../worker/src/crypto.test.ts` ever disagree, an account means two different things on the
+    /// two servers and a row cannot cross between them — which is the whole reason it is frozen.
+    #[test]
+    fn the_account_key_matches_the_specification() {
+        assert_eq!(
+            account_key("alice@example.com"),
+            "176d00c0673f7e1e711ea55a7d9345f43949376bd9777c4854be01448b5b74a4"
+        );
+    }
+
+    #[test]
+    fn the_account_key_ignores_case_and_surrounding_space() {
+        let wanted = account_key("alice@example.com");
+        assert_eq!(account_key("Alice@Example.com"), wanted);
+        assert_eq!(account_key("  alice@example.com  "), wanted);
+        assert_ne!(account_key("bob@example.com"), wanted);
+    }
+
+    #[test]
+    fn a_code_is_eight_characters_in_two_groups() {
+        for _ in 0..50 {
+            let code = random_code();
+            assert_eq!(code.len(), 9, "{code}");
+            assert_eq!(&code[4..5], "-", "{code}");
+            assert!(normalise_code(&code).is_some(), "{code}");
+        }
+    }
+
+    #[test]
+    fn a_code_is_read_back_however_it_was_typed() {
+        let code = random_code();
+        let bare = code.replace('-', "");
+        assert_eq!(normalise_code(&code).as_deref(), Some(bare.as_str()));
+        assert_eq!(
+            normalise_code(&code.to_lowercase()).as_deref(),
+            Some(bare.as_str())
+        );
+        assert_eq!(
+            normalise_code(&code.replace('-', " ")).as_deref(),
+            Some(bare.as_str())
+        );
+    }
+
+    #[test]
+    fn a_code_refuses_the_letters_the_alphabet_leaves_out() {
+        // `I`, `L`, `O` and `U` are not in it, so a code carrying one means the person has the
+        // wrong thing in front of them and should be told so.
+        for presented in [
+            "IIII-IIII",
+            "LLLL-LLLL",
+            "OOOO-OOOO",
+            "UUUU-UUUU",
+            "ABC-ABC",
+            "",
+        ] {
+            assert!(normalise_code(presented).is_none(), "{presented}");
+        }
+    }
 }
