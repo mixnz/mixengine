@@ -59,7 +59,7 @@ done
 | [26 — A window that builds in under ten](phase-26-a-window-that-builds-in-under-ten.md) | The longest leg of `build` finishes in ten minutes, with no cache and no change to what a tag builds | T173a–T173c | 3 / 3 | **M26** `window (windows-latest)` finishes in 10 minutes or less and `build`'s artifacts and probes are unchanged — **met**, measured by run 35489039746: 9.1 minutes, 34 jobs green, fifteen artifact names identical |
 | [27 — A rehearsal of the release build](phase-27-a-rehearsal-of-the-release-build.md) | What a release is built with is built every week, so a tag is never the first time | T174a–T174d | 4 / 4 | **M27** a `release-exact` run on `master` is green inside every timeout, happens weekly unasked, and the checklist names it before tagging — **two halves met** by run 35491317573 (LTO links; the widest leg uses half its timeout), the weekly one waits for the first Monday after this lands |
 | [28 — Dependencies that earn their place](phase-28-dependencies-that-earn-their-place.md) | Nothing is compiled, shipped or audited because a plugin's default feature asked for it | T175a–T175c | 3 / 3 | **M28** no `image` and no `moxcms` in the window's `--timings`, terminal paste still works, and both the bson and the db-crate questions are answered with a number — **met**, 898 units against 908, and two measured refusals |
-| [29 — One name to find it by](phase-29-one-name-to-find-it-by.md) | One name for the product, and the engine keeps its own where that is still the right word | T176a–T176e | 0 / 5 | **M29** searching for MixLab reaches the repository, the handbook and the download page, the *do I need both* question is answered in one sentence, and no identifier moved |
+| [29 — One name to find it by](phase-29-one-name-to-find-it-by.md) | One name for the product, and the engine keeps its own where that is still the right word | T176a–T176e | 5 / 5 | **M29** searching for MixLab reaches the repository, the handbook and the download page, the *do I need both* question is answered in one sentence, and no identifier moved — **met**, and the redirects were measured rather than predicted |
 | [30 — A copy only you can read](phase-30-a-copy-only-you-can-read.md) | A person's second machine has what they ticked, and the server that carried it cannot read it | T177a–T177g | 0 / 7 | **M30** two machines agree on exactly what was ticked, a revoked device stops syncing, and the server's database yields no plaintext |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
@@ -71,13 +71,15 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 29 is decided and not started — 0 of 5, and it goes before phase 30.** One product with two
-names that contain neither each other nor a hierarchy is what people cannot search for and what
-makes them ask whether they need to install two things. MixLab becomes the name of the product;
-MixEngine keeps the daemon, the CLI, the crates, `MIXENGINE_HOME` and the headless distribution,
-because there it is still the right word
-([ADR 0044](../decisions/0044-mixlab-is-the-product-and-mixengine-is-the-engine.md)). It runs first
-because phase 30 prints a name on a sign-in screen, a verification email and a second repository.
+**Phase 29 is built — 5 of 5, and M29 is met.** One product with two names that contain neither each
+other nor a hierarchy was what people could not search for and what made them ask whether they
+needed to install two things. MixLab is now the name of the product; MixEngine keeps the daemon, the
+CLI and its vocabulary, the crates, `MIXENGINE_HOME` and the headless distribution, because there it
+is still the right word
+([ADR 0044](../decisions/0044-mixlab-is-the-product-and-mixengine-is-the-engine.md)). The one thing
+lost is the handbook's old address; the release feed's redirect survives, which was measured rather
+than assumed. It ran before phase 30 because phase 30 prints a name on a sign-in screen, a
+verification email and a second repository.
 
 **Phase 30 is designed and not started — 0 of 7.** MixLab gains an account so a second machine has
 the saved connections, REST collection and snippets the first one has. The server holds ciphertext
