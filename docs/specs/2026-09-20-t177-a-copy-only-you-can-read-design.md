@@ -300,6 +300,13 @@ added for this: registration is rate limited per address and per source, and D4 
 record before an address is verified — a rule written to stop the server becoming anonymous free
 storage, which stops this too. A ceiling on messages per account per day closes the rest.
 
+**A server missing a piece of its configuration refuses to start, and names the piece.** Whoever
+deploys this — us, or somebody on their own Cloudflare account — sets the provider's key and the
+`pepper` themselves, and the failure that follows forgetting one is otherwise invisible: the deploy
+succeeds, registration succeeds, and a person waits for a letter that was never sent. Checking at
+startup turns a silence into a sentence. It costs a few lines and is the difference between an
+afternoon and a weekend for the first person who self-hosts this.
+
 **The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is written
 when somebody asks for it.** The promise is that `/v1` is a protocol and not a description of one
 codebase, and a second implementation is the only thing that can ever prove it. Sequencing it after
