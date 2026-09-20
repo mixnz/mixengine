@@ -16,7 +16,9 @@
 
 import { readConfig, type Config, type Env } from "./config";
 import {
+  SALT_BYTES,
   accountKey,
+  inventedSalt,
   normaliseCode,
   peppered,
   randomCode,
@@ -108,6 +110,8 @@ export class Account implements DurableObject {
     if (body === undefined) return fail(400, "invalid-request", "The body is not JSON.");
 
     switch (`${request.method} ${url.pathname}`) {
+      case "GET /v1/auth/params":
+        return this.readParams(config, url);
       case "POST /v1/auth/register":
         return this.register(config, body);
       case "POST /v1/auth/verify":
@@ -351,6 +355,23 @@ export class Account implements DurableObject {
     return json(200, { results });
   }
 
+  /**
+   * What a client needs before it can compute `A` at all. **No authentication**, and an address
+   * with no account gets an answer anyway — one nobody can tell from a real one (D4a).
+   */
+  private async readParams(config: Config, url: URL): Promise<Response> {
+    const email = url.searchParams.get("email") ?? "";
+    const account = this.account();
+    return json(200, {
+      saltAccount: account
+        ? account.salt_account
+        : await inventedSalt(config.pepper, await accountKey(email)),
+      argon: account
+        ? { m: account.argon_m, t: account.argon_t, p: account.argon_p }
+        : { m: 65536, t: 3, p: 4 },
+    });
+  }
+
   // --- the account itself ------------------------------------------------------------------
 
   private async register(config: Config, body: unknown): Promise<Response> {
@@ -359,7 +380,7 @@ export class Account implements DurableObject {
       !fields ||
       !isEmail(fields["email"]) ||
       !isBase64(fields["a"]) ||
-      !isBase64(fields["saltAccount"]) ||
+      !isBase64(fields["saltAccount"], SALT_BYTES) ||
       !isBase64(fields["wrappedMkPassword"]) ||
       !isBase64(fields["wrappedMkRecovery"])
     ) {
@@ -581,7 +602,15 @@ export class Account implements DurableObject {
       at,
     );
 
-    return json(200, { ...(await this.issue(deviceId)), deviceId });
+    // **Both wrapped copies travel here**, after the verifier matched and nowhere else: a
+    // fresh install that could not get them would have an account it cannot read, and one
+    // handed out before the password was proved is an offline attack waiting to happen.
+    return json(200, {
+      ...(await this.issue(deviceId)),
+      deviceId,
+      wrappedMkPassword: account.wrapped_mk_password,
+      wrappedMkRecovery: account.wrapped_mk_recovery,
+    });
   }
 
   private async refresh(body: unknown): Promise<Response> {

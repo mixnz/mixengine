@@ -49,6 +49,24 @@ pub fn random_token() -> String {
     hex::encode(bytes)
 }
 
+/// How many bytes a salt is, fixed so that an invented one cannot be told apart by length.
+pub const SALT_BYTES: usize = 16;
+
+/// The salt handed back for an address that has no account (D4a).
+///
+/// Stable, so asking twice gives the same answer; unguessable, because the pepper never leaves this
+/// deployment; and the same shape as a real one. Without all three, `/v1/auth/params` is the
+/// cheapest account-enumeration oracle in the protocol.
+pub fn invented_salt(pepper: &str, account_key: &str) -> String {
+    use base64::Engine as _;
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(pepper.as_bytes())
+        .expect("HMAC accepts a key of any length");
+    mac.update(b"salt/v1");
+    mac.update(&[0u8]);
+    mac.update(account_key.as_bytes());
+    base64::engine::general_purpose::STANDARD.encode(&mac.finalize().into_bytes()[..SALT_BYTES])
+}
+
 pub fn sha256_hex(value: &str) -> String {
     hex::encode(Sha256::digest(value.as_bytes()))
 }

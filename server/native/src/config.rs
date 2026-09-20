@@ -31,6 +31,9 @@ pub struct Limits {
     pub registrations_per_hour: u64,
     pub resets_per_hour: u64,
     pub logins_per_window: u64,
+    /// How often one source may ask where an address's salt is. Generous: a company behind
+    /// one address may install on fifty machines in a morning.
+    pub params_per_hour: u64,
     /// Eight characters are only safe because this one is real (D4a).
     pub verify_attempts_per_window: u64,
 }
@@ -129,6 +132,7 @@ impl Config {
                 registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
                 resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),
                 logins_per_window: number("MIXLAB_SYNC_LOGINS_PER_WINDOW", 20),
+                params_per_hour: number("MIXLAB_SYNC_PARAMS_PER_HOUR", 200),
                 verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
             },
             capabilities: Capabilities {

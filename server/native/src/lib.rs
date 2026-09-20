@@ -50,6 +50,7 @@ pub struct AppState {
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/v1/capabilities", get(capabilities))
+        .route("/v1/auth/params", get(accounts::params))
         .route("/v1/auth/register", post(accounts::register))
         // **There is no GET here.** The letter carries a code the person types, not a link they
         // click (D4a), so there is no page to serve and no public address to get wrong.

@@ -15,11 +15,13 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::crypto::{
-    account_key, normalise_code, now, peppered, random_code, random_token, same_secret, sha256_hex,
+    SALT_BYTES, account_key, invented_salt, normalise_code, now, peppered, random_code,
+    random_token, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
+use axum::extract::Query;
 
 pub const ACCESS_TOKEN_SECONDS: i64 = 15 * 60;
 const REFRESH_TOKEN_SECONDS: i64 = 90 * 24 * 60 * 60;
@@ -164,6 +166,72 @@ pub(crate) fn retry_after(seconds: i64) -> Failure {
     )
 }
 
+#[derive(serde::Deserialize)]
+pub struct Address {
+    pub email: Option<String>,
+}
+
+/// What a client needs before it can compute `A` at all. **No authentication**, and an address with
+/// no account gets an answer anyway — one nobody can tell from a real one (D4a).
+pub async fn params(
+    State(state): State<Arc<AppState>>,
+    Query(address): Query<Address>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(email) = address.email.filter(|email| is_email(email)) else {
+        return invalid_request("An address is required.").into_response();
+    };
+
+    let key = account_key(&email);
+    let pepper = state.config.pepper.clone();
+    let source = source_for(&headers);
+    let allowance = state.config.limits.params_per_hour;
+
+    let outcome = state
+        .db
+        .call(move |connection| {
+            // Unauthenticated and askable about any address, so probing is bounded here rather
+            // than left to whoever finds the route first.
+            if let Some(seconds) = window(
+                connection,
+                "source_window",
+                &source,
+                "params",
+                allowance,
+                SOURCE_WINDOW_SECONDS,
+            )? {
+                return Ok(Err(seconds));
+            }
+
+            let found: Option<(String, u64, u64, u64)> = connection
+                .query_row(
+                    "SELECT salt_account, argon_m, argon_t, argon_p FROM account
+                     WHERE account_key = ?1",
+                    params![key],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .optional()?;
+
+            Ok(Ok(match found {
+                Some((salt, m, t, p)) => json!({
+                    "saltAccount": salt,
+                    "argon": { "m": m, "t": t, "p": p },
+                }),
+                None => json!({
+                    "saltAccount": invented_salt(&pepper, &key),
+                    "argon": { "m": 65536, "t": 3, "p": 4 },
+                }),
+            }))
+        })
+        .await;
+
+    match outcome {
+        Err(error) => internal(error).into_response(),
+        Ok(Err(seconds)) => retry_after(seconds).into_response(),
+        Ok(Ok(body)) => Json(body).into_response(),
+    }
+}
+
 // --- registration ------------------------------------------------------------------------------
 
 pub async fn register(
@@ -179,7 +247,7 @@ pub async fn register(
     let (Some(email), Some(a), Some(salt), Some(wrapped_password), Some(wrapped_recovery)) = (
         text(&fields, "email").filter(|value| is_email(value)),
         base64_field(&fields, "a"),
-        base64_field(&fields, "saltAccount"),
+        text(&fields, "saltAccount").filter(|value| is_base64(value, Some(SALT_BYTES))),
         base64_field(&fields, "wrappedMkPassword"),
         base64_field(&fields, "wrappedMkRecovery"),
     ) else {
@@ -481,17 +549,27 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
         .call(move |connection| {
             let transaction =
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            let account: Option<(i64, String, i64)> = transaction
+            let account: Option<(i64, String, i64, String, String)> = transaction
                 .query_row(
-                    "SELECT id, verifier, verified FROM account WHERE account_key = ?1",
+                    "SELECT id, verifier, verified, wrapped_mk_password, wrapped_mk_recovery
+                     FROM account WHERE account_key = ?1",
                     params![key],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+                    |row| {
+                        Ok((
+                            row.get(0)?,
+                            row.get(1)?,
+                            row.get(2)?,
+                            row.get(3)?,
+                            row.get(4)?,
+                        ))
+                    },
                 )
                 .optional()?;
 
             // An unknown address and a wrong verifier answer alike. Registration has to refuse a
             // taken address and therefore leaks one; this route has no such obligation (D4a).
-            let Some((account_id, stored, verified)) = account else {
+            let Some((account_id, stored, verified, wrapped_password, wrapped_recovery)) = account
+            else {
                 transaction.commit()?;
                 return Ok(Err(wrong_credentials()));
             };
@@ -539,18 +617,23 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
             )?;
             let session = issue(&transaction, account_id, &device_id)?;
             transaction.commit()?;
-            Ok(Ok((session, device_id)))
+            Ok(Ok((session, device_id, wrapped_password, wrapped_recovery)))
         })
         .await;
 
     match outcome {
         Err(error) => internal(error).into_response(),
         Ok(Err(failure)) => failure.into_response(),
-        Ok(Ok(((access, refresh), device_id))) => Json(json!({
+        // **Both wrapped copies travel here**, after the verifier matched and nowhere else: a fresh
+        // install that could not get them would have an account it cannot read, and one handed out
+        // before the password was proved is an offline attack waiting to happen (D4a).
+        Ok(Ok(((access, refresh), device_id, wrapped_password, wrapped_recovery))) => Json(json!({
             "accessToken": access,
             "refreshToken": refresh,
             "deviceId": device_id,
             "expiresIn": ACCESS_TOKEN_SECONDS,
+            "wrappedMkPassword": wrapped_password,
+            "wrappedMkRecovery": wrapped_recovery,
         }))
         .into_response(),
     }

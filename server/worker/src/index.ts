@@ -86,6 +86,22 @@ export default {
     // once. Everything downstream is handed the text.
     const body = request.method === "GET" || request.method === "DELETE" ? null : await request.text();
 
+    // Unauthenticated, asked about any address, and on this server every question wakes that
+    // address's object whether or not an account is there — so probing costs the deployment
+    // something, and the source limiter is what bounds it (D4a).
+    if (path === "/v1/auth/params") {
+      if (request.method !== "GET") return methodNotAllowed();
+      const email = url.searchParams.get("email");
+      if (!isEmail(email)) return fail(400, "invalid-request", "An address is required.");
+      const verdict = await askSource(env.SOURCE_LIMIT, request, path, config.limits.paramsPerHour);
+      if (!verdict.allowed) {
+        return fail(429, "too-many-requests", "Too many requests from this address.", {}, {
+          "Retry-After": String(verdict.retryAfter ?? 3600),
+        });
+      }
+      return forward(await objectForEmail(env, email), request, null);
+    }
+
     if (path === "/__test__/outbox") {
       if (!config.testOutbox) return notFound();
       const email = url.searchParams.get("email");

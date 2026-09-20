@@ -38,6 +38,9 @@ export interface Env {
   /** How many codes may be tried against one account in fifteen minutes. Eight characters are
    *  only safe because this one is real (D4a). */
   VERIFY_ATTEMPTS_PER_WINDOW?: string;
+  /** How often one source may ask where an address's salt is. Generous: a company behind one
+   *  address may install on fifty machines in a morning. */
+  PARAMS_PER_HOUR?: string;
 
   MAX_RECORD_BYTES?: string;
   MAX_BATCH_OPERATIONS?: string;
@@ -74,6 +77,7 @@ export interface Config {
     resetsPerHour: number;
     loginsPerWindow: number;
     verifyAttemptsPerWindow: number;
+    paramsPerHour: number;
   };
   capabilities: Capabilities;
 }
@@ -136,6 +140,7 @@ export function readConfig(env: Env): ConfigResult {
         resetsPerHour: number(env.RESETS_PER_HOUR, 10),
         loginsPerWindow: number(env.LOGINS_PER_WINDOW, 20),
         verifyAttemptsPerWindow: number(env.VERIFY_ATTEMPTS_PER_WINDOW, 10),
+        paramsPerHour: number(env.PARAMS_PER_HOUR, 200),
       },
       capabilities: {
         protocolVersions: ["v1"],

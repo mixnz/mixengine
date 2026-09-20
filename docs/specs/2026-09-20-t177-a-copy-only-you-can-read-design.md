@@ -180,6 +180,7 @@ whatever this repository's layout is. A change to `/v1` is a new path, not an ed
 | Method | Path | Does |
 | --- | --- | --- |
 | `GET` | `/v1/capabilities` | **No authentication.** Protocol versions this server speaks, the largest record and batch it accepts, the per-account quota, and the optional features it has |
+| `GET` | `/v1/auth/params` | **No authentication.** The salt and Argon2 parameters a client needs before it can compute `A` at all |
 | `POST` | `/v1/auth/register` | email, `A`, `salt_account`, the Argon2 parameters, both wrapped copies of `MK` |
 | `POST` | `/v1/auth/verify` | completes with the emailed code; **no record may be written before this** |
 | `POST` | `/v1/auth/login` | email, `A`, a device name → a short access token and a per-device refresh token |
@@ -292,13 +293,55 @@ account at all.
 `features` is how a server announces something optional it has; an empty list is a complete v1
 server. A client must run against an empty list forever.
 
+### `/v1/auth/params`, and the salt that is invented for a stranger
+
+**Without this route a second machine cannot sign in at all.** `A` is
+`HKDF(Argon2id(password, salt_account))`, `salt_account` is random and lives on the server, and a
+fresh install has the password and the address and nothing else. An earlier draft of D4 had no way
+to hand it back, which made *"a person's second machine has what they ticked"* — the milestone this
+whole design is for — unreachable.
+
+```
+GET /v1/auth/params?email=…  ->  200  {"saltAccount": "<16 bytes base64>", "argon": {"m": …, "t": …, "p": …}}
+```
+
+**An address with no account gets an answer anyway**, and it has to be one nobody can tell from a
+real one, or this route becomes the cheapest account-enumeration oracle in the protocol:
+
+```
+salt_account (invented) = first 16 bytes of HMAC-SHA256(pepper, "salt/v1" || 0x00 || account_key)
+```
+
+Three properties, each of which the alternative gets wrong. It is **stable**, so asking twice gives
+the same answer — a value that changed between two probes would announce itself. It is
+**unguessable**, because the pepper is this deployment's secret and is never shared, so nobody can
+compute what a given address *would* get and compare. And it is **the same shape**, which is why
+`salt_account` is fixed at sixteen bytes rather than left to the client: a real salt of some other
+length would stand out beside an invented one, and a server cannot invent a length it does not
+know.
+
+The Argon2 parameters in an invented answer are the ones this server would hand a new account.
+**This leaks something small and known**: an account registered with unusual parameters is
+distinguishable from a stranger. MixLab derives with one fixed set, so in practice there is nothing
+to see; a client that ever offers a choice would be trading that away.
+
+**Rate limited per source.** It is unauthenticated, it can be asked about any address, and on the
+Worker every question wakes that address's object whether or not an account is there — so probing
+costs the deployment something. The allowance is generous: a person signs in a handful of times,
+and a company behind one address may install on fifty machines in a morning.
+
+**`wrapped_mk` is not here, and that is the line this route is drawn around.** The copy wrapped
+under the password is what an offline attack needs, and handing it to anybody who asks turns a
+password into the only thing standing between a stranger and an account's contents. It travels on
+the answer to `/v1/auth/login`, after the verifier matched, and nowhere else.
+
 ### Accounts
 
 | Route | Body in | Out | Refuses with |
 | --- | --- | --- | --- |
 | `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` · `502 letter-not-sent` |
 | `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
-| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
+| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
 | `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
 | `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
 | `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
@@ -347,6 +390,10 @@ server. A client must run against an empty list forever.
 - **Eight characters are only safe because guessing is bounded**, so verification attempts are rate
   limited per account and `server/conformance/` asserts that they are. This is the one allowance
   the suite deliberately exhausts; every other limit it only reads.
+- **Signing in hands back both wrapped copies of `MK`.** A fresh install has proved the password
+  by this point, and without them it has an account it cannot read: `MK` lives nowhere else. This
+  is the other half of what a second machine needs, and the reason it is on this answer rather than
+  on `/v1/auth/params` is the paragraph above.
 - **A verification code lives 24 hours**; a reset code, one hour.
 - **`400 invalid-token` covers wrong, expired and already-used alike.** Telling them apart is an
   oracle and buys a client nothing: the remedy is the same sentence in all three cases.

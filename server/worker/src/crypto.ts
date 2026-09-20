@@ -40,6 +40,30 @@ export function normaliseCode(presented: string): string | null {
   return [...stripped].every((character) => BASE32.includes(character)) ? stripped : null;
 }
 
+/** How many bytes a salt is, fixed so that an invented one cannot be told apart by length. */
+export const SALT_BYTES = 16;
+
+/**
+ * The salt handed back for an address that has no account (D4a).
+ *
+ * Stable, so asking twice gives the same answer; unguessable, because the pepper never leaves this
+ * deployment; and the same shape as a real one. Without all three, `/v1/auth/params` is the
+ * cheapest account-enumeration oracle in the protocol.
+ */
+export async function inventedSalt(pepper: string, accountKey: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(pepper),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, encoder.encode(`salt/v1\0${accountKey}`)),
+  );
+  return btoa(String.fromCharCode(...mac.slice(0, SALT_BYTES)));
+}
+
 export async function sha256Hex(value: string): Promise<string> {
   return hex(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
 }
