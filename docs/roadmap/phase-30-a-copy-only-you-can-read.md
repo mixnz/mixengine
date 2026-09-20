@@ -32,12 +32,19 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       Registration and email verification through an external provider, login, refresh and
       revocation, the device list, a per-account quota, rate limiting inside the object, and
       `/v1/capabilities`. Nothing in it parses a ciphertext.
+      Its CI is `.github/workflows/server.yml`, fired by `server/**` alone: `ci.yml` gains no job
+      family and no server change fires its three-OS matrix, while a push to `master` — the branch
+      Workers Builds deploys from — answers for itself without being asked. The third entry in
+      `docs/operations/build-and-release.md`'s list of workflows that are not in that table.
 - [ ] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
       protocol in Rust over a SQLite file, excluded from the root Cargo workspace the way
-      `apps/desktop/src-tauri` is, with a Dockerfile beside it. **Built alongside the Worker rather
+      `apps/desktop/src-tauri` is, with a Dockerfile beside it — an image published to this
+      repository's Packages, following `master`, for somebody self-hosting who would rather pull
+      than compile. Nothing in the hosted path is a container: the default instance is the Worker. **Built alongside the Worker rather
       than after it**, because `/v1` is only a protocol once something other than the Worker has
       spoken it — each implementation is the other's proof, and the conformance suite is what makes
-      that claim checkable rather than asserted. CI runs `server/conformance/` against both.
+      that claim checkable rather than asserted. `server.yml` gains a second job, so one run of it
+      answers for both implementations.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.

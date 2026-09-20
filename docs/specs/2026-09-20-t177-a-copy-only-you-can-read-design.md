@@ -161,8 +161,11 @@ already gives. It is unwrapped at sign-in and written nowhere else.
 
 ## D4. The protocol
 
-Frozen as `/v1` before the first line of client code, because the two halves live in two
-repositories (ADR 0045) and a shape that moves costs two coordinated releases.
+Frozen as `/v1` before the first line of client code. The original reason was that the two halves
+lived in two repositories; [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
+brought them into one, and the freeze outlived it — **a server somebody else is running does not
+update when this document does** (D9, R4), so a shape that moves costs them a coordinated release
+whatever this repository's layout is. A change to `/v1` is a new path, not an edit.
 
 | Method | Path | Does |
 | --- | --- | --- |
@@ -277,6 +280,24 @@ the client home, applied to the server. [ADR 0046](../decisions/0046-the-sync-se
 records the reversal and what would undo it; `server/native/` is excluded from the root Cargo
 workspace the way `apps/desktop/src-tauri` is.
 
+**That run is a workflow of its own.** `.github/workflows/server.yml` is not a job family in
+`ci.yml` and does not share its triggers. `ci.yml` compiles the workspace for three operating
+systems, which is why every ref there asks for its run rather than getting one from a push; this is
+one Ubuntu runner that installs an npm project, starts a Worker and builds one small Rust crate.
+`server/**` is the only path that fires it, so a change to MixLab or to the engine spends nothing on
+a server nobody touched, and a change under `server/` drags no three-OS matrix behind it. **On
+`master` it fires without being asked**, which is the thing `ci.yml` will not do and the reason
+`gallery.yml` and `pages.yml` are also outside that file: Workers Builds deploys `server/worker/`
+from `master` on its own, so there a server that is red and unrun is a server that is deployed red.
+Every other ref asks, the way every other ref here does.
+
+**Separate triggers do not cost what [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
+bought**, because both implementations are jobs in this one workflow: the suite runs against the
+Worker and against the native binary in the same run, on the same commit, in the same pull request
+as whatever client change arrived with them. What that decision rejected was a second *repository* —
+an artifact to publish before the halves could be compared at all. A second workflow file publishes
+nothing and waits for nothing.
+
 **The default instance runs on Cloudflare Workers, with one Durable Object per account.** That
 single primitive answers the three things this design actually needs from a server: execution is
 serialized, so the per-record compare-and-swap and the per-account monotonic `seq` are correct
@@ -353,6 +374,22 @@ nearly free: the same source as the default instance, reached by forking this re
 pointing Workers Builds at `server/worker/` as its root directory. The bottom row is the one that
 costs real work, and it is the only one that answers somebody whose objection to a hosted service
 *is* Cloudflare.
+
+**No container runs anywhere in the top row.** The default instance is the Worker, and Cloudflare
+builds it from this repository's `server/worker/` directory — nothing in the hosted path is built,
+pulled or run as an image. The Dockerfile exists for one purpose: to produce an image, published to
+this repository's own GitHub Packages, that somebody self-hosting can pull instead of compiling
+Rust. It is a distribution format for the bottom row and appears nowhere else, which is also why
+[ADR 0003](../decisions/0003-no-container-isolation.md) is untouched — that decision is about how
+MixEngine runs a person's PHP, and this is an artifact somebody else's machine runs.
+
+**The image follows `master`, and the server has no release of its own.** It is built from
+`master` and tagged `latest` and `sha-<short>`, the same cadence the Worker already deploys on, so
+a self-hoster and the default instance are never running different generations of `/v1`. Attaching
+it to a `v*` tag would give the server the versioned-artifact lifecycle that
+[ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) names as the one
+thing that would justify splitting it back out — the image is deliberately not that. Somebody who
+wants a fixed target pins the `sha-` tag.
 
 **Forking a repository this size to deploy a directory is the price of
 [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)**, and it is a
