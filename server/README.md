@@ -31,3 +31,11 @@ Why this lives here rather than in a repository of its own, and what would rever
 
 `.github/workflows/server.yml`, fired by `server/**` alone. `ci.yml` gains no job family from this
 and no server change fires its three-OS matrix; the argument is in the workflow's own header.
+
+One run answers for both implementations, which is what
+[ADR 0046](../docs/decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) was decided
+to buy. It runs the suite **four times**: against the Worker, against the native binary, and
+against a second instance of each configured to reap tombstones at once — `410 cursor-expired` is
+otherwise ninety days away, and a status no suite reaches is a status the two implementations are
+free to disagree about. On `master` it also builds the image and runs the suite against the
+container before publishing it, so what is published is what was tested.

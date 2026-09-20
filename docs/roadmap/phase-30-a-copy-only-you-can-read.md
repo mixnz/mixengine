@@ -47,7 +47,7 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       closing the access token early costs a revocation check per request, which is wrong for an
       opaque token the server looks up anyway. And registration is limited **per source** in an
       object of its own — a counter inside one account cannot see an abuse that opens many.
-- [ ] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
+- [x] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
       protocol in Rust over a SQLite file, excluded from the root Cargo workspace the way
       `apps/desktop/src-tauri` is, with a Dockerfile beside it — an image published to this
       repository's Packages, following `master`, for somebody self-hosting who would rather pull
@@ -56,6 +56,16 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       something other than the Worker has spoken it — each implementation is the other's proof, and
       the conformance suite is what makes that claim checkable rather than asserted. `server.yml`
       gains a second job, so one run of it answers for both implementations.
+
+      **Done in three commits; the whole suite green against both, first run.** What it settled
+      that the plan had not. The native server is a **library with a binary on top**, for the same
+      reason T177a's module is `pub`: `-D warnings` rejects a module whose callers land in a later
+      commit, and a library's public surface is not dead code — it is also the shape a server
+      wants if it is ever to be tested without a port. Reaping is **one task sweeping every
+      account**, not an alarm per account: the Worker's rule is about money, and with one process
+      and one file it buys nothing. And `410 cursor-expired` needed **a second instance** of each
+      server with a retention of zero, because reaping at once breaks every other tombstone test —
+      four conformance legs in one run rather than two.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.
