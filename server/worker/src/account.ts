@@ -29,6 +29,7 @@ import {
   sha256Hex,
 } from "./crypto";
 import { senderFor, type LetterKind } from "./email";
+import { askBucket, type Allowance } from "./ratelimit";
 import { fail, json, notFound } from "./http";
 import {
   applyDelete,
@@ -413,6 +414,21 @@ export class Account implements DurableObject {
     if (existing?.verified === 1) {
       return fail(409, "email-taken", "That address already has an account.");
     }
+
+    // **Counted only once a letter is certain to be sent.** Counting before the check above
+    // would let anybody spend a verified address's allowance and stop its owner from asking
+    // for a reset — a refusal that costs the wrong person.
+    const key = await accountKey(fields["email"] as string);
+    const letters = await this.letterAllowance(config, key);
+    if (!letters.allowed) {
+      return fail(
+        429,
+        "too-many-attempts",
+        "Too many letters have been sent to this address.",
+        { retryAfter: letters.retryAfter },
+        { "Retry-After": String(letters.retryAfter) },
+      );
+    }
     // **An unverified account is replaced rather than defended.** A verification token lives a day;
     // once it expires the person cannot verify, cannot register again, and cannot reset — a reset
     // is only offered to an address that proved itself. Replacing loses nothing, because D4 forbids
@@ -423,7 +439,7 @@ export class Account implements DurableObject {
       `INSERT INTO account (id, account_key, email, verifier, salt_account, argon_m, argon_t,
                             argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
        VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
-      await accountKey(fields["email"] as string),
+      key,
       (fields["email"] as string).trim().toLowerCase(),
       await peppered(config.pepper, fields["a"] as string),
       fields["saltAccount"],
@@ -538,7 +554,14 @@ export class Account implements DurableObject {
       const account = this.account();
       // A reset letter that could not be sent still answers 202: saying otherwise would tell a
       // stranger which addresses have an account, which is the whole point of this answer.
-      if (account && account.verified === 1) await this.sendLetter(config, "reset");
+      //
+      // **Including when it is this server that refused to send it.** An address over its
+      // allowance cannot answer 429 here for the same reason, so it answers 202 and no letter
+      // goes out (D4a).
+      if (account && account.verified === 1) {
+        const letters = await this.letterAllowance(config, account.account_key);
+        if (letters.allowed) await this.sendLetter(config, "reset");
+      }
       return json(202, {});
     }
 
@@ -708,6 +731,20 @@ export class Account implements DurableObject {
   }
 
   // --- the small things everything else stands on ------------------------------------------
+
+  /**
+   * How many more letters this address may receive this hour (D4a). Kept in the source-limit
+   * namespace rather than in this object, because this object is replaced when somebody
+   * registers over an unverified account — which is one of the two ways to ask for a letter.
+   */
+  private letterAllowance(config: Config, key: string): Promise<Allowance> {
+    return askBucket(
+      this.env.SOURCE_LIMIT,
+      `letter:${key}`,
+      "letter",
+      config.limits.lettersPerAccountPerHour,
+    );
+  }
 
   /** Everything this object holds about one account, for when the account stops existing. */
   private wipe(): void {

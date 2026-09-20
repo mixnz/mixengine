@@ -81,8 +81,24 @@ export async function askSource(
   action: string,
   allowance: number,
 ): Promise<Allowance> {
-  const source = request.headers.get("CF-Connecting-IP") ?? "local";
-  const stub = namespace.get(namespace.idFromName(await sha256Hex(source)));
+  return askBucket(namespace, request.headers.get("CF-Connecting-IP") ?? "local", action, allowance);
+}
+
+/**
+ * The same counter against something that is not a source.
+ *
+ * **A letter is counted against the address it reaches** (D4a), and that counter cannot live in
+ * the account object: registering over an unverified account replaces it and everything hanging
+ * off it, so a counter kept there is one the counted party can clear by asking again. Here it
+ * outlives the account, and outlives its deletion.
+ */
+export async function askBucket(
+  namespace: DurableObjectNamespace,
+  key: string,
+  action: string,
+  allowance: number,
+): Promise<Allowance> {
+  const stub = namespace.get(namespace.idFromName(await sha256Hex(key)));
   const query = new URLSearchParams({ action, allowance: String(allowance) });
   const response = await stub.fetch(`https://limit/?${query}`);
   return (await response.json()) as Allowance;

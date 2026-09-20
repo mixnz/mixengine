@@ -46,6 +46,9 @@ export interface Env {
   /** How often one source may ask where an address's salt is. Generous: a company behind one
    *  address may install on fifty machines in a morning. */
   PARAMS_PER_HOUR?: string;
+  /** How many letters one address may receive in an hour. Small: somebody who did not get
+   *  the letter asks again once or twice, and a mailbox is a fixed target (D4a). */
+  LETTERS_PER_ACCOUNT_PER_HOUR?: string;
   /** How often one source may try to sign in or spend a code, across every account. The
    *  per-account counters cannot see somebody working through a list of addresses. */
   AUTH_PER_HOUR?: string;
@@ -92,6 +95,7 @@ export interface Config {
     verifyAttemptsPerWindow: number;
     paramsPerHour: number;
     authPerHour: number;
+    lettersPerAccountPerHour: number;
   };
   capabilities: Capabilities;
 }
@@ -190,6 +194,7 @@ export function readConfig(env: Env): ConfigResult {
         verifyAttemptsPerWindow: number(env.VERIFY_ATTEMPTS_PER_WINDOW, 10),
         paramsPerHour: number(env.PARAMS_PER_HOUR, 200),
         authPerHour: number(env.AUTH_PER_HOUR, 300),
+        lettersPerAccountPerHour: number(env.LETTERS_PER_ACCOUNT_PER_HOUR, 3),
       },
       capabilities: {
         protocolVersions: ["v1"],
