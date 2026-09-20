@@ -57,12 +57,19 @@ and nothing else. Images go through `navigator.clipboard` in the webview
 `arboard = { version = "3", features = ["wayland-data-control"] }` without `default-features = false`,
 and cargo features are additive: nothing in our `Cargo.toml` can subtract one.
 
-### F2 — 26 seconds of a bson nobody calls
+### F2 — 26 seconds of a bson the application turns out to *be written against*
 
 `mongodb`'s default set is `compat-3-0-0`, `rustls-tls`, `dns-resolver`, and `compat-3-0-0` pulls
 **bson 2.15 in addition to bson 3**. Every use in this application is through `mongodb::bson::…` —
-`doc`, `Document`, `to_document`, `spec::BinarySubtype`, `de::Error` — which is the bson the driver
-itself re-exports.
+`doc`, `Document`, `to_document`, `spec::BinarySubtype`, `de::Error`.
+
+**And that is the compatibility layer, not a spare copy.** `compat-3-0-0` is what makes
+`mongodb::bson` *be* bson 2; without it the same path resolves to bson 3, whose API differs. Tried
+on 2026-09-20, the compile refused in 23 places — 22 in `modules/db/drivers/mongo.rs`, one in
+`drivers/dump.rs`: `to_document` is not there, `de::Error` is private, `raw::CString` no longer
+converts `From<&str>`. So the 26 seconds buys the API this module is written in, and removing it is
+a driver migration that touches how a Mongo archive is written and read — **its own spec, not a line
+in this one.** D2 is withdrawn below.
 
 ### F3 — 125 seconds of two `windows` crates, and not ours to fix
 
@@ -90,11 +97,20 @@ The plugin is a thin wrapper over exactly this. What is given up is its iOS and 
 which this product does not build, and its `writeText`, which nothing here calls — the webview
 writes text itself.
 
-## D2 — `mongodb` without its default features
+## D2 — ~~`mongodb` without its default features~~ — **withdrawn, measured**
 
-`default-features = false, features = ["bson-3", "rustls-tls", "dns-resolver"]`: the same three the
-default set turns on, minus the bson-2 compatibility layer. If anything in the db module turns out
-to need the 2.x types, the compile says so immediately and this decision is reverted in one line.
+The intent was `default-features = false, features = ["bson-3", "rustls-tls", "dns-resolver"]`, on
+the reading that bson 2 was a spare copy. It is not: it is the bson `mongodb::bson` resolves to, and
+23 call sites are written against it (F2). The attempt also turned up a second requirement — the
+driver refuses to compile without `compat-3-3-0`, an empty flag that exists only to make a caller
+promise forward compatibility — so the shape that survives is
+`["compat-3-3-0", "bson-3", "rustls-tls", "dns-resolver"]`, and *that* is what produced the 23
+errors rather than a clean build.
+
+**What it would take, for whoever picks it up:** port `modules/db/drivers/mongo.rs` and the one
+call in `dump.rs` to bson 3, and prove that an archive written before the port still restores after
+it. Twenty-six seconds of compile is not a reason to touch a dump format; a bson 3 migration for its
+own sake, some day, is.
 
 ## D3 — `mixlab`'s own 306 seconds, measured before any refactor
 
@@ -138,14 +154,14 @@ against `window (windows-latest)`'s post-T173 band.
 
 - **T175a** The clipboard plugin is replaced by a direct `arboard` dependency without `image-data`,
   and `image`, `moxcms` and the plugin leave the tree.
-- **T175b** `mongodb` is taken without default features, keeping `bson-3`, `rustls-tls` and
-  `dns-resolver`; bson 2 leaves the tree.
+- **T175b** ~~`mongodb` without default features~~ — **tried and withdrawn**: `mongodb::bson` *is*
+  bson 2, and 23 call sites are written against it. The finding is recorded in F2 and D2.
 - **T175c** Whether `modules/db` becomes a crate of its own is decided by one measured build against
   the bar in D3, and the answer — either way — is written into the phase file.
 
-**Milestone M28**: the `--timings` report for the `window` leg holds no `image`, no `moxcms` and no
-`bson 2`, terminal paste still works on all three systems, and T175c's measurement is recorded
-whichever way it went.
+**Milestone M28**: the `--timings` report for the `window` leg holds no `image` and no `moxcms`,
+terminal paste still works on all three systems, and both measured answers — T175b's and T175c's —
+are recorded whichever way they went.
 
 ## Accepted costs
 
