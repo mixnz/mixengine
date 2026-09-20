@@ -52,6 +52,18 @@ it.
    counters in `activation`, `hold`, `activate` and `ports` raced on the first nextest run. Never
    by a flag on one CI job: that is a fix nobody running the suite at home gets. `tests/secrets.rs`
    is the example of both halves.
+8. **A failing assertion carries what a reader needs to diagnose it, from a machine nobody can
+   log in to.** CI is that machine: a red job is read once, hours later, by somebody who cannot
+   reproduce it. So an assertion about a program this workspace started prints **that program's own
+   output**, not only the daemon's — the two are different files, per
+   [ADR 0009](../decisions/0009-logs-travel-on-their-own-stream.md), and
+   `harness::frontend::service_log` is how a suite reads one. An assertion about a command prints
+   its stderr. An assertion about a file prints what was there instead.
+
+   Measured, twice: `php_extensions` reported "the pool would not start" with `daemon.log` beside
+   it and nothing the pool itself had said, so the only move left was to run the job again
+   (runs 35456409469 and 35470533602). The rule is not "log more" — it is that **the failure
+   message alone decides whether the next person can fix it or can only retry**.
 
 ## Fixtures
 
