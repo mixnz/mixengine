@@ -66,6 +66,10 @@ whether it is working, stuck, or reading an empty variable forever. **An answer 
 read is not an answer of "no."** Print on every exit path, and to stdout — only stdout becomes a
 notification.
 
+The other half of that rule: **an event already reported is not an event.** A loop that re-reads a
+finished job every ninety seconds will say the same thing forty times and be stopped for the volume.
+Keep what was last printed in a variable and print the difference, not the state.
+
 ```bash
 command -v gh >/dev/null || { echo "FATAL: no gh on PATH"; exit 3; }          # dependencies, at the top
 [ -z "$state" ] && { echo "FATAL: gh run view said nothing"; exit 3; }        # empty is a failure, not "not yet"

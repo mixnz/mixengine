@@ -1,5 +1,5 @@
 ---
-status: draft
+status: implemented
 date: 2026-09-20
 task: T174
 ---
