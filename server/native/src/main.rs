@@ -2,7 +2,9 @@
 //!
 //! Everything this serves lives in the library beside this file.
 
-use mixlab_sync::config::Config;
+use std::sync::Arc;
+
+use mixlab_sync::{AppState, config::Config, db::Db, reaper, router};
 
 #[tokio::main]
 async fn main() {
@@ -35,6 +37,19 @@ async fn main() {
         );
     }
 
+    let db = match Db::open(&config.database) {
+        Ok(db) => db,
+        Err(error) => {
+            eprintln!("mixlab-sync cannot open {}: {error}", config.database);
+            std::process::exit(74); // EX_IOERR
+        }
+    };
+
+    reaper::spawn(
+        Arc::clone(&db),
+        config.capabilities.tombstone_retention_days,
+    );
+
     let bind = config.bind.clone();
     let listener = match tokio::net::TcpListener::bind(&bind).await {
         Ok(listener) => listener,
@@ -45,7 +60,7 @@ async fn main() {
     };
 
     tracing::info!("mixlab-sync listening on {bind}");
-    axum::serve(listener, mixlab_sync::router(config))
+    axum::serve(listener, router(Arc::new(AppState { config, db })))
         .await
         .expect("the server stopped unexpectedly");
 }

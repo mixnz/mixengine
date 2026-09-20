@@ -14,36 +14,181 @@
 //! # Why this is a library with a binary on top
 //!
 //! The binary is a `main` that reads the environment and serves [`router`]. Everything else is
-//! here, which keeps it reachable from a test in this crate without a port and a process — and,
-//! incidentally, stops `-D warnings` from rejecting a module whose callers land in a later commit.
+//! here, which keeps it reachable from a test in this crate without a port and a process.
 
+pub mod accounts;
 pub mod config;
+pub mod crypto;
+pub mod db;
+pub mod devices;
+pub mod email;
 pub mod http;
+pub mod reaper;
+pub mod records;
+pub mod recovery;
+pub mod validate;
+
+use std::sync::Arc;
 
 use axum::Router;
-use axum::routing::get;
+use axum::extract::{Query, State};
+use axum::response::{Html, IntoResponse, Response};
+use axum::routing::{delete, get, post, put};
 use config::Config;
+use db::Db;
+use rusqlite::params;
+use serde_json::json;
+
+pub struct AppState {
+    pub config: Config,
+    pub db: Arc<Db>,
+}
 
 /// Every route this server answers. Taking a [`Config`] rather than reading the environment is
 /// what lets a test run two of these with different limits in one process.
-pub fn router(config: Config) -> Router {
+pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/v1/capabilities", get(capabilities))
+        .route("/v1/auth/register", post(accounts::register))
+        .route(
+            "/v1/auth/verify",
+            get(verification_page).post(accounts::verify),
+        )
+        .route("/v1/auth/login", post(accounts::login))
+        .route("/v1/auth/refresh", post(accounts::refresh))
+        .route("/v1/auth/password", post(recovery::change_password))
+        .route("/v1/auth/reset", post(recovery::reset))
+        .route("/v1/devices", get(devices::list))
+        .route("/v1/devices/{id}", delete(devices::remove))
+        .route("/v1/records", get(records::list))
+        .route("/v1/records/batch", post(records::batch))
+        .route(
+            "/v1/records/{collection}/{id}",
+            put(records::write).delete(records::write),
+        )
+        .route("/__test__/outbox", get(outbox))
         // An unknown route answers in the one error shape like everything else, rather than with
         // the bare 404 a framework gives for free (D4a).
         .fallback(async || http::not_found())
-        .with_state(config)
+        .with_state(state)
 }
 
 /// Answered from configuration, without touching the database and without an account: a client
 /// reads this before it has one (D4a).
-async fn capabilities(
-    axum::extract::State(config): axum::extract::State<Config>,
-) -> axum::response::Response {
-    use axum::response::IntoResponse;
+async fn capabilities(State(state): State<Arc<AppState>>) -> Response {
     (
         [(axum::http::header::CACHE_CONTROL, "public, max-age=3600")],
-        axum::Json(config.capabilities.clone()),
+        axum::Json(state.config.capabilities.clone()),
     )
         .into_response()
+}
+
+#[derive(serde::Deserialize)]
+struct Link {
+    email: Option<String>,
+    token: Option<String>,
+}
+
+/// The page the emailed link opens. **It does not spend the token**: mail scanners and link
+/// previewers fetch every URL in a message, and a `GET` that verified would be spent before the
+/// person read the letter — a bug that reads as "the link never works" and is nearly impossible to
+/// reproduce. The button posts, and the post is what verifies (D4a).
+///
+/// The one piece of HTML in this server, and it validates nothing, so it touches no database.
+async fn verification_page(Query(link): Query<Link>) -> Response {
+    let (Some(email), Some(token)) = (link.email, link.token) else {
+        return http::not_found().into_response();
+    };
+    if !validate::is_email(&email) {
+        return http::not_found().into_response();
+    }
+
+    let escaped = email
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;");
+    let payload = json!({ "email": email, "token": token });
+
+    Html(format!(
+        r##"<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confirm your MixLab address</title>
+<style>
+  body {{ font: 16px/1.5 system-ui, sans-serif; margin: 0; display: grid; place-items: center;
+         min-height: 100vh; background: #f6f7f9; color: #14161a; }}
+  main {{ background: #fff; padding: 2rem; border-radius: 12px; max-width: 26rem;
+         box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }}
+  h1 {{ font-size: 1.25rem; margin: 0 0 .5rem; }}
+  p {{ margin: 0 0 1.5rem; color: #4a5059; }}
+  button {{ font: inherit; padding: .6rem 1.2rem; border: 0; border-radius: 8px;
+           background: #14161a; color: #fff; cursor: pointer; }}
+</style>
+<main>
+  <h1>Confirm your address</h1>
+  <p>{escaped}</p>
+  <form><button type="submit">Confirm</button></form>
+  <p id="done" hidden>Confirmed. You can sign in to MixLab now.</p>
+</main>
+<script type="module">
+  const form = document.querySelector("form");
+  form.addEventListener("submit", async (event) => {{
+    event.preventDefault();
+    const response = await fetch("/v1/auth/verify", {{
+      method: "POST",
+      headers: {{ "Content-Type": "application/json" }},
+      body: JSON.stringify({payload}),
+    }});
+    form.hidden = true;
+    const done = document.querySelector("#done");
+    done.hidden = false;
+    if (!response.ok) done.textContent = "That link is not usable. Ask MixLab for another.";
+  }});
+</script>
+</html>"##
+    ))
+    .into_response()
+}
+
+/// Verification arrives by email, which no HTTP suite can read, so a server under test hands the
+/// tokens back here — **and answers `404` unless it was started with that mode deliberately**. It
+/// is outside `/v1` so the frozen surface stays frozen and a deployed server cannot be asked
+/// for it.
+async fn outbox(State(state): State<Arc<AppState>>, Query(link): Query<Link>) -> Response {
+    if !state.config.test_outbox {
+        return http::not_found().into_response();
+    }
+    let Some(email) = link.email.filter(|email| validate::is_email(email)) else {
+        return http::not_found().into_response();
+    };
+    let email = email.trim().to_lowercase();
+
+    let messages = state
+        .db
+        .call(move |connection| {
+            let mut statement = connection.prepare(
+                "SELECT o.kind, o.token, o.sent_at FROM outbox o
+                 JOIN account a ON a.id = o.account_id
+                 WHERE a.email = ?1 ORDER BY o.id ASC",
+            )?;
+            statement
+                .query_map(params![email], |row| {
+                    Ok(json!({
+                        "kind": row.get::<_, String>(0)?,
+                        "token": row.get::<_, String>(1)?,
+                        "sentAt": row.get::<_, i64>(2)?,
+                    }))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()
+        })
+        .await;
+
+    match messages {
+        Ok(messages) => axum::Json(json!({ "messages": messages })).into_response(),
+        Err(error) => {
+            tracing::error!("database error: {error}");
+            http::not_found().into_response()
+        }
+    }
 }

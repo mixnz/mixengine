@@ -210,6 +210,42 @@ jobs:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8080
         run: npm test
 
-      - name: The server's log
+      # The same server with tombstones reaped at once, for the one status no suite can wait for.
+      # A second instance rather than a second setting: reaping at once would break every other
+      # tombstone test on the first one.
+      - name: Start the same server with tombstones reaped at once
+        working-directory: server/native
+        env:
+          MIXLAB_SYNC_TEST_OUTBOX: '1'
+          MIXLAB_SYNC_BIND: 127.0.0.1:8081
+          MIXLAB_SYNC_DATABASE: reaper.db
+          MIXLAB_SYNC_MAX_RECORD_BYTES: '65536'
+          MIXLAB_SYNC_MAX_BATCH_OPERATIONS: '25'
+          MIXLAB_SYNC_MAX_PAGE_RECORDS: '10'
+          MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES: '1048576'
+          MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS: '0'
+          MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
+          MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+        run: |
+          nohup cargo run --locked --quiet > "$RUNNER_TEMP/reaper-native.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8081/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the reaping server never answered on 127.0.0.1:8081"
+          exit 1
+
+      - name: Conformance — cursor expiry
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8081
+        run: npx vitest run src/tombstones.test.ts
+
+      - name: The servers' logs
         if: failure()
-        run: cat "$RUNNER_TEMP/native.log" || true
+        run: |
+          cat "$RUNNER_TEMP/native.log" || true
+          cat "$RUNNER_TEMP/reaper-native.log" || true
