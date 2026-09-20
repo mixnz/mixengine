@@ -57,6 +57,13 @@ tool="$MIX_OUT/appimagetool-$arch"
 # build leg after the .rpm was already written. Six tries ten seconds apart cover a minute, capped
 # at four so a real outage is not waited out. Same set as `.github/scripts/fetch-package.sh`.
 retry=(--retry 6 --retry-delay 10 --retry-max-time 240 --connect-timeout 20)
+# **`--retry` alone does not retry a transport failure.** It covers a 5xx and a refused connection,
+# not a reset in the middle of a transfer — run 35497617727 lost `services (ubuntu-latest)` to
+# `curl: (35) Recv failure: Connection reset by peer` while following GitHub's redirect to its CDN,
+# and the status stayed at the 302 because the transfer that mattered never finished.
+# `--retry-all-errors` is what covers it, and it exists from curl 7.71. AlmaLinux 8, which the
+# manylinux legs run, ships 7.61 — so the flag is asked for rather than assumed.
+curl --help all 2>/dev/null | grep -q -- '--retry-all-errors' && retry+=(--retry-all-errors)
 
 if [ ! -x "$tool" ]; then
   curl --fail --silent --show-error --location "${retry[@]}" --output "$tool" \
