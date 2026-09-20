@@ -64,7 +64,12 @@ describe("an account being copied elsewhere", () => {
     const frozen = await set(session.accessToken, "frozen");
     expect(frozen.status).toBe(200);
     expect(frozen.body.state).toBe("frozen");
-    expect(frozen.body.frozenAt).toBeLessThanOrEqual(seconds());
+    // **Not compared tightly against this machine's clock.** frozenAt is the server's reading,
+    // and the two are not the same clock — asserting otherwise failed against a container whose
+    // clock ran a second ahead. What matters is that it is a time, and that re-asking does not
+    // move it, which the test below covers.
+    expect(Number.isSafeInteger(frozen.body.frozenAt)).toBe(true);
+    expect(Math.abs((frozen.body.frozenAt ?? 0) - seconds())).toBeLessThan(300);
 
     const written = await put(session.accessToken, collection, id, newRecord(), {
       ifMatch: stored.version,
