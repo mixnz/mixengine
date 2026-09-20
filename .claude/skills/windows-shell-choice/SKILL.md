@@ -38,8 +38,10 @@ Every row below was paid for on this repository.
 A missing program in a pipeline yields an empty string, not an error, so its absence arrives as a
 wrong answer. **JSON from `gh` never goes through a pipe:** `gh … --json f1,f2 --jq '<filter>'`,
 since `gh` embeds jq. Piping to jq left a watcher polling run 35481399561 for twenty minutes after
-it had finished. A `PreToolUse` hook in `.claude/settings.local.json` now refuses these three and
-names the substitute; it ignores heredoc bodies and quoted strings, so documenting them still works.
+it had finished. A `PreToolUse` hook — `~/.claude/hooks/no-jq.mjs`, registered in
+`~/.claude/settings.json`, so it covers every project and every worktree on this machine — now
+refuses these three and names what to use instead. It ignores heredoc bodies and quoted strings, so
+writing about them still works.
 
 ## The recipes
 
