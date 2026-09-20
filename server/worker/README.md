@@ -50,8 +50,19 @@ fails, which costs more to diagnose than it should. CI never meets this: it star
    written under one account's master key are not readable under another's.
 
 **Durable Objects are on the free plan with the SQLite storage backend**, which is what
-`new_sqlite_classes` in the migration selects. Everything here is sized for that: see the design's
-D8 for what the free tier holds and the four rules that keep a deployment inside it.
+`new_sqlite_classes` in the migration selects.
+
+**Read off Cloudflare's pricing page on 2026-09-20: 100,000 requests a day and 13,000 GB-s of
+duration a day.** At 128 MB an object that is about 104,000 seconds of object life, so **duration
+runs out before requests do** — and an object stays resident for a short while after its last
+request, which is why what costs money is how often a client wakes one rather than how much data
+moves. **The storage row was not read**, so any figure about how many accounts fit is hearsay: a
+light account is around 150 KB and a heavy one a megabyte or two, but the allowance is the unknown,
+not the arithmetic. `ACCOUNT_QUOTA_BYTES` bounds the worst case rather than promising the average.
+
+These are a supplier's numbers and will be wrong before the design is. What they decide is in the
+design's **D8** — the four rules that keep a deployment inside them, three of which are rules about
+MixLab rather than about this server.
 
 ## Configuration
 

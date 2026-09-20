@@ -211,507 +211,14 @@ own.
 
 ## D4a. The wire
 
-D4 is a table of intentions. This appendix decides the bytes, because `server/conformance/` is
-written against **this document** and against neither implementation — and a suite can only be
-written first if the document decides first. Nothing below is a new decision; each line is
-something D4 left open that two implementations would otherwise settle differently and discover in
-the suite.
-
-**The numbers here are configuration, not protocol.** Every limit is reported by
-`/v1/capabilities`, and a server may report any value it likes. The suite asserts that a limit is
-present and that the server honours the value it reported — never that it equals the default. The
-defaults are what this project's instance ships with.
-
-### Encoding, and what both sides ignore
-
-- JSON, UTF-8, `Content-Type: application/json`. Field names are camelCase, as in D3.
-- Opaque ids — `collection` and `id` — are lowercase hex, 64 characters. Everything else that is
-  bytes (`nonce`, `ciphertext`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery`) is
-  **standard base64 with padding**, not base64url. One spelling, written down here, because two
-  implementations will otherwise each pick a reasonable one.
-- **Every one of those has a fixed length except the ciphertext**, and a server refuses anything
-  else with `400 invalid-request`:
-
-  | Member | Bytes | Why that many |
-  | --- | --- | --- |
-  | `a` | 32 | HKDF-SHA256 output (D2) |
-  | `saltAccount` | 16 | So an invented salt cannot be told apart by length |
-  | `wrappedMkPassword`, `wrappedMkRecovery` | 72 | XChaCha20-Poly1305 over 32 bytes: 24 nonce, 32 sealed, 16 tag |
-  | `nonce` | 24 | XChaCha20-Poly1305 (D3) |
-
-  This is not fussiness. The account row is the one thing the per-account quota does **not** count,
-  so without a bound `POST /v1/auth/register` takes as many bytes as anybody cares to send and
-  stores them for ever. Fixing the lengths also turns a client bug into a `400` instead of a row
-  nobody can decrypt.
-- **Both sides ignore members they do not recognise**, in requests and in responses. This is
-  [ADR 0019](../decisions/0019-an-added-response-member-is-optional.md)'s rule applied to two
-  parties that upgrade separately: a server somebody else is running is older than this document
-  (D9, R4), and a client that refused an unknown member would break the moment a newer server
-  added one.
-- `Authorization: Bearer <access token>` on every route except `/v1/capabilities`.
-- Times on the wire are **seconds** since the epoch. `updatedAt` is the client's clock and the
-  server stores it without ever comparing it (D1).
-
-### The account key
-
-```
-account_key = SHA-256("mixlab-sync/account/v1" || 0x00 || lowercase(trim(email)))   -> 32 bytes, hex
-```
-
-**Frozen, and deployment-independent on purpose.** It is the only name an account has. The Worker
-uses it as the name of the Durable Object that holds the account; the native server uses it as the
-unique key of the row. Both arrive at the same value for the same address, which is what makes a
-row mean the same thing on either — see *Moving the default instance* in D8.
-
-It carries no pepper, and that is the trade this makes: a peppered value could not be moved between
-servers, which is the whole point of it. What is given up is that somebody holding a stolen
-database and a list of candidate addresses can confirm which of them have accounts. What is bought
-is that the database holds no addresses at all.
-
-The label is a frozen constant in the same way the five HKDF labels of D2 are: changing it does not
-corrupt anything, it makes every existing account unfindable. One vector, which both
-implementations assert:
-
-```
-alice@example.com -> 176d00c0673f7e1e711ea55a7d9345f43949376bd9777c4854be01448b5b74a4
-```
-
-### One shape for every failure
-
-```json
-{ "error": { "code": "quota-exceeded", "message": "…", "limit": 20971520, "used": 20971520 } }
-```
-
-`code` is a stable identifier a client switches on. `message` is for a log and is **never shown to
-a person** — MixLab's strings live in `src/i18n/` and are chosen by `code`. Any further members are
-particular to that code and optional.
-
-### `/v1/capabilities`
-
-`200`, no authentication, `Cache-Control: public, max-age=3600`. It never reaches an account object
-(D8). *No authentication* means exactly that: an `Authorization` header that is absent, malformed
-or expired changes nothing about the answer, because a client reads this route before it has an
-account at all.
-
-```json
-{
-  "protocolVersions": ["v1"],
-  "maxRecordBytes": 1048576,
-  "maxBatchOperations": 100,
-  "maxBatchBytes": 8388608,
-  "maxPageRecords": 500,
-  "accountQuotaBytes": 20971520,
-  "tombstoneRetentionDays": 90,
-  "closingOn": null,
-  "features": []
-}
-```
-
-`features` is how a server announces something optional it has; an empty list is a complete v1
-server. A client must run against an empty list forever.
-
-**`maxBatchBytes` exists because the other two do not bound a request.** `maxBatchOperations` times
-`maxRecordBytes` is a number no server intends to buffer — a hundred records of a megabyte each is
-not what batching is for — so without a third figure a client can compose a request that every
-limit says is legal and the server refuses at the door. It is the size of the whole encoded body,
-and a client chunks by whichever of the three binds first.
-
-**`closingOn` is how a server says it will not be here for ever.** It is a Unix timestamp in
-seconds, or `null`, which is what almost every server answers and what an unconfigured one always
-answers. A server that names a date is telling clients the operator intends to switch it off then,
-so that a person has warning enough to copy the account somewhere else (D4b) instead of finding out
-on the day.
-
-**Nothing enforces it.** The server does not refuse a write after the date, does not freeze, and
-does not change any other answer; the date passing is not an event in the protocol at all. It is a
-notice, and treating it as a deadline in code would turn an operator's estimate into an outage —
-including for the operator, who may be running late and would rather the thing kept working.
-Operators move dates, and a server that had already locked itself could not.
-
-**It is a timestamp and not a sentence, and carries no link.** MixLab renders the date in the
-person's own language and calendar, which it cannot do with prose the server composed; the same
-reason `code` exists on every failure rather than a translated `message` (D4a). And a server that
-could hand a client a URL to show would be the phishing surface D4b spends a section refusing —
-*where to go next* is not a thing the old server gets to say. An operator with more to explain than
-a date explains it the way they already reach their people.
-
-**It answers on a route that needs no account**, so a person who has never signed in, or who cannot
-sign in any more, still sees it. A client reads this route before every sync, so the notice arrives
-without anything having to remember to ask for it.
-
-### Every code a client can meet
-
-A client switches on `code` and never on `message`, so this is the complete list: one dictionary
-key each, and a client that handles all of them handles everything `/v1` can say.
-
-**One code per sentence a person would be shown**, which is the rule that decides how fine-grained
-this list is. An earlier draft answered a mistyped address, a wrong-length key and an empty batch
-all with `invalid-request`, and a wrong verification code with the same `invalid-token` as an
-expired session — so a translated application had one string to cover *"check that address"* and
-*"you have been signed out"*. Where two situations want different words they get different codes;
-where a client can only ever say *"something went wrong, and it is our bug"*, one code is enough.
-
-| Code | Status | Carries | What a person is told |
-| --- | --- | --- | --- |
-| `invalid-request` | 400 | | Something in what was sent is malformed. In almost every case a client bug |
-| `invalid-code` | 400 | | A code from a letter that is wrong, spent or expired |
-| `invalid-token` | 401 | | The session is over; sign in again |
-| `invalid-access-token` | 401 | | This server is private; ask whoever runs it for the token |
-| `invalid-email` | 400 | | That is not an address a letter could reach |
-| `invalid-device-name` | 400 | | This machine needs a name |
-| `invalid-credentials` | 401 | | That address and password do not match an account |
-| `email-not-verified` | 403 | | Confirm the address before signing in |
-| `email-taken` | 409 | | That address already has an account |
-| `not-found` | 404 | | No such route. A client bug |
-| `method-not-allowed` | 405 | | A client bug |
-| `unknown-device` | 404 | | No such device on this account |
-| `unknown-record` | 404 | | Nothing to delete |
-| `already-exists` | 412 | the record | Something was created twice |
-| `version-conflict` | 409 | the record | Somebody else wrote first; resolve and retry (D4) |
-| `precondition-required` | 428 | | A client bug: no `If-Match` and no `If-None-Match` |
-| `record-too-large` | 413 | `limit` | That one item is larger than this server takes |
-| `request-too-large` | 413 | `limit` | The whole request is; send fewer at a time |
-| `quota-exceeded` | 507 | `limit`, `used` | The account is full |
-| `cursor-expired` | 410 | | Away too long; start again from empty (D3) |
-| `too-many-requests` | 429 | `retryAfter` | This network has asked too often; try again in so many seconds |
-| `too-many-attempts` | 429 | `retryAfter` | Too many tries on this account. A different sentence, and a different thing to be told |
-| `account-frozen` | 423 | | A copy is under way; nothing may change until it ends (D4b) |
-| `letter-not-sent` | 502 | | The confirmation letter could not be sent, so no account was made |
-| `server-misconfigured` | 503 | `missing` | This deployment is not finished. For whoever runs it |
-| `server-error` | 500 | | Something went wrong there |
-
-**Anything a framework would answer on its own is wrapped into this shape too** — a method that
-does not exist on a route, a body larger than the server will buffer. A client that met a bare
-`405` with an empty body would have nothing to translate, and `server/conformance/` checks that
-neither implementation produces one.
-
-### `/v1/auth/params`, and the salt that is invented for a stranger
-
-**Without this route a second machine cannot sign in at all.** `A` is
-`HKDF(Argon2id(password, salt_account))`, `salt_account` is random and lives on the server, and a
-fresh install has the password and the address and nothing else. An earlier draft of D4 had no way
-to hand it back, which made *"a person's second machine has what they ticked"* — the milestone this
-whole design is for — unreachable.
-
-```
-GET /v1/auth/params?email=…  ->  200  {"saltAccount": "<16 bytes base64>", "argon": {"m": …, "t": …, "p": …}}
-```
-
-**An address with no account gets an answer anyway**, and it has to be one nobody can tell from a
-real one, or this route becomes the cheapest account-enumeration oracle in the protocol:
-
-```
-salt_account (invented) = first 16 bytes of HMAC-SHA256(pepper, "salt/v1" || 0x00 || account_key)
-```
-
-Three properties, each of which the alternative gets wrong. It is **stable**, so asking twice gives
-the same answer — a value that changed between two probes would announce itself. It is
-**unguessable**, because the pepper is this deployment's secret and is never shared, so nobody can
-compute what a given address *would* get and compare. And it is **the same shape**, which is why
-`salt_account` is fixed at sixteen bytes rather than left to the client: a real salt of some other
-length would stand out beside an invented one, and a server cannot invent a length it does not
-know.
-
-The Argon2 parameters in an invented answer are the ones this server would hand a new account.
-**This leaks something small and known**: an account registered with unusual parameters is
-distinguishable from a stranger. MixLab derives with one fixed set, so in practice there is nothing
-to see; a client that ever offers a choice would be trading that away.
-
-**Rate limited per source.** It is unauthenticated, it can be asked about any address, and on the
-Worker every question wakes that address's object whether or not an account is there — so probing
-costs the deployment something. The allowance is generous: a person signs in a handful of times,
-and a company behind one address may install on fifty machines in a morning.
-
-**`wrapped_mk` is not here, and that is the line this route is drawn around.** The copy wrapped
-under the password is what an offline attack needs, and handing it to anybody who asks turns a
-password into the only thing standing between a stranger and an account's contents. It travels on
-the answer to `/v1/auth/login`, after the verifier matched, and nowhere else.
-
-### A server one company runs for itself
-
-**A self-hosted instance can be closed with a shared token**, and the hosted ones never are.
-
-```
-X-MixLab-Access: <whatever the operator chose>
-```
-
-When a deployment is configured with one, **every route requires it** — `/v1/capabilities`
-included. The point is that somebody who finds the address cannot use the host at all, and a
-capabilities document that answered anybody would tell them the server is there, what it allows,
-and that it is worth coming back to. A client is given the token by the person setting it up,
-before it makes its first request, so there is no order-of-operations problem to solve.
-
-A request without it, or with the wrong one, is **`401`, code `invalid-access-token`** — its own
-code, not the `invalid-token` that means a session has ended: one is *ask your administrator for
-the token* and the other is *sign in again*, and MixLab cannot pick between those two sentences
-from a status alone.
-
-**It is not a password and it is not per person.** It is one string a company knows, changed
-whenever they like; changing it locks out every client until each is told the new one, which is the
-behaviour they are asking for. It protects the *host*, not the accounts: everything else in this
-design — the verifier, the wrapping of `MK`, what the server can read — is exactly as it was, and
-somebody who has the token still cannot read a record.
-
-**A wrong one is counted per source**, in the same window as signing in. The operator picks this
-string and may pick a short one, so guessing has to cost something.
-
-**The default instances never set it.** Anybody may make an account there; that is what they are
-for. A deployment sets it by configuration alone, and a client learns it is needed by being
-refused.
-
-### Accounts
-
-| Route | Body in | Out | Refuses with |
-| --- | --- | --- | --- |
-| `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` · `502 letter-not-sent` |
-| `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
-| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
-| `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
-| `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
-| `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
-| `POST /v1/auth/reset` | `email`, `token`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 214}` | `400 invalid-token` |
-
-- **Registration is not complete until the letter is accepted.** If the provider refuses it, the
-  account is removed again and the answer is `502 letter-not-sent`. Keeping the account would be
-  worse than it sounds: the address is now taken, so registering again answers `409`, and there is
-  no route in `/v1` that re-sends a verification letter. A provider outage would hand somebody an
-  address they can never use and never free.
-- **Registering over an *unverified* account replaces it**, and sends a fresh letter. `409
-  email-taken` is for an address with a **verified** account and for nothing else. Without this, a
-  verification token that expires unused — twenty-four hours is not long — leaves the same trap by
-  a different road: cannot verify, cannot register, and cannot reset, because a reset is only
-  offered to an address that proved itself. Replacing it loses nothing, since D4 forbids writing
-  any record before verification, so there is never anything there to lose. It also narrows the
-  enumeration below: an address with an unverified account no longer answers differently.
-- **`/v1/auth/reset` is one path with two shapes**, told apart by whether `token` is present: ask
-  for the letter, then complete with what it carried. Two shapes rather than a second path because
-  D4's table is the frozen surface, and a forgotten password is one operation a person performs in
-  two steps rather than two operations.
-- **Asking for a reset always answers `202`**, whether or not that address has an account. Unlike
-  registration — which has to refuse a taken address and therefore leaks one (see below) — this
-  route has no such obligation, so it does not leak.
-- **Verification is the gate on signing in, not on writing.** Until an address is verified,
-  `/v1/auth/login` answers `403 email-not-verified` and issues nothing, so in v1 **no token exists
-  that could reach a record route with `verified` false**. D4's *"no record may be written before
-  this"* is therefore enforced at the door, and the `403 email-not-verified` listed on the record
-  routes below is defence in depth that `/v1` cannot currently reach. `server/conformance/` asserts
-  the login refusal and does not assert the record one, because a suite that claimed to test an
-  unreachable path would be claiming something false. Issuing tokens for an unverified address was
-  the alternative, and it means handing credentials to whoever typed an address that may not be
-  theirs.
-- **Both codes are eight Crockford base32 characters**, shown as `XXXX-XXXX`: the same alphabet the
-  recovery key uses (D2), without `I`, `L`, `O` and `U`, so nothing read off a screen is ambiguous.
-  A server accepts them in any case and with any separators, and is strict about the alphabet —
-  the rule `parse_recovery_key` already applies, so a person learns one way of typing a code from
-  this product rather than two.
-- **A code, and not a link.** A link has to carry an address the server believes it is reachable
-  at, which is a second piece of configuration that is silently wrong until the first person clicks
-  one — and this is a desktop application, so the person is already in front of the window that
-  wants the code. It also removes a class of bug worth naming: mail scanners and link previewers
-  fetch every URL in a message, so a link that verified on `GET` would be spent before the person
-  read the letter, and a link that did not would need a page with a button. There is no link, so
-  there is nothing to prefetch and no page to serve.
-- **Eight characters are only safe because guessing is bounded**, so verification attempts are rate
-  limited per account and `server/conformance/` asserts that they are. This is the one allowance
-  the suite deliberately exhausts; every other limit it only reads.
-- **Signing in hands back both wrapped copies of `MK`.** A fresh install has proved the password
-  by this point, and without them it has an account it cannot read: `MK` lives nowhere else. This
-  is the other half of what a second machine needs, and the reason it is on this answer rather than
-  on `/v1/auth/params` is the paragraph above.
-- **A verification code lives 24 hours**; a reset code, one hour.
-- **`400 invalid-token` covers wrong, expired and already-used alike.** Telling them apart is an
-  oracle and buys a client nothing: the remedy is the same sentence in all three cases.
-- **`POST /v1/auth/reset` deletes every record** and says how many (D6, case 3). It is the only
-  route in `/v1` that destroys data, and the count exists so the client can show what it did rather
-  than claim it. It deletes them outright rather than writing tombstones — a tombstone exists to
-  tell another machine that something it can read is gone, and after a reset no machine can read
-  anything. Every refresh token is revoked with them, so the other machines are signed out rather
-  than left syncing an account whose `MK` they still hold and the server no longer serves. `seq`
-  does not restart: it is monotonic for the life of the account.
-- **`POST /v1/auth/password` re-wraps and does not re-encrypt.** `MK` is unchanged, so no record is
-  touched and no `seq` moves (D6, case 1). Every refresh token except the calling device's is
-  revoked.
-
-### Devices
-
-| Route | Out | Refuses with |
-| --- | --- | --- |
-| `GET /v1/devices` | `{devices: [{id, name, createdAt, lastSeenAt, current}]}` | `401` |
-| `DELETE /v1/devices/{id}` | `204` | `401` · `404 unknown-device` |
-
-Deleting a device **ends both its tokens at once**, and a request carrying either answers `401`
-from the next one. An earlier draft of this appendix let the access token live out its fifteen
-minutes, reasoning that closing it immediately would cost a revocation check on every request. That
-reasoning was wrong for the servers actually being built: a token here is an opaque string the
-server looks up (see below), so the lookup that would notice a revocation is the same lookup that
-authenticates the request, and there is nothing to pay. Cutting off a lost machine is the whole
-purpose of the route, so it cuts it off now. Deleting your own device is how a person signs out.
-
-### Records
-
-`PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`
-and **not** `seq`, which are the server's to assign. `DELETE` carries no body. Both answer with the
-stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
-
-| Condition | Answer |
-| --- | --- |
-| `If-None-Match: *`, no such record | `201` + the record |
-| `If-None-Match: *`, it exists | `412 already-exists` + the current record |
-| `If-Match: "41"`, current is 41 | `200` + the record, `version` 42 |
-| `If-Match: "41"`, current is 42 | `409 version-conflict` + the current record |
-| neither header | `428 precondition-required` |
-| `DELETE`, `If-Match` matches | `200` + the tombstone |
-| `DELETE`, already a tombstone, `If-Match` matches it | `200` + that same tombstone, **no new version and no new `seq`** |
-| `DELETE`, never existed | `404 unknown-record` |
-| body over `maxRecordBytes` | `413 record-too-large` |
-| account over `accountQuotaBytes` | `507 quota-exceeded`, with `used` and `limit` |
-| `collection` or `id` not 64 lowercase hex characters | `400 invalid-request` |
-| address not yet verified | `403 email-not-verified`, unreachable in v1 — see above |
-
-The tombstone rule is worth its row: without it, a delete retried after a dropped connection bumps
-`seq` and every other machine pulls a change that is not one.
-
-**A tombstone is a version like any other.** `If-Match` on its version writes over it and the
-record comes back — which is what happens when somebody deletes a saved query on one machine and
-the same local uuid is written again from another — and `If-None-Match: *` counts it as existing
-and answers `412`. The alternative, treating a deleted row as absent, would let a creation slip
-past a deletion and leave the two machines disagreeing about which one won.
-
-`GET /v1/records?collection={c}&since={seq}`:
-
-- **`collection` is optional**, and omitting it means every collection. D4 writes the narrow form;
-  the broad one is what a burst sync actually wants, and D8's first rule is about how often a
-  client wakes an object rather than how much it carries.
-- `since` is **exclusive**, and `since=0` means from the beginning.
-- `200`, `{records: [...], nextSince: 903, more: false}`, ordered by `seq` ascending, at most
-  `maxPageRecords`. A client that sees `more: true` calls again with `nextSince`.
-- `410 cursor-expired` when `since` is older than the oldest surviving tombstone — D3's *"told to
-  resync from empty rather than told incomplete news quietly"*, made into a status code.
-
-`POST /v1/records/batch`:
-
-```json
-{ "operations": [
-  { "op": "put", "collection": "…", "id": "…", "ifNoneMatch": true,
-    "record": { "updatedAt": 1758300000, "nonce": "…", "ciphertext": "…" } },
-  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41 }
-] }
-```
-
-```json
-{ "results": [ { "status": 201, "record": {…} }, { "status": 409, "record": {…} } ] }
-```
-
-One result per operation, in the order sent, each carrying exactly the status and body that the
-single-record route would have. **The envelope is `200` whatever the entries say** — it is a batch
-of independent compare-and-swaps and not a transaction (D4), so a `409` in entry seven is news for
-the client, not a failure of the request. `400 invalid-request` when the list is empty or longer
-than `maxBatchOperations`; `507` on the envelope only when the account is already over quota.
-
-### Tokens
-
-An access token lives **fifteen minutes**, a refresh token **ninety days**, and a refresh **rotates
-on use**: the answer carries a new one and the old one dies. Presenting a rotated refresh token
-again revokes that device's whole chain and answers `401` — either it was stolen, or two clients
-raced, and both want the person to sign in again rather than to continue quietly.
-
-**They are opaque strings, not JWTs.** The only party that reads a token is the server that issued
-it, so the stateless validation a JWT buys has no customer here, and a signed token that cannot be
-withdrawn is the wrong shape for a route whose whole purpose is cutting off a lost machine.
-
-### Rate limiting
-
-`429` with `Retry-After` in seconds. The limits are configuration and are not reported by
-`/v1/capabilities` — publishing the number that stops abuse helps only the abuser. The suite
-asserts the shape of the refusal and never trips it deliberately.
-
-**Two different abuses, two different counters.** A count kept per account cannot see somebody
-working through a list of addresses, and a count kept per source cannot see somebody working
-through one account from a botnet. Guessing at one account is counted against that account;
-opening accounts, asking for letters and asking where a salt is are counted against the source.
-
-#### A letter is counted against the address it is sent to
-
-`register` and `reset` are the only routes that send one, and both are counted per source — which
-bounds what one network can send, and **bounds nothing at all about what one mailbox receives**.
-An address is a fixed target: somebody with a hundred sources can ask a hundred times, and every
-one of those letters lands in the same inbox. That is a mail flood aimed at a person, and a bill
-aimed at whoever runs the server.
-
-So there is a second allowance, counted **per address per hour**, and it is small: a person who
-did not get the letter asks again once or twice, not thirty times.
-
-- On `reset`, an address over the allowance still answers **`202`**, and no letter is sent. It
-  cannot answer `429`: this route answers alike for an address that has an account and one that
-  does not (D4a), and a refusal that only throttled addresses could meet would tell an attacker
-  which is which.
-- On `register`, it answers `429`. Registration already refuses a taken address with `409`, so it
-  has no secret left to keep, and the caller being told is the one asking for the letters.
-
-**This counter does not live with the account**, because registering over an unverified account
-replaces that account — and everything that hangs off it. A counter the counted party can clear by
-re-registering is not a counter. It is kept against the hash of the address, in the same place the
-per-source counters live, and it outlives both the account and its deletion.
-
-#### What a source is, and why the server decides it
-
-A source is an address, hashed. **The server works out which address; it never takes the request's
-word for it.** `X-Forwarded-For` is a request header like any other — a server reachable directly
-that believed it would let anybody mint a fresh bucket per request by writing a different value,
-which is not a weakened limit but no limit at all.
-
-So a source is the peer address of the connection, unless the deployment says otherwise. A server
-behind a reverse proxy sees only the proxy and must be told to read the header instead; that is
-one setting, off by default, and `server/native/README.md` names it. When it is on, the value read
-is the **last** entry rather than the first: a proxy that appends leaves the address it saw at the
-end, and a client that writes its own value leaves it at the front, so the end is the only part a
-client cannot choose.
-
-The hosted Worker has neither problem: Cloudflare sets `CF-Connecting-IP` and a request cannot
-reach the Worker without passing through it.
-
-**A server that cannot tell its callers apart says so by putting them all in one bucket**, rather
-than by not counting. That is the honest reading of a missing address, and it is what a server
-reached over a Unix socket or from a test harness gets.
-
-### The one door that is not `/v1`
-
-Verification arrives by email, which no HTTP suite can read. A server under test therefore serves
-`GET /__test__/outbox?email=…`, returning the tokens it would have sent, **and answers `404` unless
-it was started with that mode explicitly enabled**. It is outside `/v1` so that the frozen surface
-stays frozen, and a deployed server cannot be asked for it. Both implementations carry it, because
-`server/conformance/` requires it.
-
-```json
-{ "messages": [ { "kind": "verification", "token": "…", "sentAt": 1758300000 } ] }
-```
-
-Oldest first, so the newest of a kind is the last one. `kind` is `verification` or `reset`. This
-shape is written down for the same reason everything else here is: it is the seam between the suite
-and both implementations, and a seam nobody specified is a seam that differs.
-
-### Four choices that could have gone the other way
-
-1. **`409 email-taken` lets an attacker learn which addresses have a *verified* account.** The alternative —
-   always answer `201`, and send a *"somebody tried to register your address"* letter instead — is
-   what a password manager does, and it costs a client that cannot tell a person they already have
-   an account, plus a new way to send mail to a stranger. The leak it prevents is *"this address
-   uses MixLab"*, against a threat model (D1) that is about the server operator and whoever takes
-   the database, not about an enumerator. Rate limiting makes the sweep slow and loud. **Revisit
-   this if MixLab ever holds something where membership itself is sensitive** — this is a developer
-   tool, and it does not.
-2. **A code the person types, rather than a link they click.** The link is the obvious design and
-   it loses on three counts: it needs the server to know its own public address, which is a setting
-   that is wrong silently; it is fetched by mail scanners before the person reads the letter, so
-   either it does not verify on `GET` and needs a page with a button, or it is spent; and the
-   person is already looking at the window that wants it. The cost is eight characters of typing
-   and a rate limit that has to be real.
-3. **Reusing a rotated refresh token revokes the chain** rather than being ignored. It is the one
-   signal this design gets for free that a token has been copied.
-4. **`updatedAt` is never compared by the server**, including here, where it would have been easy
-   to reject a write whose clock runs backwards. D1 promises the server compares nothing; a client
-   with a wrong clock is a client problem, and a server that enforced monotonic clocks would be
-   unable to accept a legitimate write from a machine that had just fixed its own.
+D4 is a table of intentions; the bytes are decided in
+**[the protocol reference](../features/sync-protocol.md)** — encoding, the account key, the one
+shape every failure takes, every route's body, the closed table of codes a client can meet, and the
+four choices that could have gone the other way.
+
+**It is a separate file because it outlives this one.** A spec stops being edited when its work is
+implemented, and `/v1` does not stop growing. Nothing in it is a new decision: each line is
+something D4 left open that two implementations would otherwise settle differently.
 
 ## D4b. Copying an account to another server, and deleting one
 
@@ -740,14 +247,9 @@ because each one keys its own verifier.
 
 ### Two states
 
-| State | Reads | Writes | What it means |
-| --- | --- | --- | --- |
-| `active` | yes | yes | The normal state |
-| `frozen` | yes | **no** | A copy is under way, and nothing may change under it |
-
-`GET /v1/account/freeze` answers `{"state": …, "frozenAt": <seconds> | null}`. `POST` takes
-`{"state": "active" | "frozen"}` and moves between them. Both need an access token, and **`GET`
-answers in both states** — a machine that meets a refusal has to be able to find out why.
+`active`, and `frozen` — which reads and does not write. `GET`/`POST /v1/account/freeze` moves
+between them and answers in both; the shapes are in
+[the protocol reference](../features/sync-protocol.md).
 
 **Thawing is a route, and the only way out.** Posting `active` is how a client ends a copy it has
 finished and how it abandons one it has given up on. Nothing else ends a freeze, and the section
@@ -758,24 +260,15 @@ same route any machine uses, and a second machine that wants to take over needs 
 
 ### A freeze ends when a client ends it, and not before
 
-**There is no timeout, and an earlier draft was wrong to have one.** That draft made the freeze a
-lease: it carried an expiry, and a machine still copying re-armed it. The argument was that a
-machine which freezes the account and then loses its network or its power would otherwise leave it
-read-only for ever, with nobody but an operator able to rescue it.
+**There is no timeout.** Posting `active` is reachable from every signed-in machine, and reading
+and signing in both work while frozen, so a freeze nobody meant to leave behind is one request away
+from over — nothing is stranded and no operator is needed.
 
-**That argument does not survive reading the route table.** `POST /v1/account/freeze` with `active`
-is available to every signed-in machine on the account, and both reading and signing in work while
-frozen. A freeze nobody meant to leave behind is therefore one request away from over — from the
-machine that started it, from a second machine that finds the account read-only, or from a
-reinstall that signs in and asks. Nothing is stranded, and no operator is needed.
-
-**What the timeout cost was worse than what it bought.** Consider a copy that *succeeds* and is
-then not finished off: the person closed the laptop, or meant to delete the old account in the
-evening. With a lease the old server quietly becomes writable again a few minutes later, and a
-machine that was never repointed begins writing into it — the silent divergence this section exists
-to prevent, arriving through the back door on a timer. A freeze that stays frozen fails loudly
-instead: the forgotten machine is refused every time, until a person decides something. **Between a
-failure that asks a question and a recovery that answers one on its own, this takes the question.**
+An expiry would cost more than that buys. A copy that *succeeds* and is then not finished off would
+let the old server quietly become writable again, and a machine nobody repointed would begin
+writing into it: the silent divergence this section exists to prevent, arriving on a timer.
+**Between a failure that asks a question and a recovery that answers one on its own, this takes the
+question.**
 
 `frozenAt` is when it started, so a client can say how long this has been true rather than only
 that it is.
@@ -804,41 +297,24 @@ code `account-frozen`. Sessions are untouched.
 ### Where the copy goes is the client's business, and cannot be the server's
 
 **The destination is a thing a person typed.** Somebody on the hosted instance who wants their own
-box types its address into MixLab; somebody with two boxes of their own picks one. The old server is
-not a party to that decision and has no way to be: a hosted instance serving many people cannot hold
-a setting naming each of their private machines, and if it held one it would name the same
-destination for everybody.
+box types its address into MixLab; somebody with two boxes of their own picks one. A hosted
+instance serving many people cannot hold a setting naming each of their private machines, and if it
+held one it would name the same destination for everybody.
 
-**An earlier draft of this section had the old server name the new one**, as a short symbolic id the
-client resolved against the list of servers it already ships, so that a client arriving at the old
-address could be forwarded. It does not work, and the reason is worth keeping:
+**So nothing is forwarded, and each machine is pointed at the new server by the person, once**, the
+same way the first one was (D8). A server that could send a client to an address of its choosing
+would be a phishing primitive: the destination learns `A`, which is the login verifier and is the
+same value on every server because it comes from the password. It could not read a record — it has
+no `MK` — but it would not need to.
 
-- A client that already knows the new server **does not need to be told** — it would have gone there
-  anyway, because knowing it is what shipping the list means.
-- A client that does not know it **cannot resolve the id**, because the id is only meaningful
-  against a list built after the new server existed.
-
-The forwarding is therefore readable exactly when it is redundant and unreadable exactly when it is
-needed. Letting the id be a URL instead would fix the resolution and open something worse: a server
-that can send a client to an arbitrary address is a phishing primitive, because the destination
-learns `A`, which is the login verifier, and `A` is the same value on every server since it comes
-from the password. It could not read a record — it has no `MK` — but it would not need to.
-
-So nothing is forwarded, and **each machine is pointed at the new server by the person, once,** the
-same way the first one was (D8). That is a real cost and it is the right one: the alternative is a
-mechanism that works only in the case where it is not needed.
-
-**What an old server does contribute is a date.** `closingOn` in `/v1/capabilities` (D4a) is the
-whole of it: an operator who intends to switch the server off says when, every client reads it
-before every sync, and a person has warning enough to copy the account somewhere while the server
-is still there to copy from. It says when, never where, because where is the one thing it cannot
-know.
+**What an old server does contribute is a date.** `closingOn` in `/v1/capabilities` is the whole of
+it: an operator who intends to switch the server off says when, every client reads it before every
+sync, and a person has warning enough to copy the account somewhere while the server is still there
+to copy from. It says when, never where.
 
 ### Deleting an account
 
-| Route | Body in | Out | Refuses with |
-| --- | --- | --- | --- |
-| `POST /v1/account/delete` | `a` | `200`, `{recordsDeleted: 214}` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+`POST /v1/account/delete`, carrying the current `A`.
 
 **It re-proves the password, and the session is not enough.** A borrowed unlocked machine already
 holds a valid access token; asking for `A` means the person deleting the account is the person who
@@ -951,16 +427,36 @@ belongs to is.
 
 ## D6. Losing the password
 
-Three cases, and the third is the one a person has to be told about before they need it.
+Three cases. **The recovery key decides what survives; the letter decides who you are.** Neither
+does the other's job, which is what case 2 is about.
 
 1. **Changed while signed in** — re-wrap `MK`, one request, nothing else moves.
-2. **Forgotten, recovery key held** — `RK` unwraps `MK` on the machine; the person sets a new
-   password and the client uploads a new `wrapped_mk`. The server is told after the fact and proves
-   nothing about `RK`, having never seen it.
-3. **Both lost** — the emailed reset restores the *login*, and nothing restores the data: every
-   record is encrypted under an `MK` no surviving key unwraps. The reset therefore deletes every
-   record rather than leaving an account full of bytes that decrypt for nobody, and the dialog says
-   exactly that before it proceeds.
+2. **Forgotten, recovery key held** — `RK` unwraps `MK`, so the records survive. But a fresh
+   install has to prove whose account this is first, and **only the emailed code can do that**:
+   the server has never seen `RK` and cannot tell somebody holding one from somebody who is not.
+   A route that took a new verifier on `RK` alone would be account takeover with extra steps.
+3. **Both lost** — the letter restores the login and nothing restores the data: every record is
+   under an `MK` no surviving key unwraps. The reset deletes them rather than leaving an account
+   full of bytes that decrypt for nobody, and the dialog says so before it proceeds.
+
+**Case 2 takes two requests and case 3 takes one**, because the client needs
+`wrapped_mk_recovery` before it can compute anything and spending the code is what earns it. The
+first request spends the code and answers with that key and a **single-use ticket, minutes long**;
+the second carries the ticket and the new keys. D4a has both shapes.
+
+Three things that follow, and none of them are the client's convenience:
+
+- **The ticket is what separates keeping from deleting.** Without it the second request is the
+  one-shot reset, so a stale ticket is refused rather than treated as either.
+- **Records survive because the client said so by using that shape.** The server cannot check that
+  the uploaded `wrapped_mk` wraps the same `MK` and does not try; a client that got it wrong
+  leaves records nobody can read, which case 3 clears.
+- **Reaching the mailbox buys nothing new.** That already destroys the account through case 3.
+  Taking case 2 instead leaves the records in place and still unreadable: `MK` is in none of it.
+
+**The recovery key is not enough on its own.** It preserves the data; it does not prove identity,
+and the mailbox is still required. Wherever MixLab prints or explains the key it has to say so, or
+a person will keep the key, lose the address, and find out the shape of this at the worst moment.
 
 ## D7. Where the code lives
 
@@ -997,23 +493,11 @@ the client home, applied to the server. [ADR 0046](../decisions/0046-the-sync-se
 records the reversal and what would undo it; `server/native/` is excluded from the root Cargo
 workspace the way `apps/desktop/src-tauri` is.
 
-**That run is a workflow of its own.** `.github/workflows/server.yml` is not a job family in
-`ci.yml` and does not share its triggers. `ci.yml` compiles the workspace for three operating
-systems, which is why every ref there asks for its run rather than getting one from a push; this is
-one Ubuntu runner that installs an npm project, starts a Worker and builds one small Rust crate.
-`server/**` is the only path that fires it, so a change to MixLab or to the engine spends nothing on
-a server nobody touched, and a change under `server/` drags no three-OS matrix behind it. **On
-`master` it fires without being asked**, which is the thing `ci.yml` will not do and the reason
-`gallery.yml` and `pages.yml` are also outside that file: Workers Builds deploys `server/worker/`
-from `master` on its own, so there a server that is red and unrun is a server that is deployed red.
-Every other ref asks, the way every other ref here does.
-
-**Separate triggers do not cost what [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
-bought**, because both implementations are jobs in this one workflow: the suite runs against the
-Worker and against the native binary in the same run, on the same commit, in the same pull request
-as whatever client change arrived with them. What that decision rejected was a second *repository* —
-an artifact to publish before the halves could be compared at all. A second workflow file publishes
-nothing and waits for nothing.
+**That run is a workflow of its own**, `.github/workflows/server.yml`, fired only by `server/**`
+and unasked on `master` because Workers Builds deploys from there on its own — a server that is red
+and unrun is a server that is deployed red. Why it is separate from `ci.yml`, and why `master` is
+the exception to *CI is asked for*, is in
+[build-and-release](../operations/build-and-release.md).
 
 **The default instance runs on Cloudflare Workers, with one Durable Object per account.** That
 single primitive answers the three things this design actually needs from a server: execution is
@@ -1042,59 +526,18 @@ already the serialized place.
 
 ### Sending email
 
-**Workers cannot speak SMTP, so an SMTP account is the wrong thing to hold.** What the server needs
-is a provider with an HTTP API. Two things are worth writing down because the internet is full of
-stale advice about both: Cloudflare's own Email Routing **receives** and does not send, and
-MailChannels' free offering for Workers **ended in 2024**.
+Two letters — a verification code and a reset code — and **which provider sends them is a
+deployment decision rather than a protocol one**. They sit behind one function in each
+implementation, which is the part that matters: every free tier in this market will be renegotiated
+within a few years, and what protects a deployment is that changing provider is one file.
 
-**The provider sits behind one function**, and that is a more important decision than which provider
-it is. Every free tier in this market will be renegotiated within a few years; what protects this
-project is that changing provider is one file rather than a migration.
+**A deployment must name one**, and there is no default: a key on its own does not say where to
+send it, and guessing meant somebody pasting a SendGrid key had it posted to Resend — which fails,
+correctly but confusingly, at the first letter rather than at the first start. A server missing any
+of this refuses to serve and names what is missing.
 
-**Seven of them, because one proves nothing.** The sentence above is a claim, and a single
-implementation cannot test it any more than one server can make `/v1` a protocol. The seven —
-`smtp`, Resend, Mailtrap, Brevo, Postmark, SendGrid, Mailgun — disagree about nearly everything a
-naive interface would have assumed was fixed: **three ways of carrying the key** (a bearer token, a
-header of the provider's own, HTTP basic auth), **two body encodings** (JSON, and a form for
-Mailgun), and **five different spellings of "who is this from"**. A seam that only ever had to swap
-a URL would have got all three wrong, and would have looked fine until the second provider.
-
-**`smtp` is the one capability the two implementations do not share.** `server/native/` speaks it;
-the Worker cannot, and refuses the name rather than ignoring it. It is also the provider a person
-self-hosting is most likely to already have, which is why the implementation they run is the one
-that has it.
-
-**What each provider needs is asked of the provider**, not demanded of everybody: an API key for
-the six HTTP ones, a host for `smtp`, and an endpoint for the two whose URL carries something only
-the operator knows — Mailtrap's inbox id, Mailgun's sending domain. A deployment missing one is
-told before it starts, by name.
-
-**The volume is two messages in the lifetime of an account** — verify an address at registration,
-prove control of it after a forgotten password — and nothing else. No notification, no digest, no
-newsletter. A thousand new accounts in a month sits far inside any free tier on offer.
-
-**So the cost risk is abuse, not success**, and the controls for it are already here rather than
-added for this: registration is rate limited per address and per source, and D4 forbids writing any
-record before an address is verified — a rule written to stop the server becoming anonymous free
-storage, which stops this too. A ceiling on messages per account per day closes the rest.
-
-**A server missing a piece of its configuration refuses to start, and names the piece.** Whoever
-deploys this — us, or somebody on their own Cloudflare account — sets the provider's key and the
-`pepper` themselves, and the failure that follows forgetting one is otherwise invisible: the deploy
-succeeds, registration succeeds, and a person waits for a letter that was never sent. Checking at
-startup turns a silence into a sentence. It costs a few lines and is the difference between an
-afternoon and a weekend for the first person who self-hosts this.
-
-**The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is built
-alongside the Worker rather than after it.** The promise is that `/v1` is a protocol and not a
-description of one codebase, and a second implementation is the only thing that can ever prove it.
-This is also why **the conformance suite is written before the first server**: a suite written
-afterwards describes what was built, `/v1` quietly becomes "whatever the Worker does", and the
-second implementation stops being writable at all. Built together, each is the other's proof.
-
-Either implementation owns the same closed set: registration and verification, tokens and their
-revocation, the record table with its compare-and-swap, tombstone reaping, a per-account quota, and
-the capability document. Neither owns any knowledge of what a record is.
+`server/native/README.md` has the seven providers and what each one wants; `server/worker/README.md`
+has the six that a Worker can reach, SMTP being the one it cannot.
 
 ### Two implementations, three things a person can run
 
@@ -1133,21 +576,20 @@ path does: they fork and point a build at a directory, or they pull an image.
 
 ### What the free tier holds, and what that decides
 
-Durable Objects with the SQLite backend are reachable on the free plan. **Read off Cloudflare's
-pricing page on 2026-09-20: 100,000 requests a day and 13,000 GB-s of duration a day.** The storage
-row was not read, so every figure about stored bytes below is an assumption carried from hearsay and
-is marked as one. Should the free tier ever stop
-being true, the fallback is **D1**: still SQLite, still free, but the serialization that made this
-design easy is gone — `seq` and the compare-and-swap would then need a written transaction instead
-of a guarantee, and reaping a Cron Trigger over a shared table instead of an alarm per account. The
-protocol would not change, and a client could not tell the difference.
+Durable Objects with the SQLite backend are reachable on the free plan, and the figures that
+say how far it goes are in `server/worker/README.md`, beside the limits they constrain —
+a supplier's pricing will be wrong before this document is. Should the free tier ever stop
+being true, the fallback is **D1**: still SQLite, still free, but the serialization that made
+this design easy is gone — `seq` and the compare-and-swap would then need a written
+transaction instead of a guarantee, and reaping a Cron Trigger over a shared table instead of
+an alarm per account. The protocol would not change, and a client could not tell the
+difference.
 
-**Duration runs out before requests do.** At 128 MB an object, 13,000 GB-s is about 104,000 seconds
-of object life a day, and an object stays resident for a short while after its last request. So what
-costs money is not how much data moves but **how often a client wakes an object up**: one sync that
-pulls and pushes in a single burst holds one window open, while the same calls scattered through the
-day open a dozen. Three of the four things that follow are therefore rules about **MixLab**, not
-about the server, which is why they are in this design rather than in `server/`.
+**What costs money is not how much data moves but how often a client wakes an object up.** An
+object stays resident for a short while after its last request, so one sync that pulls and
+pushes in a single burst holds one window open while the same calls scattered through the day
+open a dozen. **Three of the four things that follow are rules about MixLab**, not about the
+server, which is why they are in this design rather than in `server/`.
 
 1. **Sync in bursts, never on a poll.** On launch, on a local change after a debounce, on window
    focus, and a long idle interval. A five-minute poll costs several times what this does and
@@ -1161,21 +603,6 @@ about the server, which is why they are in this design rather than in `server/`.
    A daily alarm per account bills for every account that has ever existed rather than for every
    account in use, and it does it quietly, forever.
 
-**On storage — and this paragraph rests on a number nobody here has checked.** A record is a couple
-of hundred bytes of metadata and its ciphertext; a light account — twenty connections, thirty saved
-requests, some snippets and preferences — is around 150 KB, and a heavy one one or two megabytes, so
-half a megabyte is a fair average. *If* the free allowance is the 5 GB it is commonly said to be,
-that is on the order of 10,000 accounts, with an honest range of 5,000 to 25,000. **The allowance is
-the unknown, not the arithmetic**: read the storage row before anything depends on the answer, and
-if it is smaller, every number here scales with it. The per-account quota exists to bound the worst
-case rather than to promise the average; 20 MB is the number to start from.
-
-**The two ceilings measure different populations**, which is worth knowing whatever the storage
-number turns out to be: storage bounds how many accounts have ever existed, duration bounds how many
-are used on a given day, and a tool like this sees perhaps a tenth to a fifth of its accounts in a
-day. On the assumption above the two land within a factor of one of each other, so neither is wasted
-on the other — but that is a consequence of the unchecked figure, not an argument for it.
-
 **D5's refusal list is what makes any of this arithmetic work**, and here the ratio is the point
 rather than the allowance. Syncing `rest-history.json` would put a hundred response bodies at up to
 256 KB each into one account — twenty-five megabytes a person against half a megabyte, **fifty times
@@ -1185,50 +612,24 @@ made for another reason entirely.
 
 ### Moving the default instance
 
-**The two implementations do not share an account id, and it does not matter.** The Worker
-addresses an account by `idFromName(SHA-256(lowercased address))`; the native server gives it a row
-number. Neither is ever on the wire. What *is* on the wire — the opaque `collection` and `id` of D3
-— is `HMAC(K_id, …)`, derived on the client from `MK`, so it is a property of the account's own key
-and not of whichever server is holding it.
+### Moving the default instance
 
-**But the Worker cannot list its accounts, and that is deliberate.** D8 above has no account table
-and no index, because nothing in this design ever queries across accounts. The direct consequence
-is that **the operator has no list of addresses to migrate** and cannot perform a bulk server-side
-move. That is a cost of the privacy property, not an oversight, and it is written here so nobody
-discovers it on the day they want to move.
+**The two implementations do not share an account id, and it does not matter.** Neither is ever on
+the wire; what is — the opaque `collection` and `id` of D3 — is derived on the client from `MK`, so
+it is a property of the account's key and not of whichever server holds it.
 
-**It is also not needed, because the client is the source of truth.** Everything in an account is
-derived from files MixLab already holds in plaintext on the machine, plus an `MK` the person holds
-two wrappings of. The server is a carrier. So moving the default instance is a thing a *person*
-does — point MixLab at the new server, make an account, push — and it is lossless, because nothing
-was only ever on the server. The records arrive under a new `MK` with new opaque ids and a `seq`
-that starts again, and no other machine can tell the difference once it has signed in too.
+**But the Worker cannot list its accounts, and that is deliberate.** There is no account table and
+no index, because nothing here queries across accounts. The direct consequence is that **an
+operator has no list of addresses to migrate and cannot perform a bulk server-side move.** That is
+a cost of the privacy property rather than an oversight, and it is written here so nobody discovers
+it on the day they want to move.
 
-**The one person this fails** is somebody whose only copy *was* the server: one machine, lost, with
-sync as the backup. For them a move that is not a migration is data loss. Two things follow. An
-operator who moves the default instance announces it and leaves the old one answering until
-everybody has signed in to the new one — a deprecation, not a switch. And **if a silent migration
-ever becomes necessary, the thing that has to change first is the no-index decision**, in a new
-spec that argues for the index and says what it costs, rather than in a hurry.
-
-**These limits are per Cloudflare account**, so somebody who deploys this Worker to their own gets
-the whole allowance for themselves. The middle row of the table above scales without anybody paying
-for it, which is not usually true of a self-hosting story.
-
-**The contract is normative here**, in D2 to D4 of this document, and `server/conformance/` is
-written against *it* rather than against either implementation — which is why the suite sits beside
-both rather than inside one, and why it is written before the first server exists. It runs against
-any base URL: against the Worker and the native binary in CI, and against whatever a self-hoster
-has deployed.
-
-**`/v1` is frozen at D4** and a change to it is a new path rather than an edit. That was the
-mitigation for two repositories drifting when the server had one of its own; with both halves in
-one tree the drift cannot happen at all, and the freeze now earns its place for the other reason —
-a server somebody else is running does not update when this document does (D9, R4).
-
-In MixLab the server is a setting. It defaults to the hosted instance, and changing it signs the
-person out: records written under one account's `MK` are not readable under another's, and
-pretending otherwise would quietly produce an account full of rows that decrypt for nobody.
+**It is also not needed, because a person moves their own account** — D4b, and it is lossless. The
+one person that fails is somebody whose only copy *was* the server: one machine, lost, with sync as
+the backup. So an operator who moves the default instance announces it with `closingOn`, and leaves
+the old one answering until people have gone. **If a silent migration ever becomes necessary, the
+thing that has to change first is the no-index decision**, in a new spec that argues for the index
+and says what it costs, rather than in a hurry.
 
 ## D9. MixLab grows; the server does not
 
