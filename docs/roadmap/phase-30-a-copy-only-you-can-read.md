@@ -15,11 +15,14 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       AAD, and the wrap/unwrap of `MK` under a password and under a recovery key. No network, no
       account, no storage. It carries test vectors and is written to be read in one sitting —
       spec D1 says the promise is a property of this file and of nothing on the server.
-- [ ] **T177b** `/v1` frozen at the spec's D4, and `mixlab-sync` built against it: axum over
-      SQLite, register and email verification, login, refresh and revocation, the device list, the
-      record table with its compare-and-swap, tombstone reaping at 90 days, a per-account quota,
-      and rate limiting per email and per address. Its conformance suite runs against any base URL.
-      Nothing in it parses a ciphertext.
+- [ ] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
+      the server it will judge, because a suite written afterwards only ever describes what was
+      built. Then `mixlab-sync` on Cloudflare Workers, one Durable Object per account: its
+      serialized execution is what makes the compare-and-swap and the monotonic `seq` correct, its
+      SQLite storage holds the record table, and its alarms reap tombstones at ninety days.
+      Registration and email verification through an external provider, login, refresh and
+      revocation, the device list, a per-account quota, rate limiting inside the object, and
+      `/v1/capabilities`. Nothing in it parses a ciphertext.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.
@@ -37,6 +40,13 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       and the conformance suite pointed at their own instance. Plus the refusals the spec names —
       history, drafts, workspace layout and usage counts are not in the list, and a test says so by
       enumerating it rather than by trusting the UI.
+
+**The self-hosted binary is deliberately not in this phase.** The spec's D8 commits to a second
+implementation — native Rust over a SQLite file — because `/v1` is only a protocol if something
+other than the Worker has ever spoken it. It is sequenced after, not dropped, and the thing that
+keeps it writable is T177b's ordering: the conformance suite exists before the first server, so it
+describes the document rather than the deployment. Its trigger is somebody asking to self-host, and
+the task is written then.
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
 collections that were ticked, with the rows that were not ticked absent; revoking a device from the

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 date: 2026-09-20
 task: T177
 ---
@@ -93,9 +93,15 @@ K_data = HKDF-SHA256(MK, info = "mixlab-sync/data/v1")             -> 32 bytes
 K_id   = HKDF-SHA256(MK, info = "mixlab-sync/id/v1")               -> 32 bytes
 ```
 
-The server stores `Argon2id(A, salt_server)`. So `A` arriving there does not put `K_wrap` within
-reach — they are two HKDF expansions of one secret, and neither yields the other — and a stolen
-database does not put `A` within reach either.
+`A` arriving at the server does not put `K_wrap` within reach: they are two HKDF expansions of one
+secret, and neither yields the other.
+
+**The server stores `HMAC-SHA256(pepper, A)`, and deliberately not another Argon2id.** Memory-hard
+hashing exists to make a wordlist expensive against a secret a person chose. `A` is not that — it is
+256 bits of HKDF output, uniform, with nothing to guess. A single keyed hash is preimage-resistant
+at that size, and the pepper means a stolen database is not a list of login tokens. The expensive
+work stays where the low-entropy secret is, which is the client. This also keeps the check inside
+what a serverless runtime will do per request (D8).
 
 It also stores two wrapped copies of `MK`, and can open neither:
 
@@ -104,8 +110,11 @@ wrapped_mk          = XChaCha20-Poly1305(K_wrap, MK)
 wrapped_mk_recovery = XChaCha20-Poly1305(HKDF-SHA256(RK, info = "mixlab-sync/recovery/v1"), MK)
 ```
 
-`RK` is 32 random bytes shown to the person **once**, at registration, as ten groups of five base32
-characters. Registration does not finish until they type two of the ten groups back.
+`RK` is 32 random bytes shown to the person **once**, at registration, as **thirteen groups of four
+Crockford base32 characters** — the alphabet without `I`, `L`, `O` and `U`, so nothing written by
+hand is ambiguous. Fifty-two characters carry the whole 256 bits; an earlier draft said ten groups
+of five, which is 250 bits and cannot hold a 32-byte key. Registration does not finish until the
+person types two of the thirteen groups back.
 
 **Changing the password re-wraps `MK` and re-encrypts nothing.** One request, carrying a new
 `salt_account`, a new `A` and a new `wrapped_mk`. That is the whole reason `MK` is a random value
@@ -149,6 +158,7 @@ repositories (ADR 0045) and a shape that moves costs two coordinated releases.
 
 | Method | Path | Does |
 | --- | --- | --- |
+| `GET` | `/v1/capabilities` | **No authentication.** Protocol versions this server speaks, the largest record and batch it accepts, the per-account quota, and the optional features it has |
 | `POST` | `/v1/auth/register` | email, `A`, `salt_account`, the Argon2 parameters, both wrapped copies of `MK` |
 | `POST` | `/v1/auth/verify` | completes the emailed link; **no record may be written before this** |
 | `POST` | `/v1/auth/login` | email, `A`, a device name → a short access token and a per-device refresh token |
@@ -160,6 +170,12 @@ repositories (ADR 0045) and a shape that moves costs two coordinated releases.
 | `DELETE` | `/v1/records/{c}/{id}` | writes a tombstone; `If-Match` applies |
 | `POST` | `/v1/records/batch` | many of the above in one round trip, each with its own outcome |
 
+**`/v1/capabilities` is what stops a limit from becoming a release.** A client that assumes the
+largest record or the size of a batch has to be updated in step with every server that disagrees,
+and a server that wants to raise a number has to ship an endpoint to say so. Reported rather than
+assumed, those become configuration on one side and a read on the other — which is the whole of what
+D9 asks for, bought for one handler.
+
 **A conflict is the client's to resolve and the server's to refuse.** A `PUT` whose `If-Match` is
 stale gets `409` and the current record. The client compares `updatedAt`, keeps the later one,
 breaks a tie on the lexicographically greater device id, and retries. The server compares nothing.
@@ -169,7 +185,12 @@ set, and two hundred round trips to do it is the difference between a pause and 
 batch of independent compare-and-swaps, not a transaction: each entry succeeds or conflicts on its
 own.
 
-## D5. What syncs, and what never does
+## D5. What syncs, and what never does — a client-side catalogue
+
+**Nothing in this section is part of the protocol.** The server never sees a single name in the
+table below: a collection reaches it as `HMAC(K_id, name)`, 32 bytes it cannot invert and cannot
+enumerate. This list is a decision MixLab makes about its own files, and it grows whenever MixLab
+grows — without a line changing in `mixlab-sync`, which is the point D9 is built around.
 
 Every row is **off** until a person turns it on. A secret row cannot be turned on until the row it
 belongs to is.
@@ -231,24 +252,138 @@ Three cases, and the third is the one a person has to be told about before they 
 
 ## D8. The server
 
-`mixlab-sync`, its own repository (ADR 0045): Rust, axum, and **SQLite** — one binary and one
-file, which is what makes "you can run this yourself" a sentence somebody can act on in an
-afternoon. One account's records are small, and the escape hatch to Postgres is a schema kept free
-of SQLite-only syntax rather than an abstraction written in advance.
+`mixlab-sync`, its own repository (ADR 0045), holds **two implementations of one protocol**, and
+that is deliberate rather than a duplication to be cleaned up later.
 
-It owns registration and verification, tokens and their revocation, rate limiting per email and per
-address, the record table with its compare-and-swap, tombstone reaping, and a per-account quota. It
-owns no knowledge of what a record is.
+**The default instance runs on Cloudflare Workers, with one Durable Object per account.** That
+single primitive answers the three things this design actually needs from a server: execution is
+serialized, so the per-record compare-and-swap and the per-account monotonic `seq` are correct
+without a carefully written transaction; its storage backend is SQLite, so the table is the one
+designed here, one file per account rather than one shared; and its alarms reap that account's
+tombstones at ninety days without a cron sweeping everybody's rows. A shared database would make all
+three harder for nothing gained — an account's records are small and never joined against another's.
+
+**Everything about one account lives inside that account's object** — the email address, the stored
+`HMAC(pepper, A)`, `salt_account`, both wrapped copies of `MK`, whether the address has been
+verified, the device list, and the record table. There is no second store and no account table,
+because **nothing in this design ever queries across accounts**: there is no administrative screen,
+no statistic and no search, and every operation begins by naming one account.
+
+The one lookup that looks like it needs an index — which account is this email — is answered by
+addressing instead: a Durable Object derived from `SHA-256` of the lowercased address is the same
+object every time, so there is nothing to keep in step. It settles the registration race for free,
+too: two simultaneous attempts on one address arrive at one serialized object, and one of them
+loses cleanly without a transaction being written. **The cost is that changing an email address
+changes the address of the object, so v1 does not offer it.** Adding it later is an alias table and
+a server-side addition, which `/v1` neither notices nor forbids (D9, R4).
+
+**Rate limiting belongs inside the object** for the same reason the compare-and-swap does: it is
+already the serialized place.
+
+### Sending email
+
+**Workers cannot speak SMTP, so an SMTP account is the wrong thing to hold.** What the server needs
+is a provider with an HTTP API. Two things are worth writing down because the internet is full of
+stale advice about both: Cloudflare's own Email Routing **receives** and does not send, and
+MailChannels' free offering for Workers **ended in 2024**.
+
+**The provider sits behind one function**, and that is a more important decision than which provider
+it is. Every free tier in this market will be renegotiated within a few years; what protects this
+project is that changing provider is one file rather than a migration.
+
+**The volume is two messages in the lifetime of an account** — verify an address at registration,
+prove control of it after a forgotten password — and nothing else. No notification, no digest, no
+newsletter. A thousand new accounts in a month sits far inside any free tier on offer.
+
+**So the cost risk is abuse, not success**, and the controls for it are already here rather than
+added for this: registration is rate limited per address and per source, and D4 forbids writing any
+record before an address is verified — a rule written to stop the server becoming anonymous free
+storage, which stops this too. A ceiling on messages per account per day closes the rest.
+
+**The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is written
+when somebody asks for it.** The promise is that `/v1` is a protocol and not a description of one
+codebase, and a second implementation is the only thing that can ever prove it. Sequencing it after
+the Worker is a schedule, not a retreat: what makes it still possible in a year is the conformance
+suite, which is therefore written *before or alongside* the Worker and never after. Left until
+later, `/v1` quietly becomes "whatever the Worker does" and the second implementation stops being
+writable at all.
+
+Either implementation owns the same closed set: registration and verification, tokens and their
+revocation, the record table with its compare-and-swap, tombstone reaping, a per-account quota, and
+the capability document. Neither owns any knowledge of what a record is.
+
+### Two implementations, three things a person can run
+
+| Shape | Runs on | Who holds the data |
+| --- | --- | --- |
+| The Worker | this project's Cloudflare account | us — this is the default instance |
+| The same Worker | the person's own Cloudflare account | them, on Cloudflare |
+| The native binary, or a container built from it | a machine of their choosing | them, entirely |
+
+**A container is a packaging of the second implementation, not a third one.** The middle row is
+nearly free — the same source as the default instance, plus a `wrangler.toml` and a page of
+instructions — which is why it exists from the start. The bottom row is the one that costs real
+work, and it is the only one that answers somebody whose objection to a hosted service *is*
+Cloudflare.
+
+### One platform detail to confirm before building
+
+This design leans on Durable Objects with the SQLite storage backend being reachable without a paid
+plan. That is the understanding it was written against, and it is exactly the kind of platform
+detail that moves — **so read Cloudflare's current pricing before the first line, rather than
+trusting this paragraph.**
+
+If it turns out to need a paid plan, the fallback is **D1**: still SQLite, still free, but the
+serialization that made this design easy is gone. `seq` and the compare-and-swap then need a
+written transaction instead of a guarantee, and reaping becomes a Cron Trigger sweeping a shared
+table rather than an alarm per account. More care, the same protocol — `/v1` does not change, and a
+client cannot tell the difference.
 
 **The contract is normative here**, in D2 to D4 of this document. The server repository carries a
-conformance suite written against it that runs against any base URL — in its own CI, and in the
-hands of anybody self-hosting. Two repositories can drift; what `mixengine-packages` teaches, and
-what `.github/workflows/gallery.yml` was built to answer, is that a coupling maintained by memory
-goes stale. So `/v1` is frozen at D4, and a change to it is a new path rather than an edit.
+conformance suite written against it that runs against any base URL — in both implementations' CI,
+and in the hands of anybody self-hosting. Two repositories can drift; what `mixengine-packages`
+teaches, and what `.github/workflows/gallery.yml` was built to answer, is that a coupling maintained
+by memory goes stale. So `/v1` is frozen at D4, and a change to it is a new path rather than an
+edit.
 
 In MixLab the server is a setting. It defaults to the hosted instance, and changing it signs the
 person out: records written under one account's `MK` are not readable under another's, and
 pretending otherwise would quietly produce an account full of rows that decrypt for nobody.
+
+## D9. MixLab grows; the server does not
+
+**Neither the hosted instance nor a self-hoster should have to deploy `mixlab-sync` because MixLab
+shipped a release.** The design mostly achieves this already — a collection reaches the server as an
+opaque 32-byte address and a payload as ciphertext, so a new module, a new kind of record or a new
+field inside one costs the server nothing. Four rules turn that from an accident into a property.
+
+**R1. A MixLab feature expresses itself as records, never as an endpoint.** This is the rule the
+other three serve. Wanting a new endpoint for a MixLab feature is simultaneously the sign that this
+property has broken and the sign that the server is about to learn something — and a server that
+knows what a row is for is a server on its way to being able to read it. One rule guards both, which
+is why it is worth stating as a rule rather than as a habit.
+
+**R2. A collection a client does not recognise is left alone, never reaped.** Two machines on one
+account will not run the same release. The older one pulls records belonging to a collection it has
+never heard of, and the obvious handling — treat it as rubbish, write a tombstone — deletes what the
+newer one just made. Unknown collections are carried, counted against quota, and otherwise ignored.
+
+**R3. Fields inside a payload that a client does not understand are preserved when it writes back.**
+The same skew, one level down: a newer MixLab adds a field, an older one decrypts the record, the
+person edits something else, and the write-back silently drops it. A client re-seals what it read
+and did not understand, alongside what it changed. This is the failure that leaves no trace at all,
+which is why it is a rule and not a code comment.
+
+**R4. `/v1` grows by addition only, and MixLab speaks to the oldest of them forever.** A field may
+be added; the meaning of one already there may never change, and both sides ignore what they do not
+recognise. Limits are read from `/v1/capabilities` rather than assumed, so raising one is
+configuration on the server and a read on the client. Where MixLab genuinely needs something a
+server does not have, the feature is **switched off with a sentence naming what is missing** — never
+an error, and never a demand that somebody upgrade.
+
+**What will eventually force a `/v2`, said plainly:** anything shaped like authentication — a second
+factor, a passkey — and sharing between people. None of those can be expressed as records, which is
+the honest reason the last of them stays in the list below rather than in this design.
 
 ## What this deliberately does not do
 
