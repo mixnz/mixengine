@@ -16,6 +16,15 @@ on:
         type: choice
         default: all
         options: [all, lint, test, system, bench, bindings, docs, desktop, build]
+      # T174a: `release-exact` builds what a tag builds, from whatever ref this runs on — no LTO,
+      # codegen-units, optimisation-level or macOS-slice override. It is how a release's
+      # configuration gets built before the release, rather than for the first time during it.
+      # `.github/workflows/release-rehearsal.yml` asks for it weekly.
+      profile:
+        description: "`branch` is how every run builds. `release-exact` builds what a tag builds."
+        type: choice
+        default: branch
+        options: [branch, release-exact]
 
 # A second request on the same ref makes the previous run pointless. A feature branch's run is
 # cancelled and replaced, because asking again means the answer in flight is about a commit you have
@@ -76,6 +85,7 @@ jobs:
     uses: ./.github/workflows/_build.yml
     with:
       jobs: ${{ inputs.jobs }}
+      profile: ${{ inputs.profile }}
 
   release:
     needs: [preflight, lint, test, build]

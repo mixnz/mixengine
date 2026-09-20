@@ -9,6 +9,11 @@ on:
       jobs:
         type: string
         default: ''
+      # T174a: `release-exact` asks these three jobs to build what a tag builds. Empty is `branch`,
+      # so a caller that does not know about this input gets what it always got.
+      profile:
+        type: string
+        default: branch
 
 permissions:
   contents: read
@@ -69,6 +74,8 @@ jobs:
           phase: start
 
       - uses: ./.github/actions/release-profile
+        with:
+          profile: ${{ inputs.profile }}
 
       # T173b: before anything compiles, and after checkout because the action reads the workspace's
       # path. Nothing on the three legs that are not Windows.
@@ -189,6 +196,8 @@ jobs:
           phase: start
 
       - uses: ./.github/actions/release-profile
+        with:
+          profile: ${{ inputs.profile }}
 
       # T173b, as in `window` above.
       - uses: ./.github/actions/defender-aside
@@ -323,6 +332,8 @@ jobs:
           phase: start
 
       - uses: ./.github/actions/release-profile
+        with:
+          profile: ${{ inputs.profile }}
 
       # From this run only, which is `download-artifact`'s default and never overridden here: an
       # artifact belongs to the commit its run built.
