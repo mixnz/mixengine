@@ -1,0 +1,80 @@
+# The native server
+
+MixLab's sync server as a single binary over a SQLite file, for a machine somebody runs themselves.
+
+**This is the second implementation, and that is its job.** The default instance is the Worker in
+`../worker/`; this speaks the same `/v1` over different machinery. The promise the design makes is
+that `/v1` is a protocol and not a description of one codebase, and something other than the Worker
+speaking it is the only thing that can ever prove that. `../conformance/` is written against the
+document both answer to — D2 to D4a of
+[the sync design](../../docs/specs/2026-09-20-t177-a-copy-only-you-can-read-design.md) — and
+against neither of them.
+
+**It cannot read what it holds.** Every value arrives sealed under a key derived on the machine
+that sent it. D1 of the design lists in full what a server necessarily sees.
+
+## Running it
+
+```bash
+cargo run
+```
+
+It refuses to start without a pepper and an email provider, and names all of them at once rather
+than the first — setting one at a time and restarting is the slow way to find out you needed three.
+
+```bash
+MIXLAB_SYNC_PEPPER=$(head -c 32 /dev/urandom | base64) \
+MIXLAB_SYNC_EMAIL_API_KEY=… \
+MIXLAB_SYNC_EMAIL_FROM=noreply@example.com \
+MIXLAB_SYNC_PUBLIC_URL=https://sync.example.com \
+cargo run --release
+```
+
+To run it the way CI does — no mail, small limits, and `/__test__/outbox` served so the conformance
+suite can read a verification token:
+
+```bash
+MIXLAB_SYNC_TEST_OUTBOX=1 cargo run
+```
+
+## Configuration
+
+| Name | What it is |
+| --- | --- |
+| `MIXLAB_SYNC_BIND` | Address to listen on. `127.0.0.1:8080` by default |
+| `MIXLAB_SYNC_DATABASE` | The SQLite file. `mixlab-sync.db` by default |
+| `MIXLAB_SYNC_PUBLIC_URL` | What the verification link points at. Required in practice behind a proxy |
+| `MIXLAB_SYNC_PEPPER` | Keyed into the stored password verifier, so a stolen database is not a list of verifiers |
+| `MIXLAB_SYNC_EMAIL_API_KEY` | The email provider's key |
+| `MIXLAB_SYNC_EMAIL_FROM` | The address the two letters are sent from |
+| `MIXLAB_SYNC_EMAIL_ENDPOINT` | The provider's HTTP endpoint |
+| `MIXLAB_SYNC_MAX_RECORD_BYTES` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_MAX_BATCH_OPERATIONS` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_MAX_PAGE_RECORDS` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_REGISTRATIONS_PER_HOUR` | How many accounts one source may open in an hour |
+| `MIXLAB_SYNC_RESETS_PER_HOUR` | How often one source may ask for a reset letter |
+| `MIXLAB_SYNC_LOGINS_PER_WINDOW` | Attempts on one account in fifteen minutes, right or wrong |
+| `MIXLAB_SYNC_TEST_OUTBOX` | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
+
+The three rate limits are not reported by `/v1/capabilities`, unlike every other number here:
+publishing the figure that stops abuse helps only the abuser.
+
+## How it differs from the Worker, and where it does not
+
+**Where it does not**: the protocol. Both answer the same suite, and a client cannot tell them
+apart — which is the point.
+
+**Where it does**: a Durable Object serializes execution, so the Worker gets the registration race,
+the monotonic `seq` and the per-record compare-and-swap for free. Here they are transactions, and
+each one carries a comment saying which guarantee it is standing in for. Reaping is a task inside
+the process rather than an alarm per account. Neither difference is visible through `/v1`, and that
+is the claim the conformance suite exists to check.
+
+## A workspace of its own
+
+Excluded from the repository's root `Cargo.toml`, the way `apps/desktop/src-tauri` is and for the
+reason that manifest gives there: an HTTP server's dependency tree would defeat `deny.toml`'s
+duplicate-version ban and the elevated helper's dependency budget in one move. `cargo` at the root
+never sees this crate; `cargo audit` runs against it on its own in `.github/workflows/server.yml`.

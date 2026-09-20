@@ -126,3 +126,90 @@ jobs:
         run: |
           cat "$RUNNER_TEMP/wrangler.log" || true
           cat "$RUNNER_TEMP/reaper.log" || true
+
+  # The second implementation (T177h). It is what makes `/v1` a protocol rather than a description
+  # of whichever server was written first — and it is a separate job rather than a step, so a Rust
+  # compile does not sit in front of the Worker's answer.
+  native:
+    name: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/conformance/package-lock.json
+
+      # The root's rust-toolchain.toml is the nearest pin walking up from server/native.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: server-native
+          workspaces: "server/native -> target"
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      # **This crate is format-gated from its first commit**, unlike apps/desktop/src-tauri, which
+      # was inherited unformatted and cannot be without rewriting files nobody touched.
+      - name: fmt, clippy, test
+        working-directory: server/native
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # The root's deny.toml does not reach this tree, because the workspace excludes it.
+      - name: Advisories against the native server's dependency tree
+        working-directory: server/native
+        run: cargo audit
+
+      - name: The suite — install
+        working-directory: server/conformance
+        run: npm ci
+
+      # No Docker here, or in any job on a branch: the binary is run directly. The image is built
+      # and published only from `master`, and it is a distribution format rather than part of the
+      # development loop.
+      - name: Start the server, and wait for it to answer
+        working-directory: server/native
+        env:
+          MIXLAB_SYNC_TEST_OUTBOX: '1'
+          MIXLAB_SYNC_BIND: 127.0.0.1:8080
+          MIXLAB_SYNC_DATABASE: conformance.db
+          MIXLAB_SYNC_MAX_RECORD_BYTES: '65536'
+          MIXLAB_SYNC_MAX_BATCH_OPERATIONS: '25'
+          MIXLAB_SYNC_MAX_PAGE_RECORDS: '10'
+          MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES: '1048576'
+          MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
+          MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+        run: |
+          nohup cargo run --locked --quiet > "$RUNNER_TEMP/native.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8080/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the native server never answered on 127.0.0.1:8080"
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8080
+        run: npm test
+
+      - name: The server's log
+        if: failure()
+        run: cat "$RUNNER_TEMP/native.log" || true
