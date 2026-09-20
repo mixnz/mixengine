@@ -625,6 +625,55 @@ withdrawn is the wrong shape for a route whose whole purpose is cutting off a lo
 `/v1/capabilities` — publishing the number that stops abuse helps only the abuser. The suite
 asserts the shape of the refusal and never trips it deliberately.
 
+**Two different abuses, two different counters.** A count kept per account cannot see somebody
+working through a list of addresses, and a count kept per source cannot see somebody working
+through one account from a botnet. Guessing at one account is counted against that account;
+opening accounts, asking for letters and asking where a salt is are counted against the source.
+
+#### A letter is counted against the address it is sent to
+
+`register` and `reset` are the only routes that send one, and both are counted per source — which
+bounds what one network can send, and **bounds nothing at all about what one mailbox receives**.
+An address is a fixed target: somebody with a hundred sources can ask a hundred times, and every
+one of those letters lands in the same inbox. That is a mail flood aimed at a person, and a bill
+aimed at whoever runs the server.
+
+So there is a second allowance, counted **per address per hour**, and it is small: a person who
+did not get the letter asks again once or twice, not thirty times.
+
+- On `reset`, an address over the allowance still answers **`202`**, and no letter is sent. It
+  cannot answer `429`: this route answers alike for an address that has an account and one that
+  does not (D4a), and a refusal that only throttled addresses could meet would tell an attacker
+  which is which.
+- On `register`, it answers `429`. Registration already refuses a taken address with `409`, so it
+  has no secret left to keep, and the caller being told is the one asking for the letters.
+
+**This counter does not live with the account**, because registering over an unverified account
+replaces that account — and everything that hangs off it. A counter the counted party can clear by
+re-registering is not a counter. It is kept against the hash of the address, in the same place the
+per-source counters live, and it outlives both the account and its deletion.
+
+#### What a source is, and why the server decides it
+
+A source is an address, hashed. **The server works out which address; it never takes the request's
+word for it.** `X-Forwarded-For` is a request header like any other — a server reachable directly
+that believed it would let anybody mint a fresh bucket per request by writing a different value,
+which is not a weakened limit but no limit at all.
+
+So a source is the peer address of the connection, unless the deployment says otherwise. A server
+behind a reverse proxy sees only the proxy and must be told to read the header instead; that is
+one setting, off by default, and `server/native/README.md` names it. When it is on, the value read
+is the **last** entry rather than the first: a proxy that appends leaves the address it saw at the
+end, and a client that writes its own value leaves it at the front, so the end is the only part a
+client cannot choose.
+
+The hosted Worker has neither problem: Cloudflare sets `CF-Connecting-IP` and a request cannot
+reach the Worker without passing through it.
+
+**A server that cannot tell its callers apart says so by putting them all in one bucket**, rather
+than by not counting. That is the honest reading of a missing address, and it is what a server
+reached over a Unix socket or from a test harness gets.
+
 ### The one door that is not `/v1`
 
 Verification arrives by email, which no HTTP suite can read. A server under test therefore serves
