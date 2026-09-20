@@ -32,7 +32,8 @@ pub mod validate;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::extract::{Query, State};
+use axum::extract::{DefaultBodyLimit, Query, Request, State};
+use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
 use config::Config;
@@ -48,6 +49,9 @@ pub struct AppState {
 /// Every route this server answers. Taking a [`Config`] rather than reading the environment is
 /// what lets a test run two of these with different limits in one process.
 pub fn router(state: Arc<AppState>) -> Router {
+    let max_batch_bytes = state.config.capabilities.max_batch_bytes;
+    let gate = state.config.access_token.clone();
+    let gate_state = Arc::clone(&state);
     Router::new()
         .route("/v1/capabilities", get(capabilities))
         .route("/v1/auth/params", get(accounts::params))
@@ -75,7 +79,125 @@ pub fn router(state: Arc<AppState>) -> Router {
         // An unknown route answers in the one error shape like everything else, rather than with
         // the bare 404 a framework gives for free (D4a).
         .fallback(async || http::not_found())
+        // **The body this server will buffer, derived from what it advertises.** Without this the
+        // framework's own two-megabyte default refuses batches that every published limit calls
+        // legal — a server promising something it cannot honour, and saying so in plain text.
+        // Exactly the advertised figure, with no slack: `maxBatchBytes` is the size of the whole
+        // encoded body (D4a), so a byte over it is refused here and a byte over it is refused by
+        // `../worker/` — which checks the same number before it routes. Slack would have made the
+        // two disagree about a band of request sizes that nothing else covers.
+        .layer(DefaultBodyLimit::max(
+            state.config.capabilities.max_batch_bytes as usize,
+        ))
+        .layer(middleware::from_fn(move |request, next| {
+            always_json(request, next, max_batch_bytes)
+        }))
+        // Outermost, so a caller who has not been let in never reaches a route and never has a
+        // body buffered for them.
+        .layer(middleware::from_fn(move |request, next| {
+            let gate = gate.clone();
+            let state = Arc::clone(&gate_state);
+            async move { closed_host(request, next, gate, state).await }
+        }))
         .with_state(state)
+}
+
+/// **The whole host, or none of it** (D4a). A capabilities document that answered anybody would
+/// tell somebody who found the address that the server is there, what it allows, and that it is
+/// worth coming back to. A client is given the token before it makes its first request, so there
+/// is no order-of-operations problem to solve.
+///
+/// `None` means the deployment is open, which is what the hosted instances are.
+async fn closed_host(
+    request: Request,
+    next: Next,
+    gate: Option<String>,
+    state: Arc<AppState>,
+) -> Response {
+    let Some(expected) = gate else {
+        return next.run(request).await;
+    };
+
+    let presented = request
+        .headers()
+        .get("x-mixlab-access")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_owned();
+    if crypto::same_secret(&presented, &expected) {
+        return next.run(request).await;
+    }
+
+    // The operator picked this string and may have picked a short one, so guessing costs.
+    let source = accounts::source_for(request.headers());
+    let allowance = state.config.limits.auth_per_hour;
+    let throttled = state
+        .db
+        .call(move |connection| {
+            accounts::window(
+                connection,
+                "source_window",
+                &source,
+                "access",
+                allowance,
+                3600,
+            )
+        })
+        .await;
+    if let Ok(Some(seconds)) = throttled {
+        return accounts::retry_after(seconds).into_response();
+    }
+
+    http::Failure::new(
+        axum::http::StatusCode::UNAUTHORIZED,
+        "invalid-access-token",
+        "This server is private. Ask whoever runs it for the token.",
+    )
+    .into_response()
+}
+
+/// **Nothing leaves here without a code.** A framework answers some things on its own — a method a
+/// route does not have, a body it will not buffer — and it answers them in plain text. MixLab picks
+/// its sentence by `code` so that it can be translated (D4a), and an answer with no code is an
+/// answer it can only show in English or not at all.
+async fn always_json(request: Request, next: Next, max_batch_bytes: u64) -> Response {
+    let response = next.run(request).await;
+    let status = response.status();
+    if !status.is_client_error() && !status.is_server_error() {
+        return response;
+    }
+    let already = response
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| value.contains("json"));
+    if already {
+        return response;
+    }
+
+    let mut members = serde_json::Map::new();
+    let (code, message) = match status {
+        axum::http::StatusCode::METHOD_NOT_ALLOWED => (
+            "method-not-allowed",
+            "That route does not answer this method.",
+        ),
+        axum::http::StatusCode::PAYLOAD_TOO_LARGE => {
+            // The number a client needs in order to chunk differently next time.
+            members.insert("limit".to_owned(), json!(max_batch_bytes));
+            (
+                "request-too-large",
+                "That request is larger than this server takes.",
+            )
+        }
+        axum::http::StatusCode::NOT_FOUND => ("not-found", "No such route."),
+        axum::http::StatusCode::BAD_REQUEST => {
+            ("invalid-request", "Something in that request is malformed.")
+        }
+        _ => ("server-error", "Something went wrong here."),
+    };
+    let mut failure = http::Failure::new(status, code, message);
+    failure.members = members;
+    failure.into_response()
 }
 
 /// Answered from configuration, without touching the database and without an account: a client

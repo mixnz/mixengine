@@ -15,11 +15,11 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::crypto::{
-    SALT_BYTES, account_key, invented_salt, normalise_code, now, peppered, random_code,
-    random_token, same_secret, sha256_hex,
+    SALT_BYTES, VERIFIER_BYTES, WRAPPED_KEY_BYTES, account_key, invented_salt, normalise_code, now,
+    peppered, random_code, random_token, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
-use crate::http::{Failure, invalid_request, invalid_token};
+use crate::http::{Failure, invalid_code, invalid_email, invalid_request, invalid_token};
 use crate::validate::{is_base64, is_email};
 use axum::extract::Query;
 
@@ -40,8 +40,10 @@ fn text<'a>(fields: &'a Value, name: &str) -> Option<&'a str> {
     fields.get(name).and_then(Value::as_str)
 }
 
-fn base64_field<'a>(fields: &'a Value, name: &str) -> Option<&'a str> {
-    text(fields, name).filter(|value| is_base64(value, None))
+/// Every one of these has a fixed length (D4a): the account row is the one thing the per-account
+/// quota does not count, so without a bound registration takes as many bytes as anybody sends.
+fn sized_field<'a>(fields: &'a Value, name: &str, bytes: usize) -> Option<&'a str> {
+    text(fields, name).filter(|value| is_base64(value, Some(bytes)))
 }
 
 fn internal(error: impl std::fmt::Display) -> Failure {
@@ -151,19 +153,37 @@ pub(crate) fn source_for(headers: &HeaderMap) -> String {
         .unwrap_or_else(|| "local".to_owned())
 }
 
+/// Per source: somebody's whole network is being noisy.
 pub(crate) fn retry_after(seconds: i64) -> Failure {
-    Failure::new(
-        StatusCode::TOO_MANY_REQUESTS,
+    throttled(
         "too-many-requests",
-        "Too many requests.",
+        "Too many requests from this network.",
+        seconds,
     )
-    .header(
-        header::RETRY_AFTER,
-        seconds
-            .to_string()
-            .parse()
-            .expect("a number is a valid header"),
+}
+
+/// Per account: somebody is working at one account. A different sentence, and a different thing
+/// for a person to be told, so a different code.
+pub(crate) fn too_many_attempts(seconds: i64) -> Failure {
+    throttled(
+        "too-many-attempts",
+        "Too many attempts on this account.",
+        seconds,
     )
+}
+
+fn throttled(code: &'static str, message: &'static str, seconds: i64) -> Failure {
+    Failure::new(StatusCode::TOO_MANY_REQUESTS, code, message)
+        // In the body as well as the header: a localised "try again in four minutes" needs the
+        // number, and a client should not have to remember that one code hides half of itself.
+        .with("retryAfter", json!(seconds))
+        .header(
+            header::RETRY_AFTER,
+            seconds
+                .to_string()
+                .parse()
+                .expect("a number is a valid header"),
+        )
 }
 
 #[derive(serde::Deserialize)]
@@ -179,7 +199,7 @@ pub async fn params(
     headers: HeaderMap,
 ) -> Response {
     let Some(email) = address.email.filter(|email| is_email(email)) else {
-        return invalid_request("An address is required.").into_response();
+        return invalid_email().into_response();
     };
 
     let key = account_key(&email);
@@ -246,13 +266,19 @@ pub async fn register(
 
     let (Some(email), Some(a), Some(salt), Some(wrapped_password), Some(wrapped_recovery)) = (
         text(&fields, "email").filter(|value| is_email(value)),
-        base64_field(&fields, "a"),
-        text(&fields, "saltAccount").filter(|value| is_base64(value, Some(SALT_BYTES))),
-        base64_field(&fields, "wrappedMkPassword"),
-        base64_field(&fields, "wrappedMkRecovery"),
+        sized_field(&fields, "a", VERIFIER_BYTES),
+        sized_field(&fields, "saltAccount", SALT_BYTES),
+        sized_field(&fields, "wrappedMkPassword", WRAPPED_KEY_BYTES),
+        sized_field(&fields, "wrappedMkRecovery", WRAPPED_KEY_BYTES),
     ) else {
-        return invalid_request("An address, a verifier, a salt and two wrapped keys.")
-            .into_response();
+        return if text(&fields, "email")
+            .filter(|value| is_email(value))
+            .is_none()
+        {
+            invalid_email().into_response()
+        } else {
+            invalid_request("A verifier, a salt and two wrapped keys.").into_response()
+        };
     };
 
     let argon = ["m", "t", "p"].map(|name| {
@@ -423,7 +449,11 @@ pub async fn deliver(state: &Arc<AppState>, kind: LetterKind, email: &str, code:
 
 // --- verification, signing in, tokens ----------------------------------------------------------
 
-pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Response {
+pub async fn verify(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
     let fields = match parse(&body) {
         Ok(fields) => fields,
         Err(failure) => return failure.into_response(),
@@ -433,12 +463,29 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
     };
     let code = text(&fields, "token").and_then(normalise_code);
     let allowance = state.config.limits.verify_attempts_per_window;
+    let source = source_for(&headers);
+    let per_source = state.config.limits.auth_per_hour;
 
     let outcome = state
         .db
         .call(move |connection| {
             let transaction =
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+
+            // Counted per source as well as per account: a per-account counter cannot see somebody
+            // working through a list of addresses.
+            if let Some(seconds) = window(
+                &transaction,
+                "source_window",
+                &source,
+                "auth",
+                per_source,
+                SOURCE_WINDOW_SECONDS,
+            )? {
+                transaction.commit()?;
+                return Ok(Err(retry_after(seconds)));
+            }
+
             let account: Option<(i64, i64)> = transaction
                 .query_row(
                     "SELECT id, verified FROM account WHERE account_key = ?1",
@@ -461,7 +508,7 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
                 )?
             {
                 transaction.commit()?;
-                return Ok(Err(seconds));
+                return Ok(Err(too_many_attempts(seconds)));
             }
 
             // Already verified, a spent code and a wrong one look alike on purpose: the sentence a
@@ -485,18 +532,14 @@ pub async fn verify(State(state): State<Arc<AppState>>, body: String) -> Respons
 
     match outcome {
         Err(error) => internal(error).into_response(),
-        Ok(Err(seconds)) => retry_after(seconds).into_response(),
+        Ok(Err(failure)) => failure.into_response(),
         Ok(Ok(false)) => bad_code().into_response(),
         Ok(Ok(true)) => Json(json!({})).into_response(),
     }
 }
 
 pub(crate) fn bad_code() -> Failure {
-    Failure::new(
-        StatusCode::BAD_REQUEST,
-        "invalid-token",
-        "That code is not usable.",
-    )
+    invalid_code()
 }
 
 pub(crate) fn spend(
@@ -524,24 +567,43 @@ pub(crate) fn spend(
     Ok(true)
 }
 
-pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response {
+pub async fn login(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
     let fields = match parse(&body) {
         Ok(fields) => fields,
         Err(failure) => return failure.into_response(),
     };
     let (Some(email), Some(a), Some(device_name)) = (
         text(&fields, "email").filter(|value| is_email(value)),
-        base64_field(&fields, "a"),
+        sized_field(&fields, "a", VERIFIER_BYTES),
         text(&fields, "deviceName").filter(|value| !value.trim().is_empty() && value.len() <= 128),
     ) else {
-        return invalid_request("An address, a verifier and a name for this machine.")
-            .into_response();
+        return if text(&fields, "email")
+            .filter(|value| is_email(value))
+            .is_none()
+        {
+            invalid_email().into_response()
+        } else if sized_field(&fields, "a", VERIFIER_BYTES).is_none() {
+            invalid_request("A verifier is required.").into_response()
+        } else {
+            Failure::new(
+                StatusCode::BAD_REQUEST,
+                "invalid-device-name",
+                "This machine needs a name of up to 128 characters.",
+            )
+            .into_response()
+        };
     };
 
     let key = account_key(email);
     let presented = peppered(&state.config.pepper, a);
     let device_name = device_name.trim().to_owned();
     let allowance = state.config.limits.logins_per_window;
+    let source = source_for(&headers);
+    let per_source = state.config.limits.auth_per_hour;
     let config = state.config.clone();
 
     let outcome = state
@@ -549,6 +611,19 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
         .call(move |connection| {
             let transaction =
                 connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            // Counted per source as well as per account, for the same reason as `verify`.
+            if let Some(seconds) = window(
+                &transaction,
+                "source_window",
+                &source,
+                "auth",
+                per_source,
+                SOURCE_WINDOW_SECONDS,
+            )? {
+                transaction.commit()?;
+                return Ok(Err(retry_after(seconds)));
+            }
+
             let account: Option<(i64, String, i64, String, String)> = transaction
                 .query_row(
                     "SELECT id, verifier, verified, wrapped_mk_password, wrapped_mk_recovery
@@ -583,7 +658,7 @@ pub async fn login(State(state): State<Arc<AppState>>, body: String) -> Response
                 LOGIN_WINDOW_SECONDS,
             )? {
                 transaction.commit()?;
-                return Ok(Err(retry_after(seconds)));
+                return Ok(Err(too_many_attempts(seconds)));
             }
 
             if !same_secret(&stored, &presented) {

@@ -79,13 +79,15 @@ export type ProviderName =
   | "sendgrid"
   | "mailgun";
 
+// Alphabetical, so that neither the list nor the message a deployer reads when they get the name
+// wrong reads as a recommendation. This project does not pick a company on their behalf.
 export const PROVIDER_NAMES = [
-  "resend",
-  "mailtrap",
   "brevo",
-  "postmark",
-  "sendgrid",
   "mailgun",
+  "mailtrap",
+  "postmark",
+  "resend",
+  "sendgrid",
 ] as const;
 
 export function isProviderName(value: string): value is ProviderName {

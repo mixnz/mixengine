@@ -4,6 +4,7 @@ import {
   call,
   type Capabilities,
   type ErrorBody,
+  type Page,
   newRecord,
   opaqueId,
   put,
@@ -181,6 +182,20 @@ describe("GET /v1/records", () => {
       [...page.body.records.map((record) => record.seq)].sort((a, b) => a - b),
     );
     expect(page.body.nextSince).toBe(page.body.records.at(-1)?.seq);
+  });
+
+  it("refuses a cursor that is not a number", async () => {
+    // `Number("")` is 0 in JavaScript, so `?since=` quietly meant "from the beginning" on one
+    // implementation and was refused by the other. Neither is wrong on its own; disagreeing is.
+    const { session: own } = await signedUp();
+    for (const bad of ["", "abc", "-1", "1.5", " 1"]) {
+      const result = await call<Page & Partial<ErrorBody>>(
+        `/v1/records?since=${encodeURIComponent(bad)}`,
+        { token: own.accessToken },
+      );
+      expect(result.status, `since=${JSON.stringify(bad)}`).toBe(400);
+      expect(result.body.error?.code).toBe("invalid-request");
+    }
   });
 
   it("treats the cursor as exclusive", async () => {

@@ -28,6 +28,10 @@ export interface Env {
   /** How long a freeze lasts before it lapses. Short on the instance that tests lapsing. */
   RELOCATION_LEASE_SECONDS?: string;
 
+  /** A shared token that closes this deployment to everybody who has not been given it. The
+   *  hosted instances never set one; somebody running this for their own company may. */
+  ACCESS_TOKEN?: string;
+
   /** `"1"` serves `/__test__/outbox` and sends no mail. Never set this on a real deployment. */
   TEST_OUTBOX?: string;
 
@@ -42,9 +46,13 @@ export interface Env {
   /** How often one source may ask where an address's salt is. Generous: a company behind one
    *  address may install on fifty machines in a morning. */
   PARAMS_PER_HOUR?: string;
+  /** How often one source may try to sign in or spend a code, across every account. The
+   *  per-account counters cannot see somebody working through a list of addresses. */
+  AUTH_PER_HOUR?: string;
 
   MAX_RECORD_BYTES?: string;
   MAX_BATCH_OPERATIONS?: string;
+  MAX_BATCH_BYTES?: string;
   MAX_PAGE_RECORDS?: string;
   ACCOUNT_QUOTA_BYTES?: string;
   TOMBSTONE_RETENTION_DAYS?: string;
@@ -54,6 +62,7 @@ export interface Capabilities {
   protocolVersions: string[];
   maxRecordBytes: number;
   maxBatchOperations: number;
+  maxBatchBytes: number;
   maxPageRecords: number;
   accountQuotaBytes: number;
   tombstoneRetentionDays: number;
@@ -68,6 +77,8 @@ export interface Config {
   emailEndpoint: string | null;
   emailProvider: import("./email").ProviderName;
   testOutbox: boolean;
+  /** `null` means this deployment is open, which is what the hosted ones are. */
+  accessToken: string | null;
   relocateTo: string | null;
   relocationLeaseSeconds: number;
   /**
@@ -80,6 +91,7 @@ export interface Config {
     loginsPerWindow: number;
     verifyAttemptsPerWindow: number;
     paramsPerHour: number;
+    authPerHour: number;
   };
   capabilities: Capabilities;
 }
@@ -87,6 +99,7 @@ export interface Config {
 const DEFAULTS = {
   maxRecordBytes: 1_048_576,
   maxBatchOperations: 100,
+  maxBatchBytes: 8_388_608,
   maxPageRecords: 500,
   accountQuotaBytes: 20_971_520,
   tombstoneRetentionDays: 90,
@@ -115,7 +128,10 @@ export function readConfig(env: Env): ConfigResult {
 
   // In test-outbox mode nothing is emailed, so a provider key would have no use; every other
   // deployment needs one, and a silent absence is the failure this check exists for.
-  const providerName = env.EMAIL_PROVIDER ?? "resend";
+  // **No default.** An API key on its own does not say where to send it, and guessing meant
+  // somebody pasting a SendGrid key and nothing else had it posted to Resend — which fails,
+  // correctly but confusingly, at the first letter rather than at the first start.
+  const providerName = env.EMAIL_PROVIDER ?? "";
   if (!testOutbox) {
     if (!env.PEPPER) missing.push("PEPPER");
     if (!env.EMAIL_API_KEY) missing.push("EMAIL_API_KEY");
@@ -123,7 +139,9 @@ export function readConfig(env: Env): ConfigResult {
     // A name nobody implements is configuration that is missing rather than wrong: the deploy
     // would otherwise succeed and the first letter would be the thing that failed. `smtp` is a
     // real provider in `../native/` and impossible here, so it is refused by name.
-    if (providerName === "smtp") {
+    if (providerName === "") {
+      missing.push(`EMAIL_PROVIDER (one of: ${PROVIDER_NAMES.join(", ")})`);
+    } else if (providerName === "smtp") {
       missing.push("EMAIL_PROVIDER (Workers cannot speak SMTP; see server/native/)");
     } else if (!isProviderName(providerName)) {
       missing.push(`EMAIL_PROVIDER (one of: ${PROVIDER_NAMES.join(", ")})`);
@@ -145,6 +163,7 @@ export function readConfig(env: Env): ConfigResult {
         (isProviderName(providerName) ? (DEFAULT_ENDPOINT[providerName] ?? null) : null),
       emailProvider: isProviderName(providerName) ? providerName : "resend",
       testOutbox,
+      accessToken: env.ACCESS_TOKEN || null,
       relocateTo: env.RELOCATE_TO ?? null,
       relocationLeaseSeconds: number(env.RELOCATION_LEASE_SECONDS, 900),
       limits: {
@@ -153,11 +172,13 @@ export function readConfig(env: Env): ConfigResult {
         loginsPerWindow: number(env.LOGINS_PER_WINDOW, 20),
         verifyAttemptsPerWindow: number(env.VERIFY_ATTEMPTS_PER_WINDOW, 10),
         paramsPerHour: number(env.PARAMS_PER_HOUR, 200),
+        authPerHour: number(env.AUTH_PER_HOUR, 300),
       },
       capabilities: {
         protocolVersions: ["v1"],
         maxRecordBytes: number(env.MAX_RECORD_BYTES, DEFAULTS.maxRecordBytes),
         maxBatchOperations: number(env.MAX_BATCH_OPERATIONS, DEFAULTS.maxBatchOperations),
+        maxBatchBytes: number(env.MAX_BATCH_BYTES, DEFAULTS.maxBatchBytes),
         maxPageRecords: number(env.MAX_PAGE_RECORDS, DEFAULTS.maxPageRecords),
         accountQuotaBytes: number(env.ACCOUNT_QUOTA_BYTES, DEFAULTS.accountQuotaBytes),
         tombstoneRetentionDays: number(

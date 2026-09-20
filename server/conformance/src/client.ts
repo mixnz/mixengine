@@ -12,6 +12,7 @@ export interface Capabilities {
   protocolVersions: string[];
   maxRecordBytes: number;
   maxBatchOperations: number;
+  maxBatchBytes: number;
   maxPageRecords: number;
   accountQuotaBytes: number;
   tombstoneRetentionDays: number;
@@ -57,6 +58,15 @@ export function baseUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
+/**
+ * A deployment somebody runs for their own company may be closed with a shared token (D4a). The
+ * suite carries it on every request when it has one, and the hosted instances never ask for one.
+ */
+export function accessHeaders(): Record<string, string> {
+  const token = process.env.CONFORMANCE_ACCESS_TOKEN;
+  return token ? { "X-MixLab-Access": token } : {};
+}
+
 export interface CallOptions {
   method?: string;
   body?: unknown;
@@ -65,7 +75,7 @@ export interface CallOptions {
 }
 
 export async function call<T = unknown>(path: string, options: CallOptions = {}): Promise<Result<T>> {
-  const headers: Record<string, string> = { ...options.headers };
+  const headers: Record<string, string> = { ...accessHeaders(), ...options.headers };
   if (options.body !== undefined) headers["Content-Type"] = "application/json";
   if (options.token) headers["Authorization"] = `Bearer ${options.token}`;
 

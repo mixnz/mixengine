@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ARGON,
+  base64Bytes,
   call,
   type ErrorBody,
   newAccount,
@@ -81,22 +82,28 @@ describe("GET /v1/auth/params", () => {
     expect(invented.body.argon).toEqual(real.body.argon);
   });
 
-  it("refuses a salt that is not sixteen bytes, so an invented one cannot be spotted by length", async () => {
-    const result = await call<ErrorBody>("/v1/auth/register", {
-      body: {
-        ...newAccount(),
-        saltAccount: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-        argon: ARGON,
-      },
-    });
-    expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-request");
+  it.each([
+    ["saltAccount", 16],
+    ["a", 32],
+    ["wrappedMkPassword", 72],
+    ["wrappedMkRecovery", 72],
+  ])("refuses a %s that is not %i bytes", async (member, bytes) => {
+    // Every one of these has a length the design already fixed, and the account row is the one
+    // thing the per-account quota does not count — so without a bound, registration takes as many
+    // bytes as anybody sends and keeps them for ever (D4a).
+    for (const wrong of [bytes - 1, bytes + 1]) {
+      const result = await call<ErrorBody>("/v1/auth/register", {
+        body: { ...newAccount(), argon: ARGON, [member]: base64Bytes(wrong) },
+      });
+      expect(result.status, `${member} at ${wrong} bytes`).toBe(400);
+      expect(result.body.error.code).toBe("invalid-request");
+    }
   });
 
   it("refuses a request that names no address", async () => {
     const result = await call<ErrorBody>("/v1/auth/params");
     expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-request");
+    expect(result.body.error.code).toBe("invalid-email");
   });
 });
 

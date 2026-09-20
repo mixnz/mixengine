@@ -16,6 +16,7 @@ pub struct Capabilities {
     pub protocol_versions: Vec<String>,
     pub max_record_bytes: u64,
     pub max_batch_operations: u64,
+    pub max_batch_bytes: u64,
     pub max_page_records: u64,
     pub account_quota_bytes: u64,
     pub tombstone_retention_days: u64,
@@ -34,6 +35,9 @@ pub struct Limits {
     /// How often one source may ask where an address's salt is. Generous: a company behind
     /// one address may install on fifty machines in a morning.
     pub params_per_hour: u64,
+    /// How often one source may try to sign in or spend a code, across every account. The
+    /// per-account counters cannot see somebody working through a list of addresses.
+    pub auth_per_hour: u64,
     /// Eight characters are only safe because this one is real (D4a).
     pub verify_attempts_per_window: u64,
 }
@@ -55,6 +59,9 @@ pub struct Config {
     pub email_provider: crate::email::Provider,
     pub smtp: Option<crate::email::Smtp>,
     /// Serves `/__test__/outbox` and sends no mail. Never set on a real deployment.
+    /// A shared token that closes this deployment to everybody who has not been given it.
+    /// `None` means open, which is what the hosted instances are.
+    pub access_token: Option<String>,
     pub test_outbox: bool,
     pub limits: Limits,
     pub capabilities: Capabilities,
@@ -98,11 +105,16 @@ impl Config {
                 missing.push("MIXLAB_SYNC_EMAIL_FROM".to_owned());
             }
         }
-        let provider_name = text("MIXLAB_SYNC_EMAIL_PROVIDER").unwrap_or_else(|| "resend".into());
-        let email_provider = crate::email::Provider::parse(&provider_name);
+        // **No default.** An API key on its own does not say where to send it, and guessing meant
+        // somebody pasting a SendGrid key and nothing else had it posted to Resend — which fails,
+        // correctly but confusingly, at the first letter rather than at the first start.
+        let provider_name = text("MIXLAB_SYNC_EMAIL_PROVIDER");
+        let email_provider = provider_name
+            .as_deref()
+            .and_then(crate::email::Provider::parse);
         // A name nobody implements is a piece of configuration that is missing rather than wrong:
         // the deploy would otherwise succeed and the first letter would be the thing that failed.
-        if email_provider.is_none() {
+        if !test_outbox && email_provider.is_none() {
             missing.push(format!(
                 "MIXLAB_SYNC_EMAIL_PROVIDER (one of: {})",
                 crate::email::Provider::NAMES
@@ -165,6 +177,7 @@ impl Config {
                     password: text("MIXLAB_SYNC_SMTP_PASSWORD"),
                 }
             }),
+            access_token: text("MIXLAB_SYNC_ACCESS_TOKEN"),
             test_outbox,
             relocate_to: text("MIXLAB_SYNC_RELOCATE_TO"),
             relocation_lease_seconds: number("MIXLAB_SYNC_RELOCATION_LEASE_SECONDS", 900) as i64,
@@ -173,12 +186,14 @@ impl Config {
                 resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),
                 logins_per_window: number("MIXLAB_SYNC_LOGINS_PER_WINDOW", 20),
                 params_per_hour: number("MIXLAB_SYNC_PARAMS_PER_HOUR", 200),
+                auth_per_hour: number("MIXLAB_SYNC_AUTH_PER_HOUR", 300),
                 verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
             },
             capabilities: Capabilities {
                 protocol_versions: vec!["v1".to_owned()],
                 max_record_bytes: number("MIXLAB_SYNC_MAX_RECORD_BYTES", 1_048_576),
                 max_batch_operations: number("MIXLAB_SYNC_MAX_BATCH_OPERATIONS", 100),
+                max_batch_bytes: number("MIXLAB_SYNC_MAX_BATCH_BYTES", 8_388_608),
                 max_page_records: number("MIXLAB_SYNC_MAX_PAGE_RECORDS", 500),
                 account_quota_bytes: number("MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES", 20_971_520),
                 tombstone_retention_days: number("MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS", 90),

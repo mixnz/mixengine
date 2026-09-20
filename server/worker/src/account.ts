@@ -17,6 +17,8 @@
 import { readConfig, type Config, type Env } from "./config";
 import {
   SALT_BYTES,
+  VERIFIER_BYTES,
+  WRAPPED_KEY_BYTES,
   accountKey,
   inventedSalt,
   normaliseCode,
@@ -57,7 +59,7 @@ const now = (): number => Math.floor(Date.now() / 1000);
 const secretOf = (token: string): string => token.split(".").at(-1) ?? "";
 
 /** Wrong, expired and already-used answer alike: the sentence a person needs is the same. */
-const badCode = (): Response => fail(400, "invalid-token", "That code is not usable.");
+const badCode = (): Response => fail(400, "invalid-code", "That code is not usable.");
 
 /** `If-Match: "41"` and `If-None-Match: *`, which are how a write states what it believes. */
 function readPrecondition(headers: Headers): Precondition {
@@ -264,10 +266,15 @@ export class Account implements DurableObject {
     const moved = this.moved(config, false);
     if (moved) return moved;
 
+    // `Number("")` is 0, which would have quietly turned `?since=` into "from the beginning"
+    // here while `server/native/` refused it. Digits or nothing.
+    const raw = url.searchParams.get("since");
+    const since = raw === null ? 0 : /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+
     const result = listSince(
       this.sql,
       config.capabilities,
-      Number(url.searchParams.get("since") ?? 0),
+      since,
       url.searchParams.get("collection"),
     );
     return "records" in result ? json(200, result) : outcome(result);
@@ -376,15 +383,17 @@ export class Account implements DurableObject {
 
   private async register(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
+    if (!fields || !isEmail(fields["email"])) {
+      return fail(400, "invalid-email", "That is not an address a letter could reach.");
+    }
     if (
-      !fields ||
-      !isEmail(fields["email"]) ||
-      !isBase64(fields["a"]) ||
+      !isBase64(fields["a"], VERIFIER_BYTES) ||
+      !isBase64(fields["a"], VERIFIER_BYTES) ||
       !isBase64(fields["saltAccount"], SALT_BYTES) ||
-      !isBase64(fields["wrappedMkPassword"]) ||
-      !isBase64(fields["wrappedMkRecovery"])
+      !isBase64(fields["wrappedMkPassword"], WRAPPED_KEY_BYTES) ||
+      !isBase64(fields["wrappedMkRecovery"], WRAPPED_KEY_BYTES)
     ) {
-      return fail(400, "invalid-request", "An address, a verifier, a salt and two wrapped keys.");
+      return fail(400, "invalid-request", "A verifier, a salt and two wrapped keys.");
     }
 
     const argon = asObject(fields["argon"]);
@@ -439,22 +448,29 @@ export class Account implements DurableObject {
   }
 
   private async verifyAddress(config: Config, body: unknown): Promise<Response> {
-    // **Eight characters are only safe because guessing is bounded** (D4a). Counted before the
-    // code is looked at, so a wrong one costs an attempt whatever was wrong about it.
-    const retryAfter = this.tooMany(
-      "verify",
-      config.limits.verifyAttemptsPerWindow,
-      LOGIN_WINDOW_SECONDS,
-    );
-    if (retryAfter !== null) {
-      return fail(429, "too-many-requests", "Too many codes tried on this account.", {}, {
-        "Retry-After": String(retryAfter),
-      });
+    const account = this.account();
+    // **Eight characters are only safe because guessing is bounded** (D4a). Counted before the code
+    // is looked at, so a wrong one costs an attempt whatever was wrong about it — but only when
+    // there is an account to count against, or naming a stranger's address writes a row.
+    if (account) {
+      const retryAfter = this.tooMany(
+        "verify",
+        config.limits.verifyAttemptsPerWindow,
+        LOGIN_WINDOW_SECONDS,
+      );
+      if (retryAfter !== null) {
+        return fail(
+          429,
+          "too-many-attempts",
+          "Too many codes tried on this account.",
+          { retryAfter },
+          { "Retry-After": String(retryAfter) },
+        );
+      }
     }
 
     const presented = asObject(body)?.["token"];
     const code = typeof presented === "string" ? normaliseCode(presented) : null;
-    const account = this.account();
     // Already verified, a spent code and a wrong one look alike on purpose: the sentence a
     // person needs is the same in all three cases (D4a).
     if (!code || !account || account.verified === 1) return badCode();
@@ -476,10 +492,10 @@ export class Account implements DurableObject {
     const fields = asObject(body);
     if (
       !fields ||
-      !isBase64(fields["a"]) ||
-      !isBase64(fields["newA"]) ||
-      !isBase64(fields["newSaltAccount"]) ||
-      !isBase64(fields["newWrappedMkPassword"])
+      !isBase64(fields["a"], VERIFIER_BYTES) ||
+      !isBase64(fields["newA"], VERIFIER_BYTES) ||
+      !isBase64(fields["newSaltAccount"], SALT_BYTES) ||
+      !isBase64(fields["newWrappedMkPassword"], WRAPPED_KEY_BYTES)
     ) {
       return fail(400, "invalid-request", "The current verifier, and the new one with its salt.");
     }
@@ -528,15 +544,15 @@ export class Account implements DurableObject {
     const code = typeof fields["token"] === "string" ? normaliseCode(fields["token"]) : null;
     if (
       code === null ||
-      !isBase64(fields["a"]) ||
-      !isBase64(fields["saltAccount"]) ||
-      !isBase64(fields["wrappedMkPassword"]) ||
-      !isBase64(fields["wrappedMkRecovery"])
+      !isBase64(fields["a"], VERIFIER_BYTES) ||
+      !isBase64(fields["saltAccount"], SALT_BYTES) ||
+      !isBase64(fields["wrappedMkPassword"], WRAPPED_KEY_BYTES) ||
+      !isBase64(fields["wrappedMkRecovery"], WRAPPED_KEY_BYTES)
     ) {
-      return fail(400, "invalid-token", "That code is not usable.");
+      return badCode();
     }
     if (!this.account() || !(await this.spendMailToken(code, "reset"))) {
-      return fail(400, "invalid-token", "That code is not usable.");
+      return badCode();
     }
 
     const recordsDeleted = this.sql
@@ -565,18 +581,30 @@ export class Account implements DurableObject {
 
   private async login(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
-    if (!fields || !isBase64(fields["a"]) || !isNonEmptyString(fields["deviceName"], 128)) {
-      return fail(400, "invalid-request", "A verifier and a name for this machine.");
+    if (!fields || !isBase64(fields["a"], VERIFIER_BYTES)) {
+      return fail(400, "invalid-request", "A verifier is required.");
+    }
+    if (!isNonEmptyString(fields["deviceName"], 128)) {
+      return fail(400, "invalid-device-name", "This machine needs a name of up to 128 characters.");
     }
 
-    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
-    if (retryAfter !== null) {
-      return fail(429, "too-many-requests", "Too many attempts on this account.", {}, {
-        "Retry-After": String(retryAfter),
-      });
-    }
-
+    // **The account lookup comes first.** Counting an attempt against an address that has no
+    // account writes a row — and therefore materialises a Durable Object — for any address a
+    // stranger cares to name. `server/native/` looks first, and this now agrees with it.
     const account = this.account();
+    if (account) {
+      const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
+      if (retryAfter !== null) {
+        return fail(
+          429,
+          "too-many-attempts",
+          "Too many attempts on this account.",
+          { retryAfter },
+          { "Retry-After": String(retryAfter) },
+        );
+      }
+    }
+
     const presented = await peppered(config.pepper, fields["a"] as string);
     // An unknown address and a wrong verifier answer alike. Registration has to refuse a taken
     // address and therefore leaks one; this route has no such obligation, so it does not (D4a).
@@ -862,8 +890,12 @@ export class Account implements DurableObject {
       now() + lifetime,
     );
 
-    const sender = senderFor(config);
-    if (!sender) {
+    // **The outbox is test-mode only.** An earlier version wrote here whenever there was no
+    // sender, which conflated "this is the suite" with "this deployment is misconfigured": a
+    // production server missing an endpoint recorded the letter in a table nobody can read,
+    // answered 201, and left a person waiting for a message that was never sent. That is the exact
+    // failure D8's refuse-to-start rule exists to prevent, arriving through the back door.
+    if (config.testOutbox) {
       this.sql.exec(
         `INSERT INTO outbox (kind, token, sent_at) VALUES (?, ?, ?)`,
         kind,
@@ -871,6 +903,12 @@ export class Account implements DurableObject {
         now(),
       );
       return true;
+    }
+
+    const sender = senderFor(config);
+    if (!sender) {
+      console.error(`cannot send the ${kind} letter: this server has no email provider configured`);
+      return false;
     }
 
     try {

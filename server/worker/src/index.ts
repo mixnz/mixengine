@@ -10,7 +10,7 @@
 // one: `/v1/capabilities`, answered from configuration, and the verification page, which renders a
 // form and validates nothing.
 
-import { accountKey } from "./crypto";
+import { accountKey, sameSecret } from "./crypto";
 import { readConfig, type Capabilities, type Env } from "./config";
 import { fail, json, methodNotAllowed, misconfigured, notFound } from "./http";
 import { askSource } from "./ratelimit";
@@ -78,6 +78,37 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // **The whole host, or none of it.** A capabilities document that answered anybody would tell
+    // somebody who found the address that the server is there, what it allows, and that it is
+    // worth coming back to (D4a). A client is given the token before it makes its first request.
+    if (config.accessToken) {
+      const presented = request.headers.get("X-MixLab-Access") ?? "";
+      if (!sameSecret(presented, config.accessToken)) {
+        // The operator picked this string and may have picked a short one, so guessing costs.
+        const verdict = await askSource(
+          env.SOURCE_LIMIT,
+          request,
+          "access",
+          config.limits.authPerHour,
+        );
+        if (!verdict.allowed) {
+          const retryAfter = verdict.retryAfter ?? 3600;
+          return fail(
+            429,
+            "too-many-requests",
+            "Too many requests from this network.",
+            { retryAfter },
+            { "Retry-After": String(retryAfter) },
+          );
+        }
+        return fail(
+          401,
+          "invalid-access-token",
+          "This server is private. Ask whoever runs it for the token.",
+        );
+      }
+    }
+
     if (path === "/v1/capabilities") {
       return request.method === "GET" ? capabilities(config.capabilities) : methodNotAllowed();
     }
@@ -92,7 +123,9 @@ export default {
     if (path === "/v1/auth/params") {
       if (request.method !== "GET") return methodNotAllowed();
       const email = url.searchParams.get("email");
-      if (!isEmail(email)) return fail(400, "invalid-request", "An address is required.");
+      if (!isEmail(email)) {
+        return fail(400, "invalid-email", "That is not an address a letter could reach.");
+      }
       const verdict = await askSource(env.SOURCE_LIMIT, request, path, config.limits.paramsPerHour);
       if (!verdict.allowed) {
         return fail(429, "too-many-requests", "Too many requests from this address.", {}, {
@@ -100,6 +133,15 @@ export default {
         });
       }
       return forward(await objectForEmail(env, email), request, null);
+    }
+
+    // **The third limit, and the one that bounds a request rather than a record.**
+    // `maxBatchOperations` times `maxRecordBytes` is a number no server intends to buffer, so
+    // without this a client can compose a request every other limit calls legal (D4a).
+    if (body !== null && body.length > config.capabilities.maxBatchBytes) {
+      return fail(413, "request-too-large", "That request is larger than this server takes.", {
+        limit: config.capabilities.maxBatchBytes,
+      });
     }
 
     if (path === "/__test__/outbox") {
@@ -115,21 +157,39 @@ export default {
       if (request.method !== "POST") return methodNotAllowed();
       const fields = asObject(body === null ? null : safeParse(body));
       const email = fields?.["email"];
-      if (!isEmail(email)) return fail(400, "invalid-request", "An address is required.");
+      if (!isEmail(email)) {
+        return fail(400, "invalid-email", "That is not an address a letter could reach.");
+      }
 
       // The two routes that create work out of nothing are counted per source rather than per
       // account: they are abused by opening many accounts, which a counter kept inside one
       // account's object cannot see. `ratelimit.ts` has the argument.
       const askingForReset = path === "/v1/auth/reset" && fields?.["token"] === undefined;
-      if (path === "/v1/auth/register" || askingForReset) {
-        const allowance = askingForReset
-          ? config.limits.resetsPerHour
-          : config.limits.registrationsPerHour;
+      // Signing in and spending a code are counted here as well as per account: a per-account
+      // counter cannot see somebody working through a list of addresses, and on this server every
+      // address named materialises an object whether or not an account is behind it.
+      const perSource =
+        path === "/v1/auth/register" ||
+        askingForReset ||
+        path === "/v1/auth/login" ||
+        path === "/v1/auth/verify";
+      if (perSource) {
+        const allowance =
+          path === "/v1/auth/register"
+            ? config.limits.registrationsPerHour
+            : askingForReset
+              ? config.limits.resetsPerHour
+              : config.limits.authPerHour;
         const verdict = await askSource(env.SOURCE_LIMIT, request, path, allowance);
         if (!verdict.allowed) {
-          return fail(429, "too-many-requests", "Too many requests from this address.", {}, {
-            "Retry-After": String(verdict.retryAfter ?? 3600),
-          });
+          const retryAfter = verdict.retryAfter ?? 3600;
+          return fail(
+            429,
+            "too-many-requests",
+            "Too many requests from this network.",
+            { retryAfter },
+            { "Retry-After": String(retryAfter) },
+          );
         }
       }
 

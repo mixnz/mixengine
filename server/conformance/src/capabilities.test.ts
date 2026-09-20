@@ -4,6 +4,7 @@ import { call, type Capabilities } from "./client.js";
 const LIMITS = [
   "maxRecordBytes",
   "maxBatchOperations",
+  "maxBatchBytes",
   "maxPageRecords",
   "accountQuotaBytes",
   "tombstoneRetentionDays",

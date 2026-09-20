@@ -73,16 +73,40 @@ describe("POST /v1/auth/register", () => {
   });
 
   it.each([
-    ["no email", { email: undefined }],
     ["no verifier", { a: undefined }],
     ["no salt", { saltAccount: undefined }],
     ["no wrapped key", { wrappedMkPassword: undefined }],
-    ["an address that is not one", { email: "not-an-address" }],
   ])("refuses a body with %s", async (_label, override) => {
     const body = { ...registerBody(newAccount()), ...override };
     const result = await call<ErrorBody>("/v1/auth/register", { body });
     expect(result.status).toBe(400);
     expect(result.body.error.code).toBe("invalid-request");
+  });
+
+  it.each([
+    ["no address at all", { email: undefined }],
+    ["something that is not one", { email: "not-an-address" }],
+    ["two of them", { email: "a@b.com,c@d.com" }],
+  ])("says it is the address that is wrong, given %s", async (_label, override) => {
+    // A person typed this one, so it cannot share a code with a wrong-length key: an application
+    // showing "something in what you sent is wrong" for a mistyped address shows the wrong
+    // sentence, and a translated one has no better string to reach for (D4a).
+    const body = { ...registerBody(newAccount()), ...override };
+    const result = await call<ErrorBody>("/v1/auth/register", { body });
+    expect(result.status).toBe(400);
+    expect(result.body.error.code).toBe("invalid-email");
+  });
+
+  it("says it is the name of the machine that is wrong", async () => {
+    const account = newAccount();
+    await register(account);
+    await verify(account);
+
+    const result = await call<ErrorBody>("/v1/auth/login", {
+      body: { email: account.email, a: account.a, deviceName: "   " },
+    });
+    expect(result.status).toBe(400);
+    expect(result.body.error.code).toBe("invalid-device-name");
   });
 
   it("answers every failure in the one error shape", async () => {

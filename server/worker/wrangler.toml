@@ -27,11 +27,14 @@ new_sqlite_classes = ["Account", "SourceLimit"]
 [vars]
 MAX_RECORD_BYTES = "1048576"
 MAX_BATCH_OPERATIONS = "100"
+MAX_BATCH_BYTES = "8388608"
 MAX_PAGE_RECORDS = "500"
 ACCOUNT_QUOTA_BYTES = "20971520"
 TOMBSTONE_RETENTION_DAYS = "90"
 EMAIL_FROM = "noreply@example.invalid"
-EMAIL_PROVIDER = "resend"
+# EMAIL_PROVIDER has no default and none is named here: a key on its own does not say where to
+# send it, and this project does not pick a company on a deployer's behalf. Set it to one of
+# brevo, mailgun, mailtrap, postmark, resend or sendgrid.
 
 # PEPPER and EMAIL_API_KEY are secrets and are never written here:
 #   wrangler secret put PEPPER
@@ -46,6 +49,7 @@ EMAIL_PROVIDER = "resend"
 TEST_OUTBOX = "1"
 MAX_RECORD_BYTES = "65536"
 MAX_BATCH_OPERATIONS = "25"
+MAX_BATCH_BYTES = "1048576"
 MAX_PAGE_RECORDS = "10"
 ACCOUNT_QUOTA_BYTES = "1048576"
 TOMBSTONE_RETENTION_DAYS = "90"
@@ -54,6 +58,7 @@ TOMBSTONE_RETENTION_DAYS = "90"
 # deliberately (D4a), and one runner opening fifty accounts is what the suite does on purpose.
 REGISTRATIONS_PER_HOUR = "100000"
 RESETS_PER_HOUR = "100000"
+AUTH_PER_HOUR = "100000"
 # Somewhere to send a retired account, so the whole of D4b is reachable here.
 RELOCATE_TO = "mixlab-sync-native"
 
@@ -77,15 +82,19 @@ new_sqlite_classes = ["Account", "SourceLimit"]
 TEST_OUTBOX = "1"
 MAX_RECORD_BYTES = "65536"
 MAX_BATCH_OPERATIONS = "25"
+MAX_BATCH_BYTES = "1048576"
 MAX_PAGE_RECORDS = "10"
 ACCOUNT_QUOTA_BYTES = "1048576"
 TOMBSTONE_RETENTION_DAYS = "0"
 REGISTRATIONS_PER_HOUR = "100000"
 RESETS_PER_HOUR = "100000"
+AUTH_PER_HOUR = "100000"
 # The instance where slow things are fast: a freeze lapses in seconds here, so the failure D4b
 # exists to survive — a copy cut off by a dead network or a dead machine — is testable. And
 # deliberately no RELOCATE_TO, so the refusal to let go of an account with nowhere to go is too.
 RELOCATION_LEASE_SECONDS = "2"
+# And closed with a shared token, the way a company running this for itself would (D4a).
+ACCESS_TOKEN = "conformance-shared-token"
 
 [[env.reaper.durable_objects.bindings]]
 name = "ACCOUNT"

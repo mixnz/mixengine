@@ -228,6 +228,20 @@ defaults are what this project's instance ships with.
   bytes (`nonce`, `ciphertext`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery`) is
   **standard base64 with padding**, not base64url. One spelling, written down here, because two
   implementations will otherwise each pick a reasonable one.
+- **Every one of those has a fixed length except the ciphertext**, and a server refuses anything
+  else with `400 invalid-request`:
+
+  | Member | Bytes | Why that many |
+  | --- | --- | --- |
+  | `a` | 32 | HKDF-SHA256 output (D2) |
+  | `saltAccount` | 16 | So an invented salt cannot be told apart by length |
+  | `wrappedMkPassword`, `wrappedMkRecovery` | 72 | XChaCha20-Poly1305 over 32 bytes: 24 nonce, 32 sealed, 16 tag |
+  | `nonce` | 24 | XChaCha20-Poly1305 (D3) |
+
+  This is not fussiness. The account row is the one thing the per-account quota does **not** count,
+  so without a bound `POST /v1/auth/register` takes as many bytes as anybody cares to send and
+  stores them for ever. Fixing the lengths also turns a client bug into a `400` instead of a row
+  nobody can decrypt.
 - **Both sides ignore members they do not recognise**, in requests and in responses. This is
   [ADR 0019](../decisions/0019-an-added-response-member-is-optional.md)'s rule applied to two
   parties that upgrade separately: a server somebody else is running is older than this document
@@ -283,6 +297,7 @@ account at all.
   "protocolVersions": ["v1"],
   "maxRecordBytes": 1048576,
   "maxBatchOperations": 100,
+  "maxBatchBytes": 8388608,
   "maxPageRecords": 500,
   "accountQuotaBytes": 20971520,
   "tombstoneRetentionDays": 90,
@@ -292,6 +307,61 @@ account at all.
 
 `features` is how a server announces something optional it has; an empty list is a complete v1
 server. A client must run against an empty list forever.
+
+**`maxBatchBytes` exists because the other two do not bound a request.** `maxBatchOperations` times
+`maxRecordBytes` is a number no server intends to buffer — a hundred records of a megabyte each is
+not what batching is for — so without a third figure a client can compose a request that every
+limit says is legal and the server refuses at the door. It is the size of the whole encoded body,
+and a client chunks by whichever of the three binds first.
+
+### Every code a client can meet
+
+A client switches on `code` and never on `message`, so this is the complete list: one dictionary
+key each, and a client that handles all of them handles everything `/v1` can say.
+
+**One code per sentence a person would be shown**, which is the rule that decides how fine-grained
+this list is. An earlier draft answered a mistyped address, a wrong-length key and an empty batch
+all with `invalid-request`, and a wrong verification code with the same `invalid-token` as an
+expired session — so a translated application had one string to cover *"check that address"* and
+*"you have been signed out"*. Where two situations want different words they get different codes;
+where a client can only ever say *"something went wrong, and it is our bug"*, one code is enough.
+
+| Code | Status | Carries | What a person is told |
+| --- | --- | --- | --- |
+| `invalid-request` | 400 | | Something in what was sent is malformed. In almost every case a client bug |
+| `invalid-code` | 400 | | A code from a letter that is wrong, spent or expired |
+| `invalid-token` | 401 | | The session is over; sign in again |
+| `invalid-access-token` | 401 | | This server is private; ask whoever runs it for the token |
+| `invalid-email` | 400 | | That is not an address a letter could reach |
+| `invalid-device-name` | 400 | | This machine needs a name |
+| `invalid-credentials` | 401 | | That address and password do not match an account |
+| `email-not-verified` | 403 | | Confirm the address before signing in |
+| `email-taken` | 409 | | That address already has an account |
+| `not-found` | 404 | | No such route. A client bug |
+| `method-not-allowed` | 405 | | A client bug |
+| `unknown-device` | 404 | | No such device on this account |
+| `unknown-record` | 404 | | Nothing to delete |
+| `already-exists` | 412 | the record | Something was created twice |
+| `version-conflict` | 409 | the record | Somebody else wrote first; resolve and retry (D4) |
+| `precondition-required` | 428 | | A client bug: no `If-Match` and no `If-None-Match` |
+| `record-too-large` | 413 | `limit` | That one item is larger than this server takes |
+| `request-too-large` | 413 | `limit` | The whole request is; send fewer at a time |
+| `quota-exceeded` | 507 | `limit`, `used` | The account is full |
+| `cursor-expired` | 410 | | Away too long; start again from empty (D3) |
+| `too-many-requests` | 429 | `retryAfter` | This network has asked too often; try again in so many seconds |
+| `too-many-attempts` | 429 | `retryAfter` | Too many tries on this account. A different sentence, and a different thing to be told |
+| `account-frozen` | 423 | | The account is being moved and cannot change (D4b) |
+| `account-moved` | 410 | `home` | It lives on another server now (D4b) |
+| `must-freeze-first` | 409 | | A client bug (D4b) |
+| `relocation-not-configured` | 409 | | This server has nowhere to send an account (D4b) |
+| `letter-not-sent` | 502 | | The confirmation letter could not be sent, so no account was made |
+| `server-misconfigured` | 503 | `missing` | This deployment is not finished. For whoever runs it |
+| `server-error` | 500 | | Something went wrong there |
+
+**Anything a framework would answer on its own is wrapped into this shape too** — a method that
+does not exist on a route, a body larger than the server will buffer. A client that met a bare
+`405` with an empty body would have nothing to translate, and `server/conformance/` checks that
+neither implementation produces one.
 
 ### `/v1/auth/params`, and the salt that is invented for a stranger
 
@@ -334,6 +404,38 @@ and a company behind one address may install on fifty machines in a morning.
 under the password is what an offline attack needs, and handing it to anybody who asks turns a
 password into the only thing standing between a stranger and an account's contents. It travels on
 the answer to `/v1/auth/login`, after the verifier matched, and nowhere else.
+
+### A server one company runs for itself
+
+**A self-hosted instance can be closed with a shared token**, and the hosted ones never are.
+
+```
+X-MixLab-Access: <whatever the operator chose>
+```
+
+When a deployment is configured with one, **every route requires it** — `/v1/capabilities`
+included. The point is that somebody who finds the address cannot use the host at all, and a
+capabilities document that answered anybody would tell them the server is there, what it allows,
+and that it is worth coming back to. A client is given the token by the person setting it up,
+before it makes its first request, so there is no order-of-operations problem to solve.
+
+A request without it, or with the wrong one, is **`401`, code `invalid-access-token`** — its own
+code, not the `invalid-token` that means a session has ended: one is *ask your administrator for
+the token* and the other is *sign in again*, and MixLab cannot pick between those two sentences
+from a status alone.
+
+**It is not a password and it is not per person.** It is one string a company knows, changed
+whenever they like; changing it locks out every client until each is told the new one, which is the
+behaviour they are asking for. It protects the *host*, not the accounts: everything else in this
+design — the verifier, the wrapping of `MK`, what the server can read — is exactly as it was, and
+somebody who has the token still cannot read a record.
+
+**A wrong one is counted per source**, in the same window as signing in. The operator picks this
+string and may pick a short one, so guessing has to cost something.
+
+**The default instances never set it.** Anybody may make an account there; that is what they are
+for. A deployment sets it by configuration alone, and a client learns it is needed by being
+refused.
 
 ### Accounts
 

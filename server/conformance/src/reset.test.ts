@@ -144,7 +144,7 @@ describe("completing a reset", () => {
       },
     });
     expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-token");
+    expect(result.body.error.code).toBe("invalid-code");
   });
 
   it("does not restart the sequence numbers", async () => {
@@ -196,6 +196,6 @@ describe("completing a reset", () => {
       },
     });
     expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-token");
+    expect(result.body.error.code).toBe("invalid-code");
   });
 });

@@ -54,7 +54,7 @@ impl Provider {
         }
     }
 
-    pub const NAMES: &'static str = "smtp, resend, mailtrap, brevo, postmark, sendgrid, mailgun";
+    pub const NAMES: &'static str = "smtp, brevo, mailgun, mailtrap, postmark, resend, sendgrid";
 
     /// Where to post, when the endpoint is the same for everybody using that provider.
     ///

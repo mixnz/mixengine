@@ -12,7 +12,8 @@ use serde_json::{Value, json};
 use crate::AppState;
 use crate::accounts::{authenticate, bad_code, parse};
 use crate::crypto::{
-    account_key, normalise_code, now, peppered, random_code, same_secret, sha256_hex,
+    SALT_BYTES, VERIFIER_BYTES, WRAPPED_KEY_BYTES, account_key, normalise_code, now, peppered,
+    random_code, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_request, invalid_token};
@@ -22,11 +23,12 @@ use crate::validate::{is_base64, is_email};
 const RESET_TOKEN_SECONDS: i64 = 60 * 60;
 const SOURCE_WINDOW_SECONDS: i64 = 60 * 60;
 
-fn field<'a>(fields: &'a Value, name: &str) -> Option<&'a str> {
+/// Fixed lengths, for the reason `accounts::sized_field` gives (D4a).
+fn field<'a>(fields: &'a Value, name: &str, bytes: usize) -> Option<&'a str> {
     fields
         .get(name)
         .and_then(Value::as_str)
-        .filter(|value| is_base64(value, None))
+        .filter(|value| is_base64(value, Some(bytes)))
 }
 
 fn server_error(error: impl std::fmt::Display) -> Failure {
@@ -49,10 +51,10 @@ pub async fn change_password(
         Err(failure) => return failure.into_response(),
     };
     let (Some(a), Some(new_a), Some(new_salt), Some(new_wrapped)) = (
-        field(&fields, "a"),
-        field(&fields, "newA"),
-        field(&fields, "newSaltAccount"),
-        field(&fields, "newWrappedMkPassword"),
+        field(&fields, "a", VERIFIER_BYTES),
+        field(&fields, "newA", VERIFIER_BYTES),
+        field(&fields, "newSaltAccount", SALT_BYTES),
+        field(&fields, "newWrappedMkPassword", WRAPPED_KEY_BYTES),
     ) else {
         return invalid_request("The current verifier, and the new one with its salt.")
             .into_response();
@@ -132,7 +134,7 @@ pub async fn reset(
         .and_then(Value::as_str)
         .filter(|value| is_email(value))
     else {
-        return invalid_request("An address is required.").into_response();
+        return crate::http::invalid_email().into_response();
     };
     let email = email.trim().to_lowercase();
 
@@ -219,10 +221,10 @@ async fn complete(
         return bad_code().into_response();
     };
     let (Some(a), Some(salt), Some(wrapped_password), Some(wrapped_recovery)) = (
-        field(&fields, "a"),
-        field(&fields, "saltAccount"),
-        field(&fields, "wrappedMkPassword"),
-        field(&fields, "wrappedMkRecovery"),
+        field(&fields, "a", VERIFIER_BYTES),
+        field(&fields, "saltAccount", SALT_BYTES),
+        field(&fields, "wrappedMkPassword", WRAPPED_KEY_BYTES),
+        field(&fields, "wrappedMkRecovery", WRAPPED_KEY_BYTES),
     ) else {
         return bad_code().into_response();
     };

@@ -26,7 +26,7 @@ describe("verifying an address", () => {
       body: { email: account.email, token: "definitely-not-the-token" },
     });
     expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-token");
+    expect(result.body.error.code).toBe("invalid-code");
   });
 
   it("refuses the same token a second time, with the same code as a wrong one", async () => {
@@ -39,7 +39,7 @@ describe("verifying an address", () => {
 
     const replay = await call<ErrorBody>("/v1/auth/verify", { body: { email: account.email, token } });
     expect(replay.status).toBe(400);
-    expect(replay.body.error.code).toBe("invalid-token");
+    expect(replay.body.error.code).toBe("invalid-code");
   });
 
   it("sends a code a person can type, not a link", async () => {
@@ -76,7 +76,7 @@ describe("verifying an address", () => {
       body: { email: account.email, token: "IIII-IIII" },
     });
     expect(result.status).toBe(400);
-    expect(result.body.error.code).toBe("invalid-token");
+    expect(result.body.error.code).toBe("invalid-code");
   });
 
   it("stops somebody guessing at eight characters", async () => {
@@ -99,8 +99,11 @@ describe("verifying an address", () => {
     }
 
     expect(refusal, "a wrong code could be tried forty times").toBeDefined();
-    expect(refusal?.body.error.code).toBe("too-many-requests");
+    expect(refusal?.body.error.code).toBe("too-many-attempts");
     expect(Number(refusal?.headers.get("retry-after"))).toBeGreaterThan(0);
+    // And in the body, because a localised "try again in four minutes" needs the number and a
+    // client should not have to remember that one code hides half of itself in a header.
+    expect(refusal?.body.error["retryAfter"]).toBeTypeOf("number");
   });
 
   it("refuses to sign in until the address is verified", async () => {

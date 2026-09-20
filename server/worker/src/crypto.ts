@@ -43,6 +43,12 @@ export function normaliseCode(presented: string): string | null {
 /** How many bytes a salt is, fixed so that an invented one cannot be told apart by length. */
 export const SALT_BYTES = 16;
 
+/** HKDF-SHA256 output (D2). */
+export const VERIFIER_BYTES = 32;
+
+/** XChaCha20-Poly1305 over a 32-byte key: 24 nonce, 32 sealed, 16 tag (D2). */
+export const WRAPPED_KEY_BYTES = 72;
+
 /**
  * The salt handed back for an address that has no account (D4a).
  *

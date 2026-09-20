@@ -62,6 +62,27 @@ pub fn invalid_request(message: impl Into<String>) -> Failure {
     Failure::new(StatusCode::BAD_REQUEST, "invalid-request", message)
 }
 
+/// The address is a thing a person typed, so it gets a code of its own: an application showing
+/// *"something in what you sent is wrong"* for a mistyped address is showing the wrong sentence.
+pub fn invalid_email() -> Failure {
+    Failure::new(
+        StatusCode::BAD_REQUEST,
+        "invalid-email",
+        "That is not an address a letter could reach.",
+    )
+}
+
+/// A code from a letter, which is **not** a session token: one means *that code is wrong* and the
+/// other means *you have been signed out*. An application switching on the code alone would have
+/// rendered the wrong one of those.
+pub fn invalid_code() -> Failure {
+    Failure::new(
+        StatusCode::BAD_REQUEST,
+        "invalid-code",
+        "That code is not usable.",
+    )
+}
+
 pub fn invalid_token() -> Failure {
     Failure::new(
         StatusCode::UNAUTHORIZED,

@@ -37,8 +37,17 @@ pub async fn guard(state: &Arc<AppState>, headers: &HeaderMap, mutating: bool) -
             blocked(connection, &config, session.account_id, mutating)
         })
         .await
-        .ok()
-        .flatten()
+        // **Closed, not open.** A database error here used to read as "nothing is blocking this
+        // request", which would let a write through on an account that is frozen or has moved —
+        // the two states whose whole purpose is to stop exactly that.
+        .unwrap_or_else(|error| {
+            tracing::error!("could not read the relocation state: {error}");
+            Some(Failure::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "server-error",
+                "Something went wrong here.",
+            ))
+        })
 }
 
 pub struct Where {

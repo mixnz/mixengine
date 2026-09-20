@@ -52,6 +52,12 @@ pub fn random_token() -> String {
 /// How many bytes a salt is, fixed so that an invented one cannot be told apart by length.
 pub const SALT_BYTES: usize = 16;
 
+/// HKDF-SHA256 output (D2).
+pub const VERIFIER_BYTES: usize = 32;
+
+/// XChaCha20-Poly1305 over a 32-byte key: 24 nonce, 32 sealed, 16 tag (D2).
+pub const WRAPPED_KEY_BYTES: usize = 72;
+
 /// The salt handed back for an address that has no account (D4a).
 ///
 /// Stable, so asking twice gives the same answer; unguessable, because the pepper never leaves this

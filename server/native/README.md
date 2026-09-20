@@ -85,7 +85,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_DATABASE` | The SQLite file. `mixlab-sync.db` by default |
 | `MIXLAB_SYNC_PEPPER` | Keyed into the stored password verifier, so a stolen database is not a list of verifiers |
 | `MIXLAB_SYNC_EMAIL_FROM` | The address the two letters are sent from |
-| `MIXLAB_SYNC_EMAIL_PROVIDER` | `smtp`, `resend`, `mailtrap`, `brevo`, `postmark`, `sendgrid` or `mailgun` — see below |
+| `MIXLAB_SYNC_EMAIL_PROVIDER` | `smtp`, `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid` — see below. **No default**: a key on its own does not say where to send it |
 | `MIXLAB_SYNC_EMAIL_API_KEY` | The provider's key. Not used by `smtp` |
 | `MIXLAB_SYNC_EMAIL_ENDPOINT` | Where to post. Has a default for every provider except `mailtrap` (its URL carries an inbox id) and `mailgun` (a sending domain) |
 | `MIXLAB_SYNC_SMTP_HOST` | The mail server, when the provider is `smtp` |
@@ -95,6 +95,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_SMTP_PASSWORD` | Optional, with the username |
 | `MIXLAB_SYNC_MAX_RECORD_BYTES` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_MAX_BATCH_OPERATIONS` | Reported by `/v1/capabilities` |
+| `MIXLAB_SYNC_MAX_BATCH_BYTES` | Reported by `/v1/capabilities`, and the largest body this server will read |
 | `MIXLAB_SYNC_MAX_PAGE_RECORDS` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS` | Reported by `/v1/capabilities` |
@@ -105,6 +106,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_PARAMS_PER_HOUR` | How often one source may ask where an address's salt is |
 | `MIXLAB_SYNC_RELOCATE_TO` | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL. Unset means this server will not let go of an account |
 | `MIXLAB_SYNC_RELOCATION_LEASE_SECONDS` | How long a freeze lasts before it lapses. 900 by default |
+| `MIXLAB_SYNC_ACCESS_TOKEN` | A shared token that closes this server to everybody who has not been given it. Unset means open, which is what the hosted instances are |
 | `MIXLAB_SYNC_TEST_OUTBOX` | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
 The five rate limits are not reported by `/v1/capabilities`, unlike every other number here:
@@ -142,6 +144,26 @@ MIXLAB_SYNC_EMAIL_FROM=noreply@example.com \
 MIXLAB_SYNC_PEPPER=… \
 cargo run --release
 ```
+
+## Closing it to everybody but your own people
+
+```bash
+MIXLAB_SYNC_ACCESS_TOKEN=whatever-your-company-knows
+```
+
+Every route then requires `X-MixLab-Access` carrying that string, **`/v1/capabilities` included** —
+the point is that somebody who finds the address cannot use the host at all, and a capabilities
+document that answered anybody would tell them the server is there and that it is worth coming
+back to. MixLab asks for the token when somebody sets up a self-hosted server in the application.
+
+Change it whenever you like; every client is locked out until it is told the new one, which is the
+behaviour this is for. **It protects the host, not the accounts**: everything else about this
+design is unchanged, and somebody holding the token still cannot read a record.
+
+A wrong one answers `401` with the code `invalid-access-token` — its own code, not the one that
+means a session ended, because *ask your administrator* and *sign in again* are different
+sentences. Wrong ones are counted per source, because the string is yours to choose and you may
+choose a short one.
 
 ## How it differs from the Worker, and where it does not
 
