@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   call,
   type ErrorBody,
+  login,
   newRecord,
   opaqueId,
   put,
@@ -17,7 +18,7 @@ import {
 
 interface Freeze {
   state: "active" | "frozen";
-  frozenUntil: number | null;
+  frozenAt: number | null;
 }
 
 const read = (token: string) => call<Freeze & Partial<ErrorBody>>("/v1/account/freeze", { token });
@@ -38,7 +39,7 @@ describe("an account nobody is copying", () => {
 
     expect(current.status).toBe(200);
     expect(current.body.state).toBe("active");
-    expect(current.body.frozenUntil).toBeNull();
+    expect(current.body.frozenAt).toBeNull();
   });
 
   it("refuses a state that is not one of the two", async () => {
@@ -63,7 +64,7 @@ describe("an account being copied elsewhere", () => {
     const frozen = await set(session.accessToken, "frozen");
     expect(frozen.status).toBe(200);
     expect(frozen.body.state).toBe("frozen");
-    expect(frozen.body.frozenUntil).toBeGreaterThan(seconds());
+    expect(frozen.body.frozenAt).toBeLessThanOrEqual(seconds());
 
     const written = await put(session.accessToken, collection, id, newRecord(), {
       ifMatch: stored.version,
@@ -89,21 +90,39 @@ describe("an account being copied elsewhere", () => {
     expect(refreshed.status).toBe(200);
   });
 
-  it("pushes the lease out when it is asked again", async () => {
-    // Re-arming is how a client that is still copying says it is alive. Without it, a long copy
-    // would thaw underneath itself.
+  it("stays frozen, because nothing is coming to clear it", async () => {
+    // **There is no timeout.** A copy that succeeded and was never followed up would otherwise
+    // reopen the old server on a timer, for a machine nobody repointed to write into (D4b). A
+    // freeze that stays frozen refuses that machine every time instead, until a person decides.
     const { session } = await signedUp();
     const first = await set(session.accessToken, "frozen");
-    await new Promise((resume) => setTimeout(resume, 1100));
+    await new Promise((resume) => setTimeout(resume, 3000));
+
+    const still = await read(session.accessToken);
+    expect(still.body.state).toBe("frozen");
+    expect(still.body.frozenAt).toBe(first.body.frozenAt);
+
+    const written = await put(session.accessToken, opaqueId(), opaqueId(), newRecord(), {
+      ifNoneMatch: true,
+    });
+    expect(written.status).toBe(423);
+  });
+
+  it("is idempotent, so a client may say it twice", async () => {
+    const { session } = await signedUp();
+    const first = await set(session.accessToken, "frozen");
     const second = await set(session.accessToken, "frozen");
 
+    expect(second.status).toBe(200);
     expect(second.body.state).toBe("frozen");
-    expect(second.body.frozenUntil).toBeGreaterThan(first.body.frozenUntil ?? 0);
+    // The clock does not restart: `frozenAt` is when this began, which is what a client shows a
+    // person who is being told their account has been read-only for a while.
+    expect(second.body.frozenAt).toBe(first.body.frozenAt);
   });
 
   it("is thawed by the client that finished, not by waiting", async () => {
-    // Posting `active` is the normal way out of a freeze — the client that finished copying, or
-    // the one that gave up. The lease below is for the client that can no longer post anything.
+    // Posting `active` is the only way out of a freeze: the client that finished copying, or the
+    // one that gave up. Waiting is not a third option.
     const { session } = await signedUp();
     const { collection, id, stored } = await seed(session.accessToken);
     await set(session.accessToken, "frozen");
@@ -111,7 +130,7 @@ describe("an account being copied elsewhere", () => {
     const thawed = await set(session.accessToken, "active");
     expect(thawed.status).toBe(200);
     expect(thawed.body.state).toBe("active");
-    expect(thawed.body.frozenUntil).toBeNull();
+    expect(thawed.body.frozenAt).toBeNull();
 
     const written = await put(session.accessToken, collection, id, newRecord(), {
       ifMatch: stored.version,
@@ -119,25 +138,21 @@ describe("an account being copied elsewhere", () => {
     expect(written.status).toBe(200);
   });
 
-  it("thaws itself when nobody comes back", async ({ skip }) => {
-    // **The failure this design exists to survive**: a machine freezes the account, starts
-    // uploading, and loses the network or the power. With a latch that account is unwritable for
-    // ever; with a lease it repairs itself (D4b). Only reachable against a server configured with
-    // a short one — a real lease is fifteen minutes and no test can wait that out.
-    const { session } = await signedUp();
-    const frozen = await set(session.accessToken, "frozen");
-    const lease = (frozen.body.frozenUntil ?? 0) - seconds();
-    if (lease > 10) {
-      skip(`this server leases a freeze for ${lease}s; run one with a short lease to cover lapsing`);
-    }
+  it("is cleared by any machine on the account, which is why no timeout is needed", async () => {
+    // The argument for a lease was a freeze nobody could clear. Every signed-in machine can clear
+    // one, and signing in works while frozen, so a copy cut off by a dead machine is one request
+    // away from over — from a second machine, or from a reinstall (D4b).
+    const { account, session } = await signedUp();
+    await set(session.accessToken, "frozen");
 
-    let current = await read(session.accessToken);
-    for (let attempt = 0; attempt < 40 && current.body.state !== "active"; attempt += 1) {
-      await new Promise((resume) => setTimeout(resume, 500));
-      current = await read(session.accessToken);
-    }
+    const elsewhere = await login(account, "another-machine");
+    const seen = await read(elsewhere.accessToken);
+    expect(seen.body.state).toBe("frozen");
 
-    expect(current.body.state).toBe("active");
+    const thawed = await set(elsewhere.accessToken, "active");
+    expect(thawed.status).toBe(200);
+    expect(thawed.body.state).toBe("active");
+
     const written = await put(session.accessToken, opaqueId(), opaqueId(), newRecord(), {
       ifNoneMatch: true,
     });
