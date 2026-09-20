@@ -11,6 +11,12 @@ mod platform;
 mod relaunch;
 mod secrets;
 mod ssh;
+/// **Public only until it has a caller.** Every other module here is private because `lib.rs` wires
+/// it; this one is reached by nothing yet, and its consumer — the transport — arrives in T177c.
+/// Marking it public is what lets it exist before then without an `allow(dead_code)` that would go
+/// on quietly excusing a genuinely unused function afterwards. It goes back to `mod` the moment
+/// something calls it, and `dead_code` resumes policing it.
+pub mod sync;
 mod tray;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

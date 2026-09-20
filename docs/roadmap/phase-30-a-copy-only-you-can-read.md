@@ -10,11 +10,19 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
 
 ---
 
-- [ ] **T177a** The key hierarchy and the record envelope, in `apps/desktop/src-tauri/src/sync/crypto.rs`:
+- [x] **T177a** The key hierarchy and the record envelope, in `apps/desktop/src-tauri/src/sync/crypto.rs`:
       Argon2id, the four HKDF expansions, XChaCha20-Poly1305 with `collection || id || deleted` as
       AAD, and the wrap/unwrap of `MK` under a password and under a recovery key. No network, no
       account, no storage. It carries test vectors and is written to be read in one sitting —
       spec D1 says the promise is a property of this file and of nothing on the server.
+
+      **Done in six commits, thirteen tests, 470 lines.** Two things it settled that the plan had
+      not. `sync` is `pub mod` in `lib.rs`, because `-D warnings` fails a module nothing outside
+      `#[cfg(test)]` reaches and this one has no caller until T177c — public suppresses no lint,
+      and `lib.rs` carries the note that it returns to private the moment something calls it. And
+      **this crate is not format-gated**: CI's `desktop` job runs clippy, `cargo test --locked` and
+      `cargo audit`, with no `fmt`, and there is no `rustfmt.toml` here, so `cargo fmt --all` would
+      rewrite dozens of files nobody touched. Check the files you wrote and nothing else.
 - [ ] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
       the server it will judge, because a suite written afterwards only ever describes what was
       built. Then `mixlab-sync` on Cloudflare Workers, one Durable Object per account: its

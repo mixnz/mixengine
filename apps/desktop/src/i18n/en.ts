@@ -201,6 +201,14 @@ const en = {
     credentialStoreUnreachable: "Cannot reach the system credential store: {{message}}",
     cannotSavePassword: "Cannot save the password: {{message}}",
     cannotReadPassword: "Cannot read the saved password back: {{message}}",
+    syncKeyDerivation: "Could not derive the sync keys: {{message}}",
+    syncCannotWrapKey: "Could not protect the sync key.",
+    syncCannotUnwrapKey: "Wrong password, or this account's key has been damaged.",
+    syncRecoveryKeyUnreadable:
+      "That is not a recovery key. Check it against what you wrote down.",
+    syncCannotSealRecord: "Could not encrypt this item for sync.",
+    syncCannotOpenRecord:
+      "An item from the server could not be read. It may have been tampered with.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a
