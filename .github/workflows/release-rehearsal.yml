@@ -1,0 +1,40 @@
+# A weekly build of what a release is built with (T174).
+#
+# **Why this is its own file and not a `schedule:` in `ci.yml`.** With a `schedule` event
+# `inputs.jobs` is empty, and empty is the arm `ci.yml` wrote for a tag push — a schedule there
+# would quietly start all thirty-four jobs instead of the `build` group. And `ci.yml` says of
+# itself that every run is asked for; this is the one thing here that runs unasked, so it says so
+# in its own name.
+#
+# What it is for: off a tag, CI builds without LTO, at opt-level 0, and on one macOS slice
+# (T170h, T171c, T173a). None of that is what a release ships. This builds what a release ships,
+# every week, so a tag is never the first time that configuration is compiled. It does not sign
+# anything and does not upload a draft — "does it build", not "does it ship".
+name: release rehearsal
+
+on:
+  schedule:
+    # Mondays, 03:00 UTC. A GitHub schedule reads this file from the default branch, runs late
+    # under load, is occasionally skipped, and is disabled after 60 days without activity in this
+    # repository — which is why the release checklist asks for a *recent* rehearsal rather than
+    # trusting that this ran.
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+
+# One rehearsal at a time. The newer request is the one worth having, as everywhere else here.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/_build.yml
+    with:
+      jobs: build
+      profile: release-exact

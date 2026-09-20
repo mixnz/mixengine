@@ -1,6 +1,7 @@
 # `window` and `binaries`, then `build` (T171).
-# Called from ci.yml, never run on its own (T172e); the triggers, the `jobs` choice and
-# concurrency live there. `inputs.jobs` below is the caller's choice, passed through.
+# Called from ci.yml, and from release-rehearsal.yml for its weekly `release-exact` build (T174b);
+# never run on its own (T172e). The triggers, the `jobs` choice and concurrency live in the caller.
+# `inputs.jobs` and `inputs.profile` below are the caller's choices, passed through.
 name: build
 
 on:
