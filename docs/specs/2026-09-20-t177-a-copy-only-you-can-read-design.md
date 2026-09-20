@@ -696,29 +696,40 @@ because each one keys its own verifier.
 | `active` | yes | yes | The normal state |
 | `frozen` | yes | **no** | A copy is under way, and nothing may change under it |
 
-`GET /v1/account/freeze` answers `{"state": …, "frozenUntil": <seconds> | null}`. `POST` takes
+`GET /v1/account/freeze` answers `{"state": …, "frozenAt": <seconds> | null}`. `POST` takes
 `{"state": "active" | "frozen"}` and moves between them. Both need an access token, and **`GET`
 answers in both states** — a machine that meets a refusal has to be able to find out why.
 
-**Thawing is a route, not a timeout.** Posting `active` is how a client ends a copy it has finished
-and how it abandons one it has given up on; the lease below is the safety net for the client that
-can no longer post anything at all, not the normal way out.
+**Thawing is a route, and the only way out.** Posting `active` is how a client ends a copy it has
+finished and how it abandons one it has given up on. Nothing else ends a freeze, and the section
+below is about why nothing else should.
 
 Reads stay open while frozen because **the copy is a read**: the machine doing the work needs the
 same route any machine uses, and a second machine that wants to take over needs it too.
 
-### The freeze is a lease, and that is the whole answer to the interesting failure
+### A freeze ends when a client ends it, and not before
 
-**A freeze expires.** It carries `frozenUntil`, and once that passes the account is `active` again
-whatever the column says. A client that is still copying re-arms it by posting `frozen` again,
-which is idempotent and pushes the lease out.
+**There is no timeout, and an earlier draft was wrong to have one.** That draft made the freeze a
+lease: it carried an expiry, and a machine still copying re-armed it. The argument was that a
+machine which freezes the account and then loses its network or its power would otherwise leave it
+read-only for ever, with nobody but an operator able to rescue it.
 
-This is not tidiness. Consider the case the design has to survive: a machine freezes the account,
-starts uploading, and **loses the network or the power**. The new server has part of the data or
-none of it; the old one is read-only; and the machine that knew what it was doing may never come
-back. With a latch, that account is unwritable for ever and nobody on earth can fix it without an
-operator. With a lease it repairs itself in minutes, and the worst a person sees is an application
-that could not save for a while.
+**That argument does not survive reading the route table.** `POST /v1/account/freeze` with `active`
+is available to every signed-in machine on the account, and both reading and signing in work while
+frozen. A freeze nobody meant to leave behind is therefore one request away from over — from the
+machine that started it, from a second machine that finds the account read-only, or from a
+reinstall that signs in and asks. Nothing is stranded, and no operator is needed.
+
+**What the timeout cost was worse than what it bought.** Consider a copy that *succeeds* and is
+then not finished off: the person closed the laptop, or meant to delete the old account in the
+evening. With a lease the old server quietly becomes writable again a few minutes later, and a
+machine that was never repointed begins writing into it — the silent divergence this section exists
+to prevent, arriving through the back door on a timer. A freeze that stays frozen fails loudly
+instead: the forgotten machine is refused every time, until a person decides something. **Between a
+failure that asks a question and a recovery that answers one on its own, this takes the question.**
+
+`frozenAt` is when it started, so a client can say how long this has been true rather than only
+that it is.
 
 **Resuming needs no bookkeeping.** The client keeps `MK`, so the records it re-uploads are the same
 opaque ids and the same bytes as the ones that already arrived: pushing the whole set again with
@@ -726,10 +737,11 @@ opaque ids and the same bytes as the ones that already arrived: pushing the whol
 it is correct whether the previous attempt copied nothing, half, or everything. There is no
 progress to record and nothing to reconcile.
 
-**Any machine can take over, or give up.** A second machine that meets `423` reads
-`GET /v1/account/freeze`, sees `frozen`, and either continues the copy — it can read everything from
-this server, which is still readable — or posts `active` and abandons it. What it must not do is
-guess.
+**Any machine can take over, or give up, and that is the recovery path.** A second machine that
+meets `423` reads `GET /v1/account/freeze`, sees `frozen`, and either continues the copy — it can
+read everything from this server, which is still readable — or posts `active` and abandons it.
+What it must not do is guess, and what it must not do is wait: nothing is coming to clear this
+but a decision.
 
 **Freeze first, then copy — not copy, then freeze.** With the other order there is a window between
 the last record the client reads and the moment the account stops accepting writes, and anything a
