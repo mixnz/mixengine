@@ -550,6 +550,42 @@ export class Account implements DurableObject {
     const fields = asObject(body);
     if (!fields) return fail(400, "invalid-request", "An address is required.");
 
+    // **D6 case 2, second request.** The client already spent the code, got `MK` back under the
+    // recovery key, and is setting a new password. The records stay, because the client says it
+    // re-wrapped the same `MK` — which this server cannot check and does not try.
+    if (fields["ticket"] !== undefined) {
+      if (
+        !isBase64(fields["a"], VERIFIER_BYTES) ||
+        !isBase64(fields["saltAccount"], SALT_BYTES) ||
+        !isBase64(fields["wrappedMkPassword"], WRAPPED_KEY_BYTES) ||
+        !isBase64(fields["wrappedMkRecovery"], WRAPPED_KEY_BYTES)
+      ) {
+        return fail(400, "invalid-request", "A verifier, a salt and two wrapped keys.");
+      }
+      const ticket = fields["ticket"];
+      if (
+        typeof ticket !== "string" ||
+        !this.account() ||
+        !this.spendToken(await sha256Hex(ticket), "reset-ticket")
+      ) {
+        return fail(401, "invalid-token", "That ticket is not usable.");
+      }
+
+      this.sql.exec(
+        `UPDATE account SET verifier = ?, salt_account = ?, wrapped_mk_password = ?,
+                            wrapped_mk_recovery = ? WHERE id = 1`,
+        await peppered(config.pepper, fields["a"] as string),
+        fields["saltAccount"],
+        fields["wrappedMkPassword"],
+        fields["wrappedMkRecovery"],
+      );
+      // Every machine is signed out, as in case 3. **`next_seq`, `stored_bytes` and the record
+      // table are untouched**: a machine still holding a cursor must not be told that nothing has
+      // changed.
+      this.sql.exec(`DELETE FROM token`);
+      return json(200, { recordsDeleted: 0 });
+    }
+
     if (fields["token"] === undefined) {
       const account = this.account();
       // A reset letter that could not be sent still answers 202: saying otherwise would tell a
@@ -566,6 +602,27 @@ export class Account implements DurableObject {
     }
 
     const code = typeof fields["token"] === "string" ? normaliseCode(fields["token"]) : null;
+
+    // **D6 case 2, first request.** A code and nothing else asks for the wrapped key. Spending the
+    // code here is what earns it, so one code cannot mint two tickets.
+    if (fields["a"] === undefined) {
+      const account = this.account();
+      if (code === null || !account || !(await this.spendMailToken(code, "reset"))) {
+        return badCode();
+      }
+      const ticket = randomToken();
+      this.sql.exec(
+        `INSERT INTO mail_token (hash, kind, expires_at, used) VALUES (?, ?, ?, 0)`,
+        await sha256Hex(ticket),
+        "reset-ticket",
+        now() + config.limits.resetTicketSeconds,
+      );
+      return json(200, {
+        wrappedMkRecovery: account.wrapped_mk_recovery,
+        ticket,
+        expiresIn: config.limits.resetTicketSeconds,
+      });
+    }
     if (
       code === null ||
       !isBase64(fields["a"], VERIFIER_BYTES) ||
@@ -824,7 +881,14 @@ export class Account implements DurableObject {
   }
 
   private async spendMailToken(code: string, kind: LetterKind): Promise<boolean> {
-    const hash = await sha256Hex(code);
+    return this.spendToken(await sha256Hex(code), kind);
+  }
+
+  /**
+   * The same, for a token that is not a letter. **A reset ticket has no message** and must never
+   * reach the letter composer, so it is a kind rather than a `LetterKind` (D6).
+   */
+  private spendToken(hash: string, kind: string): boolean {
     const row = this.sql
       .exec<{ hash: string; kind: string; expires_at: number; used: number }>(
         `SELECT * FROM mail_token WHERE hash = ?`,

@@ -49,6 +49,9 @@ export interface Env {
   /** How many letters one address may receive in an hour. Small: somebody who did not get
    *  the letter asks again once or twice, and a mailbox is a fixed target (D4a). */
   LETTERS_PER_ACCOUNT_PER_HOUR?: string;
+  /** How long the ticket from a recovery-key reset lasts. Long enough to type a new password
+   *  twice, short enough that one left in a log is worthless by the time it is read (D6). */
+  RESET_TICKET_SECONDS?: string;
   /** How often one source may try to sign in or spend a code, across every account. The
    *  per-account counters cannot see somebody working through a list of addresses. */
   AUTH_PER_HOUR?: string;
@@ -96,6 +99,7 @@ export interface Config {
     paramsPerHour: number;
     authPerHour: number;
     lettersPerAccountPerHour: number;
+    resetTicketSeconds: number;
   };
   capabilities: Capabilities;
 }
@@ -195,6 +199,7 @@ export function readConfig(env: Env): ConfigResult {
         paramsPerHour: number(env.PARAMS_PER_HOUR, 200),
         authPerHour: number(env.AUTH_PER_HOUR, 300),
         lettersPerAccountPerHour: number(env.LETTERS_PER_ACCOUNT_PER_HOUR, 3),
+        resetTicketSeconds: number(env.RESET_TICKET_SECONDS, 600),
       },
       capabilities: {
         protocolVersions: ["v1"],
