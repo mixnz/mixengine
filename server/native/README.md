@@ -148,6 +148,8 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW` | `10` | Codes tried against one account in fifteen minutes |
 | `MIXLAB_SYNC_PARAMS_PER_HOUR` | `200` | How often one source may ask where an address's salt is |
 | `MIXLAB_SYNC_AUTH_PER_HOUR` | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
+| `MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR` | `3` | How many letters **one address** may receive. The counters above bound what one network sends and nothing about what one mailbox receives |
+| `MIXLAB_SYNC_TRUST_FORWARDED_FOR` | off | `1` reads the source address from `X-Forwarded-For`. **Set this if and only if a proxy you run is in front**, and see below |
 | `MIXLAB_SYNC_CLOSING_ON` | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to move their account. **Advisory**: nothing here refuses a request after it |
 | `MIXLAB_SYNC_ACCESS_TOKEN` | none, so open | A shared token that closes this server to everybody who has not been given it. Open is what the hosted instances are |
 | `MIXLAB_SYNC_TEST_OUTBOX` | off | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
@@ -156,10 +158,34 @@ know the address it is reachable at.
 them at once. Everything else has a working value, so an ordinary deployment sets the four marked
 required and leaves the rest alone.
 
-The six rate limits are not reported by `/v1/capabilities`, unlike every other number here:
+The seven rate limits are not reported by `/v1/capabilities`, unlike every other number here:
 publishing the figure that stops abuse helps only the abuser. The verification one is the only
 allowance `../conformance/` deliberately exhausts — eight characters typed by a person are safe
 only because guessing is bounded, so that bound is part of the protocol.
+
+### Who the server thinks you are
+
+Every per-source limit needs an address to count against, and **this server takes it from the
+connection, not from the request**. `X-Forwarded-For` is a header any caller can write: a
+server reachable directly that believed it would hand anybody a fresh allowance per request,
+which is not a weaker limit but no limit at all.
+
+Measured on this branch, six registrations carrying six different forged values against a
+server allowing two an hour:
+
+| | Accepted | Refused |
+| --- | --- | --- |
+| Default | 2 | 4 |
+| `MIXLAB_SYNC_TRUST_FORWARDED_FOR=1` | 6 | 0 |
+
+The second row is what the setting is for and why it is off: **behind a proxy it is the only
+way to tell callers apart**, and in front of nothing it is the way to tell nobody apart. Turn
+it on only when a proxy you control is the sole path to this server, and have that proxy set
+the header rather than append to it if you can. The value read is the **last** entry, which is
+the address the nearest proxy saw — the one part of the header a client cannot choose.
+
+Without it, a server reached over something with no peer address puts every caller in one
+bucket. That is the honest answer to not knowing, and it is not the same as not counting.
 
 ## Sending mail
 

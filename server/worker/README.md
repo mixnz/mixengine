@@ -74,6 +74,7 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `VERIFY_ATTEMPTS_PER_WINDOW` | var | `10` | Codes tried against one account in fifteen minutes |
 | `PARAMS_PER_HOUR` | var | `200` | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
 | `AUTH_PER_HOUR` | var | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
+| `LETTERS_PER_ACCOUNT_PER_HOUR` | var | `3` | How many letters **one address** may receive. The counters above bound what one network sends and nothing about what one mailbox receives |
 | `CLOSING_ON` | var | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to copy their account elsewhere (D4b). **Advisory**: nothing refuses a request after it |
 | `ACCESS_TOKEN` | secret | none, so open | A shared token that closes this deployment to everybody who has not been given it, for somebody running it for their own company. **The hosted instances never set one** |
 | `TEST_OUTBOX` | var | off | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
@@ -82,10 +83,18 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 succeeding and the first letter being the thing that fails. A Worker has no startup to refuse at,
 which is why the check runs per request here and `server/native/` refuses to start instead.
 
-The six rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
+The seven rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
 publishing the figure that stops abuse helps only the abuser. The first two are counted per source
 rather than per account — the abuse they answer is opening many accounts, which a counter inside
 one account cannot see — and `src/ratelimit.ts` carries that argument.
+
+**A source here is `CF-Connecting-IP`**, which Cloudflare sets and a request cannot reach this
+Worker without passing through. `server/native/` has to work harder for the same thing, because
+a server somebody runs themselves may be reachable directly.
+
+**The letter allowance is counted in the source-limit namespace, not in the account object**,
+because registering over an unverified account replaces that object — and re-registering is one
+of the two ways to ask for a letter. A counter the counted party can clear is not a counter.
 
 Every limit is reported rather than assumed, which is what stops a limit from becoming a release:
 a server raises a number in its own configuration and a client reads it (D4a, D9).
