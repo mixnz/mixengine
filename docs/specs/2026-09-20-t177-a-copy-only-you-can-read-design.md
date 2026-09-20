@@ -196,6 +196,199 @@ set, and two hundred round trips to do it is the difference between a pause and 
 batch of independent compare-and-swaps, not a transaction: each entry succeeds or conflicts on its
 own.
 
+## D4a. The wire
+
+D4 is a table of intentions. This appendix decides the bytes, because `server/conformance/` is
+written against **this document** and against neither implementation — and a suite can only be
+written first if the document decides first. Nothing below is a new decision; each line is
+something D4 left open that two implementations would otherwise settle differently and discover in
+the suite.
+
+**The numbers here are configuration, not protocol.** Every limit is reported by
+`/v1/capabilities`, and a server may report any value it likes. The suite asserts that a limit is
+present and that the server honours the value it reported — never that it equals the default. The
+defaults are what this project's instance ships with.
+
+### Encoding, and what both sides ignore
+
+- JSON, UTF-8, `Content-Type: application/json`. Field names are camelCase, as in D3.
+- Opaque ids — `collection` and `id` — are lowercase hex, 64 characters. Everything else that is
+  bytes (`nonce`, `ciphertext`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery`) is
+  **standard base64 with padding**, not base64url. One spelling, written down here, because two
+  implementations will otherwise each pick a reasonable one.
+- **Both sides ignore members they do not recognise**, in requests and in responses. This is
+  [ADR 0019](../decisions/0019-an-added-response-member-is-optional.md)'s rule applied to two
+  parties that upgrade separately: a server somebody else is running is older than this document
+  (D9, R4), and a client that refused an unknown member would break the moment a newer server
+  added one.
+- `Authorization: Bearer <access token>` on every route except `/v1/capabilities`.
+- Times on the wire are **seconds** since the epoch. `updatedAt` is the client's clock and the
+  server stores it without ever comparing it (D1).
+
+### One shape for every failure
+
+```json
+{ "error": { "code": "quota-exceeded", "message": "…", "limit": 20971520, "used": 20971520 } }
+```
+
+`code` is a stable identifier a client switches on. `message` is for a log and is **never shown to
+a person** — MixLab's strings live in `src/i18n/` and are chosen by `code`. Any further members are
+particular to that code and optional.
+
+### `/v1/capabilities`
+
+`200`, no authentication, `Cache-Control: public, max-age=3600`. It never reaches an account object
+(D8).
+
+```json
+{
+  "protocolVersions": ["v1"],
+  "maxRecordBytes": 1048576,
+  "maxBatchOperations": 100,
+  "maxPageRecords": 500,
+  "accountQuotaBytes": 20971520,
+  "tombstoneRetentionDays": 90,
+  "features": []
+}
+```
+
+`features` is how a server announces something optional it has; an empty list is a complete v1
+server. A client must run against an empty list forever.
+
+### Accounts
+
+| Route | Body in | Out | Refuses with |
+| --- | --- | --- | --- |
+| `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` |
+| `GET /v1/auth/verify?email=&token=` | — | `200`, an HTML page with a button that posts | — |
+| `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
+| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
+| `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
+| `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
+| `POST /v1/auth/reset` | `email`, `token`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 214}` | `400 invalid-token` |
+
+- **A verification token lives 24 hours**; a reset token, one hour.
+- **`400 invalid-token` covers wrong, expired and already-used alike.** Telling them apart is an
+  oracle and buys a client nothing: the remedy is the same sentence in all three cases.
+- **`POST /v1/auth/reset` deletes every record** and says how many (D6, case 3). It is the only
+  route in `/v1` that destroys data, and the count exists so the client can show what it did rather
+  than claim it.
+- **`POST /v1/auth/password` re-wraps and does not re-encrypt.** `MK` is unchanged, so no record is
+  touched and no `seq` moves (D6, case 1). Every refresh token except the calling device's is
+  revoked.
+
+### Devices
+
+| Route | Out | Refuses with |
+| --- | --- | --- |
+| `GET /v1/devices` | `{devices: [{id, name, createdAt, lastSeenAt, current}]}` | `401` |
+| `DELETE /v1/devices/{id}` | `204` | `401` · `404 unknown-device` |
+
+Deleting a device kills its refresh token and nothing else. **Its access token stays valid until it
+expires**, which is at most fifteen minutes, and that is stated rather than fixed: closing it
+immediately would mean checking a revocation list on every request, and the window is shorter than
+the time it takes to notice a laptop is gone. Deleting your own device is how a person signs out.
+
+### Records
+
+`PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`
+and **not** `seq`, which are the server's to assign. `DELETE` carries no body. Both answer with the
+stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
+
+| Condition | Answer |
+| --- | --- |
+| `If-None-Match: *`, no such record | `201` + the record |
+| `If-None-Match: *`, it exists | `412 already-exists` + the current record |
+| `If-Match: "41"`, current is 41 | `200` + the record, `version` 42 |
+| `If-Match: "41"`, current is 42 | `409 version-conflict` + the current record |
+| neither header | `428 precondition-required` |
+| `DELETE`, `If-Match` matches | `200` + the tombstone |
+| `DELETE`, already a tombstone, `If-Match` matches it | `200` + that same tombstone, **no new version and no new `seq`** |
+| `DELETE`, never existed | `404 unknown-record` |
+| body over `maxRecordBytes` | `413 record-too-large` |
+| account over `accountQuotaBytes` | `507 quota-exceeded`, with `used` and `limit` |
+| address not yet verified | `403 email-not-verified` |
+
+The tombstone rule is worth its row: without it, a delete retried after a dropped connection bumps
+`seq` and every other machine pulls a change that is not one.
+
+`GET /v1/records?collection={c}&since={seq}`:
+
+- **`collection` is optional**, and omitting it means every collection. D4 writes the narrow form;
+  the broad one is what a burst sync actually wants, and D8's first rule is about how often a
+  client wakes an object rather than how much it carries.
+- `since` is **exclusive**, and `since=0` means from the beginning.
+- `200`, `{records: [...], nextSince: 903, more: false}`, ordered by `seq` ascending, at most
+  `maxPageRecords`. A client that sees `more: true` calls again with `nextSince`.
+- `410 cursor-expired` when `since` is older than the oldest surviving tombstone — D3's *"told to
+  resync from empty rather than told incomplete news quietly"*, made into a status code.
+
+`POST /v1/records/batch`:
+
+```json
+{ "operations": [
+  { "op": "put", "collection": "…", "id": "…", "ifNoneMatch": true,
+    "record": { "updatedAt": 1758300000, "nonce": "…", "ciphertext": "…" } },
+  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41 }
+] }
+```
+
+```json
+{ "results": [ { "status": 201, "record": {…} }, { "status": 409, "record": {…} } ] }
+```
+
+One result per operation, in the order sent, each carrying exactly the status and body that the
+single-record route would have. **The envelope is `200` whatever the entries say** — it is a batch
+of independent compare-and-swaps and not a transaction (D4), so a `409` in entry seven is news for
+the client, not a failure of the request. `400 invalid-request` when the list is empty or longer
+than `maxBatchOperations`; `507` on the envelope only when the account is already over quota.
+
+### Tokens
+
+An access token lives **fifteen minutes**, a refresh token **ninety days**, and a refresh **rotates
+on use**: the answer carries a new one and the old one dies. Presenting a rotated refresh token
+again revokes that device's whole chain and answers `401` — either it was stolen, or two clients
+raced, and both want the person to sign in again rather than to continue quietly.
+
+**They are opaque strings, not JWTs.** The only party that reads a token is the server that issued
+it, so the stateless validation a JWT buys has no customer here, and a signed token that cannot be
+withdrawn is the wrong shape for a route whose whole purpose is cutting off a lost machine.
+
+### Rate limiting
+
+`429` with `Retry-After` in seconds. The limits are configuration and are not reported by
+`/v1/capabilities` — publishing the number that stops abuse helps only the abuser. The suite
+asserts the shape of the refusal and never trips it deliberately.
+
+### The one door that is not `/v1`
+
+Verification arrives by email, which no HTTP suite can read. A server under test therefore serves
+`GET /__test__/outbox?email=…`, returning the tokens it would have sent, **and answers `404` unless
+it was started with that mode explicitly enabled**. It is outside `/v1` so that the frozen surface
+stays frozen, and a deployed server cannot be asked for it. Both implementations carry it, because
+`server/conformance/` requires it.
+
+### Four choices that could have gone the other way
+
+1. **`409 email-taken` lets an attacker learn which addresses have an account.** The alternative —
+   always answer `201`, and send a *"somebody tried to register your address"* letter instead — is
+   what a password manager does, and it costs a client that cannot tell a person they already have
+   an account, plus a new way to send mail to a stranger. The leak it prevents is *"this address
+   uses MixLab"*, against a threat model (D1) that is about the server operator and whoever takes
+   the database, not about an enumerator. Rate limiting makes the sweep slow and loud. **Revisit
+   this if MixLab ever holds something where membership itself is sensitive** — this is a developer
+   tool, and it does not.
+2. **The verification link does not consume the token.** `GET` returns a page with a button; the
+   `POST` behind it is what verifies. Mail scanners and link previewers fetch every URL in a
+   message, and a `GET` that verified would be spent before the person read the letter — a bug that
+   reads as *"the link never works"* and is nearly impossible to reproduce.
+3. **Reusing a rotated refresh token revokes the chain** rather than being ignored. It is the one
+   signal this design gets for free that a token has been copied.
+4. **`updatedAt` is never compared by the server**, including here, where it would have been easy
+   to reject a write whose clock runs backwards. D1 promises the server compares nothing; a client
+   with a wrong clock is a client problem, and a server that enforced monotonic clocks would be
+   unable to accept a legitimate write from a machine that had just fixed its own.
+
 ## D5. What syncs, and what never does — a client-side catalogue
 
 **Nothing in this section is part of the protocol.** The server never sees a single name in the
