@@ -97,7 +97,13 @@ tauri-plugin-log = "2"
 # Đọc clipboard ở phía Rust. `navigator.clipboard.readText()` làm WebView2 bật hộp xin quyền
 # `clipboard-read` của Chromium — một dải hệ thống app không tô vẽ được, hiện đúng một lần rồi nhớ
 # lựa chọn theo origin. Ở đây thì không có webview nào phải xin ai cả.
-tauri-plugin-clipboard-manager = "2"
+#
+# **Thẳng arboard chứ không qua `tauri-plugin-clipboard-manager` (T175a).** Plugin đó là một lớp
+# mỏng bọc chính crate này, và nó xin arboard feature mặc định `image-data` — tức đọc *ảnh* trong
+# clipboard, thứ không chỗ nào ở đây đọc — kéo theo `image` và `moxcms`, 99 giây biên dịch mỗi lần
+# build. Feature của cargo chỉ cộng chứ không trừ, nên cách duy nhất nói không là tự khai báo.
+# `wayland-data-control` là thứ plugin xin thêm ngoài mặc định: clipboard Linux trên Wayland.
+arboard = { version = "3", default-features = false, features = ["wayland-data-control"] }
 keyring = { version = "3.6", features = ["windows-native", "apple-native", "sync-secret-service"] }
 
 # The HTTP client the REST module sends through. `native-tls` rather than rustls, matching sqlx and

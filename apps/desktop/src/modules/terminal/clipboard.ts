@@ -1,4 +1,4 @@
-import { readText as readSystemClipboard } from "@tauri-apps/plugin-clipboard-manager";
+import { terminalClipboardText } from "./api";
 import type { AppError } from "../../core/errors";
 
 /**
@@ -18,7 +18,7 @@ import type { AppError } from "../../core/errors";
  */
 export async function readText(): Promise<string> {
   try {
-    return await readSystemClipboard();
+    return await terminalClipboardText();
   } catch (e) {
     const error: AppError = { code: "error.terminalClipboardRead", params: { message: String(e) } };
     throw error;

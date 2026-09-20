@@ -146,6 +146,26 @@ pub async fn terminal_close(id: String, state: State<'_, TerminalState>) -> Resu
     Ok(())
 }
 
+/// Văn bản đang nằm trên clipboard của hệ thống, đọc ngay trong tiến trình này.
+///
+/// Webview không đọc clipboard được nếu không dựng một hộp xin quyền, nên đây là đường duy nhất của
+/// nút Dán trong menu chuột phải — lý do đầy đủ nằm ở `Cargo.toml`, chỗ khai báo `arboard`. Ghi thì
+/// không ở đây: `core/clipboard.ts` ghi qua webview, mà ghi thì chẳng ai hỏi quyền cả.
+///
+/// `in_background` vì trên Linux đọc clipboard là một vòng trao đổi với X11 hoặc Wayland, và nó
+/// không có việc gì phải diễn ra trên luồng đang vẽ cửa sổ.
+#[tauri::command]
+pub async fn terminal_clipboard_text() -> Result<String, AppError> {
+    in_background(|| {
+        let mut clipboard = arboard::Clipboard::new()
+            .map_err(|e| err!("error.terminalClipboardRead", message = e))?;
+        clipboard
+            .get_text()
+            .map_err(|e| err!("error.terminalClipboardRead", message = e))
+    })
+    .await
+}
+
 
 
 #[cfg(test)]
