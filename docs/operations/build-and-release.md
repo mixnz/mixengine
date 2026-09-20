@@ -533,10 +533,26 @@ design are linked decisions.
    a person's is knowing **which** schema was shipped, because the tree only knows which one is
    current — so a release that skips this capture is a release whose successor has no fixture to
    upgrade from.
-3. Push the tag `v<version>`. CI runs everything, signs every artifact, and leaves a **draft** release
+3. **Check the rehearsal, and rerun it if it is not recent** — roadmap task **T174**. Off a tag CI
+   builds without LTO, at `opt-level = 0`, and on one macOS slice, so the tag run is the only run
+   that compiles what a release ships. `release-rehearsal.yml` builds that configuration every
+   Monday on `master`; what this step asks is that a **green** one exists **for the code being
+   tagged**:
+
+   ```bash
+   gh run list --workflow release-rehearsal.yml --limit 3
+   gh workflow run release-rehearsal.yml --ref master   # if the newest is old, red, or behind
+   ```
+
+   Read two things in it: that every `build` leg is green, and that none came close to its timeout —
+   `window` allows 45 minutes, and `codegen-units = 1` with `opt-level = 3` is the slowest thing this
+   product compiles. A rehearsal that fails here costs one run; the same failure at step 4 costs a
+   half-uploaded draft. **A schedule can be quietly disabled** after 60 days without activity in this
+   repository, so an empty list is a reason to dispatch one, not evidence that nothing changed.
+4. Push the tag `v<version>`. CI runs everything, signs every artifact, and leaves a **draft** release
    carrying each artifact with a `.sha256` and a `.minisig` beside it. Nothing is notarised — that is
    the right-hand column of the signing table, and it is not purchased.
-4. Smoke-test each installer *from that draft* on a clean VM: install → create site → HTTPS →
+5. Smoke-test each installer *from that draft* on a clean VM: install → create site → HTTPS →
    uninstall → verify nothing left behind. Then edit the notes and publish the draft by hand.
 
    **Say in the notes what the updater will and will not replace** — roadmap task **T106**. From the
@@ -1359,7 +1375,7 @@ Chocolatey puts it at `C:\Program Files (x86)\NSIS`, which is the path
 **What an unsigned release shows SmartScreen.** T86a. What an unsigned release looks like to the machines that judge it, measured on the
 artifacts this leg just built: the Mark-of-the-Web and quarantine attributes SmartScreen and
 Gatekeeper actually read. Neither dialog can be seen from here — those two readings are a
-person's, on the draft release, and are release-checklist item 4.
+person's, on the draft release, and are release-checklist item 5.
 
 **`windows-latest` alone.** Mark-of-the-Web is not architecture-dependent, so the arm64 leg
 would re-measure one behaviour on a different file at twice the runner cost — the design, D12.

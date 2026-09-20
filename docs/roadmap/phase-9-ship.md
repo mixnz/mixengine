@@ -91,7 +91,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       real portable zip and the real `.pkg`, with a reading that comes back wrong failing the leg and
       anything the machine could not answer printed as a **void reading** rather than passing
       silently.
-      **What stays open is two dialogs**, and they are now release-checklist item 4's rather than
+      **What stays open is two dialogs**, and they are now release-checklist item 5's rather than
       nobody's: SmartScreen's own verdict on a browser download of a published release, and macOS
       15's System Settings → "Open Anyway" flow in Finder. That also resolves a contradiction this
       entry used to carry — it said v0.0.1 ships after this is answered, while the SmartScreen half
