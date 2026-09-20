@@ -1,20 +1,20 @@
 +++
-title = "Gỡ MixEngine"
+title = "Gỡ MixLab"
 slug = "uninstalling"
 order = 13
-summary = "Hoàn tác mọi thứ MixEngine đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
+summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "4a1bbff93bf5eb3a145d273ef2d790b5253078e23ff9e55b15d885966f1c195f"
+source_sha256 = "4602753f0bebd7d80686f2ffe3c16e8fbf19af8d756ed1a5180e986b64b01998"
 +++
 
-# Gỡ MixEngine
+# Gỡ MixLab
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
-MixEngine ghi gần như mọi thứ vào một thư mục duy nhất. Ngoại lệ là vài thay đổi đặc quyền mà nó
+MixLab ghi gần như mọi thứ vào một thư mục duy nhất. Ngoại lệ là vài thay đổi đặc quyền mà nó
 đã xin phép bạn, và `mix uninstall` chính là để thu hồi những thay đổi đó.
 
 ## Xem danh sách trước
@@ -32,7 +32,7 @@ Lệnh này không thay đổi gì, chỉ liệt kê từng thứ nó sẽ gỡ:
 - mục tự khởi động daemon khi bạn đăng nhập
 - mục trong `PATH`
 - chương trình phụ trợ đặc quyền, cùng nhật ký kiểm tra của nó
-- và cuối cùng là thư mục riêng của MixEngine
+- và cuối cùng là thư mục riêng của MixLab
 
 ## Thực hiện
 
@@ -43,14 +43,14 @@ mix uninstall
 Bạn sẽ được hỏi xác nhận, và một hộp thoại quản trị duy nhất bao trọn phần đặc quyền. `--yes` trả
 lời trước câu xác nhận đó, dành cho script.
 
-**Báo cáo là kết quả đo được, không phải lời khẳng định.** Thứ trả về là những gì MixEngine tìm
+**Báo cáo là kết quả đo được, không phải lời khẳng định.** Thứ trả về là những gì MixLab tìm
 thấy trên máy *sau khi* gỡ, từng dòng một, kể cả những dòng trả lời *không có gì ở đây*. Nếu báo
 cáo giấu những dòng đó, bạn sẽ không phân biệt được "không có cấu hình resolver nào" với "chưa
 kiểm tra cấu hình resolver". Lệnh thoát với mã khác không nếu bất cứ thứ gì nó đã xử lý vẫn còn,
 để script kiểm tra được.
 
 Kết nối sẽ đứt giữa chừng, và đó là bình thường: daemon đang xóa chính thư mục home nó phục vụ, nên
-nó tự dừng. Sau đó MixEngine đọc lại các dòng cuối trực tiếp từ đĩa. Nhờ vậy câu trả lời là *không
+nó tự dừng. Sau đó MixLab đọc lại các dòng cuối trực tiếp từ đĩa. Nhờ vậy câu trả lời là *không
 còn gì sót lại*, chứ không phải *daemon bảo thế*.
 
 ## Giữ lại dữ liệu
@@ -66,7 +66,7 @@ chứng chỉ, bản ghi các project. Daemon vẫn chạy, vì vẫn còn home 
 
 ## Rồi gỡ chính chương trình
 
-`mix uninstall` gỡ những gì MixEngine đã làm. Còn gỡ bản thân MixEngine là việc của trình quản lý
+`mix uninstall` gỡ những gì MixLab đã làm. Còn gỡ bản thân MixLab là việc của trình quản lý
 gói, và tùy vào cách bạn đã cài:
 
 ```bash

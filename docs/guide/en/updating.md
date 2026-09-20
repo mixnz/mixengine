@@ -1,16 +1,16 @@
 +++
-title = "Keeping MixEngine current"
+title = "Keeping MixLab current"
 slug = "updating"
 order = 12
 summary = "Updates are opt-in, checked against a signature, and rehearsed before anything is replaced — and one binary is deliberately never replaced this way."
 +++
 
-# Keeping MixEngine current
+# Keeping MixLab current
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 ```bash
 mix self-update --check
@@ -54,7 +54,7 @@ mix elevation upgrade
 ```
 
 That is the separate, deliberate act. It downloads the helper this release publishes, checks
-MixEngine's signature on it, runs it once to be sure it starts, and puts the replacement in the
+MixLab's signature on it, runs it once to be sure it starts, and puts the replacement in the
 queue. **Nothing is installed by that command**: `mix elevation grant` is what raises the prompt,
 and the helper already installed checks the signature again itself before it allows anything to
 overwrite it.
@@ -63,7 +63,7 @@ Old and new coexist safely in the meantime. The daemon and the helper agree a pr
 they talk, and an older helper keeps serving the operations it knows while MixEngine asks you to
 upgrade it.
 
-## When a package manager installed MixEngine
+## When a package manager installed MixLab
 
 `mix self-update` refuses, says so, and names the directory. That is correct rather than unhelpful:
 a copy installed by `apt`, `dnf` or a `.pkg` is owned by that package manager, and replacing files
@@ -75,6 +75,6 @@ updated by `mix self-update` normally.
 
 ## Versions
 
-MixEngine uses semantic versioning, one version across everything it ships. Before 1.0 the API may
+MixLab uses semantic versioning, one version across everything it ships. Before 1.0 the API may
 break between minor versions, and each break is listed in the changelog — which is what
 `mix self-update --check` prints before it asks.

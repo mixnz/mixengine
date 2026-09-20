@@ -315,7 +315,7 @@ API should assume them.
 carrying Vietnamese prose would be `mixengined` deciding a client's localisation policy, which the
 paragraph above assigns elsewhere; and help that needed a daemon would stop working in the one
 situation it exists for. So the handbook is published as plain Markdown at
-`https://mixnz.github.io/mixengine/<locale>/<slug>.md`, with `index.json` listing every page, its
+`https://mixnz.github.io/mixlab/<locale>/<slug>.md`, with `index.json` listing every page, its
 title, its summary, both URLs and the SHA-256 of its bytes. A client fetches those, or ships its own
 copy; `mix` embeds them and answers with no socket open. The addresses are stable for exactly this
 reason.

@@ -125,7 +125,7 @@ enum Command {
         command: DaemonCommand,
     },
 
-    /// Read the MixEngine handbook, offline, in English or Vietnamese.
+    /// Read the MixLab handbook, offline, in English or Vietnamese.
     ///
     /// With no topic it lists them. It talks to no daemon and needs no home — the pages are
     /// compiled into this binary, which is what makes `mix docs install` answer on a machine where

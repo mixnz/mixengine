@@ -7,13 +7,13 @@ summary = "How blog.test reaches your machine, which certificate signed it, and 
 
 # Names and the padlock
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 Two things have to be true before `https://blog.test` opens without a warning. The name has to reach
-your own machine, and your browser has to accept the certificate it is offered. MixEngine arranges
+your own machine, and your browser has to accept the certificate it is offered. MixLab arranges
 both, and this page is about what it actually did.
 
 ## Which names you may use
@@ -27,20 +27,20 @@ both, and this page is about what it actually did.
 | `.dev`, `.app`, … | **Refused.** They are real, public, and browser-pinned to HTTPS; taking one over locally breaks the real internet for you |
 
 **`.local` belongs to mDNS**, which is how printers and speakers announce themselves on a network.
-Using it works until somebody plugs one in. MixEngine will let you, but the CLI makes you say
+Using it works until somebody plugs one in. MixLab will let you, but the CLI makes you say
 `--i-know`, and it never points a *resolver* at `.local` — a site there gets one exact hosts entry
 and nothing more, because sending every `.local` name to loopback would break every Bonjour device
 on your network.
 
 ## How the name reaches you
 
-MixEngine runs a small DNS server of its own that answers `127.0.0.1` for **every** name under a
+MixLab runs a small DNS server of its own that answers `127.0.0.1` for **every** name under a
 managed suffix, at any depth, whether or not a site has been declared for it. That is what makes
 `api.blog.test` and `staging.blog.test` work without anyone declaring them.
 
 Pointing your system at that server needs permission **once**. A hosts file, in contrast, would need
 your password every time you created a site, which is the whole reason the DNS server is the primary
-mechanism and the hosts file is the fallback. Where the resolver route is not available, MixEngine
+mechanism and the hosts file is the fallback. Where the resolver route is not available, MixLab
 writes one exact line per name, inside a marked block that it owns and can remove again.
 
 `AAAA` queries are answered with no records rather than with `::1`, deliberately: the front end
@@ -68,11 +68,11 @@ mix domain status blog.test
 This is the diagnostic to reach for, and it is built to fail one part at a time rather than saying
 "broken". It answers four separate facts: whether the name is declared, how it is routed, whether it
 actually resolves on this machine right now, and whether something answers on it. With no argument
-it does that for every name this MixEngine knows.
+it does that for every name this MixLab knows.
 
 ## The certificate authority
 
-MixEngine issues its own certificates rather than using a public authority, because local names are
+MixLab issues its own certificates rather than using a public authority, because local names are
 not publicly resolvable and no public authority will sign them. So there is an authority on your
 machine, generated on first use, whose private key never leaves it.
 
@@ -84,7 +84,7 @@ That says what the authority is — its name, its fingerprint, how long it has. 
 *trusts* it is a separate question about your operating system's stores, and this build does not
 answer it here; nothing printed by `ca-status` implies an answer to it.
 
-On Linux there are two trust answers rather than one, and MixEngine keeps them apart: the system
+On Linux there are two trust answers rather than one, and MixLab keeps them apart: the system
 store, and the separate certificate databases Chrome and Firefox read instead. A tool that collapsed
 them would show a green tick beside a browser showing a red padlock.
 
@@ -115,7 +115,7 @@ If something reaching this site from outside expects a redirect, turn one on for
 mix site update blog.test --https-redirect true
 ```
 
-It needs HTTPS already on — MixEngine refuses to turn on a redirect for a site with nothing to
+It needs HTTPS already on — MixLab refuses to turn on a redirect for a site with nothing to
 redirect *to*. Turning HTTPS back off later carries the redirect off with it, rather than leaving it
 switched on for an address that no longer answers.
 
@@ -144,7 +144,7 @@ mix cert ca-rotate
 and every site's certificate is reissued. Nothing is replaced unless this machine can be made to
 trust the new authority — declining the prompt leaves everything exactly as it was.
 
-To stop trusting MixEngine's authority without removing anything else:
+To stop trusting MixLab's authority without removing anything else:
 
 ```bash
 mix cert ca-uninstall

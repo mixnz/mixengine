@@ -7,13 +7,13 @@ summary = "From a fresh install to https://blog.test with a green padlock, in ab
 
 # Your first site
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 This walks the whole path once: a PHP version, a web server, a project, a site, and a certificate
-your browser accepts. It assumes MixEngine is installed — [Installing MixEngine](./install.md) if it
+your browser accepts. It assumes MixLab is installed — [Installing MixLab](./install.md) if it
 is not — and it assumes nothing else.
 
 ## 1. Check the daemon
@@ -28,7 +28,7 @@ and what it is supervising, which at this point is nothing.
 
 ## 2. Install a PHP
 
-MixEngine ships no runtimes: it downloads the versions you ask for, and only those. See what is on
+MixLab ships no runtimes: it downloads the versions you ask for, and only those. See what is on
 offer, then take one:
 
 ```bash
@@ -36,12 +36,12 @@ mix runtime available --kind php
 mix runtime install php 8.3.33
 ```
 
-The version is exact rather than a range, deliberately — `8.3` would be asking MixEngine to choose
+The version is exact rather than a range, deliberately — `8.3` would be asking MixLab to choose
 between versions none of which are on the machine yet. `mix runtime list` shows what you now have.
 
 ## 3. Install and create a web server
 
-A **package** is a program MixEngine knows how to run; a **service** is a running instance of one
+A **package** is a program MixLab knows how to run; a **service** is a running instance of one
 with its own configuration. Caddy is the default front end:
 
 ```bash
@@ -57,7 +57,7 @@ Caddy runs once for the whole home rather than once per site, which is why its s
 
 ## 4. Register a project
 
-A **project** is a directory MixEngine knows about. Go to the one you want to serve — make an empty
+A **project** is a directory MixLab knows about. Go to the one you want to serve — make an empty
 one if you are just trying this out — and register it:
 
 ```bash
@@ -76,10 +76,10 @@ mix site create --domain blog.test --kind php-fpm --https true
 ```
 
 **This is the step that asks for permission**, and on a fresh machine it is the only one that does.
-MixEngine needs the name `blog.test` to reach your own machine, and it needs your browser to trust
+MixLab needs the name `blog.test` to reach your own machine, and it needs your browser to trust
 the certificate it is about to issue. It collects both — and the grant to listen on port 80 and 443,
 where that is privileged — and raises **one** prompt for all of them. If you want to see exactly
-what is being asked for before you agree, `mix elevation status` prints it; [What MixEngine asks
+what is being asked for before you agree, `mix elevation status` prints it; [What MixLab asks
 permission for](./permissions.md) explains each one.
 
 Declining is a supported answer. The site is still created and still served over `http://`.
@@ -115,12 +115,12 @@ shell history or an argument list.
 
 ## What just happened
 
-- MixEngine downloaded one PHP and one web server into its own directory. Nothing was installed
+- MixLab downloaded one PHP and one web server into its own directory. Nothing was installed
   system-wide, and no other version of anything on your machine was touched.
 - It generated a certificate authority, asked once to have it trusted, and issued a 90-day
   certificate for `blog.test` — and it will reissue that certificate before it expires without being
   asked.
-- It wrote the web server's configuration itself. That configuration is disposable: MixEngine
+- It wrote the web server's configuration itself. That configuration is disposable: MixLab
   regenerates it from what it knows, so there is no file for you to keep in sync.
 
 ## Where to go next
@@ -130,5 +130,5 @@ shell history or an argument list.
   version.
 - [Servers, databases and caches](./services.md) — everything a project runs against.
 - [Names and the padlock](./domains-and-https.md) — how `blog.test` resolves, and what signed it.
-- [What MixEngine asks permission for](./permissions.md) — every prompt, and what it changes.
+- [What MixLab asks permission for](./permissions.md) — every prompt, and what it changes.
 - [When something is wrong](./troubleshooting.md) — `mix doctor` first.

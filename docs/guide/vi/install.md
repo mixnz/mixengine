@@ -1,28 +1,28 @@
 +++
-title = "Cài đặt MixEngine"
+title = "Cài đặt MixLab"
 slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "880a5cc1c82d0f154802666bdf4106134e540c383582241ab180e9a4a421af28"
+source_sha256 = "9364a127025c459df700d334254ddf20f882bb10673abfc05f13e7e37e98fe62"
 +++
 
-# Cài đặt MixEngine
+# Cài đặt MixLab
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Mọi bản build đều được phát hành trên trang releases của dự án trên GitHub, kèm theo checksum và
 chữ ký. Bạn chọn file đúng với hệ điều hành của mình ở bên dưới. Bộ cài thay đổi máy bạn ít nhất
 có thể: chưa có gì được thêm vào kho chứng chỉ, cài đặt DNS hay firewall cho tới khi bạn yêu cầu một
-tính năng cần tới chúng. Chi tiết xem ở [MixEngine xin quyền để làm gì](./permissions.md).
+tính năng cần tới chúng. Chi tiết xem ở [MixLab xin quyền để làm gì](./permissions.md).
 
 **Hiện chưa có bản phát hành ổn định.** Mọi link tải bên dưới là URL cố định, GitHub luôn trỏ nó
 tới bản mới nhất *không phải* pre-release. Vì vậy khi bản ổn định đầu tiên ra mắt, các link này sẽ
 tự hoạt động mà không cần sửa trang này. Trong lúc chờ, bạn lấy bản pre-release mới nhất thủ công
-tại [trang releases](https://github.com/mixnz/mixengine/releases). Hiện tại đó là `v0.0.6`.
+tại [trang releases](https://github.com/mixnz/mixlab/releases). Hiện tại đó là `v0.0.6`.
 
 ## Bạn đang cài những gì
 
@@ -37,7 +37,7 @@ Có năm chương trình. Nên biết mỗi cái làm gì trước khi một tro
 | **MixLab** | Cửa sổ: bảng điều khiển cho daemon, kèm một client cơ sở dữ liệu, một client HTTP và một terminal. |
 
 Ba chương trình đầu và MixLab được cài chung một lượt, dưới tài khoản của bạn.
-`mixengine-elevate` thì trên hầu hết hệ điều hành bộ cài không đặt vào máy. MixEngine sẽ tự cài nó
+`mixengine-elevate` thì trên hầu hết hệ điều hành bộ cài không đặt vào máy. MixLab sẽ tự cài nó
 vào lần đầu tiên có việc cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ
 thấy.
 
@@ -48,12 +48,12 @@ container, hay bất kỳ máy nào không có màn hình.
 
 ## Windows
 
-[**Tải bộ cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
-· [bản zip portable](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
-· [bản zip headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-headless.zip)
-· Windows ARM: [bộ cài](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip),
-[headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-headless.zip)
+[**Tải bộ cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-setup.exe)
+· [bản zip portable](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64.zip)
+· [bản zip headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
+· Windows ARM: [bộ cài](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-setup.exe),
+[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64.zip),
+[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
 
 Có ba file được phát hành, file nào cũng là một bản cài đầy đủ.
 
@@ -69,7 +69,7 @@ Có ba file được phát hành, file nào cũng là một bản cài đầy đ
 
 Bản cho Windows ARM được phát hành bên cạnh, đặt tên `aarch64`.
 
-**Bạn sẽ gặp cảnh báo SmartScreen.** MixEngine chưa được ký bằng chứng chỉ Authenticode, nên
+**Bạn sẽ gặp cảnh báo SmartScreen.** MixLab chưa được ký bằng chứng chỉ Authenticode, nên
 Windows hiện *"Windows protected your PC"* và giấu nút chạy sau **More info → Run anyway**. Cảnh
 báo này chỉ nói rằng chưa ai mua chứng chỉ, chứ không nói gì về bản thân file. Nếu muốn biết chắc
 file mình tải có đúng không, hãy kiểm tra chữ ký theo hướng dẫn bên dưới. Cảnh báo này thường xuất
@@ -78,8 +78,8 @@ gắn với từng file chứ không gắn với dự án.
 
 ## macOS
 
-[**Tải gói cài**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
-· [bản headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
+[**Tải gói cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal.pkg)
+· [bản headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
 
 **`mixengine-<version>-macos-universal.pkg`**: một gói dùng chung cho cả Intel lẫn Apple silicon. Nó
 đặt các chương trình dòng lệnh vào `/usr/local/bin` và **MixLab** vào `/Applications`, nên cửa sổ có
@@ -89,7 +89,7 @@ mặt trong Spotlight và Launchpad ngay khi cài xong.
 nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Giải nén rồi đặt thư mục ở đâu tùy bạn;
 không có gì được cài sẵn cho bạn cả.
 
-MixEngine cũng chưa có Apple Developer ID, nên nếu bạn nhấp đúp gói cài trong Finder thì sẽ gặp hộp
+MixLab cũng chưa có Apple Developer ID, nên nếu bạn nhấp đúp gói cài trong Finder thì sẽ gặp hộp
 thoại Gatekeeper. Trên macOS 15 trở lên còn phải vào **System Settings → Privacy & Security → Open
 Anyway**. Cài từ terminal thì bỏ qua được tất cả những bước đó:
 
@@ -102,14 +102,14 @@ cũng đặt luôn chương trình phụ trợ cần quyền quản trị vào m
 
 ## Linux
 
-[**`.deb`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_amd64.deb)
-· [**`.rpm`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-x86_64.rpm)
-· [**`.AppImage`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64.AppImage)
-· arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
-[`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
-[`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
-· headless: [`x86_64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
-[`aarch64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
+[**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_amd64.deb)
+· [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-x86_64.rpm)
+· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64.AppImage)
+· arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-aarch64.rpm),
+[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64.AppImage)
+· headless: [`x86_64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
+[`aarch64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
 
 Bốn file, file nào cũng là một bản cài đầy đủ:
 
@@ -146,10 +146,10 @@ Bản `aarch64` được phát hành bên cạnh bản `x86_64`.
 
 ## Build từ mã nguồn
 
-MixEngine viết bằng Rust, và chỉ Rust:
+MixLab viết bằng Rust, và chỉ Rust:
 
 ```bash
-git clone https://github.com/mixnz/mixengine.git
+git clone https://github.com/mixnz/mixlab.git
 cd mixengine
 cargo build --release
 ```
@@ -173,7 +173,7 @@ không phải chữ ký** và cũng không được coi là chữ ký: ai thay �
 được checksum nằm cạnh nó. Các file không gắn số phiên bản mà những link ở trên trỏ tới cũng có
 `.sha256` và `.minisig` riêng, đặt tên theo chính chúng chứ không theo file có số phiên bản mà chúng
 là bản sao. File `.minisig` mới là câu trả lời thật: đó là chữ ký Ed25519 do chính pipeline phát
-hành của MixEngine tạo ra, ứng với khóa công khai được commit trong repo của dự án tại
+hành của MixLab tạo ra, ứng với khóa công khai được commit trong repo của dự án tại
 `packaging/updates.pub` và được biên dịch vào MixEngine. Đây cũng chính là khóa mà `mix self-update`
 kiểm tra trước khi thay bất cứ thứ gì.
 
@@ -208,12 +208,12 @@ Không đụng gì ngoài tài khoản của bạn, và không đụng gì tới
 - **Không cài certificate authority** nào. Việc đó diễn ra lần đầu bạn yêu cầu HTTPS.
 - **Không sửa DNS hay file hosts.** Việc đó diễn ra lần đầu bạn tạo site.
 - **Không thêm rule firewall** và **không cấp quyền dùng cổng**. Việc đó diễn ra khi một site cần.
-- **Không tải runtime hay server nào.** MixEngine cài PHP, MariaDB và các thứ khác khi bạn yêu cầu,
+- **Không tải runtime hay server nào.** MixLab cài PHP, MariaDB và các thứ khác khi bạn yêu cầu,
   và chỉ những phiên bản bạn yêu cầu.
 - **Không đăng ký chạy khi đăng nhập.** Chỉ khi bạn chạy `mix autostart enable` thì điều đó mới xảy
   ra.
 
-Từng mục trên đều được mô tả ở [MixEngine xin quyền để làm gì](./permissions.md), kể cả việc mỗi
+Từng mục trên đều được mô tả ở [MixLab xin quyền để làm gì](./permissions.md), kể cả việc mỗi
 hộp thoại sẽ thay đổi chính xác cái gì trước khi bạn đồng ý.
 
 Sẵn sàng chưa? [Site đầu tiên của bạn](./getting-started.md) mất khoảng năm phút.

@@ -4,27 +4,27 @@ slug = "for-agents"
 order = 16
 summary = "Mọi trang của cẩm nang này đều là Markdown thuần tại một địa chỉ dễ đoán, kèm một manifest, một file gộp, và cùng nội dung đó nằm sẵn trong chương trình mix."
 translation_of = "en/for-agents.md"
-source_sha256 = "3a1c9194988c3462e32490d96eb062d302a9d31f1fab97fb80fa77e0b6f90a8b"
+source_sha256 = "65edf2c1a6d9ce3c8b6cdd9163b323ca496c3194d65e7942df00f10e67d27d47"
 +++
 
 # Đọc cẩm nang này bằng chương trình
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Trang web này viết cho người đọc và phát hành cho chương trình đọc. Không có gì ở đây được render
 bằng JavaScript, không trang nào là bản tóm tắt của một trang thật nằm ở chỗ khác, và mọi địa chỉ
 bên dưới đều ổn định.
 
-Nếu bạn là một agent đang giúp ai đó dùng MixEngine: hãy đọc `llms.txt` trước, rồi lấy một hai
+Nếu bạn là một agent đang giúp ai đó dùng MixLab: hãy đọc `llms.txt` trước, rồi lấy một hai
 trang bạn cần ở dạng Markdown.
 
 ## Bắt đầu từ đây
 
 ```
-https://mixnz.github.io/mixengine/llms.txt
+https://mixnz.github.io/mixlab/llms.txt
 ```
 
 Đây là mục lục mọi trang ở cả hai ngôn ngữ, mỗi trang có URL Markdown tuyệt đối và một câu tóm
@@ -55,14 +55,14 @@ Liên kết chéo giữa các trang được viết dạng `./<slug>.md`, và t�
 ## Manifest
 
 ```
-https://mixnz.github.io/mixengine/index.json
+https://mixnz.github.io/mixlab/index.json
 ```
 
 ```json
 {
-  "product": "MixEngine",
+  "product": "MixLab",
   "version": "0.0.6",
-  "base_url": "https://mixnz.github.io/mixengine/",
+  "base_url": "https://mixnz.github.io/mixlab/",
   "locales": ["en", "vi"],
   "pages": [
     {
@@ -71,8 +71,8 @@ https://mixnz.github.io/mixengine/index.json
       "order": 3,
       "title": "Your first site",
       "summary": "From a fresh install to https://blog.test …",
-      "html": "https://mixnz.github.io/mixengine/en/getting-started/",
-      "markdown": "https://mixnz.github.io/mixengine/en/getting-started.md",
+      "html": "https://mixnz.github.io/mixlab/en/getting-started/",
+      "markdown": "https://mixnz.github.io/mixlab/en/getting-started.md",
       "sha256": "…",
       "translation_of": null
     }
@@ -81,7 +81,7 @@ https://mixnz.github.io/mixengine/index.json
 ```
 
 `sha256` được tính trên các byte của file Markdown, nên bạn kiểm tra được bản cache mà không cần
-tải lại. `version` là bản phát hành MixEngine mà site này mô tả.
+tải lại. `version` là bản phát hành MixLab mà site này mô tả.
 
 ## Offline, ngay trên máy
 
@@ -122,7 +122,7 @@ Windows. Toàn bộ hợp đồng được công bố dưới dạng kiểu Type
 daemon và được CI kiểm tra đối chiếu với nó:
 
 ```
-https://github.com/mixnz/mixengine/tree/master/bindings
+https://github.com/mixnz/mixlab/tree/master/bindings
 ```
 
 Một file nén chứa các kiểu đó được đính kèm mỗi bản phát hành, ký bằng cùng khóa với các binary.

@@ -7,21 +7,21 @@ summary = "Every page of this handbook is plain Markdown at a guessable address,
 
 # Reading this as a program
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 This site is written for people and published for programs. Nothing here is rendered by JavaScript,
 no page is a summary of a real page kept somewhere else, and every address below is stable.
 
-If you are an agent helping somebody with MixEngine: read `llms.txt` first, then fetch the one or
+If you are an agent helping somebody with MixLab: read `llms.txt` first, then fetch the one or
 two pages you need as Markdown.
 
 ## Start here
 
 ```
-https://mixnz.github.io/mixengine/llms.txt
+https://mixnz.github.io/mixlab/llms.txt
 ```
 
 An index of every page in both languages, each with an absolute Markdown URL and a one-sentence
@@ -52,14 +52,14 @@ address without any rewriting.
 ## The manifest
 
 ```
-https://mixnz.github.io/mixengine/index.json
+https://mixnz.github.io/mixlab/index.json
 ```
 
 ```json
 {
-  "product": "MixEngine",
+  "product": "MixLab",
   "version": "0.0.6",
-  "base_url": "https://mixnz.github.io/mixengine/",
+  "base_url": "https://mixnz.github.io/mixlab/",
   "locales": ["en", "vi"],
   "pages": [
     {
@@ -68,8 +68,8 @@ https://mixnz.github.io/mixengine/index.json
       "order": 3,
       "title": "Your first site",
       "summary": "From a fresh install to https://blog.test …",
-      "html": "https://mixnz.github.io/mixengine/en/getting-started/",
-      "markdown": "https://mixnz.github.io/mixengine/en/getting-started.md",
+      "html": "https://mixnz.github.io/mixlab/en/getting-started/",
+      "markdown": "https://mixnz.github.io/mixlab/en/getting-started.md",
       "sha256": "…",
       "translation_of": null
     }
@@ -78,7 +78,7 @@ https://mixnz.github.io/mixengine/index.json
 ```
 
 `sha256` is over the Markdown file's bytes, so a cached copy can be checked without downloading it
-again. `version` is the MixEngine release this site documents.
+again. `version` is the MixLab release this site documents.
 
 ## Offline, from the machine itself
 
@@ -119,7 +119,7 @@ full contract is published as TypeScript types, generated from the daemon's own 
 by CI against it:
 
 ```
-https://github.com/mixnz/mixengine/tree/master/bindings
+https://github.com/mixnz/mixlab/tree/master/bindings
 ```
 
 An archive of those types is attached to every release, signed with the same key as the binaries.

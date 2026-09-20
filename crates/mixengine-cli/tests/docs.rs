@@ -26,7 +26,7 @@ fn a_topic_prints_the_page_and_needs_no_daemon() {
         String::from_utf8_lossy(&output.stderr)
     );
     let text = String::from_utf8(output.stdout).expect("utf-8");
-    assert!(text.starts_with("# MixEngine\n"), "{text}");
+    assert!(text.starts_with("# MixLab\n"), "{text}");
     assert!(
         text.contains("https://mixnz.github.io/mixlab/en/index/"),
         "{text}"
@@ -115,13 +115,13 @@ fn json_carries_the_same_body() {
     let value: serde_json::Value = serde_json::from_slice(&output.stdout).expect("valid JSON");
     assert_eq!(value["topic"], "index");
     assert_eq!(value["locale"], "en");
-    assert_eq!(value["title"], "MixEngine");
+    assert_eq!(value["title"], "MixLab");
     assert_eq!(value["url"], "https://mixnz.github.io/mixlab/en/index/");
     assert!(
         value["body"]
             .as_str()
             .expect("a string")
-            .starts_with("# MixEngine\n")
+            .starts_with("# MixLab\n")
     );
 }
 

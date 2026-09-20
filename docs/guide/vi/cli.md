@@ -8,10 +8,10 @@ untranslated_reason = "The reference is generated from the binary's own English 
 
 # Tham chiếu lệnh
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Đây là trang duy nhất trong cẩm nang **không** có bản tiếng Việt, và đó là cố ý.
 
@@ -27,7 +27,7 @@ trình đã thay đổi. Cẩm nang này thà nói rõ một giới hạn còn h
 
 ## Đọc bản tham chiếu ở đâu
 
-Bản tiếng Anh nằm tại `https://mixnz.github.io/mixengine/en/cli/`, và cũng có sẵn ngay trong chương
+Bản tiếng Anh nằm tại `https://mixnz.github.io/mixlab/en/cli/`, và cũng có sẵn ngay trong chương
 trình:
 
 ```bash

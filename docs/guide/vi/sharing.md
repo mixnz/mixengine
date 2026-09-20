@@ -4,17 +4,17 @@ slug = "sharing"
 order = 8
 summary = "Đưa đúng một site ra mạng nội bộ, quét mã QR, rồi rút nó về. Một site, một cổng, một luật."
 translation_of = "en/sharing.md"
-source_sha256 = "133a99422047a329b0af6f33d4d8402f3969ec8b9b5cbf63cad0fa844718522c"
+source_sha256 = "8547c1c031db73b34728417bec900178ffda5a3355ee6036c0ad7f5c41560f8b"
 +++
 
 # Cho điện thoại xem site của bạn
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
-Mọi thứ MixEngine phục vụ đều chỉ trả lời trên loopback, không ở đâu khác. Muốn thử trên điện thoại
+Mọi thứ MixLab phục vụ đều chỉ trả lời trên loopback, không ở đâu khác. Muốn thử trên điện thoại
 thật thì phải tạo một ngoại lệ, và ngoại lệ này áp dụng cho từng site, do bạn chủ động, và có thể
 rút lại.
 
@@ -32,7 +32,7 @@ ra:
 
 ## Khi máy có nhiều mạng
 
-MixEngine **từ chối tự chọn** thay vì đưa site của bạn lên một mạng bạn không định đưa. Trường hợp
+MixLab **từ chối tự chọn** thay vì đưa site của bạn lên một mạng bạn không định đưa. Trường hợp
 điển hình là laptop đang vừa nối Wi-Fi văn phòng vừa bật VPN. Lệnh liệt kê các mạng có thể chọn,
 và bạn tự chỉ định:
 
@@ -67,10 +67,10 @@ Site chưa được chia sẻ thì giữ nguyên, nên chạy lệnh này khi kh
 
 - **Bất kỳ ai trong mạng đó đều truy cập được site.** Không có lớp xác thực nào phía trước. Ở mạng
   quán cà phê hay văn phòng chung, chuyện chỉ có vậy: chia sẻ có thời hạn, và rút về khi xong việc.
-- **Chứng chỉ vẫn là của MixEngine.** Điện thoại của bạn không tin CA của MixEngine, nên nó sẽ cảnh
+- **Chứng chỉ vẫn là của MixLab.** Điện thoại của bạn không tin CA của MixLab, nên nó sẽ cảnh
   báo. Chia sẻ là để kiểm tra layout trên màn hình thật, không phải để trình diễn ổ khóa.
 - **Các site khác không đổi gì.** Luật là một cổng, một site, và nó được hoàn tác bằng `unshare`,
   khi hết thời hạn, hoặc khi rời khỏi mạng.
 
 Mọi thứ hộp thoại xin quyền hỏi đều được liệt kê ở
-[MixEngine xin quyền để làm gì](./permissions.md).
+[MixLab xin quyền để làm gì](./permissions.md).

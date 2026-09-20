@@ -4,17 +4,17 @@ slug = "runtimes"
 order = 5
 summary = "Cài bao nhiêu phiên bản tùy bạn, và để mỗi thư mục tự chọn phiên bản của nó. Không hook shell, không phải nhớ gì cả."
 translation_of = "en/runtimes.md"
-source_sha256 = "4b0d0407f6dbcf19ebd03f93e12452e58467893fa040fd4ce2b3216f230c692b"
+source_sha256 = "89ab7ae94a3189629e2f2dbd54f08610e77057d2358e4dee2cbef7dcac894191"
 +++
 
 # Phiên bản PHP, Node, Python, Ruby, Go và Java
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
-MixEngine cài runtime ngôn ngữ vào thư mục riêng của nó, mỗi phiên bản một thư mục bất biến, và
+MixLab cài runtime ngôn ngữ vào thư mục riêng của nó, mỗi phiên bản một thư mục bất biến, và
 không bao giờ đụng tới những gì hệ điều hành đã có sẵn. Cài một phiên bản mới không bao giờ sửa
 phiên bản đã cài, nên bạn thêm gì vào cũng không làm hỏng thứ đang chạy tốt.
 
@@ -45,7 +45,7 @@ service như mọi service khác, xuất hiện trong `mix service list`. Node, 
 ### Trên máy Windows dùng chip ARM
 
 Một số phiên bản không có bản build cho chip này, ví dụ không ai phát hành PHP cho Windows ARM64.
-Trong trường hợp đó, MixEngine cài bản x86_64 và Windows sẽ chạy nó cho bạn. Vẫn chạy được, chỉ
+Trong trường hợp đó, MixLab cài bản x86_64 và Windows sẽ chạy nó cho bạn. Vẫn chạy được, chỉ
 chậm hơn một chút so với bản build đúng cho máy.
 
 Bạn không phải đoán cái nào là cái nào. Trên máy đó, `mix runtime available` và
@@ -89,7 +89,7 @@ mix project update api --pin go=1.25
 vốn được thiết kế để dùng như vậy.
 
 **Go đã pin là Go dùng để build.** Một `go.mod` đòi phiên bản mới hơn phiên bản thư mục của bạn
-resolve ra sẽ không âm thầm tải phiên bản đó về rồi chạy thay: `go` được khởi động qua MixEngine
+resolve ra sẽ không âm thầm tải phiên bản đó về rồi chạy thay: `go` được khởi động qua MixLab
 chạy với `GOTOOLCHAIN=local`, nên module như vậy dừng lại với thông báo của chính Go.
 
 ```text
@@ -106,7 +106,7 @@ Cách xử lý là cài phiên bản Go mới hơn rồi pin nó. Ba chi tiết:
 `GOROOT`, vì các lệnh nó khởi động thừa hưởng những biến đó.
 
 Chương trình bạn thêm bằng `go install` nằm trong `GOBIN` của Go (mặc định là `~/go/bin` nếu bạn
-chưa đổi), và MixEngine không đưa thư mục đó vào `PATH` của bạn.
+chưa đổi), và MixLab không đưa thư mục đó vào `PATH` của bạn.
 
 ## Java
 
@@ -126,7 +126,7 @@ JDK hệ thống thì `mvn` và `./gradlew` dùng JDK đó, bất kể thư mụ
 tìm thấy `java` đã pin trên `PATH`. `mix doctor` sẽ báo khi chính MixEngine được khởi động với một
 `JAVA_HOME` nằm ngoài các JDK của nó.
 
-**HTTPS tới site của bạn chạy được.** MixEngine ghi chứng chỉ gốc của mình vào kho chứng chỉ của
+**HTTPS tới site của bạn chạy được.** MixLab ghi chứng chỉ gốc của mình vào kho chứng chỉ của
 từng JDK đã cài, nên `https://blog.test` được Java xác thực mà không cần cờ hay tham số nào thêm.
 Có hai giới hạn đáng biết: runtime bạn tự dựng bằng `jlink` mang kho chứng chỉ gốc ban đầu nên không
 tin các site này, và một JVM khởi động kèm `-Djavax.net.ssl.trustStore` sẽ đọc kho đó thay vì kho
@@ -221,6 +221,6 @@ Bật một extension nghĩa là mọi tiến trình PHP của phiên bản đó
 mix runtime uninstall php 8.1.31
 ```
 
-Lệnh này bị từ chối khi còn project đã đăng ký đang pin phiên bản đó, và MixEngine sẽ nêu tên các
+Lệnh này bị từ chối khi còn project đã đăng ký đang pin phiên bản đó, và MixLab sẽ nêu tên các
 project ấy. Nó cũng bị từ chối khi pool php-fpm chạy từ phiên bản đó vẫn đang chạy. `--force` bỏ
 qua được điều kiện thứ nhất, nhưng không bao giờ bỏ qua điều kiện thứ hai.

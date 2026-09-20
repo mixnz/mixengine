@@ -4,20 +4,20 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "c98ef72115643a8e2d16743aa95848628b7838c2994eadcd97ea3591b14c2351"
+source_sha256 = "256332bb6a85c11fe9f4d3498d8a6bd501ed9204158888592e070a63bc260d8d"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
-Có hai từ cần phân biệt, đúng như cách MixEngine phân biệt chúng.
+Có hai từ cần phân biệt, đúng như cách MixLab phân biệt chúng.
 
-**Package** là một chương trình MixEngine biết cách chạy, ví dụ Caddy, MariaDB, Redis. Cài package
-chỉ là chép một bản của nó vào thư mục riêng của MixEngine, không làm gì khác.
+**Package** là một chương trình MixLab biết cách chạy, ví dụ Caddy, MariaDB, Redis. Cài package
+chỉ là chép một bản của nó vào thư mục riêng của MixLab, không làm gì khác.
 
 **Service** là một instance đang chạy của package: có cổng, thư mục dữ liệu, cấu hình sinh tự động,
 log và trạng thái riêng. `mariadb@main` và `mariadb@legacy` là hai service của cùng một package,
@@ -37,7 +37,7 @@ với cổng khác nhau, dữ liệu khác nhau, và có thể cả phiên bản
 | Memcached | 1.6 | 11211 |
 | MongoDB | 8.x | 27017. Không có tài khoản, nên chỉ lắng nghe trên loopback |
 
-**Không có gì tự xuất hiện.** MixEngine mới cài chưa có web server nào cho tới khi bạn cài. Chữ
+**Không có gì tự xuất hiện.** MixLab mới cài chưa có web server nào cho tới khi bạn cài. Chữ
 "mặc định" ở bảng trên nghĩa là *thứ dự án này khuyên dùng khi có nhiều lựa chọn*, chứ không phải
 *thứ đã có sẵn*.
 
@@ -70,10 +70,10 @@ Các cờ hữu ích của `mix service create`:
 
 MariaDB và MySQL cùng muốn một cổng, và hai instance của cùng một loại cũng vậy. Quy tắc chỉ có
 một: **ai tạo trước thì được trước**. Service đầu tiên xin 3306 sẽ được nó; service tiếp theo nhận
-cổng trống đầu tiên phía trên. MixEngine báo lại cổng nó đã chọn, vì cổng bạn không tự chọn thì bạn
+cổng trống đầu tiên phía trên. MixLab báo lại cổng nó đã chọn, vì cổng bạn không tự chọn thì bạn
 cần được cho biết.
 
-Nếu bạn ghi rõ cổng, MixEngine dùng đúng cổng đó, không cấp phát gì thêm.
+Nếu bạn ghi rõ cổng, MixLab dùng đúng cổng đó, không cấp phát gì thêm.
 
 ### Mỗi thư mục dữ liệu chỉ một service
 
@@ -144,12 +144,12 @@ mix service set-front-end nginx
 Thêm `--yes` khi chạy trong script.
 
 **Trên Linux, server mới cần quyền để trả lời trên cổng 80 và 443**, và quyền đó thuộc về chính
-chương trình chứ không thuộc về MixEngine — nên đổi sang chương trình khác nghĩa là phải xin lại, và
+chương trình chứ không thuộc về MixLab — nên đổi sang chương trình khác nghĩa là phải xin lại, và
 một hộp thoại xin quyền có thể hiện ra. Nếu không ai cấp quyền thì **không có gì thay đổi cả**: bạn
-vẫn ở trên server cũ, MixEngine nói rõ điều đó, và `mix elevation grant` rồi chạy lại đúng lệnh trên
+vẫn ở trên server cũ, MixLab nói rõ điều đó, và `mix elevation grant` rồi chạy lại đúng lệnh trên
 sẽ hoàn tất. macOS và Windows không cần xin quyền lần hai.
 
-Có hai thứ không đi theo khi đổi, và MixEngine nêu tên chúng thay vì lặng lẽ bỏ đi: các thiết lập
+Có hai thứ không đi theo khi đổi, và MixLab nêu tên chúng thay vì lặng lẽ bỏ đi: các thiết lập
 bạn đã ghi đè — một tùy chọn của `nginx.conf` chẳng có ý nghĩa gì với Caddy — cùng với giới hạn tài
 nguyên hay chính sách idle bạn đã đặt cho server cũ. Thư mục dữ liệu của server cũ được giữ nguyên
 tại chỗ.
@@ -167,10 +167,10 @@ mix database create mariadb@main --name shop --user shop_app
 hệ điều hành: Credential Manager trên Windows, Keychain trên macOS, Secret Service trên Linux. Thứ
 được in ra là địa chỉ nơi nó được lưu, theo đúng tên và key của store. Nhờ vậy một client có thể
 nói với bạn *"đã lưu trong credential store dưới tên …"* mà không ai phải hardcode quy tắc đặt tên
-của MixEngine.
+của MixLab.
 
 Khi project cần chính mật khẩu đó, thường là để điền vào file `.env`, `mix database credentials` sẽ
-in nó ra. Cờ `--password` trên lệnh `create` cho bạn tự chọn mật khẩu thay vì để MixEngine sinh:
+in nó ra. Cờ `--password` trên lệnh `create` cho bạn tự chọn mật khẩu thay vì để MixLab sinh:
 
 ```bash
 mix database credentials mariadb@main --user blog
@@ -180,7 +180,7 @@ mix database create mariadb@main --name shop --user shop-app --password
 Không kèm giá trị thì `--password` sẽ hỏi và đọc một dòng từ standard input, nên dùng qua pipe cũng
 được: `echo secret | mix database create … --password`. Chọn mật khẩu cho tài khoản đã tạo trước đó
 sẽ thay đổi giá trị đang lưu, và server được đồng bộ lại theo đúng cách nó vẫn làm khi mật khẩu bị
-lệch. Tuy nhiên, một tài khoản có sẵn trên server mà MixEngine không giữ credential nào thì vẫn bị
+lệch. Tuy nhiên, một tài khoản có sẵn trên server mà MixLab không giữ credential nào thì vẫn bị
 từ chối, kể cả khi bạn đưa đúng mật khẩu. Biết mật khẩu không có nghĩa tài khoản đó là của bạn.
 
 Để mở cơ sở dữ liệu bằng ứng dụng trên máy:
@@ -191,7 +191,7 @@ mix database open mariadb@main     # open it
 ```
 
 `client` chỉ đọc: không khởi động gì, không mở gì. *"Chưa cài client nào"* là một câu trả lời chứ
-không phải lỗi; nó cho biết MixEngine đã tìm ở đâu và có thể tải client ở đâu.
+không phải lỗi; nó cho biết MixLab đã tìm ở đâu và có thể tải client ở đâu.
 
 `open` khởi động instance nếu nó đang dừng, đọc mật khẩu từ credential store **ngay lúc đó**, rồi
 đưa cho client qua biến môi trường của chính tiến trình client. Mật khẩu không bao giờ được in ra,
@@ -211,7 +211,7 @@ thế lệnh in ra cả ba trường của kết quả, để giới hạn bị 
 bất ngờ về sau. Hệ điều hành thực sự áp đặt được gì thì mỗi hệ mỗi khác, và câu trả lời sẽ nói bạn
 đang có loại nào trong hai loại: giới hạn **cứng** là một bức tường, chạm tới là service bị kill
 hoặc lần cấp phát tiếp theo thất bại; giới hạn **cảnh báo** là một vạch được theo dõi, service có
-thể vượt qua, khi đó MixEngine cảnh báo và, nếu recipe cho phép, khởi động lại. Nếu vẽ một giới hạn
+thể vượt qua, khi đó MixLab cảnh báo và, nếu recipe cho phép, khởi động lại. Nếu vẽ một giới hạn
 cảnh báo như thể nó là một bảo đảm thì đó là nói dối về dữ liệu của bạn.
 
 `idle` cho biết khi nào service bị dừng vì không ai dùng, và hiện tại cái gì đang giữ nó mở.
@@ -226,7 +226,7 @@ Bản thân web server không bao giờ bị dừng vì rảnh, và nó khởi �
 
 ## Cấu hình sinh tự động
 
-MixEngine tự viết cấu hình cho mọi service nó chạy, từ những gì nó biết. Các file đó dùng xong bỏ:
+MixLab tự viết cấu hình cho mọi service nó chạy, từ những gì nó biết. Các file đó dùng xong bỏ:
 chúng được sinh lại, không bao giờ được đọc ngược lại. Nên không có gì trong đó để bạn sửa, và
 không có gì phải giữ cho đồng bộ. Nếu một thiết lập bạn cần chưa có cờ tương ứng, đó là thiếu sót
-của MixEngine, không phải lời mời bạn sửa file.
+của MixLab, không phải lời mời bạn sửa file.

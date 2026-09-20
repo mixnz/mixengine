@@ -7,13 +7,13 @@ summary = "The tools you reach for beside the stack — phpMyAdmin, Mailpit, Min
 
 # Extensions
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 An extension is a tool that lives beside your stack rather than inside it: a database administration
-interface, a mail catcher, an object store, a search engine. MixEngine installs it, supervises it,
+interface, a mail catcher, an object store, a search engine. MixLab installs it, supervises it,
 and gives it a name and a certificate the same way it does for your own sites.
 
 ## What is on offer
@@ -23,14 +23,14 @@ mix extension available
 mix extension list
 ```
 
-`available` is the signed registry MixEngine publishes; `list` is what this machine has installed.
+`available` is the signed registry MixLab publishes; `list` is what this machine has installed.
 
 There are three shapes an extension can take, and it is worth recognising which you are installing:
 
 | Kind | What it is |
 | --- | --- |
 | `web-app` | Source served on your own stack, on a generated internal site — phpMyAdmin, Adminer |
-| `service` | A program MixEngine supervises like any other — Mailpit, MinIO, MeiliSearch |
+| `service` | A program MixLab supervises like any other — Mailpit, MinIO, MeiliSearch |
 | `recipe` | Configuration only: extra web-server directives, a `php.ini` profile |
 
 ## Look before you install

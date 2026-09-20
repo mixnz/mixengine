@@ -4,7 +4,7 @@ Everything written for people lives in this folder, for two audiences, and the t
 restate each other:
 
 - **[guide/](guide/)** is for whoever *uses* MixEngine: the handbook, sixteen pages in English and
-  Vietnamese, published at `https://mixnz.github.io/mixengine/` and compiled into `mix docs` (T90,
+  Vietnamese, published at `https://mixnz.github.io/mixlab/` and compiled into `mix docs` (T90,
   [ADR 0021](decisions/0021-the-handbook-is-one-corpus-published-three-ways.md)).
 - **Everything else** is for whoever *builds* it: why MixEngine is shaped the way it is, and how
   to change it. [CLAUDE.md](../CLAUDE.md) is the short entry point; this is the detail it keeps out.

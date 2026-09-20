@@ -4,18 +4,18 @@ slug = "extensions"
 order = 10
 summary = "Những công cụ đi kèm stack như phpMyAdmin, Mailpit, MinIO. Cài từ một registry có chữ ký, và cho bạn xem mỗi cái được phép làm gì trước khi đồng ý."
 translation_of = "en/extensions.md"
-source_sha256 = "c0a6c8ea6d97e43bdde6a01bed229d1d8d0930fe834c84cf8d7d6ba35e999071"
+source_sha256 = "00b63c53d453c6d7039dd280b47391a6c11cb23c0e06fb68758ec0c060866df5"
 +++
 
 # Extension
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Extension là công cụ nằm bên cạnh stack của bạn chứ không phải bên trong: giao diện quản trị cơ sở
-dữ liệu, công cụ bắt mail, object store, search engine. MixEngine cài nó, giám sát nó, và cấp cho
+dữ liệu, công cụ bắt mail, object store, search engine. MixLab cài nó, giám sát nó, và cấp cho
 nó một tên miền cùng chứng chỉ, giống hệt cách làm với site của bạn.
 
 ## Có những gì
@@ -25,14 +25,14 @@ mix extension available
 mix extension list
 ```
 
-`available` là registry có chữ ký mà MixEngine phát hành; `list` là những gì máy này đã cài.
+`available` là registry có chữ ký mà MixLab phát hành; `list` là những gì máy này đã cài.
 
 Extension có ba dạng, và bạn nên nhận ra mình đang cài dạng nào:
 
 | Dạng | Là gì |
 | --- | --- |
 | `web-app` | Mã nguồn chạy trên chính stack của bạn, ở một site nội bộ được sinh ra. Ví dụ phpMyAdmin, Adminer |
-| `service` | Một chương trình MixEngine giám sát như mọi service khác. Ví dụ Mailpit, MinIO, MeiliSearch |
+| `service` | Một chương trình MixLab giám sát như mọi service khác. Ví dụ Mailpit, MinIO, MeiliSearch |
 | `recipe` | Chỉ có cấu hình: thêm directive cho web server, một profile `php.ini` |
 
 ## Xem trước khi cài

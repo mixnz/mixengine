@@ -4,19 +4,19 @@ slug = "getting-started"
 order = 3
 summary = "Từ máy vừa cài xong tới https://blog.test với ổ khóa xanh, mất khoảng năm phút."
 translation_of = "en/getting-started.md"
-source_sha256 = "9c4de8eee9f08b6518cd24bad2f60ed841af5f9e1de55be6e981b42377fe2609"
+source_sha256 = "cc15ce067a2bba5bc274b55de50f949beacdf4bee696eea72ba93cd3d8520606"
 +++
 
 # Site đầu tiên của bạn
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Trang này dẫn bạn đi trọn một vòng: cài một phiên bản PHP, một web server, tạo một project, một
-site, và có chứng chỉ mà trình duyệt chấp nhận. Trang giả định bạn đã cài MixEngine, nếu chưa thì
-xem [Cài đặt MixEngine](./install.md). Ngoài ra không giả định gì thêm.
+site, và có chứng chỉ mà trình duyệt chấp nhận. Trang giả định bạn đã cài MixLab, nếu chưa thì
+xem [Cài đặt MixLab](./install.md). Ngoài ra không giả định gì thêm.
 
 ## 1. Kiểm tra daemon
 
@@ -30,7 +30,7 @@ giám sát những gì. Lúc này thì chưa có gì cả.
 
 ## 2. Cài một phiên bản PHP
 
-MixEngine không kèm sẵn runtime nào. Nó chỉ tải về đúng những phiên bản bạn yêu cầu. Xem có gì rồi
+MixLab không kèm sẵn runtime nào. Nó chỉ tải về đúng những phiên bản bạn yêu cầu. Xem có gì rồi
 chọn một cái:
 
 ```bash
@@ -39,12 +39,12 @@ mix runtime install php 8.3.33
 ```
 
 Phiên bản phải ghi chính xác, không phải một khoảng, và đây là cố ý. Nếu ghi `8.3` thì bạn đang bảo
-MixEngine chọn giữa những phiên bản mà chưa cái nào có trên máy. `mix runtime list` cho biết bạn
+MixLab chọn giữa những phiên bản mà chưa cái nào có trên máy. `mix runtime list` cho biết bạn
 đang có gì.
 
 ## 3. Cài và tạo một web server
 
-**Package** là một chương trình MixEngine biết cách chạy. **Service** là một instance đang chạy của
+**Package** là một chương trình MixLab biết cách chạy. **Service** là một instance đang chạy của
 package đó, với cấu hình riêng. Caddy là front end mặc định:
 
 ```bash
@@ -61,7 +61,7 @@ là cái duy nhất có.
 
 ## 4. Đăng ký một project
 
-**Project** là một thư mục mà MixEngine biết tới. Vào thư mục bạn muốn phục vụ, hoặc tạo một thư
+**Project** là một thư mục mà MixLab biết tới. Vào thư mục bạn muốn phục vụ, hoặc tạo một thư
 mục trống nếu chỉ đang thử, rồi đăng ký:
 
 ```bash
@@ -79,11 +79,11 @@ project sẽ tên là `blog`.
 mix site create --domain blog.test --kind php-fpm --https true
 ```
 
-**Đây là bước sẽ xin quyền**, và trên máy mới thì đây là bước duy nhất xin quyền. MixEngine cần
+**Đây là bước sẽ xin quyền**, và trên máy mới thì đây là bước duy nhất xin quyền. MixLab cần
 tên `blog.test` trỏ về chính máy bạn, và cần trình duyệt tin chứng chỉ mà nó sắp cấp. Nó gom cả hai
 việc đó, cộng thêm quyền lắng nghe trên cổng 80 và 443 nếu hệ điều hành coi đó là đặc quyền, rồi
 hiện **một** hộp thoại duy nhất cho tất cả. Muốn xem chính xác nó xin gì trước khi đồng ý, chạy
-`mix elevation status`. Trang [MixEngine xin quyền để làm gì](./permissions.md) giải thích từng
+`mix elevation status`. Trang [MixLab xin quyền để làm gì](./permissions.md) giải thích từng
 mục.
 
 Từ chối cũng được. Site vẫn được tạo và vẫn chạy qua `http://`.
@@ -119,11 +119,11 @@ Lệnh cuối tạo cơ sở dữ liệu và một tài khoản để truy cập
 
 ## Chuyện gì vừa xảy ra
 
-- MixEngine tải một bản PHP và một web server vào thư mục riêng của nó. Không có gì được cài ở mức
+- MixLab tải một bản PHP và một web server vào thư mục riêng của nó. Không có gì được cài ở mức
   hệ thống, và không phiên bản nào khác trên máy bạn bị đụng tới.
 - Nó tạo một certificate authority, xin quyền tin cậy CA đó một lần, và cấp chứng chỉ 90 ngày cho
   `blog.test`. Nó sẽ tự cấp lại chứng chỉ này trước khi hết hạn mà bạn không phải làm gì.
-- Nó tự viết file cấu hình cho web server. Cấu hình đó dùng xong bỏ: MixEngine sinh lại từ những gì
+- Nó tự viết file cấu hình cho web server. Cấu hình đó dùng xong bỏ: MixLab sinh lại từ những gì
   nó biết, nên bạn không có file nào phải giữ cho đồng bộ.
 
 ## Đọc tiếp
@@ -133,5 +133,5 @@ Lệnh cuối tạo cơ sở dữ liệu và một tài khoản để truy cập
   bản.
 - [Máy chủ, cơ sở dữ liệu và bộ nhớ đệm](./services.md): mọi thứ một project cần để chạy.
 - [Tên miền và ổ khóa](./domains-and-https.md): `blog.test` phân giải thế nào, và ai ký chứng chỉ.
-- [MixEngine xin quyền để làm gì](./permissions.md): từng hộp thoại, và nó thay đổi gì.
+- [MixLab xin quyền để làm gì](./permissions.md): từng hộp thoại, và nó thay đổi gì.
 - [Khi có gì đó không ổn](./troubleshooting.md): chạy `mix doctor` trước đã.

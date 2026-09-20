@@ -7,10 +7,10 @@ summary = "mix doctor first, then the four commands that answer the questions pe
 
 # When something is wrong
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 ## Start here
 
@@ -103,14 +103,14 @@ port — the data directory is kept.
 whether one is running without starting one, which is the right question when you are diagnosing
 rather than working.
 
-**A command needs a version that is not installed.** MixEngine says so and names the exact
+**A command needs a version that is not installed.** MixLab says so and names the exact
 `mix runtime install` command to type. When a *range* was asked for, it cannot know which version
 satisfies it and points at `mix runtime available` instead.
 
 **Something asked for an administrator and you said no.** Nothing is half-applied. `mix elevation
 status` shows what is still waiting, and `mix elevation grant` asks again.
 
-## MixEngine is using too much disk
+## MixLab is using too much disk
 
 `mix disk` breaks this home down into five categories and says, for each one, what would take it
 back:
@@ -118,7 +118,7 @@ back:
 ```
           size      reclaimed by
 runtimes  700 MiB   runtime.uninstall — one runtime at a time, and never one a running pool is using
-data      1200 MiB  these are your databases, and nothing in MixEngine deletes them
+data      1200 MiB  these are your databases, and nothing in MixLab deletes them
 logs      40 MiB    `mix cleanup` — 30 MiB in 4 file(s)
 certs     < 1 MiB   every site would lose HTTPS until `cert.issue` ran again …
 cache     90 MiB    `mix cleanup` — 90 MiB in 12 file(s)
@@ -140,13 +140,13 @@ is resuming from. Wait for the job, or cancel it with `mix job cancel <id>`.
 To free more than that: `mix runtime list` and `mix runtime uninstall <kind>@<version>` are what
 reclaim `runtimes/`, and `mix package list` and `mix package uninstall <name>` most of *other*.
 
-## When MixEngine itself hits a bug
+## When MixLab itself hits a bug
 
 If the daemon runs into a bug in its own code, it writes a small file into `logs/crashes/` inside
 MixEngine's home. `mix doctor` tells you one is there — as a note, never as a problem, so it does
 not change the command's exit code.
 
-**What is in it**: where in MixEngine's own source the bug happened, the function names around it,
+**What is in it**: where in MixLab's own source the bug happened, the function names around it,
 which version was running and which operating system. That is the whole list.
 
 **What is not in it**: none of your file paths, none of your site or project names, and no

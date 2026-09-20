@@ -250,7 +250,7 @@ fn rewrite(target: &str) -> String {
 /// sixteen. Each is introduced by the URL it can be fetched at on its own.
 fn full(locale: Locale) -> String {
     let mut out = format!(
-        "# MixEngine {VERSION} — the whole handbook in {}\n\n\
+        "# MixLab {VERSION} — the whole handbook in {}\n\n\
          Every page of {BASE_URL}{}/ concatenated, in reading order. Each section names the URL it\n\
          is also published at on its own.\n",
         locale.native_name(),
@@ -269,11 +269,11 @@ fn full(locale: Locale) -> String {
 /// The index a program reads first, in the `llms.txt` convention.
 fn llms() -> String {
     let mut out = format!(
-        "# MixEngine\n\n\
+        "# MixLab\n\n\
          > A local web development environment: several PHP, Node, Python and Ruby versions at\n\
          > once, with the web server, databases and caches a project needs, real `.test` domains\n\
          > and automatic HTTPS — no Docker and no configuration written by hand.\n\n\
-         Documentation for MixEngine {VERSION}. Every page below is plain Markdown at the URL\n\
+         Documentation for MixLab {VERSION}. Every page below is plain Markdown at the URL\n\
          shown, and is the same file this project's repository holds. The HTML rendering of a page\n\
          is the same address without the `.md`.\n"
     );
@@ -325,7 +325,7 @@ fn manifest() -> String {
         .collect();
 
     let document = serde_json::json!({
-        "product": "MixEngine",
+        "product": "MixLab",
         "version": VERSION,
         "base_url": BASE_URL,
         "locales": Locale::ALL.map(Locale::code),
@@ -381,14 +381,14 @@ fn chooser() -> String {
          <head>\n\
          <meta charset=\"utf-8\">\n\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
-         <title>MixEngine documentation</title>\n\
-         <meta name=\"description\" content=\"Documentation for MixEngine, in English and Vietnamese.\">\n\
+         <title>MixLab documentation</title>\n\
+         <meta name=\"description\" content=\"Documentation for MixLab, in English and Vietnamese.\">\n\
          <link rel=\"canonical\" href=\"{BASE_URL}\">\n\
          <link rel=\"stylesheet\" href=\"style.css\">\n\
          </head>\n\
          <body>\n\
          <div class=\"chooser\">\n\
-         <h1>MixEngine {VERSION}</h1>\n\
+         <h1>MixLab {VERSION}</h1>\n\
          <p>Documentation, in two languages.</p>\n\
          <ul>\n{list}</ul>\n\
          <hr>\n\

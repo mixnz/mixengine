@@ -4,18 +4,18 @@ slug = "domains-and-https"
 order = 7
 summary = "Vì sao blog.test trỏ về máy bạn, ai ký chứng chỉ cho nó, và cách tìm ra vấn đề khi ổ khóa không xanh."
 translation_of = "en/domains-and-https.md"
-source_sha256 = "4c9d8a8528b2373ca1d7057e758e29efde589ee6cb80979fd92f1df1006e48f6"
+source_sha256 = "6cedb3824e0313f7564bc27f3ad4a8aeb9312feca49953a483458f77a14b4365"
 +++
 
 # Tên miền và ổ khóa
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Để `https://blog.test` mở lên không có cảnh báo, cần hai điều. Tên miền phải trỏ về đúng máy bạn,
-và trình duyệt phải chấp nhận chứng chỉ mà server đưa ra. MixEngine lo cả hai, và trang này nói về
+và trình duyệt phải chấp nhận chứng chỉ mà server đưa ra. MixLab lo cả hai, và trang này nói về
 những gì nó thật sự đã làm.
 
 ## Bạn được dùng những tên nào
@@ -29,20 +29,20 @@ những gì nó thật sự đã làm.
 | `.dev`, `.app`, … | **Từ chối.** Đây là tên miền công cộng có thật, được trình duyệt ép dùng HTTPS; chiếm một tên như vậy trên máy sẽ làm hỏng internet thật của bạn |
 
 **`.local` thuộc về mDNS**, là cơ chế để máy in và loa tự giới thiệu mình trên mạng. Dùng nó vẫn
-chạy, cho tới khi ai đó cắm một thiết bị như vậy vào. MixEngine vẫn cho phép, nhưng CLI bắt bạn
+chạy, cho tới khi ai đó cắm một thiết bị như vậy vào. MixLab vẫn cho phép, nhưng CLI bắt bạn
 ghi rõ `--i-know`, và không bao giờ trỏ *resolver* vào `.local`. Site ở hậu tố này chỉ nhận đúng
 một dòng trong file hosts, không hơn, vì nếu đẩy mọi tên `.local` về loopback thì mọi thiết bị
 Bonjour trên mạng của bạn sẽ hỏng.
 
 ## Tên miền trỏ về máy bạn bằng cách nào
 
-MixEngine chạy một DNS server nhỏ của riêng nó, trả lời `127.0.0.1` cho **mọi** tên dưới một hậu
+MixLab chạy một DNS server nhỏ của riêng nó, trả lời `127.0.0.1` cho **mọi** tên dưới một hậu
 tố được quản lý, ở bất kỳ độ sâu nào, dù đã khai báo site cho tên đó hay chưa. Nhờ vậy
 `api.blog.test` và `staging.blog.test` hoạt động được mà không cần ai khai báo.
 
 Trỏ hệ thống của bạn vào server đó chỉ cần xin quyền **một lần**. Ngược lại, nếu dùng file hosts
 thì mỗi lần tạo site lại phải nhập mật khẩu. Đó là toàn bộ lý do DNS server là cơ chế chính, còn
-file hosts chỉ là phương án dự phòng. Ở đâu không dùng được đường resolver, MixEngine ghi đúng một
+file hosts chỉ là phương án dự phòng. Ở đâu không dùng được đường resolver, MixLab ghi đúng một
 dòng cho mỗi tên, trong một khối được đánh dấu mà nó sở hữu và có thể gỡ đi.
 
 Truy vấn `AAAA` được trả lời là không có bản ghi, thay vì `::1`, và đây là cố ý: front end lắng
@@ -70,11 +70,11 @@ mix domain status blog.test
 Đây là lệnh chẩn đoán nên dùng, và nó được thiết kế để chỉ ra từng phần hỏng thay vì chỉ nói
 "hỏng". Nó trả lời bốn câu hỏi riêng biệt: tên đã được khai báo chưa, nó được định tuyến bằng cách
 nào, hiện tại nó có thật sự phân giải được trên máy này không, và có gì đang trả lời ở đó không.
-Không truyền tham số thì lệnh làm vậy cho mọi tên mà MixEngine này biết.
+Không truyền tham số thì lệnh làm vậy cho mọi tên mà MixLab này biết.
 
 ## Certificate authority
 
-MixEngine tự cấp chứng chỉ thay vì dùng một CA công cộng, vì tên miền cục bộ không phân giải được
+MixLab tự cấp chứng chỉ thay vì dùng một CA công cộng, vì tên miền cục bộ không phân giải được
 trên internet và không CA công cộng nào chịu ký cho chúng. Vì vậy trên máy bạn có một CA riêng, được
 tạo lần đầu dùng, và khóa bí mật của nó không bao giờ rời khỏi máy.
 
@@ -86,7 +86,7 @@ Lệnh này cho biết CA đó là gì: tên, fingerprint, còn hạn bao lâu. 
 một câu hỏi khác, liên quan tới các trust store của hệ điều hành, và bản build này không trả lời ở
 đây. Không có gì `ca-status` in ra ngụ ý câu trả lời cho câu hỏi đó.
 
-Trên Linux có hai câu trả lời về độ tin cậy chứ không phải một, và MixEngine giữ chúng tách biệt:
+Trên Linux có hai câu trả lời về độ tin cậy chứ không phải một, và MixLab giữ chúng tách biệt:
 trust store của hệ thống, và cơ sở dữ liệu chứng chỉ riêng mà Chrome và Firefox đọc thay vì store
 hệ thống. Một công cụ gộp hai cái làm một sẽ hiện dấu tích xanh ngay cạnh trình duyệt đang báo ổ
 khóa đỏ.
@@ -118,7 +118,7 @@ Nếu có thứ gì đó truy cập site này từ bên ngoài mà cần chuyể
 mix site update blog.test --https-redirect true
 ```
 
-Site phải đã bật HTTPS trước — MixEngine từ chối bật chuyển hướng cho site chưa có gì để chuyển
+Site phải đã bật HTTPS trước — MixLab từ chối bật chuyển hướng cho site chưa có gì để chuyển
 hướng *đến*. Tắt HTTPS sau đó sẽ tự tắt luôn chuyển hướng, thay vì để nó bật cho một địa chỉ không
 còn trả lời nữa.
 
@@ -147,7 +147,7 @@ mix cert ca-rotate
 chứng chỉ của mọi site được cấp lại. Không có gì bị thay nếu máy này không tin được CA mới: từ
 chối hộp thoại xin quyền thì mọi thứ giữ nguyên như cũ.
 
-Để máy ngừng tin CA của MixEngine mà không gỡ gì khác:
+Để máy ngừng tin CA của MixLab mà không gỡ gì khác:
 
 ```bash
 mix cert ca-uninstall

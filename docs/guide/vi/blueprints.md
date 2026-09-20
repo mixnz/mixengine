@@ -4,15 +4,15 @@ slug = "blueprints"
 order = 9
 summary = "Ghi lại một dự án gồm những gì, rồi dựng lại y hệt ở nơi khác, hoặc trên máy của người khác."
 translation_of = "en/blueprints.md"
-source_sha256 = "0dbd49b2169824294027f8b56d173130c15f80ac72dd8543192443988fd979c7"
+source_sha256 = "248d27762ea9c806197a424669ef2e241ca313af96a9760cb132e87bf40f26b1"
 +++
 
 # Blueprint
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 Blueprint là bản ghi mô tả một project gồm những gì: cần PHP nào, dùng service nào, site trông ra
 sao, và tùy chọn thêm một lệnh để scaffold ra một bản mới. Đây là cách bạn dựng cùng một môi trường
@@ -76,7 +76,7 @@ bạn đồng ý rõ ràng tới mức nào trước khi chạy.
 
 Blueprint có thể mang theo một lệnh chạy một lần trong project mới, ví dụ
 `composer create-project …`, hoặc lệnh tương đương của framework mà nó dành cho. Đó là chương trình
-của người khác chạy trên máy bạn, nên MixEngine in ra chính xác lệnh đó và hỏi trước khi chạy. Cách
+của người khác chạy trên máy bạn, nên MixLab in ra chính xác lệnh đó và hỏi trước khi chạy. Cách
 hỏi khác nhau tùy blueprint đến từ đâu.
 
 Hai cờ bỏ qua câu hỏi này, và **cờ nào chỉ dùng cho trường hợp của cờ đó**:

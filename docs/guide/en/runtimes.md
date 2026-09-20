@@ -7,12 +7,12 @@ summary = "Install as many versions as you need, and let each directory choose i
 
 # PHP, Node, Python, Ruby, Go and Java versions
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-MixEngine installs language runtimes into its own directory, one immutable folder per version, and
+MixLab installs language runtimes into its own directory, one immutable folder per version, and
 never touches whatever your operating system already has. Installing a version never modifies a
 version already installed, so nothing you have working can be broken by adding something new.
 
@@ -43,7 +43,7 @@ supervised.
 ### On a Windows PC with an ARM processor
 
 Some versions have no build made for that processor — nobody publishes an ARM64 Windows PHP, for
-instance. Where that is so, MixEngine installs the x86_64 build instead and Windows runs it for you.
+instance. Where that is so, MixLab installs the x86_64 build instead and Windows runs it for you.
 It works; it is a little slower than a build made for your machine would be.
 
 You are never left to guess which is which. `mix runtime available` and `mix package available` grow
@@ -87,7 +87,7 @@ version shares them, which is how Go is designed to be used.
 
 **A pinned Go is the Go that builds.** A `go.mod` asking for a newer release than the one your
 directory resolves to does not quietly download that release and run it instead: a `go` started
-through MixEngine runs with `GOTOOLCHAIN=local`, so such a module stops with Go's own message.
+through MixLab runs with `GOTOOLCHAIN=local`, so such a module stops with Go's own message.
 
 ```text
 go: go.mod requires go >= 1.27 (running go 1.25.14; GOTOOLCHAIN=local)
@@ -104,7 +104,7 @@ The answer is to install the newer Go and pin it. Three details:
 with a `GOROOT`, because the commands it starts inherit them.
 
 Programs you add with `go install` land in Go's own `GOBIN` — `~/go/bin` unless you changed it —
-which MixEngine does not put on your `PATH`.
+which MixLab does not put on your `PATH`.
 
 ## Java
 
@@ -124,7 +124,7 @@ system JDK, `mvn` and `./gradlew` use that one whatever the directory pins; unse
 the pinned `java` on your `PATH` instead. `mix doctor` tells you when MixEngine itself was started
 with a `JAVA_HOME` outside its own JDKs.
 
-**HTTPS to your own sites works.** MixEngine writes its certificate authority into each installed
+**HTTPS to your own sites works.** MixLab writes its certificate authority into each installed
 JDK's certificate store, so `https://blog.test` verifies from Java with no flag and no extra
 argument. Two limits are worth knowing: a runtime you build yourself with `jlink` carries the
 original store and does not trust these sites, and a JVM started with `-Djavax.net.ssl.trustStore`

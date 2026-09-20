@@ -7,12 +7,12 @@ summary = "Put one site on the local network, scan a QR code, and take it back o
 
 # Showing a site to your phone
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-Everything MixEngine serves answers on loopback and nowhere else. Testing on a real phone means
+Everything MixLab serves answers on loopback and nowhere else. Testing on a real phone means
 making an exception, and the exception is per site, deliberate, and reversible.
 
 ```bash
@@ -29,7 +29,7 @@ happened:
 
 ## When the machine has more than one network
 
-MixEngine **refuses to choose** rather than putting your site on a network you did not mean — a
+MixLab **refuses to choose** rather than putting your site on a network you did not mean — a
 laptop on office Wi-Fi and a VPN at the same time is the case this exists for. It names the
 candidates, and you pick:
 
@@ -66,10 +66,10 @@ not sure costs nothing.
 - **Anybody on that network can reach the site.** There is no authentication in front of it. On a
   café network or a shared office, that is the whole story — share for a length, and unshare when
   you are done.
-- **The certificate is still MixEngine's.** Your phone does not trust MixEngine's authority, so it
+- **The certificate is still MixLab's.** Your phone does not trust MixLab's authority, so it
   will warn. Sharing is for checking a layout on a real screen, not for demonstrating a padlock.
 - **Nothing about your other sites changes.** The rule is one port, one site, and it is undone by
   `unshare`, by the length running out, or by leaving the network.
 
 Everything the prompt asks for is listed in
-[What MixEngine asks permission for](./permissions.md).
+[What MixLab asks permission for](./permissions.md).

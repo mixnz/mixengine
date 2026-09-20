@@ -7,10 +7,10 @@ summary = "Every mix command and every flag, generated from the binary's own def
 
 # Command reference
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 Every command `mix` accepts, in version 0.0.6. This page is **generated** from the
 binary's own definitions, so it cannot describe a flag that is not there — and it is the
@@ -67,7 +67,7 @@ mix daemon stop
 
 ## mix docs
 
-Read the MixEngine handbook, offline, in English or Vietnamese.
+Read the MixLab handbook, offline, in English or Vietnamese.
 
 With no topic it lists them. It talks to no daemon and needs no home — the pages are compiled into
 this binary, which is what makes `mix docs install` answer on a machine where nothing starts. The

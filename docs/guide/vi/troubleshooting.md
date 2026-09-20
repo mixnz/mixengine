@@ -4,15 +4,15 @@ slug = "troubleshooting"
 order = 14
 summary = "Chạy mix doctor trước, rồi bốn lệnh trả lời đúng những câu hỏi người dùng hay gặp, và một file gom đủ mọi thứ một báo cáo lỗi cần."
 translation_of = "en/troubleshooting.md"
-source_sha256 = "389095d22a8cf486ef084062d4d41943e94839c1b71212664f6bd5ceacb69ba6"
+source_sha256 = "21a65e073f3ed6eb81292eb8d1db0ea812e2a8781b3a642032ea82fe656d5f91"
 +++
 
 # Khi có gì đó không ổn
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 ## Bắt đầu từ đây
 
@@ -106,21 +106,21 @@ thư mục dữ liệu được giữ nguyên.
 có daemon đang chạy không mà không khởi động cái mới. Đó là câu hỏi đúng khi bạn đang chẩn đoán chứ
 không phải đang làm việc.
 
-**Lệnh cần một phiên bản chưa cài.** MixEngine nói rõ và nêu đúng lệnh `mix runtime install` cần
+**Lệnh cần một phiên bản chưa cài.** MixLab nói rõ và nêu đúng lệnh `mix runtime install` cần
 gõ. Nếu bạn yêu cầu một *khoảng* phiên bản thì nó không biết phiên bản nào thỏa mãn, nên chỉ bạn
 sang `mix runtime available`.
 
 **Có gì đó xin quyền quản trị và bạn đã từ chối.** Không có gì bị áp dụng nửa chừng.
 `mix elevation status` cho biết còn gì đang chờ, và `mix elevation grant` hỏi lại.
 
-## MixEngine chiếm quá nhiều dung lượng đĩa
+## MixLab chiếm quá nhiều dung lượng đĩa
 
 `mix disk` chia home này thành năm nhóm và nói rõ, với từng nhóm, thứ gì lấy lại được dung lượng đó:
 
 ```
           size      reclaimed by
 runtimes  700 MiB   runtime.uninstall — one runtime at a time, and never one a running pool is using
-data      1200 MiB  these are your databases, and nothing in MixEngine deletes them
+data      1200 MiB  these are your databases, and nothing in MixLab deletes them
 logs      40 MiB    `mix cleanup` — 30 MiB in 4 file(s)
 certs     < 1 MiB   every site would lose HTTPS until `cert.issue` ran again …
 cache     90 MiB    `mix cleanup` — 90 MiB in 12 file(s)
@@ -143,13 +143,13 @@ tiếp tục dở. Hãy đợi job đó xong, hoặc hủy nó bằng `mix job c
 lại `runtimes/`, còn `mix package list` và `mix package uninstall <name>` lấy lại phần lớn của
 *other*.
 
-## Khi chính MixEngine gặp bug
+## Khi chính MixLab gặp bug
 
 Nếu daemon gặp bug trong mã của chính nó, nó ghi một file nhỏ vào `logs/crashes/` trong home của
 MixEngine. `mix doctor` cho bạn biết có file như vậy, dưới dạng ghi chú chứ không phải vấn đề, nên
 không làm đổi mã thoát của lệnh.
 
-**Trong file có gì**: bug xảy ra ở đâu trong mã nguồn của MixEngine, tên các hàm xung quanh, phiên
+**Trong file có gì**: bug xảy ra ở đâu trong mã nguồn của MixLab, tên các hàm xung quanh, phiên
 bản đang chạy và hệ điều hành nào. Chỉ có vậy.
 
 **Trong file không có gì**: không có đường dẫn nào của bạn, không có tên site hay project, và không

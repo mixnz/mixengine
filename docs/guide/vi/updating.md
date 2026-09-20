@@ -1,18 +1,18 @@
 +++
-title = "Giữ MixEngine luôn mới"
+title = "Giữ MixLab luôn mới"
 slug = "updating"
 order = 12
 summary = "Cập nhật do bạn quyết, có kiểm tra chữ ký, và có chạy thử trước khi thay bất cứ thứ gì. Riêng một chương trình cố ý không bao giờ được thay theo đường này."
 translation_of = "en/updating.md"
-source_sha256 = "02cd1265a99c4f8651adc1855e52d22967616eec9823348f299403643e262b2d"
+source_sha256 = "6648f6150072a130bf20411274e936e77decf29ebd514836f0085fe48dde17fc"
 +++
 
-# Giữ MixEngine luôn mới
+# Giữ MixLab luôn mới
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
 ```bash
 mix self-update --check
@@ -56,7 +56,7 @@ mix elevation upgrade
 ```
 
 Đó là hành động riêng, có chủ đích. Lệnh này tải chương trình phụ trợ mà bản phát hành này công
-bố, kiểm tra chữ ký của MixEngine trên đó, chạy thử một lần để chắc nó khởi động được, rồi đưa bản
+bố, kiểm tra chữ ký của MixLab trên đó, chạy thử một lần để chắc nó khởi động được, rồi đưa bản
 thay thế vào hàng đợi. **Lệnh này không cài gì cả**: `mix elevation grant` mới là lệnh hiện hộp
 thoại xin quyền, và chương trình phụ trợ đang cài sẽ tự kiểm tra chữ ký thêm lần nữa trước khi cho
 phép bất cứ gì ghi đè lên nó.
@@ -65,7 +65,7 @@ Trong lúc đó, bản cũ và bản mới cùng tồn tại an toàn. Daemon v�
 phiên bản giao thức khi nói chuyện với nhau. Chương trình phụ trợ cũ vẫn phục vụ các thao tác nó
 biết, trong khi MixEngine nhắc bạn nâng cấp nó.
 
-## Khi MixEngine được cài bằng trình quản lý gói
+## Khi MixLab được cài bằng trình quản lý gói
 
 `mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ không phải vô
 ích: bản cài bằng `apt`, `dnf` hay `.pkg` thuộc về trình quản lý gói đó. Thay file sau lưng nó sẽ
@@ -76,6 +76,6 @@ bình thường bằng `mix self-update`.
 
 ## Phiên bản
 
-MixEngine dùng semantic versioning, một số phiên bản chung cho mọi thứ nó phát hành. Trước 1.0, API
+MixLab dùng semantic versioning, một số phiên bản chung cho mọi thứ nó phát hành. Trước 1.0, API
 có thể thay đổi không tương thích giữa các phiên bản minor, và mỗi thay đổi như vậy được liệt kê
 trong changelog. Đó chính là thứ `mix self-update --check` in ra trước khi hỏi bạn.
