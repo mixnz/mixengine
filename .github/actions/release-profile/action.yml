@@ -2,14 +2,14 @@ name: Release profile
 description: >-
   How `window`, `binaries` and `build` build, chosen from the ref and written to the step summary.
   A tag builds exactly as `[profile.release]` says. Any other ref builds without LTO, with 16
-  codegen units (T170h) and at opt-level 1 (T173a), and any ref other than `master` builds the
+  codegen units (T170h) and at opt-level 0 (T173a), and any ref other than `master` builds the
   aarch64 macOS slice alone (T171c). These artifacts are not releases.
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
-        # **A branch builds without LTO (T170h) and at opt-level 1 (T173a).** `lto = "thin"`,
+        # **A branch builds without LTO (T170h) and at opt-level 0 (T173a).** `lto = "thin"`,
         # `codegen-units = 1` and `opt-level = 3` make the binary a user gets smaller and faster,
         # and they are the slowest settings cargo has. A branch's `build` proves that every artifact
         # packages, installs and is probed, which depends on none of the three, and only a tag run
@@ -22,8 +22,8 @@ runs:
         else
           echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
           echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-          echo "CARGO_PROFILE_RELEASE_OPT_LEVEL=1" >> "$GITHUB_ENV"
-          echo "Profile: [profile.release] without LTO, 16 codegen units, opt-level 1 (a branch, T170h/T173a). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "CARGO_PROFILE_RELEASE_OPT_LEVEL=0" >> "$GITHUB_ENV"
+          echo "Profile: [profile.release] without LTO, 16 codegen units, opt-level 0 (a branch, T170h/T173a). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
           # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
           # build before a tag does; any other branch builds `aarch64` and checks x86_64.
           if [ "$GITHUB_REF" != "refs/heads/master" ]; then
