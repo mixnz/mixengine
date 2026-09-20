@@ -66,7 +66,9 @@ break every other tombstone test on the first one.
 
 **Reaping is asynchronous**, so the expiry test polls rather than asserting straight after the
 delete: D8 schedules an alarm rather than sweeping inline, and a test that assumed otherwise would
-be asserting an implementation rather than the protocol.
+be asserting an implementation rather than the protocol. For the same reason, the three tests that
+need a tombstone to still be there skip against a zero-retention server — one of them would
+otherwise pass or fail on whichever side of a one-second race it landed.
 
 A third is unreachable by design and has no test: `403 email-not-verified` on a record route.
 Verification gates signing in, so in v1 no token can exist that reaches a record route with an
