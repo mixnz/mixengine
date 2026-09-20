@@ -806,6 +806,24 @@ MailChannels' free offering for Workers **ended in 2024**.
 it is. Every free tier in this market will be renegotiated within a few years; what protects this
 project is that changing provider is one file rather than a migration.
 
+**Seven of them, because one proves nothing.** The sentence above is a claim, and a single
+implementation cannot test it any more than one server can make `/v1` a protocol. The seven —
+`smtp`, Resend, Mailtrap, Brevo, Postmark, SendGrid, Mailgun — disagree about nearly everything a
+naive interface would have assumed was fixed: **three ways of carrying the key** (a bearer token, a
+header of the provider's own, HTTP basic auth), **two body encodings** (JSON, and a form for
+Mailgun), and **five different spellings of "who is this from"**. A seam that only ever had to swap
+a URL would have got all three wrong, and would have looked fine until the second provider.
+
+**`smtp` is the one capability the two implementations do not share.** `server/native/` speaks it;
+the Worker cannot, and refuses the name rather than ignoring it. It is also the provider a person
+self-hosting is most likely to already have, which is why the implementation they run is the one
+that has it.
+
+**What each provider needs is asked of the provider**, not demanded of everybody: an API key for
+the six HTTP ones, a host for `smtp`, and an endpoint for the two whose URL carries something only
+the operator knows — Mailtrap's inbox id, Mailgun's sending domain. A deployment missing one is
+told before it starts, by name.
+
 **The volume is two messages in the lifetime of an account** — verify an address at registration,
 prove control of it after a forgotten password — and nothing else. No notification, no digest, no
 newsletter. A thousand new accounts in a month sits far inside any free tier on offer.

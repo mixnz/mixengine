@@ -5,7 +5,7 @@
 // `503` carrying the names. The failure it replaces is otherwise invisible: the deploy succeeds,
 // registration succeeds, and a person waits for a letter that was never sent.
 
-import { isProviderName } from "./email";
+import { DEFAULT_ENDPOINT, NEEDS_ENDPOINT, PROVIDER_NAMES, isProviderName } from "./email";
 
 export interface Env {
   ACCOUNT: DurableObjectNamespace;
@@ -19,7 +19,8 @@ export interface Env {
   EMAIL_FROM?: string;
   /** The provider's HTTP endpoint. A provider is a deployment decision, not a protocol one. */
   EMAIL_ENDPOINT?: string;
-  /** `resend` or `mailtrap`. They differ in body shape and in the header that carries the key. */
+  /** Which provider, by name. They differ in body shape, in the header that carries the key,
+   *  and in what they call the sender — see `email.ts`. */
   EMAIL_PROVIDER?: string;
 
   /** Which endpoint a retired account is sent to (D4b). A symbolic id, never a URL. */
@@ -63,7 +64,8 @@ export interface Config {
   pepper: string;
   emailApiKey: string | null;
   emailFrom: string;
-  emailEndpoint: string;
+  /** Absent for a provider whose URL carries something only the operator knows. */
+  emailEndpoint: string | null;
   emailProvider: import("./email").ProviderName;
   testOutbox: boolean;
   relocateTo: string | null;
@@ -119,8 +121,16 @@ export function readConfig(env: Env): ConfigResult {
     if (!env.EMAIL_API_KEY) missing.push("EMAIL_API_KEY");
     if (!env.EMAIL_FROM) missing.push("EMAIL_FROM");
     // A name nobody implements is configuration that is missing rather than wrong: the deploy
-    // would otherwise succeed and the first letter would be the thing that failed.
-    if (!isProviderName(providerName)) missing.push("EMAIL_PROVIDER (one of: resend, mailtrap)");
+    // would otherwise succeed and the first letter would be the thing that failed. `smtp` is a
+    // real provider in `../native/` and impossible here, so it is refused by name.
+    if (providerName === "smtp") {
+      missing.push("EMAIL_PROVIDER (Workers cannot speak SMTP; see server/native/)");
+    } else if (!isProviderName(providerName)) {
+      missing.push(`EMAIL_PROVIDER (one of: ${PROVIDER_NAMES.join(", ")})`);
+    } else if (NEEDS_ENDPOINT.includes(providerName) && !env.EMAIL_ENDPOINT) {
+      // Mailtrap's URL carries an inbox id and Mailgun's a sending domain: nothing to guess.
+      missing.push("EMAIL_ENDPOINT");
+    }
   }
   if (missing.length > 0) return { ok: false, missing };
 
@@ -130,7 +140,9 @@ export function readConfig(env: Env): ConfigResult {
       pepper: env.PEPPER ?? TEST_PEPPER,
       emailApiKey: env.EMAIL_API_KEY ?? null,
       emailFrom: env.EMAIL_FROM ?? "conformance@example.invalid",
-      emailEndpoint: env.EMAIL_ENDPOINT ?? "https://api.resend.com/emails",
+      emailEndpoint:
+        env.EMAIL_ENDPOINT ??
+        (isProviderName(providerName) ? (DEFAULT_ENDPOINT[providerName] ?? null) : null),
       emailProvider: isProviderName(providerName) ? providerName : "resend",
       testOutbox,
       relocateTo: env.RELOCATE_TO ?? null,

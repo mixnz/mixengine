@@ -49,8 +49,11 @@ pub struct Config {
     pub pepper: String,
     pub email_api_key: Option<String>,
     pub email_from: String,
-    pub email_endpoint: String,
+    /// `None` for SMTP, and for a provider whose URL carries something only the operator
+    /// knows — an inbox id, a sending domain.
+    pub email_endpoint: Option<String>,
     pub email_provider: crate::email::Provider,
+    pub smtp: Option<crate::email::Smtp>,
     /// Serves `/__test__/outbox` and sends no mail. Never set on a real deployment.
     pub test_outbox: bool,
     pub limits: Limits,
@@ -79,23 +82,20 @@ impl Config {
     /// Reads the environment, or returns the names of what is missing. The caller prints them and
     /// exits: a list is more useful than the first failure, because setting one at a time and
     /// restarting is the slow way to find out you needed three.
-    pub fn from_env() -> Result<Self, Vec<&'static str>> {
+    pub fn from_env() -> Result<Self, Vec<String>> {
         let test_outbox = std::env::var("MIXLAB_SYNC_TEST_OUTBOX").as_deref() == Ok("1");
 
-        let mut missing = Vec::new();
+        let mut missing: Vec<String> = Vec::new();
         let pepper = text("MIXLAB_SYNC_PEPPER");
         let email_api_key = text("MIXLAB_SYNC_EMAIL_API_KEY");
         let email_from = text("MIXLAB_SYNC_EMAIL_FROM");
 
         if !test_outbox {
             if pepper.is_none() {
-                missing.push("MIXLAB_SYNC_PEPPER");
-            }
-            if email_api_key.is_none() {
-                missing.push("MIXLAB_SYNC_EMAIL_API_KEY");
+                missing.push("MIXLAB_SYNC_PEPPER".to_owned());
             }
             if email_from.is_none() {
-                missing.push("MIXLAB_SYNC_EMAIL_FROM");
+                missing.push("MIXLAB_SYNC_EMAIL_FROM".to_owned());
             }
         }
         let provider_name = text("MIXLAB_SYNC_EMAIL_PROVIDER").unwrap_or_else(|| "resend".into());
@@ -103,7 +103,38 @@ impl Config {
         // A name nobody implements is a piece of configuration that is missing rather than wrong:
         // the deploy would otherwise succeed and the first letter would be the thing that failed.
         if email_provider.is_none() {
-            missing.push("MIXLAB_SYNC_EMAIL_PROVIDER (one of: resend, mailtrap)");
+            missing.push(format!(
+                "MIXLAB_SYNC_EMAIL_PROVIDER (one of: {})",
+                crate::email::Provider::NAMES
+            ));
+        }
+
+        let endpoint = text("MIXLAB_SYNC_EMAIL_ENDPOINT")
+            .or_else(|| email_provider.and_then(|p| p.default_endpoint().map(str::to_owned)));
+        let smtp_host = text("MIXLAB_SYNC_SMTP_HOST");
+        let tls_name = text("MIXLAB_SYNC_SMTP_TLS").unwrap_or_else(|| "starttls".into());
+        let tls = crate::email::Tls::parse(&tls_name);
+
+        // **What is needed depends on which provider was named**, so this asks the provider rather
+        // than demanding everything from everybody.
+        if !test_outbox && let Some(provider) = email_provider {
+            if provider.needs_api_key() && email_api_key.is_none() {
+                missing.push("MIXLAB_SYNC_EMAIL_API_KEY".to_owned());
+            }
+            // Mailtrap's URL carries an inbox id and Mailgun's a sending domain: there is nothing
+            // to guess, so a deployment that forgot one is told before it starts.
+            if provider.needs_endpoint() && endpoint.is_none() {
+                missing.push("MIXLAB_SYNC_EMAIL_ENDPOINT".to_owned());
+            }
+            if provider == crate::email::Provider::Smtp {
+                if smtp_host.is_none() {
+                    missing.push("MIXLAB_SYNC_SMTP_HOST".to_owned());
+                }
+                if tls.is_none() {
+                    missing
+                        .push("MIXLAB_SYNC_SMTP_TLS (one of: starttls, implicit, none)".to_owned());
+                }
+            }
         }
 
         if !missing.is_empty() {
@@ -122,9 +153,18 @@ impl Config {
             pepper: pepper.unwrap_or_else(|| TEST_PEPPER.to_owned()),
             email_api_key,
             email_from: email_from.unwrap_or_else(|| "conformance@example.invalid".to_owned()),
-            email_endpoint: text("MIXLAB_SYNC_EMAIL_ENDPOINT")
-                .unwrap_or_else(|| "https://api.resend.com/emails".to_owned()),
+            email_endpoint: endpoint,
             email_provider: email_provider.unwrap_or(crate::email::Provider::Resend),
+            smtp: smtp_host.map(|host| {
+                let tls = tls.unwrap_or(crate::email::Tls::StartTls);
+                crate::email::Smtp {
+                    host,
+                    port: number("MIXLAB_SYNC_SMTP_PORT", u64::from(tls.default_port())) as u16,
+                    tls,
+                    username: text("MIXLAB_SYNC_SMTP_USERNAME"),
+                    password: text("MIXLAB_SYNC_SMTP_PASSWORD"),
+                }
+            }),
             test_outbox,
             relocate_to: text("MIXLAB_SYNC_RELOCATE_TO"),
             relocation_lease_seconds: number("MIXLAB_SYNC_RELOCATION_LEASE_SECONDS", 900) as i64,

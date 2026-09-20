@@ -28,6 +28,14 @@ hex = "0.4"
 base64 = "0.22"
 subtle = "2.6"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# SMTP, which is the one thing the Worker cannot do and the thing most people self-hosting
+# already have. rustls rather than native-tls so the container carries no OpenSSL.
+lettre = { version = "0.11", default-features = false, features = [
+    "smtp-transport",
+    "tokio1-rustls-tls",
+    "builder",
+    "hostname",
+] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 

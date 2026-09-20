@@ -58,18 +58,53 @@ function text(letter: Letter): string {
 }
 
 /**
- * **Two providers, because one does not prove anything.** The paragraph above claims the provider
- * is replaceable; a single implementation cannot test that claim, in exactly the way `/v1` needs
- * two servers before it is a protocol rather than a description of one.
+ * **Six providers, because one proves nothing.** The paragraph above is a claim, and a single
+ * implementation cannot test it, in exactly the way `/v1` needs two servers before it is a protocol
+ * rather than a description of one. These six disagree about nearly everything a naive interface
+ * would have assumed was fixed: **three ways of carrying the key** (a bearer token, a header of the
+ * provider's own, HTTP basic auth), **two body encodings** (JSON and a form), and **five different
+ * spellings of "who is this from"**. A design that only ever had to swap a URL would have got all
+ * three wrong.
  *
- * They differ in more than a URL — the body shape and the header that carries the key are both
- * per-provider, which is the thing a "just change the endpoint" design gets wrong.
+ * **`smtp` is deliberately absent here**, and `../native/` has it. Workers cannot open a socket to
+ * port 587, so this is the one capability the two implementations do not share — and the one a
+ * person self-hosting is most likely to want, which is why the implementation they run is the one
+ * that speaks it. Naming it here is refused by name rather than ignored.
  */
-export type ProviderName = "resend" | "mailtrap";
+export type ProviderName =
+  | "resend"
+  | "mailtrap"
+  | "brevo"
+  | "postmark"
+  | "sendgrid"
+  | "mailgun";
+
+export const PROVIDER_NAMES = [
+  "resend",
+  "mailtrap",
+  "brevo",
+  "postmark",
+  "sendgrid",
+  "mailgun",
+] as const;
 
 export function isProviderName(value: string): value is ProviderName {
-  return value === "resend" || value === "mailtrap";
+  return (PROVIDER_NAMES as readonly string[]).includes(value);
 }
+
+/**
+ * Where to post, when the endpoint is the same for everybody using that provider. Two are absent on
+ * purpose: Mailtrap's URL carries an inbox id and Mailgun's the sending domain, so there is nothing
+ * to guess and a deployment that forgot one is told before it serves anything.
+ */
+export const DEFAULT_ENDPOINT: Partial<Record<ProviderName, string>> = {
+  resend: "https://api.resend.com/emails",
+  brevo: "https://api.brevo.com/v3/smtp/email",
+  postmark: "https://api.postmarkapp.com/email",
+  sendgrid: "https://api.sendgrid.com/v3/mail/send",
+};
+
+export const NEEDS_ENDPOINT: readonly ProviderName[] = ["mailtrap", "mailgun"];
 
 class HttpProvider implements EmailSender {
   constructor(
@@ -80,19 +115,47 @@ class HttpProvider implements EmailSender {
   ) {}
 
   async send(letter: Letter): Promise<void> {
-    const body =
-      this.provider === "resend"
-        ? { from: this.from, to: [letter.to] }
-        : { from: { email: this.from }, to: [{ email: letter.to }] };
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.provider === "resend") headers["Authorization"] = `Bearer ${this.key}`;
-    else headers["Api-Token"] = this.key;
+    const subjectLine = subject(letter.kind);
+    const textBody = text(letter);
+    const to = letter.to;
 
-    const response = await fetch(this.endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ ...body, subject: subject(letter.kind), text: text(letter) }),
-    });
+    const headers: Record<string, string> = {};
+    switch (this.provider) {
+      case "resend":
+      case "sendgrid":
+        headers["Authorization"] = `Bearer ${this.key}`;
+        break;
+      case "mailtrap":
+        headers["Api-Token"] = this.key;
+        break;
+      case "brevo":
+        headers["api-key"] = this.key;
+        break;
+      case "postmark":
+        headers["X-Postmark-Server-Token"] = this.key;
+        break;
+      case "mailgun":
+        // The one that does not carry a key in a header at all.
+        headers["Authorization"] = `Basic ${btoa(`api:${this.key}`)}`;
+        break;
+    }
+
+    let body: string;
+    if (this.provider === "mailgun") {
+      // Form-encoded, which is why the body shape is a per-provider decision and not one field.
+      headers["Content-Type"] = "application/x-www-form-urlencoded";
+      body = new URLSearchParams({
+        from: this.from,
+        to,
+        subject: subjectLine,
+        text: textBody,
+      }).toString();
+    } else {
+      headers["Content-Type"] = "application/json";
+      body = JSON.stringify(bodyFor(this.provider, this.from, to, subjectLine, textBody));
+    }
+
+    const response = await fetch(this.endpoint, { method: "POST", headers, body });
     if (!response.ok) {
       // The body, not just the status: a provider that refuses a message says why, and that
       // sentence is the difference between a minute and an afternoon.
@@ -103,10 +166,41 @@ class HttpProvider implements EmailSender {
   }
 }
 
+function bodyFor(
+  provider: Exclude<ProviderName, "mailgun">,
+  from: string,
+  to: string,
+  subjectLine: string,
+  textBody: string,
+): unknown {
+  switch (provider) {
+    case "resend":
+      return { from, to: [to], subject: subjectLine, text: textBody };
+    case "mailtrap":
+      return { from: { email: from }, to: [{ email: to }], subject: subjectLine, text: textBody };
+    case "brevo":
+      return {
+        sender: { email: from },
+        to: [{ email: to }],
+        subject: subjectLine,
+        textContent: textBody,
+      };
+    case "postmark":
+      return { From: from, To: to, Subject: subjectLine, TextBody: textBody };
+    case "sendgrid":
+      return {
+        personalizations: [{ to: [{ email: to }] }],
+        from: { email: from },
+        subject: subjectLine,
+        content: [{ type: "text/plain", value: textBody }],
+      };
+  }
+}
+
 export function senderFor(config: Config): EmailSender | null {
   // In test-outbox mode nothing is sent: the object records the letter in a table the suite reads,
   // because no HTTP suite can read an inbox. `null` is what says "record it instead".
-  if (config.testOutbox || !config.emailApiKey) return null;
+  if (config.testOutbox || !config.emailApiKey || !config.emailEndpoint) return null;
   return new HttpProvider(
     config.emailProvider,
     config.emailEndpoint,

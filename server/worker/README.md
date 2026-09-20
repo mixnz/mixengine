@@ -60,8 +60,8 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `PEPPER` | secret | Keyed into the stored password verifier, so a stolen database is not a list of verifiers |
 | `EMAIL_API_KEY` | secret | The email provider's key. **Which provider is a deployment decision**, and it sits behind one interface in `src/email/` for exactly that reason |
 | `EMAIL_FROM` | var | The address the two letters are sent from |
-| `EMAIL_PROVIDER` | var | `resend` or `mailtrap`. They differ in body shape and in the header that carries the key, which is why this is a name and not just a URL |
-| `EMAIL_ENDPOINT` | var | The provider's HTTP endpoint |
+| `EMAIL_PROVIDER` | var | `resend`, `mailtrap`, `brevo`, `postmark`, `sendgrid` or `mailgun`. They differ in body shape, in the header that carries the key and in what they call the sender — which is why this is a name and not just a URL. **`smtp` is refused by name**: Workers cannot open a socket to port 587, and `server/native/` is the implementation that speaks it |
+| `EMAIL_ENDPOINT` | var | Where to post. Has a default for every provider except `mailtrap` (its URL carries an inbox id) and `mailgun` (a sending domain) |
 | `MAX_RECORD_BYTES` | var | Reported by `/v1/capabilities` |
 | `MAX_BATCH_OPERATIONS` | var | Reported by `/v1/capabilities` |
 | `MAX_PAGE_RECORDS` | var | Reported by `/v1/capabilities` |
@@ -71,11 +71,12 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `RESETS_PER_HOUR` | var | How often one source may ask for a reset letter |
 | `LOGINS_PER_WINDOW` | var | Attempts on one account in fifteen minutes, right or wrong |
 | `VERIFY_ATTEMPTS_PER_WINDOW` | var | Codes tried against one account in fifteen minutes |
+| `PARAMS_PER_HOUR` | var | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
 | `RELOCATE_TO` | var | Which endpoint a retired account is sent to (D4b). A **symbolic id**, never a URL: a server that could name an address could send people to one that collects their verifier. Unset means this server will not let go of an account |
 | `RELOCATION_LEASE_SECONDS` | var | How long a freeze lasts before it lapses. 900 by default |
 | `TEST_OUTBOX` | var | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
-The four rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
+The five rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
 publishing the figure that stops abuse helps only the abuser. The first two are counted per source
 rather than per account — the abuse they answer is opening many accounts, which a counter inside
 one account cannot see — and `src/ratelimit.ts` carries that argument.
