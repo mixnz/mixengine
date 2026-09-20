@@ -9,6 +9,7 @@ use argon2::{Algorithm, Argon2, Params, Version};
 use chacha20poly1305::aead::{Aead, KeyInit};
 use chacha20poly1305::{XChaCha20Poly1305, XNonce};
 use hkdf::Hkdf;
+use hmac::{Hmac, Mac};
 use rand::TryRngCore;
 use rand::rngs::OsRng;
 use sha2::Sha256;
@@ -223,6 +224,40 @@ pub fn parse_recovery_key(text: &str) -> Result<[u8; 32], AppError> {
     }
 }
 
+/// The key that addresses things.
+///
+/// Separate from [`data_key`] so that the ability to recognise a record is not the ability to read
+/// it — the design's D2.
+pub fn id_key(master: &[u8; 32]) -> [u8; 32] {
+    expand(master, INFO_ID)
+}
+
+/// The key that reads records.
+pub fn data_key(master: &[u8; 32]) -> [u8; 32] {
+    expand(master, INFO_DATA)
+}
+
+/// A collection name or a local uuid, as the 64 hex characters the server sees instead.
+///
+/// **Keyed, not hashed.** A plain SHA-256 of `"connections"` is the same for everybody, so a server
+/// would learn what kind of thing a row holds by trying a dozen guesses. Under a key it learns
+/// nothing, and two devices on one account still agree — the design's D1.
+pub fn opaque_id(id_key: &[u8; 32], name: &str) -> String {
+    // Qualified: `hmac::Mac` and `aead::KeyInit` both offer `new_from_slice`, and both are in scope
+    // in this module because the envelope needs one and the address needs the other.
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(id_key)
+        .expect("HMAC-SHA256 accepts a key of any length");
+    mac.update(name.as_bytes());
+    mac.finalize()
+        .into_bytes()
+        .iter()
+        .fold(String::with_capacity(64), |mut out, byte| {
+            use std::fmt::Write;
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -346,6 +381,42 @@ mod tests {
         assert_ne!(
             wrapping, recovery,
             "what a person holds and what wraps the key are not the same secret"
+        );
+    }
+
+    #[test]
+    fn an_opaque_id_is_stable_for_a_name_and_says_nothing_about_it() {
+        let key = id_key(&new_master_key());
+
+        let once = opaque_id(&key, "connections");
+        assert_eq!(
+            once,
+            opaque_id(&key, "connections"),
+            "two devices must agree"
+        );
+        assert_eq!(once.len(), 64);
+        assert!(
+            once.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
+            "lowercase hex, so two clients cannot disagree about spelling: {once}"
+        );
+        assert_ne!(once, opaque_id(&key, "rest-requests"));
+
+        let other_account = id_key(&new_master_key());
+        assert_ne!(
+            once,
+            opaque_id(&other_account, "connections"),
+            "two accounts must not produce one address for the same collection"
+        );
+    }
+
+    #[test]
+    fn the_address_key_and_the_data_key_are_not_the_same_key() {
+        let master = new_master_key();
+        assert_ne!(
+            id_key(&master),
+            data_key(&master),
+            "recognising a record must not be the same power as reading it"
         );
     }
 }
