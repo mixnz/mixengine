@@ -104,7 +104,21 @@ jobs:
         shell: bash
         env:
           MIX_TARGET: ${{ matrix.target }}
+          # T173c: a repository variable, not a committed line — `gh variable set MIX_TIMINGS 1`
+          # turns the report on for the next run and `gh variable delete` turns it off again, so
+          # measuring this job costs no commit in either direction.
+          MIX_TIMINGS: ${{ vars.MIX_TIMINGS }}
         run: bash packaging/desktop.sh
+
+      # Where the build's minutes went, when somebody asked. `if-no-files-found: error` because a
+      # measurement that quietly uploaded nothing is the failure this whole task exists to avoid.
+      - uses: actions/upload-artifact@v4
+        if: vars.MIX_TIMINGS == '1'
+        with:
+          name: timings-${{ matrix.os }}
+          path: apps/desktop/src-tauri/target/**/cargo-timings/cargo-timing*.html
+          if-no-files-found: error
+          retention-days: 14
 
       # T171c, E3: the window's half of `binaries`' x86_64 check, after the build above because
       # `tauri::generate_context!` reads the frontend it built at compile time.
