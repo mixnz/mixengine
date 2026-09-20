@@ -1331,6 +1331,27 @@ refusal is a `::notice::` and never a failure: `Add-MpPreference` needs a privil
 not grant, and an exclusion that silently did not apply would make the next measurement of this job
 a lie.
 
+**T175: what the window compiles, and two things it turned out to need.** The `--timings` report
+(above) named `image` and `moxcms` — 99 seconds — entering through `tauri-plugin-clipboard-manager`
+→ `arboard`, whose default `image-data` reads clipboard *pictures*. This application reads one
+thing from that plugin, the text the terminal pastes, so the plugin was replaced by `arboard`
+itself with `default-features = false` and one command of our own. Measured after, on run
+35495658721: 898 units against 908, and neither crate in the report.
+
+Two cuts beside it were tried and refused, and both are worth knowing before somebody tries again:
+
+- **`mongodb` keeps its default features.** `compat-3-0-0` is not a spare copy of bson — it is what
+  makes `mongodb::bson` *be* bson 2, which 23 call sites in `modules/db/drivers/` are written
+  against. Removing it is a driver migration that touches how an archive is written, not a
+  dependency tidy-up.
+- **`modules/db` stays in the `mixlab` crate.** It is 28,786 of 34,000 lines but **47% of the
+  compile**: 88.4 s whole against 47.0 s with it unhooked. Two halves that size do not pipeline
+  into the two minutes that would have paid for a third crate and a cut through the `db` ↔ `launch`
+  cycle. The same split would halve a *local* rebuild, which is a different argument for a
+  different day.
+
+docs/specs/2026-09-20-t175-dependencies-that-earn-their-place-design.md.
+
 **This leg is bimodal, so one run proves nothing about it.** Eleven samples before T173 ran 18.5,
 18.5, 18.4, 18.3, 18.3, 18.2, 18.2, 18.0, 17.5, 15.0, 13.8 — the same commit on a fast or a slow
 host, four and a half minutes apart. Read a small change on `binaries (windows-latest)`, whose band
