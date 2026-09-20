@@ -104,12 +104,11 @@ CREATE TABLE IF NOT EXISTS account (
   next_seq             INTEGER NOT NULL DEFAULT 0,
   stored_bytes         INTEGER NOT NULL DEFAULT 0,
   reaped_below_seq     INTEGER NOT NULL DEFAULT 0,
-  -- Whether this account still lives here (D4b). relocation_until is the lease on a freeze:
-  -- past it the account is active again, whatever this column says, so a copy interrupted by
-  -- a dead network or a dead machine repairs itself.
-  relocation_state     TEXT    NOT NULL DEFAULT 'active',
-  relocation_until     INTEGER,
-  relocation_home      TEXT
+  -- Whether a client is copying this account elsewhere (D4b). There is no expiry: a freeze
+  -- ends when a client asks for active again, which every signed-in machine can do. freeze_at
+  -- is when it began, so a person can be told how long this has been true.
+  freeze_state         TEXT    NOT NULL DEFAULT 'active',
+  freeze_at            INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS device (

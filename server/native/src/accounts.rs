@@ -604,7 +604,6 @@ pub async fn login(
     let allowance = state.config.limits.logins_per_window;
     let source = source_for(&headers);
     let per_source = state.config.limits.auth_per_hour;
-    let config = state.config.clone();
 
     let outcome = state
         .db
@@ -672,16 +671,6 @@ pub async fn login(
                     "email-not-verified",
                     "Confirm the address before signing in.",
                 )));
-            }
-
-            // **Only now.** A wrong password still gets a 401: otherwise a fresh install could ask
-            // where an address lives without proving anything, which is a cheaper enumeration
-            // oracle than the 409 registration already admits to (D4b).
-            if let Some(failure) =
-                crate::relocation::blocked(&transaction, &config, account_id, false)?
-            {
-                transaction.commit()?;
-                return Ok(Err(failure));
             }
 
             let device_id = random_token();
@@ -818,5 +807,93 @@ pub async fn refresh(State(state): State<Arc<AppState>>, body: String) -> Respon
             "expiresIn": ACCESS_TOKEN_SECONDS,
         }))
         .into_response(),
+    }
+}
+
+/// **Deleting an account leaves this server as it was before the account existed** (D4b): no
+/// tombstone, no row saying the address was once here, and the address free to register again.
+/// Keeping any of it would be keeping the one fact D1 promises a server does not accumulate.
+///
+/// Every other table names `account_id` with `ON DELETE CASCADE` and `PRAGMA foreign_keys` is on,
+/// so removing the one row removes the records, the devices, the tokens and the counters with it.
+pub async fn delete_account(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    let fields = match parse(&body) {
+        Ok(fields) => fields,
+        Err(failure) => return failure.into_response(),
+    };
+    let Some(a) = sized_field(&fields, "a", VERIFIER_BYTES) else {
+        return invalid_request("The current verifier is required.").into_response();
+    };
+
+    let presented = peppered(&state.config.pepper, a);
+    let allowance = state.config.limits.logins_per_window;
+
+    let outcome = state
+        .db
+        .call(move |connection| {
+            let Some(session) = authenticate(connection, &headers) else {
+                return Ok(Err(invalid_token()));
+            };
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let account_id = session.account_id;
+
+            // **A session is not enough.** A borrowed unlocked machine already holds one, so this
+            // asks for the verifier: the person deleting the account is then the person who knows
+            // the password. Wrong ones are counted where a wrong password is counted, so the
+            // route cannot become an oracle for guessing one.
+            if let Some(seconds) = window(
+                &transaction,
+                "attempt",
+                &account_id,
+                "login",
+                allowance,
+                LOGIN_WINDOW_SECONDS,
+            )? {
+                transaction.commit()?;
+                return Ok(Err(too_many_attempts(seconds)));
+            }
+
+            let stored: Option<String> = transaction
+                .query_row(
+                    "SELECT verifier FROM account WHERE id = ?1",
+                    params![account_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            if !stored.is_some_and(|stored| same_secret(&stored, &presented)) {
+                transaction.commit()?;
+                return Ok(Err(Failure::new(
+                    StatusCode::UNAUTHORIZED,
+                    "invalid-credentials",
+                    "That password does not match this account.",
+                )));
+            }
+
+            let records_deleted: i64 = transaction.query_row(
+                "SELECT COUNT(*) FROM record WHERE account_id = ?1",
+                params![account_id],
+                |row| row.get(0),
+            )?;
+
+            // **A frozen account may be deleted**, because the last step of a move is deleting the
+            // source and the source is frozen at that point. Refusing here would mean thawing
+            // first, which is a window for a second machine to write something the copy never saw.
+            transaction.execute("DELETE FROM account WHERE id = ?1", params![account_id])?;
+            transaction.commit()?;
+            Ok(Ok(records_deleted))
+        })
+        .await;
+
+    match outcome {
+        Err(error) => internal(error).into_response(),
+        Ok(Err(failure)) => failure.into_response(),
+        Ok(Ok(records_deleted)) => {
+            Json(json!({ "recordsDeleted": records_deleted })).into_response()
+        }
     }
 }

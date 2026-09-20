@@ -20,6 +20,9 @@ pub struct Capabilities {
     pub max_page_records: u64,
     pub account_quota_bytes: u64,
     pub tombstone_retention_days: u64,
+    /// When this server will be switched off, or `None`. **A notice, never a deadline**: the
+    /// date passing is not an event in the protocol, and nothing here enforces it (D4a).
+    pub closing_on: Option<i64>,
     /// A complete v1 server announces nothing optional, and a client must run against an empty
     /// list forever (D4a).
     pub features: Vec<String>,
@@ -44,10 +47,6 @@ pub struct Limits {
 
 #[derive(Clone, Debug)]
 pub struct Config {
-    /// Which endpoint a retired account is sent to (D4b). A symbolic id, never a URL.
-    pub relocate_to: Option<String>,
-    /// How long a freeze lasts before it lapses.
-    pub relocation_lease_seconds: i64,
     pub bind: String,
     pub database: String,
     pub pepper: String,
@@ -77,6 +76,46 @@ fn number(name: &str, fallback: u64) -> u64 {
         .ok()
         .and_then(|raw| raw.parse().ok())
         .unwrap_or(fallback)
+}
+
+/// Days since 1970-01-01 for a proleptic Gregorian date, by Howard Hinnant's civil-from-days in
+/// reverse. Ten lines and no dependency: the alternative is a date crate carried into a container
+/// for one field that almost every deployment leaves unset.
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = year - i64::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146097 + day_of_era - 719468
+}
+
+/// A closing date the operator typed, as seconds. `2027-03-01` and a raw timestamp both work, and
+/// **anything else is configuration that is wrong rather than absent**: a typo that silently became
+/// nothing would leave an operator believing they had announced a date when they had not.
+fn closing_on(raw: Option<String>) -> Result<Option<i64>, ()> {
+    let Some(raw) = raw else { return Ok(None) };
+    if let Ok(seconds) = raw.parse::<i64>() {
+        return Ok(Some(seconds));
+    }
+
+    let parts: Vec<&str> = raw.split('-').collect();
+    let [year, month, day] = parts[..] else {
+        return Err(());
+    };
+    let (Ok(year), Ok(month), Ok(day)) = (
+        year.parse::<i64>(),
+        month.parse::<i64>(),
+        day.parse::<i64>(),
+    ) else {
+        return Err(());
+    };
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return Err(());
+    }
+    // Midnight UTC, which is the reading of a bare date that does not depend on where the machine
+    // happens to be. The hour is not what this field is for.
+    Ok(Some(days_from_civil(year, month, day) * 86_400))
 }
 
 fn text(name: &str) -> Option<String> {
@@ -149,6 +188,14 @@ impl Config {
             }
         }
 
+        let closing = match closing_on(text("MIXLAB_SYNC_CLOSING_ON")) {
+            Ok(closing) => closing,
+            Err(()) => {
+                missing.push("MIXLAB_SYNC_CLOSING_ON (a date, such as 2027-03-01)".to_owned());
+                None
+            }
+        };
+
         if !missing.is_empty() {
             return Err(missing);
         }
@@ -179,8 +226,6 @@ impl Config {
             }),
             access_token: text("MIXLAB_SYNC_ACCESS_TOKEN"),
             test_outbox,
-            relocate_to: text("MIXLAB_SYNC_RELOCATE_TO"),
-            relocation_lease_seconds: number("MIXLAB_SYNC_RELOCATION_LEASE_SECONDS", 900) as i64,
             limits: Limits {
                 registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
                 resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),
@@ -197,8 +242,52 @@ impl Config {
                 max_page_records: number("MIXLAB_SYNC_MAX_PAGE_RECORDS", 500),
                 account_quota_bytes: number("MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES", 20_971_520),
                 tombstone_retention_days: number("MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS", 90),
+                closing_on: closing,
                 features: Vec::new(),
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::closing_on;
+
+    /// A date is arithmetic, and arithmetic is the kind of thing that is wrong by one for years
+    /// before anybody notices. These are the four dates that catch a wrong civil-from-days: the
+    /// epoch itself, a leap day, a day before the epoch, and one far enough out to matter.
+    #[test]
+    fn a_date_becomes_midnight_utc() {
+        assert_eq!(closing_on(Some("1970-01-01".into())), Ok(Some(0)));
+        assert_eq!(closing_on(Some("1969-12-31".into())), Ok(Some(-86_400)));
+        assert_eq!(closing_on(Some("2000-02-29".into())), Ok(Some(951_782_400)));
+        assert_eq!(
+            closing_on(Some("2027-03-01".into())),
+            Ok(Some(1_803_859_200))
+        );
+    }
+
+    #[test]
+    fn a_timestamp_is_taken_as_it_is() {
+        assert_eq!(
+            closing_on(Some("1803859200".into())),
+            Ok(Some(1_803_859_200))
+        );
+    }
+
+    #[test]
+    fn nothing_announced_is_not_an_error() {
+        assert_eq!(closing_on(None), Ok(None));
+    }
+
+    /// **A typo is configuration that is wrong, not absent.** Accepting these as `None` would let
+    /// an operator believe they had announced a closing date when they had not.
+    #[test]
+    fn a_date_that_is_not_one_is_refused() {
+        assert_eq!(closing_on(Some("march".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-13-01".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-03-32".into())), Err(()));
+        assert_eq!(closing_on(Some("2027/03/01".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-03".into())), Err(()));
     }
 }

@@ -16,8 +16,8 @@ use crate::crypto::{
     random_code, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
+use crate::freeze::guard;
 use crate::http::{Failure, invalid_request, invalid_token};
-use crate::relocation::guard;
 use crate::validate::{is_base64, is_email};
 
 const RESET_TOKEN_SECONDS: i64 = 60 * 60;
@@ -60,7 +60,7 @@ pub async fn change_password(
             .into_response();
     };
 
-    if let Some(failure) = guard(&state, &headers, true).await {
+    if let Some(failure) = guard(&state, &headers).await {
         return failure.into_response();
     }
     let presented = peppered(&state.config.pepper, a);
