@@ -268,7 +268,7 @@ mix_in_container() {
     bash -c "
       set -euo pipefail
       dnf install -y dbus-devel openssl-devel perl-core make gcc gcc-c++
-      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain '$channel'
+      curl --proto '=https' --tlsv1.2 -sSf --retry 6 --retry-delay 10 --retry-max-time 240 --connect-timeout 20 https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain '$channel'
       source \"\$HOME/.cargo/env\"
       $cmd
       chown -R $uid:$gid /work/target

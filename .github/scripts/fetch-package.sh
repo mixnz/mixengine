@@ -87,18 +87,37 @@ mkdir -p "$into"
 # compare.
 archive=""
 
+# **A blip from GitHub is not "no such package".** `--retry 3` spends its four attempts inside seven
+# seconds, which run 35483992873 rode out four HTTP 500s of and still failed; the runtime fetch in
+# `packaging/linux/build-appimage.sh` lost a release leg the same way to a 504 (run 34128004289).
+# Six tries ten seconds apart cover a minute of that, capped at four so a real outage is not waited
+# out. `--retry-all-errors` is not used: AlmaLinux 8's curl, which the manylinux legs run, is older
+# than that flag, and a 5xx is retried by `--retry` alone anyway.
+retry=(--retry 6 --retry-delay 10 --retry-max-time 240 --connect-timeout 20)
+
 for ext in $exts; do
   candidate="$into.$ext"
+  url="https://github.com/mixnz/mixengine-packages/releases/download/$kind-$version/$kind-$version-$target.$ext"
 
-  if curl --fail --silent --show-error --location --retry 3 --output "$candidate" \
-    "https://github.com/mixnz/mixengine-packages/releases/download/$kind-$version/$kind-$version-$target.$ext"; then
-    archive=$candidate
-    break
-  fi
+  # **The status is kept, because 404 and 500 mean opposite things here.** A 404 is this extension
+  # not being published and the next candidate is tried; anything else is the network or GitHub, and
+  # reporting that as "publishes no such version" sent one reader looking in the wrong repository.
+  # `|| true` because `--fail` exits 22 on both, and the code is what tells them apart.
+  code="$(curl --fail --silent --show-error --location "${retry[@]}" \
+    --write-out '%{http_code}' --output "$candidate" "$url" 2>"$candidate.curl-err" || true)"
+
+  case "$code" in
+    2??) archive=$candidate; break ;;
+    404) rm -f "$candidate" ;;
+    *)
+      echo "::error::$url answered ${code:-nothing} after six tries over a minute: $(tr '\n' ' ' <"$candidate.curl-err")"
+      exit 1
+      ;;
+  esac
 done
 
 if [ -z "$archive" ]; then
-  echo "::error::mixengine-packages publishes no $kind $version for $target in any of: $exts"
+  echo "::error::mixengine-packages publishes no $kind $version for $target in any of: $exts (every candidate answered 404)"
   exit 1
 fi
 
