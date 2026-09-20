@@ -4,8 +4,14 @@ export interface ErrorMembers {
   [member: string]: unknown;
 }
 
-export function fail(status: number, code: string, message: string, members: ErrorMembers = {}): Response {
-  return json(status, { error: { code, message, ...members } });
+export function fail(
+  status: number,
+  code: string,
+  message: string,
+  members: ErrorMembers = {},
+  headers: Record<string, string> = {},
+): Response {
+  return json(status, { error: { code, message, ...members } }, headers);
 }
 
 export function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {

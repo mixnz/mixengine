@@ -13,9 +13,11 @@
 import { accountName } from "./crypto";
 import { readConfig, type Capabilities, type Env } from "./config";
 import { fail, json, methodNotAllowed, misconfigured, notFound } from "./http";
+import { askSource } from "./ratelimit";
 import { asObject, isEmail } from "./validate";
 
 export { Account } from "./account";
+export { SourceLimit } from "./ratelimit";
 
 function capabilities(reported: Capabilities): Response {
   // Answered from configuration and never routed to an object. Routed to one, it would spend a
@@ -109,8 +111,18 @@ function forward(stub: DurableObjectStub, request: Request, body: string | null)
   );
 }
 
-const BY_EMAIL = new Set(["/v1/auth/register", "/v1/auth/verify", "/v1/auth/login"]);
-const BY_TOKEN = new Set(["/v1/devices", "/v1/records", "/v1/records/batch"]);
+const BY_EMAIL = new Set([
+  "/v1/auth/register",
+  "/v1/auth/verify",
+  "/v1/auth/login",
+  "/v1/auth/reset",
+]);
+const BY_TOKEN = new Set([
+  "/v1/devices",
+  "/v1/records",
+  "/v1/records/batch",
+  "/v1/auth/password",
+]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -144,8 +156,26 @@ export default {
     }
 
     if (BY_EMAIL.has(path)) {
-      const email = asObject(body === null ? null : safeParse(body))?.["email"];
+      const fields = asObject(body === null ? null : safeParse(body));
+      const email = fields?.["email"];
       if (!isEmail(email)) return fail(400, "invalid-request", "An address is required.");
+
+      // The two routes that create work out of nothing are counted per source rather than per
+      // account: they are abused by opening many accounts, which a counter kept inside one
+      // account's object cannot see. `ratelimit.ts` has the argument.
+      const askingForReset = path === "/v1/auth/reset" && fields?.["token"] === undefined;
+      if (path === "/v1/auth/register" || askingForReset) {
+        const allowance = askingForReset
+          ? config.limits.resetsPerHour
+          : config.limits.registrationsPerHour;
+        const verdict = await askSource(env.SOURCE_LIMIT, request, path, allowance);
+        if (!verdict.allowed) {
+          return fail(429, "too-many-requests", "Too many requests from this address.", {}, {
+            "Retry-After": String(verdict.retryAfter ?? 3600),
+          });
+        }
+      }
+
       return forward(await objectForEmail(env, email), request, body);
     }
 

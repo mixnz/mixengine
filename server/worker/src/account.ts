@@ -38,6 +38,8 @@ const ACCESS_TOKEN_SECONDS = 15 * 60;
 const REFRESH_TOKEN_SECONDS = 90 * 24 * 60 * 60;
 const VERIFICATION_TOKEN_SECONDS = 24 * 60 * 60;
 const RESET_TOKEN_SECONDS = 60 * 60;
+const LOGIN_WINDOW_SECONDS = 15 * 60;
+const SECONDS_A_DAY = 24 * 60 * 60;
 
 const now = (): number => Math.floor(Date.now() / 1000);
 
@@ -103,6 +105,10 @@ export class Account implements DurableObject {
         return this.login(config, body);
       case "POST /v1/auth/refresh":
         return this.refresh(body);
+      case "POST /v1/auth/password":
+        return this.changePassword(config, request, body);
+      case "POST /v1/auth/reset":
+        return this.reset(config, body, url);
       case "GET /v1/devices":
         return this.listDevices(request);
       case "GET /v1/records":
@@ -158,11 +164,13 @@ export class Account implements DurableObject {
     const [collection, id] = parts as [string, string];
     const precondition = readPrecondition(request.headers);
 
-    return outcome(
-      request.method === "PUT"
-        ? applyPut(this.sql, config.capabilities, collection, id, body, precondition)
-        : applyDelete(this.sql, collection, id, precondition.ifMatch),
-    );
+    if (request.method === "PUT") {
+      return outcome(applyPut(this.sql, config.capabilities, collection, id, body, precondition));
+    }
+
+    const removed = applyDelete(this.sql, collection, id, precondition.ifMatch);
+    if (removed.status === 200) await this.scheduleReaping(config.capabilities.tombstoneRetentionDays);
+    return outcome(removed);
   }
 
   private async batch(config: Config, request: Request, body: unknown): Promise<Response> {
@@ -212,6 +220,10 @@ export class Account implements DurableObject {
       }
       return { status: 400, error: { code: "invalid-request", message: "`op` is put or delete." } };
     });
+
+    if (results.some((entry) => entry.record?.deleted === true)) {
+      await this.scheduleReaping(limits.tombstoneRetentionDays);
+    }
 
     return json(200, { results });
   }
@@ -286,12 +298,111 @@ export class Account implements DurableObject {
     return json(200, {});
   }
 
+  // --- losing the password -----------------------------------------------------------------
+
+  /** D6, case 1: re-wrap, one request, nothing else moves. */
+  private async changePassword(config: Config, request: Request, body: unknown): Promise<Response> {
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+
+    const fields = asObject(body);
+    if (
+      !fields ||
+      !isBase64(fields["a"]) ||
+      !isBase64(fields["newA"]) ||
+      !isBase64(fields["newSaltAccount"]) ||
+      !isBase64(fields["newWrappedMkPassword"])
+    ) {
+      return fail(400, "invalid-request", "The current verifier, and the new one with its salt.");
+    }
+
+    const account = this.account();
+    const presented = await peppered(config.pepper, fields["a"] as string);
+    if (!account || !sameSecret(account.verifier, presented)) {
+      return fail(401, "invalid-credentials", "That password does not match this account.");
+    }
+
+    // MK is unchanged, so nothing is re-encrypted and **no record and no sequence number moves**.
+    // A server that bumped `seq` here would make every other machine re-download the account.
+    this.sql.exec(
+      `UPDATE account SET verifier = ?, salt_account = ?, wrapped_mk_password = ? WHERE id = 1`,
+      await peppered(config.pepper, fields["newA"] as string),
+      fields["newSaltAccount"],
+      fields["newWrappedMkPassword"],
+    );
+    // Every other machine is signed out: the password they hold no longer unwraps anything here.
+    this.sql.exec(`DELETE FROM token WHERE device_id != ?`, session.deviceId);
+
+    return json(200, {});
+  }
+
+  /**
+   * One path, two shapes (D4a). Without a token it asks for the letter and always answers `202`,
+   * whether or not the address has an account — registration has to refuse a taken address and
+   * therefore leaks one; this route has no such obligation, so it does not.
+   *
+   * With a token it completes, and **abandons the data** (D6, case 3): every record is encrypted
+   * under an MK no surviving key unwraps, so leaving them would leave an account full of bytes
+   * that decrypt for nobody.
+   */
+  private async reset(config: Config, body: unknown, url: URL): Promise<Response> {
+    const fields = asObject(body);
+    if (!fields) return fail(400, "invalid-request", "An address is required.");
+
+    if (fields["token"] === undefined) {
+      const account = this.account();
+      if (account && account.verified === 1) await this.sendLetter(config, "reset", url);
+      return json(202, {});
+    }
+
+    if (
+      typeof fields["token"] !== "string" ||
+      !isBase64(fields["a"]) ||
+      !isBase64(fields["saltAccount"]) ||
+      !isBase64(fields["wrappedMkPassword"]) ||
+      !isBase64(fields["wrappedMkRecovery"])
+    ) {
+      return fail(400, "invalid-token", "That code is not usable.");
+    }
+    if (!this.account() || !(await this.spendMailToken(fields["token"], "reset"))) {
+      return fail(400, "invalid-token", "That code is not usable.");
+    }
+
+    const recordsDeleted = this.sql
+      .exec<{ n: number }>(`SELECT COUNT(*) AS n FROM record WHERE deleted = 0`)
+      .toArray()[0]!.n;
+
+    // Outright, not tombstoned: a tombstone exists to tell a machine that something it can read is
+    // gone, and after this no machine can read anything. `next_seq` is untouched — it is monotonic
+    // for the life of the account, and restarting it would hand a machine still holding an old
+    // cursor an answer that looks like "nothing has changed".
+    this.sql.exec(`DELETE FROM record`);
+    this.sql.exec(
+      `UPDATE account SET verifier = ?, salt_account = ?, wrapped_mk_password = ?,
+                          wrapped_mk_recovery = ?, stored_bytes = 0 WHERE id = 1`,
+      await peppered(config.pepper, fields["a"] as string),
+      fields["saltAccount"],
+      fields["wrappedMkPassword"],
+      fields["wrappedMkRecovery"],
+    );
+    this.sql.exec(`DELETE FROM token`);
+
+    return json(200, { recordsDeleted });
+  }
+
   // --- signing in --------------------------------------------------------------------------
 
   private async login(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
     if (!fields || !isBase64(fields["a"]) || !isNonEmptyString(fields["deviceName"], 128)) {
       return fail(400, "invalid-request", "A verifier and a name for this machine.");
+    }
+
+    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
+    if (retryAfter !== null) {
+      return fail(429, "too-many-requests", "Too many attempts on this account.", {}, {
+        "Retry-After": String(retryAfter),
+      });
     }
 
     const account = this.account();
@@ -472,6 +583,78 @@ export class Account implements DurableObject {
     if (!row || row.kind !== kind || row.used === 1 || row.expires_at <= now()) return false;
     this.sql.exec(`UPDATE mail_token SET used = 1 WHERE hash = ?`, hash);
     return true;
+  }
+
+  /**
+   * A fixed window for one account. `true` means refuse. The allowance is configuration and is not
+   * reported by `/v1/capabilities`: publishing the number that stops abuse helps only the abuser.
+   */
+  private tooMany(action: string, allowance: number, windowSeconds: number): number | null {
+    const at = now();
+    const row = this.sql
+      .exec<{ count: number; started_at: number }>(
+        `SELECT count, started_at FROM attempt WHERE action = ?`,
+        action,
+      )
+      .toArray()[0];
+
+    if (!row || at - row.started_at >= windowSeconds) {
+      this.sql.exec(
+        `INSERT INTO attempt (action, count, started_at) VALUES (?, 1, ?)
+         ON CONFLICT (action) DO UPDATE SET count = 1, started_at = excluded.started_at`,
+        action,
+        at,
+      );
+      return null;
+    }
+    if (row.count >= allowance) return row.started_at + windowSeconds - at;
+    this.sql.exec(`UPDATE attempt SET count = count + 1 WHERE action = ?`, action);
+    return null;
+  }
+
+  // --- reaping -------------------------------------------------------------------------------
+
+  /**
+   * **An alarm is scheduled only when there is a tombstone to reap** (D8, rule 4), and this is a
+   * rule about money rather than tidiness: an alarm invocation is a request, so a daily alarm per
+   * account bills for every account that has ever existed rather than for every account in use,
+   * and it does it quietly, forever. An account with nothing deleted sets no alarm at all.
+   */
+  private async scheduleReaping(retentionDays: number): Promise<void> {
+    const oldest = this.sql
+      .exec<{ at: number | null }>(`SELECT MIN(written_at) AS at FROM record WHERE deleted = 1`)
+      .toArray()[0];
+    if (!oldest || oldest.at === null) return;
+
+    const due = Math.max((oldest.at + retentionDays * SECONDS_A_DAY) * 1000, Date.now() + 1000);
+    const current = await this.state.storage.getAlarm();
+    if (current === null || current > due) await this.state.storage.setAlarm(due);
+  }
+
+  async alarm(): Promise<void> {
+    const result = readConfig(this.env);
+    if (!result.ok) return;
+
+    const days = result.config.capabilities.tombstoneRetentionDays;
+    const horizon = now() - days * SECONDS_A_DAY;
+    const highest = this.sql
+      .exec<{ s: number | null }>(
+        `SELECT MAX(seq) AS s FROM record WHERE deleted = 1 AND written_at <= ?`,
+        horizon,
+      )
+      .toArray()[0];
+
+    if (highest && highest.s !== null) {
+      this.sql.exec(`DELETE FROM record WHERE deleted = 1 AND written_at <= ?`, horizon);
+      // Every cursor below the highest seq that has just gone is now incomplete news, and D3 says
+      // such a machine is told to resync from empty rather than told it quietly.
+      this.sql.exec(
+        `UPDATE account SET reaped_below_seq = MAX(reaped_below_seq, ?) WHERE id = 1`,
+        highest.s,
+      );
+    }
+
+    await this.scheduleReaping(days);
   }
 
   private async sendLetter(config: Config, kind: LetterKind, url: URL): Promise<void> {

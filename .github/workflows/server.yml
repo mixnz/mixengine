@@ -94,6 +94,35 @@ jobs:
           CONFORMANCE_BASE_URL: http://127.0.0.1:8787
         run: npm test
 
-      - name: The worker's log
+      # The one thing a suite cannot wait for. Tombstones live ninety days, so `410 cursor-expired`
+      # is only reachable against a server configured to reap at once — and leaving it uncovered
+      # would let the two implementations disagree about a status a client has to handle. It is a
+      # second instance rather than a second setting, because reaping at once would break every
+      # other tombstone test on the first one.
+      - name: Start the same worker with tombstones reaped at once
+        working-directory: server/worker
+        env:
+          CI: '1'
+        run: |
+          nohup npx wrangler dev --env reaper --port 8788 --ip 127.0.0.1 --persist-to .wrangler/reaper > "$RUNNER_TEMP/reaper.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8788/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the reaper worker never answered on 127.0.0.1:8788"
+          exit 1
+
+      - name: Conformance — cursor expiry
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8788
+        run: npx vitest run src/tombstones.test.ts
+
+      - name: The workers' logs
         if: failure()
-        run: cat "$RUNNER_TEMP/wrangler.log" || true
+        run: |
+          cat "$RUNNER_TEMP/wrangler.log" || true
+          cat "$RUNNER_TEMP/reaper.log" || true

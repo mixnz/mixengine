@@ -12,9 +12,15 @@ class_name = "Account"
 # with the SQLite storage backend, and that backend is also what makes the record table of D3 one
 # file per account rather than rows in a shared one. Getting this wrong fails at deploy time on a
 # free account, not locally.
+# Registration and asking for a reset are counted per source rather than per account: they are
+# abused by opening many accounts, which a counter inside one account's object cannot see.
+[[durable_objects.bindings]]
+name = "SOURCE_LIMIT"
+class_name = "SourceLimit"
+
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["Account"]
+new_sqlite_classes = ["Account", "SourceLimit"]
 
 # Every number here is reported by `/v1/capabilities` and is configuration rather than protocol: a
 # server may report any value, and a client reads rather than assumes (D4a, D9).
@@ -43,10 +49,45 @@ MAX_PAGE_RECORDS = "10"
 ACCOUNT_QUOTA_BYTES = "1048576"
 TOMBSTONE_RETENTION_DAYS = "90"
 
+# High enough that the suite never trips it: it asserts the shape of a refusal and never trips one
+# deliberately (D4a), and one runner opening fifty accounts is what the suite does on purpose.
+REGISTRATIONS_PER_HOUR = "100000"
+RESETS_PER_HOUR = "100000"
+
 [[env.conformance.durable_objects.bindings]]
 name = "ACCOUNT"
 class_name = "Account"
 
+[[env.conformance.durable_objects.bindings]]
+name = "SOURCE_LIMIT"
+class_name = "SourceLimit"
+
 [[env.conformance.migrations]]
 tag = "v1"
-new_sqlite_classes = ["Account"]
+new_sqlite_classes = ["Account", "SourceLimit"]
+
+# The same server with tombstones reaped at once, so `410 cursor-expired` is reachable. Ninety days
+# is not something a test can wait out, and a suite that skipped that path would leave the two
+# implementations free to disagree about it.
+[env.reaper]
+[env.reaper.vars]
+TEST_OUTBOX = "1"
+MAX_RECORD_BYTES = "65536"
+MAX_BATCH_OPERATIONS = "25"
+MAX_PAGE_RECORDS = "10"
+ACCOUNT_QUOTA_BYTES = "1048576"
+TOMBSTONE_RETENTION_DAYS = "0"
+REGISTRATIONS_PER_HOUR = "100000"
+RESETS_PER_HOUR = "100000"
+
+[[env.reaper.durable_objects.bindings]]
+name = "ACCOUNT"
+class_name = "Account"
+
+[[env.reaper.durable_objects.bindings]]
+name = "SOURCE_LIMIT"
+class_name = "SourceLimit"
+
+[[env.reaper.migrations]]
+tag = "v1"
+new_sqlite_classes = ["Account", "SourceLimit"]

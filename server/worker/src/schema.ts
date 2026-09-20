@@ -73,6 +73,14 @@ export const SCHEMA = [
      used        INTEGER NOT NULL DEFAULT 0
    )`,
 
+  // Guessing at one account, counted where that account lives. Opening *many* accounts is a
+  // different abuse and is counted somewhere else — see `ratelimit.ts` for why it cannot be here.
+  `CREATE TABLE IF NOT EXISTS attempt (
+     action      TEXT    PRIMARY KEY,
+     count       INTEGER NOT NULL,
+     started_at  INTEGER NOT NULL
+   )`,
+
   // Only ever written in test-outbox mode, which is refused unless a server was started with it
   // deliberately. It exists because no HTTP suite can read an inbox (D4a).
   `CREATE TABLE IF NOT EXISTS outbox (

@@ -7,6 +7,7 @@
 
 export interface Env {
   ACCOUNT: DurableObjectNamespace;
+  SOURCE_LIMIT: DurableObjectNamespace;
 
   /** Keyed into the stored password verifier, so a stolen database is not a list of verifiers. */
   PEPPER?: string;
@@ -19,6 +20,12 @@ export interface Env {
 
   /** `"1"` serves `/__test__/outbox` and sends no mail. Never set this on a real deployment. */
   TEST_OUTBOX?: string;
+
+  /** How many accounts one source may open in an hour, and how often it may ask for a reset. */
+  REGISTRATIONS_PER_HOUR?: string;
+  RESETS_PER_HOUR?: string;
+  /** How many times one account may be signed in to, right or wrong, in fifteen minutes. */
+  LOGINS_PER_WINDOW?: string;
 
   MAX_RECORD_BYTES?: string;
   MAX_BATCH_OPERATIONS?: string;
@@ -43,6 +50,11 @@ export interface Config {
   emailFrom: string;
   emailEndpoint: string;
   testOutbox: boolean;
+  /**
+   * Not reported by `/v1/capabilities`, deliberately: publishing the number that stops abuse helps
+   * only the abuser (D4a).
+   */
+  limits: { registrationsPerHour: number; resetsPerHour: number; loginsPerWindow: number };
   capabilities: Capabilities;
 }
 
@@ -92,6 +104,11 @@ export function readConfig(env: Env): ConfigResult {
       emailFrom: env.EMAIL_FROM ?? "conformance@example.invalid",
       emailEndpoint: env.EMAIL_ENDPOINT ?? "https://api.resend.com/emails",
       testOutbox,
+      limits: {
+        registrationsPerHour: number(env.REGISTRATIONS_PER_HOUR, 10),
+        resetsPerHour: number(env.RESETS_PER_HOUR, 10),
+        loginsPerWindow: number(env.LOGINS_PER_WINDOW, 20),
+      },
       capabilities: {
         protocolVersions: ["v1"],
         maxRecordBytes: number(env.MAX_RECORD_BYTES, DEFAULTS.maxRecordBytes),

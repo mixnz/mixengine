@@ -23,7 +23,7 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       **this crate is not format-gated**: CI's `desktop` job runs clippy, `cargo test --locked` and
       `cargo audit`, with no `fmt`, and there is no `rustfmt.toml` here, so `cargo fmt --all` would
       rewrite dozens of files nobody touched. Check the files you wrote and nothing else.
-- [ ] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
+- [x] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
       the server it will judge, because a suite written afterwards only ever describes what was
       built; it lives in `server/conformance/`, beside both implementations and inside neither.
       Then `server/worker/` on Cloudflare Workers, one Durable Object per account: its
@@ -36,15 +36,26 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       family and no server change fires its three-OS matrix, while a push to `master` — the branch
       Workers Builds deploys from — answers for itself without being asked. The third entry in
       `docs/operations/build-and-release.md`'s list of workflows that are not in that table.
+
+      **Done in five commits; 88 conformance assertions green against the Worker.** Four things it
+      settled that the plan had not, each found by writing the suite before the server. D4 was a
+      table of intentions and not a wire, so the first commit is **D4a**, which decides the bytes —
+      without it the first implementation decides them and the suite copies, which is the failure
+      writing the suite first exists to prevent. Verification gates **signing in**, not writing, so
+      the `403` on a record route is unreachable in v1 and the suite says so rather than pretending
+      to test it. Revoking a device ends **both** its tokens: the appendix had reasoned that
+      closing the access token early costs a revocation check per request, which is wrong for an
+      opaque token the server looks up anyway. And registration is limited **per source** in an
+      object of its own — a counter inside one account cannot see an abuse that opens many.
 - [ ] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
       protocol in Rust over a SQLite file, excluded from the root Cargo workspace the way
       `apps/desktop/src-tauri` is, with a Dockerfile beside it — an image published to this
       repository's Packages, following `master`, for somebody self-hosting who would rather pull
-      than compile. Nothing in the hosted path is a container: the default instance is the Worker. **Built alongside the Worker rather
-      than after it**, because `/v1` is only a protocol once something other than the Worker has
-      spoken it — each implementation is the other's proof, and the conformance suite is what makes
-      that claim checkable rather than asserted. `server.yml` gains a second job, so one run of it
-      answers for both implementations.
+      than compile. Nothing in the hosted path is a container: the default instance is the Worker.
+      **Built alongside the Worker rather than after it**, because `/v1` is only a protocol once
+      something other than the Worker has spoken it — each implementation is the other's proof, and
+      the conformance suite is what makes that claim checkable rather than asserted. `server.yml`
+      gains a second job, so one run of it answers for both implementations.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.

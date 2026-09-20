@@ -65,11 +65,20 @@ describe("tombstones", () => {
     }
 
     const { session } = await signedUp();
-    const { collection, id, stored } = await seed(session.accessToken);
-    await remove(session.accessToken, collection, id, stored.version);
-    await put(session.accessToken, collection, opaqueId(), newRecord(), { ifNoneMatch: true });
+    // A cursor that has seen something, and a deletion after it. `since=0` is exempt on purpose:
+    // a machine with no history has missed nothing, so it is told to start rather than to resync.
+    const anchor = await seed(session.accessToken);
+    const doomed = await seed(session.accessToken);
+    await remove(session.accessToken, doomed.collection, doomed.id, doomed.stored.version);
 
-    const page = await since(session.accessToken, stored.seq - 1, collection);
+    // Reaping is a scheduled job and not part of the write that caused it — D8 schedules an alarm
+    // rather than sweeping inline, so a test has to allow for the gap rather than assume it away.
+    let page = await since(session.accessToken, anchor.stored.seq);
+    for (let attempt = 0; attempt < 40 && page.status !== 410; attempt += 1) {
+      await new Promise((resume) => setTimeout(resume, 500));
+      page = await since(session.accessToken, anchor.stored.seq);
+    }
+
     expect(page.status).toBe(410);
     expect(page.body.error?.code).toBe("cursor-expired");
   });

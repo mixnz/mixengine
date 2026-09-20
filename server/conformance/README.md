@@ -47,13 +47,21 @@ it reported a particular one.
 
 ## Two things it cannot reach on its own
 
-Both skip loudly rather than passing quietly, and both are covered in CI by an instance configured
-for them:
+Both skip loudly rather than passing quietly — a skipped test that announces itself is honest, and
+a test that quietly passes against a server it never exercised is not:
 
-- **Quota**, when the server reports an account quota larger than 8 MB — filling it over HTTP is
+- **Quota**, when the server reports an account quota larger than 8 MB. Filling one over HTTP is
   minutes of runner time for one assertion.
 - **Cursor expiry**, unless the server reports `tombstoneRetentionDays: 0`. The real value is
   ninety days and no test can wait it out.
+
+CI covers both. The quota falls out of the small limits the `conformance` environment reports, and
+cursor expiry gets **a second instance** with a retention of zero, because reaping at once would
+break every other tombstone test on the first one.
+
+**Reaping is asynchronous**, so the expiry test polls rather than asserting straight after the
+delete: D8 schedules an alarm rather than sweeping inline, and a test that assumed otherwise would
+be asserting an implementation rather than the protocol.
 
 A third is unreachable by design and has no test: `403 email-not-verified` on a record route.
 Verification gates signing in, so in v1 no token can exist that reaches a record route with an

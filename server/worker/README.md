@@ -27,6 +27,11 @@ an email provider — see below. To run it the way CI does, with no mail and sma
 npx wrangler dev --env conformance
 ```
 
+**A running `wrangler dev` does not pick up a new Durable Object binding.** It reloads source
+happily, so adding a handler is free, but adding a class or a migration needs the process stopped
+and started again — and the symptom of not doing it is a request that hangs rather than one that
+fails, which costs more to diagnose than it should. CI never meets this: it starts fresh.
+
 ## Deploying it to your own Cloudflare account
 
 1. Fork this repository.
@@ -60,7 +65,15 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 | `MAX_PAGE_RECORDS` | var | Reported by `/v1/capabilities` |
 | `ACCOUNT_QUOTA_BYTES` | var | Reported by `/v1/capabilities` |
 | `TOMBSTONE_RETENTION_DAYS` | var | Reported by `/v1/capabilities` |
+| `REGISTRATIONS_PER_HOUR` | var | How many accounts one source may open in an hour |
+| `RESETS_PER_HOUR` | var | How often one source may ask for a reset letter |
+| `LOGINS_PER_WINDOW` | var | Attempts on one account in fifteen minutes, right or wrong |
 | `TEST_OUTBOX` | var | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
+
+The three rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
+publishing the figure that stops abuse helps only the abuser. The first two are counted per source
+rather than per account — the abuse they answer is opening many accounts, which a counter inside
+one account cannot see — and `src/ratelimit.ts` carries that argument.
 
 Every limit is reported rather than assumed, which is what stops a limit from becoming a release:
 a server raises a number in its own configuration and a client reads it (D4a, D9).
