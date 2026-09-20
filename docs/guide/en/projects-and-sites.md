@@ -2,24 +2,24 @@
 title = "Projects and sites"
 slug = "projects-and-sites"
 order = 4
-summary = "The two nouns MixEngine is built on, what each one owns, and how a checkout carries its own setup."
+summary = "The two nouns MixLab is built on, what each one owns, and how a checkout carries its own setup."
 +++
 
 # Projects and sites
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-MixEngine has two nouns and they are worth keeping apart.
+MixLab has two nouns and they are worth keeping apart.
 
-A **project** is a directory on your disk that MixEngine knows about. It owns the path, a name, and
+A **project** is a directory on your disk that MixLab knows about. It owns the path, a name, and
 which language versions that directory uses.
 
 A **site** is something served, under a project. It owns one or more domains, what is served out of
 which folder, and what serves it. A project with no site is perfectly normal — it is a directory
-whose PHP version MixEngine knows. A project can have several sites.
+whose PHP version MixLab knows. A project can have several sites.
 
 ## Registering a project
 
@@ -77,7 +77,7 @@ their own.
 | `node-app` | A Node process you run yourself, on a port — `--port` |
 
 `reverse-proxy` and `node-app` are the two that matter when you are already running something.
-MixEngine gives it a real name and a certificate without taking over how it is started.
+MixLab gives it a real name and a certificate without taking over how it is started.
 
 ## `mixengine.toml`, and adopting a colleague's checkout
 
@@ -142,5 +142,5 @@ mix project keep-warm blog --off
 
 This is a verb of its own rather than a setting on the project, because it is something you do for
 an afternoon and not part of what the project *is*. It reaches the PHP pool the project's sites
-name; it does not yet reach a database they query, because nothing in MixEngine records which
+name; it does not yet reach a database they query, because nothing in MixLab records which
 database a project uses. With *Save battery* off nothing is paused, and this changes nothing.

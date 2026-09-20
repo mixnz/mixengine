@@ -1,7 +1,7 @@
 //! `service.set_front_end`: moving a home from one web server to the other.
 //!
 //! Roadmap task **T97**, designed by
-//! [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
+//! [ADR 0026](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md).
 //! Its own file rather than more of [`super::create`], which is already two methods read forwards
 //! and backwards, and beside it rather than in [`super::rpc`] because everything here is those two
 //! methods composed: a switch is a stop, a delete, a create and a start, and its whole difficulty is

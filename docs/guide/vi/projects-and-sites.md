@@ -2,26 +2,26 @@
 title = "Dự án và site"
 slug = "projects-and-sites"
 order = 4
-summary = "Hai khái niệm cốt lõi của MixEngine, mỗi cái quản những gì, và cách một bản checkout mang theo cấu hình của chính nó."
+summary = "Hai khái niệm cốt lõi của MixLab, mỗi cái quản những gì, và cách một bản checkout mang theo cấu hình của chính nó."
 translation_of = "en/projects-and-sites.md"
-source_sha256 = "0746659ad55d36a185bf6b53620bd91a76a2b3f8f18c8b20787a34d9c8f4d266"
+source_sha256 = "414a26592b95db96eac537937aed34747c8a9b4dbcb340586251eb8f79537090"
 +++
 
 # Dự án và site
 
-> **Đây là tài liệu hướng dẫn dùng MixEngine qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
-> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt **MixLab**, ứng dụng desktop
-> của MixEngine, ngay cạnh dòng lệnh. MixLab làm việc trên cùng một MixEngine, nên mọi khái niệm
-> trong cẩm nang này vẫn áp dụng.
+> **Đây là tài liệu hướng dẫn dùng MixLab qua dòng lệnh `mix`.** Nếu bạn muốn thao tác bằng
+> giao diện đồ họa cho dễ hơn thì bạn đã có sẵn: mọi bộ cài đều đặt sẵn cửa sổ MixLab ngay cạnh
+> dòng lệnh. Cả hai đều điều khiển cùng một MixEngine bên dưới, nên mọi khái niệm trong cẩm nang
+> này vẫn áp dụng.
 
-MixEngine có hai khái niệm chính, và bạn nên phân biệt rõ chúng.
+MixLab có hai khái niệm chính, và bạn nên phân biệt rõ chúng.
 
-**Project** là một thư mục trên đĩa mà MixEngine biết tới. Nó giữ đường dẫn, một cái tên, và thông
+**Project** là một thư mục trên đĩa mà MixLab biết tới. Nó giữ đường dẫn, một cái tên, và thông
 tin thư mục đó dùng phiên bản ngôn ngữ nào.
 
 **Site** là thứ được phục vụ ra ngoài, nằm dưới một project. Nó giữ một hoặc nhiều tên miền, thư mục
 nào được phục vụ, và service nào phục vụ nó. Một project không có site nào là chuyện bình thường:
-đó đơn giản là một thư mục mà MixEngine biết phiên bản PHP của nó. Một project có thể có nhiều site.
+đó đơn giản là một thư mục mà MixLab biết phiên bản PHP của nó. Một project có thể có nhiều site.
 
 ## Đăng ký một project
 
@@ -42,7 +42,7 @@ mix project create --name blog --pin php=^8.3 --pin node=22
 
 Về sau muốn sửa gì thì dùng `mix project update`. Một điểm cần nhớ: `--pin` **thay thế** toàn bộ
 danh sách pin chứ không thêm vào, và `--clear-pins` mà không kèm `--pin` sẽ xóa hết. Xóa project
-chỉ là MixEngine quên nó đi; file của bạn vẫn còn nguyên.
+chỉ là MixLab quên nó đi; file của bạn vẫn còn nguyên.
 
 ## Khai báo một site
 
@@ -80,7 +80,7 @@ dùng có trạng thái riêng.
 | `node-app` | Một tiến trình Node bạn tự chạy, trên một cổng, qua `--port` |
 
 `reverse-proxy` và `node-app` là hai loại đáng quan tâm khi bạn đã có sẵn thứ gì đó đang chạy.
-MixEngine gán cho nó một tên miền thật và một chứng chỉ, mà không can thiệp vào cách bạn khởi động
+MixLab gán cho nó một tên miền thật và một chứng chỉ, mà không can thiệp vào cách bạn khởi động
 nó.
 
 ## `mixengine.toml`, và nhận checkout của đồng nghiệp
@@ -108,7 +108,7 @@ version = "11.4"
 database = "blog"
 ```
 
-Khi có file này, chạy `mix project create` rồi `mix site create` không cần tham số nào, MixEngine sẽ
+Khi có file này, chạy `mix project create` rồi `mix site create` không cần tham số nào, MixLab sẽ
 làm đúng như file mô tả. Nhận checkout của người khác trông đúng như vậy: clone về, gõ hai lệnh, và
 bạn có cùng phiên bản PHP, cùng tên miền với người đã viết file đó.
 
@@ -148,6 +148,6 @@ mix project keep-warm blog --off
 
 Đây là một lệnh riêng chứ không phải một thuộc tính của project, vì đó là việc bạn làm trong một
 buổi chiều chứ không phải một phần của bản chất project. Lệnh này tác động tới pool PHP mà các site
-của project dùng. Nó chưa tác động tới cơ sở dữ liệu mà project truy vấn, vì MixEngine chưa ghi lại
+của project dùng. Nó chưa tác động tới cơ sở dữ liệu mà project truy vấn, vì MixLab chưa ghi lại
 project nào dùng cơ sở dữ liệu nào. Khi *Tiết kiệm pin* đang tắt thì không có gì bị tạm dừng, nên
 lệnh này không thay đổi gì.

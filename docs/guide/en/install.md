@@ -1,26 +1,26 @@
 +++
-title = "Installing MixEngine"
+title = "Installing MixLab"
 slug = "install"
 order = 2
 summary = "The installer for your system, what it touches, what it deliberately does not, and how to check what you downloaded."
 +++
 
-# Installing MixEngine
+# Installing MixLab
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
 Every build is published on the project's GitHub releases page, with a checksum and a signature
 beside it. Pick the file for your system below. Installing changes as little as it can: nothing is
 added to your certificate store, your DNS settings or your firewall until the day you ask for
-something that needs it — see [What MixEngine asks permission for](./permissions.md).
+something that needs it — see [What MixLab asks permission for](./permissions.md).
 
 **No stable release exists yet.** Every download link below is a permanent URL that GitHub always
 resolves to whichever release is newest and *not* a pre-release, so once the first one ships these
 links go live with no edit to this page. Until then, get the newest pre-release by hand from
-[the releases page](https://github.com/mixnz/mixengine/releases) — right now that is
+[the releases page](https://github.com/mixnz/mixlab/releases) — right now that is
 `v0.0.6`.
 
 ## What you are installing
@@ -36,7 +36,7 @@ Five programs, and it is worth knowing what each is before one of them surprises
 | **MixLab** | The window: a dashboard for the daemon, plus a database client, an HTTP client and a terminal. |
 
 The first three and MixLab are installed together, as you. `mixengine-elevate` is not placed by the
-installer at all on most systems — MixEngine installs it itself, the first time something needs an
+installer at all on most systems — MixLab installs it itself, the first time something needs an
 administrator, inside a prompt you were going to see anyway.
 
 **If you do not want the window, there is a download without it.** Every system publishes a
@@ -46,12 +46,12 @@ image, or any machine with no display wants.
 
 ## Windows
 
-[**Download the installer**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-setup.exe)
-· [portable zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64.zip)
-· [headless zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-x86_64-headless.zip)
-· Windows ARM: [installer](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64.zip),
-[headless](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-windows-aarch64-headless.zip)
+[**Download the installer**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-setup.exe)
+· [portable zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64.zip)
+· [headless zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
+· Windows ARM: [installer](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-setup.exe),
+[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64.zip),
+[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
 
 Three files are published, and any of them is a complete install.
 
@@ -67,7 +67,7 @@ Three files are published, and any of them is a complete install.
 
 Windows ARM builds are published beside them, named `aarch64`.
 
-**Expect a SmartScreen warning.** MixEngine is not signed with an Authenticode certificate, so
+**Expect a SmartScreen warning.** MixLab is not signed with an Authenticode certificate, so
 Windows shows *"Windows protected your PC"* and hides the button behind **More info → Run anyway**.
 That is a statement about a certificate nobody has bought, not about the file: check the signature
 below if you want a real answer about what you downloaded. The warning tends to come back with every
@@ -75,8 +75,8 @@ release, because reputation with no publisher identity accrues to a file rather 
 
 ## macOS
 
-[**Download the package**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal.pkg)
-· [headless archive](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
+[**Download the package**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal.pkg)
+· [headless archive](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
 
 **`mixengine-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon. It puts
 the command-line programs in `/usr/local/bin` and **MixLab** in `/Applications`, so the window is in
@@ -86,7 +86,7 @@ Spotlight and the Launchpad the moment the install finishes.
 without MixLab, for a machine that wants no window. Extract it and put the folder wherever you like;
 nothing about it is installed for you.
 
-MixEngine has no Apple Developer ID either, so double-clicking the package in Finder gets you a
+MixLab has no Apple Developer ID either, so double-clicking the package in Finder gets you a
 Gatekeeper dialog and, on macOS 15 and later, a trip through **System Settings → Privacy & Security
 → Open Anyway**. Installing from a terminal avoids all of that:
 
@@ -99,14 +99,14 @@ it also places the privileged helper for you.
 
 ## Linux
 
-[**`.deb`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_amd64.deb)
-· [**`.rpm`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-x86_64.rpm)
-· [**`.AppImage`**](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64.AppImage)
-· arm64: [`.deb`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine_arm64.deb),
-[`.rpm`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-aarch64.rpm),
-[`.AppImage`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64.AppImage)
-· headless: [`x86_64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
-[`aarch64`](https://github.com/mixnz/mixengine/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
+[**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_amd64.deb)
+· [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-x86_64.rpm)
+· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64.AppImage)
+· arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-aarch64.rpm),
+[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64.AppImage)
+· headless: [`x86_64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
+[`aarch64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
 
 Four files, each a complete install:
 
@@ -143,10 +143,10 @@ a dialog if you double-clicked it, and the command line goes on working.
 
 ## From source
 
-MixEngine is Rust, and nothing else:
+MixLab is Rust, and nothing else:
 
 ```bash
-git clone https://github.com/mixnz/mixengine.git
+git clone https://github.com/mixnz/mixlab.git
 cd mixengine
 cargo build --release
 ```
@@ -168,7 +168,7 @@ The `.sha256` tells you whether two downloads of the same file are the same file
 signature** and is not offered as one: anybody who could replace the artifact could replace the
 checksum beside it. The unversioned files the links above point at carry their own `.sha256` and
 `.minisig`, named after themselves rather than after the versioned file they are a copy of. The
-`.minisig` is the real answer — an Ed25519 signature MixEngine's own release pipeline makes, against
+`.minisig` is the real answer — an Ed25519 signature MixLab's own release pipeline makes, against
 a public key committed in this project's repository as `packaging/updates.pub` and compiled into
 MixEngine itself. That is the same key `mix self-update` checks before it replaces anything.
 
@@ -204,11 +204,11 @@ Nothing outside your own account, and nothing to the rest of the machine:
 - **No certificate authority** was installed. That happens the first time you ask for HTTPS.
 - **No DNS or hosts change** was made. That happens the first time you create a site.
 - **No firewall rule** and **no port grant**. Those happen when a site needs them.
-- **No runtime and no server** was downloaded. MixEngine installs PHP, MariaDB and the rest on
+- **No runtime and no server** was downloaded. MixLab installs PHP, MariaDB and the rest on
   request, and only the versions you ask for.
 - **Nothing was registered to start at login.** `mix autostart enable` is how that becomes true.
 
-Every one of those is described in [What MixEngine asks permission for](./permissions.md), including
+Every one of those is described in [What MixLab asks permission for](./permissions.md), including
 what each prompt will literally change before you agree to it.
 
 Ready? [Your first site](./getting-started.md) takes about five minutes.

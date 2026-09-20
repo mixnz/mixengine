@@ -387,7 +387,7 @@ The last two are the *reader's* own validation and not a probe's: they are the t
 value was chosen over `Get-MpComputerStatus`. They cannot be re-taken by CI — a runner has no Smart
 App Control — so the check asserts only that the machine running it *answers*.
 
-Both were taken by [run 33864008503](https://github.com/mixnz/mixengine/actions/runs/33864008503) and
+Both were taken by [run 33864008503](https://github.com/mixnz/mixlab/actions/runs/33864008503) and
 are re-taken on every `build` job, so a change in either operating system's behaviour turns a leg red
 and sends a reader back to this section rather than reaching a user first. W4's two halves were
 additionally taken by hand on a Windows 11 Pro 26200 developer machine the same day, with the same

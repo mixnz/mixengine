@@ -1,18 +1,18 @@
 +++
-title = "Removing MixEngine"
+title = "Removing MixLab"
 slug = "uninstalling"
 order = 13
-summary = "Undo everything MixEngine wrote outside its own directory, see the list before you agree, and keep your databases if you want them."
+summary = "Undo everything MixLab wrote outside its own directory, see the list before you agree, and keep your databases if you want them."
 +++
 
-# Removing MixEngine
+# Removing MixLab
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-MixEngine writes almost everything inside one directory. The exceptions are the handful of
+MixLab writes almost everything inside one directory. The exceptions are the handful of
 privileged changes it asked permission for, and taking those back is what `mix uninstall` is for.
 
 ## See the list first
@@ -30,7 +30,7 @@ That changes nothing and names every single thing it would remove:
 - the entry that starts the daemon when you log in
 - the `PATH` entry
 - the privileged helper, and its audit log
-- and finally MixEngine's own directory
+- and finally MixLab's own directory
 
 ## Doing it
 
@@ -41,14 +41,14 @@ mix uninstall
 You are asked to confirm, and one administrator prompt covers the privileged half. `--yes` answers
 the confirmation in advance, for a script.
 
-**The report is a measurement, not a claim.** What comes back is what MixEngine found on the machine
+**The report is a measurement, not a claim.** What comes back is what MixLab found on the machine
 *afterwards*, row by row, including the rows that answered *nothing there* — a report that hid those
 would leave you unable to tell "there was no resolver wiring" from "the resolver wiring was not
 looked at". The command exits non-zero if anything it acted on is still present, so a script can
 ask.
 
 Expect the connection to end partway: the daemon is removing the home it serves, so it stops itself.
-That is the normal ending, and MixEngine reads the final rows back off disk once it has, which is
+That is the normal ending, and MixLab reads the final rows back off disk once it has, which is
 what makes the answer *nothing is left behind* rather than *the daemon said so*.
 
 ## Keeping your data
@@ -66,7 +66,7 @@ finished with the data yet.
 
 ## Then remove the program itself
 
-`mix uninstall` removes what MixEngine did. Removing MixEngine is your package manager's job, and it
+`mix uninstall` removes what MixLab did. Removing MixLab is your package manager's job, and it
 depends on how you installed it:
 
 ```bash

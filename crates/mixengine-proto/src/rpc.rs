@@ -468,7 +468,7 @@ pub mod method {
     /// result is a [`FrontEndReport`](crate::FrontEndReport). Roadmap task **T97**.
     ///
     /// **A job and not a setting**, which is
-    /// [ADR 0026](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md):
+    /// [ADR 0026](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md):
     /// the row, the rendered sites and — on Linux — the port-80 grant all have to move together, and
     /// on a machine where nobody grants the honest outcome is that the home **stays on the front end
     /// it had**. That outcome is described rather than left as a home whose sites are rendered for a
@@ -549,7 +549,7 @@ pub mod method {
     /// idle sweep reads the switch, and a service already past its saving policy is stopped by that
     /// sweep, not by this. Off is the default ([ADR 0041]).
     ///
-    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    /// [ADR 0041]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     pub const SERVICE_SET_SAVE_RESOURCES: &str = "service.set_save_resources";
 
     /// Make a database and the account that reaches it, on one running instance. Takes
@@ -631,7 +631,7 @@ pub mod method {
     /// [`MetricsHistory`](crate::MetricsHistory). Roadmap task **T71**.
     ///
     /// **There is no `metrics.subscribe` beside these two**, and the live stream is `GET /metrics`
-    /// rather than a method for [ADR 0009](https://github.com/mixnz/mixengine/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)'s
+    /// rather than a method for [ADR 0009](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0009-logs-travel-on-their-own-stream.md)'s
     /// reason: a JSON-RPC call cannot stream, the event bus is 1024 messages shared by every client,
     /// and a subscription that had to be ended by a second call would keep sampling for a client
     /// that crashed. An open connection is the subscription; closing it is the end of it.

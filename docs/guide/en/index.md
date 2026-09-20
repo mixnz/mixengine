@@ -1,22 +1,22 @@
 +++
-title = "MixEngine"
+title = "MixLab"
 slug = "index"
 order = 1
 summary = "Run PHP, Node, Python, Ruby, Go and Java locally on any version, with real domains and HTTPS, without Docker."
 +++
 
-# MixEngine
+# MixLab
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-MixEngine is a local web development environment. It runs several versions of PHP, Node.js, Python,
+MixLab is a local web development environment. It runs several versions of PHP, Node.js, Python,
 Ruby, Go and Java side by side and lets a directory choose which one it uses; it runs the web
 server, databases and caches your projects need; and it gives every site a real name like
 `https://blog.test` with a certificate your browser trusts. There is no Docker, no virtual machine
-and no configuration file to write by hand — the generated configuration is MixEngine's business,
+and no configuration file to write by hand — the generated configuration is MixLab's business,
 and nothing it runs stays behind as a root process.
 
 It is one daemon and one command. `mixengined` owns everything MixEngine knows and supervises
@@ -26,7 +26,7 @@ for once, together, and by a helper that exits as soon as it is done.
 
 ## Start here
 
-- [Installing MixEngine](./install.md) — the file for your system, and what it does and does not
+- [Installing MixLab](./install.md) — the file for your system, and what it does and does not
   touch.
 - [Your first site](./getting-started.md) — from a fresh install to a green padlock, in about five
   minutes.
@@ -43,9 +43,9 @@ for once, together, and by a helper that exits as soon as it is done.
 - [Blueprints](./blueprints.md) — write down what a project is made of, and set it up again
   elsewhere.
 - [Extensions](./extensions.md) — phpMyAdmin, Mailpit and the rest, from a signed registry.
-- [What MixEngine asks permission for](./permissions.md) — every prompt, and what each one changes.
-- [Keeping MixEngine current](./updating.md) — updates are opt-in, signed, and rehearsed.
-- [Removing MixEngine](./uninstalling.md) — and how to check nothing was left behind.
+- [What MixLab asks permission for](./permissions.md) — every prompt, and what each one changes.
+- [Keeping MixLab current](./updating.md) — updates are opt-in, signed, and rehearsed.
+- [Removing MixLab](./uninstalling.md) — and how to check nothing was left behind.
 - [When something is wrong](./troubleshooting.md) — `mix doctor` first.
 - [Command reference](./cli.md) — every command and flag, generated from the program itself.
 
@@ -59,5 +59,5 @@ Markdown at a predictable address. The same pages are compiled into the `mix` bi
 `mix docs` answers on a machine with no network and no running daemon — which is the state in which
 somebody most often needs to read this.
 
-MixEngine runs on Windows, macOS and Linux, and every page here applies to all three. Where a system
+MixLab runs on Windows, macOS and Linux, and every page here applies to all three. Where a system
 genuinely differs, the page says which one it is talking about.

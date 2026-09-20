@@ -45,10 +45,10 @@ import "./mixengine.css";
 const GATE_POLL_MS = 2000;
 
 /** Trang cài đặt của MixEngine, cho một máy chưa có nó. */
-const INSTALL_PAGE_EN = "https://mixnz.github.io/mixengine/en/install/";
+const INSTALL_PAGE_EN = "https://mixnz.github.io/mixlab/en/install/";
 /** Only languages with a translated install page go here; everything else falls back to English. */
 const INSTALL_PAGE_BY_LANG: Partial<Record<Language, string>> = {
-  vi: "https://mixnz.github.io/mixengine/vi/install/",
+  vi: "https://mixnz.github.io/mixlab/vi/install/",
 };
 
 /**

@@ -1,4 +1,4 @@
-# The user handbook, published at https://mixnz.github.io/mixengine/ — roadmap task T90.
+# The user handbook, published at https://mixnz.github.io/mixlab/ — roadmap task T90.
 #
 # A workflow of its own rather than a job in `ci.yml`, because deploying needs `pages: write` and
 # `id-token: write` and a `github-pages` environment, and `ci.yml` is `contents: read` and should

@@ -22,7 +22,7 @@ mix_require python3
 
 dist="$MIX_OUT/dist"
 tag=""
-repo="mixnz/mixengine"
+repo="mixnz/mixlab"
 version=""
 
 while [ $# -gt 0 ]; do

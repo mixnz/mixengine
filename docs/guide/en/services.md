@@ -7,15 +7,15 @@ summary = "Caddy or Nginx, MariaDB, MySQL, PostgreSQL, Redis and Memcached — i
 
 # Servers, databases and caches
 
-> **This handbook covers MixEngine through the `mix` command line.** If you would rather work in a
-> graphical interface, you already have one: every installer places **MixLab**, MixEngine's desktop
-> application, beside the command line. MixLab drives the same MixEngine, so everything in this
-> handbook still applies.
+> **This handbook covers MixLab through the `mix` command line.** If you would rather work in a
+> graphical interface, you already have one: every installer places the MixLab window beside the
+> command line. Both drive the same MixEngine underneath, so everything in this handbook still
+> applies.
 
-Two words, kept apart the way MixEngine keeps them apart.
+Two words, kept apart the way MixLab keeps them apart.
 
-A **package** is a program MixEngine knows how to run — Caddy, MariaDB, Redis. Installing one puts a
-copy of it in MixEngine's own directory and does nothing else.
+A **package** is a program MixLab knows how to run — Caddy, MariaDB, Redis. Installing one puts a
+copy of it in MixLab's own directory and does nothing else.
 
 A **service** is a running instance of a package: a port, a data directory, a generated
 configuration, a log, and a state. `mariadb@main` and `mariadb@legacy` are two services of one
@@ -35,7 +35,7 @@ package, with different ports, different data and possibly different versions.
 | Memcached | 1.6 | 11211 |
 | MongoDB | 8.x | 27017 — no accounts, so it only ever listens on loopback |
 
-**Nothing arrives by itself.** A fresh MixEngine has no web server until you install one, and
+**Nothing arrives by itself.** A fresh MixLab has no web server until you install one, and
 "default" above means *the one this project recommends when there is a choice*, not *the one that is
 already there*.
 
@@ -69,7 +69,7 @@ Useful flags on `mix service create`:
 
 MariaDB and MySQL want the same port, and so do two instances of either. The rule is one rule:
 **first created, first served**. The first to ask for 3306 gets it; the next gets the first free
-port above. MixEngine reports the port it chose, because a port you did not pick is one you have to
+port above. MixLab reports the port it chose, because a port you did not pick is one you have to
 be told about.
 
 A port you name explicitly is taken at your word, with no allocation at all.
@@ -142,12 +142,12 @@ mix service set-front-end nginx
 before it starts. Pass `--yes` in a script.
 
 **On Linux the new server needs permission to answer on ports 80 and 443**, and that permission
-belongs to the program rather than to MixEngine — so moving to a different program means asking for
+belongs to the program rather than to MixLab — so moving to a different program means asking for
 it again, and a prompt may appear. If nobody allows it, **nothing changes**: you stay on the server
-you were on, MixEngine says so, and `mix elevation grant` followed by the same command finishes the
+you were on, MixLab says so, and `mix elevation grant` followed by the same command finishes the
 job. macOS and Windows need no second permission.
 
-Two things do not travel with the switch, and MixEngine names them rather than dropping them
+Two things do not travel with the switch, and MixLab names them rather than dropping them
 quietly: settings you had overridden — an `nginx.conf` setting means nothing to Caddy — and any
 limits or idle policy you had set on the old server. The old server's data directory is left exactly
 where it was.
@@ -165,10 +165,10 @@ mix database create mariadb@main --name shop --user shop_app
 credential store — Credential Manager on Windows, the Keychain on macOS, the Secret Service on
 Linux — and what is printed is the address it was stored at, as the store's own name and key. That
 is what lets a client tell you *"stored in your credential store as …"* without anybody hardcoding
-MixEngine's naming.
+MixLab's naming.
 
 When a project needs the password itself — most often for a `.env` file — `mix database
-credentials` prints it, and `--password` on `create` lets you choose it instead of letting MixEngine
+credentials` prints it, and `--password` on `create` lets you choose it instead of letting MixLab
 generate one:
 
 ```bash
@@ -179,7 +179,7 @@ mix database create mariadb@main --name shop --user shop-app --password
 Without a value, `--password` prompts and reads one line from standard input, so it also works
 piped: `echo secret | mix database create … --password`. Choosing a password for an account you
 already made changes what is stored, and the server is realigned to it the same way it already is
-when a password drifts — but an account already on the server that MixEngine holds no credential for
+when a password drifts — but an account already on the server that MixLab holds no credential for
 is still refused, even with the correct password: knowing a password is not what makes it yours.
 
 To open the database in a desktop client:
@@ -190,7 +190,7 @@ mix database open mariadb@main     # open it
 ```
 
 `client` reads only: it starts nothing and opens nothing, and *"no client installed"* is an answer
-rather than a failure — it names where MixEngine looked and where to get one.
+rather than a failure — it names where MixLab looked and where to get one.
 
 `open` starts the instance if it is stopped, reads the password from the credential store **at that
 moment**, and hands it to the client in that process's own environment. It is never printed, never
@@ -209,7 +209,7 @@ not only the ones you name** — `set --cpu 50` clears a memory ceiling that was
 all three fields of the result, and a cleared limit is on your screen rather than a surprise. What
 your operating system will actually enforce differs, and the answer says which of the two you have:
 a **hard** ceiling is a wall — at it, the service is killed or its next allocation fails — while an
-**advisory** one is a watched line the service may cross, after which MixEngine warns and, where the
+**advisory** one is a watched line the service may cross, after which MixLab warns and, where the
 recipe permits, restarts. A control drawn as a guarantee when it is advisory would be a lie about
 your data.
 
@@ -224,7 +224,7 @@ The web server itself is never stopped for being idle, and it starts with MixEng
 
 ## The generated configuration
 
-MixEngine writes the configuration for every service it runs, out of what it knows. Those files are
+MixLab writes the configuration for every service it runs, out of what it knows. Those files are
 disposable — they are regenerated, never read back — so there is nothing there for you to edit and
-nothing to keep in sync. If a setting you need has no flag, that is a gap in MixEngine rather than
+nothing to keep in sync. If a setting you need has no flag, that is a gap in MixLab rather than
 an invitation to edit the file.

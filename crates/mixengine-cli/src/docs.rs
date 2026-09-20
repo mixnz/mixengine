@@ -73,7 +73,7 @@ pub(crate) fn topics(locale: Locale) -> String {
         .unwrap_or_default();
 
     let mut out = format!(
-        "The MixEngine handbook, version {VERSION}, in {}.\n\n",
+        "The MixLab handbook, version {VERSION}, in {}.\n\n",
         locale.native_name()
     );
     for subject in pages(locale) {
@@ -116,13 +116,13 @@ pub(crate) fn reference(command: &clap::Command) -> String {
     // The same box every other page of the handbook opens with. Fixed text rather than a read of
     // the corpus, which keeps the generation non-circular — see the doc comment above.
     out.push_str(
-        "> **This handbook covers MixEngine through the `mix` command line.** If you would rather \
+        "> **This handbook covers MixLab through the `mix` command line.** If you would rather \
          work in a\n\
-         > graphical interface, you already have one: every installer places **MixLab**, \
-         MixEngine's desktop\n\
-         > application, beside the command line. MixLab drives the same MixEngine, so everything \
-         in this\n\
-         > handbook still applies.\n\n",
+         > graphical interface, you already have one: every installer places the MixLab window \
+         beside the\n\
+         > command line. Both drive the same MixEngine underneath, so everything in this handbook \
+         still\n\
+         > applies.\n\n",
     );
     out.push_str(&format!(
         "Every command `mix` accepts, in version {VERSION}. This page is **generated** from the\n\

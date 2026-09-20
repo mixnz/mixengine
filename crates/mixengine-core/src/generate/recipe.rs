@@ -1094,7 +1094,7 @@ pub trait Recipe: std::fmt::Debug + Send + Sync {
     /// from *somebody said no*, and so a recipe for a program that should idle regardless has a
     /// place to say so. None does.
     ///
-    /// [ADR 0041]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
+    /// [ADR 0041]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     fn idle_default(&self) -> Option<mixengine_proto::Millis> {
         None
     }

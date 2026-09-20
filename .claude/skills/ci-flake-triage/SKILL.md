@@ -15,7 +15,7 @@ then threw away.
 
 ```bash
 gh run view <run> --json jobs --jq '.jobs[] | select(.conclusion == "failure") | "\(.name)\t\(.databaseId)"'
-gh api --allow-escape-sequences repos/mixnz/mixengine/actions/jobs/<id>/logs \
+gh api --allow-escape-sequences repos/mixnz/mixlab/actions/jobs/<id>/logs \
   | sed 's/\x1b\[[0-9;]*m//g' > /tmp/job.log
 ```
 

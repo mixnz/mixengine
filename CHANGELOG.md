@@ -79,6 +79,11 @@
 - MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
+- The product is called MixLab, and MixEngine is the engine inside it: one download still gives you
+  both, and MixEngine on its own remains the headless archive for a machine with no screen. The
+  handbook moved to `https://mixnz.github.io/mixlab/` and the old address stops answering. Nothing
+  you type changed — `mix`, `mixengined` and `MIXENGINE_HOME` keep their names, and an existing
+  install keeps updating.
 - MixLab is set in Geist, with a new colour scheme for its light and dark themes and mint as the
   default accent; the System theme now follows the operating system as it switches.
 - The Liquid glass appearance setting is gone.

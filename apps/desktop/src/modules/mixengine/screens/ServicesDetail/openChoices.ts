@@ -41,7 +41,7 @@ export function openChoices(client: DesktopClient, builtInVisible: boolean): Ope
  * Vắng mặt cũng là không, theo luật [ADR 0019]: `protocol` là member tuỳ chọn, và vắng nghĩa là
  * daemon này cũ hơn member đó — không phải "không xác định được".
  *
- * [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md
+ * [ADR 0019]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md
  */
 export function opensADatabase(report: Partial<Pick<DatabaseClientReport, "protocol">>): boolean {
   return report.protocol !== null && report.protocol !== undefined;
@@ -54,7 +54,7 @@ export function opensADatabase(report: Partial<Pick<DatabaseClientReport, "proto
  * tạo database kiểu này, nên form ở đó chỉ có thể bị từ chối. Vắng mặt nghĩa là daemon cũ hơn member
  * đó ([ADR 0019]) — giữ form như trước.
  *
- * [ADR 0019]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md
+ * [ADR 0019]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0019-an-added-response-member-is-optional.md
  */
 export function createsDatabases(
   report: Partial<Pick<DatabaseClientReport, "creates_databases">>,

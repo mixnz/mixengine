@@ -489,7 +489,7 @@ impl PhpFpm {
 /// the edge with it, which is what keeps `ServiceGraph::new` able to build.
 ///
 /// [`Credential`]: crate::extensions::pools::Credential
-/// [ADR 0006]: https://github.com/mixnz/mixengine/blob/master/docs/decisions/0006-servicespec-in-proto-and-secret-free.md
+/// [ADR 0006]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0006-servicespec-in-proto-and-secret-free.md
 fn with_credential(builder: ServiceSpecBuilder, context: &Context) -> ServiceSpecBuilder {
     match context.credential() {
         Some(credential) => builder

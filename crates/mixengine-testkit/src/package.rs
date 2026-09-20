@@ -428,7 +428,7 @@ impl Packed {
     /// a decompressor. There is no [`FakePackage`] behind this because there is nothing to pack:
     /// the bytes served *are* the artifact.
     ///
-    /// [`Installer`]: https://github.com/mixnz/mixengine/blob/master/crates/mixengine-core/src/install.rs
+    /// [`Installer`]: https://github.com/mixnz/mixlab/blob/master/crates/mixengine-core/src/install.rs
     #[must_use]
     pub fn one_file(file_name: &str, contents: &[u8]) -> Self {
         Self {
