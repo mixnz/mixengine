@@ -20,8 +20,32 @@ export const SCHEMA = [
      verified             INTEGER NOT NULL DEFAULT 0,
      created_at           INTEGER NOT NULL,
      next_seq             INTEGER NOT NULL DEFAULT 0,
-     stored_bytes         INTEGER NOT NULL DEFAULT 0
+     stored_bytes         INTEGER NOT NULL DEFAULT 0,
+     reaped_below_seq     INTEGER NOT NULL DEFAULT 0
    )`,
+
+  // The record table of D3. The primary key is the pair a record is addressed by, and both halves
+  // are opaque: 32 bytes of keyed hash each, so this table can be read end to end without learning
+  // what kind of thing any row is.
+  //
+  // `bytes` is what the quota counts, kept on the row so that the sum is a column rather than a
+  // walk. `written_at` is when the row arrived and is what reaping reads — never `updated_at`,
+  // which is the client's clock and is not the server's to trust (D1).
+  `CREATE TABLE IF NOT EXISTS record (
+     collection  TEXT    NOT NULL,
+     id          TEXT    NOT NULL,
+     version     INTEGER NOT NULL,
+     seq         INTEGER NOT NULL,
+     updated_at  INTEGER NOT NULL,
+     deleted     INTEGER NOT NULL DEFAULT 0,
+     nonce       TEXT,
+     ciphertext  TEXT,
+     bytes       INTEGER NOT NULL DEFAULT 0,
+     written_at  INTEGER NOT NULL,
+     PRIMARY KEY (collection, id)
+   )`,
+  // What `since` reads, and the order every answer is in.
+  `CREATE INDEX IF NOT EXISTS record_by_seq ON record (seq)`,
 
   `CREATE TABLE IF NOT EXISTS device (
      id            TEXT    PRIMARY KEY,
@@ -74,6 +98,20 @@ export interface AccountRow extends Record<string, SqlStorageValue> {
   created_at: number;
   next_seq: number;
   stored_bytes: number;
+  reaped_below_seq: number;
+}
+
+export interface RecordRow extends Record<string, SqlStorageValue> {
+  collection: string;
+  id: string;
+  version: number;
+  seq: number;
+  updated_at: number;
+  deleted: number;
+  nonce: string | null;
+  ciphertext: string | null;
+  bytes: number;
+  written_at: number;
 }
 
 export interface DeviceRow extends Record<string, SqlStorageValue> {

@@ -18,7 +18,12 @@ describe("the per-account quota", () => {
 
     const { session } = await signedUp();
     const collection = opaqueId();
-    const chunk = Math.min(256 * 1024, Math.floor(limits.accountQuotaBytes / 4));
+    // Under the largest record the server takes, and small enough that the account fills in a
+    // sensible number of writes rather than in one.
+    const chunk = Math.min(
+      Math.floor(limits.maxRecordBytes / 2),
+      Math.max(1024, Math.floor(limits.accountQuotaBytes / 8)),
+    );
 
     let refusal: Awaited<ReturnType<typeof put>> | undefined;
     for (let written = 0; written <= limits.accountQuotaBytes + chunk; written += chunk) {
