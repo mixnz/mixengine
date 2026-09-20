@@ -191,7 +191,8 @@ whatever this repository's layout is. A change to `/v1` is a new path, not an ed
 | `PUT` | `/v1/records/{c}/{id}` | `If-Match: {version}`, or `If-None-Match: *` to create |
 | `DELETE` | `/v1/records/{c}/{id}` | writes a tombstone; `If-Match` applies |
 | `POST` | `/v1/records/batch` | many of the above in one round trip, each with its own outcome |
-| `GET` `POST` | `/v1/account/relocation` | read, and set, whether this account still lives here (D4b) |
+| `GET` `POST` | `/v1/account/freeze` | read, and set, whether this account is holding still for a copy (D4b) |
+| `POST` | `/v1/account/delete` | current `A`; removes the account and every record with it (D4b) |
 
 **`/v1/capabilities` is what stops a limit from becoming a release.** A client that assumes the
 largest record or the size of a batch has to be updated in step with every server that disagrees,
@@ -301,6 +302,7 @@ account at all.
   "maxPageRecords": 500,
   "accountQuotaBytes": 20971520,
   "tombstoneRetentionDays": 90,
+  "closingOn": null,
   "features": []
 }
 ```
@@ -313,6 +315,29 @@ server. A client must run against an empty list forever.
 not what batching is for — so without a third figure a client can compose a request that every
 limit says is legal and the server refuses at the door. It is the size of the whole encoded body,
 and a client chunks by whichever of the three binds first.
+
+**`closingOn` is how a server says it will not be here for ever.** It is a Unix timestamp in
+seconds, or `null`, which is what almost every server answers and what an unconfigured one always
+answers. A server that names a date is telling clients the operator intends to switch it off then,
+so that a person has warning enough to copy the account somewhere else (D4b) instead of finding out
+on the day.
+
+**Nothing enforces it.** The server does not refuse a write after the date, does not freeze, and
+does not change any other answer; the date passing is not an event in the protocol at all. It is a
+notice, and treating it as a deadline in code would turn an operator's estimate into an outage —
+including for the operator, who may be running late and would rather the thing kept working.
+Operators move dates, and a server that had already locked itself could not.
+
+**It is a timestamp and not a sentence, and carries no link.** MixLab renders the date in the
+person's own language and calendar, which it cannot do with prose the server composed; the same
+reason `code` exists on every failure rather than a translated `message` (D4a). And a server that
+could hand a client a URL to show would be the phishing surface D4b spends a section refusing —
+*where to go next* is not a thing the old server gets to say. An operator with more to explain than
+a date explains it the way they already reach their people.
+
+**It answers on a route that needs no account**, so a person who has never signed in, or who cannot
+sign in any more, still sees it. A client reads this route before every sync, so the notice arrives
+without anything having to remember to ask for it.
 
 ### Every code a client can meet
 
@@ -350,10 +375,7 @@ where a client can only ever say *"something went wrong, and it is our bug"*, on
 | `cursor-expired` | 410 | | Away too long; start again from empty (D3) |
 | `too-many-requests` | 429 | `retryAfter` | This network has asked too often; try again in so many seconds |
 | `too-many-attempts` | 429 | `retryAfter` | Too many tries on this account. A different sentence, and a different thing to be told |
-| `account-frozen` | 423 | | The account is being moved and cannot change (D4b) |
-| `account-moved` | 410 | `home` | It lives on another server now (D4b) |
-| `must-freeze-first` | 409 | | A client bug (D4b) |
-| `relocation-not-configured` | 409 | | This server has nowhere to send an account (D4b) |
+| `account-frozen` | 423 | | A copy is under way; nothing may change until it ends (D4b) |
 | `letter-not-sent` | 502 | | The confirmation letter could not be sent, so no account was made |
 | `server-misconfigured` | 503 | `missing` | This deployment is not finished. For whoever runs it |
 | `server-error` | 500 | | Something went wrong there |
@@ -642,16 +664,21 @@ and both implementations, and a seam nobody specified is a seam that differs.
    with a wrong clock is a client problem, and a server that enforced monotonic clocks would be
    unable to accept a legitimate write from a machine that had just fixed its own.
 
-## D4b. Moving an account to another server
+## D4b. Copying an account to another server, and deleting one
 
-**This is in `/v1` from the first commit, and that is the only reason it can ever be used.** `/v1`
-is frozen and a server somebody else runs does not update when this document does (D9, R4), so a
-client that meets an answer it does not understand stops syncing with a strange error. A way for a
-server to say *"this account is not here any more"* added later would only work for clients written
-after it — which is exactly the population that does not need it. Migration is hypothetical; the
-place to say it is not.
+**Both are in `/v1` from the first commit, and that is the only reason either can ever be used.**
+`/v1` is frozen and a server somebody else runs does not update when this document does (D9, R4), so
+a client that meets an answer it does not understand stops syncing with a strange error. A way to
+say *"hold still, I am copying"* added later would only work for clients written after it — which is
+exactly the population that does not need it. Moving servers is hypothetical; the place to say so is
+not.
 
-**The client moves the account, and the server is told.** Nothing here asks a server to export
+**There is no *move* in this protocol.** There is a copy, which the client performs with the
+ordinary read and write routes, and there is a deletion. A move is the two of them in order, and a
+backup is the first one on its own. Neither operation knows about the other, and the server never
+learns that a move is what it was taking part in.
+
+**The client copies; the server is only asked to hold still.** Nothing here asks a server to export
 anything, and nothing asks it to enumerate its accounts — which it cannot do, because addressing by
 `account_key` is what this design has instead of an index (D8). The machine that already holds the
 data is the one that carries it across.
@@ -662,25 +689,23 @@ the other side: the opaque ids and the ciphertexts are identical bytes, and the 
 opens the account. Nothing is re-encrypted, and the peppers of the two servers never have to match,
 because each one keys its own verifier.
 
-### Three states
+### Two states
 
 | State | Reads | Writes | What it means |
 | --- | --- | --- | --- |
-| `active` | yes | yes | The normal state. Nothing has moved |
-| `frozen` | yes | **no** | A move is under way. The client is copying; nothing may change under it |
-| `retired` | no | no | The account lives somewhere else now, and this server says where |
+| `active` | yes | yes | The normal state |
+| `frozen` | yes | **no** | A copy is under way, and nothing may change under it |
 
-`GET /v1/account/relocation` answers
-`{"state": …, "home": "<endpoint id>" | null, "frozenUntil": <seconds> | null}`.
-`POST` takes `{"state": …}` and moves between them. Both need an access token, and **`GET` answers
-in every state**, including `retired` — a machine that meets a refusal has to be able to find out
-why.
+`GET /v1/account/freeze` answers `{"state": …, "frozenUntil": <seconds> | null}`. `POST` takes
+`{"state": "active" | "frozen"}` and moves between them. Both need an access token, and **`GET`
+answers in both states** — a machine that meets a refusal has to be able to find out why.
 
-- `active` → `frozen`, and `frozen` → `active`. **Thawing has to exist**: a copy that fails halfway
-  must not leave an account nobody can write to.
-- `frozen` → `retired`. **`active` → `retired` is refused**, with `409 must-freeze-first`.
-- `retired` is terminal, and it deletes every record here. What stays is the signpost: the
-  `account_key`, the address, the verifier and `salt_account`.
+**Thawing is a route, not a timeout.** Posting `active` is how a client ends a copy it has finished
+and how it abandons one it has given up on; the lease below is the safety net for the client that
+can no longer post anything at all, not the normal way out.
+
+Reads stay open while frozen because **the copy is a read**: the machine doing the work needs the
+same route any machine uses, and a second machine that wants to take over needs it too.
 
 ### The freeze is a lease, and that is the whole answer to the interesting failure
 
@@ -702,14 +727,9 @@ it is correct whether the previous attempt copied nothing, half, or everything. 
 progress to record and nothing to reconcile.
 
 **Any machine can take over, or give up.** A second machine that meets `423` reads
-`GET /v1/account/relocation`, sees `frozen`, and either continues the copy — it can read everything
-from the old server, which is still readable — or posts `active` and abandons the move. What it
-must not do is guess.
-
-**Retire only after the copy has been checked**, because retiring deletes. The client compares what
-the new server holds against what the old one still shows before it takes the last step, and if
-they disagree it thaws instead. A server cannot enforce this; it is written here because it is the
-one place where the client can destroy something.
+`GET /v1/account/freeze`, sees `frozen`, and either continues the copy — it can read everything from
+this server, which is still readable — or posts `active` and abandons it. What it must not do is
+guess.
 
 **Freeze first, then copy — not copy, then freeze.** With the other order there is a window between
 the last record the client reads and the moment the account stops accepting writes, and anything a
@@ -717,58 +737,120 @@ the last record the client reads and the moment the account stops accepting writ
 be reconciled afterwards either, because their `seq` counters are independent. The cost of the
 right order is a short read-only period, which a local-first application does not show anybody.
 
-### What a moved account answers
+**While frozen, any mutation** — a record, a batch, a password change — answers **`423 Locked`**,
+code `account-frozen`. Sessions are untouched.
 
-- Every authenticated route: **`410 Gone`**, code `account-moved`, with `home`. Retirement is
-  permanent, which is what `410` says.
+### Where the copy goes is the client's business, and cannot be the server's
 
-  **`421 Misdirected Request` reads better and was tried first.** Its prose is exactly this case —
-  *this server cannot answer for this authority; ask another* — but RFC 9110 lets a client retry a
-  `421` **on a different connection**, and real clients do: Node's `fetch` retried, found the body
-  already sent, and failed the request with a content-length mismatch instead of surfacing the
-  answer. A status whose meaning is *retry elsewhere at the transport level* is the wrong vehicle
-  for *this account is at a different service*. `server/conformance/` found this, on a reused
-  keep-alive connection, which is where it would have found MixLab too.
+**The destination is a thing a person typed.** Somebody on the hosted instance who wants their own
+box types its address into MixLab; somebody with two boxes of their own picks one. The old server is
+not a party to that decision and has no way to be: a hosted instance serving many people cannot hold
+a setting naming each of their private machines, and if it held one it would name the same
+destination for everybody.
 
-  `410` is also what `cursor-expired` uses. That is fine and is what the `code` is for: a client
-  switches on the code, and the status is only the class of answer.
-- `POST /v1/auth/login`: `410` **only after the verifier matches**. A wrong password still gets
-  `401`. Otherwise a fresh install could ask *"where does this address live"* without proving
-  anything, and that is a cheaper enumeration oracle than the `409` registration already admits to.
-- `POST /v1/auth/register` on the address: `409 email-taken`, unchanged. Registration proves
-  nothing, so it learns nothing new.
-- While `frozen`, any mutation — a record, a batch, a password change — answers **`423 Locked`**,
-  code `account-frozen`. Reads and sessions are untouched, because the client needs both to do the
-  copying.
+**An earlier draft of this section had the old server name the new one**, as a short symbolic id the
+client resolved against the list of servers it already ships, so that a client arriving at the old
+address could be forwarded. It does not work, and the reason is worth keeping:
 
-### `home` names an endpoint, and never a URL
+- A client that already knows the new server **does not need to be told** — it would have gone there
+  anyway, because knowing it is what shipping the list means.
+- A client that does not know it **cannot resolve the id**, because the id is only meaningful
+  against a list built after the new server existed.
 
-`home` is a short symbolic id, and the client resolves it against the list of servers **it already
-ships**. It is not an address the server supplies.
+The forwarding is therefore readable exactly when it is redundant and unreadable exactly when it is
+needed. Letting the id be a URL instead would fix the resolution and open something worse: a server
+that can send a client to an arbitrary address is a phishing primitive, because the destination
+learns `A`, which is the login verifier, and `A` is the same value on every server since it comes
+from the password. It could not read a record — it has no `MK` — but it would not need to.
 
-A server that could send a client to an arbitrary URL is a phishing primitive: the destination
-learns `A`, which is the login verifier, and `A` is the same value on every server because it comes
-from the password. It could not read a record — it has no `MK` — but it would not need to. Letting
-the old server choose only *which of the destinations you already trust* costs nothing and closes
-that.
+So nothing is forwarded, and **each machine is pointed at the new server by the person, once,** the
+same way the first one was (D8). That is a real cost and it is the right one: the alternative is a
+mechanism that works only in the case where it is not needed.
 
-The consequence is that **this is for the default instance**. Somebody self-hosting who moves their
-own server tells their own users, the way they already choose the address in the first place (D8);
-a symbolic id would mean nothing to a client that has never heard of them. `home` is `null` until
-a deployment is configured with one, and `frozen` → `retired` is refused while it is, with
-`409 relocation-not-configured` — so no client can strand an account somewhere with nowhere to go.
+**What an old server does contribute is a date.** `closingOn` in `/v1/capabilities` (D4a) is the
+whole of it: an operator who intends to switch the server off says when, every client reads it
+before every sync, and a person has warning enough to copy the account somewhere while the server
+is still there to copy from. It says when, never where, because where is the one thing it cannot
+know.
+
+### Deleting an account
+
+| Route | Body in | Out | Refuses with |
+| --- | --- | --- | --- |
+| `POST /v1/account/delete` | `a` | `200`, `{recordsDeleted: 214}` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+
+**It re-proves the password, and the session is not enough.** A borrowed unlocked machine already
+holds a valid access token; asking for `A` means the person deleting the account is the person who
+knows the password, not whoever is sitting at the desk. It is the same check
+`POST /v1/auth/password` makes, and a wrong `A` is counted against the same per-account window as a
+login, so the route cannot become a password oracle.
+
+**A confirmation letter would add nothing.** Anybody who can call this can already delete every
+record one at a time through `/v1/records`; the account row is all that survives that, and it holds
+nothing a person would miss. A round trip through email would slow down the one honest case and stop
+nobody. Whether a person is asked *"are you sure"* is a question for the account screen (T177e), not
+for the wire.
+
+**Nothing is kept.** Every record, every device, every refresh token, every access token, every
+attempt counter, and the account row itself. The address is free to register again immediately, and
+**the server is left exactly as it was before the account existed** — no tombstone, no row saying
+this address was once here. Keeping one would be keeping the single fact D1 promises a server does
+not accumulate.
+
+On the Worker this is the Durable Object deleting all of its storage, after which the object has
+nothing left and stops existing. Because it is addressed by `idFromName(account_key)`, registering
+the same address again arrives at the same object, which is now empty — the name is genuinely free.
+
+**Deleting a frozen account is allowed.** It is the person's data, and whatever a copy has already
+carried across belongs to them too. Afterwards every token on every machine is gone, so the next
+request from any of them answers `401 invalid-token`. There is no code meaning *this account was
+deleted*: the account is not there, and a server that could tell the difference would be keeping the
+row this route exists to remove.
+
+### A move is a copy, and then a deletion
+
+1. `POST /v1/account/freeze` with `frozen` on the old server.
+2. `GET /v1/records?since=0`, paged to the end. **The ordinary read route.**
+3. Register on the new server with the same `salt_account` and the same wrapped keys, and confirm
+   the address there — the new server sends its own letter and will not take the old one's word.
+4. `POST /v1/records/batch`, with `If-None-Match: *`. **The ordinary write route.**
+5. Compare what the new server holds against what the old one still shows, then either
+   `POST /v1/account/delete` on the old one, or post `active` to thaw it.
+
+**There is no export route and no import route**, and steps 2 and 4 are why: a copy is the paged
+read and the batch write a client already performs every day. The server never acquires a way to
+hand out a whole account at once, which is the property D1 would otherwise have to qualify.
+
+**Step 5 is the fork.** Delete, and it was a move. Thaw, and it was a backup, and two independent
+accounts exist from that moment — the same address, the same password, two histories that cannot be
+merged afterwards because `seq` is per-server.
+
+**A copy is not byte-identical, and nothing pretends otherwise.** `version` and `seq` are assigned
+by the server, so on the new one every record is at version 1 and the sequence starts again. A
+machine repointed at the new server resyncs from cursor 0; if it sends an `If-Match` holding a
+version from the old one it meets `409 version-conflict`, which is the correct answer to *your view
+is stale* and costs a re-read rather than a record.
 
 ### What it does not solve
 
-**The old server cannot be switched off.** This moves the data, not the obligation: for as long as
-an old client exists — including an old installer somebody runs again — the old server has to be
-there to answer `421`. Auto-update bounds that, but it does not end it on a date.
+**A machine the person forgets to repoint.** It keeps talking to the old server. If the move ended
+in a deletion, it is signed out at once and the person finds out the same day — which is the
+argument for ending a move that way rather than by thawing. If it ended in a thaw, it goes on
+working, writing into an account that is now a second account, and **nothing anywhere reports an
+error**. That is the cost of two servers not knowing about each other, and it is accepted here
+rather than solved.
 
-**And the client needs `A` to register on the far side**, which is derived from the password it does
-not keep. Either it holds `A` beside `MK` — defensible, since anything that reaches one locally has
+**The client needs `A` to register on the far side**, which is derived from the password it does not
+keep. Either it holds `A` beside `MK` — defensible, since anything that reaches one locally has
 already reached the other — or it asks for the password once and says what it is doing. This
 document does not decide that: it is a decision about the client, and it belongs with the account
 screen in T177e.
+
+**What is no longer a problem.** An earlier draft had the old server forward clients to the new one,
+which meant it could never be switched off: for as long as one old client existed — including an old
+installer somebody runs again — something had to be there to answer. With nothing forwarded, a
+server that has been copied from and deleted from is finished, and the person who ran it can stop
+it.
 
 ## D5. What syncs, and what never does — a client-side catalogue
 
