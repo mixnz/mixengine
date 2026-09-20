@@ -37,6 +37,43 @@ suite can read a verification token:
 MIXLAB_SYNC_TEST_OUTBOX=1 cargo run
 ```
 
+## Pulling it instead of building it
+
+```bash
+docker pull ghcr.io/mixnz/mixlab-sync-server:latest
+```
+
+```yaml
+services:
+  sync:
+    image: ghcr.io/mixnz/mixlab-sync-server:latest
+    restart: unless-stopped
+    ports: ["8080:8080"]
+    volumes: ["mixlab-sync:/data"]
+    environment:
+      MIXLAB_SYNC_PEPPER: "…"              # 32 random bytes, base64
+      MIXLAB_SYNC_EMAIL_API_KEY: "…"
+      MIXLAB_SYNC_EMAIL_FROM: "noreply@example.com"
+      MIXLAB_SYNC_PUBLIC_URL: "https://sync.example.com"
+volumes:
+  mixlab-sync:
+```
+
+The image follows `master` and carries two tags: `latest`, and `sha-<short>` for anyone who wants a
+fixed target to pin. **It is deliberately not attached to a release tag** — giving the server a
+versioned-artifact lifecycle is the one thing
+[ADR 0046](../../docs/decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) names as
+a reason to split it back into a repository of its own, and following `master` is also what keeps a
+self-hosted instance and the default one on the same generation of `/v1`.
+
+**Nothing in the hosted path is a container.** The default instance is the Worker, built by
+Cloudflare from `../worker/`. This image exists for the row of D8's table that is run on a machine
+of somebody's choosing, and nowhere else.
+
+Put a reverse proxy with TLS in front of it and set `MIXLAB_SYNC_PUBLIC_URL` to what the proxy
+answers on: that string is what the verification link in the letter points at, and a link to
+`http://0.0.0.0:8080` helps nobody.
+
 ## Configuration
 
 | Name | What it is |

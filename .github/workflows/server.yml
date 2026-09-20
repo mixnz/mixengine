@@ -76,6 +76,7 @@ jobs:
         run: |
           nohup npx wrangler dev --env conformance --port 8787 --ip 127.0.0.1 \
             > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+            > "$RUNNER_TEMP/wrangler.log" 2>&1 &
           # A readiness poll and not a `sleep`: a fixed wait is either too short on a cold runner
           # or wasted on a warm one, and it fails as a timeout rather than as a refused connection.
           for _ in $(seq 60); do
@@ -249,3 +250,84 @@ jobs:
         run: |
           cat "$RUNNER_TEMP/native.log" || true
           cat "$RUNNER_TEMP/reaper-native.log" || true
+
+  # The image, and only from `master`. **Nothing in the hosted path is a container**: the default
+  # instance is the Worker, which Cloudflare builds from `server/worker/`. This is a distribution
+  # format for the second implementation, for somebody self-hosting who would rather pull than
+  # compile, and it is published to this repository's own Packages.
+  #
+  # A branch neither builds nor publishes one — Docker is not part of the development loop here,
+  # and `native` above runs the binary directly.
+  image:
+    name: image
+    if: github.ref == 'refs/heads/master'
+    needs: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # At the job, so the rest of this workflow stays `contents: read`.
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/conformance/package-lock.json
+
+      - name: Build
+        working-directory: server/native
+        run: docker build --tag mixlab-sync:candidate .
+
+      # What is published is what was tested. The suite runs against the container rather than
+      # against a binary that happens to share its source.
+      - name: Start the container, and wait for it to answer
+        run: |
+          docker run --detach --name candidate \
+            --publish 127.0.0.1:8080:8080 \
+            --env MIXLAB_SYNC_TEST_OUTBOX=1 \
+            --env MIXLAB_SYNC_MAX_RECORD_BYTES=65536 \
+            --env MIXLAB_SYNC_MAX_BATCH_OPERATIONS=25 \
+            --env MIXLAB_SYNC_MAX_PAGE_RECORDS=10 \
+            --env MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES=1048576 \
+            --env MIXLAB_SYNC_REGISTRATIONS_PER_HOUR=100000 \
+            --env MIXLAB_SYNC_RESETS_PER_HOUR=100000 \
+            mixlab-sync:candidate
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8080/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the container never answered on 127.0.0.1:8080"
+          docker logs candidate || true
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8080
+        run: |
+          npm ci
+          npm test
+
+      - name: The container's log
+        if: failure()
+        run: docker logs candidate || true
+
+      # Only now, and only because the suite was green against this exact image.
+      - name: Publish
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}/mixlab-sync-server
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          short="$(git rev-parse --short HEAD)"
+          docker tag mixlab-sync:candidate "$REGISTRY:latest"
+          docker tag mixlab-sync:candidate "$REGISTRY:sha-$short"
+          docker push "$REGISTRY:latest"
+          docker push "$REGISTRY:sha-$short"
+          echo "published $REGISTRY:sha-$short"
