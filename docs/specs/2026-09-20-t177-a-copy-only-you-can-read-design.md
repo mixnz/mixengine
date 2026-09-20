@@ -326,18 +326,61 @@ instructions — which is why it exists from the start. The bottom row is the on
 work, and it is the only one that answers somebody whose objection to a hosted service *is*
 Cloudflare.
 
-### One platform detail to confirm before building
+### What the free tier holds, and what that decides
 
-This design leans on Durable Objects with the SQLite storage backend being reachable without a paid
-plan. That is the understanding it was written against, and it is exactly the kind of platform
-detail that moves — **so read Cloudflare's current pricing before the first line, rather than
-trusting this paragraph.**
+Durable Objects with the SQLite backend are reachable on the free plan. **Read off Cloudflare's
+pricing page on 2026-09-20: 100,000 requests a day and 13,000 GB-s of duration a day.** The storage
+row was not read, so every figure about stored bytes below is an assumption carried from hearsay and
+is marked as one. Should the free tier ever stop
+being true, the fallback is **D1**: still SQLite, still free, but the serialization that made this
+design easy is gone — `seq` and the compare-and-swap would then need a written transaction instead
+of a guarantee, and reaping a Cron Trigger over a shared table instead of an alarm per account. The
+protocol would not change, and a client could not tell the difference.
 
-If it turns out to need a paid plan, the fallback is **D1**: still SQLite, still free, but the
-serialization that made this design easy is gone. `seq` and the compare-and-swap then need a
-written transaction instead of a guarantee, and reaping becomes a Cron Trigger sweeping a shared
-table rather than an alarm per account. More care, the same protocol — `/v1` does not change, and a
-client cannot tell the difference.
+**Duration runs out before requests do.** At 128 MB an object, 13,000 GB-s is about 104,000 seconds
+of object life a day, and an object stays resident for a short while after its last request. So what
+costs money is not how much data moves but **how often a client wakes an object up**: one sync that
+pulls and pushes in a single burst holds one window open, while the same calls scattered through the
+day open a dozen. Three of the four things that follow are therefore rules about **MixLab**, not
+about the server, which is why they are in this design rather than in `mixlab-sync`.
+
+1. **Sync in bursts, never on a poll.** On launch, on a local change after a debounce, on window
+   focus, and a long idle interval. A five-minute poll costs several times what this does and
+   carries no more news.
+2. **Batch.** `/v1/records/batch` is one request whatever it carries — D4 wrote it for the round
+   trips, and this is its second reason.
+3. **`/v1/capabilities` never touches an object.** It needs no account and barely changes: the
+   Worker answers it from configuration and the edge caches it. Routed to a Durable Object it would
+   spend a window every time a client said hello.
+4. **An alarm is scheduled only when there is a tombstone to reap.** Alarm invocations are requests.
+   A daily alarm per account bills for every account that has ever existed rather than for every
+   account in use, and it does it quietly, forever.
+
+**On storage — and this paragraph rests on a number nobody here has checked.** A record is a couple
+of hundred bytes of metadata and its ciphertext; a light account — twenty connections, thirty saved
+requests, some snippets and preferences — is around 150 KB, and a heavy one one or two megabytes, so
+half a megabyte is a fair average. *If* the free allowance is the 5 GB it is commonly said to be,
+that is on the order of 10,000 accounts, with an honest range of 5,000 to 25,000. **The allowance is
+the unknown, not the arithmetic**: read the storage row before anything depends on the answer, and
+if it is smaller, every number here scales with it. The per-account quota exists to bound the worst
+case rather than to promise the average; 20 MB is the number to start from.
+
+**The two ceilings measure different populations**, which is worth knowing whatever the storage
+number turns out to be: storage bounds how many accounts have ever existed, duration bounds how many
+are used on a given day, and a tool like this sees perhaps a tenth to a fifth of its accounts in a
+day. On the assumption above the two land within a factor of one of each other, so neither is wasted
+on the other — but that is a consequence of the unchecked figure, not an argument for it.
+
+**D5's refusal list is what makes any of this arithmetic work**, and here the ratio is the point
+rather than the allowance. Syncing `rest-history.json` would put a hundred response bodies at up to
+256 KB each into one account — twenty-five megabytes a person against half a megabyte, **fifty times
+the storage for every user**, whatever the ceiling is. The reason that file is not in the catalogue
+is that it holds somebody else's production data; the capacity is a second dividend from a decision
+made for another reason entirely.
+
+**These limits are per Cloudflare account**, so somebody who deploys this Worker to their own gets
+the whole allowance for themselves. The middle row of the table above scales without anybody paying
+for it, which is not usually true of a self-hosting story.
 
 **The contract is normative here**, in D2 to D4 of this document. The server repository carries a
 conformance suite written against it that runs against any base URL — in both implementations' CI,
