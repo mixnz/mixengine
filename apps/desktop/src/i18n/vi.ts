@@ -184,6 +184,7 @@ const vi: SharedDict = {
     credentialStoreUnreachable: "Không truy cập được kho mật khẩu của hệ điều hành: {{message}}",
     cannotSavePassword: "Không lưu được mật khẩu: {{message}}",
     cannotReadPassword: "Không đọc lại được mật khẩu đã lưu: {{message}}",
+    syncKeyDerivation: "Không dẫn xuất được khóa đồng bộ: {{message}}",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng
