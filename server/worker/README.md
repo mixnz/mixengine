@@ -55,29 +55,34 @@ D8 for what the free tier holds and the four rules that keep a deployment inside
 
 ## Configuration
 
-| Name | Kind | What it is |
-| --- | --- | --- |
-| `PEPPER` | secret | Keyed into the stored password verifier, so a stolen database is not a list of verifiers |
-| `EMAIL_API_KEY` | secret | The email provider's key. **Which provider is a deployment decision**, and it sits behind one interface in `src/email/` for exactly that reason |
-| `EMAIL_FROM` | var | The address the two letters are sent from |
-| `EMAIL_PROVIDER` | var | `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid`, with **no default** — a key on its own does not say where to send it. They differ in body shape, in the header that carries the key and in what they call the sender — which is why this is a name and not just a URL. **`smtp` is refused by name**: Workers cannot open a socket to port 587, and `server/native/` is the implementation that speaks it |
-| `EMAIL_ENDPOINT` | var | Where to post. Has a default for every provider except `mailtrap` (its URL carries an inbox id) and `mailgun` (a sending domain) |
-| `MAX_RECORD_BYTES` | var | Reported by `/v1/capabilities` |
-| `MAX_BATCH_OPERATIONS` | var | Reported by `/v1/capabilities` |
-| `MAX_BATCH_BYTES` | var | Reported by `/v1/capabilities`, and the largest body this server will read |
-| `MAX_PAGE_RECORDS` | var | Reported by `/v1/capabilities` |
-| `ACCOUNT_QUOTA_BYTES` | var | Reported by `/v1/capabilities` |
-| `TOMBSTONE_RETENTION_DAYS` | var | Reported by `/v1/capabilities` |
-| `REGISTRATIONS_PER_HOUR` | var | How many accounts one source may open in an hour |
-| `RESETS_PER_HOUR` | var | How often one source may ask for a reset letter |
-| `LOGINS_PER_WINDOW` | var | Attempts on one account in fifteen minutes, right or wrong |
-| `VERIFY_ATTEMPTS_PER_WINDOW` | var | Codes tried against one account in fifteen minutes |
-| `PARAMS_PER_HOUR` | var | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
-| `CLOSING_ON` | var | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to copy their account elsewhere (D4b). **Advisory**: nothing refuses a request after it |
-| `ACCESS_TOKEN` | secret | A shared token that closes this deployment to everybody who has not been given it, for somebody running it for their own company. **The hosted instances never set one** |
-| `TEST_OUTBOX` | var | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
+| Name | Kind | Default | What it is |
+| --- | --- | --- | --- |
+| `PEPPER` | secret | **required** | Keyed into the stored password verifier, so a stolen database is not a list of verifiers. **Changing it locks out every existing account** |
+| `EMAIL_API_KEY` | secret | **required** | The email provider's key. **Which provider is a deployment decision**, and it sits behind one interface in `src/email/` for exactly that reason |
+| `EMAIL_FROM` | var | **required** | The address the two letters are sent from |
+| `EMAIL_PROVIDER` | var | **required** | `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid`, with **no default** — a key on its own does not say where to send it. They differ in body shape, in the header that carries the key and in what they call the sender — which is why this is a name and not just a URL. **`smtp` is refused by name**: Workers cannot open a socket to port 587, and `server/native/` is the implementation that speaks it |
+| `EMAIL_ENDPOINT` | var | the provider's own | Where to post. **Required for `mailtrap`** (its URL carries an inbox id) and **`mailgun`** (a sending domain) |
+| `MAX_RECORD_BYTES` | var | `1048576` | Reported by `/v1/capabilities` |
+| `MAX_BATCH_OPERATIONS` | var | `100` | Reported by `/v1/capabilities` |
+| `MAX_BATCH_BYTES` | var | `8388608` | Reported by `/v1/capabilities`, and the largest body this server will read |
+| `MAX_PAGE_RECORDS` | var | `500` | Reported by `/v1/capabilities` |
+| `ACCOUNT_QUOTA_BYTES` | var | `20971520` | Reported by `/v1/capabilities` |
+| `TOMBSTONE_RETENTION_DAYS` | var | `90` | Reported by `/v1/capabilities` |
+| `REGISTRATIONS_PER_HOUR` | var | `10` | How many accounts one source may open in an hour |
+| `RESETS_PER_HOUR` | var | `10` | How often one source may ask for a reset letter |
+| `LOGINS_PER_WINDOW` | var | `20` | Attempts on one account in fifteen minutes, right or wrong |
+| `VERIFY_ATTEMPTS_PER_WINDOW` | var | `10` | Codes tried against one account in fifteen minutes |
+| `PARAMS_PER_HOUR` | var | `200` | How often one source may ask where an address's salt is. Generous: a company behind one address may install on fifty machines in a morning |
+| `AUTH_PER_HOUR` | var | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
+| `CLOSING_ON` | var | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to copy their account elsewhere (D4b). **Advisory**: nothing refuses a request after it |
+| `ACCESS_TOKEN` | secret | none, so open | A shared token that closes this deployment to everybody who has not been given it, for somebody running it for their own company. **The hosted instances never set one** |
+| `TEST_OUTBOX` | var | off | `"1"` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
 
-The five rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
+**Required** means every request answers `503` carrying the missing names, rather than the deploy
+succeeding and the first letter being the thing that fails. A Worker has no startup to refuse at,
+which is why the check runs per request here and `server/native/` refuses to start instead.
+
+The six rate limits are **not** reported by `/v1/capabilities`, unlike every other number here:
 publishing the figure that stops abuse helps only the abuser. The first two are counted per source
 rather than per account — the abuse they answer is opening many accounts, which a counter inside
 one account cannot see — and `src/ratelimit.ts` carries that argument.
