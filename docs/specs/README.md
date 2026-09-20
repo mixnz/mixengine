@@ -147,4 +147,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-19 | [T170 — A test job that scales](2026-09-19-t170-a-test-job-that-scales-design.md) | T170 | implemented |
 | 2026-09-20 | [T171 — A build that fans out](2026-09-20-t171-a-build-that-fans-out-design.md) | T171 | implemented |
 | 2026-09-20 | [T172 — A workflow a person can read](2026-09-20-t172-a-workflow-a-person-can-read-design.md) | T172 | implemented |
-| 2026-09-20 | [T173 — A window that builds in under ten minutes](2026-09-20-t173-a-window-that-builds-in-under-ten-design.md) | T173 | draft |
+| 2026-09-20 | [T173 — A window that builds in under ten minutes](2026-09-20-t173-a-window-that-builds-in-under-ten-design.md) | T173 | approved |

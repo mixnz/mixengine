@@ -1,27 +1,29 @@
 name: Release profile
 description: >-
   How `window`, `binaries` and `build` build, chosen from the ref and written to the step summary.
-  A tag builds exactly as `[profile.release]` says. Any other ref builds without LTO and with 16
-  codegen units (T170h), and any ref other than `master` builds the aarch64 macOS slice alone
-  (T171c). These artifacts are not releases.
+  A tag builds exactly as `[profile.release]` says. Any other ref builds without LTO, with 16
+  codegen units (T170h) and at opt-level 1 (T173a), and any ref other than `master` builds the
+  aarch64 macOS slice alone (T171c). These artifacts are not releases.
 runs:
   using: composite
   steps:
     - shell: bash
       run: |
-        # **A branch builds without LTO (T170h).** `lto = "thin"` and `codegen-units = 1` make the
-        # binary a user gets smaller and faster, and they are the slowest settings cargo has. A
-        # branch's `build` proves that every artifact packages, installs and is probed, which does
-        # not depend on LTO, and only a tag run feeds `release`, so an LTO-only bug is found by the
-        # tag run the release checklist requires to be green. `MIXENGINE_RELEASE`, `crt-static` and
-        # the strip setting are untouched: they are what makes an artifact a release.
-        # `packaging/common.sh` forwards both variables into the manylinux container.
+        # **A branch builds without LTO (T170h) and at opt-level 1 (T173a).** `lto = "thin"`,
+        # `codegen-units = 1` and `opt-level = 3` make the binary a user gets smaller and faster,
+        # and they are the slowest settings cargo has. A branch's `build` proves that every artifact
+        # packages, installs and is probed, which depends on none of the three, and only a tag run
+        # feeds `release` — so a bug that needs the real profile is found by the tag run the release
+        # checklist requires to be green. `MIXENGINE_RELEASE`, `crt-static` and the strip setting are
+        # untouched: they are what makes an artifact a release. `packaging/common.sh` forwards all
+        # three variables into the manylinux container.
         if [[ "$GITHUB_REF" == refs/tags/* ]]; then
           echo "Profile: Cargo.toml's [profile.release], unchanged (a tag)." | tee -a "$GITHUB_STEP_SUMMARY"
         else
           echo "CARGO_PROFILE_RELEASE_LTO=false" >> "$GITHUB_ENV"
           echo "CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16" >> "$GITHUB_ENV"
-          echo "Profile: [profile.release] without LTO, 16 codegen units (a branch, T170h). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "CARGO_PROFILE_RELEASE_OPT_LEVEL=1" >> "$GITHUB_ENV"
+          echo "Profile: [profile.release] without LTO, 16 codegen units, opt-level 1 (a branch, T170h/T173a). These artifacts are not releases." | tee -a "$GITHUB_STEP_SUMMARY"
           # T171c: `master` stays universal, so every merge proves `lipo` and the x86_64 release
           # build before a tag does; any other branch builds `aarch64` and checks x86_64.
           if [ "$GITHUB_REF" != "refs/heads/master" ]; then
