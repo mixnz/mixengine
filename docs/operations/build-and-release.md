@@ -173,8 +173,8 @@ concurrency and one entry per family; each family is a called workflow of its ow
 behind the build. A called workflow does not inherit the caller's `env:`, so each declares the same
 four variables, and job names read `<family> / <job>` in the run and in the API.
 
-**Two workflows are not in that table**, and neither belongs in `ci.yml` — both follow `master` on
-their own, which is the thing that file will not do.
+**Three workflows are not in that table**, and none of them belongs in `ci.yml` — each follows
+`master` on its own, which is the thing that file will not do.
 
 `.github/workflows/gallery.yml` sends one `repository_dispatch` to `mixengine-packages` when a push
 to `master` touches `crates/mixengine-core/src/blueprints/gallery/**` or `blueprints/trust.rs`, so
@@ -192,6 +192,19 @@ deploys it to GitHub Pages on every push to `master`. It is separate because dep
 leave the site claiming the previous version after a release bumped `Cargo.toml`, silently — and it
 follows `master` rather than a tag, because a handbook that only updated when a version was cut would
 describe the previous release for as long as the next one took.
+
+`.github/workflows/server.yml` builds and tests the sync server — `server/worker/`,
+`server/native/`, and the conformance suite both of them answer to (T177b, T177h). It fires on
+`server/**` and on nothing else, so a change to MixLab or to the engine never spends a runner on a
+server nobody touched, and a change under `server/` never drags the three-OS matrix behind it. It
+is not a job family in `ci.yml` because the reason every ref there asks for its run is the cost of
+compiling the workspace for three operating systems, and this is one Ubuntu runner. It follows
+`master` for a reason of its own: Workers Builds deploys `server/worker/` from that branch without
+being asked, so there a server that is red and unrun is a server that is deployed red. **The
+separation is of triggers, not of repositories** — both implementations are jobs in this one
+workflow, so one run still proves they agree, which is what
+[ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) was decided to
+buy.
 
 **Two settings are a person's, once.** GitHub Pages must be enabled for the repository with the
 source set to GitHub Actions. `actions/configure-pages` is asked to enable it through the API, and

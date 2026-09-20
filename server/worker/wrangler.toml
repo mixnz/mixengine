@@ -1,0 +1,52 @@
+name = "mixlab-sync"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# One Durable Object per account (D8). The class is bound once; which object a request reaches is
+# `idFromName(hex(SHA-256(lowercased address)))`, which is what this design has instead of an index.
+[[durable_objects.bindings]]
+name = "ACCOUNT"
+class_name = "Account"
+
+# **`new_sqlite_classes`, not `new_classes`.** Durable Objects are reachable on the free plan only
+# with the SQLite storage backend, and that backend is also what makes the record table of D3 one
+# file per account rather than rows in a shared one. Getting this wrong fails at deploy time on a
+# free account, not locally.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Account"]
+
+# Every number here is reported by `/v1/capabilities` and is configuration rather than protocol: a
+# server may report any value, and a client reads rather than assumes (D4a, D9).
+[vars]
+MAX_RECORD_BYTES = "1048576"
+MAX_BATCH_OPERATIONS = "100"
+MAX_PAGE_RECORDS = "500"
+ACCOUNT_QUOTA_BYTES = "20971520"
+TOMBSTONE_RETENTION_DAYS = "90"
+EMAIL_FROM = "noreply@example.invalid"
+
+# PEPPER and EMAIL_API_KEY are secrets and are never written here:
+#   wrangler secret put PEPPER
+#   wrangler secret put EMAIL_API_KEY
+# A deployment without them refuses every request and names what is missing.
+
+# What CI runs the conformance suite against. It sends no mail, serves `/__test__/outbox` instead,
+# and reports small limits so the quota and pagination tests are reachable in seconds rather than
+# minutes. Never deploy this environment.
+[env.conformance]
+[env.conformance.vars]
+TEST_OUTBOX = "1"
+MAX_RECORD_BYTES = "65536"
+MAX_BATCH_OPERATIONS = "25"
+MAX_PAGE_RECORDS = "10"
+ACCOUNT_QUOTA_BYTES = "1048576"
+TOMBSTONE_RETENTION_DAYS = "90"
+
+[[env.conformance.durable_objects.bindings]]
+name = "ACCOUNT"
+class_name = "Account"
+
+[[env.conformance.migrations]]
+tag = "v1"
+new_sqlite_classes = ["Account"]

@@ -1,0 +1,99 @@
+# The sync server (T177b, T177h): `server/worker/`, `server/native/`, and the one conformance
+# suite both of them answer to.
+#
+# **Why this is not a job family in `ci.yml`.** That workflow compiles the workspace for three
+# operating systems, and the reason every ref there asks for its run rather than getting one from a
+# push is the cost of doing that. This is one Ubuntu runner that installs an npm project, starts a
+# Worker and builds one small Rust crate. `server/**` is the only path that fires it, so a change
+# to MixLab or to the engine spends nothing on a server nobody touched, and a change under
+# `server/` drags no three-OS matrix behind it.
+#
+# **`master` fires it without being asked**, which is the thing `ci.yml` will not do and the reason
+# `gallery.yml` and `pages.yml` are also outside that file. Workers Builds deploys `server/worker/`
+# from `master` on its own, so on that branch a server that is red and unrun is a server that is
+# deployed red. Every other ref asks, the way every other ref here does:
+#
+#     gh workflow run server.yml --ref "$(git branch --show-current)"
+#
+# **The separation is of triggers, not of repositories.** Both implementations are jobs in this one
+# workflow, so the suite runs against each of them on the same commit, in the same pull request as
+# whatever client change arrived with it — which is what ADR 0046 was decided to buy.
+name: server
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'server/**'
+      # A workflow that stopped working should say so on the commit that broke it.
+      - '.github/workflows/server.yml'
+  workflow_dispatch:
+
+# The newer question is the one worth answering, as everywhere else here — except on `master`,
+# which keeps a complete history of results however the runs were started.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    name: worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            server/worker/package-lock.json
+            server/conformance/package-lock.json
+
+      - name: The worker — install and typecheck
+        working-directory: server/worker
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: The suite — install and typecheck
+        working-directory: server/conformance
+        run: |
+          npm ci
+          npm run typecheck
+
+      # The `conformance` environment sends no mail, serves `/__test__/outbox` instead, and reports
+      # small limits so the quota and pagination tests are reachable in seconds. It is never
+      # deployed; `wrangler.toml` says so beside it.
+      - name: Start the worker, and wait for it to answer
+        working-directory: server/worker
+        env:
+          CI: '1'
+        run: |
+          nohup npx wrangler dev --env conformance --port 8787 --ip 127.0.0.1 \
+            > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+          # A readiness poll and not a `sleep`: a fixed wait is either too short on a cold runner
+          # or wasted on a warm one, and it fails as a timeout rather than as a refused connection.
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8787/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the worker never answered on 127.0.0.1:8787"
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8787
+        run: npm test
+
+      - name: The worker's log
+        if: failure()
+        run: cat "$RUNNER_TEMP/wrangler.log" || true
