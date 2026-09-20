@@ -51,8 +51,15 @@ printf '%s\n' "$version" >"$appdir/VERSION"
 # `-$arch`, not a bare cache name: a developer machine that has built one architecture must not hand
 # the other architecture's `appimagetool` binary to a leg that cannot execute it — T85a.
 tool="$MIX_OUT/appimagetool-$arch"
+
+# **Seven seconds of retry is not enough for GitHub's own downloads.** `--retry 3` spends four
+# attempts inside seven seconds; run 35483992873 met four HTTP 500s inside those seven and failed a
+# build leg after the .rpm was already written. Six tries ten seconds apart cover a minute, capped
+# at four so a real outage is not waited out. Same set as `.github/scripts/fetch-package.sh`.
+retry=(--retry 6 --retry-delay 10 --retry-max-time 240 --connect-timeout 20)
+
 if [ ! -x "$tool" ]; then
-  curl --fail --silent --show-error --location --retry 3 --output "$tool" \
+  curl --fail --silent --show-error --location "${retry[@]}" --output "$tool" \
     "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-$arch.AppImage"
   chmod 755 "$tool"
 fi
@@ -65,7 +72,7 @@ fi
 # machine, so handing an x86_64 leg an aarch64 runtime would build an image that cannot start.
 runtime="$MIX_OUT/appimage-runtime-$arch"
 if [ ! -s "$runtime" ]; then
-  curl --fail --silent --show-error --location --retry 3 --output "$runtime" \
+  curl --fail --silent --show-error --location "${retry[@]}" --output "$runtime" \
     "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$arch"
 fi
 
