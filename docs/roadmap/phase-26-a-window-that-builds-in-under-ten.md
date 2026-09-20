@@ -9,12 +9,26 @@ Design: [2026-09-20-t173-a-window-that-builds-in-under-ten-design.md](../specs/2
 
 ---
 
-- [ ] **T173a** `.github/actions/release-profile` sets `CARGO_PROFILE_RELEASE_OPT_LEVEL=1` on any
-      ref that is not a tag, and says so in the step summary.
-- [ ] **T173b** The Windows legs of `window` and `binaries` exclude the workspace and `CARGO_HOME`
+- [x] **T173a** `.github/actions/release-profile` sets `CARGO_PROFILE_RELEASE_OPT_LEVEL=0` on any
+      ref that is not a tag, and says so in the step summary. Level 1 was measured first and moved
+      only `binaries`; `mixlab` is one crate of 306 s of codegen that level 1 barely touches.
+- [x] **T173b** The Windows legs of `window` and `binaries` exclude the workspace and `CARGO_HOME`
       from Defender, report what they did, and never fail on a refusal.
-- [ ] **T173c** A branch run produces cargo's `--timings` report for the window as an artifact;
-      `rust-lld` is adopted only if that report names the link and it takes a minute off.
+- [x] **T173c** A branch run produces cargo's `--timings` report for the window as an artifact,
+      behind the `MIX_TIMINGS` repository variable. **`rust-lld` is not adopted**: the report says
+      `mixlab` is 306.3 s of codegen and 4.4 s of link, so there is no link time to take.
 
-**Milestone M26**: in a warm branch run, `window (windows-latest)` finishes in 10 minutes or less,
-and `build` produces the same artifacts, with the same probes green, as run 35481399561.
+**Milestone M26** — **met**, measured by run 35489039746 against baseline 35481399561: in a warm
+branch run `window (windows-latest)` finished in **9.1 minutes** (7.1 in a `jobs=build` run), 34
+jobs green, and the fifteen artifact names identical. The whole `build` group went from 111.2
+leg-minutes to 77.1, its slowest leg from 14.2 to 10.6.
+
+Two numbers the milestone does not cover, recorded because they are the price: the five packaging
+legs cost **5.5 leg-minutes more** for artifacts 16–76% bigger, and that run's wall clock was 21.1
+against 18.4 — the difference being 5.6 minutes a `windows-11-arm` runner took to appear, not
+anything this phase changed.
+
+**The debt this phase leaves.** Four axes now separate a branch build from a release build — the
+cache (T170a), LTO (T170h), the macOS slices (T171c, and `master` covers that one) and optimisation
+level (T173a) — and nothing that runs regularly builds what a release actually ships. T174 is that
+rehearsal, and it belongs before the next tag.

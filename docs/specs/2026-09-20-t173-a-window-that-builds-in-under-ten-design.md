@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-20
 task: T173
 ---
@@ -7,14 +7,27 @@ task: T173
 # T173 — A window that builds in under ten minutes
 
 M24 is met, and `build` is no longer the group anyone waits for by name. One leg still costs more
-than any other: `window (windows-latest)`, 13.8 minutes of an 18.4-minute run, and every minute of
-it is on `build`'s path — `build` waits for the whole `window` matrix before it packages anything
-(T171, E1). This spec is about that leg. **Nothing a tag builds changes.**
+than any other: `window (windows-latest)`, and every minute of it is on `build`'s path — `build`
+waits for the whole `window` matrix before it packages anything (T171, E1). This spec is about that
+leg. **Nothing a tag builds changes.**
 
-## What the 13.8 minutes are
+## What this leg costs, and why one number was not enough
 
-Run 35481399561: a full request on a throwaway branch off `master` (`e98bf944`), on the cache
-`master` had written an hour before.
+**The first draft of this spec called the baseline 13.8 minutes, from run 35481399561. That was the
+lowest of eleven samples.** Read back across the runs that preceded this work, the leg is bimodal —
+the same commit lands on a fast or a slow host and the two clusters are four and a half minutes
+apart, which is twice what any change here set out to save:
+
+| 18.5 | 18.5 | 18.4 | 18.3 | 18.3 | 18.2 | 18.2 | 18.0 | 17.5 | 15.0 | 13.8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+
+Nine of eleven sit between 17.5 and 18.5, so **17.5–18.5 is the baseline and a single sample decides
+nothing on this leg.** `binaries (windows-latest)` has no such spread (10.4–11.6 over ten runs) and
+is the leg to read a small change on. This is the same lesson `bench`'s warm start taught on ubuntu:
+a red number is not a regression until the distribution says so.
+
+The breakdown below is from run 35481399561, the fast-host sample, and the proportions hold in the
+slow ones.
 
 | Step | Minutes |
 | --- | --- |
@@ -49,9 +62,9 @@ three crates left to build, so nearly half the job is one crate's codegen and on
   checked rather than assumed: a profile change that reached `bench` would move its numbers, and its
   `footprint` leg measures a binary's size.
 
-## D1 — Any ref that is not a tag builds at `opt-level = 1`
+## D1 — Any ref that is not a tag builds at `opt-level = 0`
 
-`CARGO_PROFILE_RELEASE_OPT_LEVEL=1`, written by `.github/actions/release-profile` beside the two
+`CARGO_PROFILE_RELEASE_OPT_LEVEL=0`, written by `.github/actions/release-profile` beside the two
 variables it already writes, on the same condition: not a tag.
 
 This is T170h's argument one step further, and it is the same argument. What a branch's `build`
@@ -60,8 +73,19 @@ installs, and that every probe answers — none of which depends on how well the
 tag run builds `[profile.release]` exactly as `Cargo.toml` states it, and the release checklist
 requires that run to be green before anything ships.
 
-It should cut both halves of the build, the 530 dependency crates and the `mixlab` tail, which is
-what makes it the first thing to try rather than the third.
+**Level 1 was measured first, and 0 is what the numbers chose.** At `opt-level = 1` the five
+`binaries` legs fell about 9% — `binaries (windows-latest)` to 9.5–10.2 minutes from a 10.4–11.6
+band — while the five `window` legs did not move at all, `mixlab` being one crate whose codegen the
+level barely touched at 1. At 0 the same leg is **4.0 minutes and `window (windows-latest)` is 7.1**,
+against 17.0 twice at level 1 and a 17.5–18.5 baseline.
+
+| Leg | baseline | opt-level 1 | opt-level 0 |
+| --- | --- | --- | --- |
+| `window (windows-latest)` | 17.5–18.5 | 17.0, 17.0 | **7.1** |
+| `window (macos-latest)` | 14.2 | 15.3 | 6.8 |
+| `window (ubuntu-22.04)` | 11.5 | 8.5 | 5.9 |
+| `binaries (windows-latest)` | 10.4–11.6 | 9.5, 10.1, 10.2 | 4.0 |
+| a whole `jobs=build` run | — | 21.0 | 15.0 |
 
 ## D2 — The Windows legs take the workspace out of Defender's way
 
@@ -77,28 +101,38 @@ the case this helps most.
 **It must never fail the job.** `Add-MpPreference` needs a privilege the runner may not grant; a
 refusal prints a notice and the build goes on.
 
-## D3 — `rust-lld` is measured before anything adopts it
+## D3 — `rust-lld` was measured, and is not adopted
 
-If the 5 min 54 tail is mostly the link, a faster linker is worth more than any profile change; if
-it is codegen, it is worth nothing. Today nobody knows which, so the first act is a measurement, not
-a change:
+If the tail were mostly the link, a faster linker would be worth more than any profile change; if it
+were codegen, it would be worth nothing. Nobody knew which, so the first act was a measurement:
+`MIX_TIMINGS=1` in `desktop.sh` forwards `--timings` to cargo — `tauri build` passes what follows a
+second `--` to the runner — and CI turns it on through a repository variable, so measuring costs no
+commit in either direction.
 
-1. One branch run produces `cargo`'s `--timings` report for `apps/desktop/src-tauri` and uploads it
-   as an artifact. `cargo tauri build` forwards what follows `--` to cargo, so `--timings` can reach
-   it; if that turns out not to hold, a `cargo build --timings` step on that one leg answers the same
-   question. `desktop.sh` gains an opt-in (`MIX_TIMINGS=1`), not a permanent flag.
-2. Only if the report says *link*, try `rust-lld` on the Windows legs, on refs that are not tags.
-   Which flag the pinned toolchain accepts — `-C linker-features=+lld`, or `rust-lld` named as the
-   linker — is part of the measurement; this spec does not guess it.
+**The report settled it.** Of a 15.6-minute cargo graph over 908 units:
 
-**The bar for adopting it:** at least one minute off `window (windows-latest)`, and `build` still
-packages and probes every artifact. Below that bar it is not worth a second linker in the toolchain.
+| `mixlab`, one unit | **306.3 s** |
+| --- | --- |
+| linking the `mixlab` binary | **4.4 s** |
+| `mongodb` | 112.5 s |
+| `windows 0.61.3` | 75.5 s |
+| `tauri-utils` | 67.5 s |
+| `sqlx-postgres` | 66.5 s |
+
+The tail is one crate's codegen and the link is four seconds, so `rust-lld` is dropped: it cannot
+reach the number. The report stays reachable for the next person to ask a different question of it.
+
+What the same report shows is where the remaining minutes are, and neither is CI's to take: 624
+seconds of dependencies before `mixlab` starts, and 306 seconds of `mixlab` itself, whose front end
+is single-threaded and whose `codegen-units` do not divide it. Cutting those means fewer or lighter
+dependencies in `apps/desktop/src-tauri` — a product change, with a spec of its own.
 
 ## How each change is judged
 
-Against run 35481399561, job `window (windows-latest)`: **13.8 minutes, of which the build step is
-13.1 and cargo reports 12m 35s.** One branch run per change, the same three numbers read back from
-the same job. A change that does not show in them is reverted, as T170i and T171's job reorder were.
+**Not against one run.** The leg is bimodal (see above), so a single sample cannot see a change
+smaller than four minutes on it. A change is read on `binaries (windows-latest)`, whose ten-run band
+is 10.4–11.6, and on the five `window` legs together; `window (windows-latest)` is accepted only
+when a change is large enough to leave the baseline band entirely, as `opt-level = 0` did at 7.1.
 
 `build`'s own legs and the artifact names are read back too: 34 jobs, the same artifact list, every
 probe green. A faster build that ships a different artifact is not a faster build.
@@ -112,12 +146,12 @@ probe green. A faster build that ships a different artifact is not a faster buil
 
 ## The tasks
 
-- **T173a** `.github/actions/release-profile` sets `CARGO_PROFILE_RELEASE_OPT_LEVEL=1` on any ref
+- **T173a** `.github/actions/release-profile` sets `CARGO_PROFILE_RELEASE_OPT_LEVEL=0` on any ref
   that is not a tag, and says so in the step summary.
 - **T173b** The Windows legs of `window` and `binaries` exclude the workspace and `CARGO_HOME` from
   Defender, report what they did, and never fail on a refusal.
-- **T173c** A branch run produces cargo's `--timings` report for the window as an artifact;
-  `rust-lld` is adopted only if that report names the link and it meets the bar in D3.
+- **T173c** A branch run produces cargo's `--timings` report for the window as an artifact, behind a
+  repository variable; `rust-lld` is adopted only if that report names the link.
 
 **Milestone M26**: in a warm branch run, `window (windows-latest)` finishes in 10 minutes or less,
 and `build` produces the same artifacts, with the same probes green, as run 35481399561.
@@ -131,6 +165,13 @@ the release checklist already relies on: the tag run builds the real profile and
 **E2 — An optimisation-level-dependent bug would be found later.** A miscompilation or an
 overflow that only appears at `opt-level = 3` would reach the tag run rather than a branch run. This
 is the same exposure LTO already has, on a build nobody ships.
+
+**E4 — A branch's artifacts are bigger, and slow to run.** At `opt-level = 0` the installers grew by
+16 to 76% — `mixengine-ubuntu-22.04-arm` from 308 MB to 542, `mixengine-windows-latest` from 153 to
+178 — and the upload did not take the saving back: `build (windows-latest)` went 2.0 to 2.1 minutes.
+The cost that is not measured in minutes is that `window-<os>` is kept fourteen days *so somebody
+can try the window without an installer*, and what they would now try is an unoptimised build. That
+is the price of eleven minutes a run, and it is paid only off a tag.
 
 **E3 — The Defender exclusion may be refused, and then D2 buys nothing.** That is why it prints what
 happened: an exclusion that silently did not apply would make the next measurement a lie.
