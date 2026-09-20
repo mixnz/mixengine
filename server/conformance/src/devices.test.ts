@@ -55,6 +55,11 @@ describe("devices", () => {
     });
     expect(refreshed.status).toBe(401);
 
+    // And its access token with it, from the next request: cutting off a lost machine is the whole
+    // purpose of the route, and a token here is a string the server looks up, so noticing the
+    // revocation is the same lookup that authenticates (D4a).
+    expect((await devices(lost.accessToken)).status).toBe(401);
+
     expect((await devices(laptop.accessToken)).body.devices.map((device) => device.id)).not.toContain(
       lost.deviceId,
     );

@@ -14,6 +14,8 @@ export interface Env {
   EMAIL_API_KEY?: string;
   /** The address verification and reset letters are sent from. */
   EMAIL_FROM?: string;
+  /** The provider's HTTP endpoint. A provider is a deployment decision, not a protocol one. */
+  EMAIL_ENDPOINT?: string;
 
   /** `"1"` serves `/__test__/outbox` and sends no mail. Never set this on a real deployment. */
   TEST_OUTBOX?: string;
@@ -39,6 +41,7 @@ export interface Config {
   pepper: string;
   emailApiKey: string | null;
   emailFrom: string;
+  emailEndpoint: string;
   testOutbox: boolean;
   capabilities: Capabilities;
 }
@@ -87,6 +90,7 @@ export function readConfig(env: Env): ConfigResult {
       pepper: env.PEPPER ?? TEST_PEPPER,
       emailApiKey: env.EMAIL_API_KEY ?? null,
       emailFrom: env.EMAIL_FROM ?? "conformance@example.invalid",
+      emailEndpoint: env.EMAIL_ENDPOINT ?? "https://api.resend.com/emails",
       testOutbox,
       capabilities: {
         protocolVersions: ["v1"],

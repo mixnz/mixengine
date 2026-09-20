@@ -307,10 +307,13 @@ server. A client must run against an empty list forever.
 | `GET /v1/devices` | `{devices: [{id, name, createdAt, lastSeenAt, current}]}` | `401` |
 | `DELETE /v1/devices/{id}` | `204` | `401` · `404 unknown-device` |
 
-Deleting a device kills its refresh token and nothing else. **Its access token stays valid until it
-expires**, which is at most fifteen minutes, and that is stated rather than fixed: closing it
-immediately would mean checking a revocation list on every request, and the window is shorter than
-the time it takes to notice a laptop is gone. Deleting your own device is how a person signs out.
+Deleting a device **ends both its tokens at once**, and a request carrying either answers `401`
+from the next one. An earlier draft of this appendix let the access token live out its fifteen
+minutes, reasoning that closing it immediately would cost a revocation check on every request. That
+reasoning was wrong for the servers actually being built: a token here is an opaque string the
+server looks up (see below), so the lookup that would notice a revocation is the same lookup that
+authenticates the request, and there is nothing to pay. Cutting off a lost machine is the whole
+purpose of the route, so it cuts it off now. Deleting your own device is how a person signs out.
 
 ### Records
 
