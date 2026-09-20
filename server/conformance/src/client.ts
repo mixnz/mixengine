@@ -16,6 +16,8 @@ export interface Capabilities {
   maxPageRecords: number;
   accountQuotaBytes: number;
   tombstoneRetentionDays: number;
+  /** When the operator intends to switch this server off, or null. Advisory (D4a). */
+  closingOn: number | null;
   features: string[];
 }
 

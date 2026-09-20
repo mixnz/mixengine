@@ -26,6 +26,15 @@ describe("GET /v1/capabilities", () => {
     expect(value).toBeGreaterThanOrEqual(limit === "tombstoneRetentionDays" ? 0 : 1);
   });
 
+  it("says whether it will be switched off, so a person can plan a move", async () => {
+    // Advisory and nothing more: the date passing is not an event in the protocol, and a server
+    // that named one still answers every route exactly as before (D4a).
+    const result = await call<Capabilities>("/v1/capabilities");
+    const closing = result.body.closingOn;
+    expect(closing === null || Number.isSafeInteger(closing)).toBe(true);
+    if (closing !== null) expect(closing).toBeGreaterThan(0);
+  });
+
   it("reports a feature list, so a client can run against an empty one forever", async () => {
     const result = await call<Capabilities>("/v1/capabilities");
     expect(Array.isArray(result.body.features)).toBe(true);
