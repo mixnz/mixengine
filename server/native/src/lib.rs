@@ -29,10 +29,11 @@ pub mod records;
 pub mod recovery;
 pub mod validate;
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::Router;
-use axum::extract::{DefaultBodyLimit, Query, Request, State};
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Query, Request, State};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post, put};
@@ -48,9 +49,55 @@ pub struct AppState {
 
 /// Every route this server answers. Taking a [`Config`] rather than reading the environment is
 /// what lets a test run two of these with different limits in one process.
+/// The header `crate::accounts::source_for` reads, and the only one it reads. It is written by
+/// `resolve_source` on the way in and stripped from whatever arrived, so it names an address this
+/// server worked out rather than one a caller asked to be counted as.
+pub(crate) const SOURCE_HEADER: &str = "x-mixlab-source";
+
+/// **Who a request is from is decided here, and never taken from the request** (D4a).
+///
+/// `X-Forwarded-For` is a header like any other: a server reachable directly that believed it
+/// would let anybody mint a fresh bucket per request by writing a different value, which is not a
+/// weakened rate limit but no rate limit at all. So the peer address is what counts, unless the
+/// deployment says it is behind a proxy.
+async fn resolve_source(request: Request, next: Next, trust_forwarded_for: bool) -> Response {
+    let peer = request
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|ConnectInfo(address)| address.ip().to_string());
+
+    let forwarded = if trust_forwarded_for {
+        request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|value| value.to_str().ok())
+            // **The last entry, not the first.** A proxy that appends leaves the address it saw at
+            // the end; a client that writes its own value leaves it at the front. The end is the
+            // only part of this header a client cannot choose.
+            .and_then(|value| value.rsplit(',').next())
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+    } else {
+        None
+    };
+
+    // **One shared bucket is the honest answer** to a request whose address this server cannot
+    // see, rather than not counting it at all.
+    let source = crypto::sha256_hex(&forwarded.or(peer).unwrap_or_else(|| "local".to_owned()));
+
+    let mut request = request;
+    let headers = request.headers_mut();
+    headers.remove(SOURCE_HEADER);
+    if let Ok(value) = axum::http::HeaderValue::from_str(&source) {
+        headers.insert(SOURCE_HEADER, value);
+    }
+    next.run(request).await
+}
+
 pub fn router(state: Arc<AppState>) -> Router {
     let max_batch_bytes = state.config.capabilities.max_batch_bytes;
     let gate = state.config.access_token.clone();
+    let trust_forwarded_for = state.config.trust_forwarded_for;
     let gate_state = Arc::clone(&state);
     Router::new()
         .route("/v1/capabilities", get(capabilities))
@@ -96,6 +143,11 @@ pub fn router(state: Arc<AppState>) -> Router {
             let gate = gate.clone();
             let state = Arc::clone(&gate_state);
             async move { closed_host(request, next, gate, state).await }
+        }))
+        // Outermost of all, because the layer above counts wrong access tokens per source and
+        // cannot do that before there is a source.
+        .layer(middleware::from_fn(move |request, next| {
+            resolve_source(request, next, trust_forwarded_for)
         }))
         .with_state(state)
 }

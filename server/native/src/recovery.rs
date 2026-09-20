@@ -147,6 +147,7 @@ pub async fn reset(
 async fn ask(state: Arc<AppState>, headers: HeaderMap, email: String) -> Response {
     let source = crate::accounts::source_for(&headers);
     let allowance = state.config.limits.resets_per_hour;
+    let letters = state.config.limits.letters_per_account_per_hour;
     let looked_up = email.clone();
 
     let outcome = state
@@ -173,6 +174,24 @@ async fn ask(state: Arc<AppState>, headers: HeaderMap, email: String) -> Respons
                     |row| row.get(0),
                 )
                 .optional()?;
+
+            // **An address over its allowance still answers 202, with no letter.** It cannot
+            // answer 429: this route answers alike for an address that has an account and one
+            // that does not, so a refusal only a throttled address could meet would tell them
+            // apart (D4a).
+            let account = match account {
+                Some(account_id)
+                    if crate::accounts::may_send_letter(
+                        &transaction,
+                        &account_key(&looked_up),
+                        letters,
+                    )?
+                    .is_none() =>
+                {
+                    Some(account_id)
+                }
+                _ => None,
+            };
 
             let code = account.map(|account_id| {
                 let code = random_code();

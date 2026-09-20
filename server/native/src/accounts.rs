@@ -143,14 +143,36 @@ pub(crate) fn window(
 }
 
 pub(crate) fn source_for(headers: &HeaderMap) -> String {
-    // Behind a proxy this is what the proxy set; direct, it is absent and one shared bucket is the
-    // honest answer. A self-hoster who cares sets `X-Forwarded-For` at their reverse proxy.
+    // **Set by this server, never by the request.** `crate::resolve_source` runs before every
+    // route, strips whatever arrived under this name, and puts the hash of the address it worked
+    // out there instead (D4a). Reading `X-Forwarded-For` here would mean believing a header any
+    // caller can write.
     headers
-        .get("x-forwarded-for")
+        .get(crate::SOURCE_HEADER)
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(|value| sha256_hex(value.trim()))
+        .map(str::to_owned)
         .unwrap_or_else(|| "local".to_owned())
+}
+
+/// Whether one more letter may be sent to this address this hour, counting it if so.
+///
+/// **Kept against the address rather than against the account**, and in `source_window` rather
+/// than `attempt`, because `attempt` hangs off the account row — and registering over an
+/// unverified account deletes that row, which is one of the two ways to ask for a letter. A
+/// counter the counted party can clear by asking again is not a counter.
+pub(crate) fn may_send_letter(
+    connection: &Connection,
+    account_key: &str,
+    allowance: u64,
+) -> rusqlite::Result<Option<i64>> {
+    window(
+        connection,
+        "source_window",
+        &format!("letter:{account_key}"),
+        "letter",
+        allowance,
+        SOURCE_WINDOW_SECONDS,
+    )
 }
 
 /// Per source: somebody's whole network is being noisy.
@@ -302,6 +324,7 @@ pub async fn register(
     );
     let source = source_for(&headers);
     let allowance = state.config.limits.registrations_per_hour;
+    let letters = state.config.limits.letters_per_account_per_hour;
     let letter_email = email.clone();
 
     let outcome = state
@@ -351,6 +374,14 @@ pub async fn register(
                     transaction.execute("DELETE FROM account WHERE id = ?1", params![previous])?;
                 }
                 None => {}
+            }
+
+            // **Only once a letter is certain.** Spending this above, before the taken-address
+            // check, would let anybody exhaust a verified address's allowance and stop its
+            // owner asking for a reset — a refusal that lands on the wrong person.
+            if let Some(seconds) = may_send_letter(&transaction, &key, letters)? {
+                transaction.commit()?;
+                return Ok(Err(too_many_attempts(seconds)));
             }
 
             transaction.execute(

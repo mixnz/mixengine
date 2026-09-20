@@ -63,7 +63,13 @@ async fn main() {
     };
 
     tracing::info!("mixlab-sync listening on {bind}");
-    axum::serve(listener, router(Arc::new(AppState { config, db })))
-        .await
-        .expect("the server stopped unexpectedly");
+    // **With the peer address**, which is what a source is unless the deployment says it is
+    // behind a proxy (D4a).
+    axum::serve(
+        listener,
+        router(Arc::new(AppState { config, db }))
+            .into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .expect("the server stopped unexpectedly");
 }

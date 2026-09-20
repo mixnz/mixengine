@@ -43,6 +43,9 @@ pub struct Limits {
     pub auth_per_hour: u64,
     /// Eight characters are only safe because this one is real (D4a).
     pub verify_attempts_per_window: u64,
+    /// How many letters one address may receive in an hour. Small: somebody who did not get
+    /// the letter asks again once or twice, and a mailbox is a fixed target (D4a).
+    pub letters_per_account_per_hour: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -61,6 +64,10 @@ pub struct Config {
     /// A shared token that closes this deployment to everybody who has not been given it.
     /// `None` means open, which is what the hosted instances are.
     pub access_token: Option<String>,
+    /// Whether `X-Forwarded-For` may be believed. **Off by default**: the header is one any
+    /// request can write, so a directly reachable server that trusted it would let anybody
+    /// mint a fresh rate-limit bucket per request (D4a).
+    pub trust_forwarded_for: bool,
     pub test_outbox: bool,
     pub limits: Limits,
     pub capabilities: Capabilities,
@@ -225,6 +232,8 @@ impl Config {
                 }
             }),
             access_token: text("MIXLAB_SYNC_ACCESS_TOKEN"),
+            trust_forwarded_for: std::env::var("MIXLAB_SYNC_TRUST_FORWARDED_FOR").as_deref()
+                == Ok("1"),
             test_outbox,
             limits: Limits {
                 registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
@@ -233,6 +242,7 @@ impl Config {
                 params_per_hour: number("MIXLAB_SYNC_PARAMS_PER_HOUR", 200),
                 auth_per_hour: number("MIXLAB_SYNC_AUTH_PER_HOUR", 300),
                 verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
+                letters_per_account_per_hour: number("MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR", 3),
             },
             capabilities: Capabilities {
                 protocol_versions: vec!["v1".to_owned()],
