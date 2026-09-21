@@ -4,6 +4,7 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { requestSync } from "../../../sync";
 import { syncDeviceName, syncStatus, type SyncStatus } from "../../../sync/api";
+import { rememberServer } from "../../../sync/servers";
 import AccountView from "./AccountView";
 import ForgotPassword from "./ForgotPassword";
 import RecoveryKey from "./RecoveryKey";
@@ -37,6 +38,13 @@ function SyncSection() {
   }, [t]);
   useEffect(refresh, [refresh]);
 
+  /* The server this machine is signed in to is the one the form offers after signing out —
+     whichever way it got here: the form, a recovered password, or a move, which never passes
+     through the form at all. */
+  useEffect(() => {
+    if (status?.signedIn && status.server) rememberServer(localStorage, status.server);
+  }, [status]);
+
   useEffect(() => {
     void syncDeviceName()
       .then((name) => setDeviceName((current) => (current === "" ? name : current)))
@@ -51,7 +59,9 @@ function SyncSection() {
 
   if (problem) return <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />;
   if (status === null) return null;
-  if (status.signedIn) return <AccountView status={status} onChanged={refresh} />;
+  // Keyed by the server: a finished move keeps this machine signed in, and without a new key React
+  // would keep the old view — its open move form, and the old server's machines and freeze.
+  if (status.signedIn) return <AccountView key={status.server} status={status} onChanged={refresh} />;
 
   if (step.kind === "recovery") {
     return <RecoveryKey recoveryKey={step.key} onDone={() => setStep({ kind: "code", email: step.email })} />;

@@ -15,6 +15,7 @@
 //! [`saved`](crate::sync::saved) is what survives a restart, and
 //! [`session`](crate::sync::session) is the signed-in state that holds a page until a module has
 //! written it.
+//! [`copy`](crate::sync::copy) carries a whole account to another server, unchanged.
 //!
 //! **The engine moves ciphertext only** — sealing and opening stay with whoever calls it, so the
 //! keyring and a module's plaintext never reach the socket.
@@ -22,6 +23,7 @@
 pub mod account;
 pub mod chunk;
 pub mod commands;
+pub mod copy;
 pub mod crypto;
 pub mod engine;
 pub mod lend;

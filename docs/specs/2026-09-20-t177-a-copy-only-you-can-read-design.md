@@ -383,13 +383,23 @@ row this route exists to remove.
 
 ### A move is a copy, and then a deletion
 
-1. `POST /v1/account/freeze` with `frozen` on the old server.
-2. `GET /v1/records?since=0`, paged to the end. **The ordinary read route.**
-3. Register on the new server with the same `salt_account` and the same wrapped keys, and confirm
+1. Register on the new server with the same `salt_account` and the same wrapped keys, and confirm
    the address there — the new server sends its own letter and will not take the old one's word.
+2. `POST /v1/account/freeze` with `frozen` on the old server.
+3. `GET /v1/records?since=0`, paged to the end. **The ordinary read route.**
 4. `POST /v1/records/batch`, with `If-None-Match: *`. **The ordinary write route.**
 5. Compare what the new server holds against what the old one still shows, then either
    `POST /v1/account/delete` on the old one, or post `active` to thaw it.
+
+**Registering comes before the freeze** because confirming an address waits on a person reading a
+letter, and nothing about it needs the old account to hold still: done first, it keeps the
+read-only period to the copy itself. The freeze still comes before the first read, which is the
+order the next section argues for.
+
+**Tombstones are not carried.** A tombstone exists to tell another machine that something it can
+read is gone; the new server has never held the record, so there is nothing for it to announce.
+The comparison in step 5 is therefore of live records: every one the old server shows, present on
+the new one with the same `id`.
 
 **MixLab asks which, and offers deletion first**, for the reason given below under *a machine the
 person forgets to repoint*: a deleted source signs that machine out the same day, and a thawed one

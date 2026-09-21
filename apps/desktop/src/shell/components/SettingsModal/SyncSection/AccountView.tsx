@@ -8,11 +8,22 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { SYNCABLE } from "../../../registry";
 import { requestSync } from "../../../sync";
-import { syncDevices, syncLogout, syncRevokeDevice, type SyncDevice, type SyncStatus } from "../../../sync/api";
+import {
+  syncDevices,
+  syncFreezeState,
+  syncLogout,
+  syncRevokeDevice,
+  syncThaw,
+  type SyncDevice,
+  type SyncFreeze,
+  type SyncStatus,
+} from "../../../sync/api";
 import { readEnabled, setEnabled } from "../../../sync/enabled";
 import { clearReplaced, onReplacedChange, replacedCounts } from "../../../sync/replaced";
 import settings from "../SettingsModal.module.css";
 import ChangePassword from "./ChangePassword";
+import DeleteAccount from "./DeleteAccount";
+import MoveAccount from "./MoveAccount";
 import styles from "./SyncSection.module.css";
 
 interface Props {
@@ -39,7 +50,9 @@ function AccountView({ status, onChanged }: Props) {
   const [devices, setDevices] = useState<SyncDevice[] | null>(null);
   const [revoking, setRevoking] = useState<SyncDevice | null>(null);
   const [busy, setBusy] = useState(false);
-  const [changing, setChanging] = useState(false);
+  /** The one form open under the account line, if any. */
+  const [panel, setPanel] = useState<"none" | "password" | "delete" | "move">("none");
+  const [freeze, setFreeze] = useState<SyncFreeze | null>(null);
   const [changed, setChanged] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -53,10 +66,32 @@ function AccountView({ status, onChanged }: Props) {
     [onChanged, t],
   );
 
+  /* `closingOn` comes from the server's capabilities, which Rust reads when it opens a session —
+     and the status this view was drawn from may predate that, if nothing has synced yet this run.
+     The device list opens one, so once it has answered the status is read again, once. */
+  const unknownClosing = status.closingOn === null;
   const loadDevices = useCallback(() => {
-    syncDevices().then(setDevices).catch(fail);
-  }, [fail]);
+    syncDevices()
+      .then((list) => {
+        setDevices(list);
+        if (unknownClosing) onChanged();
+      })
+      .catch(fail);
+  }, [fail, onChanged, unknownClosing]);
   useEffect(loadDevices, [loadDevices]);
+
+  const loadFreeze = useCallback(() => {
+    syncFreezeState().then(setFreeze).catch(fail);
+  }, [fail]);
+  useEffect(loadFreeze, [loadFreeze]);
+
+  async function thaw() {
+    try {
+      setFreeze(await syncThaw());
+    } catch (error) {
+      fail(error);
+    }
+  }
 
   const day = (seconds: number) => new Date(seconds * 1000).toLocaleDateString(lang);
   const labelOf = (id: string) => {
@@ -94,25 +129,48 @@ function AccountView({ status, onChanged }: Props) {
   return (
     <>
       <div className={settings.section}>
+        {/* Who and where on the left, one line each, and signing out on the right. The rarer
+            actions sit on a row of their own below: beside the account line they squeezed it
+            until the address broke mid-word. */}
         <div className={settings.updateRow}>
-          <div className={settings.updateText}>
-            <span className={settings.updateVersion}>{t("sync.signedInAs", { email: status.email ?? "" })}</span>
-            <span className={settings.updateStatus}>{status.server}</span>
+          <div className={styles.account}>
+            <span className={`${settings.updateVersion} ${styles.oneLine}`} title={status.email ?? undefined}>
+              {t("sync.signedInAs", { email: status.email ?? "" })}
+            </span>
+            <span className={`${settings.updateStatus} ${styles.oneLine}`} title={status.server ?? undefined}>
+              {status.server}
+            </span>
           </div>
-          <div className={styles.row}>
-            {!changing && (
-              <Button size="small" variant="ghost" onClick={() => setChanging(true)}>
-                {t("sync.changePassword")}
-              </Button>
-            )}
-            <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
-              {t("sync.signOut")}
+          <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
+            {t("sync.signOut")}
+          </Button>
+        </div>
+        {panel === "none" && (
+          <div className={styles.actions}>
+            <Button size="small" variant="ghost" onClick={() => setPanel("password")}>
+              {t("sync.changePassword")}
+            </Button>
+            <Button size="small" variant="ghost" onClick={() => setPanel("move")}>
+              {t("sync.moveTitle")}
+            </Button>
+            <Button size="small" variant="ghost" onClick={() => setPanel("delete")}>
+              {t("sync.deleteAccount")}
             </Button>
           </div>
-        </div>
+        )}
         <p className={settings.hint}>{t("sync.signOutHint")}</p>
         {changed && <NoticeBanner message={t("sync.passwordChanged")} onDismiss={() => setChanged(false)} />}
         {status.closingOn !== null && <NoticeBanner message={t("sync.closing", { date: day(status.closingOn) })} />}
+        {freeze?.state === "frozen" && panel !== "move" && (
+          <div className={styles.row}>
+            <NoticeBanner
+              message={t("sync.frozen", { date: freeze.frozenAt === null ? "" : day(freeze.frozenAt) })}
+            />
+            <Button size="small" onClick={() => void thaw()}>
+              {t("sync.thaw")}
+            </Button>
+          </div>
+        )}
         {[...replaced].map(([id, count]) => (
           <NoticeBanner
             key={id}
@@ -123,14 +181,28 @@ function AccountView({ status, onChanged }: Props) {
         {problem && <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />}
       </div>
 
-      {changing && (
+      {panel === "password" && (
         <ChangePassword
           onDone={() => {
-            setChanging(false);
+            setPanel("none");
             setChanged(true);
             loadDevices();
           }}
-          onCancel={() => setChanging(false)}
+          onCancel={() => setPanel("none")}
+        />
+      )}
+      {panel === "delete" && status.server && (
+        <DeleteAccount server={status.server} onDeleted={onChanged} onCancel={() => setPanel("none")} />
+      )}
+      {panel === "move" && status.server && (
+        <MoveAccount
+          from={status.server}
+          deviceName={devices?.find((device) => device.current)?.name ?? "MixLab"}
+          onMoved={onChanged}
+          onCancel={() => {
+            setPanel("none");
+            loadFreeze();
+          }}
         />
       )}
 

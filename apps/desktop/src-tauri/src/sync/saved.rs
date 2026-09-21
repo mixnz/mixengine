@@ -28,6 +28,11 @@ pub struct Saved {
     pub refresh_token: String,
     /// `MK`, base64.
     pub master_key: String,
+    /// The recovery key's wrapped copy of `MK`, as signing in handed it out: what a move sends the
+    /// new server unchanged (D4b). Ciphertext under a key this machine does not hold. `None` for an
+    /// entry kept before it was.
+    #[serde(default)]
+    pub wrapped_mk_recovery: Option<String>,
 }
 
 impl std::fmt::Debug for Saved {
@@ -39,6 +44,10 @@ impl std::fmt::Debug for Saved {
             .field("device_id", &self.device_id)
             .field("refresh_token", &Redacted)
             .field("master_key", &Redacted)
+            .field(
+                "wrapped_mk_recovery",
+                &self.wrapped_mk_recovery.as_ref().map(|_| Redacted),
+            )
             .finish()
     }
 }
@@ -123,7 +132,16 @@ mod tests {
             device_id: "d1".into(),
             refresh_token: "refresh-secret".into(),
             master_key: STANDARD.encode([7u8; 32]),
+            wrapped_mk_recovery: Some("w".into()),
         }
+    }
+
+    /// An entry kept before the recovery copy was is still read — and says it has none, which is
+    /// what asks the person to sign in again before a move.
+    #[test]
+    fn an_entry_from_before_the_recovery_copy_still_reads() {
+        let old = r#"{"server":"s","access":null,"email":"e","deviceId":"d","refreshToken":"r","masterKey":"m"}"#;
+        assert_eq!(Saved::from_json(old).unwrap().wrapped_mk_recovery, None);
     }
 
     #[test]
@@ -149,6 +167,7 @@ mod tests {
         assert!(line.contains("a@example.invalid"));
         assert!(!line.contains("refresh-secret"));
         assert!(!line.contains(&STANDARD.encode([7u8; 32])));
+        assert!(!line.contains("\"w\""));
     }
 
     #[test]

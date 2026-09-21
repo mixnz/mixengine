@@ -172,9 +172,27 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       password signs the other machine out and keeps the records, a wrong key is refused and the
       right one keeps them, and starting over leaves the server empty under a new thirteen-group
       key. The screens themselves have been checked by `tsc`, lint and the unit tests only.
-- [ ] **T177e4** Leaving a server: delete the account, and move it to another server by copying
+- [x] **T177e4** Leaving a server: delete the account, and move it to another server by copying
       (D4b), which asks at the end whether to delete the old one or thaw it, deletion first. Both
       ask for the password, because both need `A`.
+
+      **Done in ten commits.** What it settled that the roadmap had not. **The copy is a module of
+      its own**, `sync/copy.rs`, written against something that pages through a whole account and
+      the engine's existing `Remote` — so it is tested with fakes like the engine is, and `412` as
+      success is a test rather than a comment. **Registration moved ahead of the freeze**: waiting
+      for a person to read a letter needs nothing to hold still, and done first it keeps the
+      read-only period to the copy itself. **The recovery key's wrapped copy is now kept at every
+      sign-in**, because a move sends it to the new server unchanged and only signing in hands it
+      out; an entry kept before this asks for one more sign-in. A move is four calls with state held
+      between them, and `move_confirm` run again after a failure picks up where it stopped without
+      asking for the code twice. Any signed-in machine sees a freeze and can end it. The live suite
+      deletes an account and moves one between two native servers; the screens have been checked
+      by `tsc`, lint and the unit tests.
+- [ ] **T177e5** `closingOn` where a person will see it, not only in Settings: a notice in the
+      workspace — dismissible, once a run — while the signed-in server reports a closing date, and
+      a warning on the sign-in form when the server chosen there reports one, read from its
+      `/v1/capabilities` before anybody registers on it. *Found while testing T177e4: the Sync pane
+      is the only place the date appears, and a person who does not open Settings never learns it.*
 - [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.

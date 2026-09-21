@@ -239,6 +239,10 @@ const en = {
     syncResetExpired: "That reset took too long. Ask for a new code.",
     syncRecoveryKeyWrong: "That recovery key does not open this account.",
     syncNothingToReset: "There is no password reset under way. Start again.",
+    syncMoveIncomplete:
+      "{{missing}} records did not arrive on the new server. The old account stays frozen: try again, or stop the move.",
+    syncSignInAgainToMove: "Sign out and sign in again on this machine before moving the account.",
+    syncNothingToMove: "There is no move under way. Start again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a
@@ -335,6 +339,32 @@ const en = {
     resetStartOver: "Delete everything and start over",
     resetting: "Resetting",
     finishTitle: "Last step",
+    deleteAccount: "Delete account",
+    deleteAccountWarning:
+      "This deletes your account on {{server}} and everything it holds there, and signs every machine out. What is on your machines stays there.",
+    deleteAccountAction: "Delete the account",
+    deleting: "Deleting",
+    frozen:
+      "This account has been held still for a copy to another server since {{date}}. Nothing can sync until the copy ends.",
+    thaw: "End the copy",
+    moveTitle: "Move to another server",
+    moveHint:
+      "Your account is copied to the new server unchanged, then you choose what happens to this one. While the copy runs, nothing can sync.",
+    moveTo: "New server",
+    moving: "Working",
+    moveCodeHint: "{{server}} sent a code to your address. Confirming it starts the copy.",
+    moveCopy: "Confirm and copy",
+    copying: "Copying",
+    moveCopied: "{{count}} records are on {{server}}, all of them checked. What should happen to the old account?",
+    moveEnd: "The old account",
+    moveDeleteOld: "Delete it",
+    moveKeepOld: "Keep it",
+    moveDeleteOldHint:
+      "Any machine still pointed at the old server is signed out today, so you notice it. This is the safer choice.",
+    moveKeepOldHint:
+      "The old account opens again. A machine still pointed at it goes on writing there, where no machine of yours reads.",
+    moveFinish: "Finish the move",
+    moveAbandon: "Stop the move",
   },
 };
 

@@ -222,6 +222,10 @@ const vi: SharedDict = {
     syncResetExpired: "Quá trình đặt lại đã quá lâu. Hãy xin mã mới.",
     syncRecoveryKeyWrong: "Khoá khôi phục này không mở được tài khoản.",
     syncNothingToReset: "Không có lần đặt lại mật khẩu nào đang diễn ra. Hãy bắt đầu lại.",
+    syncMoveIncomplete:
+      "{{missing}} bản ghi chưa tới được máy chủ mới. Tài khoản cũ vẫn đang đóng băng: hãy thử lại, hoặc dừng việc chuyển.",
+    syncSignInAgainToMove: "Hãy đăng xuất rồi đăng nhập lại trên máy này trước khi chuyển tài khoản.",
+    syncNothingToMove: "Không có lần chuyển nào đang diễn ra. Hãy bắt đầu lại.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng
@@ -313,6 +317,32 @@ const vi: SharedDict = {
     resetStartOver: "Xoá hết và bắt đầu lại",
     resetting: "Đang đặt lại",
     finishTitle: "Bước cuối",
+    deleteAccount: "Xoá tài khoản",
+    deleteAccountWarning:
+      "Thao tác này xoá tài khoản của bạn trên {{server}} cùng mọi thứ nó đang giữ ở đó, và đăng xuất mọi máy. Những gì trên các máy của bạn vẫn nằm lại đó.",
+    deleteAccountAction: "Xoá tài khoản",
+    deleting: "Đang xoá",
+    frozen:
+      "Tài khoản này đang được giữ nguyên để chép sang máy chủ khác từ {{date}}. Không đồng bộ được gì cho tới khi việc chép kết thúc.",
+    thaw: "Kết thúc việc chép",
+    moveTitle: "Chuyển sang máy chủ khác",
+    moveHint:
+      "Tài khoản được chép nguyên vẹn sang máy chủ mới, rồi bạn chọn xử lý tài khoản cũ thế nào. Trong lúc chép, không đồng bộ được gì.",
+    moveTo: "Máy chủ mới",
+    moving: "Đang xử lý",
+    moveCodeHint: "{{server}} đã gửi mã tới địa chỉ của bạn. Xác nhận mã sẽ bắt đầu việc chép.",
+    moveCopy: "Xác nhận và chép",
+    copying: "Đang chép",
+    moveCopied: "{{count}} bản ghi đã có trên {{server}}, đã kiểm đủ. Tài khoản cũ xử lý thế nào?",
+    moveEnd: "Tài khoản cũ",
+    moveDeleteOld: "Xoá",
+    moveKeepOld: "Giữ lại",
+    moveDeleteOldHint:
+      "Máy nào còn trỏ về máy chủ cũ sẽ bị đăng xuất ngay trong ngày, nên bạn sẽ biết. Đây là lựa chọn an toàn hơn.",
+    moveKeepOldHint:
+      "Tài khoản cũ mở lại. Máy nào còn trỏ về đó sẽ tiếp tục ghi vào đó, nơi không máy nào của bạn đọc.",
+    moveFinish: "Hoàn tất việc chuyển",
+    moveAbandon: "Dừng việc chuyển",
   },
 };
 

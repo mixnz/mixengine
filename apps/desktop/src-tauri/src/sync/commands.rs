@@ -3,9 +3,9 @@
 
 use tauri::State;
 
-use super::account::Device;
+use super::account::{Device, Freeze};
 use super::lend::Item;
-use super::session::{PulledPage, PushedChanges, Status, SyncState};
+use super::session::{Moved, PulledPage, PushedChanges, Status, SyncState};
 use crate::error::AppError;
 
 /// What this machine calls itself — offered as its name in the device list, and changed by the
@@ -184,6 +184,57 @@ pub async fn sync_reset_start_over(
     device_name: String,
 ) -> Result<Status, AppError> {
     state.start_over(&code, &device_name).await
+}
+
+/// Returns how many records went with it.
+#[tauri::command]
+pub async fn sync_delete_account(
+    state: State<'_, SyncState>,
+    password: String,
+) -> Result<u64, AppError> {
+    state.delete_account(password).await
+}
+
+#[tauri::command]
+pub async fn sync_freeze_state(state: State<'_, SyncState>) -> Result<Freeze, AppError> {
+    state.freeze_state().await
+}
+
+#[tauri::command]
+pub async fn sync_thaw(state: State<'_, SyncState>) -> Result<Freeze, AppError> {
+    state.thaw().await
+}
+
+#[tauri::command]
+pub async fn sync_move_begin(
+    state: State<'_, SyncState>,
+    server: String,
+    access: Option<String>,
+    password: String,
+) -> Result<(), AppError> {
+    state.move_begin(&server, access.as_deref(), password).await
+}
+
+#[tauri::command]
+pub async fn sync_move_confirm(
+    state: State<'_, SyncState>,
+    code: String,
+    device_name: String,
+) -> Result<Moved, AppError> {
+    state.move_confirm(&code, &device_name).await
+}
+
+#[tauri::command]
+pub async fn sync_move_finish(
+    state: State<'_, SyncState>,
+    delete_old: bool,
+) -> Result<Status, AppError> {
+    state.move_finish(delete_old).await
+}
+
+#[tauri::command]
+pub async fn sync_move_abandon(state: State<'_, SyncState>) -> Result<(), AppError> {
+    state.move_abandon().await
 }
 
 #[cfg(test)]

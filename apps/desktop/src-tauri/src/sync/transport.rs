@@ -78,6 +78,17 @@ impl Transport {
             .map_err(unreachable)?;
         read(response).await
     }
+
+    /// Every record the account holds after `since`, across collections — what a copy reads
+    /// (D4b). Not part of [`Remote`]: nothing but a copy asks for the whole account at once.
+    pub async fn page_all(&self, since: i64) -> Result<Page, AppError> {
+        let response = self
+            .request(Method::GET, &format!("/v1/records?since={since}"))
+            .send()
+            .await
+            .map_err(unreachable)?;
+        read(response).await
+    }
 }
 
 impl Remote for Transport {
