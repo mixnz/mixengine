@@ -201,7 +201,7 @@ async fn closed_host(
     http::Failure::new(
         axum::http::StatusCode::UNAUTHORIZED,
         "invalid-access-token",
-        "This server is private. Ask whoever runs it for the token.",
+        "This server is private. Ask its operator for the access token.",
     )
     .into_response()
 }
@@ -229,21 +229,21 @@ async fn always_json(request: Request, next: Next, max_batch_bytes: u64) -> Resp
     let (code, message) = match status {
         axum::http::StatusCode::METHOD_NOT_ALLOWED => (
             "method-not-allowed",
-            "That route does not answer this method.",
+            "That route does not accept this method.",
         ),
         axum::http::StatusCode::PAYLOAD_TOO_LARGE => {
             // The number a client needs in order to chunk differently next time.
             members.insert("limit".to_owned(), json!(max_batch_bytes));
             (
                 "request-too-large",
-                "That request is larger than this server takes.",
+                "That request is larger than this server accepts.",
             )
         }
         axum::http::StatusCode::NOT_FOUND => ("not-found", "No such route."),
         axum::http::StatusCode::BAD_REQUEST => {
             ("invalid-request", "Something in that request is malformed.")
         }
-        _ => ("server-error", "Something went wrong here."),
+        _ => ("server-error", "Something went wrong on the server."),
     };
     let mut failure = http::Failure::new(status, code, message);
     failure.members = members;

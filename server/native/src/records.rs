@@ -221,7 +221,7 @@ pub fn apply_put(
     let (account_id, device) = (writer.account_id, writer.device_id.as_str());
     if !is_opaque_id(collection) || !is_opaque_id(id) {
         return Ok(Outcome::bad(
-            "A collection and a record are each 64 lowercase hex characters.",
+            "Collection and record IDs must be 64 lowercase hex characters.",
         ));
     }
 
@@ -237,7 +237,7 @@ pub fn apply_put(
             .filter(|value| is_base64(value, None)),
     ) else {
         return Ok(Outcome::bad(
-            "A record carries updatedAt, a 24-byte nonce and a ciphertext.",
+            "A record needs updatedAt, a 24-byte nonce and a ciphertext.",
         ));
     };
 
@@ -291,7 +291,7 @@ pub fn apply_put(
                 return Ok(Outcome::refuse(
                     StatusCode::CONFLICT,
                     "version-conflict",
-                    "Somebody else wrote this first.",
+                    "Another device changed this record first.",
                     Some(record.clone()),
                 ));
             }
@@ -386,7 +386,7 @@ pub fn apply_delete(
     let (account_id, device) = (writer.account_id, writer.device_id.as_str());
     if !is_opaque_id(collection) || !is_opaque_id(id) {
         return Ok(Outcome::bad(
-            "A collection and a record are each 64 lowercase hex characters.",
+            "Collection and record IDs must be 64 lowercase hex characters.",
         ));
     }
     let Some(if_match) = if_match else {
@@ -410,7 +410,7 @@ pub fn apply_delete(
         return Ok(Outcome::refuse(
             StatusCode::CONFLICT,
             "version-conflict",
-            "Somebody else wrote this first.",
+            "Another device changed this record first.",
             Some(record),
         ));
     }
@@ -468,7 +468,7 @@ fn server_error(error: impl std::fmt::Display) -> Response {
     Failure::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "server-error",
-        "Something went wrong here.",
+        "Something went wrong on the server.",
     )
     .into_response()
 }
@@ -547,11 +547,11 @@ pub async fn batch(
     }
     let limits = state.config.capabilities.clone();
     let Some(operations) = fields.get("operations").and_then(Value::as_array).cloned() else {
-        return invalid_request("A batch carries a list of operations.").into_response();
+        return invalid_request("A batch needs a list of operations.").into_response();
     };
     if operations.is_empty() || operations.len() as u64 > limits.max_batch_operations {
         return invalid_request(format!(
-            "A batch carries between one and {} operations.",
+            "A batch needs between 1 and {} operations.",
             limits.max_batch_operations
         ))
         .into_response();
@@ -656,7 +656,8 @@ pub async fn list(
     if let Some(collection) = cursor.collection.as_deref()
         && !is_opaque_id(collection)
     {
-        return invalid_request("A collection is 64 lowercase hex characters.").into_response();
+        return invalid_request("A collection ID must be 64 lowercase hex characters.")
+            .into_response();
     }
 
     let outcome = state
@@ -735,7 +736,7 @@ pub async fn list(
         Ok(Some(Err(()))) => Failure::new(
             StatusCode::GONE,
             "cursor-expired",
-            "That cursor is older than the deletions this server still remembers.",
+            "That cursor is too old. Sync again from the beginning.",
         )
         .into_response(),
         Ok(Some(Ok(page))) => axum::Json(page).into_response(),

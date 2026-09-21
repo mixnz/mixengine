@@ -51,7 +51,7 @@ fn internal(error: impl std::fmt::Display) -> Failure {
     Failure::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "server-error",
-        "Something went wrong here.",
+        "Something went wrong on the server.",
     )
 }
 
@@ -299,7 +299,8 @@ pub async fn register(
         {
             invalid_email().into_response()
         } else {
-            invalid_request("A verifier, a salt and two wrapped keys.").into_response()
+            invalid_request("The request needs a verifier, a salt and two wrapped keys.")
+                .into_response()
         };
     };
 
@@ -311,7 +312,8 @@ pub async fn register(
             .filter(|value| *value > 0)
     });
     let [Some(m), Some(t), Some(p)] = argon else {
-        return invalid_request("The Argon2 parameters the client derived with.").into_response();
+        return invalid_request("The request needs the Argon2 parameters the client used.")
+            .into_response();
     };
 
     let email = email.trim().to_lowercase();
@@ -634,7 +636,7 @@ pub async fn login(
             Failure::new(
                 StatusCode::BAD_REQUEST,
                 "invalid-device-name",
-                "This machine needs a name of up to 128 characters.",
+                "The device name must be 1 to 128 characters.",
             )
             .into_response()
         };

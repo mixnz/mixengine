@@ -68,7 +68,7 @@ pub fn invalid_email() -> Failure {
     Failure::new(
         StatusCode::BAD_REQUEST,
         "invalid-email",
-        "That is not an address a letter could reach.",
+        "That is not a valid email address.",
     )
 }
 
@@ -79,7 +79,7 @@ pub fn invalid_code() -> Failure {
     Failure::new(
         StatusCode::BAD_REQUEST,
         "invalid-code",
-        "That code is not usable.",
+        "That code is invalid or has expired.",
     )
 }
 
@@ -87,7 +87,7 @@ pub fn invalid_token() -> Failure {
     Failure::new(
         StatusCode::UNAUTHORIZED,
         "invalid-token",
-        "That token is not usable.",
+        "That token is invalid or has expired.",
     )
 }
 

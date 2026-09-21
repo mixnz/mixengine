@@ -46,7 +46,7 @@ pub async fn list(State(state): State<Arc<AppState>>, headers: HeaderMap) -> Res
             Failure::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "server-error",
-                "Something went wrong here.",
+                "Something went wrong on the server.",
             )
             .into_response()
         }
@@ -90,7 +90,7 @@ pub async fn remove(
             Failure::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "server-error",
-                "Something went wrong here.",
+                "Something went wrong on the server.",
             )
             .into_response()
         }

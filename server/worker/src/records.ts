@@ -95,7 +95,7 @@ export function applyPut(
   device: string,
 ): Outcome {
   if (!isOpaqueId(collection) || !isOpaqueId(id)) {
-    return invalid("A collection and a record are each 64 lowercase hex characters.");
+    return invalid("Collection and record IDs must be 64 lowercase hex characters.");
   }
 
   const fields = asObject(body);
@@ -105,7 +105,7 @@ export function applyPut(
     !isBase64(fields["nonce"], 24) ||
     !isBase64(fields["ciphertext"])
   ) {
-    return invalid("A record carries updatedAt, a 24-byte nonce and a ciphertext.");
+    return invalid("A record needs updatedAt, a 24-byte nonce and a ciphertext.");
   }
 
   const ciphertext = fields["ciphertext"] as string;
@@ -151,7 +151,7 @@ export function applyPut(
     return {
       status: 409,
       record: wire(existing),
-      error: { code: "version-conflict", message: "Somebody else wrote this first." },
+      error: { code: "version-conflict", message: "Another device changed this record first." },
     };
   }
 
@@ -205,7 +205,7 @@ export function applyDelete(
   device: string,
 ): Outcome {
   if (!isOpaqueId(collection) || !isOpaqueId(id)) {
-    return invalid("A collection and a record are each 64 lowercase hex characters.");
+    return invalid("Collection and record IDs must be 64 lowercase hex characters.");
   }
   if (ifMatch === undefined) {
     return {
@@ -220,7 +220,7 @@ export function applyDelete(
     return {
       status: 409,
       record: wire(existing),
-      error: { code: "version-conflict", message: "Somebody else wrote this first." },
+      error: { code: "version-conflict", message: "Another device changed this record first." },
     };
   }
 
@@ -259,7 +259,7 @@ export function listSince(
 ): Outcome | Page {
   if (!Number.isSafeInteger(since) || since < 0) return invalid("`since` is a sequence number.");
   if (collection !== null && !isOpaqueId(collection)) {
-    return invalid("A collection is 64 lowercase hex characters.");
+    return invalid("A collection ID must be 64 lowercase hex characters.");
   }
 
   // D3: a machine that has been away longer than a tombstone lives is told to resync from empty
@@ -270,7 +270,7 @@ export function listSince(
       status: 410,
       error: {
         code: "cursor-expired",
-        message: "That cursor is older than the deletions this server still remembers.",
+        message: "That cursor is too old. Sync again from the beginning.",
       },
     };
   }

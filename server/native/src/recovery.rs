@@ -38,7 +38,7 @@ fn server_error(error: impl std::fmt::Display) -> Failure {
     Failure::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "server-error",
-        "Something went wrong here.",
+        "Something went wrong on the server.",
     )
 }
 
@@ -58,8 +58,10 @@ pub async fn change_password(
         field(&fields, "newSaltAccount", SALT_BYTES),
         field(&fields, "newWrappedMkPassword", WRAPPED_KEY_BYTES),
     ) else {
-        return invalid_request("The current verifier, and the new one with its salt.")
-            .into_response();
+        return invalid_request(
+            "The request needs the current verifier and a new one with its salt.",
+        )
+        .into_response();
     };
 
     if let Some(failure) = guard(&state, &headers).await {
@@ -402,7 +404,8 @@ async fn keep(state: Arc<AppState>, fields: Value, email: String, ticket: String
         field(&fields, "wrappedMkPassword", WRAPPED_KEY_BYTES),
         field(&fields, "wrappedMkRecovery", WRAPPED_KEY_BYTES),
     ) else {
-        return invalid_request("A verifier, a salt and two wrapped keys.").into_response();
+        return invalid_request("The request needs a verifier, a salt and two wrapped keys.")
+            .into_response();
     };
 
     let key = account_key(&email);
@@ -464,7 +467,7 @@ async fn keep(state: Arc<AppState>, fields: Value, email: String, ticket: String
         Ok(false) => Failure::new(
             StatusCode::UNAUTHORIZED,
             "invalid-token",
-            "That ticket is not usable.",
+            "That ticket is invalid or has expired.",
         )
         .into_response(),
         Ok(true) => Json(json!({ "recordsDeleted": 0 })).into_response(),

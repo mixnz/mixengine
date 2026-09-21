@@ -60,7 +60,7 @@ const now = (): number => Math.floor(Date.now() / 1000);
 const secretOf = (token: string): string => token.split(".").at(-1) ?? "";
 
 /** Wrong, expired and already-used answer alike: the sentence a person needs is the same. */
-const badCode = (): Response => fail(400, "invalid-code", "That code is not usable.");
+const badCode = (): Response => fail(400, "invalid-code", "That code is invalid or has expired.");
 
 /** `If-Match: "41"` and `If-None-Match: *`, which are how a write states what it believes. */
 function readPrecondition(headers: Headers): Precondition {
@@ -181,23 +181,23 @@ export class Account implements DurableObject {
    */
   private frozen(): Response | null {
     if (this.freeze().state !== "frozen") return null;
-    return fail(423, "account-frozen", "This account is being copied and cannot change.");
+    return fail(423, "account-frozen", "This account is being moved to another server and can't be changed right now.");
   }
 
   private async readFreeze(request: Request): Promise<Response> {
     // Answered in both states: a machine that meets a refusal has to be able to find out why.
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
     return json(200, this.freeze());
   }
 
   private async setFreeze(request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
 
     const wanted = asObject(body)?.["state"];
     if (wanted !== "active" && wanted !== "frozen") {
-      return fail(400, "invalid-request", "`state` is active or frozen.");
+      return fail(400, "invalid-request", "`state` must be active or frozen.");
     }
 
     if (wanted === "active") {
@@ -223,7 +223,7 @@ export class Account implements DurableObject {
    */
   private async deleteAccount(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
 
     const fields = asObject(body);
     if (!fields || !isBase64(fields["a"], VERIFIER_BYTES)) {
@@ -267,7 +267,7 @@ export class Account implements DurableObject {
 
   private async readRecords(config: Config, request: Request, url: URL): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
     // `Number("")` is 0, which would have quietly turned `?since=` into "from the beginning"
     // here while `server/native/` refused it. Digits or nothing.
     const raw = url.searchParams.get("since");
@@ -289,7 +289,7 @@ export class Account implements DurableObject {
     body: unknown,
   ): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
     const frozen = this.frozen();
     if (frozen) return frozen;
 
@@ -311,7 +311,7 @@ export class Account implements DurableObject {
 
   private async batch(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
     const frozen = this.frozen();
     if (frozen) return frozen;
 
@@ -325,7 +325,7 @@ export class Account implements DurableObject {
       return fail(
         400,
         "invalid-request",
-        `A batch carries between one and ${limits.maxBatchOperations} operations.`,
+        `A batch needs between 1 and ${limits.maxBatchOperations} operations.`,
       );
     }
 
@@ -395,7 +395,7 @@ export class Account implements DurableObject {
   private async register(config: Config, body: unknown): Promise<Response> {
     const fields = asObject(body);
     if (!fields || !isEmail(fields["email"])) {
-      return fail(400, "invalid-email", "That is not an address a letter could reach.");
+      return fail(400, "invalid-email", "That is not a valid email address.");
     }
     if (
       !isBase64(fields["a"], VERIFIER_BYTES) ||
@@ -404,7 +404,7 @@ export class Account implements DurableObject {
       !isBase64(fields["wrappedMkPassword"], WRAPPED_KEY_BYTES) ||
       !isBase64(fields["wrappedMkRecovery"], WRAPPED_KEY_BYTES)
     ) {
-      return fail(400, "invalid-request", "A verifier, a salt and two wrapped keys.");
+      return fail(400, "invalid-request", "The request needs a verifier, a salt and two wrapped keys.");
     }
 
     const argon = asObject(fields["argon"]);
@@ -414,7 +414,7 @@ export class Account implements DurableObject {
       !isPositiveInteger(argon["t"]) ||
       !isPositiveInteger(argon["p"])
     ) {
-      return fail(400, "invalid-request", "The Argon2 parameters the client derived with.");
+      return fail(400, "invalid-request", "The request needs the Argon2 parameters the client used.");
     }
 
     // The race settles here and nowhere else: two attempts on one address reach one object, and
@@ -511,7 +511,7 @@ export class Account implements DurableObject {
   /** D6, case 1: re-wrap, one request, nothing else moves. */
   private async changePassword(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
     const frozen = this.frozen();
     if (frozen) return frozen;
 
@@ -523,7 +523,7 @@ export class Account implements DurableObject {
       !isBase64(fields["newSaltAccount"], SALT_BYTES) ||
       !isBase64(fields["newWrappedMkPassword"], WRAPPED_KEY_BYTES)
     ) {
-      return fail(400, "invalid-request", "The current verifier, and the new one with its salt.");
+      return fail(400, "invalid-request", "The request needs the current verifier and a new one with its salt.");
     }
 
     const account = this.account();
@@ -569,7 +569,7 @@ export class Account implements DurableObject {
         !isBase64(fields["wrappedMkPassword"], WRAPPED_KEY_BYTES) ||
         !isBase64(fields["wrappedMkRecovery"], WRAPPED_KEY_BYTES)
       ) {
-        return fail(400, "invalid-request", "A verifier, a salt and two wrapped keys.");
+        return fail(400, "invalid-request", "The request needs a verifier, a salt and two wrapped keys.");
       }
       const ticket = fields["ticket"];
       if (
@@ -577,7 +577,7 @@ export class Account implements DurableObject {
         !this.account() ||
         !this.spendToken(await sha256Hex(ticket), "reset-ticket")
       ) {
-        return fail(401, "invalid-token", "That ticket is not usable.");
+        return fail(401, "invalid-token", "That ticket is invalid or has expired.");
       }
 
       this.sql.exec(
@@ -675,7 +675,7 @@ export class Account implements DurableObject {
       return fail(400, "invalid-request", "A verifier is required.");
     }
     if (!isNonEmptyString(fields["deviceName"], 128)) {
-      return fail(400, "invalid-device-name", "This machine needs a name of up to 128 characters.");
+      return fail(400, "invalid-device-name", "The device name must be 1 to 128 characters.");
     }
 
     // **The account lookup comes first.** Counting an attempt against an address that has no
@@ -729,19 +729,19 @@ export class Account implements DurableObject {
     const fields = asObject(body);
     const presented = fields?.["refreshToken"];
     if (typeof presented !== "string") {
-      return fail(401, "invalid-token", "That token is not usable.");
+      return fail(401, "invalid-token", "That token is invalid or has expired.");
     }
 
     const row = this.token(await sha256Hex(secretOf(presented)));
     if (!row || row.kind !== "refresh" || row.expires_at <= now()) {
-      return fail(401, "invalid-token", "That token is not usable.");
+      return fail(401, "invalid-token", "That token is invalid or has expired.");
     }
 
     if (row.rotated === 1) {
       // Either it was copied, or two clients raced. Both want the person to sign in again rather
       // than continue quietly, so the device's whole chain goes (D4a).
       this.sql.exec(`DELETE FROM token WHERE device_id = ?`, row.device_id);
-      return fail(401, "invalid-token", "That token is not usable.");
+      return fail(401, "invalid-token", "That token is invalid or has expired.");
     }
 
     this.sql.exec(`UPDATE token SET rotated = 1 WHERE hash = ?`, row.hash);
@@ -754,7 +754,7 @@ export class Account implements DurableObject {
 
   private async listDevices(request: Request): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
 
     const devices = this.sql
       .exec<DeviceRow>(`SELECT * FROM device ORDER BY created_at ASC`)
@@ -772,7 +772,7 @@ export class Account implements DurableObject {
 
   private async deleteDevice(request: Request, id: string): Promise<Response> {
     const session = await this.authenticate(request);
-    if (!session) return fail(401, "invalid-token", "That token is not usable.");
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
 
     const exists = this.sql.exec(`SELECT id FROM device WHERE id = ?`, id).toArray().length === 1;
     // 404 and not 403: a 403 would confirm that the device exists on somebody else's account.

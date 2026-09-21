@@ -105,7 +105,7 @@ export default {
         return fail(
           401,
           "invalid-access-token",
-          "This server is private. Ask whoever runs it for the token.",
+          "This server is private. Ask its operator for the access token.",
         );
       }
     }
@@ -125,7 +125,7 @@ export default {
       if (request.method !== "GET") return methodNotAllowed();
       const email = url.searchParams.get("email");
       if (!isEmail(email)) {
-        return fail(400, "invalid-email", "That is not an address a letter could reach.");
+        return fail(400, "invalid-email", "That is not a valid email address.");
       }
       const verdict = await askSource(env.SOURCE_LIMIT, request, path, config.limits.paramsPerHour);
       if (!verdict.allowed) {
@@ -140,7 +140,7 @@ export default {
     // `maxBatchOperations` times `maxRecordBytes` is a number no server intends to buffer, so
     // without this a client can compose a request every other limit calls legal (D4a).
     if (body !== null && body.length > config.capabilities.maxBatchBytes) {
-      return fail(413, "request-too-large", "That request is larger than this server takes.", {
+      return fail(413, "request-too-large", "That request is larger than this server accepts.", {
         limit: config.capabilities.maxBatchBytes,
       });
     }
@@ -159,7 +159,7 @@ export default {
       const fields = asObject(body === null ? null : safeParse(body));
       const email = fields?.["email"];
       if (!isEmail(email)) {
-        return fail(400, "invalid-email", "That is not an address a letter could reach.");
+        return fail(400, "invalid-email", "That is not a valid email address.");
       }
 
       // The two routes that create work out of nothing are counted per source rather than per
@@ -200,13 +200,13 @@ export default {
     if (path === "/v1/auth/refresh") {
       const refreshToken = asObject(body === null ? null : safeParse(body))?.["refreshToken"];
       const stub = objectForToken(env, typeof refreshToken === "string" ? `Bearer ${refreshToken}` : null);
-      if (!stub) return fail(401, "invalid-token", "That token is not usable.");
+      if (!stub) return fail(401, "invalid-token", "That token is invalid or has expired.");
       return forward(stub, request, body);
     }
 
     if (BY_TOKEN.has(path) || path.startsWith("/v1/devices/") || path.startsWith("/v1/records/")) {
       const stub = objectForToken(env, request.headers.get("Authorization"));
-      if (!stub) return fail(401, "invalid-token", "That token is not usable.");
+      if (!stub) return fail(401, "invalid-token", "That token is invalid or has expired.");
       return forward(stub, request, body);
     }
 

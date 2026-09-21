@@ -34,26 +34,29 @@ function subject(kind: LetterKind): string {
 function text(letter: Letter): string {
   if (letter.kind === "verification") {
     return [
-      "Type this code into MixLab to confirm your address:",
+      "Your MixLab confirmation code is:",
       "",
       `    ${letter.code}`,
       "",
-      "It works for 24 hours. If you did not ask for an account, ignore this message —",
-      "nothing was created that you have to undo.",
+      "Enter it in MixLab to finish creating your account. The code expires in 24 hours.",
+      "",
+      "If you didn't sign up for MixLab, you can ignore this email.",
     ].join("\n");
   }
   return [
-    "Somebody asked to reset the password on this MixLab account. The code is:",
+    "Someone asked to reset the password for this MixLab account. Your code is:",
     "",
     `    ${letter.code}`,
     "",
-    "It works for one hour.",
+    "The code expires in 1 hour.",
     "",
-    "Resetting the password restores the login and NOT the data. Everything stored in the",
-    "account is encrypted with a key that only your password or your recovery key can unwrap,",
-    "and this server has never held either. Completing a reset deletes it all.",
+    "Resetting your password lets you sign in again, but it deletes your synced data.",
+    "Your data is encrypted with a key that only your password or recovery key can",
+    "unlock, and the server has neither.",
     "",
-    "If you have your recovery key, close this message and use that instead — it keeps the data.",
+    "If you still have your recovery key, use it instead. It keeps your data.",
+    "",
+    "If you didn't ask for this, ignore this email. Your password won't change.",
   ].join("\n");
 }
 
