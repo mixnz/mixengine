@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readEnabled, writeEnabled, type EnabledStorage } from "./enabled";
+import { readEnabled, setEnabled, writeEnabled, type EnabledStorage } from "./enabled";
 
 function memory(value: string | null = null): EnabledStorage & { value: string | null } {
   const store = {
@@ -25,5 +25,11 @@ describe("which collections are on", () => {
     const storage = memory();
     writeEnabled(storage, ["connections", "preferences", "connections"]);
     expect(readEnabled(storage)).toEqual(new Set(["connections", "preferences"]));
+  });
+
+  it("turns one row on or off and leaves the rest", () => {
+    const storage = memory('["preferences"]');
+    expect(setEnabled(storage, "connections", true)).toEqual(new Set(["connections", "preferences"]));
+    expect(setEnabled(storage, "preferences", false)).toEqual(new Set(["connections"]));
   });
 });

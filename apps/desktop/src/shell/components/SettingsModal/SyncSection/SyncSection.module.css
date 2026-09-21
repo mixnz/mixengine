@@ -1,0 +1,76 @@
+/* A labelled control: the label above, a hint under it when there is one. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.problem {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--danger-text);
+}
+
+/* Thirteen groups in a grid a person copies from left to right, each numbered, because the check
+   that follows asks for two of them by number. */
+.groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.group {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  letter-spacing: 0.05em;
+}
+
+.groupIndex {
+  min-width: 1.5em;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* One machine: its name and when it was last seen on the left, what can be done on the right. */
+.device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.device:last-child {
+  border-bottom: none;
+}
+
+.tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-sunken);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}

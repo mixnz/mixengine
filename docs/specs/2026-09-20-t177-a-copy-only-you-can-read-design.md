@@ -585,6 +585,14 @@ has the six that a Worker can reach, SMTP being the one it cannot.
 | The same Worker | the person's own Cloudflare account | them, on Cloudflare |
 | The native binary, or a container built from it | a machine of their choosing | them, entirely |
 
+**MixLab ships the default instance's address, `https://sync-0.lab.mixnz.com`, and nothing
+else.** A person who runs one of the other two rows adds their server's address to a list kept on
+their own machine, and picks from that list when signing in; the default is always on it and cannot
+be removed. The list holds addresses only — a closed server's access token is asked for at sign-in
+and kept beside `MK` (D2), never in the list. The `-0` is room for a second default instance, not a
+promise of one: moving the default is `closingOn` and a person copying their own account (below),
+and a new address in a release is how a new default reaches anybody.
+
 **A container is a packaging of `server/native/`, not a third implementation.** The middle row is
 nearly free: the same source as the default instance, reached by forking this repository and
 pointing Workers Builds at `server/worker/` as its root directory. The bottom row is the one that

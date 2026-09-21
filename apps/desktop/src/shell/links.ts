@@ -1,3 +1,5 @@
+import type { Language } from "../i18n";
+
 /**
  * Pages of MixDB's own that the app sends a user out to.
  *
@@ -8,10 +10,10 @@
  */
 
 /**
- * The privacy policy, as declared to the Microsoft Store and to Apple.
- *
- * A store listing points at this URL for as long as the app is listed, so the address is fixed:
- * the page it serves may be rewritten, but it must not move. Its source is `site/privacy/` in this
- * repository, published by the Pages workflow.
+ * The privacy policy: a page of the handbook (`docs/guide/<lang>/privacy.md`), published by the
+ * Pages workflow, in the language the app is set to. It replaced MixDB's page, which said there was
+ * no server of ours — true until sync.
  */
-export const PRIVACY_POLICY_URL = "https://mixnz.github.io/mixdb/privacy";
+export function privacyPolicyUrl(lang: Language): string {
+  return `https://mixnz.github.io/mixlab/${lang}/privacy/`;
+}

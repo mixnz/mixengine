@@ -23,3 +23,12 @@ export function readEnabled(storage: EnabledStorage): Set<string> {
 export function writeEnabled(storage: EnabledStorage, ids: Iterable<string>): void {
   storage.setItem(KEY, JSON.stringify([...new Set(ids)].sort()));
 }
+
+/** One row on or off; the rest as they were. Returns the set now stored. */
+export function setEnabled(storage: EnabledStorage, id: string, on: boolean): Set<string> {
+  const ids = readEnabled(storage);
+  if (on) ids.add(id);
+  else ids.delete(id);
+  writeEnabled(storage, ids);
+  return readEnabled(storage);
+}

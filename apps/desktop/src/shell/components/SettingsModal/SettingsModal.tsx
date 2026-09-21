@@ -4,12 +4,13 @@ import type { AccentColor, ThemeMode } from "../../theme";
 import type { TranslationKey } from "../../../i18n";
 import type { IconProps } from "../../../icons";
 import type { ShortcutGroup } from "../../../core/shortcuts";
-import { DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon } from "../../../icons";
+import { DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon, SyncIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import { visibleModules } from "../../profiles";
 import AppearanceSection from "./AppearanceSection";
 import ModulesSection, { type ModuleSettings } from "./ModulesSection";
 import ShortcutsSection from "./ShortcutsSection";
+import SyncSection from "./SyncSection";
 import UpdateSection from "./UpdateSection";
 import styles from "./SettingsModal.module.css";
 import Modal, { ModalBody } from "../../../components/Modal";
@@ -67,6 +68,7 @@ function SettingsModal({
     { id: "appearance", labelKey: "settings.appearance", icon: PaletteIcon },
     { id: "modules", labelKey: "profiles.title", icon: ModulesIcon },
     { id: "shortcuts", labelKey: "shortcuts.title", icon: KeyboardIcon },
+    { id: "sync", labelKey: "sync.title", icon: SyncIcon },
     ...visible.flatMap((m) =>
       m.settings ? [{ id: m.id, labelKey: m.settings.labelKey, icon: m.settings.Icon }] : [],
     ),
@@ -142,6 +144,15 @@ function SettingsModal({
                 hidden={shown !== "shortcuts"}
               >
                 <ShortcutsSection shortcuts={shortcuts} />
+              </div>
+              <div
+                className={styles.panel}
+                role="tabpanel"
+                id="settings-panel-sync"
+                aria-labelledby="settings-tab-sync"
+                hidden={shown !== "sync"}
+              >
+                <SyncSection />
               </div>
               {visible.map((m) =>
                 m.settings ? (

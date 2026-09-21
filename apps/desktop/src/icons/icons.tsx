@@ -181,6 +181,18 @@ export function ReloadIcon(props: IconProps) {
   );
 }
 
+/** Two arrows chasing each other round: sync, as a Settings pane. */
+export function SyncIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M20.25 12a8.25 8.25 0 0 1-14.3 5.6" />
+      <path d="M3.75 12a8.25 8.25 0 0 1 14.3-5.6" />
+      <path d="M18.05 3v3.4h-3.4" />
+      <path d="M5.95 21v-3.4h3.4" />
+    </Icon>
+  );
+}
+
 /** Reveal something deliberately hidden — the connection string with its credentials in it. */
 export function EyeIcon(props: IconProps) {
   return (

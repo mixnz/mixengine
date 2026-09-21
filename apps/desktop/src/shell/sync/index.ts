@@ -3,13 +3,19 @@ import { SYNCABLE } from "../registry";
 import { tauriSync } from "./api";
 import { readEnabled } from "./enabled";
 import { startSyncLoop } from "./loop";
+import { noteReplaced } from "./replaced";
 
-/** Fired on `window` with `{ collection, count }` when edits made here were replaced by newer ones. */
-export const SYNC_REPLACED_EVENT = "mixlab:sync-replaced";
+/** Fired on `window` to ask for a run now: after signing in, or turning a row on. */
+export const SYNC_NOW_EVENT = "mixlab:sync-now";
+
+export function requestSync(): void {
+  window.dispatchEvent(new Event(SYNC_NOW_EVENT));
+}
 
 /**
- * Sync for the main window: every collection that is on, at D8's moments. With every row off —
- * which is how a machine starts (D5) — it runs and asks nothing of anybody. Returns the stop.
+ * Sync for the main window: every collection that is on, at D8's moments — and whenever
+ * {@link requestSync} asks. With every row off, which is how a machine starts (D5), it runs and
+ * asks nothing of anybody. Returns the stop.
  */
 export function startSync(): () => void {
   return startSyncLoop({
@@ -20,10 +26,13 @@ export function startSync(): () => void {
     },
     onFocus: (listener) => {
       window.addEventListener("focus", listener);
-      return () => window.removeEventListener("focus", listener);
+      window.addEventListener(SYNC_NOW_EVENT, listener);
+      return () => {
+        window.removeEventListener("focus", listener);
+        window.removeEventListener(SYNC_NOW_EVENT, listener);
+      };
     },
-    onReplaced: (collection, count) =>
-      window.dispatchEvent(new CustomEvent(SYNC_REPLACED_EVENT, { detail: { collection, count } })),
+    onReplaced: noteReplaced,
     // An `AppError` is a plain object, which `String()` would print as `[object Object]`.
     onError: (collection, error) =>
       void logError("sync", error instanceof Error ? error : JSON.stringify(error), collection),

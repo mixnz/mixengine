@@ -64,7 +64,7 @@ fn the_reading_order_is_unique_and_gapless() {
     for locale in Locale::ALL {
         let orders: Vec<u32> = pages(locale).iter().map(|page| page.order).collect();
         let expected: Vec<u32> =
-            (1..=u32::try_from(orders.len()).expect("sixteen pages")).collect();
+            (1..=u32::try_from(orders.len()).expect("a page count fits in u32")).collect();
         assert_eq!(
             orders,
             expected,
@@ -78,7 +78,7 @@ fn the_reading_order_is_unique_and_gapless() {
 ///
 /// A page added without a decision about where it belongs would otherwise land at the end of a list
 /// somebody reads in order — so adding one is an edit here, deliberately.
-const SLUGS: [&str; 16] = [
+const SLUGS: [&str; 17] = [
     "index",
     "install",
     "getting-started",
@@ -95,10 +95,11 @@ const SLUGS: [&str; 16] = [
     "troubleshooting",
     "cli",
     "for-agents",
+    "privacy",
 ];
 
 #[test]
-fn the_corpus_is_the_sixteen_pages_it_was_designed_as() {
+fn the_corpus_is_the_pages_it_was_designed_as() {
     for locale in Locale::ALL {
         let actual: Vec<&str> = pages(locale).iter().map(|page| page.slug).collect();
         assert_eq!(actual, SLUGS, "{}", locale.code());

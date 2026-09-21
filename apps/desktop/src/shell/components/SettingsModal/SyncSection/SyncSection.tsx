@@ -1,0 +1,85 @@
+import { useCallback, useEffect, useState } from "react";
+import ErrorBanner from "../../../../components/ErrorBanner";
+import { errorMessage } from "../../../../core/errors";
+import { useTranslation } from "../../../../i18n";
+import { requestSync } from "../../../sync";
+import { syncDeviceName, syncStatus, type SyncStatus } from "../../../sync/api";
+import AccountView from "./AccountView";
+import RecoveryKey from "./RecoveryKey";
+import SignInForm from "./SignInForm";
+import VerifyCode from "./VerifyCode";
+
+/** Where sign-up has got to. Lives as long as the pane: closing Settings drops the key on purpose. */
+type Step = { kind: "form" } | { kind: "recovery"; key: string; email: string } | { kind: "code"; email: string };
+
+/**
+ * The Sync pane. Which of four things it shows is decided by Rust's status and by how far sign-up
+ * has got: signed in, the recovery key, the letter's code, or the form.
+ */
+function SyncSection() {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState<SyncStatus | null>(null);
+  const [step, setStep] = useState<Step>({ kind: "form" });
+  /** Set by "start over": a registration still waiting in Rust is left to be replaced by the next. */
+  const [startedOver, setStartedOver] = useState(false);
+  const [deviceName, setDeviceName] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    syncStatus()
+      .then(setStatus)
+      .catch((error: unknown) => setProblem(errorMessage(t, error)));
+  }, [t]);
+  useEffect(refresh, [refresh]);
+
+  useEffect(() => {
+    void syncDeviceName()
+      .then((name) => setDeviceName((current) => (current === "" ? name : current)))
+      .catch(() => {});
+  }, []);
+
+  function signedIn(next: SyncStatus) {
+    setStep({ kind: "form" });
+    setStatus(next);
+    requestSync();
+  }
+
+  if (problem) return <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />;
+  if (status === null) return null;
+  if (status.signedIn) return <AccountView status={status} onChanged={refresh} />;
+
+  if (step.kind === "recovery") {
+    return <RecoveryKey recoveryKey={step.key} onDone={() => setStep({ kind: "code", email: step.email })} />;
+  }
+
+  const waiting = step.kind === "code" || (status.verifying !== null && !startedOver);
+  if (waiting) {
+    return (
+      <VerifyCode
+        email={step.kind === "code" ? step.email : (status.verifying ?? "")}
+        deviceName={deviceName}
+        onDeviceNameChange={setDeviceName}
+        lostKey={step.kind !== "code"}
+        onVerified={signedIn}
+        onStartOver={() => {
+          setStep({ kind: "form" });
+          setStartedOver(true);
+        }}
+      />
+    );
+  }
+
+  return (
+    <SignInForm
+      deviceName={deviceName}
+      onDeviceNameChange={setDeviceName}
+      onSignedIn={signedIn}
+      onRegistered={(key, email) => {
+        setStartedOver(false);
+        setStep({ kind: "recovery", key, email });
+      }}
+    />
+  );
+}
+
+export default SyncSection;
