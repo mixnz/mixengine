@@ -18,4 +18,15 @@ ignore = [
   # in Cargo.lock and appears in no dependency graph. Checked, not assumed — `cargo tree -e all -i
   # rkyv --target all` prints nothing. cargo-audit reads the lock file, which cannot see that.
   "RUSTSEC-2026-0235",
+
+  # `rustls-webpki` 0.101 — name constraints accepted for wildcard and URI names, and a panic
+  # parsing a certificate revocation list. It arrives under `tiberius`'s `rustls` feature, which
+  # only macOS builds turn on (see Cargo.toml), and tiberius 0.12.3 is the latest, pinned to
+  # rustls 0.21. None of the three is reached: `drivers/mssql.rs` always calls `trust_cert()`,
+  # which swaps webpki's certificate verification for tiberius' `NoCertVerifier` — it accepts
+  # without calling webpki — and nothing in tiberius parses a CRL. Delete these the day tiberius
+  # moves to a rustls whose webpki is fixed, or the day SQL Server certificates get verified.
+  "RUSTSEC-2026-0098",
+  "RUSTSEC-2026-0099",
+  "RUSTSEC-2026-0104",
 ]
