@@ -107,7 +107,8 @@ jobs:
         run: |
           nohup npx wrangler dev --env reaper --port 8788 --ip 127.0.0.1 --persist-to .wrangler/reaper > "$RUNNER_TEMP/reaper.log" 2>&1 &
           for _ in $(seq 60); do
-            if curl -fsS -m 2 http://127.0.0.1:8788/v1/capabilities > /dev/null; then
+            if curl -fsS -m 2 -H "X-MixLab-Access: conformance-shared-token" \
+                 http://127.0.0.1:8788/v1/capabilities > /dev/null; then
               echo "ready"
               exit 0
             fi
@@ -240,7 +241,8 @@ jobs:
         run: |
           nohup cargo run --locked --quiet > "$RUNNER_TEMP/reaper-native.log" 2>&1 &
           for _ in $(seq 60); do
-            if curl -fsS -m 2 http://127.0.0.1:8766/v1/capabilities > /dev/null; then
+            if curl -fsS -m 2 -H "X-MixLab-Access: conformance-shared-token" \
+                 http://127.0.0.1:8766/v1/capabilities > /dev/null; then
               echo "ready"
               exit 0
             fi
