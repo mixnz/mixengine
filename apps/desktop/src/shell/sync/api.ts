@@ -171,3 +171,13 @@ export function syncMoveFinish(deleteOld: boolean): Promise<SyncStatus> {
 export function syncMoveAbandon(): Promise<void> {
   return invoke("sync_move_abandon");
 }
+
+/** The signed-in server's closing date in seconds, or `null`. Opens the session if needed. */
+export function syncClosingHere(): Promise<number | null> {
+  return invoke("sync_closing_here");
+}
+
+/** Any server's closing date, asked before signing in to it. */
+export function syncServerClosing(server: string, access: string | null): Promise<number | null> {
+  return invoke("sync_server_closing", { server, access });
+}
