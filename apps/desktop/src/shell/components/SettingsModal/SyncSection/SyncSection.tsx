@@ -51,7 +51,9 @@ function SyncSection() {
 
   if (problem) return <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />;
   if (status === null) return null;
-  if (status.signedIn) return <AccountView status={status} onChanged={refresh} />;
+  // Keyed by the server: a finished move keeps this machine signed in, and without a new key React
+  // would keep the old view — its open move form, and the old server's machines and freeze.
+  if (status.signedIn) return <AccountView key={status.server} status={status} onChanged={refresh} />;
 
   if (step.kind === "recovery") {
     return <RecoveryKey recoveryKey={step.key} onDone={() => setStep({ kind: "code", email: step.email })} />;
