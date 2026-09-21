@@ -11,6 +11,8 @@ export interface SyncStatus {
   server: string | null;
   email: string | null;
   deviceId: string | null;
+  /** The day the server said it closes, in seconds — advisory, and `null` until this run has synced. */
+  closingOn: number | null;
   /** The address a code was sent to, while sign-up waits for it. */
   verifying: string | null;
 }
@@ -54,6 +56,11 @@ export const tauriSync: SyncBackend = {
 
 export function syncStatus(): Promise<SyncStatus> {
   return invoke("sync_status");
+}
+
+/** What this machine calls itself, offered as its name in the device list. */
+export function syncDeviceName(): Promise<string> {
+  return invoke("sync_device_name");
 }
 
 /** Resolves to the recovery key, which is shown once and never asked for again. */
