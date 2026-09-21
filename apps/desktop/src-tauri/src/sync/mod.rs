@@ -10,3 +10,4 @@
 
 pub mod crypto;
 pub mod wire;
+pub mod merge;
