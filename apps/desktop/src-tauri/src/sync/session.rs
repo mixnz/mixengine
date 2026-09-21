@@ -19,7 +19,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::account::{Account, Argon, Device, NewKeys, PasswordChange, Registration};
+use super::account::{Account, Argon, Device, Freeze, NewKeys, PasswordChange, Registration};
 use super::crypto;
 use super::engine::{self, Fetched};
 use super::lend::{self, Agreement, Incoming, Item, Keys};
@@ -708,6 +708,68 @@ impl SyncState {
         self.inner.lock().await.starting_over = None;
         self.finish(&account, address, &a, &master, device_name)
             .await
+    }
+
+    /// Delete this account and everything in it (D4b). **Re-proves the password**: the session
+    /// alone is what a borrowed, unlocked machine already has. Every machine is signed out, this
+    /// one included, and what is on each of them stays there. Returns how many records went.
+    pub async fn delete_account(&self, password: String) -> Result<u64, AppError> {
+        let session = self.session(None).await?;
+        let email = self
+            .inner
+            .lock()
+            .await
+            .saved
+            .as_ref()
+            .map(|saved| saved.email.clone())
+            .ok_or_else(|| err!("error.syncNotSignedIn"))?;
+        let params = session.account.params(&email).await?;
+        let proven = derive(password, decode(&params.salt_account)?).await?;
+        let a = proven.auth;
+        let deleted = self
+            .with_session(|session| async move {
+                session
+                    .account
+                    .delete_account(&session.access_token, &a)
+                    .await
+            })
+            .await?;
+        let mut inner = self.inner.lock().await;
+        self.end(&mut inner).await?;
+        Ok(deleted.records_deleted)
+    }
+
+    /// Whether the account is holding still for a copy, and since when.
+    pub async fn freeze_state(&self) -> Result<Freeze, AppError> {
+        self.with_session(|session| async move {
+            session.account.freeze_state(&session.access_token).await
+        })
+        .await
+    }
+
+    /// End a freeze — a finished copy's, or one nobody is going to finish. Any signed-in machine
+    /// may, and nothing else ever will (D4b).
+    pub async fn thaw(&self) -> Result<Freeze, AppError> {
+        self.with_session(|session| async move {
+            session
+                .account
+                .set_freeze(&session.access_token, false)
+                .await
+        })
+        .await
+    }
+
+    /// Freeze without a move, for `tests/sync_live.rs` alone: in the product a freeze is only ever
+    /// step 2 of one.
+    #[doc(hidden)]
+    pub async fn freeze_for_test(&self) -> Result<Freeze, AppError> {
+        self.with_session(|session| async move {
+            session
+                .account
+                .set_freeze(&session.access_token, true)
+                .await
+        })
+        .await
     }
 
     /// Sign in with keys this machine already has, and make it the session.

@@ -530,3 +530,68 @@ async fn a_forgotten_password_without_the_key_starts_over() {
     let page = fresh.pull_page("query-snippets").await.unwrap();
     assert!(page.changes.upserts.is_empty());
 }
+
+/// D4b: deleting re-proves the password, takes every record, and signs every machine out.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn deleting_the_account_takes_everything_and_signs_everyone_out() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "the password").await;
+    let laptop = machine_state(dir.path(), "laptop");
+    laptop
+        .login(&server(), None, &email, "the password".into(), "laptop")
+        .await
+        .unwrap();
+    desktop
+        .push(
+            "query-snippets",
+            vec![Item {
+                id: "a".into(),
+                data: json!(1),
+            }],
+        )
+        .await
+        .unwrap();
+
+    let wrong = desktop.delete_account("not it".into()).await.unwrap_err();
+    assert_eq!(wrong.code, "error.syncWrongPassword");
+    assert_eq!(
+        desktop.delete_account("the password".into()).await.unwrap(),
+        1
+    );
+
+    assert!(!desktop.status().await.unwrap().signed_in);
+    assert_eq!(
+        laptop.devices().await.err().map(|error| error.code),
+        Some("error.syncSignedOut")
+    );
+}
+
+/// A freeze left behind is one request away from over, from any signed-in machine (D4b).
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_frozen_account_is_seen_and_thawed_from_another_machine() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "pw").await;
+    let laptop = machine_state(dir.path(), "laptop");
+    laptop
+        .login(&server(), None, &email, "pw".into(), "laptop")
+        .await
+        .unwrap();
+
+    desktop.freeze_for_test().await.unwrap();
+    assert_eq!(laptop.freeze_state().await.unwrap().state, "frozen");
+    let refused = laptop
+        .push(
+            "query-snippets",
+            vec![Item {
+                id: "a".into(),
+                data: json!(1),
+            }],
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, "error.syncAccountFrozen");
+
+    assert_eq!(laptop.thaw().await.unwrap().state, "active");
+}
