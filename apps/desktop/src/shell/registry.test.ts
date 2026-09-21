@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODULES, MODULE_PRESETS, PRESET_IDS } from "./registry";
+import { MODULES, MODULE_PRESETS, PRESET_IDS, SYNCABLE } from "./registry";
 
 /* The presets are the only place in the app that names a module by hand, so what is worth pinning
    down is that every name is one the registry actually has, and that the order the tab bar draws —
@@ -24,5 +24,33 @@ describe("the registry", () => {
     expect([...MODULE_PRESETS.everything].sort()).toEqual(MODULES.map((m) => m.id).sort());
     expect(MODULE_PRESETS.databaseTools).not.toContain("mixengine");
     expect(MODULE_PRESETS.databaseTools).toHaveLength(MODULES.length - 1);
+  });
+});
+
+describe("what sync can offer", () => {
+  const ids = SYNCABLE.map((collection) => collection.id);
+
+  it("is exactly D5's list, less the three secret rows T177f adds", () => {
+    expect(ids).toEqual([
+      "preferences",
+      "connections",
+      "query-snippets",
+      "rest-requests",
+      "rest-environments",
+      "terminal-settings",
+      "terminal-hosts",
+      "tools-snippets",
+    ]);
+  });
+
+  it("never offers what D5 refuses", () => {
+    for (const refused of ["rest-history", "query-history", "query-drafts", "tool-usage", "workspace"]) {
+      expect(ids.some((id) => id.includes(refused))).toBe(false);
+    }
+  });
+
+  it("names every collection once, each with a label", () => {
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const collection of SYNCABLE) expect(collection.labelKey).toBeTruthy();
   });
 });
