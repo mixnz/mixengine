@@ -457,3 +457,76 @@ async fn changing_the_password_signs_the_others_out_and_keeps_the_records() {
     let page = again.pull_page("query-snippets").await.unwrap();
     assert_eq!(page.changes.upserts, vec![snippet]);
 }
+
+/// D6 case 2: the code proves who, the recovery key keeps what — and a mistyped key costs a retry,
+/// not a second letter, because the ticket is held.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_forgotten_password_with_the_recovery_key_keeps_the_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email, recovery) = signed_up_with_key(dir.path(), "desktop", "forgotten").await;
+    let snippet = Item {
+        id: "kept".into(),
+        data: json!({ "sql": "select 2" }),
+    };
+    desktop
+        .push("query-snippets", vec![snippet.clone()])
+        .await
+        .unwrap();
+
+    let fresh = machine_state(dir.path(), "fresh");
+    fresh.ask_reset(&server(), None, &email).await.unwrap();
+    fresh
+        .open_reset(&server(), None, &email, &letter(&email, "reset").await)
+        .await
+        .unwrap();
+    let wrong = crypto::format_recovery_key(&crypto::new_recovery_key());
+    let refused = fresh
+        .reset_keeping(&wrong, "remembered".into(), "fresh")
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, "error.syncRecoveryKeyWrong");
+    fresh
+        .reset_keeping(&recovery, "remembered".into(), "fresh")
+        .await
+        .unwrap();
+
+    let page = fresh.pull_page("query-snippets").await.unwrap();
+    assert_eq!(page.changes.upserts, vec![snippet]);
+    assert_eq!(
+        desktop.devices().await.err().map(|error| error.code),
+        Some("error.syncSignedOut")
+    );
+}
+
+/// D6 case 3: nothing survives on the server, and the machine starts over under a new `MK`, with a
+/// new recovery key of the same shape.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_forgotten_password_without_the_key_starts_over() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "forgotten").await;
+    desktop
+        .push(
+            "query-snippets",
+            vec![Item {
+                id: "lost".into(),
+                data: json!({ "sql": "select 3" }),
+            }],
+        )
+        .await
+        .unwrap();
+
+    let fresh = machine_state(dir.path(), "fresh");
+    fresh.ask_reset(&server(), None, &email).await.unwrap();
+    let code = letter(&email, "reset").await;
+    let recovery = fresh
+        .prepare_start_over(&server(), None, &email, "remembered".into())
+        .await
+        .unwrap();
+    assert_eq!(recovery.split('-').count(), 13);
+    fresh.start_over(&code, "fresh").await.unwrap();
+
+    let page = fresh.pull_page("query-snippets").await.unwrap();
+    assert!(page.changes.upserts.is_empty());
+}
