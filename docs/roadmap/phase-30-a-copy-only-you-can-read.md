@@ -204,9 +204,20 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       open on a given pane, so the strip leads straight to Sync. The native server was checked to
       report `closingOn` for dates 10 and 60 days out; the strip itself has been checked by `tsc`,
       lint and the unit tests only.
-- [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
+- [x] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.
+
+      **Done in seven commits.** What it settled that the roadmap had not. **The parent writers
+      changed too**: a connection, host or environment arriving on a machine used to be saved with
+      no credential, and saving none deletes the vault entry, which would have wiped a credential
+      that arrived first. Each now fills from the vault before it saves, and a credential whose
+      owner has not arrived goes into the vault under the owner's id to wait. **The environments
+      writer now flushes before it returns**, which T177d's did not: the store writes on a timer,
+      and a window closed inside it would have agreed on an environment never written. The loop
+      syncs in the registry's order, and `registry.test.ts` now checks that every secret row comes
+      after the row it belongs to. `toggleRow` holds D5's two rules and is tested; the writers
+      that touch the vault have been checked by `tsc`, lint and their pure halves' tests.
 - [ ] **T177g** What a stranger needs to run one: the server's README, a single-binary deployment,
       and the conformance suite pointed at their own instance. Plus the refusals the spec names —
       history, drafts, workspace layout and usage counts are not in the list, and a test says so by
