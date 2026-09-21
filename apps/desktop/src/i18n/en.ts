@@ -224,6 +224,13 @@ const en = {
     syncCannotEncodeRequest: "Could not prepare the sync request.",
     syncStoreFailed: "Could not save the sync state: {{message}}",
     syncConflictUnresolved: "Another machine kept changing this item. Sync will try again.",
+    syncWrongPassword: "That address and password do not match an account.",
+    syncEmailNotVerified: "Confirm your address with the code in the letter before signing in.",
+    syncEmailTaken: "That address already has an account. Sign in instead.",
+    syncInvalidEmail: "That is not an address a letter could reach.",
+    syncInvalidDeviceName: "This machine needs a name.",
+    syncLetterNotSent: "The confirmation letter could not be sent, so no account was made. Try again later.",
+    syncWrongCode: "That code is wrong, already used, or expired.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

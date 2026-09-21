@@ -11,10 +11,12 @@
 //! and [`engine`](crate::sync::engine) puts them together as `pull` and `push`.
 //! [`lend`](crate::sync::lend) turns what a module lends into the changes the engine moves, and
 //! pulled records back into items — deciding `updatedAt` on the way (D4).
+//! [`account`](crate::sync::account) is the account routes, and nothing that decides what to keep.
 //!
 //! **The engine moves ciphertext only** — sealing and opening stay with whoever calls it, so the
 //! keyring and a module's plaintext never reach the socket.
 
+pub mod account;
 pub mod chunk;
 pub mod crypto;
 pub mod engine;

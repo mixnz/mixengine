@@ -13,7 +13,8 @@
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
-use serde_json::{json, Value};
+use serde_json::Value;
+use tauri_app_lib::sync::account::{Account, Argon, Registration};
 use tauri_app_lib::sync::crypto::{self, RecordAddress, Sealed};
 use tauri_app_lib::sync::engine::{self, Change, Outgoing};
 use tauri_app_lib::sync::store::Store;
@@ -53,17 +54,8 @@ async fn call(
     )
 }
 
-/// One account, verified, and the `A` that signs in to it.
-async fn account() -> (String, String) {
-    let email = format!("desktop-{}@example.invalid", uuid::Uuid::new_v4().simple());
-    let a = random(32);
-    let (status, _) = call(reqwest::Method::POST, "/v1/auth/register", None, Some(json!({
-        "email": email, "a": a, "saltAccount": random(16), "argon": { "m": 65536, "t": 3, "p": 4 },
-        "wrappedMkPassword": random(72), "wrappedMkRecovery": random(72),
-    })))
-    .await;
-    assert_eq!(status, 201);
-
+/// The code in the newest letter of `kind` to `email`, read from the test outbox.
+async fn letter(email: &str, kind: &str) -> String {
     let (_, outbox) = call(
         reqwest::Method::GET,
         &format!("/__test__/outbox?email={}", email.replace('@', "%40")),
@@ -71,46 +63,57 @@ async fn account() -> (String, String) {
         None,
     )
     .await;
-    let code = outbox["messages"]
+    outbox["messages"]
         .as_array()
         .and_then(|messages| {
             messages
                 .iter()
                 .rev()
-                .find(|message| message["kind"] == "verification")
+                .find(|message| message["kind"] == kind)
         })
         .and_then(|message| message["token"].as_str())
-        .expect("a verification letter")
-        .to_owned();
-    let (status, _) = call(
-        reqwest::Method::POST,
-        "/v1/auth/verify",
-        None,
-        Some(json!({ "email": email, "token": code })),
-    )
-    .await;
-    assert_eq!(status, 200);
+        .expect("a letter")
+        .to_owned()
+}
+
+fn registration(email: &str, a: String) -> Registration {
+    Registration {
+        email: email.to_owned(),
+        a,
+        salt_account: random(16),
+        argon: Argon::ours(),
+        wrapped_mk_password: random(72),
+        wrapped_mk_recovery: random(72),
+    }
+}
+
+/// One account, verified, and the `A` that signs in to it.
+async fn account() -> (String, [u8; 32]) {
+    let email = format!("desktop-{}@example.invalid", uuid::Uuid::new_v4().simple());
+    let a: [u8; 32] = rand::random();
+    let server = Account::new(&server(), None).unwrap();
+    server
+        .register(&registration(&email, STANDARD.encode(a)))
+        .await
+        .unwrap();
+    server
+        .verify(&email, &letter(&email, "verification").await)
+        .await
+        .unwrap();
     (email, a)
 }
 
 /// A machine signed in to that account: its transport, its own store, and its device id.
-async fn machine(email: &str, a: &str, name: &str) -> (Transport, Store, String) {
-    let (status, session) = call(
-        reqwest::Method::POST,
-        "/v1/auth/login",
-        None,
-        Some(json!({
-            "email": email, "a": a, "deviceName": name,
-        })),
-    )
-    .await;
-    assert_eq!(status, 200);
-    let token = session["accessToken"].as_str().unwrap();
-    let device = session["deviceId"].as_str().unwrap().to_owned();
+async fn machine(email: &str, a: &[u8; 32], name: &str) -> (Transport, Store, String) {
+    let signed_in = Account::new(&server(), None)
+        .unwrap()
+        .login(email, a, name)
+        .await
+        .unwrap();
     (
-        Transport::new(&server(), token, None).unwrap(),
+        Transport::new(&server(), &signed_in.access_token, None).unwrap(),
         Store::in_memory(&server()).await.unwrap(),
-        device,
+        signed_in.device_id,
     )
 }
 
@@ -265,4 +268,57 @@ async fn two_machines_settle_a_conflict_the_same_way() {
         .expect("the desktop is told");
     assert_eq!(last.device, laptop_device);
     assert_eq!(open(&data_key, &last), b"laptop's");
+}
+
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_wrong_code_is_a_wrong_code() {
+    let email = format!("desktop-{}@example.invalid", uuid::Uuid::new_v4().simple());
+    let server = Account::new(&server(), None).unwrap();
+    server
+        .register(&registration(&email, random(32)))
+        .await
+        .unwrap();
+    let error = server.verify(&email, "AAAA-AAAA").await.unwrap_err();
+    assert_eq!(error.code, "error.syncWrongCode");
+}
+
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_refresh_rotates_and_spends_the_token_it_used() {
+    let (email, a) = account().await;
+    let server = Account::new(&server(), None).unwrap();
+    let signed_in = server.login(&email, &a, "desktop").await.unwrap();
+    let refreshed = server.refresh(&signed_in.refresh_token).await.unwrap();
+    assert_ne!(refreshed.refresh_token, signed_in.refresh_token);
+    let again = server.refresh(&signed_in.refresh_token).await;
+    assert_eq!(
+        again.err().map(|error| error.code),
+        Some("error.syncSignedOut")
+    );
+}
+
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_device_list_names_this_machine_and_a_revoke_ends_it() {
+    let (email, a) = account().await;
+    let server = Account::new(&server(), None).unwrap();
+    let desktop = server.login(&email, &a, "desktop").await.unwrap();
+    let laptop = server.login(&email, &a, "laptop").await.unwrap();
+
+    let devices = server.devices(&desktop.access_token).await.unwrap();
+    assert_eq!(devices.len(), 2);
+    assert!(devices
+        .iter()
+        .any(|device| device.current && device.name == "desktop"));
+
+    server
+        .revoke(&desktop.access_token, &laptop.device_id)
+        .await
+        .unwrap();
+    let cut = server.devices(&laptop.access_token).await;
+    assert_eq!(
+        cut.err().map(|error| error.code),
+        Some("error.syncSignedOut")
+    );
 }
