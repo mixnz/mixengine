@@ -239,6 +239,10 @@ const en = {
     syncResetExpired: "That reset took too long. Ask for a new code.",
     syncRecoveryKeyWrong: "That recovery key does not open this account.",
     syncNothingToReset: "There is no password reset under way. Start again.",
+    syncMoveIncomplete:
+      "{{missing}} records did not arrive on the new server. The old account stays frozen: try again, or stop the move.",
+    syncSignInAgainToMove: "Sign out and sign in again on this machine before moving the account.",
+    syncNothingToMove: "There is no move under way. Start again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

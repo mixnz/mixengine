@@ -222,6 +222,10 @@ const vi: SharedDict = {
     syncResetExpired: "Quá trình đặt lại đã quá lâu. Hãy xin mã mới.",
     syncRecoveryKeyWrong: "Khoá khôi phục này không mở được tài khoản.",
     syncNothingToReset: "Không có lần đặt lại mật khẩu nào đang diễn ra. Hãy bắt đầu lại.",
+    syncMoveIncomplete:
+      "{{missing}} bản ghi chưa tới được máy chủ mới. Tài khoản cũ vẫn đang đóng băng: hãy thử lại, hoặc dừng việc chuyển.",
+    syncSignInAgainToMove: "Hãy đăng xuất rồi đăng nhập lại trên máy này trước khi chuyển tài khoản.",
+    syncNothingToMove: "Không có lần chuyển nào đang diễn ra. Hãy bắt đầu lại.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng

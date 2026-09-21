@@ -113,11 +113,21 @@ pub struct Opened {
     pub expires_in: i64,
 }
 
-/// A completed reset: how many records it deleted — every one in case 3, none in case 2.
+/// How many records a reset or a deletion removed — every one in case 3 and on deletion, none in
+/// case 2.
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Reset {
+pub struct Deleted {
     pub records_deleted: u64,
+}
+
+/// `GET` and `POST /v1/account/freeze`: whether the account holds still for a copy (D4b), and since
+/// when. Answered in both states, so a machine that meets `423` can find out why.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Freeze {
+    pub state: String,
+    pub frozen_at: Option<i64>,
 }
 
 /// One row of `GET /v1/devices`, handed to the account screen as it came.
@@ -271,7 +281,7 @@ impl Account {
         email: &str,
         ticket: &str,
         keys: &NewKeys,
-    ) -> Result<Reset, AppError> {
+    ) -> Result<Deleted, AppError> {
         let body = json!({
             "email": email, "ticket": ticket, "a": keys.a, "saltAccount": keys.salt_account,
             "wrappedMkPassword": keys.wrapped_mk_password,
@@ -290,7 +300,7 @@ impl Account {
         email: &str,
         code: &str,
         keys: &NewKeys,
-    ) -> Result<Reset, AppError> {
+    ) -> Result<Deleted, AppError> {
         let body = json!({
             "email": email, "token": code, "a": keys.a, "saltAccount": keys.salt_account,
             "wrappedMkPassword": keys.wrapped_mk_password,
@@ -301,6 +311,35 @@ impl Account {
             reset_refusal,
         )
         .await
+    }
+
+    pub async fn freeze_state(&self, access_token: &str) -> Result<Freeze, AppError> {
+        let request = self
+            .request(Method::GET, "/v1/account/freeze")
+            .bearer_auth(access_token);
+        answer(send(request).await?, refusal).await
+    }
+
+    /// Hold the account still for a copy, or let it go. Nothing else ends a freeze (D4b).
+    pub async fn set_freeze(&self, access_token: &str, frozen: bool) -> Result<Freeze, AppError> {
+        let state = if frozen { "frozen" } else { "active" };
+        let request = self
+            .post("/v1/account/freeze", &json!({ "state": state }))?
+            .bearer_auth(access_token);
+        answer(send(request).await?, refusal).await
+    }
+
+    /// Delete the account and every record in it. **Re-proves the password**: a session alone is
+    /// what a borrowed, unlocked machine already has (D4b).
+    pub async fn delete_account(
+        &self,
+        access_token: &str,
+        a: &[u8; 32],
+    ) -> Result<Deleted, AppError> {
+        let request = self
+            .post("/v1/account/delete", &json!({ "a": STANDARD.encode(a) }))?
+            .bearer_auth(access_token);
+        answer(send(request).await?, refusal).await
     }
 }
 
@@ -469,7 +508,24 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(opened.ticket, "t");
-        let reset: Reset = serde_json::from_value(json!({ "recordsDeleted": 214 })).unwrap();
+        let reset: Deleted = serde_json::from_value(json!({ "recordsDeleted": 214 })).unwrap();
         assert_eq!(reset.records_deleted, 214);
+    }
+
+    #[test]
+    fn a_freeze_reads_as_the_server_sends_it() {
+        let frozen: Freeze =
+            serde_json::from_value(json!({ "state": "frozen", "frozenAt": 1758300000 })).unwrap();
+        assert_eq!(frozen.frozen_at, Some(1_758_300_000));
+        let active: Freeze =
+            serde_json::from_value(json!({ "state": "active", "frozenAt": null })).unwrap();
+        assert_eq!(active.state, "active");
+        assert_eq!(active.frozen_at, None);
+    }
+
+    #[test]
+    fn a_deletion_says_how_many_went() {
+        let deleted: Deleted = serde_json::from_value(json!({ "recordsDeleted": 3 })).unwrap();
+        assert_eq!(deleted.records_deleted, 3);
     }
 }
