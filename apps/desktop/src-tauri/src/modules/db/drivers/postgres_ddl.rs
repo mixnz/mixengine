@@ -189,21 +189,17 @@ async fn execute_all(pool: &PgPool, statements: Vec<String>) -> Result<(), AppEr
     if statements.is_empty() {
         return Ok(());
     }
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(map_error)?;
+    let mut tx = pool.begin().await.map_err(map_error)?;
     for sql in statements {
-        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql)).execute(&mut *tx).await {
-            tx.rollback()
-                .await
-                .map_err(map_error)?;
+        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql))
+            .execute(&mut *tx)
+            .await
+        {
+            tx.rollback().await.map_err(map_error)?;
             return Err(map_error(e));
         }
     }
-    tx.commit()
-        .await
-        .map_err(map_error)
+    tx.commit().await.map_err(map_error)
 }
 
 /// Creates a database.
@@ -348,7 +344,10 @@ pub async fn add_column(pool: &PgPool, table: &str, spec: &ColumnSpec) -> Result
 
     let mut statements = vec![format!("ALTER TABLE {qualified} ADD COLUMN {definition}")];
     if !spec.comment.trim().is_empty() {
-        statements.push(comment_on(format!("COLUMN {qualified}.{column}"), &spec.comment));
+        statements.push(comment_on(
+            format!("COLUMN {qualified}.{column}"),
+            &spec.comment,
+        ));
     }
     execute_all(pool, statements).await
 }
@@ -713,7 +712,6 @@ pub async fn drop_index(pool: &PgPool, table: &str, name: &str) -> Result<(), Ap
     execute_all(pool, vec![statement]).await
 }
 
-
 /// What is decided here, rather than by a server's answer.
 #[cfg(test)]
 mod tests {
@@ -798,8 +796,12 @@ mod tests {
             kind: "unique".to_string(),
             index_type: Some("btree".to_string()),
             columns: vec![
-                IndexColumnSpec { name: "customer".to_string() },
-                IndexColumnSpec { name: "placed".to_string() },
+                IndexColumnSpec {
+                    name: "customer".to_string(),
+                },
+                IndexColumnSpec {
+                    name: "placed".to_string(),
+                },
             ],
             comment: String::new(),
         };
@@ -817,7 +819,9 @@ mod tests {
             name: String::new(),
             kind: "primary".to_string(),
             index_type: Some("btree".to_string()),
-            columns: vec![IndexColumnSpec { name: "id".to_string() }],
+            columns: vec![IndexColumnSpec {
+                name: "id".to_string(),
+            }],
             comment: String::new(),
         };
         assert_eq!(
@@ -832,7 +836,9 @@ mod tests {
             name: String::new(),
             kind: "fulltext".to_string(),
             index_type: None,
-            columns: vec![IndexColumnSpec { name: "body".to_string() }],
+            columns: vec![IndexColumnSpec {
+                name: "body".to_string(),
+            }],
             comment: String::new(),
         };
         assert!(create_index_statements("public", "t", &spec).is_err());

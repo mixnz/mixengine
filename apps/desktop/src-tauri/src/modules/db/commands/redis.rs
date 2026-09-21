@@ -1,12 +1,12 @@
 //! Every Redis command.
 
-use crate::modules::db::models::ServerInfo;
-use crate::error::AppError;
-use tauri::State;
-use serde_json::Value;
-use crate::modules::db::drivers::redis as redis_db;
-use crate::modules::db::state::DbState;
 use super::redis_connection;
+use crate::error::AppError;
+use crate::modules::db::drivers::redis as redis_db;
+use crate::modules::db::models::ServerInfo;
+use crate::modules::db::state::DbState;
+use serde_json::Value;
+use tauri::State;
 
 #[tauri::command]
 pub async fn redis_command(

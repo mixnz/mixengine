@@ -37,8 +37,8 @@ pub async fn terminal_open(
     state: State<'_, TerminalState>,
 ) -> Result<(), AppError> {
     /* Phiên đã kết thúc chưa, đọc lại sau khi chèn. Một shell chết ngay — lệnh không tồn tại, một
-       máy chủ đóng ngay sau banner — phát `Exit` trước khi `spawn` kịp trả về, và lúc ấy không có
-       gì trong map để bỏ. Cờ này là cách chỗ chèn biết nó vừa chèn một phiên đã chết. */
+    máy chủ đóng ngay sau banner — phát `Exit` trước khi `spawn` kịp trả về, và lúc ấy không có
+    gì trong map để bỏ. Cờ này là cách chỗ chèn biết nó vừa chèn một phiên đã chết. */
     let ended = Arc::new(AtomicBool::new(false));
     let sink = output_sink(on_event, ended.clone(), {
         let app = app.clone();
@@ -48,8 +48,8 @@ pub async fn terminal_open(
 
     let session = match target {
         /* Off the runtime: opening a pty is ConPTY on Windows and `forkpty` on Unix, both
-           blocking, and the shell behind it may be on a network drive or a WSL distribution that
-           has to start first. */
+        blocking, and the shell behind it may be on a network drive or a WSL distribution that
+        has to start first. */
         TerminalTarget::Local { shell, args, cwd } => {
             in_background(move || local::spawn(shell, args, cwd, size, sink)).await?
         }
@@ -166,8 +166,6 @@ pub async fn terminal_clipboard_text() -> Result<String, AppError> {
     .await
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::{local, output_sink, TerminalState};
@@ -191,11 +189,15 @@ mod tests {
         let state = Arc::new(TerminalState::default());
         let id = "phien-thu".to_string();
 
-        let sink = output_sink(Channel::new(|_| Ok(())), Arc::new(AtomicBool::new(false)), {
-            let state = state.clone();
-            let id = id.clone();
-            move || state.forget(&id)
-        });
+        let sink = output_sink(
+            Channel::new(|_| Ok(())),
+            Arc::new(AtomicBool::new(false)),
+            {
+                let state = state.clone();
+                let id = id.clone();
+                move || state.forget(&id)
+            },
+        );
 
         let (shell, args) = if cfg!(windows) {
             (
@@ -221,7 +223,10 @@ mod tests {
 
         let deadline = Instant::now() + Duration::from_millis(5000);
         while state.sessions.lock().unwrap().contains_key(&id) {
-            assert!(Instant::now() < deadline, "hết hạn mà phiên vẫn còn trong map");
+            assert!(
+                Instant::now() < deadline,
+                "hết hạn mà phiên vẫn còn trong map"
+            );
             tokio::time::sleep(Duration::from_millis(25)).await;
         }
     }

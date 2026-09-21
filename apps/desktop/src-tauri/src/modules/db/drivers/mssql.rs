@@ -8,7 +8,9 @@
 use super::filters::split_list;
 use crate::error::AppError;
 use crate::modules::db::models::ServerInfo;
-use deadpool::managed::{Manager as ManagerTrait, Metrics, Pool as DeadPool, RecycleError, RecycleResult};
+use deadpool::managed::{
+    Manager as ManagerTrait, Metrics, Pool as DeadPool, RecycleError, RecycleResult,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
@@ -169,10 +171,10 @@ async fn dial(config: &Config) -> Result<Connection, AppError> {
         .map_err(map_error)?;
 
     /* Waiting forever on a lock is the one way SQL Server can hang this app that the other three
-       engines cannot: its default READ COMMITTED takes locks rather than reading a snapshot, so a
-       table someone else is mid-transaction on blocks a plain SELECT with no error and no timeout
-       — a spinner that never stops. Five seconds is long enough for a short transaction to pass
-       and short enough that the user reads it as a failure rather than a freeze. See D13. */
+    engines cannot: its default READ COMMITTED takes locks rather than reading a snapshot, so a
+    table someone else is mid-transaction on blocks a plain SELECT with no error and no timeout
+    — a spinner that never stops. Five seconds is long enough for a short transaction to pass
+    and short enough that the user reads it as a failure rather than a freeze. See D13. */
     client
         .simple_query("SET LOCK_TIMEOUT 5000")
         .await
@@ -276,20 +278,20 @@ pub async fn connect(
     }
 
     /* Read tiberius' own words for these two rather than the names: `Off` is *"only use encryption
-       for the login procedure"*, not "no encryption at all" — that one is `NotSupported`. Which is
-       exactly the shape SQL Server has and the other two engines do not: the login packet is
-       encrypted whatever the server's TLS setting says, so "try TLS, else plaintext" is not the
-       clean binary `PgSslMode::Prefer` is. So the box off means `Off` — the login still protected,
-       nothing beyond it — and the box on means `Required`. See D6. */
+    for the login procedure"*, not "no encryption at all" — that one is `NotSupported`. Which is
+    exactly the shape SQL Server has and the other two engines do not: the login packet is
+    encrypted whatever the server's TLS setting says, so "try TLS, else plaintext" is not the
+    clean binary `PgSslMode::Prefer` is. So the box off means `Off` — the login still protected,
+    nothing beyond it — and the box on means `Required`. See D6. */
     config.encryption(if use_ssl == Some(false) {
         EncryptionLevel::Off
     } else {
         EncryptionLevel::Required
     });
     /* A self-signed certificate is what a self-installed SQL Server has, and refusing it would
-       make the app unable to reach the servers it is most often pointed at. So the TLS box here
-       means "encrypt", not "encrypt and verify the chain" — worth saying, because it is a real
-       difference from what the same box means on MySQL and PostgreSQL (D6). */
+    make the app unable to reach the servers it is most often pointed at. So the TLS box here
+    means "encrypt", not "encrypt and verify the chain" — worth saying, because it is a real
+    difference from what the same box means on MySQL and PostgreSQL (D6). */
     config.trust_cert();
 
     let pool = Pool::builder(Manager { config })
@@ -299,7 +301,11 @@ pub async fn connect(
     // Dial once here rather than on the first command: a wrong host or password should fail the
     // Connect button, not the first table the user opens. The connection goes straight back to the
     // pool — it is the dialing that was the point, not the object.
-    drop(pool.get().await.map_err(|e| err!("error.mssql", message = e))?);
+    drop(
+        pool.get()
+            .await
+            .map_err(|e| err!("error.mssql", message = e))?,
+    );
     Ok(pool)
 }
 
@@ -347,7 +353,12 @@ pub async fn server_info(pool: &Pool) -> Result<ServerInfo, AppError> {
             .ok()
             .flatten()
             .and_then(|row| row.get::<&str, _>(0).map(str::to_string))
-            .and_then(|banner| banner.split(" on ").nth(1).map(|tail| tail.trim().to_string()))
+            .and_then(|banner| {
+                banner
+                    .split(" on ")
+                    .nth(1)
+                    .map(|tail| tail.trim().to_string())
+            })
             .unwrap_or_default(),
         Err(_) => String::new(),
     };
@@ -441,7 +452,14 @@ const DECIMAL_TYPES: [&str; 2] = ["decimal", "numeric"];
 /// The types declared with a fractional-seconds scale alone.
 const SCALED_TIME_TYPES: [&str; 3] = ["datetime2", "time", "datetimeoffset"];
 /// The types declared with a length.
-const SIZED_TYPES: [&str; 6] = ["char", "varchar", "nchar", "nvarchar", "binary", "varbinary"];
+const SIZED_TYPES: [&str; 6] = [
+    "char",
+    "varchar",
+    "nchar",
+    "nvarchar",
+    "binary",
+    "varbinary",
+];
 
 /// A column's type the way it would be written in a `CREATE TABLE`: `nvarchar(255)`,
 /// `decimal(10,2)`, `int`.
@@ -1033,10 +1051,11 @@ async fn foreign_keys(
         };
         // The first key a column takes part in is the one shown; a column in two keys is rare and
         // the grid has one marker to give it.
-        keys.entry(column.to_string()).or_insert_with(|| ForeignKey {
-            table: qualify(ref_schema, ref_table),
-            column: ref_column.to_string(),
-        });
+        keys.entry(column.to_string())
+            .or_insert_with(|| ForeignKey {
+                table: qualify(ref_schema, ref_table),
+                column: ref_column.to_string(),
+            });
     }
     Ok(keys)
 }
@@ -1521,9 +1540,7 @@ pub(super) fn column_value(data: &ColumnData<'static>) -> Value {
         ColumnData::Binary(v) => {
             use base64::Engine;
             v.as_ref()
-                .map(|bytes| {
-                    Value::String(base64::engine::general_purpose::STANDARD.encode(bytes))
-                })
+                .map(|bytes| Value::String(base64::engine::general_purpose::STANDARD.encode(bytes)))
                 .unwrap_or(Value::Null)
         }
         ColumnData::Numeric(v) => v
@@ -1650,7 +1667,10 @@ mod tests {
     fn integers_become_numbers_and_nulls_become_null() {
         assert_eq!(column_value(&ColumnData::U8(Some(7))), Value::from(7));
         assert_eq!(column_value(&ColumnData::I16(Some(-3))), Value::from(-3));
-        assert_eq!(column_value(&ColumnData::I32(Some(1_000))), Value::from(1_000));
+        assert_eq!(
+            column_value(&ColumnData::I32(Some(1_000))),
+            Value::from(1_000)
+        );
         assert_eq!(column_value(&ColumnData::I64(Some(-9))), Value::from(-9));
         assert_eq!(column_value(&ColumnData::I32(None)), Value::Null);
     }
@@ -1661,14 +1681,19 @@ mod tests {
     fn a_float_json_cannot_write_becomes_null() {
         assert_eq!(column_value(&ColumnData::F64(Some(1.5))), Value::from(1.5));
         assert_eq!(column_value(&ColumnData::F32(Some(f32::NAN))), Value::Null);
-        assert_eq!(column_value(&ColumnData::F64(Some(f64::INFINITY))), Value::Null);
+        assert_eq!(
+            column_value(&ColumnData::F64(Some(f64::INFINITY))),
+            Value::Null
+        );
     }
 
     /// DECIMAL/NUMERIC arrives as text, not as an f64: the precision is the whole point of the
     /// type, and an f64 would round it away before the grid ever saw it.
     #[test]
     fn a_decimal_keeps_its_digits_by_arriving_as_text() {
-        let value = column_value(&ColumnData::Numeric(Some(Numeric::new_with_scale(12345, 2))));
+        let value = column_value(&ColumnData::Numeric(Some(Numeric::new_with_scale(
+            12345, 2,
+        ))));
         assert_eq!(value, Value::String("123.45".into()));
     }
 
@@ -1903,7 +1928,10 @@ mod tests {
     #[test]
     fn a_page_with_no_sort_column_still_names_an_order() {
         let columns = ["id".to_string(), "name".to_string()];
-        assert_eq!(order_by_clause(None, false, &columns), " ORDER BY (SELECT NULL)");
+        assert_eq!(
+            order_by_clause(None, false, &columns),
+            " ORDER BY (SELECT NULL)"
+        );
         assert_eq!(
             order_by_clause(Some("name"), true, &columns),
             " ORDER BY [name] DESC"
@@ -2048,8 +2076,7 @@ mod tests {
     /// of magnitude off. This is the guard that catches it before the value ever reaches the server.
     #[test]
     fn a_comma_in_a_money_value_is_refused() {
-        let error =
-            reject_money_thousands_separator("9,9999").expect_err("a comma is ambiguous");
+        let error = reject_money_thousands_separator("9,9999").expect_err("a comma is ambiguous");
         assert_eq!(error.code, "error.mssqlAmbiguousMoney");
     }
 

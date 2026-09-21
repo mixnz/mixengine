@@ -107,10 +107,10 @@ pub fn run() {
     builder
         .setup(move |app| {
             /* Before anything else: a MixDB user's stores, copied while nothing else can touch
-               the directory. `setup` runs inside `build()`, before the event loop that would
-               deliver the webview's first `Store.load` — which is the only moment in which that
-               copy is race-free. The credentials follow on a thread of their own; the module's
-               own documentation is where both halves are argued. */
+            the directory. `setup` runs inside `build()`, before the event loop that would
+            deliver the webview's first `Store.load` — which is the only moment in which that
+            copy is race-free. The credentials follow on a thread of their own; the module's
+            own documentation is where both halves are argued. */
             import::on_first_launch(app.handle());
 
             // Sync's state, with where its record store lives. A machine with no data directory
@@ -137,10 +137,10 @@ pub fn run() {
             }
 
             /* Housekeeping rather than startup work. A tool download that the app never came back
-               from — a crash, a power cut, a force quit — leaves an unpacked server distribution
-               in the tools directory, and this is the only thing that ever collects it. On a
-               thread of its own and with its answer ignored: the window must not wait behind a
-               directory walk and a delete of several hundred megabytes. */
+            from — a crash, a power cut, a force quit — leaves an unpacked server distribution
+            in the tools directory, and this is the only thing that ever collects it. On a
+            thread of its own and with its answer ignored: the window must not wait behind a
+            directory walk and a delete of several hundred megabytes. */
             let handle = app.handle().clone();
             std::thread::spawn(move || modules::db::sweep_downloads(&handle));
             Ok(())

@@ -93,13 +93,19 @@ pub fn respond<R: tauri::Runtime>(
     match found {
         Some((body, csp)) => tauri::http::Response::builder()
             .status(tauri::http::StatusCode::OK)
-            .header(tauri::http::header::CONTENT_TYPE, "text/html; charset=utf-8")
+            .header(
+                tauri::http::header::CONTENT_TYPE,
+                "text/html; charset=utf-8",
+            )
             .header("Content-Security-Policy", csp)
             .body(body)
             .unwrap(),
         None => tauri::http::Response::builder()
             .status(tauri::http::StatusCode::NOT_FOUND)
-            .header(tauri::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")
+            .header(
+                tauri::http::header::CONTENT_TYPE,
+                "text/plain; charset=utf-8",
+            )
             .body(Vec::new())
             .unwrap(),
     }

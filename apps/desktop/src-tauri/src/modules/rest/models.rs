@@ -59,11 +59,17 @@ impl std::fmt::Debug for HeaderNames<'_> {
 pub enum WireBody {
     None,
     /// Raw and form-urlencoded alike: the frontend encoded it and declared its type.
-    Text { text: String },
+    Text {
+        text: String,
+    },
     /// A file streamed from disk.
-    File { path: String },
+    File {
+        path: String,
+    },
     /// The one body Rust assembles, because the boundary and the file streaming are reqwest's.
-    Multipart { parts: Vec<WirePart> },
+    Multipart {
+        parts: Vec<WirePart>,
+    },
 }
 
 /// A body says what kind it is and how big it is, never what is in it: a form-urlencoded body is
@@ -133,10 +139,15 @@ mod tests {
             method: "POST".to_string(),
             url: "https://api.example/v1/login".to_string(),
             headers: vec![
-                ("Authorization".to_string(), "Bearer sk-live-9f3".to_string()),
+                (
+                    "Authorization".to_string(),
+                    "Bearer sk-live-9f3".to_string(),
+                ),
                 ("Cookie".to_string(), "session=abc123".to_string()),
             ],
-            body: WireBody::Text { text: "user=me&password=hunter2".to_string() },
+            body: WireBody::Text {
+                text: "user=me&password=hunter2".to_string(),
+            },
             timeout_ms: 30_000,
             follow_redirects: true,
             accept_invalid_certs: false,

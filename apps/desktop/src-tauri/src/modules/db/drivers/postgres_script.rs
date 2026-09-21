@@ -12,9 +12,9 @@
 //! * **Parse rather than PREPARE.** Checking a statement without running it is a protocol message
 //!   here, not a SQL statement, so the user's text is never interpolated into SQL to check it.
 
-use crate::modules::db::models::{SqlProblem, StatementResult};
 use super::postgres::{column_value, map_error};
 use crate::error::AppError;
+use crate::modules::db::models::{SqlProblem, StatementResult};
 use futures_util::StreamExt;
 use serde_json::Value;
 use sqlx::{Column, Either, Executor, PgPool, Row};
@@ -253,10 +253,7 @@ pub async fn validate(pool: &PgPool, sql: &str) -> Result<Option<SqlProblem>, Ap
     if sql.trim().is_empty() {
         return Ok(None);
     }
-    let mut conn = pool
-        .acquire()
-        .await
-        .map_err(map_error)?;
+    let mut conn = pool.acquire().await.map_err(map_error)?;
 
     let statement = sqlx::SqlSafeStr::into_sql_str(sqlx::AssertSqlSafe(sql));
     let Err(error) = conn.prepare(statement).await else {
@@ -282,7 +279,12 @@ pub async fn validate(pool: &PgPool, sql: &str) -> Result<Option<SqlProblem>, Ap
         message: db.message().to_string(),
         number: 0,
         line,
-        severity: if code == SYNTAX_ERROR { "error" } else { "warning" }.to_string(),
+        severity: if code == SYNTAX_ERROR {
+            "error"
+        } else {
+            "warning"
+        }
+        .to_string(),
     }))
 }
 
@@ -344,10 +346,7 @@ pub async fn run(
         return Err(err!("error.nothingToRun"));
     }
 
-    let mut conn = pool
-        .acquire()
-        .await
-        .map_err(map_error)?;
+    let mut conn = pool.acquire().await.map_err(map_error)?;
     // The script gets this connection to itself, and it is closed when the script is done rather
     // than going back to the pool carrying whatever the script left on it. `BEGIN; SELECT 1/0;`
     // leaves an aborted transaction, and every later statement on that connection comes back
@@ -470,7 +469,8 @@ mod tests {
     /// A tagged quote closes only on its own tag, so an inner `$$` does not end it.
     #[test]
     fn a_tagged_body_closes_only_on_its_tag() {
-        let sql = "CREATE FUNCTION f() RETURNS text AS $body$ SELECT '$$'; $body$ LANGUAGE sql; SELECT 1";
+        let sql =
+            "CREATE FUNCTION f() RETURNS text AS $body$ SELECT '$$'; $body$ LANGUAGE sql; SELECT 1";
         assert_eq!(verbs(sql), ["CREATE", "SELECT"]);
     }
 
@@ -485,10 +485,16 @@ mod tests {
     #[test]
     fn quotes_hold_a_statement_together() {
         assert_eq!(verbs("SELECT ';'; SELECT 2"), ["SELECT", "SELECT"]);
-        assert_eq!(verbs(r#"SELECT "a;b" FROM t; SELECT 2"#), ["SELECT", "SELECT"]);
+        assert_eq!(
+            verbs(r#"SELECT "a;b" FROM t; SELECT 2"#),
+            ["SELECT", "SELECT"]
+        );
         assert_eq!(verbs(r"SELECT 'a\'; SELECT 2"), ["SELECT", "SELECT"]);
         // Doubling is how a quote is escaped, and does not end the literal.
-        assert_eq!(verbs("SELECT 'it''s; here'; SELECT 2"), ["SELECT", "SELECT"]);
+        assert_eq!(
+            verbs("SELECT 'it''s; here'; SELECT 2"),
+            ["SELECT", "SELECT"]
+        );
     }
 
     /// The exception to the rule above: an `E'...'` string does escape with backslashes, so the
@@ -496,10 +502,19 @@ mod tests {
     /// `SELECT E'it\'s; here'` with `it's; here` — one statement holding a semicolon.
     #[test]
     fn an_e_string_escapes_with_backslashes() {
-        assert_eq!(verbs(r"SELECT E'it\'s; here'; SELECT 2"), ["SELECT", "SELECT"]);
-        assert_eq!(texts(r"SELECT E'it\'s; here'; SELECT 2")[0], r"SELECT E'it\'s; here'");
+        assert_eq!(
+            verbs(r"SELECT E'it\'s; here'; SELECT 2"),
+            ["SELECT", "SELECT"]
+        );
+        assert_eq!(
+            texts(r"SELECT E'it\'s; here'; SELECT 2")[0],
+            r"SELECT E'it\'s; here'"
+        );
         // Lowercase is the same prefix.
-        assert_eq!(verbs(r"SELECT e'it\'s; here'; SELECT 2"), ["SELECT", "SELECT"]);
+        assert_eq!(
+            verbs(r"SELECT e'it\'s; here'; SELECT 2"),
+            ["SELECT", "SELECT"]
+        );
         // A name merely ending in `e` is not one, and neither is one held off by a space.
         assert_eq!(verbs(r"SELECT type'a\'; SELECT 2"), ["SELECT", "SELECT"]);
     }
@@ -512,7 +527,10 @@ mod tests {
         assert_eq!(verbs("SELECT 1 AS a$b$c; SELECT 2"), ["SELECT", "SELECT"]);
         assert_eq!(verbs("SELECT x$$y$$; SELECT 2"), ["SELECT", "SELECT"]);
         // A real body is still one, wherever it opens.
-        assert_eq!(verbs("SELECT $tag$a; b$tag$; SELECT 2"), ["SELECT", "SELECT"]);
+        assert_eq!(
+            verbs("SELECT $tag$a; b$tag$; SELECT 2"),
+            ["SELECT", "SELECT"]
+        );
     }
 
     /// PostgreSQL's block comments nest; stopping at the first `*/` would leave code behind.
@@ -534,5 +552,3 @@ mod tests {
         assert_eq!(line_of("SELECT\nFROM\nWHERE", 999), 3);
     }
 }
-
-

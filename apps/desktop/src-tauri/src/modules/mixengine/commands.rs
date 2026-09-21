@@ -451,7 +451,6 @@ pub async fn mixengine_database_client(service: String) -> Result<Value, AppErro
     rpc::call("database.client", json!({ "service": service })).await
 }
 
-
 /// `database.credentials` — mật khẩu MixEngine đang giữ cho một account.
 ///
 /// **Method duy nhất trong cả API trả về chính mật khẩu**, và nó tồn tại đúng để làm việc đó:
@@ -756,7 +755,8 @@ mod tests {
     /// Nên gõ nhầm tên khoá không ra một lỗi: nó ra một lệnh bấm-tất-cả, im lặng, ở mọi hàng.
     #[test]
     fn an_action_names_the_service_it_is_about() {
-        let (method, params) = service_action_call("mariadb@main", "start").expect("a known action");
+        let (method, params) =
+            service_action_call("mariadb@main", "start").expect("a known action");
         assert_eq!(method, "service.start");
         assert_eq!(params["service"], "mariadb@main");
         assert!(

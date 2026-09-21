@@ -6,7 +6,9 @@
 //! than dropped: `on_update_current_timestamp` is a MySQL clause with no counterpart, and
 //! `prefix_length` an index feature PostgreSQL does not have.
 
-use super::postgres::{extra_tokens, map_error, qualify, resolve, system_schema_filter, DEFAULT_SCHEMA};
+use super::postgres::{
+    extra_tokens, map_error, qualify, resolve, system_schema_filter, DEFAULT_SCHEMA,
+};
 use crate::error::AppError;
 use serde::Serialize;
 use sqlx::{PgPool, Row};
@@ -277,7 +279,10 @@ pub async fn table_stats(pool: &PgPool) -> Result<Vec<TableStats>, AppError> {
             let count = row.get::<i64, _>("row_estimate").max(0) as u64;
             let data_size = row.get::<i64, _>("data_size").max(0) as u64;
             TableStats {
-                name: qualify(&row.get::<String, _>("nspname"), &row.get::<String, _>("relname")),
+                name: qualify(
+                    &row.get::<String, _>("nspname"),
+                    &row.get::<String, _>("relname"),
+                ),
                 rows: count,
                 data_size,
                 index_size: row.get::<i64, _>("index_size").max(0) as u64,
@@ -379,12 +384,18 @@ pub async fn schema_outline(pool: &PgPool, database: &str) -> Result<SchemaOutli
     for row in &key_rows {
         references.insert(
             (
-                qualify(&row.get::<String, _>("schema_name"), &row.get::<String, _>("table_name")),
+                qualify(
+                    &row.get::<String, _>("schema_name"),
+                    &row.get::<String, _>("table_name"),
+                ),
                 row.get::<String, _>("column_name"),
             ),
             format!(
                 "{}.{}",
-                qualify(&row.get::<String, _>("ref_schema"), &row.get::<String, _>("ref_table")),
+                qualify(
+                    &row.get::<String, _>("ref_schema"),
+                    &row.get::<String, _>("ref_table")
+                ),
                 row.get::<String, _>("ref_column")
             ),
         );
@@ -420,7 +431,10 @@ pub async fn schema_outline(pool: &PgPool, database: &str) -> Result<SchemaOutli
 
     let mut tables: Vec<OutlineTable> = Vec::new();
     for row in &column_rows {
-        let table = qualify(&row.get::<String, _>("nspname"), &row.get::<String, _>("relname"));
+        let table = qualify(
+            &row.get::<String, _>("nspname"),
+            &row.get::<String, _>("relname"),
+        );
         let name: String = row.get("column_name");
         let key = if row.get::<bool, _>("is_primary") {
             "PRI"
@@ -442,9 +456,15 @@ pub async fn schema_outline(pool: &PgPool, database: &str) -> Result<SchemaOutli
         // and the one being built is always the last.
         match tables.last_mut() {
             Some(last) if last.name == table => last.columns.push(column),
-            _ => tables.push(OutlineTable { name: table, columns: vec![column] }),
+            _ => tables.push(OutlineTable {
+                name: table,
+                columns: vec![column],
+            }),
         }
     }
 
-    Ok(SchemaOutline { database: database.to_string(), tables })
+    Ok(SchemaOutline {
+        database: database.to_string(),
+        tables,
+    })
 }

@@ -20,13 +20,21 @@ const MAX_BODY: usize = 16 * 1024 * 1024;
 const MAX_REDIRECTS: usize = 10;
 
 /// The client for these two settings, built once and kept.
-fn client_for(state: &RestState, follow: bool, insecure: bool) -> Result<reqwest::Client, AppError> {
+fn client_for(
+    state: &RestState,
+    follow: bool,
+    insecure: bool,
+) -> Result<reqwest::Client, AppError> {
     let key = (follow, insecure);
     if let Some(client) = state.clients.lock().unwrap().get(&key) {
         return Ok(client.clone());
     }
     let client = reqwest::Client::builder()
-        .redirect(if follow { Policy::limited(MAX_REDIRECTS) } else { Policy::none() })
+        .redirect(if follow {
+            Policy::limited(MAX_REDIRECTS)
+        } else {
+            Policy::none()
+        })
         .danger_accept_invalid_certs(insecure)
         .build()
         .map_err(|e| err!("error.restBuildFailed", message = e))?;
@@ -61,7 +69,10 @@ async fn file_body(path: &str) -> Result<reqwest::Body, AppError> {
 
 /// Sends the request and reads all of it. Split out so `tokio::select!` has one future to race
 /// against the cancellation token — dropping this one is what aborts the request.
-async fn collect(builder: reqwest::RequestBuilder, started: Instant) -> Result<RestResponse, AppError> {
+async fn collect(
+    builder: reqwest::RequestBuilder,
+    started: Instant,
+) -> Result<RestResponse, AppError> {
     let mut res = builder.send().await.map_err(classify)?;
     // `send` returns once the headers are in, so this is when the response began.
     let ttfb_ms = started.elapsed().as_millis() as u64;
@@ -70,9 +81,9 @@ async fn collect(builder: reqwest::RequestBuilder, started: Instant) -> Result<R
     let http_version = format!("{:?}", res.version());
     let final_url = res.url().to_string();
     /* `from_utf8_lossy` and not `to_str`: a header value is bytes, and `to_str` refuses anything
-       outside ASCII. A `Content-Disposition` carrying an accented filename — the commonest one by
-       far — came back as an empty string, which reads as a header the server did not send rather
-       than one this client could not spell. Lossy keeps everything it can and marks the rest. */
+    outside ASCII. A `Content-Disposition` carrying an accented filename — the commonest one by
+    far — came back as an empty string, which reads as a header the server did not send rather
+    than one this client could not spell. Lossy keeps everything it can and marks the rest. */
     let headers = res
         .headers()
         .iter()
@@ -122,7 +133,8 @@ pub async fn rest_send(
     let client = client_for(&state, req.follow_redirects, req.accept_invalid_certs)?;
     let method = reqwest::Method::from_bytes(req.method.as_bytes())
         .map_err(|e| err!("error.restBuildFailed", message = e))?;
-    let url = reqwest::Url::parse(&req.url).map_err(|e| err!("error.restInvalidUrl", message = e))?;
+    let url =
+        reqwest::Url::parse(&req.url).map_err(|e| err!("error.restInvalidUrl", message = e))?;
 
     let mut headers = HeaderMap::new();
     for (name, value) in &req.headers {
@@ -169,7 +181,11 @@ pub async fn rest_send(
     };
 
     let token = CancellationToken::new();
-    state.inflight.lock().unwrap().insert(req.request_id.clone(), token.clone());
+    state
+        .inflight
+        .lock()
+        .unwrap()
+        .insert(req.request_id.clone(), token.clone());
     let started = Instant::now();
 
     let outcome = tokio::select! {

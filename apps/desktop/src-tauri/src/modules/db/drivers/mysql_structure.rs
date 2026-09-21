@@ -5,8 +5,8 @@
 //! user has privileges on — so a short list means "this is what you may see", not necessarily
 //! "this is all there is".
 
-use crate::error::AppError;
 use super::mysql::{map_error, quote_ident};
+use crate::error::AppError;
 use serde::{Deserialize, Serialize};
 use sqlx::mysql::MySqlRow;
 use sqlx::{MySqlPool, Row};
@@ -515,7 +515,11 @@ pub async fn table_structure(
     .map_err(map_error)?;
 
     if column_rows.is_empty() {
-        return Err(err!("error.noVisibleColumns", database = database, table = table));
+        return Err(err!(
+            "error.noVisibleColumns",
+            database = database,
+            table = table
+        ));
     }
 
     let columns = column_rows
@@ -596,7 +600,12 @@ pub async fn table_structure(
     // stable, so everything else keeps the order it was listed in.
     indexes.sort_by_key(|index| !index.primary);
 
-    Ok(TableStructure { columns, indexes, skip_indexes: Vec::new(), engine: None })
+    Ok(TableStructure {
+        columns,
+        indexes,
+        skip_indexes: Vec::new(),
+        engine: None,
+    })
 }
 
 /// One column as completion needs to know it: enough to offer the name and to say what it is,
@@ -664,12 +673,18 @@ pub async fn schema_outline(pool: &MySqlPool, database: &str) -> Result<SchemaOu
 
     let mut references: HashMap<(String, String), String> = HashMap::new();
     for row in &key_rows {
-        let target = match (text(row, "REFERENCED_TABLE_NAME"), text(row, "REFERENCED_COLUMN_NAME")) {
+        let target = match (
+            text(row, "REFERENCED_TABLE_NAME"),
+            text(row, "REFERENCED_COLUMN_NAME"),
+        ) {
             (Some(table), Some(column)) => format!("{table}.{column}"),
             _ => continue,
         };
         references.insert(
-            (text_or_empty(row, "TABLE_NAME"), text_or_empty(row, "COLUMN_NAME")),
+            (
+                text_or_empty(row, "TABLE_NAME"),
+                text_or_empty(row, "COLUMN_NAME"),
+            ),
             target,
         );
     }
@@ -1086,7 +1101,10 @@ mod tests {
             index_type: None,
             columns: columns
                 .iter()
-                .map(|name| IndexColumnSpec { name: name.to_string(), prefix_length: None })
+                .map(|name| IndexColumnSpec {
+                    name: name.to_string(),
+                    prefix_length: None,
+                })
                 .collect(),
             comment: String::new(),
         }
@@ -1095,7 +1113,10 @@ mod tests {
     /// The clause a column definition adds up to, in the order MySQL's grammar wants it.
     #[test]
     fn a_column_definition_is_assembled_in_the_order_mysql_reads_it() {
-        assert_eq!(column_definition(&column("id", "int")).unwrap(), "`id` int NULL");
+        assert_eq!(
+            column_definition(&column("id", "int")).unwrap(),
+            "`id` int NULL"
+        );
 
         let mut spec = column("id", "int");
         spec.nullable = false;
@@ -1139,12 +1160,21 @@ mod tests {
     #[test]
     fn a_default_is_quoted_unless_it_can_only_be_an_expression() {
         // On a temporal column the function is recognised without being declared one.
-        assert_eq!(default_clause("CURRENT_TIMESTAMP", false, "timestamp"), "CURRENT_TIMESTAMP");
+        assert_eq!(
+            default_clause("CURRENT_TIMESTAMP", false, "timestamp"),
+            "CURRENT_TIMESTAMP"
+        );
         assert_eq!(default_clause("now()", false, "datetime"), "now()");
         // On anything else the same text is a string, which is what it would have to mean.
-        assert_eq!(default_clause("CURRENT_TIMESTAMP", false, "varchar(64)"), "'CURRENT_TIMESTAMP'");
+        assert_eq!(
+            default_clause("CURRENT_TIMESTAMP", false, "varchar(64)"),
+            "'CURRENT_TIMESTAMP'"
+        );
         // Unless it is declared an expression.
-        assert_eq!(default_clause("CURRENT_TIMESTAMP", true, "varchar(64)"), "CURRENT_TIMESTAMP");
+        assert_eq!(
+            default_clause("CURRENT_TIMESTAMP", true, "varchar(64)"),
+            "CURRENT_TIMESTAMP"
+        );
 
         // Any other expression is parenthesised, as MySQL 8 requires — and one that already is
         // comes through untouched rather than doubly wrapped.
@@ -1154,7 +1184,10 @@ mod tests {
         // `NULL` typed on its own is SQL NULL; quoted, it is four characters.
         assert_eq!(default_clause("NULL", false, "int"), "NULL");
         assert_eq!(default_clause("null", false, "int"), "NULL");
-        assert_eq!(default_clause("nullable", false, "varchar(20)"), "'nullable'");
+        assert_eq!(
+            default_clause("nullable", false, "varchar(20)"),
+            "'nullable'"
+        );
 
         // A number is quoted too: MySQL reads a quoted number back as the number, so there is
         // nothing to gain from telling them apart and a value to lose by guessing wrong.
@@ -1177,20 +1210,29 @@ mod tests {
         assert_eq!(validated_collation(Some("   ")).unwrap(), None);
 
         for hostile in ["utf8mb4_bin; DROP TABLE t", "utf8mb4-bin", "utf8mb4_bin'"] {
-            assert!(validated_collation(Some(hostile)).is_err(), "{hostile} was allowed through");
+            assert!(
+                validated_collation(Some(hostile)).is_err(),
+                "{hostile} was allowed through"
+            );
         }
     }
 
     /// Each index kind and what MySQL will accept on it.
     #[test]
     fn an_index_clause_carries_only_what_its_kind_allows() {
-        assert_eq!(add_index_clause(&index("index", &["a"])).unwrap(), "ADD INDEX (`a`)");
+        assert_eq!(
+            add_index_clause(&index("index", &["a"])).unwrap(),
+            "ADD INDEX (`a`)"
+        );
         assert_eq!(
             add_index_clause(&index("unique", &["a", "b"])).unwrap(),
             "ADD UNIQUE INDEX (`a`, `b`)",
         );
         // Case is the frontend's business, not a reason to refuse.
-        assert_eq!(add_index_clause(&index("FULLTEXT", &["a"])).unwrap(), "ADD FULLTEXT INDEX (`a`)");
+        assert_eq!(
+            add_index_clause(&index("FULLTEXT", &["a"])).unwrap(),
+            "ADD FULLTEXT INDEX (`a`)"
+        );
 
         // A primary key has no name, and MySQL accepts neither a comment nor USING on it — so a
         // spec carrying both still produces the bare form rather than a statement it would reject.
@@ -1241,20 +1283,44 @@ mod tests {
     #[test]
     fn a_mariadb_default_is_read_as_the_literal_it_is() {
         // A quoted literal comes back as its value, with the quoting undone.
-        assert_eq!(mariadb_default(Some("'abc'".into())), (Some("abc".into()), false));
-        assert_eq!(mariadb_default(Some("'a''b'".into())), (Some("a'b".into()), false));
+        assert_eq!(
+            mariadb_default(Some("'abc'".into())),
+            (Some("abc".into()), false)
+        );
+        assert_eq!(
+            mariadb_default(Some("'a''b'".into())),
+            (Some("a'b".into()), false)
+        );
         // A backslash in the value arrives doubled, the way the server would have to write it.
-        assert_eq!(mariadb_default(Some(r"'a\\b'".into())), (Some(r"a\b".into()), false));
+        assert_eq!(
+            mariadb_default(Some(r"'a\\b'".into())),
+            (Some(r"a\b".into()), false)
+        );
         // And a single one is an escape, which is what doubling it is there to avoid: `\b` is a
         // backspace to MySQL and to MariaDB alike.
-        assert_eq!(mariadb_default(Some(r"'a\b'".into())), (Some("a\u{8}".into()), false));
-        assert_eq!(mariadb_default(Some("''".into())), (Some(String::new()), false));
+        assert_eq!(
+            mariadb_default(Some(r"'a\b'".into())),
+            (Some("a\u{8}".into()), false)
+        );
+        assert_eq!(
+            mariadb_default(Some("''".into())),
+            (Some(String::new()), false)
+        );
         // A string that reads like NULL is still a string: it arrives quoted.
-        assert_eq!(mariadb_default(Some("'NULL'".into())), (Some("NULL".into()), false));
+        assert_eq!(
+            mariadb_default(Some("'NULL'".into())),
+            (Some("NULL".into()), false)
+        );
         // And a number stays the number it is, rather than becoming an expression.
         assert_eq!(mariadb_default(Some("7".into())), (Some("7".into()), false));
-        assert_eq!(mariadb_default(Some("-3".into())), (Some("-3".into()), false));
-        assert_eq!(mariadb_default(Some("1.50".into())), (Some("1.50".into()), false));
+        assert_eq!(
+            mariadb_default(Some("-3".into())),
+            (Some("-3".into()), false)
+        );
+        assert_eq!(
+            mariadb_default(Some("1.50".into())),
+            (Some("1.50".into()), false)
+        );
     }
 
     /// The bare word, which MariaDB writes both for `DEFAULT NULL` and for no default at all. Read
@@ -1274,8 +1340,14 @@ mod tests {
             mariadb_default(Some("current_timestamp()".into())),
             (Some("current_timestamp()".into()), true)
         );
-        assert_eq!(mariadb_default(Some("uuid()".into())), (Some("uuid()".into()), true));
-        assert_eq!(mariadb_default(Some("(1 + 1)".into())), (Some("(1 + 1)".into()), true));
+        assert_eq!(
+            mariadb_default(Some("uuid()".into())),
+            (Some("uuid()".into()), true)
+        );
+        assert_eq!(
+            mariadb_default(Some("(1 + 1)".into())),
+            (Some("(1 + 1)".into()), true)
+        );
     }
 
     /// Whatever is read out of a default has to survive being written back into one, or editing a
@@ -1287,7 +1359,14 @@ mod tests {
     /// exactly the same way, so it is nothing this reading introduced.
     #[test]
     fn a_default_read_from_mariadb_goes_back_the_way_it_came() {
-        for reported in ["'abc'", "'a''b'", "''", "7", "current_timestamp()", "(1 + 1)"] {
+        for reported in [
+            "'abc'",
+            "'a''b'",
+            "''",
+            "7",
+            "current_timestamp()",
+            "(1 + 1)",
+        ] {
             let (value, is_expression) = mariadb_default(Some(reported.into()));
             let value = value.expect("none of these is an absent default");
             let clause = default_clause(&value, is_expression, "varchar(32)");

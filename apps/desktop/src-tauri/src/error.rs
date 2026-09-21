@@ -97,7 +97,10 @@ mod tests {
 
     #[test]
     fn a_code_without_params_carries_none() {
-        assert_eq!(err!("error.unknownConnection"), AppError::new("error.unknownConnection"));
+        assert_eq!(
+            err!("error.unknownConnection"),
+            AppError::new("error.unknownConnection")
+        );
         assert!(err!("error.unknownConnection").params.is_empty());
     }
 

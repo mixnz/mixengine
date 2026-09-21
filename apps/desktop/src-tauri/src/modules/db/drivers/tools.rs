@@ -176,8 +176,13 @@ pub fn set_path(tool: Tool, path: Option<&str>, tools_dir: &Path) -> Result<(), 
             overrides.remove(tool.stem());
         }
     }
-    std::fs::create_dir_all(tools_dir)
-        .map_err(|e| err!("error.cannotCreateDirectory", path = tools_dir.display(), message = e))?;
+    std::fs::create_dir_all(tools_dir).map_err(|e| {
+        err!(
+            "error.cannotCreateDirectory",
+            path = tools_dir.display(),
+            message = e
+        )
+    })?;
     let text = serde_json::to_string_pretty(&overrides)
         .map_err(|e| err!("error.cannotSaveToolPath", message = e))?;
     std::fs::write(overrides_file(tools_dir), text)
@@ -324,9 +329,7 @@ pub fn status(tools_dir: &Path) -> Vec<ToolStatus> {
             ToolStatus {
                 name: tool.stem(),
                 suite: tool.suite().slug(),
-                path: found
-                    .as_ref()
-                    .map(|(path, _)| path.display().to_string()),
+                path: found.as_ref().map(|(path, _)| path.display().to_string()),
                 source: found.map(|(_, source)| source),
                 downloadable: downloadable(tool.suite()),
             }
@@ -341,8 +344,13 @@ pub fn uninstall(suite: Suite, tools_dir: &Path) -> Result<(), AppError> {
     if !dir.exists() {
         return Ok(());
     }
-    std::fs::remove_dir_all(&dir)
-        .map_err(|e| err!("error.cannotRemoveDirectory", path = dir.display(), message = e))
+    std::fs::remove_dir_all(&dir).map_err(|e| {
+        err!(
+            "error.cannotRemoveDirectory",
+            path = dir.display(),
+            message = e
+        )
+    })
 }
 
 /// Where `tool` is, or the error the caller shows: the frontend asks whether a suite is present
@@ -495,14 +503,18 @@ pub fn downloadable(suite: Suite) -> bool {
 fn verify_sha256(path: &Path, expected: &str) -> Result<(), AppError> {
     use sha2::{Digest, Sha256};
 
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| err!("error.cannotReadDownload", message = e))?;
+    let mut file =
+        std::fs::File::open(path).map_err(|e| err!("error.cannotReadDownload", message = e))?;
     let mut hasher = Sha256::new();
     std::io::copy(&mut file, &mut hasher)
         .map_err(|e| err!("error.cannotReadDownload", message = e))?;
     let actual = format!("{:x}", hasher.finalize());
     if actual != expected {
-        return Err(err!("error.checksumMismatch", actual = actual, expected = expected));
+        return Err(err!(
+            "error.checksumMismatch",
+            actual = actual,
+            expected = expected
+        ));
     }
     Ok(())
 }
@@ -527,7 +539,12 @@ pub struct Progress {
 
 impl Progress {
     fn stage(suite: Suite, stage: &'static str) -> Self {
-        Self { suite: suite.slug(), stage, done: 0, total: 0 }
+        Self {
+            suite: suite.slug(),
+            stage,
+            done: 0,
+            total: 0,
+        }
     }
 }
 
@@ -536,7 +553,10 @@ impl Progress {
 /// up in the user's face.
 fn helper(program: &str) -> Command {
     let mut command = Command::new(program);
-    command.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::piped());
     hide_console(&mut command);
     command
 }
@@ -594,9 +614,19 @@ fn content_length(url: &str) -> u64 {
 /// The count comes from the size of the file being written rather than from curl's own progress
 /// meter: curl draws that for a terminal, redrawing one line with carriage returns, and reading a
 /// number back out of it is a great deal more fragile than asking the filesystem.
-fn download(url: &str, archive: &Path, suite: Suite, report: &dyn Fn(Progress)) -> Result<(), AppError> {
+fn download(
+    url: &str,
+    archive: &Path,
+    suite: Suite,
+    report: &dyn Fn(Progress),
+) -> Result<(), AppError> {
     let total = content_length(url);
-    report(Progress { suite: suite.slug(), stage: "downloading", done: 0, total });
+    report(Progress {
+        suite: suite.slug(),
+        stage: "downloading",
+        done: 0,
+        total,
+    });
 
     let mut child = helper("curl")
         .args([
@@ -617,8 +647,15 @@ fn download(url: &str, archive: &Path, suite: Suite, report: &dyn Fn(Progress)) 
         match child.try_wait() {
             Ok(Some(_)) => break,
             Ok(None) => {
-                let done = std::fs::metadata(archive).map(|meta| meta.len()).unwrap_or(0);
-                report(Progress { suite: suite.slug(), stage: "downloading", done, total });
+                let done = std::fs::metadata(archive)
+                    .map(|meta| meta.len())
+                    .unwrap_or(0);
+                report(Progress {
+                    suite: suite.slug(),
+                    stage: "downloading",
+                    done,
+                    total,
+                });
                 std::thread::sleep(Duration::from_millis(250));
             }
             Err(e) => return Err(AppError::new("error.downloadFailed").with("message", e)),
@@ -670,7 +707,11 @@ const PG_SPARE_LIBRARIES: &[&str] = &[
 fn library_dir(suite: Suite, name: &str, parent: &Path) -> Option<PathBuf> {
     let in_dir = |dir: &str| parent.file_name().is_some_and(|found| found == dir);
     let lower = name.to_lowercase();
-    let spare = || PG_SPARE_LIBRARIES.iter().any(|spare| lower.starts_with(spare));
+    let spare = || {
+        PG_SPARE_LIBRARIES
+            .iter()
+            .any(|spare| lower.starts_with(spare))
+    };
     let openssl = || name.starts_with("libssl") || name.starts_with("libcrypto");
 
     if cfg!(windows) {
@@ -729,10 +770,21 @@ fn collect(dir: &Path, suite: Suite, target: &Path) -> Result<usize, AppError> {
                 continue;
             };
             let into = target.join(relative);
-            std::fs::create_dir_all(&into)
-                .map_err(|e| err!("error.cannotCreateDirectory", path = into.display(), message = e))?;
-            std::fs::copy(&path, into.join(&name))
-                .map_err(|e| err!("error.cannotCopyTool", tool = name, path = into.display(), message = e))?;
+            std::fs::create_dir_all(&into).map_err(|e| {
+                err!(
+                    "error.cannotCreateDirectory",
+                    path = into.display(),
+                    message = e
+                )
+            })?;
+            std::fs::copy(&path, into.join(&name)).map_err(|e| {
+                err!(
+                    "error.cannotCopyTool",
+                    tool = name,
+                    path = into.display(),
+                    message = e
+                )
+            })?;
             if is_tool {
                 found += 1;
             }
@@ -759,8 +811,13 @@ struct Staging {
 impl Staging {
     fn new(tools_dir: &Path) -> Result<Self, AppError> {
         let path = tools_dir.join(format!("{STAGING_PREFIX}{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&path)
-            .map_err(|e| err!("error.cannotCreateDirectory", path = path.display(), message = e))?;
+        std::fs::create_dir_all(&path).map_err(|e| {
+            err!(
+                "error.cannotCreateDirectory",
+                path = path.display(),
+                message = e
+            )
+        })?;
         Ok(Self { path })
     }
 }
@@ -786,7 +843,11 @@ fn sweep_staging_older_than(tools_dir: &Path, stale_after: Duration) {
         return;
     };
     for entry in entries.flatten() {
-        if !entry.file_name().to_string_lossy().starts_with(STAGING_PREFIX) {
+        if !entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with(STAGING_PREFIX)
+        {
             continue;
         }
         if last_touched(&entry.path()).is_some_and(|idle| idle < stale_after) {
@@ -804,7 +865,12 @@ fn sweep_staging_older_than(tools_dir: &Path, stale_after: Duration) {
 /// question that has already been answered. `None` — nothing readable in there — counts as stale.
 fn last_touched(path: &Path) -> Option<Duration> {
     let times = std::iter::once(path.to_path_buf())
-        .chain(std::fs::read_dir(path).ok()?.flatten().map(|entry| entry.path()))
+        .chain(
+            std::fs::read_dir(path)
+                .ok()?
+                .flatten()
+                .map(|entry| entry.path()),
+        )
         .filter_map(|path| path.metadata().ok()?.modified().ok())
         .filter_map(|time| time.elapsed().ok());
     times.min()
@@ -831,8 +897,13 @@ pub fn install(suite: Suite, tools_dir: &Path, report: &dyn Fn(Progress)) -> Res
     })?;
 
     let target = suite.dir(tools_dir);
-    std::fs::create_dir_all(&target)
-        .map_err(|e| err!("error.cannotCreateDirectory", path = target.display(), message = e))?;
+    std::fs::create_dir_all(&target).map_err(|e| {
+        err!(
+            "error.cannotCreateDirectory",
+            path = target.display(),
+            message = e
+        )
+    })?;
     // Whatever happens next, the staging directory goes: it holds a whole unpacked server. A guard
     // rather than a call at the end, so that a panic takes it away too.
     let staging = Staging::new(tools_dir)?;
@@ -846,8 +917,13 @@ pub fn install(suite: Suite, tools_dir: &Path, report: &dyn Fn(Progress)) -> Res
         verify_sha256(&archive, sha256)?;
         report(Progress::stage(suite, "unpacking"));
         let unpacked = staging.join("unpacked");
-        std::fs::create_dir_all(&unpacked)
-            .map_err(|e| err!("error.cannotCreateDirectory", path = unpacked.display(), message = e))?;
+        std::fs::create_dir_all(&unpacked).map_err(|e| {
+            err!(
+                "error.cannotCreateDirectory",
+                path = unpacked.display(),
+                message = e
+            )
+        })?;
         run(
             "tar",
             &[
@@ -881,8 +957,8 @@ mod tests {
         collect, downloadable, expand_dir, install, locate, sweep_staging_older_than,
         verify_sha256, Source, Suite, Tool,
     };
-    use std::time::Duration;
     use std::path::{Path, PathBuf};
+    use std::time::Duration;
 
     /// What the sweep takes and what it leaves.
     ///
@@ -910,7 +986,10 @@ mod tests {
         sweep_staging_older_than(&root, Duration::ZERO);
         assert!(!root.join("download-dead").exists());
         assert!(!live.exists());
-        assert!(root.join("mysql/bin/mysqldump").is_file(), "the installed tools were swept");
+        assert!(
+            root.join("mysql/bin/mysqldump").is_file(),
+            "the installed tools were swept"
+        );
 
         // A tools directory that does not exist is not a failure: it is what a machine that has
         // never downloaded anything looks like.
@@ -929,10 +1008,14 @@ mod tests {
     /// answer, not a fault.
     fn check_pinned_download(suite: Suite) {
         if !downloadable(suite) {
-            eprintln!("{}: no archive for this platform, nothing to check", suite.slug());
+            eprintln!(
+                "{}: no archive for this platform, nothing to check",
+                suite.slug()
+            );
             return;
         }
-        let tools_dir = std::env::temp_dir().join(format!("mixdb-download-{}", uuid::Uuid::new_v4()));
+        let tools_dir =
+            std::env::temp_dir().join(format!("mixdb-download-{}", uuid::Uuid::new_v4()));
         let installed = install(suite, &tools_dir, &|_| {});
         // Every check runs before the cleanup, so that a failure still takes the download with it
         // rather than leaving hundreds of megabytes behind on the runner.
@@ -949,7 +1032,11 @@ mod tests {
                     Ok(out) if out.status.success() => (tool.stem(), String::new()),
                     Ok(out) => (
                         tool.stem(),
-                        format!("exited {}: {}", out.status, String::from_utf8_lossy(&out.stderr)),
+                        format!(
+                            "exited {}: {}",
+                            out.status,
+                            String::from_utf8_lossy(&out.stderr)
+                        ),
                     ),
                     // A missing library reads as the program not starting, which is the whole
                     // reason this runs on a real machine of each kind.
@@ -1009,7 +1096,10 @@ mod tests {
         let message = mismatched.unwrap_err();
         // The message has to name both halves: which file arrived, and which was expected.
         assert_eq!(message.code, "error.checksumMismatch");
-        assert_eq!(message.params.get("actual"), Some(&EMPTY_SHA256.to_string()));
+        assert_eq!(
+            message.params.get("actual"),
+            Some(&EMPTY_SHA256.to_string())
+        );
     }
 
     #[test]
@@ -1058,15 +1148,27 @@ mod tests {
         std::fs::write(unpacked.join("bin").join("mysqladmin"), b"").unwrap();
 
         let tools_dir = root.join("tools");
-        let found = collect(&root.join("unpacked"), Suite::Mysql, &tools_dir.join("mysql")).unwrap();
+        let found = collect(
+            &root.join("unpacked"),
+            Suite::Mysql,
+            &tools_dir.join("mysql"),
+        )
+        .unwrap();
         let placed = tools_dir.join("mysql").join(into).join(library).is_file();
-        let spare = tools_dir.join("mysql").join("bin").join("mysqladmin").exists();
+        let spare = tools_dir
+            .join("mysql")
+            .join("bin")
+            .join("mysqladmin")
+            .exists();
         // The layout is only worth anything if it is also the one the tools are then found in.
         let located = locate(Tool::MysqlDump, &tools_dir);
         std::fs::remove_dir_all(&root).unwrap();
 
         assert_eq!(found, 2);
-        assert!(placed, "the library the clients load was not put where they look for it");
+        assert!(
+            placed,
+            "the library the clients load was not put where they look for it"
+        );
         assert!(!spare, "a program the suite does not use was copied out");
         let (path, source) = located.expect("the downloaded copy was not found again");
         assert!(matches!(source, Source::Downloaded));
@@ -1088,15 +1190,33 @@ mod tests {
             (
                 "bin",
                 "bin",
-                &["libpq.dll", "libssl-3-x64.dll", "libintl-9.dll", "libzstd.dll"],
-                &["icudt77.dll", "wxbase3211u_vc_x64_custom.dll", "libxml2.dll"],
+                &[
+                    "libpq.dll",
+                    "libssl-3-x64.dll",
+                    "libintl-9.dll",
+                    "libzstd.dll",
+                ],
+                &[
+                    "icudt77.dll",
+                    "wxbase3211u_vc_x64_custom.dll",
+                    "libxml2.dll",
+                ],
             )
         } else {
             (
                 "lib",
                 "lib",
-                &["libpq.5.dylib", "libssl.3.dylib", "libintl.8.dylib", "libzstd.1.dylib"],
-                &["libicudata.77.1.dylib", "libxml2.16.dylib", "libecpg.6.dylib"],
+                &[
+                    "libpq.5.dylib",
+                    "libssl.3.dylib",
+                    "libintl.8.dylib",
+                    "libzstd.1.dylib",
+                ],
+                &[
+                    "libicudata.77.1.dylib",
+                    "libxml2.16.dylib",
+                    "libecpg.6.dylib",
+                ],
             )
         };
 
@@ -1125,6 +1245,9 @@ mod tests {
 
     #[test]
     fn a_directory_without_a_star_stands_for_itself() {
-        assert_eq!(expand_dir("/usr/local/bin"), vec![PathBuf::from("/usr/local/bin")]);
+        assert_eq!(
+            expand_dir("/usr/local/bin"),
+            vec![PathBuf::from("/usr/local/bin")]
+        );
     }
 }

@@ -178,7 +178,10 @@ struct TableInfo {
     total_bytes: u64,
 }
 
-async fn list_tables_with_engine(conn: &Connection, database: &str) -> Result<Vec<TableInfo>, AppError> {
+async fn list_tables_with_engine(
+    conn: &Connection,
+    database: &str,
+) -> Result<Vec<TableInfo>, AppError> {
     let result = clickhouse::query_with_params(
         conn,
         "SELECT name, engine, total_bytes FROM system.tables \
@@ -193,7 +196,11 @@ async fn list_tables_with_engine(conn: &Connection, database: &str) -> Result<Ve
             let name = row.get("name")?.as_str()?.to_string();
             let engine = row.get("engine")?.as_str()?.to_string();
             let total_bytes = clickhouse::as_u64(row.get("total_bytes")).unwrap_or(0);
-            Some(TableInfo { name, engine, total_bytes })
+            Some(TableInfo {
+                name,
+                engine,
+                total_bytes,
+            })
         })
         .collect())
 }
@@ -209,7 +216,10 @@ fn ordered_for_structure(mut tables: Vec<TableInfo>) -> Vec<TableInfo> {
 }
 
 async fn show_create(conn: &Connection, database: &str, table: &str) -> Result<String, AppError> {
-    let sql = format!("SHOW CREATE TABLE {}", clickhouse::qualified(database, table));
+    let sql = format!(
+        "SHOW CREATE TABLE {}",
+        clickhouse::qualified(database, table)
+    );
     let result = clickhouse::query_in_database(conn, &sql, Some(database)).await?;
     result
         .data
@@ -217,7 +227,12 @@ async fn show_create(conn: &Connection, database: &str, table: &str) -> Result<S
         .and_then(|row| row.values().next())
         .and_then(|v| v.as_str())
         .map(str::to_string)
-        .ok_or_else(|| err!("error.clickhouse", message = format!("SHOW CREATE TABLE returned nothing for {table}")))
+        .ok_or_else(|| {
+            err!(
+                "error.clickhouse",
+                message = format!("SHOW CREATE TABLE returned nothing for {table}")
+            )
+        })
 }
 
 /// Writes every table/view's `DROP TABLE IF EXISTS` + (database-qualifier-stripped, D4)
@@ -282,8 +297,10 @@ pub async fn dump_data(
         .into_iter()
         .filter(|t| !excluded_from_data_dump(&t.engine))
         .collect();
-    let weights: Vec<(String, u64)> =
-        tables.iter().map(|t| (t.name.clone(), t.total_bytes.max(1))).collect();
+    let weights: Vec<(String, u64)> = tables
+        .iter()
+        .map(|t| (t.name.clone(), t.total_bytes.max(1)))
+        .collect();
     let mut tracker = Tracker::new(&weights, path, true);
 
     let mut file = tokio::fs::OpenOptions::new()
@@ -396,7 +413,11 @@ pub async fn restore(
             break;
         }
         if eof {
-            return Err(err!("error.cannotReadFile", path = path, message = "invalid UTF-8"));
+            return Err(err!(
+                "error.cannotReadFile",
+                path = path,
+                message = "invalid UTF-8"
+            ));
         }
 
         let read = reader
@@ -463,7 +484,10 @@ mod tests {
     #[test]
     fn leaves_the_database_name_alone_inside_a_string_literal() {
         assert_eq!(
-            strip_database_qualifiers("CREATE TABLE `db`.`t` (`a` String DEFAULT 'db') ENGINE = X", "db"),
+            strip_database_qualifiers(
+                "CREATE TABLE `db`.`t` (`a` String DEFAULT 'db') ENGINE = X",
+                "db"
+            ),
             "CREATE TABLE `t` (`a` String DEFAULT 'db') ENGINE = X"
         );
     }

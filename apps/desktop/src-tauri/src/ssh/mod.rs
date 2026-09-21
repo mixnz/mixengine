@@ -17,8 +17,13 @@ use tokio::time::timeout;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum SshAuth {
-    Password { password: String },
-    PrivateKey { key_path: String, passphrase: Option<String> },
+    Password {
+        password: String,
+    },
+    PrivateKey {
+        key_path: String,
+        passphrase: Option<String>,
+    },
 }
 
 /// Redacted by hand, for the reason `ConnectionConfig`'s is. This one covers more than itself:
@@ -31,7 +36,10 @@ impl std::fmt::Debug for SshAuth {
                 .debug_struct("Password")
                 .field("password", &Redacted)
                 .finish(),
-            Self::PrivateKey { key_path, passphrase } => f
+            Self::PrivateKey {
+                key_path,
+                passphrase,
+            } => f
                 .debug_struct("PrivateKey")
                 // The path is not a secret and is the whole of what is worth knowing when a key
                 // will not load — which is the one time anybody prints this.
@@ -169,17 +177,22 @@ fn remember_host(path: &Path, endpoint: &str, fingerprint: &str) -> Result<(), A
     let mut known = load_known_hosts(path);
     known.insert(endpoint.to_string(), fingerprint.to_string());
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| err!("error.cannotCreateDirectory", path = parent.display(), message = e))?;
+        std::fs::create_dir_all(parent).map_err(|e| {
+            err!(
+                "error.cannotCreateDirectory",
+                path = parent.display(),
+                message = e
+            )
+        })?;
     }
     let text = serde_json::to_string_pretty(&known)
         .map_err(|e| err!("error.cannotSaveKnownHost", message = e))?;
 
     /* Written beside the real file and renamed over it, rather than into it. `std::fs::write`
-       truncates first, so a crash — or a full disk — between the truncate and the last byte leaves
-       an empty or half-written file, `load_known_hosts` reads that as "nothing known", and every
-       server the user has ever connected to is silently accepted afresh on the next run. That is
-       the one failure this file exists to prevent. A rename either happened or did not. */
+    truncates first, so a crash — or a full disk — between the truncate and the last byte leaves
+    an empty or half-written file, `load_known_hosts` reads that as "nothing known", and every
+    server the user has ever connected to is silently accepted afresh on the next run. That is
+    the one failure this file exists to prevent. A rename either happened or did not. */
     let temp = path.with_extension("json.tmp");
     std::fs::write(&temp, text).map_err(|e| err!("error.cannotSaveKnownHost", message = e))?;
     std::fs::rename(&temp, path).map_err(|e| {
@@ -294,7 +307,10 @@ impl TunnelInner {
     /// không giúp được gì và không được phép lặp lại cho từng kết nối.
     async fn forget_session(&self) {
         let mut slot = self.session.lock().await;
-        if slot.opened_at.is_none_or(|at| at.elapsed() >= RETRY_COOLDOWN) {
+        if slot
+            .opened_at
+            .is_none_or(|at| at.elapsed() >= RETRY_COOLDOWN)
+        {
             slot.handle = None;
             slot.opened_at = None;
         }
@@ -374,8 +390,8 @@ impl client::Handler for TunnelHandler {
         let endpoint = self.endpoint.clone();
 
         /* Off the runtime: this reads a file and, on a first connection, writes one, and the
-           thread it would do that on is the one driving the handshake. A home directory on a
-           network share is where that stops being theoretical. */
+        thread it would do that on is the one driving the handshake. A home directory on a
+        network share is where that stops being theoretical. */
         match in_background(move || verify_host(&path, &endpoint, &fingerprint)).await {
             Ok(()) => Ok(true),
             Err(e) => {
@@ -454,12 +470,15 @@ async fn authenticate_inner(
             .authenticate_password(&ssh.username, password)
             .await
             .map_err(|e| err!("error.sshAuthFailed", message = e))?,
-        SshAuth::PrivateKey { key_path, passphrase } => {
+        SshAuth::PrivateKey {
+            key_path,
+            passphrase,
+        } => {
             let key_path = expand_home(key_path, std::env::home_dir().as_deref());
             let passphrase = passphrase.clone();
             /* Both halves belong off the runtime. Reading is disk; decoding an encrypted key is
-               bcrypt-pbkdf, which is slow on purpose — a key written with OpenSSH's default rounds
-               takes long enough to be felt, and every other command would wait behind it. */
+            bcrypt-pbkdf, which is slow on purpose — a key written with OpenSSH's default rounds
+            takes long enough to be felt, and every other command would wait behind it. */
             let key_pair = in_background(move || {
                 let key_data = std::fs::read_to_string(&key_path)
                     .map_err(|e| err!("error.cannotReadPrivateKey", message = e))?;
@@ -510,7 +529,9 @@ async fn authenticate_inner(
 /// independently of the database connection itself.
 pub async fn test_connection(ssh: &SshConfig, app_data: &Path) -> Result<(), AppError> {
     let session = authenticate(ssh, app_data).await?;
-    let _ = session.disconnect(russh::Disconnect::ByApplication, "", "English").await;
+    let _ = session
+        .disconnect(russh::Disconnect::ByApplication, "", "English")
+        .await;
     Ok(())
 }
 
@@ -554,7 +575,7 @@ pub async fn open_tunnel(
         let inner = Arc::clone(&inner);
         async move {
             /* Bao nhiêu lỗi `accept` liên tiếp không thuộc về một kết nối lẻ. Đếm để biết lúc nào
-               nên nói, và để biết lúc nào nói lại rằng đã ổn. */
+            nên nói, và để biết lúc nào nói lại rằng đã ổn. */
             let mut failures: u32 = 0;
             loop {
                 let (local_stream, _) = match listener.accept().await {
@@ -573,18 +594,19 @@ pub async fn open_tunnel(
                     Err(e) => {
                         failures += 1;
                         /* Trước đây chỗ này `break` ngay lần đầu, và tunnel chết trong im lặng:
-                           watcher chỉ nhìn phiên SSH, thấy phiên còn sống nên không banner nào
-                           hiện, và mọi truy vấn sau đó chỉ trả về `connectionLost`. Nói đúng một
-                           lần, ở đúng lần thứ `ACCEPT_ALARM`. */
+                        watcher chỉ nhìn phiên SSH, thấy phiên còn sống nên không banner nào
+                        hiện, và mọi truy vấn sau đó chỉ trả về `connectionLost`. Nói đúng một
+                        lần, ở đúng lần thứ `ACCEPT_ALARM`. */
                         if failures == ACCEPT_ALARM {
-                            (inner.notify)(TunnelEvent::Failed(
-                                err!("error.tunnelAcceptFailed", message = e),
-                            ));
+                            (inner.notify)(TunnelEvent::Failed(err!(
+                                "error.tunnelAcceptFailed",
+                                message = e
+                            )));
                         }
                         /* Và vẫn thử tiếp, như watcher vẫn thử tiếp: hết file descriptor là
-                           chuyện qua đi, còn bỏ vòng lặp ở đây thì không còn gì mở lại được cổng
-                           — nó chỉ được bind một lần, trong `open_tunnel`. Vòng lặp sống đúng
-                           bằng đời của `Tunnel`, mà `Drop` của nó abort task này. */
+                        chuyện qua đi, còn bỏ vòng lặp ở đây thì không còn gì mở lại được cổng
+                        — nó chỉ được bind một lần, trong `open_tunnel`. Vòng lặp sống đúng
+                        bằng đời của `Tunnel`, mà `Drop` của nó abort task này. */
                         tokio::time::sleep(ACCEPT_RETRY).await;
                         continue;
                     }
@@ -624,7 +646,14 @@ pub async fn open_tunnel(
         }
     });
 
-    Ok((local_port, Tunnel { inner, accept, watch }))
+    Ok((
+        local_port,
+        Tunnel {
+            inner,
+            accept,
+            watch,
+        },
+    ))
 }
 
 async fn bridge_connection(inner: &Arc<TunnelInner>, mut local_stream: tokio::net::TcpStream) {
@@ -780,9 +809,9 @@ pub async fn open_shell(
     };
 
     /* `want_reply: true` cho cả hai: một máy chủ từ chối cấp pty phải nói ra, và câu trả lời của
-       nó tới dưới dạng `ChannelMsg::Success`/`Failure` trong hàng đợi của channel. Bộ đọc bỏ qua
-       cả hai — cái nó chờ là byte — nhưng một `Failure` bao giờ cũng kéo theo channel đóng, và
-       phiên kết thúc ngay thay vì treo trên một terminal câm. */
+    nó tới dưới dạng `ChannelMsg::Success`/`Failure` trong hàng đợi của channel. Bộ đọc bỏ qua
+    cả hai — cái nó chờ là byte — nhưng một `Failure` bao giờ cũng kéo theo channel đóng, và
+    phiên kết thúc ngay thay vì treo trên một terminal câm. */
     channel
         .request_pty(true, "xterm-256color", cols as u32, rows as u32, 0, 0, &[])
         .await
@@ -832,8 +861,10 @@ mod expand_home_tests {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_transient_accept, known_hosts_file, load_known_hosts, next_backoff, remember_host};
     use super::verify_host;
+    use super::{
+        is_transient_accept, known_hosts_file, load_known_hosts, next_backoff, remember_host,
+    };
     use super::{ACCEPT_ALARM, ACCEPT_RETRY, WATCH_IDLE, WATCH_MAX, WATCH_MIN};
     use std::io::{Error, ErrorKind};
     use std::time::Duration;
@@ -851,14 +882,23 @@ mod tests {
         remember_host(&file, "db.example:22", "SHA256:aaa").unwrap();
         remember_host(&file, "other.example:2222", "SHA256:bbb").unwrap();
         let known = load_known_hosts(&file);
-        assert_eq!(known.get("db.example:22").map(String::as_str), Some("SHA256:aaa"));
+        assert_eq!(
+            known.get("db.example:22").map(String::as_str),
+            Some("SHA256:aaa")
+        );
         assert_eq!(known.len(), 2);
 
         // Each host stands on its own: accepting a rebuilt server's new key leaves the others be.
         remember_host(&file, "db.example:22", "SHA256:ccc").unwrap();
         let known = load_known_hosts(&file);
-        assert_eq!(known.get("db.example:22").map(String::as_str), Some("SHA256:ccc"));
-        assert_eq!(known.get("other.example:2222").map(String::as_str), Some("SHA256:bbb"));
+        assert_eq!(
+            known.get("db.example:22").map(String::as_str),
+            Some("SHA256:ccc")
+        );
+        assert_eq!(
+            known.get("other.example:2222").map(String::as_str),
+            Some("SHA256:bbb")
+        );
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -899,7 +939,9 @@ mod tests {
         // Never seen: accepted, and written down.
         verify_host(&file, "db.example:22", "SHA256:aaa").unwrap();
         assert_eq!(
-            load_known_hosts(&file).get("db.example:22").map(String::as_str),
+            load_known_hosts(&file)
+                .get("db.example:22")
+                .map(String::as_str),
             Some("SHA256:aaa"),
         );
 
@@ -910,7 +952,9 @@ mod tests {
         // new one is the user's decision, taken by deleting the entry, not ours.
         assert!(verify_host(&file, "db.example:22", "SHA256:zzz").is_err());
         assert_eq!(
-            load_known_hosts(&file).get("db.example:22").map(String::as_str),
+            load_known_hosts(&file)
+                .get("db.example:22")
+                .map(String::as_str),
             Some("SHA256:aaa"),
         );
 
@@ -945,7 +989,10 @@ mod tests {
 
         // Rồi gấp đôi.
         assert_eq!(next_backoff(WATCH_MIN, false), Duration::from_secs(10));
-        assert_eq!(next_backoff(Duration::from_secs(10), false), Duration::from_secs(20));
+        assert_eq!(
+            next_backoff(Duration::from_secs(10), false),
+            Duration::from_secs(20)
+        );
 
         // Chạm trần thì dừng ở trần, không vượt và không quay về WATCH_MIN.
         assert_eq!(next_backoff(Duration::from_secs(40), false), WATCH_MAX);
@@ -965,16 +1012,22 @@ mod tests {
         {
             assert!(is_transient_accept(&Error::from_raw_os_error(10054))); // WSAECONNRESET
             assert!(is_transient_accept(&Error::from_raw_os_error(10053))); // WSAECONNABORTED
-            // Hết handle không phải chuyện của một kết nối: chờ rồi thử lại.
+                                                                            // Hết handle không phải chuyện của một kết nối: chờ rồi thử lại.
             assert!(!is_transient_accept(&Error::from_raw_os_error(10024))); // WSAEMFILE
         }
         // Unix không có một bảng số chung: Linux đánh `ECONNRESET` là 104, macOS là 54 — nên lấy
         // từ `libc` của chính hệ điều hành đang build, không viết số tay.
         #[cfg(unix)]
         {
-            assert!(is_transient_accept(&Error::from_raw_os_error(libc::ECONNRESET)));
-            assert!(is_transient_accept(&Error::from_raw_os_error(libc::ECONNABORTED)));
-            assert!(!is_transient_accept(&Error::from_raw_os_error(libc::EMFILE)));
+            assert!(is_transient_accept(&Error::from_raw_os_error(
+                libc::ECONNRESET
+            )));
+            assert!(is_transient_accept(&Error::from_raw_os_error(
+                libc::ECONNABORTED
+            )));
+            assert!(!is_transient_accept(&Error::from_raw_os_error(
+                libc::EMFILE
+            )));
         }
 
         // Và một signal cắt ngang lời gọi, ở mọi nhà.

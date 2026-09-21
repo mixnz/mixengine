@@ -61,8 +61,8 @@ impl std::fmt::Debug for ConnectionConfig {
             .field("password", &self.password.as_ref().map(|_| Redacted))
             .field("database", &self.database)
             /* All of it, not just the credentials in it: masking part of a URI means parsing one,
-               and a parser that is slightly wrong here prints exactly what it was written to
-               hide. What is lost is the host, which `host` above already carries. */
+            and a parser that is slightly wrong here prints exactly what it was written to
+            hide. What is lost is the host, which `host` above already carries. */
             .field("uri", &self.uri.as_ref().map(|_| Redacted))
             /* Printed in full, unlike `uri`: a file path is a name, not a credential. */
             .field("path", &self.path)
@@ -162,7 +162,9 @@ mod tests {
                 host: "jump.example".to_string(),
                 port: 22,
                 username: "deploy".to_string(),
-                auth: SshAuth::Password { password: "correcthorse".to_string() },
+                auth: SshAuth::Password {
+                    password: "correcthorse".to_string(),
+                },
             }),
             use_ssl: Some(true),
         };

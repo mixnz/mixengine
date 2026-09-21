@@ -58,7 +58,10 @@ pub fn map_rpc_error(body: &Value) -> Option<AppError> {
 
     let mut mapped = err!("error.mixengineRefused", code = code, message = message);
     // Vắng mặt chứ không rỗng: UI phân biệt được "không có gợi ý" với "gợi ý rỗng".
-    if let Some(hint) = data.and_then(|data| data.get("hint")).and_then(Value::as_str) {
+    if let Some(hint) = data
+        .and_then(|data| data.get("hint"))
+        .and_then(Value::as_str)
+    {
         mapped = mapped.with("hint", hint);
     }
     Some(mapped)
@@ -202,16 +205,27 @@ mod tests {
         let address = super::super::transport::current_address().expect("an address");
         println!("endpoint: {address}");
 
-        let status: Value = call("daemon.status", json!({})).await.expect("daemon.status");
+        let status: Value = call("daemon.status", json!({}))
+            .await
+            .expect("daemon.status");
         println!("status: {status:#}");
-        assert!(status.get("version").and_then(Value::as_str).is_some(), "{status}");
-        assert!(status.get("home").and_then(Value::as_str).is_some(), "{status}");
+        assert!(
+            status.get("version").and_then(Value::as_str).is_some(),
+            "{status}"
+        );
+        assert!(
+            status.get("home").and_then(Value::as_str).is_some(),
+            "{status}"
+        );
 
         // `service.list` trả `{ services: [...] }` — một object, không phải mảng trần. Đây chính
         // là thứ chỉ một daemon thật nói ra, và là lý do frontend gõ kiểu theo `ServiceList`.
         let services: Value = call("service.list", json!({})).await.expect("service.list");
         println!("services: {services:#}");
-        assert!(services.get("services").is_some_and(Value::is_array), "{services}");
+        assert!(
+            services.get("services").is_some_and(Value::is_array),
+            "{services}"
+        );
     }
 
     /// Nhiều call liên tiếp, đúng cái làm hỏng bản trước.

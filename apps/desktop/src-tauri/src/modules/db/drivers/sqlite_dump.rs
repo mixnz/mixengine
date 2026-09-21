@@ -48,14 +48,16 @@ pub async fn dump_structure(
     .await
     .map_err(map_error)?;
 
-    let weights: Vec<(String, u64)> =
-        rows.iter().map(|r| (r.get::<String, _>("name"), 1)).collect();
+    let weights: Vec<(String, u64)> = rows
+        .iter()
+        .map(|r| (r.get::<String, _>("name"), 1))
+        .collect();
     let mut tracker = dump::Tracker::new(&weights, path.to_str().unwrap_or_default(), false);
 
     let mut out = String::new();
     /* No `CREATE DATABASE` and no `USE`, matching what the other engines' dumps carry: the file
-       restores into whichever database it is pointed at rather than insisting on the one it came
-       from. For SQLite that is the file the connection is open on. */
+    restores into whichever database it is pointed at rather than insisting on the one it came
+    from. For SQLite that is the file the connection is open on. */
     out.push_str("-- MixLab structure dump\n\n");
     for row in &rows {
         if (watch.cancel)() {
@@ -69,13 +71,8 @@ pub async fn dump_structure(
         (watch.report)(tracker.progress());
     }
 
-    std::fs::write(path, out).map_err(|e| {
-        err!(
-            "error.cannotWriteFile",
-            path = path.display(),
-            message = e
-        )
-    })
+    std::fs::write(path, out)
+        .map_err(|e| err!("error.cannotWriteFile", path = path.display(), message = e))
 }
 
 /// Replays a SQL file into the open database.
@@ -87,9 +84,8 @@ pub async fn dump_structure(
 /// whole replay, and a failure halfway through leaves a partly restored database either way: the
 /// statements that ran are reported, which is what the other two engines' restores do as well.
 pub async fn restore(pool: &SqlitePool, path: &Path) -> Result<(), AppError> {
-    let sql = std::fs::read_to_string(path).map_err(|e| {
-        err!("error.cannotReadFile", path = path.display(), message = e)
-    })?;
+    let sql = std::fs::read_to_string(path)
+        .map_err(|e| err!("error.cannotReadFile", path = path.display(), message = e))?;
 
     let results = sqlite_script::run(pool, &sql).await?;
     if let Some(failed) = results.iter().find(|result| result.error.is_some()) {
@@ -181,7 +177,9 @@ pub async fn dump_data(
     use tokio::io::AsyncWriteExt;
 
     let tables = data_tables(pool).await?;
-    let sizes = super::sqlite_structure::page_sizes(pool).await.unwrap_or_default();
+    let sizes = super::sqlite_structure::page_sizes(pool)
+        .await
+        .unwrap_or_default();
     let weights: Vec<(String, u64)> = tables
         .iter()
         .map(|t| (t.clone(), sizes.get(t).copied().unwrap_or(0).max(1)))
@@ -205,7 +203,11 @@ pub async fn dump_data(
 
         let columns = data_columns(pool, table).await?;
         if !columns.is_empty() {
-            let column_list = columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+            let column_list = columns
+                .iter()
+                .map(|c| quote_ident(c))
+                .collect::<Vec<_>>()
+                .join(", ");
             let select_sql = format!("SELECT {column_list} FROM {}", quote_ident(table));
             let mut rows = sqlx::query(sqlx::AssertSqlSafe(select_sql)).fetch(pool);
 
@@ -213,15 +215,16 @@ pub async fn dump_data(
                 if (watch.cancel)() {
                     return Err(err!("error.transferCancelled", tool = "SQLite dump"));
                 }
-                let values: Vec<String> = (0..columns.len()).map(|i| sql_literal(&row, i)).collect();
+                let values: Vec<String> =
+                    (0..columns.len()).map(|i| sql_literal(&row, i)).collect();
                 let line = format!(
                     "INSERT INTO {} ({column_list}) VALUES ({});\n",
                     quote_ident(table),
                     values.join(", ")
                 );
-                file.write_all(line.as_bytes())
-                    .await
-                    .map_err(|e| err!("error.cannotWriteFile", path = path.display(), message = e))?;
+                file.write_all(line.as_bytes()).await.map_err(|e| {
+                    err!("error.cannotWriteFile", path = path.display(), message = e)
+                })?;
             }
         }
         (watch.report)(tracker.progress());
@@ -261,7 +264,9 @@ mod tests {
     async fn the_dump_carries_every_create_and_nothing_of_sqlites_own() {
         let (_fixture, pool) = Fixture::open().await;
         let out = Scratch::new();
-        dump_structure(&pool, &out.path, &no_op_watch()).await.unwrap();
+        dump_structure(&pool, &out.path, &no_op_watch())
+            .await
+            .unwrap();
         let sql = std::fs::read_to_string(&out.path).unwrap();
 
         assert!(sql.contains("CREATE TABLE author"));
@@ -275,7 +280,9 @@ mod tests {
     async fn the_dump_puts_the_tables_before_what_is_built_on_them() {
         let (_fixture, pool) = Fixture::open().await;
         let out = Scratch::new();
-        dump_structure(&pool, &out.path, &no_op_watch()).await.unwrap();
+        dump_structure(&pool, &out.path, &no_op_watch())
+            .await
+            .unwrap();
         let sql = std::fs::read_to_string(&out.path).unwrap();
 
         // An index or a view replayed before its table fails, so the order is the whole point.
@@ -288,12 +295,20 @@ mod tests {
     async fn what_is_dumped_restores_into_an_empty_database() {
         let (_source_fixture, source) = Fixture::open().await;
         let out = Scratch::new();
-        dump_structure(&source, &out.path, &no_op_watch()).await.unwrap();
+        dump_structure(&source, &out.path, &no_op_watch())
+            .await
+            .unwrap();
 
         let (_target_fixture, target) = Fixture::open().await;
         // Emptied first: the fixture opens with the same schema, and a restore over it would
         // report "table already exists" rather than testing anything.
-        for statement in ["drop view recent", "drop table post", "drop table tag", "drop table loose", "drop table author"] {
+        for statement in [
+            "drop view recent",
+            "drop table post",
+            "drop table tag",
+            "drop table loose",
+            "drop table author",
+        ] {
             sqlx::raw_sql(statement).execute(&target).await.unwrap();
         }
 
@@ -324,7 +339,8 @@ mod tests {
     #[tokio::test]
     async fn a_missing_file_to_restore_from_is_reported_as_one() {
         let (_fixture, pool) = Fixture::open().await;
-        let absent = std::env::temp_dir().join(format!("mixdb-absent-{}.sql", uuid::Uuid::new_v4()));
+        let absent =
+            std::env::temp_dir().join(format!("mixdb-absent-{}.sql", uuid::Uuid::new_v4()));
         assert_eq!(
             restore(&pool, &absent).await.expect_err("should fail").code,
             "error.cannotReadFile"
@@ -334,12 +350,10 @@ mod tests {
     #[tokio::test]
     async fn sql_literal_covers_every_storage_class() {
         let (_fixture, pool) = Fixture::open().await;
-        let row = sqlx::query(
-            "select 1 as a, 3.5 as b, 'it''s' as c, x'00ff10' as d, NULL as e",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let row = sqlx::query("select 1 as a, 3.5 as b, 'it''s' as c, x'00ff10' as d, NULL as e")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
         assert_eq!(sql_literal(&row, 0), "1");
         assert_eq!(sql_literal(&row, 1), "3.5");
@@ -351,7 +365,10 @@ mod tests {
     #[tokio::test]
     async fn sql_literal_escapes_a_lone_single_quote() {
         let (_fixture, pool) = Fixture::open().await;
-        let row = sqlx::query("select 'O''Brien' as name").fetch_one(&pool).await.unwrap();
+        let row = sqlx::query("select 'O''Brien' as name")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(sql_literal(&row, 0), "'O''Brien'");
     }
 
@@ -367,7 +384,10 @@ mod tests {
     async fn data_columns_leaves_out_the_generated_column() {
         let (_fixture, pool) = Fixture::open().await;
         let columns = data_columns(&pool, "post").await.unwrap();
-        assert_eq!(columns, vec!["id", "author_id", "title", "body", "views", "created_at"]);
+        assert_eq!(
+            columns,
+            vec!["id", "author_id", "title", "body", "views", "created_at"]
+        );
         assert!(!columns.contains(&"slug".to_string()));
     }
 
@@ -379,19 +399,22 @@ mod tests {
     }
 
     fn no_op_watch() -> dump::Watch<'static> {
-        dump::Watch { report: &|_| {}, cancel: &|| false }
+        dump::Watch {
+            report: &|_| {},
+            cancel: &|| false,
+        }
     }
 
     #[tokio::test]
     async fn dump_data_writes_one_insert_per_row_and_skips_the_generated_column() {
         let (_fixture, pool) = Fixture::open().await;
         let out = Scratch::new();
-        dump_data(&pool, &out.path, false, &no_op_watch()).await.unwrap();
+        dump_data(&pool, &out.path, false, &no_op_watch())
+            .await
+            .unwrap();
         let sql = std::fs::read_to_string(&out.path).unwrap();
 
-        assert!(sql.contains(
-            "INSERT INTO \"tag\" (\"id\", \"label\") VALUES (1, 'draft');\n"
-        ));
+        assert!(sql.contains("INSERT INTO \"tag\" (\"id\", \"label\") VALUES (1, 'draft');\n"));
         // `post` has three rows and `slug` is generated — must not appear as a column here.
         assert_eq!(sql.matches("INSERT INTO \"post\"").count(), 3);
         assert!(!sql.contains("\"slug\""));
@@ -401,7 +424,9 @@ mod tests {
     async fn dump_data_writes_nothing_for_an_empty_table() {
         let (_fixture, pool) = Fixture::open().await;
         let out = Scratch::new();
-        dump_data(&pool, &out.path, false, &no_op_watch()).await.unwrap();
+        dump_data(&pool, &out.path, false, &no_op_watch())
+            .await
+            .unwrap();
         let sql = std::fs::read_to_string(&out.path).unwrap();
         // `loose` has no rows in the fixture.
         assert!(!sql.contains("INSERT INTO \"loose\""));
@@ -413,22 +438,40 @@ mod tests {
         let out = Scratch::new();
         std::fs::write(&out.path, "-- already here\n").unwrap();
 
-        dump_data(&pool, &out.path, true, &no_op_watch()).await.unwrap();
-        assert!(std::fs::read_to_string(&out.path).unwrap().starts_with("-- already here\n"));
+        dump_data(&pool, &out.path, true, &no_op_watch())
+            .await
+            .unwrap();
+        assert!(std::fs::read_to_string(&out.path)
+            .unwrap()
+            .starts_with("-- already here\n"));
 
-        dump_data(&pool, &out.path, false, &no_op_watch()).await.unwrap();
-        assert!(!std::fs::read_to_string(&out.path).unwrap().starts_with("-- already here\n"));
+        dump_data(&pool, &out.path, false, &no_op_watch())
+            .await
+            .unwrap();
+        assert!(!std::fs::read_to_string(&out.path)
+            .unwrap()
+            .starts_with("-- already here\n"));
     }
 
     #[tokio::test]
     async fn an_all_dump_restores_schema_and_data_into_an_empty_database() {
         let (_source_fixture, source) = Fixture::open().await;
         let out = Scratch::new();
-        dump_structure(&source, &out.path, &no_op_watch()).await.unwrap();
-        dump_data(&source, &out.path, true, &no_op_watch()).await.unwrap();
+        dump_structure(&source, &out.path, &no_op_watch())
+            .await
+            .unwrap();
+        dump_data(&source, &out.path, true, &no_op_watch())
+            .await
+            .unwrap();
 
         let (_target_fixture, target) = Fixture::open().await;
-        for statement in ["drop view recent", "drop table post", "drop table tag", "drop table loose", "drop table author"] {
+        for statement in [
+            "drop view recent",
+            "drop table post",
+            "drop table tag",
+            "drop table loose",
+            "drop table author",
+        ] {
             sqlx::raw_sql(statement).execute(&target).await.unwrap();
         }
 
@@ -450,7 +493,9 @@ mod tests {
     async fn a_data_only_restore_loads_rows_into_an_existing_schema() {
         let (_source_fixture, source) = Fixture::open().await;
         let out = Scratch::new();
-        dump_data(&source, &out.path, false, &no_op_watch()).await.unwrap();
+        dump_data(&source, &out.path, false, &no_op_watch())
+            .await
+            .unwrap();
 
         // The target keeps the fixture's own schema but is emptied of rows first — a `data`-only
         // dump carries no `CREATE`/`DROP`, so restoring it on top of rows sharing the same primary

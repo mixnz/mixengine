@@ -66,7 +66,10 @@ pub async fn mixengine_database_open_in_mixdb(
     let port = services
         .get("services")
         .and_then(Value::as_array)
-        .and_then(|rows| rows.iter().find(|row| row.get("id").and_then(Value::as_str) == Some(service.as_str())))
+        .and_then(|rows| {
+            rows.iter()
+                .find(|row| row.get("id").and_then(Value::as_str) == Some(service.as_str()))
+        })
         .and_then(|row| row.get("port"))
         .and_then(Value::as_u64)
         .and_then(|p| u16::try_from(p).ok());
@@ -101,7 +104,10 @@ pub async fn mixengine_database_open_in_mixdb(
     // Mongo reads its address and its database out of one string and ignores the fields: the same
     // string `mixdb://connect` builds, from the same function.
     let (uri, database) = match kind {
-        DbKind::Mongo => (Some(mongo_uri("127.0.0.1", port, database.as_deref())?), None),
+        DbKind::Mongo => (
+            Some(mongo_uri("127.0.0.1", port, database.as_deref())?),
+            None,
+        ),
         _ => (None, database),
     };
 

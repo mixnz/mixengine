@@ -199,12 +199,14 @@ fn skip_bracket(chars: &[char], i: usize) -> usize {
 /// column merely *named* `primary_email` is not mistaken for one (B3 of the design spec).
 fn is_table_constraint(clause: &str) -> bool {
     let upper = clause.trim_start().to_ascii_uppercase();
-    ["PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "CONSTRAINT"].iter().any(|kw| {
-        upper == *kw
-            || upper
-                .strip_prefix(kw)
-                .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == '('))
-    })
+    ["PRIMARY", "UNIQUE", "CHECK", "FOREIGN", "CONSTRAINT"]
+        .iter()
+        .any(|kw| {
+            upper == *kw
+                || upper
+                    .strip_prefix(kw)
+                    .is_some_and(|rest| rest.starts_with(|c: char| c.is_whitespace() || c == '('))
+        })
 }
 
 /// The column name a column-definition clause declares — its first token, unquoted. `None` for a
@@ -228,9 +230,15 @@ fn clause_column_name(clause: &str) -> Option<String> {
             Some(body[..end].to_string())
         }
         c if c.is_alphabetic() || c == '_' => {
-            let name: String =
-                trimmed.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
-            if name.is_empty() { None } else { Some(name) }
+            let name: String = trimmed
+                .chars()
+                .take_while(|c| c.is_alphanumeric() || *c == '_')
+                .collect();
+            if name.is_empty() {
+                None
+            } else {
+                Some(name)
+            }
         }
         _ => None,
     }
@@ -260,7 +268,8 @@ fn clause_mentions_column(clause: &str, column: &str) -> bool {
         }
         let before_ok = i == 0 || !(chars[i - 1].is_alphanumeric() || chars[i - 1] == '_');
         let after = i + target.len();
-        let after_ok = after == chars.len() || !(chars[after].is_alphanumeric() || chars[after] == '_');
+        let after_ok =
+            after == chars.len() || !(chars[after].is_alphanumeric() || chars[after] == '_');
         if before_ok && after_ok {
             return true;
         }
@@ -286,7 +295,10 @@ fn clause_collation(clause: &str) -> Option<String> {
 async fn execute_all(pool: &SqlitePool, statements: Vec<String>) -> Result<(), AppError> {
     let mut tx = pool.begin().await.map_err(map_error)?;
     for sql in statements {
-        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql)).execute(&mut *tx).await {
+        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql))
+            .execute(&mut *tx)
+            .await
+        {
             tx.rollback().await.map_err(map_error)?;
             return Err(map_error(e));
         }
@@ -304,13 +316,18 @@ fn column_definition(spec: &ColumnSpec) -> Result<String, AppError> {
 
     let mut sql = quote_ident(name);
     /* A type is optional in SQLite — a column declared with none takes blob affinity — so an empty
-       one is written as nothing rather than refused. */
+    one is written as nothing rather than refused. */
     let data_type = spec.data_type.trim();
     if !data_type.is_empty() {
         sql.push(' ');
         sql.push_str(data_type);
     }
-    if let Some(collation) = spec.collation.as_deref().map(str::trim).filter(|c| !c.is_empty()) {
+    if let Some(collation) = spec
+        .collation
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty())
+    {
         sql.push_str(" COLLATE ");
         sql.push_str(&quote_ident(collation));
     }
@@ -321,7 +338,7 @@ fn column_definition(spec: &ColumnSpec) -> Result<String, AppError> {
         sql.push_str(" DEFAULT ");
         if spec.default_is_expression {
             /* Parenthesised, which is what SQLite requires of anything but a literal or one of the
-               `CURRENT_*` keywords — and which those three tolerate. */
+            `CURRENT_*` keywords — and which those three tolerate. */
             if is_current_keyword(default) {
                 sql.push_str(default);
             } else {
@@ -397,11 +414,7 @@ pub async fn drop_table(pool: &SqlitePool, table: &str) -> Result<(), AppError> 
 /// column with no default, a `UNIQUE` or `PRIMARY KEY` one — and those refusals are passed through
 /// as the engine words them rather than pre-empted: it states the rule better than a second copy of
 /// it here would.
-pub async fn add_column(
-    pool: &SqlitePool,
-    table: &str,
-    spec: &ColumnSpec,
-) -> Result<(), AppError> {
+pub async fn add_column(pool: &SqlitePool, table: &str, spec: &ColumnSpec) -> Result<(), AppError> {
     let definition = column_definition(spec)?;
     execute_all(
         pool,
@@ -483,12 +496,18 @@ pub async fn modify_column(
     let current = current_column(pool, table, name).await?;
 
     /* Compared rather than assumed unchanged: the dialog sends the whole column back whether or not
-       anything but the name was touched, so "did anything else change?" is a question about the
-       values, not about which fields arrived. The type is compared case-insensitively — SQLite
-       stores the declaration verbatim, so `text` and `TEXT` come back different and mean the
-       same. */
-    let spec_collation = spec.collation.as_deref().map(str::trim).filter(|c| !c.is_empty());
-    let anything_else_changed = !current.data_type.eq_ignore_ascii_case(spec.data_type.trim())
+    anything but the name was touched, so "did anything else change?" is a question about the
+    values, not about which fields arrived. The type is compared case-insensitively — SQLite
+    stores the declaration verbatim, so `text` and `TEXT` come back different and mean the
+    same. */
+    let spec_collation = spec
+        .collation
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
+    let anything_else_changed = !current
+        .data_type
+        .eq_ignore_ascii_case(spec.data_type.trim())
         || current.nullable != spec.nullable
         || current.default_value.as_deref() != spec.default_value.as_deref()
         || current.collation.as_deref() != spec_collation;
@@ -535,8 +554,8 @@ pub async fn drop_column(pool: &SqlitePool, table: &str, column: &str) -> Result
 fn create_index(table: &str, spec: &IndexSpec) -> Result<String, AppError> {
     if spec.kind == "primary" {
         /* Never reached from the dialog, which does not offer the kind — but a primary key in
-           SQLite is part of `CREATE TABLE` and there is no statement that adds one afterwards, so
-           it is refused here rather than sent and failed on. */
+        SQLite is part of `CREATE TABLE` and there is no statement that adds one afterwards, so
+        it is refused here rather than sent and failed on. */
         return Err(err!("error.sqliteNoPrimaryKeyAfterwards"));
     }
     let columns: Vec<&str> = spec
@@ -560,7 +579,11 @@ fn create_index(table: &str, spec: &IndexSpec) -> Result<String, AppError> {
         "CREATE {unique}INDEX {} ON {} ({})",
         quote_ident(&name),
         quote_ident(table),
-        columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ")
+        columns
+            .iter()
+            .map(|c| quote_ident(c))
+            .collect::<Vec<_>>()
+            .join(", ")
     ))
 }
 
@@ -577,11 +600,7 @@ pub async fn modify_index(
     spec: &IndexSpec,
 ) -> Result<(), AppError> {
     let created = create_index(table, spec)?;
-    execute_all(
-        pool,
-        vec![drop_index_sql(pool, name).await?, created],
-    )
-    .await
+    execute_all(pool, vec![drop_index_sql(pool, name).await?, created]).await
 }
 
 pub async fn drop_index(pool: &SqlitePool, _table: &str, name: &str) -> Result<(), AppError> {
@@ -688,7 +707,11 @@ async fn rebuild_column(
 
     let mut new_clauses = clauses.clone();
     new_clauses[target_index] = column_definition(spec)?;
-    let suffix_sql = if suffix.is_empty() { String::new() } else { format!(" {suffix}") };
+    let suffix_sql = if suffix.is_empty() {
+        String::new()
+    } else {
+        format!(" {suffix}")
+    };
 
     let temp_name = temp_table_name(pool, table).await?;
     let create_new = format!(
@@ -699,7 +722,11 @@ async fn rebuild_column(
     );
 
     let columns = super::sqlite_dump::data_columns(pool, table).await?;
-    let column_list = columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+    let column_list = columns
+        .iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     let insert_select = format!(
         "INSERT INTO {} ({column_list}) SELECT {column_list} FROM {}",
         quote_ident(&temp_name),
@@ -715,11 +742,11 @@ async fn rebuild_column(
     .map_err(map_error)?;
 
     /* A view that mentions `table` has to be gone for the moment `table` itself is — SQLite's own
-       `ALTER TABLE ... RENAME TO` re-validates every view in the schema as part of the rename, and
-       fails on one whose base table does not exist in the instant between the old table's `DROP`
-       and the new one's `RENAME`. Not in the original design spec's B7 — found while running this
-       task's own tests against the fixture's `recent` view. Dropped before that window opens,
-       recreated verbatim (same SQL text, so the exact same view) once it closes. */
+    `ALTER TABLE ... RENAME TO` re-validates every view in the schema as part of the rename, and
+    fails on one whose base table does not exist in the instant between the old table's `DROP`
+    and the new one's `RENAME`. Not in the original design spec's B7 — found while running this
+    task's own tests against the fixture's `recent` view. Dropped before that window opens,
+    recreated verbatim (same SQL text, so the exact same view) once it closes. */
     let views: Vec<(String, String)> = sqlx::query(
         "select name, sql from sqlite_master where type = 'view' and sql is not null order by rowid",
     )
@@ -738,7 +765,10 @@ async fn rebuild_column(
         .map_err(map_error)?;
     let fk_was_on = fk_pragma != 0;
     if fk_was_on {
-        sqlx::query("PRAGMA foreign_keys = OFF").execute(&mut *conn).await.map_err(map_error)?;
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&mut *conn)
+            .await
+            .map_err(map_error)?;
     }
 
     let plan = RebuildPlan {
@@ -753,7 +783,9 @@ async fn rebuild_column(
     let result = run_rebuild_transaction(&mut conn, &plan).await;
 
     if fk_was_on {
-        let _ = sqlx::query("PRAGMA foreign_keys = ON").execute(&mut *conn).await;
+        let _ = sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&mut *conn)
+            .await;
     }
     result
 }
@@ -794,16 +826,22 @@ async fn run_rebuild_transaction(
     // Gone before `table` itself is, so SQLite's rename validation never sees one referencing a
     // table that momentarily does not exist — see the note where `views` is read.
     for (name, _) in plan.views {
-        sqlx::query(sqlx::AssertSqlSafe(format!("DROP VIEW {}", quote_ident(name))))
-            .execute(&mut *tx)
-            .await
-            .map_err(map_error)?;
-    }
-
-    sqlx::query(sqlx::AssertSqlSafe(format!("DROP TABLE {}", quote_ident(plan.table))))
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "DROP VIEW {}",
+            quote_ident(name)
+        )))
         .execute(&mut *tx)
         .await
         .map_err(map_error)?;
+    }
+
+    sqlx::query(sqlx::AssertSqlSafe(format!(
+        "DROP TABLE {}",
+        quote_ident(plan.table)
+    )))
+    .execute(&mut *tx)
+    .await
+    .map_err(map_error)?;
     sqlx::query(sqlx::AssertSqlSafe(format!(
         "ALTER TABLE {} RENAME TO {}",
         quote_ident(plan.temp_name),
@@ -834,7 +872,10 @@ async fn run_rebuild_transaction(
             .await
             .map_err(map_error)?;
         if !violations.is_empty() {
-            return Err(err!("error.sqliteRebuildForeignKeyViolation", table = plan.table));
+            return Err(err!(
+                "error.sqliteRebuildForeignKeyViolation",
+                table = plan.table
+            ));
         }
     }
 
@@ -886,7 +927,9 @@ mod tests {
             kind: kind.to_string(),
             columns: columns
                 .iter()
-                .map(|c| IndexColumnSpec { name: (*c).to_string() })
+                .map(|c| IndexColumnSpec {
+                    name: (*c).to_string(),
+                })
                 .collect(),
         }
     }
@@ -911,7 +954,11 @@ mod tests {
         add_column(&pool, "author", &spec).await.unwrap();
 
         let structure = table_structure(&pool, "author").await.unwrap();
-        let added = structure.columns.iter().find(|c| c.name == "nickname").unwrap();
+        let added = structure
+            .columns
+            .iter()
+            .find(|c| c.name == "nickname")
+            .unwrap();
         // Quoted going in and unquoted coming back — see `split_default`.
         assert_eq!(added.default_value.as_deref(), Some("nobody"));
         assert!(!added.default_is_expression);
@@ -925,10 +972,12 @@ mod tests {
         spec.default_is_expression = true;
 
         /* A rule of `ADD COLUMN` rather than of the column: SQLite will not add one whose default
-           is not a constant, though a `CREATE TABLE` may declare exactly that. The definition
-           written here is right, and the engine's own refusal is what reaches the user — it states
-           the rule better than a second copy of it here would. */
-        let error = add_column(&pool, "author", &spec).await.expect_err("should refuse");
+        is not a constant, though a `CREATE TABLE` may declare exactly that. The definition
+        written here is right, and the engine's own refusal is what reaches the user — it states
+        the rule better than a second copy of it here would. */
+        let error = add_column(&pool, "author", &spec)
+            .await
+            .expect_err("should refuse");
         assert_eq!(error.code, "error.sqlite");
         assert!(
             error.params["message"].contains("non-constant default"),
@@ -963,7 +1012,9 @@ mod tests {
     async fn an_index_left_unnamed_is_named_after_what_it_covers() {
         let (_fixture, pool) = Fixture::open().await;
         // MySQL names one after its first column; SQLite requires a name and offers none.
-        add_index(&pool, "post", &index("", "index", &["views"])).await.unwrap();
+        add_index(&pool, "post", &index("", "index", &["views"]))
+            .await
+            .unwrap();
         let structure = table_structure(&pool, "post").await.unwrap();
         assert!(structure.indexes.iter().any(|i| i.name == "post_views"));
     }
@@ -975,7 +1026,11 @@ mod tests {
             .await
             .unwrap();
         let structure = table_structure(&pool, "author").await.unwrap();
-        let added = structure.indexes.iter().find(|i| i.name == "author_name").unwrap();
+        let added = structure
+            .indexes
+            .iter()
+            .find(|i| i.name == "author_name")
+            .unwrap();
         assert!(added.unique && !added.primary);
     }
 
@@ -995,11 +1050,20 @@ mod tests {
     #[tokio::test]
     async fn replacing_an_index_leaves_the_table_with_the_new_one() {
         let (_fixture, pool) = Fixture::open().await;
-        modify_index(&pool, "post", "post_author", &index("post_author", "index", &["views"]))
-            .await
-            .unwrap();
+        modify_index(
+            &pool,
+            "post",
+            "post_author",
+            &index("post_author", "index", &["views"]),
+        )
+        .await
+        .unwrap();
         let structure = table_structure(&pool, "post").await.unwrap();
-        let replaced = structure.indexes.iter().find(|i| i.name == "post_author").unwrap();
+        let replaced = structure
+            .indexes
+            .iter()
+            .find(|i| i.name == "post_author")
+            .unwrap();
         assert_eq!(replaced.columns[0].name.as_deref(), Some("views"));
     }
 
@@ -1012,14 +1076,20 @@ mod tests {
         let structure = table_structure(&pool, "tag").await.unwrap();
         let owned = structure.indexes[0].name.clone();
         assert_eq!(
-            drop_index(&pool, "tag", &owned).await.expect_err("owned").code,
+            drop_index(&pool, "tag", &owned)
+                .await
+                .expect_err("owned")
+                .code,
             "error.sqliteIndexBelongsToConstraint"
         );
 
         // And the primary key of a rowid table, which is not an index at all — it is the row the
         // Structure tab synthesises.
         assert_eq!(
-            drop_index(&pool, "post", "PRIMARY").await.expect_err("implicit").code,
+            drop_index(&pool, "post", "PRIMARY")
+                .await
+                .expect_err("implicit")
+                .code,
             "error.sqliteIndexBelongsToConstraint"
         );
     }
@@ -1038,7 +1108,11 @@ mod tests {
         rename_table(&pool, "tag", "label").await.unwrap();
         assert!(table_structure(&pool, "label").await.unwrap().columns.len() == 2);
         drop_table(&pool, "label").await.unwrap();
-        assert!(table_structure(&pool, "label").await.unwrap().columns.is_empty());
+        assert!(table_structure(&pool, "label")
+            .await
+            .unwrap()
+            .columns
+            .is_empty());
     }
 
     #[tokio::test]
@@ -1051,8 +1125,7 @@ mod tests {
 
     #[test]
     fn splits_simple_columns() {
-        let (clauses, suffix) =
-            split_column_clauses("CREATE TABLE t (a INTEGER, b TEXT)").unwrap();
+        let (clauses, suffix) = split_column_clauses("CREATE TABLE t (a INTEGER, b TEXT)").unwrap();
         assert_eq!(clauses, vec!["a INTEGER", "b TEXT"]);
         assert_eq!(suffix, "");
     }
@@ -1073,10 +1146,9 @@ mod tests {
 
     #[test]
     fn does_not_split_a_comma_inside_a_line_comment() {
-        let (clauses, _) = split_column_clauses(
-            "CREATE TABLE t (a INTEGER, -- note, with a comma\n  b TEXT)",
-        )
-        .unwrap();
+        let (clauses, _) =
+            split_column_clauses("CREATE TABLE t (a INTEGER, -- note, with a comma\n  b TEXT)")
+                .unwrap();
         assert_eq!(clauses.len(), 2);
         assert!(clauses[0].starts_with("a INTEGER"));
         assert_eq!(clauses[1], "b TEXT");
@@ -1129,7 +1201,9 @@ mod tests {
         assert!(is_table_constraint("UNIQUE (a, b)"));
         assert!(is_table_constraint("CHECK(x > 0)"));
         assert!(is_table_constraint("FOREIGN KEY (a) REFERENCES t (id)"));
-        assert!(is_table_constraint("CONSTRAINT fk FOREIGN KEY (a) REFERENCES t (id)"));
+        assert!(is_table_constraint(
+            "CONSTRAINT fk FOREIGN KEY (a) REFERENCES t (id)"
+        ));
     }
 
     #[test]
@@ -1140,10 +1214,22 @@ mod tests {
 
     #[test]
     fn reads_the_bare_and_quoted_column_name() {
-        assert_eq!(clause_column_name("id INTEGER PRIMARY KEY"), Some("id".to_string()));
-        assert_eq!(clause_column_name("\"full name\" TEXT"), Some("full name".to_string()));
-        assert_eq!(clause_column_name("`weird` TEXT"), Some("weird".to_string()));
-        assert_eq!(clause_column_name("[bracketed] TEXT"), Some("bracketed".to_string()));
+        assert_eq!(
+            clause_column_name("id INTEGER PRIMARY KEY"),
+            Some("id".to_string())
+        );
+        assert_eq!(
+            clause_column_name("\"full name\" TEXT"),
+            Some("full name".to_string())
+        );
+        assert_eq!(
+            clause_column_name("`weird` TEXT"),
+            Some("weird".to_string())
+        );
+        assert_eq!(
+            clause_column_name("[bracketed] TEXT"),
+            Some("bracketed".to_string())
+        );
     }
 
     #[test]
@@ -1154,7 +1240,10 @@ mod tests {
     #[test]
     fn finds_a_column_named_in_a_constraint_clause() {
         assert!(clause_mentions_column("PRIMARY KEY (id, label)", "label"));
-        assert!(clause_mentions_column("FOREIGN KEY (\"author_id\") REFERENCES author (id)", "author_id"));
+        assert!(clause_mentions_column(
+            "FOREIGN KEY (\"author_id\") REFERENCES author (id)",
+            "author_id"
+        ));
     }
 
     #[test]
@@ -1165,8 +1254,14 @@ mod tests {
 
     #[test]
     fn reads_a_trailing_collate() {
-        assert_eq!(clause_collation("bio TEXT COLLATE NOCASE"), Some("NOCASE".to_string()));
-        assert_eq!(clause_collation("bio TEXT DEFAULT 'x' COLLATE NOCASE"), Some("NOCASE".to_string()));
+        assert_eq!(
+            clause_collation("bio TEXT COLLATE NOCASE"),
+            Some("NOCASE".to_string())
+        );
+        assert_eq!(
+            clause_collation("bio TEXT DEFAULT 'x' COLLATE NOCASE"),
+            Some("NOCASE".to_string())
+        );
     }
 
     #[test]
@@ -1212,7 +1307,9 @@ mod tests {
     #[tokio::test]
     async fn generated_or_rowid_alias_flags_a_generated_column() {
         let (_fixture, pool) = Fixture::open().await;
-        let (generated, rowid) = generated_or_rowid_alias(&pool, "post", "slug").await.unwrap();
+        let (generated, rowid) = generated_or_rowid_alias(&pool, "post", "slug")
+            .await
+            .unwrap();
         assert!(generated);
         assert!(!rowid);
     }
@@ -1220,7 +1317,9 @@ mod tests {
     #[tokio::test]
     async fn generated_or_rowid_alias_flags_the_rowid_alias() {
         let (_fixture, pool) = Fixture::open().await;
-        let (generated, rowid) = generated_or_rowid_alias(&pool, "author", "id").await.unwrap();
+        let (generated, rowid) = generated_or_rowid_alias(&pool, "author", "id")
+            .await
+            .unwrap();
         assert!(!generated);
         assert!(rowid);
     }
@@ -1239,7 +1338,9 @@ mod tests {
     #[tokio::test]
     async fn generated_or_rowid_alias_flags_neither_for_a_plain_column() {
         let (_fixture, pool) = Fixture::open().await;
-        let (generated, rowid) = generated_or_rowid_alias(&pool, "author", "name").await.unwrap();
+        let (generated, rowid) = generated_or_rowid_alias(&pool, "author", "name")
+            .await
+            .unwrap();
         assert!(!generated);
         assert!(!rowid);
     }
@@ -1252,13 +1353,18 @@ mod tests {
         let spec = column("views", "TEXT");
         modify_column(&pool, "post", "views", &spec).await.unwrap();
         let structure = table_structure(&pool, "post").await.unwrap();
-        let views = structure.columns.iter().find(|c| c.name == "views").unwrap();
+        let views = structure
+            .columns
+            .iter()
+            .find(|c| c.name == "views")
+            .unwrap();
         assert_eq!(views.data_type, "TEXT");
 
-        let value: String = sqlx::query_scalar("select views from post where title = 'Hello world'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let value: String =
+            sqlx::query_scalar("select views from post where title = 'Hello world'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(value, "7");
     }
 
@@ -1273,9 +1379,18 @@ mod tests {
         spec.nullable = false;
         spec.default_value = Some("CURRENT_TIMESTAMP".to_string());
         spec.default_is_expression = true;
-        modify_column(&pool, "post", "created_at", &spec).await.unwrap();
+        modify_column(&pool, "post", "created_at", &spec)
+            .await
+            .unwrap();
         let structure = table_structure(&pool, "post").await.unwrap();
-        assert!(!structure.columns.iter().find(|c| c.name == "created_at").unwrap().nullable);
+        assert!(
+            !structure
+                .columns
+                .iter()
+                .find(|c| c.name == "created_at")
+                .unwrap()
+                .nullable
+        );
     }
 
     #[tokio::test]
@@ -1285,18 +1400,32 @@ mod tests {
         let mut spec = column("bio", "TEXT");
         spec.nullable = false;
         spec.default_value = Some("anonymous".to_string());
-        let error = modify_column(&pool, "author", "bio", &spec).await.expect_err("should refuse");
+        let error = modify_column(&pool, "author", "bio", &spec)
+            .await
+            .expect_err("should refuse");
         assert_eq!(error.code, "error.sqlite");
         assert!(
-            error.params["message"].to_ascii_uppercase().contains("NOT NULL"),
+            error.params["message"]
+                .to_ascii_uppercase()
+                .contains("NOT NULL"),
             "unexpected message: {}",
             error.params["message"]
         );
 
         // Rolled back cleanly: the table is exactly as it was.
         let structure = table_structure(&pool, "author").await.unwrap();
-        assert!(structure.columns.iter().find(|c| c.name == "bio").unwrap().nullable);
-        let count: i64 = sqlx::query_scalar("select count(*) from author").fetch_one(&pool).await.unwrap();
+        assert!(
+            structure
+                .columns
+                .iter()
+                .find(|c| c.name == "bio")
+                .unwrap()
+                .nullable
+        );
+        let count: i64 = sqlx::query_scalar("select count(*) from author")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(count, 2);
     }
 
@@ -1308,7 +1437,13 @@ mod tests {
         modify_column(&pool, "author", "bio", &spec).await.unwrap();
         let structure = table_structure(&pool, "author").await.unwrap();
         assert_eq!(
-            structure.columns.iter().find(|c| c.name == "bio").unwrap().default_value.as_deref(),
+            structure
+                .columns
+                .iter()
+                .find(|c| c.name == "bio")
+                .unwrap()
+                .default_value
+                .as_deref(),
             Some("unknown")
         );
     }
@@ -1346,7 +1481,9 @@ mod tests {
         let mut spec = column("value", "TEXT");
         spec.nullable = false;
         spec.default_value = Some("".to_string());
-        modify_column(&pool, "settings", "value", &spec).await.unwrap();
+        modify_column(&pool, "settings", "value", &spec)
+            .await
+            .unwrap();
 
         let create_sql: String =
             sqlx::query_scalar("select sql from sqlite_master where name = 'settings'")

@@ -8,10 +8,10 @@
 //! và `generate_handler!` là một danh sách phẳng nên hai họ lệnh khác chủ mà trùng tiền tố sẽ nằm
 //! lẫn vào nhau mà không có gì cảnh báo.
 
-use crate::error::AppError;
-use tauri::{AppHandle, Emitter};
-use crate::modules::db::drivers::tools;
 use super::{in_background, tools_dir, TOOLS_PROGRESS_EVENT};
+use crate::error::AppError;
+use crate::modules::db::drivers::tools;
+use tauri::{AppHandle, Emitter};
 
 /// Every dump tool and where it stands: a path the user chose, a copy MixDB downloaded, something
 /// already on the machine, or nothing at all.

@@ -3,9 +3,9 @@
 //! comes back is one result per statement — a result set, a count of rows changed, or plain
 //! confirmation that the statement ran.
 
-use crate::modules::db::models::{SqlProblem, StatementResult};
-use crate::error::AppError;
 use super::mysql::{column_value, map_error, quote_ident};
+use crate::error::AppError;
+use crate::modules::db::models::{SqlProblem, StatementResult};
 use futures_util::StreamExt;
 use serde_json::Value;
 use sqlx::{Column, Either, MySqlPool, Row};
@@ -190,7 +190,12 @@ fn problem(error: &sqlx::Error) -> Option<SqlProblem> {
     let message = db.message().to_string();
     Some(SqlProblem {
         line: error_line(&message),
-        severity: if number == ER_PARSE_ERROR { "error" } else { "warning" }.to_string(),
+        severity: if number == ER_PARSE_ERROR {
+            "error"
+        } else {
+            "warning"
+        }
+        .to_string(),
         message,
         number,
     })
@@ -332,17 +337,13 @@ pub async fn run(
 
         // Scoped so the stream lets go of the connection before the next statement takes it.
         {
-            let mut stream = sqlx::raw_sql(sqlx::AssertSqlSafe(statement.text.clone()))
-                .fetch_many(&mut *conn);
+            let mut stream =
+                sqlx::raw_sql(sqlx::AssertSqlSafe(statement.text.clone())).fetch_many(&mut *conn);
             while let Some(item) = stream.next().await {
                 match item {
                     Ok(Either::Right(row)) => {
                         if columns.is_empty() {
-                            columns = row
-                                .columns()
-                                .iter()
-                                .map(|c| c.name().to_string())
-                                .collect();
+                            columns = row.columns().iter().map(|c| c.name().to_string()).collect();
                         }
                         if rows.len() < MAX_ROWS {
                             rows.push(
@@ -438,25 +439,16 @@ mod tests {
     }
 
     fn texts(sql: &str) -> Vec<String> {
-        split_statements(sql)
-            .into_iter()
-            .map(|s| s.text)
-            .collect()
+        split_statements(sql).into_iter().map(|s| s.text).collect()
     }
 
     fn verbs(sql: &str) -> Vec<String> {
-        split_statements(sql)
-            .into_iter()
-            .map(|s| s.verb)
-            .collect()
+        split_statements(sql).into_iter().map(|s| s.verb).collect()
     }
 
     #[test]
     fn splits_on_semicolons_and_trims_each_statement() {
-        assert_eq!(
-            texts("SELECT 1;\n  SELECT 2 ;"),
-            ["SELECT 1", "SELECT 2"]
-        );
+        assert_eq!(texts("SELECT 1;\n  SELECT 2 ;"), ["SELECT 1", "SELECT 2"]);
         // A script needs no trailing semicolon, and an empty one adds no statement.
         assert_eq!(texts("SELECT 1"), ["SELECT 1"]);
         assert_eq!(texts(";;\n;"), Vec::<String>::new());
@@ -509,4 +501,3 @@ mod tests {
         assert_eq!(texts("SELECT 5--3; SELECT 2"), ["SELECT 5--3", "SELECT 2"]);
     }
 }
-

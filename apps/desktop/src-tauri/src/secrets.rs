@@ -621,7 +621,10 @@ mod tests {
         store.refuse_writes(true);
 
         assert!(keeper.load("old").is_err());
-        assert!(store.has("old"), "the old entry is still there to be read again");
+        assert!(
+            store.has("old"),
+            "the old entry is still there to be read again"
+        );
 
         // The store recovers, and so does the connection — from the entry that was never deleted.
         store.refuse_writes(false);

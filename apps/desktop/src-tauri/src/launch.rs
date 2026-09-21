@@ -364,9 +364,7 @@ mod tests {
     fn a_url_with_a_credential_variable_takes_it_out_of_the_environment() {
         let mut asked = Vec::new();
         let opening = Opening::from_args(
-            args(&[
-                "mixdb://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD",
-            ]),
+            args(&["mixdb://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD"]),
             |name| {
                 asked.push(name.to_string());
                 Some("s3cret".to_string())
@@ -382,10 +380,10 @@ mod tests {
 
     #[test]
     fn a_url_without_one_asks_for_nothing() {
-        let opening = Opening::from_args(
-            args(&["mixdb://connect?kind=redis&host=h&port=1"]),
-            |_| panic!("asked"),
-        );
+        let opening =
+            Opening::from_args(args(&["mixdb://connect?kind=redis&host=h&port=1"]), |_| {
+                panic!("asked")
+            });
         assert!(opening.url.is_some());
         assert_eq!(opening.secret, None);
     }

@@ -57,7 +57,11 @@ pub async fn connect(
     password: &str,
     use_ssl: Option<bool>,
 ) -> Result<Connection, AppError> {
-    let scheme = if use_ssl == Some(true) { "https" } else { "http" };
+    let scheme = if use_ssl == Some(true) {
+        "https"
+    } else {
+        "http"
+    };
     let base_url = format!("{scheme}://{host}:{port}/");
     let client = Client::builder().build().map_err(map_error)?;
     let conn = Connection {
@@ -240,7 +244,11 @@ pub(super) async fn execute_check(
 pub(super) fn parse_written_rows(summary_header: &str) -> u64 {
     serde_json::from_str::<Value>(summary_header)
         .ok()
-        .and_then(|v| v.get("written_rows").and_then(Value::as_str).and_then(|s| s.parse().ok()))
+        .and_then(|v| {
+            v.get("written_rows")
+                .and_then(Value::as_str)
+                .and_then(|s| s.parse().ok())
+        })
         .unwrap_or(0)
 }
 
@@ -367,7 +375,9 @@ fn combined_key_where(
 /// present. `INSERT INTO t (a, b) VALUES (...), (...)` needs one column list for the whole
 /// statement, so rows that disagree on which columns they fill in cannot go into the same one.
 fn same_columns(rows: &[Map<String, Value>]) -> bool {
-    let Some(first) = rows.first() else { return true };
+    let Some(first) = rows.first() else {
+        return true;
+    };
     let expected: BTreeSet<&str> = first.keys().map(String::as_str).collect();
     rows[1..]
         .iter()
@@ -455,7 +465,11 @@ pub(super) async fn run_mutation_and_wait(
     let baseline_ids: std::collections::HashSet<String> = baseline
         .data
         .iter()
-        .filter_map(|row| row.get("mutation_id").and_then(Value::as_str).map(str::to_string))
+        .filter_map(|row| {
+            row.get("mutation_id")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
         .collect();
 
     execute_check(conn, command_sql, None).await?;
@@ -493,7 +507,11 @@ async fn matched_count(
         .data
         .first()
         .and_then(|row| row.get("total"))
-        .and_then(|v| v.as_str().and_then(|s| s.parse().ok()).or_else(|| v.as_i64()))
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| v.as_i64())
+        })
         .unwrap_or(0))
 }
 
@@ -618,7 +636,11 @@ pub async fn insert_rows(
     let columns: BTreeSet<&str> = rows[0].keys().map(String::as_str).collect();
     let columns: Vec<&str> = columns.into_iter().collect();
     let table_ref = qualified(database, table);
-    let column_list = columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+    let column_list = columns
+        .iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     let values_list = rows
         .iter()
         .map(|row| {
@@ -713,13 +735,35 @@ fn is_decodable(type_name: &str) -> bool {
     let head = inner.split('(').next().unwrap_or(inner);
     matches!(
         head,
-        "UInt8" | "UInt16" | "UInt32" | "UInt64" | "UInt128" | "UInt256"
-            | "Int8" | "Int16" | "Int32" | "Int64" | "Int128" | "Int256"
-            | "Float32" | "Float64"
-            | "String" | "FixedString"
-            | "Date" | "Date32" | "DateTime" | "DateTime64"
-            | "Decimal" | "Decimal32" | "Decimal64" | "Decimal128" | "Decimal256"
-            | "UUID" | "Enum8" | "Enum16" | "Bool"
+        "UInt8"
+            | "UInt16"
+            | "UInt32"
+            | "UInt64"
+            | "UInt128"
+            | "UInt256"
+            | "Int8"
+            | "Int16"
+            | "Int32"
+            | "Int64"
+            | "Int128"
+            | "Int256"
+            | "Float32"
+            | "Float64"
+            | "String"
+            | "FixedString"
+            | "Date"
+            | "Date32"
+            | "DateTime"
+            | "DateTime64"
+            | "Decimal"
+            | "Decimal32"
+            | "Decimal64"
+            | "Decimal128"
+            | "Decimal256"
+            | "UUID"
+            | "Enum8"
+            | "Enum16"
+            | "Bool"
     )
 }
 
@@ -812,12 +856,30 @@ fn build_where(
         let operator = filter.operator.as_str();
 
         let clause = match operator {
-            "eq" => format!("{col} = {}", placeholder(&mut params, "String", value.to_string())),
-            "ne" => format!("{col} <> {}", placeholder(&mut params, "String", value.to_string())),
-            "gt" => format!("{raw} > {}", placeholder(&mut params, base_type, value.to_string())),
-            "gte" => format!("{raw} >= {}", placeholder(&mut params, base_type, value.to_string())),
-            "lt" => format!("{raw} < {}", placeholder(&mut params, base_type, value.to_string())),
-            "lte" => format!("{raw} <= {}", placeholder(&mut params, base_type, value.to_string())),
+            "eq" => format!(
+                "{col} = {}",
+                placeholder(&mut params, "String", value.to_string())
+            ),
+            "ne" => format!(
+                "{col} <> {}",
+                placeholder(&mut params, "String", value.to_string())
+            ),
+            "gt" => format!(
+                "{raw} > {}",
+                placeholder(&mut params, base_type, value.to_string())
+            ),
+            "gte" => format!(
+                "{raw} >= {}",
+                placeholder(&mut params, base_type, value.to_string())
+            ),
+            "lt" => format!(
+                "{raw} < {}",
+                placeholder(&mut params, base_type, value.to_string())
+            ),
+            "lte" => format!(
+                "{raw} <= {}",
+                placeholder(&mut params, base_type, value.to_string())
+            ),
             "contains" => format!(
                 "{col} LIKE {}",
                 placeholder(&mut params, "String", format!("%{}%", escape_like(value)))
@@ -834,7 +896,10 @@ fn build_where(
                 "{col} LIKE {}",
                 placeholder(&mut params, "String", format!("%{}", escape_like(value)))
             ),
-            "like" => format!("{col} LIKE {}", placeholder(&mut params, "String", value.to_string())),
+            "like" => format!(
+                "{col} LIKE {}",
+                placeholder(&mut params, "String", value.to_string())
+            ),
             "notLike" => format!(
                 "{col} NOT LIKE {}",
                 placeholder(&mut params, "String", value.to_string())
@@ -859,7 +924,11 @@ fn build_where(
                 }
                 let low = placeholder(&mut params, base_type, items[0].clone());
                 let high = placeholder(&mut params, base_type, items[1].clone());
-                let sql_op = if operator == "between" { "BETWEEN" } else { "NOT BETWEEN" };
+                let sql_op = if operator == "between" {
+                    "BETWEEN"
+                } else {
+                    "NOT BETWEEN"
+                };
                 format!("{raw} {sql_op} {low} AND {high}")
             }
             "isNull" => format!("{raw} IS NULL"),
@@ -956,7 +1025,12 @@ pub async fn table_data(
     .await;
     let sorting_key = sorting_key_result
         .ok()
-        .and_then(|result| result.data.first().and_then(|row| row.get("sorting_key")?.as_str().map(str::to_string)))
+        .and_then(|result| {
+            result
+                .data
+                .first()
+                .and_then(|row| row.get("sorting_key")?.as_str().map(str::to_string))
+        })
         .unwrap_or_default();
     let primary_key: Vec<String> = if sorting_key.trim().is_empty() {
         Vec::new()
@@ -970,7 +1044,11 @@ pub async fn table_data(
         .data
         .first()
         .and_then(|row| row.get("total"))
-        .and_then(|v| v.as_str().and_then(|s| s.parse().ok()).or_else(|| v.as_i64()))
+        .and_then(|v| {
+            v.as_str()
+                .and_then(|s| s.parse().ok())
+                .or_else(|| v.as_i64())
+        })
         .unwrap_or(0);
 
     let page_size = query.page_size.clamp(1, 5000);
@@ -979,7 +1057,13 @@ pub async fn table_data(
         .sort_column
         .as_deref()
         .filter(|c| columns.iter().any(|existing| existing == c))
-        .map(|c| format!(" ORDER BY {} {}", quote_ident(c), if query.sort_desc { "DESC" } else { "ASC" }))
+        .map(|c| {
+            format!(
+                " ORDER BY {} {}",
+                quote_ident(c),
+                if query.sort_desc { "DESC" } else { "ASC" }
+            )
+        })
         .unwrap_or_default();
     let select_list = column_rows
         .iter()
@@ -1076,7 +1160,10 @@ pub(super) fn parse_type_full(type_full: &str) -> (String, Vec<String>) {
             if inside.is_empty() {
                 (name, Vec::new())
             } else {
-                (name, inside.split(',').map(|a| a.trim().to_string()).collect())
+                (
+                    name,
+                    inside.split(',').map(|a| a.trim().to_string()).collect(),
+                )
             }
         }
     }
@@ -1117,14 +1204,22 @@ pub async fn table_structure(
             index_type: "sorting_key".to_string(),
             columns: key_columns
                 .into_iter()
-                .map(|name| IndexColumn { name: Some(name), prefix_length: None })
+                .map(|name| IndexColumn {
+                    name: Some(name),
+                    prefix_length: None,
+                })
                 .collect(),
             comment: String::new(),
         }]
     };
     let skip_indexes = structure_skip_indexes(conn, database, table).await?;
     let engine = table_engine(conn, database, table).await?;
-    Ok(TableStructure { columns, indexes, skip_indexes, engine })
+    Ok(TableStructure {
+        columns,
+        indexes,
+        skip_indexes,
+        engine,
+    })
 }
 
 /// `system.data_skipping_indices` for one table — ClickHouse's real secondary index, distinct from
@@ -1151,10 +1246,20 @@ async fn structure_skip_indexes(
         .filter_map(|row| {
             let name = row.get("name")?.as_str()?.to_string();
             let type_full = row.get("type_full")?.as_str()?.to_string();
-            let expr = row.get("expr").and_then(Value::as_str).unwrap_or("").to_string();
+            let expr = row
+                .get("expr")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
             let granularity = as_u64(row.get("granularity")).unwrap_or(1);
             let (index_type, args) = parse_type_full(&type_full);
-            Some(SkipIndex { name, expr, index_type, args, granularity })
+            Some(SkipIndex {
+                name,
+                expr,
+                index_type,
+                args,
+                granularity,
+            })
         })
         .collect())
 }
@@ -1175,7 +1280,10 @@ async fn table_engine(
         ],
     )
     .await?;
-    Ok(result.data.first().and_then(|row| row.get("engine")?.as_str().map(str::to_string)))
+    Ok(result
+        .data
+        .first()
+        .and_then(|row| row.get("engine")?.as_str().map(str::to_string)))
 }
 
 pub(super) async fn structure_columns(
@@ -1202,9 +1310,14 @@ pub(super) async fn structure_columns(
         .filter_map(|row| {
             let name = row.get("name")?.as_str()?.to_string();
             let data_type = row.get("type")?.as_str()?.to_string();
-            let default_kind = row.get("default_kind").and_then(Value::as_str).unwrap_or("");
-            let default_expression =
-                row.get("default_expression").and_then(Value::as_str).unwrap_or("");
+            let default_kind = row
+                .get("default_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let default_expression = row
+                .get("default_expression")
+                .and_then(Value::as_str)
+                .unwrap_or("");
             // `'active'` and `now()` are different things, and `system.columns` tells them apart
             // by the quotes — see `clickhouse_ddl::read_default`. Without splitting them here every
             // default would be marked an expression, and a literal would be quoted a second time on
@@ -1225,8 +1338,16 @@ pub(super) async fn structure_columns(
                 // ClickHouse comes to a MySQL/PostgreSQL generated column.
                 generated: default_kind == "MATERIALIZED" || default_kind == "ALIAS",
                 collation: None,
-                comment: row.get("comment").and_then(Value::as_str).unwrap_or("").to_string(),
-                key: if is_primary { "PRI".to_string() } else { String::new() },
+                comment: row
+                    .get("comment")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string(),
+                key: if is_primary {
+                    "PRI".to_string()
+                } else {
+                    String::new()
+                },
                 extra: default_kind.to_string(),
                 name,
             })
@@ -1343,28 +1464,41 @@ pub async fn schema_outline(conn: &Connection, database: &str) -> Result<SchemaO
         ) else {
             continue;
         };
-        let is_primary = row.get("is_in_primary_key").and_then(truthy).unwrap_or(false);
+        let is_primary = row
+            .get("is_in_primary_key")
+            .and_then(truthy)
+            .unwrap_or(false);
         let column = OutlineColumn {
             name: name.to_string(),
             nullable: data_type.starts_with("Nullable("),
             data_type: data_type.to_string(),
-            key: if is_primary { "PRI".to_string() } else { String::new() },
+            key: if is_primary {
+                "PRI".to_string()
+            } else {
+                String::new()
+            },
             references: None,
         };
         match tables.last_mut() {
             Some(last) if last.name == table => last.columns.push(column),
-            _ => tables.push(OutlineTable { name: table.to_string(), columns: vec![column] }),
+            _ => tables.push(OutlineTable {
+                name: table.to_string(),
+                columns: vec![column],
+            }),
         }
     }
-    Ok(SchemaOutline { database: database.to_string(), tables })
+    Ok(SchemaOutline {
+        database: database.to_string(),
+        tables,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{build_where, is_decodable, quote_ident, Filter, QueryResult};
-    use std::collections::BTreeMap;
     use super::{build_key_where, parse_type_full, parse_written_rows, quote_literal};
+    use super::{build_where, is_decodable, quote_ident, Filter, QueryResult};
     use serde_json::{Map, Value};
+    use std::collections::BTreeMap;
 
     fn str_val(s: &str) -> Value {
         Value::String(s.to_string())
@@ -1389,25 +1523,40 @@ mod tests {
 
     #[test]
     fn a_type_with_no_arguments_parses_to_an_empty_list() {
-        assert_eq!(parse_type_full("minmax"), ("minmax".to_string(), Vec::new()));
+        assert_eq!(
+            parse_type_full("minmax"),
+            ("minmax".to_string(), Vec::new())
+        );
     }
 
     #[test]
     fn a_single_argument_type_parses_its_one_value() {
-        assert_eq!(parse_type_full("set(100)"), ("set".to_string(), vec!["100".to_string()]));
+        assert_eq!(
+            parse_type_full("set(100)"),
+            ("set".to_string(), vec!["100".to_string()])
+        );
     }
 
     #[test]
     fn a_four_argument_type_parses_all_four_in_order() {
         assert_eq!(
             parse_type_full("ngrambf_v1(3, 256, 2, 0)"),
-            ("ngrambf_v1".to_string(), vec!["3", "256", "2", "0"].into_iter().map(String::from).collect())
+            (
+                "ngrambf_v1".to_string(),
+                vec!["3", "256", "2", "0"]
+                    .into_iter()
+                    .map(String::from)
+                    .collect()
+            )
         );
     }
 
     #[test]
     fn empty_parentheses_parse_to_an_empty_list_not_one_empty_string() {
-        assert_eq!(parse_type_full("bloom_filter()"), ("bloom_filter".to_string(), Vec::new()));
+        assert_eq!(
+            parse_type_full("bloom_filter()"),
+            ("bloom_filter".to_string(), Vec::new())
+        );
     }
 
     /// `FORMAT JSON`'s own shape, exactly as the server sends it — the fixture this module's
@@ -1448,7 +1597,14 @@ mod tests {
 
     #[test]
     fn scalar_types_and_their_nullable_wrapper_decode_directly() {
-        for ty in ["UInt64", "String", "Float64", "DateTime64(3)", "Decimal(10, 2)", "Bool"] {
+        for ty in [
+            "UInt64",
+            "String",
+            "Float64",
+            "DateTime64(3)",
+            "Decimal(10, 2)",
+            "Bool",
+        ] {
             assert!(is_decodable(ty), "{ty}");
             assert!(is_decodable(&format!("Nullable({ty})")), "Nullable({ty})");
         }
@@ -1490,13 +1646,22 @@ mod tests {
     /// separate URL parameter.
     #[test]
     fn builds_a_parameterized_where_clause() {
-        let filters = vec![filter("id", "eq", Some("1")), filter("name", "contains", Some("ann"))];
+        let filters = vec![
+            filter("id", "eq", Some("1")),
+            filter("name", "contains", Some("ann")),
+        ];
         let (clause, params) = build_where(&filters, &columns()).unwrap();
         assert_eq!(
             clause,
             " WHERE toString(`id`) = {p0:String} AND toString(`name`) LIKE {p1:String}"
         );
-        assert_eq!(params, [("p0".to_string(), "1".to_string()), ("p1".to_string(), "%ann%".to_string())]);
+        assert_eq!(
+            params,
+            [
+                ("p0".to_string(), "1".to_string()),
+                ("p1".to_string(), "%ann%".to_string())
+            ]
+        );
     }
 
     /// The ordering operators compare the raw column, typed to match it — `toString()` on a number
@@ -1510,8 +1675,12 @@ mod tests {
 
     #[test]
     fn a_list_operator_mints_one_placeholder_per_item() {
-        let (clause, params) = build_where(&[filter("id", "in", Some("1,2,3"))], &columns()).unwrap();
-        assert_eq!(clause, " WHERE toString(`id`) IN ({p0:String}, {p1:String}, {p2:String})");
+        let (clause, params) =
+            build_where(&[filter("id", "in", Some("1,2,3"))], &columns()).unwrap();
+        assert_eq!(
+            clause,
+            " WHERE toString(`id`) IN ({p0:String}, {p1:String}, {p2:String})"
+        );
         assert_eq!(params.len(), 3);
     }
 
@@ -1597,7 +1766,10 @@ mod tests {
     use super::same_columns;
 
     fn row_with(pairs: &[(&str, &str)]) -> Map<String, Value> {
-        pairs.iter().map(|(k, v)| (k.to_string(), str_val(v))).collect()
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), str_val(v)))
+            .collect()
     }
 
     #[test]
@@ -1611,7 +1783,10 @@ mod tests {
 
     #[test]
     fn rejects_rows_that_fill_in_different_columns() {
-        let rows = vec![row_with(&[("id", "1"), ("name", "a")]), row_with(&[("id", "2")])];
+        let rows = vec![
+            row_with(&[("id", "1"), ("name", "a")]),
+            row_with(&[("id", "2")]),
+        ];
         assert!(!same_columns(&rows));
     }
 
@@ -1624,7 +1799,12 @@ mod tests {
     use super::{find_new_mutation, mutation_fail_reason, mutation_is_done};
     use std::collections::HashSet;
 
-    fn mutation_row(id: &str, command: &str, is_done: Value, fail_reason: &str) -> Map<String, Value> {
+    fn mutation_row(
+        id: &str,
+        command: &str,
+        is_done: Value,
+        fail_reason: &str,
+    ) -> Map<String, Value> {
         let mut row = Map::new();
         row.insert("mutation_id".to_string(), str_val(id));
         row.insert("command".to_string(), str_val(command));
@@ -1635,16 +1815,32 @@ mod tests {
 
     #[test]
     fn mutation_is_done_reads_both_json_shapes_of_uint8() {
-        assert!(mutation_is_done(&mutation_row("1", "x", Value::Number(1.into()), "")));
+        assert!(mutation_is_done(&mutation_row(
+            "1",
+            "x",
+            Value::Number(1.into()),
+            ""
+        )));
         assert!(mutation_is_done(&mutation_row("1", "x", str_val("1"), "")));
-        assert!(!mutation_is_done(&mutation_row("1", "x", Value::Number(0.into()), "")));
+        assert!(!mutation_is_done(&mutation_row(
+            "1",
+            "x",
+            Value::Number(0.into()),
+            ""
+        )));
         assert!(!mutation_is_done(&mutation_row("1", "x", str_val("0"), "")));
     }
 
     #[test]
     fn mutation_fail_reason_reads_the_column_or_falls_back_to_empty() {
-        assert_eq!(mutation_fail_reason(&mutation_row("1", "x", str_val("0"), "boom")), "boom");
-        assert_eq!(mutation_fail_reason(&mutation_row("1", "x", str_val("0"), "")), "");
+        assert_eq!(
+            mutation_fail_reason(&mutation_row("1", "x", str_val("0"), "boom")),
+            "boom"
+        );
+        assert_eq!(
+            mutation_fail_reason(&mutation_row("1", "x", str_val("0"), "")),
+            ""
+        );
     }
 
     #[test]

@@ -88,14 +88,14 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
         // Same shape as the three above — host/port/user/database, no `uri` of its own.
         Some("clickhouse") => DbKind::Clickhouse,
         /* MixEngine's word for it, which is the protocol's and the URI scheme's; `mongo` is this
-           application's own and stays refused below. A Mongo connection is one connection string,
-           so the fields are turned into one by `mongo_uri` after they have been read. */
+        application's own and stays refused below. A Mongo connection is one connection string,
+        so the fields are turned into one by `mongo_uri` after they have been read. */
         Some("mongodb") => DbKind::Mongo,
         /* Refused by name rather than by falling through, because the reason is not "not supported
-           yet". `mixdb://` is registered with the operating system, so any web page can hand this
-           process a URL; a `kind=sqlite&path=…` would be that page choosing which file on the
-           user's disk MixDB opens. Nothing else here names a local path, which is what makes this
-           kind the exception. */
+        yet". `mixdb://` is registered with the operating system, so any web page can hand this
+        process a URL; a `kind=sqlite&path=…` would be that page choosing which file on the
+        user's disk MixDB opens. Nothing else here names a local path, which is what makes this
+        kind the exception. */
         Some("sqlite") => {
             return Err(invalid(
                 "kind `sqlite` names a file on this machine, and is not opened from a URL",
@@ -118,13 +118,20 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
     let label = present(&parsed, "label").unwrap_or_else(|| format!("{host}:{port}"));
     // Only trusted alongside a `secret` that came from this process's own environment — see
     // `Handoff::keyring_ref`. Read before `secret` is moved into the config below.
-    let keyring_ref = secret.is_some().then(|| present(&parsed, "secret_key")).flatten();
+    let keyring_ref = secret
+        .is_some()
+        .then(|| present(&parsed, "secret_key"))
+        .flatten();
 
     // Mongo reads its address and its database out of the string and ignores the fields, so both
     // go into it; a MongoDB MixEngine runs has no accounts, so no user goes anywhere.
     let (uri, username, database) = match kind {
         DbKind::Mongo => (
-            Some(mongo_uri(&host, port, present(&parsed, "database").as_deref())?),
+            Some(mongo_uri(
+                &host,
+                port,
+                present(&parsed, "database").as_deref(),
+            )?),
             None,
             None,
         ),
@@ -275,7 +282,8 @@ pub fn accept<R: tauri::Runtime>(
 mod tests {
     use super::*;
 
-    const FULL: &str = "mixdb://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
+    const FULL: &str =
+        "mixdb://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
                         &label=mariadb%40main&password_env=MIXENGINE_DB_PASSWORD\
                         &secret_key=mariadb%40main%2Fblog";
 
@@ -381,7 +389,11 @@ mod tests {
 
     #[test]
     fn a_missing_label_is_the_address() {
-        let handoff = parse("mixdb://connect?kind=postgres&host=db.local&port=5432", None).unwrap();
+        let handoff = parse(
+            "mixdb://connect?kind=postgres&host=db.local&port=5432",
+            None,
+        )
+        .unwrap();
         assert_eq!(handoff.label, "db.local:5432");
     }
 
@@ -416,8 +428,9 @@ mod tests {
     /// sent to a stranger's server as a password.
     #[test]
     fn only_a_launcher_credential_variable_is_named() {
-        let named =
-            |name: &str| credential_name(&format!("mixdb://connect?kind=redis&password_env={name}"));
+        let named = |name: &str| {
+            credential_name(&format!("mixdb://connect?kind=redis&password_env={name}"))
+        };
         assert_eq!(
             named("MIXENGINE_DB_PASSWORD").as_deref(),
             Some("MIXENGINE_DB_PASSWORD")

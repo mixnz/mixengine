@@ -1,6 +1,6 @@
-use crate::modules::db::models::{ServerInfo};
-use crate::error::AppError;
 use super::filters::{split_list_parts, unquote, ListItem};
+use crate::error::AppError;
+use crate::modules::db::models::ServerInfo;
 use base64::Engine;
 use futures_util::stream::{self, StreamExt, TryStreamExt};
 use mongodb::bson::spec::BinarySubtype;
@@ -19,7 +19,9 @@ use std::str::FromStr;
 /// to, and with a URI that address is only knowable after parsing â€” a `mongodb+srv://` string
 /// doesn't even contain it literally, it resolves to its hosts over DNS during the parse.
 pub async fn first_endpoint(uri: &str) -> Result<(String, u16), AppError> {
-    let opts = ClientOptions::parse(uri).await.map_err(|e| err!("error.mongo", message = e))?;
+    let opts = ClientOptions::parse(uri)
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?;
     match opts.hosts.first() {
         Some(ServerAddress::Tcp { host, port }) => Ok((host.clone(), port.unwrap_or(27017))),
         _ => Err(err!("error.mongoNoTcpHost")),
@@ -29,10 +31,15 @@ pub async fn first_endpoint(uri: &str) -> Result<(String, u16), AppError> {
 /// `endpoint`, when given, replaces the host the URI names: an SSH tunnel listens on a local
 /// port, so the address written in the connection string is no longer the one to dial.
 pub async fn connect(uri: &str, endpoint: Option<(String, u16)>) -> Result<Client, AppError> {
-    let mut opts = ClientOptions::parse(uri).await.map_err(|e| err!("error.mongo", message = e))?;
+    let mut opts = ClientOptions::parse(uri)
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?;
     opts.app_name = Some("MixLab".to_string());
     if let Some((host, port)) = endpoint {
-        opts.hosts = vec![ServerAddress::Tcp { host, port: Some(port) }];
+        opts.hosts = vec![ServerAddress::Tcp {
+            host,
+            port: Some(port),
+        }];
         // Only that one host is forwarded, so topology discovery would hand back the replica
         // set's own addresses â€” unreachable from this machine. Talk to the tunneled node
         // directly instead.
@@ -107,7 +114,10 @@ fn build_os(info: &Document) -> String {
 }
 
 pub async fn list_databases(client: &Client) -> Result<Vec<String>, AppError> {
-    client.list_database_names().await.map_err(|e| err!("error.mongo", message = e))
+    client
+        .list_database_names()
+        .await
+        .map_err(|e| err!("error.mongo", message = e))
 }
 
 pub async fn list_collections(client: &Client, db: &str) -> Result<Vec<String>, AppError> {
@@ -159,7 +169,11 @@ pub async fn collection_stats(client: &Client, db: &str) -> Result<Vec<Collectio
         .map_err(|e| err!("error.mongo", message = e))?;
 
     let mut names = Vec::new();
-    while let Some(spec) = specs.try_next().await.map_err(|e| err!("error.mongo", message = e))? {
+    while let Some(spec) = specs
+        .try_next()
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?
+    {
         if !matches!(spec.collection_type, CollectionType::View) {
             names.push(spec.name);
         }
@@ -200,7 +214,11 @@ async fn collection_size(database: &Database, name: String) -> Result<Collection
     let mut index_size = 0u64;
     // A sharded collection answers once per shard, each for the part of it that shard holds, so
     // the replies are added up rather than the first one taken.
-    while let Some(reply) = cursor.try_next().await.map_err(|e| err!("error.mongo", message = e))? {
+    while let Some(reply) = cursor
+        .try_next()
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?
+    {
         if let Ok(storage) = reply.get_document("storageStats") {
             rows += counter(storage, "count");
             data_size += counter(storage, "size");
@@ -311,7 +329,8 @@ pub async fn find(
     let filter: Document = if filter_json.trim().is_empty() {
         doc! {}
     } else {
-        let parsed: Value = serde_json::from_str(filter_json).map_err(|e| err!("error.mongo", message = e))?;
+        let parsed: Value =
+            serde_json::from_str(filter_json).map_err(|e| err!("error.mongo", message = e))?;
         mongodb::bson::to_document(&parsed).map_err(|e| err!("error.mongo", message = e))?
     };
 
@@ -323,7 +342,11 @@ pub async fn find(
         .map_err(|e| err!("error.mongo", message = e))?;
 
     let mut out = Vec::new();
-    while let Some(doc) = cursor.try_next().await.map_err(|e| err!("error.mongo", message = e))? {
+    while let Some(doc) = cursor
+        .try_next()
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?
+    {
         out.push(serde_json::to_value(&doc).map_err(|e| err!("error.mongo", message = e))?);
     }
     Ok(out)
@@ -351,9 +374,11 @@ pub fn bson_to_json(bson: &Bson) -> Value {
         Bson::Double(f) => wrap("Double", Value::String(f.to_string())), // NaN/Infinity
         Bson::String(s) => Value::String(s.clone()),
         Bson::Array(arr) => Value::Array(arr.iter().map(bson_to_json).collect()),
-        Bson::Document(doc) => {
-            Value::Object(doc.iter().map(|(k, v)| (k.clone(), bson_to_json(v))).collect())
-        }
+        Bson::Document(doc) => Value::Object(
+            doc.iter()
+                .map(|(k, v)| (k.clone(), bson_to_json(v)))
+                .collect(),
+        ),
         Bson::Boolean(b) => Value::Bool(*b),
         Bson::Null => Value::Null,
         Bson::Int32(i) => wrap("Int32", json!(i)),
@@ -364,9 +389,11 @@ pub fn bson_to_json(bson: &Bson) -> Value {
         // through the editor as a different string, making an untouched date look edited.
         Bson::DateTime(dt) => wrap(
             "Date",
-            json!(chrono::DateTime::from_timestamp_millis(dt.timestamp_millis())
-                .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
-                .unwrap_or_else(|| dt.timestamp_millis().to_string())),
+            json!(
+                chrono::DateTime::from_timestamp_millis(dt.timestamp_millis())
+                    .map(|d| d.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+                    .unwrap_or_else(|| dt.timestamp_millis().to_string())
+            ),
         ),
         Bson::Timestamp(ts) => wrap("Timestamp", json!({ "t": ts.time, "i": ts.increment })),
         Bson::Binary(bin) => wrap(
@@ -377,9 +404,10 @@ pub fn bson_to_json(bson: &Bson) -> Value {
             }),
         ),
         Bson::ObjectId(oid) => wrap("ObjectId", json!(oid.to_hex())),
-        Bson::RegularExpression(re) => {
-            wrap("RegExp", json!({ "pattern": re.pattern.as_str(), "options": re.options.as_str() }))
-        }
+        Bson::RegularExpression(re) => wrap(
+            "RegExp",
+            json!({ "pattern": re.pattern.as_str(), "options": re.options.as_str() }),
+        ),
         Bson::JavaScriptCode(code) => wrap("JavaScript", json!(code)),
         Bson::JavaScriptCodeWithScope(c) => wrap(
             "JavaScriptWithScope",
@@ -471,10 +499,10 @@ fn decode_typed(tag: &str, v: &Value) -> Result<Bson, AppError> {
                 .get("base64")
                 .and_then(Value::as_str)
                 .ok_or_else(|| err!("error.bsonMissingField", type = "Binary", field = "base64"))?;
-            let sub = v
-                .get("subType")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| err!("error.bsonMissingField", type = "Binary", field = "subType"))? as u8;
+            let sub =
+                v.get("subType").and_then(Value::as_u64).ok_or_else(
+                    || err!("error.bsonMissingField", type = "Binary", field = "subType"),
+                )? as u8;
             let bytes = base64::engine::general_purpose::STANDARD
                 .decode(b64)
                 .map_err(|e| err!("error.mongo", message = e))?;
@@ -484,10 +512,9 @@ fn decode_typed(tag: &str, v: &Value) -> Result<Bson, AppError> {
             }))
         }
         "RegExp" => {
-            let pattern = v
-                .get("pattern")
-                .and_then(Value::as_str)
-                .ok_or_else(|| err!("error.bsonMissingField", type = "RegExp", field = "pattern"))?;
+            let pattern = v.get("pattern").and_then(Value::as_str).ok_or_else(
+                || err!("error.bsonMissingField", type = "RegExp", field = "pattern"),
+            )?;
             let options = v.get("options").and_then(Value::as_str).unwrap_or("");
             Ok(Bson::RegularExpression(Regex {
                 pattern: pattern.into(),
@@ -495,15 +522,18 @@ fn decode_typed(tag: &str, v: &Value) -> Result<Bson, AppError> {
             }))
         }
         "Timestamp" => {
-            let t = v
-                .get("t")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| err!("error.bsonMissingField", type = "Timestamp", field = "t"))? as u32;
-            let i = v
-                .get("i")
-                .and_then(Value::as_u64)
-                .ok_or_else(|| err!("error.bsonMissingField", type = "Timestamp", field = "i"))? as u32;
-            Ok(Bson::Timestamp(Timestamp { time: t, increment: i }))
+            let t =
+                v.get("t").and_then(Value::as_u64).ok_or_else(
+                    || err!("error.bsonMissingField", type = "Timestamp", field = "t"),
+                )? as u32;
+            let i =
+                v.get("i").and_then(Value::as_u64).ok_or_else(
+                    || err!("error.bsonMissingField", type = "Timestamp", field = "i"),
+                )? as u32;
+            Ok(Bson::Timestamp(Timestamp {
+                time: t,
+                increment: i,
+            }))
         }
         "JavaScript" => v
             .as_str()
@@ -578,7 +608,10 @@ fn parse_regex(raw: &str) -> Regex {
             let (pattern, flags) = rest.split_at(end);
             return Regex {
                 pattern: pattern.to_string(),
-                options: flags[1..].chars().filter(|c| "imsxu".contains(*c)).collect(),
+                options: flags[1..]
+                    .chars()
+                    .filter(|c| "imsxu".contains(*c))
+                    .collect(),
             };
         }
     }
@@ -784,7 +817,11 @@ pub async fn collection_page(
         .map_err(|e| err!("error.mongo", message = e))?;
 
     let mut documents = Vec::new();
-    while let Some(d) = cursor.try_next().await.map_err(|e| err!("error.mongo", message = e))? {
+    while let Some(d) = cursor
+        .try_next()
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?
+    {
         documents.push(bson_to_json(&Bson::Document(d)));
     }
     Ok(CollectionPage { documents, total })
@@ -829,7 +866,9 @@ pub async fn next_ids(
             .map(|i| Bson::Int64(n.saturating_add(i as i64)))
             .collect(),
         Some(Bson::Double(n)) => (1..=count).map(|i| Bson::Double(n + i as f64)).collect(),
-        _ => (0..count).map(|_| Bson::ObjectId(ObjectId::new())).collect(),
+        _ => (0..count)
+            .map(|_| Bson::ObjectId(ObjectId::new()))
+            .collect(),
     };
     Ok(ids.iter().map(bson_to_json).collect())
 }
@@ -860,14 +899,18 @@ pub async fn insert_documents(
         for (k, v) in map {
             d.insert(
                 k.clone(),
-                json_to_bson(v).map_err(|e| err!("error.documentInvalid", index = i + 1).caused_by(e))?,
+                json_to_bson(v)
+                    .map_err(|e| err!("error.documentInvalid", index = i + 1).caused_by(e))?,
             );
         }
         docs.push(d);
     }
 
     let coll = client.database(db).collection::<Document>(collection);
-    let result = coll.insert_many(docs).await.map_err(|e| err!("error.mongo", message = e))?;
+    let result = coll
+        .insert_many(docs)
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?;
     Ok(result.inserted_ids.len())
 }
 
@@ -917,7 +960,10 @@ pub async fn update_document(
         .await
         .map_err(|e| err!("error.mongo", message = e))?;
     if result.matched_count != 1 {
-        return Err(err!("error.documentsMatched", matched = result.matched_count));
+        return Err(err!(
+            "error.documentsMatched",
+            matched = result.matched_count
+        ));
     }
     Ok(())
 }
@@ -932,9 +978,15 @@ pub async fn delete_document(
     let coll = client.database(db).collection::<Document>(collection);
     let filter = doc! { "_id": json_to_bson(doc_id)? };
 
-    let result = coll.delete_one(filter).await.map_err(|e| err!("error.mongo", message = e))?;
+    let result = coll
+        .delete_one(filter)
+        .await
+        .map_err(|e| err!("error.mongo", message = e))?;
     if result.deleted_count != 1 {
-        return Err(err!("error.documentsDeleted", deleted = result.deleted_count));
+        return Err(err!(
+            "error.documentsDeleted",
+            deleted = result.deleted_count
+        ));
     }
     Ok(())
 }
@@ -986,7 +1038,10 @@ mod tests {
             Bson::String("507f1f77bcf86cd79943901".to_string()),
         );
 
-        assert!(matches!(parse_value("2024-01-02T03:04:05Z"), Bson::DateTime(_)));
+        assert!(matches!(
+            parse_value("2024-01-02T03:04:05Z"),
+            Bson::DateTime(_)
+        ));
 
         // Quoting turns all of it off, which is how a field that really does hold "5" is reached.
         assert_eq!(parse_value("'5'"), Bson::String("5".to_string()));
@@ -1037,7 +1092,10 @@ mod tests {
     fn a_filter_row_becomes_the_clause_it_means() {
         // Nothing to say yet: the bar opens with an empty row, which must not become `{_id: ""}`.
         assert_eq!(build_filter(&[]).unwrap(), doc! {});
-        assert_eq!(build_filter(&[filter("  ", "eq", Some("x"))]).unwrap(), doc! {});
+        assert_eq!(
+            build_filter(&[filter("  ", "eq", Some("x"))]).unwrap(),
+            doc! {}
+        );
 
         assert_eq!(
             build_filter(&[filter("age", "gte", Some("18"))]).unwrap(),
@@ -1073,8 +1131,14 @@ mod tests {
         );
 
         // A list of one bound is not a range, and an empty list is not a set.
-        assert_eq!(build_filter(&[filter("age", "between", Some("18"))]).unwrap(), doc! {});
-        assert_eq!(build_filter(&[filter("age", "in", Some("  "))]).unwrap(), doc! {});
+        assert_eq!(
+            build_filter(&[filter("age", "between", Some("18"))]).unwrap(),
+            doc! {}
+        );
+        assert_eq!(
+            build_filter(&[filter("age", "in", Some("  "))]).unwrap(),
+            doc! {}
+        );
     }
 
     /// What a filter refuses. A leading `$` would make the field name read as a query operator,
@@ -1125,9 +1189,14 @@ mod tests {
 
     #[test]
     fn the_types_json_has_no_spelling_for_survive_too() {
-        round_trips(Bson::ObjectId(ObjectId::parse_str("65a1b2c3d4e5f60718293a4b").unwrap()));
+        round_trips(Bson::ObjectId(
+            ObjectId::parse_str("65a1b2c3d4e5f60718293a4b").unwrap(),
+        ));
         round_trips(Bson::DateTime(BsonDateTime::from_millis(1_700_000_000_123)));
-        round_trips(Bson::Timestamp(Timestamp { time: 42, increment: 7 }));
+        round_trips(Bson::Timestamp(Timestamp {
+            time: 42,
+            increment: 7,
+        }));
         round_trips(Bson::Binary(Binary {
             subtype: BinarySubtype::Generic,
             bytes: vec![0, 1, 2, 255],
@@ -1147,7 +1216,9 @@ mod tests {
     /// reads back as the same string it was shown as rather than looking edited.
     #[test]
     fn a_whole_second_date_keeps_its_milliseconds() {
-        let json = bson_to_json(&Bson::DateTime(BsonDateTime::from_millis(1_700_000_000_000)));
+        let json = bson_to_json(&Bson::DateTime(BsonDateTime::from_millis(
+            1_700_000_000_000,
+        )));
         assert_eq!(json["$value"], json!("2023-11-14T22:13:20.000Z"));
     }
 
@@ -1155,7 +1226,10 @@ mod tests {
     #[test]
     fn an_object_without_a_type_tag_is_a_subdocument() {
         let parsed = json_to_bson(&json!({ "name": "a", "nested": { "n": 1 } })).unwrap();
-        assert_eq!(parsed, Bson::Document(doc! { "name": "a", "nested": { "n": 1_i32 } }));
+        assert_eq!(
+            parsed,
+            Bson::Document(doc! { "name": "a", "nested": { "n": 1_i32 } })
+        );
     }
 
     /// Two types can be displayed but not reconstructed, and saying so is better than writing

@@ -6,8 +6,8 @@
 //! The drivers are reached through `drivers::` here rather than imported by name, because
 //! `pub mod mysql;` below and a `use ...drivers::mysql;` would be the same name in this one module.
 
-use crate::platform::{app_data_dir, in_background};
 use crate::error::AppError;
+use crate::platform::{app_data_dir, in_background};
 use serde::Serialize;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,7 +54,6 @@ pub mod redis;
 pub mod sqlite;
 pub mod tools;
 
-
 const DB_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Where the settings screen listens for how far a tool download has got. Named here and in
@@ -88,7 +87,10 @@ fn reporter(app: &AppHandle, id: &str) -> impl Fn(drivers::dump::Progress) {
         // second away, and the last word comes from the command's own result.
         let _ = app.emit(
             TRANSFER_PROGRESS_EVENT,
-            TransferProgress { id: id.clone(), progress },
+            TransferProgress {
+                id: id.clone(),
+                progress,
+            },
         );
     }
 }
@@ -119,7 +121,11 @@ fn tunnel_notify(app: &AppHandle, id: &str) -> ssh::TunnelNotify {
         // next round.
         let _ = app.emit(
             TUNNEL_STATE_EVENT,
-            TunnelState { id: id.clone(), state, error },
+            TunnelState {
+                id: id.clone(),
+                state,
+                error,
+            },
         );
     })
 }
@@ -130,7 +136,11 @@ async fn with_timeout<T>(
 ) -> Result<T, AppError> {
     match tokio::time::timeout(DB_CONNECT_TIMEOUT, fut).await {
         Ok(result) => result,
-        Err(_) => Err(err!("error.connectTimeout", kind = kind, seconds = DB_CONNECT_TIMEOUT.as_secs())),
+        Err(_) => Err(err!(
+            "error.connectTimeout",
+            kind = kind,
+            seconds = DB_CONNECT_TIMEOUT.as_secs()
+        )),
     }
 }
 
@@ -187,7 +197,11 @@ pub async fn connect_db(
             )
             .await?;
             let mariadb = drivers::mysql::detect_mariadb(&pool).await;
-            (DbHandle::Mysql { pool, mariadb }, Some((host, port)), tunnel)
+            (
+                DbHandle::Mysql { pool, mariadb },
+                Some((host, port)),
+                tunnel,
+            )
         }
         DbKind::Postgres => {
             let (host, port, tunnel) =
@@ -244,7 +258,11 @@ pub async fn connect_db(
         DbKind::Redis => {
             let (host, port, tunnel) =
                 resolve_endpoint(&config, &app_data, Arc::clone(&notify)).await?;
-            let db_index = config.database.as_deref().and_then(|d| d.parse().ok()).unwrap_or(0);
+            let db_index = config
+                .database
+                .as_deref()
+                .and_then(|d| d.parse().ok())
+                .unwrap_or(0);
             let conn = with_timeout(
                 drivers::redis::connect(
                     &host,
@@ -318,8 +336,8 @@ pub async fn connect_db(
 #[tauri::command]
 pub async fn disconnect_db(state: State<'_, DbState>, id: String) -> Result<(), AppError> {
     /* First, and whether or not the connection is still in the map: a transfer runs an external
-       tool that outlives everything here, so a tab closed mid-dump used to leave `mysqldump`
-       writing a file nobody was waiting for. */
+    tool that outlives everything here, so a tab closed mid-dump used to leave `mysqldump`
+    writing a file nobody was waiting for. */
     cancel_transfer_in(&state, &id);
     let gone = state.connections.lock().await.remove(&id);
     let Some(connection) = gone else {
@@ -346,7 +364,9 @@ pub async fn tunnel_reconnect(state: State<'_, DbState>, id: String) -> Result<(
     // `CONNECT_TIMEOUT` (10 giây), và giữ bản đồ lâu như thế sẽ chặn mọi lệnh khác trong app.
     let session = {
         let connections = state.connections.lock().await;
-        let connection = connections.get(&id).ok_or_else(|| err!("error.unknownConnection"))?;
+        let connection = connections
+            .get(&id)
+            .ok_or_else(|| err!("error.unknownConnection"))?;
         connection
             .tunnel
             .as_ref()
@@ -489,18 +509,26 @@ async fn sql_endpoint(
     kind: DbKind,
 ) -> Result<SqlEndpoint, AppError> {
     let connections = state.connections.lock().await;
-    let connection = connections.get(id).ok_or_else(|| err!("error.unknownConnection"))?;
+    let connection = connections
+        .get(id)
+        .ok_or_else(|| err!("error.unknownConnection"))?;
     /* Written out rather than closed with a `_`, so that a kind added later is a compile error
-       here instead of a wrong message: SQLite reaches this with no endpoint and used to come back
-       as `error.noDumpAddress`, which reads as "the address is missing" for a kind that has none
-       by construction. */
+    here instead of a wrong message: SQLite reaches this with no endpoint and used to come back
+    as `error.noDumpAddress`, which reads as "the address is missing" for a kind that has none
+    by construction. */
     let matches = match kind {
         DbKind::Mysql => matches!(connection.handle, DbHandle::Mysql { .. }),
         DbKind::Postgres => matches!(connection.handle, DbHandle::Postgres(_)),
-        DbKind::Mongo | DbKind::Redis | DbKind::Sqlite | DbKind::Clickhouse | DbKind::Mssql => false,
+        DbKind::Mongo | DbKind::Redis | DbKind::Sqlite | DbKind::Clickhouse | DbKind::Mssql => {
+            false
+        }
     };
     if !matches {
-        let name = if kind == DbKind::Postgres { "PostgreSQL" } else { "MySQL" };
+        let name = if kind == DbKind::Postgres {
+            "PostgreSQL"
+        } else {
+            "MySQL"
+        };
         return Err(err!("error.wrongConnectionKind", kind = name));
     }
     let (host, port) = connection
@@ -521,7 +549,9 @@ async fn mongo_endpoint(
     id: &str,
 ) -> Result<(String, Option<(String, u16)>), AppError> {
     let connections = state.connections.lock().await;
-    let connection = connections.get(id).ok_or_else(|| err!("error.unknownConnection"))?;
+    let connection = connections
+        .get(id)
+        .ok_or_else(|| err!("error.unknownConnection"))?;
     if !matches!(connection.handle, DbHandle::Mongo(_)) {
         return Err(err!("error.wrongConnectionKind", kind = "MongoDB"));
     }
@@ -533,8 +563,6 @@ async fn mongo_endpoint(
         .ok_or_else(|| err!("error.noDumpUri"))?;
     Ok((uri, connection.endpoint.clone()))
 }
-
-
 
 /// Where MixDB keeps the tools it downloaded for itself.
 fn tools_dir(app: &AppHandle) -> Result<PathBuf, AppError> {
@@ -568,13 +596,20 @@ struct RunningQuery<'a> {
 
 impl<'a> RunningQuery<'a> {
     fn start(state: &'a DbState, run_id: &str) -> Self {
-        Self { state, run_id: run_id.to_string() }
+        Self {
+            state,
+            run_id: run_id.to_string(),
+        }
     }
 }
 
 impl Drop for RunningQuery<'_> {
     fn drop(&mut self) {
-        self.state.running_queries.lock().unwrap().remove(&self.run_id);
+        self.state
+            .running_queries
+            .lock()
+            .unwrap()
+            .remove(&self.run_id);
     }
 }
 
@@ -597,7 +632,11 @@ impl<'a> Transfer<'a> {
             .lock()
             .unwrap()
             .insert(id.to_string(), Arc::clone(&cancel));
-        Transfer { state, id: id.to_string(), cancel }
+        Transfer {
+            state,
+            id: id.to_string(),
+            cancel,
+        }
     }
 
     /// What `Watch` polls. Owns a handle of its own, so the closure can outlive this guard's
@@ -634,9 +673,17 @@ mod tests {
         let session = |run: &str| state.running_queries.lock().unwrap().get(run).copied();
 
         let first = RunningQuery::start(&state, "run-1");
-        state.running_queries.lock().unwrap().insert("run-1".to_string(), 111);
+        state
+            .running_queries
+            .lock()
+            .unwrap()
+            .insert("run-1".to_string(), 111);
         let second = RunningQuery::start(&state, "run-2");
-        state.running_queries.lock().unwrap().insert("run-2".to_string(), 222);
+        state
+            .running_queries
+            .lock()
+            .unwrap()
+            .insert("run-2".to_string(), 222);
 
         assert_eq!(session("run-1"), Some(111));
         assert_eq!(session("run-2"), Some(222));
@@ -652,7 +699,7 @@ mod tests {
     }
 
     /* What the tab closing has to be able to do, without a database in the room: reach a running
-       transfer and set the flag its tool is polling. */
+    transfer and set the flag its tool is polling. */
 
     #[test]
     fn a_running_transfer_can_be_reached_by_its_connection_id() {
@@ -662,7 +709,10 @@ mod tests {
         assert!(!flag.load(Ordering::Relaxed));
 
         cancel_transfer_in(&state, "conn-1");
-        assert!(flag.load(Ordering::Relaxed), "the tool's own poll would still say keep going");
+        assert!(
+            flag.load(Ordering::Relaxed),
+            "the tool's own poll would still say keep going"
+        );
     }
 
     #[test]
