@@ -188,12 +188,22 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       asking for the code twice. Any signed-in machine sees a freeze and can end it. The live suite
       deletes an account and moves one between two native servers; the screens have been checked
       by `tsc`, lint and the unit tests.
-- [ ] **T177e5** `closingOn` where a person will see it, not only in Settings: a strip under the
+- [x] **T177e5** `closingOn` where a person will see it, not only in Settings: a strip under the
       tab bar — dismissible, once a run — once the signed-in server's closing date is within 30
       days, and
       a warning on the sign-in form when the server chosen there reports one, read from its
       `/v1/capabilities` before anybody registers on it. *Found while testing T177e4: the Sync pane
       is the only place the date appears, and a person who does not open Settings never learns it.*
+
+      **Done in six commits.** What it settled that the roadmap had not. **The signed-in date is
+      read at launch by opening the session**, not left to the first sync — with every row off, the
+      first sync may never come. **The sign-in form asks a server's `/v1/capabilities` before any
+      account exists** there, unauthenticated; a server that cannot be asked yet is left for signing
+      in to explain. **Thirty days lives in one constant**, `NEAR_DAYS`, with tests on either side
+      of it and past the date, which stays near: nothing is refused on the day. Settings learned to
+      open on a given pane, so the strip leads straight to Sync. The native server was checked to
+      report `closingOn` for dates 10 and 60 days out; the strip itself has been checked by `tsc`,
+      lint and the unit tests only.
 - [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.
