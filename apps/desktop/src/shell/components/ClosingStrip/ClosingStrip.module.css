@@ -1,0 +1,18 @@
+/* A line across the window, in the warning tone NoticeBanner uses, between the tab bar and the
+   panes. It takes its own height and pushes the panes down rather than covering any of them. */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  background: rgb(var(--warning-rgb) / 0.12);
+  color: var(--warning-text);
+  font-size: var(--text-sm);
+}
+
+.text {
+  flex: 1 1 auto;
+  min-width: 0;
+}

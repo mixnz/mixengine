@@ -365,6 +365,9 @@ const en = {
       "The old account opens again. A machine still pointed at it goes on writing there, where no machine of yours reads.",
     moveFinish: "Finish the move",
     moveAbandon: "Stop the move",
+    closingSoon: "{{server}} closes in {{days}} days, on {{date}}. Move your account before then.",
+    closingNow: "{{server}} was to close on {{date}}. Move your account now, while it still answers.",
+    openSync: "Open Sync",
   },
 };
 
