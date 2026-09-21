@@ -111,12 +111,27 @@ export const DEFAULT_ENDPOINT: Partial<Record<ProviderName, string>> = {
 
 export const NEEDS_ENDPOINT: readonly ProviderName[] = ["mailgun"];
 
+/** Shown beside the address when a deployment names nobody else. */
+export const DEFAULT_FROM_NAME = "MixLab";
+
+/**
+ * `Name <address>`, for the providers that take the sender as one string. A name holding any of
+ * RFC 5322's specials is quoted, or `Acme, Inc.` would read as two addresses.
+ */
+export function mailbox(name: string, address: string): string {
+  const display = /[()<>[\]:;@\\,."]/.test(name)
+    ? `"${name.replace(/[\\"]/g, "\\$&")}"`
+    : name;
+  return `${display} <${address}>`;
+}
+
 class HttpProvider implements EmailSender {
   constructor(
     private readonly provider: ProviderName,
     private readonly endpoint: string,
     private readonly key: string,
     private readonly from: string,
+    private readonly fromName: string,
   ) {}
 
   async send(letter: Letter): Promise<void> {
@@ -150,14 +165,14 @@ class HttpProvider implements EmailSender {
       // Form-encoded, which is why the body shape is a per-provider decision and not one field.
       headers["Content-Type"] = "application/x-www-form-urlencoded";
       body = new URLSearchParams({
-        from: this.from,
+        from: mailbox(this.fromName, this.from),
         to,
         subject: subjectLine,
         text: textBody,
       }).toString();
     } else {
       headers["Content-Type"] = "application/json";
-      body = JSON.stringify(bodyFor(this.provider, this.from, to, subjectLine, textBody));
+      body = JSON.stringify(bodyFor(this.provider, this.from, this.fromName, to, subjectLine, textBody));
     }
 
     const response = await fetch(this.endpoint, { method: "POST", headers, body });
@@ -174,28 +189,34 @@ class HttpProvider implements EmailSender {
 function bodyFor(
   provider: Exclude<ProviderName, "mailgun">,
   from: string,
+  fromName: string,
   to: string,
   subjectLine: string,
   textBody: string,
 ): unknown {
   switch (provider) {
     case "resend":
-      return { from, to: [to], subject: subjectLine, text: textBody };
+      return { from: mailbox(fromName, from), to: [to], subject: subjectLine, text: textBody };
     case "mailtrap":
-      return { from: { email: from }, to: [{ email: to }], subject: subjectLine, text: textBody };
+      return {
+        from: { email: from, name: fromName },
+        to: [{ email: to }],
+        subject: subjectLine,
+        text: textBody,
+      };
     case "brevo":
       return {
-        sender: { email: from },
+        sender: { email: from, name: fromName },
         to: [{ email: to }],
         subject: subjectLine,
         textContent: textBody,
       };
     case "postmark":
-      return { From: from, To: to, Subject: subjectLine, TextBody: textBody };
+      return { From: mailbox(fromName, from), To: to, Subject: subjectLine, TextBody: textBody };
     case "sendgrid":
       return {
         personalizations: [{ to: [{ email: to }] }],
-        from: { email: from },
+        from: { email: from, name: fromName },
         subject: subjectLine,
         content: [{ type: "text/plain", value: textBody }],
       };
@@ -211,6 +232,7 @@ export function senderFor(config: Config): EmailSender | null {
     config.emailEndpoint,
     config.emailApiKey,
     config.emailFrom,
+    config.emailFromName,
   );
 }
 

@@ -85,6 +85,23 @@ impl Provider {
     }
 }
 
+/// Shown beside the address when a deployment names nobody else.
+pub const DEFAULT_FROM_NAME: &str = "MixLab";
+
+/// `Name <address>`, for the providers that take the sender as one string. A name holding any of
+/// RFC 5322's specials is quoted, or `Acme, Inc.` would read as two addresses.
+fn mailbox(name: &str, address: &str) -> String {
+    const SPECIALS: &[char] = &[
+        '(', ')', '<', '>', '[', ']', ':', ';', '@', '\\', ',', '.', '"',
+    ];
+    if name.contains(SPECIALS) {
+        let escaped = name.replace('\\', "\\\\").replace('"', "\\\"");
+        format!("\"{escaped}\" <{address}>")
+    } else {
+        format!("{name} <{address}>")
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LetterKind {
     Verification,
@@ -152,6 +169,8 @@ async fn send_over_http(
         .as_deref()
         .ok_or("no email endpoint is configured")?;
     let from = config.email_from.as_str();
+    let name = config.email_from_name.as_str();
+    let named = mailbox(name, from);
 
     let request = reqwest::Client::new().post(endpoint);
     let request = match provider {
@@ -166,28 +185,28 @@ async fn send_over_http(
 
     let request = match provider {
         Provider::Resend => request.json(&serde_json::json!({
-            "from": from, "to": [to], "subject": subject, "text": text,
+            "from": named, "to": [to], "subject": subject, "text": text,
         })),
         Provider::Mailtrap => request.json(&serde_json::json!({
-            "from": { "email": from }, "to": [{ "email": to }],
+            "from": { "email": from, "name": name }, "to": [{ "email": to }],
             "subject": subject, "text": text,
         })),
         Provider::Brevo => request.json(&serde_json::json!({
-            "sender": { "email": from }, "to": [{ "email": to }],
+            "sender": { "email": from, "name": name }, "to": [{ "email": to }],
             "subject": subject, "textContent": text,
         })),
         Provider::Postmark => request.json(&serde_json::json!({
-            "From": from, "To": to, "Subject": subject, "TextBody": text,
+            "From": named, "To": to, "Subject": subject, "TextBody": text,
         })),
         Provider::Sendgrid => request.json(&serde_json::json!({
             "personalizations": [{ "to": [{ "email": to }] }],
-            "from": { "email": from },
+            "from": { "email": from, "name": name },
             "subject": subject,
             "content": [{ "type": "text/plain", "value": text }],
         })),
         // Form-encoded, which is why the body shape is a per-provider decision and not one field.
         Provider::Mailgun => request.form(&[
-            ("from", from),
+            ("from", named.as_str()),
             ("to", to),
             ("subject", subject),
             ("text", text),
@@ -213,18 +232,22 @@ async fn send_over_smtp(
     to: &str,
     text: &str,
 ) -> Result<(), String> {
+    use lettre::message::Mailbox;
     use lettre::transport::smtp::authentication::Credentials;
     use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
     let smtp = config.smtp.as_ref().ok_or("no SMTP host is configured")?;
 
     let message = Message::builder()
-        .from(config.email_from.parse().map_err(|_| {
-            format!(
-                "MIXLAB_SYNC_EMAIL_FROM is not an address SMTP will take: {}",
-                config.email_from
-            )
-        })?)
+        .from(Mailbox::new(
+            Some(config.email_from_name.clone()),
+            config.email_from.parse().map_err(|_| {
+                format!(
+                    "MIXLAB_SYNC_EMAIL_FROM is not an address SMTP will take: {}",
+                    config.email_from
+                )
+            })?,
+        ))
         .to(to
             .parse()
             .map_err(|_| format!("that is not an address SMTP will take: {to}"))?)
@@ -295,4 +318,31 @@ pub struct Smtp {
     pub tls: Tls,
     pub username: Option<String>,
     pub password: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mailbox;
+
+    /// The vectors `../worker/src/email.test.ts` asserts too: the sender line is one string for
+    /// three providers, and the two servers have to write it the same way.
+    #[test]
+    fn a_plain_name_goes_in_as_it_is() {
+        assert_eq!(
+            mailbox("MixLab", "no-reply@example.com"),
+            "MixLab <no-reply@example.com>"
+        );
+    }
+
+    #[test]
+    fn a_name_with_a_special_is_quoted() {
+        assert_eq!(
+            mailbox("Acme, Inc.", "no-reply@example.com"),
+            "\"Acme, Inc.\" <no-reply@example.com>"
+        );
+        assert_eq!(
+            mailbox(r#"The "Lab" \ Team"#, "a@example.com"),
+            r#""The \"Lab\" \\ Team" <a@example.com>"#
+        );
+    }
 }
