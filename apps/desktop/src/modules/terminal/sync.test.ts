@@ -78,3 +78,17 @@ describe("what travels of a host's credentials", () => {
     expect(hostSecretsFromSync(null)).toBeNull();
   });
 });
+
+describe("a host's SSH key path", () => {
+  const ssh = (id: string, auth: object): SavedTarget =>
+    ({ id, name: id, kind: "ssh", config: { host: "h", port: 22, username: "u", auth } }) as SavedTarget;
+
+  it("travels home-relative, and a path that cannot travel leaves this machine's", () => {
+    const [item] = targetsToSync([ssh("h", { type: "privatekey", key_path: "/Users/light/.ssh/id_rsa" })]);
+    expect(JSON.stringify(item.data)).toContain('"key_path":"~/.ssh/id_rsa"');
+
+    const [elsewhere] = targetsToSync([ssh("h", { type: "privatekey", key_path: "/opt/keys/id" })]);
+    const arrived = targetFromSync(elsewhere, ssh("h", { type: "privatekey", key_path: "D:\\keys\\id" }));
+    expect(arrived?.kind === "ssh" && arrived.config.auth).toMatchObject({ key_path: "D:\\keys\\id" });
+  });
+});

@@ -57,6 +57,38 @@ export function splitSshSecrets(config: SshConfig): { config: SshConfig; secrets
   };
 }
 
+/**
+ * Where a home folder starts, on each system a key can have been saved on: `/Users/<name>` on
+ * macOS, `/home/<name>` or `/root` on Linux, `<drive>:\Users\<name>` on Windows, or `~` as typed.
+ */
+const HOME_PREFIX = /^(?:~|\/Users\/[^/]+|\/home\/[^/]+|\/root|[A-Za-z]:[\\/]Users[\\/][^\\/]+)[\\/](.+)$/;
+
+/**
+ * A key path as another machine can use it: under a home folder it travels as `~/…`, which Rust
+ * reads from that machine's own home (`ssh/mod.rs`). Anywhere else names a place only this machine
+ * has (D5's *a path on this machine*), so it does not travel at all: the answer is `""`.
+ */
+export function portableKeyPath(path: string): string {
+  const rest = HOME_PREFIX.exec(path)?.[1];
+  return rest === undefined ? "" : `~/${rest.replace(/\\/g, "/")}`;
+}
+
+/** An SSH server as sync lends it: the key path home-relative, or left out. */
+export function sshToSync(config: SshConfig): SshConfig {
+  if (config.auth.type !== "privatekey") return config;
+  return { ...config, auth: { ...config.auth, key_path: portableKeyPath(config.auth.key_path) } };
+}
+
+/**
+ * Another machine's SSH server over this machine's: a key path that travelled replaces the one
+ * here, and one that could not (`""`) leaves this machine's where it was.
+ */
+export function sshFromSync(incoming: SshConfig, local: SshConfig | undefined): SshConfig {
+  if (incoming.auth.type !== "privatekey" || incoming.auth.key_path !== "") return incoming;
+  const kept = local?.auth.type === "privatekey" ? local.auth.key_path : "";
+  return { ...incoming, auth: { ...incoming.auth, key_path: kept } };
+}
+
 /** The config as a form needs it: what was on disk, with the secrets put back. What was already in
  *  hand wins over nothing at all, so a config that never went to disk survives this unchanged. */
 export function mergeSshSecrets(config: SshConfig, secrets: SshSecrets): SshConfig {

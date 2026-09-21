@@ -1,3 +1,4 @@
+import { sshFromSync, sshToSync } from "../../core/ssh";
 import {
   applySyncChanges,
   asRecord,
@@ -24,11 +25,13 @@ import type { ConnectionConfig, SavedConnection } from "./types";
  * to this machine, and every credential belongs to `connection-secrets` (T177f).
  */
 export function connectionToSync(connection: SavedConnection): SyncItem {
+  const config = withoutSecrets(connection.config);
+  if (config.ssh) config.ssh = sshToSync(config.ssh);
   return {
     id: connection.id,
     data: {
       name: connection.name,
-      config: withoutSecrets(connection.config),
+      config,
       // A guard, not a preference: a production connection that arrives without it is more
       // dangerous on the second machine than it was on the first.
       readOnly: connection.readOnly === true,
@@ -44,7 +47,8 @@ export function connectionFromSync(
   const data = asRecord(synced.data);
   const config = asRecord(data?.config);
   if (!data || typeof data.name !== "string" || !config) return null;
-  const incoming = config as unknown as ConnectionConfig;
+  const incoming = { ...(config as unknown as ConnectionConfig) };
+  if (incoming.ssh) incoming.ssh = sshFromSync(incoming.ssh, local?.config.ssh);
   return {
     ...local,
     id: synced.id,

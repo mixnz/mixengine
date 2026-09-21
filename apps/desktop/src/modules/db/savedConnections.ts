@@ -1,5 +1,6 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
+import { dedupeById, upsertById } from "../../core/byId";
 import { mergeSshSecrets, splitSshSecrets, type SshSecrets } from "../../core/ssh";
 import type { ConnectionConfig, SavedConnection } from "./types";
 
@@ -108,8 +109,11 @@ async function persist(list: SavedConnection[]): Promise<void> {
  * That happens once, silently — the user has nothing to decide here.
  */
 export async function loadSavedConnections(): Promise<SavedConnection[]> {
-  const stored = await loadStored();
-  let needsRewrite = false;
+  const read = await loadStored();
+  // Two sync runs at once could each add the same connection (fixed in the loop); a file written
+  // then still holds both, and this is where it heals.
+  const stored = dedupeById(read, (entry) => entry.id);
+  let needsRewrite = stored !== read;
 
   const list = await Promise.all(
     stored.map(async (entry) => {
@@ -148,7 +152,9 @@ async function persistEntry(list: SavedConnection[], entry: SavedConnection): Pr
 
 export async function addSavedConnection(entry: SavedConnection): Promise<SavedConnection[]> {
   const list = await loadSavedConnections();
-  const next = [...list, entry];
+  // An id already here is replaced rather than repeated: sync adds by id, and may be late to learn
+  // that it already did.
+  const next = upsertById(list, entry, (c) => c.id);
   await persistEntry(next, entry);
   return next;
 }

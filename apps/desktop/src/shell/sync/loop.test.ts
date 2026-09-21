@@ -179,4 +179,42 @@ describe("the loop", () => {
     loop.stop();
     expect(calls.filter((call) => call === "read")).toHaveLength(2);
   });
+
+  it("never lets two loops run at once, and a stopped one ends at the next collection", async () => {
+    let active = 0;
+    let most = 0;
+    let reads = 0;
+    const slow = (id: string): SyncableCollection => ({
+      ...collection([]),
+      id,
+      read: async () => {
+        reads += 1;
+        active += 1;
+        most = Math.max(most, active);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        active -= 1;
+        return [];
+      },
+    });
+    const both = [slow("a"), slow("b")];
+    const start = () =>
+      startSyncLoop({
+        backend: backend([]).fake,
+        collections: () => both,
+        onFocus: () => () => {},
+        onReplaced: () => {},
+        onError: () => {},
+      });
+
+    // What a remount does: the first loop is stopped while its run is still in `a`.
+    const first = start();
+    await vi.advanceTimersByTimeAsync(0);
+    first();
+    const second = start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    second();
+
+    expect(most).toBe(1);
+    expect(reads).toBe(3);
+  });
 });

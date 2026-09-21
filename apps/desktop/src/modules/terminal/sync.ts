@@ -5,7 +5,7 @@ import {
   type SyncChanges,
   type SyncItem,
 } from "../../core/syncCollection";
-import { mergeSshSecrets, splitSshSecrets } from "../../core/ssh";
+import { mergeSshSecrets, splitSshSecrets, sshFromSync, sshToSync } from "../../core/ssh";
 import {
   addSavedTarget,
   deleteSecrets,
@@ -49,7 +49,7 @@ export function targetsToSync(targets: SavedTarget[]): SyncItem[] {
     .filter((target) => target.kind === "ssh")
     .map((target) => {
       const { id, ...rest } = withoutSecrets(target);
-      return { id, data: rest };
+      return { id, data: rest.kind === "ssh" ? { ...rest, config: sshToSync(rest.config) } : rest };
     });
 }
 
@@ -57,8 +57,9 @@ export function targetFromSync(synced: SyncItem, local: SavedTarget | undefined)
   const data = asRecord(synced.data);
   const parsed = data ? parseSavedTarget({ ...data, id: synced.id }) : null;
   if (!parsed || parsed.kind !== "ssh") return null;
-  if (local?.kind !== "ssh") return parsed;
-  return { ...parsed, config: mergeSshSecrets(parsed.config, splitSshSecrets(local.config).secrets) };
+  if (local?.kind !== "ssh") return { ...parsed, config: sshFromSync(parsed.config, undefined) };
+  const config = sshFromSync(parsed.config, local.config);
+  return { ...parsed, config: mergeSshSecrets(config, splitSshSecrets(local.config).secrets) };
 }
 
 export const settingsSyncable: SyncableCollection = {
