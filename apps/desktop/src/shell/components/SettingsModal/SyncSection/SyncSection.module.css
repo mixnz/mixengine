@@ -11,6 +11,30 @@
   gap: 8px;
 }
 
+/* The account line's text column: it takes the room the sign-out button leaves, and its lines
+   shorten with an ellipsis rather than wrapping — an address broken mid-word reads as two. */
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.oneLine {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* The account's rarer actions, under its line; they wrap before they squeeze anything. */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
 .grow {
   flex: 1 1 auto;
   min-width: 0;

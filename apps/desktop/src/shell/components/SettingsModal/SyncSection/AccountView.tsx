@@ -120,30 +120,35 @@ function AccountView({ status, onChanged }: Props) {
   return (
     <>
       <div className={settings.section}>
+        {/* Who and where on the left, one line each, and signing out on the right. The rarer
+            actions sit on a row of their own below: beside the account line they squeezed it
+            until the address broke mid-word. */}
         <div className={settings.updateRow}>
-          <div className={settings.updateText}>
-            <span className={settings.updateVersion}>{t("sync.signedInAs", { email: status.email ?? "" })}</span>
-            <span className={settings.updateStatus}>{status.server}</span>
+          <div className={styles.account}>
+            <span className={`${settings.updateVersion} ${styles.oneLine}`} title={status.email ?? undefined}>
+              {t("sync.signedInAs", { email: status.email ?? "" })}
+            </span>
+            <span className={`${settings.updateStatus} ${styles.oneLine}`} title={status.server ?? undefined}>
+              {status.server}
+            </span>
           </div>
-          <div className={styles.row}>
-            {panel === "none" && (
-              <>
-                <Button size="small" variant="ghost" onClick={() => setPanel("password")}>
-                  {t("sync.changePassword")}
-                </Button>
-                <Button size="small" variant="ghost" onClick={() => setPanel("move")}>
-                  {t("sync.moveTitle")}
-                </Button>
-                <Button size="small" variant="ghost" onClick={() => setPanel("delete")}>
-                  {t("sync.deleteAccount")}
-                </Button>
-              </>
-            )}
-            <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
-              {t("sync.signOut")}
+          <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
+            {t("sync.signOut")}
+          </Button>
+        </div>
+        {panel === "none" && (
+          <div className={styles.actions}>
+            <Button size="small" variant="ghost" onClick={() => setPanel("password")}>
+              {t("sync.changePassword")}
+            </Button>
+            <Button size="small" variant="ghost" onClick={() => setPanel("move")}>
+              {t("sync.moveTitle")}
+            </Button>
+            <Button size="small" variant="ghost" onClick={() => setPanel("delete")}>
+              {t("sync.deleteAccount")}
             </Button>
           </div>
-        </div>
+        )}
         <p className={settings.hint}>{t("sync.signOutHint")}</p>
         {changed && <NoticeBanner message={t("sync.passwordChanged")} onDismiss={() => setChanged(false)} />}
         {status.closingOn !== null && <NoticeBanner message={t("sync.closing", { date: day(status.closingOn) })} />}
