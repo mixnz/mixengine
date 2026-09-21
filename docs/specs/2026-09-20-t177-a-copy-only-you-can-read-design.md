@@ -214,6 +214,13 @@ hostile server could tilt a conflict between two versions of a record. Both vers
 person's own, and the server can already refuse either write outright, so sealing these would
 protect nothing it could not take another way.
 
+**A client's `updatedAt` is the sync layer's, not a module's.** No module stores when an item
+changed. The record store keeps a hash of each record's canonical plaintext as last synced: a
+reader returning something different is a local change, stamped with the time sync notices it,
+and an id it no longer returns is a deletion. Sync runs on a local change and at launch (D8), so
+noticing is close to editing — and the hash is taken of what the reader returns, so a field it
+leaves out, such as a sidebar's width, changes nothing.
+
 `/v1/records/batch` exists because a machine signing in for the first time pushes its whole local
 set, and two hundred round trips to do it is the difference between a pause and a wait. It is a
 batch of independent compare-and-swaps, not a transaction: each entry succeeds or conflicts on its
@@ -411,7 +418,7 @@ belongs to is.
 
 | Collection | Source on disk | Carries |
 | --- | --- | --- |
-| `preferences` | `localStorage`: theme, accent, glass, language, enabled modules | one record per key |
+| `preferences` | `localStorage`: theme, accent, language, enabled modules | one record per key; lent by the shell, which owns them |
 | `terminal-settings` | `terminal-settings.json` | font, cursor, scrollback |
 | `connections` | `connections.json` | host, port, user, database, SSH configuration — **no credential** |
 | `connection-secrets` | the `MixLab` vault | `password`, `uri`, `sshPassword`, `sshPassphrase` |
@@ -420,7 +427,7 @@ belongs to is.
 | `rest-requests` | `rest-requests.json` | the collection: method, URL, headers, body |
 | `rest-environments` | `rest-environments.json` | names, and the values **not** marked secret |
 | `rest-env-secrets` | the `MixLab` vault | the values marked secret |
-| `query-snippets` | `query-snippets.json` | saved SQL |
+| `query-snippets` | `query-snippets.json` | saved SQL, identified by its name — a rename is a deletion and a new record |
 | `tools-snippets` | `tools-snippets.json` | the cheatsheet |
 
 **Nothing else is syncable, and that list is the promise rather than a default:**
@@ -479,8 +486,9 @@ a person will keep the key, lose the address, and find out the shape of this at 
 - **A module declares what it will lend, and the shell never learns what it is.**
   `ModuleDefinition` (`src/shell/module.ts`) gains an optional set of syncable collections, each an
   id, a label, a reader, a writer and a default of `false`. `registry.ts` wires them as it already
-  wires tabs. `core/` and `shell/` see "records with an id and an `updatedAt`" and never the word
-  *connection*, so the lint boundary holds without a third exception.
+  wires tabs. `core/` and `shell/` see "records with an id" and never the word *connection*, so
+  the lint boundary holds without a third exception. A module is not asked when an item changed;
+  D4 says who knows.
 - **The `mixengine` module and the daemon are untouched.** No new API method, no new binary in
   `crates/`, nothing in `mix`.
 
