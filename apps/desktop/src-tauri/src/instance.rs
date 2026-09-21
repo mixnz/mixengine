@@ -163,10 +163,7 @@ mod sys {
     pub async fn serve(path: PathBuf, on_line: impl Fn(String) + Send + Sync + 'static) {
         // `first_pipe_instance` is the whole of the "is another copy running" question: creating
         // the first instance of a name somebody else owns is refused.
-        let mut server = match ServerOptions::new()
-            .first_pipe_instance(true)
-            .create(&path)
-        {
+        let mut server = match ServerOptions::new().first_pipe_instance(true).create(&path) {
             Ok(server) => server,
             Err(e) => {
                 eprintln!("mixdb: not listening for other copies: {e}");

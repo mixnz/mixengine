@@ -194,9 +194,8 @@ fn key_for(column: &str, pk: i64, indexes: &[TableIndex]) -> String {
     if pk > 0 {
         return "PRI".to_string();
     }
-    let leads = |index: &&TableIndex| {
-        index.columns.first().and_then(|c| c.name.as_deref()) == Some(column)
-    };
+    let leads =
+        |index: &&TableIndex| index.columns.first().and_then(|c| c.name.as_deref()) == Some(column);
     if indexes.iter().filter(leads).any(|index| index.unique) {
         return "UNI".to_string();
     }
@@ -242,8 +241,8 @@ async fn table_indexes(pool: &SqlitePool, table: &str) -> Result<Vec<TableIndex>
     }
 
     /* A rowid primary key has no index to have been listed, so it is added here from the columns
-       that carry it. Without this the Structure tab would show a table whose key column is marked
-       PRI and whose index list does not mention a primary key at all. */
+    that carry it. Without this the Structure tab would show a table whose key column is marked
+    PRI and whose index list does not mention a primary key at all. */
     if !indexes.iter().any(|index| index.primary) {
         let key = sqlx::query("select name, pk from pragma_table_xinfo(?) order by pk")
             .bind(table)
@@ -362,7 +361,12 @@ pub(super) async fn page_sizes(pool: &SqlitePool) -> Result<HashMap<String, u64>
         .map_err(map_error)?;
     Ok(rows
         .iter()
-        .map(|r| (r.get::<String, _>("name"), r.get::<i64, _>("bytes").max(0) as u64))
+        .map(|r| {
+            (
+                r.get::<String, _>("name"),
+                r.get::<i64, _>("bytes").max(0) as u64,
+            )
+        })
         .collect())
 }
 
@@ -408,10 +412,7 @@ pub struct SchemaOutline {
 /// Every table and column of the file, for the Query tab's completion.
 ///
 /// Views are in it as well as tables — their columns complete like any others'.
-pub async fn schema_outline(
-    pool: &SqlitePool,
-    database: &str,
-) -> Result<SchemaOutline, AppError> {
+pub async fn schema_outline(pool: &SqlitePool, database: &str) -> Result<SchemaOutline, AppError> {
     let names: Vec<String> = sqlx::query_scalar(
         r"select name from sqlite_master
           where type in ('table', 'view') and name not like 'sqlite\_%' escape '\'
@@ -424,9 +425,9 @@ pub async fn schema_outline(
     let mut tables = Vec::with_capacity(names.len());
     for name in names {
         /* One read per table, which is what SQLite offers: `pragma_table_xinfo` answers about one
-           table, and there is no catalogue view listing every column of every table the way
-           `information_schema.columns` does. A schema large enough for that to hurt is not a shape
-           SQLite is usually put in. */
+        table, and there is no catalogue view listing every column of every table the way
+        `information_schema.columns` does. A schema large enough for that to hurt is not a shape
+        SQLite is usually put in. */
         let columns = sqlx::query("select name, type, \"notnull\", pk from pragma_table_xinfo(?)")
             .bind(&name)
             .fetch_all(pool)
@@ -492,8 +493,8 @@ mod tests {
         let structure = table_structure(&pool, "post").await.unwrap();
 
         /* There is no index behind an INTEGER PRIMARY KEY — the table is stored in rowid order —
-           so `pragma_index_list` never mentions it. Without the synthesised row the Structure tab
-           would mark `id` as PRI and then list no primary key at all. */
+        so `pragma_index_list` never mentions it. Without the synthesised row the Structure tab
+        would mark `id` as PRI and then list no primary key at all. */
         let primary = &structure.indexes[0];
         assert_eq!(primary.name, IMPLICIT_PRIMARY_KEY);
         assert!(primary.primary && primary.unique);
@@ -510,7 +511,11 @@ mod tests {
         assert!(primary.primary);
         assert!(primary.name.starts_with("sqlite_autoindex_tag"));
         assert_eq!(
-            primary.columns.iter().filter_map(|c| c.name.as_deref()).collect::<Vec<_>>(),
+            primary
+                .columns
+                .iter()
+                .filter_map(|c| c.name.as_deref())
+                .collect::<Vec<_>>(),
             vec!["id", "label"]
         );
     }
@@ -519,8 +524,15 @@ mod tests {
     async fn the_primary_key_comes_first_and_the_rest_by_name() {
         let (_fixture, pool) = Fixture::open().await;
         let structure = table_structure(&pool, "post").await.unwrap();
-        let names: Vec<&str> = structure.indexes.iter().map(|index| index.name.as_str()).collect();
-        assert_eq!(names, vec![IMPLICIT_PRIMARY_KEY, "post_author", "post_title"]);
+        let names: Vec<&str> = structure
+            .indexes
+            .iter()
+            .map(|index| index.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec![IMPLICIT_PRIMARY_KEY, "post_author", "post_title"]
+        );
     }
 
     #[tokio::test]
@@ -553,7 +565,11 @@ mod tests {
         assert!(!bio.default_is_expression);
 
         let post = table_structure(&pool, "post").await.unwrap();
-        let created = post.columns.iter().find(|c| c.name == "created_at").unwrap();
+        let created = post
+            .columns
+            .iter()
+            .find(|c| c.name == "created_at")
+            .unwrap();
         assert_eq!(created.default_value.as_deref(), Some("CURRENT_TIMESTAMP"));
         // Without the mark, this and the *text* "CURRENT_TIMESTAMP" would read alike.
         assert!(created.default_is_expression);
@@ -579,7 +595,13 @@ mod tests {
         let names: Vec<&str> = collations.iter().map(|c| c.name.as_str()).collect();
         assert!(names.contains(&"BINARY") && names.contains(&"NOCASE") && names.contains(&"RTRIM"));
         // BINARY is what a column gets without a COLLATE.
-        assert!(collations.iter().find(|c| c.name == "BINARY").unwrap().is_default);
+        assert!(
+            collations
+                .iter()
+                .find(|c| c.name == "BINARY")
+                .unwrap()
+                .is_default
+        );
     }
 
     #[tokio::test]
@@ -598,8 +620,8 @@ mod tests {
         let stats = table_stats(&pool).await.unwrap();
         let post = stats.iter().find(|s| s.name == "post").unwrap();
         /* `dbstat` is a compile-time option, and this asserts the one MixDB ships with — see the
-           `libsqlite3-sys` entry in Cargo.toml. If this ever fails, the build has stopped bundling
-           its own SQLite and the Statistics tab has quietly gone to zeroes. */
+        `libsqlite3-sys` entry in Cargo.toml. If this ever fails, the build has stopped bundling
+        its own SQLite and the Statistics tab has quietly gone to zeroes. */
         assert!(post.data_size > 0, "no data size: dbstat is missing");
         assert!(post.index_size > 0, "no index size: post has two indexes");
         assert!(post.avg_record_size > 0);

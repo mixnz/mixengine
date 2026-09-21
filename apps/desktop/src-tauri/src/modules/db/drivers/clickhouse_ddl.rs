@@ -11,8 +11,8 @@ use super::clickhouse::{
     as_u64, execute_check, qualified, query, quote_ident, quote_literal, structure_columns,
     Connection, StructureColumn,
 };
-use serde::Deserialize;
 use crate::error::AppError;
+use serde::Deserialize;
 
 /// The body of a ClickHouse string literal, or `None` for text that is not one whole literal.
 ///
@@ -29,7 +29,11 @@ pub(super) fn literal_body(text: &str) -> Option<String> {
         match ch {
             '\\' => body.push(chars.next()?.1),
             '\'' => {
-                return if index + 1 == text.len() { Some(body) } else { None };
+                return if index + 1 == text.len() {
+                    Some(body)
+                } else {
+                    None
+                };
             }
             _ => body.push(ch),
         }
@@ -103,7 +107,12 @@ pub async fn create_table(
     table: &str,
     engine: &str,
 ) -> Result<(), AppError> {
-    execute_check(conn, &create_table_statement(database, table, engine)?, None).await
+    execute_check(
+        conn,
+        &create_table_statement(database, table, engine)?,
+        None,
+    )
+    .await
 }
 
 /// Renames a table within its database. ClickHouse's `RENAME TABLE` is a metadata change and
@@ -303,7 +312,12 @@ pub async fn add_skip_index(
     table: &str,
     spec: &SkipIndexSpec,
 ) -> Result<(), AppError> {
-    execute_check(conn, &add_skip_index_statement(database, table, spec)?, None).await
+    execute_check(
+        conn,
+        &add_skip_index_statement(database, table, spec)?,
+        None,
+    )
+    .await
 }
 
 pub async fn drop_skip_index(
@@ -390,15 +404,23 @@ pub async fn rebuild_order_by(
         return Err(err!("error.clickhouseOrderByColumnsRequired"));
     }
 
-    let show_create = query(conn, &format!("SHOW CREATE TABLE {}", qualified(database, table)))
-        .await?
-        .data
-        .first()
-        .and_then(|row| row.get("statement")?.as_str().map(str::to_string))
-        .ok_or_else(|| err!("error.clickhouseRebuildParse"))?;
+    let show_create = query(
+        conn,
+        &format!("SHOW CREATE TABLE {}", qualified(database, table)),
+    )
+    .await?
+    .data
+    .first()
+    .and_then(|row| row.get("statement")?.as_str().map(str::to_string))
+    .ok_or_else(|| err!("error.clickhouseRebuildParse"))?;
 
     let temp_name = temp_table_name(table);
-    let create_sql = rebuild_ddl(&show_create, database, &temp_name, &order_by_clause(columns))?;
+    let create_sql = rebuild_ddl(
+        &show_create,
+        database,
+        &temp_name,
+        &order_by_clause(columns),
+    )?;
     execute_check(conn, &create_sql, None).await?;
 
     let insert_sql = format!(
@@ -407,18 +429,24 @@ pub async fn rebuild_order_by(
         qualified(database, table)
     );
     if let Err(cause) = execute_check(conn, &insert_sql, None).await {
-        let _ =
-            execute_check(conn, &format!("DROP TABLE {}", qualified(database, &temp_name)), None)
-                .await;
+        let _ = execute_check(
+            conn,
+            &format!("DROP TABLE {}", qualified(database, &temp_name)),
+            None,
+        )
+        .await;
         return Err(cause);
     }
 
     let old_count = row_count(conn, database, table).await?;
     let new_count = row_count(conn, database, &temp_name).await?;
     if old_count != new_count {
-        let _ =
-            execute_check(conn, &format!("DROP TABLE {}", qualified(database, &temp_name)), None)
-                .await;
+        let _ = execute_check(
+            conn,
+            &format!("DROP TABLE {}", qualified(database, &temp_name)),
+            None,
+        )
+        .await;
         return Err(err!("error.clickhouseRebuildCountMismatch", table = table));
     }
 
@@ -433,8 +461,12 @@ pub async fn rebuild_order_by(
     )
     .await?;
 
-    match execute_check(conn, &format!("DROP TABLE {}", qualified(database, &temp_name)), None)
-        .await
+    match execute_check(
+        conn,
+        &format!("DROP TABLE {}", qualified(database, &temp_name)),
+        None,
+    )
+    .await
     {
         Ok(()) => Ok(None),
         Err(_) => Ok(Some(temp_name)),
@@ -488,7 +520,9 @@ pub fn modify_column_statements(
         && spec.comment == current.comment
         && same_default;
     if !unchanged {
-        statements.push(format!("ALTER TABLE {qualified_table} MODIFY COLUMN {definition}"));
+        statements.push(format!(
+            "ALTER TABLE {qualified_table} MODIFY COLUMN {definition}"
+        ));
     }
     Ok(statements)
 }
@@ -527,8 +561,12 @@ pub async fn modify_column(
         let changing_type = type_changes && statement.contains(" MODIFY COLUMN ");
         if let Err(cause) = execute_check(conn, &statement, None).await {
             return Err(if changing_type {
-                err!("error.clickhouseTypeChangeFailed", column = name, table = table)
-                    .caused_by(cause)
+                err!(
+                    "error.clickhouseTypeChangeFailed",
+                    column = name,
+                    table = table
+                )
+                .caused_by(cause)
             } else {
                 cause
             });
@@ -575,7 +613,9 @@ pub(super) fn rebuild_ddl(
     order_by: &str,
 ) -> Result<String, AppError> {
     let mut lines = show_create.lines();
-    lines.next().ok_or_else(|| err!("error.clickhouseRebuildParse"))?;
+    lines
+        .next()
+        .ok_or_else(|| err!("error.clickhouseRebuildParse"))?;
     let mut found = false;
     let body: Vec<String> = lines
         .map(|line| {
@@ -590,7 +630,11 @@ pub(super) fn rebuild_ddl(
     if !found {
         return Err(err!("error.clickhouseRebuildParse"));
     }
-    Ok(format!("CREATE TABLE {}\n{}", qualified(database, temp_name), body.join("\n")))
+    Ok(format!(
+        "CREATE TABLE {}\n{}",
+        qualified(database, temp_name),
+        body.join("\n")
+    ))
 }
 
 /// What is decided here, rather than by a server's answer.
@@ -617,8 +661,12 @@ mod tests {
     #[test]
     fn a_type_with_no_arguments_is_written_bare() {
         assert_eq!(
-            add_skip_index_statement("shop", "orders", &skip_spec("ix1", "total", "minmax", &[], 1))
-                .unwrap(),
+            add_skip_index_statement(
+                "shop",
+                "orders",
+                &skip_spec("ix1", "total", "minmax", &[], 1)
+            )
+            .unwrap(),
             "ALTER TABLE `shop`.`orders` ADD INDEX `ix1` total TYPE minmax GRANULARITY 1"
         );
     }
@@ -639,8 +687,12 @@ mod tests {
     #[test]
     fn an_index_needs_a_name() {
         assert_eq!(
-            add_skip_index_statement("shop", "orders", &skip_spec("  ", "total", "minmax", &[], 1))
-                .unwrap_err(),
+            add_skip_index_statement(
+                "shop",
+                "orders",
+                &skip_spec("  ", "total", "minmax", &[], 1)
+            )
+            .unwrap_err(),
             err!("error.indexNameRequired")
         );
     }
@@ -697,8 +749,13 @@ mod tests {
     #[test]
     fn rebuild_handles_an_empty_sorting_key() {
         let show_create = "CREATE TABLE shop.orders\n(\n    `id` UInt64\n)\nENGINE = MergeTree\nORDER BY tuple()\nSETTINGS index_granularity = 8192";
-        let rebuilt =
-            rebuild_ddl(show_create, "shop", "orders__mixdb_rebuild_2", "ORDER BY (id)").unwrap();
+        let rebuilt = rebuild_ddl(
+            show_create,
+            "shop",
+            "orders__mixdb_rebuild_2",
+            "ORDER BY (id)",
+        )
+        .unwrap();
         assert_eq!(
             rebuilt,
             "CREATE TABLE `shop`.`orders__mixdb_rebuild_2`\n(\n    `id` UInt64\n)\nENGINE = MergeTree\nORDER BY (id)\nSETTINGS index_granularity = 8192"
@@ -738,7 +795,10 @@ mod tests {
 
     #[test]
     fn a_quoted_string_is_a_literal_and_loses_its_quotes() {
-        assert_eq!(read_default("'active'"), Some(("active".to_string(), false)));
+        assert_eq!(
+            read_default("'active'"),
+            Some(("active".to_string(), false))
+        );
     }
 
     #[test]
@@ -759,7 +819,10 @@ mod tests {
 
     #[test]
     fn a_concatenation_that_merely_starts_and_ends_with_a_quote_is_not_a_literal() {
-        assert_eq!(read_default("'a' || 'b'"), Some(("'a' || 'b'".to_string(), true)));
+        assert_eq!(
+            read_default("'a' || 'b'"),
+            Some(("'a' || 'b'".to_string(), true))
+        );
     }
 
     #[test]
@@ -820,7 +883,10 @@ mod tests {
 
     #[test]
     fn a_plain_column_is_just_a_name_and_a_type() {
-        assert_eq!(column_definition(&spec("title", "String")).unwrap(), "`title` String");
+        assert_eq!(
+            column_definition(&spec("title", "String")).unwrap(),
+            "`title` String"
+        );
     }
 
     #[test]
@@ -835,12 +901,18 @@ mod tests {
     fn a_literal_default_is_quoted_and_an_expression_is_not() {
         let mut literal = spec("state", "String");
         literal.default_value = Some("active".to_string());
-        assert_eq!(column_definition(&literal).unwrap(), "`state` String DEFAULT 'active'");
+        assert_eq!(
+            column_definition(&literal).unwrap(),
+            "`state` String DEFAULT 'active'"
+        );
 
         let mut expression = spec("made", "DateTime");
         expression.default_value = Some("now()".to_string());
         expression.default_is_expression = true;
-        assert_eq!(column_definition(&expression).unwrap(), "`made` DateTime DEFAULT now()");
+        assert_eq!(
+            column_definition(&expression).unwrap(),
+            "`made` DateTime DEFAULT now()"
+        );
     }
 
     #[test]

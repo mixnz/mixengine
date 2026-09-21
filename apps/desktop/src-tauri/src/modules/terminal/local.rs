@@ -110,11 +110,10 @@ fn detect_windows(found: &mut Vec<LocalShell>) {
 #[cfg(windows)]
 fn wsl_distros() -> Vec<String> {
     /* Không có cửa sổ console loé lên — `crate::platform::hide_console` giải thích tại sao, và là
-       nơi duy nhất cả app đặt cờ đó. */
+    nơi duy nhất cả app đặt cờ đó. */
     let mut command = std::process::Command::new("wsl.exe");
     command.args(["-l", "-q"]);
-    let output = match crate::platform::hide_console(&mut command).output()
-    {
+    let output = match crate::platform::hide_console(&mut command).output() {
         Ok(output) if output.status.success() => output,
         _ => return Vec::new(),
     };
@@ -218,15 +217,15 @@ pub fn spawn(
     out: OutputSink,
 ) -> Result<Session, AppError> {
     /* Không có shell nào được chọn thì lấy cả mục mặc định, đường dẫn lẫn tham số — `args` đi vào
-       đây là của một shell mà lời gọi không nêu tên, nên nó rỗng. */
+    đây là của một shell mà lời gọi không nêu tên, nên nó rỗng. */
     let (program, args) = match shell {
         Some(path) => (path, args),
         None => default_shell(),
     };
 
     /* Một đường dẫn tuyệt đối không còn tồn tại — Git bị gỡ, bản WSL bị xoá — đáng được nói thẳng
-       thay vì để pty trả về một lỗi hệ điều hành không ai đọc. Tên trần như `cmd.exe` thì bỏ qua:
-       nó được tra trong `PATH`, không phải trên đĩa. */
+    thay vì để pty trả về một lỗi hệ điều hành không ai đọc. Tên trần như `cmd.exe` thì bỏ qua:
+    nó được tra trong `PATH`, không phải trên đĩa. */
     if (program.contains('/') || program.contains('\\')) && !Path::new(&program).is_file() {
         return Err(err!("error.terminalShellNotFound", path = program));
     }
@@ -261,7 +260,7 @@ pub fn spawn(
         .take_writer()
         .map_err(|e| err!("error.terminalSpawnFailed", message = e))?;
     /* `Option` chứ không phải chính nó: kết thúc phiên là *buông* master, mà buông một thứ nằm
-       trong `Arc` thì phải nhấc nó ra khỏi đó. Xem chỗ `take()` bên dưới. */
+    trong `Arc` thì phải nhấc nó ra khỏi đó. Xem chỗ `take()` bên dưới. */
     let master = Arc::new(StdMutex::new(Some(pair.master)));
     let killer = child.clone_killer();
 
@@ -327,15 +326,15 @@ pub fn spawn(
 
     /* Một đường ra, một thứ tự: hết byte → hết đệm → mới tới `Exit`.
 
-       Đầu đọc không tự thấy EOF khi shell chết. Trên Windows, ống ra là của ConPTY và ConPTY sống
-       chừng nào master còn sống — mà master thì phiên giữ để còn đổi kích thước. Nên tiến trình
-       con chết mà không ai buông master là đầu đọc nằm im mãi, `coalesce` không bao giờ trả về, và
-       `Exit` không bao giờ được phát: người dùng gõ `exit` rồi nhìn một màn hình đứng im mà không
-       ai nói cho biết. (Trên Unix thì đọc master sau khi con chết trả về EIO nên chuyện này không
-       lộ ra, và buông master ở đó cũng vô hại: đầu đọc cầm một bản `dup` của riêng nó.)
+    Đầu đọc không tự thấy EOF khi shell chết. Trên Windows, ống ra là của ConPTY và ConPTY sống
+    chừng nào master còn sống — mà master thì phiên giữ để còn đổi kích thước. Nên tiến trình
+    con chết mà không ai buông master là đầu đọc nằm im mãi, `coalesce` không bao giờ trả về, và
+    `Exit` không bao giờ được phát: người dùng gõ `exit` rồi nhìn một màn hình đứng im mà không
+    ai nói cho biết. (Trên Unix thì đọc master sau khi con chết trả về EIO nên chuyện này không
+    lộ ra, và buông master ở đó cũng vô hại: đầu đọc cầm một bản `dup` của riêng nó.)
 
-       Vậy nên: đợi con chết → nghỉ một nhịp cho byte cuối ra khỏi ống → buông master → giờ mới hết
-       byte, hết đệm, rồi tới `Exit`. */
+    Vậy nên: đợi con chết → nghỉ một nhịp cho byte cuối ra khỏi ống → buông master → giờ mới hết
+    byte, hết đệm, rồi tới `Exit`. */
     tokio::spawn({
         let out = out.clone();
         let data = out.clone();
@@ -348,10 +347,16 @@ pub fn spawn(
                 master.lock().unwrap().take();
             })
             .await;
-            if tokio::time::timeout(EXIT_TIMEOUT, &mut drain).await.is_err() {
+            if tokio::time::timeout(EXIT_TIMEOUT, &mut drain)
+                .await
+                .is_err()
+            {
                 drain.abort();
             }
-            out(Output::Exit { code, message: None });
+            out(Output::Exit {
+                code,
+                message: None,
+            });
         }
     });
 
@@ -395,13 +400,18 @@ mod tests {
 
     /// `wsl.exe -l -q` in ra UTF-16LE với CRLF — dựng lại đúng thế để test.
     fn utf16le(text: &str) -> Vec<u8> {
-        text.encode_utf16().flat_map(|unit| unit.to_le_bytes()).collect()
+        text.encode_utf16()
+            .flat_map(|unit| unit.to_le_bytes())
+            .collect()
     }
 
     #[test]
     fn reads_one_name_per_line() {
         let bytes = utf16le("Ubuntu\r\nDebian\r\n");
-        assert_eq!(parse_wsl_list(&bytes), vec!["Ubuntu".to_string(), "Debian".to_string()]);
+        assert_eq!(
+            parse_wsl_list(&bytes),
+            vec!["Ubuntu".to_string(), "Debian".to_string()]
+        );
     }
 
     /// Tên có khoảng trắng là chuyện thường — `Ubuntu 22.04` không được cắt làm đôi.
@@ -437,7 +447,10 @@ mod tests {
         let sink: OutputSink = Arc::new(move |output| handle.lock().unwrap().push(output));
 
         let (shell, args) = if cfg!(windows) {
-            ("cmd.exe", vec!["/c".to_string(), "exit".to_string(), "3".to_string()])
+            (
+                "cmd.exe",
+                vec!["/c".to_string(), "exit".to_string(), "3".to_string()],
+            )
         } else {
             ("/bin/sh", vec!["-c".to_string(), "exit 3".to_string()])
         };
@@ -451,12 +464,12 @@ mod tests {
         .expect("shell phải mở được");
 
         /* ConPTY mở ra bằng cách hỏi vị trí con trỏ (`ESC[6n`) và *đợi* câu trả lời trước khi cho
-           tiến trình con chạy — trong app thì xterm trả lời, ở đây thì không ai. Trả lời hộ nó. */
+        tiến trình con chạy — trong app thì xterm trả lời, ở đây thì không ai. Trả lời hộ nó. */
         session.input.send(b"\x1b[1;1R".to_vec()).unwrap();
 
         /* Có hạn, và hạn ngắn hơn `EXIT_TIMEOUT`: cái lưới an toàn ấy vẫn phát `Exit` kể cả khi
-           đầu đọc không bao giờ thấy EOF, nên một test chỉ hỏi "cuối cùng có `Exit` không" sẽ
-           xanh ngay cả khi lỗi quay lại. Điều đang được giữ là phiên báo *ngay*. */
+        đầu đọc không bao giờ thấy EOF, nên một test chỉ hỏi "cuối cùng có `Exit` không" sẽ
+        xanh ngay cả khi lỗi quay lại. Điều đang được giữ là phiên báo *ngay*. */
         let deadline = std::time::Instant::now() + std::time::Duration::from_millis(1500);
         loop {
             if matches!(
@@ -485,8 +498,14 @@ mod tests {
         let handle = seen.clone();
         let sink: OutputSink = Arc::new(move |output| handle.lock().unwrap().push(output));
 
-        let session = spawn(None, Vec::new(), None, TerminalSize { cols: 80, rows: 24 }, sink)
-            .expect("shell mặc định phải mở được");
+        let session = spawn(
+            None,
+            Vec::new(),
+            None,
+            TerminalSize { cols: 80, rows: 24 },
+            sink,
+        )
+        .expect("shell mặc định phải mở được");
         drop(session);
 
         // Giết tiến trình, đọc hết pty, đẩy nốt đệm rồi mới phát Exit — vài trăm ms là dư.

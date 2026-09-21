@@ -8,9 +8,9 @@
 //! * A table is named by [`qualify`]/[`resolve`] rather than by a bare name, because PostgreSQL
 //!   puts schemas between the database and its tables and two schemas may hold the same name.
 
-use crate::modules::db::models::{ServerInfo};
 use super::filters::{escape_like, split_list};
 use crate::error::AppError;
+use crate::modules::db::models::ServerInfo;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions, PgRow, PgSslMode};
@@ -126,7 +126,13 @@ impl Pools {
     /// sends the terminate message first. Taken out of the map before the wait, so nothing new can
     /// be handed one of these on the way out.
     pub async fn close_all(&self) {
-        let pools: Vec<PgPool> = self.pools.lock().await.drain().map(|(_, pool)| pool).collect();
+        let pools: Vec<PgPool> = self
+            .pools
+            .lock()
+            .await
+            .drain()
+            .map(|(_, pool)| pool)
+            .collect();
         for pool in pools {
             pool.close().await;
         }
@@ -260,10 +266,7 @@ pub(super) fn system_schema_filter(namespace: &str) -> String {
     )
 }
 
-pub async fn query(
-    pool: &PgPool,
-    sql: &str,
-) -> Result<Vec<Map<String, Value>>, AppError> {
+pub async fn query(pool: &PgPool, sql: &str) -> Result<Vec<Map<String, Value>>, AppError> {
     // As in `mysql::query`: a borrowed, non-'static statement needs a connection of its own rather
     // than the pool, and this client runs user-authored SQL by design.
     let mut conn = pool.acquire().await.map_err(map_error)?;
@@ -473,10 +476,22 @@ fn build_where(
         let clause = match operator {
             "eq" => format!("{col} = {}", placeholder(&mut binds, value.to_string())),
             "ne" => format!("{col} <> {}", placeholder(&mut binds, value.to_string())),
-            "gt" => format!("{raw} > {}", typed(placeholder(&mut binds, value.to_string()))),
-            "gte" => format!("{raw} >= {}", typed(placeholder(&mut binds, value.to_string()))),
-            "lt" => format!("{raw} < {}", typed(placeholder(&mut binds, value.to_string()))),
-            "lte" => format!("{raw} <= {}", typed(placeholder(&mut binds, value.to_string()))),
+            "gt" => format!(
+                "{raw} > {}",
+                typed(placeholder(&mut binds, value.to_string()))
+            ),
+            "gte" => format!(
+                "{raw} >= {}",
+                typed(placeholder(&mut binds, value.to_string()))
+            ),
+            "lt" => format!(
+                "{raw} < {}",
+                typed(placeholder(&mut binds, value.to_string()))
+            ),
+            "lte" => format!(
+                "{raw} <= {}",
+                typed(placeholder(&mut binds, value.to_string()))
+            ),
             "contains" => format!(
                 "{col} LIKE {}",
                 placeholder(&mut binds, format!("%{}%", escape_like(value)))
@@ -582,11 +597,7 @@ pub struct TablePage {
 /// Read from the catalogue rather than from a result set, so that a table with no rows still
 /// describes itself — and `attnum > 0 AND NOT attisdropped` is what leaves out the system columns
 /// and the tombstones a dropped column leaves behind.
-async fn table_columns(
-    pool: &PgPool,
-    schema: &str,
-    table: &str,
-) -> Result<Vec<PgRow>, AppError> {
+async fn table_columns(pool: &PgPool, schema: &str, table: &str) -> Result<Vec<PgRow>, AppError> {
     sqlx::query(
         "SELECT a.attname AS name,
                 format_type(a.atttypid, a.atttypmod) AS data_type,
@@ -706,7 +717,10 @@ pub async fn table_data(
     let qualified = qualified_sql(&schema, &name);
 
     let column_rows = table_columns(pool, &schema, &name).await?;
-    let columns: Vec<String> = column_rows.iter().map(|r| r.get::<String, _>("name")).collect();
+    let columns: Vec<String> = column_rows
+        .iter()
+        .map(|r| r.get::<String, _>("name"))
+        .collect();
     let mut foreign_keys = foreign_keys(pool, &schema, &name).await.unwrap_or_default();
 
     let column_meta: BTreeMap<String, ColumnMeta> = column_rows
@@ -750,10 +764,7 @@ pub async fn table_data(
     for value in &binds {
         count_query = count_query.bind(value.as_str());
     }
-    let total: i64 = count_query
-        .fetch_one(pool)
-        .await
-        .map_err(map_error)?;
+    let total: i64 = count_query.fetch_one(pool).await.map_err(map_error)?;
 
     // The ceiling is the largest page size the grid offers; see `mysql::table_data`.
     let page_size = query.page_size.clamp(1, 5000);
@@ -793,10 +804,7 @@ pub async fn table_data(
     for value in &binds {
         data_query = data_query.bind(value.as_str());
     }
-    let rows = data_query
-        .fetch_all(pool)
-        .await
-        .map_err(map_error)?;
+    let rows = data_query.fetch_all(pool).await.map_err(map_error)?;
 
     Ok(TablePage {
         columns,
@@ -928,10 +936,7 @@ pub async fn update_row(
             _ => count_query.bind(None::<&str>),
         };
     }
-    let matched: i64 = count_query
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(map_error)?;
+    let matched: i64 = count_query.fetch_one(&mut *tx).await.map_err(map_error)?;
     if matched != 1 {
         tx.rollback().await.map_err(map_error)?;
         return Err(err!("error.rowsMatched", matched = matched));
@@ -950,10 +955,7 @@ pub async fn update_row(
     for value in key.values() {
         update_query = bind_value(update_query, value);
     }
-    update_query
-        .execute(&mut *tx)
-        .await
-        .map_err(map_error)?;
+    update_query.execute(&mut *tx).await.map_err(map_error)?;
 
     tx.commit().await.map_err(map_error)?;
     Ok(())
@@ -1068,10 +1070,7 @@ pub async fn delete_rows(
             for value in key.values() {
                 query = bind_value(query, value);
             }
-            query
-                .execute(&mut *tx)
-                .await
-                .map_err(map_error)?;
+            query.execute(&mut *tx).await.map_err(map_error)?;
         }
     }
 
@@ -1416,7 +1415,10 @@ mod tests {
             "expected to read 4 bytes, got 0 bytes at EOF",
         ));
         assert_eq!(map_error(eof).code, "error.connectionLost");
-        assert_eq!(map_error(sqlx::Error::PoolTimedOut).code, "error.connectionLost");
+        assert_eq!(
+            map_error(sqlx::Error::PoolTimedOut).code,
+            "error.connectionLost"
+        );
         assert_eq!(map_error(sqlx::Error::RowNotFound).code, "error.postgres");
     }
 }

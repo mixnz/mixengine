@@ -38,16 +38,22 @@ pub async fn connect() -> Result<Io, AppError> {
 /// (`error.mixenginePipeOwner`), and a home that cannot be named at all
 /// (`error.mixengineNoHome`, raised before this is reached).
 pub async fn dial(endpoint: &Endpoint) -> Result<Io, AppError> {
-    Connection::connect(endpoint).await.map_err(|error| match error {
-        mixengine_platform::Error::EndpointNotOurs { address, account } => {
-            err!("error.mixenginePipeOwner", endpoint = address, owner = account)
-        }
-        other => err!(
-            "error.mixengineUnreachable",
-            endpoint = endpoint.to_string(),
-            message = other
-        ),
-    })
+    Connection::connect(endpoint)
+        .await
+        .map_err(|error| match error {
+            mixengine_platform::Error::EndpointNotOurs { address, account } => {
+                err!(
+                    "error.mixenginePipeOwner",
+                    endpoint = address,
+                    owner = account
+                )
+            }
+            other => err!(
+                "error.mixengineUnreachable",
+                endpoint = endpoint.to_string(),
+                message = other
+            ),
+        })
 }
 
 #[cfg(test)]

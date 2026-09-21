@@ -86,7 +86,9 @@ mod tests {
     fn sink() -> (Emitted, impl FnMut(Vec<u8>)) {
         let seen: Emitted = Arc::new(Mutex::new(Vec::new()));
         let handle = seen.clone();
-        (seen, move |chunk: Vec<u8>| handle.lock().unwrap().push(chunk))
+        (seen, move |chunk: Vec<u8>| {
+            handle.lock().unwrap().push(chunk)
+        })
     }
 
     #[tokio::test(start_paused = true)]

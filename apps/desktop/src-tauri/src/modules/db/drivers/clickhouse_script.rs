@@ -42,14 +42,22 @@ struct Statement {
 enum Region {
     /// Not inside a comment or a quoted string. `pending` is the previous character when it might
     /// be the first half of `--` or `/*` and the next character decides which.
-    Body { pending: Option<char> },
+    Body {
+        pending: Option<char>,
+    },
     LineComment,
     /// `pending` is `Some('*')` right after a `*` that a following `/` would close, or `Some('/')`
     /// right after a `/` that a following `*` would open one level deeper.
-    BlockComment { depth: u32, pending: Option<char> },
+    BlockComment {
+        depth: u32,
+        pending: Option<char>,
+    },
     /// Inside `` ` ``, `"` or `'` — `quote` says which. `escaped` when the previous character was
     /// an unconsumed `\`.
-    Quoted { quote: char, escaped: bool },
+    Quoted {
+        quote: char,
+        escaped: bool,
+    },
     /// Just closed a `'`; one more `'` reopens the string (SQL's doubled-quote escape) rather than
     /// ending it for good.
     MaybeDoubledSingleQuote,
@@ -76,7 +84,11 @@ pub(super) struct Scanner {
 
 impl Scanner {
     pub(super) fn new() -> Self {
-        Self { region: Region::Body { pending: None }, verb: String::new(), verb_done: false }
+        Self {
+            region: Region::Body { pending: None },
+            verb: String::new(),
+            verb_done: false,
+        }
     }
 
     /// The statement's opening keyword, upper-cased — empty for a run of nothing but comments.
@@ -103,13 +115,19 @@ impl Scanner {
             Region::BlockComment { depth, pending } => {
                 match (pending, c) {
                     (Some('/'), '*') => {
-                        self.region = Region::BlockComment { depth: depth + 1, pending: None };
+                        self.region = Region::BlockComment {
+                            depth: depth + 1,
+                            pending: None,
+                        };
                     }
                     (Some('*'), '/') => {
                         self.region = if depth <= 1 {
                             Region::Body { pending: None }
                         } else {
-                            Region::BlockComment { depth: depth - 1, pending: None }
+                            Region::BlockComment {
+                                depth: depth - 1,
+                                pending: None,
+                            }
                         };
                     }
                     _ => {
@@ -123,9 +141,15 @@ impl Scanner {
             }
             Region::Quoted { quote, escaped } => {
                 if escaped {
-                    self.region = Region::Quoted { quote, escaped: false };
+                    self.region = Region::Quoted {
+                        quote,
+                        escaped: false,
+                    };
                 } else if c == '\\' {
-                    self.region = Region::Quoted { quote, escaped: true };
+                    self.region = Region::Quoted {
+                        quote,
+                        escaped: true,
+                    };
                 } else if c == quote {
                     self.region = if quote == '\'' {
                         Region::MaybeDoubledSingleQuote
@@ -137,7 +161,10 @@ impl Scanner {
             }
             Region::MaybeDoubledSingleQuote => {
                 if c == '\'' {
-                    self.region = Region::Quoted { quote: '\'', escaped: false };
+                    self.region = Region::Quoted {
+                        quote: '\'',
+                        escaped: false,
+                    };
                     Fed::More
                 } else {
                     self.region = Region::Body { pending: None };
@@ -155,7 +182,10 @@ impl Scanner {
                 Fed::More
             }
             (Some('/'), '*') => {
-                self.region = Region::BlockComment { depth: 1, pending: None };
+                self.region = Region::BlockComment {
+                    depth: 1,
+                    pending: None,
+                };
                 Fed::More
             }
             // The pending character was not the first half of anything — resolve it as an
@@ -173,11 +203,17 @@ impl Scanner {
                 Fed::More
             }
             (None, '`') | (None, '"') => {
-                self.region = Region::Quoted { quote: c, escaped: false };
+                self.region = Region::Quoted {
+                    quote: c,
+                    escaped: false,
+                };
                 Fed::More
             }
             (None, '\'') => {
-                self.region = Region::Quoted { quote: '\'', escaped: false };
+                self.region = Region::Quoted {
+                    quote: '\'',
+                    escaped: false,
+                };
                 Fed::More
             }
             (None, ';') => {
@@ -241,14 +277,21 @@ fn split_statements(sql: &str) -> Vec<Statement> {
 /// (`"error.clickhouse message=…"`) its `Display` would give — this module reports server errors
 /// as text meant for the Query tab to show beside the statement, not as a translation code.
 fn server_message(error: &AppError) -> String {
-    error.params.get("message").cloned().unwrap_or_else(|| error.to_string())
+    error
+        .params
+        .get("message")
+        .cloned()
+        .unwrap_or_else(|| error.to_string())
 }
 
 /// One value, as the closest JSON the frontend can show — the counterpart of `column_value` on
 /// the other engines. `FORMAT JSON` has already turned it into JSON, so this is only about the
 /// shape a table cell wants: a `Vec<Value>` in column order rather than a `Map`.
 fn row_to_columns(row: &serde_json::Map<String, Value>, columns: &[String]) -> Vec<Value> {
-    columns.iter().map(|c| row.get(c).cloned().unwrap_or(Value::Null)).collect()
+    columns
+        .iter()
+        .map(|c| row.get(c).cloned().unwrap_or(Value::Null))
+        .collect()
 }
 
 /// One token of a statement's own text that D3/D4 of
@@ -555,8 +598,11 @@ pub async fn run(
 
         let (columns, rows, truncated, rows_affected, kind, failure) = match outcome {
             DispatchOutcome::Rows(result) => {
-                let columns: Vec<String> =
-                    result.data.first().map(|row| row.keys().cloned().collect()).unwrap_or_default();
+                let columns: Vec<String> = result
+                    .data
+                    .first()
+                    .map(|row| row.keys().cloned().collect())
+                    .unwrap_or_default();
                 let truncated = result.data.len() > MAX_ROWS;
                 let rows: Vec<Vec<Value>> = result
                     .data
@@ -574,9 +620,14 @@ pub async fn run(
             // `message` rather than `e.to_string()`: the latter is `AppError`'s own debug form
             // ("error.clickhouse message=…"), meant for a log line — this field is what the Query
             // tab shows beside the statement, and what belongs there is the server's own words.
-            DispatchOutcome::Err(e) => {
-                (Vec::new(), Vec::new(), false, 0u64, "error", Some(server_message(&e)))
-            }
+            DispatchOutcome::Err(e) => (
+                Vec::new(),
+                Vec::new(),
+                false,
+                0u64,
+                "error",
+                Some(server_message(&e)),
+            ),
         };
 
         let failed = failure.is_some();
@@ -637,7 +688,10 @@ mod tests {
     use super::*;
 
     fn split(sql: &str) -> Vec<(String, String)> {
-        split_statements(sql).into_iter().map(|s| (s.verb, s.text)).collect()
+        split_statements(sql)
+            .into_iter()
+            .map(|s| (s.verb, s.text))
+            .collect()
     }
 
     /// Runs `sql` through `Scanner`, split into `chunk_size`-character pieces fed one chunk's worth
@@ -677,7 +731,11 @@ mod tests {
                     SELECT 'backslash \\' then quote''s here';";
         let whole: Vec<String> = split(sql).into_iter().map(|(_, text)| text).collect();
         for chunk_size in [1, 2, 3, 5, 7, 16, 64] {
-            assert_eq!(split_in_chunks(sql, chunk_size), whole, "chunk_size={chunk_size}");
+            assert_eq!(
+                split_in_chunks(sql, chunk_size),
+                whole,
+                "chunk_size={chunk_size}"
+            );
         }
     }
 
@@ -727,31 +785,45 @@ mod tests {
 
     #[test]
     fn alter_table_update_target_refuses_more_than_one_command() {
-        assert_eq!(alter_table_update_target("ALTER TABLE t DROP COLUMN x, UPDATE y = 1 WHERE z = 2"), None);
+        assert_eq!(
+            alter_table_update_target("ALTER TABLE t DROP COLUMN x, UPDATE y = 1 WHERE z = 2"),
+            None
+        );
     }
 
     #[test]
     fn alter_table_update_target_refuses_a_plain_drop_column() {
-        assert_eq!(alter_table_update_target("ALTER TABLE t DROP COLUMN x"), None);
+        assert_eq!(
+            alter_table_update_target("ALTER TABLE t DROP COLUMN x"),
+            None
+        );
     }
 
     #[test]
     fn alter_table_update_target_refuses_alter_delete() {
         // D2 of the design: only DELETE FROM...WHERE is supported, not this older mutation spelling.
-        assert_eq!(alter_table_update_target("ALTER TABLE t DELETE WHERE id = 1"), None);
+        assert_eq!(
+            alter_table_update_target("ALTER TABLE t DELETE WHERE id = 1"),
+            None
+        );
     }
 
     #[test]
     fn alter_table_update_target_skips_comments() {
         assert_eq!(
-            alter_table_update_target("ALTER TABLE /* c */ t UPDATE x = 1 -- trailing\nWHERE id = 1"),
+            alter_table_update_target(
+                "ALTER TABLE /* c */ t UPDATE x = 1 -- trailing\nWHERE id = 1"
+            ),
             Some((None, "t".to_string()))
         );
     }
 
     #[test]
     fn delete_from_target_reads_the_table() {
-        assert_eq!(delete_from_target("DELETE FROM t WHERE id = 1"), Some((None, "t".to_string())));
+        assert_eq!(
+            delete_from_target("DELETE FROM t WHERE id = 1"),
+            Some((None, "t".to_string()))
+        );
         assert_eq!(
             delete_from_target("DELETE FROM mydb.t WHERE id = 1"),
             Some((Some("mydb".to_string()), "t".to_string()))

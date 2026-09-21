@@ -43,8 +43,8 @@ pub async fn spawn(
                     }
                 }
                 /* Một phiên có pty thường trộn stderr vào stdout, nhưng máy chủ vẫn được phép tách
-                   ra — và một dòng lỗi không hiện lên màn hình thì tệ hơn là hiện lẫn vào dòng
-                   khác. */
+                ra — và một dòng lỗi không hiện lên màn hình thì tệ hơn là hiện lẫn vào dòng
+                khác. */
                 ChannelMsg::ExtendedData { data, .. } => {
                     if raw_tx.send(data.to_vec()).await.is_err() {
                         break;
@@ -63,7 +63,7 @@ pub async fn spawn(
     });
 
     /* Ghi, đổi kích thước, đóng — một task, vì cả ba đi qua cùng một nửa ghi, và vì đây là chỗ giữ
-       phiên SSH sống. Task này về là kết nối đóng. */
+    phiên SSH sống. Task này về là kết nối đóng. */
     tokio::spawn({
         let kill = kill.clone();
         async move {

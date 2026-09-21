@@ -61,8 +61,8 @@ pub async fn connect(path: &str) -> Result<SqlitePool, AppError> {
         return Err(err!("error.sqlitePathRequired"));
     }
     /* Checked before opening rather than left to SQLite, which reports a missing file as
-       "unable to open database file" — the same words it uses for a directory, a permission
-       problem and a corrupt header. */
+    "unable to open database file" — the same words it uses for a directory, a permission
+    problem and a corrupt header. */
     if !Path::new(path).is_file() {
         return Err(err!("error.sqliteFileNotFound", path = path));
     }
@@ -108,11 +108,13 @@ pub async fn create_file(path: &str) -> Result<(), AppError> {
         .map_err(map_error)?;
 
     /* Opening alone leaves a file of zero bytes. SQLite reads that back as an empty database and
-       so would MixDB, but another tool looking at the header would see nothing to recognise — so
-       one harmless write is made to lay the header down. `user_version` is a value SQLite keeps
-       for the application and reads no meaning into; setting it to the zero it already is changes
-       nothing but the fact that the file has been written to. */
-    let written = sqlx::raw_sql("PRAGMA user_version = 0").execute(&pool).await;
+    so would MixDB, but another tool looking at the header would see nothing to recognise — so
+    one harmless write is made to lay the header down. `user_version` is a value SQLite keeps
+    for the application and reads no meaning into; setting it to the zero it already is changes
+    nothing but the fact that the file has been written to. */
+    let written = sqlx::raw_sql("PRAGMA user_version = 0")
+        .execute(&pool)
+        .await;
     pool.close().await;
     written.map_err(map_error)?;
     Ok(())
@@ -300,12 +302,18 @@ async fn foreign_keys(
             let from = r.get::<String, _>("from");
             let target = r.get::<String, _>("table");
             /* `to` is null when the key points at the other table's primary key without naming it.
-               Resolving that would be a second read per key; the grid only needs a column to show,
-               and the primary key is what it would resolve to. */
+            Resolving that would be a second read per key; the grid only needs a column to show,
+            and the primary key is what it would resolve to. */
             let column = r
                 .get::<Option<String>, _>("to")
                 .unwrap_or_else(|| "rowid".to_string());
-            (from, ForeignKey { table: target, column })
+            (
+                from,
+                ForeignKey {
+                    table: target,
+                    column,
+                },
+            )
         })
         .collect())
 }
@@ -339,8 +347,8 @@ pub(super) fn split_default(raw: Option<String>) -> (Option<String>, bool) {
 fn extra_tokens(column: &ColumnRow, single_column_key: bool) -> String {
     let mut tokens: Vec<&str> = Vec::new();
     /* The one column SQLite assigns for you, and only in this exact shape: a single-column primary
-       key declared `INTEGER`. `INT`, `BIGINT` or a two-column key are ordinary columns that happen
-       to be keys, and an INSERT must still name them. */
+    key declared `INTEGER`. `INT`, `BIGINT` or a two-column key are ordinary columns that happen
+    to be keys, and an INSERT must still name them. */
     if single_column_key && column.pk == 1 && column.declared_type.eq_ignore_ascii_case("integer") {
         tokens.push("rowid");
     }
@@ -422,7 +430,7 @@ pub async fn table_data(
         })
         .unwrap_or_default();
     /* Named one by one rather than `SELECT *`: a generated column is in `columns` and the rows have
-       to line up with it, and `SELECT *` on a table with one leaves it out. */
+    to line up with it, and `SELECT *` on a table with one leaves it out. */
     let select_list = columns
         .iter()
         .map(|name| quote_ident(name))
@@ -470,7 +478,10 @@ pub(super) fn column_value(row: &SqliteRow, i: usize) -> Value {
         return Value::Null;
     }
     match raw.type_info().name() {
-        "INTEGER" => row.try_get::<i64, _>(i).map(Value::from).unwrap_or(Value::Null),
+        "INTEGER" => row
+            .try_get::<i64, _>(i)
+            .map(Value::from)
+            .unwrap_or(Value::Null),
         "REAL" => row
             .try_get::<f64, _>(i)
             .ok()
@@ -515,9 +526,9 @@ fn build_where(filters: &[Filter], columns: &[String]) -> Result<(String, Vec<St
         }
         let col = quote_ident(&filter.column);
         /* Compared as text, so that what is typed into the filter box matches what the grid shows
-           whatever storage class the cell holds — SQLite otherwise sorts every string after every
-           number, and `= '5'` would not find an integer 5. The ordering operators are the
-           exception: there the column stands, so numbers compare as numbers. */
+        whatever storage class the cell holds — SQLite otherwise sorts every string after every
+        number, and `= '5'` would not find an integer 5. The ordering operators are the
+        exception: there the column stands, so numbers compare as numbers. */
         let text = format!("CAST({col} AS TEXT)");
         let value = filter.value.as_deref().unwrap_or("");
         let operator = filter.operator.as_str();
@@ -843,8 +854,8 @@ pub(super) mod tests {
 
     impl Fixture {
         pub async fn open() -> (Self, SqlitePool) {
-            let path = std::env::temp_dir()
-                .join(format!("mixdb-sqlite-{}.db", uuid::Uuid::new_v4()));
+            let path =
+                std::env::temp_dir().join(format!("mixdb-sqlite-{}.db", uuid::Uuid::new_v4()));
             // The one place in the app that creates a database file, and it is a test: `connect`
             // never does — see D5 of the plan this was built from.
             let pool = SqlitePoolOptions::new()
@@ -884,7 +895,11 @@ pub(super) mod tests {
     }
 
     fn page(page_size: i64) -> PageQuery {
-        PageQuery { page: 0, page_size, ..PageQuery::default() }
+        PageQuery {
+            page: 0,
+            page_size,
+            ..PageQuery::default()
+        }
     }
 
     fn filtered(column: &str, operator: &str, value: Option<&str>) -> PageQuery {
@@ -900,14 +915,14 @@ pub(super) mod tests {
         }
     }
 
-
     fn map(pairs: &[(&str, Option<&str>)]) -> Map<String, Value> {
         pairs
             .iter()
             .map(|(k, v)| {
                 (
                     (*k).to_string(),
-                    v.map(|s| Value::String(s.to_string())).unwrap_or(Value::Null),
+                    v.map(|s| Value::String(s.to_string()))
+                        .unwrap_or(Value::Null),
                 )
             })
             .collect()
@@ -936,18 +951,29 @@ pub(super) mod tests {
         .unwrap();
 
         /* Bound as the text the grid sent, and stored as an integer: SQLite applies the column's
-           affinity on the way in, which is why nothing here needs the casts PostgreSQL's binds
-           carry. A stored `"42"` would come back as a JSON string. */
-        assert_eq!(cell(&pool, "select views from post where id = 1").await, Value::from(42));
+        affinity on the way in, which is why nothing here needs the casts PostgreSQL's binds
+        carry. A stored `"42"` would come back as a JSON string. */
+        assert_eq!(
+            cell(&pool, "select views from post where id = 1").await,
+            Value::from(42)
+        );
     }
 
     #[tokio::test]
     async fn an_explicit_null_is_written_as_one() {
         let (_fixture, pool) = Fixture::open().await;
-        update_row(&pool, "post", &map(&[("views", None)]), &map(&[("id", Some("1"))]))
-            .await
-            .unwrap();
-        assert_eq!(cell(&pool, "select views from post where id = 1").await, Value::Null);
+        update_row(
+            &pool,
+            "post",
+            &map(&[("views", None)]),
+            &map(&[("id", Some("1"))]),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            cell(&pool, "select views from post where id = 1").await,
+            Value::Null
+        );
     }
 
     #[tokio::test]
@@ -1054,10 +1080,11 @@ pub(super) mod tests {
         .expect_err("should refuse");
         assert_eq!(error.code, "error.rowFailed");
 
-        let landed: i64 = sqlx::query_scalar("select count(*) from post where title like '% of two'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let landed: i64 =
+            sqlx::query_scalar("select count(*) from post where title like '% of two'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(landed, 0);
     }
 
@@ -1069,13 +1096,19 @@ pub(super) mod tests {
             .await
             .unwrap();
 
-        delete_rows(&pool, "loose", &[map(&[("label", Some("twin"))])], false, false)
-            .await
-            .unwrap();
+        delete_rows(
+            &pool,
+            "loose",
+            &[map(&[("label", Some("twin"))])],
+            false,
+            false,
+        )
+        .await
+        .unwrap();
 
         /* Aimed at the rowid of one matching row rather than at the predicate, which matches both.
-           Deleting "the rows that look like this one" would have taken a row the user did not
-           select. */
+        Deleting "the rows that look like this one" would have taken a row the user did not
+        select. */
         let left: i64 = sqlx::query_scalar("select count(*) from loose where label = 'twin'")
             .fetch_one(&pool)
             .await
@@ -1098,9 +1131,13 @@ pub(super) mod tests {
     async fn resetting_the_counter_numbers_the_next_row_from_one() {
         let (_fixture, pool) = Fixture::open().await;
         delete_rows(&pool, "post", &[], true, true).await.unwrap();
-        insert_rows(&pool, "post", &[map(&[("author_id", Some("1")), ("title", Some("Again"))])])
-            .await
-            .unwrap();
+        insert_rows(
+            &pool,
+            "post",
+            &[map(&[("author_id", Some("1")), ("title", Some("Again"))])],
+        )
+        .await
+        .unwrap();
         // `post` is AUTOINCREMENT, so without clearing sqlite_sequence this would be 4.
         assert_eq!(cell(&pool, "select id from post").await, Value::from(1));
     }
@@ -1116,7 +1153,9 @@ pub(super) mod tests {
     #[tokio::test]
     async fn a_missing_file_is_an_error_and_stays_missing() {
         let path = std::env::temp_dir().join(format!("mixdb-absent-{}.db", uuid::Uuid::new_v4()));
-        let error = connect(path.to_str().unwrap()).await.expect_err("should refuse");
+        let error = connect(path.to_str().unwrap())
+            .await
+            .expect_err("should refuse");
         assert_eq!(error.code, "error.sqliteFileNotFound");
         // The point of the check, not a side effect of it: opening a path that is not there must
         // not leave an empty database behind for the user to wonder about.
@@ -1144,13 +1183,15 @@ pub(super) mod tests {
         pool.close().await;
 
         /* The save dialog will have asked about replacing it and been told yes. That must not
-           reach here as "delete that database": nothing else in MixDB deletes a database file. */
+        reach here as "delete that database": nothing else in MixDB deletes a database file. */
         let error = create_file(fixture.path.to_str().unwrap())
             .await
             .expect_err("should refuse");
         assert_eq!(error.code, "error.sqliteFileExists");
 
-        let pool = connect(fixture.path.to_str().unwrap()).await.expect("still there");
+        let pool = connect(fixture.path.to_str().unwrap())
+            .await
+            .expect("still there");
         assert!(!list_tables(&pool).await.unwrap().is_empty());
     }
 
@@ -1166,7 +1207,11 @@ pub(super) mod tests {
     async fn the_header_names_the_file_rather_than_a_machine() {
         let (fixture, pool) = Fixture::open().await;
         let info = server_info(&pool).await.unwrap();
-        assert!(info.version.starts_with('3'), "version was {}", info.version);
+        assert!(
+            info.version.starts_with('3'),
+            "version was {}",
+            info.version
+        );
         assert_eq!(info.os, fixture.path.file_name().unwrap().to_string_lossy());
     }
 
@@ -1192,7 +1237,15 @@ pub(super) mod tests {
         // In the grid, in table order — `pragma_table_info` would have left it out entirely.
         assert_eq!(
             data.columns,
-            vec!["id", "author_id", "title", "slug", "body", "views", "created_at"]
+            vec![
+                "id",
+                "author_id",
+                "title",
+                "slug",
+                "body",
+                "views",
+                "created_at"
+            ]
         );
         assert_eq!(data.column_meta["slug"].extra, "generated");
         assert_eq!(data.rows[0]["slug"], Value::String("hello world".into()));
@@ -1208,8 +1261,8 @@ pub(super) mod tests {
         assert_eq!(post.column_meta["id"].extra, "rowid");
 
         /* `tag.id` is declared INTEGER and is first in the key, and is still an ordinary column: a
-           rowid alias is a *single*-column key. An INSERT has to give it a value, so reporting it
-           as server-assigned would be a row the grid refuses to write. */
+        rowid alias is a *single*-column key. An INSERT has to give it a value, so reporting it
+        as server-assigned would be a row the grid refuses to write. */
         let tag = table_data(&pool, "tag", &page(50)).await.unwrap();
         assert_eq!(tag.primary_key, vec!["id", "label"]);
         assert_eq!(tag.auto_increment_column, None);
@@ -1224,7 +1277,10 @@ pub(super) mod tests {
         assert_eq!(data.column_meta["title"].data_type, "TEXT");
         assert!(!data.column_meta["title"].nullable);
         assert!(data.column_meta["body"].nullable);
-        assert_eq!(data.column_meta["views"].default_value.as_deref(), Some("0"));
+        assert_eq!(
+            data.column_meta["views"].default_value.as_deref(),
+            Some("0")
+        );
         assert_eq!(
             data.column_meta["created_at"].default_value.as_deref(),
             Some("CURRENT_TIMESTAMP")
@@ -1305,9 +1361,13 @@ pub(super) mod tests {
         let (_fixture, pool) = Fixture::open().await;
         // The column name is the one part of a filter that is interpolated, so it is checked
         // against the table rather than trusted.
-        let error = table_data(&pool, "post", &filtered("title\" IS NULL --", "eq", Some("x")))
-            .await
-            .expect_err("should refuse");
+        let error = table_data(
+            &pool,
+            "post",
+            &filtered("title\" IS NULL --", "eq", Some("x")),
+        )
+        .await
+        .expect_err("should refuse");
         assert_eq!(error.code, "error.unknownFilterColumn");
     }
 
@@ -1315,8 +1375,8 @@ pub(super) mod tests {
     async fn regexp_is_refused_rather_than_sent() {
         let (_fixture, pool) = Fixture::open().await;
         /* The dropdown does not offer it, so this only happens to a filter that arrived some other
-           way — and then it says which operator is unknown, rather than SQLite saying "no such
-           function: regexp" about a query nobody wrote. */
+        way — and then it says which operator is unknown, rather than SQLite saying "no such
+        function: regexp" about a query nobody wrote. */
         let error = table_data(&pool, "post", &filtered("title", "regexp", Some("^H")))
             .await
             .expect_err("should refuse");

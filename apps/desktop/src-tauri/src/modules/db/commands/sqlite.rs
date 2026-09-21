@@ -15,10 +15,12 @@
 //! at all. The attribute keeps the name exactly as it is sent.
 
 use crate::error::AppError;
-use crate::modules::db::drivers::{dump, sqlite, sqlite_ddl, sqlite_dump, sqlite_script, sqlite_structure};
+use crate::modules::db::drivers::{
+    dump, sqlite, sqlite_ddl, sqlite_dump, sqlite_script, sqlite_structure,
+};
 use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
-use serde_json::{Map, Value};
 use crate::modules::db::state::DbState;
+use serde_json::{Map, Value};
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, State};
 
@@ -329,7 +331,10 @@ pub async fn sqlite_dump(
     let report = reporter(&app, &id);
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
-    let watch = dump::Watch { report: &report, cancel: &|| cancelled.load(Ordering::Relaxed) };
+    let watch = dump::Watch {
+        report: &report,
+        cancel: &|| cancelled.load(Ordering::Relaxed),
+    };
     let path = std::path::Path::new(&path);
 
     if mode != dump::DumpMode::Data {

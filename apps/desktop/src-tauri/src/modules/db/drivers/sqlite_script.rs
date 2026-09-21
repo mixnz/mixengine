@@ -62,7 +62,10 @@ fn split_statements(sql: &str) -> Vec<Statement> {
         if opening.is_empty() {
             return;
         }
-        statements.push(Statement { text, verb: opening });
+        statements.push(Statement {
+            text,
+            verb: opening,
+        });
     }
 
     while i < chars.len() {
@@ -179,7 +182,7 @@ pub async fn validate(pool: &SqlitePool, sql: &str) -> Result<Option<SqlProblem>
         message,
         number: 0,
         /* SQLite reports the offending token but not where it is, so there is no line to point at.
-           The editor draws the warning across the whole statement when this is `None`. */
+        The editor draws the warning across the whole statement when this is `None`. */
         line: None,
         severity: if syntax { "error" } else { "warning" }.to_string(),
     }))
@@ -237,8 +240,8 @@ pub async fn run(pool: &SqlitePool, sql: &str) -> Result<Vec<StatementResult>, A
                     Ok(Either::Left(done)) => {
                         rows_affected = done.rows_affected();
                         /* The rowid of the row this statement inserted. Reported only for an
-                           INSERT: SQLite keeps the last one on the connection, so after an UPDATE
-                           it would still hold whatever the INSERT before it left there. */
+                        INSERT: SQLite keeps the last one on the connection, so after an UPDATE
+                        it would still hold whatever the INSERT before it left there. */
                         if statement.verb == "INSERT" || statement.verb == "REPLACE" {
                             let rowid = done.last_insert_rowid();
                             if rowid > 0 {
@@ -310,8 +313,8 @@ mod tests {
     #[test]
     fn a_backslash_before_a_quote_does_not_escape_it() {
         /* MySQL's splitter would read `'a\'` as an unterminated string and swallow the rest. In
-           SQLite a backslash is an ordinary character and the literal ends at that quote, so this
-           is two statements. */
+        SQLite a backslash is an ordinary character and the literal ends at that quote, so this
+        is two statements. */
         let statements = split(r"select 'a\'; select 2");
         assert_eq!(statements.len(), 2);
         assert_eq!(statements[1].0, "SELECT");
@@ -370,9 +373,12 @@ mod run_tests {
     #[tokio::test]
     async fn a_script_runs_statement_by_statement_and_reports_each() {
         let (_fixture, pool) = Fixture::open().await;
-        let results = run(&pool, "select 1 as n; update post set views = 0; select count(*) from post")
-            .await
-            .unwrap();
+        let results = run(
+            &pool,
+            "select 1 as n; update post set views = 0; select count(*) from post",
+        )
+        .await
+        .unwrap();
 
         assert_eq!(results.len(), 3);
         assert_eq!(results[0].kind, "rows");
@@ -422,7 +428,10 @@ mod run_tests {
     async fn an_empty_script_says_so() {
         let (_fixture, pool) = Fixture::open().await;
         assert_eq!(
-            run(&pool, "  -- nothing\n").await.expect_err("nothing to run").code,
+            run(&pool, "  -- nothing\n")
+                .await
+                .expect_err("nothing to run")
+                .code,
             "error.nothingToRun"
         );
     }
@@ -430,11 +439,13 @@ mod run_tests {
     #[tokio::test]
     async fn a_transaction_left_open_does_not_follow_the_connection_back_to_the_pool() {
         let (_fixture, pool) = Fixture::open().await;
-        run(&pool, "begin; update post set views = 1").await.unwrap();
+        run(&pool, "begin; update post set views = 1")
+            .await
+            .unwrap();
 
         /* The script's connection is closed rather than returned, so the write lock that unfinished
-           BEGIN is holding goes with it. Without that, this next write would sit on the busy
-           timeout and then fail — from another tab, for no reason the user could see. */
+        BEGIN is holding goes with it. Without that, this next write would sit on the busy
+        timeout and then fail — from another tab, for no reason the user could see. */
         let results = run(&pool, "update post set views = 2").await.unwrap();
         assert_eq!(results[0].rows_affected, 3);
     }
@@ -443,15 +454,24 @@ mod run_tests {
     async fn bad_syntax_is_an_error_and_a_bad_name_is_only_a_warning() {
         let (_fixture, pool) = Fixture::open().await;
 
-        let syntax = validate(&pool, "selec 1").await.unwrap().expect("a problem");
+        let syntax = validate(&pool, "selec 1")
+            .await
+            .unwrap()
+            .expect("a problem");
         assert_eq!(syntax.severity, "error");
 
         /* A name the prepare cannot see may still exist by the time the script reaches it — a
-           temporary table made by an earlier statement, say — so this is the softer of the two. */
-        let name = validate(&pool, "select * from nowhere").await.unwrap().expect("a problem");
+        temporary table made by an earlier statement, say — so this is the softer of the two. */
+        let name = validate(&pool, "select * from nowhere")
+            .await
+            .unwrap()
+            .expect("a problem");
         assert_eq!(name.severity, "warning");
 
-        assert!(validate(&pool, "select * from post").await.unwrap().is_none());
+        assert!(validate(&pool, "select * from post")
+            .await
+            .unwrap()
+            .is_none());
     }
 
     #[tokio::test]

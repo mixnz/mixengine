@@ -8,7 +8,9 @@
 //! clears it, rather than restating the column whole the way MySQL's `CHANGE COLUMN` or building one
 //! `ALTER COLUMN TYPE ... USING ...` the way PostgreSQL's does — see D15 and this plan's Task 5.
 
-use super::mssql::{end_transaction, map_error, quote_ident, resolve, three_part, Connection, Pool};
+use super::mssql::{
+    end_transaction, map_error, quote_ident, resolve, three_part, Connection, Pool,
+};
 use super::mssql_structure::{IndexColumn, TableIndex};
 use crate::error::AppError;
 use serde::Deserialize;
@@ -84,7 +86,10 @@ fn quote_nstring(value: &str) -> String {
 /// `ALTER`/`DROP DATABASE` are the only statements this file sends that T-SQL refuses inside a
 /// transaction at all (error 226) — every other statement goes through [`execute_all`] instead.
 async fn execute_single(pool: &Pool, sql: String) -> Result<(), AppError> {
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     client.simple_query(sql).await.map_err(map_error)?;
     Ok(())
 }
@@ -103,7 +108,10 @@ async fn execute_all(pool: &Pool, database: &str, statements: Vec<String>) -> Re
     if statements.is_empty() {
         return Ok(());
     }
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     client
         .simple_query(format!("USE {}", quote_ident(database)))
         .await
@@ -117,7 +125,10 @@ async fn execute_all(pool: &Pool, database: &str, statements: Vec<String>) -> Re
     end_transaction(&mut client, result).await
 }
 
-async fn execute_all_body(client: &mut Connection, statements: Vec<String>) -> Result<(), AppError> {
+async fn execute_all_body(
+    client: &mut Connection,
+    statements: Vec<String>,
+) -> Result<(), AppError> {
     for sql in statements {
         client.simple_query(sql).await.map_err(map_error)?;
     }
@@ -134,7 +145,10 @@ fn validated_collation(collation: Option<&str>) -> Result<Option<&str>, AppError
     let Some(collation) = collation.map(str::trim).filter(|c| !c.is_empty()) else {
         return Ok(None);
     };
-    if !collation.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+    if !collation
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
         return Err(err!("error.invalidCollation", collation = collation));
     }
     Ok(Some(collation))
@@ -143,7 +157,11 @@ fn validated_collation(collation: Option<&str>) -> Result<Option<&str>, AppError
 /// Creates a database, `COLLATE`d when `collation` is given (D14) — the one place SQL Server's
 /// collation dialog has anything to write to, since a table has none of its own (`tableCollation:
 /// false`).
-pub async fn create_database(pool: &Pool, name: &str, collation: Option<&str>) -> Result<(), AppError> {
+pub async fn create_database(
+    pool: &Pool,
+    name: &str,
+    collation: Option<&str>,
+) -> Result<(), AppError> {
     let name = name.trim();
     if name.is_empty() {
         return Err(err!("error.databaseNameRequired"));
@@ -170,7 +188,10 @@ pub async fn drop_database(pool: &Pool, name: &str) -> Result<(), AppError> {
         return Err(err!("error.databaseNameRequired"));
     }
     let quoted = quote_ident(name);
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     client.simple_query("USE master").await.map_err(map_error)?;
     client
         .simple_query(format!(
@@ -383,7 +404,10 @@ async fn current_column(
          WHERE s.name = @P1 AND o.name = @P2 AND c.name = @P3"
     );
 
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let row = client
         .query(sql, &[&schema, &table, &column])
         .await
@@ -431,7 +455,10 @@ async fn dependent_indexes(
          ORDER BY i.is_primary_key DESC, i.name, ic.key_ordinal"
     );
 
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let rows = client
         .query(sql, &[&object_id, &column_id])
         .await
@@ -465,13 +492,20 @@ async fn dependent_indexes(
     Ok(indexes)
 }
 
-pub async fn add_column(pool: &Pool, database: &str, table: &str, spec: &ColumnSpec) -> Result<(), AppError> {
+pub async fn add_column(
+    pool: &Pool,
+    database: &str,
+    table: &str,
+    spec: &ColumnSpec,
+) -> Result<(), AppError> {
     let (schema, table_name) = resolve(table);
     let qualified = three_part(database, &schema, &table_name);
     let definition = column_definition(spec)?;
 
     let mut statements = vec![format!("ALTER TABLE {qualified} ADD {definition}")];
-    if let Some(sql) = comment_statement(&schema, &table_name, spec.name.trim(), &spec.comment, false) {
+    if let Some(sql) =
+        comment_statement(&schema, &table_name, spec.name.trim(), &spec.comment, false)
+    {
         statements.push(sql);
     }
     execute_all(pool, database, statements).await
@@ -481,7 +515,12 @@ pub async fn add_column(pool: &Pool, database: &str, table: &str, spec: &ColumnS
 /// COLUMN` exactly as they block `ALTER COLUMN` (D15), and neither is rebuilt afterwards, since the
 /// column they covered no longer exists to cover. A comment needs no cleanup of its own: SQL Server
 /// drops a column's extended properties along with the column.
-pub async fn drop_column(pool: &Pool, database: &str, table: &str, name: &str) -> Result<(), AppError> {
+pub async fn drop_column(
+    pool: &Pool,
+    database: &str,
+    table: &str,
+    name: &str,
+) -> Result<(), AppError> {
     let column = name.trim();
     if column.is_empty() {
         return Err(err!("error.columnNameRequired"));
@@ -492,9 +531,8 @@ pub async fn drop_column(pool: &Pool, database: &str, table: &str, name: &str) -
 
     let mut statements = Vec::new();
     for index in dependent_indexes(pool, database, current.object_id, current.column_id).await? {
-        statements.push(
-            drop_index_statement(pool, database, &schema, &table_name, &index.name).await?,
-        );
+        statements
+            .push(drop_index_statement(pool, database, &schema, &table_name, &index.name).await?);
     }
     if let Some(default_name) = &current.default_name {
         statements.push(format!(
@@ -535,7 +573,10 @@ async fn drop_index_statement(
          JOIN {db}.sys.schemas s ON s.schema_id = o.schema_id
          WHERE s.name = @P1 AND o.name = @P2 AND i.name = @P3"
     );
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let row = client
         .query(sql, &[&schema, &table, &name])
         .await
@@ -544,9 +585,7 @@ async fn drop_index_statement(
         .await
         .map_err(map_error)?;
     let is_constraint = row
-        .map(|row| {
-            row.get::<bool, _>(0).unwrap_or(false) || row.get::<bool, _>(1).unwrap_or(false)
-        })
+        .map(|row| row.get::<bool, _>(0).unwrap_or(false) || row.get::<bool, _>(1).unwrap_or(false))
         .unwrap_or(false);
 
     let qualified = three_part(database, schema, table);
@@ -723,9 +762,8 @@ pub async fn modify_column(
 
     let mut statements = Vec::new();
     for index in &dependent {
-        statements.push(
-            drop_index_statement(pool, database, &schema, &table_name, &index.name).await?,
-        );
+        statements
+            .push(drop_index_statement(pool, database, &schema, &table_name, &index.name).await?);
     }
     if let Some(default_name) = &current.default_name {
         statements.push(format!(
@@ -782,7 +820,12 @@ pub async fn modify_column(
     execute_all(pool, database, statements).await
 }
 
-pub async fn add_index(pool: &Pool, database: &str, table: &str, spec: &IndexSpec) -> Result<(), AppError> {
+pub async fn add_index(
+    pool: &Pool,
+    database: &str,
+    table: &str,
+    spec: &IndexSpec,
+) -> Result<(), AppError> {
     let (schema, name) = resolve(table);
     let statements = create_index_statements(database, &schema, &name, spec)?;
     execute_all(pool, database, statements).await
@@ -805,11 +848,21 @@ pub async fn modify_index(
     let (schema, table_name) = resolve(table);
     let drop_stmt = drop_index_statement(pool, database, &schema, &table_name, old_name).await?;
     let mut statements = vec![drop_stmt];
-    statements.extend(create_index_statements(database, &schema, &table_name, spec)?);
+    statements.extend(create_index_statements(
+        database,
+        &schema,
+        &table_name,
+        spec,
+    )?);
     execute_all(pool, database, statements).await
 }
 
-pub async fn drop_index(pool: &Pool, database: &str, table: &str, name: &str) -> Result<(), AppError> {
+pub async fn drop_index(
+    pool: &Pool,
+    database: &str,
+    table: &str,
+    name: &str,
+) -> Result<(), AppError> {
     let name = name.trim();
     if name.is_empty() {
         return Err(err!("error.indexNameRequired"));
@@ -850,7 +903,10 @@ mod tests {
 
     #[test]
     fn a_plain_column_is_named_typed_and_nullable() {
-        assert_eq!(column_definition(&spec("title", "nvarchar(255)")).unwrap(), "[title] nvarchar(255) NULL");
+        assert_eq!(
+            column_definition(&spec("title", "nvarchar(255)")).unwrap(),
+            "[title] nvarchar(255) NULL"
+        );
     }
 
     #[test]
@@ -858,7 +914,10 @@ mod tests {
         let mut spec = spec("id", "int");
         spec.auto_increment = true;
         spec.default_value = Some("7".to_string());
-        assert_eq!(column_definition(&spec).unwrap(), "[id] int IDENTITY(1,1) NOT NULL");
+        assert_eq!(
+            column_definition(&spec).unwrap(),
+            "[id] int IDENTITY(1,1) NOT NULL"
+        );
     }
 
     #[test]
@@ -925,7 +984,9 @@ mod index_tests {
     use super::*;
 
     fn column(name: &str) -> IndexColumnSpec {
-        IndexColumnSpec { name: name.to_string() }
+        IndexColumnSpec {
+            name: name.to_string(),
+        }
     }
 
     #[test]
@@ -985,14 +1046,18 @@ mod index_tests {
 
     #[test]
     fn only_clustered_or_nonclustered_reach_the_sql() {
-        assert_eq!(validated_index_type(Some("clustered")).unwrap(), Some("CLUSTERED"));
+        assert_eq!(
+            validated_index_type(Some("clustered")).unwrap(),
+            Some("CLUSTERED")
+        );
         assert_eq!(validated_index_type(Some("  ")).unwrap(), None);
         assert!(validated_index_type(Some("btree")).is_err());
     }
 
     #[test]
     fn a_generated_name_is_never_longer_than_the_identifier_limit() {
-        let many_columns: Vec<IndexColumnSpec> = (0..40).map(|i| column(&format!("column_{i}"))).collect();
+        let many_columns: Vec<IndexColumnSpec> =
+            (0..40).map(|i| column(&format!("column_{i}"))).collect();
         assert!(generated_index_name("a_very_long_table_name_indeed", &many_columns).len() <= 128);
     }
 }

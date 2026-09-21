@@ -1,6 +1,6 @@
-use crate::modules::db::models::{ServerInfo};
-use crate::error::AppError;
 use super::filters::{escape_like, split_list};
+use crate::error::AppError;
+use crate::modules::db::models::ServerInfo;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use sqlx::mysql::{MySqlConnectOptions, MySqlPoolOptions, MySqlRow, MySqlSslMode};
@@ -531,10 +531,7 @@ pub async fn table_data(
     for value in &binds {
         count_query = count_query.bind(value.as_str());
     }
-    let total: i64 = count_query
-        .fetch_one(&mut *conn)
-        .await
-        .map_err(map_error)?;
+    let total: i64 = count_query.fetch_one(&mut *conn).await.map_err(map_error)?;
 
     // The ceiling is the largest page size the grid offers. Anything lower silently shortens the
     // page while the grid still counts its pages by the size it asked for, putting the rows past
@@ -562,10 +559,7 @@ pub async fn table_data(
     for value in &binds {
         data_query = data_query.bind(value.as_str());
     }
-    let rows = data_query
-        .fetch_all(&mut *conn)
-        .await
-        .map_err(map_error)?;
+    let rows = data_query.fetch_all(&mut *conn).await.map_err(map_error)?;
 
     Ok(TablePage {
         columns,
@@ -647,10 +641,7 @@ pub async fn update_row(
     for v in key.values() {
         update_query = bind_value(update_query, v);
     }
-    update_query
-        .execute(&mut *tx)
-        .await
-        .map_err(map_error)?;
+    update_query.execute(&mut *tx).await.map_err(map_error)?;
 
     tx.commit().await.map_err(map_error)?;
     Ok(())
@@ -949,7 +940,11 @@ mod tests {
     /// is refused outright rather than quoted and sent.
     #[test]
     fn an_unknown_column_or_operator_is_refused() {
-        assert!(build_where(&[filter("id`; DROP TABLE x; --", "eq", Some("1"))], &columns()).is_err());
+        assert!(build_where(
+            &[filter("id`; DROP TABLE x; --", "eq", Some("1"))],
+            &columns()
+        )
+        .is_err());
         assert!(build_where(&[filter("id", "sqli", Some("1"))], &columns()).is_err());
     }
 
@@ -976,7 +971,9 @@ mod tests {
         assert!(lost_connection(&sqlx::Error::PoolClosed));
 
         assert!(!lost_connection(&sqlx::Error::RowNotFound));
-        assert!(!lost_connection(&sqlx::Error::Protocol("unexpected packet".into())));
+        assert!(!lost_connection(&sqlx::Error::Protocol(
+            "unexpected packet".into()
+        )));
     }
 
     #[test]

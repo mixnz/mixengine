@@ -4,16 +4,18 @@
 //! something different: there it names a database to reach into from the one connection, here it
 //! picks which pool the command runs on. See `postgres_pool`.
 
-use super::{RunningQuery, Transfer};
-use std::sync::atomic::Ordering;
-use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
-use crate::error::AppError;
-use tauri::{AppHandle, State};
-use serde_json::{Map, Value};
-use crate::modules::db::drivers::{dump, postgres, postgres_ddl, postgres_script, postgres_structure, tools};
-use crate::modules::db::models::DbKind;
-use crate::modules::db::state::DbState;
 use super::{in_background, postgres_pool, postgres_pools, reporter, sql_endpoint, tools_dir};
+use super::{RunningQuery, Transfer};
+use crate::error::AppError;
+use crate::modules::db::drivers::{
+    dump, postgres, postgres_ddl, postgres_script, postgres_structure, tools,
+};
+use crate::modules::db::models::DbKind;
+use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
+use crate::modules::db::state::DbState;
+use serde_json::{Map, Value};
+use std::sync::atomic::Ordering;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn postgres_list_databases(
@@ -175,7 +177,11 @@ pub async fn postgres_run_script(
     // However it ended, dropping this is what forgets the pid.
     let _running = RunningQuery::start(&state, &run_id);
     postgres_script::run(&pool, &sql, |pid| {
-        state.running_queries.lock().unwrap().insert(run_id.clone(), pid);
+        state
+            .running_queries
+            .lock()
+            .unwrap()
+            .insert(run_id.clone(), pid);
     })
     .await
 }
@@ -377,7 +383,7 @@ pub async fn postgres_dump(
     let endpoint = sql_endpoint(&state, &id, DbKind::Postgres).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {
@@ -413,7 +419,7 @@ pub async fn postgres_restore(
     let endpoint = sql_endpoint(&state, &id, DbKind::Postgres).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {

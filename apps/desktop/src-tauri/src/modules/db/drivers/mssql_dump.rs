@@ -126,7 +126,10 @@ async fn computed_definitions(
          JOIN {db}.sys.columns c ON c.object_id = cc.object_id AND c.column_id = cc.column_id
          WHERE s.name = @P1 AND o.name = @P2"
     ));
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let rows = client
         .query(sql, &[&schema, &table])
         .await
@@ -225,8 +228,12 @@ pub async fn dump_structure(
                 column_lines.push(column_definition(&column_spec_from(column))?);
             }
         }
-        write!(file, "CREATE TABLE {qualified} (\n  {}\n);\n", column_lines.join(",\n  "))
-            .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))?;
+        write!(
+            file,
+            "CREATE TABLE {qualified} (\n  {}\n);\n",
+            column_lines.join(",\n  ")
+        )
+        .map_err(|e| err!("error.cannotWriteFile", path = path, message = e))?;
 
         for column in &structure.columns {
             if let Some(stmt) =
@@ -262,7 +269,10 @@ async fn view_definitions(pool: &Pool, database: &str) -> Result<Vec<String>, Ap
          JOIN {db}.sys.sql_modules m ON m.object_id = v.object_id
          ORDER BY v.create_date"
     ));
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let rows = client
         .query(sql, &[])
         .await
@@ -347,7 +357,10 @@ async fn foreign_key_constraints(
              ON rc.object_id = fkc.referenced_object_id AND rc.column_id = fkc.referenced_column_id
          ORDER BY fk.name, fkc.constraint_column_id"
     ));
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let rows = client
         .query(sql, &[])
         .await
@@ -361,13 +374,23 @@ async fn foreign_key_constraints(
         let Some(name) = row.get::<&str, _>("constraint_name") else {
             continue;
         };
-        if constraints.last().map(|last| last.name != name).unwrap_or(true) {
+        if constraints
+            .last()
+            .map(|last| last.name != name)
+            .unwrap_or(true)
+        {
             constraints.push(ForeignKeyConstraint {
                 name: name.to_string(),
                 schema: row.get::<&str, _>("schema_name").unwrap_or("").to_string(),
                 table: row.get::<&str, _>("table_name").unwrap_or("").to_string(),
-                ref_schema: row.get::<&str, _>("ref_schema_name").unwrap_or("").to_string(),
-                ref_table: row.get::<&str, _>("ref_table_name").unwrap_or("").to_string(),
+                ref_schema: row
+                    .get::<&str, _>("ref_schema_name")
+                    .unwrap_or("")
+                    .to_string(),
+                ref_table: row
+                    .get::<&str, _>("ref_table_name")
+                    .unwrap_or("")
+                    .to_string(),
                 columns: Vec::new(),
                 ref_columns: Vec::new(),
                 on_delete: row
@@ -408,8 +431,18 @@ fn referential_action(desc: &str) -> &'static str {
 fn foreign_key_statement(fk: &ForeignKeyConstraint) -> String {
     let qualified = qualified_ident(&fk.schema, &fk.table);
     let ref_qualified = qualified_ident(&fk.ref_schema, &fk.ref_table);
-    let columns = fk.columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
-    let ref_columns = fk.ref_columns.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+    let columns = fk
+        .columns
+        .iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let ref_columns = fk
+        .ref_columns
+        .iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
         "ALTER TABLE {qualified} ADD CONSTRAINT {} FOREIGN KEY ({columns}) \
          REFERENCES {ref_qualified} ({ref_columns}) ON DELETE {} ON UPDATE {}",
@@ -486,7 +519,12 @@ fn sql_literal(value: &serde_json::Value, data_type: &str) -> String {
 /// check `mssql::is_binary_type` already does (strip a `(...)` length before comparing) rather than
 /// matching the full declared type, so `nvarchar(255)` and `nvarchar(max)` are both caught.
 fn is_unicode_text_type(data_type: &str) -> bool {
-    let base = data_type.split('(').next().unwrap_or(data_type).trim().to_ascii_lowercase();
+    let base = data_type
+        .split('(')
+        .next()
+        .unwrap_or(data_type)
+        .trim()
+        .to_ascii_lowercase();
     matches!(base.as_str(), "nchar" | "nvarchar" | "ntext" | "xml")
 }
 
@@ -498,8 +536,15 @@ fn is_unicode_text_type(data_type: &str) -> bool {
 /// without one, the same "no key at all, so use the whole row" trade `update_row`'s no-primary-key
 /// path already accepts.
 fn dump_order_by(primary_key: &[String], columns: &[String]) -> String {
-    let keys: &[String] = if primary_key.is_empty() { columns } else { primary_key };
-    keys.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ")
+    let keys: &[String] = if primary_key.is_empty() {
+        columns
+    } else {
+        primary_key
+    };
+    keys.iter()
+        .map(|c| quote_ident(c))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// How many rows one `INSERT ... VALUES` statement carries: SQL Server's own grammar limit on a
@@ -528,8 +573,10 @@ pub async fn dump_data(
     use tokio::io::AsyncWriteExt;
 
     let tables = mssql_structure::table_stats(pool, database).await?;
-    let weights: Vec<(String, u64)> =
-        tables.iter().map(|t| (t.name.clone(), t.rows.max(1))).collect();
+    let weights: Vec<(String, u64)> = tables
+        .iter()
+        .map(|t| (t.name.clone(), t.rows.max(1)))
+        .collect();
     let mut tracker = Tracker::new(&weights, path, true);
 
     let mut file = tokio::fs::OpenOptions::new()
@@ -575,8 +622,11 @@ pub async fn dump_data(
         }
         let has_identity = columns.iter().any(|c| c.is_identity);
         let column_names: Vec<String> = columns.iter().map(|c| c.name.clone()).collect();
-        let column_list =
-            column_names.iter().map(|c| quote_ident(c)).collect::<Vec<_>>().join(", ");
+        let column_list = column_names
+            .iter()
+            .map(|c| quote_ident(c))
+            .collect::<Vec<_>>()
+            .join(", ");
         let select_list = columns
             .iter()
             .map(|c| select_expr(&quote_ident(&c.name), &c.data_type))
@@ -601,7 +651,10 @@ pub async fn dump_data(
                 "SELECT {select_list} FROM {live_qualified} ORDER BY {order_by} \
                  OFFSET {offset} ROWS FETCH NEXT {READ_PAGE_ROWS} ROWS ONLY"
             ));
-            let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+            let mut client = pool
+                .get()
+                .await
+                .map_err(|e| err!("error.mssql", message = e))?;
             let rows = client
                 .query(sql, &[])
                 .await
@@ -618,7 +671,9 @@ pub async fn dump_data(
                     let literals: Vec<String> = row
                         .cells()
                         .enumerate()
-                        .map(|(i, (_, data))| sql_literal(&column_value(data), &columns[i].data_type))
+                        .map(|(i, (_, data))| {
+                            sql_literal(&column_value(data), &columns[i].data_type)
+                        })
                         .collect();
                     values_list.push(format!("({})", literals.join(", ")));
                 }
@@ -718,14 +773,26 @@ mod tests {
 
     #[test]
     fn a_persisted_computed_column_carries_the_keyword() {
-        let def = ComputedDefinition { definition: "[a] + [b]".to_string(), persisted: true };
-        assert_eq!(computed_column_definition("total", &def), "[total] AS ([a] + [b]) PERSISTED");
+        let def = ComputedDefinition {
+            definition: "[a] + [b]".to_string(),
+            persisted: true,
+        };
+        assert_eq!(
+            computed_column_definition("total", &def),
+            "[total] AS ([a] + [b]) PERSISTED"
+        );
     }
 
     #[test]
     fn a_non_persisted_computed_column_does_not() {
-        let def = ComputedDefinition { definition: "[a] + [b]".to_string(), persisted: false };
-        assert_eq!(computed_column_definition("total", &def), "[total] AS ([a] + [b])");
+        let def = ComputedDefinition {
+            definition: "[a] + [b]".to_string(),
+            persisted: false,
+        };
+        assert_eq!(
+            computed_column_definition("total", &def),
+            "[total] AS ([a] + [b])"
+        );
     }
 
     #[test]
@@ -773,19 +840,28 @@ mod tests {
 
     #[test]
     fn sql_literal_prefixes_unicode_text_with_n() {
-        assert_eq!(sql_literal(&serde_json::json!("mới"), "nvarchar(50)"), "N'mới'");
+        assert_eq!(
+            sql_literal(&serde_json::json!("mới"), "nvarchar(50)"),
+            "N'mới'"
+        );
     }
 
     #[test]
     fn sql_literal_escapes_a_lone_quote_in_plain_text() {
-        assert_eq!(sql_literal(&serde_json::json!("it's"), "varchar(50)"), "'it''s'");
+        assert_eq!(
+            sql_literal(&serde_json::json!("it's"), "varchar(50)"),
+            "'it''s'"
+        );
     }
 
     #[test]
     fn sql_literal_writes_binary_as_a_hex_literal() {
         use base64::Engine;
         let encoded = base64::engine::general_purpose::STANDARD.encode([0x00, 0xff, 0x10]);
-        assert_eq!(sql_literal(&serde_json::json!(encoded), "varbinary(50)"), "0x00ff10");
+        assert_eq!(
+            sql_literal(&serde_json::json!(encoded), "varbinary(50)"),
+            "0x00ff10"
+        );
     }
 
     #[test]
@@ -801,7 +877,13 @@ mod tests {
         assert_eq!(dump_order_by(&[], &cols), "[a], [b]");
     }
 
-    fn index(name: &str, primary: bool, unique: bool, index_type: &str, columns: &[&str]) -> TableIndex {
+    fn index(
+        name: &str,
+        primary: bool,
+        unique: bool,
+        index_type: &str,
+        columns: &[&str],
+    ) -> TableIndex {
         TableIndex {
             name: name.to_string(),
             primary,

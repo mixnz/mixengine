@@ -61,7 +61,10 @@ fn is_go_line(line: &str) -> bool {
     // `\bgo\b` in spirit: nothing but whitespace and an optional digit run may follow, so
     // `GOOD`/`GO3`/`GO_TABLE` are rejected — a real repeat count needs a space before its digits.
     let rest = rest.trim();
-    rest.is_empty() || rest.chars().all(|c| c.is_ascii_digit() || c.is_whitespace())
+    rest.is_empty()
+        || rest
+            .chars()
+            .all(|c| c.is_ascii_digit() || c.is_whitespace())
 }
 
 /// Splits a script into batches on a line holding nothing but `GO` (or `GO n`), the first of the two
@@ -318,7 +321,11 @@ fn failed(statement: &Statement, started: Instant, message: String) -> Statement
 /// `QueryStream::columns()` could recover it, but only by giving up `into_results()`'s single call
 /// and driving the stream by hand across two result sets, and no query this app runs today is
 /// expected to be both column-bearing and empty.
-async fn run_statement(client: &mut Connection, statement: &Statement, started: Instant) -> StatementResult {
+async fn run_statement(
+    client: &mut Connection,
+    statement: &Statement,
+    started: Instant,
+) -> StatementResult {
     if requires_own_batch(&statement.text) {
         return match client.simple_query(statement.text.clone()).await {
             Ok(stream) => match stream.into_results().await {
@@ -447,7 +454,10 @@ pub async fn run(
         return Err(err!("error.nothingToRun"));
     }
 
-    let guard = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let guard = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let mut client = Object::take(guard);
 
     if let Some(db) = database.filter(|d| !d.is_empty()) {
@@ -499,7 +509,10 @@ pub async fn run(
 /// as-is.
 pub async fn cancel(pool: &Pool, session_id: u64) -> Result<(), AppError> {
     const NO_SUCH_PROCESS: [u32; 3] = [6101, 6106, 6107];
-    let guard = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let guard = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
     let mut client = Object::take(guard);
     let result = client.simple_query(format!("KILL {session_id}")).await;
     match result {
@@ -529,7 +542,10 @@ pub async fn validate(
         return Ok(None);
     }
 
-    let mut client = pool.get().await.map_err(|e| err!("error.mssql", message = e))?;
+    let mut client = pool
+        .get()
+        .await
+        .map_err(|e| err!("error.mssql", message = e))?;
 
     if let Some(db) = database.filter(|d| !d.is_empty()) {
         // A database that cannot be entered ends the check rather than failing it: whatever is
@@ -594,8 +610,12 @@ mod tests {
         assert!(requires_own_batch("ALTER VIEW v AS SELECT 1"));
         assert!(requires_own_batch("CREATE PROCEDURE p AS SELECT 1"));
         assert!(requires_own_batch("CREATE PROC p AS SELECT 1"));
-        assert!(requires_own_batch("CREATE FUNCTION f() RETURNS int AS BEGIN RETURN 1 END"));
-        assert!(requires_own_batch("CREATE TRIGGER t ON a AFTER INSERT AS BEGIN END"));
+        assert!(requires_own_batch(
+            "CREATE FUNCTION f() RETURNS int AS BEGIN RETURN 1 END"
+        ));
+        assert!(requires_own_batch(
+            "CREATE TRIGGER t ON a AFTER INSERT AS BEGIN END"
+        ));
         assert!(requires_own_batch("CREATE OR ALTER VIEW v AS SELECT 1"));
     }
 

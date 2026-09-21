@@ -1,5 +1,5 @@
-use crate::modules::db::models::{ServerInfo};
 use crate::error::AppError;
+use crate::modules::db::models::ServerInfo;
 use redis::aio::ConnectionManager;
 use redis::Value as RedisValue;
 use redis::{ConnectionAddr, ConnectionInfo, IntoConnectionInfo, RedisConnectionInfo};
@@ -86,7 +86,10 @@ pub async fn run_command(
     for a in rest {
         cmd.arg(a);
     }
-    let reply: RedisValue = cmd.query_async(conn).await.map_err(|e| err!("error.redis", message = e))?;
+    let reply: RedisValue = cmd
+        .query_async(conn)
+        .await
+        .map_err(|e| err!("error.redis", message = e))?;
     Ok(redis_value_to_json(reply))
 }
 
@@ -196,8 +199,14 @@ pub async fn list_databases(conn: &mut ConnectionManager) -> Result<Vec<DbInfo>,
 fn keyspace_counts(keyspace: &str) -> HashMap<i64, i64> {
     let mut counts: HashMap<i64, i64> = HashMap::new();
     for line in keyspace.lines() {
-        let Some((name, stats)) = line.split_once(':') else { continue };
-        let Some(index) = name.trim().strip_prefix("db").and_then(|n| n.parse::<i64>().ok()) else {
+        let Some((name, stats)) = line.split_once(':') else {
+            continue;
+        };
+        let Some(index) = name
+            .trim()
+            .strip_prefix("db")
+            .and_then(|n| n.parse::<i64>().ok())
+        else {
             continue;
         };
         let keys = stats
@@ -278,7 +287,9 @@ async fn key_types(
     for name in names {
         pipe.cmd("TYPE").arg(name);
     }
-    pipe.query_async(conn).await.map_err(|e| err!("error.redis", message = e))
+    pipe.query_async(conn)
+        .await
+        .map_err(|e| err!("error.redis", message = e))
 }
 
 /// One page of the keyspace. `cursor` is `"0"` for the first page and whatever the previous page
@@ -386,127 +397,130 @@ pub async fn key_value(
         .await
         .map_err(|e| err!("error.redis", message = e))?;
 
-    let (total, items, next_cursor) = match kind.as_str() {
-        "string" => {
-            let raw: Option<Vec<u8>> = redis::cmd("GET")
-                .arg(key)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let items = raw
-                .map(|bytes| vec![json!({ "value": to_text(&bytes) })])
-                .unwrap_or_default();
-            let total = items.len() as i64;
-            (total, items, None)
-        }
-        "list" => {
-            let total: i64 = redis::cmd("LLEN")
-                .arg(key)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let start: i64 = cursor.and_then(|c| c.parse().ok()).unwrap_or(0);
-            let batch: Vec<Vec<u8>> = redis::cmd("LRANGE")
-                .arg(key)
-                .arg(start)
-                .arg(start + count - 1)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let next = start + batch.len() as i64;
-            let items = batch
-                .iter()
-                .enumerate()
-                .map(|(i, raw)| json!({ "index": start + i as i64, "value": to_text(raw) }))
-                .collect();
-            // An empty batch means the end, whatever LLEN said: the list may have been
-            // trimmed between the two commands.
-            let next_cursor = (!batch.is_empty() && next < total).then(|| next.to_string());
-            (total, items, next_cursor)
-        }
-        "zset" => {
-            let total: i64 = redis::cmd("ZCARD")
-                .arg(key)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let start: i64 = cursor.and_then(|c| c.parse().ok()).unwrap_or(0);
-            let batch: Vec<(Vec<u8>, f64)> = redis::cmd("ZRANGE")
-                .arg(key)
-                .arg(start)
-                .arg(start + count - 1)
-                .arg("WITHSCORES")
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let next = start + batch.len() as i64;
-            let items = batch
-                .iter()
-                .map(|(raw, score)| json!({ "value": to_text(raw), "score": score_to_json(*score) }))
-                .collect();
-            let next_cursor = (!batch.is_empty() && next < total).then(|| next.to_string());
-            (total, items, next_cursor)
-        }
-        "set" => {
-            let total: i64 = redis::cmd("SCARD")
-                .arg(key)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let mut cursor = cursor.unwrap_or("0").to_string();
-            let mut items = Vec::new();
-            for _ in 0..MAX_VALUE_SCAN_ROUNDS {
-                let (next, batch): (String, Vec<Vec<u8>>) = redis::cmd("SSCAN")
+    let (total, items, next_cursor) =
+        match kind.as_str() {
+            "string" => {
+                let raw: Option<Vec<u8>> = redis::cmd("GET")
                     .arg(key)
-                    .arg(&cursor)
-                    .arg("COUNT")
-                    .arg(count)
                     .query_async(conn)
                     .await
                     .map_err(|e| err!("error.redis", message = e))?;
-                items.extend(batch.iter().map(|raw| json!({ "value": to_text(raw) })));
-                cursor = next;
-                if cursor == "0" || items.len() as i64 >= count {
-                    break;
-                }
+                let items = raw
+                    .map(|bytes| vec![json!({ "value": to_text(&bytes) })])
+                    .unwrap_or_default();
+                let total = items.len() as i64;
+                (total, items, None)
             }
-            let next_cursor = (cursor != "0").then_some(cursor);
-            (total, items, next_cursor)
-        }
-        "hash" => {
-            let total: i64 = redis::cmd("HLEN")
-                .arg(key)
-                .query_async(conn)
-                .await
-                .map_err(|e| err!("error.redis", message = e))?;
-            let mut cursor = cursor.unwrap_or("0").to_string();
-            let mut items = Vec::new();
-            for _ in 0..MAX_VALUE_SCAN_ROUNDS {
-                // HSCAN hands back one flat array, field and value alternating.
-                let (next, batch): (String, Vec<Vec<u8>>) = redis::cmd("HSCAN")
+            "list" => {
+                let total: i64 = redis::cmd("LLEN")
                     .arg(key)
-                    .arg(&cursor)
-                    .arg("COUNT")
-                    .arg(count)
                     .query_async(conn)
                     .await
                     .map_err(|e| err!("error.redis", message = e))?;
-                items.extend(batch.chunks(2).filter(|pair| pair.len() == 2).map(|pair| {
-                    json!({ "field": to_text(&pair[0]), "value": to_text(&pair[1]) })
-                }));
-                cursor = next;
-                if cursor == "0" || items.len() as i64 >= count {
-                    break;
-                }
+                let start: i64 = cursor.and_then(|c| c.parse().ok()).unwrap_or(0);
+                let batch: Vec<Vec<u8>> = redis::cmd("LRANGE")
+                    .arg(key)
+                    .arg(start)
+                    .arg(start + count - 1)
+                    .query_async(conn)
+                    .await
+                    .map_err(|e| err!("error.redis", message = e))?;
+                let next = start + batch.len() as i64;
+                let items = batch
+                    .iter()
+                    .enumerate()
+                    .map(|(i, raw)| json!({ "index": start + i as i64, "value": to_text(raw) }))
+                    .collect();
+                // An empty batch means the end, whatever LLEN said: the list may have been
+                // trimmed between the two commands.
+                let next_cursor = (!batch.is_empty() && next < total).then(|| next.to_string());
+                (total, items, next_cursor)
             }
-            let next_cursor = (cursor != "0").then_some(cursor);
-            (total, items, next_cursor)
-        }
-        // `none` is a key that isn't there — deleted or expired since the list was scanned.
-        // Anything else is a type this viewer has no reading for; both hand back nothing, and
-        // the `kind` is what tells the front end which of the two it is looking at.
-        _ => (-1, Vec::new(), None),
-    };
+            "zset" => {
+                let total: i64 = redis::cmd("ZCARD")
+                    .arg(key)
+                    .query_async(conn)
+                    .await
+                    .map_err(|e| err!("error.redis", message = e))?;
+                let start: i64 = cursor.and_then(|c| c.parse().ok()).unwrap_or(0);
+                let batch: Vec<(Vec<u8>, f64)> = redis::cmd("ZRANGE")
+                    .arg(key)
+                    .arg(start)
+                    .arg(start + count - 1)
+                    .arg("WITHSCORES")
+                    .query_async(conn)
+                    .await
+                    .map_err(|e| err!("error.redis", message = e))?;
+                let next = start + batch.len() as i64;
+                let items = batch
+                .iter()
+                .map(
+                    |(raw, score)| json!({ "value": to_text(raw), "score": score_to_json(*score) }),
+                )
+                .collect();
+                let next_cursor = (!batch.is_empty() && next < total).then(|| next.to_string());
+                (total, items, next_cursor)
+            }
+            "set" => {
+                let total: i64 = redis::cmd("SCARD")
+                    .arg(key)
+                    .query_async(conn)
+                    .await
+                    .map_err(|e| err!("error.redis", message = e))?;
+                let mut cursor = cursor.unwrap_or("0").to_string();
+                let mut items = Vec::new();
+                for _ in 0..MAX_VALUE_SCAN_ROUNDS {
+                    let (next, batch): (String, Vec<Vec<u8>>) = redis::cmd("SSCAN")
+                        .arg(key)
+                        .arg(&cursor)
+                        .arg("COUNT")
+                        .arg(count)
+                        .query_async(conn)
+                        .await
+                        .map_err(|e| err!("error.redis", message = e))?;
+                    items.extend(batch.iter().map(|raw| json!({ "value": to_text(raw) })));
+                    cursor = next;
+                    if cursor == "0" || items.len() as i64 >= count {
+                        break;
+                    }
+                }
+                let next_cursor = (cursor != "0").then_some(cursor);
+                (total, items, next_cursor)
+            }
+            "hash" => {
+                let total: i64 = redis::cmd("HLEN")
+                    .arg(key)
+                    .query_async(conn)
+                    .await
+                    .map_err(|e| err!("error.redis", message = e))?;
+                let mut cursor = cursor.unwrap_or("0").to_string();
+                let mut items = Vec::new();
+                for _ in 0..MAX_VALUE_SCAN_ROUNDS {
+                    // HSCAN hands back one flat array, field and value alternating.
+                    let (next, batch): (String, Vec<Vec<u8>>) = redis::cmd("HSCAN")
+                        .arg(key)
+                        .arg(&cursor)
+                        .arg("COUNT")
+                        .arg(count)
+                        .query_async(conn)
+                        .await
+                        .map_err(|e| err!("error.redis", message = e))?;
+                    items.extend(batch.chunks(2).filter(|pair| pair.len() == 2).map(
+                        |pair| json!({ "field": to_text(&pair[0]), "value": to_text(&pair[1]) }),
+                    ));
+                    cursor = next;
+                    if cursor == "0" || items.len() as i64 >= count {
+                        break;
+                    }
+                }
+                let next_cursor = (cursor != "0").then_some(cursor);
+                (total, items, next_cursor)
+            }
+            // `none` is a key that isn't there — deleted or expired since the list was scanned.
+            // Anything else is a type this viewer has no reading for; both hand back nothing, and
+            // the `kind` is what tells the front end which of the two it is looking at.
+            _ => (-1, Vec::new(), None),
+        };
 
     Ok(KeyValuePage {
         kind,
@@ -520,10 +534,7 @@ pub async fn key_value(
 /// Removes keys, and reports how many of them existed. `UNLINK` rather than `DEL`: reclaiming a
 /// large collection's memory happens on a background thread instead of blocking the server.
 /// Servers older than 4.0 don't have it, so a failure retries with `DEL`.
-pub async fn delete_keys(
-    conn: &mut ConnectionManager,
-    keys: &[String],
-) -> Result<i64, AppError> {
+pub async fn delete_keys(conn: &mut ConnectionManager, keys: &[String]) -> Result<i64, AppError> {
     if keys.is_empty() {
         return Ok(0);
     }
@@ -538,7 +549,9 @@ pub async fn delete_keys(
     for key in keys {
         del.arg(key);
     }
-    del.query_async(conn).await.map_err(|e| err!("error.redis", message = e))
+    del.query_async(conn)
+        .await
+        .map_err(|e| err!("error.redis", message = e))
 }
 
 /// Exercises the readers above against a scripted RESP server rather than a real Redis: what is
@@ -712,11 +725,17 @@ mod tests {
         let page = scan_keys(&mut conn, "*", "0", 3).await.unwrap();
 
         assert_eq!(
-            page.keys.iter().map(|k| k.name.as_str()).collect::<Vec<_>>(),
+            page.keys
+                .iter()
+                .map(|k| k.name.as_str())
+                .collect::<Vec<_>>(),
             ["a", "b", "c"],
         );
         assert_eq!(
-            page.keys.iter().map(|k| k.kind.as_str()).collect::<Vec<_>>(),
+            page.keys
+                .iter()
+                .map(|k| k.kind.as_str())
+                .collect::<Vec<_>>(),
             ["string", "list", "hash"],
         );
         assert!(page.done);

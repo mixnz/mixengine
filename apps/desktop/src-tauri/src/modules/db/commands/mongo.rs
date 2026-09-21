@@ -1,14 +1,14 @@
 //! Every MongoDB command.
 
 use super::Transfer;
-use std::sync::atomic::Ordering;
-use crate::modules::db::models::{ServerInfo};
-use crate::error::AppError;
-use tauri::{AppHandle, State};
-use serde_json::Value;
-use crate::modules::db::drivers::{dump, mongo, tools};
-use crate::modules::db::state::DbState;
 use super::{in_background, mongo_client, mongo_endpoint, reporter, tools_dir};
+use crate::error::AppError;
+use crate::modules::db::drivers::{dump, mongo, tools};
+use crate::modules::db::models::ServerInfo;
+use crate::modules::db::state::DbState;
+use serde_json::Value;
+use std::sync::atomic::Ordering;
+use tauri::{AppHandle, State};
 
 /// Writes a database out as a mongodump archive.
 ///
@@ -33,7 +33,7 @@ pub async fn mongo_dump(
     let (uri, endpoint) = mongo_endpoint(&state, &id).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {
@@ -70,7 +70,7 @@ pub async fn mongo_restore(
     let (uri, endpoint) = mongo_endpoint(&state, &id).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {
@@ -102,13 +102,19 @@ pub async fn mongo_drop_database(
 }
 
 #[tauri::command]
-pub async fn mongo_list_databases(state: State<'_, DbState>, id: String) -> Result<Vec<String>, AppError> {
+pub async fn mongo_list_databases(
+    state: State<'_, DbState>,
+    id: String,
+) -> Result<Vec<String>, AppError> {
     let client = mongo_client(&state, &id).await?;
     mongo::list_databases(&client).await
 }
 
 #[tauri::command]
-pub async fn mongo_server_info(state: State<'_, DbState>, id: String) -> Result<ServerInfo, AppError> {
+pub async fn mongo_server_info(
+    state: State<'_, DbState>,
+    id: String,
+) -> Result<ServerInfo, AppError> {
     let client = mongo_client(&state, &id).await?;
     mongo::server_info(&client).await
 }
@@ -156,7 +162,7 @@ pub async fn mongo_rename_collection(
     new_name: String,
 ) -> Result<(), AppError> {
     let client = mongo_client(&state, &id).await?;
-        mongo::rename_collection(&client, &db, &collection, &new_name).await
+    mongo::rename_collection(&client, &db, &collection, &new_name).await
 }
 
 /// Drops a collection and every document in it, for the sidebar's context menu.
@@ -196,7 +202,7 @@ pub async fn mongo_collection_page(
 ) -> Result<mongo::CollectionPage, AppError> {
     let filters = filters.unwrap_or_default();
     let client = mongo_client(&state, &id).await?;
-        mongo::collection_page(&client, &db, &collection, page, page_size, &filters).await
+    mongo::collection_page(&client, &db, &collection, page, page_size, &filters).await
 }
 
 #[tauri::command]
@@ -220,7 +226,7 @@ pub async fn mongo_insert_documents(
     documents: Vec<Value>,
 ) -> Result<usize, AppError> {
     let client = mongo_client(&state, &id).await?;
-        mongo::insert_documents(&client, &db, &collection, &documents).await
+    mongo::insert_documents(&client, &db, &collection, &documents).await
 }
 
 #[tauri::command]
@@ -233,7 +239,7 @@ pub async fn mongo_update_document(
     ops: mongo::DocUpdateOps,
 ) -> Result<(), AppError> {
     let client = mongo_client(&state, &id).await?;
-        mongo::update_document(&client, &db, &collection, &doc_id, &ops).await
+    mongo::update_document(&client, &db, &collection, &doc_id, &ops).await
 }
 
 #[tauri::command]

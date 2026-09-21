@@ -68,7 +68,8 @@ impl OptionFile {
             .map_err(|e| err!("error.cannotWriteFile", path = path.display(), message = e))?;
         // Values are double-quoted, which is the one form of an option file value that may hold
         // `#`, spaces or a leading digit — with `\` and `"` escaped so the quoting holds.
-        let quoted = |value: &str| format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
+        let quoted =
+            |value: &str| format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""));
         let body = format!(
             "[client]\nhost={}\nport={port}\nuser={}\npassword={}\n",
             quoted(host),
@@ -191,7 +192,12 @@ struct Lead {
 
 impl Fed {
     fn pour_into(self, mut sink: std::process::ChildStdin) -> Result<(), AppError> {
-        let Self { mut file, path, sent, lead } = self;
+        let Self {
+            mut file,
+            path,
+            sent,
+            lead,
+        } = self;
         if let Some(Lead { bytes, replaced }) = lead {
             // Returning drops `sink`, which is what the end of the loop below does by hand.
             if sink.write_all(&bytes).is_err() {
@@ -253,7 +259,11 @@ impl Tail {
     }
 
     fn message(&self) -> String {
-        let lines = if self.said.is_empty() { &self.everything } else { &self.said };
+        let lines = if self.said.is_empty() {
+            &self.everything
+        } else {
+            &self.said
+        };
         lines.iter().cloned().collect::<Vec<_>>().join("\n")
     }
 }
@@ -299,7 +309,14 @@ struct Invocation<'a> {
 }
 
 fn run(
-    Invocation { tool, args, env, stdin, stdout, name }: Invocation<'_>,
+    Invocation {
+        tool,
+        args,
+        env,
+        stdin,
+        stdout,
+        name,
+    }: Invocation<'_>,
     watch: &Watch<'_>,
     mut tick: impl FnMut(Tick),
 ) -> Result<(), AppError> {
@@ -309,7 +326,11 @@ fn run(
         .envs(env.iter().map(|(name, value)| (*name, value)))
         // Poured in by this side rather than handed over as a file, which is what lets the bytes be
         // counted on their way past.
-        .stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
+        .stdin(if stdin.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(stdout.map_or_else(Stdio::null, Stdio::from))
         .stderr(Stdio::piped());
     // Without this a console window flashes up over the app for every tool run.
@@ -353,9 +374,9 @@ fn run(
         }
         if (watch.cancel)() {
             /* Killed rather than asked. These tools have no protocol for stopping politely, and a
-               dump left running writes a file nobody is waiting for while its progress is reported
-               against a connection that has gone. Killing also closes the stdin pipe, which is
-               what stops the feeder thread below — it gets a broken pipe on its next write. */
+            dump left running writes a file nobody is waiting for while its progress is reported
+            against a connection that has gone. Killing also closes the stdin pipe, which is
+            what stops the feeder thread below — it gets a broken pipe on its next write. */
             let _ = child.kill();
             cancelled = true;
             break;
@@ -369,14 +390,19 @@ fn run(
         .wait()
         .map_err(|e| err!("error.toolWaitFailed", tool = name, message = e))?;
     /* Before the status is read for meaning: a killed tool exits without success, and reporting
-       that as "mysqldump failed" would blame the tool for being stopped. */
+    that as "mysqldump failed" would blame the tool for being stopped. */
     if cancelled {
         return Err(err!("error.transferCancelled", tool = name));
     }
     if !status.success() {
         // These tools report the real cause on stderr and only a number through the exit status, so
         // the message is what matters; the last lines of it are the ones that say why.
-        return Err(err!("error.toolFailed", tool = name, status = status, message = tail.message()));
+        return Err(err!(
+            "error.toolFailed",
+            tool = name,
+            status = status,
+            message = tail.message()
+        ));
     }
     // Asked after the status and not before, because a tool that failed says why and a broken pipe
     // only says that it did. But a file that could not be read through is not allowed to pass as a
@@ -531,7 +557,9 @@ impl Tracker {
     }
 
     fn size(&self) -> u64 {
-        std::fs::metadata(&self.path).map(|meta| meta.len()).unwrap_or(0)
+        std::fs::metadata(&self.path)
+            .map(|meta| meta.len())
+            .unwrap_or(0)
     }
 
     /// The tool has reached `part`, which is also to say it has finished the one before it.
@@ -622,7 +650,10 @@ impl Tracker {
 /// not say what it is keeps them, which is how every dump ran before this asked.
 fn is_mariadb_tool(tool: &Path) -> bool {
     let mut command = Command::new(tool);
-    command.arg("--version").stdin(Stdio::null()).stderr(Stdio::null());
+    command
+        .arg("--version")
+        .stdin(Stdio::null())
+        .stderr(Stdio::null());
     hide_console(&mut command);
     command.output().is_ok_and(|out| {
         String::from_utf8_lossy(&out.stdout)
@@ -695,9 +726,9 @@ fn mysqldump_args(
         }
     }
     /* End of options. Without it a database whose name begins with `-` is read as one — and
-       mysqldump has short options that take no argument, so `-x` is not rejected, it silently
-       turns on `--lock-all-tables` and then dumps nothing at all. Both MySQL's `my_getopt` and
-       MariaDB's stop at a bare `--`. */
+    mysqldump has short options that take no argument, so `-x` is not rejected, it silently
+    turns on `--lock-all-tables` and then dumps nothing at all. Both MySQL's `my_getopt` and
+    MariaDB's stop at a bare `--`. */
     args.push("--".to_string());
     // The bare name rather than `--databases`, which is what would put `CREATE DATABASE` and a
     // `USE` at the head of the file. Without them the dump names no database at all, so it
@@ -748,17 +779,27 @@ pub fn mysql_dump(
     let out = create_file(path)?;
     let mut tracker = Tracker::new(tables, path, mode != DumpMode::Structure);
     run(
-        Invocation { tool, args: &args, env: &[], stdin: None, stdout: Some(out), name: "mysqldump" },
+        Invocation {
+            tool,
+            args: &args,
+            env: &[],
+            stdin: None,
+            stdout: Some(out),
+            name: "mysqldump",
+        },
         watch,
         |tick| {
-        if let Tick::Line(line) = tick {
-            // Everything else it says — connecting, savepoints, the rows of a table already
-            // counted — leaves the reckoning where it was, and is not worth a reading of its own.
-            let Some(table) = reached_table(line) else { return };
-            tracker.reached(table);
-        }
-        (watch.report)(tracker.progress());
-    })
+            if let Tick::Line(line) = tick {
+                // Everything else it says — connecting, savepoints, the rows of a table already
+                // counted — leaves the reckoning where it was, and is not worth a reading of its own.
+                let Some(table) = reached_table(line) else {
+                    return;
+                };
+                tracker.reached(table);
+            }
+            (watch.report)(tracker.progress());
+        },
+    )
 }
 
 /// The command line the `mysql` client is given, with the database to restore into last.
@@ -806,17 +847,30 @@ pub fn mysql_restore(
     let total = file.metadata().map(|meta| meta.len()).unwrap_or(0);
     let sent = Arc::new(AtomicU64::new(0));
     let counted = Arc::clone(&sent);
-    let fed = Fed { file, path: path.to_string(), sent, lead: None };
+    let fed = Fed {
+        file,
+        path: path.to_string(),
+        sent,
+        lead: None,
+    };
 
     run(
-        Invocation { tool, args: &args, env: &[], stdin: Some(fed), stdout: None, name: "mysql" },
+        Invocation {
+            tool,
+            args: &args,
+            env: &[],
+            stdin: Some(fed),
+            stdout: None,
+            name: "mysql",
+        },
         watch,
         |_| {
-        (watch.report)(Progress {
-            percent: share(counted.load(Ordering::Relaxed), total),
-            ..Progress::default()
-        });
-    })
+            (watch.report)(Progress {
+                percent: share(counted.load(Ordering::Relaxed), total),
+                ..Progress::default()
+            });
+        },
+    )
 }
 
 /// What `pg_dump --verbose` writes as it reaches each table, and the whole of the signal the
@@ -927,14 +981,17 @@ pub fn postgres_dump(
         },
         watch,
         |tick| {
-        if let Tick::Line(line) = tick {
-            // Everything else it says — connecting, reading the schema, saving the search path —
-            // leaves the reckoning where it was.
-            let Some(table) = pg_reached_table(line) else { return };
-            tracker.reached(&table);
-        }
-        (watch.report)(tracker.progress());
-    })
+            if let Tick::Line(line) = tick {
+                // Everything else it says — connecting, reading the schema, saving the search path —
+                // leaves the reckoning where it was.
+                let Some(table) = pg_reached_table(line) else {
+                    return;
+                };
+                tracker.reached(&table);
+            }
+            (watch.report)(tracker.progress());
+        },
+    )
 }
 
 /// How much of the start of a dump is read looking for its preamble — a dozen short lines under a
@@ -952,7 +1009,9 @@ const PG_TIMEOUT_GUARD: &str = "DO $$ BEGIN PERFORM pg_catalog.set_config('trans
 /// PG_TIMEOUT_GUARD} puts back, and a line saying anything else was written by hand and is not
 /// this module's to rewrite.
 fn pg_disables_transaction_timeout(statement: &str) -> bool {
-    let Some(assignment) = statement.strip_prefix("SET ").and_then(|rest| rest.strip_suffix(';'))
+    let Some(assignment) = statement
+        .strip_prefix("SET ")
+        .and_then(|rest| rest.strip_suffix(';'))
     else {
         return false;
     };
@@ -999,11 +1058,16 @@ fn pg_rewrite_preamble(head: &[u8]) -> Option<Lead> {
         if !line.ends_with(b"\n") {
             break;
         }
-        let Ok(text) = std::str::from_utf8(line) else { break };
+        let Ok(text) = std::str::from_utf8(line) else {
+            break;
+        };
         let statement = text.trim();
         if pg_disables_transaction_timeout(statement) {
             bytes.extend_from_slice(PG_TIMEOUT_GUARD.as_bytes());
-            return Some(Lead { bytes, replaced: replaced + line.len() as u64 });
+            return Some(Lead {
+                bytes,
+                replaced: replaced + line.len() as u64,
+            });
         }
         if !pg_preamble_line(statement) {
             break;
@@ -1077,7 +1141,12 @@ pub fn postgres_restore(
     let total = file.metadata().map(|meta| meta.len()).unwrap_or(0);
     let sent = Arc::new(AtomicU64::new(0));
     let counted = Arc::clone(&sent);
-    let fed = Fed { file, path: path.to_string(), sent, lead };
+    let fed = Fed {
+        file,
+        path: path.to_string(),
+        sent,
+        lead,
+    };
 
     run(
         Invocation {
@@ -1090,11 +1159,12 @@ pub fn postgres_restore(
         },
         watch,
         |_| {
-        (watch.report)(Progress {
-            percent: share(counted.load(Ordering::Relaxed), total),
-            ..Progress::default()
-        });
-    })
+            (watch.report)(Progress {
+                percent: share(counted.load(Ordering::Relaxed), total),
+                ..Progress::default()
+            });
+        },
+    )
 }
 
 /// How much of a file has gone into the tool, as a percentage — and `None` for a file whose size
@@ -1178,15 +1248,25 @@ pub fn mongo_dump(
     ];
     let archive = PathBuf::from(path);
     run(
-        Invocation { tool, args: &args, env: &[], stdin: None, stdout: None, name: "mongodump" },
+        Invocation {
+            tool,
+            args: &args,
+            env: &[],
+            stdin: None,
+            stdout: None,
+            name: "mongodump",
+        },
         watch,
         |_| {
-        let written = std::fs::metadata(&archive).map(|meta| meta.len()).unwrap_or(0);
-        (watch.report)(Progress {
-            percent: archive_share(written, documents),
-            ..Progress::default()
-        });
-    })
+            let written = std::fs::metadata(&archive)
+                .map(|meta| meta.len())
+                .unwrap_or(0);
+            (watch.report)(Progress {
+                percent: archive_share(written, documents),
+                ..Progress::default()
+            });
+        },
+    )
 }
 
 /// How big a mongodump archive comes out against what the documents in it weigh.
@@ -1238,8 +1318,9 @@ fn archive_database(path: &str) -> Result<String, AppError> {
     if u32::from_le_bytes(magic) != ARCHIVE_MAGIC {
         return Err(err!("error.notMongoArchive", path = path));
     }
-    let unreadable =
-        |e: mongodb::bson::de::Error| err!("error.archiveDatabaseUnreadable", path = path, message = e);
+    let unreadable = |e: mongodb::bson::de::Error| {
+        err!("error.archiveDatabaseUnreadable", path = path, message = e)
+    };
     // The header, which carries versions rather than namespaces.
     Document::from_reader(&mut file).map_err(unreadable)?;
     let metadata = Document::from_reader(&mut file).map_err(unreadable)?;
@@ -1285,23 +1366,36 @@ pub fn mongo_restore(
     let total = file.metadata().map(|meta| meta.len()).unwrap_or(0);
     let sent = Arc::new(AtomicU64::new(0));
     let counted = Arc::clone(&sent);
-    let fed = Fed { file, path: path.to_string(), sent, lead: None };
+    let fed = Fed {
+        file,
+        path: path.to_string(),
+        sent,
+        lead: None,
+    };
 
     run(
-        Invocation { tool, args: &args, env: &[], stdin: Some(fed), stdout: None, name: "mongorestore" },
+        Invocation {
+            tool,
+            args: &args,
+            env: &[],
+            stdin: Some(fed),
+            stdout: None,
+            name: "mongorestore",
+        },
         watch,
         |_| {
-        (watch.report)(Progress {
-            percent: share(counted.load(Ordering::Relaxed), total),
-            ..Progress::default()
-        });
-    })
+            (watch.report)(Progress {
+                percent: share(counted.load(Ordering::Relaxed), total),
+                ..Progress::default()
+            });
+        },
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{pg_reached_table, pg_rewrite_preamble, run, tool_uri, Invocation, Watch};
     use super::split_uri;
+    use super::{pg_reached_table, pg_rewrite_preamble, run, tool_uri, Invocation, Watch};
 
     /// Where a MongoDB URI comes apart, and the two characters that decide it wrongly if the
     /// splitting is done from the left.
@@ -1313,7 +1407,10 @@ mod tests {
     #[test]
     fn a_mongo_uri_comes_apart_at_the_right_characters() {
         let (head, hosts, path, query) = split_uri("mongodb://db.example:27017").unwrap();
-        assert_eq!((head.as_str(), hosts.as_str()), ("mongodb://", "db.example:27017"));
+        assert_eq!(
+            (head.as_str(), hosts.as_str()),
+            ("mongodb://", "db.example:27017")
+        );
         assert_eq!((path.as_str(), query.as_str()), ("", ""));
 
         let (head, hosts, path, query) =
@@ -1343,7 +1440,6 @@ mod tests {
         assert!(split_uri("db.example:27017").is_err());
     }
 
-
     /// Where the database name goes on a MySQL command line, and what stands in front of it.
     ///
     /// `my_getopt` reads any argument beginning with `-` as an option wherever it appears, so a
@@ -1353,13 +1449,24 @@ mod tests {
     #[test]
     fn a_mysql_database_name_is_passed_as_a_name_and_not_as_an_option() {
         for args in [
-            mysqldump_args(Path::new("opts.cnf"), "utf8mb4", false, true, DumpMode::All, "-x"),
+            mysqldump_args(
+                Path::new("opts.cnf"),
+                "utf8mb4",
+                false,
+                true,
+                DumpMode::All,
+                "-x",
+            ),
             mysql_restore_args(Path::new("opts.cnf"), "-x"),
         ] {
             assert_eq!(args.last().map(String::as_str), Some("-x"), "{args:?}");
             assert_eq!(args[args.len() - 2], "--", "{args:?}");
             // And exactly one: a second would be handed to the tool as a table name.
-            assert_eq!(args.iter().filter(|arg| *arg == "--").count(), 1, "{args:?}");
+            assert_eq!(
+                args.iter().filter(|arg| *arg == "--").count(),
+                1,
+                "{args:?}"
+            );
         }
     }
 
@@ -1369,11 +1476,23 @@ mod tests {
     #[test]
     fn the_mysql_tools_read_the_credentials_file_alone() {
         for args in [
-            mysqldump_args(Path::new("opts.cnf"), "utf8mb4", false, true, DumpMode::All, "db"),
+            mysqldump_args(
+                Path::new("opts.cnf"),
+                "utf8mb4",
+                false,
+                true,
+                DumpMode::All,
+                "db",
+            ),
             mysql_restore_args(Path::new("opts.cnf"), "db"),
         ] {
             assert_eq!(args[0], "--defaults-file=opts.cnf", "{args:?}");
-            assert!(!args.iter().any(|arg| arg.starts_with("--defaults-extra-file")), "{args:?}");
+            assert!(
+                !args
+                    .iter()
+                    .any(|arg| arg.starts_with("--defaults-extra-file")),
+                "{args:?}"
+            );
         }
     }
 
@@ -1390,8 +1509,12 @@ mod tests {
         assert!(!has_stats.iter().any(|arg| arg == "--column-statistics=0"));
 
         let mariadb = mysqldump_args(Path::new("o"), "utf8mb4", true, false, DumpMode::All, "db");
-        assert!(!mariadb.iter().any(|arg| arg.starts_with("--set-gtid-purged")));
-        assert!(!mariadb.iter().any(|arg| arg.starts_with("--column-statistics")));
+        assert!(!mariadb
+            .iter()
+            .any(|arg| arg.starts_with("--set-gtid-purged")));
+        assert!(!mariadb
+            .iter()
+            .any(|arg| arg.starts_with("--column-statistics")));
     }
 
     /// The database reaches the PostgreSQL tools through the environment, and nowhere else.
@@ -1418,7 +1541,9 @@ mod tests {
         let pgpass = PgPassFile::new("localhost", 5432, "u", "p").unwrap();
         let env = pgpass.env(hostile);
         assert_eq!(
-            env.iter().find(|(key, _)| *key == "PGDATABASE").map(|(_, value)| value.as_str()),
+            env.iter()
+                .find(|(key, _)| *key == "PGDATABASE")
+                .map(|(_, value)| value.as_str()),
             Some(hostile),
         );
     }
@@ -1443,7 +1568,11 @@ mod tests {
     /// That child, as a tool `run` can be pointed at. It outlives any wait a test is willing to
     /// make, so the only way it finishes is by being killed.
     fn slow_tool() -> (PathBuf, Vec<String>) {
-        let args = ["--exact", "modules::db::drivers::dump::tests::sleeper", "--ignored"];
+        let args = [
+            "--exact",
+            "modules::db::drivers::dump::tests::sleeper",
+            "--ignored",
+        ];
         (
             std::env::current_exe().expect("the test binary knows where it is"),
             args.iter().map(|a| a.to_string()).collect(),
@@ -1458,16 +1587,29 @@ mod tests {
         // Set before the run starts, so the first poll — a quarter of a second in — sees it.
         let cancel: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
         let flag = Arc::clone(&cancel);
-        let watch = Watch { report: &|_| {}, cancel: &|| flag.load(Ordering::Relaxed) };
+        let watch = Watch {
+            report: &|_| {},
+            cancel: &|| flag.load(Ordering::Relaxed),
+        };
 
         let started = Instant::now();
         let result = run(
-            Invocation { tool: &tool, args: &args, env: &[], stdin: None, stdout: None, name: "sleeper" },
+            Invocation {
+                tool: &tool,
+                args: &args,
+                env: &[],
+                stdin: None,
+                stdout: None,
+                name: "sleeper",
+            },
             &watch,
             |_| {},
         );
 
-        assert!(result.is_err(), "a killed tool is not a transfer that worked");
+        assert!(
+            result.is_err(),
+            "a killed tool is not a transfer that worked"
+        );
         assert!(
             started.elapsed().as_secs() < 10,
             "it waited the full minute out instead of killing the tool: {:?}",
@@ -1481,15 +1623,25 @@ mod tests {
     fn a_run_nobody_stops_is_left_alone() {
         // `--list` exits at once and exits cleanly, which is all this needs of it.
         let tool = std::env::current_exe().expect("the test binary knows where it is");
-        let watch = Watch { report: &|_| {}, cancel: &|| false };
+        let watch = Watch {
+            report: &|_| {},
+            cancel: &|| false,
+        };
         let args = vec!["--list".to_string()];
         assert!(run(
-            Invocation { tool: &tool, args: &args, env: &[], stdin: None, stdout: None, name: "list" },
+            Invocation {
+                tool: &tool,
+                args: &args,
+                env: &[],
+                stdin: None,
+                stdout: None,
+                name: "list"
+            },
             &watch,
             |_| {},
-        ).is_ok());
+        )
+        .is_ok());
     }
-
 
     /// The preamble pg_dump 17 and later writes, whatever the version of the server it read.
     const PREAMBLE: &str = "--\n-- PostgreSQL database dump\n--\n\n\\restrict S0j3INb3aLmWPSh\n\n\
@@ -1510,7 +1662,10 @@ mod tests {
         assert_eq!(&bytes[..cut], &PREAMBLE[..cut]);
         assert!(bytes[cut..].starts_with("DO $$ BEGIN PERFORM"), "{bytes}");
         // What is replaced is the original line, so that the rest of the file follows on from it.
-        assert_eq!(lead.replaced as usize, cut + "SET transaction_timeout = 0;\n".len());
+        assert_eq!(
+            lead.replaced as usize,
+            cut + "SET transaction_timeout = 0;\n".len()
+        );
     }
 
     /// A dump from pg_dump 16 or older never says it, and there is nothing to rewrite.
@@ -1567,7 +1722,10 @@ mod tests {
 
     #[test]
     fn everything_else_pg_dump_says_is_not_a_table() {
-        assert_eq!(pg_reached_table("pg_dump: last built-in OID is 16383"), None);
+        assert_eq!(
+            pg_reached_table("pg_dump: last built-in OID is 16383"),
+            None
+        );
         assert_eq!(pg_reached_table("pg_dump: reading extensions"), None);
         assert_eq!(pg_reached_table(""), None);
     }
@@ -1577,7 +1735,11 @@ mod tests {
     #[test]
     fn drops_the_database_but_keeps_the_slash() {
         assert_eq!(
-            tool_uri("mongodb://user:pw@db.example:27017/shop?authSource=admin", None).unwrap(),
+            tool_uri(
+                "mongodb://user:pw@db.example:27017/shop?authSource=admin",
+                None
+            )
+            .unwrap(),
             "mongodb://user:pw@db.example:27017/?authSource=admin"
         );
         assert_eq!(
@@ -1595,11 +1757,19 @@ mod tests {
     #[test]
     fn points_at_the_tunnel() {
         assert_eq!(
-            tool_uri("mongodb://user:pw@db.example:27017/shop", Some(("127.0.0.1", 5001))).unwrap(),
+            tool_uri(
+                "mongodb://user:pw@db.example:27017/shop",
+                Some(("127.0.0.1", 5001))
+            )
+            .unwrap(),
             "mongodb://user:pw@127.0.0.1:5001/?directConnection=true"
         );
         assert_eq!(
-            tool_uri("mongodb://a:27017,b:27017/?replicaSet=rs0", Some(("127.0.0.1", 5001))).unwrap(),
+            tool_uri(
+                "mongodb://a:27017,b:27017/?replicaSet=rs0",
+                Some(("127.0.0.1", 5001))
+            )
+            .unwrap(),
             "mongodb://127.0.0.1:5001/?replicaSet=rs0&directConnection=true"
         );
     }
@@ -1617,7 +1787,8 @@ mod tests {
         doc! { "db": "pnedu_portal", "collection": "users", "size": 10_i64 }
             .to_writer(&mut archive)
             .unwrap();
-        let path = std::env::temp_dir().join(format!("mixdb-test-{}.archive", uuid::Uuid::new_v4()));
+        let path =
+            std::env::temp_dir().join(format!("mixdb-test-{}.archive", uuid::Uuid::new_v4()));
         std::fs::write(&path, &archive).unwrap();
 
         let found = super::archive_database(&path.to_string_lossy());
@@ -1630,7 +1801,11 @@ mod tests {
 
     #[test]
     fn refuses_an_srv_uri_over_a_tunnel() {
-        assert!(tool_uri("mongodb+srv://user:pw@cluster.example/shop", Some(("127.0.0.1", 5001))).is_err());
+        assert!(tool_uri(
+            "mongodb+srv://user:pw@cluster.example/shop",
+            Some(("127.0.0.1", 5001))
+        )
+        .is_err());
     }
 
     /// Real lines from `mysqldump --verbose`, of which exactly one kind says a table has been
@@ -1642,8 +1817,14 @@ mod tests {
             Some("orders")
         );
         assert_eq!(super::reached_table("-- Retrieving rows..."), None);
-        assert_eq!(super::reached_table("-- Rolling back to savepoint sp..."), None);
-        assert_eq!(super::reached_table("-- Connecting to 192.168.1.1..."), None);
+        assert_eq!(
+            super::reached_table("-- Rolling back to savepoint sp..."),
+            None
+        );
+        assert_eq!(
+            super::reached_table("-- Connecting to 192.168.1.1..."),
+            None
+        );
         assert_eq!(
             super::reached_table("mysqldump: Got error: 1049: Unknown database 'shop'"),
             None
@@ -1706,7 +1887,8 @@ mod tests {
 
     impl Written {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!("mixdb-test-{}.sql", uuid::Uuid::new_v4()));
+            let path =
+                std::env::temp_dir().join(format!("mixdb-test-{}.sql", uuid::Uuid::new_v4()));
             std::fs::write(&path, b"").unwrap();
             Self(path)
         }
@@ -1732,7 +1914,10 @@ mod tests {
     fn weighs_each_table_by_what_its_rows_take() {
         const MB: u64 = 1 << 20;
         let file = Written::new();
-        let tables = vec![("small".to_string(), 4 * MB), ("large".to_string(), 12 * MB)];
+        let tables = vec![
+            ("small".to_string(), 4 * MB),
+            ("large".to_string(), 12 * MB),
+        ];
         let mut tracker = super::Tracker::new(&tables, &file.path(), true);
 
         // Nothing written yet, and the first table only just reached.
@@ -1790,7 +1975,10 @@ mod tests {
     #[test]
     fn counts_the_tables_when_the_rows_are_not_being_written() {
         let file = Written::new();
-        let tables = vec![("small".to_string(), 1 << 10), ("large".to_string(), 1 << 30)];
+        let tables = vec![
+            ("small".to_string(), 1 << 10),
+            ("large".to_string(), 1 << 30),
+        ];
         let mut tracker = super::Tracker::new(&tables, &file.path(), false);
 
         tracker.reached("small");

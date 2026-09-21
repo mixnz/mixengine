@@ -1,16 +1,16 @@
 //! Every MySQL and MariaDB command. Which of the two answered is a property of the
 //! connection, read once when it was opened - see `drivers::mysql::detect_mariadb`.
 
+use super::{in_background, mysql_connection, mysql_pool, reporter, sql_endpoint, tools_dir};
 use super::{RunningQuery, Transfer};
-use std::sync::atomic::Ordering;
-use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
 use crate::error::AppError;
-use tauri::{AppHandle, State};
-use serde_json::{Map, Value};
 use crate::modules::db::drivers::{dump, mysql, mysql_script, mysql_structure, tools};
 use crate::modules::db::models::DbKind;
+use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
 use crate::modules::db::state::DbState;
-use super::{in_background, mysql_connection, mysql_pool, reporter, sql_endpoint, tools_dir};
+use serde_json::{Map, Value};
+use std::sync::atomic::Ordering;
+use tauri::{AppHandle, State};
 
 #[tauri::command]
 pub async fn mysql_query(
@@ -24,7 +24,10 @@ pub async fn mysql_query(
 }
 
 #[tauri::command]
-pub async fn mysql_list_databases(state: State<'_, DbState>, id: String) -> Result<Vec<String>, AppError> {
+pub async fn mysql_list_databases(
+    state: State<'_, DbState>,
+    id: String,
+) -> Result<Vec<String>, AppError> {
     retry_read!({
         let pool = mysql_pool(&state, &id).await?;
         mysql::list_databases(&pool).await
@@ -32,7 +35,10 @@ pub async fn mysql_list_databases(state: State<'_, DbState>, id: String) -> Resu
 }
 
 #[tauri::command]
-pub async fn mysql_server_info(state: State<'_, DbState>, id: String) -> Result<ServerInfo, AppError> {
+pub async fn mysql_server_info(
+    state: State<'_, DbState>,
+    id: String,
+) -> Result<ServerInfo, AppError> {
     retry_read!({
         let pool = mysql_pool(&state, &id).await?;
         mysql::server_info(&pool).await
@@ -114,7 +120,7 @@ pub async fn mysql_delete_rows(
     reset_auto_increment: bool,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql::delete_rows(&pool, &database, &table, &keys, all, reset_auto_increment).await
+    mysql::delete_rows(&pool, &database, &table, &keys, all, reset_auto_increment).await
 }
 
 #[tauri::command]
@@ -201,7 +207,7 @@ pub async fn mysql_dump(
     let endpoint = sql_endpoint(&state, &id, DbKind::Mysql).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {
@@ -242,7 +248,7 @@ pub async fn mysql_restore(
     let endpoint = sql_endpoint(&state, &id, DbKind::Mysql).await?;
     let report = reporter(&app, &id);
     /* Registered for the length of the run and taken out however it ends, so the tab closing or
-       the Cancel button has something to reach. */
+    the Cancel button has something to reach. */
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
     in_background(move || {
@@ -283,7 +289,7 @@ pub async fn mysql_create_database(
     collation: Option<String>,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql_structure::create_database(&pool, &name, collation.as_deref()).await
+    mysql_structure::create_database(&pool, &name, collation.as_deref()).await
 }
 
 /// Creates an empty table — one `id` column and its primary key — for the sidebar's add button.
@@ -296,7 +302,7 @@ pub async fn mysql_create_table(
     collation: Option<String>,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql_structure::create_table(&pool, &database, &table, collation.as_deref()).await
+    mysql_structure::create_table(&pool, &database, &table, collation.as_deref()).await
 }
 
 /// Renames a table, for the sidebar's context menu.
@@ -309,7 +315,7 @@ pub async fn mysql_rename_table(
     new_name: String,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql_structure::rename_table(&pool, &database, &table, &new_name).await
+    mysql_structure::rename_table(&pool, &database, &table, &new_name).await
 }
 
 /// Drops a table and everything in it, for the sidebar's context menu.
@@ -346,7 +352,7 @@ pub async fn mysql_modify_column(
     spec: mysql_structure::ColumnSpec,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql_structure::modify_column(&pool, &database, &table, &name, &spec).await
+    mysql_structure::modify_column(&pool, &database, &table, &name, &spec).await
 }
 
 #[tauri::command]
@@ -383,7 +389,7 @@ pub async fn mysql_modify_index(
     spec: mysql_structure::IndexSpec,
 ) -> Result<(), AppError> {
     let pool = mysql_pool(&state, &id).await?;
-        mysql_structure::modify_index(&pool, &database, &table, &name, &spec).await
+    mysql_structure::modify_index(&pool, &database, &table, &name, &spec).await
 }
 
 #[tauri::command]

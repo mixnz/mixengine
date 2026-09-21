@@ -4,7 +4,9 @@
 //! reach into over the one pool, never a pool to pick. See `mssql_pool`.
 
 use crate::error::AppError;
-use crate::modules::db::drivers::{dump, mssql, mssql_ddl, mssql_dump, mssql_script, mssql_structure};
+use crate::modules::db::drivers::{
+    dump, mssql, mssql_ddl, mssql_dump, mssql_script, mssql_structure,
+};
 use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
 use crate::modules::db::state::DbState;
 use serde_json::{Map, Value};
@@ -170,7 +172,11 @@ pub async fn mssql_run_script(
     // what forgets the SPID.
     let _running = RunningQuery::start(&state, &run_id);
     mssql_script::run(&pool, &sql, database.as_deref(), |spid| {
-        state.running_queries.lock().unwrap().insert(run_id.clone(), spid);
+        state
+            .running_queries
+            .lock()
+            .unwrap()
+            .insert(run_id.clone(), spid);
     })
     .await
 }
@@ -350,7 +356,10 @@ pub async fn mssql_dump(
     let report = reporter(&app, &id);
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
-    let watch = dump::Watch { report: &report, cancel: &|| cancelled.load(Ordering::Relaxed) };
+    let watch = dump::Watch {
+        report: &report,
+        cancel: &|| cancelled.load(Ordering::Relaxed),
+    };
 
     if mode != dump::DumpMode::Data {
         mssql_dump::dump_structure(&pool, &database, &path, &watch).await?;

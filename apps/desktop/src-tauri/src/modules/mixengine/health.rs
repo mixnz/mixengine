@@ -35,8 +35,7 @@ const DAEMON: &str = "mixengined";
 /// Tên trần vẫn ở lại làm nước cuối: một entry `PATH` xuất hiện sau khi tiến trình này khởi động
 /// vẫn đáng một lần spawn, và một lần spawn hỏng thì nói ra bằng lời.
 fn program() -> OsString {
-    mixengine_platform::install::program_path(DAEMON)
-        .map_or_else(|| DAEMON.into(), OsString::from)
+    mixengine_platform::install::program_path(DAEMON).map_or_else(|| DAEMON.into(), OsString::from)
 }
 
 /// Daemon đang ở trạng thái nào, nhìn từ đây.

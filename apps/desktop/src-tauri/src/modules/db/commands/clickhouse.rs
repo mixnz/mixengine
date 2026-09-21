@@ -1,6 +1,8 @@
 use super::{clickhouse_connection, reporter, Transfer};
 use crate::error::AppError;
-use crate::modules::db::drivers::{clickhouse, clickhouse_ddl, clickhouse_dump, clickhouse_script, dump};
+use crate::modules::db::drivers::{
+    clickhouse, clickhouse_ddl, clickhouse_dump, clickhouse_script, dump,
+};
 use crate::modules::db::models::{ServerInfo, SqlProblem, StatementResult};
 use crate::modules::db::state::DbState;
 use serde_json::{Map, Value};
@@ -320,7 +322,10 @@ pub async fn clickhouse_dump(
     let report = reporter(&app, &id);
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
-    let watch = dump::Watch { report: &report, cancel: &|| cancelled.load(Ordering::Relaxed) };
+    let watch = dump::Watch {
+        report: &report,
+        cancel: &|| cancelled.load(Ordering::Relaxed),
+    };
 
     if mode != dump::DumpMode::Data {
         clickhouse_dump::dump_structure(&conn, &database, &path, &watch).await?;
@@ -345,6 +350,9 @@ pub async fn clickhouse_restore(
     let report = reporter(&app, &id);
     let transfer = Transfer::start(&state, &id);
     let cancelled = transfer.flag();
-    let watch = dump::Watch { report: &report, cancel: &|| cancelled.load(Ordering::Relaxed) };
+    let watch = dump::Watch {
+        report: &report,
+        cancel: &|| cancelled.load(Ordering::Relaxed),
+    };
     clickhouse_dump::restore(&conn, &database, &path, &watch).await
 }

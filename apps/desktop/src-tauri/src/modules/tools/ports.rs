@@ -225,7 +225,8 @@ Active Connections
 
     #[test]
     fn netstat_de_none_khi_khong_co_pid_trong_tasklist() {
-        let netstat = "  TCP    0.0.0.0:9999           0.0.0.0:0              LISTENING       777\n";
+        let netstat =
+            "  TCP    0.0.0.0:9999           0.0.0.0:0              LISTENING       777\n";
         let ports = parse_netstat(netstat, TASKLIST);
         assert_eq!(ports[0].process, None);
     }
