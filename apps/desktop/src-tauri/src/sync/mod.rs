@@ -13,3 +13,4 @@ pub mod wire;
 pub mod merge;
 pub mod chunk;
 pub mod store;
+pub mod transport;
