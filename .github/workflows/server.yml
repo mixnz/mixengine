@@ -158,8 +158,8 @@ jobs:
           workspaces: "server/native -> target"
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
-      # **This crate is format-gated from its first commit**, unlike apps/desktop/src-tauri, which
-      # was inherited unformatted and cannot be without rewriting files nobody touched.
+      # **This crate is format-gated from its first commit**, as apps/desktop/src-tauri has been
+      # since #190.
       - name: fmt, clippy, test
         working-directory: server/native
         run: |
