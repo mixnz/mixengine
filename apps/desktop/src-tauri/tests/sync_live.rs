@@ -18,6 +18,7 @@ use tauri_app_lib::sync::crypto::{self, RecordAddress, Sealed};
 use tauri_app_lib::sync::engine::{self, Change, Outgoing};
 use tauri_app_lib::sync::store::Store;
 use tauri_app_lib::sync::transport::Transport;
+use tauri_app_lib::sync::wire::WireRecord;
 
 fn server() -> String {
     std::env::var("MIXLAB_SYNC_TEST_SERVER")
@@ -141,7 +142,7 @@ fn seal(
     }
 }
 
-fn open(data_key: &[u8; 32], record: &tauri_app_lib::sync::wire::WireRecord) -> Vec<u8> {
+fn open(data_key: &[u8; 32], record: &WireRecord) -> Vec<u8> {
     let nonce: [u8; 24] = STANDARD
         .decode(record.nonce.as_ref().unwrap())
         .unwrap()
@@ -160,6 +161,23 @@ fn open(data_key: &[u8; 32], record: &tauri_app_lib::sync::wire::WireRecord) -> 
         &Sealed { nonce, ciphertext },
     )
     .unwrap()
+}
+
+/// Every page of `collection`, each recorded before the next is read — what the shell does, with
+/// the module's write left out.
+async fn pull_all(transport: &Transport, store: &Store, collection: &str) -> Vec<WireRecord> {
+    let mut all = Vec::new();
+    loop {
+        let fetched = engine::fetch(transport, store, collection).await.unwrap();
+        for record in &fetched.records {
+            store.remember(record).await.unwrap();
+        }
+        engine::commit(store, collection, &fetched).await.unwrap();
+        all.extend(fetched.records.iter().cloned());
+        if !fetched.more {
+            return all;
+        }
+    }
 }
 
 #[tokio::test]
@@ -186,13 +204,7 @@ async fn a_second_machine_reads_what_the_first_wrote() {
     .unwrap();
     assert_eq!(pushed.accepted, 1);
 
-    let mut arrived = Vec::new();
-    engine::pull(&laptop, &laptop_store, &collection, |records| {
-        arrived.extend(records.iter().cloned());
-        Ok(())
-    })
-    .await
-    .unwrap();
+    let arrived = pull_all(&laptop, &laptop_store, &collection).await;
 
     assert_eq!(arrived.len(), 1);
     assert_eq!(arrived[0].device, desktop_device);
@@ -221,9 +233,7 @@ async fn two_machines_settle_a_conflict_the_same_way() {
     )
     .await
     .unwrap();
-    engine::pull(&laptop, &laptop_store, &collection, |_| Ok(()))
-        .await
-        .unwrap();
+    pull_all(&laptop, &laptop_store, &collection).await;
 
     // Both edit the version they both saw; the laptop's edit is later.
     engine::push(
@@ -249,14 +259,10 @@ async fn two_machines_settle_a_conflict_the_same_way() {
         "the later write wins and goes round again"
     );
 
-    let mut last = None;
-    engine::pull(&desktop, &desktop_store, &collection, |records| {
-        last = records.last().cloned();
-        Ok(())
-    })
-    .await
-    .unwrap();
-    let last = last.expect("the desktop is told");
+    let last = pull_all(&desktop, &desktop_store, &collection)
+        .await
+        .pop()
+        .expect("the desktop is told");
     assert_eq!(last.device, laptop_device);
     assert_eq!(open(&data_key, &last), b"laptop's");
 }

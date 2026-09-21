@@ -1,15 +1,15 @@
 //! Pull and push, over a [`Remote`] and a [`Store`].
 //!
-//! **Everything here is sealed.** A caller seals before pushing and opens after pulling; this file
+//! **Everything here is sealed.** A caller seals before pushing and opens after fetching; this file
 //! moves ciphertext and settles conflicts from the two fields D4's rule reads, so it never needs a
-//! key and never sees a plaintext. **Callers pull before they push**, which is what lets a push
-//! trust that a record it has never seen is one the server does not have.
+//! key and never sees a plaintext. **Callers fetch and commit before they push**, which is what
+//! lets a push trust that a record it has never seen is one the server does not have.
 
 use super::chunk::chunk;
 use super::merge::{resolve, Keep};
 use super::store::Store;
 use super::transport::{refusal, PageOutcome, Remote};
-use super::wire::{BatchResult, Capabilities, ErrorBody, Operation, RecordBody, WireRecord};
+use super::wire::{BatchResult, Capabilities, ErrorBody, Operation, Page, RecordBody, WireRecord};
 use crate::error::AppError;
 
 /// How many times one push goes round a conflict before giving up. Two machines writing one
@@ -42,56 +42,55 @@ pub struct Pushed {
     pub superseded: Vec<WireRecord>,
 }
 
-/// What a pull did.
-#[derive(Debug, PartialEq, Eq)]
-pub struct Pulled {
-    pub applied: usize,
-    /// The server had forgotten this machine's cursor and the pull started over from nothing. What
-    /// was applied is then the whole collection, and anything local that is not in it was deleted
+/// One page read and not yet recorded. The caller has the module write `records`, lands them
+/// (`lend::land`), and only then [`commit`]s — so a page nobody wrote is read again next time,
+/// rather than recorded as seen and never delivered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fetched {
+    pub records: Vec<WireRecord>,
+    pub next_since: i64,
+    pub more: bool,
+    /// The server had forgotten this machine's cursor and this page starts over from nothing.
+    /// What follows is then the whole collection, and anything local that is not in it was deleted
     /// on the server longer ago than tombstones are kept.
     pub restarted: bool,
 }
 
-/// Everything new in `collection` since this machine last looked, page by page.
-///
-/// **Each page is applied before the cursor moves past it.** A page the caller could not apply is
-/// read again next time, rather than recorded as seen and never delivered.
-pub async fn pull<R: Remote>(
+/// The next page of `collection` after this machine's cursor. **Moves nothing**: see [`Fetched`].
+pub async fn fetch<R: Remote>(
     remote: &R,
     store: &Store,
     collection: &str,
-    mut apply: impl FnMut(&[WireRecord]) -> Result<(), AppError>,
-) -> Result<Pulled, AppError> {
-    let mut since = store.since(collection).await?;
-    let mut pulled = Pulled {
-        applied: 0,
-        restarted: false,
-    };
-    loop {
-        match remote.page(collection, since).await? {
-            PageOutcome::CursorExpired if !pulled.restarted => {
-                store.forget(collection).await?;
-                since = 0;
-                pulled.restarted = true;
-            }
-            // Expired again from the beginning: a server bug, and not one to loop on.
-            PageOutcome::CursorExpired => {
-                return Err(err!("error.syncServerRefused", code = "cursor-expired"))
-            }
-            PageOutcome::Page(page) => {
-                apply(&page.records)?;
-                for record in &page.records {
-                    store.remember(record).await?;
-                }
-                store.set_since(collection, page.next_since).await?;
-                pulled.applied += page.records.len();
-                since = page.next_since;
-                if !page.more {
-                    return Ok(pulled);
-                }
-            }
+) -> Result<Fetched, AppError> {
+    let page = match remote
+        .page(collection, store.since(collection).await?)
+        .await?
+    {
+        PageOutcome::Page(page) => return Ok(fetched(page, false)),
+        PageOutcome::CursorExpired => {
+            store.forget(collection).await?;
+            remote.page(collection, 0).await?
         }
+    };
+    match page {
+        PageOutcome::Page(page) => Ok(fetched(page, true)),
+        // Expired again from the beginning: a server bug, and not one to loop on.
+        PageOutcome::CursorExpired => Err(err!("error.syncServerRefused", code = "cursor-expired")),
     }
+}
+
+fn fetched(page: Page, restarted: bool) -> Fetched {
+    Fetched {
+        records: page.records,
+        next_since: page.next_since,
+        more: page.more,
+        restarted,
+    }
+}
+
+/// Move the cursor past a page the caller has written and landed.
+pub async fn commit(store: &Store, collection: &str, fetched: &Fetched) -> Result<(), AppError> {
+    store.set_since(collection, fetched.next_since).await
 }
 
 /// This machine's changes, in batches, settling each conflict by D4's rule.
@@ -205,7 +204,7 @@ async fn operation_for(store: &Store, change: &Outgoing) -> Result<Option<Operat
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sync::wire::{ErrorDetail, Page};
+    use crate::sync::wire::ErrorDetail;
     use std::collections::BTreeMap;
     use std::sync::Mutex;
 
@@ -386,6 +385,22 @@ mod tests {
         }
     }
 
+    /// Every page, each recorded before the next is read — the shell's order, minus the module.
+    async fn pull_all(server: &Fake, store: &Store) -> Vec<WireRecord> {
+        let mut all = Vec::new();
+        loop {
+            let fetched = fetch(server, store, "c").await.unwrap();
+            for record in &fetched.records {
+                store.remember(record).await.unwrap();
+            }
+            commit(store, "c", &fetched).await.unwrap();
+            all.extend(fetched.records.iter().cloned());
+            if !fetched.more {
+                return all;
+            }
+        }
+    }
+
     #[tokio::test]
     async fn a_first_push_creates_and_remembers_what_it_created() {
         let (server, store) = (Fake::new("mine"), Store::in_memory("s").await.unwrap());
@@ -515,39 +530,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_pull_reads_every_page_and_moves_the_cursor_after_each() {
+    async fn every_page_is_read_and_the_cursor_moves_after_each() {
         let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
         for n in 0..5 {
             server.holds(&n.to_string(), 1, 100, "theirs");
         }
-        let mut seen = Vec::new();
-        let pulled = pull(&server, &store, "c", |records| {
-            seen.extend(records.iter().map(|record| record.id.clone()));
-            Ok(())
-        })
-        .await
-        .unwrap();
-        assert_eq!(
-            pulled,
-            Pulled {
-                applied: 5,
-                restarted: false
-            }
-        );
-        assert_eq!(seen.len(), 5);
+        assert_eq!(pull_all(&server, &store).await.len(), 5);
         assert_eq!(store.since("c").await.unwrap(), 5);
-        assert_eq!(
-            store.seen("c", "4").await.unwrap().map(|seen| seen.version),
-            Some(1)
-        );
     }
 
+    /// A fetch moves nothing: a page that was never committed is the page the next fetch returns.
     #[tokio::test]
-    async fn a_page_that_could_not_be_applied_is_read_again() {
+    async fn a_page_not_committed_is_read_again() {
         let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
         server.holds("a", 1, 100, "theirs");
-        let failed = pull(&server, &store, "c", |_| Err(err!("error.cannotWriteFile"))).await;
-        assert!(failed.is_err());
+        let first = fetch(&server, &store, "c").await.unwrap();
+        let again = fetch(&server, &store, "c").await.unwrap();
+        assert_eq!(first, again);
         assert_eq!(store.since("c").await.unwrap(), 0);
         assert_eq!(store.seen("c", "a").await.unwrap(), None);
     }
@@ -558,9 +557,9 @@ mod tests {
         server.holds("a", 1, 100, "theirs");
         store.set_since("c", 1).await.unwrap();
         server.state.lock().unwrap().forgotten_below = 50;
-        let pulled = pull(&server, &store, "c", |_| Ok(())).await.unwrap();
-        assert!(pulled.restarted);
-        assert_eq!(pulled.applied, 1);
+        let fetched = fetch(&server, &store, "c").await.unwrap();
+        assert!(fetched.restarted);
+        assert_eq!(fetched.records.len(), 1);
     }
 
     /// A conflict that never settles — another machine that always wins by a tie it should lose —
