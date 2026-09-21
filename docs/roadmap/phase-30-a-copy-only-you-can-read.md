@@ -138,12 +138,26 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       item across through `SyncState` itself; run by hand against the native server, all six cases
       pass. Nothing is visible yet: every row is off and there is no screen to sign in from, which
       is T177e2.
-- [ ] **T177e2** The account, in Settings: sign up with the recovery-key ceremony (thirteen groups
+- [x] **T177e2** The account, in Settings: sign up with the recovery-key ceremony (thirteen groups
       shown once, two typed back), sign in and out, the per-collection list with every row off, the
       device list with a revoke, the notice that an edit was replaced, the warning when a server
       reports `closingOn`, and the list of servers — `https://sync-0.lab.mixnz.com` first and fixed,
       then whatever a person hosting their own adds. The machine's name is filled in from its
       hostname and can be changed.
+
+      **Done in ten commits.** What it settled that the roadmap had not. **A replaced edit is held
+      by a store that outlives the Settings dialog**, because the dialog is not mounted while sync
+      runs and T177e1's window event reached nobody; the pane reads the store when it opens. **The
+      logic that can be wrong is outside the components** — the list of servers, the ceremony's
+      checks, the store — because vitest here has no DOM, so a check inside a component is a check
+      nothing runs. The access-token field appears **only for a server that is not the default**:
+      the default is open, and a field nobody there needs is one somebody fills with a password.
+      Plain `http` is accepted only for a server on this machine. And **MixLab's privacy policy
+      moved into this repository's handbook** (`docs/guide/*/privacy.md`), because the one the app
+      linked to was MixDB's and said there was no server of ours — which sync made false; the
+      settings hint that said the same was rewritten with it. The screen has not been looked at by
+      anybody but its author's type checker: every row is off by default, and the first person to
+      sign up against `sync-0` is the first to see it.
 - [ ] **T177e3** What an account does after it exists: change the password (D6 case 1), recover it
       with the recovery key or without (cases 2 and 3), delete the account, and move it to another
       server by copying (D4b) — each asking for the password when it needs `A`.
