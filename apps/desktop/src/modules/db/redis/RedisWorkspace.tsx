@@ -66,7 +66,7 @@ interface Props {
  * layout — same as the other two workspaces. */
 type ContentMode = "data" | "group";
 
-const DEFAULT_SIDEBAR_WIDTH = 240;
+const DEFAULT_SIDEBAR_WIDTH = 300;
 const MIN_SIDEBAR_WIDTH = 140;
 const MAX_SIDEBAR_WIDTH = 520;
 
@@ -421,7 +421,7 @@ function RedisWorkspace({
   }, [keyLimit, t, lang]);
 
   return (
-    <div className="redis-workspace" data-density="compact">
+    <div className="redis-workspace">
       <div className="redis-header">
         <div className="redis-header-left">
           {serverInfo && (
@@ -605,6 +605,8 @@ function RedisWorkspace({
 
         <section
           className="redis-content"
+          // Compact only here, as on the SQL side: the header and sidebar keep the app's own size.
+          data-density="compact"
           onMouseDownCapture={() => setReloadFocus("right")}
           onFocusCapture={() => setReloadFocus("right")}
         >

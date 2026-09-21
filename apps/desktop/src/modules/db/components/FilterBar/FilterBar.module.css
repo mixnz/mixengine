@@ -71,8 +71,8 @@
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
+  width: var(--control-h);
+  height: var(--control-h);
   padding: 0;
   border: none;
   box-shadow: none;
