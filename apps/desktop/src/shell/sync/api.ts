@@ -127,3 +127,47 @@ export function syncResetPrepare(
 export function syncResetStartOver(code: string, deviceName: string): Promise<SyncStatus> {
   return invoke("sync_reset_start_over", { code, deviceName });
 }
+
+/** Whether the account holds still for a copy to another server (D4b), and since when, in seconds. */
+export interface SyncFreeze {
+  state: "active" | "frozen";
+  frozenAt: number | null;
+}
+
+export interface SyncMoved {
+  copied: number;
+}
+
+/** Deletes the account and everything in it; resolves to how many records went. */
+export function syncDeleteAccount(password: string): Promise<number> {
+  return invoke("sync_delete_account", { password });
+}
+
+export function syncFreezeState(): Promise<SyncFreeze> {
+  return invoke("sync_freeze_state");
+}
+
+/** Ends a freeze. Any signed-in machine may, and nothing else ever will. */
+export function syncThaw(): Promise<SyncFreeze> {
+  return invoke("sync_thaw");
+}
+
+/** D4b step 1: registers on the new server, which sends its own letter. */
+export function syncMoveBegin(server: string, access: string | null, password: string): Promise<void> {
+  return invoke("sync_move_begin", { server, access, password });
+}
+
+/** Confirms there, freezes the old account, copies and compares. Safe to run again after a failure. */
+export function syncMoveConfirm(code: string, deviceName: string): Promise<SyncMoved> {
+  return invoke("sync_move_confirm", { code, deviceName });
+}
+
+/** Deletes the old account or thaws it; this machine then syncs with the new server. */
+export function syncMoveFinish(deleteOld: boolean): Promise<SyncStatus> {
+  return invoke("sync_move_finish", { deleteOld });
+}
+
+/** Thaws the old account and forgets the move. */
+export function syncMoveAbandon(): Promise<void> {
+  return invoke("sync_move_abandon");
+}
