@@ -95,7 +95,7 @@ bash packaging/bindings.sh               # after changing a type in mixengine-pr
 cargo run -p mixengine-cli -- status      # drive the daemon from the CLI
 node scripts/check-docs.mjs              # documentation links + spec status; --write-index after adding a spec
 cd apps/desktop && npm ci && npm run build && npm test && npm run lint     # the desktop frontend
-cd apps/desktop/src-tauri && cargo clippy --locked --all-targets -- -D warnings  # its own workspace
+cd apps/desktop/src-tauri && cargo fmt --check && cargo clippy --locked --all-targets -- -D warnings  # its own workspace
 ```
 
 ## Working agreements

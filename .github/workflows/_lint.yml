@@ -256,6 +256,12 @@ jobs:
           # See the note on `test`'s cache (T170a).
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
+      # A workspace of its own, so the root's `cargo fmt --all` never reaches it; the root's
+      # rustfmt.toml still applies, found walking up. Formatted whole in #190 and gated from then on.
+      - name: rustfmt
+        working-directory: apps/desktop/src-tauri
+        run: cargo fmt --check
+
       - name: clippy
         working-directory: apps/desktop/src-tauri
         run: cargo clippy --locked --all-targets -- -D warnings
