@@ -774,7 +774,10 @@ button.saved-list-new {
   border: none;
   box-shadow: none;
   background: transparent;
-  padding: 0.5em 0.85em;
+  /* As tall as the database picker beside it, so the header reads as one row. */
+  min-height: var(--control-h);
+  box-sizing: border-box;
+  padding: 0 0.85em;
   margin-bottom: -1px;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
@@ -1122,3 +1125,10 @@ button.saved-list-new {
   flex-direction: column;
 }
 
+
+/* The table and collection lists in the sidebar. The search box and buttons around them keep the
+   app's own size, but a list of names can run to hundreds, and at a full field's height too few of
+   them fit on screen. One step down the same scale, rather than a size of its own. */
+.db-sidebar-list {
+  --control-h: var(--control-h-xs);
+}

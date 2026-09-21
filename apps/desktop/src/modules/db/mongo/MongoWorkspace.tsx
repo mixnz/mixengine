@@ -89,7 +89,7 @@ const RELOAD_DATABASES = "/reload";
  * refused by: a database only reaches the server with its first collection. */
 const INVALID_DATABASE_NAME = /[/\\. "$*<>:|?]/;
 
-const DEFAULT_SIDEBAR_WIDTH = 200;
+const DEFAULT_SIDEBAR_WIDTH = 260;
 const MIN_SIDEBAR_WIDTH = 140;
 const MAX_SIDEBAR_WIDTH = 480;
 
@@ -411,7 +411,7 @@ function MongoWorkspace({
         : undefined;
 
   return (
-    <div className="mongo-workspace" data-density="compact">
+    <div className="mongo-workspace">
       <div className="mongo-header">
         <div className="mongo-header-left">
           {serverInfo && (
@@ -504,6 +504,7 @@ function MongoWorkspace({
           />
           <ItemList
             ref={sidebarKeys.listRef}
+            className="db-sidebar-list"
             items={filteredCollections}
             selectedItem={selectedCollection}
             onSelect={setSelectedCollection}
@@ -561,7 +562,8 @@ function MongoWorkspace({
           {...splitter}
         />
 
-        <section className="mongo-content">
+        {/* Compact only here, as on the SQL side: the header and sidebar keep the app's own size. */}
+        <section className="mongo-content" data-density="compact">
           {contentMode === "data" && !selectedCollection && (
             <p className="muted">{t("mongo.selectCollectionPrompt")}</p>
           )}

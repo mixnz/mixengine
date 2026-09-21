@@ -152,7 +152,7 @@ function FilterBar<Op extends string>({
             return (
               <div key={row.id} className={styles.row}>
                 <Checkbox
-                  size="small"
+                  size="normal"
                   className={styles.toggle}
                   checked={row.enabled}
                   aria-label={t("filterBar.enableFilter")}
@@ -160,7 +160,7 @@ function FilterBar<Op extends string>({
                   onChange={(e) => updateRow(row.id, { enabled: e.target.checked })}
                 />
                 <Select
-                  size="small"
+                  size="normal"
                   className={styles.field}
                   value={row.column}
                   options={fieldOptions}
@@ -170,7 +170,7 @@ function FilterBar<Op extends string>({
                   onChange={(column) => changeField(row, column)}
                 />
                 <Select
-                  size="small"
+                  size="normal"
                   className={styles.operator}
                   value={row.operator}
                   options={operatorOptions}
@@ -184,7 +184,7 @@ function FilterBar<Op extends string>({
                     if (el) valueRefs.current.set(row.id, el);
                     else valueRefs.current.delete(row.id);
                   }}
-                  size="small"
+                  size="normal"
                   className={styles.value}
                   value={row.value}
                   disabled={!takesValue}
@@ -224,7 +224,7 @@ function FilterBar<Op extends string>({
         >
           <PlusIcon size={14} />
         </button>
-        <Button size="small" variant="primary" disabled={applyDisabled} onClick={onApply}>
+        <Button size="normal" variant="primary" disabled={applyDisabled} onClick={onApply}>
           {t("filterBar.apply")}
         </Button>
       </div>

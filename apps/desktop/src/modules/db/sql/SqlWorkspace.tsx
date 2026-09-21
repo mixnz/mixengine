@@ -125,7 +125,7 @@ const NEW_DATABASE = "/new";
  * created or dropped elsewhere is otherwise only picked up by reconnecting. */
 const RELOAD_DATABASES = "/reload";
 
-const DEFAULT_SIDEBAR_WIDTH = 200;
+const DEFAULT_SIDEBAR_WIDTH = 260;
 const MIN_SIDEBAR_WIDTH = 140;
 const MAX_SIDEBAR_WIDTH = 480;
 
@@ -544,7 +544,7 @@ function SqlWorkspace({
     tables.length === 0 ? t("sql.noTables") : filteredTables.length === 0 ? t("sql.noMatchingTables") : undefined;
 
   return (
-    <div className="sql-workspace" data-density="compact">
+    <div className="sql-workspace">
       <div className="sql-header">
         <div className="sql-header-left">
           {serverInfo && (
@@ -655,6 +655,7 @@ function SqlWorkspace({
           />
           <ItemList
             ref={sidebarKeys.listRef}
+            className="db-sidebar-list"
             items={filteredTables}
             selectedItem={selectedTable}
             onSelect={selectTable}
@@ -717,7 +718,9 @@ function SqlWorkspace({
           {...splitter}
         />
 
-        <section className="sql-content">
+        {/* Compact from here down only: the header and the sidebar above are the app's own controls at its
+            own size, and only the rows, grids and footers in here want the tighter one. */}
+        <section className="sql-content" data-density="compact">
           {contentMode === "data" && !selectedTable && (
             <p className="muted">{t("sql.selectTablePrompt")}</p>
           )}

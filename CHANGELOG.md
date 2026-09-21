@@ -86,6 +86,9 @@
 - MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
+- In a database tab, the header, the table list and the filter bar use MixLab's usual sizes, and the
+  sidebar opens wider, so the picker, the tabs and the search box are no longer cramped. Rows and
+  results stay compact.
 - The product is called MixLab, and MixEngine is the engine inside it: one download still gives you
   both, and MixEngine on its own remains the headless archive for a machine with no screen. The
   handbook moved to `https://mixnz.github.io/mixlab/` and the old address stops answering. Nothing
