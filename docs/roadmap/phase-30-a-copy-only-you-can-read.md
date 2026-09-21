@@ -158,9 +158,12 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       settings hint that said the same was rewritten with it. The screen has not been looked at by
       anybody but its author's type checker: every row is off by default, and the first person to
       sign up against `sync-0` is the first to see it.
-- [ ] **T177e3** What an account does after it exists: change the password (D6 case 1), recover it
-      with the recovery key or without (cases 2 and 3), delete the account, and move it to another
-      server by copying (D4b) — each asking for the password when it needs `A`.
+- [ ] **T177e3** The password, after the account exists: change it while signed in (D6 case 1),
+      and recover a forgotten one — keeping the records with the recovery key (case 2), or starting
+      over without it under a new `MK` and a new recovery key (case 3).
+- [ ] **T177e4** Leaving a server: delete the account, and move it to another server by copying
+      (D4b), which asks at the end whether to delete the old one or thaw it, deletion first. Both
+      ask for the password, because both need `A`.
 - [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.

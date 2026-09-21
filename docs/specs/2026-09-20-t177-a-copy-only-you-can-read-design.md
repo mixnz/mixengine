@@ -391,6 +391,10 @@ row this route exists to remove.
 5. Compare what the new server holds against what the old one still shows, then either
    `POST /v1/account/delete` on the old one, or post `active` to thaw it.
 
+**MixLab asks which, and offers deletion first**, for the reason given below under *a machine the
+person forgets to repoint*: a deleted source signs that machine out the same day, and a thawed one
+lets it go on writing to an account nobody else reads.
+
 **There is no export route and no import route**, and steps 2 and 4 are why: a copy is the paged
 read and the batch write a client already performs every day. The server never acquires a way to
 hand out a whole account at once, which is the property D1 would otherwise have to qualify.
@@ -480,6 +484,12 @@ does the other's job, which is what case 2 is about.
 `wrapped_mk_recovery` before it can compute anything and spending the code is what earns it. The
 first request spends the code and answers with that key and a **single-use ticket, minutes long**;
 the second carries the ticket and the new keys. D4a has both shapes.
+
+**In case 2 the recovery key does not change.** `MK` is the same, so the `wrapped_mk_recovery` the
+first request returned is sent back as it came. **After case 3 the machine starts over under a new
+`MK`**: a new recovery key, shown with the same ceremony as registration, and everything this
+machine holds lent again as if for the first time — the old key's opaque ids name nothing under the
+new one.
 
 Three things that follow, and none of them are the client's convenience:
 
