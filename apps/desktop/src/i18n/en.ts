@@ -258,6 +258,24 @@ const en = {
   },
   sync: {
     preferences: "Preferences",
+    recoveryTitle: "Your recovery key",
+    recoveryHint:
+      "Write it down and keep it somewhere safe — it is shown once. With it and your email you can get your data back if you forget your password. Without the email it is not enough.",
+    recoveryCopy: "Copy",
+    recoveryWritten: "I have written it down",
+    recoveryCheck: "Type groups {{first}} and {{second}} back",
+    recoveryGroup: "Group {{n}}",
+    recoveryMismatch: "Those groups do not match the key.",
+    recoveryShowAgain: "Show the key again",
+    recoveryLost:
+      "The recovery key was shown once and cannot be shown again. If you did not write it down, start over.",
+    startOver: "Start over",
+    codeTitle: "Check your email",
+    codeHint: "A code was sent to {{email}}.",
+    code: "Code",
+    deviceName: "This machine's name",
+    confirming: "Confirming",
+    continue: "Continue",
   },
 };
 

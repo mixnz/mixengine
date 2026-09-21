@@ -237,6 +237,23 @@ const vi: SharedDict = {
   },
   sync: {
     preferences: "Tuỳ chọn",
+    recoveryTitle: "Khoá khôi phục của bạn",
+    recoveryHint:
+      "Hãy ghi lại và cất ở nơi an toàn — khoá chỉ hiện một lần. Có khoá này và email, bạn lấy lại được dữ liệu nếu quên mật khẩu. Không có email thì khoá không đủ.",
+    recoveryCopy: "Sao chép",
+    recoveryWritten: "Tôi đã ghi lại",
+    recoveryCheck: "Gõ lại nhóm {{first}} và {{second}}",
+    recoveryGroup: "Nhóm {{n}}",
+    recoveryMismatch: "Các nhóm này không khớp với khoá.",
+    recoveryShowAgain: "Xem lại khoá",
+    recoveryLost: "Khoá khôi phục chỉ hiện một lần và không xem lại được. Nếu bạn chưa ghi lại, hãy làm lại từ đầu.",
+    startOver: "Làm lại",
+    codeTitle: "Kiểm tra email",
+    codeHint: "Mã đã được gửi tới {{email}}.",
+    code: "Mã",
+    deviceName: "Tên máy này",
+    confirming: "Đang xác nhận",
+    continue: "Tiếp tục",
   },
 };
 
