@@ -10,6 +10,11 @@
 //! cd apps/desktop/src-tauri && MIXLAB_SYNC_TEST_SERVER=http://127.0.0.1:8766 \
 //!   cargo test --locked --test sync_live -- --ignored
 //! ```
+//!
+//! A move needs a second server with a database of its own: the same command with
+//! `MIXLAB_SYNC_BIND=127.0.0.1:8767` and another `MIXLAB_SYNC_DATABASE`, and
+//! `MIXLAB_SYNC_TEST_SERVER_2=http://127.0.0.1:8767` beside `MIXLAB_SYNC_TEST_SERVER` on the test
+//! line.
 
 use std::sync::Arc;
 
@@ -35,39 +40,23 @@ fn random(bytes: usize) -> String {
     STANDARD.encode((0..bytes).map(|_| rand::random::<u8>()).collect::<Vec<_>>())
 }
 
-async fn call(
-    method: reqwest::Method,
-    path: &str,
-    token: Option<&str>,
-    body: Option<Value>,
-) -> (u16, Value) {
-    let mut request = reqwest::Client::new().request(method, format!("{}{path}", server()));
-    if let Some(token) = token {
-        request = request.bearer_auth(token);
-    }
-    if let Some(body) = body {
-        request = request
-            .header("content-type", "application/json")
-            .body(body.to_string());
-    }
-    let response = request.send().await.expect("the server answers");
-    let status = response.status().as_u16();
-    let bytes = response.bytes().await.expect("a body");
-    (
-        status,
-        serde_json::from_slice(&bytes).unwrap_or(Value::Null),
-    )
+fn second_server() -> String {
+    std::env::var("MIXLAB_SYNC_TEST_SERVER_2")
+        .expect("MIXLAB_SYNC_TEST_SERVER_2 names a second server, with its own database")
 }
 
-/// The code in the newest letter of `kind` to `email`, read from the test outbox.
-async fn letter(email: &str, kind: &str) -> String {
-    let (_, outbox) = call(
-        reqwest::Method::GET,
-        &format!("/__test__/outbox?email={}", email.replace('@', "%40")),
-        None,
-        None,
-    )
-    .await;
+/// The code in the newest letter of `kind` to `email`, from the outbox of the server at `base`.
+async fn letter_on(base: &str, email: &str, kind: &str) -> String {
+    let body = reqwest::get(format!(
+        "{base}/__test__/outbox?email={}",
+        email.replace('@', "%40")
+    ))
+    .await
+    .expect("the server answers")
+    .text()
+    .await
+    .expect("a body");
+    let outbox: Value = serde_json::from_str(&body).expect("json");
     outbox["messages"]
         .as_array()
         .and_then(|messages| {
@@ -79,6 +68,11 @@ async fn letter(email: &str, kind: &str) -> String {
         .and_then(|message| message["token"].as_str())
         .expect("a letter")
         .to_owned()
+}
+
+/// The same, from the first server.
+async fn letter(email: &str, kind: &str) -> String {
+    letter_on(&server(), email, kind).await
 }
 
 fn registration(email: &str, a: String) -> Registration {
@@ -594,4 +588,62 @@ async fn a_frozen_account_is_seen_and_thawed_from_another_machine() {
     assert_eq!(refused.code, "error.syncAccountFrozen");
 
     assert_eq!(laptop.thaw().await.unwrap().state, "active");
+}
+
+/// D4b end to end: the records cross unchanged, the old account is deleted, and the machine goes
+/// on syncing against the new server with the same password.
+#[tokio::test]
+#[ignore = "needs two sync servers in test-outbox mode; see the module comment"]
+async fn an_account_moves_to_another_server() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "the password").await;
+    let snippets = vec![
+        Item {
+            id: "a".into(),
+            data: json!({ "sql": "select 1" }),
+        },
+        Item {
+            id: "b".into(),
+            data: json!({ "sql": "select 2" }),
+        },
+    ];
+    desktop
+        .push("query-snippets", snippets.clone())
+        .await
+        .unwrap();
+
+    desktop
+        .move_begin(&second_server(), None, "the password".into())
+        .await
+        .unwrap();
+    let moved = desktop
+        .move_confirm(
+            &letter_on(&second_server(), &email, "verification").await,
+            "desktop",
+        )
+        .await
+        .unwrap();
+    assert_eq!(moved.copied, 2);
+    let status = desktop.move_finish(true).await.unwrap();
+    assert_eq!(status.server.as_deref(), Some(second_server().as_str()));
+
+    let there = machine_state(dir.path(), "there");
+    there
+        .login(
+            &second_server(),
+            None,
+            &email,
+            "the password".into(),
+            "there",
+        )
+        .await
+        .unwrap();
+    let page = there.pull_page("query-snippets").await.unwrap();
+    assert_eq!(page.changes.upserts.len(), 2);
+
+    let gone = machine_state(dir.path(), "gone")
+        .login(&server(), None, &email, "the password".into(), "gone")
+        .await
+        .unwrap_err();
+    assert_eq!(gone.code, "error.syncWrongPassword");
 }
