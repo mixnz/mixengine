@@ -1138,6 +1138,10 @@ const dbEn = {
     cannotRemoveDirectory: "Cannot remove {{path}}: {{message}}",
     noAppDataDir: "There is nowhere for MixLab to keep its own files: {{message}}",
   },
+  dbSync: {
+    connections: "Connections",
+    querySnippets: "Query snippets",
+  },
 };
 
 export type DbDict = typeof dbEn;

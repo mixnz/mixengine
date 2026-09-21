@@ -1105,6 +1105,10 @@ const dbVi: DbDict = {
     cannotRemoveDirectory: "Không xóa được {{path}}: {{message}}",
     noAppDataDir: "MixLab không có chỗ nào để lưu file riêng của nó: {{message}}",
   },
+  dbSync: {
+    connections: "Kết nối",
+    querySnippets: "Đoạn truy vấn",
+  },
 };
 
 export default dbVi;

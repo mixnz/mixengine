@@ -50,14 +50,14 @@ export function readSecrets(config: ConnectionConfig, keyringRef?: string): Secr
 }
 
 /** The same config with every credential taken out — what is written to disk. */
-function withoutSecrets(config: ConnectionConfig): ConnectionConfig {
+export function withoutSecrets(config: ConnectionConfig): ConnectionConfig {
   const stripped: ConnectionConfig = { ...config, password: undefined, uri: undefined };
   if (config.ssh) stripped.ssh = splitSshSecrets(config.ssh).config;
   return stripped;
 }
 
 /** The config as the form needs it: what was on disk, with the credentials put back. */
-function withSecrets(config: ConnectionConfig, secrets: Secrets): ConnectionConfig {
+export function withSecrets(config: ConnectionConfig, secrets: Secrets): ConnectionConfig {
   const filled: ConnectionConfig = {
     ...config,
     password: secrets.password ?? config.password,
