@@ -28,7 +28,8 @@ pub enum Provider {
     Smtp,
     /// `from` and `to` are plain strings; a bearer token.
     Resend,
-    /// `from` and `to` are objects; the key rides in `Api-Token`. The endpoint carries an inbox id.
+    /// `from` and `to` are objects; the key rides in `Api-Token`. Only a sandbox endpoint carries
+    /// an id; the transactional stream is the same for everybody.
     Mailtrap,
     /// `sender`, and the body is `textContent`; the key rides in `api-key`.
     Brevo,
@@ -58,22 +59,25 @@ impl Provider {
 
     /// Where to post, when the endpoint is the same for everybody using that provider.
     ///
-    /// Two are `None` on purpose: Mailtrap's URL carries an inbox id and Mailgun's carries the
-    /// sending domain, so there is nothing to guess and a deployment that forgot one is told so
-    /// before it starts rather than when the first letter fails to arrive.
+    /// Mailtrap's is its transactional stream, which is what the two letters are; only its sandbox
+    /// URL carries an id, and a deployment testing against one sets it. Mailgun is `None` on
+    /// purpose: its URL carries the sending domain and the region, so there is nothing to guess
+    /// and a deployment that forgot it is told so before it starts rather than when the first
+    /// letter fails to arrive.
     pub fn default_endpoint(self) -> Option<&'static str> {
         match self {
             Self::Smtp => None,
             Self::Resend => Some("https://api.resend.com/emails"),
+            Self::Mailtrap => Some("https://send.api.mailtrap.io/api/send"),
             Self::Brevo => Some("https://api.brevo.com/v3/smtp/email"),
             Self::Postmark => Some("https://api.postmarkapp.com/email"),
             Self::Sendgrid => Some("https://api.sendgrid.com/v3/mail/send"),
-            Self::Mailtrap | Self::Mailgun => None,
+            Self::Mailgun => None,
         }
     }
 
     pub fn needs_endpoint(self) -> bool {
-        matches!(self, Self::Mailtrap | Self::Mailgun)
+        matches!(self, Self::Mailgun)
     }
 
     pub fn needs_api_key(self) -> bool {

@@ -95,18 +95,21 @@ export function isProviderName(value: string): value is ProviderName {
 }
 
 /**
- * Where to post, when the endpoint is the same for everybody using that provider. Two are absent on
- * purpose: Mailtrap's URL carries an inbox id and Mailgun's the sending domain, so there is nothing
- * to guess and a deployment that forgot one is told before it serves anything.
+ * Where to post, when the endpoint is the same for everybody using that provider. Mailtrap's is its
+ * transactional stream, which is what the two letters are; only its sandbox URL carries an id, and a
+ * deployment testing against one sets it. Mailgun is absent on purpose: its URL carries the sending
+ * domain and the region, so there is nothing to guess and a deployment that forgot it is told
+ * before it serves anything.
  */
 export const DEFAULT_ENDPOINT: Partial<Record<ProviderName, string>> = {
   resend: "https://api.resend.com/emails",
+  mailtrap: "https://send.api.mailtrap.io/api/send",
   brevo: "https://api.brevo.com/v3/smtp/email",
   postmark: "https://api.postmarkapp.com/email",
   sendgrid: "https://api.sendgrid.com/v3/mail/send",
 };
 
-export const NEEDS_ENDPOINT: readonly ProviderName[] = ["mailtrap", "mailgun"];
+export const NEEDS_ENDPOINT: readonly ProviderName[] = ["mailgun"];
 
 class HttpProvider implements EmailSender {
   constructor(
