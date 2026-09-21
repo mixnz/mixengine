@@ -20,6 +20,8 @@ interface Props {
   onSignedIn: (status: SyncStatus) => void;
   /** Sign-up reached the server: the recovery key, to be shown once. */
   onRegistered: (recoveryKey: string, email: string) => void;
+  /** The password is forgotten: reset it on the server chosen here (D6). */
+  onForgot: (server: string, access: string | null, email: string) => void;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * The access-token field is shown only for a server that is not the default: the default instance
  * is open, and a field nobody there needs is a field somebody fills with their password.
  */
-function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered }: Props) {
+function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, onForgot }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("signIn");
   const [servers, setServers] = useState(() => readServers(localStorage));
@@ -204,6 +206,16 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered }
         </p>
       )}
       <div className={styles.row}>
+        {mode === "signIn" && (
+          <Button
+            variant="link"
+            onClick={() =>
+              onForgot(server, server === DEFAULT_SERVER || access.trim() === "" ? null : access.trim(), email.trim())
+            }
+          >
+            {t("sync.forgot")}
+          </Button>
+        )}
         <Button
           variant="primary"
           type="submit"

@@ -320,6 +320,21 @@ const en = {
     changePasswordHint: "Your other machines are signed out and will ask for the new one. Your data stays as it is.",
     passwordChanged: "Password changed. Your other machines were signed out and will ask for the new one.",
     saving: "Saving",
+    forgot: "Forgot your password?",
+    forgotTitle: "Reset your password",
+    forgotHint:
+      "A code will be sent to your address at {{server}}. With your recovery key your data stays; without it, it is deleted.",
+    sendCode: "Send code",
+    sendingCode: "Sending",
+    haveKey: "I have my recovery key",
+    noKey: "I don't have it",
+    recoveryKey: "Recovery key",
+    resetDeletesEverything:
+      "Without the recovery key nothing can read your data any more, so resetting deletes everything this account holds on the server. What is on your machines stays there.",
+    resetKeep: "Reset password",
+    resetStartOver: "Delete everything and start over",
+    resetting: "Resetting",
+    finishTitle: "Last step",
   },
 };
 

@@ -298,6 +298,21 @@ const vi: SharedDict = {
     changePasswordHint: "Các máy khác sẽ bị đăng xuất và hỏi mật khẩu mới. Dữ liệu của bạn giữ nguyên.",
     passwordChanged: "Đã đổi mật khẩu. Các máy khác đã bị đăng xuất và sẽ hỏi mật khẩu mới.",
     saving: "Đang lưu",
+    forgot: "Quên mật khẩu?",
+    forgotTitle: "Đặt lại mật khẩu",
+    forgotHint:
+      "Một mã sẽ được gửi tới địa chỉ của bạn trên {{server}}. Có khoá khôi phục thì dữ liệu được giữ; không có thì dữ liệu bị xoá.",
+    sendCode: "Gửi mã",
+    sendingCode: "Đang gửi",
+    haveKey: "Tôi có khoá khôi phục",
+    noKey: "Tôi không có",
+    recoveryKey: "Khoá khôi phục",
+    resetDeletesEverything:
+      "Không có khoá khôi phục thì không gì đọc được dữ liệu của bạn nữa, nên đặt lại sẽ xoá mọi thứ tài khoản này đang giữ trên máy chủ. Những gì trên các máy của bạn vẫn nằm lại đó.",
+    resetKeep: "Đặt lại mật khẩu",
+    resetStartOver: "Xoá hết và bắt đầu lại",
+    resetting: "Đang đặt lại",
+    finishTitle: "Bước cuối",
   },
 };
 
