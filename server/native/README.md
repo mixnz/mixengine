@@ -38,6 +38,10 @@ MIXLAB_SYNC_TEST_OUTBOX=1 cargo run
 
 ## Using the container image
 
+This is how to run the server without installing Rust. The image holds the one binary and nothing
+else, and is published at
+[github.com/mixnz/mixlab/pkgs/container/mixlab-sync-server](https://github.com/mixnz/mixlab/pkgs/container/mixlab-sync-server).
+
 ```bash
 docker pull ghcr.io/mixnz/mixlab-sync-server:latest
 ```
@@ -115,6 +119,41 @@ server says so and stops instead of half-starting. Set `MIXLAB_SYNC_BIND` to a f
 Put a reverse proxy with TLS in front of it. There is no public URL setting: the emails contain a
 code the person types into MixLab, not a link (D4a), so the server never needs to know its own
 address.
+
+### Backing it up
+
+The volume holds one SQLite file. Back it up together with `.env`: the database without its pepper
+is a set of accounts nobody can sign in to. Stop the container while you copy, so the file isn't
+caught halfway through a write:
+
+```bash
+docker compose stop sync
+docker compose cp sync:/data ./mixlab-sync-backup
+docker compose start sync
+```
+
+## Checking your deployment
+
+The conformance suite (`../conformance/`) tells you whether your build answers `/v1` the way
+MixLab expects. It needs the test outbox to read verification codes, and **the test outbox must
+never be on for your real server**: it hands anyone the codes it would have emailed.
+
+So test a throwaway copy. Run the same image with the same `.env`, the outbox on, its own port and no
+volume, then point the suite at it from a checkout of this repository:
+
+```bash
+docker run --rm -d --name mixlab-sync-check --env-file .env \
+  -e MIXLAB_SYNC_TEST_OUTBOX=1 -p 127.0.0.1:8799:8765 \
+  ghcr.io/mixnz/mixlab-sync-server:latest
+cd server/conformance && npm ci
+CONFORMANCE_BASE_URL=http://127.0.0.1:8799 npm test
+docker stop mixlab-sync-check
+```
+
+In this mode the copy sends no mail and ignores your pepper, so reusing `.env` is safe: what it
+keeps are your limits and access token, which is what you want tested. With `--rm` and no volume,
+its database goes when it stops. If your server is closed with an access token, pass the same one as
+`CONFORMANCE_ACCESS_TOKEN`.
 
 ## Configuration
 

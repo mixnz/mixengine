@@ -218,10 +218,20 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       syncs in the registry's order, and `registry.test.ts` now checks that every secret row comes
       after the row it belongs to. `toggleRow` holds D5's two rules and is tested; the writers
       that touch the vault have been checked by `tsc`, lint and their pure halves' tests.
-- [ ] **T177g** What a stranger needs to run one: the server's README, a single-binary deployment,
+- [x] **T177g** What a stranger needs to run one: the server's README, a single-binary deployment,
       and the conformance suite pointed at their own instance. Plus the refusals the spec names —
       history, drafts, workspace layout and usage counts are not in the list, and a test says so by
       enumerating it rather than by trusting the UI.
+
+      **Done in one commit, of documentation.** Most of it had landed along the way. The single
+      binary a stranger runs is **the container image**, published from `master` at
+      `ghcr.io/mixnz/mixlab-sync-server`; the native README now says so first, and how to back up
+      its one SQLite file with the pepper. The conformance README claimed it could be pointed at a
+      self-hosted deployment as it stood, which was wrong: the suite needs the test outbox, and a
+      real server must never serve it. It now says to test a throwaway copy, and the native README
+      has the commands. The refusals were already a test: `registry.test.ts` enumerates exactly what
+      syncs and checks that history, drafts, the workspace and usage counts are not among it (T177d).
+
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
 collections that were ticked, with the rows that were not ticked absent; revoking a device from the
