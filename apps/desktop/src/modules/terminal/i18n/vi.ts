@@ -103,6 +103,10 @@ const terminalVi: TerminalDict = {
     terminalUnknownSession: "Phiên terminal đó không còn mở.",
     terminalClipboardRead: "Chưa dán được. Clipboard từ chối: {{message}}",
   },
+  terminalSync: {
+    settings: "Cài đặt terminal",
+    hosts: "Máy SSH đã lưu",
+  },
 };
 
 export default terminalVi;

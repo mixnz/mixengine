@@ -2,6 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import type { ShortcutGroup } from "../core/shortcuts";
 import type { IconProps } from "../icons";
 import type { TranslationKey } from "../i18n";
+import type { SyncableCollection } from "../core/syncCollection";
 
 /**
  * A mark a module wants on its own tab.
@@ -118,4 +119,7 @@ export interface ModuleDefinition {
    * window where none does gets no tray icon at all, and closing it quits as it always did.
    */
   TrayPanel?: ComponentType;
+  /** The collections this module lends to sync (the design's D5). The shell offers them and
+   *  never learns what an item is — see `core/syncCollection.ts`. */
+  syncable?: SyncableCollection[];
 }

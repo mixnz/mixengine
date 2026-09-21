@@ -1,0 +1,61 @@
+import { announcePreferencesChanged } from "../core/preferences";
+import type { SyncableCollection, SyncItem } from "../core/syncCollection";
+
+/**
+ * The shell's own preferences, one record per `localStorage` key (D5). An allow-list: the session,
+ * the tab layout and anything else in storage are this machine's.
+ *
+ * Values travel as the strings they are stored as. Each owner already checks what it reads — an
+ * unknown theme reads as the default — so a value another machine sends is no more trusted than
+ * one a person typed into the devtools.
+ */
+const KEYS: Record<string, string> = {
+  theme: "mixdb-theme",
+  accent: "mixdb-accent",
+  language: "mixdb-lang",
+  modules: "mixdb-modules",
+};
+
+/** What the collection needs of `localStorage`, so a test can hand it a map instead. */
+export interface PreferenceStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+export function preferencesCollection(
+  storage: () => PreferenceStorage,
+  announce: () => void,
+): SyncableCollection {
+  return {
+    id: "preferences",
+    labelKey: "sync.preferences",
+    read: async () => {
+      const items: SyncItem[] = [];
+      for (const [id, key] of Object.entries(KEYS)) {
+        const value = storage().getItem(key);
+        if (value !== null) items.push({ id, data: value });
+      }
+      return items;
+    },
+    write: async (changes) => {
+      let changed = false;
+      for (const synced of changes.upserts) {
+        const key = KEYS[synced.id];
+        if (key === undefined || typeof synced.data !== "string") continue;
+        storage().setItem(key, synced.data);
+        changed = true;
+      }
+      for (const id of changes.removed) {
+        const key = KEYS[id];
+        if (key === undefined) continue;
+        storage().removeItem(key);
+        changed = true;
+      }
+      if (changed) announce();
+    },
+  };
+}
+
+/** The one the app uses. `localStorage` is reached when sync runs, never when this file loads. */
+export const preferencesSyncable = preferencesCollection(() => localStorage, announcePreferencesChanged);

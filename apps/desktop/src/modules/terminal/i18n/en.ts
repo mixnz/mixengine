@@ -103,6 +103,10 @@ const terminalEn = {
     terminalUnknownSession: "That terminal session is no longer open.",
     terminalClipboardRead: "Nothing was pasted. The clipboard refused: {{message}}",
   },
+  terminalSync: {
+    settings: "Terminal settings",
+    hosts: "Saved SSH hosts",
+  },
 };
 
 /** The shape both dictionaries have to have — see `vi.ts`, which is annotated with it, and

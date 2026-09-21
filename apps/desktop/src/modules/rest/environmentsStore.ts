@@ -154,3 +154,18 @@ export function addVariables(id: string, names: string[]): void {
   if (env === null) return;
   commit(updateEnvironment(shared.get(), withVariables(env, names)));
 }
+
+/** Resolves once the list has been read, secrets included — see `requestsReady`. */
+export function environmentsReady(): Promise<void> {
+  return shared.ready();
+}
+
+/** The list as it stands, for sync to read (T177d). */
+export function currentEnvironments(): Environment[] {
+  return shared.get();
+}
+
+/** Sync's write: the whole list, through the same debounced split every other write takes. */
+export function replaceEnvironments(list: Environment[]): void {
+  commit(list);
+}

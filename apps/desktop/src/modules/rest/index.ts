@@ -4,6 +4,7 @@ import type { ModuleDefinition } from "../../shell/module";
 import { GlobeIcon } from "../../icons";
 import RestSettings from "./components/RestSettings";
 import { REST_SHORTCUTS } from "./shortcuts";
+import { environmentsSyncable, requestsSyncable } from "./sync";
 
 /* Loaded when a tab of this module is first opened, not at launch. The workspace behind it is the
    heaviest thing in the bundle — CodeMirror here, xterm in the terminal — and a launch that parses
@@ -20,4 +21,5 @@ export const restModule: ModuleDefinition = {
   Tab: lazy(() => import("./RestTab")),
   settings: { labelKey: "rest.settingsTitle", Icon: GlobeIcon, Section: RestSettings },
   shortcuts: REST_SHORTCUTS,
+  syncable: [requestsSyncable, environmentsSyncable],
 };

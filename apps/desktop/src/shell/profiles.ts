@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { onPreferencesChanged } from "../core/preferences";
 import type { ModuleDefinition } from "./module";
 import { MODULES, MODULE_PRESETS, PRESET_IDS, type PresetId } from "./registry";
 
@@ -207,6 +208,14 @@ export type Startup =
 export function useStartupProfile(): Startup {
   const [enabled, setEnabled] = useState<string[] | null>(readEnabledModules);
   const [asking, setAsking] = useState(false);
+  useEffect(
+    () =>
+      onPreferencesChanged(() => {
+        const next = readEnabledModules();
+        if (next) setEnabled(next);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (enabled) writeEnabledModules(enabled);

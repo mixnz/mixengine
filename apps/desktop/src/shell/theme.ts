@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { onPreferencesChanged } from "../core/preferences";
 import { IS_MAC, IS_WINDOWS } from "../core/platform";
 import { clearRetiredKeys, resolveTheme } from "./themeModel";
 
@@ -108,8 +109,15 @@ window.matchMedia(DARK_QUERY).addEventListener("change", () => {
   if (readStoredTheme() === "system") applyTheme("system");
 });
 
+/* Another machine's preference, written by sync (T177d): the page follows at once. */
+onPreferencesChanged(() => {
+  applyTheme(readStoredTheme());
+  applyAccent(readStoredAccent());
+});
+
 export function useTheme(): [ThemeMode, (theme: ThemeMode) => void] {
   const [theme, setTheme] = useState<ThemeMode>(readStoredTheme);
+  useEffect(() => onPreferencesChanged(() => setTheme(readStoredTheme())), []);
 
   function updateTheme(next: ThemeMode) {
     applyTheme(next);
@@ -121,6 +129,7 @@ export function useTheme(): [ThemeMode, (theme: ThemeMode) => void] {
 
 export function useAccent(): [AccentColor, (accent: AccentColor) => void] {
   const [accent, setAccent] = useState<AccentColor>(readStoredAccent);
+  useEffect(() => onPreferencesChanged(() => setAccent(readStoredAccent())), []);
 
   function updateAccent(next: AccentColor) {
     applyAccent(next);

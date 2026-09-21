@@ -363,6 +363,9 @@ const toolsVi = {
   error: {
     portScanFailed: "Không đọc được danh sách cổng đang mở: {{tool}} không chạy được.",
   },
+  toolsSync: {
+    snippets: "Đoạn mẫu cheatsheet",
+  },
 };
 
 export default toolsVi;

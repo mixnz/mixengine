@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { onPreferencesChanged } from "../core/preferences";
 import { EN, VI } from "./dicts";
 
 /** Every module's strings and the shared ones, as one object — see {@link ./dicts}. */
@@ -48,6 +49,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>(readStoredLanguage);
+  useEffect(() => onPreferencesChanged(() => setLangState(readStoredLanguage())), []);
 
   /* The dictionary `t` reads, behind a ref so that `t` itself is one function for the life of the
      app rather than a new one per language.

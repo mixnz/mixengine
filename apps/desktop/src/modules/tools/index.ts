@@ -2,6 +2,7 @@ import { lazy } from "react";
 
 import type { ModuleDefinition } from "../../shell/module";
 import { ToolsIcon } from "../../icons";
+import { snippetsSyncable } from "./tools/cheatsheet/snippetsStore";
 
 /* Nạp khi một tab của module này được mở lần đầu, không phải lúc khởi động — cùng lý do với ba
    module kia. Icon và nhãn thì eager: chúng có mặt trên tab strip trước khi có tab nào loại này. */
@@ -12,4 +13,5 @@ export const toolsModule: ModuleDefinition = {
   Icon: ToolsIcon,
   defaultTitleKey: "toolbox.newTabTitle",
   Tab: lazy(() => import("./ToolsTab")),
+  syncable: [snippetsSyncable],
 };

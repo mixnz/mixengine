@@ -28,6 +28,10 @@ const SCHEMA: &[&str] = &[
        version    INTEGER NOT NULL,
        updated_at INTEGER NOT NULL,
        deleted    INTEGER NOT NULL,
+       -- What this machine and the server last agreed a record says: the local id it is known by
+       -- here, and a hash of its canonical plaintext. Absent until a change has landed (D4).
+       local_id   TEXT,
+       hash       TEXT,
        PRIMARY KEY (server, collection, id)
      )",
 ];
@@ -38,6 +42,13 @@ pub struct Seen {
     pub version: i64,
     pub updated_at: i64,
     pub deleted: bool,
+}
+
+/// What this machine and the server last agreed a record says.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Agreed {
+    pub local_id: String,
+    pub hash: String,
 }
 
 pub struct Store {
@@ -159,6 +170,63 @@ impl Store {
         }
         Ok(())
     }
+
+    pub async fn agreed(&self, collection: &str, id: &str) -> Result<Option<Agreed>, AppError> {
+        let row = sqlx::query(
+            "SELECT local_id, hash FROM seen
+             WHERE server = ?1 AND collection = ?2 AND id = ?3
+               AND local_id IS NOT NULL AND hash IS NOT NULL",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(row.map(|row| Agreed {
+            local_id: row.get(0),
+            hash: row.get(1),
+        }))
+    }
+
+    /// Record agreement **once the change it describes has landed** — never before, or a write
+    /// that failed afterwards would read as agreed and be pushed back over something newer.
+    pub async fn agree(
+        &self,
+        collection: &str,
+        id: &str,
+        local_id: &str,
+        hash: &str,
+    ) -> Result<(), AppError> {
+        sqlx::query(
+            "UPDATE seen SET local_id = ?4, hash = ?5
+             WHERE server = ?1 AND collection = ?2 AND id = ?3",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .bind(local_id)
+        .bind(hash)
+        .execute(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(())
+    }
+
+    /// Every record in `collection` this machine agreed on that is not a tombstone, as
+    /// `(opaque id, local id)`: what a reader must still return, or it was deleted here.
+    pub async fn agreed_live(&self, collection: &str) -> Result<Vec<(String, String)>, AppError> {
+        let rows = sqlx::query(
+            "SELECT id, local_id FROM seen
+             WHERE server = ?1 AND collection = ?2 AND deleted = 0 AND local_id IS NOT NULL",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(rows.iter().map(|row| (row.get(0), row.get(1))).collect())
+    }
 }
 
 fn store_error(error: sqlx::Error) -> AppError {
@@ -233,5 +301,37 @@ mod tests {
         assert_eq!(b.seen("c", "i").await.unwrap(), None);
         drop(b);
         let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn agreement_is_kept_by_remember_and_read_back() {
+        let store = Store::in_memory("s").await.unwrap();
+        store.remember(&record("c", "i", 1)).await.unwrap();
+        assert_eq!(store.agreed("c", "i").await.unwrap(), None);
+        store.agree("c", "i", "local-1", "h1").await.unwrap();
+        store.remember(&record("c", "i", 2)).await.unwrap();
+        assert_eq!(
+            store.agreed("c", "i").await.unwrap(),
+            Some(Agreed {
+                local_id: "local-1".into(),
+                hash: "h1".into()
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn a_tombstone_is_not_live() {
+        let store = Store::in_memory("s").await.unwrap();
+        store.remember(&record("c", "a", 1)).await.unwrap();
+        store.remember(&record("c", "b", 1)).await.unwrap();
+        store.agree("c", "a", "la", "h").await.unwrap();
+        store.agree("c", "b", "lb", "h").await.unwrap();
+        let mut dead = record("c", "b", 2);
+        dead.deleted = true;
+        store.remember(&dead).await.unwrap();
+        assert_eq!(
+            store.agreed_live("c").await.unwrap(),
+            vec![("a".into(), "la".into())]
+        );
     }
 }

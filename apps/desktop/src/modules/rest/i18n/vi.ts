@@ -184,6 +184,10 @@ const restVi: RestDict = {
     restBuildFailed: "Không dựng được request. {{message}}",
     restCancelled: "Request đã bị huỷ.",
   },
+  restSync: {
+    requests: "Yêu cầu REST",
+    environments: "Môi trường REST",
+  },
 };
 
 export default restVi;

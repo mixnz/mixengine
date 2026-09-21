@@ -1,4 +1,5 @@
 import { createStore, jsonFile, useStore } from "../../../../core/jsonStore";
+import { applySyncChanges, type SyncableCollection, type SyncItem } from "../../../../core/syncCollection";
 import { readSnippets, type Snippet } from "./snippets";
 
 /**
@@ -32,3 +33,28 @@ export function useSnippets(): Snippet[] {
 export function saveSnippets(next: Snippet[]): void {
   void store.save(next).catch(() => {});
 }
+
+export function snippetToSync(snippet: Snippet): SyncItem {
+  const { id, ...data } = snippet;
+  return { id, data };
+}
+
+/** Validated by the same check the file gets, so another machine cannot hand this one a shape its
+ *  own disk would have been refused. */
+export function snippetFromSync(synced: SyncItem): Snippet | null {
+  const [parsed] = readSnippets([{ ...(synced.data as object), id: synced.id }]);
+  return parsed ?? null;
+}
+
+export const snippetsSyncable: SyncableCollection = {
+  id: "tools-snippets",
+  labelKey: "toolsSync.snippets",
+  read: async () => {
+    await store.ready();
+    return store.get().map(snippetToSync);
+  },
+  write: async (changes) => {
+    await store.ready();
+    await store.save(applySyncChanges(store.get(), changes, (s) => s.id, snippetFromSync));
+  },
+};

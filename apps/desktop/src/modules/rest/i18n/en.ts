@@ -199,6 +199,10 @@ const restEn = {
        than a flag on the response because a cancelled send has no response to put a flag on. */
     restCancelled: "The request was cancelled.",
   },
+  restSync: {
+    requests: "REST requests",
+    environments: "REST environments",
+  },
 };
 
 export type RestDict = typeof restEn;

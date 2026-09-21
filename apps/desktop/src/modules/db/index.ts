@@ -4,6 +4,8 @@ import type { ModuleDefinition } from "../../shell/module";
 import { DatabaseGenericIcon } from "../../icons";
 import ToolsSection from "./components/ToolsSection";
 import { DB_SHORTCUTS } from "./shortcuts";
+import { querySnippetsSyncable } from "./querySnippets";
+import { connectionsSyncable } from "./sync";
 
 /* Loaded when a tab of this module is first opened, not at launch. The workspace behind it is the
    heaviest thing in the bundle — CodeMirror here, xterm in the terminal — and a launch that parses
@@ -24,4 +26,5 @@ export const dbModule: ModuleDefinition = {
      still all that is in there; they are a heading inside the pane now. */
   settings: { labelKey: "app.moduleDatabase", Icon: DatabaseGenericIcon, Section: ToolsSection },
   shortcuts: DB_SHORTCUTS,
+  syncable: [connectionsSyncable, querySnippetsSyncable],
 };

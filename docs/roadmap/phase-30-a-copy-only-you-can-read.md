@@ -102,10 +102,20 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       than dropped, and three rounds of a conflict that will not settle end in an error rather
       than a loop. `tests/sync_live.rs` is `#[ignore]`, like every test here that needs what CI
       lacks; run by hand it passes against both the native server and the Worker.
-- [ ] **T177d** A module lends a collection without the shell learning what it is.
+- [x] **T177d** A module lends a collection without the shell learning what it is.
       `ModuleDefinition` gains the syncable set — id, label, reader, writer, default `false` — and
       `registry.ts` wires it as it already wires tabs. `npm run lint` still refuses a third file
       outside `src/modules/` that names a module.
+
+      **Done in eleven commits.** Two things it settled that the spec had assumed. **No module
+      stored when an item changed**, so `updatedAt` is the sync layer's: the store keeps a hash of
+      each record's canonical plaintext as last agreed, an item whose hash differs is a change
+      made now, and the hash is recorded only after the change has landed on the other side — never
+      before, or a failed write would push a stale copy back over something newer. And **every
+      reader is an allow-list**: a connection's sidebar width, a terminal's default shell, a
+      request's last use and its credential stay on the machine, and a field added later does not
+      travel until somebody decides it should. `serde_json` has `preserve_order` on here, so the
+      hash is taken of an explicitly canonical form.
 - [ ] **T177e** The account, in Settings: sign up with the recovery-key ceremony (ten groups shown
       once, two typed back), sign in, the per-collection list with every row off, the device list
       with a revoke, the conflict prompt, and the server field for somebody hosting their own.
