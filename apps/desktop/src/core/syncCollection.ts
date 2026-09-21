@@ -20,8 +20,9 @@ export interface SyncChanges {
 }
 
 /**
- * One collection a module lends. **Every one starts off** (D5): whether it is on is a setting the
- * account screen keeps (T177e), not a property of the declaration.
+ * One collection a module lends. **Every one starts off** (D5): whether it is on is this machine's
+ * setting (`shell/sync/enabled.ts`), drawn by the account screen (T177e2), not a property of the
+ * declaration.
  */
 export interface SyncableCollection {
   /** Its name in D5's table. Never on the wire — sync sends `HMAC(K_id, id)`. */
