@@ -576,13 +576,20 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
   const savedListRef = useRef<HTMLElement>(null);
   const savedHeaderRef = useRef<HTMLDivElement>(null);
   const activeRowRef = useRef<HTMLLIElement>(null);
+  /* Where this tab's list was last scrolled to, kept while a workspace replaces it, and the list
+     element the effect below last saw — a different one is the list having been mounted again. */
+  const savedListScrollRef = useRef<number | null>(null);
+  const mountedListRef = useRef<HTMLElement | null>(null);
 
   /* The connection the form is holding, brought into view in the list beside it.
 
-     Two moments where it would otherwise not be: the app coming back up on a connection saved
-     sixty names down the alphabet, and Disconnect putting the form back after a session. Both
-     render this list from nothing, scrolled to the top, with the marked row somewhere below the
-     fold — the mark is there and says nothing to anyone who cannot see it.
+     The app coming back up on a connection saved sixty names down the alphabet renders this list
+     from nothing, scrolled to the top, with the marked row somewhere below the fold — the mark is
+     there and says nothing to anyone who cannot see it.
+
+     Disconnect mounts the list again too, but that list has been looked at before: it goes back to
+     where this tab left it, not to wherever the marked row would put it. The row is already on
+     screen if that is where the user had it, and if they had scrolled away, that was their choice.
 
      A layout effect, so the list is already in the right place the first time it is painted rather
      than jumping there afterwards. `connectionId` is a dependency because leaving a workspace is
@@ -591,8 +598,19 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
      `null` for a row already in view, so clicking around the list scrolls nothing. */
   useLayoutEffect(() => {
     const list = savedListRef.current;
+    if (list === null) {
+      mountedListRef.current = null;
+      return;
+    }
+    if (mountedListRef.current === null) {
+      mountedListRef.current = list;
+      if (savedListScrollRef.current !== null) {
+        list.scrollTop = savedListScrollRef.current;
+        return;
+      }
+    }
     const row = activeRowRef.current;
-    if (list === null || row === null) return;
+    if (row === null) return;
     const top = row.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop;
     const target = scrollTopFor(
       { top, height: row.offsetHeight },
@@ -674,7 +692,13 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
   if (!connectionId) {
     return (
       <div className="login-view">
-        <aside className="saved-list" ref={savedListRef}>
+        <aside
+          className="saved-list"
+          ref={savedListRef}
+          onScroll={(e) => {
+            savedListScrollRef.current = e.currentTarget.scrollTop;
+          }}
+        >
           {/* Title, search and chips stay put while the rows scroll under them — one sticky block,
               whose height is what `scrollTopFor` keeps a scrolled-to row clear of. */}
           <div className="saved-list-header" ref={savedHeaderRef}>
