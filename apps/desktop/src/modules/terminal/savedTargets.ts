@@ -1,6 +1,7 @@
 import { Store } from "@tauri-apps/plugin-store";
 import { invoke } from "@tauri-apps/api/core";
 import type { SavedTarget, SshConfig } from "./types";
+import { dedupeById, upsertById } from "../../core/byId";
 import { mergeSshSecrets, splitSshSecrets, type SshSecrets } from "../../core/ssh";
 
 /**
@@ -140,7 +141,15 @@ export function deleteSecrets(id: string): Promise<void> {
 async function loadStored(): Promise<SavedTarget[]> {
   const store = await getStore();
   const raw = (await store.get<unknown[]>("hosts")) ?? [];
-  return raw.map(parseSavedTarget).filter((entry): entry is SavedTarget => entry !== null);
+  const parsed = raw.map(parseSavedTarget).filter((entry): entry is SavedTarget => entry !== null);
+  // Two sync runs at once could each add the same host (fixed in the loop); a file written then
+  // still holds both, and this is where it heals.
+  const once = dedupeById(parsed, (entry) => entry.id);
+  if (once !== parsed) {
+    await store.set("hosts", once.map(withoutSecrets));
+    await store.save();
+  }
+  return once;
 }
 
 async function persist(list: SavedTarget[]): Promise<void> {
@@ -178,7 +187,9 @@ async function persistTarget(list: SavedTarget[], target: SavedTarget): Promise<
 
 export async function addSavedTarget(target: SavedTarget): Promise<SavedTarget[]> {
   const list = await loadSavedTargets();
-  const next = [...list, target];
+  // An id already here is replaced rather than repeated: sync adds by id, and may be late to learn
+  // that it already did.
+  const next = upsertById(list, target, (entry) => entry.id);
   await persistTarget(next, target);
   return next;
 }

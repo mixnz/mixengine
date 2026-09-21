@@ -386,6 +386,19 @@ impl client::Handler for TunnelHandler {
     }
 }
 
+/// A key path as sync carries it: `~/.ssh/id_rsa` is read from this machine's home, so one saved
+/// host opens the same key on macOS, Windows and Linux. Any other path is taken as written, and so
+/// is `~` itself when there is no home to put in its place.
+fn expand_home(key_path: &str, home: Option<&Path>) -> PathBuf {
+    let rest = key_path
+        .strip_prefix("~/")
+        .or_else(|| key_path.strip_prefix("~\\"));
+    match (rest, home) {
+        (Some(rest), Some(home)) => home.join(rest),
+        _ => PathBuf::from(key_path),
+    }
+}
+
 async fn authenticate(
     ssh: &SshConfig,
     app_data: &Path,
@@ -442,7 +455,7 @@ async fn authenticate_inner(
             .await
             .map_err(|e| err!("error.sshAuthFailed", message = e))?,
         SshAuth::PrivateKey { key_path, passphrase } => {
-            let key_path = key_path.clone();
+            let key_path = expand_home(key_path, std::env::home_dir().as_deref());
             let passphrase = passphrase.clone();
             /* Both halves belong off the runtime. Reading is disk; decoding an encrypted key is
                bcrypt-pbkdf, which is slow on purpose — a key written with OpenSSH's default rounds
@@ -785,6 +798,36 @@ pub async fn open_shell(
         read,
         write,
     })
+}
+
+#[cfg(test)]
+mod expand_home_tests {
+    use super::expand_home;
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn a_path_under_home_is_read_from_this_machines_home() {
+        let home = Path::new("/home/me");
+        assert_eq!(
+            expand_home("~/.ssh/id_rsa", Some(home)),
+            home.join(".ssh/id_rsa")
+        );
+        assert_eq!(
+            expand_home("~\\.ssh\\id_rsa", Some(home)),
+            home.join(".ssh\\id_rsa")
+        );
+    }
+
+    #[test]
+    fn any_other_path_is_left_as_it_was_written() {
+        let home = Some(Path::new("/home/me"));
+        assert_eq!(
+            expand_home("/opt/keys/id", home),
+            PathBuf::from("/opt/keys/id")
+        );
+        assert_eq!(expand_home("~other/id", home), PathBuf::from("~other/id"));
+        assert_eq!(expand_home("~/id", None), PathBuf::from("~/id"));
+    }
 }
 
 #[cfg(test)]

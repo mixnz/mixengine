@@ -55,6 +55,19 @@ export interface LoopOptions {
 
 type Run = "full" | "push";
 
+/**
+ * The one lane every loop's runs take, whichever loop they belong to. A window that remounts its
+ * workspace (StrictMode, a hot reload) stops one loop and starts another while the first is still
+ * writing; two runs applying the same page each see an id missing and each add it.
+ */
+let lane: Promise<void> = Promise.resolve();
+
+function inLane(run: () => Promise<void>): Promise<void> {
+  const next = lane.then(run, run);
+  lane = next.catch(() => {});
+  return next;
+}
+
 /** Signed out: every collection would say the same, and none of it is news. */
 function isSignedOut(error: unknown): boolean {
   return (
@@ -64,8 +77,9 @@ function isSignedOut(error: unknown): boolean {
 
 /**
  * Sync at D8's moments: at launch, on focus, a local check every {@link LOCAL_CHECK_MS}, and a
- * pull when nothing has been heard for {@link IDLE_PULL_MS}. **One run at a time**: a moment that
- * arrives during a run asks for one more, however many arrive. Returns the stop.
+ * pull when nothing has been heard for {@link IDLE_PULL_MS}. **One run at a time**, across every
+ * loop there is: a moment that arrives during a run asks for one more, however many arrive, and a
+ * loop started while a stopped one is still writing waits for it. Returns the stop.
  */
 export function startSyncLoop(options: LoopOptions): () => void {
   let running = false;
@@ -76,6 +90,8 @@ export function startSyncLoop(options: LoopOptions): () => void {
   async function runOnce(run: Run): Promise<void> {
     if (run === "full") lastFull = Date.now();
     for (const collection of options.collections()) {
+      // A stopped loop finishes the collection it is in, and starts no other.
+      if (stopped) return;
       try {
         const replaced =
           run === "full"
@@ -99,7 +115,8 @@ export function startSyncLoop(options: LoopOptions): () => void {
     void (async () => {
       let next: Run | null = run;
       while (next !== null && !stopped) {
-        await runOnce(next);
+        const run = next;
+        await inLane(() => runOnce(run));
         next = queued;
         queued = null;
       }

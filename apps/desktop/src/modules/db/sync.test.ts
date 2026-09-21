@@ -77,3 +77,24 @@ describe("what travels of a connection's credentials", () => {
     expect(connectionSecretsFromSync("nope")).toBeNull();
   });
 });
+
+describe("a connection's SSH key path", () => {
+  const tunnelled = (key_path: string): SavedConnection => ({
+    ...local,
+    config: {
+      ...local.config,
+      ssh: { host: "bastion", port: 22, username: "u", auth: { type: "privatekey", key_path } },
+    } as never,
+  });
+
+  it("travels home-relative, so the same key opens on macOS and Windows", () => {
+    const { data } = connectionToSync(tunnelled("C:\\Users\\haiqu\\.ssh\\id_rsa"));
+    expect(JSON.stringify(data)).toContain('"key_path":"~/.ssh/id_rsa"');
+  });
+
+  it("stays as this machine had it when the other machine's could not travel", () => {
+    const synced = connectionToSync(tunnelled("/opt/keys/id"));
+    const arrived = connectionFromSync(synced, tunnelled("D:\\keys\\id"));
+    expect(arrived?.config.ssh?.auth).toMatchObject({ key_path: "D:\\keys\\id" });
+  });
+});
