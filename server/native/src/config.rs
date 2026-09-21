@@ -59,7 +59,7 @@ pub struct Config {
     pub email_api_key: Option<String>,
     pub email_from: String,
     /// `None` for SMTP, and for a provider whose URL carries something only the operator
-    /// knows — an inbox id, a sending domain.
+    /// knows — Mailgun's sending domain and region.
     pub email_endpoint: Option<String>,
     pub email_provider: crate::email::Provider,
     pub smtp: Option<crate::email::Smtp>,
@@ -182,8 +182,8 @@ impl Config {
             if provider.needs_api_key() && email_api_key.is_none() {
                 missing.push("MIXLAB_SYNC_EMAIL_API_KEY".to_owned());
             }
-            // Mailtrap's URL carries an inbox id and Mailgun's a sending domain: there is nothing
-            // to guess, so a deployment that forgot one is told before it starts.
+            // Mailgun's URL carries the sending domain and the region: there is nothing to guess,
+            // so a deployment that forgot it is told before it starts.
             if provider.needs_endpoint() && endpoint.is_none() {
                 missing.push("MIXLAB_SYNC_EMAIL_ENDPOINT".to_owned());
             }

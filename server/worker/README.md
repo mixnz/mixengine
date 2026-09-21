@@ -41,7 +41,7 @@ fails, which costs more to diagnose than it should. CI never meets this: it star
 3. Under the Worker's **Settings → Variables and Secrets**, set:
    - `PEPPER` and `EMAIL_API_KEY` as type **Secret** (32 random bytes in base64 for the pepper);
    - `EMAIL_FROM` and `EMAIL_PROVIDER` as type **Variable**, and `EMAIL_ENDPOINT` too for
-     `mailtrap` or `mailgun`.
+     `mailgun`.
 
    Anything in [Configuration](#configuration) below can be set the same way. A deployment missing
    a required one refuses every request and names what is missing. `wrangler secret put PEPPER`
@@ -80,7 +80,7 @@ MixLab rather than about this server.
 | `EMAIL_API_KEY` | secret | **required** | The email provider's key. **Which provider is a deployment decision**, and it sits behind one interface in `src/email/` for exactly that reason |
 | `EMAIL_FROM` | var | **required** | The address the two letters are sent from |
 | `EMAIL_PROVIDER` | var | **required** | `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid`, with **no default** — a key on its own does not say where to send it. They differ in body shape, in the header that carries the key and in what they call the sender — which is why this is a name and not just a URL. **`smtp` is refused by name**: Workers cannot open a socket to port 587, and `server/native/` is the implementation that speaks it |
-| `EMAIL_ENDPOINT` | var | the provider's own | Where to post. **Required for `mailtrap`** (its URL carries an inbox id) and **`mailgun`** (a sending domain) |
+| `EMAIL_ENDPOINT` | var | the provider's own | Where to post. **Required for `mailgun`**: `https://api.mailgun.net/v3/<domain>/messages`, or `api.eu.mailgun.net` in the EU — the domain and the region are nothing to guess. `mailtrap` defaults to its transactional stream, `https://send.api.mailtrap.io/api/send`; set this only to test against a sandbox (`https://sandbox.api.mailtrap.io/api/send/<sandbox id>`) |
 | `MAX_RECORD_BYTES` | var | `1048576` | Reported by `/v1/capabilities` |
 | `MAX_BATCH_OPERATIONS` | var | `100` | Reported by `/v1/capabilities` |
 | `MAX_BATCH_BYTES` | var | `8388608` | Reported by `/v1/capabilities`, and the largest body this server will read |

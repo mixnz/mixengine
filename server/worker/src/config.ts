@@ -167,7 +167,7 @@ export function readConfig(env: Env): ConfigResult {
     } else if (!isProviderName(providerName)) {
       missing.push(`EMAIL_PROVIDER (one of: ${PROVIDER_NAMES.join(", ")})`);
     } else if (NEEDS_ENDPOINT.includes(providerName) && !env.EMAIL_ENDPOINT) {
-      // Mailtrap's URL carries an inbox id and Mailgun's a sending domain: nothing to guess.
+      // Mailgun's URL carries the sending domain and the region: nothing to guess.
       missing.push("EMAIL_ENDPOINT");
     }
   }

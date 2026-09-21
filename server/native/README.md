@@ -59,8 +59,9 @@ MIXLAB_SYNC_EMAIL_FROM=noreply@example.com
 MIXLAB_SYNC_EMAIL_PROVIDER=
 # Every provider except smtp.
 MIXLAB_SYNC_EMAIL_API_KEY=
-# mailtrap and mailgun only: their URL carries an inbox id or a sending domain, so nothing can
-# guess it for you. Leave it out for the other five.
+# mailgun only: its URL carries your sending domain and region, so nothing can guess it for you —
+# https://api.mailgun.net/v3/<domain>/messages, or api.eu.mailgun.net in the EU. Also for mailtrap
+# when testing against a sandbox: https://sandbox.api.mailtrap.io/api/send/<sandbox id>.
 # MIXLAB_SYNC_EMAIL_ENDPOINT=
 # smtp only, in place of the API key above. Username and password are optional — a mail server on
 # your own network often wants neither.
@@ -130,7 +131,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_EMAIL_FROM` | **required** | The address the two letters are sent from |
 | `MIXLAB_SYNC_EMAIL_PROVIDER` | **required** | `smtp`, `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid` — see below. **No default on purpose**: a key on its own does not say where to send it |
 | `MIXLAB_SYNC_EMAIL_API_KEY` | **required**, except `smtp` | The provider's key |
-| `MIXLAB_SYNC_EMAIL_ENDPOINT` | the provider's own | Where to post. **Required for `mailtrap`** (its URL carries an inbox id) and **`mailgun`** (a sending domain), because there is nothing to guess |
+| `MIXLAB_SYNC_EMAIL_ENDPOINT` | the provider's own | Where to post. **Required for `mailgun`**, whose URL carries the sending domain and the region, because there is nothing to guess. `mailtrap` defaults to its transactional stream, `https://send.api.mailtrap.io/api/send`; set this only to test against a sandbox (`https://sandbox.api.mailtrap.io/api/send/<sandbox id>`) |
 | `MIXLAB_SYNC_SMTP_HOST` | **required** for `smtp` | The mail server |
 | `MIXLAB_SYNC_SMTP_PORT` | `587`, `465` or `25` | Whichever the TLS mode implies |
 | `MIXLAB_SYNC_SMTP_TLS` | `starttls` | Or `implicit`, or `none` — **`none` is for a mail server on this machine or this private network, and nowhere else** |
@@ -199,11 +200,11 @@ provider is one file.
 | --- | --- | --- |
 | `smtp` | Optional username and password | A real message over a real socket |
 | `resend` | `Authorization: Bearer` | `from` and `to` are plain strings |
-| `mailtrap` | `Api-Token` | `from` and `to` are objects. **Endpoint required** — it carries an inbox id |
+| `mailtrap` | `Api-Token` | `from` and `to` are objects. The transactional stream by default; a sandbox is an endpoint with its id |
 | `brevo` | `api-key` | `sender`, and the body is `textContent` |
 | `postmark` | `X-Postmark-Server-Token` | `From`, `To`, `Subject`, `TextBody` |
 | `sendgrid` | `Authorization: Bearer` | Recipients under `personalizations`, body as typed parts |
-| `mailgun` | HTTP basic auth, user `api` | **Form-encoded, not JSON.** Endpoint required — it carries the sending domain |
+| `mailgun` | HTTP basic auth, user `api` | **Form-encoded, not JSON.** Endpoint required — it carries the sending domain and the region |
 
 **`smtp` is here and not in `../worker/`**, and it is the one capability the two implementations do
 not share: Workers cannot open a socket to port 587. It is also the provider most people
