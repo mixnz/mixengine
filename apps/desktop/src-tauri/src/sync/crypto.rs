@@ -2,7 +2,7 @@
 //!
 //! **Every label below is frozen.** A domain-separation string that changes makes every record
 //! written under the old one undecryptable, which is why each carries `/v1` and why
-//! [`tests::the_domain_separation_labels_are_frozen`] exists: it fails if anybody edits one.
+//! `tests::the_domain_separation_labels_are_frozen` exists: it fails if anybody edits one.
 
 use crate::error::AppError;
 use argon2::{Algorithm, Argon2, Params, Version};

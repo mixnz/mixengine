@@ -90,9 +90,18 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
 
       **152 conformance assertions, 147 green and 5 skipped against each implementation**, the
       same numbers on both — which is the claim two implementations exist to make.
-- [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
+- [x] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.
+
+      **Done in twelve commits.** Two things it settled that the roadmap had not. D4's tie-break
+      read the writing device and **no record carried one**: the server now stamps `device` from
+      the session that wrote it, which costs nothing because every write was already
+      authenticated with one device's token. And the engine **moves ciphertext only** — a page is
+      applied before the cursor passes it, a conflict the other side wins is handed back rather
+      than dropped, and three rounds of a conflict that will not settle end in an error rather
+      than a loop. `tests/sync_live.rs` is `#[ignore]`, like every test here that needs what CI
+      lacks; run by hand it passes against both the native server and the Worker.
 - [ ] **T177d** A module lends a collection without the shell learning what it is.
       `ModuleDefinition` gains the syncable set — id, label, reader, writer, default `false` — and
       `registry.ts` wires it as it already wires tabs. `npm run lint` still refuses a third file
