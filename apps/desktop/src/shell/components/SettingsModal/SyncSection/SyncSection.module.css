@@ -98,3 +98,9 @@
   font-size: var(--text-xs);
   color: var(--text-secondary);
 }
+
+/* A secret row sits under the row it belongs to, indented by the width of a checkbox and its gap,
+   so it reads as part of that row rather than as one of its own. */
+.secretRow {
+  padding-left: 26px;
+}

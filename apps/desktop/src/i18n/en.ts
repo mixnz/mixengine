@@ -369,6 +369,11 @@ const en = {
     closingNow: "{{server}} was to close on {{date}}. Move your account now, while it still answers.",
     openSync: "Open Sync",
     serverClosing: "{{server}} has announced it closes on {{date}}. An account there will have to move before then.",
+    secretNeedsOwner: "Turn on {{collection}} first.",
+    secretConfirmTitle: "Sync {{collection}}?",
+    secretConfirmMessage:
+      "MixLab encrypts them on this machine before they leave. The server can't read them, but every machine signed in to your account can.",
+    secretConfirmAction: "Sync them",
   },
 };
 
