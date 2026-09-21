@@ -2,6 +2,12 @@ name = "mixlab-sync"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
 
+# **The dashboard owns a deployment's configuration, not this file.** Without `keep_vars`, every
+# `wrangler deploy` — a Workers Build on push included — deletes the plain-text variables set under
+# Settings → Variables and Secrets, and a server that worked yesterday answers `503` naming
+# EMAIL_PROVIDER. Secrets survive a deploy either way.
+keep_vars = true
+
 # One Durable Object per account (D8). The class is bound once; which object a request reaches is
 # `idFromName(hex(SHA-256(lowercased address)))`, which is what this design has instead of an index.
 [[durable_objects.bindings]]
@@ -22,24 +28,12 @@ class_name = "SourceLimit"
 tag = "v1"
 new_sqlite_classes = ["Account", "SourceLimit"]
 
-# Every number here is reported by `/v1/capabilities` and is configuration rather than protocol: a
-# server may report any value, and a client reads rather than assumes (D4a, D9).
-[vars]
-MAX_RECORD_BYTES = "1048576"
-MAX_BATCH_OPERATIONS = "100"
-MAX_BATCH_BYTES = "8388608"
-MAX_PAGE_RECORDS = "500"
-ACCOUNT_QUOTA_BYTES = "20971520"
-TOMBSTONE_RETENTION_DAYS = "90"
-EMAIL_FROM = "noreply@example.invalid"
-# EMAIL_PROVIDER has no default and none is named here: a key on its own does not say where to
-# send it, and this project does not pick a company on a deployer's behalf. Set it to one of
-# brevo, mailgun, mailtrap, postmark, resend or sendgrid.
-
-# PEPPER and EMAIL_API_KEY are secrets and are never written here:
-#   wrangler secret put PEPPER
-#   wrangler secret put EMAIL_API_KEY
-# A deployment without them refuses every request and names what is missing.
+# **No top-level `[vars]`, on purpose.** A name written here wins over the same name on the
+# dashboard even with `keep_vars`, so anything listed would be something a self-hoster has to edit
+# this file to change. Every optional value has its default in `src/config.ts`; the required ones —
+# EMAIL_FROM, EMAIL_PROVIDER, EMAIL_ENDPOINT for mailtrap and mailgun, and the secrets PEPPER and
+# EMAIL_API_KEY — are set on the dashboard, and a deployment without them refuses every request
+# and names what is missing. README.md has the table.
 
 # What CI runs the conformance suite against. It sends no mail, serves `/__test__/outbox` instead,
 # and reports small limits so the quota and pagination tests are reachable in seconds rather than

@@ -26,3 +26,5 @@ docs/plans/
 # `.wrangler/` is where a local `wrangler dev` keeps the Durable Object's SQLite files.
 /server/native/target/
 /server/worker/.wrangler/
+# Where a local `wrangler dev` reads its pepper and email key from.
+/server/worker/.dev.vars

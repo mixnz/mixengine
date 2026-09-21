@@ -21,7 +21,8 @@ npm run dev
 ```
 
 `npm run dev` starts the ordinary configuration, which refuses to serve until it has a pepper and
-an email provider — see below. To run it the way CI does, with no mail and small limits:
+an email provider — put them in a `.dev.vars` file beside `wrangler.toml`, one `NAME=value` a line.
+To run it the way CI does, with no mail and small limits:
 
 ```bash
 npx wrangler dev --env conformance
@@ -37,17 +38,24 @@ fails, which costs more to diagnose than it should. CI never meets this: it star
 1. Fork this repository.
 2. In the Cloudflare dashboard, create a Worker from that fork with **`server/worker/` as the root
    directory**. Nothing outside that directory is any of the build's business.
-3. Set the two secrets. They are never in `wrangler.toml`, and a deployment without them refuses
-   every request and names what is missing:
+3. Under the Worker's **Settings → Variables and Secrets**, set:
+   - `PEPPER` and `EMAIL_API_KEY` as type **Secret** (32 random bytes in base64 for the pepper);
+   - `EMAIL_FROM` and `EMAIL_PROVIDER` as type **Variable**, and `EMAIL_ENDPOINT` too for
+     `mailtrap` or `mailgun`.
 
-   ```bash
-   wrangler secret put PEPPER          # 32 random bytes, base64; keyed into the stored verifier
-   wrangler secret put EMAIL_API_KEY   # your provider's key
-   ```
+   Anything in [Configuration](#configuration) below can be set the same way. A deployment missing
+   a required one refuses every request and names what is missing. `wrangler secret put PEPPER`
+   does the same as the dashboard for a secret, if you would rather.
 
-4. Change `EMAIL_FROM` in `wrangler.toml` to an address your provider will send from.
-5. Point MixLab at it: the server is a setting, and changing it signs the person out — records
+   **Not under Settings → Build.** Those are environment variables for the build command only, and
+   the running Worker never sees them.
+4. Point MixLab at it: the server is a setting, and changing it signs the person out — records
    written under one account's master key are not readable under another's.
+
+**Nothing in `wrangler.toml` needs editing.** It sets `keep_vars = true` and has no top-level
+`[vars]`, so a deploy — including the one a push to your fork starts — leaves what you set on the
+dashboard alone. Adding a name to `[vars]` would undo that for that name: a value written in the
+file wins over the dashboard on every deploy.
 
 **Durable Objects are on the free plan with the SQLite storage backend**, which is what
 `new_sqlite_classes` in the migration selects.
