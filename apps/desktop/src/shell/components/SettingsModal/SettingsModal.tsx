@@ -7,6 +7,7 @@ import type { ShortcutGroup } from "../../../core/shortcuts";
 import { DownloadIcon, KeyboardIcon, ModulesIcon, PaletteIcon, SyncIcon } from "../../../icons";
 import { useTranslation } from "../../../i18n";
 import { visibleModules } from "../../profiles";
+import { useSyncActivity } from "../../sync/activity";
 import AppearanceSection from "./AppearanceSection";
 import ModulesSection, { type ModuleSettings } from "./ModulesSection";
 import ShortcutsSection from "./ShortcutsSection";
@@ -51,6 +52,7 @@ function SettingsModal({
   initialSection,
 }: SettingsModalProps) {
   const { t } = useTranslation();
+  const { syncing } = useSyncActivity();
   const [section, setSection] = useState<SectionId>(initialSection ?? "appearance");
 
   const visible = visibleModules(modules.enabled);
@@ -107,7 +109,7 @@ function SettingsModal({
                     className={id === shown ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
                     onClick={() => setSection(id)}
                   >
-                    <Icon size={15} />
+                    <Icon size={15} spinning={id === "sync" && syncing} />
                     <span className={styles.navLabel}>{t(labelKey)}</span>
                   </button>
                 ))}

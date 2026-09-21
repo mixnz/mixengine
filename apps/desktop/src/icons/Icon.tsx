@@ -6,6 +6,8 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, "viewBox" | "ch
    * whatever it sits in — the existing `font-size` on a button or badge keeps sizing it, the
    * same way it sized the glyph the icon replaced. */
   size?: number | string;
+  /** Turning, for work under way. Still for anyone who asked their system for less motion. */
+  spinning?: boolean;
 }
 
 interface IconBaseProps extends IconProps {
@@ -23,7 +25,7 @@ interface IconBaseProps extends IconProps {
  *
  * Every icon is `aria-hidden`: they are decoration on top of a control that already carries its
  * own accessible name (`title` / `aria-label`), so announcing them again would only add noise. */
-export function Icon({ size = "1em", className, children, ...rest }: IconBaseProps) {
+export function Icon({ size = "1em", spinning = false, className, children, ...rest }: IconBaseProps) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -38,7 +40,7 @@ export function Icon({ size = "1em", className, children, ...rest }: IconBasePro
       aria-hidden="true"
       focusable="false"
       {...rest}
-      className={className ? `${styles.icon} ${className}` : styles.icon}
+      className={[styles.icon, spinning ? styles.spinning : null, className].filter(Boolean).join(" ")}
     >
       {children}
     </svg>
