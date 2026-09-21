@@ -158,9 +158,20 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       settings hint that said the same was rewritten with it. The screen has not been looked at by
       anybody but its author's type checker: every row is off by default, and the first person to
       sign up against `sync-0` is the first to see it.
-- [ ] **T177e3** The password, after the account exists: change it while signed in (D6 case 1),
+- [x] **T177e3** The password, after the account exists: change it while signed in (D6 case 1),
       and recover a forgotten one — keeping the records with the recovery key (case 2), or starting
       over without it under a new `MK` and a new recovery key (case 3).
+
+      **Done in eight commits.** What it settled that the roadmap had not. **Case 2 holds the
+      ticket in Rust** after the code is spent, so a mistyped recovery key costs a retry rather
+      than a second letter; the ticket is dropped only once it has worked or expired. **Case 3 holds
+      the new keys until the ceremony is over**, and only then spends the code — because spending
+      it is what deletes, and a person who closed the window halfway through should lose nothing.
+      Once case 2 has spent a code, case 3 is no longer offered: that code can no longer delete
+      anything. The three cases run against the native server in `tests/sync_live.rs` — a changed
+      password signs the other machine out and keeps the records, a wrong key is refused and the
+      right one keeps them, and starting over leaves the server empty under a new thirteen-group
+      key. The screens themselves have been checked by `tsc`, lint and the unit tests only.
 - [ ] **T177e4** Leaving a server: delete the account, and move it to another server by copying
       (D4b), which asks at the end whether to delete the old one or thaw it, deletion first. Both
       ask for the password, because both need `A`.

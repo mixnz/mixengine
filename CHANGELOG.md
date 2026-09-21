@@ -5,7 +5,8 @@
 ### Added
 - Sync, in Settings: sign in to MixLab's server or one of your own and choose, one kind at a time,
   what follows you to your other machines. Everything is encrypted on this machine before it
-  leaves, and the server cannot read any of it.
+  leaves, and the server cannot read any of it. A forgotten password is recovered with the
+  recovery key and loses nothing.
 - MixEngine in the tray on Windows, macOS and Linux: a panel with your services (Start and Stop),
   Stop all, your sites, Open MixLab and Stop MixEngine, which asks first. Closing
   MixLab's window keeps it in the tray, and a Settings switch opens it there at login.
