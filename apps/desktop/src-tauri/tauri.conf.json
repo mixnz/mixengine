@@ -31,7 +31,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["mixdb"]
+        "schemes": ["mixlab"]
       }
     }
   },

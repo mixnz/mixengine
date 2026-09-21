@@ -1,5 +1,5 @@
 //! A connection handed to MixDB by another program — MixEngine's `mix database open` — as a
-//! `mixdb://connect?…` URL, with the password in one environment variable rather than in the URL.
+//! `mixlab://connect?…` URL, with the password in one environment variable rather than in the URL.
 //!
 //! This module understands the URL and keeps the result until the tab opened for it asks. It never
 //! touches the environment: `crate::launch` reads the variable, and takes it out, on the first line
@@ -26,7 +26,7 @@ pub struct Handoff {
     /// The key half of this account's address in MixEngine's keyring entry — `service="mixengine"`
     /// is a compile-time constant on the side that reads it and never travels on the wire (T84's
     /// D5). `Some` only when `secret` proved this process was actually started by MixEngine: a
-    /// `mixdb://` link can name any `secret_key` it likes, but it cannot set an environment
+    /// `mixlab://` link can name any `secret_key` it likes, but it cannot set an environment
     /// variable for the process it starts, so a value here without that proof would let a forged
     /// link get a saved connection pointed at an arbitrary MixEngine account.
     pub keyring_ref: Option<String>,
@@ -36,7 +36,7 @@ pub struct Handoff {
 ///
 /// Trusted only inside the launcher's namespace — `MIX…_…PASSWORD`: `MIXENGINE_DB_PASSWORD`,
 /// `MIXDB_PASSWORD`. Once the scheme is registered with the OS, any web page can produce a
-/// `mixdb://` link naming any variable, and a name outside that namespace is how `$HOME` would
+/// `mixlab://` link naming any variable, and a name outside that namespace is how `$HOME` would
 /// otherwise be sent to a stranger's server as a password. The check is on the *name*; whether the
 /// variable exists is the caller's to find out. Nothing here reads the environment.
 pub fn credential_name(url: &str) -> Option<String> {
@@ -71,14 +71,14 @@ fn names_a_launcher_credential(name: &str) -> bool {
 /// for a URL that arrived any way other than on the command line of a fresh process.
 pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
     let parsed = url::Url::parse(url).map_err(|e| invalid(format!("not a URL: {e}")))?;
-    if parsed.scheme() != "mixdb" {
+    if parsed.scheme() != "mixlab" {
         return Err(invalid(format!(
-            "the scheme is {}, not mixdb",
+            "the scheme is {}, not mixlab",
             parsed.scheme()
         )));
     }
     if parsed.host_str() != Some("connect") {
-        return Err(invalid("only mixdb://connect is understood"));
+        return Err(invalid("only mixlab://connect is understood"));
     }
 
     let kind = match first(&parsed, "kind").as_deref() {
@@ -92,7 +92,7 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
         so the fields are turned into one by `mongo_uri` after they have been read. */
         Some("mongodb") => DbKind::Mongo,
         /* Refused by name rather than by falling through, because the reason is not "not supported
-        yet". `mixdb://` is registered with the operating system, so any web page can hand this
+        yet". `mixlab://` is registered with the operating system, so any web page can hand this
         process a URL; a `kind=sqlite&path=…` would be that page choosing which file on the
         user's disk MixDB opens. Nothing else here names a local path, which is what makes this
         kind the exception. */
@@ -163,7 +163,7 @@ pub fn parse(url: &str, secret: Option<String>) -> Result<Handoff, AppError> {
 /// `mongodb://<host>:<port>/<database>?directConnection=true`. Shared by this module's URL and by
 /// the Services screen's Open (`open_in_mixdb.rs`), so the two doors cannot build two strings.
 ///
-/// **The host is an address or a plain name, and nothing else.** A `mixdb://` link can come from
+/// **The host is an address or a plain name, and nothing else.** A `mixlab://` link can come from
 /// any web page, and a host like `a/?authSource=x` would otherwise write options into the string.
 /// `directConnection=true` because a standalone development server is not a replica set, and a
 /// driver told nothing tries to discover one.
@@ -283,7 +283,7 @@ mod tests {
     use super::*;
 
     const FULL: &str =
-        "mixdb://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
+        "mixlab://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
                         &label=mariadb%40main&password_env=MIXENGINE_DB_PASSWORD\
                         &secret_key=mariadb%40main%2Fblog";
 
@@ -305,7 +305,7 @@ mod tests {
         assert_eq!(handoff.keyring_ref.as_deref(), Some("mariadb@main/blog"));
     }
 
-    /// A `secret_key` with no `secret` behind it names nothing: this is what a `mixdb://` link
+    /// A `secret_key` with no `secret` behind it names nothing: this is what a `mixlab://` link
     /// clicked from a browser looks like, and it must not be able to point a saved connection at
     /// an arbitrary MixEngine account just by naming one in the URL.
     #[test]
@@ -319,7 +319,7 @@ mod tests {
     #[test]
     fn a_redis_url_names_no_account() {
         let handoff = parse(
-            "mixdb://connect?kind=redis&host=127.0.0.1&port=6379&label=redis%40main",
+            "mixlab://connect?kind=redis&host=127.0.0.1&port=6379&label=redis%40main",
             None,
         )
         .unwrap();
@@ -335,7 +335,7 @@ mod tests {
     #[test]
     fn a_clickhouse_url_reads_as_a_connection() {
         let handoff = parse(
-            "mixdb://connect?kind=clickhouse&host=127.0.0.1&port=8123&user=admin&database=analytics\
+            "mixlab://connect?kind=clickhouse&host=127.0.0.1&port=8123&user=admin&database=analytics\
              &label=clickhouse%40main",
             Some("s3cret".to_string()),
         )
@@ -351,7 +351,7 @@ mod tests {
     #[test]
     fn a_mongodb_url_reads_as_a_connection_string() {
         let handoff = parse(
-            "mixdb://connect?kind=mongodb&host=127.0.0.1&port=27017&database=blog\
+            "mixlab://connect?kind=mongodb&host=127.0.0.1&port=27017&database=blog\
              &label=mongodb%40main",
             None,
         )
@@ -390,7 +390,7 @@ mod tests {
     #[test]
     fn a_missing_label_is_the_address() {
         let handoff = parse(
-            "mixdb://connect?kind=postgres&host=db.local&port=5432",
+            "mixlab://connect?kind=postgres&host=db.local&port=5432",
             None,
         )
         .unwrap();
@@ -403,19 +403,21 @@ mod tests {
         for url in [
             "not a url",
             "https://connect?kind=mysql&host=h&port=1",
-            "mixdb://open?kind=mysql&host=h&port=1",
-            "mixdb://connect?host=h&port=1",
-            "mixdb://connect?kind=mongo&host=h&port=1",
-            "mixdb://connect?kind=mysql&port=1",
-            "mixdb://connect?kind=mysql&host=&port=1",
-            "mixdb://connect?kind=mysql&host=h",
-            "mixdb://connect?kind=mysql&host=h&port=0",
-            "mixdb://connect?kind=mysql&host=h&port=70000",
-            "mixdb://connect?kind=mysql&host=h&port=abc",
+            // The scheme MixDB registered, answered no more (ADR 0047).
+            "mixdb://connect?kind=mysql&host=h&port=1",
+            "mixlab://open?kind=mysql&host=h&port=1",
+            "mixlab://connect?host=h&port=1",
+            "mixlab://connect?kind=mongo&host=h&port=1",
+            "mixlab://connect?kind=mysql&port=1",
+            "mixlab://connect?kind=mysql&host=&port=1",
+            "mixlab://connect?kind=mysql&host=h",
+            "mixlab://connect?kind=mysql&host=h&port=0",
+            "mixlab://connect?kind=mysql&host=h&port=70000",
+            "mixlab://connect?kind=mysql&host=h&port=abc",
             // Refused whether or not it is well formed, and whether or not a path is offered: a
             // URL is not allowed to choose a file on this machine. See the arm in `parse`.
-            "mixdb://connect?kind=sqlite&host=h&port=1",
-            "mixdb://connect?kind=sqlite&path=C:%5CUsers%5Csomeone%5Cblog.db",
+            "mixlab://connect?kind=sqlite&host=h&port=1",
+            "mixlab://connect?kind=sqlite&path=C:%5CUsers%5Csomeone%5Cblog.db",
         ] {
             let error = parse(url, None).expect_err(url);
             assert_eq!(error.code, "error.handoffInvalid", "{url}");
@@ -429,7 +431,7 @@ mod tests {
     #[test]
     fn only_a_launcher_credential_variable_is_named() {
         let named = |name: &str| {
-            credential_name(&format!("mixdb://connect?kind=redis&password_env={name}"))
+            credential_name(&format!("mixlab://connect?kind=redis&password_env={name}"))
         };
         assert_eq!(
             named("MIXENGINE_DB_PASSWORD").as_deref(),
@@ -449,7 +451,7 @@ mod tests {
         ] {
             assert_eq!(named(refused), None, "{refused}");
         }
-        assert_eq!(credential_name("mixdb://connect?kind=redis"), None);
+        assert_eq!(credential_name("mixlab://connect?kind=redis"), None);
         assert_eq!(credential_name("not a url"), None);
     }
 
@@ -458,7 +460,7 @@ mod tests {
     #[test]
     fn the_credential_name_survives_a_broken_url() {
         assert_eq!(
-            credential_name("mixdb://connect?password_env=MIXENGINE_DB_PASSWORD").as_deref(),
+            credential_name("mixlab://connect?password_env=MIXENGINE_DB_PASSWORD").as_deref(),
             Some("MIXENGINE_DB_PASSWORD")
         );
     }

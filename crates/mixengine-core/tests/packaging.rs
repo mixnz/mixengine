@@ -17,7 +17,7 @@ const COMMON_SH: &str = include_str!("../../../packaging/common.sh");
 /// The workspace manifest, for the membership check below.
 const WORKSPACE: &str = include_str!("../../../Cargo.toml");
 
-/// The desktop entry the `.deb` and the `.rpm` install, which is what registers `mixdb://` on Linux.
+/// The desktop entry the `.deb` and the `.rpm` install, which is what registers `mixlab://` on Linux.
 const MIXLAB_DESKTOP: &str = include_str!("../../../packaging/linux/mixlab.desktop");
 
 /// The entries of a one-line bash array declared in `packaging/common.sh`.
@@ -212,7 +212,7 @@ fn this_systems_install_location_is_the_one_packaging_writes_to() {
     );
 }
 
-/// The desktop entry that makes a `mixdb://` link reach the window names the scheme the daemon
+/// The desktop entry that makes a `mixlab://` link reach the window names the scheme the daemon
 /// writes into every handoff URL — roadmap task **T107**.
 ///
 /// **What this stops.** The daemon composes `<scheme>://connect?…` and starts the window with it;

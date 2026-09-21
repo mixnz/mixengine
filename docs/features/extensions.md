@@ -172,13 +172,13 @@ Design:
 ## Opening a database in MixLab
 
 MixLab is MixEngine's desktop application, and its `db` module is the client for MixEngine's managed
-databases. Opening one is a handoff: a `mixdb://` URL carrying host, port and user, **naming** the
+databases. Opening one is a handoff: a `mixlab://` URL carrying host, port and user, **naming** the
 variable the password is in, and the password itself fetched from the OS keyring **at the moment the
 handoff is asked for** and placed in the started window's environment — never in the URL, an
 argument, a file or a log (T83). A one-shot connection file was refused because a password on disk
 for the length of a race is still a password on disk. The keyring convention below means a connection
 the window saves points at MixEngine's credential instead of holding a second copy (T84). The scheme
-is `mixdb` and not `mixlab` because every MixDB install registered it (T107).
+is `mixlab`; the `mixdb` one MixDB registered is no longer answered (ADR 0047).
 
 **Opening is a capability, not a button.** This section said *offer it on every database
 service* because it was written while a GUI was still planned inside this workspace, and
@@ -188,7 +188,7 @@ as `apps/desktop/`. What **T83** built is unchanged by either: two daemon method
 `database.client` answering, per service, what a client would speak and whether one is here, and
 `database.open` performing the handoff — and the `mix database` commands that ask for them — a gap
 in the CLI is a gap in the product. The desktop application renders the button from the same
-methods — and inside its own window the *open* goes in-process, never through `mixdb://` (the
+methods — and inside its own window the *open* goes in-process, never through `mixlab://` (the
 design's D10) — which is why the demand is written down in [client-surface.md](client-surface.md)
 rather than assumed. Design:
 [docs/specs/2026-09-03-t83-mixdb-connection-handoff-design.md](../specs/2026-09-03-t83-mixdb-connection-handoff-design.md).
@@ -204,12 +204,12 @@ beside the running program, and `/Applications` for a daemon in `/usr/local/bin`
 **The scheme is a wire format, not a dispatch.** MixEngine starts the binary it located, directly,
 with the URL as its one argument; it never hands the URL to the operating system's scheme handler.
 Following the scheme could not carry the environment the password travels in, and would hand a
-credential to whatever program registered `mixdb://` — a claim any program can make.
+credential to whatever program registered `mixlab://` — a claim any program can make.
 
 **The handoff contract, which the window implements:**
 
 ```
-argv[1]  mixdb://connect?kind=<mysql|postgres|redis>&host=<ip>&port=<n>[&user=<account>][&database=<name>]&label=<service-id>[&password_env=MIXENGINE_DB_PASSWORD][&secret_key=<service-id>%2F<account>]
+argv[1]  mixlab://connect?kind=<mysql|postgres|redis>&host=<ip>&port=<n>[&user=<account>][&database=<name>]&label=<service-id>[&password_env=MIXENGINE_DB_PASSWORD][&secret_key=<service-id>%2F<account>]
 env      MIXENGINE_DB_PASSWORD=<the password>   — present exactly when `user` is
 ```
 
@@ -231,7 +231,7 @@ on the wire &secret_key=<percent-encoded>   — the key alone, present exactly w
 in an answer secret: { service, key }       — database.create, database.client, database.open
 ```
 
-**The namespace is the convention; the key is the message.** The window registers `mixdb://` with the
+**The namespace is the convention; the key is the message.** The window registers `mixlab://` with the
 operating system, so a URL is something any web page can make it receive. A URL that could name the
 *credential store's namespace* would be a way to read any secret on the machine — another
 application's, the browser's — and send it to a stranger's server as a password; a URL naming a key

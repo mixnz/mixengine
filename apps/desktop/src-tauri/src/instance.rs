@@ -302,10 +302,10 @@ mod tests {
             let _ = sent.send(line);
         }));
 
-        assert!(forward_soon(&endpoint, r#"{"url":"mixdb://connect","secret":null}"#).await);
+        assert!(forward_soon(&endpoint, r#"{"url":"mixlab://connect","secret":null}"#).await);
         assert_eq!(
             received.recv().await.as_deref(),
-            Some(r#"{"url":"mixdb://connect","secret":null}"#)
+            Some(r#"{"url":"mixlab://connect","secret":null}"#)
         );
 
         // A second copy, a second line, the same listener.

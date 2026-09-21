@@ -86,6 +86,8 @@
 - MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
+- MixLab's links are `mixlab://` now. `mixdb://` links no longer open it; the installer takes
+  back the `mixdb://` registration an earlier release made.
 - In a database tab, the header, the table list and the filter bar use MixLab's usual sizes, and the
   sidebar opens wider, so the picker, the tabs and the search box are no longer cramped. Rows and
   results stay compact.

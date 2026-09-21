@@ -143,14 +143,14 @@ fn the_mock_records_a_launch_without_its_values() {
     let env = BTreeMap::from([("MIXENGINE_DB_PASSWORD".to_owned(), "s3cret".to_owned())]);
     let started = host
         .desktop_apps()
-        .launch(&app, &[OsString::from("mixdb://connect")], &env)
+        .launch(&app, &[OsString::from("mixlab://connect")], &env)
         .expect("the mock starts anything");
     assert!(matches!(started, Started::Running { .. }));
 
     let launched = host.launched();
     assert_eq!(launched.len(), 1);
     assert_eq!(launched[0].program, PathBuf::from("/opt/mixengine/mixlab"));
-    assert_eq!(launched[0].args, vec![OsString::from("mixdb://connect")]);
+    assert_eq!(launched[0].args, vec![OsString::from("mixlab://connect")]);
     assert_eq!(
         launched[0].env_names,
         vec!["MIXENGINE_DB_PASSWORD".to_owned()]

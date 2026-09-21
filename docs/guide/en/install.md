@@ -58,7 +58,7 @@ Three files are published, and any of them is a complete install.
 - **`mixengine-<version>-windows-x86_64-setup.exe`** — a per-user installer. It writes into your own
   profile and puts its directory on your `PATH`, so no administrator prompt is involved and neither
   is anybody else's account on the machine. It also adds **MixLab** to your Start Menu, offers a
-  desktop shortcut on the components page, and makes MixLab the program that opens a `mixdb://`
+  desktop shortcut on the components page, and makes MixLab the program that opens a `mixlab://`
   link.
 - **`mixengine-<version>-windows-x86_64.zip`** — the same programs in a folder. Extract it wherever
   you like and run `mix.exe`, or `mixlab.exe` for the window.

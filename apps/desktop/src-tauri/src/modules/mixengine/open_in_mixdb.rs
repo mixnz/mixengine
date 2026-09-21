@@ -1,7 +1,7 @@
 //! "Open" trên màn hình Services chi tiết — mở thẳng một tab `db` trong tiến trình đang chạy, không
 //! đi qua `database.open` (vốn khởi động một process ngoài) và không đi qua OS.
 //!
-//! Lặp lại đúng ba bước Pha 0 đã dùng cho `mixdb://connect` — dựng một `Handoff`, giữ nó trong
+//! Lặp lại đúng ba bước Pha 0 đã dùng cho `mixlab://connect` — dựng một `Handoff`, giữ nó trong
 //! `HandoffState`, gọi `crate::launch::request` — chỉ khác nguồn dựng `Handoff` là `database.client`
 //! gọi thẳng ở đây, không phải một URL đọc từ dòng lệnh. Xem
 //! `docs/specs/2026-09-06-mixengine-runtimes-services-logs-design.md`, mục 4 và
@@ -102,7 +102,7 @@ pub async fn mixengine_database_open_in_mixdb(
     };
 
     // Mongo reads its address and its database out of one string and ignores the fields: the same
-    // string `mixdb://connect` builds, from the same function.
+    // string `mixlab://connect` builds, from the same function.
     let (uri, database) = match kind {
         DbKind::Mongo => (
             Some(mongo_uri("127.0.0.1", port, database.as_deref())?),

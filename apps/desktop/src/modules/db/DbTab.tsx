@@ -546,7 +546,7 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
      and no banner: nothing the user did has gone wrong.
 
      Whether it is dialled at once is `arrivesConnected`: a handoff from MixEngine brought the
-     password and is; a `mixdb://` link from a browser brought everything but, and is shown as a
+     password and is; a `mixlab://` link from a browser brought everything but, and is shown as a
      form with the caret where the one missing thing goes, rather than dialled to a certain
      "access denied". */
   useEffect(() => {

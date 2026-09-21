@@ -61,7 +61,7 @@ Có ba file được phát hành, file nào cũng là một bản cài đầy đ
   profile của bạn và thêm thư mục cài vào `PATH`, nên không cần hộp thoại quản trị, và cũng không
   đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho bạn
   chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
-  `mixdb://`.
+  `mixlab://`.
 - **`mixengine-<version>-windows-x86_64.zip`**: cùng bộ chương trình đó, đóng gói trong một thư
   mục. Giải nén ở đâu tùy bạn rồi chạy `mix.exe`, hoặc `mixlab.exe` nếu muốn mở cửa sổ.
 - **`mixengine-<version>-windows-x86_64-headless.zip`**: cũng thư mục đó nhưng không có MixLab, chỉ

@@ -31,9 +31,7 @@ pub const NAME: &str = "MixLab";
 
 /// The URL scheme a handoff is written to, and the one the window is registered for.
 ///
-/// **`mixdb` and not `mixlab`, on purpose** — the merge design's D10. Every MixDB install on every
-/// machine has registered this scheme with its operating system and links in the wild use it; a
-/// scheme is a name other software already holds. The NSIS installer writes
-/// `Software\Classes\mixdb`, `packaging/linux/mixlab.desktop` declares `x-scheme-handler/mixdb`,
-/// and the window refuses any other.
-pub const SCHEME: &str = "mixdb";
+/// **The product's name, and nothing else answers** — ADR 0047. The NSIS installer writes
+/// `Software\Classes\mixlab`, `packaging/linux/mixlab.desktop` declares
+/// `x-scheme-handler/mixlab`, and the window refuses any other scheme, `mixdb` included.
+pub const SCHEME: &str = "mixlab";

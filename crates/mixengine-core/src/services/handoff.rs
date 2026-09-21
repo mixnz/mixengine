@@ -95,7 +95,7 @@ pub struct Address {
 /// What a URL is rendered from.
 #[derive(Debug, Clone, Copy)]
 pub struct Connection<'a> {
-    /// The client's scheme: the window's, `mixdb` (`crate::window::SCHEME`).
+    /// The client's scheme: the window's, `mixlab` (`crate::window::SCHEME`).
     pub scheme: &'a str,
 
     /// The label the client names the tab with: the service id.
@@ -113,7 +113,7 @@ pub struct Connection<'a> {
     /// The key half of the keyring address the password sits at, where there is one.
     ///
     /// **The key and never the namespace** — roadmap task **T84**, the design's D5. MixDB registers
-    /// `mixdb://` with the operating system, so a URL is something a web page can make it receive; a
+    /// `mixlab://` with the operating system, so a URL is something a web page can make it receive; a
     /// URL that could name the *credential store's namespace* would be a way to read any secret on
     /// the machine and post it to a stranger's server as a password. A key it names reaches only
     /// MixEngine's own entries, which is the same set it could reach by naming a `label` and a
@@ -303,7 +303,7 @@ mod tests {
     fn a_url_carries_the_address_the_account_and_the_variable_name() {
         let address = address_of(DatabaseProtocol::Mysql, Some("root"));
         let rendered = url(&Connection {
-            scheme: "mixdb",
+            scheme: "mixlab",
             label: "mariadb@main",
             address: &address,
             user: Some("blog"),
@@ -313,7 +313,7 @@ mod tests {
 
         assert_eq!(
             rendered,
-            "mixdb://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
+            "mixlab://connect?kind=mysql&host=127.0.0.1&port=3306&user=blog&database=blog\
              &label=mariadb%40main&password_env=MIXENGINE_DB_PASSWORD\
              &secret_key=mariadb%40main%2Fblog"
         );
@@ -321,7 +321,7 @@ mod tests {
 
     /// **The key travels; the namespace never does** — roadmap task **T84**, the design's D5.
     ///
-    /// MixDB registers `mixdb://` with the operating system, so a URL is something a web page can
+    /// MixLab registers `mixlab://` with the operating system, so a URL is something a web page can
     /// make it receive. One that could name the credential store's namespace would be a way to
     /// read any secret on the machine and send it to a stranger's server as a password; one naming
     /// a key reaches only MixEngine's own entries.
@@ -329,7 +329,7 @@ mod tests {
     fn a_url_carries_the_key_half_of_the_address_and_never_the_namespace() {
         let address = address_of(DatabaseProtocol::Mysql, Some("root"));
         let rendered = url(&Connection {
-            scheme: "mixdb",
+            scheme: "mixlab",
             label: "mariadb@main",
             address: &address,
             user: Some("blog"),
@@ -356,7 +356,7 @@ mod tests {
         let mut address = address_of(DatabaseProtocol::Redis, None);
         address.port = 6379;
         let rendered = url(&Connection {
-            scheme: "mixdb",
+            scheme: "mixlab",
             label: "redis@main",
             address: &address,
             user: None,
@@ -366,7 +366,7 @@ mod tests {
 
         assert_eq!(
             rendered,
-            "mixdb://connect?kind=redis&host=127.0.0.1&port=6379&label=redis%40main"
+            "mixlab://connect?kind=redis&host=127.0.0.1&port=6379&label=redis%40main"
         );
         assert!(!rendered.contains("password"), "{rendered}");
 

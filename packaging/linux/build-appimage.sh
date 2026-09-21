@@ -34,7 +34,7 @@ install -m 0755 "$here/AppRun" "$appdir/AppRun"
 # The AppDir's own entry, read by whatever integrates this image into a menu. **`Terminal=false`
 # since T105**: with no arguments `AppRun` opens MixLab, so a launcher must not wrap it in a
 # terminal. Its `Name` stays MixEngine — the image is the whole product, not the window — and its
-# `Exec` stays `mix` with no `%u`, because with an argument `AppRun` runs the CLI. `mixdb://` is not
+# `Exec` stays `mix` with no `%u`, because with an argument `AppRun` runs the CLI. `mixlab://` is not
 # offered from an AppImage; the `.deb` and the `.rpm` install `mixlab.desktop` for that.
 install -m 0644 "$here/mixengine.desktop" "$appdir/mixengine.desktop"
 

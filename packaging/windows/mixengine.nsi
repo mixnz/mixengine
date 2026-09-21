@@ -83,6 +83,24 @@ UninstPage instfiles
   ${Loop}
 !macroend
 
+; Delete `Software\Classes\<scheme>` — **only if it is still ours.**
+;
+; Reads the command back and looks for our own `$INSTDIR` inside it: a machine where another
+; program registered the scheme after us keeps that program's handler, which is the correct
+; outcome and the quiet one. A macro so the installer and the uninstaller can both expand it.
+!macro RemoveSchemeIfOurs SCHEME
+  ReadRegStr $0 HKCU "Software\Classes\${SCHEME}\shell\open\command" ""
+  ${If} $0 != ""
+    StrCpy $1 "$INSTDIR"
+    !insertmacro StrFind
+    ${If} $2 == 1
+      DeleteRegKey HKCU "Software\Classes\${SCHEME}"
+    ${Else}
+      DetailPrint "${SCHEME}:// points somewhere else; leaving it alone."
+    ${EndIf}
+  ${EndIf}
+!macroend
+
 Section "MixLab" SecCore
   SectionIn RO
   SetOutPath "$INSTDIR"
@@ -116,14 +134,14 @@ Section "MixLab" SecCore
   ; directory.
   CreateShortcut "$SMPROGRAMS\MixLab.lnk" "$INSTDIR\mixlab.exe"
 
-  ; `mixdb://`, per user — the merge design's D10. Taking the scheme over from a standalone MixDB
-  ; that is still installed is intended: the merged application is what a `mixdb://` link opens from
-  ; now on. What is *not* intended is taking it away again on uninstall if MixDB has since taken it
-  ; back, which is `un.RemoveScheme` below.
-  WriteRegStr HKCU "Software\Classes\mixdb" "" "URL:MixDB Protocol"
-  WriteRegStr HKCU "Software\Classes\mixdb" "URL Protocol" ""
-  WriteRegStr HKCU "Software\Classes\mixdb\DefaultIcon" "" "$INSTDIR\mixlab.exe,0"
-  WriteRegStr HKCU "Software\Classes\mixdb\shell\open\command" "" '"$INSTDIR\mixlab.exe" "%1"'
+  ; `mixlab://`, per user — ADR 0047. An earlier release registered `mixdb://` to this same
+  ; binary, which the window no longer answers; that key goes, but only while it still points here
+  ; — a standalone MixDB that holds it is left alone.
+  !insertmacro RemoveSchemeIfOurs "mixdb"
+  WriteRegStr HKCU "Software\Classes\mixlab" "" "URL:MixLab Protocol"
+  WriteRegStr HKCU "Software\Classes\mixlab" "URL Protocol" ""
+  WriteRegStr HKCU "Software\Classes\mixlab\DefaultIcon" "" "$INSTDIR\mixlab.exe,0"
+  WriteRegStr HKCU "Software\Classes\mixlab\shell\open\command" "" '"$INSTDIR\mixlab.exe" "%1"'
 
   Call AddToPath
 SectionEnd
@@ -196,27 +214,11 @@ Function un.RemoveFromPath
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 FunctionEnd
 
-; Take `mixdb://` back — **only if it is still ours**.
-;
-; A standalone MixDB may still be installed and still be in use, and the merge design's D7 rule is
-; that the old copy is never touched. So this reads the command back and looks for our own
-; `$INSTDIR` inside it: a machine where MixDB re-registered itself after us keeps MixDB's handler,
-; which is the correct outcome and the quiet one.
+; Take `mixlab://` back — **only if it is still ours**. `mixdb://` too, for an install an earlier
+; release made and this one's installer never ran over.
 Function un.RemoveScheme
-  ReadRegStr $0 HKCU "Software\Classes\mixdb\shell\open\command" ""
-
-  ${If} $0 == ""
-    Return
-  ${EndIf}
-
-  StrCpy $1 "$INSTDIR"
-  !insertmacro StrFind
-
-  ${If} $2 == 1
-    DeleteRegKey HKCU "Software\Classes\mixdb"
-  ${Else}
-    DetailPrint "mixdb:// now points somewhere else; leaving it alone."
-  ${EndIf}
+  !insertmacro RemoveSchemeIfOurs "mixlab"
+  !insertmacro RemoveSchemeIfOurs "mixdb"
 FunctionEnd
 
 Section "Uninstall"

@@ -106,14 +106,14 @@ selected database is therefore part of the connection info rather than a `SELECT
 
 ## A connection handed over by another program
 
-MixEngine's `mix database open` starts MixDB as
-`mixdb "mixdb://connect?kind=…&host=…&port=…&user=…&label=…&password_env=MIXENGINE_DB_PASSWORD"`
+MixEngine's `mix database open` starts MixLab as
+`mixlab "mixlab://connect?kind=…&host=…&port=…&user=…&label=…&password_env=MIXENGINE_DB_PASSWORD"`
 with the password in that one variable. Three files carry it, none of them a module's except the
 last:
 
 - `launch.rs` reads `argv[1]` and takes the variable out of the environment **on the first line of
   `run()`**, before the builder spawns a thread or the webview forks a helper. It only trusts a
-  variable named `MIX…_…PASSWORD` — once `mixdb://` is registered with the OS, a web page can name
+  variable named `MIX…_…PASSWORD` — once `mixlab://` is registered with the OS, a web page can name
   any variable in a link. It then either forwards `{url, secret}` to a copy already running or
   queues a `TabRequest` the shell drains (`launch_take_requests`, `launch://request`).
 - `instance.rs` is that channel: a named pipe on Windows, a Unix socket under
@@ -123,7 +123,7 @@ last:
 - `modules/db/handoff.rs` turns the URL into a `ConnectionConfig` kept in `HandoffState` until the
   tab opened for it calls `handoff_take` once; `DbTab` then fills the form and, when the password
   came along or the server has no accounts (`handoffArrival.ts`), goes through the ordinary
-  `connect_db`. A `mixdb://` link from a browser brings no password, so that tab waits at the form
+  `connect_db`. A `mixlab://` link from a browser brings no password, so that tab waits at the form
   with the caret in the password field. Nothing is saved unless the user presses Save.
 
 `tauri-plugin-deep-link` registers the scheme through the installers. Only macOS listens to its
