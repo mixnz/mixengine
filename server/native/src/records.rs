@@ -15,7 +15,7 @@ use rusqlite::{Connection, OptionalExtension, params};
 use serde_json::{Map, Value, json};
 
 use crate::AppState;
-use crate::accounts::{authenticate, parse};
+use crate::accounts::{Session, authenticate, parse};
 use crate::config::Capabilities;
 use crate::crypto::now;
 use crate::freeze::guard;
@@ -113,6 +113,7 @@ struct Row<'a> {
     seq: i64,
     updated_at: i64,
     deleted: bool,
+    device: String,
     nonce: Option<String>,
     ciphertext: Option<String>,
 }
@@ -125,6 +126,7 @@ fn wire(row: Row<'_>) -> Value {
     record.insert("seq".to_owned(), json!(row.seq));
     record.insert("updatedAt".to_owned(), json!(row.updated_at));
     record.insert("deleted".to_owned(), json!(row.deleted));
+    record.insert("device".to_owned(), json!(row.device));
     // A tombstone carries no ciphertext (D3), so the two members are absent rather than null.
     if !row.deleted {
         record.insert("nonce".to_owned(), json!(row.nonce.unwrap_or_default()));
@@ -144,7 +146,7 @@ fn read_one(
 ) -> rusqlite::Result<Option<(Stored, Value)>> {
     connection
         .query_row(
-            "SELECT version, seq, updated_at, deleted, nonce, ciphertext, bytes FROM record
+            "SELECT version, seq, updated_at, deleted, nonce, ciphertext, bytes, device FROM record
              WHERE account_id = ?1 AND collection = ?2 AND id = ?3",
             params![account_id, collection, id],
             |row| {
@@ -162,6 +164,7 @@ fn read_one(
                         seq: row.get(1)?,
                         updated_at: row.get(2)?,
                         deleted: deleted == 1,
+                        device: row.get(7)?,
                         nonce: row.get(4)?,
                         ciphertext: row.get(5)?,
                     }),
@@ -204,15 +207,18 @@ pub fn precondition_from(headers: &HeaderMap) -> Precondition {
     }
 }
 
+/// `writer` is the session making the write: the account it lands in, and the device the record
+/// is stamped with (D3). One argument rather than two, because they never arrive separately.
 pub fn apply_put(
     connection: &Connection,
     limits: &Capabilities,
-    account_id: i64,
+    writer: &Session,
     collection: &str,
     id: &str,
     body: &Value,
     precondition: &Precondition,
 ) -> rusqlite::Result<Outcome> {
+    let (account_id, device) = (writer.account_id, writer.device_id.as_str());
     if !is_opaque_id(collection) || !is_opaque_id(id) {
         return Ok(Outcome::bad(
             "A collection and a record are each 64 lowercase hex characters.",
@@ -325,12 +331,12 @@ pub fn apply_put(
 
     connection.execute(
         "INSERT INTO record (account_id, collection, id, version, seq, updated_at, deleted,
-                             nonce, ciphertext, bytes, written_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, ?9, ?10)
+                             device, nonce, ciphertext, bytes, written_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, ?9, ?10, ?11)
          ON CONFLICT (account_id, collection, id) DO UPDATE SET
            version = excluded.version, seq = excluded.seq, updated_at = excluded.updated_at,
-           deleted = 0, nonce = excluded.nonce, ciphertext = excluded.ciphertext,
-           bytes = excluded.bytes, written_at = excluded.written_at",
+           deleted = 0, device = excluded.device, nonce = excluded.nonce,
+           ciphertext = excluded.ciphertext, bytes = excluded.bytes, written_at = excluded.written_at",
         params![
             account_id,
             collection,
@@ -338,6 +344,7 @@ pub fn apply_put(
             version,
             seq,
             updated_at,
+            device,
             nonce,
             ciphertext,
             bytes,
@@ -362,6 +369,7 @@ pub fn apply_put(
             seq,
             updated_at,
             deleted: false,
+            device: device.to_owned(),
             nonce: Some(nonce.to_owned()),
             ciphertext: Some(ciphertext.to_owned()),
         }),
@@ -370,11 +378,12 @@ pub fn apply_put(
 
 pub fn apply_delete(
     connection: &Connection,
-    account_id: i64,
+    writer: &Session,
     collection: &str,
     id: &str,
     if_match: Option<i64>,
 ) -> rusqlite::Result<Outcome> {
+    let (account_id, device) = (writer.account_id, writer.device_id.as_str());
     if !is_opaque_id(collection) || !is_opaque_id(id) {
         return Ok(Outcome::bad(
             "A collection and a record are each 64 lowercase hex characters.",
@@ -418,10 +427,18 @@ pub fn apply_delete(
         |row| row.get(0),
     )?;
     connection.execute(
-        "UPDATE record SET version = ?1, seq = ?2, deleted = 1, nonce = NULL, ciphertext = NULL,
-                           bytes = 0, written_at = ?3
-         WHERE account_id = ?4 AND collection = ?5 AND id = ?6",
-        params![stored.version + 1, seq, now(), account_id, collection, id],
+        "UPDATE record SET version = ?1, seq = ?2, deleted = 1, device = ?3, nonce = NULL,
+                           ciphertext = NULL, bytes = 0, written_at = ?4
+         WHERE account_id = ?5 AND collection = ?6 AND id = ?7",
+        params![
+            stored.version + 1,
+            seq,
+            device,
+            now(),
+            account_id,
+            collection,
+            id
+        ],
     )?;
     connection.execute(
         "UPDATE account SET stored_bytes = MAX(0, stored_bytes - ?1) WHERE id = ?2",
@@ -437,6 +454,7 @@ pub fn apply_delete(
             seq,
             updated_at,
             deleted: true,
+            device: device.to_owned(),
             nonce: None,
             ciphertext: None,
         }),
@@ -488,7 +506,7 @@ pub async fn write(
                 apply_put(
                     &transaction,
                     &limits,
-                    session.account_id,
+                    &session,
                     &collection,
                     &id,
                     &parsed,
@@ -497,7 +515,7 @@ pub async fn write(
             } else {
                 apply_delete(
                     &transaction,
-                    session.account_id,
+                    &session,
                     &collection,
                     &id,
                     precondition.if_match,
@@ -572,12 +590,12 @@ pub async fn batch(
 
                 let outcome = match operation.get("op").and_then(Value::as_str) {
                     Some("delete") => {
-                        apply_delete(&transaction, session.account_id, collection, id, if_match)?
+                        apply_delete(&transaction, &session, collection, id, if_match)?
                     }
                     Some("put") => apply_put(
                         &transaction,
                         &limits,
-                        session.account_id,
+                        &session,
                         collection,
                         id,
                         operation.get("record").unwrap_or(&Value::Null),
@@ -665,7 +683,8 @@ pub async fn list(
             let mut rows = Vec::new();
             {
                 let mut statement = connection.prepare(
-                    "SELECT collection, id, version, seq, updated_at, deleted, nonce, ciphertext
+                    "SELECT collection, id, version, seq, updated_at, deleted, nonce, ciphertext,
+                            device
                      FROM record
                      WHERE account_id = ?1 AND seq > ?2 AND (?3 IS NULL OR collection = ?3)
                      ORDER BY seq ASC LIMIT ?4",
@@ -687,6 +706,7 @@ pub async fn list(
                         seq: row.get(3)?,
                         updated_at: row.get(4)?,
                         deleted: deleted == 1,
+                        device: row.get(8)?,
                         nonce: row.get(6)?,
                         ciphertext: row.get(7)?,
                     }));
