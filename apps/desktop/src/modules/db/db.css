@@ -283,6 +283,19 @@ button.saved-list-new {
   color: var(--kind);
 }
 
+/* A notice with the one action it offers beside it, under the connection form. */
+.saved-elsewhere {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.saved-elsewhere > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .login-form {
   flex: 1;
   min-width: 0;

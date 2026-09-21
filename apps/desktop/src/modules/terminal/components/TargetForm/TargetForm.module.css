@@ -50,6 +50,18 @@
   flex: 1;
 }
 
+/* A notice with the one action it offers beside it, above the form's buttons. */
+.savedElsewhere {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.savedElsewhere > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

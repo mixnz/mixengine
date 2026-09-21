@@ -24,6 +24,9 @@ const dbEn = {
     fallbackTitle: "{{kind}} \u00b7 {{host}}",
     /** What Duplicate calls the copy it makes. */
     copySuffix: "{{name}} (copy)",
+    changedElsewhere: "This connection was changed somewhere else. Your edits here stay until you load the new version.",
+    loadNewVersion: "Load new version",
+    removedElsewhere: "This connection was deleted somewhere else. Save connection keeps it as a new one.",
     nameLabel: "Name",
     saveAsLabel: "Save as",
     connectionNamePlaceholder: "Connection name",
