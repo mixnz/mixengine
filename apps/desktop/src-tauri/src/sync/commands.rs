@@ -119,6 +119,73 @@ pub async fn sync_commit_push(
     state.commit_push(&collection, &token).await
 }
 
+#[tauri::command]
+pub async fn sync_change_password(
+    state: State<'_, SyncState>,
+    current: String,
+    next: String,
+) -> Result<(), AppError> {
+    state.change_password(current, next).await
+}
+
+#[tauri::command]
+pub async fn sync_reset_ask(
+    state: State<'_, SyncState>,
+    server: String,
+    access: Option<String>,
+    email: String,
+) -> Result<(), AppError> {
+    state.ask_reset(&server, access.as_deref(), &email).await
+}
+
+#[tauri::command]
+pub async fn sync_reset_open(
+    state: State<'_, SyncState>,
+    server: String,
+    access: Option<String>,
+    email: String,
+    code: String,
+) -> Result<(), AppError> {
+    state
+        .open_reset(&server, access.as_deref(), &email, &code)
+        .await
+}
+
+#[tauri::command]
+pub async fn sync_reset_keep(
+    state: State<'_, SyncState>,
+    recovery_key: String,
+    password: String,
+    device_name: String,
+) -> Result<Status, AppError> {
+    state
+        .reset_keeping(&recovery_key, password, &device_name)
+        .await
+}
+
+/// Returns the new recovery key: shown once, in case 3's ceremony.
+#[tauri::command]
+pub async fn sync_reset_prepare(
+    state: State<'_, SyncState>,
+    server: String,
+    access: Option<String>,
+    email: String,
+    password: String,
+) -> Result<String, AppError> {
+    state
+        .prepare_start_over(&server, access.as_deref(), &email, password)
+        .await
+}
+
+#[tauri::command]
+pub async fn sync_reset_start_over(
+    state: State<'_, SyncState>,
+    code: String,
+    device_name: String,
+) -> Result<Status, AppError> {
+    state.start_over(&code, &device_name).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
