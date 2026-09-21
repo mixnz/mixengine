@@ -33,10 +33,14 @@ crates/
 apps/
   desktop/               the desktop application (MixLab from phase 12): a Vite + React frontend,
                          and under src-tauri/ a Cargo workspace of its own, excluded from this one
+server/                  MixLab's sync server (ADR 0046): conformance/ the suite, worker/ the
+                         Cloudflare Worker, native/ a third Cargo workspace, also excluded
 ```
 
-`apps/desktop/` carries the one Node toolchain here. `cargo` at the root never sees its crate, and
-`apps/desktop/CLAUDE.md` is that application's own set of rules.
+**`cargo` at the root sees neither `apps/desktop/src-tauri` nor `server/native`**, and the three
+Node projects here — `apps/desktop/`, `server/worker/`, `server/conformance/` — each carry their
+own `package-lock.json` and are installed separately. `apps/desktop/CLAUDE.md` is that
+application's own set of rules; `server/README.md` is the server's.
 
 ## Non-negotiable rules
 

@@ -23,7 +23,7 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       **this crate is not format-gated**: CI's `desktop` job runs clippy, `cargo test --locked` and
       `cargo audit`, with no `fmt`, and there is no `rustfmt.toml` here, so `cargo fmt --all` would
       rewrite dozens of files nobody touched. Check the files you wrote and nothing else.
-- [ ] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
+- [x] **T177b** `/v1` frozen at the spec's D4, and the **conformance suite written first** — before
       the server it will judge, because a suite written afterwards only ever describes what was
       built; it lives in `server/conformance/`, beside both implementations and inside neither.
       Then `server/worker/` on Cloudflare Workers, one Durable Object per account: its
@@ -32,12 +32,64 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       Registration and email verification through an external provider, login, refresh and
       revocation, the device list, a per-account quota, rate limiting inside the object, and
       `/v1/capabilities`. Nothing in it parses a ciphertext.
-- [ ] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
+      Its CI is `.github/workflows/server.yml`, fired by `server/**` alone: `ci.yml` gains no job
+      family and no server change fires its three-OS matrix, while a push to `master` — the branch
+      Workers Builds deploys from — answers for itself without being asked. The third entry in
+      `docs/operations/build-and-release.md`'s list of workflows that are not in that table.
+
+      **Done in five commits; 88 conformance assertions green against the Worker.** Four things it
+      settled that the plan had not, each found by writing the suite before the server. D4 was a
+      table of intentions and not a wire, so the first commit is **D4a**, which decides the bytes —
+      without it the first implementation decides them and the suite copies, which is the failure
+      writing the suite first exists to prevent. Verification gates **signing in**, not writing, so
+      the `403` on a record route is unreachable in v1 and the suite says so rather than pretending
+      to test it. Revoking a device ends **both** its tokens: the appendix had reasoned that
+      closing the access token early costs a revocation check per request, which is wrong for an
+      opaque token the server looks up anyway. And registration is limited **per source** in an
+      object of its own — a counter inside one account cannot see an abuse that opens many.
+- [x] **T177h** — *lettered last, ordered here, right after T177b.* `server/native/`: the same
       protocol in Rust over a SQLite file, excluded from the root Cargo workspace the way
-      `apps/desktop/src-tauri` is, with a Dockerfile beside it. **Built alongside the Worker rather
-      than after it**, because `/v1` is only a protocol once something other than the Worker has
-      spoken it — each implementation is the other's proof, and the conformance suite is what makes
-      that claim checkable rather than asserted. CI runs `server/conformance/` against both.
+      `apps/desktop/src-tauri` is, with a Dockerfile beside it — an image published to this
+      repository's Packages, following `master`, for somebody self-hosting who would rather pull
+      than compile. Nothing in the hosted path is a container: the default instance is the Worker.
+      **Built alongside the Worker rather than after it**, because `/v1` is only a protocol once
+      something other than the Worker has spoken it — each implementation is the other's proof, and
+      the conformance suite is what makes that claim checkable rather than asserted. `server.yml`
+      gains a second job, so one run of it answers for both implementations.
+
+      **Done in three commits; the whole suite green against both, first run.** What it settled
+      that the plan had not. The native server is a **library with a binary on top**, for the same
+      reason T177a's module is `pub`: `-D warnings` rejects a module whose callers land in a later
+      commit, and a library's public surface is not dead code — it is also the shape a server
+      wants if it is ever to be tested without a port. Reaping is **one task sweeping every
+      account**, not an alarm per account: the Worker's rule is about money, and with one process
+      and one file it buys nothing. And `410 cursor-expired` needed **a second instance** of each
+      server with a retention of zero, because reaping at once breaks every other tombstone test —
+      four conformance legs in one run rather than two.
+- [x] **T177i** — *what the server learned after T177b and T177h were ticked.* An account is
+      **copied and deleted rather than relocated**: `/v1/account/freeze` holds it still, the client
+      carries it across with the ordinary paged read and batch write, and `/v1/account/delete` ends
+      it. Nothing is forwarded — a symbolic `home` was readable exactly when it was redundant and
+      unreadable exactly when it was needed, and a URL instead would have been a phishing primitive
+      because the destination learns `A`. A freeze has **no expiry**: thawing is reachable from
+      every signed-in machine, while an expiry let a finished copy reopen the old server on a timer
+      for a machine nobody had repointed. `closingOn` in `/v1/capabilities` is the whole of what an
+      old server contributes — a date, never a destination — and the old server can now be switched
+      off, which the forwarding design could never allow.
+      Then the three things the rate limits had missed. **A letter is counted against the address
+      it reaches**, not only against the network that asked for it, and that counter lives outside
+      the account because registering over an unverified one replaces it. **A source is the peer
+      address**, not `X-Forwarded-For`: measured on six forged values against a server allowing two
+      an hour, the old code accepted six and the new one two. And **D6 case 2** — forgotten
+      password, recovery key held — is reachable at last, in two requests so the client can unwrap
+      `MK` before it re-wraps it: the letter proves who, the recovery key preserves what, and the
+      records survive.
+      The wire also left the spec for `docs/features/sync-protocol.md`, where it can be edited as
+      `/v1` grows; a design document stops being edited when its work is implemented, and `/v1`
+      does not stop.
+
+      **152 conformance assertions, 147 green and 5 skipped against each implementation**, the
+      same numbers on both — which is the claim two implementations exist to make.
 - [ ] **T177c** The client half of the protocol: pull by cursor, push under `If-Match`, the `409`
       resolved by `updatedAt` with the device id breaking a tie, and `batch` for the first push
       from a machine that already has a hundred saved things.

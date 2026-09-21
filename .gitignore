@@ -21,3 +21,8 @@ Thumbs.db
 # Implementation plans — local working notes for one stretch of work, never shared or referenced.
 # The design document that outlives the branch is its spec, under docs/specs/.
 docs/plans/
+
+# The server's two toolchains (ADR 0046). `server/native/` is a Cargo workspace of its own, and
+# `.wrangler/` is where a local `wrangler dev` keeps the Durable Object's SQLite files.
+/server/native/target/
+/server/worker/.wrangler/

@@ -1,0 +1,19 @@
+{
+  "name": "@mixlab/sync-conformance",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The suite both implementations of MixLab's sync protocol answer to.",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.10"
+  }
+}

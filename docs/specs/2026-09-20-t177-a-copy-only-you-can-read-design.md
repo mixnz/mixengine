@@ -64,6 +64,7 @@ in full, because a list that is not written down grows.
 | It sees | Why it must |
 | --- | --- |
 | An email address | It is the login, and the only channel for verification and for a reset |
+| `account_key`, a stable hash of that address | It is the account's only name, and it means the same thing on any server (D4a) |
 | A password *verifier* (D2), never the password | To answer "is this the account holder" |
 | An opaque collection id and an opaque record id, 32 bytes each | To address a record without being told what kind of thing it is (D3) |
 | A version number and a per-account sequence number | To refuse a lost update, and to answer "what changed since" |
@@ -75,6 +76,15 @@ in full, because a list that is not written down grows.
 **What it never sees:** a plaintext value of any kind, the name of any collection, the name or host
 of any connection, a URL, a file name, how many of each kind of thing there are, or anything
 derived from the master key other than ciphertext.
+
+**The address is kept, and that was decided rather than assumed.** A draft of this design dropped
+it — every route that needs one is handed it in the same request, so nothing here has to remember
+one — and a database would then have held hashes of addresses and no addresses. What that costs is
+the row of D8's table where somebody runs this for their own team: **an operator who cannot see who
+has an account cannot administer one**, and that is a real need rather than a convenience. The same
+binary serves both rows, so the choice is made once, for everybody, in favour of the deployment
+that has an operator. What is given up is that a stolen database holds a list of addresses, which
+the rest of this design does not make any worse and does not pretend to fix.
 
 Record sizes and counts leak a shape, and that is accepted rather than concealed: padding every
 record to a fixed size costs bandwidth on every sync to defeat an observer who has already taken
@@ -161,14 +171,18 @@ already gives. It is unwrapped at sign-in and written nowhere else.
 
 ## D4. The protocol
 
-Frozen as `/v1` before the first line of client code, because the two halves live in two
-repositories (ADR 0045) and a shape that moves costs two coordinated releases.
+Frozen as `/v1` before the first line of client code. The original reason was that the two halves
+lived in two repositories; [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
+brought them into one, and the freeze outlived it — **a server somebody else is running does not
+update when this document does** (D9, R4), so a shape that moves costs them a coordinated release
+whatever this repository's layout is. A change to `/v1` is a new path, not an edit.
 
 | Method | Path | Does |
 | --- | --- | --- |
 | `GET` | `/v1/capabilities` | **No authentication.** Protocol versions this server speaks, the largest record and batch it accepts, the per-account quota, and the optional features it has |
+| `GET` | `/v1/auth/params` | **No authentication.** The salt and Argon2 parameters a client needs before it can compute `A` at all |
 | `POST` | `/v1/auth/register` | email, `A`, `salt_account`, the Argon2 parameters, both wrapped copies of `MK` |
-| `POST` | `/v1/auth/verify` | completes the emailed link; **no record may be written before this** |
+| `POST` | `/v1/auth/verify` | completes with the emailed code; **no record may be written before this** |
 | `POST` | `/v1/auth/login` | email, `A`, a device name → a short access token and a per-device refresh token |
 | `POST` | `/v1/auth/password` | current `A`, new `A`, new `salt_account`, new `wrapped_mk` |
 | `POST` | `/v1/auth/reset` | emailed proof only; restores the login and **abandons the data** (D6) |
@@ -177,6 +191,8 @@ repositories (ADR 0045) and a shape that moves costs two coordinated releases.
 | `PUT` | `/v1/records/{c}/{id}` | `If-Match: {version}`, or `If-None-Match: *` to create |
 | `DELETE` | `/v1/records/{c}/{id}` | writes a tombstone; `If-Match` applies |
 | `POST` | `/v1/records/batch` | many of the above in one round trip, each with its own outcome |
+| `GET` `POST` | `/v1/account/freeze` | read, and set, whether this account is holding still for a copy (D4b) |
+| `POST` | `/v1/account/delete` | current `A`; removes the account and every record with it (D4b) |
 
 **`/v1/capabilities` is what stops a limit from becoming a release.** A client that assumes the
 largest record or the size of a batch has to be updated in step with every server that disagrees,
@@ -192,6 +208,186 @@ breaks a tie on the lexicographically greater device id, and retries. The server
 set, and two hundred round trips to do it is the difference between a pause and a wait. It is a
 batch of independent compare-and-swaps, not a transaction: each entry succeeds or conflicts on its
 own.
+
+## D4a. The wire
+
+D4 is a table of intentions; the bytes are decided in
+**[the protocol reference](../features/sync-protocol.md)** — encoding, the account key, the one
+shape every failure takes, every route's body, the closed table of codes a client can meet, and the
+four choices that could have gone the other way.
+
+**It is a separate file because it outlives this one.** A spec stops being edited when its work is
+implemented, and `/v1` does not stop growing. Nothing in it is a new decision: each line is
+something D4 left open that two implementations would otherwise settle differently.
+
+## D4b. Copying an account to another server, and deleting one
+
+**Both are in `/v1` from the first commit, and that is the only reason either can ever be used.**
+`/v1` is frozen and a server somebody else runs does not update when this document does (D9, R4), so
+a client that meets an answer it does not understand stops syncing with a strange error. A way to
+say *"hold still, I am copying"* added later would only work for clients written after it — which is
+exactly the population that does not need it. Moving servers is hypothetical; the place to say so is
+not.
+
+**There is no *move* in this protocol.** There is a copy, which the client performs with the
+ordinary read and write routes, and there is a deletion. A move is the two of them in order, and a
+backup is the first one on its own. Neither operation knows about the other, and the server never
+learns that a move is what it was taking part in.
+
+**The client copies; the server is only asked to hold still.** Nothing here asks a server to export
+anything, and nothing asks it to enumerate its accounts — which it cannot do, because addressing by
+`account_key` is what this design has instead of an index (D8). The machine that already holds the
+data is the one that carries it across.
+
+**The data crosses unchanged.** The client keeps `MK`, so it registers on the new server with the
+*same* `salt_account` and the same two wrapped copies, and `K_id` and `K_data` come out the same on
+the other side: the opaque ids and the ciphertexts are identical bytes, and the recovery key still
+opens the account. Nothing is re-encrypted, and the peppers of the two servers never have to match,
+because each one keys its own verifier.
+
+### Two states
+
+`active`, and `frozen` — which reads and does not write. `GET`/`POST /v1/account/freeze` moves
+between them and answers in both; the shapes are in
+[the protocol reference](../features/sync-protocol.md).
+
+**Thawing is a route, and the only way out.** Posting `active` is how a client ends a copy it has
+finished and how it abandons one it has given up on. Nothing else ends a freeze, and the section
+below is about why nothing else should.
+
+Reads stay open while frozen because **the copy is a read**: the machine doing the work needs the
+same route any machine uses, and a second machine that wants to take over needs it too.
+
+### A freeze ends when a client ends it, and not before
+
+**There is no timeout.** Posting `active` is reachable from every signed-in machine, and reading
+and signing in both work while frozen, so a freeze nobody meant to leave behind is one request away
+from over — nothing is stranded and no operator is needed.
+
+An expiry would cost more than that buys. A copy that *succeeds* and is then not finished off would
+let the old server quietly become writable again, and a machine nobody repointed would begin
+writing into it: the silent divergence this section exists to prevent, arriving on a timer.
+**Between a failure that asks a question and a recovery that answers one on its own, this takes the
+question.**
+
+`frozenAt` is when it started, so a client can say how long this has been true rather than only
+that it is.
+
+**Resuming needs no bookkeeping.** The client keeps `MK`, so the records it re-uploads are the same
+opaque ids and the same bytes as the ones that already arrived: pushing the whole set again with
+`If-None-Match: *` and treating `412 already-exists` as success is exactly the right behaviour, and
+it is correct whether the previous attempt copied nothing, half, or everything. There is no
+progress to record and nothing to reconcile.
+
+**Any machine can take over, or give up, and that is the recovery path.** A second machine that
+meets `423` reads `GET /v1/account/freeze`, sees `frozen`, and either continues the copy — it can
+read everything from this server, which is still readable — or posts `active` and abandons it.
+What it must not do is guess, and what it must not do is wait: nothing is coming to clear this
+but a decision.
+
+**Freeze first, then copy — not copy, then freeze.** With the other order there is a window between
+the last record the client reads and the moment the account stops accepting writes, and anything a
+*second* machine writes in that window is lost silently. Two machines writing to two servers cannot
+be reconciled afterwards either, because their `seq` counters are independent. The cost of the
+right order is a short read-only period, which a local-first application does not show anybody.
+
+**While frozen, any mutation** — a record, a batch, a password change — answers **`423 Locked`**,
+code `account-frozen`. Sessions are untouched.
+
+### Where the copy goes is the client's business, and cannot be the server's
+
+**The destination is a thing a person typed.** Somebody on the hosted instance who wants their own
+box types its address into MixLab; somebody with two boxes of their own picks one. A hosted
+instance serving many people cannot hold a setting naming each of their private machines, and if it
+held one it would name the same destination for everybody.
+
+**So nothing is forwarded, and each machine is pointed at the new server by the person, once**, the
+same way the first one was (D8). A server that could send a client to an address of its choosing
+would be a phishing primitive: the destination learns `A`, which is the login verifier and is the
+same value on every server because it comes from the password. It could not read a record — it has
+no `MK` — but it would not need to.
+
+**What an old server does contribute is a date.** `closingOn` in `/v1/capabilities` is the whole of
+it: an operator who intends to switch the server off says when, every client reads it before every
+sync, and a person has warning enough to copy the account somewhere while the server is still there
+to copy from. It says when, never where.
+
+### Deleting an account
+
+`POST /v1/account/delete`, carrying the current `A`.
+
+**It re-proves the password, and the session is not enough.** A borrowed unlocked machine already
+holds a valid access token; asking for `A` means the person deleting the account is the person who
+knows the password, not whoever is sitting at the desk. It is the same check
+`POST /v1/auth/password` makes, and a wrong `A` is counted against the same per-account window as a
+login, so the route cannot become a password oracle.
+
+**A confirmation letter would add nothing.** Anybody who can call this can already delete every
+record one at a time through `/v1/records`; the account row is all that survives that, and it holds
+nothing a person would miss. A round trip through email would slow down the one honest case and stop
+nobody. Whether a person is asked *"are you sure"* is a question for the account screen (T177e), not
+for the wire.
+
+**Nothing is kept.** Every record, every device, every refresh token, every access token, every
+attempt counter, and the account row itself. The address is free to register again immediately, and
+**the server is left exactly as it was before the account existed** — no tombstone, no row saying
+this address was once here. Keeping one would be keeping the single fact D1 promises a server does
+not accumulate.
+
+On the Worker this is the Durable Object deleting all of its storage, after which the object has
+nothing left and stops existing. Because it is addressed by `idFromName(account_key)`, registering
+the same address again arrives at the same object, which is now empty — the name is genuinely free.
+
+**Deleting a frozen account is allowed.** It is the person's data, and whatever a copy has already
+carried across belongs to them too. Afterwards every token on every machine is gone, so the next
+request from any of them answers `401 invalid-token`. There is no code meaning *this account was
+deleted*: the account is not there, and a server that could tell the difference would be keeping the
+row this route exists to remove.
+
+### A move is a copy, and then a deletion
+
+1. `POST /v1/account/freeze` with `frozen` on the old server.
+2. `GET /v1/records?since=0`, paged to the end. **The ordinary read route.**
+3. Register on the new server with the same `salt_account` and the same wrapped keys, and confirm
+   the address there — the new server sends its own letter and will not take the old one's word.
+4. `POST /v1/records/batch`, with `If-None-Match: *`. **The ordinary write route.**
+5. Compare what the new server holds against what the old one still shows, then either
+   `POST /v1/account/delete` on the old one, or post `active` to thaw it.
+
+**There is no export route and no import route**, and steps 2 and 4 are why: a copy is the paged
+read and the batch write a client already performs every day. The server never acquires a way to
+hand out a whole account at once, which is the property D1 would otherwise have to qualify.
+
+**Step 5 is the fork.** Delete, and it was a move. Thaw, and it was a backup, and two independent
+accounts exist from that moment — the same address, the same password, two histories that cannot be
+merged afterwards because `seq` is per-server.
+
+**A copy is not byte-identical, and nothing pretends otherwise.** `version` and `seq` are assigned
+by the server, so on the new one every record is at version 1 and the sequence starts again. A
+machine repointed at the new server resyncs from cursor 0; if it sends an `If-Match` holding a
+version from the old one it meets `409 version-conflict`, which is the correct answer to *your view
+is stale* and costs a re-read rather than a record.
+
+### What it does not solve
+
+**A machine the person forgets to repoint.** It keeps talking to the old server. If the move ended
+in a deletion, it is signed out at once and the person finds out the same day — which is the
+argument for ending a move that way rather than by thawing. If it ended in a thaw, it goes on
+working, writing into an account that is now a second account, and **nothing anywhere reports an
+error**. That is the cost of two servers not knowing about each other, and it is accepted here
+rather than solved.
+
+**The client needs `A` to register on the far side**, which is derived from the password it does not
+keep. Either it holds `A` beside `MK` — defensible, since anything that reaches one locally has
+already reached the other — or it asks for the password once and says what it is doing. This
+document does not decide that: it is a decision about the client, and it belongs with the account
+screen in T177e.
+
+**What is no longer a problem.** An earlier draft had the old server forward clients to the new one,
+which meant it could never be switched off: for as long as one old client existed — including an old
+installer somebody runs again — something had to be there to answer. With nothing forwarded, a
+server that has been copied from and deleted from is finished, and the person who ran it can stop
+it.
 
 ## D5. What syncs, and what never does — a client-side catalogue
 
@@ -231,16 +427,36 @@ belongs to is.
 
 ## D6. Losing the password
 
-Three cases, and the third is the one a person has to be told about before they need it.
+Three cases. **The recovery key decides what survives; the letter decides who you are.** Neither
+does the other's job, which is what case 2 is about.
 
 1. **Changed while signed in** — re-wrap `MK`, one request, nothing else moves.
-2. **Forgotten, recovery key held** — `RK` unwraps `MK` on the machine; the person sets a new
-   password and the client uploads a new `wrapped_mk`. The server is told after the fact and proves
-   nothing about `RK`, having never seen it.
-3. **Both lost** — the emailed reset restores the *login*, and nothing restores the data: every
-   record is encrypted under an `MK` no surviving key unwraps. The reset therefore deletes every
-   record rather than leaving an account full of bytes that decrypt for nobody, and the dialog says
-   exactly that before it proceeds.
+2. **Forgotten, recovery key held** — `RK` unwraps `MK`, so the records survive. But a fresh
+   install has to prove whose account this is first, and **only the emailed code can do that**:
+   the server has never seen `RK` and cannot tell somebody holding one from somebody who is not.
+   A route that took a new verifier on `RK` alone would be account takeover with extra steps.
+3. **Both lost** — the letter restores the login and nothing restores the data: every record is
+   under an `MK` no surviving key unwraps. The reset deletes them rather than leaving an account
+   full of bytes that decrypt for nobody, and the dialog says so before it proceeds.
+
+**Case 2 takes two requests and case 3 takes one**, because the client needs
+`wrapped_mk_recovery` before it can compute anything and spending the code is what earns it. The
+first request spends the code and answers with that key and a **single-use ticket, minutes long**;
+the second carries the ticket and the new keys. D4a has both shapes.
+
+Three things that follow, and none of them are the client's convenience:
+
+- **The ticket is what separates keeping from deleting.** Without it the second request is the
+  one-shot reset, so a stale ticket is refused rather than treated as either.
+- **Records survive because the client said so by using that shape.** The server cannot check that
+  the uploaded `wrapped_mk` wraps the same `MK` and does not try; a client that got it wrong
+  leaves records nobody can read, which case 3 clears.
+- **Reaching the mailbox buys nothing new.** That already destroys the account through case 3.
+  Taking case 2 instead leaves the records in place and still unreadable: `MK` is in none of it.
+
+**The recovery key is not enough on its own.** It preserves the data; it does not prove identity,
+and the mailbox is still required. Wherever MixLab prints or explains the key it has to say so, or
+a person will keep the key, lose the address, and find out the shape of this at the worst moment.
 
 ## D7. Where the code lives
 
@@ -277,6 +493,12 @@ the client home, applied to the server. [ADR 0046](../decisions/0046-the-sync-se
 records the reversal and what would undo it; `server/native/` is excluded from the root Cargo
 workspace the way `apps/desktop/src-tauri` is.
 
+**That run is a workflow of its own**, `.github/workflows/server.yml`, fired only by `server/**`
+and unasked on `master` because Workers Builds deploys from there on its own — a server that is red
+and unrun is a server that is deployed red. Why it is separate from `ci.yml`, and why `master` is
+the exception to *CI is asked for*, is in
+[build-and-release](../operations/build-and-release.md).
+
 **The default instance runs on Cloudflare Workers, with one Durable Object per account.** That
 single primitive answers the three things this design actually needs from a server: execution is
 serialized, so the per-record compare-and-swap and the per-account monotonic `seq` are correct
@@ -304,41 +526,18 @@ already the serialized place.
 
 ### Sending email
 
-**Workers cannot speak SMTP, so an SMTP account is the wrong thing to hold.** What the server needs
-is a provider with an HTTP API. Two things are worth writing down because the internet is full of
-stale advice about both: Cloudflare's own Email Routing **receives** and does not send, and
-MailChannels' free offering for Workers **ended in 2024**.
+Two letters — a verification code and a reset code — and **which provider sends them is a
+deployment decision rather than a protocol one**. They sit behind one function in each
+implementation, which is the part that matters: every free tier in this market will be renegotiated
+within a few years, and what protects a deployment is that changing provider is one file.
 
-**The provider sits behind one function**, and that is a more important decision than which provider
-it is. Every free tier in this market will be renegotiated within a few years; what protects this
-project is that changing provider is one file rather than a migration.
+**A deployment must name one**, and there is no default: a key on its own does not say where to
+send it, and guessing meant somebody pasting a SendGrid key had it posted to Resend — which fails,
+correctly but confusingly, at the first letter rather than at the first start. A server missing any
+of this refuses to serve and names what is missing.
 
-**The volume is two messages in the lifetime of an account** — verify an address at registration,
-prove control of it after a forgotten password — and nothing else. No notification, no digest, no
-newsletter. A thousand new accounts in a month sits far inside any free tier on offer.
-
-**So the cost risk is abuse, not success**, and the controls for it are already here rather than
-added for this: registration is rate limited per address and per source, and D4 forbids writing any
-record before an address is verified — a rule written to stop the server becoming anonymous free
-storage, which stops this too. A ceiling on messages per account per day closes the rest.
-
-**A server missing a piece of its configuration refuses to start, and names the piece.** Whoever
-deploys this — us, or somebody on their own Cloudflare account — sets the provider's key and the
-`pepper` themselves, and the failure that follows forgetting one is otherwise invisible: the deploy
-succeeds, registration succeeds, and a person waits for a letter that was never sent. Checking at
-startup turns a silence into a sentence. It costs a few lines and is the difference between an
-afternoon and a weekend for the first person who self-hosts this.
-
-**The self-hosted implementation is a native binary — Rust, and a SQLite file — and it is built
-alongside the Worker rather than after it.** The promise is that `/v1` is a protocol and not a
-description of one codebase, and a second implementation is the only thing that can ever prove it.
-This is also why **the conformance suite is written before the first server**: a suite written
-afterwards describes what was built, `/v1` quietly becomes "whatever the Worker does", and the
-second implementation stops being writable at all. Built together, each is the other's proof.
-
-Either implementation owns the same closed set: registration and verification, tokens and their
-revocation, the record table with its compare-and-swap, tombstone reaping, a per-account quota, and
-the capability document. Neither owns any knowledge of what a record is.
+`server/native/README.md` has the seven providers and what each one wants; `server/worker/README.md`
+has the six that a Worker can reach, SMTP being the one it cannot.
 
 ### Two implementations, three things a person can run
 
@@ -354,6 +553,22 @@ pointing Workers Builds at `server/worker/` as its root directory. The bottom ro
 costs real work, and it is the only one that answers somebody whose objection to a hosted service
 *is* Cloudflare.
 
+**No container runs anywhere in the top row.** The default instance is the Worker, and Cloudflare
+builds it from this repository's `server/worker/` directory — nothing in the hosted path is built,
+pulled or run as an image. The Dockerfile exists for one purpose: to produce an image, published to
+this repository's own GitHub Packages, that somebody self-hosting can pull instead of compiling
+Rust. It is a distribution format for the bottom row and appears nowhere else, which is also why
+[ADR 0003](../decisions/0003-no-container-isolation.md) is untouched — that decision is about how
+MixEngine runs a person's PHP, and this is an artifact somebody else's machine runs.
+
+**The image follows `master`, and the server has no release of its own.** It is built from
+`master` and tagged `latest` and `sha-<short>`, the same cadence the Worker already deploys on, so
+a self-hoster and the default instance are never running different generations of `/v1`. Attaching
+it to a `v*` tag would give the server the versioned-artifact lifecycle that
+[ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) names as the one
+thing that would justify splitting it back out — the image is deliberately not that. Somebody who
+wants a fixed target pins the `sha-` tag.
+
 **Forking a repository this size to deploy a directory is the price of
 [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)**, and it is a
 worse sentence than *clone this small thing* for anyone who reads what they cloned. Nobody on this
@@ -361,21 +576,20 @@ path does: they fork and point a build at a directory, or they pull an image.
 
 ### What the free tier holds, and what that decides
 
-Durable Objects with the SQLite backend are reachable on the free plan. **Read off Cloudflare's
-pricing page on 2026-09-20: 100,000 requests a day and 13,000 GB-s of duration a day.** The storage
-row was not read, so every figure about stored bytes below is an assumption carried from hearsay and
-is marked as one. Should the free tier ever stop
-being true, the fallback is **D1**: still SQLite, still free, but the serialization that made this
-design easy is gone — `seq` and the compare-and-swap would then need a written transaction instead
-of a guarantee, and reaping a Cron Trigger over a shared table instead of an alarm per account. The
-protocol would not change, and a client could not tell the difference.
+Durable Objects with the SQLite backend are reachable on the free plan, and the figures that
+say how far it goes are in `server/worker/README.md`, beside the limits they constrain —
+a supplier's pricing will be wrong before this document is. Should the free tier ever stop
+being true, the fallback is **D1**: still SQLite, still free, but the serialization that made
+this design easy is gone — `seq` and the compare-and-swap would then need a written
+transaction instead of a guarantee, and reaping a Cron Trigger over a shared table instead of
+an alarm per account. The protocol would not change, and a client could not tell the
+difference.
 
-**Duration runs out before requests do.** At 128 MB an object, 13,000 GB-s is about 104,000 seconds
-of object life a day, and an object stays resident for a short while after its last request. So what
-costs money is not how much data moves but **how often a client wakes an object up**: one sync that
-pulls and pushes in a single burst holds one window open, while the same calls scattered through the
-day open a dozen. Three of the four things that follow are therefore rules about **MixLab**, not
-about the server, which is why they are in this design rather than in `server/`.
+**What costs money is not how much data moves but how often a client wakes an object up.** An
+object stays resident for a short while after its last request, so one sync that pulls and
+pushes in a single burst holds one window open while the same calls scattered through the day
+open a dozen. **Three of the four things that follow are rules about MixLab**, not about the
+server, which is why they are in this design rather than in `server/`.
 
 1. **Sync in bursts, never on a poll.** On launch, on a local change after a debounce, on window
    focus, and a long idle interval. A five-minute poll costs several times what this does and
@@ -389,21 +603,6 @@ about the server, which is why they are in this design rather than in `server/`.
    A daily alarm per account bills for every account that has ever existed rather than for every
    account in use, and it does it quietly, forever.
 
-**On storage — and this paragraph rests on a number nobody here has checked.** A record is a couple
-of hundred bytes of metadata and its ciphertext; a light account — twenty connections, thirty saved
-requests, some snippets and preferences — is around 150 KB, and a heavy one one or two megabytes, so
-half a megabyte is a fair average. *If* the free allowance is the 5 GB it is commonly said to be,
-that is on the order of 10,000 accounts, with an honest range of 5,000 to 25,000. **The allowance is
-the unknown, not the arithmetic**: read the storage row before anything depends on the answer, and
-if it is smaller, every number here scales with it. The per-account quota exists to bound the worst
-case rather than to promise the average; 20 MB is the number to start from.
-
-**The two ceilings measure different populations**, which is worth knowing whatever the storage
-number turns out to be: storage bounds how many accounts have ever existed, duration bounds how many
-are used on a given day, and a tool like this sees perhaps a tenth to a fifth of its accounts in a
-day. On the assumption above the two land within a factor of one of each other, so neither is wasted
-on the other — but that is a consequence of the unchecked figure, not an argument for it.
-
 **D5's refusal list is what makes any of this arithmetic work**, and here the ratio is the point
 rather than the allowance. Syncing `rest-history.json` would put a hundred response bodies at up to
 256 KB each into one account — twenty-five megabytes a person against half a megabyte, **fifty times
@@ -411,24 +610,26 @@ the storage for every user**, whatever the ceiling is. The reason that file is n
 is that it holds somebody else's production data; the capacity is a second dividend from a decision
 made for another reason entirely.
 
-**These limits are per Cloudflare account**, so somebody who deploys this Worker to their own gets
-the whole allowance for themselves. The middle row of the table above scales without anybody paying
-for it, which is not usually true of a self-hosting story.
+### Moving the default instance
 
-**The contract is normative here**, in D2 to D4 of this document, and `server/conformance/` is
-written against *it* rather than against either implementation — which is why the suite sits beside
-both rather than inside one, and why it is written before the first server exists. It runs against
-any base URL: against the Worker and the native binary in CI, and against whatever a self-hoster
-has deployed.
+### Moving the default instance
 
-**`/v1` is frozen at D4** and a change to it is a new path rather than an edit. That was the
-mitigation for two repositories drifting when the server had one of its own; with both halves in
-one tree the drift cannot happen at all, and the freeze now earns its place for the other reason —
-a server somebody else is running does not update when this document does (D9, R4).
+**The two implementations do not share an account id, and it does not matter.** Neither is ever on
+the wire; what is — the opaque `collection` and `id` of D3 — is derived on the client from `MK`, so
+it is a property of the account's key and not of whichever server holds it.
 
-In MixLab the server is a setting. It defaults to the hosted instance, and changing it signs the
-person out: records written under one account's `MK` are not readable under another's, and
-pretending otherwise would quietly produce an account full of rows that decrypt for nobody.
+**But the Worker cannot list its accounts, and that is deliberate.** There is no account table and
+no index, because nothing here queries across accounts. The direct consequence is that **an
+operator has no list of addresses to migrate and cannot perform a bulk server-side move.** That is
+a cost of the privacy property rather than an oversight, and it is written here so nobody discovers
+it on the day they want to move.
+
+**It is also not needed, because a person moves their own account** — D4b, and it is lossless. The
+one person that fails is somebody whose only copy *was* the server: one machine, lost, with sync as
+the backup. So an operator who moves the default instance announces it with `closingOn`, and leaves
+the old one answering until people have gone. **If a silent migration ever becomes necessary, the
+thing that has to change first is the no-index decision**, in a new spec that argues for the index
+and says what it costs, rather than in a hurry.
 
 ## D9. MixLab grows; the server does not
 

@@ -1,0 +1,307 @@
+//! What this deployment was configured with, and what it refuses to start without.
+//!
+//! **A server missing a piece of its configuration refuses to start, and names the piece** (D8).
+//! Unlike the Worker, which has no startup and answers `503` to every request instead, this one
+//! can genuinely refuse: it exits before it binds a port. The failure it replaces is otherwise
+//! invisible — the process starts, registration succeeds, and a person waits for a letter that was
+//! never sent.
+
+use serde::Serialize;
+
+/// Everything reported by `/v1/capabilities`. Every number is configuration and not protocol: a
+/// server may report any value, and a client reads rather than assumes (D4a, D9).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Capabilities {
+    pub protocol_versions: Vec<String>,
+    pub max_record_bytes: u64,
+    pub max_batch_operations: u64,
+    pub max_batch_bytes: u64,
+    pub max_page_records: u64,
+    pub account_quota_bytes: u64,
+    pub tombstone_retention_days: u64,
+    /// When this server will be switched off, or `None`. **A notice, never a deadline**: the
+    /// date passing is not an event in the protocol, and nothing here enforces it (D4a).
+    pub closing_on: Option<i64>,
+    /// A complete v1 server announces nothing optional, and a client must run against an empty
+    /// list forever (D4a).
+    pub features: Vec<String>,
+}
+
+/// The allowances that are deliberately **not** in `Capabilities`: publishing the number that
+/// stops abuse helps only the abuser (D4a).
+#[derive(Clone, Copy, Debug)]
+pub struct Limits {
+    pub registrations_per_hour: u64,
+    pub resets_per_hour: u64,
+    pub logins_per_window: u64,
+    /// How often one source may ask where an address's salt is. Generous: a company behind
+    /// one address may install on fifty machines in a morning.
+    pub params_per_hour: u64,
+    /// How often one source may try to sign in or spend a code, across every account. The
+    /// per-account counters cannot see somebody working through a list of addresses.
+    pub auth_per_hour: u64,
+    /// Eight characters are only safe because this one is real (D4a).
+    pub verify_attempts_per_window: u64,
+    /// How many letters one address may receive in an hour. Small: somebody who did not get
+    /// the letter asks again once or twice, and a mailbox is a fixed target (D4a).
+    pub letters_per_account_per_hour: u64,
+    /// How long the ticket from a recovery-key reset lasts. Long enough to type a new
+    /// password twice, short enough that one left in a log is worthless when it is read (D6).
+    pub reset_ticket_seconds: i64,
+}
+
+#[derive(Clone, Debug)]
+pub struct Config {
+    pub bind: String,
+    pub database: String,
+    pub pepper: String,
+    pub email_api_key: Option<String>,
+    pub email_from: String,
+    /// `None` for SMTP, and for a provider whose URL carries something only the operator
+    /// knows — an inbox id, a sending domain.
+    pub email_endpoint: Option<String>,
+    pub email_provider: crate::email::Provider,
+    pub smtp: Option<crate::email::Smtp>,
+    /// Serves `/__test__/outbox` and sends no mail. Never set on a real deployment.
+    /// A shared token that closes this deployment to everybody who has not been given it.
+    /// `None` means open, which is what the hosted instances are.
+    pub access_token: Option<String>,
+    /// Whether `X-Forwarded-For` may be believed. **Off by default**: the header is one any
+    /// request can write, so a directly reachable server that trusted it would let anybody
+    /// mint a fresh rate-limit bucket per request (D4a).
+    pub trust_forwarded_for: bool,
+    pub test_outbox: bool,
+    pub limits: Limits,
+    pub capabilities: Capabilities,
+}
+
+/// A fixed pepper for a server started in test-outbox mode. Constant on purpose: that mode already
+/// hands out verification tokens over HTTP, so there is nothing left for a secret to protect, and
+/// requiring one would only make the suite harder to run.
+const TEST_PEPPER: &str = "conformance-pepper-not-for-any-real-deployment";
+
+fn number(name: &str, fallback: u64) -> u64 {
+    std::env::var(name)
+        .ok()
+        .and_then(|raw| raw.parse().ok())
+        .unwrap_or(fallback)
+}
+
+/// Days since 1970-01-01 for a proleptic Gregorian date, by Howard Hinnant's civil-from-days in
+/// reverse. Ten lines and no dependency: the alternative is a date crate carried into a container
+/// for one field that almost every deployment leaves unset.
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
+    let year = year - i64::from(month <= 2);
+    let era = if year >= 0 { year } else { year - 399 } / 400;
+    let year_of_era = year - era * 400;
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    era * 146097 + day_of_era - 719468
+}
+
+/// A closing date the operator typed, as seconds. `2027-03-01` and a raw timestamp both work, and
+/// **anything else is configuration that is wrong rather than absent**: a typo that silently became
+/// nothing would leave an operator believing they had announced a date when they had not.
+fn closing_on(raw: Option<String>) -> Result<Option<i64>, ()> {
+    let Some(raw) = raw else { return Ok(None) };
+    if let Ok(seconds) = raw.parse::<i64>() {
+        return Ok(Some(seconds));
+    }
+
+    let parts: Vec<&str> = raw.split('-').collect();
+    let [year, month, day] = parts[..] else {
+        return Err(());
+    };
+    let (Ok(year), Ok(month), Ok(day)) = (
+        year.parse::<i64>(),
+        month.parse::<i64>(),
+        day.parse::<i64>(),
+    ) else {
+        return Err(());
+    };
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
+        return Err(());
+    }
+    // Midnight UTC, which is the reading of a bare date that does not depend on where the machine
+    // happens to be. The hour is not what this field is for.
+    Ok(Some(days_from_civil(year, month, day) * 86_400))
+}
+
+fn text(name: &str) -> Option<String> {
+    std::env::var(name)
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+}
+
+impl Config {
+    /// Reads the environment, or returns the names of what is missing. The caller prints them and
+    /// exits: a list is more useful than the first failure, because setting one at a time and
+    /// restarting is the slow way to find out you needed three.
+    pub fn from_env() -> Result<Self, Vec<String>> {
+        let test_outbox = std::env::var("MIXLAB_SYNC_TEST_OUTBOX").as_deref() == Ok("1");
+
+        let mut missing: Vec<String> = Vec::new();
+        let pepper = text("MIXLAB_SYNC_PEPPER");
+        let email_api_key = text("MIXLAB_SYNC_EMAIL_API_KEY");
+        let email_from = text("MIXLAB_SYNC_EMAIL_FROM");
+
+        if !test_outbox {
+            if pepper.is_none() {
+                missing.push("MIXLAB_SYNC_PEPPER".to_owned());
+            }
+            if email_from.is_none() {
+                missing.push("MIXLAB_SYNC_EMAIL_FROM".to_owned());
+            }
+        }
+        // **No default.** An API key on its own does not say where to send it, and guessing meant
+        // somebody pasting a SendGrid key and nothing else had it posted to Resend — which fails,
+        // correctly but confusingly, at the first letter rather than at the first start.
+        let provider_name = text("MIXLAB_SYNC_EMAIL_PROVIDER");
+        let email_provider = provider_name
+            .as_deref()
+            .and_then(crate::email::Provider::parse);
+        // A name nobody implements is a piece of configuration that is missing rather than wrong:
+        // the deploy would otherwise succeed and the first letter would be the thing that failed.
+        if !test_outbox && email_provider.is_none() {
+            missing.push(format!(
+                "MIXLAB_SYNC_EMAIL_PROVIDER (one of: {})",
+                crate::email::Provider::NAMES
+            ));
+        }
+
+        let endpoint = text("MIXLAB_SYNC_EMAIL_ENDPOINT")
+            .or_else(|| email_provider.and_then(|p| p.default_endpoint().map(str::to_owned)));
+        let smtp_host = text("MIXLAB_SYNC_SMTP_HOST");
+        let tls_name = text("MIXLAB_SYNC_SMTP_TLS").unwrap_or_else(|| "starttls".into());
+        let tls = crate::email::Tls::parse(&tls_name);
+
+        // **What is needed depends on which provider was named**, so this asks the provider rather
+        // than demanding everything from everybody.
+        if !test_outbox && let Some(provider) = email_provider {
+            if provider.needs_api_key() && email_api_key.is_none() {
+                missing.push("MIXLAB_SYNC_EMAIL_API_KEY".to_owned());
+            }
+            // Mailtrap's URL carries an inbox id and Mailgun's a sending domain: there is nothing
+            // to guess, so a deployment that forgot one is told before it starts.
+            if provider.needs_endpoint() && endpoint.is_none() {
+                missing.push("MIXLAB_SYNC_EMAIL_ENDPOINT".to_owned());
+            }
+            if provider == crate::email::Provider::Smtp {
+                if smtp_host.is_none() {
+                    missing.push("MIXLAB_SYNC_SMTP_HOST".to_owned());
+                }
+                if tls.is_none() {
+                    missing
+                        .push("MIXLAB_SYNC_SMTP_TLS (one of: starttls, implicit, none)".to_owned());
+                }
+            }
+        }
+
+        let closing = match closing_on(text("MIXLAB_SYNC_CLOSING_ON")) {
+            Ok(closing) => closing,
+            Err(()) => {
+                missing.push("MIXLAB_SYNC_CLOSING_ON (a date, such as 2027-03-01)".to_owned());
+                None
+            }
+        };
+
+        if !missing.is_empty() {
+            return Err(missing);
+        }
+
+        // **Not 8080.** The machine most likely to run this is somebody's own, and on a MixLab
+        // machine 8080 is already taken: MixEngine's front end binds it to answer on 80 without
+        // privileges (`crates/mixengine-core/src/generate/recipes/caddy.rs`). A default that
+        // collides with the product it belongs to is a default that is wrong for its own audience.
+        // 8765 is not claimed anywhere in this repository; any port is still the operator's to set.
+        let bind = text("MIXLAB_SYNC_BIND").unwrap_or_else(|| "127.0.0.1:8765".to_owned());
+        Ok(Self {
+            bind,
+            database: text("MIXLAB_SYNC_DATABASE").unwrap_or_else(|| "mixlab-sync.db".to_owned()),
+            pepper: pepper.unwrap_or_else(|| TEST_PEPPER.to_owned()),
+            email_api_key,
+            email_from: email_from.unwrap_or_else(|| "conformance@example.invalid".to_owned()),
+            email_endpoint: endpoint,
+            email_provider: email_provider.unwrap_or(crate::email::Provider::Resend),
+            smtp: smtp_host.map(|host| {
+                let tls = tls.unwrap_or(crate::email::Tls::StartTls);
+                crate::email::Smtp {
+                    host,
+                    port: number("MIXLAB_SYNC_SMTP_PORT", u64::from(tls.default_port())) as u16,
+                    tls,
+                    username: text("MIXLAB_SYNC_SMTP_USERNAME"),
+                    password: text("MIXLAB_SYNC_SMTP_PASSWORD"),
+                }
+            }),
+            access_token: text("MIXLAB_SYNC_ACCESS_TOKEN"),
+            trust_forwarded_for: std::env::var("MIXLAB_SYNC_TRUST_FORWARDED_FOR").as_deref()
+                == Ok("1"),
+            test_outbox,
+            limits: Limits {
+                registrations_per_hour: number("MIXLAB_SYNC_REGISTRATIONS_PER_HOUR", 10),
+                resets_per_hour: number("MIXLAB_SYNC_RESETS_PER_HOUR", 10),
+                logins_per_window: number("MIXLAB_SYNC_LOGINS_PER_WINDOW", 20),
+                params_per_hour: number("MIXLAB_SYNC_PARAMS_PER_HOUR", 200),
+                auth_per_hour: number("MIXLAB_SYNC_AUTH_PER_HOUR", 300),
+                verify_attempts_per_window: number("MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW", 10),
+                letters_per_account_per_hour: number("MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR", 3),
+                reset_ticket_seconds: number("MIXLAB_SYNC_RESET_TICKET_SECONDS", 600) as i64,
+            },
+            capabilities: Capabilities {
+                protocol_versions: vec!["v1".to_owned()],
+                max_record_bytes: number("MIXLAB_SYNC_MAX_RECORD_BYTES", 1_048_576),
+                max_batch_operations: number("MIXLAB_SYNC_MAX_BATCH_OPERATIONS", 100),
+                max_batch_bytes: number("MIXLAB_SYNC_MAX_BATCH_BYTES", 8_388_608),
+                max_page_records: number("MIXLAB_SYNC_MAX_PAGE_RECORDS", 500),
+                account_quota_bytes: number("MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES", 20_971_520),
+                tombstone_retention_days: number("MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS", 90),
+                closing_on: closing,
+                features: Vec::new(),
+            },
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::closing_on;
+
+    /// A date is arithmetic, and arithmetic is the kind of thing that is wrong by one for years
+    /// before anybody notices. These are the four dates that catch a wrong civil-from-days: the
+    /// epoch itself, a leap day, a day before the epoch, and one far enough out to matter.
+    #[test]
+    fn a_date_becomes_midnight_utc() {
+        assert_eq!(closing_on(Some("1970-01-01".into())), Ok(Some(0)));
+        assert_eq!(closing_on(Some("1969-12-31".into())), Ok(Some(-86_400)));
+        assert_eq!(closing_on(Some("2000-02-29".into())), Ok(Some(951_782_400)));
+        assert_eq!(
+            closing_on(Some("2027-03-01".into())),
+            Ok(Some(1_803_859_200))
+        );
+    }
+
+    #[test]
+    fn a_timestamp_is_taken_as_it_is() {
+        assert_eq!(
+            closing_on(Some("1803859200".into())),
+            Ok(Some(1_803_859_200))
+        );
+    }
+
+    #[test]
+    fn nothing_announced_is_not_an_error() {
+        assert_eq!(closing_on(None), Ok(None));
+    }
+
+    /// **A typo is configuration that is wrong, not absent.** Accepting these as `None` would let
+    /// an operator believe they had announced a closing date when they had not.
+    #[test]
+    fn a_date_that_is_not_one_is_refused() {
+        assert_eq!(closing_on(Some("march".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-13-01".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-03-32".into())), Err(()));
+        assert_eq!(closing_on(Some("2027/03/01".into())), Err(()));
+        assert_eq!(closing_on(Some("2027-03".into())), Err(()));
+    }
+}

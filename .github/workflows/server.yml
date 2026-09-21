@@ -1,0 +1,346 @@
+# The sync server (T177b, T177h): `server/worker/`, `server/native/`, and the one conformance
+# suite both of them answer to.
+#
+# **Why this is not a job family in `ci.yml`.** That workflow compiles the workspace for three
+# operating systems, and the reason every ref there asks for its run rather than getting one from a
+# push is the cost of doing that. This is one Ubuntu runner that installs an npm project, starts a
+# Worker and builds one small Rust crate. `server/**` is the only path that fires it, so a change
+# to MixLab or to the engine spends nothing on a server nobody touched, and a change under
+# `server/` drags no three-OS matrix behind it.
+#
+# **`master` fires it without being asked**, which is the thing `ci.yml` will not do and the reason
+# `gallery.yml` and `pages.yml` are also outside that file. Workers Builds deploys `server/worker/`
+# from `master` on its own, so on that branch a server that is red and unrun is a server that is
+# deployed red. Every other ref asks, the way every other ref here does:
+#
+#     gh workflow run server.yml --ref "$(git branch --show-current)"
+#
+# **The separation is of triggers, not of repositories.** Both implementations are jobs in this one
+# workflow, so the suite runs against each of them on the same commit, in the same pull request as
+# whatever client change arrived with it — which is what ADR 0046 was decided to buy.
+name: server
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'server/**'
+      # A workflow that stopped working should say so on the commit that broke it.
+      - '.github/workflows/server.yml'
+  workflow_dispatch:
+
+# The newer question is the one worth answering, as everywhere else here — except on `master`,
+# which keeps a complete history of results however the runs were started.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    name: worker
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: |
+            server/worker/package-lock.json
+            server/conformance/package-lock.json
+
+      - name: The worker — install and typecheck
+        working-directory: server/worker
+        run: |
+          npm ci
+          npm run typecheck
+
+      - name: The suite — install and typecheck
+        working-directory: server/conformance
+        run: |
+          npm ci
+          npm run typecheck
+
+      # The `conformance` environment sends no mail, serves `/__test__/outbox` instead, and reports
+      # small limits so the quota and pagination tests are reachable in seconds. It is never
+      # deployed; `wrangler.toml` says so beside it.
+      - name: Start the worker, and wait for it to answer
+        working-directory: server/worker
+        env:
+          CI: '1'
+        run: |
+          nohup npx wrangler dev --env conformance --port 8787 --ip 127.0.0.1 \
+            > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+            > "$RUNNER_TEMP/wrangler.log" 2>&1 &
+          # A readiness poll and not a `sleep`: a fixed wait is either too short on a cold runner
+          # or wasted on a warm one, and it fails as a timeout rather than as a refused connection.
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8787/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the worker never answered on 127.0.0.1:8787"
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8787
+        run: npm test
+
+      # The one thing a suite cannot wait for. Tombstones live ninety days, so `410 cursor-expired`
+      # is only reachable against a server configured to reap at once — and leaving it uncovered
+      # would let the two implementations disagree about a status a client has to handle. It is a
+      # second instance rather than a second setting, because reaping at once would break every
+      # other tombstone test on the first one.
+      - name: Start the same worker with tombstones reaped at once
+        working-directory: server/worker
+        env:
+          CI: '1'
+        run: |
+          nohup npx wrangler dev --env reaper --port 8788 --ip 127.0.0.1 --persist-to .wrangler/reaper > "$RUNNER_TEMP/reaper.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8788/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the reaper worker never answered on 127.0.0.1:8788"
+          exit 1
+
+      - name: Conformance — cursor expiry
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8788
+          CONFORMANCE_ACCESS_TOKEN: conformance-shared-token
+        run: npx vitest run src/tombstones.test.ts src/freeze.test.ts src/access.test.ts
+
+      - name: The workers' logs
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/wrangler.log" || true
+          cat "$RUNNER_TEMP/reaper.log" || true
+
+  # The second implementation (T177h). It is what makes `/v1` a protocol rather than a description
+  # of whichever server was written first — and it is a separate job rather than a step, so a Rust
+  # compile does not sit in front of the Worker's answer.
+  native:
+    name: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/conformance/package-lock.json
+
+      # The root's rust-toolchain.toml is the nearest pin walking up from server/native.
+      - name: Install pinned toolchain
+        run: |
+          rustup toolchain install --no-self-update
+          rustup show active-toolchain
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: server-native
+          workspaces: "server/native -> target"
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+
+      # **This crate is format-gated from its first commit**, unlike apps/desktop/src-tauri, which
+      # was inherited unformatted and cannot be without rewriting files nobody touched.
+      - name: fmt, clippy, test
+        working-directory: server/native
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      # The root's deny.toml does not reach this tree, because the workspace excludes it.
+      - name: Advisories against the native server's dependency tree
+        working-directory: server/native
+        run: cargo audit
+
+      - name: The suite — install
+        working-directory: server/conformance
+        run: npm ci
+
+      # No Docker here, or in any job on a branch: the binary is run directly. The image is built
+      # and published only from `master`, and it is a distribution format rather than part of the
+      # development loop.
+      - name: Start the server, and wait for it to answer
+        working-directory: server/native
+        env:
+          MIXLAB_SYNC_TEST_OUTBOX: '1'
+          MIXLAB_SYNC_BIND: 127.0.0.1:8765
+          MIXLAB_SYNC_DATABASE: conformance.db
+          MIXLAB_SYNC_MAX_RECORD_BYTES: '65536'
+          MIXLAB_SYNC_MAX_BATCH_OPERATIONS: '25'
+          MIXLAB_SYNC_MAX_BATCH_BYTES: '1048576'
+          MIXLAB_SYNC_MAX_PAGE_RECORDS: '10'
+          MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES: '1048576'
+          MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
+          MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+          MIXLAB_SYNC_AUTH_PER_HOUR: '100000'
+        run: |
+          nohup cargo run --locked --quiet > "$RUNNER_TEMP/native.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8765/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the native server never answered on 127.0.0.1:8765"
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8765
+        run: npm test
+
+      # The same server with tombstones reaped at once, for the one status no suite can wait for.
+      # A second instance rather than a second setting: reaping at once would break every other
+      # tombstone test on the first one.
+      - name: Start the same server with tombstones reaped at once
+        working-directory: server/native
+        env:
+          MIXLAB_SYNC_TEST_OUTBOX: '1'
+          MIXLAB_SYNC_BIND: 127.0.0.1:8766
+          MIXLAB_SYNC_DATABASE: reaper.db
+          MIXLAB_SYNC_MAX_RECORD_BYTES: '65536'
+          MIXLAB_SYNC_MAX_BATCH_OPERATIONS: '25'
+          MIXLAB_SYNC_MAX_BATCH_BYTES: '1048576'
+          MIXLAB_SYNC_MAX_PAGE_RECORDS: '10'
+          MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES: '1048576'
+          MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS: '0'
+          MIXLAB_SYNC_REGISTRATIONS_PER_HOUR: '100000'
+          MIXLAB_SYNC_RESETS_PER_HOUR: '100000'
+          MIXLAB_SYNC_AUTH_PER_HOUR: '100000'
+          # A date this instance says it will close on, so a client is checked against a server
+          # that names one. Advisory: nothing refuses a request after it (D4a).
+          MIXLAB_SYNC_CLOSING_ON: '2027-03-01'
+          # And closed with a shared token, the way a company running this for itself would.
+          MIXLAB_SYNC_ACCESS_TOKEN: conformance-shared-token
+        run: |
+          nohup cargo run --locked --quiet > "$RUNNER_TEMP/reaper-native.log" 2>&1 &
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8766/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the reaping server never answered on 127.0.0.1:8766"
+          exit 1
+
+      - name: Conformance — cursor expiry
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8766
+          CONFORMANCE_ACCESS_TOKEN: conformance-shared-token
+        run: npx vitest run src/tombstones.test.ts src/freeze.test.ts src/access.test.ts
+
+      - name: The servers' logs
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP/native.log" || true
+          cat "$RUNNER_TEMP/reaper-native.log" || true
+
+  # The image, and only from `master`. **Nothing in the hosted path is a container**: the default
+  # instance is the Worker, which Cloudflare builds from `server/worker/`. This is a distribution
+  # format for the second implementation, for somebody self-hosting who would rather pull than
+  # compile, and it is published to this repository's own Packages.
+  #
+  # A branch neither builds nor publishes one — Docker is not part of the development loop here,
+  # and `native` above runs the binary directly.
+  image:
+    name: image
+    if: github.ref == 'refs/heads/master'
+    needs: native
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # At the job, so the rest of this workflow stays `contents: read`.
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: server/.nvmrc
+          cache: npm
+          cache-dependency-path: server/conformance/package-lock.json
+
+      - name: Build
+        working-directory: server/native
+        run: docker build --tag mixlab-sync:candidate .
+
+      # What is published is what was tested. The suite runs against the container rather than
+      # against a binary that happens to share its source.
+      - name: Start the container, and wait for it to answer
+        run: |
+          docker run --detach --name candidate \
+            --publish 127.0.0.1:8765:8765 \
+            --env MIXLAB_SYNC_TEST_OUTBOX=1 \
+            --env MIXLAB_SYNC_MAX_RECORD_BYTES=65536 \
+            --env MIXLAB_SYNC_MAX_BATCH_OPERATIONS=25 \
+            --env MIXLAB_SYNC_MAX_BATCH_BYTES=1048576 \
+            --env MIXLAB_SYNC_MAX_PAGE_RECORDS=10 \
+            --env MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES=1048576 \
+            --env MIXLAB_SYNC_REGISTRATIONS_PER_HOUR=100000 \
+            --env MIXLAB_SYNC_RESETS_PER_HOUR=100000 \
+            --env MIXLAB_SYNC_AUTH_PER_HOUR=100000 \
+            mixlab-sync:candidate
+          for _ in $(seq 60); do
+            if curl -fsS -m 2 http://127.0.0.1:8765/v1/capabilities > /dev/null; then
+              echo "ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the container never answered on 127.0.0.1:8765"
+          docker logs candidate || true
+          exit 1
+
+      - name: Conformance
+        working-directory: server/conformance
+        env:
+          CONFORMANCE_BASE_URL: http://127.0.0.1:8765
+        run: |
+          npm ci
+          npm test
+
+      - name: The container's log
+        if: failure()
+        run: docker logs candidate || true
+
+      # Only now, and only because the suite was green against this exact image.
+      - name: Publish
+        env:
+          REGISTRY: ghcr.io/${{ github.repository_owner }}/mixlab-sync-server
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          short="$(git rev-parse --short HEAD)"
+          docker tag mixlab-sync:candidate "$REGISTRY:latest"
+          docker tag mixlab-sync:candidate "$REGISTRY:sha-$short"
+          docker push "$REGISTRY:latest"
+          docker push "$REGISTRY:sha-$short"
+          echo "published $REGISTRY:sha-$short"
