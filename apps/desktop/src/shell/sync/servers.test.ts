@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { addServer, DEFAULT_SERVER, normalizeServer, readServers, removeServer, type ServerStorage } from "./servers";
+import {
+  addServer,
+  DEFAULT_SERVER,
+  lastServer,
+  normalizeServer,
+  readServers,
+  rememberServer,
+  removeServer,
+  type ServerStorage,
+} from "./servers";
 
 function memory(value: string | null = null): ServerStorage & { value: string | null } {
+  const others = new Map<string, string>();
   const store = {
     value,
-    getItem: () => store.value,
-    setItem: (_key: string, next: string) => void (store.value = next),
+    getItem: (key: string) => (key === "mixlab-sync-servers" ? store.value : (others.get(key) ?? null)),
+    setItem: (key: string, next: string) => {
+      if (key === "mixlab-sync-servers") store.value = next;
+      else others.set(key, next);
+    },
   };
   return store;
 }
@@ -59,5 +72,26 @@ describe("what counts as a server", () => {
     expect(normalizeServer("ftp://sync.example.com")).toEqual({ ok: false, reason: "invalid" });
     expect(normalizeServer("https://sync.example.com/?x=1")).toEqual({ ok: false, reason: "invalid" });
     expect(normalizeServer("https://user:pw@sync.example.com")).toEqual({ ok: false, reason: "invalid" });
+  });
+});
+
+describe("the server chosen last", () => {
+  it("is the default on a machine that never chose", () => {
+    expect(lastServer(memory())).toBe(DEFAULT_SERVER);
+  });
+
+  it("is remembered, so signing out comes back to it", () => {
+    const storage = memory();
+    addServer(storage, "https://sync.example.com");
+    rememberServer(storage, "https://sync.example.com");
+    expect(lastServer(storage)).toBe("https://sync.example.com");
+  });
+
+  it("falls back to the default once it has been removed from the list", () => {
+    const storage = memory();
+    addServer(storage, "https://sync.example.com");
+    rememberServer(storage, "https://sync.example.com");
+    removeServer(storage, "https://sync.example.com");
+    expect(lastServer(storage)).toBe(DEFAULT_SERVER);
   });
 });

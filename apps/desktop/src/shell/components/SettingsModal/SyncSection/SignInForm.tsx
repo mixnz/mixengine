@@ -6,7 +6,7 @@ import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { syncLogin, syncRegister, type SyncStatus } from "../../../sync/api";
-import { addServer, DEFAULT_SERVER, readServers, removeServer } from "../../../sync/servers";
+import { addServer, DEFAULT_SERVER, lastServer, readServers, rememberServer, removeServer } from "../../../sync/servers";
 import settings from "../SettingsModal.module.css";
 import Field from "./Field";
 import styles from "./SyncSection.module.css";
@@ -33,7 +33,11 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered }
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("signIn");
   const [servers, setServers] = useState(() => readServers(localStorage));
-  const [server, setServer] = useState(DEFAULT_SERVER);
+  const [server, setServerState] = useState(() => lastServer(localStorage));
+  const setServer = (url: string) => {
+    rememberServer(localStorage, url);
+    setServerState(url);
+  };
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState("");
   const [access, setAccess] = useState("");

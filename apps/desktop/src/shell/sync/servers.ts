@@ -7,6 +7,9 @@ export const DEFAULT_SERVER = "https://sync-0.lab.mixnz.com";
 
 const KEY = "mixlab-sync-servers";
 
+/** The server picked last, so signing out comes back to it rather than to the default. */
+const LAST_KEY = "mixlab-sync-last-server";
+
 /** What this needs of `localStorage`, so a test can hand it a map instead. */
 export interface ServerStorage {
   getItem(key: string): string | null;
@@ -60,4 +63,14 @@ export function addServer(
 export function removeServer(storage: ServerStorage, url: string): string[] {
   storage.setItem(KEY, JSON.stringify(added(storage).filter((other) => other !== url)));
   return readServers(storage);
+}
+
+export function rememberServer(storage: ServerStorage, url: string): void {
+  storage.setItem(LAST_KEY, url);
+}
+
+/** The server picked last, while it is still on the list; the default otherwise. */
+export function lastServer(storage: ServerStorage): string {
+  const last = storage.getItem(LAST_KEY);
+  return last !== null && readServers(storage).includes(last) ? last : DEFAULT_SERVER;
 }
