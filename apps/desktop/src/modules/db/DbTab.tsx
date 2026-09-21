@@ -30,7 +30,7 @@ import EmptyState from "../../components/EmptyState";
 import ErrorBanner from "../../components/ErrorBanner";
 import NoticeBanner from "../../components/NoticeBanner";
 import ContextMenu from "../../components/ContextMenu";
-import FilterChip from "../../components/FilterChip";
+import FilterChip, { FilterChipRow } from "../../components/FilterChip";
 import Input from "../../components/Input";
 import { LockIcon, PinIcon, PlusIcon } from "../../icons";
 import EngineBadge from "./components/EngineBadge";
@@ -580,6 +580,14 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
      element the effect below last saw — a different one is the list having been mounted again. */
   const savedListScrollRef = useRef<number | null>(null);
   const mountedListRef = useRef<HTMLElement | null>(null);
+  /* What puts the marked row where it is in the list — its group and its name. The effect below
+     follows the row when this changes (it was renamed or pinned) and not on any other change to the
+     list: pinning, duplicating or deleting another connection, or a sync bringing one in, would
+     otherwise pull a list the user had scrolled away back to the marked row. */
+  const editedSortKey = useMemo(() => {
+    const entry = savedConnections.find((c) => c.id === editingId);
+    return entry ? `${entry.pinned ? 1 : 0}|${entry.name}` : null;
+  }, [savedConnections, editingId]);
 
   /* The connection the form is holding, brought into view in the list beside it.
 
@@ -618,7 +626,7 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
       savedHeaderRef.current?.offsetHeight ?? 0,
     );
     if (target !== null) list.scrollTop = target;
-  }, [connectionId, editingId, savedConnectionsLoaded, orderedConnections]);
+  }, [connectionId, editingId, savedConnectionsLoaded, editedSortKey]);
 
   /* The saved connection this form took can change under it: sync brings a newer one, or another
      tab saves or deletes it. An untouched form follows; edits are the person's and stay, and they
@@ -726,19 +734,21 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
               aria-label={t("connection.searchConnections")}
             />
             {engines.length > 1 && (
-              <div className="saved-list-chips">
+              <FilterChipRow>
                 {engines.map(([engine, count]) => (
                   <FilterChip
                     key={engine}
+                    compact
                     pressed={listKinds.has(engine)}
                     count={count}
+                    title={t(kindLabel(engine))}
                     leading={<DatabaseIcon kind={engine} size="0.95em" className={`choice-icon kind-${engine}`} />}
                     onClick={() => toggleListKind(engine)}
                   >
                     {t(kindLabel(engine))}
                   </FilterChip>
                 ))}
-              </div>
+              </FilterChipRow>
             )}
           </div>
           {savedConnections.length > 0 && shownConnections.length === 0 ? (

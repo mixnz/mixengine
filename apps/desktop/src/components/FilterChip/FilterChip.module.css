@@ -45,3 +45,53 @@
   font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
+
+/* Mark and count only: tighter, so a handful of engines sits on one line of a 312px sidebar. */
+.compact {
+  gap: 4px;
+  padding: 0 7px;
+}
+
+/* One line, scrolled sideways once it outgrows its box — see `FilterChipRow.tsx`. No scrollbar:
+   the fade says there is more, where a bar would sit between the chips and the list below. */
+.row {
+  --fade: 20px;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  /* Room for a chip's focus ring, which `overflow` would otherwise clip; the margin gives the
+     space back so the row sits where it did. */
+  padding: 3px 0;
+  margin: -3px 0;
+}
+
+.row::-webkit-scrollbar {
+  display: none;
+}
+
+.row > * {
+  flex: none;
+}
+
+/* A mask reads only the alpha of its colours, so `black` here is "opaque", not a colour of the
+   theme — nothing for `App.css` to own. */
+.row[data-fade-start] {
+  mask-image: linear-gradient(to right, transparent, black var(--fade));
+}
+
+.row[data-fade-end] {
+  mask-image: linear-gradient(to left, transparent, black var(--fade));
+}
+
+.row[data-fade-start][data-fade-end] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--fade),
+    black calc(100% - var(--fade)),
+    transparent
+  );
+}

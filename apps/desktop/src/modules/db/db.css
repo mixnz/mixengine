@@ -102,12 +102,6 @@ button.saved-list-new {
   padding: 0;
 }
 
-.saved-list-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
 .saved-group + .saved-group {
   margin-top: 10px;
 }
