@@ -20,6 +20,10 @@
 //! unlock the collection rather than for each item, so on both of them one entry per connection
 //! costs nothing and stays well inside what the store will hold.
 //!
+//! **On macOS one launch is one dialog, never two.** Anything else this application keeps in the
+//! credential store — sync's `sync-master-key` — goes into the vault too, rather than into an item
+//! beside it: two items read at start are two password prompts on every update.
+//!
 //! On macOS, an entry written before the vault is moved into it the first time that connection is
 //! read, and the old entry removed. There is no way to spare the user the dialogs on that one run:
 //! those passwords are sitting in ten separately guarded items, and reading them is exactly what
@@ -30,6 +34,7 @@ use crate::platform::in_background;
 use keyring::Entry;
 use std::collections::HashMap;
 use std::sync::{Mutex, MutexGuard, OnceLock};
+use zeroize::Zeroize;
 
 /// Stands in for a secret wherever a `Debug` line would otherwise print one.
 ///
@@ -56,9 +61,9 @@ const SERVICE: &str = "MixLab";
 /// those entries are its own. See the T104 design, D4.
 pub const LEGACY_SERVICE: &str = "MixDB";
 
-/// The account the vault is stored under. Every other account name in the service is either
-/// `sync-master-key` (`crate::sync::saved`) or a leftover from before the vault, which is a
-/// connection id — a uuid, so nothing can collide with either.
+/// The account the vault is stored under. Inside it, a key is a connection id — a uuid — or
+/// `sync-master-key` (`crate::sync::saved`), so nothing can collide. Every other account name in
+/// the service is a leftover from before the vault.
 const VAULT: &str = "vault";
 
 /// The secrets of one saved connection, keyed by the field they belong to (`password`, `uri`,
@@ -265,6 +270,78 @@ impl<S: Store> Keeper<S> {
     fn delete(&self, id: &str) -> Result<(), AppError> {
         self.save(id, &Secrets::new())
     }
+
+    /// One entry of this application's own that is not a connection's — sync's `sync-master-key`.
+    ///
+    /// Under the vault it is held **inside** it, under its account name, as `{"value": …}`: a
+    /// second item is a second dialog on every launch of a build macOS does not recognise, and a
+    /// person must never be asked twice for one start. An item kept beside the vault by an earlier
+    /// build is not read: sync had not shipped, so there is nothing of anybody's to carry across.
+    fn read_own(&self, account: &str) -> Result<Option<String>, AppError> {
+        if !self.vaulted {
+            return self.store.read(account);
+        }
+        let mut guard = self.open()?;
+        let vault = guard.get_or_insert_with(Vault::new);
+        Ok(vault
+            .get(account)
+            .and_then(|kept| kept.get(OWN_FIELD))
+            .cloned())
+    }
+
+    fn write_own(&self, account: &str, value: &str) -> Result<(), AppError> {
+        if !self.vaulted {
+            return self.store.write(account, value);
+        }
+        let mut own = Secrets::new();
+        own.insert(OWN_FIELD.to_string(), value.to_string());
+        self.replace_own(account, Some(own))
+    }
+
+    fn forget_own(&self, account: &str) -> Result<(), AppError> {
+        if !self.vaulted {
+            return self.store.forget(account);
+        }
+        self.replace_own(account, None)
+    }
+
+    /// Puts `own` in the vault under `account`, or takes it out, and scrubs whichever copy of the
+    /// vault is no longer wanted — a sign-out has to leave nothing of the master key in memory.
+    fn replace_own(&self, account: &str, own: Option<Secrets>) -> Result<(), AppError> {
+        let mut guard = self.open()?;
+        let vault = guard.get_or_insert_with(Vault::new);
+        let mut next = vault.clone();
+        let replaced = match own {
+            Some(own) => next.insert(account.to_string(), own),
+            None => next.remove(account),
+        };
+        if let Some(replaced) = replaced {
+            scrub(replaced);
+        }
+        match self.flush(&next) {
+            Ok(()) => {
+                scrub_vault(std::mem::replace(vault, next));
+                Ok(())
+            }
+            Err(e) => {
+                scrub_vault(next);
+                Err(e)
+            }
+        }
+    }
+}
+
+/// The one field an own entry has inside the vault.
+const OWN_FIELD: &str = "value";
+
+/// Overwrites every secret in `secrets` before it is dropped.
+fn scrub(mut secrets: Secrets) {
+    secrets.values_mut().for_each(Zeroize::zeroize);
+}
+
+/// The same, for a whole copy of the vault.
+fn scrub_vault(vault: Vault) {
+    vault.into_values().for_each(scrub);
 }
 
 fn keeper() -> &'static Keeper<OsStore> {
@@ -288,20 +365,19 @@ pub fn delete(id: &str) -> Result<(), AppError> {
     keeper().delete(id)
 }
 
-/// One entry of this application's own, outside the vault, under `account` — sync's
-/// `sync-master-key` (the design's D2). Outside because the vault is held for the run, and a
-/// sign-out has to leave nothing of this behind in memory; beside it rather than in a service of
-/// its own, for the reason the module comment gives.
+/// One entry of this application's own under `account` — sync's `sync-master-key` (the design's
+/// D2). On macOS it lives inside the vault, so a launch is one Keychain dialog and never two; see
+/// `Keeper::read_own`. Elsewhere it is an entry of its own, as a connection's is.
 pub fn read_own(account: &str) -> Result<Option<String>, AppError> {
-    OsStore::new(SERVICE).read(account)
+    keeper().read_own(account)
 }
 
 pub fn write_own(account: &str, value: &str) -> Result<(), AppError> {
-    OsStore::new(SERVICE).write(account, value)
+    keeper().write_own(account, value)
 }
 
 pub fn forget_own(account: &str) -> Result<(), AppError> {
-    OsStore::new(SERVICE).forget(account)
+    keeper().forget_own(account)
 }
 
 /// Writes a saved connection's secrets to the OS credential store, replacing what was there.
@@ -645,6 +721,61 @@ mod tests {
         assert_eq!(keeper.load("a").unwrap(), secrets("first"));
         store.refuse_writes(false);
         assert_eq!(keeper.load("a").unwrap(), secrets("first"));
+    }
+
+    /// The regression this guards: sync's entry kept as an item of its own beside the vault, which
+    /// on macOS was a second password dialog on every launch of a new build. One launch reads the
+    /// vault and nothing else, whatever it holds.
+    #[test]
+    fn sync_and_the_connections_are_one_visit_to_the_store() {
+        let (store, keeper) = vaulted();
+        keeper.save("a", &secrets("hunter2")).unwrap();
+        keeper.write_own("sync-master-key", "{\"mk\":1}").unwrap();
+        drop(keeper);
+
+        let keeper = Keeper::with_vault(store.clone(), true);
+        let before = store.reads.lock().unwrap().len();
+        assert_eq!(
+            keeper.read_own("sync-master-key").unwrap().as_deref(),
+            Some("{\"mk\":1}")
+        );
+        assert_eq!(keeper.load("a").unwrap(), secrets("hunter2"));
+
+        let asked = store.reads.lock().unwrap()[before..].to_vec();
+        assert_eq!(asked, [VAULT], "one item, so one dialog");
+        assert!(!store.has("sync-master-key"), "nothing beside the vault");
+    }
+
+    /// Signing out takes the entry out of the vault and leaves every connection where it was.
+    #[test]
+    fn forgetting_sync_keeps_the_connections() {
+        let (store, keeper) = vaulted();
+        keeper.save("a", &secrets("hunter2")).unwrap();
+        keeper.write_own("sync-master-key", "saved").unwrap();
+
+        keeper.forget_own("sync-master-key").unwrap();
+
+        assert_eq!(keeper.read_own("sync-master-key").unwrap(), None);
+        assert_eq!(keeper.load("a").unwrap(), secrets("hunter2"));
+
+        keeper.delete("a").unwrap();
+        assert!(!store.has(VAULT), "an empty vault is still deleted");
+    }
+
+    /// Without the vault, sync's entry is an item of its own, as a connection's is.
+    #[test]
+    fn without_the_vault_sync_keeps_its_own_entry() {
+        let (store, keeper) = per_entry();
+        keeper.write_own("sync-master-key", "saved").unwrap();
+
+        assert!(store.has("sync-master-key") && !store.has(VAULT));
+        assert_eq!(
+            keeper.read_own("sync-master-key").unwrap().as_deref(),
+            Some("saved")
+        );
+
+        keeper.forget_own("sync-master-key").unwrap();
+        assert!(!store.has("sync-master-key"));
     }
 
     /// What Windows and Linux still do: an entry each, no vault, nothing cached.

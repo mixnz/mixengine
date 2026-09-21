@@ -139,8 +139,9 @@ person types two of the thirteen groups back.
 rather than the password stretched directly.
 
 **On this machine `MK` lives in the OS credential store**, service `MixLab`, account
-`sync-master-key` — beside the vault, never in a service of its own, for the reason `secrets.rs`
-already gives. It is unwrapped at sign-in and written nowhere else. **The session's refresh token and
+`sync-master-key` — never in a service of its own, for the reason `secrets.rs` already gives. On
+macOS it is held **inside** the vault rather than as an item beside it: a second item was a second
+Keychain dialog on every launch of a new build (corrected after this design landed). It is unwrapped at sign-in and written nowhere else. **The session's refresh token and
 a closed server's access token share that entry**: on macOS every item is one more question, and
 all three are asked for at the same moment.
 

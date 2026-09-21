@@ -1,5 +1,6 @@
 //! What sync keeps between runs: one entry in the OS credential store, service `MixLab`, account
-//! `sync-master-key` (the design's D2).
+//! `sync-master-key` (the design's D2) — on macOS held inside the saved connections' vault rather
+//! than as an item of its own, so a launch asks for the Keychain once (`crate::secrets`).
 //!
 //! **`MK`, the refresh token and a closed server's access token share it**, because on macOS every
 //! item is one more question and all three are needed at the same moment. The rest — the server,
