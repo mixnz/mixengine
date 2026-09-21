@@ -926,7 +926,7 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
 
     let received = std::fs::read_to_string(&record).expect("the script ran and wrote");
     assert!(
-        received.contains("url=mixdb://connect?kind=mysql&host=127.0.0.1&port="),
+        received.contains("url=mixlab://connect?kind=mysql&host=127.0.0.1&port="),
         "{received}"
     );
     assert!(
@@ -938,7 +938,7 @@ async fn the_root_credential_reaches_the_client_through_its_environment_and_not_
         "{received}"
     );
     // **Roadmap task T84, the design's D5.** The key half is on the wire so a saved connection can
-    // point at MixEngine's entry; the namespace never is, because a `mixdb://` URL is something a
+    // point at MixEngine's entry; the namespace never is, because a `mixlab://` URL is something a
     // web page can produce and a namespace on it would name any secret on the machine.
     assert!(!received.contains("secret_service"), "{received}");
     assert!(received.contains("password=present"), "{received}");

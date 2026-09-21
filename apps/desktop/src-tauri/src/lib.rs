@@ -74,7 +74,7 @@ pub fn run() {
                 .with_denylist(&[tray::PANEL])
                 .build(),
         )
-        // Registers `mixdb://` with the OS through the installers, and on macOS delivers the URLs
+        // Registers `mixlab://` with the OS through the installers, and on macOS delivers the URLs
         // the OS opens the app with — see `launch::start` for which systems listen to it.
         .plugin(tauri_plugin_deep_link::init());
 

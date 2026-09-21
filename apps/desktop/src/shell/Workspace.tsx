@@ -291,7 +291,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
      component between the call and its answer would be a tab that never opens. */
   useEffect(() => {
     /* All five ids, not the visible ones: what has been taken from the backend's queue is gone from
-       it, and filtering here would leave a `mixdb://` handoff for a hidden module rotting in a queue
+       it, and filtering here would leave a `mixlab://` handoff for a hidden module rotting in a queue
        nothing ever drains again. Such a tab opens and draws — `MODULES` is unchanged, so
        `moduleById` finds it — and its module is turned on below so that the visibility effect above
        does not drop it on the same commit. */

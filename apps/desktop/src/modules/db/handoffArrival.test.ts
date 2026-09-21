@@ -34,7 +34,7 @@ describe("arrivesConnected", () => {
     ).toBe(true);
   });
 
-  /* A `mixdb://` link from a browser: the same URL, no environment behind it. Dialling `root`
+  /* A `mixlab://` link from a browser: the same URL, no environment behind it. Dialling `root`
      with an empty password would only fail, so the form waits for the one thing it lacks. */
   it("waits for a password a server with accounts was not given", () => {
     expect(arrivesConnected(mysql({}))).toBe(false);

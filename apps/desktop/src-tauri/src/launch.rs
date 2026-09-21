@@ -2,7 +2,7 @@
 //!
 //! Three things, all about the process rather than about any module:
 //!
-//! - [`Opening`]: the `mixdb://` URL on the command line, if there is one, and the credential
+//! - [`Opening`]: the `mixlab://` URL on the command line, if there is one, and the credential
 //!   taken out of the environment for it. Read **once, on the first line of `run()`**, while
 //!   `main` is still one thread: the Tauri builder spawns threads, the webview forks helpers, the
 //!   terminal module opens shells, and every one of those would inherit a variable still there.
@@ -27,7 +27,7 @@ use crate::instance;
 use crate::modules::db::handoff;
 use crate::secrets::Redacted;
 
-/// What the process was started with: a `mixdb://` URL, or nothing, and the password read for it.
+/// What the process was started with: a `mixlab://` URL, or nothing, and the password read for it.
 pub struct Opening {
     pub url: Option<String>,
     pub secret: Option<String>,
@@ -79,7 +79,7 @@ impl Opening {
         let Some(url) = args
             .into_iter()
             .next()
-            .filter(|arg| arg.starts_with("mixdb://"))
+            .filter(|arg| arg.starts_with("mixlab://"))
         else {
             return Self {
                 url: None,
@@ -249,7 +249,7 @@ pub fn start<R: Runtime>(app: &AppHandle<R>, opening: Opening) {
     {
         use tauri_plugin_deep_link::DeepLinkExt;
         if let Err(e) = app.deep_link().register_all() {
-            eprintln!("mixdb: could not register the mixdb:// scheme: {e}");
+            eprintln!("mixlab: could not register the mixlab:// scheme: {e}");
         }
     }
 }
@@ -304,15 +304,15 @@ mod tests {
     #[test]
     fn a_message_round_trips() {
         let line = Message::from(&Opening {
-            url: Some("mixdb://connect?x".to_string()),
+            url: Some("mixlab://connect?x".to_string()),
             secret: Some("s".to_string()),
             hidden: false,
         })
         .line()
         .unwrap();
-        assert_eq!(line, r#"{"url":"mixdb://connect?x","secret":"s"}"#);
+        assert_eq!(line, r#"{"url":"mixlab://connect?x","secret":"s"}"#);
         let back: Message = serde_json::from_str(&line).unwrap();
-        assert_eq!(back.url.as_deref(), Some("mixdb://connect?x"));
+        assert_eq!(back.url.as_deref(), Some("mixlab://connect?x"));
         assert_eq!(back.secret.as_deref(), Some("s"));
 
         let bare = Message::from(&Opening {
@@ -345,7 +345,7 @@ mod tests {
     fn hidden_is_read_wherever_it_stands() {
         assert!(Opening::from_args(args(&["--hidden"]), |_| panic!("asked")).hidden);
         let both = Opening::from_args(
-            args(&["mixdb://connect?kind=redis&host=h&port=1", "--hidden"]),
+            args(&["mixlab://connect?kind=redis&host=h&port=1", "--hidden"]),
             |_| panic!("asked"),
         );
         assert!(both.hidden);
@@ -364,7 +364,7 @@ mod tests {
     fn a_url_with_a_credential_variable_takes_it_out_of_the_environment() {
         let mut asked = Vec::new();
         let opening = Opening::from_args(
-            args(&["mixdb://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD"]),
+            args(&["mixlab://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD"]),
             |name| {
                 asked.push(name.to_string());
                 Some("s3cret".to_string())
@@ -373,7 +373,7 @@ mod tests {
         assert_eq!(asked, vec!["MIXENGINE_DB_PASSWORD"]);
         assert_eq!(
             opening.url.as_deref(),
-            Some("mixdb://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD")
+            Some("mixlab://connect?kind=mysql&host=h&port=1&password_env=MIXENGINE_DB_PASSWORD")
         );
         assert_eq!(opening.secret.as_deref(), Some("s3cret"));
     }
@@ -381,7 +381,7 @@ mod tests {
     #[test]
     fn a_url_without_one_asks_for_nothing() {
         let opening =
-            Opening::from_args(args(&["mixdb://connect?kind=redis&host=h&port=1"]), |_| {
+            Opening::from_args(args(&["mixlab://connect?kind=redis&host=h&port=1"]), |_| {
                 panic!("asked")
             });
         assert!(opening.url.is_some());
@@ -393,20 +393,20 @@ mod tests {
     fn a_broken_url_still_takes_the_variable() {
         let mut asked = Vec::new();
         let opening = Opening::from_args(
-            args(&["mixdb://connect?password_env=MIXDB_PASSWORD"]),
+            args(&["mixlab://connect?password_env=MIXLAB_PASSWORD"]),
             |name| {
                 asked.push(name.to_string());
                 None
             },
         );
-        assert_eq!(asked, vec!["MIXDB_PASSWORD"]);
+        assert_eq!(asked, vec!["MIXLAB_PASSWORD"]);
         assert_eq!(opening.secret, None);
     }
 
     #[test]
     fn an_empty_variable_is_no_credential() {
         let opening = Opening::from_args(
-            args(&["mixdb://connect?password_env=MIXDB_PASSWORD"]),
+            args(&["mixlab://connect?password_env=MIXLAB_PASSWORD"]),
             |_| Some(String::new()),
         );
         assert_eq!(opening.secret, None);
@@ -429,13 +429,13 @@ mod tests {
     #[test]
     fn an_opening_never_prints_its_secret() {
         let opening = Opening {
-            url: Some("mixdb://connect".to_string()),
+            url: Some("mixlab://connect".to_string()),
             secret: Some("hunter2".to_string()),
             hidden: false,
         };
         let printed = format!("{opening:?}");
         assert!(!printed.contains("hunter2"), "{printed}");
-        assert!(printed.contains("mixdb://connect"));
+        assert!(printed.contains("mixlab://connect"));
         assert!(printed.contains("Some(\"***\")"));
     }
 

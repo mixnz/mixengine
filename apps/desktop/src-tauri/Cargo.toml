@@ -71,7 +71,7 @@ uuid = { version = "1.24.0", features = ["v4"] }
 # The name a machine offers for itself when it signs in to sync (T177e2). Already in `Cargo.lock`
 # through the tree, so this names it rather than adding it.
 gethostname = "1"
-# Reads the `mixdb://connect?…` URL another program starts MixDB with (`modules/db/handoff.rs`).
+# Reads the `mixlab://connect?…` URL another program starts MixLab with (`modules/db/handoff.rs`).
 # Already in the tree through the drivers; named here so the parse is ours to call.
 url = "2"
 # The HTTP/1.1 client for MixEngine's local API — a Unix socket or a named pipe, never a TCP port,
@@ -198,7 +198,7 @@ toml = "1"
 # Remembers only whether the window was left maximized; everything else falls back to the
 # default size in `tauri.conf.json`.
 tauri-plugin-window-state = "2"
-# Registers the `mixdb://` scheme with the OS at install time (NSIS, Info.plist, the .desktop
+# Registers the `mixlab://` scheme with the OS at install time (NSIS, Info.plist, the .desktop
 # file) and hands the app the URLs the OS opens it with. The URL's meaning is `launch.rs`'s.
 tauri-plugin-deep-link = "2"
 # MixLab at login, when a person turns it on in Settings — ADR 0042, T168f. A LaunchAgent on macOS,

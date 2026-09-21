@@ -66,7 +66,7 @@ install -m 0755 "$stage/$MIX_WINDOW" "$root$MIX_INSTALL_LINUX/$MIX_WINDOW"
 
 # The menu entry and its icon. **No maintainer script updates any cache**, which is this package's
 # oldest rule (see the header): a menu reads `/usr/share/applications` directly and works at once,
-# and `xdg-open mixdb://…` reaches MixLab the next time anything on the machine runs
+# and `xdg-open mixlab://…` reaches MixLab the next time anything on the machine runs
 # `update-desktop-database` — which every desktop environment's own packages do routinely. Buying
 # the rest of that would cost the invariant that nothing runs at install time.
 install -m 0644 "$MIX_ROOT/packaging/linux/mixlab.desktop" \

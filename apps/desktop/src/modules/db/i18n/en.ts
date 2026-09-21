@@ -15,7 +15,7 @@ const dbEn = {
     tunnelOk: "\u2713 Tunnel OK \u2014 SSH auth succeeded",
     tunnelFailed: "\u2717 {{error}}",
     connecting: "Connecting...",
-    /* A `mixdb://` link opened from a browser: everything but the password came with it. */
+    /* A `mixlab://` link opened from a browser: everything but the password came with it. */
     handoffNeedsPassword: "Enter the password to connect.",
     // On the button at the end of the workspace tabs. What it does is not "disconnect" alone —
     // the connection form comes back, still holding this connection, so it says where you land.
@@ -1022,7 +1022,7 @@ const dbEn = {
       "MixLab could not read this table's own definition back from the server — the rebuild was not attempted.",
     clickhouseRebuildCountMismatch:
       "The row count changed while {{table}} was being copied (a write landed at the same time?). The rebuild was cancelled and the original table was not touched — try again.",
-    /* A `mixdb://connect?…` URL another program started MixLab with — see `handoff.ts`. The first
+    /* A `mixlab://connect?…` URL another program started MixLab with — see `handoff.ts`. The first
        is only ever printed to stderr; the second is answered with an empty form. Both exist so a
        code that does reach the screen one day is a sentence rather than its own key. */
     handoffInvalid: "The connection MixLab was started with cannot be read: {{message}}",

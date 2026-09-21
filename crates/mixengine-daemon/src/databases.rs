@@ -695,7 +695,7 @@ mod tests {
             .to_string_lossy()
             .into_owned();
         assert!(
-            url.starts_with("mixdb://connect?kind=redis&host=127.0.0.1&port=6379"),
+            url.starts_with("mixlab://connect?kind=redis&host=127.0.0.1&port=6379"),
             "{url}"
         );
         assert!(!url.contains("password"), "{url}");
@@ -744,7 +744,7 @@ mod tests {
             .to_string_lossy()
             .into_owned();
         assert!(
-            url.starts_with("mixdb://connect?kind=mongodb&host=127.0.0.1&port=27017"),
+            url.starts_with("mixlab://connect?kind=mongodb&host=127.0.0.1&port=27017"),
             "{url}"
         );
         assert!(url.contains("&database=blog"), "{url}");

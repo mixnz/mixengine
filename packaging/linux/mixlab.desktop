@@ -6,4 +6,4 @@ Exec=mixlab %u
 Icon=mixlab
 Terminal=false
 Categories=Development;
-MimeType=x-scheme-handler/mixdb;
+MimeType=x-scheme-handler/mixlab;
