@@ -116,9 +116,15 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       request's last use and its credential stay on the machine, and a field added later does not
       travel until somebody decides it should. `serde_json` has `preserve_order` on here, so the
       hash is taken of an explicitly canonical form.
-- [ ] **T177e** The account, in Settings: sign up with the recovery-key ceremony (ten groups shown
-      once, two typed back), sign in, the per-collection list with every row off, the device list
-      with a revoke, the conflict prompt, and the server field for somebody hosting their own.
+- [ ] **T177e1** The account and the loop: the commands (register, verify, sign in and out,
+      refresh, devices), `MK` and the session in the credential store, and the shell running every
+      collection that is on at the D8 triggers. A pull's cursor does not pass a page until the
+      module has written it; a lost conflict is written down before anything is pushed again; a
+      change keeps the time it was first noticed.
+- [ ] **T177e2** The account, in Settings: sign up with the recovery-key ceremony (thirteen groups
+      shown once, two typed back), sign in, the per-collection list with every row off, the device
+      list with a revoke, the notice that an edit was replaced, and the server field for somebody
+      hosting their own.
 - [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.

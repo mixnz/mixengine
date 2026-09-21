@@ -140,7 +140,9 @@ rather than the password stretched directly.
 
 **On this machine `MK` lives in the OS credential store**, service `MixLab`, account
 `sync-master-key` — beside the vault, never in a service of its own, for the reason `secrets.rs`
-already gives. It is unwrapped at sign-in and written nowhere else.
+already gives. It is unwrapped at sign-in and written nowhere else. **The session's refresh token and
+a closed server's access token share that entry**: on macOS every item is one more question, and
+all three are asked for at the same moment.
 
 ## D3. A record on the wire
 
@@ -208,6 +210,13 @@ D9 asks for, bought for one handler.
 stale gets `409` and the current record. The client compares `updatedAt`, keeps the later one,
 breaks a tie on the lexicographically greater `device`, and retries. The server compares nothing.
 
+**The loser writes the winner down, and nobody is asked.** Every machine applies the same rule to
+the same two versions, so every machine reaches the same survivor; the one whose edit lost stores
+the winning version locally, as if it had pulled it, and has nothing left to push. That is what
+ends a conflict. A prompt would end it differently on each machine, and two machines resolving one
+conflict two ways push at each other forever — so the account screen *reports* that an edit here
+was replaced by a newer one, and asks nothing.
+
 **Both fields the rule reads are the server's to set**, and that is deliberate rather than an
 oversight: `updatedAt` is outside the AAD of D3 and `device` is stamped from the session, so a
 hostile server could tilt a conflict between two versions of a record. Both versions are the
@@ -220,6 +229,17 @@ reader returning something different is a local change, stamped with the time sy
 and an id it no longer returns is a deletion. Sync runs on a local change and at launch (D8), so
 noticing is close to editing — and the hash is taken of what the reader returns, so a field it
 leaves out, such as a sidebar's width, changes nothing.
+
+Two rules keep that stamp honest, and each closes a way for an older edit to beat a newer one:
+
+- **A change is stamped once.** The time it was first noticed is kept until it lands, and every
+  retry sends that time. Stamped afresh on each attempt, an edit made offline yesterday would win
+  over one made elsewhere this morning simply by being retried last.
+- **A lost conflict teaches this machine nothing until the winner is written down.** The version
+  it reveals is recorded together with the winner, never before: recorded first, a failed write
+  would leave the next push carrying that version, meeting no `409`, and replacing the newer edit
+  without a conflict ever being seen. Unrecorded, the next push meets the same conflict, loses it
+  the same way, and tries the write again.
 
 `/v1/records/batch` exists because a machine signing in for the first time pushes its whole local
 set, and two hundred round trips to do it is the difference between a pause and a wait. It is a
@@ -342,7 +362,7 @@ login, so the route cannot become a password oracle.
 **A confirmation letter would add nothing.** Anybody who can call this can already delete every
 record one at a time through `/v1/records`; the account row is all that survives that, and it holds
 nothing a person would miss. A round trip through email would slow down the one honest case and stop
-nobody. Whether a person is asked *"are you sure"* is a question for the account screen (T177e), not
+nobody. Whether a person is asked *"are you sure"* is a question for the account screen (T177e2), not
 for the wire.
 
 **Nothing is kept.** Every record, every device, every refresh token, every access token, every
@@ -395,10 +415,10 @@ error**. That is the cost of two servers not knowing about each other, and it is
 rather than solved.
 
 **The client needs `A` to register on the far side**, which is derived from the password it does not
-keep. Either it holds `A` beside `MK` — defensible, since anything that reaches one locally has
-already reached the other — or it asks for the password once and says what it is doing. This
-document does not decide that: it is a decision about the client, and it belongs with the account
-screen in T177e.
+keep. **It asks for the password when it needs `A`, and says what it is for.** Holding `A` beside
+`MK` would be defensible — anything that reaches one locally has already reached the other — but a
+move and a deletion are rare, deliberate acts, and a password typed at that moment is also the
+person confirming them.
 
 **What is no longer a problem.** An earlier draft had the old server forward clients to the new one,
 which meant it could never be switched off: for as long as one old client existed — including an old
@@ -482,7 +502,7 @@ a person will keep the key, lose the address, and find out the shape of this at 
   store is already there. `crypto.rs` is written to be read in one sitting and carries test
   vectors: the promise in D1 is a property of that file and of nothing on the server.
 - **`apps/desktop/src/shell/`** — sign-in, the recovery-key ceremony, the per-collection list, the
-  device list, the conflict prompt.
+  device list, the notice that an edit here was replaced by a newer one.
 - **A module declares what it will lend, and the shell never learns what it is.**
   `ModuleDefinition` (`src/shell/module.ts`) gains an optional set of syncable collections, each an
   id, a label, a reader, a writer and a default of `false`. `registry.ts` wires them as it already
@@ -627,8 +647,6 @@ rather than the allowance. Syncing `rest-history.json` would put a hundred respo
 the storage for every user**, whatever the ceiling is. The reason that file is not in the catalogue
 is that it holds somebody else's production data; the capacity is a second dividend from a decision
 made for another reason entirely.
-
-### Moving the default instance
 
 ### Moving the default instance
 
