@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { environmentFromSync, environmentToSync, requestFromSync, requestToSync } from "./sync";
+import {
+  environmentFromSync,
+  environmentSecretsFromSync,
+  environmentSecretsToSync,
+  environmentToSync,
+  fillSecrets,
+  requestFromSync,
+  requestToSync,
+} from "./sync";
 import type { Environment } from "./environments";
 import type { RestRequest } from "./types";
 
@@ -64,5 +72,33 @@ describe("an environment in sync", () => {
     const { data } = environmentToSync(env);
     const next = environmentFromSync({ id: "e1", data }, undefined);
     expect(next?.vars.find((v) => v.name === "token")).toEqual({ name: "token", value: "", secret: true });
+  });
+});
+
+describe("what travels of an environment's secret values", () => {
+  const env: Environment = {
+    id: "e1",
+    name: "Prod",
+    vars: [
+      { name: "host", value: "api", secret: false },
+      { name: "token", value: "t0k", secret: true },
+      { name: "empty", value: "", secret: true },
+    ],
+  };
+
+  it("is the values marked secret, and nothing for an environment with none", () => {
+    expect(environmentSecretsToSync([env, { ...env, id: "e2", vars: [env.vars[0]] }])).toEqual([
+      { id: "e1", data: { token: "t0k" } },
+    ]);
+  });
+
+  it("arrives as strings only", () => {
+    expect(environmentSecretsFromSync({ token: "t", n: 1 })).toEqual({ token: "t" });
+    expect(environmentSecretsFromSync([])).toBeNull();
+  });
+
+  it("fills a secret variable that has no value here, and leaves one that has", () => {
+    const filled = fillSecrets(env, { token: "other", empty: "now" });
+    expect(filled.vars.map((v) => v.value)).toEqual(["api", "t0k", "now"]);
   });
 });

@@ -38,6 +38,7 @@ describe("what sync can offer", () => {
       "query-snippets",
       "rest-requests",
       "rest-environments",
+      "rest-env-secrets",
       "terminal-settings",
       "terminal-hosts",
       "terminal-host-secrets",

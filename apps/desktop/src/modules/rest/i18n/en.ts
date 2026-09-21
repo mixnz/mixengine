@@ -202,6 +202,7 @@ const restEn = {
   restSync: {
     requests: "REST requests",
     environments: "REST environments",
+    environmentSecrets: "Secret environment values",
   },
 };
 
