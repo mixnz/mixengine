@@ -78,7 +78,7 @@ fn the_reading_order_is_unique_and_gapless() {
 ///
 /// A page added without a decision about where it belongs would otherwise land at the end of a list
 /// somebody reads in order — so adding one is an edit here, deliberately.
-const SLUGS: [&str; 17] = [
+const SLUGS: [&str; 18] = [
     "index",
     "install",
     "getting-started",
@@ -96,6 +96,7 @@ const SLUGS: [&str; 17] = [
     "cli",
     "for-agents",
     "privacy",
+    "self-hosting",
 ];
 
 #[test]
