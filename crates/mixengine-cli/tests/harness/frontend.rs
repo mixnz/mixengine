@@ -989,15 +989,30 @@ pub(crate) async fn is_generated_validated_started_reloaded_and_stopped(front: &
     // connection it could not make and a site that is gone identically, so the wait for `blog.test`
     // to stop being served can be satisfied by the reload itself rather than by its result — and an
     // assertion made in that instant reads a server mid-reload as a server that swept both sites.
+    //
+    // **Everything the server was given and everything it said, in the failure.** Run 35665122912
+    // (services, windows-latest, web) failed here thirty seconds after the reload had been logged,
+    // with only the daemon's log to read — which cannot tell a `404`, a closed connection and a
+    // configuration missing the override apart.
     let deadline = Instant::now() + EVENTUALLY;
     loop {
-        if get(site_port).is_some_and(|answer| answer.contains("mixengine reloaded me")) {
+        let answer = get(site_port);
+        if answer
+            .as_deref()
+            .is_some_and(|body| body.contains("mixengine reloaded me"))
+        {
             break;
         }
 
         assert!(
             Instant::now() < deadline,
-            "the sweep took more than the site it was about\n{}",
+            "the sweep took more than the site it was about\n--- answered ---\n{}\n--- {} ---\n{}\n\
+             --- rendered ---\n{}\n--- current.log ---\n{}\n--- daemon.log ---\n{}",
+            answer.unwrap_or_else(|| "nothing at all".to_owned()),
+            front.config,
+            std::fs::read_to_string(&config).unwrap_or_default(),
+            rendered_sites(&home, id),
+            service_log(&home, id),
             home.daemon_log()
         );
         std::thread::sleep(Duration::from_millis(100));

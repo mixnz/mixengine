@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "9364a127025c459df700d334254ddf20f882bb10673abfc05f13e7e37e98fe62"
+source_sha256 = "e5a515d190abf21032d976b9d5e607bfe8bc93554688cb1964c99ca5d1a6a9be"
 +++
 
 # Cài đặt MixLab
