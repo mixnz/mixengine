@@ -9,3 +9,4 @@
 //! here, which is what keeps this module reviewable on its own.
 
 pub mod crypto;
+pub mod wire;
