@@ -1,6 +1,6 @@
 ---
 name: writing-user-facing-text
-description: Use when writing or changing text a MixLab user reads — an i18n string under apps/desktop/src (en or vi), a letter or error the sync server sends, a message `mix` or mixengined prints, the root README.md or CHANGELOG.md — and when a string reads stiff, translated or machine-written.
+description: Use when writing or changing text a MixLab user reads — an i18n string under apps/desktop/src (en or vi), a letter or error the sync server sends, a message `mix` or mixengined prints, any README.md in the repository or CHANGELOG.md — and when a string reads stiff, translated or machine-written.
 ---
 
 # Text a person would have written
@@ -17,7 +17,8 @@ per sentence, what happened and what to do next.
 | Confirm dialog | Title names the action, body gives the consequence in one sentence, button repeats the verb |
 | Email | The code, how long it works, what to do if it was not you |
 | `mix`, mixengined | One line, lowercase, ending with the command that fixes it |
-| README, CHANGELOG | What the user can do now, in their words. Not how it was built |
+| Any README | What this folder is for, then where to start: the first command, or the first file to read |
+| CHANGELOG | What the user can do now, in their words. Not how it was built |
 
 ## Vietnamese: write it, don't translate it
 
