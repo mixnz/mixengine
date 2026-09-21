@@ -226,6 +226,21 @@ impl FrontEnd {
 /// port. Twice the longest run measured, so the loop walks out of the block and keeps going.
 const CANDIDATES: usize = 512;
 
+/// What a service wrote to its own log, or an empty string.
+///
+/// **`daemon.log` is not where a front end says what it did.** Output travels on its own stream and
+/// into `logs/services/<id>/current.log`, per ADR 0009.
+pub(crate) fn service_log(home: &Home, service: &str) -> String {
+    std::fs::read_to_string(
+        home.path()
+            .join("logs")
+            .join("services")
+            .join(service)
+            .join("current.log"),
+    )
+    .unwrap_or_default()
+}
+
 /// A port nothing is listening on, by listening on it and then not.
 ///
 /// The usual race is the usual price: between the drop and the server's bind, another process on the
@@ -244,33 +259,33 @@ const CANDIDATES: usize = 512;
 /// So the number is proved for **both** protocols before it is handed out, and the TCP listener is
 /// held while the UDP half is tried: dropping it first would open a window for another process to
 /// take the number between the two checks.
-/// What a service wrote to its own log, or an empty string.
 ///
-/// **`daemon.log` is not where a front end says what it did.** Output travels on its own stream and
-/// into `logs/services/<id>/current.log`, per ADR 0009.
-pub(crate) fn service_log(home: &Home, service: &str) -> String {
-    std::fs::read_to_string(
-        home.path()
-            .join("logs")
-            .join("services")
-            .join(service)
-            .join("current.log"),
-    )
-    .unwrap_or_default()
-}
-
+/// **And never the same number twice in one process.** The suites run their tests on threads of one
+/// binary, and the operating system is free to hand a port that one test has let go of to the next
+/// test that asks — while the first test's server has not bound it yet. Run 35668162118
+/// (`services (windows-latest, web)`) is what that looks like: a site request answered `403` with a
+/// JSON body, which is Caddy's admin endpoint, because another test's Caddy had been given the same
+/// number for its control port. Remembering every number handed out closes that window between
+/// tests; the one left is with other processes, which is the race described above.
 pub(crate) fn free_port() -> u16 {
+    static HANDED_OUT: std::sync::Mutex<Vec<u16>> = std::sync::Mutex::new(Vec::new());
+
     for _ in 0..CANDIDATES {
         let held = TcpListener::bind("127.0.0.1:0").expect("a loopback port");
         let port = held.local_addr().expect("the port it was given").port();
 
-        if takes_udp(port) {
+        let mut handed_out = HANDED_OUT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if !handed_out.contains(&port) && takes_udp(port) {
+            handed_out.push(port);
             return port;
         }
     }
 
     panic!(
-        "this machine refused the udp half of {CANDIDATES} ports in a row. On Windows that is \
+        "this machine refused the udp half of, or had already handed out, {CANDIDATES} ports in a \
+         row. On Windows that is \
          `netsh interface ipv4 show excludedportrange udp` covering most of the ephemeral range — \
          a reboot releases the dynamic ones."
     );
