@@ -2,7 +2,7 @@ import { appLogDir } from "@tauri-apps/api/path";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import Button from "../../../components/Button";
 import { useTranslation } from "../../../i18n";
-import { PRIVACY_POLICY_URL } from "../../links";
+import { privacyPolicyUrl } from "../../links";
 import { openReleasesPage, useAppVersion } from "../../version";
 import styles from "./SettingsModal.module.css";
 
@@ -15,7 +15,7 @@ import styles from "./SettingsModal.module.css";
  * says where updating happens, and the release page for a copy something else installed.
  */
 function UpdateSection() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const version = useAppVersion();
 
   return (
@@ -41,7 +41,7 @@ function UpdateSection() {
           more than it gives them. */}
       <div className={styles.updateRow}>
         <span className={styles.hint}>{t("settings.privacyHint")}</span>
-        <Button size="small" onClick={() => void openUrl(PRIVACY_POLICY_URL)}>
+        <Button size="small" onClick={() => void openUrl(privacyPolicyUrl(lang))}>
           {t("settings.privacyPolicy")}
         </Button>
       </div>
