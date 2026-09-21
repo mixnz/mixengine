@@ -314,6 +314,12 @@ const en = {
     signUp: "Create an account",
     signingIn: "Signing in",
     signingUp: "Creating the account",
+    changePassword: "Change password",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    changePasswordHint: "Your other machines are signed out and will ask for the new one. Your data stays as it is.",
+    passwordChanged: "Password changed. Your other machines were signed out and will ask for the new one.",
+    saving: "Saving",
   },
 };
 

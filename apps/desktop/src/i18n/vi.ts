@@ -292,6 +292,12 @@ const vi: SharedDict = {
     signUp: "Tạo tài khoản",
     signingIn: "Đang đăng nhập",
     signingUp: "Đang tạo tài khoản",
+    changePassword: "Đổi mật khẩu",
+    currentPassword: "Mật khẩu hiện tại",
+    newPassword: "Mật khẩu mới",
+    changePasswordHint: "Các máy khác sẽ bị đăng xuất và hỏi mật khẩu mới. Dữ liệu của bạn giữ nguyên.",
+    passwordChanged: "Đã đổi mật khẩu. Các máy khác đã bị đăng xuất và sẽ hỏi mật khẩu mới.",
+    saving: "Đang lưu",
   },
 };
 

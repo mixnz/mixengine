@@ -9,6 +9,7 @@ import { syncLogin, syncRegister, type SyncStatus } from "../../../sync/api";
 import { addServer, DEFAULT_SERVER, lastServer, readServers, rememberServer, removeServer } from "../../../sync/servers";
 import settings from "../SettingsModal.module.css";
 import Field from "./Field";
+import PasswordPair from "./PasswordPair";
 import styles from "./SyncSection.module.css";
 
 type Mode = "signIn" | "signUp";
@@ -174,23 +175,24 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered }
       <Field label={t("sync.email")}>
         <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
       </Field>
-      <Field label={t("common.password")} hint={mode === "signUp" ? t("sync.passwordHint") : undefined}>
-        <Input
-          type="password"
-          autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-      </Field>
-      {mode === "signUp" && (
-        <Field label={t("sync.passwordAgain")}>
+      {mode === "signIn" ? (
+        <Field label={t("common.password")}>
           <Input
             type="password"
-            autoComplete="new-password"
-            value={again}
-            onChange={(event) => setAgain(event.target.value)}
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
           />
         </Field>
+      ) : (
+        <PasswordPair
+          label={t("common.password")}
+          hint={t("sync.passwordHint")}
+          password={password}
+          again={again}
+          onPassword={setPassword}
+          onAgain={setAgain}
+        />
       )}
       <Field label={t("sync.deviceName")}>
         <Input value={deviceName} onChange={(event) => onDeviceNameChange(event.target.value)} />
