@@ -40,21 +40,22 @@ fails, which costs more to diagnose than it should. CI never meets this: it star
    directory**. Nothing outside that directory is any of the build's business.
 3. Under the Worker's **Settings → Variables and Secrets**, set:
    - `PEPPER` and `EMAIL_API_KEY` as type **Secret** (32 random bytes in base64 for the pepper);
-   - `EMAIL_FROM` and `EMAIL_PROVIDER` as type **Variable**, and `EMAIL_ENDPOINT` too for
-     `mailgun`.
+   - `EMAIL_FROM` (an address your provider will send from) and `EMAIL_PROVIDER` as type
+     **Variable**, and `EMAIL_ENDPOINT` too for `mailgun`.
 
-   Anything in [Configuration](#configuration) below can be set the same way. A deployment missing
-   a required one refuses every request and names what is missing. `wrangler secret put PEPPER`
-   does the same as the dashboard for a secret, if you would rather.
+   Anything in [Configuration](#configuration) below that `wrangler.toml` does not list can be set
+   the same way. A deployment missing a required one refuses every request and names what is
+   missing. `wrangler secret put PEPPER` does the same as the dashboard for a secret, if you would
+   rather.
 
    **Not under Settings → Build.** Those are environment variables for the build command only, and
    the running Worker never sees them.
 4. Point MixLab at it: the server is a setting, and changing it signs the person out — records
    written under one account's master key are not readable under another's.
 
-**Nothing in `wrangler.toml` needs editing.** It sets `keep_vars = true` and has no top-level
-`[vars]`, so a deploy — including the one a push to your fork starts — leaves what you set on the
-dashboard alone. Adding a name to `[vars]` would undo that for that name: a value written in the
+**A name in `wrangler.toml`'s `[vars]` is changed there, not on the dashboard** — the capability
+numbers only. The file sets `keep_vars = true`, so a deploy — including the one a push to your fork
+starts — leaves every other variable you set on the dashboard alone, but a value written in the
 file wins over the dashboard on every deploy.
 
 **Durable Objects are on the free plan with the SQLite storage backend**, which is what
