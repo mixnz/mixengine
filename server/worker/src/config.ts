@@ -5,7 +5,7 @@
 // `503` carrying the names. The failure it replaces is otherwise invisible: the deploy succeeds,
 // registration succeeds, and a person waits for a letter that was never sent.
 
-import { DEFAULT_ENDPOINT, NEEDS_ENDPOINT, PROVIDER_NAMES, isProviderName } from "./email";
+import { DEFAULT_ENDPOINT, DEFAULT_FROM_NAME, NEEDS_ENDPOINT, PROVIDER_NAMES, isProviderName } from "./email";
 
 export interface Env {
   ACCOUNT: DurableObjectNamespace;
@@ -17,6 +17,8 @@ export interface Env {
   EMAIL_API_KEY?: string;
   /** The address verification and reset letters are sent from. */
   EMAIL_FROM?: string;
+  /** The name shown beside that address in an inbox. Optional; "MixLab" when unset. */
+  EMAIL_FROM_NAME?: string;
   /** The provider's HTTP endpoint. A provider is a deployment decision, not a protocol one. */
   EMAIL_ENDPOINT?: string;
   /** Which provider, by name. They differ in body shape, in the header that carries the key,
@@ -81,6 +83,8 @@ export interface Config {
   pepper: string;
   emailApiKey: string | null;
   emailFrom: string;
+  /** Without it an inbox shows the address's local part — "no-reply" — as the sender. */
+  emailFromName: string;
   /** Absent for a provider whose URL carries something only the operator knows. */
   emailEndpoint: string | null;
   emailProvider: import("./email").ProviderName;
@@ -185,6 +189,7 @@ export function readConfig(env: Env): ConfigResult {
       pepper: env.PEPPER ?? TEST_PEPPER,
       emailApiKey: env.EMAIL_API_KEY ?? null,
       emailFrom: env.EMAIL_FROM ?? "conformance@example.invalid",
+      emailFromName: env.EMAIL_FROM_NAME?.trim() || DEFAULT_FROM_NAME,
       emailEndpoint:
         env.EMAIL_ENDPOINT ??
         (isProviderName(providerName) ? (DEFAULT_ENDPOINT[providerName] ?? null) : null),

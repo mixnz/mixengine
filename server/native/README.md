@@ -129,6 +129,7 @@ know the address it is reachable at.
 | `MIXLAB_SYNC_DATABASE` | `mixlab-sync.db` | The SQLite file. The image overrides this to `/data/mixlab-sync.db`, inside the volume |
 | `MIXLAB_SYNC_PEPPER` | **required** | Keyed into the stored password verifier, so a stolen database is not a list of verifiers. **Changing it locks out every existing account** |
 | `MIXLAB_SYNC_EMAIL_FROM` | **required** | The address the two letters are sent from |
+| `MIXLAB_SYNC_EMAIL_FROM_NAME` | `MixLab` | The name an inbox shows beside that address. Without one it shows the local part — `no-reply` — as the sender |
 | `MIXLAB_SYNC_EMAIL_PROVIDER` | **required** | `smtp`, `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid` — see below. **No default on purpose**: a key on its own does not say where to send it |
 | `MIXLAB_SYNC_EMAIL_API_KEY` | **required**, except `smtp` | The provider's key |
 | `MIXLAB_SYNC_EMAIL_ENDPOINT` | the provider's own | Where to post. **Required for `mailgun`**, whose URL carries the sending domain and the region, because there is nothing to guess. `mailtrap` defaults to its transactional stream, `https://send.api.mailtrap.io/api/send`; set this only to test against a sandbox (`https://sandbox.api.mailtrap.io/api/send/<sandbox id>`) |

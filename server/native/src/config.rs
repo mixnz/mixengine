@@ -58,6 +58,9 @@ pub struct Config {
     pub pepper: String,
     pub email_api_key: Option<String>,
     pub email_from: String,
+    /// The name shown beside that address in an inbox. Without it an inbox shows the address's
+    /// local part — "no-reply" — as the sender.
+    pub email_from_name: String,
     /// `None` for SMTP, and for a provider whose URL carries something only the operator
     /// knows — Mailgun's sending domain and region.
     pub email_endpoint: Option<String>,
@@ -222,6 +225,8 @@ impl Config {
             pepper: pepper.unwrap_or_else(|| TEST_PEPPER.to_owned()),
             email_api_key,
             email_from: email_from.unwrap_or_else(|| "conformance@example.invalid".to_owned()),
+            email_from_name: text("MIXLAB_SYNC_EMAIL_FROM_NAME")
+                .unwrap_or_else(|| crate::email::DEFAULT_FROM_NAME.to_owned()),
             email_endpoint: endpoint,
             email_provider: email_provider.unwrap_or(crate::email::Provider::Resend),
             smtp: smtp_host.map(|host| {
