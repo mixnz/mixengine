@@ -303,6 +303,7 @@ impl SyncState {
                 device_id: signed_in.device_id.clone(),
                 refresh_token: signed_in.refresh_token.clone(),
                 master_key: STANDARD.encode(registering.master),
+                wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
             };
             inner.registering = None;
             self.begin(
@@ -348,6 +349,7 @@ impl SyncState {
             device_id: signed_in.device_id.clone(),
             refresh_token: signed_in.refresh_token.clone(),
             master_key: STANDARD.encode(master),
+            wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
         };
         master.zeroize();
         {
@@ -725,6 +727,7 @@ impl SyncState {
             device_id: signed_in.device_id.clone(),
             refresh_token: signed_in.refresh_token.clone(),
             master_key: STANDARD.encode(master),
+            wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
         };
         {
             let mut inner = self.inner.lock().await;
