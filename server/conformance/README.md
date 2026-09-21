@@ -18,9 +18,15 @@ npm ci
 CONFORMANCE_BASE_URL=http://127.0.0.1:8787 npm test
 ```
 
-Point it at any server: `wrangler dev` on a laptop, either implementation in CI, a container, or a
-self-hosted deployment. There is nothing else to configure. The suite reads every limit it needs
-from `GET /v1/capabilities`.
+Point it at any server that has the test outbox turned on: `wrangler dev` on a laptop, either
+implementation in CI, or a throwaway copy of your own deployment. The suite reads every limit it
+needs from `GET /v1/capabilities`, so there is nothing else to configure.
+
+Your real server is not one of them. It must never serve the outbox, so the suite can't sign up
+there. To check a deployment, run a copy of it with the outbox on and test that:
+[Checking your deployment](../native/README.md#checking-your-deployment) has the commands for the
+container. For the Worker, deploy a second environment with `TEST_OUTBOX = "1"` and point the suite
+at its URL.
 
 ## What a server needs to provide
 
