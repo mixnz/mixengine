@@ -325,6 +325,24 @@ const vi: SharedDict = {
     frozen:
       "Tài khoản này đang được giữ nguyên để chép sang máy chủ khác từ {{date}}. Không đồng bộ được gì cho tới khi việc chép kết thúc.",
     thaw: "Kết thúc việc chép",
+    moveTitle: "Chuyển sang máy chủ khác",
+    moveHint:
+      "Tài khoản được chép nguyên vẹn sang máy chủ mới, rồi bạn chọn xử lý tài khoản cũ thế nào. Trong lúc chép, không đồng bộ được gì.",
+    moveTo: "Máy chủ mới",
+    moving: "Đang xử lý",
+    moveCodeHint: "{{server}} đã gửi mã tới địa chỉ của bạn. Xác nhận mã sẽ bắt đầu việc chép.",
+    moveCopy: "Xác nhận và chép",
+    copying: "Đang chép",
+    moveCopied: "{{count}} bản ghi đã có trên {{server}}, đã kiểm đủ. Tài khoản cũ xử lý thế nào?",
+    moveEnd: "Tài khoản cũ",
+    moveDeleteOld: "Xoá",
+    moveKeepOld: "Giữ lại",
+    moveDeleteOldHint:
+      "Máy nào còn trỏ về máy chủ cũ sẽ bị đăng xuất ngay trong ngày, nên bạn sẽ biết. Đây là lựa chọn an toàn hơn.",
+    moveKeepOldHint:
+      "Tài khoản cũ mở lại. Máy nào còn trỏ về đó sẽ tiếp tục ghi vào đó, nơi không máy nào của bạn đọc.",
+    moveFinish: "Hoàn tất việc chuyển",
+    moveAbandon: "Dừng việc chuyển",
   },
 };
 

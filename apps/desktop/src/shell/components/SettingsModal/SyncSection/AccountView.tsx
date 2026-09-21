@@ -23,6 +23,7 @@ import { clearReplaced, onReplacedChange, replacedCounts } from "../../../sync/r
 import settings from "../SettingsModal.module.css";
 import ChangePassword from "./ChangePassword";
 import DeleteAccount from "./DeleteAccount";
+import MoveAccount from "./MoveAccount";
 import styles from "./SyncSection.module.css";
 
 interface Props {
@@ -130,6 +131,9 @@ function AccountView({ status, onChanged }: Props) {
                 <Button size="small" variant="ghost" onClick={() => setPanel("password")}>
                   {t("sync.changePassword")}
                 </Button>
+                <Button size="small" variant="ghost" onClick={() => setPanel("move")}>
+                  {t("sync.moveTitle")}
+                </Button>
                 <Button size="small" variant="ghost" onClick={() => setPanel("delete")}>
                   {t("sync.deleteAccount")}
                 </Button>
@@ -175,6 +179,17 @@ function AccountView({ status, onChanged }: Props) {
       )}
       {panel === "delete" && status.server && (
         <DeleteAccount server={status.server} onDeleted={onChanged} onCancel={() => setPanel("none")} />
+      )}
+      {panel === "move" && status.server && (
+        <MoveAccount
+          from={status.server}
+          deviceName={devices?.find((device) => device.current)?.name ?? "MixLab"}
+          onMoved={onChanged}
+          onCancel={() => {
+            setPanel("none");
+            loadFreeze();
+          }}
+        />
       )}
 
       <div className={settings.section}>

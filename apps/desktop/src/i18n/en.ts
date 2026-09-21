@@ -347,6 +347,24 @@ const en = {
     frozen:
       "This account has been held still for a copy to another server since {{date}}. Nothing can sync until the copy ends.",
     thaw: "End the copy",
+    moveTitle: "Move to another server",
+    moveHint:
+      "Your account is copied to the new server unchanged, then you choose what happens to this one. While the copy runs, nothing can sync.",
+    moveTo: "New server",
+    moving: "Working",
+    moveCodeHint: "{{server}} sent a code to your address. Confirming it starts the copy.",
+    moveCopy: "Confirm and copy",
+    copying: "Copying",
+    moveCopied: "{{count}} records are on {{server}}, all of them checked. What should happen to the old account?",
+    moveEnd: "The old account",
+    moveDeleteOld: "Delete it",
+    moveKeepOld: "Keep it",
+    moveDeleteOldHint:
+      "Any machine still pointed at the old server is signed out today, so you notice it. This is the safer choice.",
+    moveKeepOldHint:
+      "The old account opens again. A machine still pointed at it goes on writing there, where no machine of yours reads.",
+    moveFinish: "Finish the move",
+    moveAbandon: "Stop the move",
   },
 };
 
