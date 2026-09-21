@@ -8,6 +8,7 @@ import { rememberServer } from "../../../sync/servers";
 import AccountView from "./AccountView";
 import ForgotPassword from "./ForgotPassword";
 import RecoveryKey from "./RecoveryKey";
+import SelfHosting from "./SelfHosting";
 import SignInForm from "./SignInForm";
 import VerifyCode from "./VerifyCode";
 
@@ -19,10 +20,10 @@ type Step =
   | { kind: "forgot"; server: string; access: string | null; email: string };
 
 /**
- * The Sync pane. Which of four things it shows is decided by Rust's status and by how far sign-up
+ * The Sync pane's screen. Which of four things it shows is decided by Rust's status and by how far sign-up
  * has got: signed in, the recovery key, the letter's code, or the form.
  */
-function SyncSection() {
+function SyncScreen() {
   const { t } = useTranslation();
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [step, setStep] = useState<Step>({ kind: "form" });
@@ -109,6 +110,19 @@ function SyncSection() {
         setStep({ kind: "recovery", key, email });
       }}
     />
+  );
+}
+
+/**
+ * The Sync pane: the screen for where sign-in has got to, then the self-hosting line. The line sits
+ * outside the screen so that no state, an error included, can leave it out.
+ */
+function SyncSection() {
+  return (
+    <>
+      <SyncScreen />
+      <SelfHosting />
+    </>
   );
 }
 

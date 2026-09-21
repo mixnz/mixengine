@@ -17,3 +17,11 @@ import type { Language } from "../i18n";
 export function privacyPolicyUrl(lang: Language): string {
   return `https://mixnz.github.io/mixlab/${lang}/privacy/`;
 }
+
+/**
+ * Running your own sync server, on Cloudflare Workers or in a Docker container: a page of the
+ * handbook (`docs/guide/<lang>/self-hosting.md`), opened from the bottom of the Sync pane.
+ */
+export function selfHostingUrl(lang: Language): string {
+  return `https://mixnz.github.io/mixlab/${lang}/self-hosting/`;
+}
