@@ -4,6 +4,7 @@ import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import { requestSync } from "../../../sync";
 import { syncDeviceName, syncStatus, type SyncStatus } from "../../../sync/api";
+import { rememberServer } from "../../../sync/servers";
 import AccountView from "./AccountView";
 import ForgotPassword from "./ForgotPassword";
 import RecoveryKey from "./RecoveryKey";
@@ -36,6 +37,13 @@ function SyncSection() {
       .catch((error: unknown) => setProblem(errorMessage(t, error)));
   }, [t]);
   useEffect(refresh, [refresh]);
+
+  /* The server this machine is signed in to is the one the form offers after signing out —
+     whichever way it got here: the form, a recovered password, or a move, which never passes
+     through the form at all. */
+  useEffect(() => {
+    if (status?.signedIn && status.server) rememberServer(localStorage, status.server);
+  }, [status]);
 
   useEffect(() => {
     void syncDeviceName()
