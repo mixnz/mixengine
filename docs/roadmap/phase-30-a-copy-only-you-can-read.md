@@ -238,6 +238,17 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       (Cloudflare Workers, the container image), then how to point MixLab at the result, with the
       READMEs linked for everything else. `SyncSection` renders its screen and then `SelfHosting`,
       so the line shows in every state, an error included.
+- [x] **T177k** Sync a person can see: the Settings button turns while sync runs, the account row
+      has Sync now and says when the last sync was or why it failed, and alt-tabbing stops asking
+      the server for anything.
+
+      **Done.** Focus pulls only when the last full run is a minute old (`FOCUS_PULL_MS`); inside
+      that it pushes, which costs no request when nothing changed, as `SyncState::push` returns
+      before any socket. `requestSync` now has a trigger of its own that always pulls. The loop
+      reports each run to `shell/sync/activity.ts`, which shows a spinner only after 200ms and holds
+      it 600ms, keeps the last good full run's time and the last failure. `Icon` has a `spinning`
+      prop, so the Settings button and the Sync entry of its nav turn without a fifth hand-written
+      spin.
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the

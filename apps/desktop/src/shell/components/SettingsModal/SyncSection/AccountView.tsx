@@ -19,6 +19,7 @@ import {
   type SyncFreeze,
   type SyncStatus,
 } from "../../../sync/api";
+import { syncedAgo, useSyncActivity } from "../../../sync/activity";
 import { readEnabled, toggleRow } from "../../../sync/enabled";
 import { clearReplaced, onReplacedChange, replacedCounts } from "../../../sync/replaced";
 import settings from "../SettingsModal.module.css";
@@ -46,6 +47,13 @@ function codeOf(error: unknown): string | undefined {
  */
 function AccountView({ status, onChanged }: Props) {
   const { t, lang } = useTranslation();
+  const activity = useSyncActivity();
+  // "2 minutes ago" goes stale on its own, so the line is redrawn every half minute.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
   const [enabled, setEnabledIds] = useState(() => readEnabled(localStorage));
   const [replaced, setReplaced] = useState(replacedCounts);
   const [devices, setDevices] = useState<SyncDevice[] | null>(null);
@@ -138,6 +146,14 @@ function AccountView({ status, onChanged }: Props) {
     }
   }
 
+  let lastSync: string | null = null;
+  if (activity.lastError !== undefined) {
+    lastSync = t("sync.syncFailed", { message: errorMessage(t, activity.lastError) });
+  } else if (activity.lastSyncedAt !== null) {
+    const ago = syncedAgo(activity.lastSyncedAt, now, lang);
+    lastSync = ago === null ? t("sync.syncedJustNow") : t("sync.syncedAgo", { when: ago });
+  }
+
   return (
     <>
       <div className={settings.section}>
@@ -152,10 +168,20 @@ function AccountView({ status, onChanged }: Props) {
             <span className={`${settings.updateStatus} ${styles.oneLine}`} title={status.server ?? undefined}>
               {status.server}
             </span>
+            {lastSync !== null && (
+              <span className={`${settings.updateStatus} ${styles.oneLine}`} title={lastSync}>
+                {lastSync}
+              </span>
+            )}
           </div>
-          <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
-            {t("sync.signOut")}
-          </Button>
+          <div className={styles.row}>
+            <Button size="small" busy={activity.syncing ? t("sync.syncing") : undefined} onClick={requestSync}>
+              {t("sync.syncNow")}
+            </Button>
+            <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
+              {t("sync.signOut")}
+            </Button>
+          </div>
         </div>
         {panel === "none" && (
           <div className={styles.actions}>
