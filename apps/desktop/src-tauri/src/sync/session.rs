@@ -42,6 +42,9 @@ pub struct Status {
     pub server: Option<String>,
     pub email: Option<String>,
     pub device_id: Option<String>,
+    /// The day the server said it closes (`/v1/capabilities`), once this run has opened a session.
+    /// Advisory: nothing stops working on it (D4b).
+    pub closing_on: Option<i64>,
     /// The address a code was sent to, while registration waits for it.
     pub verifying: Option<String>,
 }
@@ -166,6 +169,10 @@ impl SyncState {
             server: saved.map(|saved| saved.server.clone()),
             email: saved.map(|saved| saved.email.clone()),
             device_id: saved.map(|saved| saved.device_id.clone()),
+            closing_on: inner
+                .session
+                .as_ref()
+                .and_then(|session| session.limits.closing_on),
             verifying: inner
                 .registering
                 .as_ref()

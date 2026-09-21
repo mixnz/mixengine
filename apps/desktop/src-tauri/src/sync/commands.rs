@@ -8,6 +8,25 @@ use super::lend::Item;
 use super::session::{PulledPage, PushedChanges, Status, SyncState};
 use crate::error::AppError;
 
+/// What this machine calls itself — offered as its name in the device list, and changed by the
+/// person if they like. `MixLab` when the operating system has nothing to say.
+pub(crate) fn device_name() -> String {
+    let name = gethostname::gethostname()
+        .to_string_lossy()
+        .trim()
+        .to_owned();
+    if name.is_empty() {
+        "MixLab".to_owned()
+    } else {
+        name
+    }
+}
+
+#[tauri::command]
+pub fn sync_device_name() -> String {
+    device_name()
+}
+
 #[tauri::command]
 pub async fn sync_status(state: State<'_, SyncState>) -> Result<Status, AppError> {
     state.status().await
@@ -98,4 +117,16 @@ pub async fn sync_commit_push(
     token: String,
 ) -> Result<(), AppError> {
     state.commit_push(&collection, &token).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Offered as the machine's name in the device list, so it is never empty: a blank name is the
+    /// one the server refuses (`invalid-device-name`).
+    #[test]
+    fn a_machine_always_has_a_name() {
+        assert!(!device_name().trim().is_empty());
+    }
 }

@@ -33,6 +33,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::login_item::login_item_status,
         crate::login_item::login_item_set,
         // ── sync ──
+        crate::sync::commands::sync_device_name,
         crate::sync::commands::sync_status,
         crate::sync::commands::sync_register,
         crate::sync::commands::sync_verify,

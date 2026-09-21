@@ -70,6 +70,9 @@ rust_decimal = "1.36"
 russh = { version = "0.62.5", default-features = false, features = ["ring", "flate2", "rsa"] }
 tauri-plugin-store = "2.4.4"
 uuid = { version = "1.24.0", features = ["v4"] }
+# The name a machine offers for itself when it signs in to sync (T177e2). Already in `Cargo.lock`
+# through the tree, so this names it rather than adding it.
+gethostname = "1"
 # Reads the `mixdb://connect?…` URL another program starts MixDB with (`modules/db/handoff.rs`).
 # Already in the tree through the drivers; named here so the parse is ours to call.
 url = "2"
