@@ -83,6 +83,43 @@ pub struct Refreshed {
     pub expires_in: i64,
 }
 
+/// `POST /v1/auth/password` (D6 case 1): the current verifier and the new keys. Every other
+/// machine is signed out by it; this one is not.
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PasswordChange {
+    pub a: String,
+    pub new_a: String,
+    pub new_salt_account: String,
+    pub new_wrapped_mk_password: String,
+}
+
+/// The keys a completed reset installs — after a code (case 3) or a ticket (case 2). Every field
+/// is base64.
+#[derive(Clone)]
+pub struct NewKeys {
+    pub a: String,
+    pub salt_account: String,
+    pub wrapped_mk_password: String,
+    pub wrapped_mk_recovery: String,
+}
+
+/// Case 2's first answer: the code is spent, and this is what it earned.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Opened {
+    pub wrapped_mk_recovery: String,
+    pub ticket: String,
+    pub expires_in: i64,
+}
+
+/// A completed reset: how many records it deleted — every one in case 3, none in case 2.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Reset {
+    pub records_deleted: u64,
+}
+
 /// One row of `GET /v1/devices`, handed to the account screen as it came.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,6 +237,71 @@ impl Account {
             .await
             .map(drop)
     }
+
+    pub async fn change_password(
+        &self,
+        access_token: &str,
+        change: &PasswordChange,
+    ) -> Result<(), AppError> {
+        let request = self
+            .post("/v1/auth/password", change)?
+            .bearer_auth(access_token);
+        answer::<Empty>(send(request).await?, refusal)
+            .await
+            .map(drop)
+    }
+
+    /// Ask for the letter. Answers the same whether or not the address has an account.
+    pub async fn ask_reset(&self, email: &str) -> Result<(), AppError> {
+        let request = self.post("/v1/auth/reset", &json!({ "email": email }))?;
+        answer::<Empty>(send(request).await?, reset_refusal)
+            .await
+            .map(drop)
+    }
+
+    /// Case 2, first request: spend the code for the wrapped recovery copy and a ticket.
+    pub async fn open_reset(&self, email: &str, code: &str) -> Result<Opened, AppError> {
+        let request = self.post("/v1/auth/reset", &json!({ "email": email, "token": code }))?;
+        answer(send(request).await?, reset_refusal).await
+    }
+
+    /// Case 2, second request: the ticket and the new keys. The records stay.
+    pub async fn reset_with_ticket(
+        &self,
+        email: &str,
+        ticket: &str,
+        keys: &NewKeys,
+    ) -> Result<Reset, AppError> {
+        let body = json!({
+            "email": email, "ticket": ticket, "a": keys.a, "saltAccount": keys.salt_account,
+            "wrappedMkPassword": keys.wrapped_mk_password,
+            "wrappedMkRecovery": keys.wrapped_mk_recovery,
+        });
+        answer(
+            send(self.post("/v1/auth/reset", &body)?).await?,
+            reset_refusal,
+        )
+        .await
+    }
+
+    /// Case 3: the code and the new keys in one request. **Every record is deleted.**
+    pub async fn reset_with_code(
+        &self,
+        email: &str,
+        code: &str,
+        keys: &NewKeys,
+    ) -> Result<Reset, AppError> {
+        let body = json!({
+            "email": email, "token": code, "a": keys.a, "saltAccount": keys.salt_account,
+            "wrappedMkPassword": keys.wrapped_mk_password,
+            "wrappedMkRecovery": keys.wrapped_mk_recovery,
+        });
+        answer(
+            send(self.post("/v1/auth/reset", &body)?).await?,
+            reset_refusal,
+        )
+        .await
+    }
 }
 
 async fn send(request: RequestBuilder) -> Result<Response, AppError> {
@@ -229,6 +331,15 @@ fn success<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, AppError> {
         bytes
     };
     serde_json::from_slice(bytes).map_err(|_| err!("error.syncServerAnswerUnreadable"))
+}
+
+/// `reset` has no session: `invalid-code` is the letter's code, `invalid-token` the ticket.
+fn reset_refusal(body: &ErrorBody) -> AppError {
+    match body.error.code.as_str() {
+        "invalid-code" => err!("error.syncWrongCode"),
+        "invalid-token" => err!("error.syncResetExpired"),
+        _ => refusal(body),
+    }
 }
 
 /// The account's own refusals, then everything `transport` already has a sentence for.
@@ -317,5 +428,48 @@ mod tests {
         .unwrap();
         assert!(device.current);
         assert_eq!(device.last_seen_at, 2);
+    }
+
+    #[test]
+    fn a_password_change_names_what_the_protocol_names() {
+        let change = PasswordChange {
+            a: "a".into(),
+            new_a: "n".into(),
+            new_salt_account: "s".into(),
+            new_wrapped_mk_password: "w".into(),
+        };
+        assert_eq!(
+            serde_json::to_value(&change).unwrap(),
+            json!({ "a": "a", "newA": "n", "newSaltAccount": "s", "newWrappedMkPassword": "w" })
+        );
+    }
+
+    /// On `reset`, `invalid-code` is the letter's code and `invalid-token` is the ticket: neither
+    /// is a session, which this route does not have.
+    #[test]
+    fn a_reset_s_refusals_are_about_the_code_and_the_ticket() {
+        assert_eq!(
+            reset_refusal(&body("invalid-code")).code,
+            "error.syncWrongCode"
+        );
+        assert_eq!(
+            reset_refusal(&body("invalid-token")).code,
+            "error.syncResetExpired"
+        );
+        assert_eq!(
+            reset_refusal(&body("too-many-attempts")).code,
+            "error.syncTooManyRequests"
+        );
+    }
+
+    #[test]
+    fn an_opened_reset_reads_as_the_server_sends_it() {
+        let opened: Opened = serde_json::from_value(json!({
+            "wrappedMkRecovery": "w", "ticket": "t", "expiresIn": 600
+        }))
+        .unwrap();
+        assert_eq!(opened.ticket, "t");
+        let reset: Reset = serde_json::from_value(json!({ "recordsDeleted": 214 })).unwrap();
+        assert_eq!(reset.records_deleted, 214);
     }
 }

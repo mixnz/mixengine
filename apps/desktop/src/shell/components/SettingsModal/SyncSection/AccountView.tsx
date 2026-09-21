@@ -12,6 +12,7 @@ import { syncDevices, syncLogout, syncRevokeDevice, type SyncDevice, type SyncSt
 import { readEnabled, setEnabled } from "../../../sync/enabled";
 import { clearReplaced, onReplacedChange, replacedCounts } from "../../../sync/replaced";
 import settings from "../SettingsModal.module.css";
+import ChangePassword from "./ChangePassword";
 import styles from "./SyncSection.module.css";
 
 interface Props {
@@ -38,6 +39,8 @@ function AccountView({ status, onChanged }: Props) {
   const [devices, setDevices] = useState<SyncDevice[] | null>(null);
   const [revoking, setRevoking] = useState<SyncDevice | null>(null);
   const [busy, setBusy] = useState(false);
+  const [changing, setChanging] = useState(false);
+  const [changed, setChanged] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
 
   useEffect(() => onReplacedChange(() => setReplaced(replacedCounts())), []);
@@ -96,11 +99,19 @@ function AccountView({ status, onChanged }: Props) {
             <span className={settings.updateVersion}>{t("sync.signedInAs", { email: status.email ?? "" })}</span>
             <span className={settings.updateStatus}>{status.server}</span>
           </div>
-          <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
-            {t("sync.signOut")}
-          </Button>
+          <div className={styles.row}>
+            {!changing && (
+              <Button size="small" variant="ghost" onClick={() => setChanging(true)}>
+                {t("sync.changePassword")}
+              </Button>
+            )}
+            <Button size="small" busy={busy ? t("sync.signingOut") : undefined} onClick={() => void signOut()}>
+              {t("sync.signOut")}
+            </Button>
+          </div>
         </div>
         <p className={settings.hint}>{t("sync.signOutHint")}</p>
+        {changed && <NoticeBanner message={t("sync.passwordChanged")} onDismiss={() => setChanged(false)} />}
         {status.closingOn !== null && <NoticeBanner message={t("sync.closing", { date: day(status.closingOn) })} />}
         {[...replaced].map(([id, count]) => (
           <NoticeBanner
@@ -111,6 +122,17 @@ function AccountView({ status, onChanged }: Props) {
         ))}
         {problem && <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />}
       </div>
+
+      {changing && (
+        <ChangePassword
+          onDone={() => {
+            setChanging(false);
+            setChanged(true);
+            loadDevices();
+          }}
+          onCancel={() => setChanging(false)}
+        />
+      )}
 
       <div className={settings.section}>
         <span className={settings.sectionLabel}>{t("sync.collections")}</span>

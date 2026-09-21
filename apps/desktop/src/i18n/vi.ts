@@ -219,6 +219,9 @@ const vi: SharedDict = {
     syncNothingToVerify: "Không có lần đăng ký nào đang chờ mã. Hãy đăng ký lại.",
     syncPageStale: "Trạng thái đồng bộ đã đổi trong lúc áp dụng. Đồng bộ sẽ chạy lại.",
     syncArgonUnsupported: "Tài khoản này được tạo bởi một ứng dụng khác mà MixLab không đăng nhập thay được.",
+    syncResetExpired: "Quá trình đặt lại đã quá lâu. Hãy xin mã mới.",
+    syncRecoveryKeyWrong: "Khoá khôi phục này không mở được tài khoản.",
+    syncNothingToReset: "Không có lần đặt lại mật khẩu nào đang diễn ra. Hãy bắt đầu lại.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng
@@ -289,6 +292,27 @@ const vi: SharedDict = {
     signUp: "Tạo tài khoản",
     signingIn: "Đang đăng nhập",
     signingUp: "Đang tạo tài khoản",
+    changePassword: "Đổi mật khẩu",
+    currentPassword: "Mật khẩu hiện tại",
+    newPassword: "Mật khẩu mới",
+    changePasswordHint: "Các máy khác sẽ bị đăng xuất và hỏi mật khẩu mới. Dữ liệu của bạn giữ nguyên.",
+    passwordChanged: "Đã đổi mật khẩu. Các máy khác đã bị đăng xuất và sẽ hỏi mật khẩu mới.",
+    saving: "Đang lưu",
+    forgot: "Quên mật khẩu?",
+    forgotTitle: "Đặt lại mật khẩu",
+    forgotHint:
+      "Một mã sẽ được gửi tới địa chỉ của bạn trên {{server}}. Có khoá khôi phục thì dữ liệu được giữ; không có thì dữ liệu bị xoá.",
+    sendCode: "Gửi mã",
+    sendingCode: "Đang gửi",
+    haveKey: "Tôi có khoá khôi phục",
+    noKey: "Tôi không có",
+    recoveryKey: "Khoá khôi phục",
+    resetDeletesEverything:
+      "Không có khoá khôi phục thì không gì đọc được dữ liệu của bạn nữa, nên đặt lại sẽ xoá mọi thứ tài khoản này đang giữ trên máy chủ. Những gì trên các máy của bạn vẫn nằm lại đó.",
+    resetKeep: "Đặt lại mật khẩu",
+    resetStartOver: "Xoá hết và bắt đầu lại",
+    resetting: "Đang đặt lại",
+    finishTitle: "Bước cuối",
   },
 };
 

@@ -236,6 +236,9 @@ const en = {
     syncNothingToVerify: "There is no sign-up waiting for a code. Sign up again.",
     syncPageStale: "Sync changed while this was being applied. It will run again.",
     syncArgonUnsupported: "This account was made by a client MixLab cannot sign in for.",
+    syncResetExpired: "That reset took too long. Ask for a new code.",
+    syncRecoveryKeyWrong: "That recovery key does not open this account.",
+    syncNothingToReset: "There is no password reset under way. Start again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a
@@ -311,6 +314,27 @@ const en = {
     signUp: "Create an account",
     signingIn: "Signing in",
     signingUp: "Creating the account",
+    changePassword: "Change password",
+    currentPassword: "Current password",
+    newPassword: "New password",
+    changePasswordHint: "Your other machines are signed out and will ask for the new one. Your data stays as it is.",
+    passwordChanged: "Password changed. Your other machines were signed out and will ask for the new one.",
+    saving: "Saving",
+    forgot: "Forgot your password?",
+    forgotTitle: "Reset your password",
+    forgotHint:
+      "A code will be sent to your address at {{server}}. With your recovery key your data stays; without it, it is deleted.",
+    sendCode: "Send code",
+    sendingCode: "Sending",
+    haveKey: "I have my recovery key",
+    noKey: "I don't have it",
+    recoveryKey: "Recovery key",
+    resetDeletesEverything:
+      "Without the recovery key nothing can read your data any more, so resetting deletes everything this account holds on the server. What is on your machines stays there.",
+    resetKeep: "Reset password",
+    resetStartOver: "Delete everything and start over",
+    resetting: "Resetting",
+    finishTitle: "Last step",
   },
 };
 

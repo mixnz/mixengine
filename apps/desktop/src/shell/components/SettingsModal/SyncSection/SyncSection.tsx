@@ -5,12 +5,17 @@ import { useTranslation } from "../../../../i18n";
 import { requestSync } from "../../../sync";
 import { syncDeviceName, syncStatus, type SyncStatus } from "../../../sync/api";
 import AccountView from "./AccountView";
+import ForgotPassword from "./ForgotPassword";
 import RecoveryKey from "./RecoveryKey";
 import SignInForm from "./SignInForm";
 import VerifyCode from "./VerifyCode";
 
 /** Where sign-up has got to. Lives as long as the pane: closing Settings drops the key on purpose. */
-type Step = { kind: "form" } | { kind: "recovery"; key: string; email: string } | { kind: "code"; email: string };
+type Step =
+  | { kind: "form" }
+  | { kind: "recovery"; key: string; email: string }
+  | { kind: "code"; email: string }
+  | { kind: "forgot"; server: string; access: string | null; email: string };
 
 /**
  * The Sync pane. Which of four things it shows is decided by Rust's status and by how far sign-up
@@ -52,6 +57,20 @@ function SyncSection() {
     return <RecoveryKey recoveryKey={step.key} onDone={() => setStep({ kind: "code", email: step.email })} />;
   }
 
+  if (step.kind === "forgot") {
+    return (
+      <ForgotPassword
+        server={step.server}
+        access={step.access}
+        initialEmail={step.email}
+        deviceName={deviceName}
+        onDeviceNameChange={setDeviceName}
+        onSignedIn={signedIn}
+        onCancel={() => setStep({ kind: "form" })}
+      />
+    );
+  }
+
   const waiting = step.kind === "code" || (status.verifying !== null && !startedOver);
   if (waiting) {
     return (
@@ -74,6 +93,7 @@ function SyncSection() {
       deviceName={deviceName}
       onDeviceNameChange={setDeviceName}
       onSignedIn={signedIn}
+      onForgot={(server, access, email) => setStep({ kind: "forgot", server, access, email })}
       onRegistered={(key, email) => {
         setStartedOver(false);
         setStep({ kind: "recovery", key, email });

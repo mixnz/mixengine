@@ -93,3 +93,37 @@ export function syncDevices(): Promise<SyncDevice[]> {
 export function syncRevokeDevice(id: string): Promise<void> {
   return invoke("sync_revoke_device", { id });
 }
+
+export function syncChangePassword(current: string, next: string): Promise<void> {
+  return invoke("sync_change_password", { current, next });
+}
+
+/** Asks for the reset letter. Resolves the same whether or not the address has an account. */
+export function syncResetAsk(server: string, access: string | null, email: string): Promise<void> {
+  return invoke("sync_reset_ask", { server, access, email });
+}
+
+/** D6 case 2, first step: spends the code. Rust holds the ticket for {@link syncResetKeep}. */
+export function syncResetOpen(server: string, access: string | null, email: string, code: string): Promise<void> {
+  return invoke("sync_reset_open", { server, access, email, code });
+}
+
+/** D6 case 2: the recovery key keeps the records; signs this machine in. */
+export function syncResetKeep(recoveryKey: string, password: string, deviceName: string): Promise<SyncStatus> {
+  return invoke("sync_reset_keep", { recoveryKey, password, deviceName });
+}
+
+/** D6 case 3, before anything is deleted: resolves to the new recovery key, to be shown once. */
+export function syncResetPrepare(
+  server: string,
+  access: string | null,
+  email: string,
+  password: string,
+): Promise<string> {
+  return invoke("sync_reset_prepare", { server, access, email, password });
+}
+
+/** D6 case 3: spends the code, which deletes every record, and signs in under the new key. */
+export function syncResetStartOver(code: string, deviceName: string): Promise<SyncStatus> {
+  return invoke("sync_reset_start_over", { code, deviceName });
+}

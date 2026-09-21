@@ -45,6 +45,12 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::sync::commands::sync_commit_pull,
         crate::sync::commands::sync_push,
         crate::sync::commands::sync_commit_push,
+        crate::sync::commands::sync_change_password,
+        crate::sync::commands::sync_reset_ask,
+        crate::sync::commands::sync_reset_open,
+        crate::sync::commands::sync_reset_keep,
+        crate::sync::commands::sync_reset_prepare,
+        crate::sync::commands::sync_reset_start_over,
         // ── db ──
         db::commands::connect_db,
         db::commands::disconnect_db,
