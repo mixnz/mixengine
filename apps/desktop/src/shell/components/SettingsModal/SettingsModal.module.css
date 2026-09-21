@@ -189,14 +189,14 @@
   outline: 2px solid var(--accent-swatch);
 }
 
-/* A line height in whole pixels, not `1.5`: at `--text-sm`'s 12.5px that was 18.75px a line, so
-   every hint put whatever came after it on a fractional offset. At a 125% display scale a checkbox
-   there was repainted a device pixel off on hover, its top edge clipped, once the pane was scrolled
-   to the bottom. */
+/* `--leading-sm`, not `1.5`: at `--text-sm`'s 12.5px that was 18.75px a line, so every hint put
+   whatever came after it on a fractional offset. At a 125% display scale a checkbox there was
+   repainted a device pixel off on hover, its top edge clipped, once the pane was scrolled to the
+   bottom. */
 .hint {
   margin: 0;
   font-size: var(--text-sm);
-  line-height: 20px;
+  line-height: var(--leading-sm);
   color: var(--text-muted);
 }
 
