@@ -11,12 +11,17 @@
 //!   cargo test --locked --test sync_live -- --ignored
 //! ```
 
+use std::sync::Arc;
+
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri_app_lib::sync::account::{Account, Argon, Registration};
 use tauri_app_lib::sync::crypto::{self, RecordAddress, Sealed};
 use tauri_app_lib::sync::engine::{self, Change, Outgoing};
+use tauri_app_lib::sync::lend::Item;
+use tauri_app_lib::sync::saved::InMemory;
+use tauri_app_lib::sync::session::SyncState;
 use tauri_app_lib::sync::store::Store;
 use tauri_app_lib::sync::transport::Transport;
 use tauri_app_lib::sync::wire::WireRecord;
@@ -321,4 +326,59 @@ async fn a_device_list_names_this_machine_and_a_revoke_ends_it() {
         cut.err().map(|error| error.code),
         Some("error.syncSignedOut")
     );
+}
+
+/// Sign up, confirm, sign in on a second machine, and carry an item across — the shell's calls,
+/// without the shell. The last push says nothing changed, which is the proof that the laptop
+/// recorded what it wrote rather than what it merely received.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn the_client_signs_up_signs_in_and_carries_an_item() {
+    let dir = tempfile::tempdir().unwrap();
+    let email = format!("desktop-{}@example.invalid", uuid::Uuid::new_v4().simple());
+    let desktop = SyncState::new(
+        Arc::new(InMemory::default()),
+        Ok(dir.path().join("desktop.db")),
+    );
+    let laptop = SyncState::new(
+        Arc::new(InMemory::default()),
+        Ok(dir.path().join("laptop.db")),
+    );
+
+    let recovery = desktop
+        .register(&server(), None, &email, "correct horse".into())
+        .await
+        .unwrap();
+    assert_eq!(recovery.split('-').count(), 13);
+    let status = desktop
+        .verify(&letter(&email, "verification").await, "desktop")
+        .await
+        .unwrap();
+    assert!(status.signed_in);
+    laptop
+        .login(&server(), None, &email, "correct horse".into(), "laptop")
+        .await
+        .unwrap();
+
+    let snippet = Item {
+        id: "a-snippet".into(),
+        data: json!({ "sql": "select 1" }),
+    };
+    let pushed = desktop
+        .push("query-snippets", vec![snippet.clone()])
+        .await
+        .unwrap();
+    assert_eq!(pushed.accepted, 1);
+
+    let page = laptop.pull_page("query-snippets").await.unwrap();
+    assert_eq!(page.changes.upserts, vec![snippet.clone()]);
+    laptop
+        .commit_pull("query-snippets", &page.token)
+        .await
+        .unwrap();
+    let after = laptop.push("query-snippets", vec![snippet]).await.unwrap();
+    assert_eq!(after.accepted, 0);
+    assert_eq!(after.token, None);
+
+    assert_eq!(laptop.devices().await.unwrap().len(), 2);
 }

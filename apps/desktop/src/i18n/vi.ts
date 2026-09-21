@@ -215,6 +215,10 @@ const vi: SharedDict = {
     syncLetterNotSent: "Không gửi được thư xác nhận nên tài khoản chưa được tạo. Hãy thử lại sau.",
     syncWrongCode: "Mã không đúng, đã dùng hoặc đã hết hạn.",
     syncSavedUnreadable: "Không đọc được thông tin đăng nhập đồng bộ đã lưu. Hãy đăng nhập lại.",
+    syncNotSignedIn: "Chưa đăng nhập đồng bộ.",
+    syncNothingToVerify: "Không có lần đăng ký nào đang chờ mã. Hãy đăng ký lại.",
+    syncPageStale: "Trạng thái đồng bộ đã đổi trong lúc áp dụng. Đồng bộ sẽ chạy lại.",
+    syncArgonUnsupported: "Tài khoản này được tạo bởi một ứng dụng khác mà MixLab không đăng nhập thay được.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng
