@@ -3,7 +3,7 @@
 
 use tauri::State;
 
-use super::account::{Device, Freeze};
+use super::account::{Account, Device, Freeze};
 use super::lend::Item;
 use super::session::{Moved, PulledPage, PushedChanges, Status, SyncState};
 use crate::error::AppError;
@@ -235,6 +235,24 @@ pub async fn sync_move_finish(
 #[tauri::command]
 pub async fn sync_move_abandon(state: State<'_, SyncState>) -> Result<(), AppError> {
     state.move_abandon().await
+}
+
+/// The signed-in server's closing date, if it has announced one.
+#[tauri::command]
+pub async fn sync_closing_here(state: State<'_, SyncState>) -> Result<Option<i64>, AppError> {
+    state.closing_on().await
+}
+
+/// Any server's closing date, asked before signing in to it.
+#[tauri::command]
+pub async fn sync_server_closing(
+    server: String,
+    access: Option<String>,
+) -> Result<Option<i64>, AppError> {
+    Ok(Account::new(&server, access.as_deref())?
+        .capabilities()
+        .await?
+        .closing_on)
 }
 
 #[cfg(test)]

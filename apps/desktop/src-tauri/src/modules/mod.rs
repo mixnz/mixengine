@@ -58,6 +58,8 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::sync::commands::sync_move_confirm,
         crate::sync::commands::sync_move_finish,
         crate::sync::commands::sync_move_abandon,
+        crate::sync::commands::sync_closing_here,
+        crate::sync::commands::sync_server_closing,
         // ── db ──
         db::commands::connect_db,
         db::commands::disconnect_db,

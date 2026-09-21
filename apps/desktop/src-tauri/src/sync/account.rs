@@ -18,7 +18,7 @@ use serde_json::json;
 
 use super::crypto::{ARGON_M_COST, ARGON_P_COST, ARGON_T_COST};
 use super::transport::{self, unreachable};
-use super::wire::ErrorBody;
+use super::wire::{Capabilities, ErrorBody};
 use crate::error::AppError;
 
 /// Argon2id's cost, as the server stores it for an account.
@@ -327,6 +327,17 @@ impl Account {
             .post("/v1/account/freeze", &json!({ "state": state }))?
             .bearer_auth(access_token);
         answer(send(request).await?, refusal).await
+    }
+
+    /// `GET /v1/capabilities`, before anybody signs in: what the sign-in form asks a server so it
+    /// can say, before a registration, that the server has announced its end. Needs no session;
+    /// a closed server still wants its access token.
+    pub async fn capabilities(&self) -> Result<Capabilities, AppError> {
+        answer(
+            send(self.request(Method::GET, "/v1/capabilities")).await?,
+            refusal,
+        )
+        .await
     }
 
     /// Delete the account and every record in it. **Re-proves the password**: a session alone is
