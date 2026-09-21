@@ -809,29 +809,33 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
             connecting={connecting}
             tunnelStatus={tunnelStatus}
             focusPassword={focusPassword}
+            notices={
+              <>
+                {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
+                {stale === "changed" && (
+                  <div className="saved-elsewhere">
+                    <NoticeBanner message={t("connection.changedElsewhere")} />
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        const entry = savedConnections.find((c) => c.id === editingId);
+                        if (entry) reloadSaved(entry);
+                      }}
+                    >
+                      {t("connection.loadNewVersion")}
+                    </Button>
+                  </div>
+                )}
+                {stale === "removed" && (
+                  <NoticeBanner message={t("connection.removedElsewhere")} onDismiss={() => setStale(null)} />
+                )}
+              </>
+            }
             onSave={saveConnection}
             onSaveAsNew={saveConnectionAsNew}
             onConnect={() => connect()}
             onTestTunnel={testTunnel}
           />
-          {stale === "changed" && (
-            <div className="saved-elsewhere">
-              <NoticeBanner message={t("connection.changedElsewhere")} />
-              <Button
-                size="small"
-                onClick={() => {
-                  const entry = savedConnections.find((c) => c.id === editingId);
-                  if (entry) reloadSaved(entry);
-                }}
-              >
-                {t("connection.loadNewVersion")}
-              </Button>
-            </div>
-          )}
-          {stale === "removed" && (
-            <NoticeBanner message={t("connection.removedElsewhere")} onDismiss={() => setStale(null)} />
-          )}
-          {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
         </section>
         {contextMenu && (
           <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu}>

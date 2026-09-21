@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import Select from "../../../../components/Select";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
@@ -108,6 +108,10 @@ interface Props {
    *  that arrived with everything but the password. A counter rather than a flag, so asking twice
    *  moves it twice. `0`, or absent, asks nothing. */
   focusPassword?: number;
+  /** The tab's banners — a failed connection, a saved entry changed elsewhere. Drawn right under
+   *  the header, beside the Connect button that caused them, rather than below every card where
+   *  nobody who just pressed it would see them. */
+  notices?: ReactNode;
   onSave: () => void;
   onSaveAsNew: () => void;
   onConnect: () => void;
@@ -126,6 +130,7 @@ function ConnectionForm({
   connecting,
   tunnelStatus,
   focusPassword = 0,
+  notices,
   onSave: saveConnection,
   onSaveAsNew: saveConnectionAsNew,
   onConnect: connect,
@@ -272,6 +277,8 @@ function ConnectionForm({
           </Button>
         </div>
       </header>
+
+      {notices}
 
       <div className="editor-grid">
         <div className="editor-column">
