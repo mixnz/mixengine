@@ -368,6 +368,7 @@ const en = {
     closingSoon: "{{server}} closes in {{days}} days, on {{date}}. Move your account before then.",
     closingNow: "{{server}} was to close on {{date}}. Move your account now, while it still answers.",
     openSync: "Open Sync",
+    serverClosing: "{{server}} has announced it closes on {{date}}. An account there will have to move before then.",
   },
 };
 

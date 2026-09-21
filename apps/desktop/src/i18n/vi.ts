@@ -346,6 +346,7 @@ const vi: SharedDict = {
     closingSoon: "{{server}} sẽ đóng sau {{days}} ngày, vào {{date}}. Hãy chuyển tài khoản trước ngày đó.",
     closingNow: "{{server}} đã hẹn đóng vào {{date}}. Hãy chuyển tài khoản ngay, khi máy chủ còn trả lời.",
     openSync: "Mở Đồng bộ",
+    serverClosing: "{{server}} đã báo sẽ đóng vào {{date}}. Tài khoản ở đó sẽ phải chuyển đi trước ngày đó.",
   },
 };
 

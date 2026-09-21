@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Button from "../../../../components/Button";
 import Input from "../../../../components/Input";
+import NoticeBanner from "../../../../components/NoticeBanner";
 import SegmentedControl from "../../../../components/SegmentedControl";
 import Select from "../../../../components/Select";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
-import { syncLogin, syncRegister, type SyncStatus } from "../../../sync/api";
+import { syncLogin, syncRegister, syncServerClosing, type SyncStatus } from "../../../sync/api";
 import { addServer, DEFAULT_SERVER, lastServer, readServers, rememberServer, removeServer } from "../../../sync/servers";
 import settings from "../SettingsModal.module.css";
 import Field from "./Field";
@@ -33,7 +34,7 @@ interface Props {
  * is open, and a field nobody there needs is a field somebody fills with their password.
  */
 function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, onForgot }: Props) {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const [mode, setMode] = useState<Mode>("signIn");
   const [servers, setServers] = useState(() => readServers(localStorage));
   const [server, setServerState] = useState(() => lastServer(localStorage));
@@ -49,6 +50,24 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
   const [again, setAgain] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  /** The chosen server's announced end, asked before anybody signs in or registers there. */
+  const [serverClosing, setServerClosing] = useState<number | null>(null);
+  const token = server === DEFAULT_SERVER || access.trim() === "" ? null : access.trim();
+
+  useEffect(() => {
+    let current = true;
+    setServerClosing(null);
+    syncServerClosing(server, token)
+      .then((on) => {
+        if (current) setServerClosing(on);
+      })
+      // A server that cannot be asked — unreachable, or closed until its token is typed — is a
+      // question for signing in, which will say so in its own words.
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [server, token]);
 
   function add() {
     const result = addServer(localStorage, draft);
@@ -75,7 +94,6 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
     }
     setProblem(null);
     setBusy(true);
-    const token = server === DEFAULT_SERVER || access.trim() === "" ? null : access.trim();
     try {
       if (mode === "signIn") onSignedIn(await syncLogin(server, token, email.trim(), password, deviceName.trim()));
       else onRegistered(await syncRegister(server, token, email.trim(), password), email.trim());
@@ -169,6 +187,14 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
         )}
       </div>
 
+      {serverClosing !== null && (
+        <NoticeBanner
+          message={t("sync.serverClosing", {
+            server,
+            date: new Date(serverClosing * 1000).toLocaleDateString(lang),
+          })}
+        />
+      )}
       {server !== DEFAULT_SERVER && (
         <Field label={t("sync.access")} hint={t("sync.accessHint")}>
           <Input type="password" value={access} onChange={(event) => setAccess(event.target.value)} />
@@ -210,7 +236,7 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
           <Button
             variant="link"
             onClick={() =>
-              onForgot(server, server === DEFAULT_SERVER || access.trim() === "" ? null : access.trim(), email.trim())
+              onForgot(server, token, email.trim())
             }
           >
             {t("sync.forgot")}
