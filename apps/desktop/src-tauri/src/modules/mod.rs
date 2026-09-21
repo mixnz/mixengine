@@ -32,6 +32,18 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::tray::app_quit,
         crate::login_item::login_item_status,
         crate::login_item::login_item_set,
+        // ── sync ──
+        crate::sync::commands::sync_status,
+        crate::sync::commands::sync_register,
+        crate::sync::commands::sync_verify,
+        crate::sync::commands::sync_login,
+        crate::sync::commands::sync_logout,
+        crate::sync::commands::sync_devices,
+        crate::sync::commands::sync_revoke_device,
+        crate::sync::commands::sync_pull_page,
+        crate::sync::commands::sync_commit_pull,
+        crate::sync::commands::sync_push,
+        crate::sync::commands::sync_commit_push,
         // ── db ──
         db::commands::connect_db,
         db::commands::disconnect_db,

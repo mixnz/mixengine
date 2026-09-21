@@ -21,6 +21,7 @@
 
 pub mod account;
 pub mod chunk;
+pub mod commands;
 pub mod crypto;
 pub mod engine;
 pub mod lend;
