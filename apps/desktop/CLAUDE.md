@@ -114,6 +114,12 @@ src-tauri/src/       Rust backend
   Windows opens a black console window for the child, which flashes over the app and reads as
   malware to the user. See
   [docs/standards/desktop/spawning-processes.md](../../docs/standards/desktop/spawning-processes.md).
+- **On macOS a launch never asks for the Keychain password twice.** The Keychain asks once per
+  *item* for a build it does not recognise by signature — every dev rebuild, every update. So
+  everything MixLab keeps under service `MixLab` goes into the one `vault` item in
+  `src-tauri/src/secrets.rs`, never into an item beside it. Twice this has regressed (per-connection
+  entries, then sync's `sync-master-key`); `sync_and_the_connections_are_one_visit_to_the_store` is
+  the test that says so.
 - Commit messages need a `type(scope): message` prefix (see the global rules).
 - **Never link to a file under `docs/plans/`.** Those are local-only implementation
   plans, gitignored and absent on every other machine. Link to `docs/specs/` instead —
