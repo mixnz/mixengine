@@ -339,6 +339,14 @@ const en = {
     resetStartOver: "Delete everything and start over",
     resetting: "Resetting",
     finishTitle: "Last step",
+    deleteAccount: "Delete account",
+    deleteAccountWarning:
+      "This deletes your account on {{server}} and everything it holds there, and signs every machine out. What is on your machines stays there.",
+    deleteAccountAction: "Delete the account",
+    deleting: "Deleting",
+    frozen:
+      "This account has been held still for a copy to another server since {{date}}. Nothing can sync until the copy ends.",
+    thaw: "End the copy",
   },
 };
 

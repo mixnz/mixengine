@@ -317,6 +317,14 @@ const vi: SharedDict = {
     resetStartOver: "Xoá hết và bắt đầu lại",
     resetting: "Đang đặt lại",
     finishTitle: "Bước cuối",
+    deleteAccount: "Xoá tài khoản",
+    deleteAccountWarning:
+      "Thao tác này xoá tài khoản của bạn trên {{server}} cùng mọi thứ nó đang giữ ở đó, và đăng xuất mọi máy. Những gì trên các máy của bạn vẫn nằm lại đó.",
+    deleteAccountAction: "Xoá tài khoản",
+    deleting: "Đang xoá",
+    frozen:
+      "Tài khoản này đang được giữ nguyên để chép sang máy chủ khác từ {{date}}. Không đồng bộ được gì cho tới khi việc chép kết thúc.",
+    thaw: "Kết thúc việc chép",
   },
 };
 
