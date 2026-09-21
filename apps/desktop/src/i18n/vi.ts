@@ -214,6 +214,7 @@ const vi: SharedDict = {
     syncInvalidDeviceName: "Máy này cần có tên.",
     syncLetterNotSent: "Không gửi được thư xác nhận nên tài khoản chưa được tạo. Hãy thử lại sau.",
     syncWrongCode: "Mã không đúng, đã dùng hoặc đã hết hạn.",
+    syncSavedUnreadable: "Không đọc được thông tin đăng nhập đồng bộ đã lưu. Hãy đăng nhập lại.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng

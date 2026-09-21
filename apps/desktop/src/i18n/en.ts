@@ -231,6 +231,7 @@ const en = {
     syncInvalidDeviceName: "This machine needs a name.",
     syncLetterNotSent: "The confirmation letter could not be sent, so no account was made. Try again later.",
     syncWrongCode: "That code is wrong, already used, or expired.",
+    syncSavedUnreadable: "The saved sync sign-in could not be read. Sign in again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

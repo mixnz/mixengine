@@ -22,6 +22,7 @@ pub mod crypto;
 pub mod engine;
 pub mod lend;
 pub mod merge;
+pub mod saved;
 pub mod store;
 pub mod transport;
 pub mod wire;

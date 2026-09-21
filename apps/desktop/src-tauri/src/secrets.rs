@@ -56,8 +56,9 @@ const SERVICE: &str = "MixLab";
 /// those entries are its own. See the T104 design, D4.
 pub const LEGACY_SERVICE: &str = "MixDB";
 
-/// The account the vault is stored under. Every other account name in the service is a leftover
-/// from before the vault, and is a connection id — a uuid, so nothing can collide with this.
+/// The account the vault is stored under. Every other account name in the service is either
+/// `sync-master-key` (`crate::sync::saved`) or a leftover from before the vault, which is a
+/// connection id — a uuid, so nothing can collide with either.
 const VAULT: &str = "vault";
 
 /// The secrets of one saved connection, keyed by the field they belong to (`password`, `uri`,
@@ -285,6 +286,22 @@ pub fn load(id: &str) -> Result<Secrets, AppError> {
 /// Forgets everything stored for a saved connection.
 pub fn delete(id: &str) -> Result<(), AppError> {
     keeper().delete(id)
+}
+
+/// One entry of this application's own, outside the vault, under `account` — sync's
+/// `sync-master-key` (the design's D2). Outside because the vault is held for the run, and a
+/// sign-out has to leave nothing of this behind in memory; beside it rather than in a service of
+/// its own, for the reason the module comment gives.
+pub fn read_own(account: &str) -> Result<Option<String>, AppError> {
+    OsStore::new(SERVICE).read(account)
+}
+
+pub fn write_own(account: &str, value: &str) -> Result<(), AppError> {
+    OsStore::new(SERVICE).write(account, value)
+}
+
+pub fn forget_own(account: &str) -> Result<(), AppError> {
+    OsStore::new(SERVICE).forget(account)
 }
 
 /// Writes a saved connection's secrets to the OS credential store, replacing what was there.
