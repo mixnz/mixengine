@@ -139,9 +139,14 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       pass. Nothing is visible yet: every row is off and there is no screen to sign in from, which
       is T177e2.
 - [ ] **T177e2** The account, in Settings: sign up with the recovery-key ceremony (thirteen groups
-      shown once, two typed back), sign in, the per-collection list with every row off, the device
-      list with a revoke, the notice that an edit was replaced, and the server field for somebody
-      hosting their own.
+      shown once, two typed back), sign in and out, the per-collection list with every row off, the
+      device list with a revoke, the notice that an edit was replaced, the warning when a server
+      reports `closingOn`, and the list of servers — `https://sync-0.lab.mixnz.com` first and fixed,
+      then whatever a person hosting their own adds. The machine's name is filled in from its
+      hostname and can be changed.
+- [ ] **T177e3** What an account does after it exists: change the password (D6 case 1), recover it
+      with the recovery key or without (cases 2 and 3), delete the account, and move it to another
+      server by copying (D4b) — each asking for the password when it needs `A`.
 - [ ] **T177f** The three credential collections — `connection-secrets`, `terminal-host-secrets`,
       `rest-env-secrets` — each behind its own row, each refusing to turn on until the collection it
       belongs to is on.
