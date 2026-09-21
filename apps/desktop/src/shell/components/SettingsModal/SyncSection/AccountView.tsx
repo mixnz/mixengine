@@ -66,9 +66,18 @@ function AccountView({ status, onChanged }: Props) {
     [onChanged, t],
   );
 
+  /* `closingOn` comes from the server's capabilities, which Rust reads when it opens a session —
+     and the status this view was drawn from may predate that, if nothing has synced yet this run.
+     The device list opens one, so once it has answered the status is read again, once. */
+  const unknownClosing = status.closingOn === null;
   const loadDevices = useCallback(() => {
-    syncDevices().then(setDevices).catch(fail);
-  }, [fail]);
+    syncDevices()
+      .then((list) => {
+        setDevices(list);
+        if (unknownClosing) onChanged();
+      })
+      .catch(fail);
+  }, [fail, onChanged, unknownClosing]);
   useEffect(loadDevices, [loadDevices]);
 
   const loadFreeze = useCallback(() => {
