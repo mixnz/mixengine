@@ -11,3 +11,4 @@
 pub mod crypto;
 pub mod wire;
 pub mod merge;
+pub mod chunk;
