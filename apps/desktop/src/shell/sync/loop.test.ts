@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncChanges, SyncableCollection } from "../../core/syncCollection";
 import type { PulledPage, PushedChanges, SyncBackend } from "./api";
-import { IDLE_PULL_MS, LOCAL_CHECK_MS, pushCollection, startSyncLoop, syncCollection } from "./loop";
+import {
+  FOCUS_PULL_MS,
+  IDLE_PULL_MS,
+  LOCAL_CHECK_MS,
+  pushCollection,
+  startSyncLoop,
+  syncCollection,
+  type RunResult,
+} from "./loop";
 
 const nothing: SyncChanges = { upserts: [], removed: [] };
 const one: SyncChanges = { upserts: [{ id: "a", data: 1 }], removed: [] };
@@ -91,7 +99,10 @@ describe("the loop", () => {
   function harness(collections: SyncableCollection[]) {
     const { fake, calls } = backend([]);
     let focus = () => {};
+    let request = () => {};
     const errors: unknown[] = [];
+    const ends: RunResult[] = [];
+    let starts = 0;
     const stop = startSyncLoop({
       backend: fake,
       collections: () => collections,
@@ -101,10 +112,18 @@ describe("the loop", () => {
           focus = () => {};
         };
       },
+      onRequest: (listener) => {
+        request = listener;
+        return () => {
+          request = () => {};
+        };
+      },
       onReplaced: () => {},
       onError: (_id, error) => void errors.push(error),
+      onRunStart: () => void (starts += 1),
+      onRunEnd: (result) => void ends.push(result),
     });
-    return { calls, errors, stop, focus: () => focus() };
+    return { calls, errors, ends, starts: () => starts, stop, focus: () => focus(), request: () => request() };
   }
 
   it("pulls and pushes at launch, and on focus", async () => {
@@ -124,6 +143,7 @@ describe("the loop", () => {
       backend: shared.fake,
       collections: () => [collection(calls)],
       onFocus: () => () => {},
+      onRequest: () => () => {},
       onReplaced: () => {},
       onError: () => {},
     });
@@ -161,6 +181,7 @@ describe("the loop", () => {
       backend: { ...backend([]).fake, pullPage: () => Promise.reject(signedOut) },
       collections: () => [collection(calls), collection(calls)],
       onFocus: () => () => {},
+      onRequest: () => () => {},
       onReplaced: () => {},
       onError: (_id, error) => void errors.push(error),
     });
@@ -202,6 +223,7 @@ describe("the loop", () => {
         backend: backend([]).fake,
         collections: () => both,
         onFocus: () => () => {},
+        onRequest: () => () => {},
         onReplaced: () => {},
         onError: () => {},
       });
@@ -216,5 +238,93 @@ describe("the loop", () => {
 
     expect(most).toBe(1);
     expect(reads).toBe(3);
+  });
+
+  it("pulls on focus only once a minute has passed since the last pull", async () => {
+    const shared = backend([]);
+    let focus = () => {};
+    const stop = startSyncLoop({
+      backend: shared.fake,
+      collections: () => [collection(shared.calls)],
+      onFocus: (listener) => {
+        focus = listener;
+        return () => {};
+      },
+      onRequest: () => () => {},
+      onReplaced: () => {},
+      onError: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    shared.calls.length = 0;
+
+    focus();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(shared.calls).toEqual(["read", "push"]);
+
+    shared.calls.length = 0;
+    await vi.advanceTimersByTimeAsync(FOCUS_PULL_MS);
+    shared.calls.length = 0;
+    focus();
+    await vi.advanceTimersByTimeAsync(0);
+    stop();
+    expect(shared.calls).toContain("pull");
+  });
+
+  it("pulls whenever it is asked to, however recent the last pull", async () => {
+    const shared = backend([]);
+    let request = () => {};
+    const stop = startSyncLoop({
+      backend: shared.fake,
+      collections: () => [collection(shared.calls)],
+      onFocus: () => () => {},
+      onRequest: (listener) => {
+        request = listener;
+        return () => {};
+      },
+      onReplaced: () => {},
+      onError: () => {},
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    shared.calls.length = 0;
+    request();
+    await vi.advanceTimersByTimeAsync(0);
+    stop();
+    expect(shared.calls).toContain("pull");
+  });
+
+  it("reports each run's start and end, with its first failure", async () => {
+    const calls: string[] = [];
+    const broken: SyncableCollection = {
+      ...collection(calls),
+      id: "broken",
+      read: async () => {
+        throw new Error("unreadable");
+      },
+    };
+    const loop = harness([broken, collection(calls)]);
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.starts()).toBe(1);
+    expect(loop.ends).toHaveLength(1);
+    expect(loop.ends[0]).toMatchObject({ run: "full", finished: true });
+    expect((loop.ends[0].error as Error).message).toBe("unreadable");
+  });
+
+  it("reports a clean run with no error", async () => {
+    const calls: string[] = [];
+    const loop = harness([collection(calls)]);
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.ends).toEqual([{ run: "full", error: undefined, finished: true }]);
+  });
+
+  it("reports nothing at all when no row is on", async () => {
+    const loop = harness([]);
+    await vi.advanceTimersByTimeAsync(0);
+    loop.focus();
+    await vi.advanceTimersByTimeAsync(LOCAL_CHECK_MS);
+    loop.stop();
+    expect(loop.starts()).toBe(0);
+    expect(loop.ends).toEqual([]);
   });
 });

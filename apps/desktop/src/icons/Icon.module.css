@@ -6,3 +6,21 @@
   flex-shrink: 0;
   vertical-align: -0.125em;
 }
+
+/* One turn a second, round the icon's own centre. The four hand-written spins elsewhere
+   (ActionBar, DiskUsagePanel, LoadingOverlay, the select's reload) predate this. */
+.spinning {
+  animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}

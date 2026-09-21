@@ -2,6 +2,7 @@ import { logError } from "../../core/log";
 import { SYNCABLE } from "../registry";
 import { tauriSync } from "./api";
 import { readEnabled } from "./enabled";
+import { syncActivity } from "./activity";
 import { startSyncLoop } from "./loop";
 import { noteReplaced } from "./replaced";
 
@@ -26,13 +27,15 @@ export function startSync(): () => void {
     },
     onFocus: (listener) => {
       window.addEventListener("focus", listener);
+      return () => window.removeEventListener("focus", listener);
+    },
+    onRequest: (listener) => {
       window.addEventListener(SYNC_NOW_EVENT, listener);
-      return () => {
-        window.removeEventListener("focus", listener);
-        window.removeEventListener(SYNC_NOW_EVENT, listener);
-      };
+      return () => window.removeEventListener(SYNC_NOW_EVENT, listener);
     },
     onReplaced: noteReplaced,
+    onRunStart: syncActivity.runStarted,
+    onRunEnd: syncActivity.runEnded,
     // An `AppError` is a plain object, which `String()` would print as `[object Object]`.
     onError: (collection, error) =>
       void logError("sync", error instanceof Error ? error : JSON.stringify(error), collection),

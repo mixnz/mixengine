@@ -26,6 +26,7 @@ const en = {
   },
   app: {
     settings: "Settings",
+    settingsSyncing: "Settings (syncing)",
     /** The name of the app's own tab bar, for anyone reading the screen rather than looking at it. */
     tabs: "Open tabs",
     closeTab: "Close tab",
@@ -287,6 +288,11 @@ const en = {
     signOut: "Sign out",
     signingOut: "Signing out",
     signOutHint: "Signing out stops sync on this machine. What is on it stays on it.",
+    syncNow: "Sync now",
+    syncing: "Syncing",
+    syncedJustNow: "Synced a moment ago",
+    syncedAgo: "Synced {{when}}",
+    syncFailed: "Last sync failed: {{message}}",
     closing: "This server closes on {{date}}. Copy your account to another server before then.",
     replaced: "Edits you made in {{collection}} were replaced by newer ones from another machine ({{count}}).",
     collections: "What syncs",

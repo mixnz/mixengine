@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import Button from "../../../../components/Button";
 import Input, { Textarea } from "../../../../components/Input";
+import NoticeBanner from "../../../../components/NoticeBanner";
 import Select from "../../../../components/Select";
 import SegmentedControl from "../../../../components/SegmentedControl";
 import { errorMessage } from "../../../../core/errors";
+import { savedChange } from "../../../../core/followSaved";
 import { DEFAULT_SSH_PORT, PRIVATE_KEY_PLACEHOLDER } from "../../../../core/ssh";
 import { stableStringify } from "../../../../core/stableStringify";
 import { useTranslation } from "../../../../i18n";
@@ -59,6 +61,8 @@ function TargetForm({ onOpen, onError, initial }: Props) {
   /** Ảnh chụp của đích đã lưu lúc nó được nạp, để nút Cập nhật biết đã có gì đổi hay chưa. */
   const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [runOnConnect, setRunOnConnect] = useState(initial?.runOnConnect ?? "");
+  /** The saved entry this form holds changed or went away somewhere else, while it held edits. */
+  const [stale, setStale] = useState<"changed" | "removed" | null>(null);
 
   // Máy này
   const [shells, setShells] = useState<LocalShell[]>([]);
@@ -145,6 +149,31 @@ function TargetForm({ onOpen, onError, initial }: Props) {
     setSavedSnapshot(snapshotOf(entry));
   }, [targetsLoaded, targets]);
 
+  /** `applyTarget` as of the last render, for the effect below: a function made anew each render
+   *  cannot be one of its dependencies without making it run on every render. */
+  const applyLatest = useRef(applyTarget);
+  useLayoutEffect(() => {
+    applyLatest.current = applyTarget;
+  });
+
+  /* The saved entry this form holds can change under it: sync brings a newer one, or another tab
+     updates or deletes it. An untouched form follows; edits are the person's and stay, and they
+     are told. One that went away leaves the form as it is, and Save makes it a new one. */
+  const heldEntry = targetId === null ? undefined : targets.find((target) => target.id === targetId);
+  const currentSnapshot = heldEntry && snapshotOf(heldEntry);
+  const heldSnapshot = snapshotOf(buildTarget(""));
+  useEffect(() => {
+    if (!namedInitial.current || targetId === null || !targetsLoaded) return;
+    const change = savedChange(currentSnapshot, savedSnapshot, heldSnapshot);
+    if (change === "reload" && heldEntry) applyLatest.current(heldEntry);
+    else if (change === "changed") setStale("changed");
+    else if (change === "removed") {
+      setTargetId(null);
+      setSavedSnapshot(null);
+      setStale("removed");
+    }
+  }, [targetId, targetsLoaded, heldEntry, currentSnapshot, savedSnapshot, heldSnapshot]);
+
   const chosenShell = shells.find((shell) => shell.name === shellName);
 
   async function browseDirectory() {
@@ -216,6 +245,7 @@ function TargetForm({ onOpen, onError, initial }: Props) {
   const unchanged = targetId !== null && savedSnapshot === snapshotOf(buildTarget(""));
 
   function applyTarget(entry: SavedTarget) {
+    setStale(null);
     // Cột đích luôn ở đó, kể cả khi form đang ở loại kia — bấm một dòng mà form không đổi loại thì
     // cú bấm ấy trông như không có tác dụng gì.
     setKind(entry.kind);
@@ -279,6 +309,7 @@ function TargetForm({ onOpen, onError, initial }: Props) {
   /** Bỏ form về trắng. Loại đang chọn ở lại: "+" là "một cái mới thuộc loại tôi đang xem", và cả
    *  hai loại giờ đều lưu được. */
   function clearForm() {
+    setStale(null);
     setTargetId(null);
     setName("");
     setSavedSnapshot(null);
@@ -502,6 +533,24 @@ function TargetForm({ onOpen, onError, initial }: Props) {
           />
           <p className={styles.hint}>{t("terminal.runOnConnectHint")}</p>
         </div>
+
+        {stale === "changed" && (
+          <div className={styles.savedElsewhere}>
+            <NoticeBanner message={t("terminal.changedElsewhere")} />
+            <Button
+              size="small"
+              onClick={() => {
+                const entry = targets.find((target) => target.id === targetId);
+                if (entry) applyTarget(entry);
+              }}
+            >
+              {t("terminal.loadNewVersion")}
+            </Button>
+          </div>
+        )}
+        {stale === "removed" && (
+          <NoticeBanner message={t("terminal.removedElsewhere")} onDismiss={() => setStale(null)} />
+        )}
 
         <div className={styles.actions}>
           <Button disabled={!savable || unchanged} onClick={() => void saveTarget()}>

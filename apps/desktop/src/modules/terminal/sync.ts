@@ -7,17 +7,17 @@ import {
 } from "../../core/syncCollection";
 import { mergeSshSecrets, splitSshSecrets, sshFromSync, sshToSync } from "../../core/ssh";
 import {
-  addSavedTarget,
   deleteSecrets,
   loadSavedTargets,
   loadSecrets,
   parseSavedTarget,
-  removeSavedTarget,
   saveSecrets,
-  updateSavedTarget,
   withoutSecrets,
   type HostSecrets,
 } from "./savedTargets";
+// Writes go through the shared list, which tells every open tab; `savedTargets.ts` alone would
+// change the file and leave each tab's sidebar as it was until the app restarted.
+import { addTarget, removeTarget, updateTarget } from "./savedTargetsStore";
 import { sanitizeSettings, type TerminalSettings } from "./settings";
 import { loadTerminalSettings, updateTerminalSettings } from "./settingsStore";
 import type { SavedTarget } from "./types";
@@ -84,16 +84,16 @@ export const hostsSyncable: SyncableCollection = {
     const had = new Set(current.map((target) => target.id));
     const next = applySyncChanges(current, changes, (t) => t.id, targetFromSync);
     const touched = new Set(changes.upserts.map((item) => item.id));
-    for (const id of changes.removed) if (had.has(id)) await removeSavedTarget(id);
+    for (const id of changes.removed) if (had.has(id)) await removeTarget(id);
     for (const target of next) {
       if (!touched.has(target.id)) continue;
       if (had.has(target.id)) {
-        await updateSavedTarget(target);
+        await updateTarget(target);
         continue;
       }
       // As for a connection: saved with no credential, it would delete what may be waiting (D5).
       const waiting = target.kind === "ssh" ? await loadSecrets(target.id) : {};
-      await addSavedTarget(
+      await addTarget(
         target.kind === "ssh" ? { ...target, config: mergeSshSecrets(target.config, waiting) } : target,
       );
     }
@@ -130,14 +130,14 @@ async function writeHostSecrets(changes: SyncChanges): Promise<void> {
     if (!secrets) continue;
     const local = current.get(synced.id);
     if (local?.kind === "ssh") {
-      await updateSavedTarget({ ...local, config: mergeSshSecrets(splitSshSecrets(local.config).config, secrets) });
+      await updateTarget({ ...local, config: mergeSshSecrets(splitSshSecrets(local.config).config, secrets) });
     } else if (!local) {
       await saveSecrets(synced.id, secrets);
     }
   }
   for (const id of changes.removed) {
     const local = current.get(id);
-    if (local?.kind === "ssh") await updateSavedTarget(withoutSecrets(local));
+    if (local?.kind === "ssh") await updateTarget(withoutSecrets(local));
     else if (!local) await deleteSecrets(id);
   }
 }

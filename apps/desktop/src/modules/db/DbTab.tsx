@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   addConnection,
@@ -28,6 +28,7 @@ import RedisWorkspace from "./redis/RedisWorkspace";
 import Button from "../../components/Button";
 import EmptyState from "../../components/EmptyState";
 import ErrorBanner from "../../components/ErrorBanner";
+import NoticeBanner from "../../components/NoticeBanner";
 import ContextMenu from "../../components/ContextMenu";
 import FilterChip from "../../components/FilterChip";
 import Input from "../../components/Input";
@@ -37,6 +38,7 @@ import { connectionPlace, engineCounts, filterConnections } from "./connectionSt
 import { DatabaseIcon } from "./icons";
 import { useTranslation } from "../../i18n";
 import { errorMessage } from "../../core/errors";
+import { savedChange } from "../../core/followSaved";
 import { stableStringify } from "../../core/stableStringify";
 import type { ModuleTabProps, TabBadge } from "../../shell/module";
 import { dbBadgeMarks } from "./badges";
@@ -134,6 +136,8 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
   const restoreTried = useRef(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  /** The saved connection this form took changed or went away somewhere else, while it held edits. */
+  const [stale, setStale] = useState<"changed" | "removed" | null>(null);
   const [tunnelStatus, setTunnelStatus] = useState<TunnelStatus | null>(null);
 
   // Closing a tab unmounts this component, and the backend has no other way of hearing about it:
@@ -240,7 +244,21 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
     setError("");
     setStatus("");
     setTunnelStatus(null);
+    setStale(null);
   }
+
+  /** The saved entry again, over what the form holds: what sync brought, or another tab saved. The
+   *  tab keeps what it is doing, so nothing here touches the connection or the restore state. */
+  const reloadSaved = useCallback(
+    (entry: SavedConnection) => {
+      setForm(formFrom(entry.config, entry.keyringRef ?? null));
+      setSaveAsName(entry.name);
+      setSavedSnapshot(stableStringify({ name: entry.name, config: entry.config }));
+      setStale(null);
+      onTitleChange(entry.name);
+    },
+    [onTitleChange],
+  );
 
   function applySavedConnection(entry: SavedConnection) {
     setForm(formFrom(entry.config, entry.keyringRef ?? null));
@@ -584,6 +602,25 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
     if (target !== null) list.scrollTop = target;
   }, [connectionId, editingId, savedConnectionsLoaded, orderedConnections]);
 
+  /* The saved connection this form took can change under it: sync brings a newer one, or another
+     tab saves or deletes it. An untouched form follows; edits are the person's and stay, and they
+     are told. One that went away leaves the form as it is, and Save makes it a new one, rather than
+     an update to an id that no longer exists, which would save nothing. */
+  useEffect(() => {
+    if (editingId === null || !savedConnectionsLoaded) return;
+    const entry = savedConnections.find((c) => c.id === editingId);
+    const current = entry && stableStringify({ name: entry.name, config: entry.config });
+    const held = stableStringify({ name: saveAsName.trim(), config: configFrom(form) });
+    const change = savedChange(current, savedSnapshot, held);
+    if (change === "reload" && entry) reloadSaved(entry);
+    else if (change === "changed") setStale("changed");
+    else if (change === "removed") {
+      setEditingId(null);
+      setSavedSnapshot(null);
+      setStale("removed");
+    }
+  }, [editingId, savedConnectionsLoaded, savedConnections, savedSnapshot, saveAsName, form, reloadSaved]);
+
   async function updateSidebarWidth(width: number) {
     if (!editingId) return;
     const entry = savedConnections.find((c) => c.id === editingId);
@@ -777,6 +814,23 @@ function DbTab({ active, onTitleChange, onBadgesChange, restored, onStateChange 
             onConnect={() => connect()}
             onTestTunnel={testTunnel}
           />
+          {stale === "changed" && (
+            <div className="saved-elsewhere">
+              <NoticeBanner message={t("connection.changedElsewhere")} />
+              <Button
+                size="small"
+                onClick={() => {
+                  const entry = savedConnections.find((c) => c.id === editingId);
+                  if (entry) reloadSaved(entry);
+                }}
+              >
+                {t("connection.loadNewVersion")}
+              </Button>
+            </div>
+          )}
+          {stale === "removed" && (
+            <NoticeBanner message={t("connection.removedElsewhere")} onDismiss={() => setStale(null)} />
+          )}
           {error && <ErrorBanner message={error} onDismiss={() => setError("")} />}
         </section>
         {contextMenu && (

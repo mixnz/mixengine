@@ -7,7 +7,7 @@ import SettingsModal from "./components/SettingsModal";
 import TabNotice from "./components/TabNotice";
 import ContextMenu from "../components/ContextMenu";
 import { moveTab, Tab, TabAction, tabKeyDown, TabStrip, TabTitle, useTabReorder } from "../components/TabStrip";
-import { PlusIcon, SettingsIcon } from "../icons";
+import { PlusIcon, SettingsIcon, SyncIcon } from "../icons";
 import { isBlockedReload } from "../core/reload";
 import { configureTray } from "../core/window";
 import { logError } from "../core/log";
@@ -31,6 +31,7 @@ import { MODULES, moduleById } from "./registry";
 import { defaultModuleId, visibleModules, withModule } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
 import { startSync, SYNC_NOW_EVENT } from "./sync";
+import { useSyncActivity } from "./sync/activity";
 import { syncClosingHere, syncStatus } from "./sync/api";
 import { closingSoon } from "./sync/closing";
 
@@ -51,6 +52,7 @@ function forgetNotice(notices: Record<string, string>, tabId: string): Record<st
 
 function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const { t, lang } = useTranslation();
+  const { syncing } = useSyncActivity();
 
   /* Which modules this window has, and everything derived from that. Memoized on the ids flattened
      to a string rather than on the array, because the array is a fresh one whenever the setting is
@@ -369,10 +371,10 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
               setSettingsSection(undefined);
               setSettingsOpen(true);
             }}
-            title={t("app.settings")}
+            title={syncing ? t("app.settingsSyncing") : t("app.settings")}
             aria-label={t("app.settings")}
           >
-            <SettingsIcon size={17} />
+            {syncing ? <SyncIcon size={17} spinning /> : <SettingsIcon size={17} />}
           </Button>
         }
         /* Not drawn at all once there is nothing left to open — a window holding the one tab its
