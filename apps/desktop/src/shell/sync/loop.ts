@@ -11,6 +11,13 @@ export const LOCAL_CHECK_MS = 30_000;
 /** How long a window goes without news before it asks for some anyway (D8, rule 1). */
 export const IDLE_PULL_MS = 15 * 60_000;
 
+/**
+ * How long after a full run a window regaining focus pulls again. A full run is one request per
+ * row that is on, and a person alt-tabbing is not news: inside this, focus only pushes, which asks
+ * nothing of the server when nothing changed.
+ */
+export const FOCUS_PULL_MS = 60_000;
+
 function isEmpty(changes: SyncChanges): boolean {
   return changes.upserts.length === 0 && changes.removed.length === 0;
 }
@@ -48,12 +55,27 @@ export interface LoopOptions {
   collections: () => SyncableCollection[];
   /** Subscribes to the window gaining focus; returns the unsubscribe. */
   onFocus: (listener: () => void) => () => void;
+  /** Subscribes to a run being asked for (`requestSync`), which always pulls; returns the unsubscribe. */
+  onRequest: (listener: () => void) => () => void;
+  /** A run began: at least one row is on. */
+  onRunStart?: () => void;
+  /** That run ended, however it ended. */
+  onRunEnd?: (result: RunResult) => void;
   /** Edits made here that newer ones replaced — for a notice, never a question (D4). */
   onReplaced: (collectionId: string, count: number) => void;
   onError: (collectionId: string, error: unknown) => void;
 }
 
-type Run = "full" | "push";
+export type Run = "full" | "push";
+
+/** How one run went, for whoever draws it (`activity.ts`). */
+export interface RunResult {
+  run: Run;
+  /** The first collection's failure, or `undefined` when none failed. */
+  error: unknown;
+  /** False when it stopped early: signed out, or its loop was stopped. */
+  finished: boolean;
+}
 
 /**
  * The one lane every loop's runs take, whichever loop they belong to. A window that remounts its
@@ -76,8 +98,9 @@ function isSignedOut(error: unknown): boolean {
 }
 
 /**
- * Sync at D8's moments: at launch, on focus, a local check every {@link LOCAL_CHECK_MS}, and a
- * pull when nothing has been heard for {@link IDLE_PULL_MS}. **One run at a time**, across every
+ * Sync at D8's moments: at launch, on focus once {@link FOCUS_PULL_MS} has passed, whenever
+ * asked, a local check every {@link LOCAL_CHECK_MS}, and a pull when nothing has been heard for
+ * {@link IDLE_PULL_MS}. **One run at a time**, across every
  * loop there is: a moment that arrives during a run asks for one more, however many arrive, and a
  * loop started while a stopped one is still writing waits for it. Returns the stop.
  */
@@ -88,20 +111,32 @@ export function startSyncLoop(options: LoopOptions): () => void {
   let lastFull = 0;
 
   async function runOnce(run: Run): Promise<void> {
+    const collections = options.collections();
+    // With every row off there is nothing to do and nothing to show.
+    if (collections.length === 0) return;
     if (run === "full") lastFull = Date.now();
-    for (const collection of options.collections()) {
-      // A stopped loop finishes the collection it is in, and starts no other.
-      if (stopped) return;
-      try {
-        const replaced =
-          run === "full"
-            ? await syncCollection(options.backend, collection)
-            : await pushCollection(options.backend, collection);
-        if (replaced > 0) options.onReplaced(collection.id, replaced);
-      } catch (error) {
-        if (isSignedOut(error)) return;
-        options.onError(collection.id, error);
+    options.onRunStart?.();
+    let error: unknown = undefined;
+    let finished = false;
+    try {
+      for (const collection of collections) {
+        // A stopped loop finishes the collection it is in, and starts no other.
+        if (stopped) return;
+        try {
+          const replaced =
+            run === "full"
+              ? await syncCollection(options.backend, collection)
+              : await pushCollection(options.backend, collection);
+          if (replaced > 0) options.onReplaced(collection.id, replaced);
+        } catch (failure) {
+          if (isSignedOut(failure)) return;
+          if (error === undefined) error = failure;
+          options.onError(collection.id, failure);
+        }
       }
+      finished = true;
+    } finally {
+      options.onRunEnd?.({ run, error, finished });
     }
   }
 
@@ -125,11 +160,13 @@ export function startSyncLoop(options: LoopOptions): () => void {
   }
 
   ask("full");
-  const unfocus = options.onFocus(() => ask("full"));
+  const unfocus = options.onFocus(() => ask(Date.now() - lastFull >= FOCUS_PULL_MS ? "full" : "push"));
+  const unrequest = options.onRequest(() => ask("full"));
   const timer = setInterval(() => ask(Date.now() - lastFull >= IDLE_PULL_MS ? "full" : "push"), LOCAL_CHECK_MS);
   return () => {
     stopped = true;
     unfocus();
+    unrequest();
     clearInterval(timer);
   };
 }

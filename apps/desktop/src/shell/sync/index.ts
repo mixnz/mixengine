@@ -26,11 +26,11 @@ export function startSync(): () => void {
     },
     onFocus: (listener) => {
       window.addEventListener("focus", listener);
+      return () => window.removeEventListener("focus", listener);
+    },
+    onRequest: (listener) => {
       window.addEventListener(SYNC_NOW_EVENT, listener);
-      return () => {
-        window.removeEventListener("focus", listener);
-        window.removeEventListener(SYNC_NOW_EVENT, listener);
-      };
+      return () => window.removeEventListener(SYNC_NOW_EVENT, listener);
     },
     onReplaced: noteReplaced,
     // An `AppError` is a plain object, which `String()` would print as `[object Object]`.
