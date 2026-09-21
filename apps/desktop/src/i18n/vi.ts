@@ -347,6 +347,11 @@ const vi: SharedDict = {
     closingNow: "{{server}} đã hẹn đóng vào {{date}}. Hãy chuyển tài khoản ngay, khi máy chủ còn trả lời.",
     openSync: "Mở Đồng bộ",
     serverClosing: "{{server}} đã báo sẽ đóng vào {{date}}. Tài khoản ở đó sẽ phải chuyển đi trước ngày đó.",
+    secretNeedsOwner: "Bật {{collection}} trước.",
+    secretConfirmTitle: "Đồng bộ {{collection}}?",
+    secretConfirmMessage:
+      "MixLab mã hoá chúng ngay trên máy này trước khi gửi đi. Máy chủ không đọc được, nhưng mọi máy đăng nhập vào tài khoản của bạn thì đọc được.",
+    secretConfirmAction: "Đồng bộ",
   },
 };
 

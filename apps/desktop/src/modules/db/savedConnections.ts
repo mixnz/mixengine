@@ -67,12 +67,17 @@ export function withSecrets(config: ConnectionConfig, secrets: Secrets): Connect
   return filled;
 }
 
-function saveSecrets(id: string, secrets: Secrets): Promise<void> {
+export function saveSecrets(id: string, secrets: Secrets): Promise<void> {
   return invoke<void>("secrets_save", { id, secrets });
 }
 
-function loadSecrets(id: string): Promise<Secrets> {
+export function loadSecrets(id: string): Promise<Secrets> {
   return invoke<Secrets>("secrets_load", { id });
+}
+
+/** Forgets a connection's credentials: when it goes, and when sync says another machine cleared them. */
+export function deleteSecrets(id: string): Promise<void> {
+  return invoke<void>("secrets_delete", { id });
 }
 
 /** The password `keyringRef` names, or `undefined` when MixEngine no longer has that entry — a
@@ -160,7 +165,7 @@ export async function removeSavedConnection(id: string): Promise<SavedConnection
   const next = list.filter((c) => c.id !== id);
   // The credentials go with the connection they belonged to; leaving them behind would mean an
   // entry in the OS store that nothing will ever name again.
-  await invoke<void>("secrets_delete", { id });
+  await deleteSecrets(id);
   await persist(next.map((c) => ({ ...c, config: withoutSecrets(c.config) })));
   return next;
 }

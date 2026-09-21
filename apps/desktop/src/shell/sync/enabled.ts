@@ -32,3 +32,27 @@ export function setEnabled(storage: EnabledStorage, id: string, on: boolean): Se
   writeEnabled(storage, ids);
   return readEnabled(storage);
 }
+
+/**
+ * One row on or off, under D5's two rules for a secret row: it cannot go on before the row it
+ * belongs to, and it goes off with that row, staying off when that row comes back. Returns the set
+ * now stored; a refused change stores nothing.
+ */
+export function toggleRow(
+  storage: EnabledStorage,
+  rows: readonly { id: string; belongsTo?: string }[],
+  id: string,
+  on: boolean,
+): Set<string> {
+  const ids = readEnabled(storage);
+  if (on) {
+    const owner = rows.find((row) => row.id === id)?.belongsTo;
+    if (owner !== undefined && !ids.has(owner)) return ids;
+    ids.add(id);
+  } else {
+    ids.delete(id);
+    for (const row of rows) if (row.belongsTo === id) ids.delete(row.id);
+  }
+  writeEnabled(storage, ids);
+  return readEnabled(storage);
+}

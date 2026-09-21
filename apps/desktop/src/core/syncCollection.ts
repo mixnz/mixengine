@@ -30,6 +30,11 @@ export interface SyncableCollection {
   labelKey: TranslationKey;
   read: () => Promise<SyncItem[]>;
   write: (changes: SyncChanges) => Promise<void>;
+  /**
+   * The row this one's credentials belong to, for a secret row (D5): it cannot go on before that
+   * row, and goes off with it. Absent for every other row.
+   */
+  belongsTo?: string;
 }
 
 /**

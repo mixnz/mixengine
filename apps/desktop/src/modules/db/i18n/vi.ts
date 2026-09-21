@@ -1107,6 +1107,7 @@ const dbVi: DbDict = {
   },
   dbSync: {
     connections: "Kết nối",
+    connectionSecrets: "Mật khẩu kết nối",
     querySnippets: "Đoạn truy vấn",
   },
 };

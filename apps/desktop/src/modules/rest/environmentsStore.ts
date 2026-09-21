@@ -33,6 +33,11 @@ const KEY = "environments";
 /** The credential-store id an environment's secrets live under. */
 const SECRET_PREFIX = "rest-env:";
 
+/** The credential-store id an environment's secret values live under. */
+export function secretIdOf(envId: string): string {
+  return `${SECRET_PREFIX}${envId}`;
+}
+
 /**
  * How long a change waits before it is written.
  *
@@ -69,7 +74,7 @@ async function load(): Promise<Environment[]> {
     stored.map(async (env) => {
       // An environment whose entry is gone from the OS store, or one that never had a secret in
       // it, reads as empty rather than as a failure — the same answer `secrets.rs` gives itself.
-      const secrets = await envSecretsLoad(`${SECRET_PREFIX}${env.id}`).catch(
+      const secrets = await envSecretsLoad(secretIdOf(env.id)).catch(
         (): Record<string, string> => ({}),
       );
       const filled = withSecrets(env, secrets);
@@ -95,7 +100,7 @@ async function persist(): Promise<void> {
     const secrets = secretsOf(env);
     const mark = stamp(secrets);
     if (written.get(env.id) === mark) continue;
-    await envSecretsSave(`${SECRET_PREFIX}${env.id}`, secrets);
+    await envSecretsSave(secretIdOf(env.id), secrets);
     written.set(env.id, mark);
   }
 }
@@ -145,7 +150,7 @@ export function deleteEnvironment(id: string): void {
   // The secrets go with the environment they belonged to; leaving them behind would mean an entry
   // in the OS store that nothing will ever name again.
   written.delete(id);
-  void envSecretsDelete(`${SECRET_PREFIX}${id}`).catch(() => {});
+  void envSecretsDelete(secretIdOf(id)).catch(() => {});
 }
 
 /** The names a blocked send asked for, added to an environment as empty rows. */

@@ -4,7 +4,7 @@ import type { ModuleDefinition } from "../../shell/module";
 import { TerminalIcon } from "../../icons";
 import TerminalSettings from "./components/TerminalSettings";
 import { TERMINAL_SHORTCUTS } from "./shortcuts";
-import { hostsSyncable, settingsSyncable } from "./sync";
+import { hostSecretsSyncable, hostsSyncable, settingsSyncable } from "./sync";
 
 /* Loaded when a tab of this module is first opened, not at launch. The workspace behind it is the
    heaviest thing in the bundle — CodeMirror here, xterm in the terminal — and a launch that parses
@@ -19,5 +19,5 @@ export const terminalModule: ModuleDefinition = {
   Tab: lazy(() => import("./TerminalTab")),
   settings: { labelKey: "terminal.settingsTitle", Icon: TerminalIcon, Section: TerminalSettings },
   shortcuts: TERMINAL_SHORTCUTS,
-  syncable: [settingsSyncable, hostsSyncable],
+  syncable: [settingsSyncable, hostsSyncable, hostSecretsSyncable],
 };

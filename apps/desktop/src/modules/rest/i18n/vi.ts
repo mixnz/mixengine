@@ -187,6 +187,7 @@ const restVi: RestDict = {
   restSync: {
     requests: "Yêu cầu REST",
     environments: "Môi trường REST",
+    environmentSecrets: "Giá trị bí mật trong môi trường REST",
   },
 };
 

@@ -457,6 +457,18 @@ grows — without a line changing under `server/`, which is the point D9 is buil
 Every row is **off** until a person turns it on. A secret row cannot be turned on until the row it
 belongs to is.
 
+**A secret row follows the row it belongs to off, and asks before it goes on.** Turning `connections`
+off turns `connection-secrets` off with it, and turning `connections` back on leaves the secrets
+off until a person turns them on again: a credential with no connection to belong to is not
+something to keep sending. Turning a secret row on asks once, and says what it means — the
+passwords leave this machine encrypted, the server cannot read them, and every machine signed in
+with this password can.
+
+**A credential is kept by the id it belongs to, whether or not that item has arrived.** The
+collections sync one after another, so a connection's secrets can reach a machine before the
+connection does; they go into the vault under its id all the same, and the connection finds them
+there when it comes. Dropping them instead would agree on something never written.
+
 | Collection | Source on disk | Carries |
 | --- | --- | --- |
 | `preferences` | `localStorage`: theme, accent, language, enabled modules | one record per key; lent by the shell, which owns them |

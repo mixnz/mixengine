@@ -4,8 +4,15 @@ import {
   type SyncableCollection,
   type SyncItem,
 } from "../../core/syncCollection";
-import type { Environment, EnvVar } from "./environments";
-import { currentEnvironments, environmentsReady, replaceEnvironments } from "./environmentsStore";
+import { envSecretsDelete, envSecretsLoad, envSecretsSave } from "./api";
+import { secretsOf, withSecrets, type Environment, type EnvVar } from "./environments";
+import {
+  currentEnvironments,
+  environmentsReady,
+  flushEnvironments,
+  replaceEnvironments,
+  secretIdOf,
+} from "./environmentsStore";
 import { newRequest } from "./requests";
 import { currentLists, replaceSaved, requestsReady } from "./requestsStore";
 import type { RestRequest } from "./types";
@@ -85,6 +92,80 @@ export const environmentsSyncable: SyncableCollection = {
   },
   write: async (changes) => {
     await environmentsReady();
-    replaceEnvironments(applySyncChanges(currentEnvironments(), changes, (e) => e.id, environmentFromSync));
+    const touched = new Set(changes.upserts.map((item) => item.id));
+    const next = applySyncChanges(currentEnvironments(), changes, (e) => e.id, environmentFromSync);
+    // A secret variable that arrives with no value here may have one waiting in the vault (D5);
+    // saved empty, it would overwrite that.
+    const filled = await Promise.all(
+      next.map(async (env) =>
+        touched.has(env.id) ? fillSecrets(env, await envSecretsLoad(secretIdOf(env.id)).catch(() => ({}))) : env,
+      ),
+    );
+    replaceEnvironments(filled);
+    // The store writes on a timer; what sync is about to agree on must be on disk first.
+    await flushEnvironments();
+  },
+};
+
+/** An environment's secret values, as `rest-env-secrets` lends them: nothing for one with none. */
+export function environmentSecretsToSync(envs: Environment[]): SyncItem[] {
+  return envs.flatMap((env) => {
+    const data = Object.fromEntries(Object.entries(secretsOf(env)).filter(([, value]) => value !== ""));
+    return Object.keys(data).length === 0 ? [] : [{ id: env.id, data }];
+  });
+}
+
+/** Another machine's secret values for one environment, strings only. */
+export function environmentSecretsFromSync(data: unknown): Record<string, string> | null {
+  const record = asRecord(data);
+  if (!record) return null;
+  return Object.fromEntries(
+    Object.entries(record).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
+}
+
+/** A secret variable with no value here takes what the vault holds for it; one with a value keeps it. */
+export function fillSecrets(env: Environment, waiting: Record<string, string>): Environment {
+  return {
+    ...env,
+    vars: env.vars.map((v) =>
+      v.secret && v.value === "" && waiting[v.name] !== undefined ? { ...v, value: waiting[v.name] } : v,
+    ),
+  };
+}
+
+export const environmentSecretsSyncable: SyncableCollection = {
+  id: "rest-env-secrets",
+  labelKey: "restSync.environmentSecrets",
+  belongsTo: "rest-environments",
+  read: async () => {
+    await environmentsReady();
+    return environmentSecretsToSync(currentEnvironments());
+  },
+  write: async (changes) => {
+    await environmentsReady();
+    const list = currentEnvironments();
+    const here = new Set(list.map((env) => env.id));
+    let next = list;
+    for (const synced of changes.upserts) {
+      const secrets = environmentSecretsFromSync(synced.data);
+      if (!secrets) continue;
+      if (here.has(synced.id)) next = next.map((env) => (env.id === synced.id ? withSecrets(env, secrets) : env));
+      // Not arrived yet: the values wait in the vault, and the environment fills from it (D5).
+      else await envSecretsSave(secretIdOf(synced.id), secrets);
+    }
+    for (const id of changes.removed) {
+      if (here.has(id)) {
+        next = next.map((env) =>
+          env.id === id ? { ...env, vars: env.vars.map((v) => (v.secret ? { ...v, value: "" } : v)) } : env,
+        );
+      } else {
+        await envSecretsDelete(secretIdOf(id));
+      }
+    }
+    if (next !== list) {
+      replaceEnvironments(next);
+      await flushEnvironments();
+    }
   },
 };

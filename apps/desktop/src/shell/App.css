@@ -11,6 +11,10 @@
   --text-2xs: 11.5px; /* badge sub-lines */
   --text-xs: 12px; /* column heads, captions, group labels */
   --text-sm: 12.5px; /* field labels, secondary lines */
+  /* Its line height, in whole pixels: `1.5` of 12.5px is 18.75px, and a fractional line puts what
+     follows it on a fractional offset that repaints a pixel off at 125% scaling. Change the two
+     together. */
+  --leading-sm: 20px;
   --text-md: 13.5px; /* body and controls */
   --text-lg: 15px; /* card titles */
   --text-xl: 18px; /* dialog titles */
