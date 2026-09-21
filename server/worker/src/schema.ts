@@ -44,6 +44,9 @@ export const SCHEMA = [
      seq         INTEGER NOT NULL,
      updated_at  INTEGER NOT NULL,
      deleted     INTEGER NOT NULL DEFAULT 0,
+     -- The device whose session wrote this row (D3), stamped here and never taken from a
+     -- body. D4's tie-break reads it.
+     device      TEXT    NOT NULL DEFAULT '',
      nonce       TEXT,
      ciphertext  TEXT,
      bytes       INTEGER NOT NULL DEFAULT 0,
@@ -125,6 +128,7 @@ export interface RecordRow extends Record<string, SqlStorageValue> {
   seq: number;
   updated_at: number;
   deleted: number;
+  device: string;
   nonce: string | null;
   ciphertext: string | null;
   bytes: number;

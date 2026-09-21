@@ -160,6 +160,9 @@ CREATE TABLE IF NOT EXISTS record (
   seq         INTEGER NOT NULL,
   updated_at  INTEGER NOT NULL,
   deleted     INTEGER NOT NULL DEFAULT 0,
+  -- The device whose session wrote this row (D3), stamped here and never taken from a body.
+  -- D4's tie-break reads it.
+  device      TEXT    NOT NULL DEFAULT '',
   nonce       TEXT,
   ciphertext  TEXT,
   bytes       INTEGER NOT NULL DEFAULT 0,

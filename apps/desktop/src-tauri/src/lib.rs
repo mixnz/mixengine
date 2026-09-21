@@ -11,11 +11,11 @@ mod platform;
 mod relaunch;
 mod secrets;
 mod ssh;
-/// **Public only until it has a caller.** Every other module here is private because `lib.rs` wires
-/// it; this one is reached by nothing yet, and its consumer — the transport — arrives in T177c.
-/// Marking it public is what lets it exist before then without an `allow(dead_code)` that would go
-/// on quietly excusing a genuinely unused function afterwards. It goes back to `mod` the moment
-/// something calls it, and `dead_code` resumes policing it.
+/// **Public only until it has a caller in the application.** Every other module here is private
+/// because `lib.rs` wires it; this one is reached only by its own tests and `tests/sync_live.rs`
+/// until T177e's sign-in calls the engine. Public is what lets it exist before then without an
+/// `allow(dead_code)` that would go on quietly excusing a genuinely unused function afterwards. It
+/// goes back to `mod` the moment the application calls it, and `dead_code` resumes policing it.
 pub mod sync;
 mod tray;
 

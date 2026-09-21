@@ -209,6 +209,21 @@ const en = {
     syncCannotSealRecord: "Could not encrypt this item for sync.",
     syncCannotOpenRecord:
       "An item from the server could not be read. It may have been tampered with.",
+    syncSignedOut: "You were signed out of sync. Sign in again.",
+    syncAccessTokenRejected:
+      "This sync server needs an access token, and the one set was not accepted.",
+    syncAccountFrozen:
+      "Your account is being copied to another server and cannot change right now.",
+    syncTooManyRequests: "The sync server is busy. Try again in {{seconds}} seconds.",
+    syncQuotaExceeded: "Your sync account is full.",
+    syncRequestTooLarge: "Too much to sync in one go.",
+    syncRecordTooLarge: "This item is larger than the sync server accepts.",
+    syncServerUnreachable: "Could not reach the sync server: {{message}}",
+    syncServerRefused: "The sync server refused the request ({{code}}).",
+    syncServerAnswerUnreadable: "The sync server's answer could not be read.",
+    syncCannotEncodeRequest: "Could not prepare the sync request.",
+    syncStoreFailed: "Could not save the sync state: {{message}}",
+    syncConflictUnresolved: "Another machine kept changing this item. Sync will try again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a

@@ -105,8 +105,8 @@ K_id   = HKDF-SHA256(MK, info = "mixlab-sync/id/v1")               -> 32 bytes
 ```
 
 **The five labels contain `mixlab-sync`, and that is not a repository name to be tidied up.** They
-are domain-separation strings, frozen, in released ciphertext: a change to one makes every record
-written under it undecryptable. The server has since moved to `server/` in this repository
+are domain-separation strings: once any record exists under them, a change to one makes every
+record written under it undecryptable. The server has since moved to `server/` in this repository
 ([ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)) and the
 repository that name once referred to no longer exists, but the strings stay exactly as they are.
 `sync/crypto.rs` has a test that fails if anybody edits one.
@@ -152,6 +152,7 @@ already gives. It is unwrapped at sign-in and written nowhere else.
   "seq":        901,
   "updatedAt":  1758300000,
   "deleted":    false,
+  "device":     "<the id of the device whose session wrote it>",
   "nonce":      "<24 bytes base64>",
   "ciphertext": "<base64>"
 }
@@ -165,17 +166,20 @@ already gives. It is unwrapped at sign-in and written nowhere else.
   fails authentication.
 - `version` is that record's optimistic-concurrency token; `seq` is a per-account monotonic counter
   the server assigns, and is what `since` reads.
+- **`device` is stamped by the server** from the session that wrote the record, and a value a
+  client sends is ignored. It is what D4's tie-break reads, and it costs nothing: every write is
+  authenticated with one device's token, so the server knew which device wrote it already.
 - A tombstone carries `deleted: true` and no ciphertext. It is kept 90 days, after which a machine
   that has been offline longer is told to resync from empty rather than told incomplete news
   quietly.
 
 ## D4. The protocol
 
-Frozen as `/v1` before the first line of client code. The original reason was that the two halves
-lived in two repositories; [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)
-brought them into one, and the freeze outlived it — **a server somebody else is running does not
-update when this document does** (D9, R4), so a shape that moves costs them a coordinated release
-whatever this repository's layout is. A change to `/v1` is a new path, not an edit.
+**`/v1` is not frozen**, and whether it is frozen is a decision rather than something to infer from
+this document: ask before treating any shape here as fixed. What freezing buys is the reason to
+decide it carefully — **a server somebody else is running does not update when this document
+does** (D9, R4), so once `/v1` is frozen a shape that moves costs them a coordinated release, and a
+change is a new path rather than an edit.
 
 | Method | Path | Does |
 | --- | --- | --- |
@@ -185,7 +189,7 @@ whatever this repository's layout is. A change to `/v1` is a new path, not an ed
 | `POST` | `/v1/auth/verify` | completes with the emailed code; **no record may be written before this** |
 | `POST` | `/v1/auth/login` | email, `A`, a device name → a short access token and a per-device refresh token |
 | `POST` | `/v1/auth/password` | current `A`, new `A`, new `salt_account`, new `wrapped_mk` |
-| `POST` | `/v1/auth/reset` | emailed proof only; restores the login and **abandons the data** (D6) |
+| `POST` | `/v1/auth/reset` | emailed proof; restores the login, and keeps the data only for somebody holding the recovery key (D6) |
 | `GET` `DELETE` | `/v1/devices` · `/v1/devices/{id}` | list, and cut off a lost machine by killing its refresh token |
 | `GET` | `/v1/records?collection={c}&since={seq}` | what changed, oldest first, with the next cursor |
 | `PUT` | `/v1/records/{c}/{id}` | `If-Match: {version}`, or `If-None-Match: *` to create |
@@ -202,7 +206,13 @@ D9 asks for, bought for one handler.
 
 **A conflict is the client's to resolve and the server's to refuse.** A `PUT` whose `If-Match` is
 stale gets `409` and the current record. The client compares `updatedAt`, keeps the later one,
-breaks a tie on the lexicographically greater device id, and retries. The server compares nothing.
+breaks a tie on the lexicographically greater `device`, and retries. The server compares nothing.
+
+**Both fields the rule reads are the server's to set**, and that is deliberate rather than an
+oversight: `updatedAt` is outside the AAD of D3 and `device` is stamped from the session, so a
+hostile server could tilt a conflict between two versions of a record. Both versions are the
+person's own, and the server can already refuse either write outright, so sealing these would
+protect nothing it could not take another way.
 
 `/v1/records/batch` exists because a machine signing in for the first time pushes its whole local
 set, and two hundred round trips to do it is the difference between a pause and a wait. It is a
@@ -222,12 +232,12 @@ something D4 left open that two implementations would otherwise settle different
 
 ## D4b. Copying an account to another server, and deleting one
 
-**Both are in `/v1` from the first commit, and that is the only reason either can ever be used.**
-`/v1` is frozen and a server somebody else runs does not update when this document does (D9, R4), so
-a client that meets an answer it does not understand stops syncing with a strange error. A way to
-say *"hold still, I am copying"* added later would only work for clients written after it — which is
-exactly the population that does not need it. Moving servers is hypothetical; the place to say so is
-not.
+**Both are in `/v1` from the start rather than added later, and that is the only reason either can
+ever be used.** Once `/v1` is frozen a server somebody else runs does not update when this document
+does (D9, R4), so a client that meets an answer it does not understand stops syncing with a
+strange error. A way to say *"hold still, I am copying"* added later would only work for clients
+written after it — which is exactly the population that does not need it. Moving servers is
+hypothetical; the place to say so is not.
 
 **There is no *move* in this protocol.** There is a copy, which the client performs with the
 ordinary read and write routes, and there is a deletion. A move is the two of them in order, and a

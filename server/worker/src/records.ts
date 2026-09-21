@@ -23,6 +23,8 @@ export interface WireRecord {
   seq: number;
   updatedAt: number;
   deleted: boolean;
+  /** The device whose session wrote it (D3). */
+  device: string;
   nonce?: string;
   ciphertext?: string;
 }
@@ -51,6 +53,7 @@ const wire = (row: RecordRow): WireRecord => ({
   seq: row.seq,
   updatedAt: row.updated_at,
   deleted: row.deleted === 1,
+  device: row.device,
   // A tombstone carries no ciphertext (D3), so the two members are absent rather than null.
   ...(row.deleted === 1 ? {} : { nonce: row.nonce ?? "", ciphertext: row.ciphertext ?? "" }),
 });
@@ -89,6 +92,7 @@ export function applyPut(
   id: string,
   body: unknown,
   precondition: Precondition,
+  device: string,
 ): Outcome {
   if (!isOpaqueId(collection) || !isOpaqueId(id)) {
     return invalid("A collection and a record are each 64 lowercase hex characters.");
@@ -170,17 +174,19 @@ export function applyPut(
   const at = Math.floor(Date.now() / 1000);
 
   sql.exec(
-    `INSERT INTO record (collection, id, version, seq, updated_at, deleted, nonce, ciphertext, bytes, written_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+    `INSERT INTO record (collection, id, version, seq, updated_at, deleted, device, nonce, ciphertext,
+                         bytes, written_at)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
      ON CONFLICT (collection, id) DO UPDATE SET
        version = excluded.version, seq = excluded.seq, updated_at = excluded.updated_at,
-       deleted = 0, nonce = excluded.nonce, ciphertext = excluded.ciphertext,
-       bytes = excluded.bytes, written_at = excluded.written_at`,
+       deleted = 0, device = excluded.device, nonce = excluded.nonce,
+       ciphertext = excluded.ciphertext, bytes = excluded.bytes, written_at = excluded.written_at`,
     collection,
     id,
     version,
     seq,
     fields["updatedAt"],
+    device,
     nonce,
     ciphertext,
     bytes,
@@ -196,6 +202,7 @@ export function applyDelete(
   collection: string,
   id: string,
   ifMatch: number | undefined,
+  device: string,
 ): Outcome {
   if (!isOpaqueId(collection) || !isOpaqueId(id)) {
     return invalid("A collection and a record are each 64 lowercase hex characters.");
@@ -223,11 +230,12 @@ export function applyDelete(
 
   const seq = nextSeq(sql);
   sql.exec(
-    `UPDATE record SET version = ?, seq = ?, deleted = 1, nonce = NULL, ciphertext = NULL,
-                       bytes = 0, written_at = ?
+    `UPDATE record SET version = ?, seq = ?, deleted = 1, device = ?, nonce = NULL,
+                       ciphertext = NULL, bytes = 0, written_at = ?
      WHERE collection = ? AND id = ?`,
     existing.version + 1,
     seq,
+    device,
     Math.floor(Date.now() / 1000),
     collection,
     id,

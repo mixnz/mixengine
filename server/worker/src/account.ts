@@ -299,10 +299,12 @@ export class Account implements DurableObject {
     const precondition = readPrecondition(request.headers);
 
     if (request.method === "PUT") {
-      return outcome(applyPut(this.sql, config.capabilities, collection, id, body, precondition));
+      return outcome(
+        applyPut(this.sql, config.capabilities, collection, id, body, precondition, session.deviceId),
+      );
     }
 
-    const removed = applyDelete(this.sql, collection, id, precondition.ifMatch);
+    const removed = applyDelete(this.sql, collection, id, precondition.ifMatch, session.deviceId);
     if (removed.status === 200) await this.scheduleReaping(config.capabilities.tombstoneRetentionDays);
     return outcome(removed);
   }
@@ -347,12 +349,19 @@ export class Account implements DurableObject {
       const id = String(fields["id"] ?? "");
       const ifMatch = typeof fields["ifMatch"] === "number" ? fields["ifMatch"] : undefined;
 
-      if (fields["op"] === "delete") return applyDelete(this.sql, collection, id, ifMatch);
+      if (fields["op"] === "delete") {
+        return applyDelete(this.sql, collection, id, ifMatch, session.deviceId);
+      }
       if (fields["op"] === "put") {
-        return applyPut(this.sql, limits, collection, id, fields["record"], {
-          ifMatch,
-          ifNoneMatch: fields["ifNoneMatch"] === true,
-        });
+        return applyPut(
+          this.sql,
+          limits,
+          collection,
+          id,
+          fields["record"],
+          { ifMatch, ifNoneMatch: fields["ifNoneMatch"] === true },
+          session.deviceId,
+        );
       }
       return { status: 400, error: { code: "invalid-request", message: "`op` is put or delete." } };
     });

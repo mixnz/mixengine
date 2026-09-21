@@ -192,6 +192,21 @@ const vi: SharedDict = {
     syncCannotSealRecord: "Không mã hóa được mục này để đồng bộ.",
     syncCannotOpenRecord:
       "Không đọc được một mục từ máy chủ. Có thể nó đã bị sửa đổi.",
+    syncSignedOut: "Bạn đã bị đăng xuất khỏi đồng bộ. Hãy đăng nhập lại.",
+    syncAccessTokenRejected:
+      "Máy chủ đồng bộ này cần mã truy cập, và mã đang đặt không được chấp nhận.",
+    syncAccountFrozen:
+      "Tài khoản đang được sao chép sang máy chủ khác nên tạm thời không thay đổi được.",
+    syncTooManyRequests: "Máy chủ đồng bộ đang bận. Thử lại sau {{seconds}} giây.",
+    syncQuotaExceeded: "Tài khoản đồng bộ đã đầy.",
+    syncRequestTooLarge: "Quá nhiều dữ liệu cho một lần đồng bộ.",
+    syncRecordTooLarge: "Mục này lớn hơn mức máy chủ đồng bộ cho phép.",
+    syncServerUnreachable: "Không kết nối được máy chủ đồng bộ: {{message}}",
+    syncServerRefused: "Máy chủ đồng bộ từ chối yêu cầu ({{code}}).",
+    syncServerAnswerUnreadable: "Không đọc được phản hồi của máy chủ đồng bộ.",
+    syncCannotEncodeRequest: "Không chuẩn bị được yêu cầu đồng bộ.",
+    syncStoreFailed: "Không lưu được trạng thái đồng bộ: {{message}}",
+    syncConflictUnresolved: "Một máy khác liên tục thay đổi mục này. Đồng bộ sẽ thử lại sau.",
     cannotRemovePassword: "Không xóa được mật khẩu đã lưu: {{message}}",
 
     // Hai lỗi cả hai tầng cùng phát: một thư mục ứng dụng tự tạo, và một tác vụ giao cho luồng

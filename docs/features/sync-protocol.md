@@ -294,10 +294,10 @@ refused.
   offered to an address that proved itself. Replacing it loses nothing, since D4 forbids writing
   any record before verification, so there is never anything there to lose. It also narrows the
   enumeration below: an address with an unverified account no longer answers differently.
-- **`/v1/auth/reset` is one path with two shapes**, told apart by whether `token` is present: ask
-  for the letter, then complete with what it carried. Two shapes rather than a second path because
-  D4's table is the frozen surface, and a forgotten password is one operation a person performs in
-  two steps rather than two operations.
+- **`/v1/auth/reset` is one path told apart by which fields are present**: ask for the letter;
+  complete with its code and new keys, which deletes the records (D6 case 3); or spend the code for
+  the wrapped key and a ticket, then finish with the ticket and keep them (D6 case 2). One path
+  because a forgotten password is one thing a person does, in steps.
 - **Asking for a reset always answers `202`**, whether or not that address has an account. Unlike
   registration — which has to refuse a taken address and therefore leaks one (see below) — this
   route has no such obligation, so it does not leak.
@@ -360,9 +360,14 @@ purpose of the route, so it cuts it off now. Deleting your own device is how a p
 
 ### Records
 
-`PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`
-and **not** `seq`, which are the server's to assign. `DELETE` carries no body. Both answer with the
+`PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`,
+`seq` or `device`, which are the server's to assign. `DELETE` carries no body. Both answer with the
 stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
+
+**`device` is the id of the device whose session made the write**, as `/v1/devices` lists it. A
+`device` in the body is ignored rather than refused, the way every unrecognised field is — a
+client cannot claim another machine's writes by naming it. A tombstone carries the device that
+deleted it.
 
 | Condition | Answer |
 | --- | --- |
@@ -489,8 +494,8 @@ reached over a Unix socket or from a test harness gets.
 
 Verification arrives by email, which no HTTP suite can read. A server under test therefore serves
 `GET /__test__/outbox?email=…`, returning the tokens it would have sent, **and answers `404` unless
-it was started with that mode explicitly enabled**. It is outside `/v1` so that the frozen surface
-stays frozen, and a deployed server cannot be asked for it. Both implementations carry it, because
+it was started with that mode explicitly enabled**. It is outside `/v1` so that it is never part of
+the protocol, and a deployed server cannot be asked for it. Both implementations carry it, because
 `server/conformance/` requires it.
 
 ```json
