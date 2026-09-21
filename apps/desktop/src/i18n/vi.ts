@@ -278,6 +278,9 @@ const vi: SharedDict = {
     title: "Đồng bộ",
     intro:
       "Đồng bộ giữ một bản sao những gì bạn chọn trên một máy chủ không đọc được nó: mọi thứ được mã hoá trên máy này trước. Không có gì rời máy cho tới khi bạn bật một mục.",
+    selfHostingHint:
+      "Bạn cũng có thể đồng bộ qua máy chủ của riêng mình, chạy trên Cloudflare Workers hoặc Docker.",
+    selfHostingGuide: "Xem hướng dẫn",
     server: "Máy chủ",
     serverDefault: "{{url}} (mặc định)",
     addServer: "Thêm máy chủ",

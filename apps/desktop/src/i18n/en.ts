@@ -300,6 +300,9 @@ const en = {
     title: "Sync",
     intro:
       "Sync keeps a copy of what you choose on a server that cannot read it: everything is encrypted on this machine first. Nothing leaves until you turn a row on.",
+    selfHostingHint:
+      "You can also sync through a server you run yourself, on Cloudflare Workers or in Docker.",
+    selfHostingGuide: "Read the guide",
     server: "Server",
     serverDefault: "{{url}} (default)",
     addServer: "Add a server",

@@ -8,6 +8,8 @@
   leaves, and the server cannot read any of it. A forgotten password is recovered with the
   recovery key and loses nothing, and an account moves to another server unchanged. Saved
   passwords can follow too, each kind on its own switch.
+- Run your own sync server, on Cloudflare Workers or in Docker: Settings → Sync links to a guide
+  that covers both.
 - MixEngine in the tray on Windows, macOS and Linux: a panel with your services (Start and Stop),
   Stop all, your sites, Open MixLab and Stop MixEngine, which asks first. Closing
   MixLab's window keeps it in the tray, and a Settings switch opens it there at login.

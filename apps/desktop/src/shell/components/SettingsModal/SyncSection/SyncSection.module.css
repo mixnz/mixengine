@@ -104,3 +104,11 @@
 .secretRow {
   padding-left: 26px;
 }
+
+/* The self-hosting line. `margin-top: auto` sends it to the foot of the pane when the screen above
+   is short, and a rule sets it apart from that screen's own controls. */
+.selfHosting {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+}

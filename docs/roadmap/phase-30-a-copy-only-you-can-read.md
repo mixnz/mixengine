@@ -231,6 +231,13 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       real server must never serve it. It now says to test a throwaway copy, and the native README
       has the commands. The refusals were already a test: `registry.test.ts` enumerates exactly what
       syncs and checks that history, drafts, the workspace and usage counts are not among it (T177d).
+- [x] **T177j** A way to your own server, from the app: the Sync pane always ends with a line
+      saying sync can run on a server you run, and a button to a handbook page covering both ways.
+
+      **Done.** The page is `docs/guide/{en,vi}/self-hosting.md`: the short version of each README
+      (Cloudflare Workers, the container image), then how to point MixLab at the result, with the
+      READMEs linked for everything else. `SyncSection` renders its screen and then `SelfHosting`,
+      so the line shows in every state, an error included.
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
