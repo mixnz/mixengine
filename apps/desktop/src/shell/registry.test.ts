@@ -30,10 +30,11 @@ describe("the registry", () => {
 describe("what sync can offer", () => {
   const ids = SYNCABLE.map((collection) => collection.id);
 
-  it("is exactly D5's list, less the three secret rows T177f adds", () => {
+  it("is exactly D5's list, in the app's order", () => {
     expect(ids).toEqual([
       "preferences",
       "connections",
+      "connection-secrets",
       "query-snippets",
       "rest-requests",
       "rest-environments",
@@ -41,6 +42,14 @@ describe("what sync can offer", () => {
       "terminal-hosts",
       "tools-snippets",
     ]);
+  });
+
+  it("puts every secret row after the row it belongs to", () => {
+    for (const [index, collection] of SYNCABLE.entries()) {
+      if (collection.belongsTo === undefined) continue;
+      expect(ids.indexOf(collection.belongsTo)).toBeGreaterThanOrEqual(0);
+      expect(ids.indexOf(collection.belongsTo)).toBeLessThan(index);
+    }
   });
 
   it("never offers what D5 refuses", () => {

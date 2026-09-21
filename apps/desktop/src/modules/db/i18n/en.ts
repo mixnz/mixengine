@@ -1140,6 +1140,7 @@ const dbEn = {
   },
   dbSync: {
     connections: "Connections",
+    connectionSecrets: "Connection passwords",
     querySnippets: "Query snippets",
   },
 };

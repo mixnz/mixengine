@@ -5,7 +5,15 @@ import {
   type SyncChanges,
   type SyncItem,
 } from "../../core/syncCollection";
-import { loadSavedConnections, readSecrets, withSecrets, withoutSecrets } from "./savedConnections";
+import {
+  deleteSecrets,
+  loadSavedConnections,
+  loadSecrets,
+  readSecrets,
+  saveSecrets,
+  withSecrets,
+  withoutSecrets,
+} from "./savedConnections";
 import { addConnection, removeConnection, updateConnection } from "./savedConnectionsStore";
 import type { ConnectionConfig, SavedConnection } from "./types";
 
@@ -57,7 +65,14 @@ async function write(changes: SyncChanges): Promise<void> {
   for (const id of changes.removed) if (had.has(id)) await removeConnection(id);
   for (const connection of next) {
     if (!touched.has(connection.id)) continue;
-    await (had.has(connection.id) ? updateConnection(connection) : addConnection(connection));
+    if (had.has(connection.id)) {
+      await updateConnection(connection);
+      continue;
+    }
+    // Saved with no credential, a new connection would delete the vault entry its secrets may
+    // already be waiting in (D5). It takes them first.
+    const waiting = await loadSecrets(connection.id);
+    await addConnection({ ...connection, config: withSecrets(connection.config, waiting) });
   }
 }
 
@@ -66,4 +81,69 @@ export const connectionsSyncable: SyncableCollection = {
   labelKey: "dbSync.connections",
   read: async () => (await loadSavedConnections()).map(connectionToSync),
   write,
+};
+
+/** The credentials `connection-secrets` carries (D5). */
+const SECRET_KEYS = ["password", "uri", "sshPassword", "sshPassphrase"] as const;
+
+/**
+ * A connection's credentials, as `connection-secrets` lends them: what `readSecrets` finds, so
+ * never a password MixEngine's keyring holds, and no item at all for a connection with none.
+ */
+export function connectionSecretsToSync(connections: SavedConnection[]): SyncItem[] {
+  return connections.flatMap((connection) => {
+    const secrets = readSecrets(connection.config, connection.keyringRef) as Record<string, string | undefined>;
+    const data: Record<string, string> = {};
+    for (const key of SECRET_KEYS) {
+      const value = secrets[key];
+      if (value) data[key] = value;
+    }
+    return Object.keys(data).length === 0 ? [] : [{ id: connection.id, data }];
+  });
+}
+
+/** Another machine's credentials for one connection: the four fields, strings only. */
+export function connectionSecretsFromSync(data: unknown): Record<string, string> | null {
+  const record = asRecord(data);
+  if (!record) return null;
+  const out: Record<string, string> = {};
+  for (const key of SECRET_KEYS) {
+    const value = record[key];
+    if (typeof value === "string" && value !== "") out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Credentials into the vault. A connection this machine has is saved through the store, so its
+ * tabs see the new password at once; one that has not arrived yet gets its entry anyway, and finds
+ * it when it comes (D5).
+ */
+async function writeSecrets(changes: SyncChanges): Promise<void> {
+  const current = new Map((await loadSavedConnections()).map((connection) => [connection.id, connection]));
+  for (const synced of changes.upserts) {
+    const secrets = connectionSecretsFromSync(synced.data);
+    if (!secrets) continue;
+    const local = current.get(synced.id);
+    if (!local) {
+      await saveSecrets(synced.id, secrets);
+      continue;
+    }
+    // A password MixEngine's keyring holds for this connection stays there.
+    if (local.keyringRef) delete secrets.password;
+    await updateConnection({ ...local, config: withSecrets(withoutSecrets(local.config), secrets) });
+  }
+  for (const id of changes.removed) {
+    const local = current.get(id);
+    if (local) await updateConnection({ ...local, config: withoutSecrets(local.config) });
+    else await deleteSecrets(id);
+  }
+}
+
+export const connectionSecretsSyncable: SyncableCollection = {
+  id: "connection-secrets",
+  labelKey: "dbSync.connectionSecrets",
+  belongsTo: "connections",
+  read: async () => connectionSecretsToSync(await loadSavedConnections()),
+  write: writeSecrets,
 };
