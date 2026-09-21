@@ -59,10 +59,8 @@ libsqlite3-sys = { version = "0.37", features = ["bundled"] }
 # macOS where neither ships by default. See
 # `docs/specs/2026-09-05-mssql-support-design.md`'s D1.
 #
-# `native-tls` matches sqlx, reqwest and the updater rather than pulling a second TLS stack in.
-# `tds73` is not cosmetic: without it the connection negotiates an older protocol and `date`,
-# `time`, `datetime2` and `datetimeoffset` have no `ColumnData` variant to decode into.
-tiberius = { version = "0.12", default-features = false, features = ["tds73", "native-tls", "rust_decimal", "chrono"] }
+# Declared per target further down, because the TLS stack under it differs: see there.
+
 # tiberius ships no pool of its own, unlike sqlx. deadpool is the thin one: it recycles a client
 # and nothing more, which is all a TDS session needs.
 deadpool = "0.12"
@@ -140,6 +138,30 @@ portable-pty = "0.9"
 # at its path is this user's. std has the file's owner but not our own id.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+# tiberius, split by target on its TLS feature alone — everything else must stay identical.
+#
+# `tds73` is not cosmetic: without it the connection negotiates an older protocol and `date`,
+# `time`, `datetime2` and `datetimeoffset` have no `ColumnData` variant to decode into.
+#
+# Windows and Linux keep `native-tls`, which matches sqlx, reqwest and the updater rather than
+# pulling a second TLS stack in. macOS cannot: there `native-tls` is Secure Transport, and TDS
+# carries its TLS handshake inside PRELOGIN packets through tiberius' own `TlsPreloginWrapper`.
+# Secure Transport's read/write rhythm through that wrapper intermittently produces a handshake
+# the server aborts — `Error forming TLS connection: connection closed via error`, on some dials
+# and not others, so a pool of eight fails at random. rustls through the same wrapper does not.
+# The cost is TLS 1.0/1.1, which rustls never speaks: an unpatched SQL Server 2014 or older is
+# out of reach from macOS. Resolver 2 ignores features of targets not being built, so the two
+# features never meet in one build (tiberius refuses both at once).
+[target.'cfg(target_os = "macos")'.dependencies.tiberius]
+version = "0.12"
+default-features = false
+features = ["tds73", "rustls", "rust_decimal", "chrono"]
+
+[target.'cfg(not(target_os = "macos"))'.dependencies.tiberius]
+version = "0.12"
+default-features = false
+features = ["tds73", "native-tls", "rust_decimal", "chrono"]
 
 # Putting the Dock icon back in a development build after the tray hid the app from the Dock
 # (`src/tray.rs`, `show_in_dock`). The same versions and features `tauri` already links on macOS.
