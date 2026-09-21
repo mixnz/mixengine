@@ -106,6 +106,7 @@ const terminalEn = {
   terminalSync: {
     settings: "Terminal settings",
     hosts: "Saved SSH hosts",
+    hostSecrets: "SSH host passwords",
   },
 };
 

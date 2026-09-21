@@ -40,6 +40,7 @@ describe("what sync can offer", () => {
       "rest-environments",
       "terminal-settings",
       "terminal-hosts",
+      "terminal-host-secrets",
       "tools-snippets",
     ]);
   });

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { settingsFromSync, settingsToSync, targetFromSync, targetsToSync } from "./sync";
+import {
+  hostSecretsFromSync,
+  hostSecretsToSync,
+  settingsFromSync,
+  settingsToSync,
+  targetFromSync,
+  targetsToSync,
+} from "./sync";
 import type { TerminalSettings } from "./settings";
 import type { SavedTarget } from "./types";
 
@@ -46,5 +53,28 @@ describe("saved hosts in sync", () => {
 
   it("refuse a local target from another machine", () => {
     expect(targetFromSync({ id: "l", data: { name: "Local", kind: "local", shellName: "pwsh" } }, undefined)).toBeNull();
+  });
+});
+
+describe("what travels of a host's credentials", () => {
+  const ssh = (id: string, auth: object): SavedTarget =>
+    ({ id, name: id, kind: "ssh", config: { host: "h", port: 22, username: "u", auth } }) as SavedTarget;
+
+  it("is the SSH password or passphrase, and nothing for a host with neither", () => {
+    expect(
+      hostSecretsToSync([
+        ssh("a", { type: "password", password: "pw" }),
+        ssh("b", { type: "privatekey", key_path: "k", passphrase: "pp" }),
+        ssh("c", { type: "privatekey", key_path: "k" }),
+      ]),
+    ).toEqual([
+      { id: "a", data: { sshPassword: "pw" } },
+      { id: "b", data: { sshPassphrase: "pp" } },
+    ]);
+  });
+
+  it("arrives as those two fields, strings only", () => {
+    expect(hostSecretsFromSync({ sshPassword: "pw", sshPassphrase: 3, other: "x" })).toEqual({ sshPassword: "pw" });
+    expect(hostSecretsFromSync(null)).toBeNull();
   });
 });

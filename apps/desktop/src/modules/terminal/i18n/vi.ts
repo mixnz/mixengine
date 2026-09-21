@@ -106,6 +106,7 @@ const terminalVi: TerminalDict = {
   terminalSync: {
     settings: "Cài đặt terminal",
     hosts: "Máy SSH đã lưu",
+    hostSecrets: "Mật khẩu máy SSH",
   },
 };
 

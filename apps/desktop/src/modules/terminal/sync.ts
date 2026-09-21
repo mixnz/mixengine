@@ -2,16 +2,21 @@ import {
   applySyncChanges,
   asRecord,
   type SyncableCollection,
+  type SyncChanges,
   type SyncItem,
 } from "../../core/syncCollection";
 import { mergeSshSecrets, splitSshSecrets } from "../../core/ssh";
 import {
   addSavedTarget,
+  deleteSecrets,
   loadSavedTargets,
+  loadSecrets,
   parseSavedTarget,
   removeSavedTarget,
+  saveSecrets,
   updateSavedTarget,
   withoutSecrets,
+  type HostSecrets,
 } from "./savedTargets";
 import { sanitizeSettings, type TerminalSettings } from "./settings";
 import { loadTerminalSettings, updateTerminalSettings } from "./settingsStore";
@@ -81,7 +86,65 @@ export const hostsSyncable: SyncableCollection = {
     for (const id of changes.removed) if (had.has(id)) await removeSavedTarget(id);
     for (const target of next) {
       if (!touched.has(target.id)) continue;
-      await (had.has(target.id) ? updateSavedTarget(target) : addSavedTarget(target));
+      if (had.has(target.id)) {
+        await updateSavedTarget(target);
+        continue;
+      }
+      // As for a connection: saved with no credential, it would delete what may be waiting (D5).
+      const waiting = target.kind === "ssh" ? await loadSecrets(target.id) : {};
+      await addSavedTarget(
+        target.kind === "ssh" ? { ...target, config: mergeSshSecrets(target.config, waiting) } : target,
+      );
     }
   },
+};
+
+/** A host's credentials, as `terminal-host-secrets` lends them: nothing for a host with none. */
+export function hostSecretsToSync(targets: SavedTarget[]): SyncItem[] {
+  return targets.flatMap((target) => {
+    if (target.kind !== "ssh") return [];
+    const secrets = splitSshSecrets(target.config).secrets;
+    return Object.keys(secrets).length === 0 ? [] : [{ id: target.id, data: { ...secrets } }];
+  });
+}
+
+/** Another machine's credentials for one host: the SSH password and passphrase, strings only. */
+export function hostSecretsFromSync(data: unknown): HostSecrets | null {
+  const record = asRecord(data);
+  if (!record) return null;
+  const out: HostSecrets = {};
+  if (typeof record.sshPassword === "string" && record.sshPassword !== "") out.sshPassword = record.sshPassword;
+  if (typeof record.sshPassphrase === "string" && record.sshPassphrase !== "") {
+    out.sshPassphrase = record.sshPassphrase;
+  }
+  return out;
+}
+
+/** The same shape as `connection-secrets`' writer: through the list for a host this machine has,
+ *  straight into the vault for one that has not arrived (D5). */
+async function writeHostSecrets(changes: SyncChanges): Promise<void> {
+  const current = new Map((await loadSavedTargets()).map((target) => [target.id, target]));
+  for (const synced of changes.upserts) {
+    const secrets = hostSecretsFromSync(synced.data);
+    if (!secrets) continue;
+    const local = current.get(synced.id);
+    if (local?.kind === "ssh") {
+      await updateSavedTarget({ ...local, config: mergeSshSecrets(splitSshSecrets(local.config).config, secrets) });
+    } else if (!local) {
+      await saveSecrets(synced.id, secrets);
+    }
+  }
+  for (const id of changes.removed) {
+    const local = current.get(id);
+    if (local?.kind === "ssh") await updateSavedTarget(withoutSecrets(local));
+    else if (!local) await deleteSecrets(id);
+  }
+}
+
+export const hostSecretsSyncable: SyncableCollection = {
+  id: "terminal-host-secrets",
+  labelKey: "terminalSync.hostSecrets",
+  belongsTo: "terminal-hosts",
+  read: async () => hostSecretsToSync(await loadSavedTargets()),
+  write: writeHostSecrets,
 };

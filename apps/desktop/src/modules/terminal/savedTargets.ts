@@ -116,12 +116,17 @@ export function withoutSecrets(target: SavedTarget): SavedTarget {
   return target.kind === "ssh" ? { ...target, config: splitSshSecrets(target.config).config } : target;
 }
 
-function saveSecrets(id: string, secrets: HostSecrets): Promise<void> {
+export function saveSecrets(id: string, secrets: HostSecrets): Promise<void> {
   return invoke<void>("secrets_save", { id, secrets });
 }
 
-function loadSecrets(id: string): Promise<HostSecrets> {
+export function loadSecrets(id: string): Promise<HostSecrets> {
   return invoke<HostSecrets>("secrets_load", { id });
+}
+
+/** Forgets a host's credentials: when it goes, and when sync says another machine cleared them. */
+export function deleteSecrets(id: string): Promise<void> {
+  return invoke<void>("secrets_delete", { id });
 }
 
 /**
@@ -192,7 +197,7 @@ export async function removeSavedTarget(id: string): Promise<SavedTarget[]> {
      gì gọi tên nó nữa. Hỏi không điều kiện, kể cả với một shell trên máy này: xoá cái không có ở
      đó không phải là lỗi (`secrets.rs`), còn đoán rằng nó chưa từng có gì thì sai đúng một trường
      hợp — một dòng từng là máy chủ. */
-  await invoke<void>("secrets_delete", { id });
+  await deleteSecrets(id);
   await persist(next);
   return next;
 }
