@@ -188,8 +188,9 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       asking for the code twice. Any signed-in machine sees a freeze and can end it. The live suite
       deletes an account and moves one between two native servers; the screens have been checked
       by `tsc`, lint and the unit tests.
-- [ ] **T177e5** `closingOn` where a person will see it, not only in Settings: a notice in the
-      workspace — dismissible, once a run — while the signed-in server reports a closing date, and
+- [ ] **T177e5** `closingOn` where a person will see it, not only in Settings: a strip under the
+      tab bar — dismissible, once a run — once the signed-in server's closing date is within 30
+      days, and
       a warning on the sign-in form when the server chosen there reports one, read from its
       `/v1/capabilities` before anybody registers on it. *Found while testing T177e4: the Sync pane
       is the only place the date appears, and a person who does not open Settings never learns it.*

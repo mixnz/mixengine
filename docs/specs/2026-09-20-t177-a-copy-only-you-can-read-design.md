@@ -349,6 +349,13 @@ it: an operator who intends to switch the server off says when, every client rea
 sync, and a person has warning enough to copy the account somewhere while the server is still there
 to copy from. It says when, never where.
 
+**MixLab shows the date where a person will see it once it is near**, because a warning read only
+by somebody who opens Settings is not a warning, and one shown for months is not read either. The
+Sync pane always shows the date. **Within 30 days of it**, a strip across the top of the window says
+so too and leads to the Sync pane; dismissing it lasts until the next run, and nothing is refused on
+the day — the date stays advisory. The sign-in form says so whatever the distance, when the server
+chosen there reports a date, before anybody registers on a server that has announced its end.
+
 ### Deleting an account
 
 `POST /v1/account/delete`, carrying the current `A`.
