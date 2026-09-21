@@ -116,7 +116,7 @@ const en = {
     languageVietnamese: "Ti\u1ebfng Vi\u1ec7t",
     privacyPolicy: "Privacy policy",
     privacyHint:
-      "MixLab collects nothing about you and has no server of its own. What it keeps, it keeps on this machine.",
+      "MixLab collects nothing about you. What it keeps stays on this machine — unless you turn sync on, and then the server holds only what it cannot read.",
     logHint: "A file on this machine records crashes and errors, in case something needs a closer look.",
     openLogFolder: "Open log folder",
   },
@@ -290,6 +290,27 @@ const en = {
     revoke: "Remove",
     revokeTitle: "Remove {{name}}?",
     revokeMessage: "It is signed out at once and stops syncing. What it already has stays on it.",
+    title: "Sync",
+    intro:
+      "Sync keeps a copy of what you choose on a server that cannot read it: everything is encrypted on this machine first. Nothing leaves until you turn a row on.",
+    server: "Server",
+    serverDefault: "{{url}} (default)",
+    addServer: "Add a server",
+    addServerAction: "Add",
+    removeServer: "Remove",
+    serverInvalid: "That is not a server address.",
+    serverInsecure: "Use https:// — plain http:// works only for a server on this machine.",
+    access: "Access token",
+    accessHint: "Only for a server its owner has closed to their own people.",
+    email: "Email",
+    passwordAgain: "Password, again",
+    passwordsDiffer: "The two passwords are different.",
+    passwordHint:
+      "Nobody can reset this password and keep your data — only your recovery key can. Choose one you will remember.",
+    signIn: "Sign in",
+    signUp: "Create an account",
+    signingIn: "Signing in",
+    signingUp: "Creating the account",
   },
 };
 

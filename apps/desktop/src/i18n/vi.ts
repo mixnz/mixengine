@@ -105,7 +105,7 @@ const vi: SharedDict = {
     languageVietnamese: "Tiếng Việt",
     privacyPolicy: "Chính sách quyền riêng tư",
     privacyHint:
-      "MixLab không thu thập bất cứ thông tin nào về bạn và không có máy chủ nào của riêng nó. Những gì app ghi nhớ đều nằm lại trên máy này.",
+      "MixLab không thu thập bất cứ thông tin nào về bạn. Những gì app ghi nhớ đều nằm lại trên máy này — trừ khi bạn bật đồng bộ, và khi đó máy chủ chỉ giữ những gì nó không đọc được.",
     logHint: "Một file trên máy ghi lại các lỗi và crash, phòng khi cần xem kỹ hơn.",
     openLogFolder: "Mở thư mục log",
   },
@@ -268,6 +268,27 @@ const vi: SharedDict = {
     revoke: "Gỡ",
     revokeTitle: "Gỡ {{name}}?",
     revokeMessage: "Máy đó bị đăng xuất ngay và ngừng đồng bộ. Dữ liệu nó đang có vẫn nằm lại trên máy đó.",
+    title: "Đồng bộ",
+    intro:
+      "Đồng bộ giữ một bản sao những gì bạn chọn trên một máy chủ không đọc được nó: mọi thứ được mã hoá trên máy này trước. Không có gì rời máy cho tới khi bạn bật một mục.",
+    server: "Máy chủ",
+    serverDefault: "{{url}} (mặc định)",
+    addServer: "Thêm máy chủ",
+    addServerAction: "Thêm",
+    removeServer: "Gỡ",
+    serverInvalid: "Đây không phải địa chỉ máy chủ.",
+    serverInsecure: "Hãy dùng https:// — http:// chỉ dùng được cho máy chủ chạy trên chính máy này.",
+    access: "Access token",
+    accessHint: "Chỉ cần cho máy chủ mà chủ của nó đã giới hạn người dùng.",
+    email: "Email",
+    passwordAgain: "Nhập lại mật khẩu",
+    passwordsDiffer: "Hai mật khẩu không khớp.",
+    passwordHint:
+      "Không ai đặt lại được mật khẩu này mà vẫn giữ được dữ liệu của bạn — chỉ khoá khôi phục làm được. Hãy chọn mật khẩu bạn sẽ nhớ.",
+    signIn: "Đăng nhập",
+    signUp: "Tạo tài khoản",
+    signingIn: "Đang đăng nhập",
+    signingUp: "Đang tạo tài khoản",
   },
 };
 

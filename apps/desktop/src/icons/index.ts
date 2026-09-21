@@ -45,6 +45,7 @@ export {
   SettingsIcon,
   SlidersIcon,
   StopIcon,
+  SyncIcon,
   TerminalIcon,
   ToolsIcon,
   TrashIcon,
