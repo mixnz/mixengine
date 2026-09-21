@@ -19,7 +19,7 @@ use serde::Serialize;
 use tokio::sync::Mutex;
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use super::account::{Account, Argon, Device, Registration};
+use super::account::{Account, Argon, Device, PasswordChange, Registration};
 use super::crypto;
 use super::engine::{self, Fetched};
 use super::lend::{self, Agreement, Incoming, Item, Keys};
@@ -134,6 +134,34 @@ fn decode(text: &str) -> Result<Vec<u8>, AppError> {
     STANDARD
         .decode(text)
         .map_err(|_| err!("error.syncServerAnswerUnreadable"))
+}
+
+/// Argon2id and the two expansions, off the async thread. The password is wiped once used.
+async fn derive(mut password: String, salt: Vec<u8>) -> Result<crypto::PasswordKeys, AppError> {
+    in_background(move || {
+        let keys = crypto::derive_password_keys(&password, &salt);
+        password.zeroize();
+        keys
+    })
+    .await
+}
+
+/// What a new password needs: a fresh salt, `A`, and `MK` wrapped under it.
+struct Rewrapped {
+    a: [u8; 32],
+    salt: [u8; 16],
+    wrapped: Vec<u8>,
+}
+
+async fn rewrap(password: String, master: [u8; 32]) -> Result<Rewrapped, AppError> {
+    let salt: [u8; 16] = rand::random();
+    let keys = derive(password, salt.to_vec()).await?;
+    let wrapped = crypto::wrap_master_key(&keys.wrap, &master)?;
+    Ok(Rewrapped {
+        a: keys.auth,
+        salt,
+        wrapped,
+    })
 }
 
 impl SyncState {
@@ -463,6 +491,38 @@ impl SyncState {
         self.with_session(|session| {
             let id = id.clone();
             async move { session.account.revoke(&session.access_token, &id).await }
+        })
+        .await
+    }
+
+    /// D6 case 1: prove the current password, then re-wrap `MK` under the new one. Nothing is
+    /// re-encrypted; every other machine is signed out by the server and this one is not.
+    pub async fn change_password(&self, current: String, next: String) -> Result<(), AppError> {
+        let session = self.session(None).await?;
+        let saved = self
+            .inner
+            .lock()
+            .await
+            .saved
+            .clone()
+            .ok_or_else(|| err!("error.syncNotSignedIn"))?;
+        let params = session.account.params(&saved.email).await?;
+        let proven = derive(current, decode(&params.salt_account)?).await?;
+        let fresh = rewrap(next, saved.master_key_bytes()?).await?;
+        let change = PasswordChange {
+            a: STANDARD.encode(proven.auth),
+            new_a: STANDARD.encode(fresh.a),
+            new_salt_account: STANDARD.encode(fresh.salt),
+            new_wrapped_mk_password: STANDARD.encode(&fresh.wrapped),
+        };
+        self.with_session(|session| {
+            let change = change.clone();
+            async move {
+                session
+                    .account
+                    .change_password(&session.access_token, &change)
+                    .await
+            }
         })
         .await
     }

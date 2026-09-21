@@ -328,6 +328,37 @@ async fn a_device_list_names_this_machine_and_a_revoke_ends_it() {
     );
 }
 
+fn machine_state(dir: &std::path::Path, name: &str) -> SyncState {
+    SyncState::new(
+        Arc::new(InMemory::default()),
+        Ok(dir.join(format!("{name}.db"))),
+    )
+}
+
+/// A machine that registered and confirmed, the address it used, and its recovery key.
+async fn signed_up_with_key(
+    dir: &std::path::Path,
+    name: &str,
+    password: &str,
+) -> (SyncState, String, String) {
+    let email = format!("desktop-{}@example.invalid", uuid::Uuid::new_v4().simple());
+    let state = machine_state(dir, name);
+    let recovery = state
+        .register(&server(), None, &email, password.into())
+        .await
+        .unwrap();
+    state
+        .verify(&letter(&email, "verification").await, name)
+        .await
+        .unwrap();
+    (state, email, recovery)
+}
+
+async fn signed_up(dir: &std::path::Path, name: &str, password: &str) -> (SyncState, String) {
+    let (state, email, _) = signed_up_with_key(dir, name, password).await;
+    (state, email)
+}
+
 /// Sign up, confirm, sign in on a second machine, and carry an item across — the shell's calls,
 /// without the shell. The last push says nothing changed, which is the proof that the laptop
 /// recorded what it wrote rather than what it merely received.
@@ -381,4 +412,48 @@ async fn the_client_signs_up_signs_in_and_carries_an_item() {
     assert_eq!(after.token, None);
 
     assert_eq!(laptop.devices().await.unwrap().len(), 2);
+}
+
+/// D6 case 1: the other machine is signed out, nothing is re-encrypted, and the new password is
+/// the one that signs in.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn changing_the_password_signs_the_others_out_and_keeps_the_records() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "old password").await;
+    let laptop = machine_state(dir.path(), "laptop");
+    laptop
+        .login(&server(), None, &email, "old password".into(), "laptop")
+        .await
+        .unwrap();
+    let snippet = Item {
+        id: "kept".into(),
+        data: json!({ "sql": "select 1" }),
+    };
+    desktop
+        .push("query-snippets", vec![snippet.clone()])
+        .await
+        .unwrap();
+
+    let wrong = desktop
+        .change_password("not it".into(), "new password".into())
+        .await
+        .unwrap_err();
+    assert_eq!(wrong.code, "error.syncWrongPassword");
+    desktop
+        .change_password("old password".into(), "new password".into())
+        .await
+        .unwrap();
+
+    assert_eq!(
+        laptop.devices().await.err().map(|error| error.code),
+        Some("error.syncSignedOut")
+    );
+    let again = machine_state(dir.path(), "again");
+    again
+        .login(&server(), None, &email, "new password".into(), "again")
+        .await
+        .unwrap();
+    let page = again.pull_page("query-snippets").await.unwrap();
+    assert_eq!(page.changes.upserts, vec![snippet]);
 }
