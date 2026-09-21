@@ -36,8 +36,9 @@ pub struct Outgoing {
 pub struct Pushed {
     /// Written as this machine had them.
     pub accepted: usize,
-    /// Conflicts the other side won. **The caller applies these locally**, as if pulled: this
-    /// machine's version of each lost, and the server's is the one to keep.
+    /// Conflicts the other side won. **The caller writes these down and then lands them**
+    /// (`lend::land`), exactly as it would a pulled page: this machine's version of each lost, and
+    /// until the winner is written here nothing about the record is recorded.
     pub superseded: Vec<WireRecord>,
 }
 
@@ -141,18 +142,23 @@ pub async fn push<R: Remote>(
                         store.remember(&record).await?;
                         pushed.accepted += 1;
                     }
-                    (409 | 412, Some(current)) => {
-                        store.remember(&current).await?;
-                        match resolve(
-                            change.updated_at,
-                            device,
-                            current.updated_at,
-                            &current.device,
-                        ) {
-                            Keep::Local => retry.push((*change).clone()),
-                            Keep::Remote => pushed.superseded.push(current),
+                    (409 | 412, Some(current)) => match resolve(
+                        change.updated_at,
+                        device,
+                        current.updated_at,
+                        &current.device,
+                    ) {
+                        // The retry replaces the server's version, so it says `If-Match` with it.
+                        Keep::Local => {
+                            store.remember(&current).await?;
+                            retry.push((*change).clone());
                         }
-                    }
+                        // Not remembered: the version it reveals is recorded with the winner, once
+                        // the caller has written it down (`lend::land`). Remembered here, a failed
+                        // write would leave the next push carrying it — no `409`, and the older
+                        // edit replaces the newer one (D4).
+                        Keep::Remote => pushed.superseded.push(current),
+                    },
                     // Deleting what the server no longer has is the outcome that was wanted.
                     (404, _) if change.change == Change::Delete => pushed.accepted += 1,
                     _ => {
@@ -464,6 +470,30 @@ mod tests {
         assert_eq!(pushed.accepted, 0);
         assert_eq!(pushed.superseded.len(), 1);
         assert_eq!(pushed.superseded[0].ciphertext.as_deref(), Some("theirs"));
+        assert_eq!(server.current("a").ciphertext.as_deref(), Some("theirs"));
+    }
+
+    /// The loser learns nothing until it has written the winner down. Learnt early, a failed write
+    /// would leave the next push carrying the winner's version: no `409`, and the older edit
+    /// replaces the newer one without a conflict ever being seen (D4).
+    #[tokio::test]
+    async fn a_lost_conflict_is_met_again_until_its_winner_is_written() {
+        let (server, store) = (Fake::new("mine"), Store::in_memory("s").await.unwrap());
+        server.holds("a", 1, 300, "theirs");
+        let edit = || vec![write("a", 200, "mine")];
+
+        let first = push(&server, &store, &limits(), "mine", edit())
+            .await
+            .unwrap();
+        assert_eq!(first.superseded.len(), 1);
+        assert_eq!(store.seen("c", "a").await.unwrap(), None);
+
+        // The winner was never written here, so the same edit is pushed again.
+        let second = push(&server, &store, &limits(), "mine", edit())
+            .await
+            .unwrap();
+        assert_eq!(second.superseded.len(), 1);
+        assert_eq!(server.current("a").version, 1);
         assert_eq!(server.current("a").ciphertext.as_deref(), Some("theirs"));
     }
 

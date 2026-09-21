@@ -206,6 +206,22 @@ pub async fn settle(
     Ok(())
 }
 
+/// After a module has written what a pull or a lost conflict brought: record each record's version,
+/// then agree on what it says. **Only after the write** — see the module comment; the engine
+/// leaves a lost conflict unrecorded for exactly this call.
+pub async fn land(
+    store: &Store,
+    keys: &Keys,
+    collection: &str,
+    records: &[WireRecord],
+    agreements: Vec<Agreement>,
+) -> Result<(), AppError> {
+    for record in records {
+        store.remember(record).await?;
+    }
+    settle(store, keys, collection, agreements).await
+}
+
 /// Pulled records, opened, as what a module applies — and what to agree on once it has.
 ///
 /// A tombstone removes the local id this machine agreed on; one it never agreed on names nothing
@@ -457,6 +473,41 @@ mod tests {
         let (retry, _) = outgoing(&store, &keys, "c", &[], 300).await.unwrap();
         assert_eq!(first[0].updated_at, 200);
         assert_eq!(retry[0].updated_at, 200);
+    }
+
+    /// A winner written down and landed is agreed: the loser has nothing left to push. This is the
+    /// step that ends a conflict (D4).
+    #[tokio::test]
+    async fn a_landed_winner_leaves_nothing_to_push() {
+        let keys = keys();
+        let (store, there) = (
+            Store::in_memory("s").await.unwrap(),
+            Store::in_memory("s").await.unwrap(),
+        );
+        let (theirs, _) = outgoing(&there, &keys, "c", &[item("1", json!("theirs"))], 300)
+            .await
+            .unwrap();
+        let winner = landed(&theirs[0], 2);
+        let (written, agreements) = incoming(&store, &keys, "c", std::slice::from_ref(&winner))
+            .await
+            .unwrap();
+        land(&store, &keys, "c", &[winner], agreements)
+            .await
+            .unwrap();
+
+        let (next, _) = outgoing(&store, &keys, "c", &written.upserts, 400)
+            .await
+            .unwrap();
+        assert!(next.is_empty());
+        let opaque = crypto::opaque_id(&keys.id, "c");
+        assert_eq!(
+            store
+                .seen(&opaque, &theirs[0].id)
+                .await
+                .unwrap()
+                .map(|seen| seen.version),
+            Some(2)
+        );
     }
 
     /// An edit that another machine's version replaced is gone, and typing the same bytes again
