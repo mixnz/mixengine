@@ -236,6 +236,9 @@ const en = {
     syncNothingToVerify: "There is no sign-up waiting for a code. Sign up again.",
     syncPageStale: "Sync changed while this was being applied. It will run again.",
     syncArgonUnsupported: "This account was made by a client MixLab cannot sign in for.",
+    syncResetExpired: "That reset took too long. Ask for a new code.",
+    syncRecoveryKeyWrong: "That recovery key does not open this account.",
+    syncNothingToReset: "There is no password reset under way. Start again.",
     cannotRemovePassword: "Cannot remove the saved password: {{message}}",
 
     // The two both layers raise: a directory the app makes for itself, and work handed to a
