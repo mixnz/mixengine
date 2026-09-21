@@ -32,6 +32,8 @@ export interface StoredRecord {
   seq: number;
   updatedAt: number;
   deleted: boolean;
+  /** The device whose session wrote it, stamped by the server (D3). D4's tie-break reads it. */
+  device: string;
   nonce?: string;
   ciphertext?: string;
 }
