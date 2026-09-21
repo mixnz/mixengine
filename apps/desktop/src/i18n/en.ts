@@ -244,6 +244,9 @@ const en = {
     tryAgain: "Try again",
     restartApp: "Restart MixLab",
   },
+  sync: {
+    preferences: "Preferences",
+  },
 };
 
 /** The half of the dictionary no module owns. `src/i18n/dicts.ts` merges it with each module's. */

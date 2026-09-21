@@ -223,6 +223,9 @@ const vi: SharedDict = {
     tryAgain: "Thử lại",
     restartApp: "Khởi động lại MixLab",
   },
+  sync: {
+    preferences: "Tuỳ chọn",
+  },
 };
 
 export default vi;

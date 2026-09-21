@@ -1,5 +1,6 @@
 import type { SyncableCollection } from "../core/syncCollection";
 import type { ModuleDefinition } from "./module";
+import { preferencesSyncable } from "./preferencesSync";
 import { dbModule } from "../modules/db";
 import { mixengineModule } from "../modules/mixengine";
 import { restModule } from "../modules/rest";
@@ -27,7 +28,10 @@ export const MODULES: ModuleDefinition[] = [
 
 /** Every collection the account screen can offer (D5), in the app's order. The one place a
  *  collection is joined to the app, the way `MODULES` is for tabs. */
-export const SYNCABLE: SyncableCollection[] = MODULES.flatMap((m) => m.syncable ?? []);
+export const SYNCABLE: SyncableCollection[] = [
+  preferencesSyncable,
+  ...MODULES.flatMap((m) => m.syncable ?? []),
+];
 
 /** The three answers to "what will you use MixLab for?" — T108, the desktop client design's D11. */
 export type PresetId = "mixengine" | "everything" | "databaseTools";
