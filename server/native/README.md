@@ -1,17 +1,16 @@
 # The native server
 
-MixLab's sync server as a single binary over a SQLite file, for a machine somebody runs themselves.
+MixLab's sync server as a single binary with a SQLite file, for a machine you run yourself.
 
-**This is the second implementation, and that is its job.** The default instance is the Worker in
-`../worker/`; this speaks the same `/v1` over different machinery. The promise the design makes is
-that `/v1` is a protocol and not a description of one codebase, and something other than the Worker
-speaking it is the only thing that can ever prove that. `../conformance/` is written against the
-document both answer to — D2 to D4a of
-[the sync design](../../docs/specs/2026-09-20-t177-a-copy-only-you-can-read-design.md) — and
-against neither of them.
+This is the second implementation, and that is why it exists. The default instance is the Worker
+in `../worker/`. This server speaks the same `/v1` on different machinery, which is the only way to
+show that `/v1` is a real protocol and not a description of one codebase. `../conformance/` tests
+against the design both servers follow, D2 to D4a of
+[the sync design](../../docs/specs/2026-09-20-t177-a-copy-only-you-can-read-design.md), and not
+against either of them.
 
-**It cannot read what it holds.** Every value arrives sealed under a key derived on the machine
-that sent it. D1 of the design lists in full what a server necessarily sees.
+The server can't read what it stores. Every value is encrypted on the machine that sent it. D1 of
+the design lists everything a server does see.
 
 ## Running it
 
@@ -19,8 +18,8 @@ that sent it. D1 of the design lists in full what a server necessarily sees.
 cargo run
 ```
 
-It refuses to start without a pepper and an email provider, and names all of them at once rather
-than the first — setting one at a time and restarting is the slow way to find out you needed three.
+It won't start without a pepper and an email provider. When something is missing, it lists
+everything missing at once, so you don't have to fix one value, restart and find the next.
 
 ```bash
 MIXLAB_SYNC_PEPPER=$(head -c 32 /dev/urandom | base64) \
@@ -30,25 +29,24 @@ MIXLAB_SYNC_EMAIL_FROM=noreply@example.com \
 cargo run --release
 ```
 
-To run it the way CI does — no mail, small limits, and `/__test__/outbox` served so the conformance
-suite can read a verification token:
+To run it the way CI does, with no email, small limits, and `/__test__/outbox` served so the
+conformance suite can read verification codes:
 
 ```bash
 MIXLAB_SYNC_TEST_OUTBOX=1 cargo run
 ```
 
-## Pulling it instead of building it
+## Using the container image
 
 ```bash
 docker pull ghcr.io/mixnz/mixlab-sync-server:latest
 ```
 
-**Make the pepper first, once, and then never again.** It is keyed into every stored password
-verifier and into the salt this server answers with for an address that has no account, so a
-deployment that generates a fresh one on its next redeploy has locked out everybody who already had
-an account — permanently, with a reset letter each and their records gone, because the records were
-never readable by this server to begin with. Treat it the way you treat the database: back it up,
-somewhere that losing the machine does not lose it.
+**Generate the pepper once, and never again.** It is mixed into every stored password verifier and
+into the salt the server returns for addresses that have no account. If a redeploy generates a new
+one, everyone who already had an account is locked out for good: each of them has to reset their
+password, and their records are lost, since the server could never read them in the first place.
+Back the pepper up the way you back up the database, somewhere that survives losing the machine.
 
 ```bash
 umask 077
@@ -59,26 +57,26 @@ MIXLAB_SYNC_EMAIL_FROM=noreply@example.com
 MIXLAB_SYNC_EMAIL_PROVIDER=
 # Every provider except smtp.
 MIXLAB_SYNC_EMAIL_API_KEY=
-# mailgun only: its URL carries your sending domain and region, so nothing can guess it for you —
+# mailgun only. Its URL contains your sending domain and region, so it can't be guessed:
 # https://api.mailgun.net/v3/<domain>/messages, or api.eu.mailgun.net in the EU. Also for mailtrap
 # when testing against a sandbox: https://sandbox.api.mailtrap.io/api/send/<sandbox id>.
 # MIXLAB_SYNC_EMAIL_ENDPOINT=
-# smtp only, in place of the API key above. Username and password are optional — a mail server on
-# your own network often wants neither.
+# smtp only, instead of the API key above. Username and password are optional: a mail server on
+# your own network often needs neither.
 # MIXLAB_SYNC_SMTP_HOST=smtp.example.com
 # MIXLAB_SYNC_SMTP_USERNAME=
 # MIXLAB_SYNC_SMTP_PASSWORD=
-# Set this to close the server to everybody who has not been told the string. See below.
+# Set this to close the server to anyone who doesn't have the token. See below.
 # MIXLAB_SYNC_ACCESS_TOKEN=
-# Set this when you know the date you will switch this server off, so the people using it are
-# told in the application instead of on the day.
+# Set this once you know when you'll shut the server down, so people see it in MixLab
+# ahead of time instead of on the day.
 # MIXLAB_SYNC_CLOSING_ON=2027-03-01
 EOF
 ```
 
-`openssl rand -base64 32` does the same job where reaching `/dev/urandom` is awkward. Any 32 bytes
-of real randomness will do, and nobody ever types it: it is an HMAC key, not a password. `umask 077`
-is there because that file is now the most valuable thing on the machine after the database itself.
+Where `/dev/urandom` is awkward, `openssl rand -base64 32` works too. Any 32 truly random bytes will
+do, and nobody ever types it: it's an HMAC key, not a password. `umask 077` is there because after
+the database, this file is the most valuable thing on the machine.
 
 ```yaml
 services:
@@ -87,8 +85,8 @@ services:
     restart: unless-stopped
     ports: ["8765:8765"]
     volumes: ["mixlab-sync:/data"]
-    # Everything the server refuses to start without is in that file, and nothing else has to be:
-    # the image already binds 0.0.0.0:8765 and puts the database inside the volume.
+    # Everything the server needs to start is in this file. The image already listens on
+    # 0.0.0.0:8765 and keeps the database inside the volume.
     env_file: [".env"]
 volumes:
   mixlab-sync:
@@ -98,118 +96,113 @@ volumes:
 docker compose up -d && docker compose logs sync
 ```
 
-A container that exits immediately has already said why. **It names everything it is missing at
-once rather than the first thing** — `mixlab-sync will not start without: …`, exit code 78 — so one
-reading of the log is enough to finish the file.
+If the container exits right away, the log says why. It lists everything missing in one line,
+`mixlab-sync will not start without: …`, and exits with code 78, so one look at the log is enough
+to finish the file.
 
-The image follows `master` and carries two tags: `latest`, and `sha-<short>` for anyone who wants a
-fixed target to pin. **It is deliberately not attached to a release tag** — giving the server a
-versioned-artifact lifecycle is the one thing
-[ADR 0046](../../docs/decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) names as
-a reason to split it back into a repository of its own, and following `master` is also what keeps a
-self-hosted instance and the default one on the same generation of `/v1`.
+The image tracks `master` and has two tags: `latest`, and `sha-<short>` if you want to pin a fixed
+version. It is deliberately not tied to release tags.
+[ADR 0046](../../docs/decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md) names a
+versioned release cycle for the server as the one reason to move it into its own repository.
+Tracking `master` also keeps self-hosted servers on the same version of `/v1` as the default one.
 
-**Nothing in the hosted path is a container.** The default instance is the Worker, built by
-Cloudflare from `../worker/`. This image exists for the row of D8's table that is run on a machine
-of somebody's choosing, and nowhere else.
+The hosted server doesn't use this image. The default instance is the Worker, which Cloudflare builds
+from `../worker/`. The image is only for the self-hosted row of D8's table.
 
-**The port is the machine's business, not this program's.** 8765 is a default, not a reservation:
-if something already holds it, the server says so and stops rather than half-starting. Set
-`MIXLAB_SYNC_BIND` to whatever is free.
+The port is up to you. 8765 is a default, not a requirement. If something else already uses it, the
+server says so and stops instead of half-starting. Set `MIXLAB_SYNC_BIND` to a free address.
 
-Put a reverse proxy with TLS in front of it. **There is no public-URL setting to get wrong**: the
-letters carry a code the person types into MixLab, not a link (D4a), so this server never has to
-know the address it is reachable at.
+Put a reverse proxy with TLS in front of it. There is no public URL setting: the emails contain a
+code the person types into MixLab, not a link (D4a), so the server never needs to know its own
+address.
 
 ## Configuration
 
 | Name | Default | What it is |
 | --- | --- | --- |
-| `MIXLAB_SYNC_BIND` | `127.0.0.1:8765` | Address to listen on — **not 8080**, which MixEngine's own front end binds on a machine running MixLab. The image overrides this to `0.0.0.0:8765`, because inside a container the loopback address is the container |
-| `MIXLAB_SYNC_DATABASE` | `mixlab-sync.db` | The SQLite file. The image overrides this to `/data/mixlab-sync.db`, inside the volume |
-| `MIXLAB_SYNC_PEPPER` | **required** | Keyed into the stored password verifier, so a stolen database is not a list of verifiers. **Changing it locks out every existing account** |
-| `MIXLAB_SYNC_EMAIL_FROM` | **required** | The address the two letters are sent from |
-| `MIXLAB_SYNC_EMAIL_FROM_NAME` | `MixLab` | The name an inbox shows beside that address. Without one it shows the local part — `no-reply` — as the sender |
-| `MIXLAB_SYNC_EMAIL_PROVIDER` | **required** | `smtp`, `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid` — see below. **No default on purpose**: a key on its own does not say where to send it |
-| `MIXLAB_SYNC_EMAIL_API_KEY` | **required**, except `smtp` | The provider's key |
-| `MIXLAB_SYNC_EMAIL_ENDPOINT` | the provider's own | Where to post. **Required for `mailgun`**, whose URL carries the sending domain and the region, because there is nothing to guess. `mailtrap` defaults to its transactional stream, `https://send.api.mailtrap.io/api/send`; set this only to test against a sandbox (`https://sandbox.api.mailtrap.io/api/send/<sandbox id>`) |
+| `MIXLAB_SYNC_BIND` | `127.0.0.1:8765` | The address to listen on. **Not 8080**, because MixEngine's own front end uses it on a machine running MixLab. The image changes this to `0.0.0.0:8765`, since inside a container the loopback address only reaches the container |
+| `MIXLAB_SYNC_DATABASE` | `mixlab-sync.db` | The SQLite file. The image changes this to `/data/mixlab-sync.db`, inside the volume |
+| `MIXLAB_SYNC_PEPPER` | **required** | Mixed into each stored password verifier, so a stolen database is not a list of verifiers. **Changing it locks out every existing account** |
+| `MIXLAB_SYNC_EMAIL_FROM` | **required** | The address verification and reset emails come from |
+| `MIXLAB_SYNC_EMAIL_FROM_NAME` | `MixLab` | The sender name shown next to that address. Without it, inboxes show the part before the `@`, such as `no-reply` |
+| `MIXLAB_SYNC_EMAIL_PROVIDER` | **required** | `smtp`, `brevo`, `mailgun`, `mailtrap`, `postmark`, `resend` or `sendgrid` (see below). There is no default, because a key alone doesn't say which provider it belongs to |
+| `MIXLAB_SYNC_EMAIL_API_KEY` | **required**, except for `smtp` | The provider's key |
+| `MIXLAB_SYNC_EMAIL_ENDPOINT` | the provider's own | Where to send the request. **Required for `mailgun`**, whose URL contains the sending domain and region, which can't be guessed. `mailtrap` defaults to its transactional stream, `https://send.api.mailtrap.io/api/send`; set this only to test against a sandbox (`https://sandbox.api.mailtrap.io/api/send/<sandbox id>`) |
 | `MIXLAB_SYNC_SMTP_HOST` | **required** for `smtp` | The mail server |
-| `MIXLAB_SYNC_SMTP_PORT` | `587`, `465` or `25` | Whichever the TLS mode implies |
-| `MIXLAB_SYNC_SMTP_TLS` | `starttls` | Or `implicit`, or `none` — **`none` is for a mail server on this machine or this private network, and nowhere else** |
-| `MIXLAB_SYNC_SMTP_USERNAME` | none | Optional: many mail servers on a private network want no login |
-| `MIXLAB_SYNC_SMTP_PASSWORD` | none | Optional, with the username |
+| `MIXLAB_SYNC_SMTP_PORT` | `587`, `465` or `25` | Follows the TLS mode |
+| `MIXLAB_SYNC_SMTP_TLS` | `starttls` | Or `implicit`, or `none`. **Use `none` only for a mail server on the same machine or private network** |
+| `MIXLAB_SYNC_SMTP_USERNAME` | none | Optional: many mail servers on a private network need no login |
+| `MIXLAB_SYNC_SMTP_PASSWORD` | none | Optional, used with the username |
 | `MIXLAB_SYNC_MAX_RECORD_BYTES` | `1048576` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_MAX_BATCH_OPERATIONS` | `100` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_MAX_BATCH_BYTES` | `8388608` | Reported by `/v1/capabilities`, and the largest body this server will read |
 | `MIXLAB_SYNC_MAX_PAGE_RECORDS` | `500` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_ACCOUNT_QUOTA_BYTES` | `20971520` | Reported by `/v1/capabilities` |
 | `MIXLAB_SYNC_TOMBSTONE_RETENTION_DAYS` | `90` | Reported by `/v1/capabilities` |
-| `MIXLAB_SYNC_REGISTRATIONS_PER_HOUR` | `10` | How many accounts one source may open in an hour |
-| `MIXLAB_SYNC_RESETS_PER_HOUR` | `10` | How often one source may ask for a reset letter |
-| `MIXLAB_SYNC_LOGINS_PER_WINDOW` | `20` | Attempts on one account in fifteen minutes, right or wrong |
+| `MIXLAB_SYNC_REGISTRATIONS_PER_HOUR` | `10` | How many accounts one source can create in an hour |
+| `MIXLAB_SYNC_RESETS_PER_HOUR` | `10` | How often one source can request a reset email |
+| `MIXLAB_SYNC_LOGINS_PER_WINDOW` | `20` | Sign-in attempts on one account in fifteen minutes, right or wrong |
 | `MIXLAB_SYNC_VERIFY_ATTEMPTS_PER_WINDOW` | `10` | Codes tried against one account in fifteen minutes |
-| `MIXLAB_SYNC_PARAMS_PER_HOUR` | `200` | How often one source may ask where an address's salt is |
-| `MIXLAB_SYNC_AUTH_PER_HOUR` | `300` | How often one source may try to sign in or spend a code, across every account. The per-account counters cannot see somebody working through a list of addresses |
-| `MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR` | `3` | How many letters **one address** may receive. The counters above bound what one network sends and nothing about what one mailbox receives |
-| `MIXLAB_SYNC_RESET_TICKET_SECONDS` | `600` | How long the ticket from a recovery-key reset lasts (D6). Long enough to type a new password twice; short enough that one left in a log is worthless by the time it is read |
-| `MIXLAB_SYNC_TRUST_FORWARDED_FOR` | off | `1` reads the source address from `X-Forwarded-For`. **Set this if and only if a proxy you run is in front**, and see below |
-| `MIXLAB_SYNC_CLOSING_ON` | none | A date this server will be switched off, such as `2027-03-01`. Reported by `/v1/capabilities` so a person has warning enough to move their account. **Advisory**: nothing here refuses a request after it |
-| `MIXLAB_SYNC_ACCESS_TOKEN` | none, so open | A shared token that closes this server to everybody who has not been given it. Open is what the hosted instances are |
-| `MIXLAB_SYNC_TEST_OUTBOX` | off | `1` serves `/__test__/outbox` and sends no mail. **Never on a real deployment** |
+| `MIXLAB_SYNC_PARAMS_PER_HOUR` | `200` | How often one source can look up an address's salt |
+| `MIXLAB_SYNC_AUTH_PER_HOUR` | `300` | How often one source can try to sign in or use a code, across all accounts. The per-account limits can't see someone working through a list of addresses |
+| `MIXLAB_SYNC_LETTERS_PER_ACCOUNT_PER_HOUR` | `3` | How many emails **one address** can receive. The limits above cap what one network sends, not what one mailbox receives |
+| `MIXLAB_SYNC_RESET_TICKET_SECONDS` | `600` | How long the ticket from a recovery-key reset stays valid (D6): long enough to type a new password twice, short enough that one left in a log has expired by the time anyone reads it |
+| `MIXLAB_SYNC_TRUST_FORWARDED_FOR` | off | `1` takes the source address from `X-Forwarded-For`. **Turn this on only when a proxy you run sits in front of the server**, and read the section below |
+| `MIXLAB_SYNC_CLOSING_ON` | none | The date this server will be shut down, such as `2027-03-01`. Reported by `/v1/capabilities` so people have time to move their account. **Advisory only**: requests aren't refused after that date |
+| `MIXLAB_SYNC_ACCESS_TOKEN` | none (open) | A shared token that closes this server to anyone who doesn't have it. The hosted instances are open |
+| `MIXLAB_SYNC_TEST_OUTBOX` | off | `1` serves `/__test__/outbox` and sends no email. **Never set this on a real deployment** |
 
-**Required** means the server prints the name and exits 78 rather than starting; it names all of
-them at once. Everything else has a working value, so an ordinary deployment sets the four marked
-required and leaves the rest alone.
+**Required** means that without the value, the server prints what is missing and exits with code
+78 instead of starting, listing everything at once. Everything else has a sensible default, so a
+normal deployment sets the four required values and leaves the rest alone.
 
-The seven rate limits are not reported by `/v1/capabilities`, unlike every other number here:
-publishing the figure that stops abuse helps only the abuser. The verification one is the only
-allowance `../conformance/` deliberately exhausts — eight characters typed by a person are safe
-only because guessing is bounded, so that bound is part of the protocol.
+Unlike every other number here, the seven rate limits are not reported by `/v1/capabilities`:
+publishing the number that stops abuse only helps the abuser. The verification limit is the only
+one `../conformance/` deliberately uses up. An eight-character code typed by a person is only safe
+because guessing is limited, so that limit is part of the protocol.
 
-### Who the server thinks you are
+### How the server identifies a caller
 
 Every per-source limit needs an address to count against, and **this server takes it from the
-connection, not from the request**. `X-Forwarded-For` is a header any caller can write: a
-server reachable directly that believed it would hand anybody a fresh allowance per request,
-which is not a weaker limit but no limit at all.
+connection, not from the request**. Any caller can write an `X-Forwarded-For` header. If a server
+that is reachable directly trusted it, anyone could get a fresh allowance on every request, which
+means no limit at all.
 
-Measured on this branch, six registrations carrying six different forged values against a
-server allowing two an hour:
+We tested this with six registrations, each with a different forged header, against a server that
+allows two per hour:
 
 | | Accepted | Refused |
 | --- | --- | --- |
 | Default | 2 | 4 |
 | `MIXLAB_SYNC_TRUST_FORWARDED_FOR=1` | 6 | 0 |
 
-The second row is what the setting is for and why it is off: **behind a proxy it is the only
-way to tell callers apart**, and in front of nothing it is the way to tell nobody apart. Turn
-it on only when a proxy you control is the sole path to this server, and have that proxy set
-the header rather than append to it if you can. The value read is the **last** entry, which is
-the address the nearest proxy saw — the one part of the header a client cannot choose.
+That second row is why the setting exists and why it's off by default. Behind a proxy, the header
+is the only way to tell callers apart. Without a proxy, trusting it makes every caller look new.
+Turn it on only when a proxy you control is the only way to reach the server, and if you can, have
+the proxy replace the header instead of appending to it. The server reads the **last** entry, which
+is the address the nearest proxy saw and the one part of the header a client can't choose.
 
-Without it, a server reached over something with no peer address puts every caller in one
-bucket. That is the honest answer to not knowing, and it is not the same as not counting.
+When the setting is off and the connection has no peer address, every caller shares one limit.
+That's the safe answer when the server can't tell callers apart, and it still limits them.
 
-## Sending mail
+## Sending email
 
-Seven providers, and **which one is a deployment decision rather than a protocol one**. They sit
-behind a single function in `src/email.rs`, which is the part that matters: every free tier in this
-market will be renegotiated within a few years, and what protects a deployment is that changing
-provider is one file.
+There are seven providers, and which one you use is up to you; the protocol doesn't care. They all
+sit behind a single function in `src/email.rs`. Free email tiers change often, and keeping every
+provider in one file means switching is a one-file change.
 
-| Provider | How the key travels | What the body looks like |
+| Provider | How the key is sent | What the body looks like |
 | --- | --- | --- |
-| `smtp` | Optional username and password | A real message over a real socket |
+| `smtp` | Optional username and password | A standard email over an SMTP connection |
 | `resend` | `Authorization: Bearer` | `from` and `to` are plain strings |
-| `mailtrap` | `Api-Token` | `from` and `to` are objects. The transactional stream by default; a sandbox is an endpoint with its id |
+| `mailtrap` | `Api-Token` | `from` and `to` are objects. Uses the transactional stream by default; a sandbox is an endpoint with its ID |
 | `brevo` | `api-key` | `sender`, and the body is `textContent` |
 | `postmark` | `X-Postmark-Server-Token` | `From`, `To`, `Subject`, `TextBody` |
 | `sendgrid` | `Authorization: Bearer` | Recipients under `personalizations`, body as typed parts |
-| `mailgun` | HTTP basic auth, user `api` | **Form-encoded, not JSON.** Endpoint required — it carries the sending domain and the region |
+| `mailgun` | HTTP basic auth, user `api` | **Form-encoded, not JSON.** The endpoint is required because it contains the sending domain and region |
 
-**`smtp` is here and not in `../worker/`**, and it is the one capability the two implementations do
-not share: Workers cannot open a socket to port 587. It is also the provider most people
-self-hosting already have.
+**Only this server supports `smtp`; the Worker in `../worker/` doesn't**, because Workers can't open
+a socket to port 587. It's also the option most people self-hosting already have.
 
 ```bash
 MIXLAB_SYNC_EMAIL_PROVIDER=smtp \
@@ -221,40 +214,39 @@ MIXLAB_SYNC_PEPPER=… \
 cargo run --release
 ```
 
-## Closing it to everybody but your own people
+## Limiting access to your own people
 
 ```bash
 MIXLAB_SYNC_ACCESS_TOKEN=whatever-your-company-knows
 ```
 
-Every route then requires `X-MixLab-Access` carrying that string, **`/v1/capabilities` included** —
-the point is that somebody who finds the address cannot use the host at all, and a capabilities
-document that answered anybody would tell them the server is there and that it is worth coming
-back to. MixLab asks for the token when somebody sets up a self-hosted server in the application.
+With this set, every route requires an `X-MixLab-Access` header containing that string,
+**including `/v1/capabilities`**. Someone who finds the address can't use the server at all. If
+the capabilities endpoint answered everyone, it would tell them a server is there and worth coming
+back to. MixLab asks for the token when someone sets up a self-hosted server in the app.
 
-Change it whenever you like; every client is locked out until it is told the new one, which is the
-behaviour this is for. **It protects the host, not the accounts**: everything else about this
-design is unchanged, and somebody holding the token still cannot read a record.
+You can change the token at any time. Every client is then locked out until it gets the new one,
+which is the point. **The token protects the server, not the accounts.** Nothing else about the
+design changes, and someone with the token still can't read a record.
 
-A wrong one answers `401` with the code `invalid-access-token` — its own code, not the one that
-means a session ended, because *ask your administrator* and *sign in again* are different
-sentences. Wrong ones are counted per source, because the string is yours to choose and you may
-choose a short one.
+A wrong token gets a `401` with the code `invalid-access-token`. It has its own code, separate from
+the one for an expired session, because the user needs to hear "ask your administrator" rather than
+"sign in again". Wrong tokens are counted per source, since you pick the string and might pick a
+short one.
 
-## How it differs from the Worker, and where it does not
+## How it differs from the Worker
 
-**Where it does not**: the protocol. Both answer the same suite, and a client cannot tell them
-apart — which is the point.
+The protocol is identical. Both servers pass the same suite, and a client can't tell them apart.
 
-**Where it does**: a Durable Object serializes execution, so the Worker gets the registration race,
-the monotonic `seq` and the per-record compare-and-swap for free. Here they are transactions, and
-each one carries a comment saying which guarantee it is standing in for. Reaping is a task inside
-the process rather than an alarm per account. Neither difference is visible through `/v1`, and that
-is the claim the conformance suite exists to check.
+The internals differ. A Durable Object runs one request at a time, so the Worker gets the
+registration race, the increasing `seq` and the per-record compare-and-swap for free. Here they are
+database transactions, each with a comment naming the guarantee it provides. Reaping runs as a task
+inside the process instead of an alarm per account. None of this is visible through `/v1`, and the
+conformance suite is there to confirm that.
 
-## A workspace of its own
+## A separate Cargo workspace
 
-Excluded from the repository's root `Cargo.toml`, the way `apps/desktop/src-tauri` is and for the
-reason that manifest gives there: an HTTP server's dependency tree would defeat `deny.toml`'s
-duplicate-version ban and the elevated helper's dependency budget in one move. `cargo` at the root
-never sees this crate; `cargo audit` runs against it on its own in `.github/workflows/server.yml`.
+This crate is excluded from the repository's root `Cargo.toml`, like `apps/desktop/src-tauri`, and
+for the reason given in that manifest: an HTTP server's dependency tree would break both
+`deny.toml`'s duplicate-version ban and the elevated helper's dependency budget. `cargo` at the root
+never sees this crate. `.github/workflows/server.yml` runs `cargo audit` on it separately.

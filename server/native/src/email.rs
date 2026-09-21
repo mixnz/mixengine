@@ -127,18 +127,18 @@ impl LetterKind {
 fn body(kind: LetterKind, code: &str) -> String {
     match kind {
         LetterKind::Verification => format!(
-            "Type this code into MixLab to confirm your address:\n\n    {code}\n\n\
-             It works for 24 hours. If you did not ask for an account, ignore this message —\n\
-             nothing was created that you have to undo.\n"
+            "Your MixLab confirmation code is:\n\n    {code}\n\n\
+             Enter it in MixLab to finish creating your account. The code expires in 24 hours.\n\n\
+             If you didn't sign up for MixLab, you can ignore this email.\n"
         ),
         LetterKind::Reset => format!(
-            "Somebody asked to reset the password on this MixLab account. The code is:\n\n    {code}\n\n\
-             It works for one hour.\n\n\
-             Resetting the password restores the login and NOT the data. Everything stored in the\n\
-             account is encrypted with a key that only your password or your recovery key can\n\
-             unwrap, and this server has never held either. Completing a reset deletes it all.\n\n\
-             If you have your recovery key, close this message and use that instead — it keeps the\n\
-             data.\n"
+            "Someone asked to reset the password for this MixLab account. Your code is:\n\n    {code}\n\n\
+             The code expires in 1 hour.\n\n\
+             Resetting your password lets you sign in again, but it deletes your synced data.\n\
+             Your data is encrypted with a key that only your password or recovery key can\n\
+             unlock, and the server has neither.\n\n\
+             If you still have your recovery key, use it instead. It keeps your data.\n\n\
+             If you didn't ask for this, ignore this email. Your password won't change.\n"
         ),
     }
 }

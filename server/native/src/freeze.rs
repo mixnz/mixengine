@@ -45,7 +45,7 @@ pub async fn guard(state: &Arc<AppState>, headers: &HeaderMap) -> Option<Failure
             Some(Failure::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "server-error",
-                "Something went wrong here.",
+                "Something went wrong on the server.",
             ))
         })
 }
@@ -97,7 +97,7 @@ pub fn blocked(connection: &Connection, account_id: i64) -> rusqlite::Result<Opt
     Ok(Some(Failure::new(
         StatusCode::LOCKED,
         "account-frozen",
-        "This account is being copied and cannot change.",
+        "This account is being moved to another server and can't be changed right now.",
     )))
 }
 
@@ -106,7 +106,7 @@ fn server_error(error: impl std::fmt::Display) -> Response {
     Failure::new(
         StatusCode::INTERNAL_SERVER_ERROR,
         "server-error",
-        "Something went wrong here.",
+        "Something went wrong on the server.",
     )
     .into_response()
 }
@@ -138,7 +138,7 @@ pub async fn set(State(state): State<Arc<AppState>>, headers: HeaderMap, body: S
     };
     let wanted = match fields.get("state").and_then(Value::as_str) {
         Some(wanted @ ("active" | "frozen")) => wanted.to_owned(),
-        _ => return invalid_request("`state` is active or frozen.").into_response(),
+        _ => return invalid_request("`state` must be active or frozen.").into_response(),
     };
 
     let outcome = state

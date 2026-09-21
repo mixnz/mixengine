@@ -24,7 +24,7 @@ export function json(status: number, body: unknown, headers: Record<string, stri
 export const notFound = (): Response => fail(404, "not-found", "No such route.");
 
 export const methodNotAllowed = (): Response =>
-  fail(405, "method-not-allowed", "That route does not answer this method.");
+  fail(405, "method-not-allowed", "That route does not accept this method.");
 
 export const invalidRequest = (message: string): Response => fail(400, "invalid-request", message);
 
