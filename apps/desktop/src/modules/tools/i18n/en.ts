@@ -365,6 +365,9 @@ const toolsEn = {
   error: {
     portScanFailed: "Could not read the list of open ports: {{tool}} did not run.",
   },
+  toolsSync: {
+    snippets: "Cheatsheet snippets",
+  },
 };
 
 export default toolsEn;
