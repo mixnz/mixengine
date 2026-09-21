@@ -1,8 +1,8 @@
-//! MixLab's sync: the key hierarchy, the record envelope, and the transport above them.
+//! MixLab's sync: the key hierarchy, the record envelope, the transport above them, and the account.
 //!
-//! **Nothing here touches the network, the disk or the credential store.** [`crypto`](crate::sync::crypto) is arithmetic
-//! over byte arrays, so the promise that the server cannot read a record is checkable by reading one
-//! file rather than by trusting a deployment — the design's D1, and
+//! **[`crypto`](crate::sync::crypto) touches nothing but byte arrays**, so the promise that the
+//! server cannot read a record is checkable by reading one file rather than by trusting a
+//! deployment — the design's D1, and
 //! [ADR 0045](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0045-mixlab-has-an-account-and-mixengine-does-not.md).
 //!
 //! [`crypto`](crate::sync::crypto) is the key hierarchy and the envelope.
@@ -11,15 +11,23 @@
 //! and [`engine`](crate::sync::engine) puts them together as `pull` and `push`.
 //! [`lend`](crate::sync::lend) turns what a module lends into the changes the engine moves, and
 //! pulled records back into items — deciding `updatedAt` on the way (D4).
+//! [`account`](crate::sync::account) is the account routes, and nothing that decides what to keep.
+//! [`saved`](crate::sync::saved) is what survives a restart, and
+//! [`session`](crate::sync::session) is the signed-in state that holds a page until a module has
+//! written it.
 //!
 //! **The engine moves ciphertext only** — sealing and opening stay with whoever calls it, so the
 //! keyring and a module's plaintext never reach the socket.
 
+pub mod account;
 pub mod chunk;
+pub mod commands;
 pub mod crypto;
 pub mod engine;
 pub mod lend;
 pub mod merge;
+pub mod saved;
+pub mod session;
 pub mod store;
 pub mod transport;
 pub mod wire;

@@ -11,11 +11,9 @@ mod platform;
 mod relaunch;
 mod secrets;
 mod ssh;
-/// **Public only until it has a caller in the application.** Every other module here is private
-/// because `lib.rs` wires it; this one is reached only by its own tests and `tests/sync_live.rs`
-/// until T177e's sign-in calls the engine. Public is what lets it exist before then without an
-/// `allow(dead_code)` that would go on quietly excusing a genuinely unused function afterwards. It
-/// goes back to `mod` the moment the application calls it, and `dead_code` resumes policing it.
+/// **Public because `tests/sync_live.rs` drives it** against a real server — the one place the
+/// client meets a server it did not write. Everything else here is private because `lib.rs` wires
+/// it; this is wired too (`sync::commands`), and public on top of that.
 pub mod sync;
 mod tray;
 
@@ -114,6 +112,16 @@ pub fn run() {
                copy is race-free. The credentials follow on a thread of their own; the module's
                own documentation is where both halves are argued. */
             import::on_first_launch(app.handle());
+
+            // Sync's state, with where its record store lives. A machine with no data directory
+            // still starts: the error waits for the first sign-in, which is where it means something.
+            {
+                use tauri::Manager as _;
+                app.manage(sync::session::SyncState::new(
+                    std::sync::Arc::new(sync::saved::CredentialStore),
+                    platform::app_data_dir(app.handle()).map(|dir| dir.join("sync.db")),
+                ));
+            }
 
             launch::start(app.handle(), opening);
 

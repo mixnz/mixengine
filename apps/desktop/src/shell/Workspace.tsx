@@ -29,6 +29,7 @@ import {
 import { MODULES, moduleById } from "./registry";
 import { defaultModuleId, visibleModules, withModule } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
+import { startSync } from "./sync";
 
 interface WorkspaceProps {
   /** The module ids this window draws — `shell/profiles.ts`. */
@@ -61,6 +62,10 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
      hiding the last such module takes it down. Again on a language switch, for the Linux menu's
      words. `lang` is listed beside `t` because `t` is one function for the life of the app. */
   const hasTrayPanel = visible.some((module) => module.TrayPanel !== undefined);
+
+  // The main window syncs; the tray panel, which never mounts a workspace, does not.
+  useEffect(() => startSync(), []);
+
   useEffect(() => {
     void configureTray(hasTrayPanel, {
       openPanel: t("tray.openPanel"),

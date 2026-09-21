@@ -92,12 +92,16 @@ fn hash(bytes: &[u8]) -> String {
         })
 }
 
+/// What a deletion is stamped under. Never a hash: those are 64 hex characters.
+const DELETED: &str = "deleted";
+
 fn plaintext(collection: &str, item: &Item) -> Vec<u8> {
     canonical(&json!({ "collection": collection, "id": item.id, "data": item.data }))
 }
 
-/// This machine's items as the changes the server does not have, stamped `now`, and what to record
-/// once they have landed. An item agreed before and no longer returned is a deletion.
+/// This machine's items as the changes the server does not have, and what to record once they have
+/// landed. An item agreed before and no longer returned is a deletion. **Each change carries the
+/// time it was first noticed**, which `now` is only for a change seen for the first time.
 pub async fn outgoing(
     store: &Store,
     keys: &Keys,
@@ -131,10 +135,11 @@ pub async fn outgoing(
             },
             &plain,
         )?;
+        let updated_at = store.stamp(&opaque_collection, &id, &digest, now).await?;
         changes.push(Outgoing {
             collection: opaque_collection.clone(),
             id: id.clone(),
-            updated_at: now,
+            updated_at,
             change: Change::Write {
                 nonce: STANDARD.encode(sealed.nonce),
                 ciphertext: STANDARD.encode(sealed.ciphertext),
@@ -149,10 +154,11 @@ pub async fn outgoing(
 
     for (id, _) in store.agreed_live(&opaque_collection).await? {
         if !present.contains(&id) {
+            let updated_at = store.stamp(&opaque_collection, &id, DELETED, now).await?;
             changes.push(Outgoing {
                 collection: opaque_collection.clone(),
                 id,
-                updated_at: now,
+                updated_at,
                 change: Change::Delete,
             });
         }
@@ -198,6 +204,22 @@ pub async fn settle(
             .await?;
     }
     Ok(())
+}
+
+/// After a module has written what a pull or a lost conflict brought: record each record's version,
+/// then agree on what it says. **Only after the write** — see the module comment; the engine
+/// leaves a lost conflict unrecorded for exactly this call.
+pub async fn land(
+    store: &Store,
+    keys: &Keys,
+    collection: &str,
+    records: &[WireRecord],
+    agreements: Vec<Agreement>,
+) -> Result<(), AppError> {
+    for record in records {
+        store.remember(record).await?;
+    }
+    settle(store, keys, collection, agreements).await
 }
 
 /// Pulled records, opened, as what a module applies — and what to agree on once it has.
@@ -419,5 +441,101 @@ mod tests {
             .unwrap();
         let opaque = crypto::opaque_id(&keys.id, "c");
         assert_eq!(store.agreed(&opaque, &changes[0].id).await.unwrap(), None);
+    }
+
+    /// A retry is not a newer edit. Stamped afresh on each attempt, an edit made offline yesterday
+    /// would beat one made elsewhere this morning simply by being retried last (D4).
+    #[tokio::test]
+    async fn a_change_keeps_the_time_it_was_first_noticed() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let draft = [item("1", json!("draft"))];
+        let (first, _) = outgoing(&store, &keys, "c", &draft, 100).await.unwrap();
+        let (retry, _) = outgoing(&store, &keys, "c", &draft, 200).await.unwrap();
+        assert_eq!(first[0].updated_at, 100);
+        assert_eq!(retry[0].updated_at, 100, "a retry is the same edit");
+
+        let (edited, _) = outgoing(&store, &keys, "c", &[item("1", json!("final"))], 300)
+            .await
+            .unwrap();
+        assert_eq!(edited[0].updated_at, 300, "a further edit is a newer one");
+    }
+
+    #[tokio::test]
+    async fn a_deletion_keeps_its_time_too() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let (changes, agreements) = outgoing(&store, &keys, "c", &[item("1", json!(1))], 100)
+            .await
+            .unwrap();
+        store.remember(&landed(&changes[0], 1)).await.unwrap();
+        settle(&store, &keys, "c", agreements).await.unwrap();
+
+        let (first, _) = outgoing(&store, &keys, "c", &[], 200).await.unwrap();
+        let (retry, _) = outgoing(&store, &keys, "c", &[], 300).await.unwrap();
+        assert_eq!(first[0].updated_at, 200);
+        assert_eq!(retry[0].updated_at, 200);
+    }
+
+    /// A winner written down and landed is agreed: the loser has nothing left to push. This is the
+    /// step that ends a conflict (D4).
+    #[tokio::test]
+    async fn a_landed_winner_leaves_nothing_to_push() {
+        let keys = keys();
+        let (store, there) = (
+            Store::in_memory("s").await.unwrap(),
+            Store::in_memory("s").await.unwrap(),
+        );
+        let (theirs, _) = outgoing(&there, &keys, "c", &[item("1", json!("theirs"))], 300)
+            .await
+            .unwrap();
+        let winner = landed(&theirs[0], 2);
+        let (written, agreements) = incoming(&store, &keys, "c", std::slice::from_ref(&winner))
+            .await
+            .unwrap();
+        land(&store, &keys, "c", &[winner], agreements)
+            .await
+            .unwrap();
+
+        let (next, _) = outgoing(&store, &keys, "c", &written.upserts, 400)
+            .await
+            .unwrap();
+        assert!(next.is_empty());
+        let opaque = crypto::opaque_id(&keys.id, "c");
+        assert_eq!(
+            store
+                .seen(&opaque, &theirs[0].id)
+                .await
+                .unwrap()
+                .map(|seen| seen.version),
+            Some(2)
+        );
+    }
+
+    /// An edit that another machine's version replaced is gone, and typing the same bytes again
+    /// later is a new edit — not the old one come back with its old time.
+    #[tokio::test]
+    async fn an_edit_a_pull_replaced_is_forgotten() {
+        let keys = keys();
+        let (store, there) = (
+            Store::in_memory("s").await.unwrap(),
+            Store::in_memory("s").await.unwrap(),
+        );
+        outgoing(&store, &keys, "c", &[item("1", json!("mine"))], 100)
+            .await
+            .unwrap();
+
+        let (theirs, _) = outgoing(&there, &keys, "c", &[item("1", json!("theirs"))], 150)
+            .await
+            .unwrap();
+        let record = landed(&theirs[0], 1);
+        let (_, agreements) = incoming(&store, &keys, "c", std::slice::from_ref(&record))
+            .await
+            .unwrap();
+        store.remember(&record).await.unwrap();
+        settle(&store, &keys, "c", agreements).await.unwrap();
+
+        let (again, _) = outgoing(&store, &keys, "c", &[item("1", json!("mine"))], 500)
+            .await
+            .unwrap();
+        assert_eq!(again[0].updated_at, 500);
     }
 }

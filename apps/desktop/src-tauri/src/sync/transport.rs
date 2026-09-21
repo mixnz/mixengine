@@ -137,7 +137,7 @@ fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, AppError> {
     serde_json::from_slice(bytes).map_err(|_| err!("error.syncServerAnswerUnreadable"))
 }
 
-fn unreachable(error: reqwest::Error) -> AppError {
+pub(super) fn unreachable(error: reqwest::Error) -> AppError {
     err!("error.syncServerUnreachable", message = error)
 }
 

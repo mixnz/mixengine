@@ -34,6 +34,16 @@ const SCHEMA: &[&str] = &[
        hash       TEXT,
        PRIMARY KEY (server, collection, id)
      )",
+    // When this machine first noticed a change it has not yet landed, and what the change said. A
+    // retry reuses the time; a further edit — a different hash — replaces it (D4).
+    "CREATE TABLE IF NOT EXISTS stamp (
+       server     TEXT    NOT NULL,
+       collection TEXT    NOT NULL,
+       id         TEXT    NOT NULL,
+       hash       TEXT    NOT NULL,
+       at         INTEGER NOT NULL,
+       PRIMARY KEY (server, collection, id)
+     )",
 ];
 
 /// What this machine last saw of one record.
@@ -151,6 +161,11 @@ impl Store {
         .execute(&self.pool)
         .await
         .map_err(store_error)?;
+        // A tombstone is the end of any change to that record. A deletion that landed has nothing
+        // to agree on, so this is where its stamp goes.
+        if record.deleted {
+            self.unstamp(&record.collection, &record.id).await?;
+        }
         Ok(())
     }
 
@@ -210,6 +225,9 @@ impl Store {
         .execute(&self.pool)
         .await
         .map_err(store_error)?;
+        // Whatever this machine was still trying to land is either what was agreed or was replaced
+        // by it; either way it is no longer in flight.
+        self.unstamp(collection, id).await?;
         Ok(())
     }
 
@@ -226,6 +244,57 @@ impl Store {
         .await
         .map_err(store_error)?;
         Ok(rows.iter().map(|row| (row.get(0), row.get(1))).collect())
+    }
+
+    /// When this machine first noticed the change it is still trying to land — the same time on
+    /// every retry, so an edit is never newer for having waited (D4). A different `hash` is a
+    /// further edit, and is stamped `now`.
+    pub async fn stamp(
+        &self,
+        collection: &str,
+        id: &str,
+        hash: &str,
+        now: i64,
+    ) -> Result<i64, AppError> {
+        let row = sqlx::query(
+            "SELECT at FROM stamp
+             WHERE server = ?1 AND collection = ?2 AND id = ?3 AND hash = ?4",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .bind(hash)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(store_error)?;
+        if let Some(row) = row {
+            return Ok(row.get(0));
+        }
+        sqlx::query(
+            "INSERT INTO stamp (server, collection, id, hash, at) VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT (server, collection, id) DO UPDATE SET
+               hash = excluded.hash, at = excluded.at",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .bind(hash)
+        .bind(now)
+        .execute(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(now)
+    }
+
+    async fn unstamp(&self, collection: &str, id: &str) -> Result<(), AppError> {
+        sqlx::query("DELETE FROM stamp WHERE server = ?1 AND collection = ?2 AND id = ?3")
+            .bind(&self.server)
+            .bind(collection)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(())
     }
 }
 
@@ -317,6 +386,18 @@ mod tests {
                 hash: "h1".into()
             })
         );
+    }
+
+    #[tokio::test]
+    async fn a_stamp_lasts_until_its_change_is_agreed() {
+        let store = Store::in_memory("s").await.unwrap();
+        assert_eq!(store.stamp("c", "i", "h1", 100).await.unwrap(), 100);
+        assert_eq!(store.stamp("c", "i", "h1", 200).await.unwrap(), 100);
+        assert_eq!(store.stamp("c", "i", "h2", 300).await.unwrap(), 300);
+
+        store.remember(&record("c", "i", 1)).await.unwrap();
+        store.agree("c", "i", "local", "h2").await.unwrap();
+        assert_eq!(store.stamp("c", "i", "h2", 400).await.unwrap(), 400);
     }
 
     #[tokio::test]
