@@ -143,3 +143,16 @@ export function deleteRequest(id: string): void {
   store.publish(lists);
   persistRequests(lists);
 }
+
+/** Resolves once the file has been read. **Sync waits on it**: reading an unloaded store would
+ *  report every saved request as deleted (T177d). */
+export function requestsReady(): Promise<void> {
+  return store.ready();
+}
+
+/** Sync's write: the Saved list as another machine left it, Recent untouched (T177d). */
+export function replaceSaved(saved: RestRequest[]): void {
+  const lists = { ...store.get(), saved };
+  store.publish(lists);
+  persistRequests(lists);
+}
