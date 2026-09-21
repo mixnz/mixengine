@@ -14,3 +14,4 @@ pub mod merge;
 pub mod chunk;
 pub mod store;
 pub mod transport;
+pub mod engine;
