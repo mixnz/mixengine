@@ -647,3 +647,20 @@ async fn an_account_moves_to_another_server() {
         .unwrap_err();
     assert_eq!(gone.code, "error.syncWrongPassword");
 }
+
+/// The live servers announce no end, and both reads say so: the one for the account this machine
+/// is in, and the one the sign-in form makes of any server before signing in.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_server_with_no_closing_date_reports_none() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, _) = signed_up(dir.path(), "desktop", "pw").await;
+    assert_eq!(desktop.closing_on().await.unwrap(), None);
+    let asked = Account::new(&server(), None)
+        .unwrap()
+        .capabilities()
+        .await
+        .unwrap();
+    assert_eq!(asked.closing_on, None);
+    assert!(asked.protocol_versions.contains(&"v1".to_string()));
+}

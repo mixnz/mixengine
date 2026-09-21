@@ -25,6 +25,8 @@ interface SettingsModalProps {
   /** Which modules this window draws, and how to change it. */
   modules: ModuleSettings;
   onClose: () => void;
+  /** The pane to open on — the closing strip opens Sync. Appearance when absent. */
+  initialSection?: string;
 }
 
 /** A module's pane is identified by its module id, so this cannot be a closed union. */
@@ -46,9 +48,10 @@ function SettingsModal({
   shortcuts,
   modules,
   onClose,
+  initialSection,
 }: SettingsModalProps) {
   const { t } = useTranslation();
-  const [section, setSection] = useState<SectionId>("appearance");
+  const [section, setSection] = useState<SectionId>(initialSection ?? "appearance");
 
   const visible = visibleModules(modules.enabled);
 

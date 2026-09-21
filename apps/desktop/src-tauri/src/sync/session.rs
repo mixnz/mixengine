@@ -786,6 +786,21 @@ impl SyncState {
         .await
     }
 
+    /// The signed-in server's closing date (D4b), opening the session if this run has not — so the
+    /// window can warn at launch rather than after the first sync. `None` when signed out, and then
+    /// nothing is asked.
+    pub async fn closing_on(&self) -> Result<Option<i64>, AppError> {
+        let signed_in = {
+            let mut inner = self.inner.lock().await;
+            self.load(&mut inner).await?;
+            inner.saved.is_some()
+        };
+        if !signed_in {
+            return Ok(None);
+        }
+        Ok(self.session(None).await?.limits.closing_on)
+    }
+
     /// Freeze without a move, for `tests/sync_live.rs` alone: in the product a freeze is only ever
     /// step 2 of one.
     #[doc(hidden)]
@@ -1193,5 +1208,11 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(error.code, "error.syncNothingToReset");
+    }
+
+    /// Signed out, there is no server to ask about, and nobody is asked.
+    #[tokio::test]
+    async fn signed_out_has_no_closing_date() {
+        assert_eq!(state().closing_on().await.unwrap(), None);
     }
 }

@@ -2,6 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import Button from "../components/Button";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ErrorBoundary from "../components/ErrorBoundary";
+import ClosingStrip from "./components/ClosingStrip";
 import SettingsModal from "./components/SettingsModal";
 import TabNotice from "./components/TabNotice";
 import ContextMenu from "../components/ContextMenu";
@@ -29,7 +30,9 @@ import {
 import { MODULES, moduleById } from "./registry";
 import { defaultModuleId, visibleModules, withModule } from "./profiles";
 import { newModuleTabId, shortcutsFor } from "./shortcuts";
-import { startSync } from "./sync";
+import { startSync, SYNC_NOW_EVENT } from "./sync";
+import { syncClosingHere, syncStatus } from "./sync/api";
+import { closingSoon } from "./sync/closing";
 
 interface WorkspaceProps {
   /** The module ids this window draws — `shell/profiles.ts`. */
@@ -64,7 +67,25 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const hasTrayPanel = visible.some((module) => module.TrayPanel !== undefined);
 
   // The main window syncs; the tray panel, which never mounts a workspace, does not.
+  /** The signed-in server and its announced end, when there is one (D4b). */
+  const [closing, setClosing] = useState<{ server: string; on: number } | null>(null);
+  /** Dismissed for this run; the next launch asks again. */
+  const [closingDismissed, setClosingDismissed] = useState(false);
+
   useEffect(() => startSync(), []);
+
+  // The signed-in server's closing date, read at launch and again after a sign-in or a move —
+  // `requestSync` is what both of those fire.
+  useEffect(() => {
+    const read = () => {
+      void Promise.all([syncStatus(), syncClosingHere()])
+        .then(([status, on]) => setClosing(status.server && on !== null ? { server: status.server, on } : null))
+        .catch(() => setClosing(null));
+    };
+    read();
+    window.addEventListener(SYNC_NOW_EVENT, read);
+    return () => window.removeEventListener(SYNC_NOW_EVENT, read);
+  }, []);
 
   useEffect(() => {
     void configureTray(hasTrayPanel, {
@@ -114,6 +135,8 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
   const [theme, setTheme] = useTheme();
   const [accent, setAccent] = useAccent();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  /** The pane Settings opens on this time; `undefined` is its own default. */
+  const [settingsSection, setSettingsSection] = useState<string | undefined>(undefined);
   /* Where the `[+]` menu was asked for, while it is open. Never set with one module: the button
      opens a tab outright then, exactly as it did before there was a registry. */
   const [moduleMenu, setModuleMenu] = useState<{ x: number; y: number } | null>(null);
@@ -342,7 +365,10 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
         end={
           <Button
             className="brand-settings"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              setSettingsSection(undefined);
+              setSettingsOpen(true);
+            }}
             title={t("app.settings")}
             aria-label={t("app.settings")}
           >
@@ -450,6 +476,18 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
         </ContextMenu>
       )}
 
+      {closing && !closingDismissed && closingSoon(closing.on, Date.now()) && (
+        <ClosingStrip
+          server={closing.server}
+          closingOn={closing.on}
+          onOpen={() => {
+            setSettingsSection("sync");
+            setSettingsOpen(true);
+          }}
+          onDismiss={() => setClosingDismissed(true)}
+        />
+      )}
+
       <div className="tab-content">
         {/* Only the tabs that have been looked at. One restored from the last session is drawn on
             the strip above and has no pane down here until it is picked. */}
@@ -515,6 +553,7 @@ function Workspace({ enabled, onEnabledChange }: WorkspaceProps) {
             onChange: onEnabledChange,
             openIds: [...new Set(tabs.map((tab) => tab.moduleId))],
           }}
+          initialSection={settingsSection}
           onClose={() => setSettingsOpen(false)}
         />
       )}
