@@ -380,7 +380,7 @@ directory, which is where a generated defaults file and a keyring credential rea
       `mariadb-upgrade` for a directory bootstrapped by an older series, backup and restore, and a
       non-root application user. There is no reload, and there cannot be — MariaDB reads its
       configuration once, at startup.
-- [ ] **T33b** The Unix bootstrap's space-free view is keyed on the home as well as the service.
+- [x] **T33b** The Unix bootstrap's space-free view is keyed on the home as well as the service.
       `space_free_view` answers `/tmp/mixengine-init-<service id>`, so two homes on one machine
       bootstrapping a service of one name share it, and the second ritual's first step is `rm -rf`
       on the first's. Found by T83, whose second test in `tests/mariadb.rs` joined T33's in one
@@ -388,7 +388,9 @@ directory, which is where a generated defaults file and a keyring credential rea
       after another kills it with `[ERROR] Aborting`, and at 1.5 s the first survives one file short.
       The suite keeps the two apart by name; the collision itself is real for two users of one
       machine, whose `/tmp` is shared and whose `rm -rf` on each other's directory fails outright.
-      The keyring entry is keyed the same way and is the same follow-up.
+      The keyring entry was keyed the same way and was fixed first, by T126. The view now names
+      the home too: `/tmp/mixengine-init-<home id>-<service id>`.
+      Design: [2026-09-22-t33b-a-bootstrap-view-per-home-design.md](../specs/2026-09-22-t33b-a-bootstrap-view-per-home-design.md).
 - [x] **T33c** Every instance of the MySQL family keeps its temporary tables in a directory of its
       own, `data/<package>/<instance>.tmp`, rather than in the machine's `/tmp`. **Found by CI run
       34220602983**, where T33's test failed with `[ERROR] Aborting` while T83's ran beside it under

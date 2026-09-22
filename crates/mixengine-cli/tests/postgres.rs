@@ -97,14 +97,9 @@ const SERVICE: &str = "postgres@main";
 
 /// The instance the credential-reset test drives, which is **not** [`SERVICE`].
 ///
-/// **The two ignored tests in this file run at once, in two homes, and a Unix bootstrap keys its
-/// space-free view on the service's id alone** — `/tmp/mixengine-init-<id>`, which the ritual's last
-/// step removes. Two homes bootstrapping one id share it, and the second ritual's cleanup takes the
-/// first one's basedir out from under it: `cannot execute: No such file or directory`, exit 126,
-/// from a script that was there a moment earlier. The same collision is written up at length beside
-/// `the_root_credential_reaches_the_client_through_its_environment_and_not_the_url` in
-/// `mariadb.rs`, which met it first and for the same reason. A name of this test's own is what keeps
-/// the two apart.
+/// A name of its own, so the two ignored tests in this file, which run at once in two homes, read
+/// apart in a log. PostgreSQL's first run never went through the MySQL family's space-free view,
+/// whose shared name (roadmap task **T33b**) is why the other two suites chose one.
 const RESET: &str = "postgres@reset";
 
 /// The PostgreSQL this suite is about, or the reason there is none.

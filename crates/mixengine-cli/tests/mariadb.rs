@@ -104,14 +104,11 @@ const SERVICE: &str = "mariadb@main";
 
 /// The instance the credential-reset test drives, which is **not** [`SERVICE`].
 ///
-/// **The two ignored tests in this file run at once, in two homes, and a Unix bootstrap keys its
-/// space-free view on the service's id alone** — `/tmp/mixengine-init-<id>`, which the ritual's last
-/// step removes. Two homes bootstrapping one id share it, and the second ritual's cleanup takes the
-/// first one's basedir out from under it: `cannot execute: No such file or directory`, exit 126,
-/// from a script that was there a moment earlier. The same collision is written up at length beside
-/// `the_root_credential_reaches_the_client_through_its_environment_and_not_the_url` in
-/// `mariadb.rs`, which met it first and for the same reason. A name of this test's own is what keeps
-/// the two apart.
+/// A name of its own, so the two ignored tests in this file, which run at once in two homes, read
+/// apart in a log. It used to be what kept their bootstraps apart as well: a Unix bootstrap named
+/// its space-free view `/tmp/mixengine-init-<id>`, one view for every home bootstrapping that id,
+/// and the second ritual's cleanup took the first one's basedir away. Roadmap task **T33b** put
+/// the home id in the name.
 const RESET: &str = "mariadb@reset";
 
 /// The MariaDB this suite is about, or the reason there is none.
@@ -842,15 +839,12 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
 ///
 /// # Why this service is not `mariadb@main`
 ///
-/// The two tests in this file run at once, in two homes, and **a Unix bootstrap keys two things on
-/// the service's id alone**: the space-free view `/tmp/mixengine-init-<id>` that `mariadb-install-db`
-/// is run through, and the keyring entry the root password lives in. Two homes bootstrapping one id
-/// share both, and the view is the one that bites — the second ritual's first step is `rm -rf` on
-/// it. Measured in WSL with the two steps a daemon runs: a second ritual starting 0.2 s or 0.5 s
-/// after the first kills the first with `[ERROR] Aborting` as its last line, which is what CI
-/// printed for the test above on the day this one joined it; at 1.5 s the first survives with one
-/// file fewer in its data directory. A name of this test's own is what keeps the two apart; the
-/// collision itself is written down in the roadmap beside T33.
+/// A name of its own, so this test and the one above, which run at once in two homes, read apart
+/// in a log. It used to carry weight. A Unix bootstrap named two things after the service id
+/// alone: the keyring entry the root password lives in, until roadmap task T126, and the
+/// space-free view `/tmp/mixengine-init-<id>`, until T33b. Two homes bootstrapping one id shared
+/// the view, and the second ritual's first step, `rm -rf` on it, killed the first with
+/// `[ERROR] Aborting`. Both names now carry the home id.
 #[cfg(target_os = "linux")]
 #[tokio::test(flavor = "multi_thread")]
 #[ignore = "needs a real MariaDB — see the module note, and the `mariadb` step in _services.yml"]

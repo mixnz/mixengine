@@ -407,6 +407,15 @@ impl Context {
         self.endpoints.scratch.as_deref()
     }
 
+    /// Which home this is — roadmap task **T126**.
+    ///
+    /// What tells two homes on one machine apart wherever they would otherwise share a name: the
+    /// keyring address, and the bootstrap's space-free view (T33b).
+    #[must_use]
+    pub fn home(&self) -> &crate::home::HomeId {
+        &self.home
+    }
+
     /// Where a credential of this service's lives inside the keyring's `mixengine` namespace.
     ///
     /// `<service-id>/<key>` — `mariadb@main/root`. The service id rather than the package name,
@@ -643,6 +652,13 @@ impl Context {
     #[cfg(test)]
     pub(super) fn with_welcome(mut self, welcome: bool) -> Self {
         self.welcome = welcome;
+        self
+    }
+
+    /// A home whose id is not [`TEST_HOME`] — roadmap task **T33b**, whose test needs two.
+    #[cfg(test)]
+    pub(super) fn with_home(mut self, home: crate::home::HomeId) -> Self {
+        self.home = home;
         self
     }
 
