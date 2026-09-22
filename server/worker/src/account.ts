@@ -272,12 +272,18 @@ export class Account implements DurableObject {
     // here while `server/native/` refused it. Digits or nothing.
     const raw = url.searchParams.get("since");
     const since = raw === null ? 0 : /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
+    // A flag that turns expiry off takes one spelling, not `true`, `0` or nothing (T178b, M4).
+    const resync = url.searchParams.get("resync");
+    if (resync !== null && resync !== "1") {
+      return fail(400, "invalid-request", "`resync` is 1 or absent.");
+    }
 
     const result = listSince(
       this.sql,
       config.capabilities,
       since,
       url.searchParams.get("collection"),
+      resync === "1",
     );
     return "records" in result ? json(200, result) : outcome(result);
   }

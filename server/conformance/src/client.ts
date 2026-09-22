@@ -250,9 +250,15 @@ export function remove(
   return call(`/v1/records/${collection}/${id}`, { method: "DELETE", token, headers });
 }
 
-export function since(token: string, from: number, collection?: string): Promise<Result<Page & Partial<ErrorBody>>> {
+export function since(
+  token: string,
+  from: number,
+  collection?: string,
+  options: { resync?: boolean } = {},
+): Promise<Result<Page & Partial<ErrorBody>>> {
   const query = new URLSearchParams({ since: String(from) });
   if (collection) query.set("collection", collection);
+  if (options.resync) query.set("resync", "1");
   return call(`/v1/records?${query}`, { token });
 }
 

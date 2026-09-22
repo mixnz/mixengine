@@ -400,9 +400,15 @@ past a deletion and leave the two machines disagreeing about which one won.
   client wakes an object rather than how much it carries.
 - `since` is **exclusive**, and `since=0` means from the beginning.
 - `200`, `{records: [...], nextSince: 903, more: false}`, ordered by `seq` ascending, at most
-  `maxPageRecords`. A client that sees `more: true` calls again with `nextSince`.
+  `maxPageRecords`. A client that sees `more: true` calls again with `nextSince`. **On a page with
+  `more: false`, `nextSince` is the account's latest `seq`** when that is past the last row: no
+  record of the collection lies between them, and a cursor stopped at the row would sit below every
+  later write, where one reaped tombstone expires it for good.
 - `410 cursor-expired` when `since` is older than the oldest surviving tombstone — D3's *"told to
   resync from empty rather than told incomplete news quietly"*, made into a status code.
+- `resync=1` says the cursor came from a read that began at `0` — a resync after `410` — which has
+  missed nothing, so it is never expired. A client sends it on every page of a resync after the
+  first, and nowhere else. Any other value is `400 invalid-request`.
 
 `POST /v1/records/batch`:
 

@@ -130,6 +130,52 @@ describe("tombstones", () => {
     expect(next.status, `nextSince=${resync.body.nextSince} was expired as soon as it was handed out`).toBe(200);
   });
 
+  it("let a read from 0 page to its end with resync=1", async ({ skip }) => {
+    // Past one page, a resync's cursor is the first page's last seq, which can sit below the reap
+    // mark: expired again, the client starts over for ever. `resync=1` says the cursor came from a
+    // read that began at 0, which has missed nothing (T178b, M4).
+    const limits = (await call<Capabilities>("/v1/capabilities")).body;
+    if (limits.tombstoneRetentionDays !== 0) {
+      skip(
+        `this server reports tombstoneRetentionDays=${limits.tombstoneRetentionDays}. Run a second ` +
+          "instance with a retention of 0 to cover cursor expiry; no test can wait ninety days.",
+      );
+    }
+    if (limits.maxPageRecords > 50) {
+      skip(`maxPageRecords=${limits.maxPageRecords}: more records than a test should write to fill two pages`);
+    }
+
+    const { session } = await signedUp();
+    const collection = opaqueId();
+    const count = limits.maxPageRecords + 1;
+    for (let n = 0; n < count; n += 1) {
+      await put(session.accessToken, collection, opaqueId(), newRecord(), { ifNoneMatch: true });
+    }
+    const doomed = await seed(session.accessToken);
+    await remove(session.accessToken, doomed.collection, doomed.id, doomed.stored.version);
+
+    let probe = await since(session.accessToken, 1, collection);
+    for (let attempt = 0; attempt < 40 && probe.status !== 410; attempt += 1) {
+      await new Promise((resume) => setTimeout(resume, 500));
+      probe = await since(session.accessToken, 1, collection);
+    }
+    expect(probe.status, "the story needs the tombstone reaped").toBe(410);
+
+    const first = await since(session.accessToken, 0, collection);
+    expect(first.body.more).toBe(true);
+    const without = await since(session.accessToken, first.body.nextSince, collection);
+    expect(without.status, "without the flag the second page is expired, which is the fault").toBe(410);
+
+    let seen = first.body.records.length;
+    let page = first;
+    while (page.body.more) {
+      page = await since(session.accessToken, page.body.nextSince, collection, { resync: true });
+      expect(page.status).toBe(200);
+      seen += page.body.records.length;
+    }
+    expect(seen).toBe(count);
+  });
+
   it("do not expire a cursor that is current", async () => {
     const { session } = await signedUp();
     const page = await since(session.accessToken, 0);

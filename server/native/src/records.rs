@@ -635,6 +635,7 @@ pub async fn batch(
 pub struct Cursor {
     pub since: Option<String>,
     pub collection: Option<String>,
+    pub resync: Option<String>,
 }
 
 pub async fn list(
@@ -659,6 +660,14 @@ pub async fn list(
         return invalid_request("A collection ID must be 64 lowercase hex characters.")
             .into_response();
     }
+    // `resync=1`: this cursor came from a read that began at 0, which has missed nothing, so it is
+    // not expired (T178b, M4). Any other value is refused rather than guessed at: a flag that turns
+    // expiry off should not also mean `true`, `0` or nothing.
+    let resync = match cursor.resync.as_deref() {
+        None => false,
+        Some("1") => true,
+        Some(_) => return invalid_request("`resync` is 1 or absent.").into_response(),
+    };
 
     let outcome = state
         .db
@@ -667,15 +676,21 @@ pub async fn list(
                 return Ok(None);
             };
 
+            // One snapshot for every read below: the pool's WAL connections let a writer commit
+            // between two statements, and `nextSince` must never name a seq the rows were read
+            // before (T178b, M3).
+            let snapshot = connection.transaction()?;
+
             // D3: a machine that has been away longer than a tombstone lives is told to resync
             // from empty rather than told incomplete news quietly. `since = 0` is exempt — a
-            // machine with no history has missed nothing.
-            let reaped_below: i64 = connection.query_row(
-                "SELECT reaped_below_seq FROM account WHERE id = ?1",
+            // machine with no history has missed nothing — and so is a cursor from a read that
+            // began at 0, for the same reason (M4).
+            let (reaped_below, latest): (i64, i64) = snapshot.query_row(
+                "SELECT reaped_below_seq, next_seq FROM account WHERE id = ?1",
                 params![session.account_id],
-                |row| row.get(0),
+                |row| Ok((row.get(0)?, row.get(1)?)),
             )?;
-            if since > 0 && since < reaped_below {
+            if since > 0 && since < reaped_below && !resync {
                 return Ok(Some(Err(())));
             }
 
@@ -683,7 +698,7 @@ pub async fn list(
             let limit = limits.max_page_records as i64 + 1;
             let mut rows = Vec::new();
             {
-                let mut statement = connection.prepare(
+                let mut statement = snapshot.prepare(
                     "SELECT collection, id, version, seq, updated_at, deleted, nonce, ciphertext,
                             device
                      FROM record
@@ -716,11 +731,16 @@ pub async fn list(
 
             let more = rows.len() as u64 > limits.max_page_records;
             rows.truncate(limits.max_page_records as usize);
-            let next_since = rows
+            let last = rows
                 .last()
                 .and_then(|record| record.get("seq"))
                 .and_then(Value::as_i64)
                 .unwrap_or(since);
+            // The last page ends at the account's latest seq: nothing of this collection lies
+            // between its last row and there, and a cursor stopped at the row would sit below
+            // every later write in the account, where one reap expires it for good (M3).
+            let next_since = if more { last } else { last.max(latest) };
+            snapshot.commit()?;
 
             Ok(Some(Ok(json!({
                 "records": rows,

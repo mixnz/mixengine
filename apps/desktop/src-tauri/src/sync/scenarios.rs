@@ -6,9 +6,10 @@
 //! committed, then those changes pushed and any lost conflict written down and landed. The module is a list of items
 //! applied the way `applySyncChanges` applies them, including the item it cannot read and leaves
 //! alone. **[`Server`] answers the way both servers do**, `server/native/src/records.rs` and
-//! `server/worker/src/records.ts`: one `seq` per account, a page per collection whose `nextSince`
-//! is that collection's last row, one `reaped_below_seq` per account, a tombstone that keeps the
-//! `updatedAt` it replaced and is a version like any other.
+//! `server/worker/src/records.ts`: one `seq` per account, a page per collection whose last page's
+//! `nextSince` is the account's latest seq, one `reaped_below_seq` per account that a `resync=1`
+//! read is not refused by, a tombstone that keeps the `updatedAt` it replaced and is a version like
+//! any other.
 //!
 //! A change to either side's order belongs here too, or these tests describe a program nobody runs.
 
@@ -79,9 +80,9 @@ impl Server {
         self.state.lock().unwrap().expired
     }
 
-    fn page(&self, collection: &str, since: i64) -> PageOutcome {
+    fn page(&self, collection: &str, since: i64, resync: bool) -> PageOutcome {
         let mut state = self.state.lock().unwrap();
-        if since > 0 && since < state.reaped_below {
+        if since > 0 && since < state.reaped_below && !resync {
             state.expired += 1;
             return PageOutcome::CursorExpired;
         }
@@ -94,7 +95,8 @@ impl Server {
         records.sort_by_key(|record| record.seq);
         let more = records.len() > self.page_records;
         records.truncate(self.page_records);
-        let next_since = records.last().map_or(since, |record| record.seq);
+        let last = records.last().map_or(since, |record| record.seq);
+        let next_since = if more { last } else { last.max(state.seq) };
         PageOutcome::Page(Page {
             records,
             next_since,
@@ -205,7 +207,7 @@ struct Link<'a> {
 
 impl Remote for Link<'_> {
     async fn page(&self, collection: &str, since: i64) -> Result<PageOutcome, AppError> {
-        Ok(self.server.page(collection, since))
+        Ok(self.server.page(collection, since, false))
     }
 
     async fn batch(&self, operations: &[Operation]) -> Result<Vec<BatchResult>, AppError> {
