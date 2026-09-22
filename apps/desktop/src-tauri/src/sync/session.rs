@@ -82,6 +82,8 @@ struct Held {
     agreements: Vec<Agreement>,
     /// A pulled page's cursor; `None` for a lost conflict's winners, which move no cursor.
     fetched: Option<Fetched>,
+    /// On the page that ends a resync: what it never met, forgotten on commit (T178b, M2).
+    unmet: Vec<String>,
 }
 
 /// Registration between its first step and its last: `A` to sign in with, and `MK`, which was
@@ -1043,6 +1045,7 @@ impl SyncState {
                         &name,
                         &session.device_id,
                         &fetched.records,
+                        fetched.resync && !fetched.more,
                     )
                     .await?;
                     // Named: an async block that uses `?` cannot infer its error type.
@@ -1059,6 +1062,7 @@ impl SyncState {
                 records: fetched.records.clone(),
                 agreements: opened.agreements,
                 fetched: Some(fetched),
+                unmet: opened.unmet,
             },
         );
         Ok(PulledPage {
@@ -1102,6 +1106,7 @@ impl SyncState {
                         &name,
                         &session.device_id,
                         &pushed.superseded,
+                        false,
                     )
                     .await?;
                     Ok((
@@ -1124,6 +1129,7 @@ impl SyncState {
                     records,
                     agreements,
                     fetched: None,
+                    unmet: Vec::new(),
                 },
             );
             Some(token)
@@ -1192,7 +1198,7 @@ impl SyncState {
         .await?;
         if let Some(fetched) = &held.fetched {
             let opaque = crypto::opaque_id(&session.keys.id, collection);
-            engine::commit(&session.store, &opaque, fetched).await?;
+            engine::commit(&session.store, &opaque, fetched, &held.unmet).await?;
         }
         Ok(())
     }

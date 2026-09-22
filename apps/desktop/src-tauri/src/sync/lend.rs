@@ -308,6 +308,9 @@ pub async fn land(
 /// machine's stamp, if it has one, and D4 decides which survives; the loser here is left alone,
 /// and its version remembered on landing, so the next push replaces it without a `409`. A
 /// tombstone removes the local id this machine agreed on, unless a later change here beats it.
+/// On the page that ends a resync, every agreed live item the resync never met is removed —
+/// unless a change stamped here beats a deletion that old — and named in `unmet` for the store to
+/// forget (T178b, M2).
 /// **An opened record whose own id does not hash to its address is refused**: the AAD binds the
 /// address, and this binds the id inside it, so a record cannot claim to be another item.
 pub async fn incoming(
@@ -316,6 +319,7 @@ pub async fn incoming(
     collection: &str,
     device: &str,
     records: &[WireRecord],
+    ending_resync: bool,
 ) -> Result<Opened, AppError> {
     let opaque_collection = crypto::opaque_id(&keys.id, collection);
     let mut opened = Opened::default();
@@ -386,6 +390,25 @@ pub async fn incoming(
             id: envelope.id,
             data: envelope.data,
         });
+    }
+
+    if ending_resync {
+        let met = store.met(&opaque_collection).await?;
+        let carried: HashSet<&str> = records
+            .iter()
+            .filter(|record| record.collection == opaque_collection)
+            .map(|record| record.id.as_str())
+            .collect();
+        for (id, local_id) in store.agreed_live(&opaque_collection).await? {
+            if met.contains(&id) || carried.contains(id.as_str()) {
+                continue;
+            }
+            // Reaped: deleted at least a retention ago. A change stamped here is newer than that.
+            if store.stamped(&opaque_collection, &id).await?.is_none() {
+                opened.changes.removed.push(local_id);
+            }
+            opened.unmet.push(id);
+        }
     }
     Ok(opened)
 }
@@ -498,7 +521,9 @@ mod tests {
             .unwrap();
         let records: Vec<_> = changes.iter().map(|change| landed(change, 1)).collect();
 
-        let opened = incoming(&there, &keys, "c", HERE, &records).await.unwrap();
+        let opened = incoming(&there, &keys, "c", HERE, &records, false)
+            .await
+            .unwrap();
         assert_eq!(opened.changes.upserts, vec![item("1", json!({"x": 1}))]);
         assert_eq!(opened.agreements.len(), 1);
     }
@@ -514,7 +539,9 @@ mod tests {
 
         let mut dead = landed(&changes[0], 2);
         dead.deleted = true;
-        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[dead], false)
+            .await
+            .unwrap();
         assert_eq!(opened.changes.removed, vec!["1".to_string()]);
     }
 
@@ -527,7 +554,9 @@ mod tests {
             .unwrap();
         let mut moved = landed(&changes[0], 1);
         moved.id = crypto::opaque_id(&keys.id, "2");
-        assert!(incoming(&store, &keys, "c", HERE, &[moved]).await.is_err());
+        assert!(incoming(&store, &keys, "c", HERE, &[moved], false)
+            .await
+            .is_err());
     }
 
     #[tokio::test]
@@ -623,9 +652,16 @@ mod tests {
             .await
             .unwrap();
         let winner = landed(&theirs[0], 2);
-        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&winner))
-            .await
-            .unwrap();
+        let opened = incoming(
+            &store,
+            &keys,
+            "c",
+            HERE,
+            std::slice::from_ref(&winner),
+            false,
+        )
+        .await
+        .unwrap();
         land(&store, &keys, "c", &[winner], opened.agreements, &[])
             .await
             .unwrap();
@@ -662,9 +698,16 @@ mod tests {
             .await
             .unwrap();
         let record = landed(&theirs[0], 1);
-        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&record))
-            .await
-            .unwrap();
+        let opened = incoming(
+            &store,
+            &keys,
+            "c",
+            HERE,
+            std::slice::from_ref(&record),
+            false,
+        )
+        .await
+        .unwrap();
         store.remember(&record).await.unwrap();
         settle(&store, &keys, "c", opened.agreements).await.unwrap();
 
@@ -702,7 +745,7 @@ mod tests {
         notice(&store, &keys, "c", &[item("1", json!("edited"))], 20)
             .await
             .unwrap();
-        let opened = incoming(&store, &keys, "c", HERE, &[landed(&mine, 1)])
+        let opened = incoming(&store, &keys, "c", HERE, &[landed(&mine, 1)], false)
             .await
             .unwrap();
         assert!(opened.changes.upserts.is_empty());
@@ -716,7 +759,9 @@ mod tests {
             .await
             .unwrap();
         let record = theirs(&keys, json!("theirs"), 150, 1).await;
-        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[record], false)
+            .await
+            .unwrap();
         assert!(opened.changes.upserts.is_empty());
         assert!(opened.agreements.is_empty());
     }
@@ -728,7 +773,9 @@ mod tests {
             .await
             .unwrap();
         let record = theirs(&keys, json!("theirs"), 150, 1).await;
-        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[record], false)
+            .await
+            .unwrap();
         assert_eq!(opened.changes.upserts, vec![item("1", json!("theirs"))]);
         assert_eq!(opened.agreements.len(), 1);
     }
@@ -740,7 +787,9 @@ mod tests {
             .await
             .unwrap();
         let record = theirs(&keys, json!("same"), 150, 1).await;
-        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[record], false)
+            .await
+            .unwrap();
         assert!(opened.changes.upserts.is_empty());
         assert_eq!(opened.agreements.len(), 1);
     }
@@ -755,7 +804,9 @@ mod tests {
         let mut dead = landed(&mine, 2);
         dead.deleted = true;
         dead.updated_at = 100;
-        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[dead], false)
+            .await
+            .unwrap();
         assert!(opened.changes.removed.is_empty());
     }
 
@@ -769,7 +820,9 @@ mod tests {
         let mut dead = landed(&mine, 2);
         dead.deleted = true;
         dead.updated_at = 100;
-        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[dead], false)
+            .await
+            .unwrap();
         assert_eq!(opened.changes.removed, vec!["1".to_string()]);
     }
     /// A record the module did not write is remembered — its version is the server's — and never
@@ -778,9 +831,16 @@ mod tests {
     async fn a_record_the_module_skipped_is_remembered_but_not_agreed() {
         let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
         let record = theirs(&keys, json!({"shape": "new"}), 100, 1).await;
-        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&record))
-            .await
-            .unwrap();
+        let opened = incoming(
+            &store,
+            &keys,
+            "c",
+            HERE,
+            std::slice::from_ref(&record),
+            false,
+        )
+        .await
+        .unwrap();
         land(
             &store,
             &keys,
@@ -808,5 +868,40 @@ mod tests {
             next.is_empty(),
             "nothing to delete: it was never agreed here"
         );
+    }
+
+    /// The page that ends a resync removes what the resync never met: its tombstone was reaped.
+    #[tokio::test]
+    async fn the_page_that_ends_a_resync_removes_what_it_did_not_meet() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let gone = agreed_here(&store, &keys, json!("g"), 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, &[], true).await.unwrap();
+        assert_eq!(opened.changes.removed, vec!["1".to_string()]);
+        assert_eq!(opened.unmet, vec![gone.id]);
+    }
+
+    /// A change stamped here is newer than a deletion old enough to be reaped: kept, not removed,
+    /// and still named in `unmet` so its version is forgotten and it is pushed as a creation.
+    #[tokio::test]
+    async fn a_stamped_item_a_resync_did_not_meet_is_kept() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let gone = agreed_here(&store, &keys, json!("g"), 1).await;
+        notice(&store, &keys, "c", &[item("1", json!("edited"))], 50)
+            .await
+            .unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[], true).await.unwrap();
+        assert!(opened.changes.removed.is_empty());
+        assert_eq!(opened.unmet, vec![gone.id]);
+    }
+
+    #[tokio::test]
+    async fn a_page_that_does_not_end_a_resync_removes_nothing_it_did_not_carry() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        agreed_here(&store, &keys, json!("g"), 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, &[], false)
+            .await
+            .unwrap();
+        assert!(opened.changes.removed.is_empty());
+        assert!(opened.unmet.is_empty());
     }
 }

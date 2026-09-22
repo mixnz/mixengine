@@ -174,7 +174,9 @@ async fn pull_all(transport: &Transport, store: &Store, collection: &str) -> Vec
         for record in &fetched.records {
             store.remember(record).await.unwrap();
         }
-        engine::commit(store, collection, &fetched).await.unwrap();
+        engine::commit(store, collection, &fetched, &[])
+            .await
+            .unwrap();
         all.extend(fetched.records.iter().cloned());
         if !fetched.more {
             return all;

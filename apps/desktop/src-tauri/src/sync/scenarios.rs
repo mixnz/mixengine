@@ -206,8 +206,13 @@ struct Link<'a> {
 }
 
 impl Remote for Link<'_> {
-    async fn page(&self, collection: &str, since: i64) -> Result<PageOutcome, AppError> {
-        Ok(self.server.page(collection, since, false))
+    async fn page(
+        &self,
+        collection: &str,
+        since: i64,
+        resync: bool,
+    ) -> Result<PageOutcome, AppError> {
+        Ok(self.server.page(collection, since, resync))
     }
 
     async fn batch(&self, operations: &[Operation]) -> Result<Vec<BatchResult>, AppError> {
@@ -323,51 +328,57 @@ impl Machine {
             .unwrap();
     }
 
-    /// `syncCollection`: every page pulled and written, then this machine's changes pushed.
+    /// `syncCollection`: this machine's changes noticed, every page pulled and written, then those
+    /// changes pushed.
     async fn sync(&mut self, server: &Server, collection: &str, now: i64) {
-        let opaque = self.opaque(collection);
         let items = self.list(collection).clone();
         lend::notice(&self.store, &self.keys, collection, &items, now)
             .await
             .unwrap();
         for _ in 0..MAX_PAGES {
-            let fetched = engine::fetch(&self.link(server), &self.store, &opaque)
-                .await
-                .unwrap();
-            let opened = lend::incoming(
-                &self.store,
-                &self.keys,
-                collection,
-                &self.device,
-                &fetched.records,
-            )
-            .await
-            .unwrap();
-            let skipped =
-                if !opened.changes.upserts.is_empty() || !opened.changes.removed.is_empty() {
-                    self.write(collection, opened.changes)
-                } else {
-                    Vec::new()
-                };
-            lend::land(
-                &self.store,
-                &self.keys,
-                collection,
-                &fetched.records,
-                opened.agreements,
-                &skipped,
-            )
-            .await
-            .unwrap();
-            engine::commit(&self.store, &opaque, &fetched)
-                .await
-                .unwrap();
-            if !fetched.more {
+            if !self.pull_page(server, collection).await {
                 self.push(server, collection, now).await;
                 return;
             }
         }
         panic!("{collection}: still pulling after {MAX_PAGES} pages — the sync never ends");
+    }
+
+    /// One page: fetched, opened, written by the module, landed and committed. Answers `more`.
+    async fn pull_page(&mut self, server: &Server, collection: &str) -> bool {
+        let opaque = self.opaque(collection);
+        let fetched = engine::fetch(&self.link(server), &self.store, &opaque)
+            .await
+            .unwrap();
+        let opened = lend::incoming(
+            &self.store,
+            &self.keys,
+            collection,
+            &self.device,
+            &fetched.records,
+            fetched.resync && !fetched.more,
+        )
+        .await
+        .unwrap();
+        let skipped = if !opened.changes.upserts.is_empty() || !opened.changes.removed.is_empty() {
+            self.write(collection, opened.changes)
+        } else {
+            Vec::new()
+        };
+        lend::land(
+            &self.store,
+            &self.keys,
+            collection,
+            &fetched.records,
+            opened.agreements,
+            &skipped,
+        )
+        .await
+        .unwrap();
+        engine::commit(&self.store, &opaque, &fetched, &opened.unmet)
+            .await
+            .unwrap();
+        fetched.more
     }
 
     /// `pushCollection`.
@@ -400,6 +411,7 @@ impl Machine {
             collection,
             &self.device,
             &pushed.superseded,
+            false,
         )
         .await
         .unwrap();
@@ -647,4 +659,67 @@ async fn an_edit_in_the_same_second_as_its_own_push_survives() {
     a.sync(&server, "c", 10).await;
 
     assert_eq!(a.holds("c", "req"), Some(&json!("final")));
+}
+
+/// M2: a change stamped here is newer than a deletion old enough to be reaped, so a resync that
+/// never meets its item keeps it, and pushes it as a creation.
+#[tokio::test]
+async fn an_edit_a_resync_did_not_meet_is_created_again() {
+    let server = Server::new(2);
+    let (mut a, mut b) = two_machines().await;
+    b.edit("c", "kept", json!("k"));
+    b.edit("c", "reaped", json!("r"));
+    b.sync(&server, "c", 10).await;
+    b.sync(&server, "c", 10).await;
+    a.sync(&server, "c", 10).await;
+
+    b.remove("c", "reaped");
+    b.sync(&server, "c", 20).await;
+    server.sweep();
+
+    a.edit("c", "reaped", json!("edited on a"));
+    a.notice_offline("c", 30).await;
+    a.sync(&server, "c", 40).await;
+
+    let record = server
+        .record(&a.opaque("c"), &a.opaque("reaped"))
+        .expect("created again");
+    assert!(!record.deleted);
+    assert_eq!(a.holds("c", "reaped"), Some(&json!("edited on a")));
+}
+
+/// M1: a resync interrupted after its first page resumes as a resync — flagged, and ending by
+/// removing what it never met — rather than as an ordinary pull that has forgotten why.
+#[tokio::test]
+async fn a_resync_interrupted_after_one_page_still_ends() {
+    let server = Server::new(2);
+    let (mut a, mut b) = two_machines().await;
+    for n in 1..=4 {
+        b.edit("c", &n.to_string(), json!(n));
+    }
+    b.edit("c", "reaped", json!("r"));
+    b.sync(&server, "c", 10).await;
+    b.sync(&server, "c", 10).await;
+    a.sync(&server, "c", 10).await;
+
+    b.remove("c", "reaped");
+    b.sync(&server, "c", 20).await;
+    server.sweep();
+
+    assert!(
+        a.pull_page(&server, "c").await,
+        "the resync has a page after this one"
+    );
+    // Quit here: nothing is held in memory across a restart, only the store.
+    a.sync(&server, "c", 40).await;
+
+    assert_eq!(a.holds("c", "reaped"), None);
+    for n in 1..=4 {
+        assert_eq!(a.holds("c", &n.to_string()), Some(&json!(n)));
+    }
+    assert_eq!(
+        server.expired(),
+        1,
+        "resumed with resync=1, not expired again"
+    );
 }

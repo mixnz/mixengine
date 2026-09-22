@@ -1,10 +1,12 @@
 //! What this machine remembers about sync, so a pull resumes and a push can say `If-Match`.
 //!
-//! Two things, both kept **per server**: the cursor each collection has read up to, and the
-//! version of each record this machine last saw. Per server because the same opaque ids mean
-//! nothing on another one — a different server is a different account (D8). Nothing here is
-//! plaintext: every collection and id is the opaque HMAC of D3.
+//! Everything kept **per server**: the cursor each collection has read up to, the version of each
+//! record this machine last saw and what it agreed that record says, the changes it has noticed
+//! and not yet landed, and a resync under way. Per server because the same opaque ids mean nothing
+//! on another one — a different server is a different account (D8). Nothing here is plaintext:
+//! every collection and id is the opaque HMAC of D3.
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -45,6 +47,20 @@ const SCHEMA: &[&str] = &[
        id         TEXT    NOT NULL,
        hash       TEXT    NOT NULL,
        at         INTEGER NOT NULL,
+       PRIMARY KEY (server, collection, id)
+     )",
+    // A resync under way: `410` started it, and the page with `more: false` ends it. Kept on disk,
+    // so a resync interrupted by quitting resumes as one (T178b, M1).
+    "CREATE TABLE IF NOT EXISTS resync (
+       server     TEXT NOT NULL,
+       collection TEXT NOT NULL,
+       PRIMARY KEY (server, collection)
+     )",
+    // Every record a resync has met so far; what it never meets was reaped (M2).
+    "CREATE TABLE IF NOT EXISTS resync_met (
+       server     TEXT NOT NULL,
+       collection TEXT NOT NULL,
+       id         TEXT NOT NULL,
        PRIMARY KEY (server, collection, id)
      )",
 ];
@@ -180,12 +196,79 @@ impl Store {
         Ok(())
     }
 
-    /// The cursor back to the start and every remembered version gone: what `410 cursor-expired`
-    /// asks for — D3's *resync from empty rather than incomplete news quietly*.
-    pub async fn forget(&self, collection: &str) -> Result<(), AppError> {
+    /// What `410 cursor-expired` asks for — D3's *resync from empty rather than incomplete news
+    /// quietly*: the cursor back to the start and a resync under way. **What was agreed stays**, so
+    /// a surviving tombstone still removes what it names and an agreed record is not rewritten
+    /// (T178b, M1).
+    pub async fn begin_resync(&self, collection: &str) -> Result<(), AppError> {
         for statement in [
             "DELETE FROM cursor WHERE server = ?1 AND collection = ?2",
-            "DELETE FROM seen WHERE server = ?1 AND collection = ?2",
+            "DELETE FROM resync_met WHERE server = ?1 AND collection = ?2",
+            "INSERT OR IGNORE INTO resync (server, collection) VALUES (?1, ?2)",
+        ] {
+            sqlx::query(statement)
+                .bind(&self.server)
+                .bind(collection)
+                .execute(&self.pool)
+                .await
+                .map_err(store_error)?;
+        }
+        Ok(())
+    }
+
+    pub async fn resyncing(&self, collection: &str) -> Result<bool, AppError> {
+        let row = sqlx::query("SELECT 1 FROM resync WHERE server = ?1 AND collection = ?2")
+            .bind(&self.server)
+            .bind(collection)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(row.is_some())
+    }
+
+    /// Records a resync page carried, once the module has written it.
+    pub async fn mark_met(&self, collection: &str, ids: &[String]) -> Result<(), AppError> {
+        for id in ids {
+            sqlx::query(
+                "INSERT OR IGNORE INTO resync_met (server, collection, id) VALUES (?1, ?2, ?3)",
+            )
+            .bind(&self.server)
+            .bind(collection)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(store_error)?;
+        }
+        Ok(())
+    }
+
+    pub async fn met(&self, collection: &str) -> Result<HashSet<String>, AppError> {
+        let rows = sqlx::query("SELECT id FROM resync_met WHERE server = ?1 AND collection = ?2")
+            .bind(&self.server)
+            .bind(collection)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(rows.iter().map(|row| row.get(0)).collect())
+    }
+
+    /// The page that ends a resync has been written: forget each record it never met — its
+    /// tombstone was reaped — with any deletion of it this machine was landing, and end the
+    /// resync. An edit's stamp stays: with no version remembered, it is pushed as a creation (M2).
+    pub async fn end_resync(&self, collection: &str, unmet: &[String]) -> Result<(), AppError> {
+        for id in unmet {
+            sqlx::query("DELETE FROM seen WHERE server = ?1 AND collection = ?2 AND id = ?3")
+                .bind(&self.server)
+                .bind(collection)
+                .bind(id)
+                .execute(&self.pool)
+                .await
+                .map_err(store_error)?;
+            self.unstamp_deletion(collection, id).await?;
+        }
+        for statement in [
+            "DELETE FROM resync_met WHERE server = ?1 AND collection = ?2",
+            "DELETE FROM resync WHERE server = ?1 AND collection = ?2",
         ] {
             sqlx::query(statement)
                 .bind(&self.server)
@@ -387,16 +470,52 @@ mod tests {
         );
     }
 
+    /// `410` moves the cursor back and starts a resync, and **keeps what was agreed**: a surviving
+    /// tombstone still has something to remove, and an agreed record is not rewritten (M1).
     #[tokio::test]
-    async fn forgetting_a_collection_leaves_the_others() {
+    async fn a_resync_moves_the_cursor_and_keeps_what_was_agreed() {
         let store = Store::in_memory("https://a").await.unwrap();
         store.set_since("c", 9).await.unwrap();
         store.set_since("other", 7).await.unwrap();
         store.remember(&record("c", "i", 1)).await.unwrap();
-        store.forget("c").await.unwrap();
+        store.agree("c", "i", "local", "h").await.unwrap();
+        store.begin_resync("c").await.unwrap();
         assert_eq!(store.since("c").await.unwrap(), 0);
-        assert_eq!(store.seen("c", "i").await.unwrap(), None);
+        assert!(store.resyncing("c").await.unwrap());
+        assert!(store.agreed("c", "i").await.unwrap().is_some());
         assert_eq!(store.since("other").await.unwrap(), 7);
+        assert!(!store.resyncing("other").await.unwrap());
+    }
+
+    /// The end of a resync forgets what it did not meet — and a deletion this machine was
+    /// landing for one of them — but keeps an edit's stamp, which is pushed as a creation (M2).
+    #[tokio::test]
+    async fn the_end_of_a_resync_forgets_what_it_did_not_meet() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        store.begin_resync("c").await.unwrap();
+        for id in ["met", "gone", "edited"] {
+            store.remember(&record("c", id, 1)).await.unwrap();
+            store.agree("c", id, id, "h").await.unwrap();
+        }
+        store.stamp("c", "gone", DELETED, 5).await.unwrap();
+        store.stamp("c", "edited", "h2", 5).await.unwrap();
+        store.mark_met("c", &["met".into()]).await.unwrap();
+        assert_eq!(
+            store.met("c").await.unwrap(),
+            HashSet::from(["met".to_string()])
+        );
+
+        store
+            .end_resync("c", &["gone".into(), "edited".into()])
+            .await
+            .unwrap();
+        assert!(store.seen("c", "met").await.unwrap().is_some());
+        assert_eq!(store.seen("c", "gone").await.unwrap(), None);
+        assert_eq!(store.seen("c", "edited").await.unwrap(), None);
+        assert_eq!(store.stamped("c", "gone").await.unwrap(), None);
+        assert!(store.stamped("c", "edited").await.unwrap().is_some());
+        assert!(!store.resyncing("c").await.unwrap());
+        assert!(store.met("c").await.unwrap().is_empty());
     }
 
     /// **A different server is a different account.** Its cursor and versions are not this one's.
