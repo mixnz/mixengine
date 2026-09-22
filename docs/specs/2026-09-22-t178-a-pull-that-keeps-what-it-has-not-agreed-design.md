@@ -14,7 +14,7 @@ Follow-up to [T177](2026-09-20-t177-a-copy-only-you-can-read-design.md), phase 3
 
 A review of T177's sync found nine faults. Reading the code confirmed all nine. Writing tests to
 reproduce them found a tenth, which is more likely to happen than any of the nine. This spec covers
-the six that lose data or never finish. `apps/desktop/src-tauri/src/sync/scenarios.rs` runs two
+the six that lose data or never finish. `apps/desktop/src-tauri/tests/sync_scenarios.rs` runs two
 machines against a server that answers the way both servers do, and `server/conformance` holds one
 more test. All of them are red at `e89fc20d`:
 
@@ -193,12 +193,13 @@ reaches `more: false`.
 
 **Where each test lives.** A test of one file's rule stays in that file's `mod tests`: the L2
 table's rows and L3 in `lend.rs`, M1's resync state in `store.rs`, M3 and M4's server halves in
-`server/conformance`, since neither server has record tests of its own. `scenarios.rs` keeps only the stories that need two machines and the whole round trip, and
-it stays under `sync/` as a `#[cfg(test)]` module, because it drives `lend`, `engine` and `store`
-directly and none of that is public API. Server behaviour a second implementation must match goes
-in `server/conformance`, never in one server's own tests alone.
+`server/conformance`, since neither server has record tests of its own. The stories that need
+two machines and the whole round trip cross `lend`, `engine` and `store` at once, so no module's
+`mod tests` owns them: they live in `tests/sync_scenarios.rs`, beside `sync_live.rs`, through the
+same public `sync` API. Server behaviour a second implementation must match goes in
+`server/conformance`, never in one server's own tests alone.
 
-- The eight tests in `scenarios.rs` and the conformance test above turn green unchanged, except that
+- The eight tests in `sync_scenarios.rs` and the conformance test above turn green unchanged, except that
   `Machine::sync` gains `notice` and `skipped` so it follows `loop.ts` and `session.rs`.
 - New scenarios:
   - a local edit stamped later than a pulled record wins (L2, the tombstone row included);

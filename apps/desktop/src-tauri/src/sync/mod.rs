@@ -29,9 +29,11 @@ pub mod engine;
 pub mod lend;
 pub mod merge;
 pub mod saved;
-#[cfg(test)]
-mod scenarios;
 pub mod session;
 pub mod store;
 pub mod transport;
 pub mod wire;
+
+/// The error every call here returns, nameable outside the crate: `tests/sync_scenarios.rs` puts a
+/// server of its own behind [`transport::Remote`], whose methods say `AppError` in their signature.
+pub use crate::error::AppError;

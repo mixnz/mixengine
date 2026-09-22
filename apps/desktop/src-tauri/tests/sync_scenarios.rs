@@ -3,30 +3,34 @@
 //!
 //! **[`Machine::sync`] is `loop.ts`'s `syncCollection` over `session.rs`'s calls**, in their order:
 //! this machine's changes noticed, every page fetched, opened, written by the module, landed and
-//! committed, then those changes pushed and any lost conflict written down and landed. The module is a list of items
-//! applied the way `applySyncChanges` applies them, including the item it cannot read and leaves
-//! alone. **[`Server`] answers the way both servers do**, `server/native/src/records.rs` and
+//! committed, then those changes pushed and any lost conflict written down and landed. The module
+//! is a list of items applied the way `applySyncChanges` applies them, including the item it cannot
+//! read and leaves alone. **[`Server`] answers the way both servers do**, `server/native/src/records.rs` and
 //! `server/worker/src/records.ts`: one `seq` per account, a page per collection whose last page's
 //! `nextSince` is the account's latest seq, one `reaped_below_seq` per account that a `resync=1`
 //! read is not refused by, a tombstone that keeps the `updatedAt` it replaced and is a version like
 //! any other.
 //!
 //! A change to either side's order belongs here too, or these tests describe a program nobody runs.
+//!
+//! Here rather than in a module's `mod tests` because no one module owns the story: each test
+//! crosses `lend`, `engine` and `store` on two machines at once. Unlike `sync_live.rs`, it needs
+//! no server and runs with the rest of `cargo test`.
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::Mutex;
 
 use serde_json::{json, Value};
 
-use super::crypto;
-use super::engine;
-use super::lend::{self, Incoming, Item, Keys};
-use super::store::Store;
-use super::transport::{PageOutcome, Remote};
-use super::wire::{
+use tauri_app_lib::sync::crypto;
+use tauri_app_lib::sync::engine;
+use tauri_app_lib::sync::lend::{self, Incoming, Item, Keys};
+use tauri_app_lib::sync::store::Store;
+use tauri_app_lib::sync::transport::{PageOutcome, Remote};
+use tauri_app_lib::sync::wire::{
     BatchResult, Capabilities, ErrorDetail, Operation, Page, RecordBody, WireRecord,
 };
-use crate::error::AppError;
+use tauri_app_lib::sync::AppError;
 
 /// More pages than any collection here has. A sync still fetching after this never ends.
 const MAX_PAGES: usize = 50;

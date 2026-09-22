@@ -256,7 +256,7 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       on disk. Design:
       [2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md](../specs/2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md).
 
-      **Done.** `apps/desktop/src-tauri/src/sync/scenarios.rs` is its proof: two machines and a
+      **Done.** `apps/desktop/src-tauri/tests/sync_scenarios.rs` is its proof: two machines and a
       server that answers the way both do, and every story the review told as a test. Writing them
       found the worst fault of all, which the review had missed: a push does not move the cursor,
       so the next pull handed a machine its own writes back and the module wrote them over any edit
