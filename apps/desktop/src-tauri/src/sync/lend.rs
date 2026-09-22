@@ -280,6 +280,9 @@ pub async fn settle(
 /// the server's but whose content this machine does not hold (T178a, L4). **Only after the
 /// write** — see the module comment; the engine leaves a lost conflict unrecorded for exactly this
 /// call.
+///
+/// A skipped record is owed to this machine under `version`, the app that skipped it, so the next
+/// release asks for it again (T178d).
 pub async fn land(
     store: &Store,
     keys: &Keys,
@@ -287,15 +290,19 @@ pub async fn land(
     records: &[WireRecord],
     agreements: Vec<Agreement>,
     skipped: &[String],
+    version: &str,
 ) -> Result<(), AppError> {
     for record in records {
         store.remember(record).await?;
     }
     let skipped: HashSet<&str> = skipped.iter().map(String::as_str).collect();
-    let kept = agreements
+    let (owed, kept): (Vec<Agreement>, Vec<Agreement>) = agreements
         .into_iter()
-        .filter(|agreement| !skipped.contains(agreement.local_id.as_str()))
-        .collect();
+        .partition(|agreement| skipped.contains(agreement.local_id.as_str()));
+    let owed: Vec<String> = owed.into_iter().map(|agreement| agreement.id).collect();
+    store
+        .owe(&crypto::opaque_id(&keys.id, collection), &owed, version)
+        .await?;
     settle(store, keys, collection, kept).await
 }
 
@@ -660,9 +667,17 @@ mod tests {
         )
         .await
         .unwrap();
-        land(&store, &keys, "c", &[winner], opened.agreements, &[])
-            .await
-            .unwrap();
+        land(
+            &store,
+            &keys,
+            "c",
+            &[winner],
+            opened.agreements,
+            &[],
+            VERSION,
+        )
+        .await
+        .unwrap();
 
         let (next, _) = outgoing(&store, &keys, "c", &opened.changes.upserts, 400)
             .await
@@ -715,6 +730,7 @@ mod tests {
         assert_eq!(again[0].updated_at, 500);
     }
     const HERE: &str = "here";
+    const VERSION: &str = "1.0.0";
 
     /// Agree `data` for item "1" here as if pushed and landed at `version`, and return its change.
     async fn agreed_here(store: &Store, keys: &Keys, data: Value, version: i64) -> Outgoing {
@@ -846,12 +862,18 @@ mod tests {
             std::slice::from_ref(&record),
             opened.agreements,
             &["1".into()],
+            VERSION,
         )
         .await
         .unwrap();
         assert_eq!(
             store.agreed(&record.collection, &record.id).await.unwrap(),
             None
+        );
+        assert_eq!(
+            store.owed(&record.collection).await.unwrap(),
+            HashSet::from([record.id.clone()]),
+            "skipped here, so owed here"
         );
         assert_eq!(
             store

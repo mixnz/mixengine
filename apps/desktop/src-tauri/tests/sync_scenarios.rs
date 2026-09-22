@@ -253,6 +253,8 @@ struct Machine {
     lists: BTreeMap<String, Vec<Item>>,
     /// Ids this machine's module cannot read: its `fromSync` answers `null` for them.
     unreadable: HashSet<String>,
+    /// The MixLab this machine runs. A record skipped under one is asked for again under the next.
+    version: String,
 }
 
 impl Machine {
@@ -266,6 +268,7 @@ impl Machine {
             store: Store::in_memory("https://sync.test").await.unwrap(),
             lists: BTreeMap::new(),
             unreadable: HashSet::new(),
+            version: "1.0.0".into(),
         }
     }
 
@@ -380,6 +383,7 @@ impl Machine {
             &fetched.records,
             opened.agreements,
             &skipped,
+            &self.version,
         )
         .await
         .unwrap();
@@ -431,6 +435,7 @@ impl Machine {
             &pushed.superseded,
             opened.agreements,
             &skipped,
+            &self.version,
         )
         .await
         .unwrap();
