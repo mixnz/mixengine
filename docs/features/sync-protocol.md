@@ -274,7 +274,7 @@ refused.
 | --- | --- | --- | --- |
 | `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` · `502 letter-not-sent` |
 | `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
-| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
+| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery, accountId}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
 | `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
 | `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
 | `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
@@ -282,6 +282,10 @@ refused.
 | `POST /v1/auth/reset` | `email`, `token` | `200`, `{wrappedMkRecovery, ticket, expiresIn}` | `400 invalid-code` |
 | `POST /v1/auth/reset` | `email`, `ticket`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 0}` | `401 invalid-token` |
 
+- **`accountId` names the account, not the address.** It is 32 hex characters, random at
+  registration, survives a reset, and is never reused: an address deleted and registered again is a
+  new account with a new id. A client keys what it remembers by it, because an account moved away
+  and back is registered again under the same `MK`, and its `seq` starts over.
 - **Registration is not complete until the letter is accepted.** If the provider refuses it, the
   account is removed again and the answer is `502 letter-not-sent`. Keeping the account would be
   worse than it sounds: the address is now taken, so registering again answers `409`, and there is

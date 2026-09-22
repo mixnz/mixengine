@@ -180,6 +180,8 @@ export interface Session {
   refreshToken: string;
   deviceId: string;
   expiresIn: number;
+  /** The account's own id: random at registration, never reused (T178c, C4). */
+  accountId: string;
 }
 
 export async function register(account: Account): Promise<Result<unknown>> {

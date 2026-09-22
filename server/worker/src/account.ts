@@ -24,6 +24,7 @@ import {
   normaliseCode,
   peppered,
   randomCode,
+  randomPublicId,
   randomToken,
   sameSecret,
   sha256Hex,
@@ -100,6 +101,13 @@ export class Account implements DurableObject {
     // connection is served.
     state.blockConcurrencyWhile(async () => {
       for (const statement of SCHEMA) this.sql.exec(statement);
+      // An object made before `public_id` existed gets the column, and its account an id
+      // (T178c, C4). `CREATE TABLE IF NOT EXISTS` leaves an existing table as it was.
+      const columns = this.sql.exec<{ name: string }>(`PRAGMA table_info(account)`).toArray();
+      if (!columns.some((column) => column.name === "public_id")) {
+        this.sql.exec(`ALTER TABLE account ADD COLUMN public_id TEXT`);
+      }
+      this.sql.exec(`UPDATE account SET public_id = ? WHERE public_id IS NULL`, randomPublicId());
     });
   }
 
@@ -479,8 +487,9 @@ export class Account implements DurableObject {
 
     this.sql.exec(
       `INSERT INTO account (id, account_key, email, verifier, salt_account, argon_m, argon_t,
-                            argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+                            argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at,
+                            public_id)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       key,
       (fields["email"] as string).trim().toLowerCase(),
       await peppered(config.pepper, fields["a"] as string),
@@ -491,6 +500,7 @@ export class Account implements DurableObject {
       fields["wrappedMkPassword"],
       fields["wrappedMkRecovery"],
       now(),
+      randomPublicId(),
     );
 
     // **Registration is not complete until the letter is accepted.** Keeping an account whose
@@ -755,6 +765,7 @@ export class Account implements DurableObject {
       deviceId,
       wrappedMkPassword: account.wrapped_mk_password,
       wrappedMkRecovery: account.wrapped_mk_recovery,
+      accountId: account.public_id,
     });
   }
 

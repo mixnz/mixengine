@@ -32,6 +32,7 @@ impl Db {
         });
         let connection = db.connect()?;
         connection.execute_batch(SCHEMA)?;
+        add_public_id(&connection)?;
         db.give(connection);
         Ok(db)
     }
@@ -85,12 +86,40 @@ impl Db {
 /// The tables. One file holds every account, which is the shape D8 names as the fallback if
 /// Durable Objects ever stop being free — so the two halves of this repository already prove that
 /// the protocol survives it.
+/// A database made before `account.public_id` existed gets the column, and every row an id. The
+/// published image follows `master`, so a file from before T178c may already be serving somebody;
+/// `CREATE TABLE IF NOT EXISTS` leaves its table as it was.
+fn add_public_id(connection: &Connection) -> rusqlite::Result<()> {
+    let has_column = connection
+        .prepare("SELECT 1 FROM pragma_table_info('account') WHERE name = 'public_id'")?
+        .exists([])?;
+    if !has_column {
+        // SQLite cannot add a UNIQUE column; the ids are random and 16 bytes, which is uniqueness
+        // enough for the rows this path ever sees.
+        connection.execute("ALTER TABLE account ADD COLUMN public_id TEXT", [])?;
+    }
+    let missing: Vec<i64> = connection
+        .prepare("SELECT id FROM account WHERE public_id IS NULL")?
+        .query_map([], |row| row.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    for id in missing {
+        connection.execute(
+            "UPDATE account SET public_id = ?1 WHERE id = ?2",
+            rusqlite::params![crate::crypto::random_public_id(), id],
+        )?;
+    }
+    Ok(())
+}
+
 pub const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS account (
   id                   INTEGER PRIMARY KEY,
   -- The account's only name, and the same value the Worker uses for its object (D4a). The address
   -- is kept beside it so that whoever runs this for their own team can administer it.
   account_key          TEXT    NOT NULL UNIQUE,
+  -- The account's id on the wire (`accountId`): random at registration and never reused, unlike
+  -- `id`, which SQLite may hand out again once the last row is deleted (T178c, C4).
+  public_id            TEXT    NOT NULL UNIQUE,
   email                TEXT    NOT NULL,
   verifier             TEXT    NOT NULL,
   salt_account         TEXT    NOT NULL,
@@ -189,3 +218,51 @@ CREATE TABLE IF NOT EXISTS source_window (
   PRIMARY KEY (source, action)
 );
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A file from before `public_id` opens with the column added and its account named.
+    #[test]
+    fn an_old_database_gets_an_account_id() {
+        let path = std::env::temp_dir().join(format!(
+            "mixlab-sync-old-{}-{}.db",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let path = path.to_str().unwrap().to_owned();
+        let old = SCHEMA.replace("  public_id            TEXT    NOT NULL UNIQUE,\n", "");
+        assert_ne!(
+            old, SCHEMA,
+            "the old schema is the current one without public_id"
+        );
+        {
+            let connection = Connection::open(&path).unwrap();
+            connection.execute_batch(&old).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO account (account_key, email, verifier, salt_account, argon_m,
+                                          argon_t, argon_p, wrapped_mk_password,
+                                          wrapped_mk_recovery, created_at)
+                     VALUES ('k', 'a@example.invalid', 'v', 's', 1, 1, 1, 'w', 'r', 0)",
+                    [],
+                )
+                .unwrap();
+        }
+
+        drop(Db::open(&path).unwrap());
+        let connection = Connection::open(&path).unwrap();
+        let id: String = connection
+            .query_row("SELECT public_id FROM account", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(id.len(), 32);
+        drop(connection);
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{path}{suffix}"));
+        }
+    }
+}

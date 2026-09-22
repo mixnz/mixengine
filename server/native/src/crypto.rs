@@ -49,6 +49,14 @@ pub fn random_token() -> String {
     hex::encode(bytes)
 }
 
+/// 16 random bytes as hex: an account's id on the wire (`accountId`), made once at registration
+/// and never reused (T178c, C4).
+pub fn random_public_id() -> String {
+    let mut bytes = [0u8; 16];
+    rand::rng().fill_bytes(&mut bytes);
+    hex::encode(bytes)
+}
+
 /// How many bytes a salt is, fixed so that an invented one cannot be told apart by length.
 pub const SALT_BYTES: usize = 16;
 

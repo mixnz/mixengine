@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use crate::AppState;
 use crate::crypto::{
     SALT_BYTES, VERIFIER_BYTES, WRAPPED_KEY_BYTES, account_key, invented_salt, normalise_code, now,
-    peppered, random_code, random_token, same_secret, sha256_hex,
+    peppered, random_code, random_public_id, random_token, same_secret, sha256_hex,
 };
 use crate::email::LetterKind;
 use crate::http::{Failure, invalid_code, invalid_email, invalid_request, invalid_token};
@@ -389,8 +389,8 @@ pub async fn register(
             transaction.execute(
                 "INSERT INTO account (account_key, email, verifier, salt_account, argon_m,
                                       argon_t, argon_p, wrapped_mk_password, wrapped_mk_recovery,
-                                      verified, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10)",
+                                      verified, created_at, public_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, ?10, ?11)",
                 params![
                     key,
                     email,
@@ -401,7 +401,8 @@ pub async fn register(
                     p,
                     wrapped_password,
                     wrapped_recovery,
-                    now()
+                    now(),
+                    random_public_id()
                 ],
             )?;
             let account_id = transaction.last_insert_rowid();
@@ -649,85 +650,101 @@ pub async fn login(
     let source = source_for(&headers);
     let per_source = state.config.limits.auth_per_hour;
 
-    let outcome = state
-        .db
-        .call(move |connection| {
-            let transaction =
-                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
-            // Counted per source as well as per account, for the same reason as `verify`.
-            if let Some(seconds) = window(
-                &transaction,
-                "source_window",
-                &source,
-                "auth",
-                per_source,
-                SOURCE_WINDOW_SECONDS,
-            )? {
-                transaction.commit()?;
-                return Ok(Err(retry_after(seconds)));
-            }
+    let outcome =
+        state
+            .db
+            .call(move |connection| {
+                let transaction = connection
+                    .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+                // Counted per source as well as per account, for the same reason as `verify`.
+                if let Some(seconds) = window(
+                    &transaction,
+                    "source_window",
+                    &source,
+                    "auth",
+                    per_source,
+                    SOURCE_WINDOW_SECONDS,
+                )? {
+                    transaction.commit()?;
+                    return Ok(Err(retry_after(seconds)));
+                }
 
-            let account: Option<(i64, String, i64, String, String)> = transaction
-                .query_row(
-                    "SELECT id, verifier, verified, wrapped_mk_password, wrapped_mk_recovery
+                let account: Option<(i64, String, i64, String, String, String)> = transaction
+                    .query_row(
+                        "SELECT id, verifier, verified, wrapped_mk_password, wrapped_mk_recovery,
+                            public_id
                      FROM account WHERE account_key = ?1",
-                    params![key],
-                    |row| {
-                        Ok((
-                            row.get(0)?,
-                            row.get(1)?,
-                            row.get(2)?,
-                            row.get(3)?,
-                            row.get(4)?,
-                        ))
-                    },
-                )
-                .optional()?;
+                        params![key],
+                        |row| {
+                            Ok((
+                                row.get(0)?,
+                                row.get(1)?,
+                                row.get(2)?,
+                                row.get(3)?,
+                                row.get(4)?,
+                                row.get(5)?,
+                            ))
+                        },
+                    )
+                    .optional()?;
 
-            // An unknown address and a wrong verifier answer alike. Registration has to refuse a
-            // taken address and therefore leaks one; this route has no such obligation (D4a).
-            let Some((account_id, stored, verified, wrapped_password, wrapped_recovery)) = account
-            else {
-                transaction.commit()?;
-                return Ok(Err(wrong_credentials()));
-            };
+                // An unknown address and a wrong verifier answer alike. Registration has to refuse a
+                // taken address and therefore leaks one; this route has no such obligation (D4a).
+                let Some((
+                    account_id,
+                    stored,
+                    verified,
+                    wrapped_password,
+                    wrapped_recovery,
+                    public_id,
+                )) = account
+                else {
+                    transaction.commit()?;
+                    return Ok(Err(wrong_credentials()));
+                };
 
-            if let Some(seconds) = window(
-                &transaction,
-                "attempt",
-                &account_id,
-                "login",
-                allowance,
-                LOGIN_WINDOW_SECONDS,
-            )? {
-                transaction.commit()?;
-                return Ok(Err(too_many_attempts(seconds)));
-            }
+                if let Some(seconds) = window(
+                    &transaction,
+                    "attempt",
+                    &account_id,
+                    "login",
+                    allowance,
+                    LOGIN_WINDOW_SECONDS,
+                )? {
+                    transaction.commit()?;
+                    return Ok(Err(too_many_attempts(seconds)));
+                }
 
-            if !same_secret(&stored, &presented) {
-                transaction.commit()?;
-                return Ok(Err(wrong_credentials()));
-            }
-            if verified != 1 {
-                transaction.commit()?;
-                return Ok(Err(Failure::new(
-                    StatusCode::FORBIDDEN,
-                    "email-not-verified",
-                    "Confirm the address before signing in.",
-                )));
-            }
+                if !same_secret(&stored, &presented) {
+                    transaction.commit()?;
+                    return Ok(Err(wrong_credentials()));
+                }
+                if verified != 1 {
+                    transaction.commit()?;
+                    return Ok(Err(Failure::new(
+                        StatusCode::FORBIDDEN,
+                        "email-not-verified",
+                        "Confirm the address before signing in.",
+                    )));
+                }
 
-            let device_id = random_token();
-            transaction.execute(
-                "INSERT INTO device (id, account_id, name, created_at, last_seen_at)
+                let device_id = random_token();
+                transaction.execute(
+                    "INSERT INTO device (id, account_id, name, created_at, last_seen_at)
                  VALUES (?1, ?2, ?3, ?4, ?4)",
-                params![device_id, account_id, device_name, now()],
-            )?;
-            let session = issue(&transaction, account_id, &device_id)?;
-            transaction.commit()?;
-            Ok(Ok((session, device_id, wrapped_password, wrapped_recovery)))
-        })
-        .await;
+                    params![device_id, account_id, device_name, now()],
+                )?;
+                let session = issue(&transaction, account_id, &device_id)?;
+                transaction.commit()?;
+                Ok(Ok((
+                    session,
+                    device_id,
+                    wrapped_password,
+                    wrapped_recovery,
+                    public_id,
+                )))
+            })
+            .await;
 
     match outcome {
         Err(error) => internal(error).into_response(),
@@ -735,15 +752,18 @@ pub async fn login(
         // **Both wrapped copies travel here**, after the verifier matched and nowhere else: a fresh
         // install that could not get them would have an account it cannot read, and one handed out
         // before the password was proved is an offline attack waiting to happen (D4a).
-        Ok(Ok(((access, refresh), device_id, wrapped_password, wrapped_recovery))) => Json(json!({
-            "accessToken": access,
-            "refreshToken": refresh,
-            "deviceId": device_id,
-            "expiresIn": ACCESS_TOKEN_SECONDS,
-            "wrappedMkPassword": wrapped_password,
-            "wrappedMkRecovery": wrapped_recovery,
-        }))
-        .into_response(),
+        Ok(Ok(((access, refresh), device_id, wrapped_password, wrapped_recovery, public_id))) => {
+            Json(json!({
+                "accessToken": access,
+                "refreshToken": refresh,
+                "deviceId": device_id,
+                "expiresIn": ACCESS_TOKEN_SECONDS,
+                "wrappedMkPassword": wrapped_password,
+                "wrappedMkRecovery": wrapped_recovery,
+                "accountId": public_id,
+            }))
+            .into_response()
+        }
     }
 }
 
