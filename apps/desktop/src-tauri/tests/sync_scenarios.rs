@@ -42,6 +42,8 @@ struct State {
     reaped_below: i64,
     /// How many times a page was refused with `410 cursor-expired`.
     expired: usize,
+    /// How many pages were read from the start of a collection: a first pull or a resync.
+    reads_from_start: usize,
 }
 
 struct Server {
@@ -84,8 +86,15 @@ impl Server {
         self.state.lock().unwrap().expired
     }
 
+    fn reads_from_start(&self) -> usize {
+        self.state.lock().unwrap().reads_from_start
+    }
+
     fn page(&self, collection: &str, since: i64, resync: bool) -> PageOutcome {
         let mut state = self.state.lock().unwrap();
+        if since == 0 {
+            state.reads_from_start += 1;
+        }
         if since > 0 && since < state.reaped_below && !resync {
             state.expired += 1;
             return PageOutcome::CursorExpired;
@@ -308,6 +317,14 @@ impl Machine {
             .get(collection)
             .and_then(|list| list.iter().find(|item| item.id == id))
             .map(|item| &item.data)
+    }
+
+    /// A new release of this machine's MixLab, whose reader understands `readable`.
+    fn upgrade(&mut self, version: &str, readable: &[&str]) {
+        self.version = version.into();
+        for id in readable {
+            self.unreadable.remove(*id);
+        }
     }
 
     /// `applySyncChanges`: a removed id dropped, an upsert replacing its item where it stands or
@@ -655,6 +672,78 @@ async fn a_record_the_module_cannot_read_is_not_deleted_by_the_machine_that_skip
     assert!(
         !host.deleted,
         "a deleted a record its module never wrote: the pull agreed on it anyway"
+    );
+}
+
+/// A machine that skipped a record `host` from a newer MixLab, its cursor long past it.
+async fn a_skips_what_b_wrote(server: &Server) -> (Machine, Machine) {
+    let (mut a, mut b) = two_machines().await;
+    a.unreadable.insert("host".into());
+    b.edit("c", "host", json!({ "shape": "from a newer version" }));
+    b.sync(server, "c", 10).await;
+    a.sync(server, "c", 20).await;
+    assert_eq!(a.holds("c", "host"), None);
+    (a, b)
+}
+
+/// T178d: once a release can read it, the record is delivered again, with nobody editing it and
+/// the cursor long past it.
+#[tokio::test]
+async fn a_skipped_record_is_delivered_after_an_upgrade() {
+    let server = Server::new(2);
+    let (mut a, _b) = a_skips_what_b_wrote(&server).await;
+
+    a.upgrade("1.1.0", &["host"]);
+    a.sync(&server, "c", 30).await;
+
+    assert_eq!(
+        a.holds("c", "host"),
+        Some(&json!({ "shape": "from a newer version" })),
+        "the upgraded reader never met the record: nothing delivered it again"
+    );
+}
+
+/// With no new release, nothing is asked for again: the reader still cannot read the record, and
+/// a resync on every sync would download the collection for nothing.
+#[tokio::test]
+async fn the_same_version_does_not_ask_again() {
+    let server = Server::new(2);
+    let (mut a, _b) = a_skips_what_b_wrote(&server).await;
+    let asked = server.reads_from_start();
+
+    a.sync(&server, "c", 30).await;
+    a.sync(&server, "c", 40).await;
+
+    assert_eq!(
+        server.reads_from_start(),
+        asked,
+        "a resynced with nothing new to read"
+    );
+}
+
+/// A release that still cannot read the record leaves it owed, asks once, and the release after
+/// it asks again.
+#[tokio::test]
+async fn a_record_still_unreadable_waits_for_the_next_release() {
+    let server = Server::new(2);
+    let (mut a, _b) = a_skips_what_b_wrote(&server).await;
+
+    a.upgrade("1.1.0", &[]);
+    a.sync(&server, "c", 30).await;
+    assert_eq!(a.holds("c", "host"), None);
+    let asked = server.reads_from_start();
+    a.sync(&server, "c", 40).await;
+    assert_eq!(
+        server.reads_from_start(),
+        asked,
+        "1.1.0 asked a second time"
+    );
+
+    a.upgrade("1.2.0", &["host"]);
+    a.sync(&server, "c", 50).await;
+    assert_eq!(
+        a.holds("c", "host"),
+        Some(&json!({ "shape": "from a newer version" }))
     );
 }
 
