@@ -1060,7 +1060,8 @@ impl SyncState {
                 async move {
                     let opaque = crypto::opaque_id(&session.keys.id, &name);
                     let fetched =
-                        engine::fetch(&session.transport, &session.store, &opaque).await?;
+                        engine::fetch(&session.transport, &session.store, &opaque, APP_VERSION)
+                            .await?;
                     let opened = lend::incoming(
                         &session.store,
                         &session.keys,

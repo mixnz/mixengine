@@ -170,7 +170,9 @@ fn open(data_key: &[u8; 32], record: &WireRecord) -> Vec<u8> {
 async fn pull_all(transport: &Transport, store: &Store, collection: &str) -> Vec<WireRecord> {
     let mut all = Vec::new();
     loop {
-        let fetched = engine::fetch(transport, store, collection).await.unwrap();
+        let fetched = engine::fetch(transport, store, collection, env!("CARGO_PKG_VERSION"))
+            .await
+            .unwrap();
         for record in &fetched.records {
             store.remember(record).await.unwrap();
         }

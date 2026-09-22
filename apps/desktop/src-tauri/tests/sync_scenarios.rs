@@ -358,7 +358,7 @@ impl Machine {
     /// One page: fetched, opened, written by the module, landed and committed. Answers `more`.
     async fn pull_page(&mut self, server: &Server, collection: &str) -> bool {
         let opaque = self.opaque(collection);
-        let fetched = engine::fetch(&self.link(server), &self.store, &opaque)
+        let fetched = engine::fetch(&self.link(server), &self.store, &opaque, &self.version)
             .await
             .unwrap();
         let opened = lend::incoming(
