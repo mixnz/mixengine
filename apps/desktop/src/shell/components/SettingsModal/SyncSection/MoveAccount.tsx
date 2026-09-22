@@ -111,6 +111,14 @@ function MoveAccount({ from, deviceName, onMoved, onCancel }: Props) {
               placeholder="https://sync.example.com"
               aria-label={t("sync.addServer")}
               onChange={(event) => setDraft(event.target.value)}
+              // Enter adds the server being typed. Left to the form, it submitted the move — to
+              // the server chosen before, with the password already filled in.
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  if (draft.trim() !== "") add();
+                }
+              }}
             />
             <Button size="small" onClick={add} disabled={draft.trim() === ""}>
               {t("sync.addServerAction")}

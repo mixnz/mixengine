@@ -16,6 +16,14 @@ describe("edits replaced by newer ones", () => {
     expect(replacedCounts().size).toBe(0);
   });
 
+  it("dismissed one collection at a time, leave the others to be read", () => {
+    // Each collection has its own notice; dismissing one cleared them all, unread.
+    noteReplaced("connections", 2);
+    noteReplaced("preferences", 1);
+    clearReplaced("connections");
+    expect([...replacedCounts()]).toEqual([["preferences", 1]]);
+  });
+
   it("tell whoever is listening, until they stop", () => {
     const listener = vi.fn();
     const stop = onReplacedChange(listener);
