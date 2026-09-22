@@ -34,7 +34,7 @@ done
 | [1 — Process supervision](phase-1-process-supervision.md) | Run and babysit arbitrary programs correctly | T12–T19c | 15 / 15 | **M1** the daemon adopts what survived a kill and cleans what did not |
 | [2 — Runtimes](phase-2-runtimes.md) | Multiple PHP/Node/Python/Ruby/Go/Java versions, selectable, and Composer | T20–T29 | 16 / 16 | **M2** `php -v` differs between two directories, no shell hook |
 | [3 — Services](phase-3-services.md) | Web server, databases and caches with generated config | T30–T38, T99 | 18 / 18 | **M3** caddy + mariadb + redis healthy in under 10 s warm |
-| [4 — Sites & elevation](phase-4-sites-and-elevation.md) | `http://blog.test` works, creating a site prompts for nothing | T39–T47b, T64, T93 | 16 / 17 | **M4** a site opens with zero prompts after first-run setup |
+| [4 — Sites & elevation](phase-4-sites-and-elevation.md) | `http://blog.test` works, creating a site prompts for nothing | T39–T47b, T64, T93 | 17 / 18 | **M4** a site opens with zero prompts after first-run setup |
 | [5 — HTTPS](phase-5-https.md) | Green padlock, automatically, forever | T48–T54, T98 | 9 / 9 | **M5** `https://blog.test` trusted in every browser |
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
 | [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 10 / 10 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
@@ -368,15 +368,16 @@ keep.
 
 ### What is open, and what each one blocks
 
-**Two rows below say they gate a release that has since been tagged.** **T41a** is still open and
-**T86a** is still `[~]`, and v0.0.1 shipped anyway, so "blocks the release" describes the intention
-of 2026-08-23 and not what happened. The rows are left as written rather than quietly softened,
-because deciding what they gate *now* — the next release, or nothing — is a call to make
-deliberately and not while correcting a version literal.
+**One row below says it gates a release that has since been tagged.** **T86a** is still `[~]` and
+v0.0.1 shipped anyway, so "blocks the release" describes the intention of 2026-08-23 and not what
+happened. The row is left as written rather than quietly softened, because deciding what it gates
+*now* — the next release, or nothing — is a call to make deliberately and not while correcting a
+version literal. **T41a**, which said the same thing, was answered on 2026-09-22; it shipped with the
+question open, and the answer was yes.
 
 | Debt | Blocks | Where |
 | --- | --- | --- |
-| **T41a** does an unsigned binary load under Smart App Control, and does the hosts write survive Defender | **the release, and nothing before it.** Deferred to v0.0.1 on 2026-08-23. It needs one thing, and it is not money: a clean machine with SAC enforced. Everything from T42 on is built on the assumption that the answer is yes. Its remedy half left with **T94**, which is now closed, so what is owed here is these two readings and nothing else | [phase 4](phase-4-sites-and-elevation.md) |
+| ~~**T41a** does an unsigned binary load under Smart App Control, and does the hosts write survive Defender~~ — **answered 2026-09-22**, on a Hyper-V machine with SAC enforcing and Defender's current definitions: nothing was refused, the elevated hosts write drew no detection, and `mix doctor` named the policy. The readings and their two limits are in [../features/updates.md](../features/updates.md) | nothing | [phase 4](phase-4-sites-and-elevation.md) |
 | **T45's fixed link-local address** — `169.254.53.53/32` is not negotiated and nothing detects a machine already using it | nothing; the whole-state shape makes the fix additive | [phase 4](phase-4-sites-and-elevation.md) |
 | ~~**M3's tail** — the warm median is inside ten seconds on all three, and two Linux rounds of five were 11.8 s and 15.1 s~~ — **closed by T99**: the tail was MariaDB 11.4 generating a 4096-bit RSA key at every start for a TLS nobody configured, not cold I/O and not the sequential walker; with a leaf of this home's authority the ubuntu warm median is 592 ms, the five rounds within 3 ms of each other | nothing | [phase 3](phase-3-services.md) |
 | **T69's idle shutdown ships switched off** — no recipe offers a default, so nothing is ever stopped unless somebody asks per service | nothing, and it is a choice rather than an omission: a stopped pool has nothing to start it again until **T70**. Turning it on is four `None`s in four recipes | [phase 7](phase-7-efficiency.md) |

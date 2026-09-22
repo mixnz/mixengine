@@ -330,9 +330,40 @@ first-launch friendliness against a few hundred dollars a year, because buying t
 not have produced a product that runs here. The binaries that decide the outcome are not ours to
 sign, so the certificate was never the thing standing between this product and this policy.
 
-What is still [T41a](../roadmap/phase-4-sites-and-elevation.md)'s is the *measurement*: does a
-freshly built binary load on its first run on an enforcing machine, and does the elevated hosts write
-survive Defender's `HostsFileHijack` heuristic. Both still need a clean Windows VM.
+### The measurement, taken on 2026-09-22 — [T41a](../roadmap/phase-4-sites-and-elevation.md)
+
+**Both of T41a's readings, on a Hyper-V machine with Smart App Control enforcing.** Windows 11 Pro
+26200, installed from Microsoft's own ISO, `VerifiedAndReputablePolicyState = 1`, Defender running
+with real-time protection, cloud protection on (`MAPSReporting = 2`), block-at-first-seen on, UAC on.
+The installer was downloaded in Edge inside that machine, so it carried a Mark of the Web, and
+`Get-AuthenticodeSignature` reports `NotSigned` for both `mix.exe` and `mixengine-elevate.exe`.
+
+**Nothing was refused.** The v0.0.6 installer ran, `mix`, `mixengined` and `mix doctor` ran,
+`mix package install caddy 2.7.6` downloaded a binary this machine had never seen and ran it as its
+own smoke test, and `mixengine-elevate.exe` ran as an administrator four times through the real
+prompt — twice from `%LOCALAPPDATA%\Programs\MixEngine` before it installed itself, and twice from
+`C:\Program Files\MixEngine` afterwards. `Microsoft-Windows-CodeIntegrity/Operational` holds no
+3033, 3077 or 3118 for any of it; the only events are 3084, 3099 and 3116, which report the policy
+rather than a refusal.
+
+**The hosts write survives Defender.** `.test` is wired through NRPT on Windows, so the site was
+declared as `t41a.local`, which is the case that needs the file. The block was written, removed and
+written again across three grants; `t41a.local` resolved to `127.0.0.1`; `Get-MpThreatDetection`
+stayed empty, no 1116-1119 arrived, and the block was still there ten minutes later. The last of
+those grants ran after `Update-MpSignature` brought the machine to `1.459.335.0`, so it is the
+current heuristic that did not object.
+
+**What this does not say.** v0.0.6 was published on 2026-09-07, so its files have had two weeks in
+which to acquire reputation; a build nobody has ever downloaded may still be refused. The first pass
+also ran while Defender's definitions were a year old and its cloud lookups were failing
+(`LastMAPSFailureTimeString` moving), which is why the hosts reading was taken again afterwards.
+What was measured is the machine a user meets, not the worst machine that can exist.
+
+**The 2026-08-13 refusal on a developer machine therefore stands as the exception rather than the
+rule**, and the reading it suggested holds: the refusal follows a file nothing has ever seen, and it
+does not persist. `mix doctor` names the policy on such a machine, which is
+[ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md)'s whole answer,
+and that line was read back off this machine as written.
 
 **macOS** — the painful platform, but the pain is at **first install**, not at update:
 - Gatekeeper rejects the **`.pkg`** — a `.dmg` until T85, which found there is no application bundle

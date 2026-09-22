@@ -167,7 +167,7 @@ root process.
       elevation suites now create a site and find an operation waiting — the queue is filled by the
       product. Nothing in any suite grants: a successful grant is a real dialog on the machine
       running `cargo test`, and under this task it would also edit that machine's hosts file.
-- [ ] **T41a** Does an unsigned build run at all, and does this edit survive a machine that has never
+- [x] **T41a** Does an unsigned build run at all, and does this edit survive a machine that has never
       heard of us? **(P)**
       Two questions, and **the first one is already half answered — badly.** Smart App Control refuses
       to *load* an unsigned binary that has no reputation: no warning, no "Run anyway", no path
@@ -232,6 +232,36 @@ root process.
       [ADR 0005](../decisions/0005-on-demand-elevation.md) and five phases rest on a design that never
       reaches a user's machine. Answer it the moment a VM exists — the release gate is the deadline,
       not the schedule.
+      **Both readings taken 2026-09-22, on a Hyper-V machine with Smart App Control enforcing, and
+      nothing was refused.** The unsigned installer ran, so did `mix`, `mixengined` and
+      `mixengine-elevate.exe` through the real prompt, and `mix package install caddy` ran a binary
+      that machine had never seen; the elevated hosts write survived Defender's current definitions
+      with no detection, and the block was still there ten minutes later. `mix doctor` named the
+      policy on that machine, which is what
+      [ADR 0017](../decisions/0017-smart-app-control-is-an-unsupported-configuration.md) promises.
+      The readings, their two limits and what they do not say are in
+      [../features/updates.md](../features/updates.md).
+      **The deferral above was overtaken rather than honoured**: v0.0.1 shipped on 2026-09-04 with
+      this question open, which is worth saying plainly because the entry had made it a release gate.
+      What the answer means for [ADR 0005](../decisions/0005-on-demand-elevation.md) is that it
+      stands, measured rather than assumed.
+      **It also found T179**, one line below.
+- [ ] **T179** A queued elevation that is no longer wanted stays in the queue, and says the wrong
+      thing before a prompt. `Elevation::require_hosts` asks for a hosts write only when the machine
+      disagrees with what this home declares, and when the machine agrees it returns without
+      withdrawing what is already queued. So deleting the only site that needed a name leaves
+      `hosts-apply` waiting with that name still in it: `mix elevation status` reads *point 1 name at
+      127.0.0.1 in the hosts file: hd.local* for a home that declares no such site, and granting it
+      writes a name nobody declared into the machine's hosts file. Measured on 2026-09-22 with a
+      sandbox home: create the site, delete it, and the row does not change. Found while taking
+      T41a's readings, from the other side — there the queue said *remove MixEngine's block* while a
+      site declared a name, and the grant wrote the block anyway, so what a person reads before a
+      UAC prompt and what the grant does are two different things.
+      **The producer is what to fix, not the sentence.** The four `require_*` producers all answer
+      *this machine needs something done*; none of them answers *this machine no longer needs it*,
+      and the same shape is in `require_resolver`, `require_port_access` and `require_firewall`. A
+      fix belongs where a want is withdrawn, so that `elevation drop` stays a person's decision
+      rather than the mechanism's.
 - [x] **T42** `PortAccess`: no-op on Windows, `cap_net_bind_service` on Linux, a pf anchor redirect
       plus a boot-time job on macOS ([ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md)).
       The re-probe is the producer: every daemon start asks, which covers "after every app update"
