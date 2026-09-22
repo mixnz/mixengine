@@ -19,6 +19,7 @@ function backend(pages: PulledPage[], pushed: PushedChanges = { accepted: 0, rep
   const calls: string[] = [];
   const queue = [...pages];
   const fake: SyncBackend = {
+    notice: async () => void calls.push("notice"),
     pullPage: async () => {
       calls.push("pull");
       return queue.shift() ?? { token: "end", changes: nothing, more: false };
@@ -58,7 +59,18 @@ describe("one collection", () => {
       { token: "p2", changes: one, more: false },
     ]);
     await syncCollection(fake, collection(calls));
-    expect(calls).toEqual(["pull", "write", "commitPull p1", "pull", "write", "commitPull p2", "read", "push"]);
+    expect(calls).toEqual([
+      "read",
+      "notice",
+      "pull",
+      "write",
+      "commitPull p1",
+      "pull",
+      "write",
+      "commitPull p2",
+      "read",
+      "push",
+    ]);
   });
 
   it("does not commit a page its module could not write, and does not push", async () => {
@@ -67,13 +79,13 @@ describe("one collection", () => {
       throw new Error("disk full");
     });
     await expect(syncCollection(fake, failing)).rejects.toThrow("disk full");
-    expect(calls).toEqual(["pull", "write"]);
+    expect(calls).toEqual(["read", "notice", "pull", "write"]);
   });
 
   it("moves past an empty page without asking the module to write nothing", async () => {
     const { fake, calls } = backend([{ token: "p1", changes: nothing, more: false }]);
     await syncCollection(fake, collection(calls));
-    expect(calls).toEqual(["pull", "commitPull p1", "read", "push"]);
+    expect(calls).toEqual(["read", "notice", "pull", "commitPull p1", "read", "push"]);
   });
 
   it("writes a lost conflict's winner, commits it, and counts it", async () => {
@@ -133,7 +145,8 @@ describe("the loop", () => {
     loop.focus();
     await vi.advanceTimersByTimeAsync(0);
     loop.stop();
-    expect(calls.filter((call) => call === "read")).toHaveLength(2);
+    // Two runs: the full one reads twice, to notice and to push; the push inside a minute, once.
+    expect(calls.filter((call) => call === "read")).toHaveLength(3);
   });
 
   it("between those, only pushes — and pulls again once a window has been quiet long enough", async () => {
@@ -198,7 +211,9 @@ describe("the loop", () => {
     loop.focus();
     await vi.advanceTimersByTimeAsync(0);
     loop.stop();
-    expect(calls.filter((call) => call === "read")).toHaveLength(2);
+    // Two full runs — the asks came before the first had started, so no pull was recent — each
+    // reading twice, to notice and to push.
+    expect(calls.filter((call) => call === "read")).toHaveLength(4);
   });
 
   it("never lets two loops run at once, and a stopped one ends at the next collection", async () => {
@@ -237,7 +252,8 @@ describe("the loop", () => {
     second();
 
     expect(most).toBe(1);
-    expect(reads).toBe(3);
+    // Three collection runs, each full: read once to notice, once to push.
+    expect(reads).toBe(6);
   });
 
   it("pulls on focus only once a minute has passed since the last pull", async () => {

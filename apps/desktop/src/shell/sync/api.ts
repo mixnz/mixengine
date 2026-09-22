@@ -41,6 +41,8 @@ export interface PushedChanges {
 
 /** What the loop needs of the backend, so a test can hand it a fake. */
 export interface SyncBackend {
+  /** Stamps this machine's changes before a pull, so the pull can weigh them (D4). Sends nothing. */
+  notice(collection: string, items: SyncItem[]): Promise<void>;
   pullPage(collection: string): Promise<PulledPage>;
   commitPull(collection: string, token: string): Promise<void>;
   push(collection: string, items: SyncItem[]): Promise<PushedChanges>;
@@ -48,6 +50,7 @@ export interface SyncBackend {
 }
 
 export const tauriSync: SyncBackend = {
+  notice: (collection, items) => invoke("sync_notice", { collection, items }),
   pullPage: (collection) => invoke("sync_pull_page", { collection }),
   commitPull: (collection, token) => invoke("sync_commit_pull", { collection, token }),
   push: (collection, items) => invoke("sync_push", { collection, items }),

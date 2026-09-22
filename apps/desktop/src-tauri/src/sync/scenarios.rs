@@ -2,8 +2,8 @@
 //! data or never ends, from the T178a–b spec (`docs/specs/2026-09-22-t178-*`).
 //!
 //! **[`Machine::sync`] is `loop.ts`'s `syncCollection` over `session.rs`'s calls**, in their order:
-//! every page fetched, opened, written by the module, landed and committed, then this machine's
-//! changes pushed and any lost conflict written down and landed. The module is a list of items
+//! this machine's changes noticed, every page fetched, opened, written by the module, landed and
+//! committed, then those changes pushed and any lost conflict written down and landed. The module is a list of items
 //! applied the way `applySyncChanges` applies them, including the item it cannot read and leaves
 //! alone. **[`Server`] answers the way both servers do**, `server/native/src/records.rs` and
 //! `server/worker/src/records.ts`: one `seq` per account, a page per collection whose `nextSince`
@@ -321,6 +321,10 @@ impl Machine {
     /// `syncCollection`: every page pulled and written, then this machine's changes pushed.
     async fn sync(&mut self, server: &Server, collection: &str, now: i64) {
         let opaque = self.opaque(collection);
+        let items = self.list(collection).clone();
+        lend::notice(&self.store, &self.keys, collection, &items, now)
+            .await
+            .unwrap();
         for _ in 0..MAX_PAGES {
             let fetched = engine::fetch(&self.link(server), &self.store, &opaque)
                 .await

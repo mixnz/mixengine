@@ -85,6 +85,15 @@ pub async fn sync_revoke_device(state: State<'_, SyncState>, id: String) -> Resu
 }
 
 #[tauri::command]
+pub async fn sync_notice(
+    state: State<'_, SyncState>,
+    collection: String,
+    items: Vec<Item>,
+) -> Result<(), AppError> {
+    state.notice(&collection, items).await
+}
+
+#[tauri::command]
 pub async fn sync_pull_page(
     state: State<'_, SyncState>,
     collection: String,

@@ -41,6 +41,7 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         crate::sync::commands::sync_logout,
         crate::sync::commands::sync_devices,
         crate::sync::commands::sync_revoke_device,
+        crate::sync::commands::sync_notice,
         crate::sync::commands::sync_pull_page,
         crate::sync::commands::sync_commit_pull,
         crate::sync::commands::sync_push,

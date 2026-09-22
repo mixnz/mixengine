@@ -1015,6 +1015,18 @@ impl SyncState {
         self.status().await
     }
 
+    /// Stamp this machine's changes to `collection` before its pages are pulled, so the pull can
+    /// weigh them against what it brings (D4). Nothing is sent.
+    pub async fn notice(&self, collection: &str, items: Vec<Item>) -> Result<(), AppError> {
+        let name = collection.to_owned();
+        let items = Arc::new(items);
+        self.with_session(|session| {
+            let (name, items) = (name.clone(), items.clone());
+            async move { lend::notice(&session.store, &session.keys, &name, &items, now()).await }
+        })
+        .await
+    }
+
     /// The next page of `collection`, opened, for its module to write.
     pub async fn pull_page(&self, collection: &str) -> Result<PulledPage, AppError> {
         let name = collection.to_owned();

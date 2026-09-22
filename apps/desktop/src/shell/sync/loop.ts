@@ -23,7 +23,8 @@ function isEmpty(changes: SyncChanges): boolean {
 }
 
 /**
- * One collection, both ways: every page pulled and written, then this machine's changes pushed.
+ * One collection, both ways: this machine's changes noticed, every page pulled and written, then
+ * those changes pushed.
  * Resolves to how many of this machine's edits newer ones replaced (D4).
  *
  * **Nothing is committed before the module has written it.** A write that throws leaves its page,
@@ -31,6 +32,9 @@ function isEmpty(changes: SyncChanges): boolean {
  * an agreement the disk does not hold.
  */
 export async function syncCollection(backend: SyncBackend, collection: SyncableCollection): Promise<number> {
+  // Stamped before the first page, so a pull weighs this machine's changes rather than writing
+  // over them (D4) — its own earlier push, coming back, included.
+  await backend.notice(collection.id, await collection.read());
   for (;;) {
     const page = await backend.pullPage(collection.id);
     if (!isEmpty(page.changes)) await collection.write(page.changes);

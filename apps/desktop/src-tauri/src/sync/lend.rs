@@ -96,6 +96,77 @@ fn plaintext(collection: &str, item: &Item) -> Vec<u8> {
     canonical(&json!({ "collection": collection, "id": item.id, "data": item.data }))
 }
 
+/// One change this machine holds and the server does not: an item whose hash differs from what was
+/// agreed, or an agreed item a reader no longer returns.
+enum Pending<'a> {
+    Write {
+        id: String,
+        item: &'a Item,
+        plain: Vec<u8>,
+        digest: String,
+    },
+    Delete {
+        id: String,
+    },
+}
+
+async fn pending<'a>(
+    store: &Store,
+    keys: &Keys,
+    collection: &str,
+    items: &'a [Item],
+) -> Result<Vec<Pending<'a>>, AppError> {
+    let opaque_collection = crypto::opaque_id(&keys.id, collection);
+    let mut out = Vec::new();
+    let mut present = HashSet::new();
+    for item in items {
+        let id = crypto::opaque_id(&keys.id, &item.id);
+        present.insert(id.clone());
+        let plain = plaintext(collection, item);
+        let digest = hash(&plain);
+        if store
+            .agreed(&opaque_collection, &id)
+            .await?
+            .is_some_and(|agreed| agreed.hash == digest)
+        {
+            continue;
+        }
+        out.push(Pending::Write {
+            id,
+            item,
+            plain,
+            digest,
+        });
+    }
+    for (id, _) in store.agreed_live(&opaque_collection).await? {
+        if !present.contains(&id) {
+            out.push(Pending::Delete { id });
+        }
+    }
+    Ok(out)
+}
+
+/// Stamp every change this machine holds, sending nothing: what a full run does before its first
+/// page, so that the pull can weigh them (D4). `outgoing` later reads the same stamps.
+pub async fn notice(
+    store: &Store,
+    keys: &Keys,
+    collection: &str,
+    items: &[Item],
+    now: i64,
+) -> Result<(), AppError> {
+    let opaque_collection = crypto::opaque_id(&keys.id, collection);
+    for change in pending(store, keys, collection, items).await? {
+        match change {
+            Pending::Write { id, digest, .. } => {
+                store.stamp(&opaque_collection, &id, &digest, now).await?
+            }
+            Pending::Delete { id } => store.stamp(&opaque_collection, &id, DELETED, now).await?,
+        };
+    }
+    Ok(())
+}
+
 /// This machine's items as the changes the server does not have, and what to record once they have
 /// landed. An item agreed before and no longer returned is a deletion. **Each change carries the
 /// time it was first noticed**, which `now` is only for a change seen for the first time.
@@ -109,55 +180,48 @@ pub async fn outgoing(
     let opaque_collection = crypto::opaque_id(&keys.id, collection);
     let mut changes = Vec::new();
     let mut agreements = Vec::new();
-    let mut present = HashSet::new();
-
-    for item in items {
-        let id = crypto::opaque_id(&keys.id, &item.id);
-        present.insert(id.clone());
-        let plain = plaintext(collection, item);
-        let digest = hash(&plain);
-        if store
-            .agreed(&opaque_collection, &id)
-            .await?
-            .is_some_and(|agreed| agreed.hash == digest)
-        {
-            continue;
-        }
-        let sealed = crypto::seal_record(
-            &keys.data,
-            &RecordAddress {
-                collection: &opaque_collection,
-                id: &id,
-                deleted: false,
-            },
-            &plain,
-        )?;
-        let updated_at = store.stamp(&opaque_collection, &id, &digest, now).await?;
-        changes.push(Outgoing {
-            collection: opaque_collection.clone(),
-            id: id.clone(),
-            updated_at,
-            change: Change::Write {
-                nonce: STANDARD.encode(sealed.nonce),
-                ciphertext: STANDARD.encode(sealed.ciphertext),
-            },
-        });
-        agreements.push(Agreement {
-            id,
-            local_id: item.id.clone(),
-            hash: digest,
-        });
-    }
-
-    for (id, _) in store.agreed_live(&opaque_collection).await? {
-        if !present.contains(&id) {
-            let updated_at = store.stamp(&opaque_collection, &id, DELETED, now).await?;
-            changes.push(Outgoing {
-                collection: opaque_collection.clone(),
+    for change in pending(store, keys, collection, items).await? {
+        match change {
+            Pending::Write {
                 id,
-                updated_at,
-                change: Change::Delete,
-            });
+                item,
+                plain,
+                digest,
+            } => {
+                let sealed = crypto::seal_record(
+                    &keys.data,
+                    &RecordAddress {
+                        collection: &opaque_collection,
+                        id: &id,
+                        deleted: false,
+                    },
+                    &plain,
+                )?;
+                let updated_at = store.stamp(&opaque_collection, &id, &digest, now).await?;
+                changes.push(Outgoing {
+                    collection: opaque_collection.clone(),
+                    id: id.clone(),
+                    updated_at,
+                    change: Change::Write {
+                        nonce: STANDARD.encode(sealed.nonce),
+                        ciphertext: STANDARD.encode(sealed.ciphertext),
+                    },
+                });
+                agreements.push(Agreement {
+                    id,
+                    local_id: item.id.clone(),
+                    hash: digest,
+                });
+            }
+            Pending::Delete { id } => {
+                let updated_at = store.stamp(&opaque_collection, &id, DELETED, now).await?;
+                changes.push(Outgoing {
+                    collection: opaque_collection.clone(),
+                    id,
+                    updated_at,
+                    change: Change::Delete,
+                });
+            }
         }
     }
     Ok((changes, agreements))
@@ -470,6 +534,36 @@ mod tests {
         let (retry, _) = outgoing(&store, &keys, "c", &[], 300).await.unwrap();
         assert_eq!(first[0].updated_at, 200);
         assert_eq!(retry[0].updated_at, 200);
+    }
+
+    /// Noticed before a pull, a change keeps that time when it is finally pushed (D4's first rule).
+    #[tokio::test]
+    async fn a_change_noticed_before_a_pull_keeps_that_time_when_pushed() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let draft = [item("1", json!("draft"))];
+        notice(&store, &keys, "c", &draft, 100).await.unwrap();
+        let (changes, _) = outgoing(&store, &keys, "c", &draft, 200).await.unwrap();
+        assert_eq!(changes[0].updated_at, 100);
+    }
+
+    #[tokio::test]
+    async fn a_removal_noticed_is_stamped_as_a_deletion() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let (changes, agreements) = outgoing(&store, &keys, "c", &[item("1", json!(1))], 100)
+            .await
+            .unwrap();
+        store.remember(&landed(&changes[0], 1)).await.unwrap();
+        settle(&store, &keys, "c", agreements).await.unwrap();
+
+        notice(&store, &keys, "c", &[], 200).await.unwrap();
+        let opaque = crypto::opaque_id(&keys.id, "c");
+        assert_eq!(
+            store.stamped(&opaque, &changes[0].id).await.unwrap(),
+            Some(crate::sync::store::Stamped {
+                hash: DELETED.into(),
+                at: 200
+            })
+        );
     }
 
     /// A winner written down and landed is agreed: the loser has nothing left to push. This is the
