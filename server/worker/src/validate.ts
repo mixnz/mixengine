@@ -8,7 +8,16 @@ const HEX_64 = /^[0-9a-f]{64}$/;
 // Deliberately loose. The address is a delivery target, not a claim to be parsed: the only real
 // test of it is whether a letter arrives, and a stricter pattern refuses valid addresses far more
 // often than it catches invalid ones.
-const EMAIL = /^[^\s@]+@[^\s@.]+\.[^\s@]+$/;
+//
+// **Loose about the address, not about what surrounds one.** The characters that make a string a
+// name and an address, or a list — `<>"(),;:[]\` — and every control character are refused: each
+// such spelling was an account and a letter counter of its own, all delivered to one mailbox, with
+// a name the sender chose. `server/native`'s `is_email` says the same.
+const REFUSED = String.raw`\s@<>"(),;:\[\]\\\x00-\x1f\x7f`;
+/** Anything but a refused character; and the domain's first label, which has no dot either. */
+const PART = `[^${REFUSED}]+`;
+const FIRST_LABEL = `[^${REFUSED}.]+`;
+const EMAIL = new RegExp(`^${PART}@${FIRST_LABEL}\\.${PART}$`);
 
 export function isEmail(value: unknown): value is string {
   return typeof value === "string" && value.length <= 254 && EMAIL.test(value);

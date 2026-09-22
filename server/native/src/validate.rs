@@ -41,8 +41,18 @@ pub fn is_opaque_id(value: &str) -> bool {
 /// Deliberately loose. An address is a delivery target, not a claim to be parsed: the only real
 /// test of it is whether a letter arrives, and a stricter pattern refuses valid addresses far more
 /// often than it catches invalid ones.
+///
+/// **Loose about the address, not about what surrounds one.** The characters that make a string a
+/// name and an address, or a list — `<>"(),;:[]\` — and every control character are refused: each
+/// such spelling was an account and a letter counter of its own, all delivered to one mailbox,
+/// with a name the sender chose. `worker/src/validate.ts` says the same.
 pub fn is_email(value: &str) -> bool {
-    if value.len() > 254 || value.chars().any(char::is_whitespace) {
+    const FRAMING: &[char] = &['<', '>', '"', '(', ')', ',', ';', ':', '[', ']', '\\'];
+    if value.len() > 254
+        || value
+            .chars()
+            .any(|c| c.is_whitespace() || c.is_control() || FRAMING.contains(&c))
+    {
         return false;
     }
     let mut halves = value.split('@');
@@ -50,4 +60,34 @@ pub fn is_email(value: &str) -> bool {
         return false;
     };
     !local.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_email;
+
+    #[test]
+    fn a_plain_address_is_an_address() {
+        assert!(is_email("someone@example.com"));
+        assert!(is_email("some.one+tag@mail.example.co.uk"));
+    }
+
+    /// A name and an address, or a list: each spelling was an account and a letter counter of its
+    /// own, all delivered to one mailbox, with a name the sender chose.
+    #[test]
+    fn a_name_a_list_or_a_control_character_is_not() {
+        for bad in [
+            "someone<victim@example.com>",
+            r#""MixLab"<victim@example.com>"#,
+            "some,one@example.com",
+            "some;one@example.com",
+            "someone@example.com>",
+            "some(one)@example.com",
+            r"some\one@example.com",
+            "some\u{7}one@example.com",
+            "someone@[192.0.2.1]",
+        ] {
+            assert!(!is_email(bad), "{bad:?}");
+        }
+    }
 }

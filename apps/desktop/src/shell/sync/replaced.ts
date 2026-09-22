@@ -19,8 +19,10 @@ export function replacedCounts(): ReadonlyMap<string, number> {
   return new Map(counts);
 }
 
-export function clearReplaced(): void {
-  counts.clear();
+/** Dismissed: one collection's notice, or with no argument every one. */
+export function clearReplaced(collection?: string): void {
+  if (collection === undefined) counts.clear();
+  else counts.delete(collection);
   tell();
 }
 

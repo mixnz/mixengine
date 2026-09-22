@@ -29,7 +29,7 @@ pub mod records;
 pub mod recovery;
 pub mod validate;
 
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use axum::Router;
@@ -60,6 +60,27 @@ pub(crate) const SOURCE_HEADER: &str = "x-mixlab-source";
 /// would let anybody mint a fresh bucket per request by writing a different value, which is not a
 /// weakened rate limit but no rate limit at all. So the peer address is what counts, unless the
 /// deployment says it is behind a proxy.
+/// What a request is counted under. **An IPv6 address counts by its /64**: that is what one
+/// subscriber is handed, and every address in it is theirs to use, so a counter keyed by the full
+/// address started from zero on every request. An IPv4 address counts alone, however it is
+/// written; anything else is its own bucket.
+fn source_bucket(address: &str) -> String {
+    match address.parse::<IpAddr>() {
+        Ok(IpAddr::V4(v4)) => v4.to_string(),
+        Ok(IpAddr::V6(v6)) => match v6.to_ipv4_mapped() {
+            Some(v4) => v4.to_string(),
+            None => {
+                let segments = v6.segments();
+                format!(
+                    "{:x}:{:x}:{:x}:{:x}::/64",
+                    segments[0], segments[1], segments[2], segments[3]
+                )
+            }
+        },
+        Err(_) => address.to_owned(),
+    }
+}
+
 async fn resolve_source(request: Request, next: Next, trust_forwarded_for: bool) -> Response {
     let peer = request
         .extensions()
@@ -83,7 +104,9 @@ async fn resolve_source(request: Request, next: Next, trust_forwarded_for: bool)
 
     // **One shared bucket is the honest answer** to a request whose address this server cannot
     // see, rather than not counting it at all.
-    let source = crypto::sha256_hex(&forwarded.or(peer).unwrap_or_else(|| "local".to_owned()));
+    let source = crypto::sha256_hex(&source_bucket(
+        &forwarded.or(peer).unwrap_or_else(|| "local".to_owned()),
+    ));
 
     let mut request = request;
     let headers = request.headers_mut();
@@ -305,5 +328,39 @@ async fn outbox(State(state): State<Arc<AppState>>, Query(link): Query<Link>) ->
             tracing::error!("database error: {error}");
             http::not_found().into_response()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::source_bucket;
+
+    /// One IPv6 subscriber holds a whole /64 and can use a fresh address for every request; keyed
+    /// by the full address, every per-source counter started from zero each time.
+    #[test]
+    fn an_ipv6_address_is_counted_by_its_64() {
+        assert_eq!(
+            source_bucket("2001:db8:1:2:aaaa::1"),
+            source_bucket("2001:db8:1:2:ffff:ffff:ffff:ffff")
+        );
+        assert_ne!(
+            source_bucket("2001:db8:1:2::1"),
+            source_bucket("2001:db8:1:3::1")
+        );
+    }
+
+    #[test]
+    fn an_ipv4_address_is_counted_alone_however_it_is_written() {
+        assert_ne!(source_bucket("192.0.2.1"), source_bucket("192.0.2.2"));
+        assert_eq!(
+            source_bucket("192.0.2.1"),
+            source_bucket("::ffff:192.0.2.1")
+        );
+    }
+
+    /// Something that is not an address is still one bucket of its own, never none.
+    #[test]
+    fn what_is_not_an_address_keeps_its_own_bucket() {
+        assert_eq!(source_bucket("local"), "local");
     }
 }

@@ -213,7 +213,7 @@ function AccountView({ status, onChanged }: Props) {
           <NoticeBanner
             key={id}
             message={t("sync.replaced", { count, collection: labelOf(id) })}
-            onDismiss={clearReplaced}
+            onDismiss={() => clearReplaced(id)}
           />
         ))}
         {problem && <ErrorBanner message={problem} onDismiss={() => setProblem(null)} />}

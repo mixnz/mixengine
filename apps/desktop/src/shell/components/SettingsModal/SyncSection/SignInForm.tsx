@@ -53,11 +53,15 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
   /** The chosen server's announced end, asked before anybody signs in or registers there. */
   const [serverClosing, setServerClosing] = useState<number | null>(null);
   const token = server === DEFAULT_SERVER || access.trim() === "" ? null : access.trim();
+  /** The token the closing date is asked with: settled when the field is left, not per keystroke.
+   *  Every half-typed token was a wrong one, and a closed server counts wrong tokens per network. */
+  const [settledToken, setSettledToken] = useState<string | null>(null);
+  const askedToken = server === DEFAULT_SERVER ? null : settledToken;
 
   useEffect(() => {
     let current = true;
     setServerClosing(null);
-    syncServerClosing(server, token)
+    syncServerClosing(server, askedToken)
       .then((on) => {
         if (current) setServerClosing(on);
       })
@@ -67,7 +71,7 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
     return () => {
       current = false;
     };
-  }, [server, token]);
+  }, [server, askedToken]);
 
   function add() {
     const result = addServer(localStorage, draft);
@@ -197,7 +201,12 @@ function SignInForm({ deviceName, onDeviceNameChange, onSignedIn, onRegistered, 
       )}
       {server !== DEFAULT_SERVER && (
         <Field label={t("sync.access")} hint={t("sync.accessHint")}>
-          <Input type="password" value={access} onChange={(event) => setAccess(event.target.value)} />
+          <Input
+            type="password"
+            value={access}
+            onChange={(event) => setAccess(event.target.value)}
+            onBlur={() => setSettledToken(token)}
+          />
         </Field>
       )}
       <Field label={t("sync.email")}>

@@ -87,6 +87,11 @@ describe("POST /v1/auth/register", () => {
     ["no address at all", { email: undefined }],
     ["something that is not one", { email: "not-an-address" }],
     ["two of them", { email: "a@b.com,c@d.com" }],
+    // A name and an address: every such spelling is an account and a letter counter of its own,
+    // all delivered to one mailbox, and the name is the sender's to choose.
+    ["a name in front of one", { email: "someone<victim@example.com>" }],
+    ["a quoted name in front of one", { email: '"MixLab"<victim@example.com>' }],
+    ["a comma inside one", { email: "some,one@example.com" }],
   ])("says it is the address that is wrong, given %s", async (_label, override) => {
     // A person typed this one, so it cannot share a code with a wrong-length key: an application
     // showing "something in what you sent is wrong" for a mistyped address shows the wrong
