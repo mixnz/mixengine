@@ -29,6 +29,8 @@ pub mod engine;
 pub mod lend;
 pub mod merge;
 pub mod saved;
+#[cfg(test)]
+mod scenarios;
 pub mod session;
 pub mod store;
 pub mod transport;

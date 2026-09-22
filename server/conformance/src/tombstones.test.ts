@@ -99,6 +99,37 @@ describe("tombstones", () => {
     expect(page.body.error?.code).toBe("cursor-expired");
   });
 
+  it("do not expire the cursor a resync of one collection has just handed out", async ({ skip }) => {
+    // A client told 410 pulls its collection again from 0 and keeps the `nextSince` it is given.
+    // That cursor has missed nothing; refused on the next pull because a tombstone reaped in some
+    // other collection sits above it, the client starts over on every pull, for ever.
+    const limits = (await call<Capabilities>("/v1/capabilities")).body;
+    if (limits.tombstoneRetentionDays !== 0) {
+      skip(
+        `this server reports tombstoneRetentionDays=${limits.tombstoneRetentionDays}. Run a second ` +
+          "instance with a retention of 0 to cover cursor expiry; no test can wait ninety days.",
+      );
+    }
+
+    const { session } = await signedUp();
+    // `seed` puts each record in a collection of its own: `quiet` is never written again.
+    const quiet = await seed(session.accessToken);
+    const doomed = await seed(session.accessToken);
+    await remove(session.accessToken, doomed.collection, doomed.id, doomed.stored.version);
+
+    let page = await since(session.accessToken, quiet.stored.seq, quiet.collection);
+    for (let attempt = 0; attempt < 40 && page.status !== 410; attempt += 1) {
+      await new Promise((resume) => setTimeout(resume, 500));
+      page = await since(session.accessToken, quiet.stored.seq, quiet.collection);
+    }
+    expect(page.status, "the story needs the tombstone reaped").toBe(410);
+
+    const resync = await since(session.accessToken, 0, quiet.collection);
+    expect(resync.status).toBe(200);
+    const next = await since(session.accessToken, resync.body.nextSince, quiet.collection);
+    expect(next.status, `nextSince=${resync.body.nextSince} was expired as soon as it was handed out`).toBe(200);
+  });
+
   it("do not expire a cursor that is current", async () => {
     const { session } = await signedUp();
     const page = await since(session.accessToken, 0);

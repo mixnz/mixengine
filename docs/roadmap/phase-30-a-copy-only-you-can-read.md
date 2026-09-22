@@ -249,6 +249,19 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       it 600ms, keeps the last good full run's time and the last failure. `Icon` has a `spinning`
       prop, so the Settings button and the Sync entry of its nav turn without a fifth hand-written
       spin.
+- [ ] **T178a** — *found by a review of T177, before sync's first release.* A pull that keeps what
+      it has not agreed: local changes stamped before the first page, each pulled record weighed by
+      D4 against them, a record whose content is already agreed never handed to the module, a
+      module's `write` reporting what it skipped, and every `write` resolving only once its save is
+      on disk. Design:
+      [2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md](../specs/2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md).
+- [ ] **T178b** A resync that ends: `410` forgets the cursor and not the agreements, a resync
+      removes what it did not meet, the last page's `nextSince` is the account's latest `seq`, and
+      `resync=1` keeps a read from `0` from being expired halfway — on both servers and in
+      `server/conformance`. Same design as T178a.
+- [ ] **T178c** The review's remaining four: a tombstone's `updatedAt` (`DELETE` carries none), a
+      batch whose first failed entry hides the rest, moving an account without checking the
+      password it re-registers with, and a store keyed by server URL. A spec of its own.
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
