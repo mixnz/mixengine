@@ -123,6 +123,23 @@ describe("deleting a record", () => {
     expect(again.body.seq).toBe(first.body.seq);
   });
 
+  it("keeps the time the deletion was made", async () => {
+    // A tombstone is an edit with a time: D4 weighs it against an edit made elsewhere, and a
+    // tombstone that kept the replaced version's time would lose to any later edit, or win, by
+    // arrival order alone (T178c, C1).
+    const { collection, id, stored } = await seed(session.accessToken);
+    const deleted = await remove(session.accessToken, collection, id, stored.version, 1_900_000_000);
+    expect(deleted.status).toBe(200);
+    expect(deleted.body.updatedAt).toBe(1_900_000_000);
+  });
+
+  it("refuses a deletion that does not say when it was made", async () => {
+    const { collection, id, stored } = await seed(session.accessToken);
+    const result = await remove(session.accessToken, collection, id, stored.version, null);
+    expect(result.status).toBe(400);
+    expect(result.body.error?.code).toBe("invalid-request");
+  });
+
   it("refuses to delete what was never there", async () => {
     const result = await remove(session.accessToken, opaqueId(), opaqueId(), 1);
     expect(result.status).toBe(404);

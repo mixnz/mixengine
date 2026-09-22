@@ -14,6 +14,11 @@ export function randomToken(): string {
   return hex(crypto.getRandomValues(new Uint8Array(32)));
 }
 
+/** 16 random bytes as hex: an account's id on the wire (`accountId`), never reused (T178c, C4). */
+export function randomPublicId(): string {
+  return hex(crypto.getRandomValues(new Uint8Array(16)));
+}
+
 /**
  * Crockford base32: the alphabet without `I`, `L`, `O` and `U`, so nothing read off a screen is
  * ambiguous. The same one the recovery key uses (D2), so a person learns one way of typing a code

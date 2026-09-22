@@ -47,9 +47,13 @@ export async function syncCollection(backend: SyncBackend, collection: SyncableC
 /** This machine's changes alone — what the local check runs, without asking the server for news. */
 export async function pushCollection(backend: SyncBackend, collection: SyncableCollection): Promise<number> {
   const pushed = await backend.push(collection.id, await collection.read());
-  if (pushed.token === null) return 0;
-  const skipped = isEmpty(pushed.replaced) ? [] : await collection.write(pushed.replaced);
-  await backend.commitPush(collection.id, pushed.token, skipped);
+  if (pushed.token !== null) {
+    const skipped = isEmpty(pushed.replaced) ? [] : await collection.write(pushed.replaced);
+    await backend.commitPush(collection.id, pushed.token, skipped);
+  }
+  // After the commit: what landed and what was replaced are recorded, and only then is the refusal
+  // reported, the way a failed push always was (T178c, C2).
+  if (pushed.error !== null) throw pushed.error;
   return pushed.replaced.upserts.length + pushed.replaced.removed.length;
 }
 

@@ -237,7 +237,8 @@ pub async fn outgoing(
     Ok((changes, agreements))
 }
 
-/// After a push: agree on every change except those another machine's version beat.
+/// After a push: agree on exactly what the server wrote (T178c, C2). A conflict lost, an entry
+/// refused and a change never sent are not agreed, and keep their stamps.
 pub async fn settle_pushed(
     store: &Store,
     keys: &Keys,
@@ -245,15 +246,12 @@ pub async fn settle_pushed(
     agreements: Vec<Agreement>,
     pushed: &Pushed,
 ) -> Result<(), AppError> {
-    let lost: HashSet<&str> = pushed
-        .superseded
-        .iter()
-        .map(|record| record.id.as_str())
-        .collect();
+    let landed: HashSet<&str> = pushed.landed.iter().map(String::as_str).collect();
     let kept = agreements
         .into_iter()
-        .filter(|agreement| !lost.contains(agreement.id.as_str()));
-    settle(store, keys, collection, kept.collect()).await
+        .filter(|agreement| landed.contains(agreement.id.as_str()))
+        .collect();
+    settle(store, keys, collection, kept).await
 }
 
 /// After a module has written what a pull brought: agree on it.
@@ -567,8 +565,8 @@ mod tests {
             .unwrap();
         store.remember(&landed(&changes[0], 1)).await.unwrap();
         let pushed = Pushed {
-            accepted: 0,
             superseded: vec![landed(&changes[0], 2)],
+            ..Pushed::default()
         };
         settle_pushed(&store, &keys, "c", agreements, &pushed)
             .await
@@ -903,5 +901,42 @@ mod tests {
             .unwrap();
         assert!(opened.changes.removed.is_empty());
         assert!(opened.unmet.is_empty());
+    }
+
+    /// C2: a change the server refused is not agreed, and keeps its stamp for the next push.
+    #[tokio::test]
+    async fn a_refused_change_is_not_agreed() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let (changes, agreements) = outgoing(
+            &store,
+            &keys,
+            "c",
+            &[item("1", json!(1)), item("2", json!(2))],
+            100,
+        )
+        .await
+        .unwrap();
+        store.remember(&landed(&changes[0], 1)).await.unwrap();
+        let pushed = Pushed {
+            accepted: 1,
+            landed: vec![changes[0].id.clone()],
+            error: Some(err!("error.syncRecordTooLarge")),
+            ..Pushed::default()
+        };
+        settle_pushed(&store, &keys, "c", agreements, &pushed)
+            .await
+            .unwrap();
+        let opaque = crypto::opaque_id(&keys.id, "c");
+        assert!(store
+            .agreed(&opaque, &changes[0].id)
+            .await
+            .unwrap()
+            .is_some());
+        assert_eq!(store.agreed(&opaque, &changes[1].id).await.unwrap(), None);
+        assert!(store
+            .stamped(&opaque, &changes[1].id)
+            .await
+            .unwrap()
+            .is_some());
     }
 }

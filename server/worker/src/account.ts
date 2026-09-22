@@ -24,6 +24,7 @@ import {
   normaliseCode,
   peppered,
   randomCode,
+  randomPublicId,
   randomToken,
   sameSecret,
   sha256Hex,
@@ -100,6 +101,13 @@ export class Account implements DurableObject {
     // connection is served.
     state.blockConcurrencyWhile(async () => {
       for (const statement of SCHEMA) this.sql.exec(statement);
+      // An object made before `public_id` existed gets the column, and its account an id
+      // (T178c, C4). `CREATE TABLE IF NOT EXISTS` leaves an existing table as it was.
+      const columns = this.sql.exec<{ name: string }>(`PRAGMA table_info(account)`).toArray();
+      if (!columns.some((column) => column.name === "public_id")) {
+        this.sql.exec(`ALTER TABLE account ADD COLUMN public_id TEXT`);
+      }
+      this.sql.exec(`UPDATE account SET public_id = ? WHERE public_id IS NULL`, randomPublicId());
     });
   }
 
@@ -135,6 +143,8 @@ export class Account implements DurableObject {
         return this.setFreeze(request, body);
       case "POST /v1/account/delete":
         return this.deleteAccount(config, request, body);
+      case "POST /v1/account/check":
+        return this.checkVerifier(config, request, body);
       case "GET /v1/records":
         return this.readRecords(config, request, url);
       case "POST /v1/records/batch":
@@ -221,6 +231,40 @@ export class Account implements DurableObject {
    * tombstone, no row saying the address was once here, and the address free to register again.
    * Keeping any of it would be keeping the one fact D1 promises a server does not accumulate.
    */
+  /**
+   * `a` against this account's verifier, counted in the login window, so that no route that asks
+   * for `A` is a cheaper way to guess it than signing in. The refusal to send, or `null`.
+   */
+  private async proveVerifier(config: Config, a: string): Promise<Response | null> {
+    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
+    if (retryAfter !== null) {
+      return fail(
+        429,
+        "too-many-attempts",
+        "Too many attempts on this account.",
+        { retryAfter },
+        { "Retry-After": String(retryAfter) },
+      );
+    }
+    const account = this.account();
+    const presented = await peppered(config.pepper, a);
+    if (!account || !sameSecret(account.verifier, presented)) {
+      return fail(401, "invalid-credentials", "That password does not match this account.");
+    }
+    return null;
+  }
+
+  /** Whether `A` is this account's (T178c, C3): a move asks before it registers anywhere with it. */
+  private async checkVerifier(config: Config, request: Request, body: unknown): Promise<Response> {
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
+    const fields = asObject(body);
+    if (!fields || !isBase64(fields["a"], VERIFIER_BYTES)) {
+      return fail(400, "invalid-request", "The current verifier is required.");
+    }
+    return (await this.proveVerifier(config, fields["a"] as string)) ?? new Response(null, { status: 204 });
+  }
+
   private async deleteAccount(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
@@ -232,24 +276,8 @@ export class Account implements DurableObject {
 
     // **A session is not enough.** A borrowed unlocked machine already holds one, so this asks for
     // the verifier: the person deleting the account is then the person who knows the password.
-    // Wrong ones are counted where a wrong password is counted, so the route cannot become an
-    // oracle for guessing one.
-    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
-    if (retryAfter !== null) {
-      return fail(
-        429,
-        "too-many-attempts",
-        "Too many attempts on this account.",
-        { retryAfter },
-        { "Retry-After": String(retryAfter) },
-      );
-    }
-
-    const account = this.account();
-    const presented = await peppered(config.pepper, fields["a"] as string);
-    if (!account || !sameSecret(account.verifier, presented)) {
-      return fail(401, "invalid-credentials", "That password does not match this account.");
-    }
+    const refused = await this.proveVerifier(config, fields["a"] as string);
+    if (refused) return refused;
 
     const counted = this.sql
       .exec<{ total: number }>(`SELECT COUNT(*) AS total FROM record`)
@@ -310,7 +338,14 @@ export class Account implements DurableObject {
       );
     }
 
-    const removed = applyDelete(this.sql, collection, id, precondition.ifMatch, session.deviceId);
+    const removed = applyDelete(
+      this.sql,
+      collection,
+      id,
+      precondition.ifMatch,
+      asObject(body)?.["updatedAt"],
+      session.deviceId,
+    );
     if (removed.status === 200) await this.scheduleReaping(config.capabilities.tombstoneRetentionDays);
     return outcome(removed);
   }
@@ -356,7 +391,7 @@ export class Account implements DurableObject {
       const ifMatch = typeof fields["ifMatch"] === "number" ? fields["ifMatch"] : undefined;
 
       if (fields["op"] === "delete") {
-        return applyDelete(this.sql, collection, id, ifMatch, session.deviceId);
+        return applyDelete(this.sql, collection, id, ifMatch, fields["updatedAt"], session.deviceId);
       }
       if (fields["op"] === "put") {
         return applyPut(
@@ -452,8 +487,9 @@ export class Account implements DurableObject {
 
     this.sql.exec(
       `INSERT INTO account (id, account_key, email, verifier, salt_account, argon_m, argon_t,
-                            argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at)
-       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`,
+                            argon_p, wrapped_mk_password, wrapped_mk_recovery, verified, created_at,
+                            public_id)
+       VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`,
       key,
       (fields["email"] as string).trim().toLowerCase(),
       await peppered(config.pepper, fields["a"] as string),
@@ -464,6 +500,7 @@ export class Account implements DurableObject {
       fields["wrappedMkPassword"],
       fields["wrappedMkRecovery"],
       now(),
+      randomPublicId(),
     );
 
     // **Registration is not complete until the letter is accepted.** Keeping an account whose
@@ -728,6 +765,7 @@ export class Account implements DurableObject {
       deviceId,
       wrappedMkPassword: account.wrapped_mk_password,
       wrappedMkRecovery: account.wrapped_mk_recovery,
+      accountId: account.public_id,
     });
   }
 
@@ -838,7 +876,8 @@ export class Account implements DurableObject {
   }
 
   private async readBody(request: Request): Promise<unknown> {
-    if (request.method === "GET" || request.method === "DELETE") return null;
+    // A record's DELETE carries its time (T178c, C1); a device's has no body and reads as null.
+    if (request.method === "GET") return null;
     const text = await request.text();
     if (text.length === 0) return null;
     try {

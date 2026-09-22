@@ -4,6 +4,7 @@ import {
   call,
   type ErrorBody,
   newAccount,
+  login,
   newEmail,
   register,
   type Session,
@@ -18,6 +19,25 @@ describe("POST /v1/auth/login", () => {
     expect(session.refreshToken).toBeTypeOf("string");
     expect(session.deviceId).toBeTypeOf("string");
     expect(session.expiresIn).toBeGreaterThan(0);
+  });
+
+  it("names the account with an id a new registration never reuses", async () => {
+    // A move A → B → A registers the same address on A again, under the same MK. A client that
+    // told the two accounts apart by address alone kept the first one's cursor (T178c, C4).
+    const { account, session } = await signedUp();
+    expect(session.accountId).toMatch(/^[0-9a-f]{32}$/);
+    expect((await login(account)).accountId).toBe(session.accountId);
+
+    const deleted = await call("/v1/account/delete", {
+      method: "POST",
+      token: session.accessToken,
+      body: { a: account.a },
+    });
+    expect(deleted.status).toBe(200);
+    const again = newAccount({ email: account.email });
+    expect((await register(again)).status).toBe(201);
+    await verify(again);
+    expect((await login(again)).accountId).not.toBe(session.accountId);
   });
 
   it("refuses the wrong verifier", async () => {

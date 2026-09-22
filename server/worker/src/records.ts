@@ -202,11 +202,15 @@ export function applyDelete(
   collection: string,
   id: string,
   ifMatch: number | undefined,
+  updatedAt: unknown,
   device: string,
 ): Outcome {
   if (!isOpaqueId(collection) || !isOpaqueId(id)) {
     return invalid("Collection and record IDs must be 64 lowercase hex characters.");
   }
+  // D4 weighs a deletion like any other edit, so it needs the time it was made — kept as the
+  // tombstone's own, never the replaced version's (T178c, C1).
+  if (!isTimestamp(updatedAt)) return invalid("A deletion needs updatedAt.");
   if (ifMatch === undefined) {
     return {
       status: 428,
@@ -231,12 +235,13 @@ export function applyDelete(
   const seq = nextSeq(sql);
   sql.exec(
     `UPDATE record SET version = ?, seq = ?, deleted = 1, device = ?, nonce = NULL,
-                       ciphertext = NULL, bytes = 0, written_at = ?
+                       ciphertext = NULL, bytes = 0, written_at = ?, updated_at = ?
      WHERE collection = ? AND id = ?`,
     existing.version + 1,
     seq,
     device,
     Math.floor(Date.now() / 1000),
+    updatedAt,
     collection,
     id,
   );

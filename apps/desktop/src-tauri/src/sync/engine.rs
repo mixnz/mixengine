@@ -40,6 +40,11 @@ pub struct Pushed {
     /// (`lend::land`), exactly as it would a pulled page: this machine's version of each lost, and
     /// until the winner is written here nothing about the record is recorded.
     pub superseded: Vec<WireRecord>,
+    /// Opaque ids the server wrote as this machine had them: the only changes to agree on.
+    pub landed: Vec<String>,
+    /// The first refusal, of one entry or of a whole request. Its change keeps its stamp and is sent
+    /// again at the next push (T178c, C2).
+    pub error: Option<AppError>,
 }
 
 /// One page read and not yet recorded. The caller has the module write `records`, lands them
@@ -108,7 +113,17 @@ pub async fn commit(
     store.set_since(collection, fetched.next_since).await
 }
 
-/// This machine's changes, in batches, settling each conflict by D4's rule.
+/// Keep the first failure; later ones say less than it does.
+fn refused(pushed: &mut Pushed, error: AppError) {
+    if pushed.error.is_none() {
+        pushed.error = Some(error);
+    }
+}
+
+/// This machine's changes, in batches, settling each conflict by D4's rule. **Every entry of every
+/// batch is read** (T178c, C2): one refused record says nothing about the others, and an entry the
+/// server wrote is remembered whatever came before it. Only a request that fails as a whole stops
+/// the push, and what it had not sent stays stamped for the next one.
 pub async fn push<R: Remote>(
     remote: &R,
     store: &Store,
@@ -141,11 +156,20 @@ pub async fn push<R: Remote>(
         let mut retry = Vec::new();
         let mut offset = 0;
         for batch in chunk(operations, limits)? {
-            let results = remote.batch(&batch).await?;
-            if results.len() != batch.len() {
-                return Err(err!("error.syncServerAnswerUnreadable"));
-            }
-            for (result, change) in results.into_iter().zip(&sent[offset..offset + batch.len()]) {
+            let changes = &sent[offset..offset + batch.len()];
+            offset += batch.len();
+            let results = match remote.batch(&batch).await {
+                Ok(results) if results.len() == batch.len() => results,
+                Ok(_) => {
+                    refused(&mut pushed, err!("error.syncServerAnswerUnreadable"));
+                    return Ok(pushed);
+                }
+                Err(error) => {
+                    refused(&mut pushed, error);
+                    return Ok(pushed);
+                }
+            };
+            for (result, change) in results.into_iter().zip(changes) {
                 let BatchResult {
                     status,
                     record,
@@ -155,6 +179,7 @@ pub async fn push<R: Remote>(
                     (200 | 201, Some(record)) => {
                         store.remember(&record).await?;
                         pushed.accepted += 1;
+                        pushed.landed.push(change.id.clone());
                     }
                     (409 | 412, Some(current)) => match resolve(
                         change.updated_at,
@@ -175,23 +200,22 @@ pub async fn push<R: Remote>(
                     },
                     // Deleting what the server no longer has is the outcome that was wanted.
                     (404, _) if change.change == Change::Delete => pushed.accepted += 1,
-                    _ => {
-                        return Err(error
+                    _ => refused(
+                        &mut pushed,
+                        error
                             .map(|error| refusal(&ErrorBody { error }))
-                            .unwrap_or_else(|| err!("error.syncServerAnswerUnreadable")))
-                    }
+                            .unwrap_or_else(|| err!("error.syncServerAnswerUnreadable")),
+                    ),
                 }
             }
-            offset += batch.len();
         }
         pending = retry;
     }
 
-    if pending.is_empty() {
-        Ok(pushed)
-    } else {
-        Err(err!("error.syncConflictUnresolved"))
+    if !pending.is_empty() {
+        refused(&mut pushed, err!("error.syncConflictUnresolved"));
     }
+    Ok(pushed)
 }
 
 async fn operation_for(store: &Store, change: &Outgoing) -> Result<Option<Operation>, AppError> {
@@ -212,6 +236,8 @@ async fn operation_for(store: &Store, change: &Outgoing) -> Result<Option<Operat
             collection: change.collection.clone(),
             id: change.id.clone(),
             if_match: seen.version,
+            // The time it was first noticed: D4 weighs a deletion like any edit (T178c, C1).
+            updated_at: change.updated_at,
         }),
     })
 }
@@ -359,12 +385,12 @@ mod tests {
                         nonce: Some(record.nonce.clone()),
                         ciphertext: Some(record.ciphertext.clone()),
                     },
-                    Operation::Delete { .. } => WireRecord {
+                    Operation::Delete { updated_at, .. } => WireRecord {
                         collection,
                         id,
                         version,
                         seq,
-                        updated_at: existing.map_or(0, |current| current.updated_at),
+                        updated_at: *updated_at,
                         deleted: true,
                         device: self.device.clone(),
                         nonce: None,
@@ -436,13 +462,10 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(
-            pushed,
-            Pushed {
-                accepted: 5,
-                superseded: vec![]
-            }
-        );
+        assert_eq!(pushed.accepted, 5);
+        assert!(pushed.superseded.is_empty());
+        assert_eq!(pushed.landed.len(), 5);
+        assert_eq!(pushed.error, None);
         assert_eq!(
             store.seen("c", "3").await.unwrap().map(|seen| seen.version),
             Some(1)
@@ -642,7 +665,7 @@ mod tests {
             }
         }
         let store = Store::in_memory("s").await.unwrap();
-        let error = push(
+        let pushed = push(
             &Stubborn,
             &store,
             &limits(),
@@ -650,7 +673,80 @@ mod tests {
             vec![write("a", 100, "z")],
         )
         .await
-        .unwrap_err();
-        assert_eq!(error.code, "error.syncConflictUnresolved");
+        .unwrap();
+        assert_eq!(pushed.error.unwrap().code, "error.syncConflictUnresolved");
+    }
+
+    /// A fake that refuses one record with `413` and writes the rest.
+    struct Picky {
+        inner: Fake,
+        refuse: String,
+    }
+
+    impl Remote for Picky {
+        async fn page(
+            &self,
+            collection: &str,
+            since: i64,
+            resync: bool,
+        ) -> Result<PageOutcome, AppError> {
+            self.inner.page(collection, since, resync).await
+        }
+
+        async fn batch(&self, operations: &[Operation]) -> Result<Vec<BatchResult>, AppError> {
+            let mut results = Vec::new();
+            for operation in operations {
+                let Operation::Put { id, .. } = operation else {
+                    unreachable!("puts only")
+                };
+                if *id == self.refuse {
+                    results.push(BatchResult {
+                        status: 413,
+                        record: None,
+                        error: Some(ErrorDetail {
+                            code: "record-too-large".into(),
+                            retry_after: None,
+                        }),
+                    });
+                } else {
+                    results.extend(self.inner.batch(std::slice::from_ref(operation)).await?);
+                }
+            }
+            Ok(results)
+        }
+    }
+
+    /// C2: one refused entry does not hide the entries after it, nor stop the batches after its
+    /// own — `limits()` sends two at a time, so "2" is refused in the second of three.
+    #[tokio::test]
+    async fn a_refused_entry_does_not_hide_the_rest() {
+        let server = Picky {
+            inner: Fake::new("mine"),
+            refuse: "2".into(),
+        };
+        let store = Store::in_memory("s").await.unwrap();
+        let pushed = push(
+            &server,
+            &store,
+            &limits(),
+            "mine",
+            (0..5).map(|n| write(&n.to_string(), 100, "x")).collect(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            pushed.error.map(|error| error.code),
+            Some("error.syncRecordTooLarge")
+        );
+        let mut landed = pushed.landed.clone();
+        landed.sort();
+        assert_eq!(landed, vec!["0", "1", "3", "4"]);
+        for id in ["0", "1", "3", "4"] {
+            assert!(
+                store.seen("c", id).await.unwrap().is_some(),
+                "{id} was written and not remembered"
+            );
+        }
+        assert_eq!(store.seen("c", "2").await.unwrap(), None);
     }
 }

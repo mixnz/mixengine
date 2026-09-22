@@ -274,7 +274,7 @@ refused.
 | --- | --- | --- | --- |
 | `POST /v1/auth/register` | `email`, `a`, `saltAccount`, `argon: {m, t, p}`, `wrappedMkPassword`, `wrappedMkRecovery` | `201`, `{}` | `400 invalid-request` · `409 email-taken` · `429` · `502 letter-not-sent` |
 | `POST /v1/auth/verify` | `email`, `token` | `200`, `{}` | `400 invalid-token` · `429` |
-| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
+| `POST /v1/auth/login` | `email`, `a`, `deviceName` | `200`, `{accessToken, refreshToken, deviceId, expiresIn, wrappedMkPassword, wrappedMkRecovery, accountId}` | `401 invalid-credentials` · `403 email-not-verified` · `429` |
 | `POST /v1/auth/refresh` | `refreshToken` | `200`, `{accessToken, refreshToken, expiresIn}` | `401 invalid-token` |
 | `POST /v1/auth/password` | `a`, `newA`, `newSaltAccount`, `newWrappedMkPassword` | `200`, `{}` | `401 invalid-credentials` |
 | `POST /v1/auth/reset` | `email` alone | `202`, `{}` | `429` |
@@ -282,6 +282,10 @@ refused.
 | `POST /v1/auth/reset` | `email`, `token` | `200`, `{wrappedMkRecovery, ticket, expiresIn}` | `400 invalid-code` |
 | `POST /v1/auth/reset` | `email`, `ticket`, `a`, `saltAccount`, `wrappedMkPassword`, `wrappedMkRecovery` | `200`, `{recordsDeleted: 0}` | `401 invalid-token` |
 
+- **`accountId` names the account, not the address.** It is 32 hex characters, random at
+  registration, survives a reset, and is never reused: an address deleted and registered again is a
+  new account with a new id. A client keys what it remembers by it, because an account moved away
+  and back is registered again under the same `MK`, and its `seq` starts over.
 - **Registration is not complete until the letter is accepted.** If the provider refuses it, the
   account is removed again and the answer is `502 letter-not-sent`. Keeping the account would be
   worse than it sounds: the address is now taken, so registering again answers `409`, and there is
@@ -361,7 +365,9 @@ purpose of the route, so it cuts it off now. Deleting your own device is how a p
 ### Records
 
 `PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`,
-`seq` or `device`, which are the server's to assign. `DELETE` carries no body. Both answer with the
+`seq` or `device`, which are the server's to assign. `DELETE` carries `{updatedAt}`: the time the
+deletion was made, which the tombstone keeps as its own so that D4 weighs a deletion like any other
+edit; without it the answer is `400 invalid-request`. Both answer with the
 stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
 
 **`device` is the id of the device whose session made the write**, as `/v1/devices` lists it. A
@@ -416,7 +422,7 @@ past a deletion and leave the two machines disagreeing about which one won.
 { "operations": [
   { "op": "put", "collection": "…", "id": "…", "ifNoneMatch": true,
     "record": { "updatedAt": 1758300000, "nonce": "…", "ciphertext": "…" } },
-  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41 }
+  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41, "updatedAt": 1758300060 }
 ] }
 ```
 
@@ -563,3 +569,14 @@ same route any machine uses, and a second machine that wants to take over needs 
 | Route | Body in | Out | Refuses with |
 | --- | --- | --- | --- |
 | `POST /v1/account/delete` | `a` | `200`, `{recordsDeleted: 214}` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+
+### Checking the password
+
+| Route | Body in | Out | Refuses with |
+| --- | --- | --- | --- |
+| `POST /v1/account/check` | `a` | `204` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+
+`check` answers whether `a` is this account's, under an access token. A move asks it before it
+registers anywhere with the password just typed, so a typo is refused at the first step rather than
+becoming the new server's password. It counts where login and `delete` count, in the same
+per-account window, so it is no cheaper way to guess a password than signing in.

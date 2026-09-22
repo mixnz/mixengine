@@ -72,6 +72,8 @@ pub struct SignedIn {
     pub expires_in: i64,
     pub wrapped_mk_password: String,
     pub wrapped_mk_recovery: String,
+    /// The account's own id: random at registration, never reused (T178c, C4).
+    pub account_id: String,
 }
 
 /// `POST /v1/auth/refresh`. The refresh token that asked for it is spent the moment this arrives.
@@ -338,6 +340,16 @@ impl Account {
             refusal,
         )
         .await
+    }
+
+    /// `POST /v1/account/check`: whether `a` is this account's password (T178c, C3).
+    pub async fn check(&self, access_token: &str, a: &[u8; 32]) -> Result<(), AppError> {
+        let request = self
+            .post("/v1/account/check", &json!({ "a": STANDARD.encode(a) }))?
+            .bearer_auth(access_token);
+        answer::<Empty>(send(request).await?, refusal)
+            .await
+            .map(drop)
     }
 
     /// Delete the account and every record in it. **Re-proves the password**: a session alone is

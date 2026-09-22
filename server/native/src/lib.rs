@@ -114,6 +114,7 @@ pub fn router(state: Arc<AppState>) -> Router {
         .route("/v1/devices/{id}", delete(devices::remove))
         .route("/v1/account/freeze", get(freeze::read).post(freeze::set))
         .route("/v1/account/delete", post(accounts::delete_account))
+        .route("/v1/account/check", post(accounts::check_verifier))
         .route("/v1/records", get(records::list))
         .route("/v1/records/batch", post(records::batch))
         .route(

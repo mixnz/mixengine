@@ -10,6 +10,10 @@ export const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS account (
      id                   INTEGER PRIMARY KEY CHECK (id = 1),
      account_key          TEXT    NOT NULL,
+     -- The account's id on the wire, accountId: random at registration, never reused. An
+     -- object made before it existed gets the column by migration, which is why it may be null
+     -- here (T178c, C4).
+     public_id            TEXT,
      email                TEXT    NOT NULL,
      verifier             TEXT    NOT NULL,
      salt_account         TEXT    NOT NULL,
@@ -104,6 +108,7 @@ export const SCHEMA = [
 // of storable values; without it the type is rejected rather than the query.
 export interface AccountRow extends Record<string, SqlStorageValue> {
   account_key: string;
+  public_id: string | null;
   email: string;
   verifier: string;
   salt_account: string;
