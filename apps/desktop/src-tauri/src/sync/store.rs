@@ -137,6 +137,18 @@ impl Store {
         Ok(row.map(|row| row.get::<i64, _>(0)).unwrap_or(0))
     }
 
+    /// Whether this account's `collection` has been pulled at least once: a cursor is recorded,
+    /// however empty the collection was. A resync under way has none until its first page lands.
+    pub async fn has_pulled(&self, collection: &str) -> Result<bool, AppError> {
+        let row = sqlx::query("SELECT 1 FROM cursor WHERE server = ?1 AND collection = ?2")
+            .bind(&self.server)
+            .bind(collection)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(row.is_some())
+    }
+
     pub async fn set_since(&self, collection: &str, since: i64) -> Result<(), AppError> {
         sqlx::query(
             "INSERT INTO cursor (server, collection, since) VALUES (?1, ?2, ?3)
@@ -606,5 +618,21 @@ mod tests {
         }
         assert!(store.stamped("c", "edited").await.unwrap().is_some());
         assert_eq!(store.stamped("c", "removed").await.unwrap(), None);
+    }
+
+    /// A push trusts that a record it never saw is one the server does not have, which holds only
+    /// once this account's collection has been pulled at least once — however empty it was.
+    #[tokio::test]
+    async fn a_collection_is_pulled_once_a_cursor_is_recorded() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        assert!(!store.has_pulled("c").await.unwrap());
+        store.set_since("c", 0).await.unwrap();
+        assert!(store.has_pulled("c").await.unwrap());
+        assert!(!store.has_pulled("other").await.unwrap());
+        store.begin_resync("c").await.unwrap();
+        assert!(
+            !store.has_pulled("c").await.unwrap(),
+            "a resync under way has not pulled yet"
+        );
     }
 }

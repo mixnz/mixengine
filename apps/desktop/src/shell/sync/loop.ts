@@ -47,12 +47,26 @@ export async function syncCollection(backend: SyncBackend, collection: SyncableC
     await backend.commitPull(collection.id, page.token, skipped);
     if (!page.more) break;
   }
-  return pushCollection(backend, collection);
+  return pushCollection(backend, collection, true);
 }
 
-/** This machine's changes alone — what the local check runs, without asking the server for news. */
-export async function pushCollection(backend: SyncBackend, collection: SyncableCollection): Promise<number> {
+/**
+ * This machine's changes alone — what the local check runs, without asking the server for news.
+ * A collection this account never pulled is synced in full instead: a push trusts that what this
+ * machine never saw the server does not have, which holds only after a pull.
+ */
+export async function pushCollection(
+  backend: SyncBackend,
+  collection: SyncableCollection,
+  pulled = false,
+): Promise<number> {
   const pushed = await backend.push(collection.id, await collection.read());
+  if (pushed.needsPull) {
+    // Just pulled and still never pulled: the cursor was not recorded, and going round again would
+    // not record it either.
+    if (pulled) throw new Error(`sync: ${collection.id} was pulled but has no cursor`);
+    return syncCollection(backend, collection);
+  }
   if (pushed.token !== null) {
     const skipped = isEmpty(pushed.replaced) ? [] : await collection.write(pushed.replaced);
     await backend.commitPush(collection.id, pushed.token, skipped);

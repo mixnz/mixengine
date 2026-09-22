@@ -70,6 +70,10 @@ pub struct PushedChanges {
     /// The first refusal, of one entry or of a whole request. What landed is already agreed; the
     /// shell reports this once it has written `replaced` (T178c, C2).
     pub error: Option<AppError>,
+    /// This account's collection was never pulled, so nothing was sent: a push trusts that a
+    /// record it never saw is one the server does not have, which holds only after a pull. The
+    /// shell syncs the collection in full instead.
+    pub needs_pull: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -1096,20 +1100,28 @@ impl SyncState {
     ) -> Result<PushedChanges, AppError> {
         let name = collection.to_owned();
         let items = Arc::new(items);
-        let (accepted, replaced, records, agreements, error) = self
+        let (accepted, replaced, records, agreements, error, needs_pull) = self
             .with_session(|session| {
                 let (name, items) = (name.clone(), items.clone());
                 async move {
-                    let (changes, agreed) =
-                        lend::outgoing(&session.store, &session.keys, &name, &items, now()).await?;
-                    if changes.is_empty() {
+                    // After a move the new account's store starts empty; pushed first, every record
+                    // the move had copied came back as a conflict this machine won, and was
+                    // written again.
+                    let opaque = crypto::opaque_id(&session.keys.id, &name);
+                    if !session.store.has_pulled(&opaque).await? {
                         return Ok::<_, AppError>((
                             0,
                             Incoming::default(),
                             Vec::new(),
                             Vec::new(),
                             None,
+                            true,
                         ));
+                    }
+                    let (changes, agreed) =
+                        lend::outgoing(&session.store, &session.keys, &name, &items, now()).await?;
+                    if changes.is_empty() {
+                        return Ok((0, Incoming::default(), Vec::new(), Vec::new(), None, false));
                     }
                     let pushed = engine::push(
                         &session.transport,
@@ -1145,6 +1157,7 @@ impl SyncState {
                         pushed.superseded,
                         opened.agreements,
                         pushed.error,
+                        false,
                     ))
                 }
             })
@@ -1170,6 +1183,7 @@ impl SyncState {
             replaced,
             token,
             error,
+            needs_pull,
         })
     }
 

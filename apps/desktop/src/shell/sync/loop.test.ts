@@ -16,7 +16,7 @@ const nothing: SyncChanges = { upserts: [], removed: [] };
 const one: SyncChanges = { upserts: [{ id: "a", data: 1 }], removed: [] };
 
 /** A backend that says what it was asked, in order. */
-function backend(pages: PulledPage[], pushed: PushedChanges = { accepted: 0, replaced: nothing, token: null, error: null }) {
+function backend(pages: PulledPage[], pushed: PushedChanges = { accepted: 0, replaced: nothing, token: null, error: null, needsPull: false }) {
   const calls: string[] = [];
   const queue = [...pages];
   const fake: SyncBackend = {
@@ -91,13 +91,13 @@ describe("one collection", () => {
   });
 
   it("writes a lost conflict's winner, commits it, and counts it", async () => {
-    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null });
+    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null, needsPull: false });
     expect(await pushCollection(fake, collection(calls))).toBe(1);
     expect(calls).toEqual(["read", "push", "write", "commitPush w1"]);
   });
 
   it("leaves a winner uncommitted when writing it fails, so the next push meets it again", async () => {
-    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null });
+    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null, needsPull: false });
     const failing = collection(calls, async () => {
       throw new Error("disk full");
     });
@@ -109,14 +109,37 @@ describe("one collection", () => {
     // What landed and what was replaced are recorded first; the refusal is reported after, the
     // way a failed push always was (T178c, C2).
     const refusal = { code: "error.syncRecordTooLarge" };
-    const { fake, calls } = backend([], { accepted: 1, replaced: one, token: "w1", error: refusal });
+    const { fake, calls } = backend([], { accepted: 1, replaced: one, token: "w1", error: refusal, needsPull: false });
     await expect(pushCollection(fake, collection(calls))).rejects.toEqual(refusal);
     expect(calls).toEqual(["read", "push", "write", "commitPush w1"]);
   });
 
+  it("pulls a collection first when this account never has, then pushes", async () => {
+    // A push trusts that what this machine never saw the server does not have. After a move, the
+    // new account's store was empty and a push rewrote every record the move had just copied.
+    const calls: string[] = [];
+    let pushes = 0;
+    const fake: SyncBackend = {
+      notice: async () => void calls.push("notice"),
+      pullPage: async () => {
+        calls.push("pull");
+        return { token: "p1", changes: nothing, more: false };
+      },
+      commitPull: async (_c, token) => void calls.push(`commitPull ${token}`),
+      push: async () => {
+        calls.push("push");
+        pushes += 1;
+        return { accepted: 0, replaced: nothing, token: null, error: null, needsPull: pushes === 1 };
+      },
+      commitPush: async () => {},
+    };
+    await pushCollection(fake, collection(calls));
+    expect(calls).toEqual(["read", "push", "read", "notice", "pull", "commitPull p1", "read", "push"]);
+  });
+
   it("reports a refused entry even when nothing was replaced", async () => {
     const refusal = { code: "error.syncRecordTooLarge" };
-    const { fake, calls } = backend([], { accepted: 0, replaced: nothing, token: null, error: refusal });
+    const { fake, calls } = backend([], { accepted: 0, replaced: nothing, token: null, error: refusal, needsPull: false });
     await expect(pushCollection(fake, collection(calls))).rejects.toEqual(refusal);
     expect(calls).toEqual(["read", "push"]);
   });

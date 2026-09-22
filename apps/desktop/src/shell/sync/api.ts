@@ -39,6 +39,8 @@ export interface PushedChanges {
   token: string | null;
   /** The first refusal, of one entry or of a whole request (T178c, C2). What landed is already agreed. */
   error: { code: string; params?: Record<string, string> } | null;
+  /** This account's collection was never pulled, so nothing was sent: sync it in full instead. */
+  needsPull: boolean;
 }
 
 /** What the loop needs of the backend, so a test can hand it a fake. */

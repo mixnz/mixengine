@@ -355,6 +355,21 @@ async fn signed_up(dir: &std::path::Path, name: &str, password: &str) -> (SyncSt
     (state, email)
 }
 
+/// Every page of `collection`, each committed as the shell would once its module has written it:
+/// what a machine does before its first push in an account (`SyncState::push`).
+async fn pull_everything(state: &SyncState, collection: &str) {
+    loop {
+        let page = state.pull_page(collection).await.unwrap();
+        state
+            .commit_pull(collection, &page.token, Vec::new())
+            .await
+            .unwrap();
+        if !page.more {
+            return;
+        }
+    }
+}
+
 /// Sign up, confirm, sign in on a second machine, and carry an item across — the shell's calls,
 /// without the shell. The last push says nothing changed, which is the proof that the laptop
 /// recorded what it wrote rather than what it merely received.
@@ -391,6 +406,7 @@ async fn the_client_signs_up_signs_in_and_carries_an_item() {
         id: "a-snippet".into(),
         data: json!({ "sql": "select 1" }),
     };
+    pull_everything(&desktop, "query-snippets").await;
     let pushed = desktop
         .push("query-snippets", vec![snippet.clone()])
         .await
@@ -426,6 +442,7 @@ async fn changing_the_password_signs_the_others_out_and_keeps_the_records() {
         id: "kept".into(),
         data: json!({ "sql": "select 1" }),
     };
+    pull_everything(&desktop, "query-snippets").await;
     desktop
         .push("query-snippets", vec![snippet.clone()])
         .await
@@ -465,6 +482,7 @@ async fn a_forgotten_password_with_the_recovery_key_keeps_the_records() {
         id: "kept".into(),
         data: json!({ "sql": "select 2" }),
     };
+    pull_everything(&desktop, "query-snippets").await;
     desktop
         .push("query-snippets", vec![snippet.clone()])
         .await
@@ -502,7 +520,8 @@ async fn a_forgotten_password_with_the_recovery_key_keeps_the_records() {
 async fn a_forgotten_password_without_the_key_starts_over() {
     let dir = tempfile::tempdir().unwrap();
     let (desktop, email) = signed_up(dir.path(), "desktop", "forgotten").await;
-    desktop
+    pull_everything(&desktop, "query-snippets").await;
+    let pushed = desktop
         .push(
             "query-snippets",
             vec![Item {
@@ -512,6 +531,8 @@ async fn a_forgotten_password_without_the_key_starts_over() {
         )
         .await
         .unwrap();
+    // On the server before the reset, so that "nothing survives" is about something.
+    assert_eq!(pushed.accepted, 1);
 
     let fresh = machine_state(dir.path(), "fresh");
     fresh.ask_reset(&server(), None, &email).await.unwrap();
@@ -538,6 +559,7 @@ async fn deleting_the_account_takes_everything_and_signs_everyone_out() {
         .login(&server(), None, &email, "the password".into(), "laptop")
         .await
         .unwrap();
+    pull_everything(&desktop, "query-snippets").await;
     desktop
         .push(
             "query-snippets",
@@ -575,6 +597,9 @@ async fn a_frozen_account_is_seen_and_thawed_from_another_machine() {
         .await
         .unwrap();
 
+    // Pulled first, as every machine is before its first push (`SyncState::push`); frozen, the
+    // push that follows is then refused by the server rather than held back here.
+    pull_everything(&laptop, "query-snippets").await;
     desktop.freeze_for_test().await.unwrap();
     assert_eq!(laptop.freeze_state().await.unwrap().state, "frozen");
     // A refusal comes back beside what the push did, not in place of it (T178c, C2); the loop
@@ -614,6 +639,7 @@ async fn an_account_moves_to_another_server() {
             data: json!({ "sql": "select 2" }),
         },
     ];
+    pull_everything(&desktop, "query-snippets").await;
     desktop
         .push("query-snippets", snippets.clone())
         .await
@@ -693,6 +719,7 @@ async fn an_account_moved_away_and_back_pulls_everything_again() {
             data: json!({ "sql": "select 2" }),
         },
     ];
+    pull_everything(&desktop, "query-snippets").await;
     desktop.push("query-snippets", snippets).await.unwrap();
     // Read back once, so this machine's cursor on the first server sits past both records.
     let page = desktop.pull_page("query-snippets").await.unwrap();
@@ -720,6 +747,35 @@ async fn an_account_moved_away_and_back_pulls_everything_again() {
         2,
         "back on the first server, the new account's records were not pulled"
     );
+}
+
+/// A push trusts that a record this machine never saw is one the server does not have, which holds
+/// only after this account's collection has been pulled once. After a move the store started
+/// empty, and a push before any pull rewrote every record the move had just copied.
+#[tokio::test]
+#[ignore = "needs a sync server in test-outbox mode; see the module comment"]
+async fn a_first_push_waits_for_a_first_pull() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, _) = signed_up(dir.path(), "desktop", "pw").await;
+    let snippet = Item {
+        id: "a-snippet".into(),
+        data: json!({ "sql": "select 1" }),
+    };
+
+    let early = desktop
+        .push("query-snippets", vec![snippet.clone()])
+        .await
+        .unwrap();
+    assert!(
+        early.needs_pull,
+        "pushed before this account was ever pulled"
+    );
+    assert_eq!(early.accepted, 0);
+
+    pull_everything(&desktop, "query-snippets").await;
+    let pushed = desktop.push("query-snippets", vec![snippet]).await.unwrap();
+    assert!(!pushed.needs_pull);
+    assert_eq!(pushed.accepted, 1);
 }
 
 /// The live servers announce no end, and both reads say so: the one for the account this machine

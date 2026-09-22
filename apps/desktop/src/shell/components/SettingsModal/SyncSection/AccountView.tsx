@@ -236,7 +236,12 @@ function AccountView({ status, onChanged }: Props) {
         <MoveAccount
           from={status.server}
           deviceName={devices?.find((device) => device.current)?.name ?? "MixLab"}
-          onMoved={onChanged}
+          onMoved={() => {
+            onChanged();
+            // The new account's store starts empty; a full run pulls it before anything is
+            // pushed, and re-reads the new server's closing date (`Workspace`) on the way.
+            requestSync();
+          }}
           onCancel={() => {
             setPanel("none");
             loadFreeze();
