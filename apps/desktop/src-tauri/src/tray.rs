@@ -137,7 +137,7 @@ pub fn hidden_start<R: Runtime>(app: &AppHandle<R>) {
 /// up, and a panel is something a person expects the instant they click. It is never destroyed.
 pub fn create_panel<R: Runtime>(app: &AppHandle<R>) {
     let builder = WebviewWindowBuilder::new(app, PANEL, WebviewUrl::App("tray.html".into()))
-        .title("MixEngine")
+        .title("MixLab")
         .visible(false)
         .inner_size(PANEL_WIDTH, PANEL_HEIGHT);
 
@@ -314,7 +314,7 @@ fn on_window_event<R: Runtime>(window: &Window<R>, event: &WindowEvent) {
 }
 
 fn create_icon(app: &AppHandle) -> Result<(), AppError> {
-    let builder = TrayIconBuilder::with_id(ICON).tooltip("MixEngine");
+    let builder = TrayIconBuilder::with_id(ICON).tooltip("MixLab");
 
     #[cfg(target_os = "macos")]
     let builder = builder
