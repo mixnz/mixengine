@@ -98,8 +98,18 @@ const SOCKET_PATH_LIMIT: usize = 103;
 /// **Always, rather than only when a path contains a space**, which is the cheaper of the two
 /// mistakes available: one code path, exercised by every first run on every Unix machine, instead of
 /// a branch that is only ever taken on the developer machines nobody tests on.
+///
+/// **Named after the home as well as the service** — roadmap task **T33b**. `/tmp` is one
+/// directory for every home on the machine, and every user of it. Named after the service alone,
+/// two homes bootstrapping `mariadb@main` shared one view: the second ritual's first step removed
+/// the first one's basedir, and on a machine with two users the second could not remove the
+/// first's at all. The home id is the one ADR 0032 gave the keyring for the same reason.
 pub(super) fn space_free_view(context: &Context) -> PathBuf {
-    PathBuf::from("/tmp").join(format!("mixengine-init-{}", context.service().as_str()))
+    PathBuf::from("/tmp").join(format!(
+        "mixengine-init-{}-{}",
+        context.home(),
+        context.service().as_str()
+    ))
 }
 
 /// The variable a MySQL-family server reads its temporary directory from when no option names one.
@@ -321,6 +331,48 @@ mod tests {
         assert!(
             matches!(refused, Error::SettingValue { key: "listen", .. }),
             "{refused:?}"
+        );
+    }
+
+    /// A `mariadb@main` in a home whose id is `home`, under a root with a space in it: the case
+    /// the view exists for.
+    fn a_database_in(home: &str) -> Context {
+        use crate::generate::recipe::Recipe as _;
+
+        let service = mixengine_proto::ServiceId::parse("mariadb@main").expect("an id");
+        let settings =
+            crate::generate::settings::Settings::merge(Mariadb.settings(), "{}", &service)
+                .expect("the defaults");
+
+        Context::for_test(
+            service,
+            "mariadb-11.4",
+            Path::new("/Users/Some One/.mixengine"),
+            BTreeMap::new(),
+            Some(3306),
+            settings,
+        )
+        .with_home(crate::home::HomeId::parse(home).expect("a valid id"))
+    }
+
+    /// **Two homes bootstrapping one service id get two views** — roadmap task **T33b**. With one,
+    /// the second ritual's first step, `rm -rf` on the view, took the first ritual's basedir away
+    /// from under it.
+    #[test]
+    fn two_homes_bootstrapping_one_service_get_two_views() {
+        assert_ne!(
+            space_free_view(&a_database_in("0123456789ab")),
+            space_free_view(&a_database_in("ba9876543210"))
+        );
+    }
+
+    /// The home and the service in the name, and nothing from the root, which is where the space
+    /// is.
+    #[test]
+    fn the_view_names_the_home_and_the_service() {
+        assert_eq!(
+            space_free_view(&a_database_in("0123456789ab")),
+            Path::new("/tmp/mixengine-init-0123456789ab-mariadb@main")
         );
     }
 }
