@@ -156,3 +156,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-22 | [T178d — A skipped record is delivered again](2026-09-22-t178d-a-skipped-record-is-delivered-again-design.md) | T178d | implemented |
 | 2026-09-22 | [T33b: A bootstrap view per home](2026-09-22-t33b-a-bootstrap-view-per-home-design.md) | T33b | implemented |
 | 2026-09-22 | [T88e: A file a package placed leaves with the package](2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md) | T88e | implemented |
+| 2026-09-23 | [T179: A want that is gone leaves the queue](2026-09-23-t179-a-want-that-is-gone-leaves-the-queue-design.md) | T179 | implemented |

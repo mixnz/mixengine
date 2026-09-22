@@ -234,3 +234,37 @@ fn nothing_was_granted(home: &Home, waiting: usize) {
         "no grant was attempted: {status}"
     );
 }
+
+/// **T179.** The row a site queued goes when the site does, so nothing describes a name this home
+/// no longer declares — the reproduction that found this, as a user runs it.
+#[test]
+fn deleting_the_site_takes_its_operation_out_of_the_queue() {
+    let (home, _daemon, domain, _waiting) = a_home_with_something_waiting();
+
+    let named = |status: &serde_json::Value| {
+        status["pending"]
+            .as_array()
+            .expect("a list")
+            .iter()
+            .filter(|row| {
+                row["description"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .contains(&domain)
+            })
+            .count()
+    };
+
+    let before = json(&home.mix(&["elevation", "status", "--json"]));
+    assert_eq!(named(&before), 1, "{before}");
+
+    let deleted = home.mix(&["site", "delete", &domain]);
+    assert!(deleted.status.success(), "{}", stderr(&deleted));
+
+    let after = json(&home.mix(&["elevation", "status", "--json"]));
+    assert_eq!(
+        named(&after),
+        0,
+        "the queue still names a site this home no longer declares: {after}"
+    );
+}

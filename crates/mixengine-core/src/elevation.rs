@@ -201,6 +201,35 @@ pub async fn discard(store: &Store, which: Option<PendingOpId>) -> Result<usize>
     Ok(usize::try_from(removed.rows_affected()).unwrap_or(usize::MAX))
 }
 
+/// Forget the operation of one family, because this machine no longer needs it — roadmap task
+/// **T179**.
+///
+/// **The opposite of [`enqueue`], keyed the same way.** `key` is [`PrivilegedOp::dedupe_key`]'s own
+/// value, so *the same question* means one thing in both directions and a family is spelled in one
+/// place. The answer is how many rows went, which is 0 or 1 because that key is unique.
+///
+/// **Withdrawing is not revoking.** This removes a request nobody has answered; what the machine
+/// already holds is untouched, and taking that back is a producer's job elsewhere or the
+/// uninstall's (T87).
+///
+/// Withdrawing what is not there is **not** an error, on [`discard`]'s rule: the caller wanted it
+/// gone and it is.
+///
+/// # Errors
+///
+/// [`Error::Database`] when the row cannot be removed.
+pub async fn withdraw(store: &Store, key: &str) -> Result<usize> {
+    let removed = sqlx::query!(
+        "DELETE FROM pending_privileged_ops WHERE dedupe_key = ?",
+        key
+    )
+    .execute(store.pool())
+    .await
+    .map_err(|source| store.failure("write", source))?;
+
+    Ok(usize::try_from(removed.rows_affected()).unwrap_or(usize::MAX))
+}
+
 /// What one grant did to the queue.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Settled {
@@ -1318,5 +1347,35 @@ mod tests {
             address: "127.0.0.1".parse().expect("a literal address"),
             domain: domain.to_owned(),
         }
+    }
+
+    /// **A want that is gone leaves the queue** — roadmap task **T179**. Keyed like the enqueue, so
+    /// one family goes and its neighbours stay.
+    #[tokio::test]
+    async fn withdrawing_takes_one_family_and_leaves_the_rest() {
+        let (_home, store) = store().await;
+
+        let hosts = PrivilegedOp::hosts_apply(vec![mixengine_proto::privileged::HostEntry {
+            address: std::net::IpAddr::from([127, 0, 0, 1]),
+            domain: "hd.local".to_owned(),
+        }]);
+        enqueue(&store, &hosts, WHEN).await.unwrap();
+        enqueue(&store, &PrivilegedOp::Probe {}, WHEN)
+            .await
+            .unwrap();
+
+        assert_eq!(withdraw(&store, &hosts.dedupe_key()).await.unwrap(), 1);
+
+        let waiting = pending(&store).await.unwrap();
+        assert_eq!(waiting.len(), 1, "{waiting:?}");
+        assert_eq!(waiting[0].op, PrivilegedOp::Probe {});
+    }
+
+    /// Forgetting what is not there is what the caller wanted, on `discard`'s rule.
+    #[tokio::test]
+    async fn withdrawing_what_is_not_there_is_not_an_error() {
+        let (_home, store) = store().await;
+
+        assert_eq!(withdraw(&store, "hosts-apply").await.unwrap(), 0);
     }
 }

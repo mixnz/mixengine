@@ -188,6 +188,48 @@ impl Elevation {
         Ok(())
     }
 
+    /// Take an operation out of the queue, because this machine no longer needs it — roadmap task
+    /// **T179**.
+    ///
+    /// **The producers' other answer.** Each of them reads what this home declares and what the
+    /// machine holds; when those agree there is nothing to ask for, and a row queued by an earlier
+    /// reading describes a home that no longer exists. Leaving it there put a sentence in front of a
+    /// prompt that did not match what the grant would do.
+    ///
+    /// **A withdrawal that removed nothing publishes nothing**, on [`enqueue`](Self::enqueue)'s
+    /// rule: a producer runs at every daemon start and on every change, and an event per attempt
+    /// would put its loop on a client's screen. One that did publishes the queue that is left,
+    /// because [`DaemonEvent::ElevationRequired`] carries the whole queue and a client redraws from
+    /// it.
+    ///
+    /// # Errors
+    ///
+    /// The wire error of a row that could not be removed, or a queue that could not be read back.
+    async fn no_longer_needed(&self, key: &str) -> Result<(), Error> {
+        let removed = mixengine_core::elevation::withdraw(&self.store, key)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        if removed == 0 {
+            return Ok(());
+        }
+
+        let pending = mixengine_core::elevation::pending(&self.store)
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        tracing::info!(
+            key,
+            waiting = pending.len(),
+            "a queued operation is no longer needed"
+        );
+
+        self.events
+            .publish(DaemonEvent::ElevationRequired { pending });
+
+        Ok(())
+    }
+
     /// Ask for `op`, and for a privileged helper in front of it when this machine has none —
     /// roadmap task **T88d**.
     ///
@@ -422,7 +464,10 @@ impl Elevation {
         // `hosts_apply`'s in both directions and there is one definition of "the same block".
         match self.host.hosts_file().managed() {
             // Not a pattern guard: `present` is a `Vec` and a guard cannot move out of one.
-            Ok(present) if PrivilegedOp::hosts_apply(present.clone()) == wanted => Ok(()),
+            Ok(present) if PrivilegedOp::hosts_apply(present.clone()) == wanted => {
+                // Nothing to ask for — and nothing to keep asking for either (T179).
+                self.no_longer_needed(&wanted.dedupe_key()).await
+            }
             Ok(_) => self.enqueue_needing_a_helper(&wanted).await,
             Err(error) => {
                 tracing::warn!(
@@ -489,7 +534,8 @@ impl Elevation {
                 )
                 .await
             }
-            None => Ok(()),
+            // The machine already routes what it should, so a row queued earlier is stale (T179).
+            None => self.no_longer_needed("resolver").await,
         }
     }
 
@@ -520,7 +566,9 @@ impl Elevation {
     pub(crate) async fn require_trust_store(&self, der: Option<&[u8]>) -> Result<(), Error> {
         let Some(der) = der else {
             tracing::debug!("this home has no certificate authority, so nothing is asked to trust");
-            return Ok(());
+
+            // Nothing to trust means nothing to ask about, including what was asked before (T179).
+            return self.no_longer_needed("trust-store").await;
         };
 
         let state = match self.host.trust_store().probe(der) {
@@ -541,7 +589,8 @@ impl Elevation {
                 )
                 .await
             }
-            None => Ok(()),
+            // This machine already trusts it (T179).
+            None => self.no_longer_needed("trust-store").await,
         }
     }
 
@@ -589,13 +638,15 @@ impl Elevation {
         };
 
         if state.granted {
-            return Ok(());
+            // The binary already answers, so the grant nobody answered is stale. Withdrawing the
+            // request is not revoking the capability: the machine keeps what it holds (T179).
+            return self.no_longer_needed("port-access").await;
         }
 
         // Derived from the method rather than from a `#[cfg]`, which is the whole reason
         // `PortAccessState` carries one — the T42 design, D1.
         let Some(plan) = state.plan(binary) else {
-            return Ok(());
+            return self.no_longer_needed("port-access").await;
         };
 
         if let Some(missing) = &state.missing {
@@ -2174,5 +2225,198 @@ mod tests {
             PrivilegedOp::HelperRemove {},
             PrivilegedOp::AuditLogRemove {},
         ])));
+    }
+
+    /// **T179.** A site is created, deleted before anybody clicks Allow, and the row it queued goes
+    /// with it: the queue never describes a home that no longer declares the name, and a grant
+    /// cannot write one into the machine's hosts file.
+    #[tokio::test]
+    async fn a_hosts_entry_nobody_declares_any_more_leaves_the_queue() {
+        let (home, elevation, events, _machine) =
+            registry(mock::Host::with_hosts("/tmp/mixengine", [])).await;
+        with_an_installed_helper(&home);
+        let mut watching = events.subscribe();
+
+        a_site_named(&elevation.store, "gone.local").await;
+        elevation.require_hosts().await.unwrap();
+        assert_eq!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        assert!(matches!(
+            watching.next().await,
+            Some(crate::api::events::Frame::Event(
+                DaemonEvent::ElevationRequired { .. }
+            ))
+        ));
+
+        sqlx::query("DELETE FROM sites")
+            .execute(elevation.store.pool())
+            .await
+            .unwrap();
+        elevation.require_hosts().await.unwrap();
+
+        assert!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .is_empty(),
+            "the queue still holds a name this home no longer declares"
+        );
+
+        let Some(crate::api::events::Frame::Event(DaemonEvent::ElevationRequired { pending })) =
+            watching.next().await
+        else {
+            panic!("a withdrawal publishes the queue that is left")
+        };
+        assert!(pending.is_empty(), "{pending:?}");
+    }
+
+    /// A machine this daemon could not read is a machine it knows nothing about, so the queue is
+    /// left exactly as it was (the T179 design, D2).
+    #[tokio::test]
+    async fn a_hosts_file_that_cannot_be_read_withdraws_nothing() {
+        let (home, elevation, _events, _machine) = registry(
+            mock::Host::unable_to_read_the_hosts_file("/tmp/mixengine", "the file is not readable"),
+        )
+        .await;
+        with_an_installed_helper(&home);
+
+        sqlx::query(
+            "INSERT INTO pending_privileged_ops (op, dedupe_key, requested_at)              VALUES ('{\"op\":\"probe\"}', 'hosts-apply', 1)",
+        )
+        .execute(elevation.store.pool())
+        .await
+        .unwrap();
+
+        elevation.require_hosts().await.unwrap();
+
+        assert_eq!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .len(),
+            1,
+            "a failed reading withdrew a row"
+        );
+    }
+
+    /// **T179**, for the resolver: a machine that already routes what it should has nothing waiting
+    /// for it, whatever an earlier reading queued.
+    #[tokio::test]
+    async fn a_resolver_that_already_routes_withdraws_what_was_queued() {
+        let (home, elevation, _events, _machine) = registry_resolving(
+            mock::Host::with_resolver(
+                "/tmp/mixengine",
+                mixengine_platform::ResolverMethod::Nrpt,
+                &mixengine_proto::domains::WIRED_TLDS,
+            ),
+            crate::dns::Dns::wired_for_tests(),
+        )
+        .await;
+        with_an_installed_helper(&home);
+
+        sqlx::query(
+            "INSERT INTO pending_privileged_ops (op, dedupe_key, requested_at)              VALUES ('{\"op\":\"probe\"}', 'resolver', 1)",
+        )
+        .execute(elevation.store.pool())
+        .await
+        .unwrap();
+
+        elevation.require_resolver().await.unwrap();
+
+        assert!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .is_empty(),
+            "the resolver row outlived the machine agreeing"
+        );
+    }
+
+    /// **T179**, for the trust store: a home with no authority has nothing to be trusted, so an
+    /// install queued for an authority that is gone goes with it (the design's Settled 1).
+    #[tokio::test]
+    async fn a_home_with_no_authority_withdraws_a_queued_trust_install() {
+        let (home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+        with_an_installed_helper(&home);
+
+        sqlx::query(
+            "INSERT INTO pending_privileged_ops (op, dedupe_key, requested_at)              VALUES ('{\"op\":\"probe\"}', 'trust-store', 1)",
+        )
+        .execute(elevation.store.pool())
+        .await
+        .unwrap();
+
+        elevation.require_trust_store(None).await.unwrap();
+
+        assert!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    /// **T179**, for the port grant: a binary that already holds what it needs withdraws the grant
+    /// nobody answered. **Withdrawing is not revoking** — the machine keeps the capability.
+    #[tokio::test]
+    async fn a_binary_that_already_answers_withdraws_the_grant_nobody_answered() {
+        let (home, elevation, _events, _machine) = registry(mock::Host::with_port_access(
+            "/tmp/mixengine",
+            mixengine_platform::PortAccessMethod::Capability,
+        ))
+        .await;
+        with_an_installed_helper(&home);
+
+        sqlx::query(
+            "INSERT INTO pending_privileged_ops (op, dedupe_key, requested_at)              VALUES ('{\"op\":\"probe\"}', 'port-access', 1)",
+        )
+        .execute(elevation.store.pool())
+        .await
+        .unwrap();
+
+        elevation
+            .require_port_access(Some(Path::new("/packages/caddy/caddy")))
+            .await
+            .unwrap();
+
+        assert!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+    }
+
+    /// A probe that could not read the machine says nothing about what to stop asking for, so a
+    /// home with no front end leaves the queue alone (the T179 design, D2).
+    #[tokio::test]
+    async fn a_home_with_no_front_end_withdraws_nothing() {
+        let (home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+        with_an_installed_helper(&home);
+
+        sqlx::query(
+            "INSERT INTO pending_privileged_ops (op, dedupe_key, requested_at)              VALUES ('{\"op\":\"probe\"}', 'port-access', 1)",
+        )
+        .execute(elevation.store.pool())
+        .await
+        .unwrap();
+
+        elevation.require_port_access(None).await.unwrap();
+
+        assert_eq!(
+            mixengine_core::elevation::pending(&elevation.store)
+                .await
+                .unwrap()
+                .len(),
+            1,
+            "a home that cannot read the machine withdrew a row anyway"
+        );
     }
 }
