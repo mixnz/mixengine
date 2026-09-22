@@ -279,7 +279,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       What this task did **not** do is stop `mix uninstall` deleting a file the system package
       manager owns — that is **T88e**.
 
-- [ ] **T88e** `mix uninstall` removes a file `dpkg` and `rpm` believe they own. The `.deb`, the
+- [x] **T88e** `mix uninstall` removes a file `dpkg` and `rpm` believe they own. The `.deb`, the
       `.rpm` and the `.pkg` write `mixengine-elevate` to the installed path themselves — T85's D3,
       so that `HelperInstall {}` answers `AlreadyDone` there — which makes the file T87 removes the
       package's rather than MixEngine's, and removing it leaves the package database describing a
@@ -290,6 +290,9 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       machine never elevates anything but a root-owned file; the second costs `mix uninstall`'s
       promise on a `.pkg`, which has no uninstaller to hand the file to. Not folded into T88d, which
       is about the way back rather than about who owns what.
+      **Answered by asking the package database.** On Linux a helper `dpkg` or `rpm` owns is
+      reported as kept, naming the package; macOS keeps removing it, because nothing else will
+      ([ADR 0048](../decisions/0048-a-file-a-package-manager-placed-leaves-with-the-package.md)).
       Design: [2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md](../specs/2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md).
 
 - [x] **T88c** `daemon.status` is not backwards compatible within one protocol version, and the
