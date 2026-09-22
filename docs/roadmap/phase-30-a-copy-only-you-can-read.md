@@ -276,7 +276,8 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       `resync=1` too; without that, one reap during a move ended the copy halfway.
 - [ ] **T178c** The review's remaining four: a tombstone's `updatedAt` (`DELETE` carries none), a
       batch whose first failed entry hides the rest, moving an account without checking the
-      password it re-registers with, and a store keyed by server URL. A spec of its own.
+      password it re-registers with, and a store keyed by server URL. Design:
+      [2026-09-22-t178c-the-reviews-other-four-design.md](../specs/2026-09-22-t178c-the-reviews-other-four-design.md).
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
