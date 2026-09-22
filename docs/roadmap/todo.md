@@ -60,7 +60,7 @@ done
 | [27 — A rehearsal of the release build](phase-27-a-rehearsal-of-the-release-build.md) | What a release is built with is built every week, so a tag is never the first time | T174a–T174d | 4 / 4 | **M27** a `release-exact` run on `master` is green inside every timeout, happens weekly unasked, and the checklist names it before tagging — **two halves met** by run 35491317573 (LTO links; the widest leg uses half its timeout), the weekly one waits for the first Monday after this lands |
 | [28 — Dependencies that earn their place](phase-28-dependencies-that-earn-their-place.md) | Nothing is compiled, shipped or audited because a plugin's default feature asked for it | T175a–T175c | 3 / 3 | **M28** no `image` and no `moxcms` in the window's `--timings`, terminal paste still works, and both the bson and the db-crate questions are answered with a number — **met**, 898 units against 908, and two measured refusals |
 | [29 — One name to find it by](phase-29-one-name-to-find-it-by.md) | One name for the product, and the engine keeps its own where that is still the right word | T176a–T176e | 5 / 5 | **M29** searching for MixLab reaches the repository, the handbook and the download page, the *do I need both* question is answered in one sentence, and no identifier moved — **met**, and the redirects were measured rather than predicted |
-| [30 — A copy only you can read](phase-30-a-copy-only-you-can-read.md) | A person's second machine has what they ticked, and the server that carried it cannot read it | T177a–T178d | 18 / 19 | **M30** two machines agree on exactly what was ticked, a revoked device stops syncing, and the server's database yields no plaintext — **the CI half met** by run 35646590878, conformance green against both servers; **the two-machine half met** 2026-09-22 by hand: rows not ticked stayed home, edits and deletions crossed, a removed machine was signed out, a move worked, and the self-hosted server's SQLite held no plaintext beyond the email and device name D1 allows |
+| [30 — A copy only you can read](phase-30-a-copy-only-you-can-read.md) | A person's second machine has what they ticked, and the server that carried it cannot read it | T177a–T178d | 19 / 19 | **M30** two machines agree on exactly what was ticked, a revoked device stops syncing, and the server's database yields no plaintext — **the CI half met** by run 35646590878, conformance green against both servers; **the two-machine half met** 2026-09-22 by hand: rows not ticked stayed home, edits and deletions crossed, a removed machine was signed out, a move worked, and the self-hosted server's SQLite held no plaintext beyond the email and device name D1 allows |
 
 [Parked](parked.md) — revisit deliberately, do not start early.
 
@@ -71,7 +71,7 @@ half of a rename — which is exactly the reading a version that never shipped i
 
 ## Where we are
 
-**Phase 30 is built — 15 of 15, and M30 is half met.** MixLab has an account, so a second machine
+**Phase 30 is built — 19 of 19, and M30 is met.** MixLab has an account, so a second machine
 has the saved connections, REST collections, snippets and, one switch each, the saved passwords the
 first one has. Everything is encrypted on the machine before it leaves; the server holds ciphertext
 and opaque ids, and nothing syncs until a person ticks it. A forgotten password is recovered with
@@ -80,8 +80,8 @@ closing says so in the window a month ahead. The server is `server/` in this rep
 implementations of one protocol
 ([ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md)), and one CI run
 proves they agree: run 35646590878 passed the conformance suite against both. Anyone can run their
-own, on Cloudflare Workers or from the container image, and the handbook says how. What is left of
-M30 is the part only two real machines can show.
+own, on Cloudflare Workers or from the container image, and the handbook says how. The other half
+of M30 was checked by hand on two machines on 2026-09-22.
 Design: [2026-09-20-t177-a-copy-only-you-can-read-design.md](../specs/2026-09-20-t177-a-copy-only-you-can-read-design.md).
 
 **Phase 29 is built — 5 of 5, and M29 is met.** One product with two names that contain neither each
