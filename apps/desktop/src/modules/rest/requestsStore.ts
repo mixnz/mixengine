@@ -11,6 +11,7 @@ import {
   newRequest,
   persistRequests,
   pinToSaved,
+  saveRequests,
   removeRequest,
   updateRequest,
 } from "./requests";
@@ -150,9 +151,10 @@ export function requestsReady(): Promise<void> {
   return store.ready();
 }
 
-/** Sync's write: the Saved list as another machine left it, Recent untouched (T177d). */
-export function replaceSaved(saved: RestRequest[]): void {
+/** Sync's write: the Saved list as another machine left it, Recent untouched (T177d). Resolves once
+ *  it is on disk and rejects when it is not (T178a, L5). */
+export function replaceSaved(saved: RestRequest[]): Promise<void> {
   const lists = { ...store.get(), saved };
   store.publish(lists);
-  persistRequests(lists);
+  return saveRequests(lists);
 }

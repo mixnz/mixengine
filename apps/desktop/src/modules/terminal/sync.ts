@@ -19,7 +19,7 @@ import {
 // change the file and leave each tab's sidebar as it was until the app restarted.
 import { addTarget, removeTarget, updateTarget } from "./savedTargetsStore";
 import { sanitizeSettings, type TerminalSettings } from "./settings";
-import { loadTerminalSettings, updateTerminalSettings } from "./settingsStore";
+import { loadTerminalSettings, saveTerminalSettings } from "./settingsStore";
 import type { SavedTarget } from "./types";
 
 /** D5's *font, cursor, scrollback*, and nothing that names this machine. */
@@ -70,7 +70,7 @@ export const settingsSyncable: SyncableCollection = {
     const skipped: string[] = [];
     for (const synced of changes.upserts) {
       const patch = synced.id === "settings" ? settingsFromSync(synced) : null;
-      if (patch) updateTerminalSettings(patch);
+      if (patch) await saveTerminalSettings(patch);
       else skipped.push(synced.id);
     }
     // Settings are not a list and cannot be deleted; a removal has nothing to act on.

@@ -119,13 +119,19 @@ function commit(list: Environment[]): void {
   schedule();
 }
 
-/** Writes whatever is still waiting, now. The dialog calls this on its way out. */
-export function flushEnvironments(): Promise<void> {
+/** Writes whatever is still waiting, now, and rejects when the write fails — what sync waits on,
+ *  since it agrees only on what the disk holds (T178a, L5). */
+export function saveEnvironmentsNow(): Promise<void> {
   if (timer !== null) {
     window.clearTimeout(timer);
     timer = null;
   }
-  return persist().catch(() => {});
+  return persist();
+}
+
+/** The same for the dialog on its way out, where a failure has nowhere to go. */
+export function flushEnvironments(): Promise<void> {
+  return saveEnvironmentsNow().catch(() => {});
 }
 
 export function useEnvironments(): Environment[] {

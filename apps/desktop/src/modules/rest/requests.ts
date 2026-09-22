@@ -212,13 +212,16 @@ export async function loadRequests(): Promise<RequestLists> {
   return sweepBlank({ saved: stored?.saved ?? [], recent: stored?.recent ?? [] });
 }
 
-/** Writes the list as it now stands. Failures are swallowed: the list is still right in memory,
- *  and nothing here is worth interrupting someone's typing over. */
+/** Writes the list as it now stands, and rejects when the disk says no — what sync waits on,
+ *  since it agrees only on what the disk holds (T178a, L5). */
+export async function saveRequests(lists: RequestLists): Promise<void> {
+  const store = await getStore();
+  await store.set(KEY, lists);
+  await store.save();
+}
+
+/** The same for someone typing. Failures are swallowed: the list is still right in memory, and
+ *  nothing here is worth interrupting someone's typing over. */
 export function persistRequests(lists: RequestLists): void {
-  void getStore()
-    .then(async (store) => {
-      await store.set(KEY, lists);
-      await store.save();
-    })
-    .catch(() => {});
+  void saveRequests(lists).catch(() => {});
 }

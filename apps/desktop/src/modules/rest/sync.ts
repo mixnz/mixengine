@@ -9,7 +9,7 @@ import { secretsOf, withSecrets, type Environment, type EnvVar } from "./environ
 import {
   currentEnvironments,
   environmentsReady,
-  flushEnvironments,
+  saveEnvironmentsNow,
   replaceEnvironments,
   secretIdOf,
 } from "./environmentsStore";
@@ -80,7 +80,7 @@ export const requestsSyncable: SyncableCollection = {
   write: async (changes) => {
     await requestsReady();
     const { items, skipped } = applySyncChanges(currentLists().saved, changes, (r) => r.id, requestFromSync);
-    replaceSaved(items);
+    await replaceSaved(items);
     return skipped;
   },
 };
@@ -110,7 +110,7 @@ export const environmentsSyncable: SyncableCollection = {
     );
     replaceEnvironments(filled);
     // The store writes on a timer; what sync is about to agree on must be on disk first.
-    await flushEnvironments();
+    await saveEnvironmentsNow();
     return skipped;
   },
 };
@@ -182,7 +182,7 @@ export const environmentSecretsSyncable: SyncableCollection = {
     }
     if (next !== list) {
       replaceEnvironments(next);
-      await flushEnvironments();
+      await saveEnvironmentsNow();
     }
     return skipped;
   },
