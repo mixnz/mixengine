@@ -1135,17 +1135,33 @@ impl SyncState {
         })
     }
 
-    pub async fn commit_pull(&self, collection: &str, token: &str) -> Result<(), AppError> {
-        self.commit(Kind::Pull, collection, token).await
+    pub async fn commit_pull(
+        &self,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
+        self.commit(Kind::Pull, collection, token, skipped).await
     }
 
-    pub async fn commit_push(&self, collection: &str, token: &str) -> Result<(), AppError> {
-        self.commit(Kind::Push, collection, token).await
+    pub async fn commit_push(
+        &self,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
+        self.commit(Kind::Push, collection, token, skipped).await
     }
 
-    /// The module has written what `token` handed out: record it, and for a page, move the
-    /// cursor. No request is made.
-    async fn commit(&self, kind: Kind, collection: &str, token: &str) -> Result<(), AppError> {
+    /// The module has written what `token` handed out, except the ids in `skipped`: record it, and
+    /// for a page, move the cursor. No request is made.
+    async fn commit(
+        &self,
+        kind: Kind,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
         let (held, session) = {
             let mut inner = self.inner.lock().await;
             let key = (kind, collection.to_owned());
@@ -1171,6 +1187,7 @@ impl SyncState {
             collection,
             &held.records,
             held.agreements,
+            &skipped,
         )
         .await?;
         if let Some(fetched) = &held.fetched {
@@ -1209,7 +1226,10 @@ mod tests {
     /// A token nobody handed out — or one from before a sign-in — records nothing.
     #[tokio::test]
     async fn a_token_nobody_handed_out_records_nothing() {
-        let error = state().commit_pull("c", "nope").await.unwrap_err();
+        let error = state()
+            .commit_pull("c", "nope", Vec::new())
+            .await
+            .unwrap_err();
         assert_eq!(error.code, "error.syncPageStale");
     }
 

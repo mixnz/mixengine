@@ -39,10 +39,14 @@ export function preferencesCollection(
       return items;
     },
     write: async (changes) => {
+      const skipped: string[] = [];
       let changed = false;
       for (const synced of changes.upserts) {
         const key = KEYS[synced.id];
-        if (key === undefined || typeof synced.data !== "string") continue;
+        if (key === undefined || typeof synced.data !== "string") {
+          skipped.push(synced.id);
+          continue;
+        }
         storage().setItem(key, synced.data);
         changed = true;
       }
@@ -53,6 +57,7 @@ export function preferencesCollection(
         changed = true;
       }
       if (changed) announce();
+      return skipped;
     },
   };
 }

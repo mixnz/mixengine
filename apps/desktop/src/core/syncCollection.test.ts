@@ -22,7 +22,7 @@ describe("applying another machine's changes", () => {
       { id: "b", name: "B" },
       { id: "c", name: "C" },
     ];
-    const next = applySyncChanges(
+    const { items: next } = applySyncChanges(
       current,
       { upserts: [{ id: "b", data: { name: "B2" } }, { id: "d", data: { name: "D" } }], removed: ["c"] },
       idOf,
@@ -32,7 +32,7 @@ describe("applying another machine's changes", () => {
   });
 
   it("keeps what never travels", () => {
-    const next = applySyncChanges(
+    const { items: next } = applySyncChanges(
       [{ id: "a", name: "A", width: 320 }],
       { upserts: [{ id: "a", data: { name: "A2" } }], removed: [] },
       idOf,
@@ -41,14 +41,20 @@ describe("applying another machine's changes", () => {
     expect(next[0]).toEqual({ id: "a", name: "A2", width: 320 });
   });
 
-  it("leaves an item alone rather than overwrite it with data it cannot read", () => {
-    const next = applySyncChanges(
+  it("leaves an item alone rather than overwrite it with data it cannot read, and names it", () => {
+    const { items, skipped } = applySyncChanges(
       [{ id: "a", name: "A" }],
-      { upserts: [{ id: "a", data: { name: 7 } }], removed: [] },
+      { upserts: [{ id: "a", data: { name: 7 } }, { id: "b", data: { name: "B" } }], removed: [] },
       idOf,
       fromSync,
     );
-    expect(next).toEqual([{ id: "a", name: "A" }]);
+    expect(items).toEqual([
+      { id: "a", name: "A" },
+      { id: "b", name: "B" },
+    ]);
+    // Named so sync does not agree on it: agreed, and then left out by `read`, it would be pushed
+    // as a deletion (T178a, L4).
+    expect(skipped).toEqual(["a"]);
   });
 
   it("does not touch the list it was given", () => {

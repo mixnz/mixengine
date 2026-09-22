@@ -398,7 +398,7 @@ async fn the_client_signs_up_signs_in_and_carries_an_item() {
     let page = laptop.pull_page("query-snippets").await.unwrap();
     assert_eq!(page.changes.upserts, vec![snippet.clone()]);
     laptop
-        .commit_pull("query-snippets", &page.token)
+        .commit_pull("query-snippets", &page.token, Vec::new())
         .await
         .unwrap();
     let after = laptop.push("query-snippets", vec![snippet]).await.unwrap();

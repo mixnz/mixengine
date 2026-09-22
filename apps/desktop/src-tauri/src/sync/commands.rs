@@ -106,8 +106,9 @@ pub async fn sync_commit_pull(
     state: State<'_, SyncState>,
     collection: String,
     token: String,
+    skipped: Vec<String>,
 ) -> Result<(), AppError> {
-    state.commit_pull(&collection, &token).await
+    state.commit_pull(&collection, &token, skipped).await
 }
 
 #[tauri::command]
@@ -124,8 +125,9 @@ pub async fn sync_commit_push(
     state: State<'_, SyncState>,
     collection: String,
     token: String,
+    skipped: Vec<String>,
 ) -> Result<(), AppError> {
-    state.commit_push(&collection, &token).await
+    state.commit_push(&collection, &token, skipped).await
 }
 
 #[tauri::command]

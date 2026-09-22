@@ -79,7 +79,9 @@ export const requestsSyncable: SyncableCollection = {
   },
   write: async (changes) => {
     await requestsReady();
-    replaceSaved(applySyncChanges(currentLists().saved, changes, (r) => r.id, requestFromSync));
+    const { items, skipped } = applySyncChanges(currentLists().saved, changes, (r) => r.id, requestFromSync);
+    replaceSaved(items);
+    return skipped;
   },
 };
 
@@ -93,7 +95,12 @@ export const environmentsSyncable: SyncableCollection = {
   write: async (changes) => {
     await environmentsReady();
     const touched = new Set(changes.upserts.map((item) => item.id));
-    const next = applySyncChanges(currentEnvironments(), changes, (e) => e.id, environmentFromSync);
+    const { items: next, skipped } = applySyncChanges(
+      currentEnvironments(),
+      changes,
+      (e) => e.id,
+      environmentFromSync,
+    );
     // A secret variable that arrives with no value here may have one waiting in the vault (D5);
     // saved empty, it would overwrite that.
     const filled = await Promise.all(
@@ -104,6 +111,7 @@ export const environmentsSyncable: SyncableCollection = {
     replaceEnvironments(filled);
     // The store writes on a timer; what sync is about to agree on must be on disk first.
     await flushEnvironments();
+    return skipped;
   },
 };
 
@@ -147,12 +155,21 @@ export const environmentSecretsSyncable: SyncableCollection = {
     const list = currentEnvironments();
     const here = new Set(list.map((env) => env.id));
     let next = list;
+    const skipped: string[] = [];
     for (const synced of changes.upserts) {
       const secrets = environmentSecretsFromSync(synced.data);
-      if (!secrets) continue;
-      if (here.has(synced.id)) next = next.map((env) => (env.id === synced.id ? withSecrets(env, secrets) : env));
+      if (!secrets) {
+        skipped.push(synced.id);
+        continue;
+      }
+      if (here.has(synced.id)) {
+        next = next.map((env) => (env.id === synced.id ? withSecrets(env, secrets) : env));
+        continue;
+      }
       // Not arrived yet: the values wait in the vault, and the environment fills from it (D5).
-      else await envSecretsSave(secretIdOf(synced.id), secrets);
+      // `read` does not return them until then (L4).
+      await envSecretsSave(secretIdOf(synced.id), secrets);
+      skipped.push(synced.id);
     }
     for (const id of changes.removed) {
       if (here.has(id)) {
@@ -167,5 +184,6 @@ export const environmentSecretsSyncable: SyncableCollection = {
       replaceEnvironments(next);
       await flushEnvironments();
     }
+    return skipped;
   },
 };

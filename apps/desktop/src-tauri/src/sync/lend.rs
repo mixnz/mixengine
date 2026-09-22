@@ -278,19 +278,27 @@ pub async fn settle(
 }
 
 /// After a module has written what a pull or a lost conflict brought: record each record's version,
-/// then agree on what it says. **Only after the write** — see the module comment; the engine
-/// leaves a lost conflict unrecorded for exactly this call.
+/// then agree on what it says — **except what the module says it skipped**, whose version is still
+/// the server's but whose content this machine does not hold (T178a, L4). **Only after the
+/// write** — see the module comment; the engine leaves a lost conflict unrecorded for exactly this
+/// call.
 pub async fn land(
     store: &Store,
     keys: &Keys,
     collection: &str,
     records: &[WireRecord],
     agreements: Vec<Agreement>,
+    skipped: &[String],
 ) -> Result<(), AppError> {
     for record in records {
         store.remember(record).await?;
     }
-    settle(store, keys, collection, agreements).await
+    let skipped: HashSet<&str> = skipped.iter().map(String::as_str).collect();
+    let kept = agreements
+        .into_iter()
+        .filter(|agreement| !skipped.contains(agreement.local_id.as_str()))
+        .collect();
+    settle(store, keys, collection, kept).await
 }
 
 /// Pulled records, opened and weighed against what this machine has not landed (D4).
@@ -618,7 +626,7 @@ mod tests {
         let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&winner))
             .await
             .unwrap();
-        land(&store, &keys, "c", &[winner], opened.agreements)
+        land(&store, &keys, "c", &[winner], opened.agreements, &[])
             .await
             .unwrap();
 
@@ -763,5 +771,42 @@ mod tests {
         dead.updated_at = 100;
         let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
         assert_eq!(opened.changes.removed, vec!["1".to_string()]);
+    }
+    /// A record the module did not write is remembered — its version is the server's — and never
+    /// agreed, so this machine neither deletes it as missing nor pushes an old copy as an edit.
+    #[tokio::test]
+    async fn a_record_the_module_skipped_is_remembered_but_not_agreed() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let record = theirs(&keys, json!({"shape": "new"}), 100, 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&record))
+            .await
+            .unwrap();
+        land(
+            &store,
+            &keys,
+            "c",
+            std::slice::from_ref(&record),
+            opened.agreements,
+            &["1".into()],
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            store.agreed(&record.collection, &record.id).await.unwrap(),
+            None
+        );
+        assert_eq!(
+            store
+                .seen(&record.collection, &record.id)
+                .await
+                .unwrap()
+                .map(|seen| seen.version),
+            Some(1)
+        );
+        let (next, _) = outgoing(&store, &keys, "c", &[], 200).await.unwrap();
+        assert!(
+            next.is_empty(),
+            "nothing to delete: it was never agreed here"
+        );
     }
 }

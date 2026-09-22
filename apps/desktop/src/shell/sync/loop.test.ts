@@ -48,6 +48,7 @@ function collection(
     write: async (changes) => {
       calls.push("write");
       await write(changes);
+      return [];
     },
   };
 }

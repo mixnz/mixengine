@@ -44,17 +44,18 @@ export interface SyncBackend {
   /** Stamps this machine's changes before a pull, so the pull can weigh them (D4). Sends nothing. */
   notice(collection: string, items: SyncItem[]): Promise<void>;
   pullPage(collection: string): Promise<PulledPage>;
-  commitPull(collection: string, token: string): Promise<void>;
+  /** `skipped`: what the module did not write, which sync must not agree on (T178a, L4). */
+  commitPull(collection: string, token: string, skipped: string[]): Promise<void>;
   push(collection: string, items: SyncItem[]): Promise<PushedChanges>;
-  commitPush(collection: string, token: string): Promise<void>;
+  commitPush(collection: string, token: string, skipped: string[]): Promise<void>;
 }
 
 export const tauriSync: SyncBackend = {
   notice: (collection, items) => invoke("sync_notice", { collection, items }),
   pullPage: (collection) => invoke("sync_pull_page", { collection }),
-  commitPull: (collection, token) => invoke("sync_commit_pull", { collection, token }),
+  commitPull: (collection, token, skipped) => invoke("sync_commit_pull", { collection, token, skipped }),
   push: (collection, items) => invoke("sync_push", { collection, items }),
-  commitPush: (collection, token) => invoke("sync_commit_push", { collection, token }),
+  commitPush: (collection, token, skipped) => invoke("sync_commit_push", { collection, token, skipped }),
 };
 
 export function syncStatus(): Promise<SyncStatus> {

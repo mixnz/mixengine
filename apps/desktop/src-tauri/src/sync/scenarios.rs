@@ -293,13 +293,15 @@ impl Machine {
     }
 
     /// `applySyncChanges`: a removed id dropped, an upsert replacing its item where it stands or
-    /// appended — and an item the module cannot read left as it was.
-    fn write(&mut self, collection: &str, changes: Incoming) {
+    /// appended — and an item the module cannot read left as it was, and named as skipped.
+    fn write(&mut self, collection: &str, changes: Incoming) -> Vec<String> {
         let unreadable = self.unreadable.clone();
         let list = self.list(collection);
+        let mut skipped = Vec::new();
         list.retain(|item| !changes.removed.contains(&item.id));
         for synced in changes.upserts {
             if unreadable.contains(&synced.id) {
+                skipped.push(synced.id);
                 continue;
             }
             match list.iter_mut().find(|item| item.id == synced.id) {
@@ -307,6 +309,7 @@ impl Machine {
                 None => list.push(synced),
             }
         }
+        skipped
     }
 
     /// The local check that runs while the machine is offline: the change is noticed and stamped,
@@ -338,15 +341,19 @@ impl Machine {
             )
             .await
             .unwrap();
-            if !opened.changes.upserts.is_empty() || !opened.changes.removed.is_empty() {
-                self.write(collection, opened.changes);
-            }
+            let skipped =
+                if !opened.changes.upserts.is_empty() || !opened.changes.removed.is_empty() {
+                    self.write(collection, opened.changes)
+                } else {
+                    Vec::new()
+                };
             lend::land(
                 &self.store,
                 &self.keys,
                 collection,
                 &fetched.records,
                 opened.agreements,
+                &skipped,
             )
             .await
             .unwrap();
@@ -394,13 +401,14 @@ impl Machine {
         )
         .await
         .unwrap();
-        self.write(collection, opened.changes);
+        let skipped = self.write(collection, opened.changes);
         lend::land(
             &self.store,
             &self.keys,
             collection,
             &pushed.superseded,
             opened.agreements,
+            &skipped,
         )
         .await
         .unwrap();

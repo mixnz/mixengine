@@ -46,6 +46,17 @@ describe("what sync writes of a host", () => {
     expect(files.removeSavedTarget).not.toHaveBeenCalled();
   });
 
+  it("names a host's credentials it parked for a host this machine does not have", async () => {
+    const skipped = await hostSecretsSyncable.write({
+      upserts: [{ id: "h-elsewhere", data: { sshPassword: "pw" } }],
+      removed: [],
+    });
+    // `read` returns credentials only for a host that is here, so agreed they would be pushed as a
+    // deletion (T178a, L4).
+    expect(skipped).toEqual(["h-elsewhere"]);
+    expect(files.saveSecrets).toHaveBeenCalledWith("h-elsewhere", { sshPassword: "pw" });
+  });
+
   it("puts a host's credentials through the shared list too", async () => {
     await hostSecretsSyncable.write({ upserts: [{ id: "h1", data: { sshPassword: "new" } }], removed: ["h1"] });
     expect(shared.updateTarget).toHaveBeenCalledTimes(2);

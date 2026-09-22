@@ -29,7 +29,14 @@ export interface SyncableCollection {
   id: string;
   labelKey: TranslationKey;
   read: () => Promise<SyncItem[]>;
-  write: (changes: SyncChanges) => Promise<void>;
+  /**
+   * Apply another machine's changes, and resolve to the ids of the upserts `read` will **not**
+   * return as sent — data this module cannot read, or credentials parked for an item this machine
+   * does not hold. Sync agrees on everything else, and an agreed id `read` leaves out is pushed as
+   * a deletion (T178a, L4). Resolves only once the disk has what was written, and rejects when it
+   * does not (L5).
+   */
+  write: (changes: SyncChanges) => Promise<string[]>;
   /**
    * The row this one's credentials belong to, for a secret row (D5): it cannot go on before that
    * row, and goes off with it. Absent for every other row.
@@ -43,24 +50,29 @@ export interface SyncableCollection {
  * An upsert replaces the item with its id where it stands, or is appended; a removed id is dropped.
  * `fromSync` builds a local item from a synced one and — when this machine already has that id —
  * the one it replaces, so that what never travels survives. It answers `null` for data it cannot
- * read, and that item is left as it was rather than overwritten with something broken.
+ * read, and that item is left as it was rather than overwritten with something broken — and its id
+ * comes back in `skipped`, so sync does not agree on it.
  */
 export function applySyncChanges<T>(
   current: readonly T[],
   changes: SyncChanges,
   idOf: (item: T) => string,
   fromSync: (synced: SyncItem, local: T | undefined) => T | null,
-): T[] {
+): { items: T[]; skipped: string[] } {
   const removed = new Set(changes.removed);
   const next = current.filter((item) => !removed.has(idOf(item)));
+  const skipped: string[] = [];
   for (const synced of changes.upserts) {
     const at = next.findIndex((item) => idOf(item) === synced.id);
     const built = fromSync(synced, at === -1 ? undefined : next[at]);
-    if (built === null) continue;
+    if (built === null) {
+      skipped.push(synced.id);
+      continue;
+    }
     if (at === -1) next.push(built);
     else next[at] = built;
   }
-  return next;
+  return { items: next, skipped };
 }
 
 /** A plain object, or nothing — what a writer checks before trusting another machine's `data`. */
