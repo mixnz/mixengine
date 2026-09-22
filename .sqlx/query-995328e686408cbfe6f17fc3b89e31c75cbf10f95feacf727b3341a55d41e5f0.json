@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM pending_privileged_ops WHERE dedupe_key = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "995328e686408cbfe6f17fc3b89e31c75cbf10f95feacf727b3341a55d41e5f0"
+}
