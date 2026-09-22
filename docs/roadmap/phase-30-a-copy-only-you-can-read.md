@@ -274,10 +274,23 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       because its pool of WAL connections lets a writer commit between two statements. And an
       account copy (`copy.rs`) pages from `0` just as a resync does, so its later pages send
       `resync=1` too; without that, one reap during a move ended the copy halfway.
-- [ ] **T178c** The review's remaining four: a tombstone's `updatedAt` (`DELETE` carries none), a
+- [x] **T178c** The review's remaining four: a tombstone's `updatedAt` (`DELETE` carries none), a
       batch whose first failed entry hides the rest, moving an account without checking the
       password it re-registers with, and a store keyed by server URL. Design:
       [2026-09-22-t178c-the-reviews-other-four-design.md](../specs/2026-09-22-t178c-the-reviews-other-four-design.md).
+
+      **Done.** A tombstone keeps the time its deletion was made, a push reads every entry of every
+      batch, a move asks `POST /v1/account/check` before it registers anywhere, and the client's
+      store is scoped by the new `accountId`. The code settled five things the spec had not:
+      - The Worker read no body for a `DELETE` in two places, the router and the object.
+      - Both servers needed a migration for `public_id`. Native adds the column when it opens an
+        existing file. The Worker's object adds it on first use, which was checked by opening data
+        made by `master`'s code with the new code.
+      - `check` and account deletion share one verifier function on each server, so they share
+        the attempt limit by construction; the suite cannot read that limit to test it.
+      - A push the server refuses whole, such as a frozen account, now arrives in
+        `PushedChanges.error` rather than as an `Err`.
+      - Every `sync_live.rs` test passes against two native servers.
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the
