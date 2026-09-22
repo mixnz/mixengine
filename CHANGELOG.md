@@ -121,6 +121,9 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- On macOS and Linux, two MixEngine homes, or two people on one machine, can now set up a MariaDB
+  or MySQL 5.6 service with the same name at the same time. Before, one first run could stop the
+  other, or fail until the machine restarted.
 - A PHP pool is given thirty seconds to come up instead of fifteen, which is what a first start on
   Windows can take while the runtime is read off the disk; a pool that was still starting is no
   longer reported as failed.
