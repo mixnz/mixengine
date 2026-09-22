@@ -841,6 +841,12 @@ impl SyncState {
             .ok_or_else(|| err!("error.syncSignInAgainToMove"))?;
         let params = session.account.params(&saved.email).await?;
         let keys = derive(password, decode(&params.salt_account)?).await?;
+        // The password becomes the new server's: checked here, where a typo is still a typo, and
+        // not discovered at the last step, when the old account refuses to be deleted (C3).
+        session
+            .account
+            .check(&session.access_token, &keys.auth)
+            .await?;
         let wrapped = crypto::wrap_master_key(&keys.wrap, &saved.master_key_bytes()?)?;
         Account::new(server, access)?
             .register(&Registration {

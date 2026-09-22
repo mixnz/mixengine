@@ -650,6 +650,26 @@ async fn an_account_moves_to_another_server() {
     assert_eq!(gone.code, "error.syncWrongPassword");
 }
 
+/// C3: a mistyped password stops a move at its first step, and the new server never learns it.
+#[tokio::test]
+#[ignore = "needs two sync servers in test-outbox mode; see the module comment"]
+async fn a_move_with_the_wrong_password_is_refused_before_anything_is_registered() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "the password").await;
+    let refused = desktop
+        .move_begin(&second_server(), None, "the passwort".into())
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, "error.syncWrongPassword");
+
+    // Nothing was registered there: the address is still free, and the right password registers it.
+    desktop
+        .move_begin(&second_server(), None, "the password".into())
+        .await
+        .unwrap();
+    letter_on(&second_server(), &email, "verification").await;
+}
+
 /// The live servers announce no end, and both reads say so: the one for the account this machine
 /// is in, and the one the sign-in form makes of any server before signing in.
 #[tokio::test]

@@ -340,6 +340,16 @@ impl Account {
         .await
     }
 
+    /// `POST /v1/account/check`: whether `a` is this account's password (T178c, C3).
+    pub async fn check(&self, access_token: &str, a: &[u8; 32]) -> Result<(), AppError> {
+        let request = self
+            .post("/v1/account/check", &json!({ "a": STANDARD.encode(a) }))?
+            .bearer_auth(access_token);
+        answer::<Empty>(send(request).await?, refusal)
+            .await
+            .map(drop)
+    }
+
     /// Delete the account and every record in it. **Re-proves the password**: a session alone is
     /// what a borrowed, unlocked machine already has (D4b).
     pub async fn delete_account(
