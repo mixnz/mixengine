@@ -18,6 +18,12 @@ export const IDLE_PULL_MS = 15 * 60_000;
  */
 export const FOCUS_PULL_MS = 60_000;
 
+/**
+ * Focus events closer together than this are one. Restoring a minimised window fires `focus` twice
+ * in WebView2, and each asked for its own run.
+ */
+export const FOCUS_COALESCE_MS = 1_000;
+
 function isEmpty(changes: SyncChanges): boolean {
   return changes.upserts.length === 0 && changes.removed.length === 0;
 }
@@ -66,7 +72,7 @@ export interface LoopOptions {
   /** Subscribes to a run being asked for (`requestSync`), which always pulls; returns the unsubscribe. */
   onRequest: (listener: () => void) => () => void;
   /** A run began: at least one row is on. */
-  onRunStart?: () => void;
+  onRunStart?: (run: Run) => void;
   /** That run ended, however it ended. */
   onRunEnd?: (result: RunResult) => void;
   /** Edits made here that newer ones replaced — for a notice, never a question (D4). */
@@ -117,13 +123,14 @@ export function startSyncLoop(options: LoopOptions): () => void {
   let queued: Run | null = null;
   let stopped = false;
   let lastFull = 0;
+  let lastFocus = -Infinity;
 
   async function runOnce(run: Run): Promise<void> {
     const collections = options.collections();
     // With every row off there is nothing to do and nothing to show.
     if (collections.length === 0) return;
     if (run === "full") lastFull = Date.now();
-    options.onRunStart?.();
+    options.onRunStart?.(run);
     let error: unknown = undefined;
     let finished = false;
     try {
@@ -168,7 +175,12 @@ export function startSyncLoop(options: LoopOptions): () => void {
   }
 
   ask("full");
-  const unfocus = options.onFocus(() => ask(Date.now() - lastFull >= FOCUS_PULL_MS ? "full" : "push"));
+  const unfocus = options.onFocus(() => {
+    // One restore of a minimised window fires `focus` twice; the second has nothing new to ask.
+    if (Date.now() - lastFocus < FOCUS_COALESCE_MS) return;
+    lastFocus = Date.now();
+    ask(Date.now() - lastFull >= FOCUS_PULL_MS ? "full" : "push");
+  });
   const unrequest = options.onRequest(() => ask("full"));
   const timer = setInterval(() => ask(Date.now() - lastFull >= IDLE_PULL_MS ? "full" : "push"), LOCAL_CHECK_MS);
   return () => {

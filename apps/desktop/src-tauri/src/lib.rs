@@ -49,13 +49,18 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(
+            // The default targets are stdout and the log directory already. Adding `LogDir` again
+            // gave the file two writers, and every line landed in it twice.
             tauri_plugin_log::Builder::new()
-                .target(tauri_plugin_log::Target::new(
-                    tauri_plugin_log::TargetKind::LogDir { file_name: None },
-                ))
                 // The plugin's default is 40_000 bytes — too small to hold a session with a real
                 // bug in it. 5MB holds a lot of lines before it ever needs to rotate.
                 .max_file_size(5_000_000)
+                // `info` and above, for every crate. The plugin's default passes TRACE and DEBUG
+                // too, and dependencies log every call there: `sqlx` each statement, `keyring` each
+                // credential, `h2`, `hyper_util`, `reqwest` and `tracing` each frame of a request.
+                // Measured, they were thousands of lines a minute, and rotated a real error out of
+                // the file within minutes. MixLab's own lines are `info`, `warn` and `error`.
+                .level(tauri_plugin_log::log::LevelFilter::Info)
                 .build(),
         );
 

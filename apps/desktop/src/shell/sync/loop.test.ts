@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SyncChanges, SyncableCollection } from "../../core/syncCollection";
 import type { PulledPage, PushedChanges, SyncBackend } from "./api";
 import {
+  FOCUS_COALESCE_MS,
   FOCUS_PULL_MS,
   IDLE_PULL_MS,
   LOCAL_CHECK_MS,
@@ -131,7 +132,7 @@ describe("the loop", () => {
     let request = () => {};
     const errors: unknown[] = [];
     const ends: RunResult[] = [];
-    let starts = 0;
+    const kinds: string[] = [];
     const stop = startSyncLoop({
       backend: fake,
       collections: () => collections,
@@ -149,11 +150,55 @@ describe("the loop", () => {
       },
       onReplaced: () => {},
       onError: (_id, error) => void errors.push(error),
-      onRunStart: () => void (starts += 1),
+      onRunStart: (run) => void kinds.push(run),
       onRunEnd: (result) => void ends.push(result),
     });
-    return { calls, errors, ends, starts: () => starts, stop, focus: () => focus(), request: () => request() };
+    return {
+      calls,
+      errors,
+      ends,
+      kinds,
+      starts: () => kinds.length,
+      stop,
+      focus: () => focus(),
+      request: () => request(),
+    };
   }
+
+  it("says which kind of run is starting, so a push can pass unseen", async () => {
+    const loop = harness([collection([])]);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FOCUS_COALESCE_MS);
+    loop.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.kinds).toEqual(["full", "push"]);
+  });
+
+  it("runs once for a burst of focus events, as one restore of the window fires", async () => {
+    // WebView2 fires `focus` twice when a minimised window comes back; each asked for a push, the
+    // second queued behind the first with nothing new to do.
+    const loop = harness([collection([])]);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FOCUS_COALESCE_MS);
+    loop.focus();
+    loop.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.kinds).toEqual(["full", "push"]);
+  });
+
+  it("runs again for a focus that comes after the burst", async () => {
+    const loop = harness([collection([])]);
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FOCUS_COALESCE_MS);
+    loop.focus();
+    await vi.advanceTimersByTimeAsync(FOCUS_COALESCE_MS);
+    loop.focus();
+    await vi.advanceTimersByTimeAsync(0);
+    loop.stop();
+    expect(loop.kinds).toEqual(["full", "push", "push"]);
+  });
 
   it("pulls and pushes at launch, and on focus", async () => {
     const calls: string[] = [];

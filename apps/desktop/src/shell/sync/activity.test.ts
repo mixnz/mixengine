@@ -7,16 +7,16 @@ describe("the spinner", () => {
 
   it("never shows for a run shorter than the delay", () => {
     const store = createActivity();
-    store.runStarted();
+    store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS - 1);
-    store.runEnded({ run: "push", error: undefined, finished: true });
+    store.runEnded({ run: "full", error: undefined, finished: true });
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS);
     expect(store.get().syncing).toBe(false);
   });
 
   it("shows for a long run, and stays at least the minimum once shown", () => {
     const store = createActivity();
-    store.runStarted();
+    store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
     expect(store.get().syncing).toBe(true);
     store.runEnded({ run: "full", error: undefined, finished: true });
@@ -28,12 +28,34 @@ describe("the spinner", () => {
 
   it("keeps turning through back-to-back runs", () => {
     const store = createActivity();
-    store.runStarted();
+    store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
     store.runEnded({ run: "full", error: undefined, finished: true });
-    store.runStarted();
+    store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AT_LEAST_MS * 2);
     expect(store.get().syncing).toBe(true);
+  });
+
+  it("never shows for a push, however long it takes", () => {
+    // A push is the local check alt-tabbing runs: reading every collection, sending nothing when
+    // nothing changed. Measured at 240–465ms with eleven rows on, so a delay alone does not hide it.
+    const store = createActivity();
+    store.runStarted("push");
+    vi.advanceTimersByTime(SHOW_AFTER_MS * 10);
+    expect(store.get().syncing).toBe(false);
+    store.runEnded({ run: "push", error: undefined, finished: true });
+    expect(store.get().syncing).toBe(false);
+  });
+
+  it("lets a full run's spinner stop on time when a push follows it", () => {
+    const store = createActivity();
+    store.runStarted("full");
+    vi.advanceTimersByTime(SHOW_AFTER_MS);
+    store.runEnded({ run: "full", error: undefined, finished: true });
+    store.runStarted("push");
+    store.runEnded({ run: "push", error: undefined, finished: true });
+    vi.advanceTimersByTime(SHOW_AT_LEAST_MS);
+    expect(store.get().syncing).toBe(false);
   });
 
   it("tells its subscribers, and hands out the same value until something changes", () => {
@@ -42,7 +64,7 @@ describe("the spinner", () => {
     store.subscribe(heard);
     const before = store.get();
     expect(store.get()).toBe(before);
-    store.runStarted();
+    store.runStarted("full");
     vi.advanceTimersByTime(SHOW_AFTER_MS);
     expect(heard).toHaveBeenCalled();
     expect(store.get()).not.toBe(before);

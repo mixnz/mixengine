@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
-import type { RunResult } from "./loop";
+import type { Run, RunResult } from "./loop";
 
-/** A run shorter than this never shows: a push that found nothing to send takes a few ms. */
+/** A full run shorter than this never shows. A push never shows at all: see `runStarted`. */
 export const SHOW_AFTER_MS = 200;
 
 /** Once shown, this long at least, so a run does not flash the spinner on and off. */
@@ -21,7 +21,7 @@ export interface ActivityStore {
   subscribe: (listener: () => void) => () => void;
   /** The same object until something changes. */
   get: () => SyncActivity;
-  runStarted: () => void;
+  runStarted: (run: Run) => void;
   runEnded: (result: RunResult) => void;
 }
 
@@ -47,7 +47,11 @@ export function createActivity(): ActivityStore {
       return () => void listeners.delete(listener);
     },
     get: () => value,
-    runStarted() {
+    runStarted(run) {
+      // A push is the local check every focus and every half minute runs. With nothing changed it
+      // sends nothing, yet reading eleven collections took 240–465ms: shown, alt-tabbing looked
+      // like syncing. What turns is a full run — launch, a focus a minute on, Sync now.
+      if (run === "push") return;
       // The next run began while the last one's spinner was still being held: keep turning.
       if (hideTimer !== null) {
         clearTimeout(hideTimer);
@@ -64,6 +68,9 @@ export function createActivity(): ActivityStore {
     runEnded({ run, error, finished }) {
       if (error !== undefined) set({ lastError: error });
       else if (run === "full" && finished) set({ lastSyncedAt: Date.now(), lastError: undefined });
+      // A push never started the spinner, so it has none to stop — and must not restart the hold
+      // of a full run's spinner that is still on screen.
+      if (run === "push") return;
 
       if (showTimer !== null) {
         clearTimeout(showTimer);
