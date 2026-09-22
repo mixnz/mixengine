@@ -679,4 +679,21 @@ mod tests {
             },
         }
     }
+
+    /// **A kept helper asks the helper for nothing** — the T88e design, D3. Only a `Planned` row
+    /// becomes an operation, so the batch carries no `helper-remove`.
+    #[test]
+    fn a_kept_helper_is_not_a_row_to_act_on() {
+        let kept = Residue {
+            id: ResidueId::PrivilegedHelper,
+            what: "MixEngine's privileged helper".to_owned(),
+            location: "/usr/local/libexec/mixengine/mixengine-elevate".to_owned(),
+            outcome: Removal::Kept {
+                because: "it came with the mixengine package, and removing that package removes it"
+                    .to_owned(),
+            },
+        };
+
+        assert!(!planned_row(&[kept], ResidueId::PrivilegedHelper));
+    }
 }
