@@ -262,6 +262,7 @@ root process.
       and the same shape is in `require_resolver`, `require_port_access` and `require_firewall`. A
       fix belongs where a want is withdrawn, so that `elevation drop` stays a person's decision
       rather than the mechanism's.
+      Design: [2026-09-23-t179-a-want-that-is-gone-leaves-the-queue-design.md](../specs/2026-09-23-t179-a-want-that-is-gone-leaves-the-queue-design.md).
 - [x] **T42** `PortAccess`: no-op on Windows, `cap_net_bind_service` on Linux, a pf anchor redirect
       plus a boot-time job on macOS ([ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md)).
       The re-probe is the producer: every daemon start asks, which covers "after every app update"
