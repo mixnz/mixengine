@@ -14,6 +14,9 @@ use sqlx::{Row, SqlitePool};
 use super::wire::WireRecord;
 use crate::error::AppError;
 
+/// What a deletion is stamped under. Never a hash: those are 64 hex characters.
+pub const DELETED: &str = "deleted";
+
 const SCHEMA: &[&str] = &[
     "CREATE TABLE IF NOT EXISTS cursor (
        server     TEXT    NOT NULL,
@@ -59,6 +62,13 @@ pub struct Seen {
 pub struct Agreed {
     pub local_id: String,
     pub hash: String,
+}
+
+/// A change this machine noticed and has not landed: what it said, and when it was first noticed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Stamped {
+    pub hash: String,
+    pub at: i64,
 }
 
 pub struct Store {
@@ -161,10 +171,11 @@ impl Store {
         .execute(&self.pool)
         .await
         .map_err(store_error)?;
-        // A tombstone is the end of any change to that record. A deletion that landed has nothing
-        // to agree on, so this is where its stamp goes.
+        // A tombstone is the end of a deletion this machine was landing. An edit made here is not
+        // ended by it: it may yet beat the tombstone (D4), and keeps its stamp until it lands.
         if record.deleted {
-            self.unstamp(&record.collection, &record.id).await?;
+            self.unstamp_deletion(&record.collection, &record.id)
+                .await?;
         }
         Ok(())
     }
@@ -284,6 +295,38 @@ impl Store {
         .await
         .map_err(store_error)?;
         Ok(now)
+    }
+
+    /// The change this machine is still trying to land for `id`, if any — what a pull weighs
+    /// against the version it brings (D4).
+    pub async fn stamped(&self, collection: &str, id: &str) -> Result<Option<Stamped>, AppError> {
+        let row = sqlx::query(
+            "SELECT hash, at FROM stamp WHERE server = ?1 AND collection = ?2 AND id = ?3",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(row.map(|row| Stamped {
+            hash: row.get(0),
+            at: row.get(1),
+        }))
+    }
+
+    async fn unstamp_deletion(&self, collection: &str, id: &str) -> Result<(), AppError> {
+        sqlx::query(
+            "DELETE FROM stamp WHERE server = ?1 AND collection = ?2 AND id = ?3 AND hash = ?4",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(id)
+        .bind(DELETED)
+        .execute(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(())
     }
 
     async fn unstamp(&self, collection: &str, id: &str) -> Result<(), AppError> {
@@ -414,5 +457,35 @@ mod tests {
             store.agreed_live("c").await.unwrap(),
             vec![("a".into(), "la".into())]
         );
+    }
+
+    #[tokio::test]
+    async fn a_stamp_reads_back_with_its_time() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        assert_eq!(store.stamped("c", "i").await.unwrap(), None);
+        store.stamp("c", "i", "h1", 100).await.unwrap();
+        assert_eq!(
+            store.stamped("c", "i").await.unwrap(),
+            Some(Stamped {
+                hash: "h1".into(),
+                at: 100
+            })
+        );
+    }
+
+    /// A tombstone ends a deletion this machine was landing, and nothing else: an edit made here
+    /// may yet beat it (D4), and needs the time it was first noticed to do so.
+    #[tokio::test]
+    async fn a_tombstone_ends_a_deletion_but_not_an_edit() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        store.stamp("c", "edited", "h1", 100).await.unwrap();
+        store.stamp("c", "removed", DELETED, 100).await.unwrap();
+        for id in ["edited", "removed"] {
+            let mut dead = record("c", id, 2);
+            dead.deleted = true;
+            store.remember(&dead).await.unwrap();
+        }
+        assert!(store.stamped("c", "edited").await.unwrap().is_some());
+        assert_eq!(store.stamped("c", "removed").await.unwrap(), None);
     }
 }

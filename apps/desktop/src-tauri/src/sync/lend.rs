@@ -18,7 +18,7 @@ use sha2::{Digest, Sha256};
 
 use super::crypto::{self, RecordAddress, Sealed};
 use super::engine::{Change, Outgoing, Pushed};
-use super::store::Store;
+use super::store::{Store, DELETED};
 use super::wire::WireRecord;
 use crate::error::AppError;
 
@@ -91,9 +91,6 @@ fn hash(bytes: &[u8]) -> String {
             out
         })
 }
-
-/// What a deletion is stamped under. Never a hash: those are 64 hex characters.
-const DELETED: &str = "deleted";
 
 fn plaintext(collection: &str, item: &Item) -> Vec<u8> {
     canonical(&json!({ "collection": collection, "id": item.id, "data": item.data }))
