@@ -246,7 +246,7 @@ root process.
       What the answer means for [ADR 0005](../decisions/0005-on-demand-elevation.md) is that it
       stands, measured rather than assumed.
       **It also found T179**, one line below.
-- [ ] **T179** A queued elevation that is no longer wanted stays in the queue, and says the wrong
+- [x] **T179** A queued elevation that is no longer wanted stays in the queue, and says the wrong
       thing before a prompt. `Elevation::require_hosts` asks for a hosts write only when the machine
       disagrees with what this home declares, and when the machine agrees it returns without
       withdrawing what is already queued. So deleting the only site that needed a name leaves
@@ -262,6 +262,10 @@ root process.
       and the same shape is in `require_resolver`, `require_port_access` and `require_firewall`. A
       fix belongs where a want is withdrawn, so that `elevation drop` stays a person's decision
       rather than the mechanism's.
+      **`withdraw` is the answer, and it is one function.** `mixengine_core::elevation::withdraw`
+      removes a queued operation by the `dedupe_key` that put it there, and each of the four
+      producers calls it on the path where it finds the machine already agreeing — never on a
+      reading that failed, which has said nothing about what to stop asking for.
       Design: [2026-09-23-t179-a-want-that-is-gone-leaves-the-queue-design.md](../specs/2026-09-23-t179-a-want-that-is-gone-leaves-the-queue-design.md).
 - [x] **T42** `PortAccess`: no-op on Windows, `cap_net_bind_service` on Linux, a pf anchor redirect
       plus a boot-time job on macOS ([ADR 0012](../decisions/0012-a-boot-time-job-enables-the-packet-filter-on-macos.md)).

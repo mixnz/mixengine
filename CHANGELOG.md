@@ -121,6 +121,8 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- Deleting a site no longer leaves its permission request behind. What `mix elevation status` lists,
+  and what MixLab shows before the system asks you to allow it, is what the machine still needs.
 - On Linux, `mix uninstall` no longer deletes the privileged helper that the `.deb` or the `.rpm`
   installed. It lists the helper as kept, and removing the package removes it.
 - On macOS and Linux, two MixEngine homes, or two people on one machine, can now set up a MariaDB
