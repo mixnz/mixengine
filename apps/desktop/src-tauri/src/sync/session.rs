@@ -82,6 +82,8 @@ struct Held {
     agreements: Vec<Agreement>,
     /// A pulled page's cursor; `None` for a lost conflict's winners, which move no cursor.
     fetched: Option<Fetched>,
+    /// On the page that ends a resync: what it never met, forgotten on commit (T178b, M2).
+    unmet: Vec<String>,
 }
 
 /// Registration between its first step and its last: `A` to sign in with, and `MK`, which was
@@ -1015,21 +1017,39 @@ impl SyncState {
         self.status().await
     }
 
+    /// Stamp this machine's changes to `collection` before its pages are pulled, so the pull can
+    /// weigh them against what it brings (D4). Nothing is sent.
+    pub async fn notice(&self, collection: &str, items: Vec<Item>) -> Result<(), AppError> {
+        let name = collection.to_owned();
+        let items = Arc::new(items);
+        self.with_session(|session| {
+            let (name, items) = (name.clone(), items.clone());
+            async move { lend::notice(&session.store, &session.keys, &name, &items, now()).await }
+        })
+        .await
+    }
+
     /// The next page of `collection`, opened, for its module to write.
     pub async fn pull_page(&self, collection: &str) -> Result<PulledPage, AppError> {
         let name = collection.to_owned();
-        let (fetched, changes, agreements) = self
+        let (fetched, opened) = self
             .with_session(|session| {
                 let name = name.clone();
                 async move {
                     let opaque = crypto::opaque_id(&session.keys.id, &name);
                     let fetched =
                         engine::fetch(&session.transport, &session.store, &opaque).await?;
-                    let (changes, agreements) =
-                        lend::incoming(&session.store, &session.keys, &name, &fetched.records)
-                            .await?;
+                    let opened = lend::incoming(
+                        &session.store,
+                        &session.keys,
+                        &name,
+                        &session.device_id,
+                        &fetched.records,
+                        fetched.resync && !fetched.more,
+                    )
+                    .await?;
                     // Named: an async block that uses `?` cannot infer its error type.
-                    Ok::<_, AppError>((fetched, changes, agreements))
+                    Ok::<_, AppError>((fetched, opened))
                 }
             })
             .await?;
@@ -1040,13 +1060,14 @@ impl SyncState {
             Held {
                 token: token.clone(),
                 records: fetched.records.clone(),
-                agreements,
+                agreements: opened.agreements,
                 fetched: Some(fetched),
+                unmet: opened.unmet,
             },
         );
         Ok(PulledPage {
             token,
-            changes,
+            changes: opened.changes,
             more,
         })
     }
@@ -1079,10 +1100,21 @@ impl SyncState {
                     .await?;
                     lend::settle_pushed(&session.store, &session.keys, &name, agreed, &pushed)
                         .await?;
-                    let (replaced, agreements) =
-                        lend::incoming(&session.store, &session.keys, &name, &pushed.superseded)
-                            .await?;
-                    Ok((pushed.accepted, replaced, pushed.superseded, agreements))
+                    let opened = lend::incoming(
+                        &session.store,
+                        &session.keys,
+                        &name,
+                        &session.device_id,
+                        &pushed.superseded,
+                        false,
+                    )
+                    .await?;
+                    Ok((
+                        pushed.accepted,
+                        opened.changes,
+                        pushed.superseded,
+                        opened.agreements,
+                    ))
                 }
             })
             .await?;
@@ -1097,6 +1129,7 @@ impl SyncState {
                     records,
                     agreements,
                     fetched: None,
+                    unmet: Vec::new(),
                 },
             );
             Some(token)
@@ -1108,17 +1141,33 @@ impl SyncState {
         })
     }
 
-    pub async fn commit_pull(&self, collection: &str, token: &str) -> Result<(), AppError> {
-        self.commit(Kind::Pull, collection, token).await
+    pub async fn commit_pull(
+        &self,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
+        self.commit(Kind::Pull, collection, token, skipped).await
     }
 
-    pub async fn commit_push(&self, collection: &str, token: &str) -> Result<(), AppError> {
-        self.commit(Kind::Push, collection, token).await
+    pub async fn commit_push(
+        &self,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
+        self.commit(Kind::Push, collection, token, skipped).await
     }
 
-    /// The module has written what `token` handed out: record it, and for a page, move the
-    /// cursor. No request is made.
-    async fn commit(&self, kind: Kind, collection: &str, token: &str) -> Result<(), AppError> {
+    /// The module has written what `token` handed out, except the ids in `skipped`: record it, and
+    /// for a page, move the cursor. No request is made.
+    async fn commit(
+        &self,
+        kind: Kind,
+        collection: &str,
+        token: &str,
+        skipped: Vec<String>,
+    ) -> Result<(), AppError> {
         let (held, session) = {
             let mut inner = self.inner.lock().await;
             let key = (kind, collection.to_owned());
@@ -1144,11 +1193,12 @@ impl SyncState {
             collection,
             &held.records,
             held.agreements,
+            &skipped,
         )
         .await?;
         if let Some(fetched) = &held.fetched {
             let opaque = crypto::opaque_id(&session.keys.id, collection);
-            engine::commit(&session.store, &opaque, fetched).await?;
+            engine::commit(&session.store, &opaque, fetched, &held.unmet).await?;
         }
         Ok(())
     }
@@ -1182,7 +1232,10 @@ mod tests {
     /// A token nobody handed out — or one from before a sign-in — records nothing.
     #[tokio::test]
     async fn a_token_nobody_handed_out_records_nothing() {
-        let error = state().commit_pull("c", "nope").await.unwrap_err();
+        let error = state()
+            .commit_pull("c", "nope", Vec::new())
+            .await
+            .unwrap_err();
         assert_eq!(error.code, "error.syncPageStale");
     }
 

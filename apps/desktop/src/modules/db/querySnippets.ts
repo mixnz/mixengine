@@ -71,7 +71,13 @@ export const querySnippetsSyncable: SyncableCollection = {
   },
   write: async (changes) => {
     await store.ready();
-    const next = applySyncChanges(store.get(), changes, (s) => s.name.toLowerCase(), snippetFromSync);
-    await store.save(next.sort((a, b) => a.name.localeCompare(b.name)));
+    const { items, skipped } = applySyncChanges(
+      store.get(),
+      changes,
+      (s) => s.name.toLowerCase(),
+      snippetFromSync,
+    );
+    await store.save(items.sort((a, b) => a.name.localeCompare(b.name)));
+    return skipped;
   },
 };

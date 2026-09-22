@@ -167,6 +167,29 @@ describe("what a record may be", () => {
 });
 
 describe("GET /v1/records", () => {
+  it("ends the last page of a collection at the account's latest seq", async () => {
+    // A cursor stopped at a quiet collection's own last row sits below every later write in the
+    // account, where one reaped tombstone expires it for good (T178b, M3).
+    const { session: own } = await signedUp();
+    const quiet = await seed(own.accessToken);
+    const later = await seed(own.accessToken);
+    const page = await since(own.accessToken, 0, quiet.collection);
+    expect(page.status).toBe(200);
+    expect(page.body.more).toBe(false);
+    expect(page.body.nextSince).toBe(later.stored.seq);
+  });
+
+  it("refuses a resync flag that is not 1", async () => {
+    const { session: own } = await signedUp();
+    for (const bad of ["true", "0", ""]) {
+      const result = await call<ErrorBody>(`/v1/records?since=0&resync=${encodeURIComponent(bad)}`, {
+        token: own.accessToken,
+      });
+      expect(result.status, `resync=${JSON.stringify(bad)}`).toBe(400);
+      expect(result.body.error?.code).toBe("invalid-request");
+    }
+  });
+
   it("returns what changed after the cursor, oldest first", async () => {
     const { session: own } = await signedUp();
     const collection = opaqueId();

@@ -55,6 +55,8 @@ export const snippetsSyncable: SyncableCollection = {
   },
   write: async (changes) => {
     await store.ready();
-    await store.save(applySyncChanges(store.get(), changes, (s) => s.id, snippetFromSync));
+    const { items, skipped } = applySyncChanges(store.get(), changes, (s) => s.id, snippetFromSync);
+    await store.save(items);
+    return skipped;
   },
 };

@@ -60,10 +60,10 @@ export function connectionFromSync(
 }
 
 /** Through the store's own add, update and remove, which own the split with the credential store. */
-async function write(changes: SyncChanges): Promise<void> {
+async function write(changes: SyncChanges): Promise<string[]> {
   const current = await loadSavedConnections();
   const had = new Set(current.map((connection) => connection.id));
-  const next = applySyncChanges(current, changes, (c) => c.id, connectionFromSync);
+  const { items: next, skipped } = applySyncChanges(current, changes, (c) => c.id, connectionFromSync);
   const touched = new Set(changes.upserts.map((item) => item.id));
 
   for (const id of changes.removed) if (had.has(id)) await removeConnection(id);
@@ -78,6 +78,7 @@ async function write(changes: SyncChanges): Promise<void> {
     const waiting = await loadSecrets(connection.id);
     await addConnection({ ...connection, config: withSecrets(connection.config, waiting) });
   }
+  return skipped;
 }
 
 export const connectionsSyncable: SyncableCollection = {
@@ -123,14 +124,20 @@ export function connectionSecretsFromSync(data: unknown): Record<string, string>
  * tabs see the new password at once; one that has not arrived yet gets its entry anyway, and finds
  * it when it comes (D5).
  */
-async function writeSecrets(changes: SyncChanges): Promise<void> {
+async function writeSecrets(changes: SyncChanges): Promise<string[]> {
   const current = new Map((await loadSavedConnections()).map((connection) => [connection.id, connection]));
+  const skipped: string[] = [];
   for (const synced of changes.upserts) {
     const secrets = connectionSecretsFromSync(synced.data);
-    if (!secrets) continue;
+    if (!secrets) {
+      skipped.push(synced.id);
+      continue;
+    }
     const local = current.get(synced.id);
     if (!local) {
+      // Parked for a connection still to come: `read` does not return it until then (L4).
       await saveSecrets(synced.id, secrets);
+      skipped.push(synced.id);
       continue;
     }
     // A password MixEngine's keyring holds for this connection stays there.
@@ -142,6 +149,7 @@ async function writeSecrets(changes: SyncChanges): Promise<void> {
     if (local) await updateConnection({ ...local, config: withoutSecrets(local.config) });
     else await deleteSecrets(id);
   }
+  return skipped;
 }
 
 export const connectionSecretsSyncable: SyncableCollection = {

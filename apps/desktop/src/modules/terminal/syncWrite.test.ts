@@ -25,6 +25,13 @@ vi.mock(import("./savedTargetsStore"), () => ({
   useSavedTargetsLoaded: vi.fn(),
 }));
 
+vi.mock(import("./settingsStore"), async (original) => ({
+  ...(await original()),
+  saveTerminalSettings: vi.fn(async () => {
+    throw new Error("disk full");
+  }),
+}));
+
 const files = await import("./savedTargets");
 const shared = await import("./savedTargetsStore");
 const { hostSecretsSyncable, hostsSyncable } = await import("./sync");
@@ -44,6 +51,24 @@ describe("what sync writes of a host", () => {
     expect(files.addSavedTarget).not.toHaveBeenCalled();
     expect(files.updateSavedTarget).not.toHaveBeenCalled();
     expect(files.removeSavedTarget).not.toHaveBeenCalled();
+  });
+
+  it("names a host's credentials it parked for a host this machine does not have", async () => {
+    const skipped = await hostSecretsSyncable.write({
+      upserts: [{ id: "h-elsewhere", data: { sshPassword: "pw" } }],
+      removed: [],
+    });
+    // `read` returns credentials only for a host that is here, so agreed they would be pushed as a
+    // deletion (T178a, L4).
+    expect(skipped).toEqual(["h-elsewhere"]);
+    expect(files.saveSecrets).toHaveBeenCalledWith("h-elsewhere", { sshPassword: "pw" });
+  });
+
+  it("terminal settings whose save fails are a failed write", async () => {
+    const { settingsSyncable } = await import("./sync");
+    await expect(
+      settingsSyncable.write({ upserts: [{ id: "settings", data: { fontSize: 16 } }], removed: [] }),
+    ).rejects.toThrow("disk full");
   });
 
   it("puts a host's credentials through the shared list too", async () => {

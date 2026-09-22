@@ -174,7 +174,9 @@ async fn pull_all(transport: &Transport, store: &Store, collection: &str) -> Vec
         for record in &fetched.records {
             store.remember(record).await.unwrap();
         }
-        engine::commit(store, collection, &fetched).await.unwrap();
+        engine::commit(store, collection, &fetched, &[])
+            .await
+            .unwrap();
         all.extend(fetched.records.iter().cloned());
         if !fetched.more {
             return all;
@@ -398,7 +400,7 @@ async fn the_client_signs_up_signs_in_and_carries_an_item() {
     let page = laptop.pull_page("query-snippets").await.unwrap();
     assert_eq!(page.changes.upserts, vec![snippet.clone()]);
     laptop
-        .commit_pull("query-snippets", &page.token)
+        .commit_pull("query-snippets", &page.token, Vec::new())
         .await
         .unwrap();
     let after = laptop.push("query-snippets", vec![snippet]).await.unwrap();

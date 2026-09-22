@@ -256,6 +256,7 @@ export function listSince(
   limits: Capabilities,
   since: number,
   collection: string | null,
+  resync: boolean,
 ): Outcome | Page {
   if (!Number.isSafeInteger(since) || since < 0) return invalid("`since` is a sequence number.");
   if (collection !== null && !isOpaqueId(collection)) {
@@ -263,9 +264,10 @@ export function listSince(
   }
 
   // D3: a machine that has been away longer than a tombstone lives is told to resync from empty
-  // rather than told incomplete news quietly.
+  // rather than told incomplete news quietly. `resync` is a cursor from a read that began at 0,
+  // which has missed nothing (T178b, M4).
   const reapedBelow = account(sql).reaped_below_seq;
-  if (since > 0 && since < reapedBelow) {
+  if (since > 0 && since < reapedBelow && !resync) {
     return {
       status: 410,
       error: {
@@ -294,9 +296,13 @@ export function listSince(
   const more = rows.length > limits.maxPageRecords;
   const page = more ? rows.slice(0, limits.maxPageRecords) : rows;
 
+  const last = page.at(-1)?.seq ?? since;
   return {
     records: page.map(wire),
-    nextSince: page.at(-1)?.seq ?? since,
+    // The last page ends at the account's latest seq (M3): a cursor stopped at the collection's own
+    // last row would sit below every later write in the account. The Durable Object runs one
+    // request at a time, so nothing is written between these reads.
+    nextSince: more ? last : Math.max(last, account(sql).next_seq),
     more,
   };
 }

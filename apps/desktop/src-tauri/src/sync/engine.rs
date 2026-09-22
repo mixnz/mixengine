@@ -50,46 +50,61 @@ pub struct Fetched {
     pub records: Vec<WireRecord>,
     pub next_since: i64,
     pub more: bool,
-    /// The server had forgotten this machine's cursor and this page starts over from nothing.
-    /// What follows is then the whole collection, and anything local that is not in it was deleted
-    /// on the server longer ago than tombstones are kept.
-    pub restarted: bool,
+    /// This page belongs to a resync: a read that began at 0 after the server forgot this
+    /// machine's cursor. The page with `more: false` ends it, and forgets whatever the resync
+    /// never met (T178b, M2).
+    pub resync: bool,
 }
 
 /// The next page of `collection` after this machine's cursor. **Moves nothing**: see [`Fetched`].
+/// A `410` starts a resync (M1). Every later page of it says `resync=1`, so it is not expired
+/// halfway (M4).
 pub async fn fetch<R: Remote>(
     remote: &R,
     store: &Store,
     collection: &str,
 ) -> Result<Fetched, AppError> {
-    let page = match remote
-        .page(collection, store.since(collection).await?)
-        .await?
-    {
-        PageOutcome::Page(page) => return Ok(fetched(page, false)),
-        PageOutcome::CursorExpired => {
-            store.forget(collection).await?;
-            remote.page(collection, 0).await?
-        }
-    };
-    match page {
+    let since = store.since(collection).await?;
+    let resync = store.resyncing(collection).await?;
+    match remote.page(collection, since, resync && since > 0).await? {
+        PageOutcome::Page(page) => return Ok(fetched(page, resync)),
+        PageOutcome::CursorExpired => store.begin_resync(collection).await?,
+    }
+    match remote.page(collection, 0, false).await? {
         PageOutcome::Page(page) => Ok(fetched(page, true)),
         // Expired again from the beginning: a server bug, and not one to loop on.
         PageOutcome::CursorExpired => Err(err!("error.syncServerRefused", code = "cursor-expired")),
     }
 }
 
-fn fetched(page: Page, restarted: bool) -> Fetched {
+fn fetched(page: Page, resync: bool) -> Fetched {
     Fetched {
         records: page.records,
         next_since: page.next_since,
         more: page.more,
-        restarted,
+        resync,
     }
 }
 
-/// Move the cursor past a page the caller has written and landed.
-pub async fn commit(store: &Store, collection: &str, fetched: &Fetched) -> Result<(), AppError> {
+/// Move the cursor past a page the caller has written and landed. A resync page marks what it
+/// met; the last one forgets `unmet` and ends the resync (M2).
+pub async fn commit(
+    store: &Store,
+    collection: &str,
+    fetched: &Fetched,
+    unmet: &[String],
+) -> Result<(), AppError> {
+    if fetched.resync {
+        let met: Vec<String> = fetched
+            .records
+            .iter()
+            .map(|record| record.id.clone())
+            .collect();
+        store.mark_met(collection, &met).await?;
+        if !fetched.more {
+            store.end_resync(collection, unmet).await?;
+        }
+    }
     store.set_since(collection, fetched.next_since).await
 }
 
@@ -221,6 +236,8 @@ mod tests {
         seq: i64,
         /// A cursor below this is one the server has forgotten.
         forgotten_below: i64,
+        /// The `resync` flag of every page asked for, in order.
+        resync_flags: Vec<bool>,
     }
 
     impl Fake {
@@ -269,9 +286,15 @@ mod tests {
     }
 
     impl Remote for Fake {
-        async fn page(&self, collection: &str, since: i64) -> Result<PageOutcome, AppError> {
-            let state = self.state.lock().unwrap();
-            if since != 0 && since < state.forgotten_below {
+        async fn page(
+            &self,
+            collection: &str,
+            since: i64,
+            resync: bool,
+        ) -> Result<PageOutcome, AppError> {
+            let mut state = self.state.lock().unwrap();
+            state.resync_flags.push(resync);
+            if since != 0 && since < state.forgotten_below && !resync {
                 return Ok(PageOutcome::CursorExpired);
             }
             let mut records: Vec<_> = state
@@ -393,7 +416,7 @@ mod tests {
             for record in &fetched.records {
                 store.remember(record).await.unwrap();
             }
-            commit(store, "c", &fetched).await.unwrap();
+            commit(store, "c", &fetched, &[]).await.unwrap();
             all.extend(fetched.records.iter().cloned());
             if !fetched.more {
                 return all;
@@ -552,14 +575,39 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_forgotten_cursor_starts_over_from_nothing() {
+    async fn a_forgotten_cursor_starts_a_resync_that_keeps_what_was_agreed() {
         let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
         server.holds("a", 1, 100, "theirs");
         store.set_since("c", 1).await.unwrap();
+        store.remember(&server.current("a")).await.unwrap();
+        store.agree("c", "a", "local", "h").await.unwrap();
         server.state.lock().unwrap().forgotten_below = 50;
+
         let fetched = fetch(&server, &store, "c").await.unwrap();
-        assert!(fetched.restarted);
+        assert!(fetched.resync);
         assert_eq!(fetched.records.len(), 1);
+        assert!(store.resyncing("c").await.unwrap());
+        assert!(store.agreed("c", "a").await.unwrap().is_some());
+    }
+
+    /// Past one page, a resync says so on every page after the first, and reaches the end (M4).
+    #[tokio::test]
+    async fn a_resync_says_so_on_every_page_after_the_first() {
+        let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
+        for n in 0..5 {
+            server.holds(&n.to_string(), 1, 100, "theirs");
+        }
+        store.set_since("c", 1).await.unwrap();
+        server.state.lock().unwrap().forgotten_below = 50;
+
+        assert_eq!(pull_all(&server, &store).await.len(), 5);
+        assert!(
+            !store.resyncing("c").await.unwrap(),
+            "the last page ended it"
+        );
+        let flags = server.state.lock().unwrap().resync_flags.clone();
+        // The stale cursor, the restart at 0, then two resync pages.
+        assert_eq!(flags, vec![false, false, true, true]);
     }
 
     /// A conflict that never settles — another machine that always wins by a tie it should lose —
@@ -568,7 +616,7 @@ mod tests {
     async fn a_conflict_that_never_settles_is_given_up_on() {
         struct Stubborn;
         impl Remote for Stubborn {
-            async fn page(&self, _: &str, _: i64) -> Result<PageOutcome, AppError> {
+            async fn page(&self, _: &str, _: i64, _: bool) -> Result<PageOutcome, AppError> {
                 unreachable!("push does not page")
             }
             async fn batch(&self, operations: &[Operation]) -> Result<Vec<BatchResult>, AppError> {

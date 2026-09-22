@@ -19,7 +19,7 @@ import {
 // change the file and leave each tab's sidebar as it was until the app restarted.
 import { addTarget, removeTarget, updateTarget } from "./savedTargetsStore";
 import { sanitizeSettings, type TerminalSettings } from "./settings";
-import { loadTerminalSettings, updateTerminalSettings } from "./settingsStore";
+import { loadTerminalSettings, saveTerminalSettings } from "./settingsStore";
 import type { SavedTarget } from "./types";
 
 /** D5's *font, cursor, scrollback*, and nothing that names this machine. */
@@ -67,11 +67,14 @@ export const settingsSyncable: SyncableCollection = {
   labelKey: "terminalSync.settings",
   read: async () => settingsToSync(await loadTerminalSettings()),
   write: async (changes) => {
+    const skipped: string[] = [];
     for (const synced of changes.upserts) {
       const patch = synced.id === "settings" ? settingsFromSync(synced) : null;
-      if (patch) updateTerminalSettings(patch);
+      if (patch) await saveTerminalSettings(patch);
+      else skipped.push(synced.id);
     }
     // Settings are not a list and cannot be deleted; a removal has nothing to act on.
+    return skipped;
   },
 };
 
@@ -82,7 +85,7 @@ export const hostsSyncable: SyncableCollection = {
   write: async (changes) => {
     const current = await loadSavedTargets();
     const had = new Set(current.map((target) => target.id));
-    const next = applySyncChanges(current, changes, (t) => t.id, targetFromSync);
+    const { items: next, skipped } = applySyncChanges(current, changes, (t) => t.id, targetFromSync);
     const touched = new Set(changes.upserts.map((item) => item.id));
     for (const id of changes.removed) if (had.has(id)) await removeTarget(id);
     for (const target of next) {
@@ -97,6 +100,7 @@ export const hostsSyncable: SyncableCollection = {
         target.kind === "ssh" ? { ...target, config: mergeSshSecrets(target.config, waiting) } : target,
       );
     }
+    return skipped;
   },
 };
 
@@ -123,23 +127,27 @@ export function hostSecretsFromSync(data: unknown): HostSecrets | null {
 
 /** The same shape as `connection-secrets`' writer: through the list for a host this machine has,
  *  straight into the vault for one that has not arrived (D5). */
-async function writeHostSecrets(changes: SyncChanges): Promise<void> {
+async function writeHostSecrets(changes: SyncChanges): Promise<string[]> {
   const current = new Map((await loadSavedTargets()).map((target) => [target.id, target]));
+  const skipped: string[] = [];
   for (const synced of changes.upserts) {
     const secrets = hostSecretsFromSync(synced.data);
-    if (!secrets) continue;
     const local = current.get(synced.id);
-    if (local?.kind === "ssh") {
+    if (secrets && local?.kind === "ssh") {
       await updateTarget({ ...local, config: mergeSshSecrets(splitSshSecrets(local.config).config, secrets) });
-    } else if (!local) {
-      await saveSecrets(synced.id, secrets);
+      continue;
     }
+    // Parked for a host still to come, which `read` does not return until then; or nothing this
+    // machine can hold (L4).
+    if (secrets && !local) await saveSecrets(synced.id, secrets);
+    skipped.push(synced.id);
   }
   for (const id of changes.removed) {
     const local = current.get(id);
     if (local?.kind === "ssh") await updateTarget(withoutSecrets(local));
     else if (!local) await deleteSecrets(id);
   }
+  return skipped;
 }
 
 export const hostSecretsSyncable: SyncableCollection = {

@@ -33,13 +33,14 @@ describe("preferences in sync", () => {
     expect(announce).toHaveBeenCalledOnce();
   });
 
-  it("ignore a key it does not know and a value that is not a string, and say nothing", async () => {
+  it("ignore a key it does not know and a value that is not a string, name both, and say nothing", async () => {
     const storage = memory();
     const announce = vi.fn();
-    await preferencesCollection(() => storage, announce).write({
+    const skipped = await preferencesCollection(() => storage, announce).write({
       upserts: [{ id: "mixdb-session", data: "{}" }, { id: "theme", data: 3 }],
       removed: [],
     });
+    expect(skipped).toEqual(["mixdb-session", "theme"]);
     expect(storage.data.size).toBe(0);
     expect(announce).not.toHaveBeenCalled();
   });

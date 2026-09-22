@@ -16,12 +16,17 @@ use crate::error::AppError;
 
 /// Something that pages through every record an account holds.
 pub trait Source {
-    fn page_all(&self, since: i64) -> impl Future<Output = Result<Page, AppError>> + Send;
+    /// `resync`: `since` came from a read that began at 0 (T178b, M4).
+    fn page_all(
+        &self,
+        since: i64,
+        resync: bool,
+    ) -> impl Future<Output = Result<Page, AppError>> + Send;
 }
 
 impl Source for Transport {
-    async fn page_all(&self, since: i64) -> Result<Page, AppError> {
-        Transport::page_all(self, since).await
+    async fn page_all(&self, since: i64, resync: bool) -> Result<Page, AppError> {
+        Transport::page_all(self, since, resync).await
     }
 }
 
@@ -35,7 +40,9 @@ pub async fn copy_account<S: Source, R: Remote>(
     let mut carried = Vec::new();
     let mut since = 0;
     loop {
-        let page = from.page_all(since).await?;
+        // A copy is a read from 0, so every later page says so: a tombstone reaped while it runs
+        // must not end it halfway (M4).
+        let page = from.page_all(since, since > 0).await?;
         let mut operations = Vec::new();
         for record in page.records.into_iter().filter(|record| !record.deleted) {
             let (Some(nonce), Some(ciphertext)) = (record.nonce, record.ciphertext) else {
@@ -83,7 +90,7 @@ pub async fn missing<S: Source>(on: &S, wanted: &[(String, String)]) -> Result<u
     let mut held = HashSet::new();
     let mut since = 0;
     loop {
-        let page = on.page_all(since).await?;
+        let page = on.page_all(since, since > 0).await?;
         held.extend(
             page.records
                 .into_iter()
@@ -122,7 +129,9 @@ mod tests {
     struct Old(Vec<WireRecord>);
 
     impl Source for Old {
-        async fn page_all(&self, since: i64) -> Result<Page, AppError> {
+        async fn page_all(&self, since: i64, resync: bool) -> Result<Page, AppError> {
+            // A server that has reaped refuses a later page that does not say it is a resync.
+            assert!(since == 0 || resync, "a copy's later pages are a resync");
             let start = usize::try_from(since).unwrap();
             let records: Vec<_> = self.0.iter().skip(start).take(2).cloned().collect();
             let next = start + records.len();
@@ -146,6 +155,7 @@ mod tests {
             &self,
             _: &str,
             _: i64,
+            _: bool,
         ) -> Result<crate::sync::transport::PageOutcome, AppError> {
             unreachable!("a copy writes with batch")
         }
@@ -181,7 +191,7 @@ mod tests {
     }
 
     impl Source for New {
-        async fn page_all(&self, _: i64) -> Result<Page, AppError> {
+        async fn page_all(&self, _: i64, _: bool) -> Result<Page, AppError> {
             let held = self.held.lock().unwrap();
             Ok(Page {
                 records: held.iter().map(|(c, i)| record(c, i, false)).collect(),

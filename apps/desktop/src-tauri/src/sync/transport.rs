@@ -25,10 +25,13 @@ pub enum PageOutcome {
 
 /// The two calls the engine makes, as a trait so the engine is tested without a server.
 pub trait Remote {
+    /// `resync`: `since` came from a read that began at 0, so the server does not expire it
+    /// (T178b, M4).
     fn page(
         &self,
         collection: &str,
         since: i64,
+        resync: bool,
     ) -> impl Future<Output = Result<PageOutcome, AppError>> + Send;
 
     fn batch(
@@ -81,9 +84,12 @@ impl Transport {
 
     /// Every record the account holds after `since`, across collections — what a copy reads
     /// (D4b). Not part of [`Remote`]: nothing but a copy asks for the whole account at once.
-    pub async fn page_all(&self, since: i64) -> Result<Page, AppError> {
+    pub async fn page_all(&self, since: i64, resync: bool) -> Result<Page, AppError> {
         let response = self
-            .request(Method::GET, &format!("/v1/records?since={since}"))
+            .request(
+                Method::GET,
+                &format!("/v1/records?since={since}{}", resync_flag(resync)),
+            )
             .send()
             .await
             .map_err(unreachable)?;
@@ -92,10 +98,18 @@ impl Transport {
 }
 
 impl Remote for Transport {
-    async fn page(&self, collection: &str, since: i64) -> Result<PageOutcome, AppError> {
+    async fn page(
+        &self,
+        collection: &str,
+        since: i64,
+        resync: bool,
+    ) -> Result<PageOutcome, AppError> {
         // Both halves are safe in a query string: an opaque id is 64 hex characters and a cursor
         // is a number.
-        let path = format!("/v1/records?collection={collection}&since={since}");
+        let path = format!(
+            "/v1/records?collection={collection}&since={since}{}",
+            resync_flag(resync)
+        );
         let response = self
             .request(Method::GET, &path)
             .send()
@@ -129,6 +143,15 @@ impl Remote for Transport {
         read::<BatchResponse>(response)
             .await
             .map(|batch| batch.results)
+    }
+}
+
+/// `resync=1`: this cursor came from a read that began at 0 (T178b, M4).
+fn resync_flag(resync: bool) -> &'static str {
+    if resync {
+        "&resync=1"
+    } else {
+        ""
     }
 }
 
