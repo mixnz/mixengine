@@ -151,4 +151,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-20 | [T174 — A rehearsal of the release build](2026-09-20-t174-a-rehearsal-of-the-release-build-design.md) | T174 | implemented |
 | 2026-09-20 | [T175 — Dependencies that earn their place](2026-09-20-t175-dependencies-that-earn-their-place-design.md) | T175 | implemented |
 | 2026-09-20 | [T177 — A copy only you can read](2026-09-20-t177-a-copy-only-you-can-read-design.md) | T177 | implemented |
-| 2026-09-22 | [T178a–b — A pull that keeps what it has not agreed, and a resync that ends](2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md) | T178a, T178b | approved |
+| 2026-09-22 | [T178a–b — A pull that keeps what it has not agreed, and a resync that ends](2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md) | T178a, T178b | implemented |

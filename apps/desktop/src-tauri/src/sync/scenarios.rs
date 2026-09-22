@@ -543,8 +543,8 @@ async fn a_deletion_is_not_undone_by_a_resync_after_the_cursor_expired() {
     assert_eq!(a.holds("c", "kept"), None);
 }
 
-/// M2: a deletion whose tombstone the reaper has already taken. `Fetched::restarted`
-/// says what a resync means — anything local not in it was deleted — and nothing reads it.
+/// M2: a deletion whose tombstone the reaper has already taken. A resync meets every live record
+/// and every surviving tombstone, so anything agreed here that it never meets was deleted.
 #[tokio::test]
 async fn a_deletion_whose_tombstone_was_reaped_is_not_undone_by_a_resync() {
     let server = Server::new(2);
