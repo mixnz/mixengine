@@ -193,7 +193,9 @@ impl super::Sites {
     /// **Whole state, computed from the rows** — the T74 design, D6. Every shared site's web ports
     /// go in one plan, so the queue holds one row for the question *what should this machine have
     /// open?* rather than one per share, and the answer that supersedes it is simply the next plan.
-    /// A home with nothing shared queues the empty plan, which is the revoke.
+    /// A home with nothing shared wants the empty plan, which is the revoke — and queues it only
+    /// where this home has rules to revoke, because a prompt that changes nothing is a prompt
+    /// somebody still has to answer (T180).
     async fn wants_the_firewall(&self) -> Result<(), Error> {
         let records = sites::records(&self.store, None)
             .await
@@ -222,13 +224,28 @@ impl super::Sites {
             },
         );
 
+        let wanted = FirewallPlan {
+            ports,
+            label: format!("{FIREWALL_LABEL}shared sites"),
+        };
+
+        // **What this home last had applied, because the machine cannot be read** (T74, and the
+        // T180 design). A plan that is already applied is not a prompt; it is a row to take out of
+        // the queue, which is what an earlier sharing change may have left there.
+        let applied: Option<FirewallPlan> =
+            mixengine_core::updates::records::get(&self.store, crate::elevation::FIREWALL_APPLIED)
+                .await
+                .map_err(|error| error.to_wire())?;
+
+        if already_applied(applied.as_ref(), &wanted) {
+            return self
+                .elevation
+                .no_longer_needed(&PrivilegedOp::FirewallApply { plan: wanted }.dedupe_key())
+                .await;
+        }
+
         self.elevation
-            .enqueue(&PrivilegedOp::FirewallApply {
-                plan: FirewallPlan {
-                    ports,
-                    label: format!("{FIREWALL_LABEL}shared sites"),
-                },
-            })
+            .enqueue(&PrivilegedOp::FirewallApply { plan: wanted })
             .await
     }
 
@@ -426,6 +443,16 @@ fn spelled(millis: i64) -> String {
 /// promise is the whole feature.
 ///
 /// A home with nothing shared answers the empty list, which is the revoke.
+/// Does this machine already hold what `wanted` asks for — roadmap task **T180**?
+///
+/// **The ports and not the whole plan.** The label is composed from [`FIREWALL_LABEL`] by this
+/// build and is the same string in every plan it makes; comparing it would turn a rename into a
+/// prompt for rules that are already there. [`None`] is a home that has never had one applied,
+/// which holds no rules — so the empty plan is already applied and anything else is not.
+fn already_applied(applied: Option<&FirewallPlan>, wanted: &FirewallPlan) -> bool {
+    applied.map_or(wanted.ports.is_empty(), |plan| plan.ports == wanted.ports)
+}
+
 fn ports(shared: bool, web: u16, tls: Option<u16>) -> Vec<u16> {
     if !shared {
         return Vec::new();
@@ -660,5 +687,33 @@ mod tests {
             began(None, [192, 168, 1, 10].into(), Timestamp(9_000)),
             Timestamp(9_000)
         );
+    }
+
+    fn plan(ports: &[u16]) -> FirewallPlan {
+        FirewallPlan {
+            ports: ports.to_vec(),
+            label: format!("{FIREWALL_LABEL}shared sites"),
+        }
+    }
+
+    /// **T180.** A home that has never granted a firewall plan holds no rules, so the empty plan is
+    /// already applied and the ports of a first share are not.
+    #[test]
+    fn a_home_that_never_shared_holds_no_rules() {
+        assert!(already_applied(None, &plan(&[])));
+        assert!(!already_applied(None, &plan(&[80, 443])));
+    }
+
+    /// The ports decide it, and the label is the same string in every plan this build makes.
+    #[test]
+    fn the_same_ports_are_already_applied_whatever_the_label_says() {
+        let applied = FirewallPlan {
+            ports: vec![80, 443],
+            label: format!("{FIREWALL_LABEL}something a later build renamed"),
+        };
+
+        assert!(already_applied(Some(&applied), &plan(&[80, 443])));
+        assert!(!already_applied(Some(&applied), &plan(&[80, 443, 8443])));
+        assert!(!already_applied(Some(&applied), &plan(&[])));
     }
 }

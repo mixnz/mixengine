@@ -121,6 +121,9 @@
   the window's top and bottom, has a close button, and lays out its buttons the same way.
 
 ### Fixed
+- Sharing a site on your network asks for a firewall change only when the machine needs one. Sharing
+  a second site, or unsharing before you have answered, no longer raises a prompt that changes
+  nothing.
 - Deleting a site no longer leaves its permission request behind. What `mix elevation status` lists,
   and what MixLab shows before the system asks you to allow it, is what the machine still needs.
 - On Linux, `mix uninstall` no longer deletes the privileged helper that the `.deb` or the `.rpm`

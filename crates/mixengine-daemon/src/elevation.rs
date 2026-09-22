@@ -25,7 +25,7 @@ use std::time::SystemTime;
 
 use mixengine_core::{Paths, Store};
 use mixengine_platform::{ElevationSupport, Host};
-use mixengine_proto::privileged::{ElevationOutcome, PrivilegedOp};
+use mixengine_proto::privileged::{ElevationOutcome, OpOutcome, PrivilegedOp};
 use mixengine_proto::{
     DaemonEvent, ElevationDrop, ElevationStatus, ElevationSummary, Error, ErrorCode, GrantOutcome,
     JobId, JobKind, JobSummary, Timestamp, rpc,
@@ -33,6 +33,13 @@ use mixengine_proto::{
 
 use crate::api::Events;
 use crate::error::ToWire as _;
+
+/// Where this home records the firewall plan it last had applied — roadmap task **T180**.
+///
+/// **A memory and not a reading.** The daemon never reads a machine's rule set back (T74), so what
+/// it can honestly compare a new plan against is the last one a grant reported done. Absent means
+/// no rules, which is what a fresh home has.
+pub(crate) const FIREWALL_APPLIED: &str = "firewall.applied";
 
 /// The single grant slot — the runtime half of "no code path elevates in a loop".
 ///
@@ -205,7 +212,7 @@ impl Elevation {
     /// # Errors
     ///
     /// The wire error of a row that could not be removed, or a queue that could not be read back.
-    async fn no_longer_needed(&self, key: &str) -> Result<(), Error> {
+    pub(crate) async fn no_longer_needed(&self, key: &str) -> Result<(), Error> {
         let removed = mixengine_core::elevation::withdraw(&self.store, key)
             .await
             .map_err(|error| error.to_wire())?;
@@ -228,6 +235,52 @@ impl Elevation {
             .publish(DaemonEvent::ElevationRequired { pending });
 
         Ok(())
+    }
+
+    /// Record the firewall plan this machine now holds — roadmap task **T180**.
+    ///
+    /// **Only what landed.** `Applied`, `AlreadyDone` and `Unmanaged` all mean the queue stops
+    /// asking — that is `settle`'s own rule, and T74's for the third — so all three are what this
+    /// home now has. A refusal, an unsupported operation and a failure change nothing and record
+    /// nothing, so the next sharing change asks again.
+    ///
+    /// **Never fails a grant.** The batch has already been applied by the time this runs; a record
+    /// that could not be written costs a prompt somebody will see again, which is worth a line in
+    /// the log and nothing more.
+    async fn remember_the_firewall(
+        &self,
+        waiting: &[mixengine_proto::PendingOp],
+        results: &[(mixengine_proto::PendingOpId, OpOutcome)],
+    ) {
+        let landed = results.iter().find_map(|(id, outcome)| {
+            if !matches!(
+                outcome,
+                OpOutcome::Applied { .. } | OpOutcome::AlreadyDone | OpOutcome::Unmanaged { .. }
+            ) {
+                return None;
+            }
+
+            waiting
+                .iter()
+                .find(|pending| pending.id == *id)
+                .and_then(|pending| match &pending.op {
+                    PrivilegedOp::FirewallApply { plan } => Some(plan.clone()),
+                    _ => None,
+                })
+        });
+
+        let Some(plan) = landed else {
+            return;
+        };
+
+        if let Err(error) =
+            mixengine_core::updates::records::set(&self.store, FIREWALL_APPLIED, &plan).await
+        {
+            tracing::warn!(
+                %error,
+                "the firewall plan was applied and could not be recorded; the next share will ask again"
+            );
+        }
     }
 
     /// Ask for `op`, and for a privileged helper in front of it when this machine has none —
@@ -961,6 +1014,10 @@ impl Elevation {
                 let settled = mixengine_core::elevation::settle(&self.store, &results)
                     .await
                     .map_err(|error| error.to_wire())?;
+
+                // What this home now holds, so the producer can tell a plan already applied from a
+                // new one — roadmap task T180.
+                self.remember_the_firewall(waiting, &results).await;
 
                 for (id, reason) in &settled.refused {
                     tracing::warn!(
@@ -2418,5 +2475,93 @@ mod tests {
             1,
             "a home that cannot read the machine withdrew a row anyway"
         );
+    }
+
+    /// **T180.** A grant that carried a firewall plan records it, so the producer can tell a plan
+    /// this machine already holds from one it does not.
+    #[tokio::test]
+    async fn a_settled_firewall_plan_is_recorded() {
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+
+        let plan = mixengine_proto::privileged::FirewallPlan {
+            ports: vec![80, 443],
+            label: "MixEngine — shared sites".to_owned(),
+        };
+        let waiting = vec![mixengine_proto::PendingOp {
+            id: mixengine_proto::PendingOpId(7),
+            op: PrivilegedOp::FirewallApply { plan: plan.clone() },
+            description: "open two ports".to_owned(),
+            requested_at: mixengine_proto::Timestamp(1),
+        }];
+
+        for outcome in [
+            OpOutcome::Applied {
+                detail: "two rules".to_owned(),
+            },
+            OpOutcome::AlreadyDone,
+            OpOutcome::Unmanaged {
+                reason: "this machine has no firewall to write".to_owned(),
+                manual: "open the port yourself".to_owned(),
+            },
+        ] {
+            mixengine_core::updates::records::clear(&elevation.store, FIREWALL_APPLIED)
+                .await
+                .unwrap();
+
+            elevation
+                .remember_the_firewall(&waiting, &[(mixengine_proto::PendingOpId(7), outcome)])
+                .await;
+
+            let recorded: Option<mixengine_proto::privileged::FirewallPlan> =
+                mixengine_core::updates::records::get(&elevation.store, FIREWALL_APPLIED)
+                    .await
+                    .unwrap();
+            assert_eq!(recorded.as_ref(), Some(&plan));
+        }
+    }
+
+    /// An operation that was refused, unsupported or failed changed nothing, so it records nothing:
+    /// the next sharing change has to ask again.
+    #[tokio::test]
+    async fn a_firewall_plan_that_did_not_land_records_nothing() {
+        let (_home, elevation, _events, _machine) =
+            registry(mock::Host::with_home("/tmp/mixengine")).await;
+
+        let plan = mixengine_proto::privileged::FirewallPlan {
+            ports: vec![80],
+            label: "MixEngine — shared sites".to_owned(),
+        };
+        let waiting = vec![mixengine_proto::PendingOp {
+            id: mixengine_proto::PendingOpId(3),
+            op: PrivilegedOp::FirewallApply { plan },
+            description: "open one port".to_owned(),
+            requested_at: mixengine_proto::Timestamp(1),
+        }];
+
+        for outcome in [
+            OpOutcome::Refused {
+                reason: "no".to_owned(),
+            },
+            OpOutcome::Unsupported {
+                reason: "not here".to_owned(),
+            },
+            OpOutcome::Failed {
+                message: "the tool said no".to_owned(),
+            },
+        ] {
+            elevation
+                .remember_the_firewall(
+                    &waiting,
+                    &[(mixengine_proto::PendingOpId(3), outcome.clone())],
+                )
+                .await;
+
+            let recorded: Option<mixengine_proto::privileged::FirewallPlan> =
+                mixengine_core::updates::records::get(&elevation.store, FIREWALL_APPLIED)
+                    .await
+                    .unwrap();
+            assert_eq!(recorded, None, "{outcome:?} recorded a plan");
+        }
     }
 }

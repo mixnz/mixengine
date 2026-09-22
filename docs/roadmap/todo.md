@@ -38,7 +38,7 @@ done
 | [5 — HTTPS](phase-5-https.md) | Green padlock, automatically, forever | T48–T54, T98 | 9 / 9 | **M5** `https://blog.test` trusted in every browser |
 | ~~6 — Desktop GUI~~ | **Withdrawn** — a GUI is a client in its own repository, see [ADR 0011](../decisions/0011-no-gui-in-this-repository.md) | — | — | ~~M6~~ |
 | [7 — Efficiency](phase-7-efficiency.md) | Deliver the promise that idle costs nothing | T68–T73 | 10 / 10 | **M7** 30 idle minutes leaves only the daemon and the web server — **met**, both halves measured by `bench` |
-| [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b, T125–T125a | 24 / 24 | **M8** capture, apply, open in MixDB, test from a phone |
+| [8 — Differentiators](phase-8-differentiators.md) | LAN sharing, blueprints, extensions, MixDB | T74–T84, T77b, T125–T125a | 25 / 25 | **M8** capture, apply, open in MixDB, test from a phone |
 | [9 — Ship](phase-9-ship.md) | Installers, updates, docs, beta | T56, T85–T92, T94–T95 | 20 / 21 | **M9 — v0.0.1** |
 | [10 — Client surface](phase-10-client-surface.md) | What `client-surface.md` claims about itself is true | T96–T97 | 2 / 2 | **M10** MixDB's Dashboard and Settings draw whole, with no business logic in the client — **met** |
 | [11 — The desktop app comes home](phase-11-the-desktop-app-comes-home.md) | MixDB's application builds and tests from this repository, unchanged | T100–T103 | 4 / 4 | **M11** the window builds green in this repo's CI on three OSes and behaves as MixDB 0.0.33 |
