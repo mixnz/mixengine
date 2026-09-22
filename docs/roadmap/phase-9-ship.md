@@ -290,6 +290,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       machine never elevates anything but a root-owned file; the second costs `mix uninstall`'s
       promise on a `.pkg`, which has no uninstaller to hand the file to. Not folded into T88d, which
       is about the way back rather than about who owns what.
+      Design: [2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md](../specs/2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md).
 
 - [x] **T88c** `daemon.status` is not backwards compatible within one protocol version, and the
       sentence written for exactly that case no longer reaches anybody. Every field added to
