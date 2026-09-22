@@ -15,7 +15,7 @@ const nothing: SyncChanges = { upserts: [], removed: [] };
 const one: SyncChanges = { upserts: [{ id: "a", data: 1 }], removed: [] };
 
 /** A backend that says what it was asked, in order. */
-function backend(pages: PulledPage[], pushed: PushedChanges = { accepted: 0, replaced: nothing, token: null }) {
+function backend(pages: PulledPage[], pushed: PushedChanges = { accepted: 0, replaced: nothing, token: null, error: null }) {
   const calls: string[] = [];
   const queue = [...pages];
   const fake: SyncBackend = {
@@ -90,18 +90,34 @@ describe("one collection", () => {
   });
 
   it("writes a lost conflict's winner, commits it, and counts it", async () => {
-    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1" });
+    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null });
     expect(await pushCollection(fake, collection(calls))).toBe(1);
     expect(calls).toEqual(["read", "push", "write", "commitPush w1"]);
   });
 
   it("leaves a winner uncommitted when writing it fails, so the next push meets it again", async () => {
-    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1" });
+    const { fake, calls } = backend([], { accepted: 0, replaced: one, token: "w1", error: null });
     const failing = collection(calls, async () => {
       throw new Error("disk full");
     });
     await expect(pushCollection(fake, failing)).rejects.toThrow("disk full");
     expect(calls).not.toContain("commitPush w1");
+  });
+
+  it("writes and commits a lost conflict's winner before it reports a refused entry", async () => {
+    // What landed and what was replaced are recorded first; the refusal is reported after, the
+    // way a failed push always was (T178c, C2).
+    const refusal = { code: "error.syncRecordTooLarge" };
+    const { fake, calls } = backend([], { accepted: 1, replaced: one, token: "w1", error: refusal });
+    await expect(pushCollection(fake, collection(calls))).rejects.toEqual(refusal);
+    expect(calls).toEqual(["read", "push", "write", "commitPush w1"]);
+  });
+
+  it("reports a refused entry even when nothing was replaced", async () => {
+    const refusal = { code: "error.syncRecordTooLarge" };
+    const { fake, calls } = backend([], { accepted: 0, replaced: nothing, token: null, error: refusal });
+    await expect(pushCollection(fake, collection(calls))).rejects.toEqual(refusal);
+    expect(calls).toEqual(["read", "push"]);
   });
 });
 

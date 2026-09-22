@@ -37,6 +37,8 @@ export interface PushedChanges {
   accepted: number;
   replaced: SyncChanges;
   token: string | null;
+  /** The first refusal, of one entry or of a whole request (T178c, C2). What landed is already agreed. */
+  error: { code: string; params?: Record<string, string> } | null;
 }
 
 /** What the loop needs of the backend, so a test can hand it a fake. */

@@ -67,6 +67,9 @@ pub struct PushedChanges {
     pub accepted: usize,
     pub replaced: Incoming,
     pub token: Option<String>,
+    /// The first refusal, of one entry or of a whole request. What landed is already agreed; the
+    /// shell reports this once it has written `replaced` (T178c, C2).
+    pub error: Option<AppError>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -1081,14 +1084,20 @@ impl SyncState {
     ) -> Result<PushedChanges, AppError> {
         let name = collection.to_owned();
         let items = Arc::new(items);
-        let (accepted, replaced, records, agreements) = self
+        let (accepted, replaced, records, agreements, error) = self
             .with_session(|session| {
                 let (name, items) = (name.clone(), items.clone());
                 async move {
                     let (changes, agreed) =
                         lend::outgoing(&session.store, &session.keys, &name, &items, now()).await?;
                     if changes.is_empty() {
-                        return Ok::<_, AppError>((0, Incoming::default(), Vec::new(), Vec::new()));
+                        return Ok::<_, AppError>((
+                            0,
+                            Incoming::default(),
+                            Vec::new(),
+                            Vec::new(),
+                            None,
+                        ));
                     }
                     let pushed = engine::push(
                         &session.transport,
@@ -1100,6 +1109,15 @@ impl SyncState {
                     .await?;
                     lend::settle_pushed(&session.store, &session.keys, &name, agreed, &pushed)
                         .await?;
+                    // A dead token is refreshed and the push run again (`with_session`); what
+                    // landed is agreed above, so the second run does not send it twice.
+                    if let Some(error) = pushed
+                        .error
+                        .as_ref()
+                        .filter(|error| error.code == "error.syncSignedOut")
+                    {
+                        return Err(error.clone());
+                    }
                     let opened = lend::incoming(
                         &session.store,
                         &session.keys,
@@ -1114,6 +1132,7 @@ impl SyncState {
                         opened.changes,
                         pushed.superseded,
                         opened.agreements,
+                        pushed.error,
                     ))
                 }
             })
@@ -1138,6 +1157,7 @@ impl SyncState {
             accepted,
             replaced,
             token,
+            error,
         })
     }
 
