@@ -36,7 +36,7 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       prompt at start; and `mix doctor` reports the rule as a **note** with the command to remove it,
       never as a `Problem` — a `ProblemId` is what `doctor_repair` matches on, and deleting a rule
       somebody personally clicked Allow on is not a repair. **(P)**
-- [ ] **T180** A firewall prompt with nothing behind it. `sites::sharing::wants_the_firewall` queues
+- [x] **T180** A firewall prompt with nothing behind it. `sites::sharing::wants_the_firewall` queues
       the whole state on every sharing change and compares it with nothing, so sharing and then
       unsharing before a grant leaves *allow no ports* waiting on a machine that was never opened,
       and sharing a second site queues the ports the first one already had applied. The other four
@@ -45,6 +45,10 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       rules naming a *program*. So the home remembers the plan it last had applied and compares with
       that instead. Named by T179's design, which left it alone deliberately: it is a prompt that
       does nothing rather than a sentence that says the wrong thing.
+      **One settings row is the whole of it.** A grant that carries a firewall plan records it under
+      `firewall.applied`, and the producer compares the plan it builds with that record: equal
+      withdraws the queued row through T179's `no_longer_needed`, different enqueues as before.
+      Nothing reads the machine's rules, which is still T74's decision.
       Design: [2026-09-23-t180-a-firewall-prompt-with-work-behind-it-design.md](../specs/2026-09-23-t180-a-firewall-prompt-with-work-behind-it-design.md).
 
 - [x] **T77** Blueprint manifest, `blueprint.capture` and the plan `mix blueprint apply --dry-run`
