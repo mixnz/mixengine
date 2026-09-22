@@ -41,9 +41,13 @@ pub mod hosts;
 // it, and the helper asks the same function where to put itself — T85.
 #[cfg(any(feature = "host", feature = "elevated"))]
 pub mod install;
+// What a package database says owns a file, as text — roadmap task **T88e**. Compiled on all
+// three systems so its tests run on every one; the call itself is in `sys::install`.
 #[cfg(feature = "ipc")]
 pub mod ipc;
 pub mod lock;
+#[cfg(any(feature = "host", feature = "elevated"))]
+mod packages;
 // Documented by its own `//!` header. Under both features for `hosts`' reason, and now for
 // `port_access`' as well: the daemon reads a managed block and the helper writes it.
 #[cfg(any(feature = "host", feature = "elevated"))]

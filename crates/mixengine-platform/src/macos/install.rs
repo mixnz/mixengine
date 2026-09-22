@@ -93,6 +93,15 @@ pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<Pat
     sources
 }
 
+/// Nobody, as far as `mix uninstall` is concerned — roadmap task **T88e**, D2.
+///
+/// The `.pkg` does place the helper, and `pkgutil --file-info` would say so. But macOS has no
+/// `.pkg` uninstaller, so a root-owned file kept here would be kept for ever, and nothing on this
+/// system reads a receipt back to find the file missing.
+pub(crate) fn packaged_by(_path: &std::path::Path) -> Option<String> {
+    None
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.pkg` ships a source inside the bundle** — roadmap task T88d — so the answer is no longer

@@ -54,6 +54,21 @@ pub fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<PathBuf> {
     crate::sys::install::helper_sources(program, bundle)
 }
 
+/// The package that owns `path`, when this system's package database says one does — roadmap
+/// task **T88e**.
+///
+/// **Linux asks, and the other two answer [`None`].** A file a `.deb` or an `.rpm` placed is the
+/// package manager's to remove, and `mix uninstall` keeps it. macOS has no `.pkg` uninstaller and
+/// nothing that reads a receipt back, so a helper there is removed whoever placed it; Windows'
+/// installer never places one. The T88e design, D1 and D2.
+///
+/// **A name, never a command**, on `Placement::Managed`'s rule: which command removes a package is
+/// not something this crate may guess.
+#[must_use]
+pub fn packaged_by(path: &std::path::Path) -> Option<String> {
+    crate::sys::install::packaged_by(path)
+}
+
 /// The helper as it is named beside a program: all three systems use this, and two use only this.
 ///
 /// `.` when the program has no parent, which is the answer `mixengine_core::elevation::helper` gave

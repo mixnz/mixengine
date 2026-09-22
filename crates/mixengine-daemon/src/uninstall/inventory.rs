@@ -55,7 +55,7 @@ pub(crate) async fn take(
     rows.push(trust);
     rows.push(browsers);
 
-    rows.push(privileged_helper());
+    rows.push(privileged_helper().await);
     rows.push(audit_log());
     rows.push(autostart_entry(uninstall));
     rows.push(path_entry(uninstall).await);
@@ -410,10 +410,41 @@ async fn browser_row(uninstall: &Uninstall, what: String, der: Vec<u8>) -> Resid
 ///
 /// **`symlink_metadata` and not `exists`**, which answers `false` for a dangling link somebody
 /// planted — the rule `mixengine-elevate`'s own validation runs on, applied to the reading side.
-fn privileged_helper() -> Residue {
+///
+/// **Its owner is asked only when it is there** — roadmap task **T88e**. A package database is a
+/// process or two, and a file that is absent has nobody to name. A database that cannot answer is
+/// "no package", which is the row as it was before that task: a helper this uninstall removes.
+async fn privileged_helper() -> Residue {
+    let Ok(path) = mixengine_platform::install::helper_path() else {
+        return helper_row(None, false, None);
+    };
+
+    let present = there(&path);
+
+    let packaged = match present {
+        true => {
+            let asked = path.clone();
+            tokio::task::spawn_blocking(move || mixengine_platform::install::packaged_by(&asked))
+                .await
+                .ok()
+                .flatten()
+        }
+        false => None,
+    };
+
+    helper_row(Some(&path), present, packaged)
+}
+
+/// The helper's row from what was read: where it is, whether it is there, and which package, if
+/// any, placed it — the T88e design, D3.
+///
+/// **A helper a package placed is kept, and says so.** `mix`, `mixengined` and the shim leave the
+/// way they came (the T87 design, Scope); a helper the same package wrote is part of the same
+/// delivery, and removing it leaves the package database describing a file that is gone.
+fn helper_row(path: Option<&Path>, present: bool, packaged: Option<String>) -> Residue {
     let what = "MixEngine's privileged helper".to_owned();
 
-    let Ok(path) = mixengine_platform::install::helper_path() else {
+    let Some(path) = path else {
         return Residue {
             id: ResidueId::PrivilegedHelper,
             what,
@@ -422,11 +453,16 @@ fn privileged_helper() -> Residue {
         };
     };
 
-    let outcome = match there(&path) {
-        true => Removal::Planned {
+    let outcome = match (present, packaged) {
+        (false, _) => Removal::Absent {},
+        (true, Some(package)) => Removal::Kept {
+            because: format!(
+                "it came with the {package} package, and removing that package removes it"
+            ),
+        },
+        (true, None) => Removal::Planned {
             how: PrivilegedOp::HelperRemove {}.describe(),
         },
-        false => Removal::Absent {},
     };
 
     Residue {
@@ -701,5 +737,41 @@ mod tests {
 
         assert!(!link.exists());
         assert!(there(&link));
+    }
+
+    /// **A helper a package placed is kept, and the row names the package** — the T88e design, D3.
+    #[test]
+    fn a_helper_a_package_placed_is_kept_and_names_the_package() {
+        let row = helper_row(
+            Some(Path::new("/usr/local/libexec/mixengine/mixengine-elevate")),
+            true,
+            Some("mixengine".to_owned()),
+        );
+
+        assert_eq!(row.id, ResidueId::PrivilegedHelper);
+        assert_eq!(
+            row.outcome,
+            Removal::Kept {
+                because: "it came with the mixengine package, and removing that package removes it"
+                    .to_owned(),
+            }
+        );
+    }
+
+    /// A helper no package claims is still removed, and one that is not there is not, whoever
+    /// would have owned it.
+    #[test]
+    fn a_helper_no_package_claims_is_planned_and_an_absent_one_is_absent() {
+        let path = Path::new("/usr/local/libexec/mixengine/mixengine-elevate");
+
+        assert!(matches!(
+            helper_row(Some(path), true, None).outcome,
+            Removal::Planned { .. }
+        ));
+        assert_eq!(
+            helper_row(Some(path), false, Some("mixengine".to_owned())).outcome,
+            Removal::Absent {}
+        );
+        assert_eq!(helper_row(None, false, None).outcome, Removal::Absent {});
     }
 }
