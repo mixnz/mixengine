@@ -212,6 +212,8 @@ async fn operation_for(store: &Store, change: &Outgoing) -> Result<Option<Operat
             collection: change.collection.clone(),
             id: change.id.clone(),
             if_match: seen.version,
+            // The time it was first noticed: D4 weighs a deletion like any edit (T178c, C1).
+            updated_at: change.updated_at,
         }),
     })
 }
@@ -359,12 +361,12 @@ mod tests {
                         nonce: Some(record.nonce.clone()),
                         ciphertext: Some(record.ciphertext.clone()),
                     },
-                    Operation::Delete { .. } => WireRecord {
+                    Operation::Delete { updated_at, .. } => WireRecord {
                         collection,
                         id,
                         version,
                         seq,
-                        updated_at: existing.map_or(0, |current| current.updated_at),
+                        updated_at: *updated_at,
                         deleted: true,
                         device: self.device.clone(),
                         nonce: None,

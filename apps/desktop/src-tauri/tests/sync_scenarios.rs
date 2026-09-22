@@ -8,8 +8,8 @@
 //! read and leaves alone. **[`Server`] answers the way both servers do**, `server/native/src/records.rs` and
 //! `server/worker/src/records.ts`: one `seq` per account, a page per collection whose last page's
 //! `nextSince` is the account's latest seq, one `reaped_below_seq` per account that a `resync=1`
-//! read is not refused by, a tombstone that keeps the `updatedAt` it replaced and is a version like
-//! any other.
+//! read is not refused by, a tombstone that keeps the time its deletion was made and is a version
+//! like any other.
 //!
 //! A change to either side's order belongs here too, or these tests describe a program nobody runs.
 //!
@@ -118,6 +118,10 @@ impl Server {
         let key = (collection.clone(), id.clone());
         let existing = state.records.get(&key).cloned();
 
+        let deleted_at = match operation {
+            Operation::Delete { updated_at, .. } => *updated_at,
+            Operation::Put { .. } => 0,
+        };
         let (expected, body) = match operation {
             Operation::Put {
                 if_none_match: true,
@@ -170,13 +174,13 @@ impl Server {
                 nonce: Some(nonce.clone()),
                 ciphertext: Some(ciphertext.clone()),
             },
-            // `DELETE` carries no body, so the tombstone keeps the time of what it replaced.
+            // The tombstone keeps the time its deletion was made (T178c, C1).
             None => WireRecord {
                 collection,
                 id,
                 version,
                 seq: state.seq,
-                updated_at: existing.map_or(0, |current| current.updated_at),
+                updated_at: deleted_at,
                 deleted: true,
                 device: device.to_owned(),
                 nonce: None,
@@ -726,4 +730,57 @@ async fn a_resync_interrupted_after_one_page_still_ends() {
         1,
         "resumed with resync=1, not expired again"
     );
+}
+
+/// C1: a deletion made later than an edit wins, whichever reaches the server first. While the
+/// tombstone kept the replaced version's time, the edit that arrived second came back to life.
+async fn a_later_deletion_against_an_earlier_edit(
+    deletion_first: bool,
+) -> (Server, Machine, Machine) {
+    let server = Server::new(2);
+    let (mut a, mut b) = two_machines().await;
+    b.edit("c", "x", json!("v0"));
+    b.sync(&server, "c", 10).await;
+    b.sync(&server, "c", 10).await;
+    a.sync(&server, "c", 10).await;
+
+    b.edit("c", "x", json!("edited on b"));
+    b.notice_offline("c", 150).await;
+    a.remove("c", "x");
+    a.notice_offline("c", 200).await;
+    if deletion_first {
+        a.sync(&server, "c", 250).await;
+        b.sync(&server, "c", 300).await;
+    } else {
+        b.sync(&server, "c", 250).await;
+        a.sync(&server, "c", 300).await;
+    }
+    a.sync(&server, "c", 400).await;
+    b.sync(&server, "c", 400).await;
+    (server, a, b)
+}
+
+#[tokio::test]
+async fn a_later_deletion_wins_when_it_arrives_first() {
+    let (server, a, b) = a_later_deletion_against_an_earlier_edit(true).await;
+    let x = server
+        .record(&a.opaque("c"), &a.opaque("x"))
+        .expect("a tombstone");
+    assert!(
+        x.deleted,
+        "the edit arriving second brought the record back"
+    );
+    assert_eq!(a.holds("c", "x"), None);
+    assert_eq!(b.holds("c", "x"), None);
+}
+
+#[tokio::test]
+async fn a_later_deletion_wins_when_it_arrives_second() {
+    let (server, a, b) = a_later_deletion_against_an_earlier_edit(false).await;
+    let x = server
+        .record(&a.opaque("c"), &a.opaque("x"))
+        .expect("a tombstone");
+    assert!(x.deleted);
+    assert_eq!(a.holds("c", "x"), None);
+    assert_eq!(b.holds("c", "x"), None);
 }

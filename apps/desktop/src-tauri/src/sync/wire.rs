@@ -87,6 +87,8 @@ pub enum Operation {
         collection: String,
         id: String,
         if_match: i64,
+        /// When the deletion was made: the tombstone's own time, which D4 weighs (T178c, C1).
+        updated_at: i64,
     },
 }
 
@@ -175,6 +177,7 @@ mod tests {
             collection: "c".into(),
             id: "i".into(),
             if_match: 41,
+            updated_at: 5,
         };
         assert_eq!(serde_json::to_value(&put).unwrap()["ifMatch"], json!(41));
         assert!(serde_json::to_value(&put)
@@ -183,7 +186,7 @@ mod tests {
             .is_none());
         assert_eq!(
             serde_json::to_value(&delete).unwrap(),
-            json!({ "op": "delete", "collection": "c", "id": "i", "ifMatch": 41 })
+            json!({ "op": "delete", "collection": "c", "id": "i", "ifMatch": 41, "updatedAt": 5 })
         );
     }
 }
