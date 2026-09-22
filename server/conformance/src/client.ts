@@ -239,15 +239,23 @@ export function put(
   return call(`/v1/records/${collection}/${id}`, { method: "PUT", body, token, headers });
 }
 
+/** Seconds since the epoch, as `updatedAt` is on the wire. */
+export function seconds(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+/** `updatedAt` is when the deletion was made; `null` sends no body at all. */
 export function remove(
   token: string,
   collection: string,
   id: string,
   ifMatch?: number,
+  updatedAt: number | null = seconds(),
 ): Promise<Result<StoredRecord & Partial<ErrorBody>>> {
   const headers: Record<string, string> = {};
   if (ifMatch !== undefined) headers["If-Match"] = `"${ifMatch}"`;
-  return call(`/v1/records/${collection}/${id}`, { method: "DELETE", token, headers });
+  const body = updatedAt === null ? undefined : { updatedAt };
+  return call(`/v1/records/${collection}/${id}`, { method: "DELETE", token, headers, body });
 }
 
 export function since(

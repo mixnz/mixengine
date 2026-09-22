@@ -361,7 +361,9 @@ purpose of the route, so it cuts it off now. Deleting your own device is how a p
 ### Records
 
 `PUT /v1/records/{collection}/{id}` carries `{updatedAt, nonce, ciphertext}` — **not** `version`,
-`seq` or `device`, which are the server's to assign. `DELETE` carries no body. Both answer with the
+`seq` or `device`, which are the server's to assign. `DELETE` carries `{updatedAt}`: the time the
+deletion was made, which the tombstone keeps as its own so that D4 weighs a deletion like any other
+edit; without it the answer is `400 invalid-request`. Both answer with the
 stored record of D3 and an `ETag` holding its `version` as a quoted decimal.
 
 **`device` is the id of the device whose session made the write**, as `/v1/devices` lists it. A
@@ -416,7 +418,7 @@ past a deletion and leave the two machines disagreeing about which one won.
 { "operations": [
   { "op": "put", "collection": "…", "id": "…", "ifNoneMatch": true,
     "record": { "updatedAt": 1758300000, "nonce": "…", "ciphertext": "…" } },
-  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41 }
+  { "op": "delete", "collection": "…", "id": "…", "ifMatch": 41, "updatedAt": 1758300060 }
 ] }
 ```
 

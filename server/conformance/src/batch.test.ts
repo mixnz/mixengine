@@ -60,10 +60,22 @@ describe("POST /v1/records/batch", () => {
 
   it("carries a delete as readily as a write", async () => {
     const { collection, id, stored } = await seed(session.accessToken);
-    const result = await batch(session.accessToken, [{ op: "delete", collection, id, ifMatch: stored.version }]);
+    const result = await batch(session.accessToken, [
+      { op: "delete", collection, id, ifMatch: stored.version, updatedAt: 1_900_000_000 },
+    ]);
 
     expect(result.body.results[0]?.status).toBe(200);
     expect(result.body.results[0]?.record?.deleted).toBe(true);
+    expect(result.body.results[0]?.record?.updatedAt).toBe(1_900_000_000);
+  });
+
+  it("refuses a delete entry that does not say when it was made", async () => {
+    // The same rule as the single route: a deletion is weighed by D4, so it carries its time
+    // (T178c, C1).
+    const { collection, id, stored } = await seed(session.accessToken);
+    const result = await batch(session.accessToken, [{ op: "delete", collection, id, ifMatch: stored.version }]);
+    expect(result.body.results[0]?.status).toBe(400);
+    expect(result.body.results[0]?.error?.code).toBe("invalid-request");
   });
 
   it("assigns sequence numbers in the order the operations were given", async () => {

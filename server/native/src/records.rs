@@ -382,6 +382,7 @@ pub fn apply_delete(
     collection: &str,
     id: &str,
     if_match: Option<i64>,
+    updated_at: Option<i64>,
 ) -> rusqlite::Result<Outcome> {
     let (account_id, device) = (writer.account_id, writer.device_id.as_str());
     if !is_opaque_id(collection) || !is_opaque_id(id) {
@@ -389,6 +390,11 @@ pub fn apply_delete(
             "Collection and record IDs must be 64 lowercase hex characters.",
         ));
     }
+    // D4 weighs a deletion like any other edit, so it needs the time it was made — kept as the
+    // tombstone's own, never the replaced version's (T178c, C1).
+    let Some(updated_at) = updated_at.filter(|at| *at >= 0) else {
+        return Ok(Outcome::bad("A deletion needs updatedAt."));
+    };
     let Some(if_match) = if_match else {
         return Ok(Outcome::refuse(
             StatusCode::PRECONDITION_REQUIRED,
@@ -421,20 +427,16 @@ pub fn apply_delete(
     }
 
     let seq = next_seq(connection, account_id)?;
-    let updated_at: i64 = connection.query_row(
-        "SELECT updated_at FROM record WHERE account_id = ?1 AND collection = ?2 AND id = ?3",
-        params![account_id, collection, id],
-        |row| row.get(0),
-    )?;
     connection.execute(
         "UPDATE record SET version = ?1, seq = ?2, deleted = 1, device = ?3, nonce = NULL,
-                           ciphertext = NULL, bytes = 0, written_at = ?4
-         WHERE account_id = ?5 AND collection = ?6 AND id = ?7",
+                           ciphertext = NULL, bytes = 0, written_at = ?4, updated_at = ?5
+         WHERE account_id = ?6 AND collection = ?7 AND id = ?8",
         params![
             stored.version + 1,
             seq,
             device,
             now(),
+            updated_at,
             account_id,
             collection,
             id
@@ -485,13 +487,10 @@ pub async fn write(
     }
     let limits = state.config.capabilities.clone();
     let precondition = precondition_from(&headers);
-    let parsed = if method == axum::http::Method::PUT {
-        match parse(&body) {
-            Ok(fields) => fields,
-            Err(failure) => return failure.into_response(),
-        }
-    } else {
-        Value::Null
+    // Both methods carry a body: a PUT the record, a DELETE the time it was made (T178c, C1).
+    let parsed = match parse(&body) {
+        Ok(fields) => fields,
+        Err(failure) => return failure.into_response(),
     };
 
     let outcome = state
@@ -519,6 +518,7 @@ pub async fn write(
                     &collection,
                     &id,
                     precondition.if_match,
+                    parsed.get("updatedAt").and_then(Value::as_i64),
                 )?
             };
             transaction.commit()?;
@@ -589,9 +589,14 @@ pub async fn batch(
                 let if_match = operation.get("ifMatch").and_then(Value::as_i64);
 
                 let outcome = match operation.get("op").and_then(Value::as_str) {
-                    Some("delete") => {
-                        apply_delete(&transaction, &session, collection, id, if_match)?
-                    }
+                    Some("delete") => apply_delete(
+                        &transaction,
+                        &session,
+                        collection,
+                        id,
+                        if_match,
+                        operation.get("updatedAt").and_then(Value::as_i64),
+                    )?,
                     Some("put") => apply_put(
                         &transaction,
                         &limits,

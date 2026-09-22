@@ -310,7 +310,14 @@ export class Account implements DurableObject {
       );
     }
 
-    const removed = applyDelete(this.sql, collection, id, precondition.ifMatch, session.deviceId);
+    const removed = applyDelete(
+      this.sql,
+      collection,
+      id,
+      precondition.ifMatch,
+      asObject(body)?.["updatedAt"],
+      session.deviceId,
+    );
     if (removed.status === 200) await this.scheduleReaping(config.capabilities.tombstoneRetentionDays);
     return outcome(removed);
   }
@@ -356,7 +363,7 @@ export class Account implements DurableObject {
       const ifMatch = typeof fields["ifMatch"] === "number" ? fields["ifMatch"] : undefined;
 
       if (fields["op"] === "delete") {
-        return applyDelete(this.sql, collection, id, ifMatch, session.deviceId);
+        return applyDelete(this.sql, collection, id, ifMatch, fields["updatedAt"], session.deviceId);
       }
       if (fields["op"] === "put") {
         return applyPut(
@@ -838,7 +845,8 @@ export class Account implements DurableObject {
   }
 
   private async readBody(request: Request): Promise<unknown> {
-    if (request.method === "GET" || request.method === "DELETE") return null;
+    // A record's DELETE carries its time (T178c, C1); a device's has no body and reads as null.
+    if (request.method === "GET") return null;
     const text = await request.text();
     if (text.length === 0) return null;
     try {

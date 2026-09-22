@@ -116,7 +116,8 @@ export default {
 
     // Read once, here: routing needs the address out of the body, and a body can only be read
     // once. Everything downstream is handed the text.
-    const body = request.method === "GET" || request.method === "DELETE" ? null : await request.text();
+    // A DELETE carries a body too: the time the deletion was made (T178c, C1).
+    const body = request.method === "GET" ? null : await request.text();
 
     // Unauthenticated, asked about any address, and on this server every question wakes that
     // address's object whether or not an account is there — so probing costs the deployment
