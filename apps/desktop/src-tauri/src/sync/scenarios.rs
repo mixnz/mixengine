@@ -329,19 +329,24 @@ impl Machine {
             let fetched = engine::fetch(&self.link(server), &self.store, &opaque)
                 .await
                 .unwrap();
-            let (changes, agreements) =
-                lend::incoming(&self.store, &self.keys, collection, &fetched.records)
-                    .await
-                    .unwrap();
-            if !changes.upserts.is_empty() || !changes.removed.is_empty() {
-                self.write(collection, changes);
+            let opened = lend::incoming(
+                &self.store,
+                &self.keys,
+                collection,
+                &self.device,
+                &fetched.records,
+            )
+            .await
+            .unwrap();
+            if !opened.changes.upserts.is_empty() || !opened.changes.removed.is_empty() {
+                self.write(collection, opened.changes);
             }
             lend::land(
                 &self.store,
                 &self.keys,
                 collection,
                 &fetched.records,
-                agreements,
+                opened.agreements,
             )
             .await
             .unwrap();
@@ -380,17 +385,22 @@ impl Machine {
         if pushed.superseded.is_empty() {
             return;
         }
-        let (replaced, agreements) =
-            lend::incoming(&self.store, &self.keys, collection, &pushed.superseded)
-                .await
-                .unwrap();
-        self.write(collection, replaced);
+        let opened = lend::incoming(
+            &self.store,
+            &self.keys,
+            collection,
+            &self.device,
+            &pushed.superseded,
+        )
+        .await
+        .unwrap();
+        self.write(collection, opened.changes);
         lend::land(
             &self.store,
             &self.keys,
             collection,
             &pushed.superseded,
-            agreements,
+            opened.agreements,
         )
         .await
         .unwrap();
@@ -611,4 +621,20 @@ async fn a_record_the_module_cannot_read_is_not_deleted_by_the_machine_that_skip
         !host.deleted,
         "a deleted a record its module never wrote: the pull agreed on it anyway"
     );
+}
+
+/// L3: an edit noticed in the same second as this machine's own earlier push. D4's exact tie
+/// keeps the remote copy, and the remote copy is the old push coming back; content, not time, says
+/// it is not news.
+#[tokio::test]
+async fn an_edit_in_the_same_second_as_its_own_push_survives() {
+    let server = Server::new(2);
+    let (mut a, _) = two_machines().await;
+    a.edit("c", "req", json!("draft"));
+    a.sync(&server, "c", 10).await;
+
+    a.edit("c", "req", json!("final"));
+    a.sync(&server, "c", 10).await;
+
+    assert_eq!(a.holds("c", "req"), Some(&json!("final")));
 }

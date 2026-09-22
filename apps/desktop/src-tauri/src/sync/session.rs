@@ -1030,18 +1030,23 @@ impl SyncState {
     /// The next page of `collection`, opened, for its module to write.
     pub async fn pull_page(&self, collection: &str) -> Result<PulledPage, AppError> {
         let name = collection.to_owned();
-        let (fetched, changes, agreements) = self
+        let (fetched, opened) = self
             .with_session(|session| {
                 let name = name.clone();
                 async move {
                     let opaque = crypto::opaque_id(&session.keys.id, &name);
                     let fetched =
                         engine::fetch(&session.transport, &session.store, &opaque).await?;
-                    let (changes, agreements) =
-                        lend::incoming(&session.store, &session.keys, &name, &fetched.records)
-                            .await?;
+                    let opened = lend::incoming(
+                        &session.store,
+                        &session.keys,
+                        &name,
+                        &session.device_id,
+                        &fetched.records,
+                    )
+                    .await?;
                     // Named: an async block that uses `?` cannot infer its error type.
-                    Ok::<_, AppError>((fetched, changes, agreements))
+                    Ok::<_, AppError>((fetched, opened))
                 }
             })
             .await?;
@@ -1052,13 +1057,13 @@ impl SyncState {
             Held {
                 token: token.clone(),
                 records: fetched.records.clone(),
-                agreements,
+                agreements: opened.agreements,
                 fetched: Some(fetched),
             },
         );
         Ok(PulledPage {
             token,
-            changes,
+            changes: opened.changes,
             more,
         })
     }
@@ -1091,10 +1096,20 @@ impl SyncState {
                     .await?;
                     lend::settle_pushed(&session.store, &session.keys, &name, agreed, &pushed)
                         .await?;
-                    let (replaced, agreements) =
-                        lend::incoming(&session.store, &session.keys, &name, &pushed.superseded)
-                            .await?;
-                    Ok((pushed.accepted, replaced, pushed.superseded, agreements))
+                    let opened = lend::incoming(
+                        &session.store,
+                        &session.keys,
+                        &name,
+                        &session.device_id,
+                        &pushed.superseded,
+                    )
+                    .await?;
+                    Ok((
+                        pushed.accepted,
+                        opened.changes,
+                        pushed.superseded,
+                        opened.agreements,
+                    ))
                 }
             })
             .await?;

@@ -18,6 +18,7 @@ use sha2::{Digest, Sha256};
 
 use super::crypto::{self, RecordAddress, Sealed};
 use super::engine::{Change, Outgoing, Pushed};
+use super::merge::{resolve, Keep};
 use super::store::{Store, DELETED};
 use super::wire::WireRecord;
 use crate::error::AppError;
@@ -40,6 +41,15 @@ pub struct Item {
 pub struct Incoming {
     pub upserts: Vec<Item>,
     pub removed: Vec<String>,
+}
+
+/// What a pull brought, opened and weighed: what the module applies, what to agree on once it has,
+/// and — on the page that ends a resync — the records to forget (T178b, M2).
+#[derive(Debug, Default)]
+pub struct Opened {
+    pub changes: Incoming,
+    pub agreements: Vec<Agreement>,
+    pub unmet: Vec<String>,
 }
 
 /// An agreement to record once its change has landed.
@@ -283,28 +293,40 @@ pub async fn land(
     settle(store, keys, collection, agreements).await
 }
 
-/// Pulled records, opened, as what a module applies — and what to agree on once it has.
+/// Pulled records, opened and weighed against what this machine has not landed (D4).
 ///
-/// A tombstone removes the local id this machine agreed on; one it never agreed on names nothing
-/// here. **An opened record whose own id does not hash to its address is refused**: the AAD binds
-/// the address, and this binds the id inside it, so a record cannot claim to be another item.
+/// **A record whose content is already agreed is not news** and never reaches the module: this
+/// machine's own push coming back, above all. A record another machine changed meets this
+/// machine's stamp, if it has one, and D4 decides which survives; the loser here is left alone,
+/// and its version remembered on landing, so the next push replaces it without a `409`. A
+/// tombstone removes the local id this machine agreed on, unless a later change here beats it.
+/// **An opened record whose own id does not hash to its address is refused**: the AAD binds the
+/// address, and this binds the id inside it, so a record cannot claim to be another item.
 pub async fn incoming(
     store: &Store,
     keys: &Keys,
     collection: &str,
+    device: &str,
     records: &[WireRecord],
-) -> Result<(Incoming, Vec<Agreement>), AppError> {
+) -> Result<Opened, AppError> {
     let opaque_collection = crypto::opaque_id(&keys.id, collection);
-    let mut incoming = Incoming::default();
-    let mut agreements = Vec::new();
+    let mut opened = Opened::default();
 
     for record in records
         .iter()
         .filter(|record| record.collection == opaque_collection)
     {
+        let agreed = store.agreed(&opaque_collection, &record.id).await?;
+        let stamped = store.stamped(&opaque_collection, &record.id).await?;
+        let here_wins = stamped.as_ref().is_some_and(|stamp| {
+            resolve(stamp.at, device, record.updated_at, &record.device) == Keep::Local
+        });
+
         if record.deleted {
-            if let Some(agreed) = store.agreed(&opaque_collection, &record.id).await? {
-                incoming.removed.push(agreed.local_id);
+            if let Some(agreed) = agreed {
+                if !here_wins {
+                    opened.changes.removed.push(agreed.local_id);
+                }
             }
             continue;
         }
@@ -333,17 +355,31 @@ pub async fn incoming(
             return Err(unreadable());
         }
         let value: Value = serde_json::from_slice(&plain).map_err(|_| unreadable())?;
-        agreements.push(Agreement {
+        let digest = hash(&canonical(&value));
+
+        if agreed.is_some_and(|agreed| agreed.hash == digest) {
+            continue;
+        }
+        let agreement = Agreement {
             id: record.id.clone(),
             local_id: envelope.id.clone(),
-            hash: hash(&canonical(&value)),
-        });
-        incoming.upserts.push(Item {
+            hash: digest.clone(),
+        };
+        // What this machine is still pushing says exactly this: agreed, with nothing to write.
+        if stamped.is_some_and(|stamp| stamp.hash == digest) {
+            opened.agreements.push(agreement);
+            continue;
+        }
+        if here_wins {
+            continue;
+        }
+        opened.agreements.push(agreement);
+        opened.changes.upserts.push(Item {
             id: envelope.id,
             data: envelope.data,
         });
     }
-    Ok((incoming, agreements))
+    Ok(opened)
 }
 
 #[cfg(test)]
@@ -454,9 +490,9 @@ mod tests {
             .unwrap();
         let records: Vec<_> = changes.iter().map(|change| landed(change, 1)).collect();
 
-        let (applied, agreements) = incoming(&there, &keys, "c", &records).await.unwrap();
-        assert_eq!(applied.upserts, vec![item("1", json!({"x": 1}))]);
-        assert_eq!(agreements.len(), 1);
+        let opened = incoming(&there, &keys, "c", HERE, &records).await.unwrap();
+        assert_eq!(opened.changes.upserts, vec![item("1", json!({"x": 1}))]);
+        assert_eq!(opened.agreements.len(), 1);
     }
 
     #[tokio::test]
@@ -470,8 +506,8 @@ mod tests {
 
         let mut dead = landed(&changes[0], 2);
         dead.deleted = true;
-        let (applied, _) = incoming(&store, &keys, "c", &[dead]).await.unwrap();
-        assert_eq!(applied.removed, vec!["1".to_string()]);
+        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        assert_eq!(opened.changes.removed, vec!["1".to_string()]);
     }
 
     /// A record moved into another item's slot is refused rather than applied as that item.
@@ -483,7 +519,7 @@ mod tests {
             .unwrap();
         let mut moved = landed(&changes[0], 1);
         moved.id = crypto::opaque_id(&keys.id, "2");
-        assert!(incoming(&store, &keys, "c", &[moved]).await.is_err());
+        assert!(incoming(&store, &keys, "c", HERE, &[moved]).await.is_err());
     }
 
     #[tokio::test]
@@ -579,14 +615,14 @@ mod tests {
             .await
             .unwrap();
         let winner = landed(&theirs[0], 2);
-        let (written, agreements) = incoming(&store, &keys, "c", std::slice::from_ref(&winner))
+        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&winner))
             .await
             .unwrap();
-        land(&store, &keys, "c", &[winner], agreements)
+        land(&store, &keys, "c", &[winner], opened.agreements)
             .await
             .unwrap();
 
-        let (next, _) = outgoing(&store, &keys, "c", &written.upserts, 400)
+        let (next, _) = outgoing(&store, &keys, "c", &opened.changes.upserts, 400)
             .await
             .unwrap();
         assert!(next.is_empty());
@@ -618,15 +654,114 @@ mod tests {
             .await
             .unwrap();
         let record = landed(&theirs[0], 1);
-        let (_, agreements) = incoming(&store, &keys, "c", std::slice::from_ref(&record))
+        let opened = incoming(&store, &keys, "c", HERE, std::slice::from_ref(&record))
             .await
             .unwrap();
         store.remember(&record).await.unwrap();
-        settle(&store, &keys, "c", agreements).await.unwrap();
+        settle(&store, &keys, "c", opened.agreements).await.unwrap();
 
         let (again, _) = outgoing(&store, &keys, "c", &[item("1", json!("mine"))], 500)
             .await
             .unwrap();
         assert_eq!(again[0].updated_at, 500);
+    }
+    const HERE: &str = "here";
+
+    /// Agree `data` for item "1" here as if pushed and landed at `version`, and return its change.
+    async fn agreed_here(store: &Store, keys: &Keys, data: Value, version: i64) -> Outgoing {
+        let (changes, agreements) = outgoing(store, keys, "c", &[item("1", data)], 10)
+            .await
+            .unwrap();
+        store.remember(&landed(&changes[0], version)).await.unwrap();
+        settle(store, keys, "c", agreements).await.unwrap();
+        changes[0].clone()
+    }
+
+    /// What another machine pushed for item "1", stamped `at`, landed at `version`.
+    async fn theirs(keys: &Keys, data: Value, at: i64, version: i64) -> WireRecord {
+        let there = Store::in_memory("s").await.unwrap();
+        let (changes, _) = outgoing(&there, keys, "c", &[item("1", data)], at)
+            .await
+            .unwrap();
+        landed(&changes[0], version)
+    }
+
+    #[tokio::test]
+    async fn a_pulled_copy_of_what_is_agreed_is_not_handed_to_the_module() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let mine = agreed_here(&store, &keys, json!("same"), 1).await;
+        // Edited since, not yet pushed: the echo of the earlier push must not write over it (L3).
+        notice(&store, &keys, "c", &[item("1", json!("edited"))], 20)
+            .await
+            .unwrap();
+        let opened = incoming(&store, &keys, "c", HERE, &[landed(&mine, 1)])
+            .await
+            .unwrap();
+        assert!(opened.changes.upserts.is_empty());
+        assert!(opened.agreements.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_later_change_here_keeps_its_place_against_an_older_pull() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        notice(&store, &keys, "c", &[item("1", json!("mine"))], 300)
+            .await
+            .unwrap();
+        let record = theirs(&keys, json!("theirs"), 150, 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        assert!(opened.changes.upserts.is_empty());
+        assert!(opened.agreements.is_empty());
+    }
+
+    #[tokio::test]
+    async fn an_earlier_change_here_gives_way_to_a_later_pull() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        notice(&store, &keys, "c", &[item("1", json!("mine"))], 100)
+            .await
+            .unwrap();
+        let record = theirs(&keys, json!("theirs"), 150, 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        assert_eq!(opened.changes.upserts, vec![item("1", json!("theirs"))]);
+        assert_eq!(opened.agreements.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_pull_that_says_what_this_machine_says_is_agreed_without_a_write() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        notice(&store, &keys, "c", &[item("1", json!("same"))], 100)
+            .await
+            .unwrap();
+        let record = theirs(&keys, json!("same"), 150, 1).await;
+        let opened = incoming(&store, &keys, "c", HERE, &[record]).await.unwrap();
+        assert!(opened.changes.upserts.is_empty());
+        assert_eq!(opened.agreements.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn a_later_edit_here_survives_an_older_tombstone() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let mine = agreed_here(&store, &keys, json!("v0"), 1).await;
+        notice(&store, &keys, "c", &[item("1", json!("edited"))], 300)
+            .await
+            .unwrap();
+        let mut dead = landed(&mine, 2);
+        dead.deleted = true;
+        dead.updated_at = 100;
+        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        assert!(opened.changes.removed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_tombstone_later_than_an_edit_here_removes_it() {
+        let (store, keys) = (Store::in_memory("s").await.unwrap(), keys());
+        let mine = agreed_here(&store, &keys, json!("v0"), 1).await;
+        notice(&store, &keys, "c", &[item("1", json!("edited"))], 50)
+            .await
+            .unwrap();
+        let mut dead = landed(&mine, 2);
+        dead.deleted = true;
+        dead.updated_at = 100;
+        let opened = incoming(&store, &keys, "c", HERE, &[dead]).await.unwrap();
+        assert_eq!(opened.changes.removed, vec!["1".to_string()]);
     }
 }
