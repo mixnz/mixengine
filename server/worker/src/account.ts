@@ -135,6 +135,8 @@ export class Account implements DurableObject {
         return this.setFreeze(request, body);
       case "POST /v1/account/delete":
         return this.deleteAccount(config, request, body);
+      case "POST /v1/account/check":
+        return this.checkVerifier(config, request, body);
       case "GET /v1/records":
         return this.readRecords(config, request, url);
       case "POST /v1/records/batch":
@@ -221,6 +223,40 @@ export class Account implements DurableObject {
    * tombstone, no row saying the address was once here, and the address free to register again.
    * Keeping any of it would be keeping the one fact D1 promises a server does not accumulate.
    */
+  /**
+   * `a` against this account's verifier, counted in the login window, so that no route that asks
+   * for `A` is a cheaper way to guess it than signing in. The refusal to send, or `null`.
+   */
+  private async proveVerifier(config: Config, a: string): Promise<Response | null> {
+    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
+    if (retryAfter !== null) {
+      return fail(
+        429,
+        "too-many-attempts",
+        "Too many attempts on this account.",
+        { retryAfter },
+        { "Retry-After": String(retryAfter) },
+      );
+    }
+    const account = this.account();
+    const presented = await peppered(config.pepper, a);
+    if (!account || !sameSecret(account.verifier, presented)) {
+      return fail(401, "invalid-credentials", "That password does not match this account.");
+    }
+    return null;
+  }
+
+  /** Whether `A` is this account's (T178c, C3): a move asks before it registers anywhere with it. */
+  private async checkVerifier(config: Config, request: Request, body: unknown): Promise<Response> {
+    const session = await this.authenticate(request);
+    if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
+    const fields = asObject(body);
+    if (!fields || !isBase64(fields["a"], VERIFIER_BYTES)) {
+      return fail(400, "invalid-request", "The current verifier is required.");
+    }
+    return (await this.proveVerifier(config, fields["a"] as string)) ?? new Response(null, { status: 204 });
+  }
+
   private async deleteAccount(config: Config, request: Request, body: unknown): Promise<Response> {
     const session = await this.authenticate(request);
     if (!session) return fail(401, "invalid-token", "That token is invalid or has expired.");
@@ -232,24 +268,8 @@ export class Account implements DurableObject {
 
     // **A session is not enough.** A borrowed unlocked machine already holds one, so this asks for
     // the verifier: the person deleting the account is then the person who knows the password.
-    // Wrong ones are counted where a wrong password is counted, so the route cannot become an
-    // oracle for guessing one.
-    const retryAfter = this.tooMany("login", config.limits.loginsPerWindow, LOGIN_WINDOW_SECONDS);
-    if (retryAfter !== null) {
-      return fail(
-        429,
-        "too-many-attempts",
-        "Too many attempts on this account.",
-        { retryAfter },
-        { "Retry-After": String(retryAfter) },
-      );
-    }
-
-    const account = this.account();
-    const presented = await peppered(config.pepper, fields["a"] as string);
-    if (!account || !sameSecret(account.verifier, presented)) {
-      return fail(401, "invalid-credentials", "That password does not match this account.");
-    }
+    const refused = await this.proveVerifier(config, fields["a"] as string);
+    if (refused) return refused;
 
     const counted = this.sql
       .exec<{ total: number }>(`SELECT COUNT(*) AS total FROM record`)

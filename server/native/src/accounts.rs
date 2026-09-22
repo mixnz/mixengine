@@ -860,6 +860,79 @@ pub async fn refresh(State(state): State<Arc<AppState>>, body: String) -> Respon
 ///
 /// Every other table names `account_id` with `ON DELETE CASCADE` and `PRAGMA foreign_keys` is on,
 /// so removing the one row removes the records, the devices, the tokens and the counters with it.
+/// The verifier `presented` against this account's, counted in the login window, so that no route
+/// that asks for `A` is a cheaper way to guess it than signing in. `Some` is the refusal to send.
+fn prove_verifier(
+    connection: &Connection,
+    account_id: i64,
+    presented: &str,
+    allowance: u64,
+) -> rusqlite::Result<Option<Failure>> {
+    if let Some(seconds) = window(
+        connection,
+        "attempt",
+        &account_id,
+        "login",
+        allowance,
+        LOGIN_WINDOW_SECONDS,
+    )? {
+        return Ok(Some(too_many_attempts(seconds)));
+    }
+    let stored: Option<String> = connection
+        .query_row(
+            "SELECT verifier FROM account WHERE id = ?1",
+            params![account_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if !stored.is_some_and(|stored| same_secret(&stored, presented)) {
+        return Ok(Some(Failure::new(
+            StatusCode::UNAUTHORIZED,
+            "invalid-credentials",
+            "That password does not match this account.",
+        )));
+    }
+    Ok(None)
+}
+
+/// `POST /v1/account/check`: whether `A` is this account's (T178c, C3). A move asks before it
+/// registers anywhere with it, where a typo is still a typo.
+pub async fn check_verifier(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: String,
+) -> Response {
+    let fields = match parse(&body) {
+        Ok(fields) => fields,
+        Err(failure) => return failure.into_response(),
+    };
+    let Some(a) = sized_field(&fields, "a", VERIFIER_BYTES) else {
+        return invalid_request("The current verifier is required.").into_response();
+    };
+    let presented = peppered(&state.config.pepper, a);
+    let allowance = state.config.limits.logins_per_window;
+
+    let outcome = state
+        .db
+        .call(move |connection| {
+            let Some(session) = authenticate(connection, &headers) else {
+                return Ok(Some(invalid_token()));
+            };
+            let transaction =
+                connection.transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)?;
+            let refusal = prove_verifier(&transaction, session.account_id, &presented, allowance)?;
+            transaction.commit()?;
+            Ok(refusal)
+        })
+        .await;
+
+    match outcome {
+        Err(error) => internal(error).into_response(),
+        Ok(Some(failure)) => failure.into_response(),
+        Ok(None) => StatusCode::NO_CONTENT.into_response(),
+    }
+}
+
 pub async fn delete_account(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -888,34 +961,11 @@ pub async fn delete_account(
 
             // **A session is not enough.** A borrowed unlocked machine already holds one, so this
             // asks for the verifier: the person deleting the account is then the person who knows
-            // the password. Wrong ones are counted where a wrong password is counted, so the
-            // route cannot become an oracle for guessing one.
-            if let Some(seconds) = window(
-                &transaction,
-                "attempt",
-                &account_id,
-                "login",
-                allowance,
-                LOGIN_WINDOW_SECONDS,
-            )? {
+            // the password.
+            if let Some(failure) = prove_verifier(&transaction, account_id, &presented, allowance)?
+            {
                 transaction.commit()?;
-                return Ok(Err(too_many_attempts(seconds)));
-            }
-
-            let stored: Option<String> = transaction
-                .query_row(
-                    "SELECT verifier FROM account WHERE id = ?1",
-                    params![account_id],
-                    |row| row.get(0),
-                )
-                .optional()?;
-            if !stored.is_some_and(|stored| same_secret(&stored, &presented)) {
-                transaction.commit()?;
-                return Ok(Err(Failure::new(
-                    StatusCode::UNAUTHORIZED,
-                    "invalid-credentials",
-                    "That password does not match this account.",
-                )));
+                return Ok(Err(failure));
             }
 
             let records_deleted: i64 = transaction.query_row(

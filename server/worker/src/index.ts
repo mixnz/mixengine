@@ -68,6 +68,7 @@ const BY_TOKEN = new Set([
   "/v1/auth/password",
   "/v1/account/freeze",
   "/v1/account/delete",
+  "/v1/account/check",
 ]);
 
 export default {

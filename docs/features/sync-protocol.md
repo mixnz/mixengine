@@ -565,3 +565,14 @@ same route any machine uses, and a second machine that wants to take over needs 
 | Route | Body in | Out | Refuses with |
 | --- | --- | --- | --- |
 | `POST /v1/account/delete` | `a` | `200`, `{recordsDeleted: 214}` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+
+### Checking the password
+
+| Route | Body in | Out | Refuses with |
+| --- | --- | --- | --- |
+| `POST /v1/account/check` | `a` | `204` | `401 invalid-credentials` · `401 invalid-token` · `429 too-many-attempts` |
+
+`check` answers whether `a` is this account's, under an access token. A move asks it before it
+registers anywhere with the password just typed, so a typo is refused at the first step rather than
+becoming the new server's password. It counts where login and `delete` count, in the same
+per-account window, so it is no cheaper way to guess a password than signing in.
