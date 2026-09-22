@@ -291,12 +291,11 @@ Decision: [ADR 0045](../decisions/0045-mixlab-has-an-account-and-mixengine-does-
       - A push the server refuses whole, such as a frozen account, now arrives in
         `PushedChanges.error` rather than as an `Err`.
       - Every `sync_live.rs` test passes against two native servers.
-- [ ] **T178d** — *named by T178a's design, and again by T178c's.* A record a module skipped reaches
+- [x] **T178d** — *named by T178a's design, and again by T178c's.* A record a module skipped reaches
       it once the app can read it. T178a's L4 remembers such a record's version but never agrees on
       it, so an older app no longer deletes or overwrites it; but the cursor has moved past it, and
-      after an upgrade nothing delivers it again. Needs a design of its own: which records are
-      owed, when they are pulled again, and a test that upgrades a module's reader between two
-      syncs.
+      after an upgrade nothing delivers it again. Design:
+      [2026-09-22-t178d-a-skipped-record-is-delivered-again-design.md](../specs/2026-09-22-t178d-a-skipped-record-is-delivered-again-design.md).
 
 
 **Milestone M30** — on two machines: a fresh install signs in and reproduces exactly the

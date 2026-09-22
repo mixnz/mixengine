@@ -63,6 +63,15 @@ const SCHEMA: &[&str] = &[
        id         TEXT NOT NULL,
        PRIMARY KEY (server, collection, id)
      )",
+    // Records this machine's module skipped: the server holds them, this machine does not. Each
+    // is asked for again once a new version of the app, the one that may read it, syncs (T178d).
+    "CREATE TABLE IF NOT EXISTS owed (
+       server     TEXT NOT NULL,
+       collection TEXT NOT NULL,
+       id         TEXT NOT NULL,
+       version    TEXT NOT NULL,
+       PRIMARY KEY (server, collection, id)
+     )",
 ];
 
 /// What this machine last saw of one record.
@@ -200,10 +209,12 @@ impl Store {
         .await
         .map_err(store_error)?;
         // A tombstone is the end of a deletion this machine was landing. An edit made here is not
-        // ended by it: it may yet beat the tombstone (D4), and keeps its stamp until it lands.
+        // ended by it: it may yet beat the tombstone (D4), and keeps its stamp until it lands. A
+        // record owed here is owed no more: there is nothing left to deliver.
         if record.deleted {
             self.unstamp_deletion(&record.collection, &record.id)
                 .await?;
+            self.unowe(&record.collection, &record.id).await?;
         }
         Ok(())
     }
@@ -267,6 +278,8 @@ impl Store {
     /// The page that ends a resync has been written: forget each record it never met — its
     /// tombstone was reaped — with any deletion of it this machine was landing, and end the
     /// resync. An edit's stamp stays: with no version remembered, it is pushed as a creation (M2).
+    /// A record owed and never met is owed no more. `unmet` does not name it, because it was never
+    /// agreed, so `resync_met` decides (T178d).
     pub async fn end_resync(&self, collection: &str, unmet: &[String]) -> Result<(), AppError> {
         for id in unmet {
             sqlx::query("DELETE FROM seen WHERE server = ?1 AND collection = ?2 AND id = ?3")
@@ -279,6 +292,8 @@ impl Store {
             self.unstamp_deletion(collection, id).await?;
         }
         for statement in [
+            "DELETE FROM owed WHERE server = ?1 AND collection = ?2
+               AND id NOT IN (SELECT id FROM resync_met WHERE server = ?1 AND collection = ?2)",
             "DELETE FROM resync_met WHERE server = ?1 AND collection = ?2",
             "DELETE FROM resync WHERE server = ?1 AND collection = ?2",
         ] {
@@ -334,6 +349,8 @@ impl Store {
         // Whatever this machine was still trying to land is either what was agreed or was replaced
         // by it; either way it is no longer in flight.
         self.unstamp(collection, id).await?;
+        // Agreed means written here: a record owed is delivered.
+        self.unowe(collection, id).await?;
         Ok(())
     }
 
@@ -350,6 +367,68 @@ impl Store {
         .await
         .map_err(store_error)?;
         Ok(rows.iter().map(|row| (row.get(0), row.get(1))).collect())
+    }
+
+    /// Records the module skipped, owed to this machine. `version` is the app that skipped them;
+    /// skipped again, a record takes the later one (T178d).
+    pub async fn owe(
+        &self,
+        collection: &str,
+        ids: &[String],
+        version: &str,
+    ) -> Result<(), AppError> {
+        for id in ids {
+            sqlx::query(
+                "INSERT INTO owed (server, collection, id, version) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (server, collection, id) DO UPDATE SET version = excluded.version",
+            )
+            .bind(&self.server)
+            .bind(collection)
+            .bind(id)
+            .bind(version)
+            .execute(&self.pool)
+            .await
+            .map_err(store_error)?;
+        }
+        Ok(())
+    }
+
+    pub async fn owed(&self, collection: &str) -> Result<HashSet<String>, AppError> {
+        let rows = sqlx::query("SELECT id FROM owed WHERE server = ?1 AND collection = ?2")
+            .bind(&self.server)
+            .bind(collection)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(rows.iter().map(|row| row.get(0)).collect())
+    }
+
+    /// Whether `collection` owes a record that another version of the app skipped. This one's
+    /// reader may understand it now.
+    pub async fn owed_elsewhere(&self, collection: &str, version: &str) -> Result<bool, AppError> {
+        let row = sqlx::query(
+            "SELECT 1 FROM owed WHERE server = ?1 AND collection = ?2 AND version <> ?3 LIMIT 1",
+        )
+        .bind(&self.server)
+        .bind(collection)
+        .bind(version)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(store_error)?;
+        Ok(row.is_some())
+    }
+
+    /// Every record `collection` owes, now asked for by `version`. One this version cannot read
+    /// either waits for the next release, not the next launch.
+    pub async fn renew_owed(&self, collection: &str, version: &str) -> Result<(), AppError> {
+        sqlx::query("UPDATE owed SET version = ?3 WHERE server = ?1 AND collection = ?2")
+            .bind(&self.server)
+            .bind(collection)
+            .bind(version)
+            .execute(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(())
     }
 
     /// When this machine first noticed the change it is still trying to land — the same time on
@@ -426,6 +505,17 @@ impl Store {
 
     async fn unstamp(&self, collection: &str, id: &str) -> Result<(), AppError> {
         sqlx::query("DELETE FROM stamp WHERE server = ?1 AND collection = ?2 AND id = ?3")
+            .bind(&self.server)
+            .bind(collection)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(store_error)?;
+        Ok(())
+    }
+
+    async fn unowe(&self, collection: &str, id: &str) -> Result<(), AppError> {
+        sqlx::query("DELETE FROM owed WHERE server = ?1 AND collection = ?2 AND id = ?3")
             .bind(&self.server)
             .bind(collection)
             .bind(id)
@@ -633,6 +723,55 @@ mod tests {
         assert!(
             !store.has_pulled("c").await.unwrap(),
             "a resync under way has not pulled yet"
+        );
+    }
+
+    /// A skipped record is owed until it stops being owed: agreed once the module writes it, a
+    /// tombstone remembered for it, or a resync that ends without meeting it (T178d).
+    #[tokio::test]
+    async fn a_skipped_record_is_owed_until_it_is_agreed_deleted_or_reaped() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        let ids = ["written", "deleted", "reaped", "still"];
+        for id in ids {
+            store.remember(&record("c", id, 1)).await.unwrap();
+        }
+        let owed: Vec<String> = ids.iter().map(|id| id.to_string()).collect();
+        store.owe("c", &owed, "1.0.0").await.unwrap();
+
+        store.agree("c", "written", "local", "h").await.unwrap();
+        let mut dead = record("c", "deleted", 2);
+        dead.deleted = true;
+        store.remember(&dead).await.unwrap();
+        assert_eq!(
+            store.owed("c").await.unwrap(),
+            HashSet::from(["reaped".to_string(), "still".to_string()])
+        );
+
+        store.begin_resync("c").await.unwrap();
+        store.mark_met("c", &["still".into()]).await.unwrap();
+        store.end_resync("c", &[]).await.unwrap();
+        assert_eq!(
+            store.owed("c").await.unwrap(),
+            HashSet::from(["still".to_string()]),
+            "`unmet` never names an owed record: it was never agreed"
+        );
+    }
+
+    /// Only a record skipped by another version is worth asking for again, and asking re-stamps
+    /// it, so the same version does not ask twice.
+    #[tokio::test]
+    async fn a_record_owed_to_another_version_is_asked_for_once() {
+        let store = Store::in_memory("https://a").await.unwrap();
+        store.owe("c", &["i".into()], "1.0.0").await.unwrap();
+        assert!(!store.owed_elsewhere("c", "1.0.0").await.unwrap());
+        assert!(store.owed_elsewhere("c", "1.1.0").await.unwrap());
+        assert!(!store.owed_elsewhere("other", "1.1.0").await.unwrap());
+
+        store.renew_owed("c", "1.1.0").await.unwrap();
+        assert!(!store.owed_elsewhere("c", "1.1.0").await.unwrap());
+        assert_eq!(
+            store.owed("c").await.unwrap(),
+            HashSet::from(["i".to_string()])
         );
     }
 }

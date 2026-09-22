@@ -35,6 +35,9 @@ use crate::platform::in_background;
 /// on the way.
 const RENEW_BEFORE: i64 = 60;
 
+/// The running app. A record skipped under one version is asked for again under the next (T178d).
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// What the account screen draws from.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1057,7 +1060,8 @@ impl SyncState {
                 async move {
                     let opaque = crypto::opaque_id(&session.keys.id, &name);
                     let fetched =
-                        engine::fetch(&session.transport, &session.store, &opaque).await?;
+                        engine::fetch(&session.transport, &session.store, &opaque, APP_VERSION)
+                            .await?;
                     let opened = lend::incoming(
                         &session.store,
                         &session.keys,
@@ -1240,6 +1244,7 @@ impl SyncState {
             &held.records,
             held.agreements,
             &skipped,
+            APP_VERSION,
         )
         .await?;
         if let Some(fetched) = &held.fetched {

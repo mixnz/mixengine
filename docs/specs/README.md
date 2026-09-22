@@ -153,3 +153,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-20 | [T177 — A copy only you can read](2026-09-20-t177-a-copy-only-you-can-read-design.md) | T177 | implemented |
 | 2026-09-22 | [T178a–b — A pull that keeps what it has not agreed, and a resync that ends](2026-09-22-t178-a-pull-that-keeps-what-it-has-not-agreed-design.md) | T178a, T178b | implemented |
 | 2026-09-22 | [T178c — The review's other four](2026-09-22-t178c-the-reviews-other-four-design.md) | T178c | implemented |
+| 2026-09-22 | [T178d — A skipped record is delivered again](2026-09-22-t178d-a-skipped-record-is-delivered-again-design.md) | T178d | implemented |

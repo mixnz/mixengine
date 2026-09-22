@@ -63,12 +63,18 @@ pub struct Fetched {
 
 /// The next page of `collection` after this machine's cursor. **Moves nothing**: see [`Fetched`].
 /// A `410` starts a resync (M1). Every later page of it says `resync=1`, so it is not expired
-/// halfway (M4).
+/// halfway (M4). So does a record another `version` of the app skipped: this one may read it, and
+/// only a resync delivers it again (T178d).
 pub async fn fetch<R: Remote>(
     remote: &R,
     store: &Store,
     collection: &str,
+    version: &str,
 ) -> Result<Fetched, AppError> {
+    if store.owed_elsewhere(collection, version).await? {
+        store.begin_resync(collection).await?;
+        store.renew_owed(collection, version).await?;
+    }
     let since = store.since(collection).await?;
     let resync = store.resyncing(collection).await?;
     match remote.page(collection, since, resync && since > 0).await? {
@@ -248,6 +254,8 @@ mod tests {
     use crate::sync::wire::ErrorDetail;
     use std::collections::BTreeMap;
     use std::sync::Mutex;
+
+    const VERSION: &str = "1.0.0";
 
     /// Just enough of `/v1` in a `Mutex` to exercise the engine: versions, `seq`, the writing
     /// device, `409`, `412`, paging two at a time, and a cursor the server can forget.
@@ -438,7 +446,7 @@ mod tests {
     async fn pull_all(server: &Fake, store: &Store) -> Vec<WireRecord> {
         let mut all = Vec::new();
         loop {
-            let fetched = fetch(server, store, "c").await.unwrap();
+            let fetched = fetch(server, store, "c", VERSION).await.unwrap();
             for record in &fetched.records {
                 store.remember(record).await.unwrap();
             }
@@ -590,8 +598,8 @@ mod tests {
     async fn a_page_not_committed_is_read_again() {
         let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
         server.holds("a", 1, 100, "theirs");
-        let first = fetch(&server, &store, "c").await.unwrap();
-        let again = fetch(&server, &store, "c").await.unwrap();
+        let first = fetch(&server, &store, "c", VERSION).await.unwrap();
+        let again = fetch(&server, &store, "c", VERSION).await.unwrap();
         assert_eq!(first, again);
         assert_eq!(store.since("c").await.unwrap(), 0);
         assert_eq!(store.seen("c", "a").await.unwrap(), None);
@@ -606,7 +614,7 @@ mod tests {
         store.agree("c", "a", "local", "h").await.unwrap();
         server.state.lock().unwrap().forgotten_below = 50;
 
-        let fetched = fetch(&server, &store, "c").await.unwrap();
+        let fetched = fetch(&server, &store, "c", VERSION).await.unwrap();
         assert!(fetched.resync);
         assert_eq!(fetched.records.len(), 1);
         assert!(store.resyncing("c").await.unwrap());
@@ -748,5 +756,25 @@ mod tests {
             );
         }
         assert_eq!(store.seen("c", "2").await.unwrap(), None);
+    }
+
+    /// A record another version of the app skipped is asked for again: the collection resyncs
+    /// from the start, once. The same version asks for nothing (T178d).
+    #[tokio::test]
+    async fn a_new_version_resyncs_a_collection_that_owes_a_record() {
+        let (server, store) = (Fake::new("theirs"), Store::in_memory("s").await.unwrap());
+        server.holds("a", 1, 100, "theirs");
+        server.holds("b", 1, 100, "theirs");
+        assert_eq!(pull_all(&server, &store).await.len(), 2);
+        store.owe("c", &["b".into()], VERSION).await.unwrap();
+
+        let same = fetch(&server, &store, "c", VERSION).await.unwrap();
+        assert!(!same.resync);
+        assert!(same.records.is_empty(), "the same version asked again");
+
+        let upgraded = fetch(&server, &store, "c", "1.1.0").await.unwrap();
+        assert!(upgraded.resync);
+        assert_eq!(upgraded.records.len(), 2);
+        assert!(!store.owed_elsewhere("c", "1.1.0").await.unwrap());
     }
 }
