@@ -60,6 +60,78 @@ pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<Pat
     vec![crate::install::beside(program)]
 }
 
+/// `dpkg-query`, by the path every Debian-family system has it at.
+const DPKG_QUERY: &str = "/usr/bin/dpkg-query";
+
+/// `rpm`, by the path every RPM-family system has it at.
+const RPM: &str = "/usr/bin/rpm";
+
+/// How long a package database is given to answer. Both answer in milliseconds; this is for a
+/// database that is locked or broken, which is not a reason for an uninstall plan to hang.
+const ASKING: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// The package that owns `path`: `dpkg-query -S` first, then `rpm -qf` — roadmap task **T88e**.
+///
+/// **A database that is missing, fails or does not answer in time is "no package"**, which leaves
+/// the row as it was before this task: a helper `mix uninstall` removes. Both programs answer an
+/// ordinary account, so the daemon asks and the helper never does.
+pub(crate) fn packaged_by(path: &std::path::Path) -> Option<String> {
+    use crate::packages::{PackageDatabase, owning_package};
+
+    let path = path.to_str()?;
+
+    let dpkg = answer(DPKG_QUERY, &["-S", path])
+        .and_then(|stdout| owning_package(PackageDatabase::Dpkg, &stdout));
+
+    dpkg.or_else(|| {
+        answer(RPM, &["-qf", "--queryformat", "%{NAME}\n", path])
+            .and_then(|stdout| owning_package(PackageDatabase::Rpm, &stdout))
+    })
+}
+
+/// `program`'s standard output, when it exits 0 within [`ASKING`].
+///
+/// **Waited on by polling, not by reading**: the answer is one short line, far below a pipe's
+/// buffer, so the child cannot block on a full pipe while this waits for it to exit.
+/// `LC_ALL=C` keeps the wording [`owning_package`](crate::packages::owning_package) refuses in
+/// English.
+fn answer(program: &str, args: &[&str]) -> Option<String> {
+    use std::io::Read as _;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new(program)
+        .args(args)
+        .env("LC_ALL", "C")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let deadline = std::time::Instant::now() + ASKING;
+
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                if !status.success() {
+                    return None;
+                }
+                let mut stdout = String::new();
+                child.stdout.take()?.read_to_string(&mut stdout).ok()?;
+                return Some(stdout);
+            }
+            Ok(None) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            _ => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    }
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The `.deb` and the `.rpm` ship a source into [`BIN`]** — roadmap task T88d — so the answer is

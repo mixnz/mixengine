@@ -61,6 +61,12 @@ pub(crate) fn helper_sources(program: &std::path::Path, bundle: &str) -> Vec<Pat
     vec![crate::install::beside(program)]
 }
 
+/// Nobody — roadmap task **T88e**. The installer is per-user and never writes to Program Files;
+/// the helper there is always one `HelperInstall {}` placed.
+pub(crate) fn packaged_by(_path: &std::path::Path) -> Option<String> {
+    None
+}
+
 /// What to tell a person who is missing the helper on this system.
 ///
 /// **The NSIS installer and the portable zip both keep it beside `mixengined`**, in
