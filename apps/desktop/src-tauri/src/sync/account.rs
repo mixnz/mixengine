@@ -72,6 +72,8 @@ pub struct SignedIn {
     pub expires_in: i64,
     pub wrapped_mk_password: String,
     pub wrapped_mk_recovery: String,
+    /// The account's own id: random at registration, never reused (T178c, C4).
+    pub account_id: String,
 }
 
 /// `POST /v1/auth/refresh`. The refresh token that asked for it is spent the moment this arrives.

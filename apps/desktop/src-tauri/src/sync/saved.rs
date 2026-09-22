@@ -34,6 +34,10 @@ pub struct Saved {
     /// entry kept before it was.
     #[serde(default)]
     pub wrapped_mk_recovery: Option<String>,
+    /// The account this is, as the server named it at sign-in (`accountId`). `None` for an entry
+    /// kept before it was.
+    #[serde(default)]
+    pub account_id: Option<String>,
 }
 
 impl std::fmt::Debug for Saved {
@@ -49,6 +53,7 @@ impl std::fmt::Debug for Saved {
                 "wrapped_mk_recovery",
                 &self.wrapped_mk_recovery.as_ref().map(|_| Redacted),
             )
+            .field("account_id", &self.account_id)
             .finish()
     }
 }
@@ -58,6 +63,15 @@ fn unreadable() -> AppError {
 }
 
 impl Saved {
+    /// What this machine's sync store is kept under: the server **and the account**, so that an
+    /// address deleted and registered again under the same `MK` starts from nothing (T178c, C4).
+    pub fn store_scope(&self) -> String {
+        match &self.account_id {
+            Some(id) => format!("{} {id}", self.server),
+            None => self.server.clone(),
+        }
+    }
+
     pub fn master_key_bytes(&self) -> Result<[u8; 32], AppError> {
         STANDARD
             .decode(&self.master_key)
@@ -134,7 +148,21 @@ mod tests {
             refresh_token: "refresh-secret".into(),
             master_key: STANDARD.encode([7u8; 32]),
             wrapped_mk_recovery: Some("w".into()),
+            account_id: None,
         }
+    }
+
+    /// C4: an account is told apart by its id, not by its address. An entry kept before the id
+    /// existed keeps the old scope until the next sign-in.
+    #[test]
+    fn the_store_scope_names_the_account_when_it_is_known() {
+        let mut saved = saved();
+        assert_eq!(saved.store_scope(), "https://sync.example");
+        saved.account_id = Some("0123456789abcdef0123456789abcdef".into());
+        assert_eq!(
+            saved.store_scope(),
+            "https://sync.example 0123456789abcdef0123456789abcdef"
+        );
     }
 
     /// An entry kept before the recovery copy was is still read — and says it has none, which is

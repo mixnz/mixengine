@@ -577,7 +577,9 @@ async fn a_frozen_account_is_seen_and_thawed_from_another_machine() {
 
     desktop.freeze_for_test().await.unwrap();
     assert_eq!(laptop.freeze_state().await.unwrap().state, "frozen");
-    let refused = laptop
+    // A refusal comes back beside what the push did, not in place of it (T178c, C2); the loop
+    // throws it once it has committed the rest.
+    let pushed = laptop
         .push(
             "query-snippets",
             vec![Item {
@@ -586,8 +588,11 @@ async fn a_frozen_account_is_seen_and_thawed_from_another_machine() {
             }],
         )
         .await
-        .unwrap_err();
-    assert_eq!(refused.code, "error.syncAccountFrozen");
+        .unwrap();
+    assert_eq!(
+        pushed.error.map(|error| error.code),
+        Some("error.syncAccountFrozen")
+    );
 
     assert_eq!(laptop.thaw().await.unwrap().state, "active");
 }
@@ -668,6 +673,53 @@ async fn a_move_with_the_wrong_password_is_refused_before_anything_is_registered
         .await
         .unwrap();
     letter_on(&second_server(), &email, "verification").await;
+}
+
+/// C4: an account moved away and back is a new account on its first server. This machine's store
+/// for the old one held a cursor past both records; kept under the address alone, the return
+/// pulled nothing until `seq` caught up. Under the account, it starts from nothing and meets both.
+#[tokio::test]
+#[ignore = "needs two sync servers in test-outbox mode; see the module comment"]
+async fn an_account_moved_away_and_back_pulls_everything_again() {
+    let dir = tempfile::tempdir().unwrap();
+    let (desktop, email) = signed_up(dir.path(), "desktop", "the password").await;
+    let snippets = vec![
+        Item {
+            id: "a".into(),
+            data: json!({ "sql": "select 1" }),
+        },
+        Item {
+            id: "b".into(),
+            data: json!({ "sql": "select 2" }),
+        },
+    ];
+    desktop.push("query-snippets", snippets).await.unwrap();
+    // Read back once, so this machine's cursor on the first server sits past both records.
+    let page = desktop.pull_page("query-snippets").await.unwrap();
+    desktop
+        .commit_pull("query-snippets", &page.token, Vec::new())
+        .await
+        .unwrap();
+
+    for to in [second_server(), server()] {
+        desktop
+            .move_begin(&to, None, "the password".into())
+            .await
+            .unwrap();
+        desktop
+            .move_confirm(&letter_on(&to, &email, "verification").await, "desktop")
+            .await
+            .unwrap();
+        let status = desktop.move_finish(true).await.unwrap();
+        assert_eq!(status.server.as_deref(), Some(to.as_str()));
+    }
+
+    let page = desktop.pull_page("query-snippets").await.unwrap();
+    assert_eq!(
+        page.changes.upserts.len(),
+        2,
+        "back on the first server, the new account's records were not pulled"
+    );
 }
 
 /// The live servers announce no end, and both reads say so: the one for the account this machine

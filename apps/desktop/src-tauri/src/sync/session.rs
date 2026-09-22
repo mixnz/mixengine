@@ -145,6 +145,7 @@ struct Arrived {
     refresh_token: String,
     device_id: String,
     expires_in: i64,
+    account_id: String,
 }
 
 /// What a copy did, for the screen that asks what to do with the old account.
@@ -336,6 +337,7 @@ impl SyncState {
                 refresh_token: signed_in.refresh_token.clone(),
                 master_key: STANDARD.encode(registering.master),
                 wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
+                account_id: Some(signed_in.account_id.clone()),
             };
             inner.registering = None;
             self.begin(
@@ -382,6 +384,7 @@ impl SyncState {
             refresh_token: signed_in.refresh_token.clone(),
             master_key: STANDARD.encode(master),
             wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
+            account_id: Some(signed_in.account_id.clone()),
         };
         master.zeroize();
         {
@@ -432,7 +435,7 @@ impl SyncState {
                     std::fs::create_dir_all(dir)
                         .map_err(|e| err!("error.syncStoreFailed", message = e))?;
                 }
-                let store = Arc::new(Store::open(&path, &saved.server).await?);
+                let store = Arc::new(Store::open(&path, &saved.store_scope()).await?);
                 inner.store = Some(store.clone());
                 store
             }
@@ -893,6 +896,7 @@ impl SyncState {
                     refresh_token: signed_in.refresh_token.clone(),
                     device_id: signed_in.device_id.clone(),
                     expires_in: signed_in.expires_in,
+                    account_id: signed_in.account_id.clone(),
                 };
                 if let Some(moving) = self.inner.lock().await.moving.as_mut() {
                     moving.arrived = Some(arrived.clone());
@@ -968,6 +972,7 @@ impl SyncState {
                 refresh_token: arrived.refresh_token.clone(),
                 master_key: old.master_key.clone(),
                 wrapped_mk_recovery: old.wrapped_mk_recovery.clone(),
+                account_id: Some(arrived.account_id.clone()),
             }
         };
         {
@@ -1012,6 +1017,7 @@ impl SyncState {
             refresh_token: signed_in.refresh_token.clone(),
             master_key: STANDARD.encode(master),
             wrapped_mk_recovery: Some(signed_in.wrapped_mk_recovery.clone()),
+            account_id: Some(signed_in.account_id.clone()),
         };
         {
             let mut inner = self.inner.lock().await;
