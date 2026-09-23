@@ -295,6 +295,18 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       ([ADR 0048](../decisions/0048-a-file-a-package-manager-placed-leaves-with-the-package.md)).
       Design: [2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md](../specs/2026-09-22-t88e-a-file-a-package-placed-leaves-with-the-package-design.md).
 
+- [ ] **T88f** A `.pkg` install cannot update itself. The `.pkg` writes `/usr/local/bin`,
+      `/Applications/MixLab.app` and the installed helper as root, so T88's updater refuses it and
+      `elevation.upgrade` refuses its helper. That is the default macOS install, left to find and
+      run the next `.pkg` by hand every release. On an Intel Mac where Homebrew owns `/usr/local`,
+      the write probe passes instead, and the swap updates four binaries while leaving the window and
+      the helper at the old version. The daemon should download and verify the next `.pkg`, hand it
+      to Installer.app, and restart once the new binaries are on disk.
+      **Four readings on a Mac come first**: the receipt, quarantine, a running binary replaced, and
+      `open` from the daemon. The spec lists them.
+      Design: [2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md](../specs/2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md),
+      and [ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md).
+
 - [x] **T88c** `daemon.status` is not backwards compatible within one protocol version, and the
       sentence written for exactly that case no longer reaches anybody. Every field added to
       `DaemonStatus` since protocol 1 was fixed is **required** — `elevation` (T40b), `dns` (T44) —

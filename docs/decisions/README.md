@@ -49,6 +49,7 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0047](0047-the-url-scheme-is-mixlab.md) | The URL scheme is `mixlab://`; `mixdb://` is no longer answered | Accepted |
 | [0048](0048-a-file-a-package-manager-placed-leaves-with-the-package.md) | A file a package manager placed leaves with the package; `mix uninstall` keeps a packaged helper on Linux | Accepted |
 | [0049](0049-a-download-is-named-after-what-it-installs.md) | A download is named after what it installs: `mixlab-…` with the window, `mixengine-…-headless` without | Accepted |
+| [0050](0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md) | A copy the `.pkg` installed is updated by the `.pkg`, through Installer.app | Accepted |
 
 ### Desktop (recorded in MixDB)
 
