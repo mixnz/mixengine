@@ -70,8 +70,8 @@ finished with the data yet.
 depends on how you installed it:
 
 ```bash
-sudo dpkg -r mixengine
-sudo rpm -e mixengine
+sudo dpkg -r mixlab
+sudo rpm -e mixlab
 sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim \
   /Applications/MixLab.app
 ```

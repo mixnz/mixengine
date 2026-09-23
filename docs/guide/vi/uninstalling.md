@@ -4,7 +4,7 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "4602753f0bebd7d80686f2ffe3c16e8fbf19af8d756ed1a5180e986b64b01998"
+source_sha256 = "00473e7d334eab4c37e82c0dc4b7befc003621b4a6369a0de9e50ced0833bbee"
 +++
 
 # Gỡ MixLab
@@ -70,8 +70,8 @@ chứng chỉ, bản ghi các project. Daemon vẫn chạy, vì vẫn còn home 
 gói, và tùy vào cách bạn đã cài:
 
 ```bash
-sudo dpkg -r mixengine
-sudo rpm -e mixengine
+sudo dpkg -r mixlab
+sudo rpm -e mixlab
 sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengine-shim \
   /Applications/MixLab.app
 ```
