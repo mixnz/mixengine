@@ -24,7 +24,7 @@ stage="$(bash "$MIX_ROOT/packaging/stage.sh" "${stage_args[@]}" | tail -1)"
 dist="$MIX_OUT/dist"
 mkdir -p "$dist"
 
-name="mixengine-$version-linux-$arch.tar.gz"
+name="$MIX_ARTIFACT-$version-linux-$arch.tar.gz"
 
 root="$MIX_OUT/tar"
 rm -rf "$root"
@@ -59,7 +59,7 @@ mix_checksum "$dist/$name"
 # because it is assembled from `MIX_BINARIES`; this one carries the four and nothing else, which is
 # what a server, a container image or a machine with no display wants — and it declares nothing,
 # which is its point.
-headless="mixengine-$version-linux-$arch-headless.tar.gz"
+headless="$MIX_HEADLESS_ARTIFACT-$version-linux-$arch-headless.tar.gz"
 
 headless_root="$MIX_OUT/tar-headless"
 rm -rf "$headless_root"
@@ -88,7 +88,8 @@ fi
 mix_checksum "$dist/$headless"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-linux-$arch-headless.tar.gz")"
+alias_headless="$(mix_publish_alias "$dist/$headless" \
+  "$MIX_HEADLESS_ARTIFACT-linux-$arch-headless.tar.gz")"
 
 # T88a: the privileged helper on its own, so the `release` job can sign it and `mix elevation
 # upgrade` can fetch it. Published here rather than by `build-deb.sh` for this script's own reason —
