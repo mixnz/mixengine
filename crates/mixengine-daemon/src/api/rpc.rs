@@ -4554,11 +4554,9 @@ mod tests {
     /// Put a program at `exe` that answers `--version` with `version` the way Installer.app writes
     /// one: a new file renamed over the old, keeping the old modification time (the readings, M3).
     ///
-    /// Unix only, in test code: there is no inode to change on Windows and no `.pkg` there.
-    #[cfg(unix)]
+    /// A shell script, so the tests that use it return early on Windows, where there is no inode to
+    /// change and no `.pkg` to have changed it.
     fn install_over(exe: &std::path::Path, version: &str) {
-        use std::os::unix::fs::PermissionsExt as _;
-
         let before = std::fs::metadata(exe).and_then(|meta| meta.modified()).ok();
         let fresh = exe.with_extension("new");
         std::fs::write(
@@ -4566,8 +4564,7 @@ mod tests {
             format!("#!/bin/sh\necho \"mixengined {version}\"\n"),
         )
         .expect("the new binary");
-        std::fs::set_permissions(&fresh, std::fs::Permissions::from_mode(0o755))
-            .expect("executable");
+        mixengine_platform::install::make_executable(&fresh).expect("executable");
         std::fs::rename(&fresh, exe).expect("renamed over the old one");
 
         if let Some(before) = before {
@@ -4579,9 +4576,12 @@ mod tests {
         }
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn the_install_is_noticed_by_inode_even_with_the_same_modification_time() {
+        if cfg!(windows) {
+            return; // `install_over` writes a shell script; see there.
+        }
+
         let (daemon, _registry) = installed_by_pkg(true, None).await;
         install_over(&daemon.installed_daemon, "0.0.0");
         checked(&daemon).await;
@@ -4604,9 +4604,12 @@ mod tests {
     }
 
     /// Somebody installed a different version by hand: not taken for the one handed over.
-    #[cfg(unix)]
     #[tokio::test]
     async fn an_install_of_another_version_is_not_taken_for_this_one() {
+        if cfg!(windows) {
+            return; // `install_over` writes a shell script; see there.
+        }
+
         let (daemon, _registry) = installed_by_pkg(true, None).await;
         checked(&daemon).await;
         let _: mixengine_proto::UpdateHandedOver = daemon
@@ -4621,9 +4624,12 @@ mod tests {
         daemon.quiet().await;
     }
 
-    #[cfg(unix)]
     #[tokio::test]
     async fn finishing_stops_remembers_and_ends_the_daemon() {
+        if cfg!(windows) {
+            return; // `install_over` writes a shell script; see there.
+        }
+
         let (daemon, _registry) = installed_by_pkg(true, None).await;
         checked(&daemon).await;
         let _: mixengine_proto::UpdateHandedOver = daemon

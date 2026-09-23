@@ -74,16 +74,17 @@ và bấm Cancel cũng không mất gì.
 Cài xong thì chạy `mix self-update --finish`, hoặc bấm **Hoàn tất cập nhật** trong MixLab. MixEngine
 khởi động lại ở bản mới và chạy lại các service đang chạy trước đó.
 
-Nếu bạn SSH vào máy, Installer hiện trên màn hình của chính máy Mac đó. `mix self-update` in thêm
-đường dẫn file đã tải và lệnh `sudo installer` để cài file đó từ terminal.
+Nếu bạn SSH vào máy, Installer hiện trên màn hình của chính máy Mac đó. `mix self-update` in
+thêm đường dẫn file đã tải và lệnh `sudo installer` để cài file đó từ terminal.
 
 Bản đầu tiên có tính năng này thì vẫn phải cài tay một lần, như mọi file `.pkg`.
 
 ## Khi MixLab được cài bằng trình quản lý gói
 
 Trên Linux, `mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ
-không phải vô ích: bản cài bằng `apt` hay `dnf` thuộc về trình quản lý gói đó. Thay file sau lưng nó
-sẽ khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn đã cài.
+không phải vô ích: bản cài bằng `apt` hay `dnf` thuộc về trình quản lý gói đó. Thay file sau lưng
+nó sẽ khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn
+đã cài.
 
 Bản zip portable, AppImage, bộ cài Windows theo người dùng và bản build từ mã nguồn đều cập nhật
 bình thường bằng `mix self-update`.
