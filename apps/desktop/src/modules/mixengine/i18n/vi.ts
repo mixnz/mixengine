@@ -91,6 +91,14 @@ const vi: typeof en = {
         done: "Site của bạn đã sẵn sàng.",
         open: "Mở {{url}}",
       },
+    pathNudge: {
+      title: "Dùng php, node, python ở mọi terminal",
+      intro:
+        "Thêm thư mục lệnh của MixEngine vào PATH, mỗi project sẽ chạy đúng phiên bản nó cần. Không cần quyền quản trị.",
+      install: "Thêm vào PATH",
+      installing: "Đang thêm…",
+      done: "Xong. Mở một terminal mới để bắt đầu dùng.",
+    },
     afterApply: {
       titleWorking: "Đang đưa project lên",
       titleReady: "Project đã sẵn sàng",
@@ -530,6 +538,16 @@ const vi: typeof en = {
         unsupported: "Máy này không hỗ trợ — chạy tay: {{location}}",
         otherHome: "Mục này đang đăng ký cho một home MixEngine khác.",
         location: "Đã đăng ký ở: {{location}}",
+      },
+      path: {
+        title: "Lệnh trong terminal",
+        toggle: "Đưa php, node, python và các lệnh khác vào PATH",
+        directory: "Thư mục: {{directory}}",
+        places: "Ghi ở: {{places}}",
+        changed: "Mở một terminal mới để nhận thay đổi.",
+        unchanged: "PATH đã đúng như vậy từ trước, không có gì thay đổi.",
+        stale:
+          "Không xoá được mấy file cũ trong thư mục: {{names}}. Đóng terminal nào còn dùng chúng rồi thử lại.",
       },
       // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
       loginItem: {

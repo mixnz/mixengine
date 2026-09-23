@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+- MixLab puts `php`, `node`, `python` and the rest on your PATH in one click: a switch in Settings,
+  and a reminder on the Dashboard until it is done. Same as `mix path install`, no admin prompt.
+
 ## v0.0.7
 
 ### Added

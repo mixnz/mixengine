@@ -196,7 +196,8 @@ mix path install
 ```
 
 Lệnh này điền vào `<root>/bin` các shim, để `php`, `node`, `python` và `ruby` trỏ tới đúng phiên
-bản mà từng thư mục yêu cầu, thay vì một phiên bản chung cho cả máy.
+bản mà từng thư mục yêu cầu, thay vì một phiên bản chung cho cả máy. MixLab cũng làm được việc
+này ngay trên Dashboard, hoặc bằng công tắc **Lệnh trong terminal** trong Settings.
 
 Nếu bạn có cài cửa sổ, hãy mở **MixLab** — từ Start Menu, `/Applications`, menu ứng dụng của
 desktop, hoặc chạy `mixlab`. Nó hiển thị đúng daemon mà `mix status` vừa trả lời.

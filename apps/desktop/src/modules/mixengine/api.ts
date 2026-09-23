@@ -72,6 +72,7 @@ import type { ExtensionInstall } from "@mixengine/api";
 import type { ExtensionUninstall } from "@mixengine/api";
 import type { ExtensionRemoval } from "@mixengine/api";
 import type { AutostartReport } from "@mixengine/api";
+import type { PathReport } from "@mixengine/api";
 import type { UpdateStatus } from "@mixengine/api";
 import type { UpdateCheck } from "@mixengine/api";
 import type { UpdateDecide } from "@mixengine/api";
@@ -559,6 +560,21 @@ export function autostartEnable(): Promise<AutostartReport> {
 
 export function autostartDisable(): Promise<AutostartReport> {
   return invoke<AutostartReport>("mixengine_autostart_disable");
+}
+
+/** `path.status` — `<root>/bin` có trên PATH đã lưu của user này chưa. */
+export function pathStatus(): Promise<PathReport> {
+  return invoke<PathReport>("mixengine_path_status");
+}
+
+/** `path.install` — điền `<root>/bin` và đưa nó vào PATH. Không bật hộp thoại quản trị. */
+export function pathInstall(): Promise<PathReport> {
+  return invoke<PathReport>("mixengine_path_install");
+}
+
+/** `path.uninstall` — gỡ `<root>/bin` khỏi PATH, các lệnh trong đó vẫn còn. */
+export function pathUninstall(): Promise<PathReport> {
+  return invoke<PathReport>("mixengine_path_uninstall");
 }
 
 export function updateStatus(): Promise<UpdateStatus> {

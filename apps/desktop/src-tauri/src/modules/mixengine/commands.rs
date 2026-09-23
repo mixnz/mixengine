@@ -667,6 +667,25 @@ pub async fn mixengine_autostart_disable() -> Result<Value, AppError> {
     rpc::call("autostart.disable", json!({})).await
 }
 
+/// `path.status` — `<root>/bin` có trên PATH của user này chưa, đọc từ PATH đã lưu (registry, shell
+/// profile) chứ không từ môi trường của daemon. Không tham số, trả `PathReport`.
+#[tauri::command]
+pub async fn mixengine_path_status() -> Result<Value, AppError> {
+    rpc::call("path.status", json!({})).await
+}
+
+/// `path.install` — điền `<root>/bin` và đưa nó vào PATH của user này. Không cần quyền quản trị.
+#[tauri::command]
+pub async fn mixengine_path_install() -> Result<Value, AppError> {
+    rpc::call("path.install", json!({})).await
+}
+
+/// `path.uninstall` — gỡ `<root>/bin` khỏi PATH, để nguyên các file trong đó.
+#[tauri::command]
+pub async fn mixengine_path_uninstall() -> Result<Value, AppError> {
+    rpc::call("path.uninstall", json!({})).await
+}
+
 /// `update.status` — đọc rẻ, không ra mạng.
 #[tauri::command]
 pub async fn mixengine_update_status() -> Result<Value, AppError> {

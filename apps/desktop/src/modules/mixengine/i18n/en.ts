@@ -93,6 +93,14 @@ export default {
         done: "Your site is ready.",
         open: "Open {{url}}",
       },
+    pathNudge: {
+      title: "Use php, node and python in any terminal",
+      intro:
+        "Add MixEngine's command folder to your PATH and each project runs the version it asks for. No admin prompt.",
+      install: "Add to PATH",
+      installing: "Adding…",
+      done: "Done. Open a new terminal to start using them.",
+    },
     afterApply: {
       titleWorking: "Bringing your project up",
       titleReady: "Your project is ready",
@@ -540,6 +548,16 @@ export default {
         unsupported: "Not supported on this machine — run by hand: {{location}}",
         otherHome: "This is registered for a different MixEngine home.",
         location: "Registered at: {{location}}",
+      },
+      path: {
+        title: "Terminal commands",
+        toggle: "Put php, node, python and the rest on my PATH",
+        directory: "Folder: {{directory}}",
+        places: "Written to: {{places}}",
+        changed: "Open a new terminal to pick up the change.",
+        unchanged: "Your PATH was already set that way, so nothing changed.",
+        stale:
+          "These old files in the folder could not be removed: {{names}}. Close any terminal still using them, then try again.",
       },
       // MixLab's own login entry, beside MixEngine's — ADR 0042, T168f.
       loginItem: {

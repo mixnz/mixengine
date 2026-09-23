@@ -192,7 +192,8 @@ mix path install
 ```
 
 That fills `<root>/bin` with the shims that make `php`, `node`, `python` and `ruby` resolve to the
-version each directory asks for, rather than to one version for the whole machine.
+version each directory asks for, rather than to one version for the whole machine. MixLab does
+the same from its Dashboard, or from the **Terminal commands** switch in Settings.
 
 If you installed the window, open **MixLab** — from the Start Menu, `/Applications`, your desktop's
 application menu, or by running `mixlab`. It shows the same daemon `mix status` just answered.

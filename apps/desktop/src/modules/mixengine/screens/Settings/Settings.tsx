@@ -11,6 +11,7 @@ import LoginItemSection from "./LoginItemSection";
 import DiagnosticsSection from "./DiagnosticsSection";
 import DoctorSection from "./DoctorSection";
 import FrontEndSection from "./FrontEndSection";
+import PathSection from "./PathSection";
 import styles from "./Settings.module.css";
 import SaveResourcesSection from "./SaveResourcesSection";
 import UninstallSection from "./UninstallSection";
@@ -74,6 +75,7 @@ export default function Settings({
       <AutostartSection onError={setError} />
       <LoginItemSection onError={setError} />
       <SaveResourcesSection onError={setError} />
+      <PathSection onError={setError} />
       <UpdatesSection onError={setError} onApplied={onUpdateApplied} />
       <DoctorSection active={active} onError={setError} />
       <UninstallSection onError={setError} onUninstalled={onUninstalled} />

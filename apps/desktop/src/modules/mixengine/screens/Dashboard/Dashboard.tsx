@@ -69,6 +69,7 @@ import { eventArrived, noReadsYet, readBegan, readLanded } from "../../readOrder
 import { serviceStateKey, serviceStateTone, toggleMode } from "../../serviceStateLabel";
 import CleanupDialog from "./CleanupDialog";
 import DiskUsagePanel from "./DiskUsagePanel";
+import PathNudge from "./PathNudge";
 import QuickStart from "./QuickStart";
 import { shouldOfferQuickStart } from "../../quickStart";
 import type { SiteSummary } from "@mixengine/api";
@@ -606,6 +607,7 @@ export default function Dashboard({
 
       {/* Trên bảng service, và chỉ khi home này chưa có site nào — T117. */}
       {shouldOfferQuickStart(sites) && <QuickStart onCreated={() => void readSites()} />}
+      <PathNudge />
 
       <Card
         flush
