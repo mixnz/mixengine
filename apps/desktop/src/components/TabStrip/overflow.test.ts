@@ -3,7 +3,7 @@ import { overflowState, scrollStep } from "./overflow";
 
 describe("overflowState", () => {
   it("says nothing is hidden when every tab fits", () => {
-    expect(overflowState({ scrollLeft: 0, scrollWidth: 400, clientWidth: 400 })).toEqual({
+    expect(overflowState({ scrollLeft: 0, scrollWidth: 400, clientWidth: 400 }, true)).toEqual({
       overflowing: false,
       atStart: true,
       atEnd: true,
@@ -11,7 +11,7 @@ describe("overflowState", () => {
   });
 
   it("marks the far left as the start, with tabs hidden to the right", () => {
-    expect(overflowState({ scrollLeft: 0, scrollWidth: 900, clientWidth: 400 })).toEqual({
+    expect(overflowState({ scrollLeft: 0, scrollWidth: 900, clientWidth: 400 }, true)).toEqual({
       overflowing: true,
       atStart: true,
       atEnd: false,
@@ -19,7 +19,7 @@ describe("overflowState", () => {
   });
 
   it("marks the far right as the end, with tabs hidden to the left", () => {
-    expect(overflowState({ scrollLeft: 500, scrollWidth: 900, clientWidth: 400 })).toEqual({
+    expect(overflowState({ scrollLeft: 500, scrollWidth: 900, clientWidth: 400 }, true)).toEqual({
       overflowing: true,
       atStart: false,
       atEnd: true,
@@ -27,7 +27,7 @@ describe("overflowState", () => {
   });
 
   it("sees tabs hidden both ways in the middle", () => {
-    expect(overflowState({ scrollLeft: 250, scrollWidth: 900, clientWidth: 400 })).toEqual({
+    expect(overflowState({ scrollLeft: 250, scrollWidth: 900, clientWidth: 400 }, true)).toEqual({
       overflowing: true,
       atStart: false,
       atEnd: false,
@@ -38,9 +38,21 @@ describe("overflowState", () => {
      dải tab cuộn hết cỡ vẫn hay đứng cách mép cuối một phần pixel. Gọi phần ấy là "còn tab bị ẩn"
      là để một mũi tên sáng lên mà bấm vào không đi đâu cả. */
   it("does not call a fraction of a pixel a hidden tab", () => {
-    expect(overflowState({ scrollLeft: 499.6, scrollWidth: 900, clientWidth: 400 }).atEnd).toBe(true);
-    expect(overflowState({ scrollLeft: 0.4, scrollWidth: 900, clientWidth: 400 }).atStart).toBe(true);
-    expect(overflowState({ scrollLeft: 0, scrollWidth: 401, clientWidth: 400 }).overflowing).toBe(false);
+    expect(overflowState({ scrollLeft: 499.6, scrollWidth: 900, clientWidth: 400 }, true).atEnd).toBe(true);
+    expect(overflowState({ scrollLeft: 0.4, scrollWidth: 900, clientWidth: 400 }, true).atStart).toBe(true);
+    expect(overflowState({ scrollLeft: 0, scrollWidth: 401, clientWidth: 400 }, true).overflowing).toBe(false);
+  });
+
+  /* A strip with no tabs holds only what trails them, `[+]`. Calling that overflow takes `[+]` out
+     of the box to make room for the arrows, which empties the box, which then fits, which puts
+     `[+]` back: a new state on every render, until React gives up. The arrows scroll tabs, and
+     there are none to scroll. */
+  it("never calls a strip with no tabs overflowing, however narrow its box", () => {
+    expect(overflowState({ scrollLeft: 0, scrollWidth: 34, clientWidth: 13 }, false)).toEqual({
+      overflowing: false,
+      atStart: true,
+      atEnd: true,
+    });
   });
 });
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { overflowState, scrollStep, type StripOverflow } from "./overflow";
+import styles from "./TabStrip.module.css";
 
 /**
  * Một dải tab dài hơn chỗ nó có: cuộn ngang bằng chuột, và hai mũi tên nói phía nào còn tab bị
@@ -169,7 +170,10 @@ export function useStripScroll(scroller: RefObject<HTMLDivElement | null>): Stri
 
   const measure = useCallback(() => {
     const el = scroller.current;
-    const next = el === null ? FITS : overflowState(el);
+    // A box with no tab in it holds only `trailing`, which never counts as overflow — see
+    // `overflowState`.
+    const hasTabs = el !== null && el.querySelector(`.${styles.tab}`) !== null;
+    const next = el === null ? FITS : overflowState(el, hasTabs);
     const was = shown.current;
     if (
       next.overflowing === was.overflowing &&

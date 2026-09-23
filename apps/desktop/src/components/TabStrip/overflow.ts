@@ -20,8 +20,15 @@ export interface StripOverflow {
    pixel ở `hasRoom`. */
 const EPSILON = 1;
 
-/** Nhìn ba con số ra hai mũi tên. */
-export function overflowState(box: ScrollBox): StripOverflow {
+/**
+ * Nhìn ba con số ra hai mũi tên.
+ *
+ * `hasTabs` false means the box holds nothing but `trailing`. That never counts as overflowing:
+ * the arrows scroll tabs, and taking `trailing` out to make room for them would empty the box, make
+ * it fit, and bring `trailing` back — a different answer on every render.
+ */
+export function overflowState(box: ScrollBox, hasTabs: boolean): StripOverflow {
+  if (!hasTabs) return { overflowing: false, atStart: true, atEnd: true };
   const max = box.scrollWidth - box.clientWidth;
   if (max <= EPSILON) return { overflowing: false, atStart: true, atEnd: true };
   return {

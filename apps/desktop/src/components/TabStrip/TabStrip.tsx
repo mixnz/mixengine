@@ -94,7 +94,11 @@ export function TabStrip({
             crossed. It cannot, and the reason is a width: leaving costs the box `trailing`, and
             arriving costs it two arrows. As long as `trailing` is the narrower of the two there is
             no gap between the two thresholds for the strip to sit in and flicker — see the arrow's
-            padding in `TabStrip.module.css`, which is what keeps that true. */}
+            padding in `TabStrip.module.css`, which is what keeps that true.
+
+            That holds only while there is a tab in the box. With none, `trailing` is all there is
+            to overflow, and taking it out leaves an empty box that fits — so a strip with no tabs
+            never counts as overflowing at all (`overflowState`). */}
         {!overflowing && trailing}
       </div>
       {overflowing && (
