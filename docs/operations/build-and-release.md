@@ -251,7 +251,7 @@ looked.
 which writes `latest.json` into the distribution directory **between** gathering the legs and signing
 them — it is written there rather than in a leg because no leg can see the other four, and before the
 signing rather than after because being in that directory *is* how it gets signed. The artifact is
-the update payload: a plain `mixengine-<version>-<os>-<arch>.(zip|tar.gz)` of the release's binaries,
+the update payload: a plain `mixlab-<version>-<os>-<arch>.(zip|tar.gz)` of the release's binaries,
 which is the only thing `mix self-update` can apply, since every installer either needs root or is a
 file the user placed. `packaging/README.md` has the shape of both.
 

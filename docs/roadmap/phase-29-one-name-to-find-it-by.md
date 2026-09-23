@@ -48,6 +48,11 @@ It carries the scope table; this phase is the order the work happens in.
       `Programs\MixEngine` and `install::program_dirs` are not touched** — ADR 0044 decision 5 and
       decision 2 make all five identifiers, and renaming any of them ripples through `feed.sh`,
       `feed-check.sh`, `sign.sh` and `core::install` to buy a file name.
+
+      **T176f changed its answer on artifact names and `Package: mixengine`**
+      ([ADR 0049](../decisions/0049-a-download-is-named-after-what-it-installs.md)): a file that
+      carries the window is named `mixlab-…`, and the Linux packages are `mixlab`. The payload's
+      `mixengine/` directory, `Programs\MixEngine` and `install::program_dirs` still stand.
 - [x] **T176e** `mixnz/mixengine-sync` is renamed `mixnz/mixlab-sync` before it has a first commit,
       and the working copy beside it. Phase 30 is written against the new name already.
 
