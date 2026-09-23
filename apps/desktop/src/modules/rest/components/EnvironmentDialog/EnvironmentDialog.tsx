@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Button from "../../../../components/Button";
 import ConfirmDialog from "../../../../components/ConfirmDialog";
-import Input from "../../../../components/Input";
+import Input, { Textarea } from "../../../../components/Input";
 import { CloseIcon, EyeIcon, EyeOffIcon, PlusIcon, TrashIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import { useDraftFocus } from "../../draftFocus";
@@ -16,6 +16,7 @@ import {
 import styles from "./EnvironmentDialog.module.css";
 import Modal, { ModalBody } from "../../../../components/Modal";
 import Checkbox from "../../../../components/Checkbox";
+import Select from "../../../../components/Select";
 
 interface Props {
   /** Which environment to open on — the one the tab strip was showing. */
@@ -46,8 +47,8 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
   const [revealed, setRevealed] = useState<number[]>([]);
   const { bind, owe } = useDraftFocus();
 
-  /* The first environment when nothing is chosen, so the right-hand side is never empty while
-     there is something to show — including straight after a delete. */
+  /* The first environment when nothing is chosen, so the table below the dropdown is never empty
+     while there is something to show — including straight after a delete. */
   const chosen = environments.find((env) => env.id === chosenId) ?? environments[0] ?? null;
 
   function done() {
@@ -82,6 +83,9 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
     <>
       <Modal
         title={t("rest.envDialogTitle")}
+        // Large: the variable rows carry a name, a value, a reveal, a secret tick and a delete,
+        // and at the normal width the value is squeezed to a few characters and the row scrolls.
+        size="large"
         layer={70}
         fixedHeight
         onClose={done}
@@ -90,19 +94,22 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
           <>
             <ModalBody fill>
               <div className={styles.body}>
-                <div className={styles.list}>
-                  {environments.map((env) => (
-                    <button
-                      key={env.id}
-                      type="button"
-                      className={`${styles.item}${env.id === chosen?.id ? ` ${styles.itemActive}` : ""}`}
-                      onClick={() => pick(env.id)}
-                    >
-                      {env.name}
-                    </button>
-                  ))}
-                  {environments.length === 0 && (
+                {/* Which environment, as a dropdown across the top rather than a column down the side:
+                    the variable table is what needs the width, and a list of a handful of names
+                    does not earn a column of its own. */}
+                <div className={styles.picker}>
+                  {chosen === null ? (
                     <p className={`${styles.empty} muted`}>{t("rest.envEmpty")}</p>
+                  ) : (
+                    <Select<string>
+                      className={styles.select}
+                      size="small"
+                      value={chosen.id}
+                      options={environments.map((env) => ({ value: env.id, label: env.name }))}
+                      onChange={pick}
+                      ariaLabel={t("rest.envLabel")}
+                      searchable
+                    />
                   )}
                   <Button
                     size="small"
@@ -158,10 +165,13 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
                                 onChange={(e) => updateVar(index, { name: e.target.value })}
                               />
                               <div className={styles.value}>
-                                <Input
+                                {/* A textarea has no `type="password"`: a hidden secret is masked
+                                    by the `masked` class instead. */}
+                                <Textarea
                                   ref={bind(`${index}:value`)}
                                   size="small"
-                                  type={shown ? "text" : "password"}
+                                  maxRows={6}
+                                  className={shown ? undefined : styles.masked}
                                   value={variable.value}
                                   aria-label={t("rest.envVarValue")}
                                   onChange={(e) => updateVar(index, { value: e.target.value })}
@@ -182,13 +192,17 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
                                   </button>
                                 )}
                               </div>
-                              <Checkbox
-                                size="small"
-                                checked={variable.secret}
-                                aria-label={t("rest.envVarSecret")}
-                                title={t("rest.envVarSecretHint")}
-                                onChange={(e) => updateVar(index, { secret: e.target.checked })}
-                              />
+                              {/* In a cell of its own so it can be one field tall and centred;
+                                  the box alone would sit at the top of the row. */}
+                              <span className={styles.tick}>
+                                <Checkbox
+                                  size="small"
+                                  checked={variable.secret}
+                                  aria-label={t("rest.envVarSecret")}
+                                  title={t("rest.envVarSecretHint")}
+                                  onChange={(e) => updateVar(index, { secret: e.target.checked })}
+                                />
+                              </span>
                               <button
                                 type="button"
                                 className={styles.remove}
@@ -214,7 +228,7 @@ function EnvironmentDialog({ initialId, onClose }: Props) {
                             aria-label={t("rest.envAddVar")}
                             onChange={(e) => appendVar("name", e.target.value)}
                           />
-                          <Input
+                          <Textarea
                             size="small"
                             value=""
                             aria-label={t("rest.envVarValue")}

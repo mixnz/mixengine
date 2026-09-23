@@ -2,8 +2,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
-  padding: 0 0.5rem 0.4rem;
-  font-size: var(--text-sm);
+  /* Room above as well as below: the URL bar ends in a border, and a line set straight under it
+     reads as part of the bar. Whole pixels, as the rest of the line is. */
+  padding: 6px 8px;
+  font-size: var(--text-md);
 }
 
 .line {
@@ -14,7 +16,7 @@
   min-width: 0;
   /* Written down rather than left to the font, so the button beside the text can be exactly one
      row tall and land on the middle of the first line whatever the URL wraps to. */
-  line-height: 1.5;
+  line-height: var(--leading-md);
 }
 
 .label {
@@ -24,6 +26,8 @@
 
 .url {
   min-width: 0;
+  /* The app's `code` shrinks itself to sit in prose; this line is the URL itself, at full size. */
+  font-size: inherit;
   opacity: 0.85;
   overflow: hidden;
 }
@@ -41,25 +45,16 @@
   overflow-wrap: anywhere;
 }
 
+/* Only where it sits and how big it is; the look is the shared ghost Button's. */
 .toggle {
   flex: none;
   /* Top, not centre. Expanded, the line beside it is a paragraph, and a chevron halfway down it is
-     nowhere near where it was clicked. Exactly one row tall with the chevron centred inside it, so
-     it sits on the middle of the first line whether there is one line or ten. */
+     nowhere near where it was clicked. Exactly one row tall, so it sits on the first line whether
+     there is one line or ten. */
   align-self: flex-start;
-  height: 1.5em;
-  align-items: center;
-  display: flex;
-  padding: 0;
-  border: none;
-  background: none;
-  color: inherit;
-  opacity: 0.55;
-  cursor: pointer;
-}
-
-.toggle:hover {
-  opacity: 1;
+  min-height: 0;
+  height: var(--leading-md);
+  padding: 0 6px;
 }
 
 .missing {

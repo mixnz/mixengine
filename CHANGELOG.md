@@ -109,6 +109,7 @@
   connection string to copy that never includes the password.
 - MixLab's terminal follows the light and dark theme and the accent; REST methods and response statuses
   are drawn as coloured tags and pills.
+- Requests in MixLab's REST sidebar are as tall as tables in the database sidebar.
 - Services are no longer stopped for being idle unless *Save battery* is on. A site that is up
   stays up. A service you gave its own idle time with `mix service idle` keeps it.
 - The web server starts with MixEngine. Existing homes have it turned on once, including one

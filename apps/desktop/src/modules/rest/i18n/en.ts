@@ -115,6 +115,8 @@ const restEn = {
     redirected: "Redirected",
     finalUrlHint: "Ended at {{url}}",
     wrapLines: "Wrap lines",
+    copyBody: "Copy body",
+    bodyCopied: "Copied",
     loadExternal: "Load external resources",
     loadExternalHint:
       "Off by default: turning it on lets the page fetch images, styles and tracking pixels from the server it came from.",

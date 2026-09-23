@@ -2,45 +2,27 @@
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-direction: column;
   gap: 0.75rem;
 }
 
-.list {
-  flex: 0 0 12rem;
-  min-height: 0;
+/* The environment dropdown and New, one row across the top, set off from what they pick by a rule. */
+.picker {
+  flex: none;
   display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  padding-right: 0.75rem;
-  border-right: 1px solid var(--border);
-  overflow: auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
 
-.item {
-  text-align: left;
-  padding: 0.4rem 0.5rem;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.item:hover {
-  background: var(--hover-bg);
-}
-
-.itemActive {
-  background: var(--hover-bg);
-  font-weight: 600;
+.select {
+  flex: 0 1 16rem;
+  min-width: 0;
 }
 
 .add {
-  margin-top: 0.35rem;
-  align-self: flex-start;
+  flex: none;
 }
 
 .detail {
@@ -90,37 +72,65 @@
   opacity: 1;
 }
 
+/* Name, value, the Secret tick, the remove button, as one grid for the whole table. The value gets
+   most of the width: a token or a key is long, a name is a word. Set a little apart from the Name
+   row above, which is about the environment rather than about any one variable. */
 .table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.5fr) auto auto;
+  column-gap: 0.4rem;
+  row-gap: 0.25rem;
+  margin-top: 8px;
   font-size: var(--text-md);
 }
 
-/* Name, value, the Secret tick, the remove button. */
+/* Each row takes its columns from the table rather than working out its own: the head and the
+   draft row at the foot have empty cells where the others have a tick and a button, and a grid
+   of their own would size those columns to nothing and move every column after them.
+   Top-aligned, so everything else stays on the first line of a value that has grown to several. */
 .row {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 1fr 1.4fr auto auto;
-  align-items: center;
-  gap: 0.4rem;
+  grid-template-columns: subgrid;
+  align-items: start;
 }
 
+/* No tall cell here, so the labels sit centred on one line with each other. */
 .head {
+  align-items: center;
   opacity: 0.7;
   font-size: var(--text-sm);
-  padding: 0 0.15rem;
 }
 
 .value {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
   min-width: 0;
 }
 
-.value > input {
+.value > textarea,
+.draft > textarea {
   flex: 1;
   min-width: 0;
+  /* Its height follows the value, so a handle to drag it would only fight that. */
+  resize: none;
+}
+
+/* The Secret tick, the remove button and the reveal, each one field tall with its icon centred, so
+   against a top-aligned row they sit on the middle of the value's first line. */
+.tick,
+.row > .remove,
+.value > .reveal {
+  min-height: var(--control-h-sm);
+  display: flex;
+  align-items: center;
+}
+
+/* A hidden secret, drawn as dots the way a password field would. Every webview Tauri runs on
+   (WebView2, WebKit, WebKitGTK) supports it. */
+.masked {
+  -webkit-text-security: disc;
 }
 
 .draft {

@@ -1,7 +1,11 @@
 import type { KeyValue } from "./types";
 
 /**
- * The URL box and the Params table are two views of one thing.
+ * The URL box and the Params table: the box holds the address, the table holds the query.
+ *
+ * The URL that goes out is the box with the ticked rows as its query (`urlWithParams`). A query
+ * typed or pasted into the box is not live-synced into the table; it is folded down into it
+ * (`foldQuery`) when the box is pasted into and when the request is sent.
  *
  * Written by hand rather than with `URL` and `URLSearchParams`, for two reasons that both matter:
  * the box holds text that is not a URL yet while it is being typed, and it holds `{{var}}`, which
@@ -45,6 +49,52 @@ export function encodeComponent(text: string): string {
   return encodeURIComponent(text).replace(/%7B%7B/gi, "{{").replace(/%7D%7D/gi, "}}");
 }
 
+/** The query of `url` as decoded key/value pairs, in order. */
+function queryPairs(url: string): { key: string; value: string }[] {
+  return parts(url)
+    .query.split("&")
+    .filter((part) => part !== "")
+    .map((part) => {
+      const eq = part.indexOf("=");
+      if (eq === -1) return { key: decodeComponent(part), value: "" };
+      return {
+        key: decodeComponent(part.slice(0, eq)),
+        value: decodeComponent(part.slice(eq + 1)),
+      };
+    });
+}
+
+/**
+ * The query in the URL box moved down into the Params table, and the box left holding the rest.
+ *
+ * A pair that matches a ticked row with the same key and value is taken to be that row, one pair
+ * per row, and is not added again. That is for requests saved before the query moved out of the
+ * box, when the box and the table were two copies of each other: folding one of those must not
+ * double every parameter. Every other pair is added at the end of the table, ticked.
+ *
+ * Hands back the same object when the box has no query, so a memo built on it stays put.
+ */
+export function foldQuery<T extends { url: string; params: KeyValue[] }>(
+  request: T,
+  nextId: () => string,
+): T {
+  const { base, hash } = parts(request.url);
+  const url = `${base}${hash}`;
+  if (url === request.url) return request;
+
+  const claimed = new Set<string>();
+  const added: KeyValue[] = [];
+  for (const pair of queryPairs(request.url)) {
+    const match = request.params.find(
+      (row) =>
+        row.enabled && !claimed.has(row.id) && row.key === pair.key && row.value === pair.value,
+    );
+    if (match !== undefined) claimed.add(match.id);
+    else added.push({ id: nextId(), enabled: true, key: pair.key, value: pair.value });
+  }
+  return { ...request, url, params: [...request.params, ...added] };
+}
+
 /**
  * The Params table for this URL, keeping as much of the table already there as the URL allows.
  *
@@ -56,17 +106,7 @@ export function encodeComponent(text: string): string {
  * pure function.
  */
 export function paramsFromUrl(url: string, existing: KeyValue[], nextId: () => string): KeyValue[] {
-  const pairs = parts(url)
-    .query.split("&")
-    .filter((part) => part !== "")
-    .map((part) => {
-      const eq = part.indexOf("=");
-      if (eq === -1) return { key: decodeComponent(part), value: "" };
-      return {
-        key: decodeComponent(part.slice(0, eq)),
-        value: decodeComponent(part.slice(eq + 1)),
-      };
-    });
+  const pairs = queryPairs(url);
 
   const rows: KeyValue[] = [];
   let taken = 0;

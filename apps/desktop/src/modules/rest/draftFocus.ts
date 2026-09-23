@@ -12,7 +12,8 @@ import { useEffect, useRef } from "react";
  * A slot is any string the caller can rebuild for the new row; both tables use `${id}:${column}`.
  */
 export function useDraftFocus() {
-  const boxes = useRef(new Map<string, HTMLInputElement>());
+  // A textarea too: the Environments dialog's value column is one.
+  const boxes = useRef(new Map<string, HTMLInputElement | HTMLTextAreaElement>());
   const owed = useRef<string | null>(null);
 
   useEffect(() => {
@@ -26,7 +27,7 @@ export function useDraftFocus() {
     box.setSelectionRange(box.value.length, box.value.length);
   });
 
-  const bind = (slot: string) => (el: HTMLInputElement | null) => {
+  const bind = (slot: string) => (el: HTMLInputElement | HTMLTextAreaElement | null) => {
     if (el === null) boxes.current.delete(slot);
     else boxes.current.set(slot, el);
   };

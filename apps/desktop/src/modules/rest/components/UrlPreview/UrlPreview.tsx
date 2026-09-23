@@ -23,8 +23,8 @@ interface Props {
 /**
  * What the URL above will actually be, and why Send is off when it is.
  *
- * Only drawn when an environment is chosen: with None there is nothing to resolve, and the line
- * would repeat the box above it word for word.
+ * Always drawn, None included: the URL box holds the address and the Params table holds the query,
+ * so this line is the only place the URL that goes out can be read whole.
  *
  * One line by default, and the rest of it behind the chevron. A URL carrying a dozen query
  * parameters wraps to a paragraph taller than the request pane it is explaining, and the part that
@@ -79,16 +79,17 @@ function UrlPreview({ preview, missing, cyclic, envName, onAddMissing }: Props) 
           )}
         </code>
         {clipped && (
-          <button
-            type="button"
+          <Button
+            size="small"
+            variant="ghost"
             className={styles.toggle}
             aria-expanded={expanded}
             aria-label={toggleLabel}
             title={toggleLabel}
             onClick={() => setExpanded((prev) => !prev)}
           >
-            {expanded ? <ChevronUpIcon size="1em" /> : <ChevronDownIcon size="1em" />}
-          </button>
+            {expanded ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+          </Button>
         )}
       </p>
 

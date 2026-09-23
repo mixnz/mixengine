@@ -79,8 +79,19 @@ function UrlBar({
         // Only the URL is required. A GET with nothing else filled in is a whole request.
         disabled={!sending && (url.trim() === "" || blocked)}
       >
-        {sending ? <StopIcon size="1em" /> : <SendIcon size="1em" />}
-        {sending ? t("rest.cancel") : t("rest.send")}
+        {/* Both labels are always there, one on top of the other, and only the current one is
+            visible: the button is as wide as the longer of the two in every language, so pressing
+            it does not move the URL box beside it. */}
+        <span className={styles.sendLabels}>
+          <span className={`${styles.sendLabel}${sending ? ` ${styles.sendLabelHidden}` : ""}`}>
+            <SendIcon size="1em" />
+            {t("rest.send")}
+          </span>
+          <span className={`${styles.sendLabel}${sending ? "" : ` ${styles.sendLabelHidden}`}`}>
+            <StopIcon size="1em" />
+            {t("rest.cancel")}
+          </span>
+        </span>
       </Button>
     </div>
   );

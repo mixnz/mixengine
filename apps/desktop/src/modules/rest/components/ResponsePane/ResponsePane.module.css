@@ -37,6 +37,11 @@
   font-size: var(--text-sm);
 }
 
+/* Only where it sits: the look is the shared ghost Button's. */
+.copy {
+  margin-left: auto;
+}
+
 .headers {
   display: grid;
   grid-template-columns: minmax(8rem, auto) minmax(0, 1fr);

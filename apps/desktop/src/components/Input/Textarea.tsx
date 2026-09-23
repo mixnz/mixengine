@@ -1,9 +1,12 @@
-import { useLayoutEffect, useRef, type Ref, type TextareaHTMLAttributes } from "react";
+import { useCallback, useLayoutEffect, useRef, type Ref, type TextareaHTMLAttributes } from "react";
 import type { InputSize } from "./Input";
 import styles from "./Input.module.css";
 
 interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "rows"> {
   size?: InputSize;
+  /** Whether the box grows to fit its text (the default). Off, it is as tall as its CSS makes it
+   *  and nothing is measured. */
+  autoHeight?: boolean;
   /** How tall the box may grow before it starts scrolling instead. */
   maxRows?: number;
   /** Set in the mono face, as `Input`'s `mono`. */
@@ -19,6 +22,7 @@ function Textarea({
   autoCorrect = "off",
   autoCapitalize = "off",
   spellCheck = false,
+  autoHeight = true,
   maxRows = 10,
   mono = false,
   className,
@@ -28,7 +32,7 @@ function Textarea({
 }: TextareaProps) {
   const innerRef = useRef<HTMLTextAreaElement>(null);
 
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const el = innerRef.current;
     if (!el) return;
     // scrollHeight only ever reports the content as at least as tall as the box already is,
@@ -41,7 +45,35 @@ function Textarea({
     const max = lineHeight * maxRows + padding;
     el.style.height = `${Math.min(el.scrollHeight, max) + borders}px`;
     el.style.overflowY = el.scrollHeight > max ? "auto" : "hidden";
-  }, [value, maxRows]);
+  }, [maxRows]);
+
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    if (!autoHeight) {
+      // Whatever an earlier render with autoHeight on wrote, so the CSS height applies again.
+      el.style.height = "";
+      el.style.overflowY = "";
+      return;
+    }
+    fit();
+  }, [value, autoHeight, fit]);
+
+  /* How many lines the text wraps to depends on the width too: a box measured before its dialog
+     settled, or one whose window was narrowed, is fitted again. Width only — `fit` sets the height,
+     and reacting to that would be a loop. */
+  useLayoutEffect(() => {
+    const el = innerRef.current;
+    if (!el || !autoHeight) return;
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fit();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [autoHeight, fit]);
 
   return (
     <textarea

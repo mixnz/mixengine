@@ -6,7 +6,7 @@
  * input this app takes, and this is the one file where it can be got wrong under `npm test`.
  */
 import { DEFAULT_SEND_SETTINGS, buildRequest } from "./buildRequest";
-import { decodeComponent, paramsFromUrl } from "./syncUrlParams";
+import { decodeComponent, foldQuery } from "./syncUrlParams";
 import { METHODS } from "./types";
 import type {
   Auth,
@@ -537,8 +537,8 @@ export function parseCurl(text: string, nextId: () => string): ParsedRequest | n
 
   return {
     method: method ?? implied,
-    url,
-    params: paramsFromUrl(url, [], nextId),
+    // The query goes to the Params table; the URL box keeps the address.
+    ...foldQuery({ url, params: [] }, nextId),
     headers,
     body,
     auth,

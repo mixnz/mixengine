@@ -178,9 +178,17 @@ interface RestRequest {
 }
 ```
 
-**Ô URL và tab Params là hai mặt của cùng một dữ liệu, đồng bộ hai chiều.** Gõ `?page=2` vào URL thì
-Params mọc thêm dòng; sửa Params thì URL viết lại. Dòng bỏ tick không có mặt trong URL nhưng vẫn nằm
-trong bảng — đó là cách duy nhất tạm tắt một param mà không mất nó. Logic ở `syncUrlParams.ts`.
+**Query sống ở tab Params, ô URL chỉ giữ phần gốc.** URL gửi đi là ô URL ghép với các dòng Params
+đã tick; dòng bỏ tick vẫn nằm trong bảng — đó là cách duy nhất tạm tắt một param mà không mất nó. Hai
+bên không còn đồng bộ hai chiều: sửa Params không viết lại ô URL, gõ `?page=2` vào ô URL cũng chưa
+đụng tới bảng.
+
+Query gõ tay vào ô URL được **gom** xuống Params ở hai lúc: khi dán (một URL hay một lệnh cURL) và khi
+Send. Gom là: mỗi cặp trong ô khớp một-một với một dòng đã tick cùng key và value thì coi như đã có,
+cặp còn lại thêm vào cuối bảng, đã tick; ô URL còn lại phần gốc và `#hash`. Luật khớp là cho request
+lưu từ trước thay đổi này, khi URL và Params còn là hai bản sao của nhau — gom chúng không sinh dòng
+trùng. Chưa gom thì dòng preview và phần kiểm tra biến vẫn tính trên bản đã gom, nên luôn nói đúng
+URL sẽ đi. Logic ở `syncUrlParams.ts`.
 
 ### Bốn file trên đĩa
 
@@ -282,8 +290,9 @@ Dropdown env có mục **None**, và nó là mặc định khi chưa ai tạo en
 nghĩa khi đã chọn một env cụ thể — lúc đó thiếu biến là một lỗi thật, còn ở None thì `{{` chỉ là ký
 tự người dùng gõ vào.
 
-Dưới ô URL có một dòng preview URL sau nội suy, tên biến thiếu tô đỏ. Ở None thì dòng này ẩn, vì
-nó sẽ chỉ lặp lại y hệt ô bên trên.
+Dưới ô URL có một dòng preview URL sau nội suy, tên biến thiếu tô đỏ. Dòng này luôn hiện, kể cả ở
+None: ô URL không mang query, nên đây là chỗ duy nhất thấy trọn URL sẽ gửi. Mặc định một dòng, phần
+còn lại sau nút mở rộng.
 
 ### Hợp đồng với Rust
 
@@ -342,6 +351,9 @@ có redirect, tooltip là URL cuối cùng.
 ### Bốn tab
 
 `Preview` · `Source` · `Raw` · `Headers (14)`.
+
+Tab `Raw` có nút copy cạnh *Wrap lines*: copy trọn body dạng chữ, kể cả phần bị cắt khi hiển thị.
+Body nhị phân hiện dạng hex thì không có nút này.
 
 Tab `Headers` không có trong mô tả gốc nhưng nửa số lần người ta mở REST client là để xem
 `Set-Cookie`, `Location`, `X-RateLimit-Remaining`. Bảng hai cột, giữ nguyên thứ tự và giữ cả header
@@ -434,7 +446,7 @@ Trên sự kiện `paste` của ô URL, đọc `clipboardData`, đưa qua `parse
    `-d/--data/--data-raw/--data-binary`, `-F/--form`, `-u/--user`, `--url`, `-G`; bỏ qua `-L`, `-k`,
    `--compressed` vì ba thứ đó là thiết lập toàn cục ở pane Settings chứ không thuộc về một request.
 2. **URL** — `new URL(text)` chạy được và giao thức là http/https. Query tách thành các dòng Params,
-   phần còn lại vào ô URL.
+   phần còn lại vào ô URL. Một lệnh cURL cũng vậy: query của nó xuống Params, không ở lại ô URL.
 3. **Không khớp** — không gọi `preventDefault()`, webview dán nguyên văn.
 
 Một chỗ curl và thực tế lệch nhau: `curl -d` với một chuỗi JSON mà không kèm header thì **đúng chuẩn
@@ -513,7 +525,7 @@ Ba thứ cuối là toàn cục, không làm per-request ở v1.
 - `interpolate` — biến lồng nhau, vòng lặp, escape literal, `{{#each}}` để nguyên, thiếu biến trong
   dòng đã bỏ tick thì không tính
 - `parsePaste` + `toCurl` — **khứ hồi**: dán một lệnh curl vào rồi copy ra phải cho lại đúng lệnh đó
-- `syncUrlParams` — URL ra Params và ngược lại, dòng bỏ tick không lọt vào URL
+- `syncUrlParams` — gom query xuống Params không sinh dòng trùng, dòng bỏ tick không lọt vào URL
 - `contentType` + `availableModes` — chuỗi fallback, ngửi bytes khi header chung chung, charset hỏng
 - `buildRequest` — state UI ra `WireRequest`, gồm Content-Type tự đặt
 - luật Recent — cắt 10 theo `lastUsedAt`, gộp trùng, ghim chuyển nhóm

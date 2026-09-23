@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import Button from "../../../../components/Button";
 import ErrorBanner from "../../../../components/ErrorBanner";
 import JsonView from "../../../../components/JsonView";
 import { Tab, TabStrip, tabKeyDown } from "../../../../components/TabStrip";
 import Checkbox from "../../../../components/Checkbox";
+import { copyText } from "../../../../core/clipboard";
+import { errorMessage } from "../../../../core/errors";
+import { CheckIcon, CopyIcon } from "../../../../icons";
 import { useTranslation } from "../../../../i18n";
 import {
   SOURCE_MAX_BYTES,
@@ -24,6 +28,9 @@ import styles from "./ResponsePane.module.css";
 /** How much of a text body is put on screen. Past this the webview spends its time laying out
  *  characters nobody is reading. */
 const MAX_TEXT = 5 * 1024 * 1024;
+
+/** How long the copy button shows its tick before it is a copy button again. */
+const COPIED_FLASH_MS = 1500;
 
 /**
  * The modes that exist so far.
@@ -78,6 +85,15 @@ function ResponsePane({
 }: Props) {
   const { t } = useTranslation();
   const [wrap, setWrap] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
+
+  // The tick goes back to a copy icon on its own. Keyed on `copied`, so a second press restarts it.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), COPIED_FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [copied]);
 
   const { response, bytes, detected } = state;
   const size = bytes?.length ?? 0;
@@ -193,16 +209,40 @@ function ResponsePane({
       if (detected.text === null) {
         return <HexView bytes={bytes} totalSize={response?.body_size ?? bytes.length} />;
       }
-      const shown = detected.text.slice(0, MAX_TEXT);
+      const text = detected.text;
+      const shown = text.slice(0, MAX_TEXT);
+      const copyLabel = copied ? t("rest.bodyCopied") : t("rest.copyBody");
       return (
         <>
-          <Checkbox
-            className={styles.toolbar}
-            label={t("rest.wrapLines")}
-            checked={wrap}
-            onChange={(e) => setWrap(e.target.checked)}
-          />
-          {shown.length < detected.text.length && (
+          <div className={styles.toolbar}>
+            <Checkbox
+              label={t("rest.wrapLines")}
+              checked={wrap}
+              onChange={(e) => setWrap(e.target.checked)}
+            />
+            {/* The whole body, not only what is drawn: past `MAX_TEXT` the screen shows a slice,
+                and a copy of that slice would be a body the server never sent. */}
+            <Button
+              size="small"
+              variant="ghost"
+              className={styles.copy}
+              aria-label={copyLabel}
+              title={copyLabel}
+              onClick={() => {
+                setCopyError("");
+                copyText(text).then(
+                  () => setCopied(true),
+                  (e: unknown) => setCopyError(errorMessage(t, e)),
+                );
+              }}
+            >
+              {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+            </Button>
+          </div>
+          {copyError !== "" && (
+            <ErrorBanner message={copyError} onDismiss={() => setCopyError("")} />
+          )}
+          {shown.length < text.length && (
             <p className={`${styles.notice} muted`}>
               {t("rest.truncatedNotice", {
                 shown: formatBytes(MAX_TEXT),

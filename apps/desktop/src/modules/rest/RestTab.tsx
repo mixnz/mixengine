@@ -42,7 +42,7 @@ import {
   useRequestLists,
   useRequestListsLoaded,
 } from "./requestsStore";
-import { paramsFromUrl, urlWithParams } from "./syncUrlParams";
+import { foldQuery, urlWithParams } from "./syncUrlParams";
 import { parseRestTabState } from "./tabState";
 import type { RestRequest } from "./types";
 import {
@@ -120,6 +120,9 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
   /** A paste that the environment has names for, and the request it would become. Held rather
    *  than applied: the question is put to whoever pasted it, and both answers are cheap. */
   const [swap, setSwap] = useState<{ request: RestRequest; found: Substitution[] } | null>(null);
+  /** Set by a paste into the URL box that was not a whole request: the edit that paste makes is
+   *  folded straight into the Params table rather than waiting for Send. */
+  const foldNextUrlEdit = useRef(false);
 
   /**
    * Closing the tab stops whatever it was waiting for.
@@ -181,20 +184,29 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
   const activeRequest = tabs.find((r) => r.id === activeId) ?? tabs[tabs.length - 1];
   const currentId = activeRequest?.id ?? null;
 
+  /* The request as Send would fold it: a query still sitting in the URL box counts as the Params
+     rows it is about to become. The ids are placeholders — nothing here is saved, and `send` folds
+     again with real ones. */
+  const folded = useMemo(() => {
+    if (activeRequest === undefined) return undefined;
+    let n = 0;
+    return foldQuery(activeRequest, () => `pending-${++n}`);
+  }, [activeRequest]);
   /* Resolved once per render rather than at the moment of sending, so that the line under the URL
      box and the state of the Send button are two readings of one answer and cannot disagree. */
   const resolved = useMemo(
-    () => (activeRequest === undefined ? null : resolveRequest(activeRequest, varMap(env))),
-    [activeRequest, env],
+    () => (folded === undefined ? null : resolveRequest(folded, varMap(env))),
+    [folded, env],
   );
-  /** The URL as the line below the box shows it: secrets as dots, anything unfilled still in its
-   *  braces. Not drawn at all with no environment chosen, when it would only repeat the box. */
+  /** The URL as the line below the box shows it: the ticked Params as its query, secrets as dots,
+   *  anything unfilled still in its braces. Drawn with no environment too — the box holds no
+   *  query, so this is the only place the whole URL can be read. */
   const preview = useMemo(
     () =>
-      activeRequest === undefined || env === null
+      folded === undefined
         ? null
-        : interpolate(activeRequest.url, previewVars(env) ?? {}).text,
-    [activeRequest, env],
+        : interpolate(urlWithParams(folded.url, folded.params), previewVars(env) ?? {}).text,
+    [folded, env],
   );
   /** A request that asks for a value nobody has does not go out. Sending `{{token}}` as those nine
    *  characters helps nobody, and a server's answer to it is not an answer to anything. */
@@ -321,20 +333,29 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
     saveRequest({ ...activeRequest, ...patch });
   }
 
-  /** The URL box changed: the Params table is rewritten from it. */
+  /** The URL box changed. A query typed into it stays there until Send folds it into Params; one
+   *  that arrived by paste is folded now. */
   function editUrl(url: string) {
     if (!activeRequest) return;
-    saveRequest({
-      ...activeRequest,
-      url,
-      params: paramsFromUrl(url, activeRequest.params, () => crypto.randomUUID()),
-    });
+    const next = { ...activeRequest, url };
+    if (foldNextUrlEdit.current) {
+      foldNextUrlEdit.current = false;
+      saveRequest(foldQuery(next, () => crypto.randomUUID()));
+      return;
+    }
+    saveRequest(next);
   }
 
-  /** The Params table changed: the URL is rewritten from it. */
-  function editParams(params: RestRequest["params"]) {
-    if (!activeRequest) return;
-    saveRequest({ ...activeRequest, params, url: urlWithParams(activeRequest.url, params) });
+  /** A paste into the URL box: a whole request is taken by `pasteInto`; anything else lands in the
+   *  box as text, and the edit it makes is folded. The flag is dropped after the event either way,
+   *  so a paste that changed nothing does not fold the next keystroke. */
+  function pasteIntoUrl(text: string): boolean {
+    if (pasteInto(text)) return true;
+    foldNextUrlEdit.current = true;
+    setTimeout(() => {
+      foldNextUrlEdit.current = false;
+    }, 0);
+    return false;
   }
 
   /**
@@ -377,9 +398,16 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
    */
   async function send() {
     if (!activeRequest || resolved === null || blocked) return;
-    const request = activeRequest;
+    // A query still in the URL box goes down into Params now, and is saved that way below.
+    const request = foldQuery(activeRequest, () => crypto.randomUUID());
     const sendId = crypto.randomUUID();
-    const wire = buildRequest(resolved.request, sendId, sendSettings(workspace));
+    // Resolved again rather than taken from `resolved`: that one was folded with placeholder ids.
+    // The answer is the same one the Send button was enabled on.
+    const wire = buildRequest(
+      resolveRequest(request, varMap(env)).request,
+      sendId,
+      sendSettings(workspace),
+    );
     const startedAt = Date.now();
     /* The history's own URL, built from the request rather than from `wire`: what goes on the wire
        carries the secrets, and the Auth tab's query key is a credential whichever way it was
@@ -606,17 +634,19 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
                 blocked={blocked}
                 onMethodChange={(method) => edit({ method })}
                 onUrlChange={editUrl}
-                onPasteText={pasteInto}
+                onPasteText={pasteIntoUrl}
                 onSend={() => void send()}
                 onCancel={cancel}
               />
-              {env !== null && preview !== null && resolved !== null && (
+              {preview !== null && resolved !== null && (
                 <UrlPreview
                   preview={preview}
                   missing={resolved.missing}
                   cyclic={resolved.cyclic}
-                  envName={env.name}
+                  envName={env?.name ?? ""}
                   onAddMissing={() => {
+                    // Only offered when something is missing, which takes an environment.
+                    if (env === null) return;
                     addVariables(env.id, resolved.missing);
                     setEnvDialogOpen(true);
                   }}
@@ -643,7 +673,7 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
               </TabStrip>
               <div className="rest-pane-body">
                 {requestTab === "params" && (
-                  <KeyValueTable rows={activeRequest.params} onChange={editParams} />
+                  <KeyValueTable rows={activeRequest.params} onChange={(params) => edit({ params })} />
                 )}
                 {requestTab === "body" && (
                   <BodyEditor body={activeRequest.body} onChange={(body) => edit({ body })} />

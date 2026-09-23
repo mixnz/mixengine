@@ -16,6 +16,7 @@
      together. */
   --leading-sm: 20px;
   --text-md: 13.5px; /* body and controls */
+  --leading-md: 20px; /* whole pixels, for the same reason as --leading-sm */
   --text-lg: 15px; /* card titles */
   --text-xl: 18px; /* dialog titles */
   --text-2xl: 28px; /* page titles */

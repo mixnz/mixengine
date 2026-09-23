@@ -105,6 +105,8 @@ const restVi: RestDict = {
     redirected: "Có redirect",
     finalUrlHint: "Kết thúc ở {{url}}",
     wrapLines: "Xuống dòng",
+    copyBody: "Sao chép body",
+    bodyCopied: "Đã sao chép",
     loadExternal: "Tải tài nguyên ngoài",
     loadExternalHint:
       "Mặc định tắt: bật lên là trang tự gọi ảnh, CSS và cả pixel theo dõi tới máy chủ của nó.",

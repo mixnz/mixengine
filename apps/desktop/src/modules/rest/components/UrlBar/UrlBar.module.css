@@ -44,5 +44,22 @@
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+}
+
+/* One grid cell holding both labels, so the cell is as wide as the wider one. */
+.sendLabels {
+  display: grid;
+}
+
+.sendLabel {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 0.35rem;
+}
+
+/* Keeps its width, draws nothing, and is left out of what a screen reader reads. */
+.sendLabelHidden {
+  visibility: hidden;
 }

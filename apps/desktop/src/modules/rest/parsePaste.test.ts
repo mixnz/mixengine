@@ -146,9 +146,9 @@ describe("parseCurl", () => {
     expect(parsed?.headers).toEqual([]);
   });
 
-  it("splits the query into Params and leaves the box holding the whole URL", () => {
+  it("splits the query into Params and leaves the box holding the address", () => {
     const parsed = parseCurl("curl 'https://x/items?page=2&q=hello%20world'", ids());
-    expect(parsed?.url).toBe("https://x/items?page=2&q=hello%20world");
+    expect(parsed?.url).toBe("https://x/items");
     expect(parsed?.params).toEqual([
       { id: "id-1", enabled: true, key: "page", value: "2" },
       { id: "id-2", enabled: true, key: "q", value: "hello world" },
@@ -342,13 +342,18 @@ describe("parseCurl bodies", () => {
   it("puts -G data in the query and leaves no body behind", () => {
     const parsed = parseCurl("curl -G https://x/items -d 'page=2&q=a'", ids());
     expect(parsed?.method).toBe("GET");
-    expect(parsed?.url).toBe("https://x/items?page=2&q=a");
+    expect(parsed?.url).toBe("https://x/items");
     expect(parsed?.body).toEqual({ kind: "none" });
     expect(parsed?.params.map((row) => row.key)).toEqual(["page", "q"]);
   });
 
   it("adds -G data to a query that was already there", () => {
-    expect(parseCurl("curl -G 'https://x?a=1' -d 'b=2'", ids())?.url).toBe("https://x?a=1&b=2");
+    const parsed = parseCurl("curl -G 'https://x?a=1' -d 'b=2'", ids());
+    expect(parsed?.url).toBe("https://x");
+    expect(parsed?.params.map((row) => [row.key, row.value])).toEqual([
+      ["a", "1"],
+      ["b", "2"],
+    ]);
   });
 
   it("turns -u into basic auth, which is what the Auth tab is for", () => {
@@ -595,7 +600,7 @@ describe("a command copied out of a browser", () => {
 
     const parsed = parsePaste(command, ids());
     expect(parsed?.method).toBe("POST");
-    expect(parsed?.url).toBe("https://api.example.com/v2/items?page=2&per_page=50");
+    expect(parsed?.url).toBe("https://api.example.com/v2/items");
     expect(parsed?.params.map((row) => [row.key, row.value])).toEqual([
       ["page", "2"],
       ["per_page", "50"],
@@ -642,7 +647,7 @@ describe("a command copied out of a browser", () => {
 
     const parsed = parsePaste(command, ids());
     expect(parsed?.method).toBe("GET");
-    expect(parsed?.url).toBe("https://api.example.com/v1/lead?_page=1&locale=vi&_orderBy=id:desc");
+    expect(parsed?.url).toBe("https://api.example.com/v1/lead");
     expect(parsed?.params.map((row) => [row.key, row.value])).toEqual([
       ["_page", "1"],
       ["locale", "vi"],

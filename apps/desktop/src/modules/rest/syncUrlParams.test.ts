@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeComponent, paramsFromUrl, urlWithParams } from "./syncUrlParams";
+import { decodeComponent, foldQuery, paramsFromUrl, urlWithParams } from "./syncUrlParams";
 import type { KeyValue } from "./types";
 
 /** Ids in order, so a test can say which row it means. */
@@ -67,6 +67,79 @@ describe("paramsFromUrl", () => {
     expect(paramsFromUrl("https://x.test/a?page=2#section", [], counter())).toEqual([
       row({ id: "new-1", key: "page", value: "2" }),
     ]);
+  });
+});
+
+describe("foldQuery", () => {
+  it("moves a typed query into the table and leaves the box holding the address", () => {
+    expect(foldQuery({ url: "https://x.test/a?page=2&q=hi", params: [] }, counter())).toEqual({
+      url: "https://x.test/a",
+      params: [
+        row({ id: "new-1", key: "page", value: "2" }),
+        row({ id: "new-2", key: "q", value: "hi" }),
+      ],
+    });
+  });
+
+  it("adds after the rows already there, unticked ones included", () => {
+    const params = [
+      row({ id: "off", enabled: false, key: "debug", value: "1" }),
+      row({ id: "on", key: "locale", value: "vi" }),
+    ];
+    expect(foldQuery({ url: "https://x.test/a?page=2", params }, counter()).params).toEqual([
+      ...params,
+      row({ id: "new-1", key: "page", value: "2" }),
+    ]);
+  });
+
+  // A request saved while the box and the table were two copies of each other.
+  it("does not double a query the ticked rows already hold", () => {
+    const params = [row({ id: "a", key: "page", value: "2" }), row({ id: "b", key: "q", value: "hi" })];
+    expect(foldQuery({ url: "https://x.test/a?page=2&q=hi", params }, counter())).toEqual({
+      url: "https://x.test/a",
+      params,
+    });
+  });
+
+  it("matches one row per pair, so a key given twice is added once more", () => {
+    const params = [row({ id: "a", key: "id", value: "1" })];
+    expect(foldQuery({ url: "https://x.test/a?id=1&id=1", params }, counter()).params).toEqual([
+      ...params,
+      row({ id: "new-1", key: "id", value: "1" }),
+    ]);
+  });
+
+  it("does not take an unticked row as the pair", () => {
+    const params = [row({ id: "off", enabled: false, key: "page", value: "2" })];
+    expect(foldQuery({ url: "https://x.test/a?page=2", params }, counter()).params).toEqual([
+      ...params,
+      row({ id: "new-1", key: "page", value: "2" }),
+    ]);
+  });
+
+  it("keeps the fragment in the box", () => {
+    expect(foldQuery({ url: "https://x.test/a?page=2#top", params: [] }, counter()).url).toBe(
+      "https://x.test/a#top",
+    );
+  });
+
+  it("drops a question mark with nothing after it", () => {
+    expect(foldQuery({ url: "https://x.test/a?", params: [] }, counter())).toEqual({
+      url: "https://x.test/a",
+      params: [],
+    });
+  });
+
+  it("keeps a {{variable}} as typed", () => {
+    expect(foldQuery({ url: "{{host}}/a?key={{apiKey}}", params: [] }, counter())).toEqual({
+      url: "{{host}}/a",
+      params: [row({ id: "new-1", key: "key", value: "{{apiKey}}" })],
+    });
+  });
+
+  it("hands back the same object when there is no query", () => {
+    const request = { url: "https://x.test/a", params: [] };
+    expect(foldQuery(request, counter())).toBe(request);
   });
 });
 
