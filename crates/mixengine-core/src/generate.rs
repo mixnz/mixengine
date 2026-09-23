@@ -243,7 +243,7 @@ impl Parent {
     /// recipe is `ServiceId::name()` either way — the rule `recipe.rs` already states — so a pool
     /// takes its name from the id and the runtime's kind stops here.
     ///
-    /// **A package publishes a `provides` map now, and a row written before migration 0004 carries
+    /// **A package publishes a `provides` map now, and a row written without one carries
     /// an empty one** — which is honest rather than a placeholder. A Caddy installed before that
     /// column existed is served by [`Context::program`], which asks this map nothing. What an empty
     /// map costs is a recipe that does ask — MariaDB, whose seven commands are not one binary at the

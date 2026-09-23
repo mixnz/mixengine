@@ -320,20 +320,17 @@ the truth and `blueprints/<slug>.toml` is a rendering of it, never parsed back i
   fixture is **frozen** — never regenerate one to make a test pass.
   `cargo run -p mixengine-core --example capture-upgrade-fixture -- <schema>` makes a new one and
   refuses a destination that exists.
-- **Two migrations in this tree empty a table rather than carrying its rows across**, and the suite
-  names them rather than working around them: `0006_site_state.sql` drops `sites`, `site_domains`
-  and `site_service_links` outright, and `0016_extensions.sql` drops `extensions` — no
-  `INSERT … SELECT` in either, while the `services` rebuild beside the second one does carry its
-  rows over. Nothing has ever been released from this repository, so no database in the world is
-  below schema 17 and no user will ever perform either upgrade, which is why they are **recorded
-  rather than repaired**: rewriting a shipped migration would break the first rule on this list and
-  invalidate every developer's local database in exchange for nothing. The list in the suite is
-  keyed by version, so a future migration that empties a table without an entry fails the census
-  like any other loss, and a second test asserts the loss is *total* — an exception that quietly
-  covered a partial one would be worse than none.
+- **v0.0.7 starts the count again, once.** It is the first release of MixLab, and the twenty-seven
+  migrations development had accumulated were folded into one `0001_initial.sql` before it shipped —
+  the one time the first rule on this list was set aside, because no database written by an earlier
+  build is carried forward. A home from before it is refused as `IncompatibleDatabase` and has to be
+  started afresh. The old files are kept, unread by anything, in
+  `crates/mixengine-core/migrations-archive/` for the reasoning in their headers, and the upgrade
+  fixtures start again at `schema-0001`, the schema v0.0.7 shipped.
 - **A reader does not migrate, and there is a window in that.** `Store::open_read_only` neither
   creates nor migrates, so between a binary upgrade and the next daemon start the file on disk is at
   the old schema while the shim's queries were compiled against the new one, and a column the
-  pending migration adds is one the shim asks for and does not get. Measured by
-  `the_shims_door_opens_an_old_database_and_leaves_it_old` in the upgrade suite and left open: what
-  a shim should say when it finds a database older than itself is a design and not a patch.
+  pending migration adds is one the shim asks for and does not get. It was measured against a
+  fixture older than the schema, which the fold left none of until the next migration lands, and
+  left open: what a shim should say when it finds a database older than itself is a design and not a
+  patch.

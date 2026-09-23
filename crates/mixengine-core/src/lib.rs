@@ -899,7 +899,7 @@ pub enum Error {
     /// This home's `settings` holds no id, or holds something that is not one — roadmap task
     /// **T126**.
     ///
-    /// `0021_home_id.sql` writes one at the first migration and keeps it through every later one,
+    /// `0001_initial.sql` writes one at the first migration and keeps it through every later one,
     /// so a home reaching this has a database that skipped the migration or was edited by hand.
     ///
     /// **Refused rather than replaced.** Every credential this home has stored is addressed under
@@ -1531,7 +1531,7 @@ pub enum Error {
     /// A site's `https_redirect` cannot be `true` on a site whose `https_enabled` is, or is
     /// becoming, `false` — roadmap task **T98**.
     ///
-    /// `0018_site_https_redirect.sql`'s own `CHECK` already refuses the row; this is the message a
+    /// `sites.https_redirect`'s own `CHECK` already refuses the row; this is the message a
     /// caller sees before that, in words about what was asked for rather than about the column that
     /// would have refused it.
     #[error("https_redirect needs https enabled first")]

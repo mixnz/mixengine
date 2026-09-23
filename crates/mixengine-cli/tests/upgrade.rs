@@ -14,19 +14,17 @@ mod harness;
 use harness::{Home, json, stdout};
 use mixengine_testkit::upgrade::Fixture;
 
-/// `schema-0015` and not `schema-0001`: migration `0006` drops `sites` outright, so a database
-/// older than it arrives here with no sites at all and the assertion that matters most would be
-/// asserting an empty list. See `EMPTIED` in the core suite.
-const SCHEMA: i64 = 15;
-
+/// The oldest fixture, which is the longest upgrade a release performs. Until a release after v0.0.7
+/// adds a migration it is also `Current`, so nothing migrates and no backup is taken — the core
+/// suite owns *when* a backup appears; this one asks only that the product starts and reads.
 #[test]
 fn a_daemon_starts_on_a_database_an_older_build_wrote_and_mix_lists_what_was_in_it() {
     let home = Home::new();
 
     let fixture = Fixture::all()
         .into_iter()
-        .find(|fixture| fixture.schema() == SCHEMA)
-        .unwrap_or_else(|| panic!("no fixture at schema {SCHEMA}"));
+        .next()
+        .expect("a fixture — see the testkit's own suite");
     fixture.copy_into(&home.database_file());
 
     // The upgrade happens here: the daemon's first act is `Store::open`.
@@ -39,17 +37,12 @@ fn a_daemon_starts_on_a_database_an_older_build_wrote_and_mix_lists_what_was_in_
         home.daemon_log()
     );
 
-    let listed = stdout(&home.mix(&["site", "list"]));
+    let output = home.mix(&["site", "list"]);
+    let listed = stdout(&output);
     assert!(
         listed.contains("blog.test"),
-        "the site that was in the old database is gone: {listed}"
-    );
-
-    // And the safety net is where a person would look for it.
-    let backup = format!("mixengine.db.bak-{}", env!("CARGO_PKG_VERSION"));
-    assert!(
-        home.contents().contains(&backup),
-        "no {backup} in {:?}",
-        home.contents()
+        "the site that was in the old database is gone: {listed}\n{}\n{}",
+        String::from_utf8_lossy(&output.stderr),
+        home.daemon_log()
     );
 }

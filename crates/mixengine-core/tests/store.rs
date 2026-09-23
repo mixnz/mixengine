@@ -561,8 +561,8 @@ async fn deleting_a_service_unlinks_it_and_leaves_the_site_standing() {
     );
 }
 
-/// The CHECK `0001_initial.sql` deferred. A site is a server block that is there or is not; the
-/// seven states beside it belong to the services it uses.
+/// A site is a server block that is there or is not; the seven states beside it belong to the
+/// services it uses.
 #[tokio::test]
 async fn a_site_is_enabled_or_disabled_and_nothing_else() {
     let (_temp, store) = store().await;
@@ -592,4 +592,240 @@ async fn a_site_is_enabled_or_disabled_and_nothing_else() {
         .await
         .unwrap();
     assert_eq!(state, "enabled");
+}
+
+/// An installed extension of `kind`, with nothing else attached.
+async fn insert_extension(pool: &SqlitePool, id: &str, kind: &str) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "INSERT INTO extensions (id, name, version, kind, manifest_json, install_dir, data_dir,
+                                 source, signed, installed_at)
+         VALUES (?, ?, '1.0.0', ?, '{}', ?, ?, 'path', 0, '2026-09-03T00:00:00Z')",
+    )
+    .bind(id)
+    .bind(id)
+    .bind(kind)
+    .bind(format!("/extensions/{id}"))
+    .bind(format!("/data/extensions/{id}"))
+    .execute(pool)
+    .await
+    .map(|_| ())
+}
+
+/// Every runtime kind the product installs is one the table admits, and a word it does not know is
+/// refused — the CHECK a new kind has to widen, by rebuilding the table.
+#[tokio::test]
+async fn every_runtime_kind_is_admitted_and_nothing_else() {
+    let (_temp, store) = store().await;
+
+    for kind in ["php", "node", "python", "ruby", "go", "java", "composer"] {
+        sqlx::query(
+            "INSERT INTO runtime_installs
+                 (kind, version, channel, install_path, installed_at, size_bytes, source_url,
+                  sha256)
+             VALUES (?, '1.0.0', 'stable', ?, '2026-08-11T09:00:00Z', 1, 'https://x.invalid', 'a')",
+        )
+        .bind(kind)
+        .bind(format!("/runtimes/{kind}/1.0.0"))
+        .execute(store.pool())
+        .await
+        .unwrap_or_else(|error| panic!("{kind} was refused: {error}"));
+    }
+
+    let unknown = sqlx::query(
+        "INSERT INTO runtime_installs
+             (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)
+         VALUES ('cobol', '1.0.0', 'stable', '/runtimes/cobol', '2026-08-11T09:00:00Z', 1,
+                 'https://x.invalid', 'a')",
+    )
+    .execute(store.pool())
+    .await;
+    assert!(unknown.is_err(), "a kind nothing installs was admitted");
+}
+
+/// `desktop-app` stopped being an extension kind (ADR 0038), and the schema says so too.
+#[tokio::test]
+async fn an_extension_is_a_service_a_web_app_or_a_recipe() {
+    let (_temp, store) = store().await;
+
+    for kind in ["service", "web-app", "recipe"] {
+        insert_extension(store.pool(), kind, kind)
+            .await
+            .unwrap_or_else(|error| panic!("{kind} was refused: {error}"));
+    }
+    assert!(
+        insert_extension(store.pool(), "mixdb", "desktop-app")
+            .await
+            .is_err(),
+        "desktop-app is not a kind"
+    );
+}
+
+/// **A shared site carries all of its sharing or none of it**, on insert and on update — the two
+/// triggers, which nothing about a row that was written correctly would reveal missing.
+#[tokio::test]
+async fn half_a_share_is_refused() {
+    let (_temp, store) = store().await;
+    let project = insert_project(store.pool(), "blog").await;
+    insert_site(store.pool(), project, "blog.test", "public")
+        .await
+        .expect("a site");
+
+    let refused = sqlx::query(
+        "UPDATE sites SET shared_interface = NULL, shared_address = '10.0.0.1',
+                          shared_since = 1, shared_until = NULL",
+    )
+    .execute(store.pool())
+    .await
+    .expect_err("an address without an interface is refused");
+    assert!(
+        refused
+            .to_string()
+            .contains("a shared site carries an interface"),
+        "{refused}"
+    );
+
+    let refused = sqlx::query(
+        "INSERT INTO sites (project_id, doc_root, kind, state, shared_address)
+         VALUES (?, '', 'static', 'enabled', '10.0.0.1')",
+    )
+    .bind(project)
+    .execute(store.pool())
+    .await
+    .expect_err("the insert trigger refuses it too");
+    assert!(
+        refused
+            .to_string()
+            .contains("a shared site carries an interface"),
+        "{refused}"
+    );
+
+    let refused = sqlx::query("UPDATE sites SET shared_until = 1")
+        .execute(store.pool())
+        .await;
+    assert!(refused.is_err(), "only a shared site carries a deadline");
+}
+
+/// One owner, exactly: neither parent and both parents are refused; an extension parent is
+/// accepted once and refused a second time; and forgetting the extension takes its site.
+#[tokio::test]
+async fn a_site_has_exactly_one_owner() {
+    let (_temp, store) = store().await;
+    let project = insert_project(store.pool(), "blog").await;
+    insert_extension(store.pool(), "phpmyadmin", "web-app")
+        .await
+        .expect("an extension");
+
+    let neither =
+        sqlx::query("INSERT INTO sites (doc_root, kind, state) VALUES ('', 'static', 'enabled')")
+            .execute(store.pool())
+            .await;
+    assert!(neither.is_err(), "a site with no owner was written");
+
+    let both = sqlx::query(
+        "INSERT INTO sites (project_id, extension_id, doc_root, kind, state)
+         VALUES (?, 'phpmyadmin', '', 'static', 'enabled')",
+    )
+    .bind(project)
+    .execute(store.pool())
+    .await;
+    assert!(both.is_err(), "a site with two owners was written");
+
+    sqlx::query(
+        "INSERT INTO sites (extension_id, doc_root, kind, state)
+         VALUES ('phpmyadmin', 'app', 'static', 'enabled')",
+    )
+    .execute(store.pool())
+    .await
+    .expect("an extension-owned site");
+
+    let second = sqlx::query(
+        "INSERT INTO sites (extension_id, doc_root, kind, state)
+         VALUES ('phpmyadmin', 'other', 'static', 'enabled')",
+    )
+    .execute(store.pool())
+    .await;
+    assert!(second.is_err(), "an extension was given a second site");
+
+    sqlx::query("DELETE FROM extensions WHERE id = 'phpmyadmin'")
+        .execute(store.pool())
+        .await
+        .expect("the delete");
+    let left: i64 = sqlx::query_scalar("SELECT count(*) FROM sites WHERE extension_id IS NOT NULL")
+        .fetch_one(store.pool())
+        .await
+        .expect("a count");
+    assert_eq!(left, 0, "the cascade did not take the extension's site");
+}
+
+/// A service has exactly one parent of three — a package, a runtime or an extension.
+#[tokio::test]
+async fn a_service_has_exactly_one_parent() {
+    let (_temp, store) = store().await;
+    let package = insert_package(store.pool()).await;
+    insert_extension(store.pool(), "mailpit", "service")
+        .await
+        .expect("an extension");
+
+    sqlx::query(
+        "INSERT INTO services (id, extension_id, instance_name, state)
+         VALUES ('mailpit@default', 'mailpit', 'default', 'stopped')",
+    )
+    .execute(store.pool())
+    .await
+    .expect("a service belonging to an extension");
+
+    let two_parents = sqlx::query(
+        "INSERT INTO services (id, extension_id, package_id, instance_name, state)
+         VALUES ('mailpit@second', 'mailpit', ?, 'second', 'stopped')",
+    )
+    .bind(package)
+    .execute(store.pool())
+    .await;
+    assert!(two_parents.is_err(), "two parents at once must be refused");
+
+    let no_parent = sqlx::query(
+        "INSERT INTO services (id, instance_name, state)
+         VALUES ('orphan@default', 'default', 'stopped')",
+    )
+    .execute(store.pool())
+    .await;
+    assert!(
+        no_parent.is_err(),
+        "a service with no parent must be refused"
+    );
+}
+
+/// Two names cannot hold one port, and an extension's ports go when it does.
+#[tokio::test]
+async fn ports_belong_to_the_extension_that_holds_them() {
+    let (_temp, store) = store().await;
+    insert_extension(store.pool(), "mailpit", "service")
+        .await
+        .expect("an extension");
+
+    sqlx::query(
+        "INSERT INTO extension_ports (extension_id, name, port)
+         VALUES ('mailpit', 'ui_port', 8025), ('mailpit', 'smtp_port', 1025)",
+    )
+    .execute(store.pool())
+    .await
+    .expect("two ports");
+
+    let clash = sqlx::query(
+        "INSERT INTO extension_ports (extension_id, name, port) VALUES ('mailpit', 'other', 8025)",
+    )
+    .execute(store.pool())
+    .await;
+    assert!(clash.is_err(), "two names must not hold one port");
+
+    sqlx::query("DELETE FROM extensions WHERE id = 'mailpit'")
+        .execute(store.pool())
+        .await
+        .expect("the extension goes");
+
+    let held: i64 = sqlx::query_scalar("SELECT count(*) FROM extension_ports")
+        .fetch_one(store.pool())
+        .await
+        .expect("a count");
+    assert_eq!(held, 0, "a port outlived the extension that held it");
 }

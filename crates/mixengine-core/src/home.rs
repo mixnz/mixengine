@@ -8,12 +8,12 @@
 //!
 //! So a home carries an identity, and [`services::handoff::secret_key`](crate::services::handoff::secret_key)
 //! puts it in front of every address. What that identity is, and why it is not derived from the
-//! path, is argued in `migrations/0021_home_id.sql` and in
+//! path, is argued in `migrations-archive/0021_home_id.sql` and in
 //! [ADR 0032](https://github.com/mixnz/mixlab/blob/master/docs/decisions/0032-a-keyring-address-names-the-home-it-belongs-to.md).
 
 use crate::{Error, Result, Store};
 
-/// The `settings` key the id lives under. Written by `0021_home_id.sql`, never by this crate.
+/// The `settings` key the id lives under. Written by `0001_initial.sql`, never by this crate.
 const KEY: &str = "home.id";
 
 /// One home's identity, as every credential address spells it.
@@ -51,7 +51,7 @@ impl std::fmt::Display for HomeId {
 
 /// This home's id.
 ///
-/// **Read, never minted.** `0021_home_id.sql` writes it at the first migration and
+/// **Read, never minted.** `0001_initial.sql` writes it at the first migration and
 /// `ON CONFLICT DO NOTHING` keeps it across every later one, so a home always has exactly one — and
 /// a second one generated here, on a home whose row somehow went missing, would orphan every
 /// credential already written under the first rather than recover anything.
@@ -77,7 +77,7 @@ pub async fn id(store: &Store) -> Result<HomeId> {
         .ok_or(Error::HomeHasNoId)
 }
 
-/// Whether `value` is the shape `0021_home_id.sql` writes: lowercase hex, and not empty.
+/// Whether `value` is the shape `0001_initial.sql` writes: lowercase hex, and not empty.
 ///
 /// Checked on the way out rather than trusted, because this string is concatenated into an address
 /// in the user's credential store: anything holding a `/` would move the read to another service's

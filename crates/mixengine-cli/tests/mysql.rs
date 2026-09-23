@@ -514,7 +514,7 @@ async fn a_database_is_bootstrapped_started_queried_stopped_and_not_bootstrapped
     assert_eq!(created["made"]["user"], "created", "{created}");
     assert_eq!(created["secret"]["service"], "mixengine", "{created}");
     // **And the key begins with this home's id** — roadmap task **T126**. Asserted by shape rather
-    // than by value, because the id is minted per home by `0021_home_id.sql` and a suite that knew
+    // than by value, because the id is minted per home by `0001_initial.sql` and a suite that knew
     // it would be reading the home's database to find out. What matters here is that it is there:
     // without it this entry is the same one every other MIXENGINE_HOME on the machine writes to.
     let key = created["secret"]["key"].as_str().expect("an address");

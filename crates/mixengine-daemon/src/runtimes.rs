@@ -563,7 +563,7 @@ impl Runtimes {
                 // file inside the directory is `php` is the publisher's layout, not ours.
                 provides: selection.artifact.provides.clone(),
                 // The other half of what the index knows and the daemon would otherwise consult
-                // once and forget. See migration 0005.
+                // once and forget. See `migrations-archive/0005_runtime_extensions.sql`.
                 extension_dir: selection.artifact.extension_dir.clone(),
                 extensions: selection.artifact.extensions.clone(),
             },

@@ -1,14 +1,16 @@
 //! An old `mixengine.db`, migrated by this build — roadmap task **T89**.
 //!
 //! Every other migration test in this workspace builds "the old database" out of today's migration
-//! files: the unit tests in `store.rs` write two migrations at run time, and
-//! `migration_extensions.rs` replays a prefix of the real ones. What none of them can be is a
-//! database **this build did not write**, which is the only kind that can say whether a migration
-//! that has already shipped was edited afterwards — the first rule in data-model.md's compatibility
-//! list, and until this file the one nothing checked.
+//! files: the unit tests in `store.rs` write two migrations at run time. What none of them can be
+//! is a database **this build did not write**, which is the only kind that can say whether a
+//! migration that has already shipped was edited afterwards — the first rule in data-model.md's
+//! compatibility list, and until this file the one nothing checked.
 //!
 //! The fixtures are committed, frozen, and copied before they are opened; see
-//! [`mixengine_testkit::upgrade`].
+//! [`mixengine_testkit::upgrade`]. **The first is `schema-0001`, the schema v0.0.7 shipped** — the
+//! first release of MixLab, which folded every development migration into one. Until a release adds
+//! a migration it is `Current` and every assertion here is trivially true; the first upgrade this
+//! suite checks for real is the one from v0.0.7 to its successor.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -71,61 +73,6 @@ fn shipped() -> Vec<i64> {
         .filter(|migration| !migration.migration_type.is_down_migration())
         .map(|migration| migration.version)
         .collect()
-}
-
-/// Every migration in this tree that **empties** a table instead of carrying its rows across.
-///
-/// `0006_site_state.sql` opens with `DROP TABLE site_service_links; DROP TABLE site_domains;
-/// DROP TABLE sites;` and then creates `sites` afresh — no `INSERT … SELECT` — so every site, every
-/// domain and every link in a database older than migration 6 is gone. `0016_extensions.sql` does
-/// the same to `extensions`, while the `services` rebuild beside it in the same file does carry its
-/// rows over.
-///
-/// **Named rather than skipped**, and keyed by version, so a fifth destructive migration cannot
-/// hide behind this list: a table emptied without an entry fails
-/// [`an_upgrade_keeps_every_row_it_found`] like any other loss. And the entries here are *proved*
-/// by [`the_tables_two_migrations_empty_really_are_emptied`] rather than merely excused — an
-/// exception that quietly covered a partial loss would be worse than none.
-///
-/// **This is a finding, not a fix.** Nothing has ever been released from this repository, so the
-/// set of databases in the world below schema 17 is empty and every user's first `mixengine.db` is
-/// written at 17 or later. Rewriting a migration to repair an upgrade nobody will perform would
-/// break data-model.md's first compatibility rule and invalidate every developer's local database,
-/// in exchange for nothing.
-const EMPTIED: &[(i64, &str)] = &[
-    (6, "sites"),
-    (6, "site_domains"),
-    (6, "site_service_links"),
-    (16, "extensions"),
-];
-
-/// The tables a fixture at `schema` will not carry across, per [`EMPTIED`].
-fn exempt(schema: i64) -> BTreeSet<&'static str> {
-    EMPTIED
-        .iter()
-        .filter(|(version, _)| *version > schema)
-        .map(|(_, table)| *table)
-        .collect()
-}
-
-/// Every migration in this tree that deletes **some** rows of a table on purpose — roadmap task
-/// **T165** — as `(version, table, column, value)`: the rows whose `column` holds `value`.
-///
-/// [`EMPTIED`]'s sibling for a partial loss. Named rather than skipped for that list's reason, and
-/// proved by [`the_rows_a_migration_removes_really_are_removed_and_only_those`] rather than excused.
-/// `value` is compared with the census' own rendering, so it is written the way `quote()` writes
-/// it: a text value in single quotes.
-const REMOVED: &[(i64, &str, &str, &str)] = &[(24, "extensions", "kind", "'desktop-app'")];
-
-/// Whether `row` of `table` is one [`REMOVED`] lets a fixture at `schema` lose.
-fn removed_by(schema: i64, table: &str, row: &BTreeMap<String, String>) -> bool {
-    REMOVED
-        .iter()
-        .any(|(version, removed_from, column, value)| {
-            *version > schema
-                && *removed_from == table
-                && row.get(*column).is_some_and(|held| held == value)
-        })
 }
 
 /// Every row of every table, rendered by SQLite itself.
@@ -203,9 +150,8 @@ async fn census(file: &Path) -> Census {
 /// One table's rows, restricted to `columns`.
 ///
 /// The caller passes the columns both censuses have: a migration that *adds* one is not a loss, and
-/// the intersection is also what keeps `0014`'s `SET trusted = 1` and `0015`'s
-/// `SET signature = 'verified'` out of the comparison — both write a column that did not exist on
-/// the other side.
+/// the intersection is also what keeps a backfill of a new column out of the comparison — it writes
+/// a column that did not exist on the other side.
 fn shared(
     rows: &[BTreeMap<String, String>],
     columns: &BTreeSet<String>,
@@ -350,15 +296,15 @@ async fn opening_it_a_second_time_changes_nothing() {
 ///
 /// **A row a migration *adds* is not a failure**, which is the same rule [`shared`] already applies
 /// one axis over: *a migration that adds a column is not a loss*. It was an equality until T127
-/// found out why that is wrong — `0021_home_id.sql` seeds `settings` with the id a home is known by,
+/// found out why that is wrong — a migration that seeded `settings` with the id a home is known by,
 /// deliberately and for its own reasons, and an equality reported that correct migration as data
 /// loss on every fixture older than it. Seeding is a normal thing for a migration to do; losing a
 /// row is not, and only the second is what this file is for.
 ///
 /// **So nothing here polices additions**, and that gap is deliberate rather than overlooked. What
-/// would notice a migration writing a row it should not is a reader of the migration, and
-/// [`EMPTIED`] covers the direction that cannot be read back — a loss, which leaves nothing behind
-/// to inspect.
+/// would notice a migration writing a row it should not is a reader of the migration; what this
+/// covers is the direction that cannot be read back — a loss, which leaves nothing behind to
+/// inspect.
 #[tokio::test]
 async fn an_upgrade_keeps_every_row_it_found() {
     for fixture in Fixture::all() {
@@ -368,11 +314,10 @@ async fn an_upgrade_keeps_every_row_it_found() {
         Store::open(&file).await.expect("the upgrade").close().await;
 
         let after = census(&file).await;
-        let exempt = exempt(fixture.schema());
         let mut compared = 0;
 
         for (table, rows) in &before {
-            if exempt.contains(table.as_str()) || rows.is_empty() {
+            if rows.is_empty() {
                 continue;
             }
             compared += 1;
@@ -386,12 +331,7 @@ async fn an_upgrade_keeps_every_row_it_found() {
                 .cloned()
                 .collect();
 
-            let kept: Vec<BTreeMap<String, String>> = rows
-                .iter()
-                .filter(|row| !removed_by(fixture.schema(), table, row))
-                .cloned()
-                .collect();
-            let missing = lost(&shared(&kept, &columns), &shared(migrated, &columns));
+            let missing = lost(&shared(rows, &columns), &shared(migrated, &columns));
 
             assert!(
                 missing.is_empty(),
@@ -401,7 +341,7 @@ async fn an_upgrade_keeps_every_row_it_found() {
             );
         }
 
-        // Ten of the fourteen tables `0001_initial.sql` creates, at the least. A census over a
+        // Ten of the nineteen tables `0001_initial.sql` creates, at the least. A census over a
         // fixture that seeded nothing would compare nothing and pass, which is the shape of failure
         // this whole file exists to stop.
         assert!(
@@ -410,89 +350,6 @@ async fn an_upgrade_keeps_every_row_it_found() {
             fixture.name()
         );
     }
-}
-
-#[tokio::test]
-async fn the_tables_two_migrations_empty_really_are_emptied() {
-    for fixture in Fixture::all() {
-        let exempt = exempt(fixture.schema());
-        if exempt.is_empty() {
-            continue;
-        }
-
-        let (_temp, file) = laid_out(&fixture);
-        let before = census(&file).await;
-
-        Store::open(&file).await.expect("the upgrade").close().await;
-
-        let after = census(&file).await;
-
-        for table in &exempt {
-            assert!(
-                before.get(*table).is_some_and(|rows| !rows.is_empty()),
-                "{}: {table} is exempt from the census but the fixture seeds nothing into it, so \
-                 the exemption proves nothing",
-                fixture.name()
-            );
-            assert_eq!(
-                after.get(*table).map(Vec::len),
-                Some(0),
-                "{}: {table} is listed in EMPTIED, so the loss must be total — a partial one is a \
-                 wrong entry, not an excused table",
-                fixture.name()
-            );
-        }
-    }
-}
-
-/// [`REMOVED`], proved: the rows it names are gone after an upgrade, at least one fixture seeds such
-/// a row, and every other row of the same table is still there.
-#[tokio::test]
-async fn the_rows_a_migration_removes_really_are_removed_and_only_those() {
-    let mut proved = 0;
-
-    for fixture in Fixture::all() {
-        let (_temp, file) = laid_out(&fixture);
-        let before = census(&file).await;
-
-        Store::open(&file).await.expect("the upgrade").close().await;
-
-        let after = census(&file).await;
-
-        for (version, table, column, value) in REMOVED {
-            // A table an older migration empties whole is [`EMPTIED`]'s to prove, not this one's.
-            if *version <= fixture.schema() || exempt(fixture.schema()).contains(table) {
-                continue;
-            }
-            let Some(rows) = before.get(*table) else {
-                continue;
-            };
-            let named =
-                |row: &BTreeMap<String, String>| row.get(*column).is_some_and(|held| held == value);
-
-            if rows.iter().any(named) {
-                proved += 1;
-            }
-
-            let remaining = after.get(*table).map(Vec::as_slice).unwrap_or_default();
-            assert!(
-                !remaining.iter().any(named),
-                "{}: {table} still holds a row whose {column} is {value}",
-                fixture.name()
-            );
-            assert_eq!(
-                remaining.len(),
-                rows.iter().filter(|row| !named(row)).count(),
-                "{}: migration {version} removed more from {table} than REMOVED names",
-                fixture.name()
-            );
-        }
-    }
-
-    assert!(
-        proved > 0,
-        "no fixture seeds a row REMOVED names, so the entry proves nothing"
-    );
 }
 
 #[tokio::test]
@@ -668,51 +525,6 @@ async fn an_upgraded_database_takes_the_writes_a_current_build_makes() {
     }
 }
 
-/// What [`Store::open_read_only`] — *"the shim's door"* — does to a database older than the binary
-/// asking, measured rather than reasoned about.
-///
-/// It neither creates nor migrates, deliberately: a schema upgrade decided by whichever `php -v`
-/// ran first is the one moment `mixengine.db` can least afford a surprise. The consequence is a
-/// **window**: after a binary upgrade and before the next daemon start, the file on disk is at the
-/// old schema while every query in the shim was compiled against the new one, so a column added by
-/// the pending migration is one the shim asks for and does not get.
-///
-/// **This records the fact; it does not close the window.** Closing it is a question about start-up
-/// ordering and about what a shim should say when it finds a database older than itself, which is
-/// somebody's design and not a line slipped into a test. See
-/// `docs/architecture/data-model.md`.
-#[tokio::test]
-async fn the_shims_door_opens_an_old_database_and_leaves_it_old() {
-    let oldest = Fixture::all()
-        .into_iter()
-        .find(|fixture| fixture.schema() == 1)
-        .expect("a fixture at schema 1 — see the testkit's own suite");
-
-    let (_temp, file) = laid_out(&oldest);
-
-    let reader = Store::open_read_only(&file)
-        .await
-        .expect("a shim reads a home a daemon has not caught up with yet");
-
-    // The column `0005_runtime_extensions.sql` added, asked for on a database that predates it.
-    assert!(
-        sqlx::query("SELECT extension_dir FROM runtime_installs")
-            .fetch_optional(reader.pool())
-            .await
-            .is_err(),
-        "a database at schema 1 does not have this column, and the shim's queries are compiled \
-         against the schema that does"
-    );
-
-    reader.close().await;
-
-    assert_eq!(
-        applied(&file).await,
-        vec![1],
-        "reading a home must never migrate it"
-    );
-}
-
 /// **[`lost`] finds a loss and permits an addition**, which is the whole of what the assertion it
 /// serves claims.
 ///
@@ -759,7 +571,7 @@ fn a_lost_row_is_found_and_an_added_one_is_not() {
         "two rows that became one read as a match"
     );
 
-    // **And the case T127 changed.** `0021_home_id.sql` seeds this row; an equality called that
+    // **And the case T127 changed.** A migration seeded this row; an equality called that
     // data loss, and this is the assertion that says it is not.
     let after = vec![
         row("home.id", "b743b62cbba8"),
@@ -770,50 +582,4 @@ fn a_lost_row_is_found_and_an_added_one_is_not() {
         lost(&before, &after).is_empty(),
         "a migration that seeded a row was reported as one that lost one"
     );
-}
-
-/// **0027 turns autostart on for the front ends a home already has, and for nothing else** —
-/// roadmap task **T167e**, ADR 0041.
-///
-/// Every fixture's Caddy already has autostart on, so the census suites above would pass whether or
-/// not this migration did anything. This one turns it off first, along with MariaDB's, and checks
-/// that the upgrade puts back Caddy's and only Caddy's.
-#[tokio::test]
-async fn an_upgrade_starts_the_front_end_with_the_daemon_and_nothing_else() {
-    let fixture = Fixture::all()
-        .into_iter()
-        .max_by_key(Fixture::schema)
-        .expect("a fixture");
-    let (_temp, file) = laid_out(&fixture);
-
-    {
-        let mut connection = sqlx::sqlite::SqliteConnectOptions::new()
-            .filename(&file)
-            .connect()
-            .await
-            .expect("the fixture");
-        sqlx::query("UPDATE services SET autostart = 0")
-            .execute(&mut connection)
-            .await
-            .expect("every autostart off");
-        connection.close().await.expect("the writer closes");
-    }
-
-    Store::open(&file).await.expect("the upgrade").close().await;
-
-    let after = census(&file).await;
-    let autostart_of = |id: &str| {
-        after["services"]
-            .iter()
-            .find(|row| row["id"] == format!("'{id}'"))
-            .map(|row| row["autostart"].clone())
-            .unwrap_or_else(|| panic!("{} has no {id}", fixture.name()))
-    };
-
-    assert_eq!(
-        autostart_of("caddy@main"),
-        "1",
-        "the front end starts with the daemon"
-    );
-    assert_eq!(autostart_of("mariadb@main"), "0", "nothing else is touched");
 }

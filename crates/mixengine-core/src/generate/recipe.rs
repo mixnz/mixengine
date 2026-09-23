@@ -576,7 +576,7 @@ impl Context {
             credential: None,
 
             // A fixed id, so an address a test asserts is one it can spell. A real home's is
-            // random and six bytes wide — `migrations/0021_home_id.sql`.
+            // random and six bytes wide — `migrations/0001_initial.sql`.
             home: crate::home::HomeId::parse(TEST_HOME).expect("a valid id"),
             certificate: None,
             service,

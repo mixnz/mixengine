@@ -115,6 +115,7 @@ test('the index lists each spec with its task and status, escaping pipes', () =>
 test('a shipped migration is never read: its bytes are a checksum every user database holds', () => {
   assert.equal(isIgnoredFile('crates/mixengine-core/migrations/0001_initial.sql'), true);
   assert.equal(isIgnoredFile('crates/mixengine-daemon/migrations/0002_x.sql'), true);
+  assert.equal(isIgnoredFile('crates/mixengine-core/migrations-archive/0007_x.sql'), true);
   assert.equal(isIgnoredFile('crates/mixengine-core/src/store.rs'), false);
   assert.equal(isIgnoredFile('docs/architecture/data-model.md'), false);
   assert.equal(isIgnoredFile('scripts/check-docs.mjs'), true);

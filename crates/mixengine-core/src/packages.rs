@@ -71,8 +71,8 @@ pub struct Installation {
     /// What this package's executables are called, and where inside its directory they are.
     ///
     /// [`Artifact::provides`](crate::index::Artifact::provides), kept rather than read once and
-    /// thrown away — see migration 0004, and [`Context::provided`](crate::generate::Context::provided)
-    /// for the recipe that reads it back.
+    /// thrown away — see `migrations-archive/0004_package_provides.sql`, and
+    /// [`Context::provided`](crate::generate::Context::provided) for the recipe that reads it back.
     pub provides: BTreeMap<String, String>,
 }
 

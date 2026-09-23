@@ -30,7 +30,7 @@ use crate::{Error, Result, Store};
 
 /// Who a site belongs to, which is also what gives its `doc_root` a root — roadmap task **T81b**.
 ///
-/// **One of two, and never neither**: `0017_extension_sites.sql` holds that with a CHECK, and this
+/// **One of two, and never neither**: `0001_initial.sql` holds that with a CHECK, and this
 /// type is what makes it unrepresentable above the row. A project's site is rooted at
 /// `projects.root_path`; an extension's at `extensions.install_dir`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -101,7 +101,7 @@ pub struct SiteRecord {
     /// Whether the plaintext address redirects to the HTTPS one — roadmap task **T98**.
     ///
     /// **Never `true` while [`https_enabled`](Self::https_enabled) is `false`** —
-    /// `0018_site_https_redirect.sql`'s own `CHECK` refuses the row, so this field being `true` is
+    /// `sites.https_redirect`'s own `CHECK` refuses the row, so this field being `true` is
     /// itself a guarantee the site declares HTTPS, not a second fact to check it against.
     pub https_redirect: bool,
 
@@ -128,7 +128,7 @@ pub struct SiteRecord {
 /// A site's LAN sharing, as the row holds it — roadmap task **T74**.
 ///
 /// **One value or none, never three columns a reader has to agree about.** The schema enforces that
-/// with a trigger (`0012_site_sharing.sql`); this type is what makes it unrepresentable in the code
+/// with a trigger (`0001_initial.sql`); this type is what makes it unrepresentable in the code
 /// above it, so nothing has to check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sharing {
@@ -148,7 +148,7 @@ pub struct Sharing {
     /// is a property of the share rather than of the command that set it: sharing an already-shared
     /// site again neither restarts the clock nor removes the alarm.
     ///
-    /// The one of the four that is optional on its own. `0013_site_sharing_until.sql` holds the
+    /// The one of the four that is optional on its own. `0001_initial.sql` holds the
     /// other half — a site that is not shared carries no deadline either.
     pub until: Option<mixengine_proto::Timestamp>,
 }
@@ -271,7 +271,7 @@ fn without_dot_segments(path: &Path) -> PathBuf {
 pub async fn create(store: &Store, new: &NewSite) -> Result<SiteRecord> {
     // Checked before anything opens a transaction: this is a fact about the two fields `new` already
     // carries, not about a row that could change underneath a concurrent writer — roadmap task
-    // **T98**. `0018_site_https_redirect.sql`'s `CHECK` would refuse the `INSERT` below just as
+    // **T98**. `sites.https_redirect`'s `CHECK` would refuse the `INSERT` below just as
     // surely, in the words it was written in rather than the ones a caller asked in.
     if new.https_redirect && !new.https_enabled {
         return Err(Error::HttpsRedirectNeedsHttps);
@@ -615,7 +615,7 @@ pub async fn update(store: &Store, id: i64, change: &Change) -> Result<SiteRecor
     //
     // `https_redirect: Some(true)` is refused against whatever HTTPS this same call leaves the site
     // with, whether that comes from `change.https_enabled` turning it off or from the site already
-    // being plaintext-only: either way it is the one combination `0018_site_https_redirect.sql`'s
+    // being plaintext-only: either way it is the one combination `sites.https_redirect`'s
     // `CHECK` makes unrepresentable, and the caller is told so in words about the request rather
     // than about the row.
     let https_enabled = change.https_enabled.unwrap_or(existing.https_enabled != 0);
@@ -1095,7 +1095,7 @@ fn read_sharing(
 
 /// Write, or clear, a site's sharing — roadmap task **T74**.
 ///
-/// All three columns move together, which is what the trigger in `0012_site_sharing.sql` holds and
+/// All three columns move together, which is what the trigger in `0001_initial.sql` holds and
 /// what [`Sharing`] makes unrepresentable otherwise. [`None`] is the unshare.
 ///
 /// # Errors
@@ -1992,7 +1992,7 @@ mod tests {
         assert!(unshared.sharing.is_none());
     }
 
-    /// The trigger in `0012_site_sharing.sql`, from the side that would break it: two of the three
+    /// The trigger in `0001_initial.sql`, from the side that would break it: two of the three
     /// columns set is a state no reader could make sense of, so the database refuses it outright.
     #[tokio::test]
     async fn a_half_written_share_is_refused_by_the_database() {

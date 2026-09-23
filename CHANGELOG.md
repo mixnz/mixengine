@@ -86,6 +86,9 @@
 - MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
+- This release starts its database from scratch. A home made by v0.0.6 or earlier will not open
+  and reports that it was written by a different version of MixEngine. Delete `mixengine.db` in
+  that home, or the whole home, and start MixEngine again.
 - Downloads that include MixLab are named `mixlab-…`: the Windows installer and zip, the macOS
   `.pkg`, the AppImage, the `.deb` and the `.rpm`. The headless downloads keep the `mixengine-…`
   name. On Linux the package is `mixlab` now, and installing it replaces an installed `mixengine`

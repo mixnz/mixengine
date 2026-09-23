@@ -65,7 +65,7 @@ ALTER TABLE runtime_installs ADD COLUMN extension_choices_json TEXT NOT NULL DEF
 ```
 
 The first two are **the artifact's facts, copied down at install time**, which is `provides_json`'s
-argument from [0002](../../crates/mixengine-core/migrations/0002_runtime_provides.sql) applied a
+argument from [0002](../../crates/mixengine-core/migrations-archive/0002_runtime_provides.sql) applied a
 second time: the index is a cache with a six-hour life and a network behind it, and whether `redis`
 can be enabled for a PHP that is on this disk must not depend on either. `*_json` for the same reason
 that migration gives — nothing queries into them; one runtime's whole map is read and looked up in

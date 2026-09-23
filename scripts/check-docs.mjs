@@ -47,8 +47,9 @@ export const IGNORED_FILES = new Set([
 // **A shipped migration is never read.** sqlx checksums the whole file, comments included, and every
 // user's database holds that checksum: T169 rewrote a path in the comments of two of them, and a
 // daemon on an existing home refused to start. A path in one of these is a record of when it was
-// written, not a link to keep current.
-const IGNORED_FILE_PATTERNS = [/^crates\/[^/]+\/migrations\/[^/]+\.sql$/];
+// written, not a link to keep current. The same goes for `migrations-archive/`, which holds the ones
+// v0.0.7 folded into one: kept as they were, for the reasoning in them.
+const IGNORED_FILE_PATTERNS = [/^crates\/[^/]+\/migrations(-archive)?\/[^/]+\.sql$/];
 
 export function isIgnoredFile(file) {
   return IGNORED_FILES.has(file) || IGNORED_FILE_PATTERNS.some((pattern) => pattern.test(file));
