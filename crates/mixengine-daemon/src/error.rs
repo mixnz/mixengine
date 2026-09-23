@@ -582,6 +582,19 @@ impl ToWire for mixengine_core::Error {
             // through `chain` here would print a `#[error(transparent)]` message twice.
             Core::Platform(error) => error.to_wire(),
 
+            // A copy the `.pkg` installed, asked to swap in place: the way that works is named.
+            Core::UpdateUsesInstaller { .. } => Error::new(ErrorCode::PreconditionFailed, chain(self))
+                .with_hint("`mix self-update` opens the next .pkg in Installer.app"),
+
+            Core::InstallerUnavailable { .. } => {
+                Error::new(ErrorCode::PreconditionFailed, chain(self))
+            }
+
+            Core::UpdateNotInstalled { .. } => Error::new(ErrorCode::PreconditionFailed, chain(self))
+                .with_hint(
+                    "finish the installation in Installer.app, then run `mix self-update --finish`",
+                ),
+
             // `mixengine_core::Error` is `#[non_exhaustive]`, so this arm is mandatory rather than
             // chosen. A variant that lands in it is one nobody has classified yet, and `internal`
             // is the honest name for that.

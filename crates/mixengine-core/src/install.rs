@@ -848,6 +848,17 @@ where
     }
 }
 
+/// The SHA-256 of a file, as lowercase hex — for a caller holding a file this pipeline downloaded
+/// earlier, which it checks again before trusting: roadmap task **T88f**, a `.pkg` reused after a
+/// person cancelled Installer.app.
+///
+/// # Errors
+///
+/// [`Error::Io`] when the file cannot be read.
+pub fn sha256_of(path: &Path) -> Result<String> {
+    sha256(path)
+}
+
 /// The SHA-256 of a file, as lowercase hex.
 fn sha256(path: &Path) -> Result<String> {
     use sha2::Digest as _;
