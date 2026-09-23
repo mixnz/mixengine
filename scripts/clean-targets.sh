@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-# Reclaim the disk the two `target/` directories are sitting on.
+# Reclaim the disk the three `target/` directories are sitting on.
 #
-#   scripts/clean-targets.sh                # remove `debug/` from both — the default
+#   scripts/clean-targets.sh                # remove `debug/` from all three — the default
 #   scripts/clean-targets.sh --incremental  # remove only `debug/incremental/`
-#   scripts/clean-targets.sh --all          # remove both `target/` directories entirely
+#   scripts/clean-targets.sh --all          # remove all three `target/` directories entirely
 #   scripts/clean-targets.sh --yes          # do not ask
 #   scripts/clean-targets.sh --dry-run      # print what would go, remove nothing
 #
-# **There are two of them and no single command clears both.** The root workspace `exclude`s the
-# desktop application's crate (ADR 0027, rule 5), so `cargo clean` at the root does not reach
-# `apps/desktop/src-tauri/target/`, and a developer who only ever ran the root one has been leaving
-# the larger half of the problem behind.
+# **There are three of them and no single command clears them all.** The root workspace `exclude`s
+# the desktop application's crate (ADR 0027, rule 5) and the sync server's native workspace
+# (ADR 0046), so `cargo clean` at the root reaches neither `apps/desktop/src-tauri/target/` nor
+# `server/native/target/`, and a developer who only ever ran the root one has been leaving the
+# larger part of the problem behind.
 #
 # The three levels are what they cost to undo, which is the only thing worth choosing between:
 #
@@ -19,7 +20,7 @@
 #   * the default, `debug/`, additionally drops compiled dependencies and test binaries: the next
 #     `cargo check --workspace` is a cold one. `release/` is untouched, so a staged installer and
 #     `target/packaging/` survive.
-#   * `--all` is both directories, `release/`, `doc/`, `packaging/` and the sqlx development
+#   * `--all` is all three directories, `release/`, `doc/`, `packaging/` and the sqlx development
 #     databases with them. `.sqlx/` is committed and is not here, so this costs build time and
 #     nothing else — but `DATABASE_URL=sqlite:target/sqlx-dev.db` will need its database created
 #     again (see docs/operations/build-and-release.md).
@@ -55,10 +56,11 @@ for arg in "$@"; do
   esac
 done
 
-# The two workspaces, named once.
+# The three workspaces, named once.
 roots=(
   "$MIX_ROOT/target"
   "$MIX_ROOT/apps/desktop/src-tauri/target"
+  "$MIX_ROOT/server/native/target"
 )
 
 targets=()
@@ -86,7 +88,7 @@ fi
 echo "level: $level"
 echo
 # `du` over eighty gigabytes takes a moment and is the whole point of the report, so it is measured
-# rather than estimated. Paths printed relative to the root: two absolute paths of a hundred
+# rather than estimated. Paths printed relative to the root: three absolute paths of a hundred
 # characters each hide the one thing a reader is checking, which is *which* directory this is.
 for path in "${present[@]}"; do
   printf '  %-10s %s\n' "$(du -sh "$path" 2>/dev/null | cut -f1)" "${path#"$MIX_ROOT/"}"
