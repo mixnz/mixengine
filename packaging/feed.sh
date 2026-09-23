@@ -66,9 +66,10 @@ else
 fi
 [ -n "$notes" ] || notes="See the release page for what changed."
 
-# Every payload archive, and never an installer. Matched by name rather than by extension: a `.zip`
-# is the Windows payload and an `.rpm` is not a payload at all, and the difference is the shape of
-# the name the build scripts give them.
+# Every payload archive, and no installer among them: an installer is not something `update.apply`
+# can unpack. Matched by name rather than by extension: a `.zip` is the Windows payload and an `.rpm`
+# is not a payload at all, and the difference is the shape of the name the build scripts give them.
+# The one installer the feed does list, the macOS `.pkg`, has its own `installers` array below.
 #
 # **And never a headless archive** — T105, D7. Those are named
 # `mixengine-<version>-<os>-<arch>-headless.<ext>`, and an updater has no use for one: an install
@@ -223,12 +224,42 @@ if [ -z "$helpers" ]; then
   exit 1
 fi
 
+# The macOS `.pkg` — roadmap task T88f, ADR 0050. A copy the `.pkg` installed owns root-owned files
+# the in-place swap cannot reach, so it is updated by the next `.pkg`, handed to Installer.app. Bound
+# by its SHA-256 inside this signed document, as a payload is, and listed under both Mac rows, as
+# the universal payload is.
+installers=""
+for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg; do
+  [ -f "$file" ] || continue
+
+  name="$(basename "$file")"
+  size="$(wc -c <"$file" | tr -d ' ')"
+
+  if [ -f "$file.sha256" ]; then
+    sha="$(cut -d' ' -f1 <"$file.sha256")"
+  else
+    sha="$(sha256sum "$file" | cut -d' ' -f1)"
+  fi
+
+  url="https://github.com/$repo/releases/download/$tag/$name"
+  installers="$installers"$'\n'"macos x86_64 pkg $url $sha $size"
+  installers="$installers"$'\n'"macos aarch64 pkg $url $sha $size"
+done
+
+# A release with a macOS payload and no `.pkg` would leave every Mac that installed the `.pkg`
+# offered nothing, and nothing else would notice.
+if [ -z "$installers" ] && printf '%s' "$rows" | grep -q '^macos '; then
+  echo "no macOS .pkg in $dist for $version, and the feed lists a macOS payload" >&2
+  exit 1
+fi
+
 # **Written by `python3` and not by `printf`**, because `notes` carries commit subjects and those
 # contain quotes, backslashes and newlines. `jq` is deliberately not reached for: `common.sh` already
 # records that it is not on a Git Bash install, and a release has to be buildable by hand on the
 # machine that cut it.
 export MIX_FEED_ROWS="$rows"
 export MIX_FEED_HELPERS="$helpers"
+export MIX_FEED_INSTALLERS="$installers"
 export MIX_FEED_NOW="$now"
 export MIX_FEED_VERSION="$version"
 export MIX_FEED_NOTES="$notes"
@@ -278,6 +309,16 @@ for line in os.environ["MIX_FEED_HELPERS"].splitlines():
     os_name, arch, url, size = line.split(" ")
     helpers.append({"os": os_name, "arch": arch, "url": url, "size": int(size)})
 
+installers = []
+for line in os.environ["MIX_FEED_INSTALLERS"].splitlines():
+    if not line.strip():
+        continue
+
+    os_name, arch, kind, url, sha256, size = line.split(" ")
+    installers.append(
+        {"os": os_name, "arch": arch, "kind": kind, "url": url, "sha256": sha256, "size": int(size)}
+    )
+
 document = {
     "schema": 1,
     "generated_at": os.environ["MIX_FEED_NOW"],
@@ -287,6 +328,7 @@ document = {
     "notes_url": os.environ["MIX_FEED_NOTES_URL"],
     "artifacts": rows,
     "helpers": helpers,
+    "installers": installers,
 }
 
 print(json.dumps(document, indent=2, sort_keys=True))
@@ -311,6 +353,6 @@ if not document["helpers"]:
 
 print(
     f"latest.json: {document['version']}, {len(document['artifacts'])} artifact(s), "
-    f"{len(document['helpers'])} helper(s)"
+    f"{len(document['helpers'])} helper(s), {len(document['installers'])} installer row(s)"
 )
 PY

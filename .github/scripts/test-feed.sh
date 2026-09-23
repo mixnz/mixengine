@@ -39,6 +39,11 @@ tar -czf "$dist/$macos" -C "$work/macos" mixengine
 # one, and a hand-assembled directory may not.
 (cd "$dist" && sha256sum "$linux" >"$linux.sha256")
 
+# The macOS `.pkg` — T88f. A copy the `.pkg` installed is updated by the next one, so the feed lists
+# it under `installers`, bound by its SHA-256 like a payload.
+pkg="mixlab-$version-macos-universal.pkg"
+echo "not really an installer package" >"$dist/$pkg"
+
 # The privileged helper of each leg, published as its own asset — roadmap task T88a. `mix
 # self-update` never replaces `mixengine-elevate`, so a release cannot deliver it inside a payload;
 # what a machine fetches is this file and the `.minisig` `sign.sh` puts beside it. `feed.sh` refuses
@@ -58,14 +63,14 @@ test -f "$dist/latest.json" || {
 }
 
 python3 - "$dist/latest.json" "$dist/$linux" "$dist/$macos" "$version" \
-  "$dist/$helper_linux" "$dist/$helper_macos" <<'PY'
+  "$dist/$helper_linux" "$dist/$helper_macos" "$dist/$pkg" <<'PY'
 import hashlib
 import json
 import os
 import re
 import sys
 
-feed_path, linux_path, macos_path, version, helper_linux, helper_macos = sys.argv[1:7]
+feed_path, linux_path, macos_path, version, helper_linux, helper_macos, pkg_path = sys.argv[1:8]
 
 with open(feed_path, encoding="utf-8") as handle:
     feed = json.load(handle)
@@ -155,6 +160,18 @@ for pair, path in [(("linux", "x86_64"), helper_linux), (("macos", "x86_64"), he
 # elevated process against a detached signature it can verify without ever having read this feed.
 assert all("sha256" not in row for row in feed["helpers"]), feed["helpers"]
 
+# T88f. One universal `.pkg`, under both Mac rows, bound by its SHA-256.
+installers = {(row["os"], row["arch"]): row for row in feed["installers"]}
+assert set(installers) == {("macos", "x86_64"), ("macos", "aarch64")}, installers.keys()
+assert installers[("macos", "x86_64")]["url"] == installers[("macos", "aarch64")]["url"]
+with open(pkg_path, "rb") as handle:
+    pkg_digest = hashlib.sha256(handle.read()).hexdigest()
+for row in feed["installers"]:
+    assert row["kind"] == "pkg", row
+    assert row["url"].endswith(os.path.basename(pkg_path)), row["url"]
+    assert row["sha256"] == pkg_digest, f"{row['sha256']} != {pkg_digest}"
+    assert row["size"] == os.path.getsize(pkg_path), row
+
 print(
     f"latest.json describes {len(feed['artifacts'])} rows over 2 archives, "
     f"and {len(feed['helpers'])} helper rows over 2 files"
@@ -180,6 +197,17 @@ cp "$dist/$linux" "$helperless/"
 if bash "$root/packaging/feed.sh" --dist "$helperless" --version "$version" --tag "v$version" \
   --repo "example/mixengine" 2>/dev/null; then
   echo "feed.sh wrote a feed for a directory with no privileged helper in it" >&2
+  exit 1
+fi
+
+# **And a macOS payload with no `.pkg` beside it is a failure** — T88f. Every Mac that installed the
+# `.pkg` would be offered nothing by that release, and nothing else would notice.
+pkgless="$work/pkgless"
+mkdir -p "$pkgless"
+cp "$dist/$macos" "$dist/$helper_macos" "$pkgless/"
+if bash "$root/packaging/feed.sh" --dist "$pkgless" --version "$version" --tag "v$version" \
+  --repo "example/mixengine" 2>/dev/null; then
+  echo "feed.sh wrote a feed for a macOS payload with no .pkg beside it" >&2
   exit 1
 fi
 
