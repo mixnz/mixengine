@@ -71,15 +71,16 @@ fi
 # the name the build scripts give them.
 #
 # **And never a headless archive** — T105, D7. Those are named
-# `mixengine-<version>-<os>-<arch>-headless.<ext>`, which matches the globs below, and an updater has
-# no use for one: an install with no window has nothing an update would replace, which
-# `updates::apply`'s rule 2 already guarantees. Left in, each would produce a second row for an
-# (os, arch) pair that already has one, and a client takes the first row it matches.
+# `mixengine-<version>-<os>-<arch>-headless.<ext>`, and an updater has no use for one: an install
+# with no window has nothing an update would replace, which `updates::apply`'s rule 2 already
+# guarantees. Since T176f they no longer match the globs below, which take `MIX_ARTIFACT`; the skip
+# stays anyway, because a headless archive that one day took the product's prefix would otherwise be
+# a second row for an (os, arch) pair that already has one, and a client takes the first it matches.
 shopt -s nullglob
 payloads=()
-for file in "$dist/mixengine-$version-windows-"*.zip \
-  "$dist/mixengine-$version-linux-"*.tar.gz \
-  "$dist/mixengine-$version-macos-"*.tar.gz; do
+for file in "$dist/$MIX_ARTIFACT-$version-windows-"*.zip \
+  "$dist/$MIX_ARTIFACT-$version-linux-"*.tar.gz \
+  "$dist/$MIX_ARTIFACT-$version-macos-"*.tar.gz; do
   case "$file" in
     *-headless.zip | *-headless.tar.gz) continue ;;
   esac

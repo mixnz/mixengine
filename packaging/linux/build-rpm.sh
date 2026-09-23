@@ -35,12 +35,12 @@ cp "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" "$build/SOURCES/mixlab-1
 # `mixengine_platform::install::program_dirs` reads too — T107. A `%` delimiter for that one, since
 # the value is a path.
 sed -e "s/@VERSION@/$version/" -e "s/@ARCH@/$arch/" -e "s%@BINDIR@%$MIX_INSTALL_LINUX%g" \
-  "$MIX_ROOT/packaging/linux/mixengine.spec.in" \
-  >"$build/SPECS/mixengine.spec"
+  "$MIX_ROOT/packaging/linux/$MIX_ARTIFACT.spec.in" \
+  >"$build/SPECS/$MIX_ARTIFACT.spec"
 
-rpmbuild --define "_topdir $build" --target "$arch" -bb "$build/SPECS/mixengine.spec"
+rpmbuild --define "_topdir $build" --target "$arch" -bb "$build/SPECS/$MIX_ARTIFACT.spec"
 
-name="mixengine-$version-1.$arch.rpm"
+name="$MIX_ARTIFACT-$version-1.$arch.rpm"
 rm -f "$dist/$name"
 cp "$build/RPMS/$arch/$name" "$dist/$name"
 
@@ -82,10 +82,24 @@ case "$recommends" in
     ;;
 esac
 
+# **And the rename really is declared**, for `build-deb.sh`'s reason one package format along.
+provides="$(rpm -qp --provides "$dist/$name" 2>/dev/null)"
+grep -q "^$MIX_HEADLESS_ARTIFACT = " <<<"$provides" || {
+  echo "the package does not provide $MIX_HEADLESS_ARTIFACT:" >&2
+  printf '%s\n' "$provides" >&2
+  exit 1
+}
+obsoletes="$(rpm -qp --obsoletes "$dist/$name" 2>/dev/null)"
+grep -q "^$MIX_HEADLESS_ARTIFACT < " <<<"$obsoletes" || {
+  echo "the package does not obsolete $MIX_HEADLESS_ARTIFACT:" >&2
+  printf '%s\n' "$obsoletes" >&2
+  exit 1
+}
+
 mix_checksum "$dist/$name"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_rpm="$(mix_publish_alias "$dist/$name" "mixengine-$arch.rpm")"
+alias_rpm="$(mix_publish_alias "$dist/$name" "$MIX_ARTIFACT-$arch.rpm")"
 
 echo "$dist/$name"
 echo "$alias_rpm"

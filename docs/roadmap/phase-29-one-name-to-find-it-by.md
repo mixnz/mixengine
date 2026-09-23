@@ -48,6 +48,11 @@ It carries the scope table; this phase is the order the work happens in.
       `Programs\MixEngine` and `install::program_dirs` are not touched** — ADR 0044 decision 5 and
       decision 2 make all five identifiers, and renaming any of them ripples through `feed.sh`,
       `feed-check.sh`, `sign.sh` and `core::install` to buy a file name.
+
+      **T176f changed its answer on artifact names and `Package: mixengine`**
+      ([ADR 0049](../decisions/0049-a-download-is-named-after-what-it-installs.md)): a file that
+      carries the window is named `mixlab-…`, and the Linux packages are `mixlab`. The payload's
+      `mixengine/` directory, `Programs\MixEngine` and `install::program_dirs` still stand.
 - [x] **T176e** `mixnz/mixengine-sync` is renamed `mixnz/mixlab-sync` before it has a first commit,
       and the working copy beside it. Phase 30 is written against the new name already.
 
@@ -56,6 +61,12 @@ It carries the scope table; this phase is the order the work happens in.
       [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md). Nothing
       here is wrong about what was done at the time; this note is so that a reader does not go
       looking for it.
+- [x] **T176f** What a person downloads is named after what it installs — [ADR 0049](../decisions/0049-a-download-is-named-after-what-it-installs.md),
+      superseding ADR 0044 decision 5 and T176d's answer on artifact names and `Package: mixengine`.
+      Every artifact carrying the window becomes `mixlab-…`, the `.deb` and `.rpm` become the
+      package `mixlab` taking over from `mixengine`, and the headless archives, the helper and every
+      identifier inside an artifact keep their names.
+      [Design](../specs/2026-09-23-t176f-a-download-is-named-after-what-it-installs-design.md).
 
 **Milestone M29** — **met.** `mixnz/mixlab` serves the repository and `mixnz.github.io/mixlab/` the
 handbook; `README.md` answers *"do I need both?"* above the fold; no name among `mix`, `mixengined`,

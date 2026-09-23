@@ -3,7 +3,8 @@
 **Status**: Accepted — supersedes the naming paragraph of
 [0027](0027-the-desktop-client-lives-in-this-repository.md); its decision 6 is superseded by
 [0046](0046-the-sync-server-lives-beside-the-client-it-serves.md), which leaves no separate
-repository to name
+repository to name; its decision 5 is superseded by
+[0049](0049-a-download-is-named-after-what-it-installs.md), which names a download after what it installs
 **Date**: 2026-09-20
 
 ## Context

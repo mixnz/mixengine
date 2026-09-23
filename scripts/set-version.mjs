@@ -104,7 +104,7 @@ if (current === wanted) {
 // `0.0.1` inside `127.0.0.1` — which appears on four handbook pages, enough noise to bury the one
 // real hit under it. The rule is written twice below because `git grep` takes a POSIX regex and has
 // no lookbehind: not preceded by a digit or a dot, not followed by a digit. It still finds
-// `v0.0.1`, `mixengine-0.0.1-linux-x86_64.deb` and `"version": "0.0.1"`.
+// `v0.0.1`, `mixlab_0.0.1-1_amd64.deb` and `"version": "0.0.1"`.
 const escaped = current.replace(/[.+]/g, "\\$&");
 const OUTGOING = `(^|[^0-9.])${escaped}([^0-9]|$)`;
 const outgoing = new RegExp(`(?<![0-9.])${escaped}(?![0-9])`, "g");

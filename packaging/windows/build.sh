@@ -23,9 +23,9 @@ stage="$(bash "$MIX_ROOT/packaging/stage.sh" --target "$target" | tail -1)"
 dist="$MIX_OUT/dist"
 mkdir -p "$dist"
 
-zip_name="mixengine-$version-windows-$arch.zip"
-setup_name="mixengine-$version-windows-$arch-setup.exe"
-headless_name="mixengine-$version-windows-$arch-headless.zip"
+zip_name="$MIX_ARTIFACT-$version-windows-$arch.zip"
+setup_name="$MIX_ARTIFACT-$version-windows-$arch-setup.exe"
+headless_name="$MIX_HEADLESS_ARTIFACT-$version-windows-$arch-headless.zip"
 
 # The zip holds one directory, so unzipping it into Downloads does not scatter five binaries there.
 # Through `zip.ps1` rather than `Compress-Archive`, which spells the separator inside the archive
@@ -129,9 +129,10 @@ mix_checksum "$dist/$headless_name"
 helper_name="$(mix_publish_helper "$stage/mixengine-elevate.exe" windows "$arch")"
 
 # The handbook's install page links these, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_zip="$(mix_publish_alias "$dist/$zip_name" "mixengine-windows-$arch.zip")"
-alias_setup="$(mix_publish_alias "$dist/$setup_name" "mixengine-windows-$arch-setup.exe")"
-alias_headless="$(mix_publish_alias "$dist/$headless_name" "mixengine-windows-$arch-headless.zip")"
+alias_zip="$(mix_publish_alias "$dist/$zip_name" "$MIX_ARTIFACT-windows-$arch.zip")"
+alias_setup="$(mix_publish_alias "$dist/$setup_name" "$MIX_ARTIFACT-windows-$arch-setup.exe")"
+alias_headless="$(mix_publish_alias "$dist/$headless_name" \
+  "$MIX_HEADLESS_ARTIFACT-windows-$arch-headless.zip")"
 
 echo "$dist/$zip_name"
 echo "$dist/$setup_name"

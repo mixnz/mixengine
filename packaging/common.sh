@@ -51,6 +51,18 @@ export MIX_WINDOW
 MIX_WINDOW_APP=MixLab.app
 export MIX_WINDOW_APP
 
+# **What a release calls the files it publishes** — T176f, ADR 0049. An artifact that installs or
+# carries the window is named after the product; one without it is the headless distribution, which
+# is MixEngine, and always says `-headless`. Named here once so no script copies a prefix from its
+# neighbour, and held to the handbook's download links by `crates/mixengine-core/tests/packaging.rs`.
+#
+# **Only the file names.** The payload's `mixengine/` directory, `Programs\MixEngine`, the `.pkg`
+# identifier and the helper's own asset keep MixEngine's name: those are read by an installed copy.
+MIX_ARTIFACT=mixlab
+export MIX_ARTIFACT
+MIX_HEADLESS_ARTIFACT=mixengine
+export MIX_HEADLESS_ARTIFACT
+
 # Where each operating system's installer puts MixEngine — T107.
 #
 # **Read by the packaging scripts and by `mixengine-platform`, and held together by

@@ -137,7 +137,7 @@ show_refusal_dialog() {
 }
 
 # **What this image does when it is given nothing to do** — T105, D6. A double click in a file
-# manager passes no arguments and should open MixLab; `./mixengine-<version>-linux-x86_64.AppImage
+# manager passes no arguments and should open MixLab; `./mixlab-<version>-linux-x86_64.AppImage
 # status` passes one and has to stay the CLI it has always been. The AppImage runtime consumes its
 # own `--appimage-*` arguments before this script is reached, so neither branch ever sees one.
 #

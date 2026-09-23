@@ -46,21 +46,21 @@ image, or any machine with no display wants.
 
 ## Windows
 
-[**Download the installer**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-setup.exe)
-· [portable zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64.zip)
+[**Download the installer**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64-setup.exe)
+· [portable zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64.zip)
 · [headless zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
-· Windows ARM: [installer](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64.zip),
+· Windows ARM: [installer](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64-setup.exe),
+[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64.zip),
 [headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
 
 Three files are published, and any of them is a complete install.
 
-- **`mixengine-<version>-windows-x86_64-setup.exe`** — a per-user installer. It writes into your own
+- **`mixlab-<version>-windows-x86_64-setup.exe`** — a per-user installer. It writes into your own
   profile and puts its directory on your `PATH`, so no administrator prompt is involved and neither
   is anybody else's account on the machine. It also adds **MixLab** to your Start Menu, offers a
   desktop shortcut on the components page, and makes MixLab the program that opens a `mixlab://`
   link.
-- **`mixengine-<version>-windows-x86_64.zip`** — the same programs in a folder. Extract it wherever
+- **`mixlab-<version>-windows-x86_64.zip`** — the same programs in a folder. Extract it wherever
   you like and run `mix.exe`, or `mixlab.exe` for the window.
 - **`mixengine-<version>-windows-x86_64-headless.zip`** — the same folder without MixLab: the four
   command-line programs and nothing else.
@@ -75,10 +75,10 @@ release, because reputation with no publisher identity accrues to a file rather 
 
 ## macOS
 
-[**Download the package**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal.pkg)
+[**Download the package**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-macos-universal.pkg)
 · [headless archive](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
 
-**`mixengine-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon. It puts
+**`mixlab-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon. It puts
 the command-line programs in `/usr/local/bin` and **MixLab** in `/Applications`, so the window is in
 Spotlight and the Launchpad the moment the install finishes.
 
@@ -91,7 +91,7 @@ Gatekeeper dialog and, on macOS 15 and later, a trip through **System Settings �
 → Open Anyway**. Installing from a terminal avoids all of that:
 
 ```bash
-sudo installer -pkg mixengine-*-macos-universal.pkg -target /
+sudo installer -pkg mixlab-*-macos-universal.pkg -target /
 ```
 
 That is the instruction to reach for first on a command-line product. The package runs as root, so
@@ -99,12 +99,12 @@ it also places the privileged helper for you.
 
 ## Linux
 
-[**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_amd64.deb)
-· [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-x86_64.rpm)
-· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64.AppImage)
-· arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine_arm64.deb),
-[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-aarch64.rpm),
-[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64.AppImage)
+[**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_amd64.deb)
+· [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-x86_64.rpm)
+· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-x86_64.AppImage)
+· arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-aarch64.rpm),
+[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-aarch64.AppImage)
 · headless: [`x86_64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
 [`aarch64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
 
@@ -116,9 +116,9 @@ Four files, each a complete install:
 - **`-headless.tar.gz`**, the four command-line programs with no window and no dependencies
 
 ```bash
-sudo dpkg -i mixengine_*_amd64.deb
-sudo rpm -i mixengine-*.x86_64.rpm
-chmod +x mixengine-*-linux-x86_64.AppImage && ./mixengine-*-linux-x86_64.AppImage status
+sudo dpkg -i mixlab_*_amd64.deb
+sudo rpm -i mixlab-*.x86_64.rpm
+chmod +x mixlab-*-linux-x86_64.AppImage && ./mixlab-*-linux-x86_64.AppImage status
 tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
 ```
 
@@ -134,7 +134,7 @@ something as new as the machine that built them — and they need no webview at 
 has no display, take the headless archive: it declares nothing.
 
 **The AppImage does both jobs, and each half keeps its own floor.** Run it with an argument and it
-is the command line — `./mixengine-*-linux-x86_64.AppImage status` — on any system back to glibc
+is the command line — `./mixlab-*-linux-x86_64.AppImage status` — on any system back to glibc
 2.28. Run it with none, or double-click it, and it opens MixLab, which needs what the first
 paragraph says. The image does not carry WebKitGTK; below the window's floor it says so by name, in
 a dialog if you double-clicked it, and the command line goes on working.
@@ -147,7 +147,7 @@ MixLab is Rust, and nothing else:
 
 ```bash
 git clone https://github.com/mixnz/mixlab.git
-cd mixengine
+cd mixlab
 cargo build --release
 ```
 
@@ -160,8 +160,8 @@ which is why placing the privileged helper is never a packager's job.
 Two files sit beside every artifact, and they answer different questions.
 
 ```bash
-sha256sum -c mixengine-*-linux-x86_64.tar.gz.sha256
-minisign -Vm mixengine-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
+sha256sum -c mixlab-*-linux-x86_64.tar.gz.sha256
+minisign -Vm mixlab-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
 ```
 
 The `.sha256` tells you whether two downloads of the same file are the same file. **It is not a

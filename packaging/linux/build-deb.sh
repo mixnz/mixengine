@@ -90,12 +90,19 @@ install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" \
 # and MixLab loads it at run time and goes without a tray when it is missing; nothing else stops
 # working. apt installs recommends by default, so the ordinary install gets the icon, and a machine
 # without the package still gets the window.
+# **`mixlab`, taking over from `mixengine`** — T176f, ADR 0049. Debian's rename idiom: a package may
+# conflict with a virtual name it provides itself, so `apt install ./mixlab_….deb` on a machine with
+# `mixengine` 0.0.x removes that one in the same transaction, and `Replaces:` lets this one own the
+# paths it owned. No maintainer script is needed for any of it.
 cat >"$root/DEBIAN/control" <<EOF
-Package: mixengine
+Package: $MIX_ARTIFACT
 Version: $version
 Section: devel
 Priority: optional
 Architecture: $deb_arch
+Provides: $MIX_HEADLESS_ARTIFACT
+Conflicts: $MIX_HEADLESS_ARTIFACT
+Replaces: $MIX_HEADLESS_ARTIFACT
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0
 Recommends: libayatana-appindicator3-1 | libappindicator3-1
 Maintainer: MixEngine <noreply@mixengine.dev>
@@ -106,7 +113,7 @@ Description: A local web development environment
  Docker and without hand-written configuration files.
 EOF
 
-name="mixengine_$version-1_${deb_arch}.deb"
+name="${MIX_ARTIFACT}_$version-1_${deb_arch}.deb"
 rm -f "$dist/$name"
 
 # `--root-owner-group`: the payload is root's whatever account built it, which is what makes the
@@ -152,10 +159,25 @@ case "$recommends" in
     ;;
 esac
 
+# **And the rename really is declared** — T176f. A field lost here produces a package apt installs
+# beside `mixengine` 0.0.x rather than over it, and two packages owning `/usr/bin/mix` is an error
+# the user meets, not this script.
+test "$(dpkg-deb -f "$dist/$name" Package)" = "$MIX_ARTIFACT" || {
+  echo "the package is not named $MIX_ARTIFACT" >&2
+  exit 1
+}
+for field in Provides Conflicts Replaces; do
+  declared="$(dpkg-deb -f "$dist/$name" "$field")"
+  test "$declared" = "$MIX_HEADLESS_ARTIFACT" || {
+    echo "the package declares $field: $declared, not $MIX_HEADLESS_ARTIFACT" >&2
+    exit 1
+  }
+done
+
 mix_checksum "$dist/$name"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_deb="$(mix_publish_alias "$dist/$name" "mixengine_${deb_arch}.deb")"
+alias_deb="$(mix_publish_alias "$dist/$name" "${MIX_ARTIFACT}_${deb_arch}.deb")"
 
 echo "$dist/$name"
 echo "$alias_deb"

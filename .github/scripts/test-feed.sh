@@ -30,8 +30,8 @@ cp "$work/payload/mixengine/"* "$work/macos/mixengine/"
 echo "not really a window" >"$work/macos/mixengine/MixLab.app/Contents/MacOS/mixlab"
 echo "not really a plist" >"$work/macos/mixengine/MixLab.app/Contents/Info.plist"
 
-linux="mixengine-$version-linux-x86_64.tar.gz"
-macos="mixengine-$version-macos-universal.tar.gz"
+linux="mixlab-$version-linux-x86_64.tar.gz"
+macos="mixlab-$version-macos-universal.tar.gz"
 tar -czf "$dist/$linux" -C "$work/payload" mixengine
 tar -czf "$dist/$macos" -C "$work/macos" mixengine
 

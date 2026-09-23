@@ -403,3 +403,49 @@ fn every_document_promises_the_floor_the_packaging_declares() {
         }
     }
 }
+
+/// Every download link on the install pages carries the prefix of what it installs — T176f,
+/// ADR 0049.
+///
+/// **The handbook links unversioned aliases, and nothing but this connects them to the scripts that
+/// publish them.** A link left on the old prefix is a `404` on the one page a person reads before
+/// they have anything installed, and the release itself would look perfectly healthy. The test
+/// cannot tell whether a file exists; it catches the drift a rename leaves behind, which is one
+/// link, in one language, still spelled the old way.
+#[test]
+fn every_download_link_carries_the_prefix_of_what_it_installs() {
+    const LINK: &str = "releases/latest/download/";
+
+    let product = assigned("MIX_ARTIFACT");
+    let headless = assigned("MIX_HEADLESS_ARTIFACT");
+
+    for (what, text) in [
+        ("docs/guide/en/install.md", INSTALL_EN),
+        ("docs/guide/vi/install.md", INSTALL_VI),
+    ] {
+        let names: Vec<&str> = text
+            .match_indices(LINK)
+            .map(|(at, _)| {
+                let rest = &text[at + LINK.len()..];
+                rest.split([')', ' ', '\n']).next().unwrap_or(rest)
+            })
+            .collect();
+
+        assert!(!names.is_empty(), "{what} links no download at all");
+
+        for name in names {
+            let prefix = if name.contains("-headless") {
+                &headless
+            } else {
+                &product
+            };
+            let rest = name.strip_prefix(prefix.as_str());
+            assert!(
+                rest.is_some_and(|rest| rest.starts_with(['-', '_'])),
+                "{what} links {name}, which does not start with {prefix}; packaging/common.sh \
+                 names an artifact with the window MIX_ARTIFACT and one without it \
+                 MIX_HEADLESS_ARTIFACT"
+            );
+        }
+    }
+}

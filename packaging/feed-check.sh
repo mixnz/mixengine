@@ -23,10 +23,10 @@ mkdir -p "$work/dist" "$work/payload/mixengine"
 for binary in "${MIX_BINARIES[@]}"; do
   printf 'not a binary\n' >"$work/payload/mixengine/$binary"
 done
-tar -czf "$work/dist/mixengine-$version-linux-x86_64.tar.gz" -C "$work/payload" mixengine
+tar -czf "$work/dist/$MIX_ARTIFACT-$version-linux-x86_64.tar.gz" -C "$work/payload" mixengine
 
 # The Windows payload, whose entries carry `.exe` — the whole point of the check.
-export MIX_CHECK_ZIP="$work/dist/mixengine-$version-windows-x86_64.zip"
+export MIX_CHECK_ZIP="$work/dist/$MIX_ARTIFACT-$version-windows-x86_64.zip"
 export MIX_CHECK_NAMES="${MIX_BINARIES[*]}"
 # T106. The window's two names, so the check below can ask about the one payload entry that is a
 # directory without spelling either of them a second time.
@@ -51,16 +51,17 @@ for binary in $(mix_headless_binaries); do
 done
 printf 'not a binary\n' >"$work/macos/mixengine/$MIX_WINDOW_APP/Contents/MacOS/$MIX_WINDOW"
 printf 'not a plist\n' >"$work/macos/mixengine/$MIX_WINDOW_APP/Contents/Info.plist"
-tar -czf "$work/dist/mixengine-$version-macos-universal.tar.gz" -C "$work/macos" mixengine
+tar -czf "$work/dist/$MIX_ARTIFACT-$version-macos-universal.tar.gz" -C "$work/macos" mixengine
 
-# **The headless archives, which this feed must ignore** — T105, D7. They match the same name globs
-# `feed.sh` collects payloads with, and without an exclusion the script reaches its `*)` arm and
-# stops the whole `release` job with "is not a payload name this script recognises". An install with
+# **The headless archives, which this feed must ignore** — T105, D7. Since T176f they carry
+# `MIX_HEADLESS_ARTIFACT` and no longer match the globs `feed.sh` collects payloads with; they stay in
+# this fixture because a headless archive that reached the payload loop would reach its `*)` arm and
+# stop the whole `release` job with "is not a payload name this script recognises". An install with
 # no window has nothing an update would replace, which `updates::apply`'s own rule 2 already
 # guarantees; the feed never needs to describe one.
-tar -czf "$work/dist/mixengine-$version-linux-x86_64-headless.tar.gz" -C "$work/payload" mixengine
+tar -czf "$work/dist/$MIX_HEADLESS_ARTIFACT-$version-linux-x86_64-headless.tar.gz" -C "$work/payload" mixengine
 
-export MIX_CHECK_HEADLESS_ZIP="$work/dist/mixengine-$version-windows-x86_64-headless.zip"
+export MIX_CHECK_HEADLESS_ZIP="$work/dist/$MIX_HEADLESS_ARTIFACT-$version-windows-x86_64-headless.zip"
 
 python3 - <<'PY'
 import os

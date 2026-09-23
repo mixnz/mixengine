@@ -251,7 +251,7 @@ looked.
 which writes `latest.json` into the distribution directory **between** gathering the legs and signing
 them — it is written there rather than in a leg because no leg can see the other four, and before the
 signing rather than after because being in that directory *is* how it gets signed. The artifact is
-the update payload: a plain `mixengine-<version>-<os>-<arch>.(zip|tar.gz)` of the release's binaries,
+the update payload: a plain `mixlab-<version>-<os>-<arch>.(zip|tar.gz)` of the release's binaries,
 which is the only thing `mix self-update` can apply, since every installer either needs root or is a
 file the user placed. `packaging/README.md` has the shape of both.
 
@@ -456,7 +456,7 @@ TypeScript contract as `mixengine-api-<version>-typescript.tar.gz` — roadmap t
 [design](../specs/2026-09-05-t56-the-published-api-contract-design.md). It is
 packed in the `release` job from the tree in `bindings/`, which is current because that job needs
 `bindings`; `sign.sh` signs it with everything else, and `feed.sh` does not offer it to
-`mix self-update`, because it matches a payload by the `mixengine-<version>-<os>-…` shape and this is
+`mix self-update`, because it matches a payload by the `mixlab-<version>-<os>-…` shape and this is
 not one. What the contract states is what the daemon **writes** —
 [ADR 0020](../decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md).
 
@@ -1440,7 +1440,7 @@ correct on three operating systems", and "the artifacts were built".
 needs `bindings`, rather than because a second generation happened here. Before the signing
 step, like the feed below, because being in this directory is how a file gets signed;
 `feed.sh` does not pick it up, since it matches a payload by the
-`mixengine-<version>-<os>-…` shape and a helper by `mixengine-elevate-<version>-…`, and this
+`mixlab-<version>-<os>-…` shape and a helper by `mixengine-elevate-<version>-…`, and this
 is neither.
 
 **Assemble the draft release.** **A draft, and a person publishes it.** T88's feed lives at `releases/latest/download/`, and

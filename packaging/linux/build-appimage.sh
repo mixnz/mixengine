@@ -83,7 +83,7 @@ if [ ! -s "$runtime" ]; then
     "https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-$arch"
 fi
 
-name="mixengine-$version-linux-$arch.AppImage"
+name="$MIX_ARTIFACT-$version-linux-$arch.AppImage"
 rm -f "$dist/$name"
 
 # `APPIMAGE_EXTRACT_AND_RUN=1`: the runner has no FUSE, and an AppImage that cannot mount itself
@@ -138,7 +138,7 @@ test -x "$appdir/usr/bin/$MIX_WINDOW" || {
 mix_checksum "$dist/$name"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_appimage="$(mix_publish_alias "$dist/$name" "mixengine-linux-$arch.AppImage")"
+alias_appimage="$(mix_publish_alias "$dist/$name" "$MIX_ARTIFACT-linux-$arch.AppImage")"
 
 echo "$dist/$name"
 echo "$alias_appimage"

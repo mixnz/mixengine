@@ -63,7 +63,7 @@ test "$printed" = "mix --version" || {
 }
 
 # **The hand-over, both ways** — T105. With no arguments the AppImage is a double click and opens
-# MixLab; with any argument it is `./mixengine-<version>-linux-x86_64.AppImage status` and has to
+# MixLab; with any argument it is `./mixlab-<version>-linux-x86_64.AppImage status` and has to
 # stay the CLI it has always been. The AppImage runtime eats its own `--appimage-*` arguments before
 # `AppRun` is reached, so nothing else lands in either branch.
 window="$("$image/AppRun")"

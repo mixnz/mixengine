@@ -61,9 +61,16 @@ bash packaging/bindings.sh --check    # the committed API contract is what the c
 
 | OS | Artifacts |
 | --- | --- |
-| Windows | `mixengine-<version>-windows-x86_64-setup.exe`, `mixengine-<version>-windows-x86_64.zip`, `mixengine-<version>-windows-x86_64-headless.zip` |
-| macOS | `mixengine-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal.tar.gz`, `mixengine-<version>-macos-universal-headless.tar.gz` |
-| Linux | `mixengine-<version>-linux-x86_64.AppImage`, `mixengine_<version>-1_amd64.deb`, `mixengine-<version>-1.x86_64.rpm`, `mixengine-<version>-linux-x86_64.tar.gz`, `mixengine-<version>-linux-x86_64-headless.tar.gz` |
+| Windows | `mixlab-<version>-windows-x86_64-setup.exe`, `mixlab-<version>-windows-x86_64.zip`, `mixengine-<version>-windows-x86_64-headless.zip` |
+| macOS | `mixlab-<version>-macos-universal.pkg`, `mixlab-<version>-macos-universal.tar.gz`, `mixengine-<version>-macos-universal-headless.tar.gz` |
+| Linux | `mixlab-<version>-linux-x86_64.AppImage`, `mixlab_<version>-1_amd64.deb`, `mixlab-<version>-1.x86_64.rpm`, `mixlab-<version>-linux-x86_64.tar.gz`, `mixengine-<version>-linux-x86_64-headless.tar.gz` |
+
+**What carries the window is named `mixlab`, and what does not keeps MixEngine's name** —
+[ADR 0049](../docs/decisions/0049-a-download-is-named-after-what-it-installs.md). The two prefixes
+are `MIX_ARTIFACT` and `MIX_HEADLESS_ARTIFACT` in `common.sh`, and every script builds its names
+from them. The `.deb` and the `.rpm` are the package `mixlab`, which replaces an installed
+`mixengine`. Only the file names moved: the `mixengine/` directory inside each archive, the install
+paths and the helper's own asset keep their names, because an installed copy reads them.
 
 In the `.deb` and the `.rpm` alone, `<version>` is `mix_native_version` rather than the version as
 written: neither format can hold the `-` of a pre-release, so `0.0.1-beta.1` is named
@@ -75,8 +82,8 @@ building it (T171c). Those files do not run on an Intel Mac, and `macos/build.sh
 them for a tag. Unset, as on a developer's machine, both slices are built.
 
 **Every installer in the table above, and every headless archive, is published a second time under a
-name with no version in it** — `mixengine-windows-x86_64-setup.exe` beside
-`mixengine-<version>-windows-x86_64-setup.exe`, and so on for each of the others — through
+name with no version in it** — `mixlab-windows-x86_64-setup.exe` beside
+`mixlab-<version>-windows-x86_64-setup.exe`, and so on for each of the others — through
 `mix_publish_alias` in `common.sh`. That is what lets the handbook's install page link
 `.../releases/latest/download/<name>` and never need editing again: GitHub resolves that URL to
 whichever release is newest and not a pre-release, the same mechanism `latest.json` already relies
@@ -95,9 +102,10 @@ All three hold **one top-level `mixengine/` directory**, which is what lets one 
 the feed describe every artifact this project ships — and what stops a zip extracted into `Downloads`
 scattering five binaries there.
 
-**The headless archives are downloads, never payloads.** They match the same name globs `feed.sh`
-collects payloads with, so that script skips `*-headless.*` by name — left in, each would produce a
-second row for an (os, arch) pair that already has one, and a client takes the first row it matches.
+**The headless archives are downloads, never payloads.** Since T176f their prefix no longer matches
+the globs `feed.sh` collects payloads with, and that script still skips `*-headless.*` by name — one
+that got in would produce a second row for an (os, arch) pair that already has one, and a client
+takes the first row it matches.
 An install with no window has nothing an update would replace anyway, which `updates::apply`'s own
 rule already guarantees. On macOS the payload and the headless archive hold the same four binaries
 today: `feed.sh` builds `provides` only from plain files directly under `mixengine/`, so the `.app`
@@ -163,7 +171,7 @@ committed answer.
 top-level `package/` and no runtime code in it at all. The version is stamped **there** and is not in
 the committed tree, so cutting a release stays a version bump and nothing else. `sign.sh` signs it
 beside the binaries, and `feed.sh` leaves it alone: a payload is matched by the
-`mixengine-<version>-<os>-…` shape and this is not one.
+`mixlab-<version>-<os>-…` shape and this is not one.
 
 What the contract states is what the daemon **writes** — a few requests accept more than that, and
 [ADR 0020](../docs/decisions/0020-the-published-contract-is-the-shape-the-daemon-writes.md) is
