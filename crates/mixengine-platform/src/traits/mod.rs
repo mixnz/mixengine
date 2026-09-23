@@ -10,6 +10,7 @@ mod elevation;
 mod firewall_rules;
 mod home;
 mod hosts;
+mod installers;
 mod keyring;
 mod limits;
 mod machine;
@@ -37,6 +38,7 @@ pub use elevation::{Elevation, ElevationSupport, Raised};
 pub use firewall_rules::FirewallRules;
 pub use home::HomeDirs;
 pub use hosts::HostsFile;
+pub use installers::{Installers, pkgid_of};
 pub use keyring::{KEYRING_SERVICE, Keyring};
 pub use limits::{
     Enforcement, LimitMechanism, LimitSupport, MemoryMeasure, ResourceControl, WhenExceeded,
@@ -180,6 +182,10 @@ pub trait Host: std::fmt::Debug + Send + Sync {
     /// **Starts a program that asks Windows for administrator rights**, after a person agreed, and
     /// only a file Microsoft signed; see [`Redistributables`] and ADR 0037.
     fn redistributables(&self) -> &dyn Redistributables;
+
+    /// Who installed this copy, and the system installer a `.pkg` update is handed to — roadmap
+    /// task **T88f**. See [`Installers`] and ADR 0050.
+    fn installers(&self) -> &dyn Installers;
 
     /// Inbound firewall rules naming a program — roadmap task **T76**.
     ///

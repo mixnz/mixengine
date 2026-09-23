@@ -61,6 +61,7 @@ pub(crate) mod process;
 mod prompt;
 // Believing and running Microsoft's Visual C++ Redistributable installer — T150.
 #[cfg(feature = "host")]
+mod installers;
 mod redistributable;
 #[cfg(feature = "elevated")]
 pub(crate) mod replace;
@@ -115,6 +116,7 @@ pub(crate) struct Host {
     app_control: app_control::Policy,
     machine: machine::Facts,
     redistributables: redistributable::Installer,
+    installers: installers::Installers,
     network: crate::network::Network,
     firewall_rules: firewall_rules::Rules,
     limits: limits::Limits,
@@ -142,6 +144,7 @@ impl Host {
             app_control: app_control::Policy,
             machine: machine::Facts,
             redistributables: redistributable::Installer,
+            installers: installers::Installers,
             network: crate::network::Network,
             firewall_rules: firewall_rules::Rules,
             limits: limits::Limits,
@@ -216,6 +219,10 @@ impl crate::Host for Host {
 
     fn redistributables(&self) -> &dyn crate::Redistributables {
         &self.redistributables
+    }
+
+    fn installers(&self) -> &dyn crate::Installers {
+        &self.installers
     }
 
     fn network(&self) -> &dyn crate::NetworkInfo {

@@ -38,6 +38,7 @@ pub(crate) mod process;
 mod prompt;
 // The Visual C++ Redistributable, which is Windows' alone — T150.
 #[cfg(feature = "host")]
+mod installers;
 mod redistributable;
 // The read half is `host` and the write half is `elevated`, as `port_access` is.
 #[cfg(feature = "host")]
@@ -120,6 +121,7 @@ pub(crate) struct Host {
     app_control: app_control::Policy,
     machine: machine::Facts,
     redistributables: redistributable::Installer,
+    installers: installers::Installers,
     network: crate::network::Network,
     firewall_rules: firewall_rules::Rules,
     limits: limits::Limits,
@@ -147,6 +149,7 @@ impl Host {
             app_control: app_control::Policy,
             machine: machine::Facts,
             redistributables: redistributable::Installer,
+            installers: installers::Installers,
             network: crate::network::Network,
             firewall_rules: firewall_rules::Rules,
             limits: limits::Limits,
@@ -221,6 +224,10 @@ impl crate::Host for Host {
 
     fn redistributables(&self) -> &dyn crate::Redistributables {
         &self.redistributables
+    }
+
+    fn installers(&self) -> &dyn crate::Installers {
+        &self.installers
     }
 
     fn network(&self) -> &dyn crate::NetworkInfo {

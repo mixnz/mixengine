@@ -14,6 +14,7 @@ mod elevation;
 mod firewall_rules;
 mod home;
 mod hosts;
+mod installers;
 mod keyring;
 mod limits;
 mod machine;
@@ -74,6 +75,7 @@ pub struct Host {
 
     /// How this mock's Visual C++ installer ends, when it has one — T150.
     redistributables: redistributable::Installer,
+    installers: installers::Installers,
     resolver: resolver::Resolver,
     trust: trust::Trust,
     browsers: browsers::Browsers,
@@ -188,6 +190,22 @@ impl Host {
             machine: machine::Facts::reporting(facts),
             ..Self::with_home(home)
         }
+    }
+
+    /// A host whose daemon binary belongs to the package `receipt` — roadmap task **T88f**. The
+    /// default host has no receipts, as Linux and Windows do not.
+    #[must_use]
+    pub fn with_receipt(home: impl Into<PathBuf>, receipt: &str) -> Self {
+        Self {
+            installers: installers::Installers::with_receipt(receipt),
+            ..Self::with_home(home)
+        }
+    }
+
+    /// Every package this host was asked to open, in order — roadmap task **T88f**.
+    #[must_use]
+    pub fn opened(&self) -> Vec<PathBuf> {
+        self.installers.opened()
     }
 
     /// A host whose Visual C++ installer ends as `outcome` — roadmap task **T150**. The default host
@@ -612,6 +630,7 @@ impl Host {
             app_control: app_control::Policy::default(),
             machine: machine::Facts::default(),
             redistributables: redistributable::Installer::default(),
+            installers: installers::Installers::default(),
             resolver: resolver::Resolver::default(),
             trust: trust::Trust::default(),
             browsers: browsers::Browsers::default(),
@@ -749,6 +768,10 @@ impl crate::Host for Host {
 
     fn redistributables(&self) -> &dyn crate::Redistributables {
         &self.redistributables
+    }
+
+    fn installers(&self) -> &dyn crate::Installers {
+        &self.installers
     }
 
     fn network(&self) -> &dyn crate::NetworkInfo {
