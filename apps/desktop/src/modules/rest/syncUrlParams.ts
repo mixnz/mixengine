@@ -4,8 +4,8 @@ import type { KeyValue } from "./types";
  * The URL box and the Params table: the box holds the address, the table holds the query.
  *
  * The URL that goes out is the box with the ticked rows as its query (`urlWithParams`). A query
- * typed or pasted into the box is not live-synced into the table; it is folded down into it
- * (`foldQuery`) when the box is pasted into and when the request is sent.
+ * typed into the box is not live-synced into the table: a paste replaces the ticked rows with it
+ * (`replaceQuery`), and Send adds it to them (`foldQuery`).
  *
  * Written by hand rather than with `URL` and `URLSearchParams`, for two reasons that both matter:
  * the box holds text that is not a URL yet while it is being typed, and it holds `{{var}}`, which
@@ -93,6 +93,23 @@ export function foldQuery<T extends { url: string; params: KeyValue[] }>(
     else added.push({ id: nextId(), enabled: true, key: pair.key, value: pair.value });
   }
   return { ...request, url, params: [...request.params, ...added] };
+}
+
+/**
+ * A pasted URL's query put in place of the ticked rows, and the box left holding the rest.
+ *
+ * A paste is a new URL, so its query is the query: the ticked rows are refilled from it, as
+ * `paramsFromUrl` does, and the unticked ones stay where they were. A URL with no query says
+ * nothing about the table, and the table is left as it was — the same object, so a memo stays put.
+ */
+export function replaceQuery<T extends { url: string; params: KeyValue[] }>(
+  request: T,
+  nextId: () => string,
+): T {
+  const { base, hash } = parts(request.url);
+  const url = `${base}${hash}`;
+  if (url === request.url) return request;
+  return { ...request, url, params: paramsFromUrl(request.url, request.params, nextId) };
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeComponent, foldQuery, paramsFromUrl, urlWithParams } from "./syncUrlParams";
+import { decodeComponent, foldQuery, paramsFromUrl, replaceQuery, urlWithParams } from "./syncUrlParams";
 import type { KeyValue } from "./types";
 
 /** Ids in order, so a test can say which row it means. */
@@ -140,6 +140,39 @@ describe("foldQuery", () => {
   it("hands back the same object when there is no query", () => {
     const request = { url: "https://x.test/a", params: [] };
     expect(foldQuery(request, counter())).toBe(request);
+  });
+});
+
+describe("replaceQuery", () => {
+  it("replaces the ticked rows with the pasted query and leaves the box holding the address", () => {
+    const params = [row({ id: "a", key: "locale", value: "vi" }), row({ id: "b", key: "_route", value: "role" })];
+    expect(replaceQuery({ url: "https://x.test/items?page=2", params }, counter())).toEqual({
+      url: "https://x.test/items",
+      params: [row({ id: "a", key: "page", value: "2" })],
+    });
+  });
+
+  it("keeps the unticked rows where they were", () => {
+    const params = [
+      row({ id: "off", enabled: false, key: "debug", value: "1" }),
+      row({ id: "on", key: "page", value: "1" }),
+    ];
+    expect(replaceQuery({ url: "https://x.test/a?page=2&q=hi", params }, counter()).params).toEqual([
+      row({ id: "off", enabled: false, key: "debug", value: "1" }),
+      row({ id: "on", key: "page", value: "2" }),
+      row({ id: "new-1", key: "q", value: "hi" }),
+    ]);
+  });
+
+  it("leaves the table alone when the pasted URL has no query", () => {
+    const request = { url: "https://x.test/a", params: [row({ id: "a", key: "page", value: "2" })] };
+    expect(replaceQuery(request, counter())).toBe(request);
+  });
+
+  it("keeps the fragment in the box", () => {
+    expect(replaceQuery({ url: "https://x.test/a?page=2#top", params: [] }, counter()).url).toBe(
+      "https://x.test/a#top",
+    );
   });
 });
 

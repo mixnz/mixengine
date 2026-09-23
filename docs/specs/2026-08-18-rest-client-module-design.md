@@ -183,11 +183,15 @@ interface RestRequest {
 bên không còn đồng bộ hai chiều: sửa Params không viết lại ô URL, gõ `?page=2` vào ô URL cũng chưa
 đụng tới bảng.
 
-Query gõ tay vào ô URL được **gom** xuống Params ở hai lúc: khi dán (một URL hay một lệnh cURL) và khi
-Send. Gom là: mỗi cặp trong ô khớp một-một với một dòng đã tick cùng key và value thì coi như đã có,
-cặp còn lại thêm vào cuối bảng, đã tick; ô URL còn lại phần gốc và `#hash`. Luật khớp là cho request
-lưu từ trước thay đổi này, khi URL và Params còn là hai bản sao của nhau — gom chúng không sinh dòng
-trùng. Chưa gom thì dòng preview và phần kiểm tra biến vẫn tính trên bản đã gom, nên luôn nói đúng
+Query trong ô URL xuống Params ở hai lúc, và ô URL còn lại phần gốc và `#hash`:
+
+- **Khi dán** một URL: query dán vào **thay** các dòng đã tick, dòng bỏ tick giữ nguyên chỗ cũ. Dán
+  một URL không có query thì bảng Params để nguyên. Một lệnh cURL là cả một request, nên query của
+  nó thành Params của request mới ấy.
+- **Khi Send**: query gõ tay được **gom** vào bảng — mỗi cặp khớp một-một với một dòng đã tick cùng
+  key và value thì coi như đã có, cặp còn lại thêm vào cuối bảng, đã tick. Luật khớp là cho request
+  lưu từ trước thay đổi này, khi URL và Params còn là hai bản sao của nhau — gom chúng không sinh
+  dòng trùng. Chưa gom thì dòng preview và phần kiểm tra biến vẫn tính trên bản đã gom, nên luôn nói đúng
 URL sẽ đi. Logic ở `syncUrlParams.ts`.
 
 ### Bốn file trên đĩa
@@ -525,7 +529,7 @@ Ba thứ cuối là toàn cục, không làm per-request ở v1.
 - `interpolate` — biến lồng nhau, vòng lặp, escape literal, `{{#each}}` để nguyên, thiếu biến trong
   dòng đã bỏ tick thì không tính
 - `parsePaste` + `toCurl` — **khứ hồi**: dán một lệnh curl vào rồi copy ra phải cho lại đúng lệnh đó
-- `syncUrlParams` — gom query xuống Params không sinh dòng trùng, dòng bỏ tick không lọt vào URL
+- `syncUrlParams` — dán thay dòng đã tick, gom khi Send không sinh dòng trùng, dòng bỏ tick không lọt vào URL
 - `contentType` + `availableModes` — chuỗi fallback, ngửi bytes khi header chung chung, charset hỏng
 - `buildRequest` — state UI ra `WireRequest`, gồm Content-Type tự đặt
 - luật Recent — cắt 10 theo `lastUsedAt`, gộp trùng, ghim chuyển nhóm

@@ -42,7 +42,7 @@ import {
   useRequestLists,
   useRequestListsLoaded,
 } from "./requestsStore";
-import { foldQuery, urlWithParams } from "./syncUrlParams";
+import { foldQuery, replaceQuery, urlWithParams } from "./syncUrlParams";
 import { parseRestTabState } from "./tabState";
 import type { RestRequest } from "./types";
 import {
@@ -120,9 +120,9 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
   /** A paste that the environment has names for, and the request it would become. Held rather
    *  than applied: the question is put to whoever pasted it, and both answers are cheap. */
   const [swap, setSwap] = useState<{ request: RestRequest; found: Substitution[] } | null>(null);
-  /** Set by a paste into the URL box that was not a whole request: the edit that paste makes is
-   *  folded straight into the Params table rather than waiting for Send. */
-  const foldNextUrlEdit = useRef(false);
+  /** Set by a paste into the URL box that was not a whole request: the query that paste brings
+   *  replaces the ticked Params rows at once rather than waiting for Send. */
+  const pastedIntoUrl = useRef(false);
 
   /**
    * Closing the tab stops whatever it was waiting for.
@@ -334,26 +334,26 @@ function RestTab({ active, onTitleChange, restored, onStateChange }: ModuleTabPr
   }
 
   /** The URL box changed. A query typed into it stays there until Send folds it into Params; one
-   *  that arrived by paste is folded now. */
+   *  that arrived by paste takes the place of the ticked rows now. */
   function editUrl(url: string) {
     if (!activeRequest) return;
     const next = { ...activeRequest, url };
-    if (foldNextUrlEdit.current) {
-      foldNextUrlEdit.current = false;
-      saveRequest(foldQuery(next, () => crypto.randomUUID()));
+    if (pastedIntoUrl.current) {
+      pastedIntoUrl.current = false;
+      saveRequest(replaceQuery(next, () => crypto.randomUUID()));
       return;
     }
     saveRequest(next);
   }
 
   /** A paste into the URL box: a whole request is taken by `pasteInto`; anything else lands in the
-   *  box as text, and the edit it makes is folded. The flag is dropped after the event either way,
+   *  box as text, and the edit it makes goes through `replaceQuery`. The flag is dropped after the event either way,
    *  so a paste that changed nothing does not fold the next keystroke. */
   function pasteIntoUrl(text: string): boolean {
     if (pasteInto(text)) return true;
-    foldNextUrlEdit.current = true;
+    pastedIntoUrl.current = true;
     setTimeout(() => {
-      foldNextUrlEdit.current = false;
+      pastedIntoUrl.current = false;
     }, 0);
     return false;
   }
