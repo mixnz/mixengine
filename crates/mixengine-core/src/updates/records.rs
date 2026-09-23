@@ -37,6 +37,10 @@ pub const APPLIED: &str = "updates.applied";
 /// What was running when an update stopped it, in the order it was stopped.
 pub const RESTORE: &str = "updates.restore";
 
+/// A `.pkg` handed to Installer.app and not yet finished — roadmap task **T88f**, the design's D5
+/// and D6. While it is here, `update.status` asks the binary on disk what version it is.
+pub const HANDED_OVER: &str = "updates.handed_over";
+
 /// How far ahead *remind me later* puts the next offer.
 ///
 /// Three days, against a check that runs daily: one day would be tomorrow, which is not what
@@ -70,6 +74,16 @@ pub struct Applied {
     pub to: String,
 
     /// When the swap was made.
+    pub at: mixengine_proto::Timestamp,
+}
+
+/// What [`HANDED_OVER`] holds — roadmap task **T88f**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct HandedOver {
+    /// The version handed to the installer.
+    pub version: String,
+
+    /// When.
     pub at: mixengine_proto::Timestamp,
 }
 
@@ -251,6 +265,31 @@ mod tests {
         assert_eq!(
             get::<Applied>(&store, APPLIED).await.expect("a read"),
             Some(applied)
+        );
+    }
+
+    /// A handover is written by `update.hand_over` and read back by `update.status`, then cleared by
+    /// `update.finish` — roadmap task **T88f**.
+    #[tokio::test]
+    async fn a_handover_is_written_read_and_cleared() {
+        let (_temp, store) = home().await;
+        let handed = HandedOver {
+            version: "0.0.9".to_owned(),
+            at: mixengine_proto::Timestamp(1_790_183_317_000),
+        };
+
+        set(&store, HANDED_OVER, &handed).await.expect("a write");
+        let read = get::<HandedOver>(&store, HANDED_OVER)
+            .await
+            .expect("a read");
+        clear(&store, HANDED_OVER).await.expect("a clear");
+
+        assert_eq!(read, Some(handed));
+        assert_eq!(
+            get::<HandedOver>(&store, HANDED_OVER)
+                .await
+                .expect("a read"),
+            None
         );
     }
 }

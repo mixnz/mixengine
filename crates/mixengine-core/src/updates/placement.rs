@@ -19,6 +19,9 @@ use std::path::{Path, PathBuf};
 /// somebody finding it beside their binaries and wondering what wrote it.
 pub const PROBE_FILE: &str = ".mixengine-update-probe";
 
+/// The receipt the macOS `.pkg` installs under — `packaging/macos/build.sh`'s `--identifier`.
+pub const PKG_RECEIPT: &str = "dev.mixengine.cli";
+
 /// Where this build is installed, and what that means for updating it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Placement {
@@ -41,6 +44,17 @@ pub enum Placement {
         /// not this account's to write, and therefore that MixEngine did not put itself there.
         because: String,
     },
+
+    /// The macOS `.pkg` installed this copy, and the next `.pkg` updates it — roadmap task
+    /// **T88f** ([ADR 0050](../../../../docs/decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md)).
+    /// Handed to Installer.app, never swapped in place.
+    Installer {
+        /// The directory holding the binaries.
+        directory: PathBuf,
+
+        /// The receipt that named the daemon's binary.
+        receipt: String,
+    },
 }
 
 /// Read the placement of the daemon at `daemon_exe`.
@@ -53,8 +67,14 @@ pub enum Placement {
 /// obvious one: the mount is read-only, so a probe would refuse it anyway — but an AppImage a user
 /// extracted by hand into a writable directory would *pass* a write probe while still being one
 /// file somebody placed rather than a directory of binaries an updater may replace one at a time.
+///
+/// **The package receipt is asked before both** — roadmap task **T88f**, the design's D1. `receipt`
+/// is what `mixengine_platform` found for `daemon_exe`, passed in for `appimage`'s reason. A copy
+/// the `.pkg` installed may sit in a directory this account can write — the Intel Homebrew Mac, and
+/// the Apple silicon Mac the T88f readings were taken on — and the probe would then swap four
+/// binaries and leave the window and the helper behind. Only [`PKG_RECEIPT`] counts.
 #[must_use]
-pub fn of(daemon_exe: &Path, appimage: Option<&OsStr>) -> Placement {
+pub fn of(daemon_exe: &Path, appimage: Option<&OsStr>, receipt: Option<&str>) -> Placement {
     let Some(directory) = daemon_exe
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -67,6 +87,13 @@ pub fn of(daemon_exe: &Path, appimage: Option<&OsStr>) -> Placement {
             ),
         };
     };
+
+    if let Some(receipt) = receipt.filter(|receipt| *receipt == PKG_RECEIPT) {
+        return Placement::Installer {
+            directory: directory.to_path_buf(),
+            receipt: receipt.to_owned(),
+        };
+    }
 
     if let Some(appimage) = appimage {
         return Placement::Managed {
@@ -119,7 +146,10 @@ mod tests {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let exe = directory.path().join("mixengined");
 
-        assert!(matches!(of(&exe, None), Placement::SelfUpdatable { .. }));
+        assert!(matches!(
+            of(&exe, None, None),
+            Placement::SelfUpdatable { .. }
+        ));
     }
 
     #[test]
@@ -127,7 +157,7 @@ mod tests {
         let directory = tempfile::tempdir().expect("a temporary directory");
         let exe = directory.path().join("mixengined");
 
-        let placement = of(&exe, Some(OsStr::new("/home/x/MixEngine.AppImage")));
+        let placement = of(&exe, Some(OsStr::new("/home/x/MixEngine.AppImage")), None);
 
         let Placement::Managed { because, .. } = placement else {
             panic!(
@@ -142,7 +172,48 @@ mod tests {
     fn a_binary_with_no_directory_at_all_is_managed() {
         let missing = Path::new("mixengined");
 
-        assert!(matches!(of(missing, None), Placement::Managed { .. }));
+        assert!(matches!(of(missing, None, None), Placement::Managed { .. }));
+    }
+
+    /// A writable directory: the probe alone would call it self-updatable, which is the half-update
+    /// the T88f readings found possible on Apple silicon as well as on Intel (spec D1).
+    #[test]
+    fn the_pkg_receipt_is_asked_before_the_probe() {
+        let directory = tempfile::tempdir().expect("a temporary directory");
+        let exe = directory.path().join("mixengined");
+
+        let placement = of(&exe, None, Some(PKG_RECEIPT));
+
+        assert!(
+            matches!(&placement, Placement::Installer { receipt, .. } if receipt == PKG_RECEIPT),
+            "{placement:?}"
+        );
+    }
+
+    #[test]
+    fn a_receipt_for_another_package_is_not_ours() {
+        let directory = tempfile::tempdir().expect("a temporary directory");
+        let exe = directory.path().join("mixengined");
+
+        let placement = of(&exe, None, Some("com.example.other"));
+
+        assert!(
+            matches!(placement, Placement::SelfUpdatable { .. }),
+            "{placement:?}"
+        );
+    }
+
+    #[test]
+    fn the_receipt_is_asked_before_the_appimage() {
+        let directory = tempfile::tempdir().expect("a temporary directory");
+        let exe = directory.path().join("mixengined");
+
+        let placement = of(&exe, Some(OsStr::new("/x.AppImage")), Some(PKG_RECEIPT));
+
+        assert!(
+            matches!(placement, Placement::Installer { .. }),
+            "{placement:?}"
+        );
     }
 
     #[test]

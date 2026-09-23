@@ -172,6 +172,7 @@ impl Updates {
                 std::env::var_os(APPIMAGE)
                     .filter(|value| !value.is_empty())
                     .as_deref(),
+                None,
             ),
             // A daemon whose own path the operating system will not name. Refused in words rather
             // than assumed writable: this is the one field an update is not allowed to guess at.
@@ -415,16 +416,21 @@ impl Updates {
             .to_wire());
         }
 
-        let updates::Placement::SelfUpdatable { directory } = &self.placement else {
-            let updates::Placement::Managed { directory, because } = &self.placement else {
-                unreachable!("Placement has two variants and the other one is matched above")
-            };
-
-            return Err(mixengine_core::Error::UpdateNotWritable {
-                directory: directory.clone(),
-                because: because.clone(),
+        let directory = match &self.placement {
+            updates::Placement::SelfUpdatable { directory } => directory,
+            updates::Placement::Managed { directory, because } => {
+                return Err(mixengine_core::Error::UpdateNotWritable {
+                    directory: directory.clone(),
+                    because: because.clone(),
+                }
+                .to_wire());
             }
-            .to_wire());
+            updates::Placement::Installer { directory, .. } => {
+                return Err(mixengine_core::Error::UpdateUsesInstaller {
+                    directory: directory.clone(),
+                }
+                .to_wire());
+            }
         };
 
         let (os, arch) = host()?;
@@ -664,6 +670,9 @@ impl Updates {
 /// The environment variable a running AppImage sets, and the one thing that identifies one.
 const APPIMAGE: &str = "APPIMAGE";
 
+/// Why a copy the `.pkg` installed is not swapped in place, as an old client reads it — T88f.
+const INSTALLER_BECAUSE: &str = "the .pkg installed this copy, and MixEngine updates it by opening the next .pkg in Installer.app";
+
 /// Where payloads are unpacked, under the home's `cache/`.
 const STAGING_DIR: &str = "updates";
 
@@ -714,6 +723,12 @@ fn placement(placement: &updates::Placement) -> UpdatePlacement {
         updates::Placement::Managed { directory, because } => UpdatePlacement::Managed {
             directory: directory.display().to_string(),
             because: because.clone(),
+        },
+        // `managed` on the wire, with a sentence still true for a client from before T88f: a new
+        // tagged variant would make an old client fail to read the whole status (the design, D3).
+        updates::Placement::Installer { directory, .. } => UpdatePlacement::Managed {
+            directory: directory.display().to_string(),
+            because: INSTALLER_BECAUSE.to_owned(),
         },
     }
 }
