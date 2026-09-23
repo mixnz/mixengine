@@ -172,6 +172,21 @@ pub mod method {
     /// manager, before anything is downloaded.
     pub const UPDATE_APPLY: &str = "update.apply";
 
+    /// Download and verify the next `.pkg`, and open it in Installer.app — roadmap task **T88f**.
+    /// Takes [`UpdateHandOver`](crate::UpdateHandOver), answers
+    /// [`UpdateHandedOver`](crate::UpdateHandedOver). **The daemon keeps running**, and nothing is
+    /// stopped: a person who cancels the installer has lost nothing.
+    ///
+    /// Refused with `precondition_failed` for a copy the `.pkg` did not install.
+    pub const UPDATE_HAND_OVER: &str = "update.hand_over";
+
+    /// Once the `.pkg` has installed, stop, remember what was running, answer and exit — the second
+    /// half of [`UPDATE_APPLY`], roadmap task **T88f**. Takes [`UpdateFinish`](crate::UpdateFinish),
+    /// answers [`UpdateApplied`](crate::UpdateApplied) with nothing in `replaced`.
+    ///
+    /// Refused with `precondition_failed` until `update.status` carries `installed`.
+    pub const UPDATE_FINISH: &str = "update.finish";
+
     /// Give a site the certificate its names need — or every HTTPS site one. Takes
     /// [`CertIssue`](crate::CertIssue), answers [`CertIssueReport`](crate::CertIssueReport).
     ///

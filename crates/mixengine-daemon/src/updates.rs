@@ -282,6 +282,8 @@ impl Updates {
                 stale: false,
                 placement,
                 will_restart,
+                installer: None,
+                installed: None,
             };
         };
 
@@ -296,6 +298,8 @@ impl Updates {
             stale: checked.stale,
             placement,
             will_restart,
+            installer: None,
+            installed: None,
         }
     }
 

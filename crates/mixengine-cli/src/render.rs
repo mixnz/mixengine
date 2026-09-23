@@ -4927,6 +4927,8 @@ mod tests {
                 because: "this account cannot write to /usr/bin".to_owned(),
             },
             will_restart: Vec::new(),
+            installer: None,
+            installed: None,
         });
 
         assert!(rendered.contains("/usr/bin"), "{rendered}");
@@ -4956,6 +4958,8 @@ mod tests {
                 ServiceId::parse("mariadb").expect("a service id"),
                 ServiceId::parse("caddy").expect("a service id"),
             ],
+            installer: None,
+            installed: None,
         });
 
         assert!(rendered.contains("0.2.0"), "{rendered}");
