@@ -86,6 +86,10 @@
 - MixLab's Services screen starts, stops and restarts the selected service from its header.
 
 ### Changed
+- Downloads that include MixLab are named `mixlab-…`: the Windows installer and zip, the macOS
+  `.pkg`, the AppImage, the `.deb` and the `.rpm`. The headless downloads keep the `mixengine-…`
+  name. On Linux the package is `mixlab` now, and installing it replaces an installed `mixengine`
+  package. Remove it with `apt remove mixlab` or `dnf remove mixlab`.
 - MixLab's links are `mixlab://` now. `mixdb://` links no longer open it; the installer takes
   back the `mixdb://` registration an earlier release made.
 - In a database tab, the header, the table list and the filter bar use MixLab's usual sizes, and the
