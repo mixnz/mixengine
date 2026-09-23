@@ -49,7 +49,7 @@ fail() {
   failed=1
 }
 
-pkg="$dist/mixengine-$version-macos-$(mix_macos_label).pkg"
+pkg="$dist/$MIX_ARTIFACT-$version-macos-$(mix_macos_label).pkg"
 test -f "$pkg" || {
   echo "$pkg was not built — run packaging/macos/build.sh first" >&2
   exit 1
@@ -131,7 +131,7 @@ esac
 # M3 — the fixture, read back before anything is concluded from it. The value is the shape Safari
 # writes: flags, a hex timestamp, the agent's name, an event id.
 
-marked="$work/mixengine.pkg"
+marked="$work/$MIX_ARTIFACT.pkg"
 cp "$pkg" "$marked"
 xattr -w com.apple.quarantine "0081;$(printf '%x' "$(date +%s)");Safari;$(uuidgen)" "$marked" || true
 

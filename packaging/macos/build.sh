@@ -137,7 +137,7 @@ case "$printed" in
     ;;
 esac
 
-name="mixengine-$version-macos-$label.pkg"
+name="$MIX_ARTIFACT-$version-macos-$label.pkg"
 rm -f "$dist/$name"
 
 # **The component list, with relocation turned off — and that is not a nicety.**
@@ -260,7 +260,7 @@ mix_checksum "$dist/$name"
 # **Two roots and not one.** The headless archive below used to be built from this same directory,
 # which was correct while both held the same four files and is a bug the moment one of them gains a
 # fifth — a machine with no display would download a webview it cannot use.
-payload="mixengine-$version-macos-$label.tar.gz"
+payload="$MIX_ARTIFACT-$version-macos-$label.tar.gz"
 rm -rf "$MIX_OUT/tar" "$MIX_OUT/tar-headless"
 mkdir -p "$MIX_OUT/tar/mixengine" "$MIX_OUT/tar-headless/mixengine"
 for binary in $(mix_headless_binaries); do
@@ -301,7 +301,7 @@ mix_checksum "$dist/$payload"
 # above, under a name a person can recognise as the one without a window. Since T106 it is built from
 # a root of its own: the payload carries `$MIX_WINDOW_APP` and this one must not, and one shared
 # directory is how it would.
-headless="mixengine-$version-macos-$label-headless.tar.gz"
+headless="$MIX_HEADLESS_ARTIFACT-$version-macos-$label-headless.tar.gz"
 rm -f "$dist/$headless"
 tar -czf "$dist/$headless" -C "$MIX_OUT/tar-headless" mixengine
 
@@ -329,8 +329,9 @@ helper_name="$(mix_publish_helper \
   "$root/Library/PrivilegedHelperTools/dev.mixengine.elevate" macos "$label")"
 
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_pkg="$(mix_publish_alias "$dist/$name" "mixengine-macos-$label.pkg")"
-alias_headless="$(mix_publish_alias "$dist/$headless" "mixengine-macos-$label-headless.tar.gz")"
+alias_pkg="$(mix_publish_alias "$dist/$name" "$MIX_ARTIFACT-macos-$label.pkg")"
+alias_headless="$(mix_publish_alias "$dist/$headless" \
+  "$MIX_HEADLESS_ARTIFACT-macos-$label-headless.tar.gz")"
 
 echo "$dist/$name"
 echo "$dist/$payload"
