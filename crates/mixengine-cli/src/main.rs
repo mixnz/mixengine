@@ -54,8 +54,8 @@ use mixengine_proto::{
     SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
     SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
     Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
-    UpdateDecide, UpdateDecision, UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint,
-    rpc,
+    UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver, UpdatePlacement,
+    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -262,6 +262,10 @@ enum Command {
     ///
     /// A copy of MixEngine that a package manager installed is not updated by this: it says so, and
     /// names the directory.
+    ///
+    /// On a Mac that installed MixLab from the .pkg, the next .pkg is downloaded, checked and opened
+    /// in Installer.app instead, and nothing is stopped. When the installation is done,
+    /// `mix self-update --finish` restarts MixEngine on the new version.
     SelfUpdate {
         /// Check and print what is available. Installs nothing.
         #[arg(long)]
@@ -270,6 +274,11 @@ enum Command {
         /// Answer the prompt in advance, for a script with nobody at the keyboard.
         #[arg(long, conflicts_with = "check")]
         yes: bool,
+
+        /// Finish an update Installer.app has installed: stop the services, start the new daemon,
+        /// and start them again.
+        #[arg(long, conflicts_with_all = ["check", "yes"])]
+        finish: bool,
     },
 
     /// Where this home's disk has gone, and what would take each part back.
@@ -2412,8 +2421,9 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
             )
             .await
         }
-        Command::SelfUpdate { check, yes } => {
-            self_update(&root, &endpoint, autostart.as_ref(), args.json, check, yes).await
+        Command::SelfUpdate { check, yes, finish } => {
+            let asked = SelfUpdateAsk { check, yes, finish };
+            self_update(&root, &endpoint, autostart.as_ref(), args.json, asked).await
         }
         Command::Domain { command } => {
             domain(command, &endpoint, autostart.as_ref(), args.json).await
@@ -3083,14 +3093,23 @@ async fn uninstall(
 /// protocol than the `mix` still running from the old image, and a protocol-mismatch error at the
 /// end of a successful update would be the worst possible last line. `--detach` exiting zero *is*
 /// the readiness probe, which is what `autostart.rs` already documents.
+/// What `mix self-update` was asked to do: its three flags.
+#[derive(Debug, Clone, Copy)]
+struct SelfUpdateAsk {
+    check: bool,
+    yes: bool,
+    finish: bool,
+}
+
 async fn self_update(
     root: &std::path::Path,
     endpoint: &Endpoint,
     autostart: Option<&Autostart>,
     json: bool,
-    check: bool,
-    yes: bool,
+    asked: SelfUpdateAsk,
 ) -> Result<ExitCode, Error> {
+    let SelfUpdateAsk { check, yes, finish } = asked;
+
     // **Held for the whole of this and not for the call**, because what must not interleave is the
     // swap and the relaunch: two of these racing would have the second find `.old` files written by
     // the first and a daemon that is in the middle of being replaced. `platform::lock` is the
@@ -3101,6 +3120,19 @@ async fn self_update(
     };
 
     let mut client = Client::connect(endpoint, autostart).await?;
+
+    // The second half of a `.pkg` update — T88f. Refused by the daemon, in a sentence, until
+    // Installer.app has put the new binaries on disk.
+    if finish {
+        let applied: UpdateApplied = ask(
+            &mut client,
+            rpc::method::UPDATE_FINISH,
+            encode(&UpdateFinish {}),
+        )
+        .await?;
+
+        return relaunch(client, endpoint, autostart, json, &applied).await;
+    }
 
     let status: UpdateStatus = ask(
         &mut client,
@@ -3126,7 +3158,11 @@ async fn self_update(
     // **Neither of these is a failure.** A machine that is up to date and a copy of MixEngine that
     // `apt` installed are both perfectly healthy, and the reason has just been printed — or is about
     // to be, as the one document a `--json` caller gets.
-    let refused = !status.offered || matches!(status.placement, UpdatePlacement::Managed { .. });
+    //
+    // A copy the `.pkg` installed reads `managed` and carries an installer, and is not refused (T88f).
+    let refused = !status.offered
+        || (matches!(status.placement, UpdatePlacement::Managed { .. })
+            && status.installer.is_none());
 
     if refused || status.available.is_none() {
         if json {
@@ -3159,6 +3195,24 @@ async fn self_update(
         }
     }
 
+    // The `.pkg` path: the daemon downloads, checks and opens it, and keeps running. What finishes
+    // the update is `--finish`, once the person has been through Installer.app (T88f, D8).
+    if status.installer.is_some() {
+        let handed: UpdateHandedOver = ask(
+            &mut client,
+            rpc::method::UPDATE_HAND_OVER,
+            encode(&UpdateHandOver {
+                version: release.version.clone(),
+            }),
+        )
+        .await?;
+
+        emit(&rendered(json, &handed, || {
+            render::update_handed_over(&handed)
+        }))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+
     let applied: UpdateApplied = ask(
         &mut client,
         rpc::method::UPDATE_APPLY,
@@ -3168,13 +3222,23 @@ async fn self_update(
     )
     .await?;
 
+    relaunch(client, endpoint, autostart, json, &applied).await
+}
+
+/// What follows an update's answer, whichever way the binaries were replaced: wait for the old
+/// daemon to go, and start the new one.
+async fn relaunch(
+    client: Client,
+    endpoint: &Endpoint,
+    autostart: Option<&Autostart>,
+    json: bool,
+    applied: &UpdateApplied,
+) -> Result<ExitCode, Error> {
     // The daemon answered and is on its way out. From here the connection is worthless: it belongs
     // to a process that has already committed to exiting.
     drop(client);
 
-    emit(&rendered(json, &applied, || {
-        render::update_applied(&applied)
-    }))?;
+    emit(&rendered(json, applied, || render::update_applied(applied)))?;
 
     // **Bounded.** A daemon that has answered `update.apply` has already stopped its services and
     // cancelled its token, so anything longer than this is a supervised process refusing to die —
@@ -3203,7 +3267,7 @@ async fn self_update(
     };
 
     if let Err(error) = autostart.run() {
-        report_update_rollback(&applied, &error);
+        report_update_rollback(applied, &error);
         return Ok(ExitCode::FAILURE);
     }
 
