@@ -23,15 +23,15 @@ other="$(sed -n '2p' "$work/other.pub" | tr -d '\r')"
 
 dist="$work/dist"
 mkdir -p "$dist"
-echo "an installer" >"$dist/mixengine-0.0.0-linux-x86_64.deb"
-echo "a portable zip" >"$dist/mixengine-0.0.0-windows-x86_64.zip"
+echo "an installer" >"$dist/mixlab_0.0.0-1_amd64.deb"
+echo "a portable zip" >"$dist/mixlab-0.0.0-windows-x86_64.zip"
 echo "a privileged helper" >"$dist/mixengine-elevate-0.0.0-linux-x86_64"
-(cd "$dist" && sha256sum mixengine-0.0.0-linux-x86_64.deb >mixengine-0.0.0-linux-x86_64.deb.sha256)
+(cd "$dist" && sha256sum mixlab_0.0.0-1_amd64.deb >mixlab_0.0.0-1_amd64.deb.sha256)
 
 MIX_SIGN_PASSWORD="$password" bash "$root/packaging/sign.sh" \
   --dist "$dist" --key "$work/mine.key" --pubkey "$mine" --version 0.0.0
 
-for artifact in mixengine-0.0.0-linux-x86_64.deb mixengine-0.0.0-windows-x86_64.zip \
+for artifact in mixlab_0.0.0-1_amd64.deb mixlab-0.0.0-windows-x86_64.zip \
   mixengine-elevate-0.0.0-linux-x86_64; do
   test -f "$dist/$artifact.minisig" || {
     echo "$artifact came out of sign.sh unsigned" >&2
@@ -41,7 +41,7 @@ done
 
 # A checksum is not an artifact. Signing one would be a second, weaker way of saying what the
 # signature over the artifact already says.
-test ! -f "$dist/mixengine-0.0.0-linux-x86_64.deb.sha256.minisig" || {
+test ! -f "$dist/mixlab_0.0.0-1_amd64.deb.sha256.minisig" || {
   echo "sign.sh signed a .sha256 file" >&2
   exit 1
 }
