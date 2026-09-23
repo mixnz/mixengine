@@ -61,7 +61,7 @@ It carries the scope table; this phase is the order the work happens in.
       [ADR 0046](../decisions/0046-the-sync-server-lives-beside-the-client-it-serves.md). Nothing
       here is wrong about what was done at the time; this note is so that a reader does not go
       looking for it.
-- [ ] **T176f** What a person downloads is named after what it installs — [ADR 0049](../decisions/0049-a-download-is-named-after-what-it-installs.md),
+- [x] **T176f** What a person downloads is named after what it installs — [ADR 0049](../decisions/0049-a-download-is-named-after-what-it-installs.md),
       superseding ADR 0044 decision 5 and T176d's answer on artifact names and `Package: mixengine`.
       Every artifact carrying the window becomes `mixlab-…`, the `.deb` and `.rpm` become the
       package `mixlab` taking over from `mixengine`, and the headless archives, the helper and every
