@@ -153,9 +153,14 @@ pub fn run() {
         .invoke_handler(modules::handler())
         .build(context)
         .expect("error while building tauri application")
-        .run(|app, event| {
-            if let tauri::RunEvent::Exit = event {
-                launch::stop(app);
-            }
+        .run(|app, event| match event {
+            tauri::RunEvent::Exit => launch::stop(app),
+            /* macOS never starts a second MixLab: opening it from Finder, Launchpad or Spotlight
+            while it runs reopens this process instead, so a start after closing to the tray lands
+            here rather than on the single-instance endpoint. `has_visible_windows` is not asked:
+            the tray's panel is a window too. */
+            #[cfg(target_os = "macos")]
+            tauri::RunEvent::Reopen { .. } => launch::bring_to_front(app),
+            _ => {}
         });
 }
