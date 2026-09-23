@@ -5,6 +5,9 @@
 ### Added
 - MixLab puts `php`, `node`, `python` and the rest on your PATH in one click: a switch in Settings,
   and a reminder on the Dashboard until it is done. Same as `mix path install`, no admin prompt.
+- A Mac that installed MixLab from the `.pkg` can now update from MixLab or with `mix self-update`.
+  The next `.pkg` opens in Installer.app, and when it is done MixEngine restarts on the new version
+  with your services. Install the first version that can do this by hand, once.
 
 ## v0.0.7
 

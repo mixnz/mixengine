@@ -188,6 +188,12 @@ binaries. What they state is what the daemon **writes** —
    **Save battery is a switch over `service.save_resources` / `service.set_save_resources`** (T167b,
    ADR 0041): off unless a person turned it on, and while it is off nothing is idle-stopped. It is
    also `mix service save-resources`.
+   **A `.pkg` copy updates through `update.hand_over` and `update.finish`** (T88f, ADR 0050):
+   `update.status` carries `installer` for a copy the macOS `.pkg` installed (its placement stays
+   `managed` on the wire) and `installed` once the new binary is on disk. `update.hand_over` opens
+   the verified package in Installer.app and answers its path and the `installer` command, which a
+   client shows rather than composes; `update.finish` then answers as `update.apply` does, and the
+   daemon exits. They are `mix self-update` and `mix self-update --finish`.
 
    **"Default web server" is `ServiceSummary::role` and `service.set_front_end`** — **T97**, on
    [ADR 0026](../decisions/0026-the-active-front-end-is-a-row-and-switching-it-is-a-job.md). The
