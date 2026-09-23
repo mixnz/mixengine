@@ -139,7 +139,7 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-17 | [T165 — The window is the only desktop client](2026-09-17-t165-the-window-is-the-only-desktop-client-design.md) | T165 | implemented |
 | 2026-09-17 | [T27d — Go, the sixth runtime kind (design)](2026-09-17-t27d-go-runtime-design.md) | T27d | implemented |
 | 2026-09-18 | [T27e — Java, the seventh runtime kind (design)](2026-09-18-t27e-java-runtime-design.md) | T27e | implemented |
-| 2026-09-19 | [One dialog layout for every modal in MixLab](2026-09-19-one-dialog-layout-design.md) |  | draft |
+| 2026-09-19 | [One dialog layout for every modal in MixLab](2026-09-19-one-dialog-layout-design.md) |  | implemented |
 | 2026-09-19 | [T166 — A checkout on an external disk, and a refusal somebody can read](2026-09-19-t166-a-checkout-on-an-external-disk-design.md) | T166 | implemented |
 | 2026-09-19 | [T167 — A site that was up stays up](2026-09-19-t167-a-site-that-was-up-stays-up-design.md) | T167 | implemented |
 | 2026-09-19 | [T168 — MixEngine in the tray](2026-09-19-t168-mixengine-in-the-tray-design.md) | T168 | implemented |
