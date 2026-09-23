@@ -70,8 +70,8 @@ marked() {
 # backtick.
 apply_mark() { ps "Set-Content -LiteralPath '$(win "$1")' -Stream Zone.Identifier -Value @('[ZoneTransfer]','ZoneId=3')"; }
 
-setup="$dist/mixengine-$version-windows-$arch-setup.exe"
-zip="$dist/mixengine-$version-windows-$arch.zip"
+setup="$dist/$MIX_ARTIFACT-$version-windows-$arch-setup.exe"
+zip="$dist/$MIX_ARTIFACT-$version-windows-$arch.zip"
 for artifact in "$setup" "$zip"; do
   test -f "$artifact" || {
     echo "$artifact was not built — run packaging/windows/build.sh first" >&2
