@@ -192,6 +192,28 @@ fn decide(directory: &Path, replaced: &[String], root: &Path) -> Relaunch {
     }
 }
 
+/// `CFBundleShortVersionString` from an XML `Info.plist`, or `None`.
+///
+/// A string search rather than a plist crate: the bundle's plist is the XML Tauri writes, and one
+/// key is read (T88f, D7).
+fn short_version(plist: &str) -> Option<String> {
+    let after = plist
+        .split("<key>CFBundleShortVersionString</key>")
+        .nth(1)?;
+    let value = after.trim_start().strip_prefix("<string>")?;
+    let end = value.find("</string>")?;
+
+    Some(value[..end].trim().to_owned()).filter(|version| !version.is_empty())
+}
+
+/// Whether the bundle on disk is another version than this running window — T88f, D7.
+///
+/// **An unreadable plist relaunches nothing**: restarting into a bundle nobody could read the
+/// version of would prove nothing, and the window already says the update finished.
+fn bundle_moved_on(running: &str, on_disk: Option<&str>) -> bool {
+    on_disk.is_some_and(|on_disk| on_disk != running)
+}
+
 /// `update.apply` has answered; decide what that means for this window, and act on it.
 ///
 /// **Two fields and not `UpdateApplied` itself.** The typed answer is already in the front end, out
@@ -207,7 +229,21 @@ pub fn relaunch_after_update(
         return Ok(Relaunch::NotReplaced);
     };
 
-    let outcome = decide(Path::new(&directory), &replaced, &origin.root);
+    let mut outcome = decide(Path::new(&directory), &replaced, &origin.root);
+
+    // `update.finish` replaced nothing the swap names: Installer.app did the replacing, of the
+    // whole bundle at the same path (the T88f readings, M3). So the question is whether the bundle
+    // this window was started from now says another version. Off macOS the file is not there and
+    // the answer is unchanged.
+    if outcome == Relaunch::NotReplaced && replaced.is_empty() {
+        let on_disk = std::fs::read_to_string(origin.root.join("Contents").join("Info.plist"))
+            .ok()
+            .and_then(|plist| short_version(&plist));
+
+        if bundle_moved_on(&app.package_info().version.to_string(), on_disk.as_deref()) {
+            outcome = Relaunch::Relaunching;
+        }
+    }
 
     if outcome == Relaunch::Relaunching {
         restart(&app)?;
@@ -259,6 +295,34 @@ mod tests {
                 Path::new("/opt/mixengine/mixlab"),
             ),
             Relaunch::Relaunching
+        );
+    }
+
+    /// A `.pkg` update replaces nothing the swap names, so `replaced` is empty; the bundle this
+    /// window started from now says another version (T88f, D7).
+    #[test]
+    fn a_bundle_that_now_reports_another_version_is_relaunched() {
+        assert!(bundle_moved_on("0.0.8", Some("0.0.9")));
+        assert!(!bundle_moved_on("0.0.9", Some("0.0.9")));
+        assert!(
+            !bundle_moved_on("0.0.8", None),
+            "an unreadable plist relaunches nothing"
+        );
+    }
+
+    #[test]
+    fn the_short_version_is_read_from_the_plist() {
+        let plist = r#"<?xml version="1.0"?><plist version="1.0"><dict>
+            <key>CFBundleName</key><string>MixLab</string>
+            <key>CFBundleShortVersionString</key>
+            <string>0.0.9</string>
+            </dict></plist>"#;
+
+        assert_eq!(short_version(plist).as_deref(), Some("0.0.9"));
+        assert_eq!(short_version("<plist/>"), None);
+        assert_eq!(
+            short_version("<key>CFBundleShortVersionString</key><string></string>"),
+            None
         );
     }
 

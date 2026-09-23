@@ -77,6 +77,8 @@ import type { UpdateStatus } from "@mixengine/api";
 import type { UpdateCheck } from "@mixengine/api";
 import type { UpdateDecide } from "@mixengine/api";
 import type { UpdateApply } from "@mixengine/api";
+import type { UpdateHandOver } from "@mixengine/api";
+import type { UpdateHandedOver } from "@mixengine/api";
 import type { UpdateApplied } from "@mixengine/api";
 import type { DoctorReport } from "@mixengine/api";
 import type { DoctorRepair } from "@mixengine/api";
@@ -592,6 +594,16 @@ export function updateDecide(input: UpdateDecide): Promise<UpdateStatus> {
 /** Daemon tự thoát ngay sau khi trả lời — kết nối đóng theo sau là thành công, không phải lỗi. */
 export function updateApply(input: UpdateApply): Promise<UpdateApplied> {
   return invoke<UpdateApplied>("mixengine_update_apply", { params: input });
+}
+
+/** `update.hand_over`: the daemon downloads, checks and opens the .pkg, and keeps running (T88f). */
+export function updateHandOver(input: UpdateHandOver): Promise<UpdateHandedOver> {
+  return invoke<UpdateHandedOver>("mixengine_update_hand_over", { params: input });
+}
+
+/** `update.finish`: the daemon answers and exits, as after `update.apply` (T88f). */
+export function updateFinish(): Promise<UpdateApplied> {
+  return invoke<UpdateApplied>("mixengine_update_finish");
 }
 
 /** `service.stop` for every declared service, in reverse dependency order, waiting until done. */
