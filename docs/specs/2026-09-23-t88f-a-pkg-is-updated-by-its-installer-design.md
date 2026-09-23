@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 date: 2026-09-23
 task: T88f
 ---
@@ -24,6 +24,10 @@ elevates to get there.
 - A silent install behind a password prompt only. That is the alternative ADR 0050 rejected for now.
 - Getting a copy of v0.0.7 onto this path. It cannot be done: the updating code is the installed
   code (ADR 0050, decision 6).
+- Signing and notarising the `.pkg`. It is unsigned today, and a copy a browser downloaded is
+  refused on first open with no Open button (M2). The person has to allow it under Privacy &
+  Security. That is the first install, not the update, and it is a task of its own. So is the
+  Installer.app window being titled with the file name rather than "MixLab".
 
 ## Measurements to take first
 
@@ -36,6 +40,89 @@ from its `.pkg`. Each one can change a decision, and the decision it can change 
 | M2 | Does a `.pkg` fetched by a process that is not a browser carry `com.apple.quarantine`? Does Installer.app then open it without a Gatekeeper refusal? | `curl -LO` the v0.0.7 `.pkg`, `xattr -l` it, `open` it | D5. If it is quarantined and refused, the design needs a documented answer before it can ship |
 | M3 | Does Installer.app replace a running `/usr/local/bin/mixengined` and a running `/Applications/MixLab.app` cleanly, with both still running afterwards on their old images? | With the daemon and MixLab running, install the same `.pkg` again, then `mix status` and use the window | D6 |
 | M4 | Does `open -a Installer <pkg>` from a daemon started by the login item bring Installer.app to the front? And what does it answer when the daemon was started over SSH? | Start the daemon both ways and call the open | D5 |
+
+### Readings, 2026-09-24
+
+Mac14,3 (Apple silicon), macOS 15.7.3 (24G419). v0.0.7 installed through Installer.app from
+`mixlab-0.0.7-macos-universal.pkg`, fetched with `curl -LO` from the release (68,638,683 bytes,
+SHA-256 `ce6d0802…eb85072`, equal to the published `.sha256`).
+
+**Before the install.** Nothing of MixEngine was in `/usr/local/bin` or `/Applications`, but a
+receipt was: `pkgutil --pkg-info dev.mixengine.cli` answered `version: 0.0.6`, installed
+2026-09-08, listing `usr/local/bin/{mix,mixengine-shim,mixengined}` and the helper, whose files
+were gone. On this Mac `/usr/local` is `root:wheel` and **`/usr/local/bin` is `light:staff`**,
+writable by the account, with Homebrew at `/opt/homebrew`: the write probe would pass here, on
+Apple silicon, not only on the Intel Homebrew Mac the ADR names.
+
+**M1.** `pkgutil --file-info` on each of `/usr/local/bin/mixengined`, `mix`, `mixengine-shim`,
+`/Applications/MixLab.app/Contents/MacOS/mixlab`, `…/Contents/Resources/mixengine-elevate` and
+`/Library/PrivilegedHelperTools/dev.mixengine.elevate` answered, exit 0:
+
+```
+volume: /
+path: /usr/local/bin/mixengined
+
+pkgid: dev.mixengine.cli
+pkg-version: 0.0.7
+install-time: 1790183317
+uid: 0
+gid: 0
+mode: 100755
+```
+
+`pkgutil --pkg-info dev.mixengine.cli` answered `version: 0.0.7`, `volume: /`, an empty
+`location:`, the same `install-time`; the 0.0.6 receipt was replaced. A file the package did not
+install (`/usr/local/bin/code`), a copy of `mixengined` under `/private/tmp`, and a path that does
+not exist all answered only `volume: /` and `path: …`, with **no `pkgid:` line and exit 0**. Five
+calls took 0.199 s together.
+
+**M2.** The `curl` copy carries `com.apple.provenance` and **no `com.apple.quarantine`** (the
+same on a second `curl` download). The package is unsigned: `pkgutil --check-signature` answers
+`Status: no signature` (exit 1), and `spctl -a -vv -t install` answers `rejected`,
+`source=no usable signature` (exit 3). `open -a Installer` on it exits 0 and Installer.app comes up
+on its Introduction page, *"Welcome to the mixlab-0.0.7-macos-universal Installer"*, with no
+Gatekeeper dialog. The window's title is the file name, not "MixLab".
+
+The same file downloaded by Safari (`com.apple.quarantine: 0083;…;Safari;…`) and by Edge
+(`0081;…;Edge;…`) is refused when opened: *"“mixlab-0.0.7-macos-universal.pkg” Not Opened. Apple
+could not verify … is free of malware that may harm your Mac or compromise your privacy."*, with
+**Done** and **Move to Trash** and no way to open it from the dialog.
+
+**M3.** With `mixengined` (pid 932, started by MixLab's Start), MixLab (pid 915) and four services
+running (caddy, mariadb, php-fpm, redis), the same `.pkg` was installed again through
+Installer.app.
+
+| | Before | After |
+| --- | --- | --- |
+| `mix status` | `0.0.7 — running (pid 932)` | `0.0.7 — running (pid 932, up 7m 55s)` |
+| Services | caddy 1558, mariadb 1186, php-fpm 1560, redis 1566 | caddy 1558, mariadb 1186, redis 1566 unchanged; php-fpm 3232 (the tester pressed Stop and Start in MixLab after the install: `reason=Requested` in `daemon.log`) |
+| Inode of `/usr/local/bin/mixengined` | 116267696 | 116287000 |
+| Inode of `/usr/local/bin/mixengine-shim` | 116267698, 29 links | 116287002, 1 link |
+| Inode of `MixLab.app/Contents/MacOS/mixlab` | 116267706 | 116287010 |
+| Inode of `/Applications/MixLab.app` | 116267703 | 116287007 |
+| `lsof -p 932`, `txt` | `/usr/local/bin/mixengined` node 116267696 | node 116267696, the old, unlinked file |
+| `lsof -p 915`, `txt` | `…/MacOS/mixlab` node 116267706 | node 116267706 |
+| Modification time of the binaries | Sep 23 22:37 | Sep 23 22:37 |
+
+The daemon stayed up on its old image, and still stopped and started a service afterwards. The
+window stayed usable. `daemon.log` has no warning or error from the install. The 28 shims in
+`<home>/bin` (hard links made by `shims::place`) still point at the old inode 116267698.
+`lsof` needs no `sudo` here: the daemon runs as the same account.
+
+**M4.** No code in v0.0.7 makes the daemon run `open`, so (a) is simulated. The daemon started by
+MixLab runs with `uid = 501`, `asid = 100018` (`launchctl print pid/932`), the same audit session
+as a shell in the logged-in desktop. `mix autostart` on macOS is a LaunchAgent in `gui/501`.
+
+- `launchctl asuser 501 /usr/bin/open -a Installer <pkg>` (no `sudo` needed for one's own uid):
+  exit 0, Installer.app frontmost afterwards (Claude was before). **Simulated.**
+- A transient LaunchAgent bootstrapped into `gui/501`, `RunAtLoad`, running the same `open`:
+  exit 0, Installer.app frontmost afterwards (Finder was before). Booted out afterwards.
+  **Simulated**, and the nearest thing to a daemon the login item started.
+- (b) `ssh localhost` with Remote Login on, while the same user was logged in at the console:
+  `open exit=0`, the SSH shell in `asid = 100103`. Installer.app was started (pid 3817) **in the
+  desktop session, `asid = 100018`**, not in the SSH one. **The call did not fail.**
+- Not measured: SSH to a Mac where the user has no desktop session at all. That needs logging out
+  at the console.
 
 ## Design
 
@@ -50,13 +137,28 @@ probe:
 2. Otherwise continue with the existing order: the AppImage, then the write probe.
 
 `receipt_of` is new in `mixengine-platform`. On macOS it runs `pkgutil --file-info <path>` and reads
-the `pkgid:` line. On the other systems it answers `None`, with no error, because they have no
-`.pkg` receipts. It is kept separate from `install::packaged_by`: that one answers "who removes
-this file", and on macOS it deliberately answers nobody (T88e); this one answers "who installed
-this copy".
+the `pkgid:` line. **The line is the answer, and the exit status is not.** `pkgutil` exits 0 for a
+file no package installed, and for a path that does not exist, and then prints only `volume:` and
+`path:` (M1). So no `pkgid:` line means `None`, and only a failure to run `pkgutil` at all is an
+error. On the other systems it answers `None`, with no error, because they have no `.pkg`
+receipts. It is kept separate from `install::packaged_by`: that one answers "who removes this
+file", and on macOS it deliberately answers nobody (T88e); this one answers "who installed this
+copy".
 
-The Intel Homebrew Mac, where `/usr/local/bin` is writable, is caught by step 1 and is no longer
-half-updated.
+It is asked once, where the placement is worked out today: when the daemon builds its update state
+at start. A call costs about 40 ms (M1), and `update.status` reads the stored placement rather than
+asking again.
+
+**A receipt names a path, not a file.** It survives the files it lists: M1 found a 0.0.6 receipt
+whose binaries were long gone. A copy unpacked from the `.tar.gz` over `/usr/local/bin` would
+therefore be taken for the `.pkg`'s. That is accepted. Installing the `.pkg` is a correct way to
+update that copy too, so a wrong answer here costs a few clicks, not a broken install.
+
+Asking the receipt first is not an Intel corner case. `/usr/local/bin` is writable by the account
+on any Mac where something handed it to that account: the Intel Homebrew Mac the ADR names, and
+the Apple silicon Mac of the readings above, where Homebrew lives in `/opt/homebrew` and
+`/usr/local/bin` is still `light:staff`. The write probe passes on both. Step 1 catches both, so
+neither is half-updated.
 
 ### D2. The feed lists the installer
 
@@ -92,8 +194,9 @@ A client from before this sees what it saw before.
 - **`UpdateStatus.installed: Option<String>`** is new: the version the binary on disk reports while
   it differs from the running daemon's. It means "installed, restart to finish".
 - **`update.hand_over { version }`** is a new method. It downloads, verifies and opens the package
-  (D4, D5) and answers `UpdateHandedOver { version, package }`, where `package` is the verified
-  file's path. The daemon keeps running.
+  (D4, D5) and answers `UpdateHandedOver { version, package, command }`, where `package` is the
+  verified file's path and `command` is `sudo installer -pkg <package> -target /`, written by the
+  daemon so no client composes it. The daemon keeps running.
 - **`update.finish {}`** is a new method. It is the second half of `update.apply`: stop, record,
   answer, exit (D6). It answers `UpdateApplied` with `replaced` empty, because the installer did the
   replacing, and `restarting` listing what the new daemon will start again.
@@ -107,7 +210,8 @@ lists both methods, so `mix` reaches everything MixLab does.
 
 `update.hand_over` refuses unless the version asked for is the one offered, the placement is
 `Installer`, and the feed has an installer for this machine. It then downloads the `.pkg` into
-`<home>/run/update/<version>/` with the same partial-download and resume behaviour the payload uses,
+`<home>/cache/updates/<version>/`, where T88 already stages a payload, with the same partial-download
+and resume behaviour the payload uses,
 and checks its SHA-256 against the feed before anything else touches it. A mismatch deletes the file
 and says so. Nothing is stopped at any point in this step.
 
@@ -119,29 +223,57 @@ installation. The other systems answer `Unsupported`, and nothing calls them.
 
 The daemon records `update.handed_over = { version, at }` in `settings`, then answers.
 
-If `open` fails, for example because the daemon has no graphical session (M4), the error names the
-verified file and the command a person can run: `sudo installer -pkg <path> -target /`. The file is
-kept for that.
+**`open` answering 0 does not mean somebody saw Installer.app.** Over SSH, with the same user logged
+in at the console, `open` exited 0 and Installer.app came up in the desktop session, not in the SSH
+one (M4). The person at the SSH prompt may be nowhere near that screen. So the path to the verified
+file, and the command that installs it without a window
+(`sudo installer -pkg <path> -target /`), are part of every answer, not only of the error:
+`UpdateHandedOver.package` carries the path, and `mix` prints both (D8). The file is kept until
+`update.finish` or a newer offer clears the handover.
 
-M2 decides one more thing. If a daemon-fetched `.pkg` turns out to be quarantined and refused, this
-design is not finished. Clearing the attribute would bypass Gatekeeper on purpose, and it needs its
-own sentence in ADR 0050 before it is done.
+If `open` does fail, the error names the same file and the same command. M4 did not reach that
+case. It needs a Mac where the user has no desktop session at all, and the design does not depend
+on what `open` says there.
+
+**Nothing clears the quarantine attribute, because none is set.** Gatekeeper judges a package only
+when it carries `com.apple.quarantine`. A browser adds it, and macOS then refuses the unsigned
+`.pkg` with no way to open it from the dialog. `curl` adds nothing, and Installer.app opened the same
+unsigned file with no dialog at all (M2). The daemon downloads with `reqwest`, which, like `curl`,
+has no reason to set the attribute. That is inferred, not measured, and the by-hand test checks it.
+MixLab never downloads the package itself: only the daemon does, so the file never passes through
+an application that could quarantine it. If a later macOS ever does quarantine it, this design is
+not finished. Clearing the attribute would bypass Gatekeeper on purpose, and that needs its own
+sentence in ADR 0050 first.
 
 ### D6. Detect the install, then finish
 
 While `update.handed_over` is recorded, `update.status` runs the daemon's own path with `--version`.
 The file at that path is the new binary once the installer has replaced it. The reading is cached
-by the file's modification time, so a status poll costs one `stat` after the first run. When the
+by the file's device and inode, so a status poll costs one `stat` after the first run. When the
 answer equals the recorded version, `installed` carries it.
+
+**Not by its modification time.** Installer.app writes each file under a new inode, but keeps the
+modification time the file had in the package, which is when it was built (M3: `Sep 23 22:37`
+before and after). A reinstall of the same build changes no time at all. Two releases built with
+normalised times would not change it either. The inode changed for every file at every install,
+so it is the key.
 
 `update.finish` then does what `update.apply` does after its swap:
 
 1. Stop everything in reverse dependency order (`stop_everything`).
 2. `remember(to, stopped)`, so the new daemon's `restore_after_update` starts them again.
-3. Clear `update.handed_over`, remove `<home>/run/update/<version>/`, answer, and exit.
+3. Clear `update.handed_over`, remove `<home>/cache/updates/<version>/`, answer, and exit.
 
-M3 checks the assumption this relies on: a running binary replaced on disk keeps running on its old
-image until it exits.
+M3 measured the assumption this relies on. With the daemon, MixLab and four services running,
+Installer.app replaced every file, and the daemon kept its pid and ran on the old, unlinked
+`mixengined`. It went on stopping and starting services, and the window stayed usable. The
+services were not touched. So `update.finish` runs its stop order on the old image, which is the
+code that recorded the handover, and that is what it should be.
+
+The shims catch up at the next start, not at the install. The ones in `<home>/bin` are hard links
+to `mixengine-shim`, so after the install they still name the old file (M3: 28 links on the old
+inode). The new daemon's start runs the shim refresh, finds them not current, and links them to the
+new file. Nothing here needs to add to that, but the by-hand test checks it.
 
 A recorded handover is also cleared when the running daemon's own version equals it (somebody
 installed and restarted another way), and when a newer release is offered.
@@ -158,7 +290,9 @@ installed and restarted another way), and when a newer release is offered.
    `relaunch::relaunch_after_update` gains a second rule for this path: relaunch when the bundle
    this window was started from now reports a different `CFBundleShortVersionString` in its
    `Info.plist` than the running window. The path was read at start (T106), so it is still
-   `/Applications/MixLab.app`.
+   `/Applications/MixLab.app`. Installer.app replaces the bundle's directory itself, not only the
+   files in it (M3: a new inode for `MixLab.app`), but at the same path, so reading `Info.plist`
+   there reads the new one.
 4. After the relaunch the window finds no daemon and shows **Start**, exactly as after T88's
    update. It does not start the daemon itself.
 
@@ -167,8 +301,11 @@ Strings go through `i18n` in English and Vietnamese, per `writing-user-facing-te
 ### D8. `mix`
 
 - `mix self-update`, on an `Installer` placement, shows the same offer and consent prompt, then
-  calls `update.hand_over` and prints one line: the installer is open, and
-  `mix self-update --finish` completes the update once it is done.
+  calls `update.hand_over` and prints: the installer is open on this Mac's screen, and
+  `mix self-update --finish` completes the update once it is done. It **always** prints the
+  verified package's path and `sudo installer -pkg <path> -target /` as the way to install it
+  without the window, because a person running `mix` over SSH may not be at that screen, and
+  `open` succeeding does not tell the daemon who is (D5, M4).
 - `mix self-update --finish` calls `update.finish` and then starts the new daemon, as
   `mix self-update` does today after `update.apply`. It refuses with a sentence when `installed` is
   absent.
@@ -189,14 +326,21 @@ Strings go through `i18n` in English and Vietnamese, per `writing-user-facing-te
 - **`mixengine-daemon`:** `update.hand_over` against a local feed and a mock `open_installer` that
   records its call; a SHA-256 mismatch deletes the file and opens nothing; `update.finish` restores
   services on the next start. The mock platform stands in for macOS, so these run on every system.
-- **`mixengine-platform`:** `receipt_of` parses `pkgutil --file-info` output held in a fixture;
-  `open_installer` answers `Unsupported` off macOS.
+- **`mixengine-platform`:** `receipt_of` parses `pkgutil --file-info` output held in fixtures: one
+  with a `pkgid:` line, and the two-line answer with none, which is what a foreign file and a
+  missing path both produce with exit 0 (M1). `open_installer` answers `Unsupported` off macOS.
+- **`mixengine-daemon`, the install check:** a status poll after the file at the daemon's path is
+  replaced under a new inode with the **same** modification time still re-reads `--version`.
 - **`packaging`:** `feed-check.sh` rejects a feed whose macOS rows lack an installer.
 - **By hand on a Mac, before release:** install v0.0.8 from its `.pkg`, point the daemon at a test
-  feed (`--update-url`, `--update-key`) that offers a v0.0.8-plus build, press **Update** in MixLab,
-  go through Installer.app, press **Restart to finish**, and check that every binary, the window and
-  the helper report the new version and the services came back. Then run it once more, pressing
-  Cancel in Installer.app, and check that nothing changed.
+  feed (`--update-url`, `--update-key`) that offers a v0.0.8-plus build, and press **Update** in
+  MixLab. Before going through Installer.app, check `xattr -l` on the file in
+  `<home>/cache/updates/<version>/`: no `com.apple.quarantine` (D5). Go through Installer.app, press
+  **Restart to finish**, and check that every binary, the window and the helper report the new
+  version, that the services came back, and that `<home>/bin/php` now has the inode of
+  `/usr/local/bin/mixengine-shim` (D6). Then run it once more, pressing Cancel in Installer.app, and
+  check that nothing changed. Run `mix self-update` once over SSH, and check that it prints the
+  package path and the `installer` command.
 
 ## Documentation, when it lands
 
