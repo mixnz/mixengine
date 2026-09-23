@@ -74,10 +74,9 @@ module's session slot — a documented, parsed, unit-tested shape — rather tha
 
 ### D3 — At most one short `act` step, by shortcut or by role
 
-Three scenes cannot be reached by state alone: a restored database tab connects but opens no table,
-restoring a REST tab does not send its request, and a tool's input is never stored. A scene may
-declare an `act` function that runs after the scene is ready; the scene then waits to be ready again
-before the image is taken. It may use, in order of preference:
+Two scenes cannot be reached by state alone: restoring a REST tab does not send its request, and a
+tool's input is never stored. A scene may declare an `act` function that runs after the scene is
+ready; the scene then waits to be ready again before the image is taken. It may use, in order of preference:
 
 1. a keyboard shortcut the module registers (sending a REST request),
 2. text the **sample data** owns — a table named `orders` is the fixture's word, not the interface's,
@@ -100,7 +99,7 @@ The data describes one believable machine:
 - **Services** MariaDB, PostgreSQL 17 and Redis running.
 - **Metrics** a fixed, smooth curve — no randomness anywhere in the fixtures.
 - **Database** a saved PostgreSQL connection `acme_shop` with `orders`, `customers`, `products`,
-  `order_items`; the `orders` grid shows forty rows.
+  `order_items`; the scene shows its connection form, the fixtures keep the tables for other captures.
 - **REST** a saved `GET https://api.acme.test/v1/orders?status=paid` whose response is a `200` with
   a JSON body.
 - **Terminal** `terminal_open` pushes a canned ANSI byte stream through its `Channel`: a prompt,
@@ -115,7 +114,7 @@ The data describes one believable machine:
 | ----------- | ----------- | ------------------------------------------------- | ---------------------------------- |
 | `hero`      | `mixengine` | `{ screen: "dashboard" }`                         | Your whole local stack, one window |
 | `sites`     | `mixengine` | `{ screen: "sites" }`                             | Sites and runtimes                 |
-| `database`  | `db`        | `{ savedId, connected: true }`, act: open `orders`| Database                           |
+| `database`  | `db`        | `{ savedId, connected: false }`: the form         | Database                           |
 | `rest`      | `rest`      | `{ openIds, activeId }`, act: the send shortcut   | REST                               |
 | `terminal`  | `terminal`  | `{ kind: "local", shellName, cwd }`               | Terminal                           |
 | `tools`     | `tools`     | `{ toolId: "jwt" }`, act: fill its `textarea`     | Tools                              |

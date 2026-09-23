@@ -37,13 +37,10 @@ export const SCENES = [
     id: "database",
     moduleId: "db",
     tabTitle: "acme_shop",
-    state: { savedId: CONSTANTS.connectionId, connected: true },
+    // Not connected: the saved connection is loaded into the form, and the form is the image.
+    state: { savedId: CONSTANTS.connectionId, connected: false },
     headline: "Database",
-    description: "PostgreSQL, MySQL, SQLite, MongoDB, Redis and more in one client that already knows your services.",
-    // `orders` is the fixture's table name, not interface copy.
-    act: async ({ page }) => {
-      await page.getByText("orders", { exact: true }).first().click();
-    },
+    description: "PostgreSQL, MySQL, SQLite, MongoDB, Redis and more in one client, over an SSH tunnel when you need one.",
   },
   {
     id: "rest",

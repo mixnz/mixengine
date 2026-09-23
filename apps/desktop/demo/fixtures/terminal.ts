@@ -47,8 +47,8 @@ export const terminalFiles = {
 
 export const terminalHandlers: Handlers = {
   terminal_local_shells: returns<LocalShell[]>([
-    { name: constants.shellName, path: "/bin/zsh", args: ["-l"] },
-    { name: "bash", path: "/bin/bash", args: ["-l"] },
+    { name: constants.shellName, path: "/bin/bash", args: ["-l"] },
+    { name: "zsh", path: "/bin/zsh", args: ["-l"] },
   ]),
   terminal_open: (args) => {
     const channel = args.onEvent as Channel<SessionMessage>;
