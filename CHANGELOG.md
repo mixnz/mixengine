@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.0.7
+
 ### Added
 - Sync, in Settings: sign in to MixLab's server or one of your own and choose, one kind at a time,
   what follows you to your other machines. Everything is encrypted on this machine before it
