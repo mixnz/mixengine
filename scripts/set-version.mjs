@@ -17,8 +17,9 @@
 // that did not exist when they were written. They are neither rewritten nor searched.
 //
 // **What it does do is carry the version to the two other kinds of place that hold one**: it stops
-// the bump when `packaging/` or `.github/` types the version out instead of deriving it, and it
-// rewrites the handbook pages that name the current release in prose. That is why this is a script
+// the bump when `packaging/` or `.github/` types the version out instead of deriving it, it
+// rewrites the handbook pages that name the current release in prose, and it writes MixLab's own
+// four copies under `apps/desktop/`, which live outside this workspace. That is why this is a script
 // and not a one-line edit — a version that has to be retyped by hand somewhere else is a version
 // that will one day be retyped in only one of them, which is how `docs/guide/*/for-agents.md` came
 // to claim `0.1.0` through three bumps.
@@ -162,6 +163,39 @@ if (dryRun) {
     fail("cargo update --workspace failed — Cargo.lock still names the old version");
   }
 
+  // **MixLab carries the workspace's version too, in four files of its own** (T104): the window
+  // reports it in Settings, sends it to the sync server, and stamps it into its bundle. It sits in a
+  // Cargo workspace and an npm project this manifest cannot reach, so nothing above carried it, and
+  // v0.0.7 found MixLab still saying 0.0.6. Each `version` is the first one at a known indent — the
+  // package's own, never a dependency's.
+  for (const [path, patterns] of [
+    ["apps/desktop/package.json", [/^( {2}"version": ")[^"]*(")/m]],
+    ["apps/desktop/package-lock.json", [/^( {2}"version": ")[^"]*(")/m, /^( {6}"version": ")[^"]*(")/m]],
+    ["apps/desktop/src-tauri/tauri.conf.json", [/^( {2}"version": ")[^"]*(")/m]],
+    ["apps/desktop/src-tauri/Cargo.toml", [/^(version = ")[^"]*(")/m]],
+  ]) {
+    const file = join(ROOT, path);
+    let text = readFileSync(file, "utf8");
+    for (const pattern of patterns) {
+      if (!pattern.test(text)) fail(`no version in ${path} where one was expected`);
+      text = text.replace(pattern, `$1${wanted}$2`);
+    }
+    writeFileSync(file, text);
+    console.log(`${path}: ${wanted}`);
+  }
+
+  // Its own `Cargo.lock` names MixLab and the two crates it borrows from this workspace, all three
+  // of which just changed version; CI builds it `--locked`.
+  try {
+    execFileSync("cargo", ["update", "--workspace", "--quiet"], {
+      cwd: join(ROOT, "apps", "desktop", "src-tauri"),
+      stdio: "inherit",
+    });
+    console.log("apps/desktop/src-tauri/Cargo.lock: refreshed by cargo update --workspace");
+  } catch {
+    fail("cargo update --workspace failed in apps/desktop/src-tauri — its Cargo.lock is stale");
+  }
+
   // **The committed command reference carries the version in its own first paragraph**, so a bump
   // makes it stale and the `docs` job fails on the diff. Leaving that to a warning is what cost a
   // CI run on v0.0.1-beta.1.
@@ -225,6 +259,7 @@ if (dryRun) {
 }
 
 console.log(
-  "\nNext: commit Cargo.toml, Cargo.lock, cli.md and the handbook pages above, then tag — see " +
+  "\nNext: commit Cargo.toml, Cargo.lock, MixLab's files, cli.md and the handbook pages above, " +
+    "then tag — see " +
     "docs/operations/releasing.md",
 );
