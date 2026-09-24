@@ -238,7 +238,17 @@ async fn a_php_ini_line_reaches_a_managed_php_without_a_restart() {
 
     let removed = home.mix(&["extension", "uninstall", "sendmail-to-mailpit"]);
     assert!(removed.status.success(), "{}", stderr(&removed));
-    assert!(!conf_d.exists(), "the line outlived the extension");
+    // The rewrite that removes the file runs after the row is gone and only logs a failure, so the
+    // cause of a file left behind is in the daemon's log and nowhere else (failed once on
+    // windows-latest, run 36036932030, with nothing to read).
+    assert!(
+        !conf_d.exists(),
+        "the line outlived the extension\n--- {} still holds ---\n{}\n--- uninstall said ---\n{}\n--- daemon ---\n{}",
+        conf_d.display(),
+        std::fs::read_to_string(&conf_d).unwrap_or_else(|error| format!("<unreadable: {error}>")),
+        stdout(&removed),
+        home.daemon_log()
+    );
 }
 
 /// A `web-app` on the phpMyAdmin fixture's shape, served on an internal domain — roadmap task
