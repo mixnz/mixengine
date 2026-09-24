@@ -777,12 +777,16 @@ pub(crate) fn service_list(list: &ServiceList) -> String {
         return "no services are declared in this home\n".to_owned();
     }
 
-    let rows: Vec<[String; 6]> = list
+    let rows: Vec<[String; 7]> = list
         .services
         .iter()
         .map(|service| {
             [
                 service.id.to_string(),
+                service
+                    .version
+                    .as_ref()
+                    .map_or_else(|| MISSING.to_owned(), |version| version.as_str().to_owned()),
                 state(service),
                 yes_no(service.autostart),
                 yes_no(service.supervised),
@@ -796,10 +800,12 @@ pub(crate) fn service_list(list: &ServiceList) -> String {
 
     // `AUTOSTART` beside `STATE` rather than out at the end — roadmap task T112. The two are the
     // question somebody scanning this table is actually asking: what is running, and what will be
-    // running after the next login.
+    // running after the next login. `VERSION` beside the id (T182), because the id is a name
+    // somebody chose and the version is what it actually is.
     table(
         [
             "SERVICE",
+            "VERSION",
             "STATE",
             "AUTOSTART",
             "SUPERVISED",
@@ -856,6 +862,9 @@ pub(crate) fn service_status(service: &ServiceSummary) -> String {
         rendered.push_str(&format!("  {label:11} {value}\n"));
     };
 
+    if let Some(version) = &service.version {
+        field("version", version.as_str());
+    }
     field("supervised", if service.supervised { "yes" } else { "no" });
     field("autostart", if service.autostart { "yes" } else { "no" });
 
@@ -5272,7 +5281,10 @@ mod tests {
     fn the_listing_is_a_table_whose_columns_line_up_whatever_the_names_are() {
         let list = ServiceList {
             services: vec![
-                summary("mariadb@main", Some(ServiceState::Running)),
+                ServiceSummary {
+                    version: Some(PackageVersion::parse("11.4.3").expect("a version")),
+                    ..summary("mariadb@main", Some(ServiceState::Running))
+                },
                 ServiceSummary {
                     depends_on: vec![id("mariadb@main")],
                     ..summary("php", Some(ServiceState::Stopped))
@@ -5285,16 +5297,30 @@ mod tests {
 
         assert_eq!(
             lines[0],
-            "SERVICE       STATE    AUTOSTART  SUPERVISED  PID   DEPENDS ON"
+            "SERVICE       VERSION  STATE    AUTOSTART  SUPERVISED  PID   DEPENDS ON"
         );
         assert_eq!(
             lines[1],
-            "mariadb@main  running  no         yes         4123  —"
+            "mariadb@main  11.4.3   running  no         yes         4123  —"
         );
         assert_eq!(
             lines[2],
-            "php           stopped  no         no          —     mariadb@main"
+            "php           —        stopped  no         no          —     mariadb@main"
         );
+    }
+
+    /// **T182.** A status names the version beside the other facts, and a service with none
+    /// prints no empty line for it.
+    #[test]
+    fn a_status_names_the_version_the_service_runs() {
+        let known = service_status(&ServiceSummary {
+            version: Some(PackageVersion::parse("5.7.44").expect("a version")),
+            ..summary("mysql@main", Some(ServiceState::Stopped))
+        });
+        assert!(known.contains("  version     5.7.44\n"), "{known}");
+
+        let unknown = service_status(&summary("mysql@main", Some(ServiceState::Stopped)));
+        assert!(!unknown.contains("version"), "{unknown}");
     }
 
     #[test]
