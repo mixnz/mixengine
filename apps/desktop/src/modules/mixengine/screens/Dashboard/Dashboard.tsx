@@ -27,6 +27,7 @@ import {
   StopIcon,
 } from "../../../../icons";
 import { copyText } from "../../../../core/clipboard";
+import { useWindowFocused } from "../../../../core/windowFocus";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
@@ -116,6 +117,7 @@ export default function Dashboard({
   const [jobs, setJobs] = useState<JobRow[]>([]);
   /** Frame mới nhất của `/metrics`, hoặc `null` khi chưa có (stream chưa mở, hay chưa nhận frame nào). */
   const [frame, setFrame] = useState<MetricsFrame | null>(null);
+  const focused = useWindowFocused();
   const [disk, setDisk] = useState<DiskUsage | null>(null);
   /** `site.list`, hay `null` khi chưa đọc xong — điều kiện vẽ thẻ Quick Start (T117). */
   const [sites, setSites] = useState<SiteSummary[] | null>(null);
@@ -328,21 +330,33 @@ export default function Dashboard({
    * đổi tab, nên nếu khoá theo unmount, rời Dashboard sang màn khác sẽ không đóng được gì — daemon
    * kẹt ở lấy mẫu nhanh vĩnh viễn dù không còn ai nhìn. Effect cleanup chạy cho cả hai trường hợp
    * (`active` chuyển `false`, và unmount thật), nên khoá theo `active` là đủ cho cả hai.
+   *
+   * **And only while the window has focus**, the tray panel's rule. `active` says Dashboard is the
+   * tab in front, not that anybody is looking: a window left on Dashboard behind another
+   * application held the stream open for hours and kept the daemon sampling every second.
    */
+  const measuring = active && focused;
   useEffect(() => {
-    if (!active) return;
+    if (!measuring) return;
     let live = true;
-    void api.metricsWatch((raw) => {
-      if (!live) return;
-      const next = parseMetricsFrame(raw);
-      if (next !== null) setFrame(next);
-    });
+    void api
+      .metricsWatch((raw) => {
+        if (!live) return;
+        const next = parseMetricsFrame(raw);
+        if (next !== null) setFrame(next);
+      })
+      // Put away while the stream was still opening: the unwatch below ran first and found nothing
+      // to close, so close what just opened.
+      .then(() => {
+        if (!live) void api.metricsUnwatch();
+      })
+      .catch(() => undefined);
     return () => {
       live = false;
       setFrame(null);
       void api.metricsUnwatch();
     };
-  }, [active]);
+  }, [measuring]);
 
   useEffect(() => {
     return subscribeDaemonWatch((raw) => {
