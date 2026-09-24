@@ -3580,6 +3580,8 @@ dependencies = [
  "mixengine-proto",
  "pem",
  "rustls-native-certs 0.8.4",
+ "serde",
+ "serde_json",
  "sysinfo",
  "thiserror 2.0.20",
  "tokio",
