@@ -176,7 +176,7 @@ impl Feed {
     /// The privileged helper for one machine, or [`None`] when this release published none for it.
     ///
     /// A release from before T88a has an empty list and answers [`None`] for every pair, which is
-    /// the honest answer: there is nothing to fetch, and `mix elevation upgrade` says so.
+    /// the honest answer: there is nothing to fetch, and the daemon leaves the helper as it is.
     #[must_use]
     pub fn helper(&self, os: Os, arch: Arch) -> Option<&HelperArtifact> {
         self.helpers

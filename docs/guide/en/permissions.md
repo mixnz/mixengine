@@ -75,10 +75,14 @@ a `.pkg` has already placed it, MixLab notices and asks for nothing.
 
 ### Replacing the privileged helper
 
-Updates never touch it. `mix self-update` replaces the daemon and the client and deliberately leaves
-`mixengine-elevate` exactly as it was; `mix elevation upgrade` is the separate, deliberate act that
-fetches a new one, and the helper already installed checks MixLab's signature on the replacement
-before it allows itself to be overwritten.
+You never have to. The helper has a version of its own, and it changes only when the helper itself
+does, which is rare. When MixLab starts and finds an older helper installed, it replaces it at the
+next permission prompt, the one MixLab asks for anyway. After an update that changed the helper,
+MixLab asks for that prompt itself, once.
+
+The installed helper checks MixLab's signature on its replacement before it lets itself be
+overwritten. A helper too old to do that is replaced by the copy that came with this release, the
+same way a first install puts one in place.
 
 ## One prompt, not six
 

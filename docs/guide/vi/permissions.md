@@ -4,7 +4,7 @@ slug = "permissions"
 order = 11
 summary = "Mọi hộp thoại quyền quản trị mà MixLab có thể hiện lên, mỗi cái thay đổi chính xác điều gì, và vì sao không có gì của MixLab chạy thường trực với quyền root."
 translation_of = "en/permissions.md"
-source_sha256 = "42fdb9029ba2e32d7596bf9e80b81b99758f60780721eac3df1f6583baf52482"
+source_sha256 = "0b31cbb2d597d90135a0b2fbe527262c6992a875112bac24c07db09f68f87e5d"
 +++
 
 # MixLab xin quyền để làm gì
@@ -76,10 +76,14 @@ AppImage, và build từ mã nguồn. Đó là lý do việc này không thể l
 
 ### Thay chương trình phụ trợ đặc quyền
 
-Cập nhật không bao giờ đụng tới nó. `mix self-update` thay daemon và client, và cố ý để nguyên
-`mixengine-elevate`. `mix elevation upgrade` là hành động riêng, có chủ đích, để tải bản mới về.
-Chương trình phụ trợ đang cài sẽ tự kiểm tra chữ ký của MixLab trên bản thay thế trước khi cho
-phép ghi đè lên chính nó.
+Bạn không bao giờ phải tự làm việc này. Chương trình phụ trợ có số phiên bản riêng, chỉ đổi khi
+chính nó thay đổi, và chuyện đó hiếm. Khi MixLab khởi động và thấy bản đang cài cũ hơn, nó thay
+bản đó ở lần xin quyền kế tiếp, là lần MixLab vốn cũng phải hỏi. Sau một bản cập nhật có đổi
+chương trình phụ trợ, MixLab tự hỏi quyền một lần.
+
+Chương trình phụ trợ đang cài tự kiểm tra chữ ký của MixLab trên bản thay thế trước khi cho phép
+ghi đè lên chính nó. Bản quá cũ, không làm được việc đó, thì được thay bằng bản đi kèm bản phát
+hành này, giống như lúc cài lần đầu.
 
 ## Một hộp thoại, không phải sáu
 

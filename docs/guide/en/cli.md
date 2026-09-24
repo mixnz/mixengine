@@ -1504,22 +1504,6 @@ mix elevation grant [OPTIONS]
 | `--yes` | Say yes in advance, instead of being asked. What it skips is the question, never the screen: every operation and what it will change is printed either way. It exists for the caller that cannot be asked — a script, a CI step, anything with no terminal behind it — and for `--json`, which has no way to answer. |
 | `--no-wait` | Answer as soon as the prompt has been raised, without waiting for it |
 
-### mix elevation upgrade
-
-Fetch the privileged helper this release publishes, and queue its installation.
-
-`mixengine-elevate` runs as root and is deliberately never replaced by `mix self-update`, so this is
-the one part of an upgrade that has to be asked for separately.
-
-**Nothing is installed by this command.** It downloads the helper, checks MixEngine's signature on
-it, runs it once to be sure this machine will start it, and puts the replacement in the queue — `mix
-elevation grant` is what raises the prompt, and the helper already installed checks that signature
-again itself before it replaces anything.
-
-```
-mix elevation upgrade
-```
-
 ### mix elevation drop
 
 Forget an operation that is waiting, so it is never asked about again

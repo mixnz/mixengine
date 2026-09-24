@@ -416,7 +416,7 @@ impl Elevation {
         // nothing to do with it.** macOS's package puts the helper in `/Library/PrivilegedHelperTools`
         // and nothing in `/usr/local/bin` beside `mixengined`, so a gate on the beside copy — which
         // is what this used to open with — meant no packaged macOS install ever ran the handshake:
-        // `mix elevation upgrade` reported *no privileged helper installed* on a machine whose
+        // the helper upgrade reported *no privileged helper installed* on a machine whose
         // helper had just served two grants, and a daemon restart did not change its mind. The
         // beside copy is what an *install* is made from, and that is the only question it answers.
         if installed.is_file() {
@@ -441,7 +441,7 @@ impl Elevation {
         self.enqueue(&PrivilegedOp::HelperInstall {}).await
     }
 
-    /// Ask the installed helper what it is, and remember the answer for `elevation.upgrade`.
+    /// Ask the installed helper what it is, and remember the answer for `helper::keep_in_step`.
     ///
     /// **Version and not bytes, and nothing is enqueued** — roadmap task T88a. The bytes beside this
     /// daemon are *not* the newer helper after a `mix self-update`, which keeps the helper by name;
@@ -1247,7 +1247,10 @@ impl Elevation {
         let facts = self.facts.lock().ok()?.clone()?;
 
         Some(mixengine_proto::InstalledHelper {
-            upgrade: crate::helper::upgrade_sentence(&facts, env!("CARGO_PKG_VERSION")),
+            upgrade: crate::helper::upgrade_sentence(
+                &facts,
+                mixengine_proto::privileged::HELPER_VERSION,
+            ),
             version: facts.version,
             protocol: facts.speaks.0,
             supported_ops: facts.supported_ops,

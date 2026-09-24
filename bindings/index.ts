@@ -118,8 +118,6 @@ export * from "./Health";
 export * from "./HealthCheck";
 export * from "./HealthProbe";
 export * from "./HelperStamp";
-export * from "./HelperUpgrade";
-export * from "./HelperUpgradeOutcome";
 export * from "./HostEntry";
 export * from "./Id";
 export * from "./IdleExemption";

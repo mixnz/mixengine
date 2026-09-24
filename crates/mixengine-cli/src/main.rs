@@ -39,23 +39,23 @@ use mixengine_proto::{
     ExtensionChoice, ExtensionConsent, ExtensionId, ExtensionInspect, ExtensionInspection,
     ExtensionInstall, ExtensionList, ExtensionOrigin, ExtensionPlan, ExtensionPlanRequest,
     ExtensionRemoval, ExtensionTarget, ExtensionUninstall, FrontEndReport, FrontEndServer,
-    FrontEndSwitch, HelperUpgrade, IdleReport, InstalledExtensions, JobFilter, JobId, JobList,
-    JobOutcome, JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory,
-    Millis, MismatchAnswer, PackageCatalogue, PackageFilter, PackageInstall, PackageList,
-    PackageRemoval, PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority,
-    ProjectCreate, ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef,
-    ProjectRemoval, ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement,
-    Requirements, ResetCredential, ResidueId, ResolvedRuntime, ResourceLimits, RouteTarget,
-    RuntimeCatalogue, RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion,
-    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources,
-    SaveResourcesSet, ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation,
-    ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList,
-    ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk,
-    SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery,
-    SiteQuery, SiteRef, SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate,
-    StorageReport, Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply,
-    UpdateCheck, UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver,
-    UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint, rpc,
+    FrontEndSwitch, IdleReport, InstalledExtensions, JobFilter, JobId, JobList, JobOutcome,
+    JobQuery, JobState, JobSummary, JobWait, LogFrame, MetricsFrame, MetricsHistory, Millis,
+    MismatchAnswer, PackageCatalogue, PackageFilter, PackageInstall, PackageList, PackageRemoval,
+    PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority, ProjectCreate,
+    ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef, ProjectRemoval,
+    ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement, Requirements,
+    ResetCredential, ResidueId, ResolvedRuntime, ResourceLimits, RouteTarget, RuntimeCatalogue,
+    RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
+    RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources, SaveResourcesSet,
+    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
+    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
+    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
+    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
+    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
+    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
+    UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver, UpdatePlacement,
+    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -1269,17 +1269,6 @@ enum ElevationCommand {
         #[arg(long)]
         no_wait: bool,
     },
-
-    /// Fetch the privileged helper this release publishes, and queue its installation.
-    ///
-    /// `mixengine-elevate` runs as root and is deliberately never replaced by `mix self-update`, so
-    /// this is the one part of an upgrade that has to be asked for separately.
-    ///
-    /// **Nothing is installed by this command.** It downloads the helper, checks MixEngine's
-    /// signature on it, runs it once to be sure this machine will start it, and puts the
-    /// replacement in the queue — `mix elevation grant` is what raises the prompt, and the helper
-    /// already installed checks that signature again itself before it replaces anything.
-    Upgrade,
 
     /// Forget an operation that is waiting, so it is never asked about again.
     Drop {
@@ -4931,15 +4920,6 @@ async fn elevation(
                 true => ExitCode::SUCCESS,
                 false => ExitCode::FAILURE,
             })
-        }
-
-        ElevationCommand::Upgrade => {
-            let report: HelperUpgrade =
-                ask(&mut client, rpc::method::ELEVATION_UPGRADE, None).await?;
-
-            emit(&rendered(json, &report, || render::helper_upgrade(&report)))?;
-
-            Ok(ExitCode::SUCCESS)
         }
 
         ElevationCommand::Drop { op, all } => {

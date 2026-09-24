@@ -44,24 +44,16 @@ In order, and none of the steps is optional:
 4. What is running is stopped, the binaries are replaced, and the daemon exits.
 5. `mix` starts the new daemon, which starts your services again.
 
-## The one binary this never touches
+## The privileged helper
 
-`mixengine-elevate` runs as an administrator, and replacing it is a privileged act. `mix
-self-update` deliberately leaves it exactly as it was.
+`mixengine-elevate` runs as an administrator, so replacing it needs your permission. It has a
+version of its own that moves only when the helper changes, so most updates leave it alone and ask
+nothing.
 
-```bash
-mix elevation upgrade
-```
-
-That is the separate, deliberate act. It downloads the helper this release publishes, checks
-MixLab's signature on it, runs it once to be sure it starts, and puts the replacement in the
-queue. **Nothing is installed by that command**: `mix elevation grant` is what raises the prompt,
-and the helper already installed checks the signature again itself before it allows anything to
-overwrite it.
-
-Old and new coexist safely in the meantime. The daemon and the helper agree a protocol version when
-they talk, and an older helper keeps serving the operations it knows while MixEngine asks you to
-upgrade it.
+When an update does change it, the new daemon asks for permission once, at its first start, and
+the helper already installed checks MixLab's signature on its replacement before it lets itself be
+overwritten. If you decline, nothing breaks: the old helper keeps serving everything it knows, and
+the replacement rides along with the next prompt MixLab needs anyway.
 
 ## When you installed MixLab from the `.pkg` on a Mac
 
