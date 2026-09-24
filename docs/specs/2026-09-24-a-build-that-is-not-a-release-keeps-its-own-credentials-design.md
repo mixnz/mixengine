@@ -1,5 +1,5 @@
 ---
-status: approved
+status: implemented
 date: 2026-09-24
 task: T183
 ---
@@ -99,10 +99,11 @@ learns that two stores exist.
   constructor takes the store to use, and the daemon calls it once, in `main`.
 - **One host in the daemon reaches the store.** The daemon calls `mixengine_platform::host()` in 13
   places, but only five modules call `keyring()` (`secrets`, `databases`, `extensions`,
-  `services::databases`, `services::first_run`), and all five are handed the host `serve` builds.
-  `mixengine-core` never calls it. So that one construction is the only one that changes. The other
-  twelve calls reach pools, activation, shims, autostart, elevation and machine facts, and are left
-  alone. A `disallowed_methods` lint was considered and dropped: `clippy.toml` is workspace-wide, and
+  `services::databases`, `services::first_run`), and `mixengine-core` never calls it. Those five
+  are reached through two hosts: the registry's, and the elevation queue's, which the API hands on
+  to extensions and databases. The end-to-end test found the second when it was still a separate
+  `host()`. `serve` now builds one host with the chosen store and gives it to both. The other
+  eleven calls reach pools, activation, shims, autostart and machine facts, and are left alone. A `disallowed_methods` lint was considered and dropped: `clippy.toml` is workspace-wide, and
   the lint would flag about thirty calls in eleven files that have nothing to do with credentials.
   The guard is the end-to-end test below. It fails if a credential written through the daemon ends
   up anywhere other than the home's file.

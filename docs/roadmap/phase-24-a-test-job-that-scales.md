@@ -41,7 +41,7 @@ then [2026-09-20-t171-a-build-that-fans-out-design.md](../specs/2026-09-20-t171-
       what they handed on; `release` downloads `mixengine-*` only.
 - [x] **T171c** On a branch, macOS builds the aarch64 slice alone and still checks x86_64; `master`
       and tags stay universal.
-- [ ] **T183** **(P)** A build that is not a release keeps its own credentials: a development
+- [x] **T183** **(P)** A build that is not a release keeps its own credentials: a development
       daemon's `keyring()` is a file in its home, so a test run never stops for a Keychain password
       dialog and never reads another home's credential through T126's fallback — ADR 0051,
       [design](../specs/2026-09-24-a-build-that-is-not-a-release-keeps-its-own-credentials-design.md).
