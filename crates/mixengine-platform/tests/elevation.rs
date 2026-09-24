@@ -54,7 +54,11 @@ fn a_mock_records_every_prompt_it_was_asked_to_raise() {
     assert_eq!(outcome, ElevationOutcome::Completed);
     assert_eq!(
         machine.prompts_raised(),
-        vec![mock::Prompt { helper, request }],
+        vec![mock::Prompt {
+            body: std::fs::read_to_string(&request).unwrap_or_default(),
+            helper,
+            request,
+        }],
         "the pair is the assertion T40b's queue needs: one prompt, on the request it just wrote"
     );
 }

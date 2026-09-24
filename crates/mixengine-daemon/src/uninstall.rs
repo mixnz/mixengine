@@ -45,6 +45,20 @@ pub(crate) struct Doors {
     pub(crate) armed: Arc<Armed>,
 }
 
+/// What an uninstall put in the queue — the T182b design, D6.
+#[derive(Debug, Default)]
+struct Asked {
+    /// The operations it enqueued, in the order it enqueued them.
+    ops: Vec<PrivilegedOp>,
+
+    /// The queue rows that hold them, which are what its prompt is raised over.
+    ids: Vec<mixengine_proto::PendingOpId>,
+
+    /// What they replaced: a whole-state operation somebody else had waiting under the same key,
+    /// put back if the uninstall does not finish.
+    displaced: Vec<PrivilegedOp>,
+}
+
 /// Both halves of the uninstall.
 ///
 /// **Holding one set of readers**, so the plan and the act cannot disagree about what is on this
@@ -180,8 +194,8 @@ impl Uninstall {
 
         // **Only when something is waiting.** `elevation.grant` refuses an empty queue outright, and
         // raising a dialog to discover that would be a prompt for nothing.
-        let granted = match query.grant && !asked.is_empty() {
-            true => Some(self.elevation.grant_within(handle).await),
+        let granted = match query.grant && !asked.ids.is_empty() {
+            true => Some(self.elevation.grant_only(handle, &asked.ids).await),
             false => None,
         };
 
@@ -221,7 +235,7 @@ impl Uninstall {
             // waiting in the queue: the next run enqueues again. `grant: false` keeps them — that
             // caller asked for exactly a queue.
             if granted.is_some() {
-                self.drop_what_was_asked(&asked).await?;
+                self.restore_queue(&asked).await?;
             }
 
             let mut items = merge(measured, privileged);
@@ -289,32 +303,32 @@ impl Uninstall {
             .await;
         self.arm_the_home(&mut items, unfinished);
 
+        // T182b, D6: a finished uninstall leaves nothing waiting. The daemon is about to exit, and
+        // nothing in the queue belongs to a machine this home has just been taken off.
+        if !unfinished {
+            self.elevation
+                .drop_pending(&mixengine_proto::ElevationDrop { op: None })
+                .await?;
+        }
+
         Ok(UninstallReport { items })
     }
 
-    /// Drop from the queue every operation this uninstall enqueued — T182, D5.
+    /// Put the queue back as this uninstall found it — the T182b design, D6.
     ///
-    /// **Compared as their wire form**, which is what the queue stores: an operation this run asked
-    /// for and one somebody else had already queued are the same operation, and dropping it is
-    /// right — the next uninstall asks for it again, and nothing else wants it once this home goes.
-    async fn drop_what_was_asked(&self, asked: &[PrivilegedOp]) -> Result<(), Error> {
-        let asked: Vec<serde_json::Value> = asked
-            .iter()
-            .filter_map(|op| serde_json::to_value(op).ok())
-            .collect();
+    /// Drops the rows this run enqueued, then enqueues again what they displaced: a whole-state
+    /// operation (`hosts-apply`, `firewall-apply`) dedupes on its name, so the uninstall's empty
+    /// block *replaced* a site's pending one rather than waiting beside it. A declined uninstall has
+    /// then changed nothing at all, the queue included.
+    async fn restore_queue(&self, asked: &Asked) -> Result<(), Error> {
+        for id in &asked.ids {
+            self.elevation
+                .drop_pending(&mixengine_proto::ElevationDrop { op: Some(*id) })
+                .await?;
+        }
 
-        for waiting in self.elevation.status().await?.pending {
-            let Ok(value) = serde_json::to_value(&waiting.op) else {
-                continue;
-            };
-
-            if asked.contains(&value) {
-                self.elevation
-                    .drop_pending(&mixengine_proto::ElevationDrop {
-                        op: Some(waiting.id),
-                    })
-                    .await?;
-            }
+        for op in &asked.displaced {
+            self.elevation.enqueue(op).await?;
         }
 
         Ok(())
@@ -395,11 +409,11 @@ impl Uninstall {
     /// **Only the rows that said `Planned`.** A machine with no resolver mechanism, or one holding
     /// none of this home's wiring, asks for nothing — a row whose only possible outcome is
     /// `AlreadyDone` is a row that makes a dialog longer for no reason.
-    async fn ask_for_the_rest(&self, planned: &[Residue]) -> Result<Vec<PrivilegedOp>, Error> {
+    async fn ask_for_the_rest(&self, planned: &[Residue]) -> Result<Asked, Error> {
         // T88d, and before anything else this asks for.
         drop_helper_installations(&self.elevation).await?;
 
-        let mut asked = Vec::new();
+        let mut asked = Asked::default();
 
         for id in [
             ResidueId::HostsBlock,
@@ -418,9 +432,33 @@ impl Uninstall {
                 continue;
             };
 
+            // T182b, D6: what this row is about to replace in the queue, kept to be put back.
+            let key = op.dedupe_key();
+            asked.displaced.extend(
+                self.elevation
+                    .status()
+                    .await?
+                    .pending
+                    .into_iter()
+                    .filter(|waiting| waiting.op.dedupe_key() == key && waiting.op != op)
+                    .map(|waiting| waiting.op),
+            );
+
             self.elevation.enqueue(&op).await?;
-            asked.push(op);
+            asked.ops.push(op);
         }
+
+        // The rows that now hold what this run asked for, read back rather than assumed: an
+        // operation that was already waiting is the same row, and its id is the one to grant.
+        asked.ids = self
+            .elevation
+            .status()
+            .await?
+            .pending
+            .into_iter()
+            .filter(|waiting| asked.ops.contains(&waiting.op))
+            .map(|waiting| waiting.id)
+            .collect();
 
         Ok(asked)
     }

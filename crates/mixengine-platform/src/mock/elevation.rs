@@ -26,6 +26,10 @@ pub struct Prompt {
 
     /// The request that would have been its only argument.
     pub request: PathBuf,
+
+    /// What that request held when the prompt was raised — the daemon removes the file afterwards,
+    /// so this is the only way a test can see which operations a batch carried (T182b, D6).
+    pub body: String,
 }
 
 #[derive(Debug)]
@@ -116,6 +120,7 @@ impl Elevation for Prompts {
             .push(Prompt {
                 helper: helper.to_path_buf(),
                 request: request.to_path_buf(),
+                body: std::fs::read_to_string(request).unwrap_or_default(),
             });
 
         Ok(Raised {

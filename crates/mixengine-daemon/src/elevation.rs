@@ -95,6 +95,17 @@ pub(crate) struct Candidates {
 }
 
 /// The queue, the machine that can be asked about it, and the only door into a prompt.
+/// What a grant does once the prompt has been answered — roadmap task **T182b**, D6.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Afterwards {
+    /// Ask again for the hosts block this home's sites want, which the grant may have made
+    /// redundant. Every ordinary grant.
+    Reconcile,
+
+    /// Nothing: an uninstall's grant, which must not queue again what it is removing.
+    Nothing,
+}
+
 /// The helper a grant runs, and the protocol its request is written at — the T182b design, D3.
 #[derive(Debug, Clone)]
 struct Chosen {
@@ -731,10 +742,18 @@ impl Elevation {
     /// # Errors
     ///
     /// As [`grant`](Self::grant), which is the whole of what this decides.
-    async fn preflight(&self) -> Result<(Vec<mixengine_proto::PendingOp>, Chosen), Error> {
-        let waiting = mixengine_core::elevation::pending(&self.store)
+    async fn preflight(
+        &self,
+        only: Option<&[mixengine_proto::PendingOpId]>,
+    ) -> Result<(Vec<mixengine_proto::PendingOp>, Chosen), Error> {
+        let mut waiting = mixengine_core::elevation::pending(&self.store)
             .await
             .map_err(|error| error.to_wire())?;
+
+        // T182b, D6: a caller that queued its own operations raises the prompt over those alone.
+        if let Some(only) = only {
+            waiting.retain(|pending| only.contains(&pending.id));
+        }
 
         if waiting.is_empty() {
             return Err(Error::new(
@@ -875,9 +894,31 @@ impl Elevation {
         &self,
         handle: &crate::jobs::JobHandle,
     ) -> Result<serde_json::Value, Error> {
-        let (waiting, helper) = self.preflight().await?;
+        let (waiting, helper) = self.preflight(None).await?;
 
-        self.flush(handle, helper, waiting).await
+        self.flush(handle, helper, waiting, Afterwards::Reconcile)
+            .await
+    }
+
+    /// [`grant_within`](Self::grant_within) over the rows `ids` names, and nothing else waiting —
+    /// roadmap task **T182b**, D6.
+    ///
+    /// **An uninstall grants only what it asked for.** Everything else in the queue is somebody
+    /// else's want: a daemon started on a kept home queues the wiring its sites still need, and a
+    /// prompt raised to take MixEngine off the machine must not put that wiring back.
+    ///
+    /// # Errors
+    ///
+    /// As [`grant_within`](Self::grant_within); none of `ids` still waiting is "nothing is waiting".
+    pub(crate) async fn grant_only(
+        &self,
+        handle: &crate::jobs::JobHandle,
+        ids: &[mixengine_proto::PendingOpId],
+    ) -> Result<serde_json::Value, Error> {
+        let (waiting, helper) = self.preflight(Some(ids)).await?;
+
+        self.flush(handle, helper, waiting, Afterwards::Nothing)
+            .await
     }
 
     /// `elevation.grant` — spend one prompt on everything that is waiting.
@@ -899,14 +940,18 @@ impl Elevation {
     /// when this machine cannot raise a prompt at all. `conflict`, naming the job already running,
     /// when a grant is in flight.
     pub(crate) async fn grant(self: &Arc<Self>) -> Result<JobSummary, Error> {
-        let (waiting, helper) = self.preflight().await?;
+        let (waiting, helper) = self.preflight(None).await?;
 
         let elevation = Arc::clone(self);
         let started = self
             .jobs
             .begin(
                 &JobKind::parse(rpc::method::ELEVATION_GRANT).expect("a valid kind"),
-                move |handle| async move { elevation.flush(&handle, helper, waiting).await },
+                move |handle| async move {
+                    elevation
+                        .flush(&handle, helper, waiting, Afterwards::Reconcile)
+                        .await
+                },
             )
             .await;
 
@@ -971,6 +1016,7 @@ impl Elevation {
         handle: &crate::jobs::JobHandle,
         helper: Chosen,
         mut waiting: Vec<mixengine_proto::PendingOp>,
+        afterwards: Afterwards,
     ) -> Result<serde_json::Value, Error> {
         // Released however this ends — including through a panic the RPC layer contains, which is
         // the whole reason it is not a line at the bottom.
@@ -1032,7 +1078,12 @@ impl Elevation {
         // grant that made it so rather than by a second prompt a week later. A failure here is
         // logged and not returned: the grant itself succeeded, and reporting it as failed because
         // the follow-up could not be queued would be a worse answer than the truth.
-        if let Err(error) = self.require_hosts().await {
+        //
+        // **Not after an uninstall's grant** (T182b, D6): that prompt takes MixEngine off the
+        // machine, and asking again for the block a site still wants would put back what it removed.
+        if afterwards == Afterwards::Reconcile
+            && let Err(error) = self.require_hosts().await
+        {
             tracing::warn!(%error, "the hosts block could not be reconciled after the grant");
         }
 
