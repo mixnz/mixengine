@@ -156,7 +156,7 @@ pub(crate) fn remove_helper() -> Result<crate::install::HelperRemoval> {
 }
 
 /// The executable bit an archive may not have carried — roadmap task **T88**.
-pub(crate) use crate::unix::install::make_executable;
+pub(crate) use crate::unix::install::{file_identity, make_executable};
 
 /// What a desktop application is called on disk here — roadmap task **T106**.
 ///

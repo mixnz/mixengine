@@ -63,10 +63,24 @@ Old and new coexist safely in the meantime. The daemon and the helper agree a pr
 they talk, and an older helper keeps serving the operations it knows while MixEngine asks you to
 upgrade it.
 
+## When you installed MixLab from the `.pkg` on a Mac
+
+`mix self-update` still updates it, the way the `.pkg` installed it. It downloads the next `.pkg`,
+checks it against the signed release, and opens it in Installer.app. Nothing stops while you go
+through the installer, and cancelling it costs nothing.
+
+When the installer is done, run `mix self-update --finish`, or press **Finish update** in MixLab.
+MixEngine restarts on the new version and starts the services that were running.
+
+Over SSH, the installer opens on the Mac's own screen. `mix self-update` also prints the path of the
+downloaded package and the `sudo installer` command that installs it from a terminal.
+
+The first version that can do this has to be installed by hand once, like any `.pkg`.
+
 ## When a package manager installed MixLab
 
-`mix self-update` refuses, says so, and names the directory. That is correct rather than unhelpful:
-a copy installed by `apt`, `dnf` or a `.pkg` is owned by that package manager, and replacing files
+On Linux, `mix self-update` refuses, says so, and names the directory. That is correct rather than
+unhelpful: a copy installed by `apt` or `dnf` is owned by that package manager, and replacing files
 underneath it would leave your system's own records describing something that is no longer there.
 Update it the way you installed it.
 

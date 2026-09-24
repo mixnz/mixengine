@@ -118,7 +118,65 @@ pub struct UpdateStatus {
     /// load without asking"* in the only form that rule can take once consent is always required.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub will_restart: Vec<ServiceId>,
+
+    /// The installer this copy is updated with, present exactly when the `.pkg` installed it —
+    /// roadmap task **T88f**, the design's D3.
+    ///
+    /// **A member of its own and not a new [`UpdatePlacement`] variant**: that stays `managed` on
+    /// the wire, because a tag an old client does not know would fail the whole status for it. A
+    /// client that sees this offers the installer instead of the refusal.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installer: Option<UpdateInstaller>,
+
+    /// The version the daemon binary on disk reports, while it is the one handed to the installer
+    /// and not the one running — roadmap task **T88f**. It means *installed, restart to finish*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed: Option<String>,
 }
+
+/// The installer a copy of MixEngine is updated with — roadmap task **T88f**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct UpdateInstaller {
+    /// What kind: `pkg`.
+    pub kind: String,
+
+    /// How big the download is, for this machine.
+    pub size: u64,
+}
+
+/// What `update.hand_over` takes — roadmap task **T88f**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct UpdateHandOver {
+    /// The version the client showed the user, refused if no longer offered, as
+    /// [`UpdateApply::version`] is.
+    pub version: String,
+}
+
+/// What `update.hand_over` answers: the verified package is open in the installer, and the daemon
+/// is still running — roadmap task **T88f**.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct UpdateHandedOver {
+    /// The version handed over.
+    pub version: String,
+
+    /// Where the verified package is. Kept until the update finishes or a newer one is offered.
+    pub package: String,
+
+    /// The line that installs [`UpdateHandedOver::package`] without a window, for a person who is
+    /// not at this Mac's screen: over SSH, the installer opens on the desktop anyway (the T88f
+    /// readings, M4). Written by the daemon so no client composes it.
+    pub command: String,
+}
+
+/// What `update.finish` takes: nothing — roadmap task **T88f**.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(export))]
+pub struct UpdateFinish {}
 
 /// One published release, as a person reads it before deciding.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -215,4 +273,97 @@ pub struct UpdateOffer {
 
     /// When it was published, as `YYYY-MM-DDTHH:MM:SSZ`.
     pub published_at: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A client from before T88f reads a status carrying the two new members, and one from after it
+    /// reads them (ADR 0019).
+    #[test]
+    fn a_status_with_the_installer_members_reads() {
+        let status = serde_json::json!({
+            "current": "0.0.8", "offered": true, "stale": false,
+            "placement": {
+                "kind": "managed", "directory": "/usr/local/bin",
+                "because": "the .pkg installed this copy"
+            },
+            "installer": { "kind": "pkg", "size": 68_638_683 },
+            "installed": "0.0.9"
+        });
+
+        let read: UpdateStatus = serde_json::from_value(status).expect("a new status reads");
+
+        assert_eq!(
+            read.installer,
+            Some(UpdateInstaller {
+                kind: "pkg".to_owned(),
+                size: 68_638_683
+            })
+        );
+        assert_eq!(read.installed.as_deref(), Some("0.0.9"));
+    }
+
+    #[test]
+    fn a_status_without_them_still_reads() {
+        let status = serde_json::json!({
+            "current": "0.0.8", "offered": false, "stale": false,
+            "placement": { "kind": "self_updatable", "directory": "/opt/mixengine" }
+        });
+
+        let read: UpdateStatus = serde_json::from_value(status).expect("an old status reads");
+
+        assert!(
+            read.installer.is_none() && read.installed.is_none(),
+            "{read:?}"
+        );
+    }
+
+    /// Absent rather than `null`, so a status from a copy that is not the `.pkg`'s is byte for byte
+    /// what it was before T88f.
+    #[test]
+    fn a_status_without_them_writes_neither() {
+        let status = UpdateStatus {
+            current: "0.0.8".to_owned(),
+            available: None,
+            offered: false,
+            because: None,
+            checked_at: None,
+            stale: false,
+            placement: UpdatePlacement::SelfUpdatable {
+                directory: "/opt/mixengine".to_owned(),
+            },
+            will_restart: Vec::new(),
+            installer: None,
+            installed: None,
+        };
+
+        let written = serde_json::to_value(&status).expect("a status writes");
+
+        assert!(
+            written.get("installer").is_none() && written.get("installed").is_none(),
+            "{written}"
+        );
+    }
+
+    #[test]
+    fn finish_takes_no_arguments() {
+        assert!(serde_json::from_value::<UpdateFinish>(serde_json::json!({ "x": 1 })).is_err());
+        serde_json::from_value::<UpdateFinish>(serde_json::json!({})).expect("an empty finish");
+    }
+
+    #[test]
+    fn a_handover_names_the_package_and_the_command() {
+        let handed: UpdateHandedOver = serde_json::from_value(serde_json::json!({
+            "version": "0.0.9",
+            "package": "/x/mixlab-0.0.9-macos-universal.pkg",
+            "command": "sudo installer -pkg '/x/mixlab-0.0.9-macos-universal.pkg' -target /"
+        }))
+        .expect("a handover reads");
+
+        assert!(handed.command.contains(&handed.package));
+        serde_json::from_value::<UpdateHandOver>(serde_json::json!({ "version": "0.0.9" }))
+            .expect("hand_over takes a version");
+    }
 }

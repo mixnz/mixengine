@@ -4,7 +4,8 @@ import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
-import type { UpdateStatus } from "@mixengine/api";
+import type { UpdateHandedOver, UpdateStatus } from "@mixengine/api";
+import { updatesView } from "../../updatesState";
 import styles from "./Settings.module.css";
 import { useRunningDots } from "./useRunningDots";
 
@@ -18,6 +19,9 @@ import { useRunningDots } from "./useRunningDots";
  * trên tự vẽ đúng màn — có nút Start nếu daemon chưa tự lên lại, hoặc màn hình bình thường nếu nó đã
  * tự lên lại trước khi ai kịp thấy nút đó.
  */
+/** How often the section asks whether Installer.app has finished (T88f). */
+const INSTALLER_POLL_MS = 3000;
+
 export default function UpdatesSection({
   onError,
   onApplied,
@@ -34,6 +38,10 @@ export default function UpdatesSection({
      luật "không thêm gì". Daemon mới, cửa sổ cũ; và điều duy nhất tệ hơn chuyện đó là nó xảy ra mà
      không ai nói gì. */
   const [windowKept, setWindowKept] = useState(false);
+  /* The .pkg handed to Installer.app, while the person is in it (T88f). The daemon keeps running
+     meanwhile, so the section polls `update.status` until it reads the new version on disk. */
+  const [handed, setHanded] = useState<UpdateHandedOver | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const dots = useRunningDots(applying);
   const { t } = useTranslation();
 
@@ -48,6 +56,14 @@ export default function UpdatesSection({
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  const waitingOnInstaller = handed !== null && status?.installed == null;
+
+  useEffect(() => {
+    if (!waitingOnInstaller) return;
+    const timer = window.setInterval(() => void reload(), INSTALLER_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [waitingOnInstaller, reload]);
 
   async function check() {
     setChecking(true);
@@ -66,6 +82,33 @@ export default function UpdatesSection({
       setStatus(await api.updateDecide({ version: status.available.version, decision }));
     } catch (e) {
       onError(errorMessage(t, e));
+    }
+  }
+
+  async function handOver() {
+    if (status?.available == null) return;
+    setDownloading(true);
+    try {
+      setHanded(await api.updateHandOver({ version: status.available.version }));
+    } catch (e) {
+      onError(errorMessage(t, e));
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  /* The second half of a .pkg update: the daemon stops, remembers what was running and exits, and
+     the window relaunches if the bundle it came from is now another version (T88f, D7). */
+  async function finish() {
+    setApplying(true);
+    try {
+      const applied = await api.updateFinish();
+      onApplied();
+      const outcome = await api.relaunchAfterUpdate(applied);
+      setWindowKept(outcome === "notReplaced");
+    } catch (e) {
+      onError(errorMessage(t, e));
+      setApplying(false);
     }
   }
 
@@ -90,6 +133,9 @@ export default function UpdatesSection({
 
   if (status === null) return null;
 
+  const view = updatesView(status, handed);
+  const installing = status.installer != null;
+
   return (
     <section className={styles.section}>
       <h3 className={styles.sectionTitle}>{t("mixengine.settings.updates.title")}</h3>
@@ -103,10 +149,31 @@ export default function UpdatesSection({
           {t("mixengine.settings.updates.applying")}
           {dots}
         </p>
-      ) : status.offered && status.available ? (
+      ) : view === "installed" ? (
+        <div className={styles.row}>
+          <span>{t("mixengine.settings.updates.installerReady", { version: status.installed ?? "" })}</span>
+          <Button onClick={() => void finish()}>{t("mixengine.settings.updates.installerFinish")}</Button>
+        </div>
+      ) : view === "installerOpen" && handed !== null ? (
+        <>
+          <p className={styles.muted}>{t("mixengine.settings.updates.installerOpen")}</p>
+          <p className={styles.muted}>
+            {t("mixengine.settings.updates.installerCommand", { command: handed.command })}
+          </p>
+        </>
+      ) : view === "offer" && status.available ? (
         <div className={styles.row}>
           <span>{t("mixengine.settings.updates.offered", { version: status.available.version })}</span>
-          <Button onClick={() => void apply()}>{t("mixengine.settings.updates.apply")}</Button>
+          {installing ? (
+            <Button
+              onClick={() => void handOver()}
+              busy={downloading ? t("mixengine.settings.updates.installerDownloading") : undefined}
+            >
+              {t("mixengine.settings.updates.installerApply")}
+            </Button>
+          ) : (
+            <Button onClick={() => void apply()}>{t("mixengine.settings.updates.apply")}</Button>
+          )}
           <Button onClick={() => void decide("later")}>{t("mixengine.settings.updates.later")}</Button>
           <Button onClick={() => void decide("skip")}>{t("mixengine.settings.updates.skip")}</Button>
         </div>
@@ -118,7 +185,8 @@ export default function UpdatesSection({
         </p>
       )}
 
-      {status.placement.kind === "managed" && (
+      {/* Only a managed copy with no installer is refused; a .pkg copy reads `managed` too (T88f). */}
+      {status.placement.kind === "managed" && !installing && (
         <p className={styles.muted}>
           {t("mixengine.settings.updates.managed", { because: status.placement.because })}
         </p>

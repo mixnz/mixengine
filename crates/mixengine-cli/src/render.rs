@@ -48,8 +48,8 @@ use mixengine_proto::{
     ServiceLimitsReport, ServiceList, ServiceRemoval, ServiceState, ServiceSummary, ServiceWalk,
     SignatureCheck, SiteDetail, SiteKind, SiteList, SiteOwner, SiteRemoval, SiteSharing,
     StateReason, StepResult, StorageChoice, StorageReport, Timestamp, Trust, UninstallOutcome,
-    UninstallReport, Unusable, UpdateApplied, UpdatePlacement, UpdateStatus, Uptime, Verdict,
-    WhenExceeded, privileged::ElevationOutcome,
+    UninstallReport, Unusable, UpdateApplied, UpdateHandedOver, UpdatePlacement, UpdateStatus,
+    Uptime, Verdict, WhenExceeded, privileged::ElevationOutcome,
 };
 
 /// `mix cert ca-status`, for a person.
@@ -527,7 +527,20 @@ pub(crate) fn status(status: &DaemonStatus) -> String {
 pub(crate) fn update_status(status: &UpdateStatus) -> String {
     let mut rendered = format!("MixEngine {}\n", status.current);
 
-    if let UpdatePlacement::Managed { directory, because } = &status.placement {
+    // Installer.app has put the new binaries on disk and this daemon is still the old one — T88f.
+    if let Some(installed) = &status.installed {
+        rendered.push_str(&format!(
+            "  update    {installed} is installed. finish it: mix self-update --finish\n"
+        ));
+
+        return rendered;
+    }
+
+    // A copy the `.pkg` installed reads `managed` on the wire, and is still offered its update: the
+    // next `.pkg`, through Installer.app (T88f, D3). Only a copy with no installer is refused here.
+    if let (UpdatePlacement::Managed { directory, because }, None) =
+        (&status.placement, &status.installer)
+    {
         rendered.push_str(&format!("  installed {directory}\n"));
         rendered.push_str(&format!("  update    not by MixEngine — {because}\n"));
 
@@ -576,6 +589,10 @@ pub(crate) fn update_status(status: &UpdateStatus) -> String {
         ));
     }
 
+    if status.installer.is_some() {
+        rendered.push_str("  installs  through Installer.app, which asks for your password\n");
+    }
+
     if !release.notes.trim().is_empty() {
         rendered.push_str("\nwhat changed:\n");
 
@@ -589,6 +606,20 @@ pub(crate) fn update_status(status: &UpdateStatus) -> String {
     }
 
     rendered
+}
+
+/// What `mix self-update` prints once the `.pkg` is open in Installer.app — roadmap task **T88f**.
+///
+/// **The path and the command every time**, not only when opening failed. Over SSH, `open`
+/// succeeds and Installer.app comes up on the Mac's own screen, which the person at this prompt may
+/// not be looking at (the T88f readings, M4). Both are the daemon's, printed unchanged.
+pub(crate) fn update_handed_over(handed: &UpdateHandedOver) -> String {
+    format!(
+        "Installer.app is open on this Mac. when it is done: mix self-update --finish\n  \
+         package   {}\n  \
+         or run    {}\n",
+        handed.package, handed.command
+    )
 }
 
 /// What an update did, printed while the daemon that did it is exiting — roadmap task **T88**.
@@ -4913,6 +4944,73 @@ mod tests {
 
     /// A release this account cannot install is refused in the daemon's own words, and the words are
     /// printed rather than replaced by a code this client would have to invent a sentence for.
+    /// A status as a copy the `.pkg` installed reports it — T88f: `managed` on the wire, with the
+    /// installer beside it, and a release offered.
+    fn pkg_status() -> UpdateStatus {
+        UpdateStatus {
+            current: "0.0.8".to_owned(),
+            available: Some(mixengine_proto::UpdateRelease {
+                version: "0.0.9".to_owned(),
+                published_at: "2026-09-24T00:00:00Z".to_owned(),
+                notes: "feat(updates): hand a .pkg to Installer.app".to_owned(),
+                notes_url: None,
+                size: 68_638_683,
+            }),
+            offered: true,
+            because: None,
+            checked_at: Some(Timestamp(1_790_183_317_000)),
+            stale: false,
+            placement: UpdatePlacement::Managed {
+                directory: "/usr/local/bin".to_owned(),
+                because: "the .pkg installed this copy".to_owned(),
+            },
+            will_restart: Vec::new(),
+            installer: Some(mixengine_proto::UpdateInstaller {
+                kind: "pkg".to_owned(),
+                size: 68_638_683,
+            }),
+            installed: None,
+        }
+    }
+
+    /// A copy the `.pkg` installed is offered the installer, not refused (T88f, D8).
+    #[test]
+    fn a_pkg_copy_is_offered_the_installer_rather_than_refused() {
+        let rendered = update_status(&pkg_status());
+
+        assert!(!rendered.contains("not by MixEngine"), "{rendered}");
+        assert!(rendered.contains("0.0.9"), "{rendered}");
+        assert!(rendered.contains("Installer.app"), "{rendered}");
+    }
+
+    /// Installed and not yet restarted: the one thing to say is how to finish.
+    #[test]
+    fn an_installed_version_says_to_finish() {
+        let rendered = update_status(&UpdateStatus {
+            installed: Some("0.0.9".to_owned()),
+            ..pkg_status()
+        });
+
+        assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+    }
+
+    /// The path and the command, every time: over SSH, Installer.app opens on the Mac's own screen
+    /// (the T88f readings, M4).
+    #[test]
+    fn a_handover_prints_the_package_and_the_command_every_time() {
+        let package = "/Users/x/Library/Application Support/MixEngine/cache/updates/0.0.9/\
+                       mixlab-0.0.9-macos-universal.pkg";
+        let rendered = update_handed_over(&mixengine_proto::UpdateHandedOver {
+            version: "0.0.9".to_owned(),
+            package: package.to_owned(),
+            command: format!("sudo installer -pkg '{package}' -target /"),
+        });
+
+        assert!(rendered.contains(package), "{rendered}");
+        assert!(rendered.contains("sudo installer -pkg"), "{rendered}");
+        assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+    }
+
     #[test]
     fn a_managed_install_prints_the_daemons_own_reason() {
         let rendered = update_status(&UpdateStatus {
@@ -4927,6 +5025,8 @@ mod tests {
                 because: "this account cannot write to /usr/bin".to_owned(),
             },
             will_restart: Vec::new(),
+            installer: None,
+            installed: None,
         });
 
         assert!(rendered.contains("/usr/bin"), "{rendered}");
@@ -4956,6 +5056,8 @@ mod tests {
                 ServiceId::parse("mariadb").expect("a service id"),
                 ServiceId::parse("caddy").expect("a service id"),
             ],
+            installer: None,
+            installed: None,
         });
 
         assert!(rendered.contains("0.2.0"), "{rendered}");

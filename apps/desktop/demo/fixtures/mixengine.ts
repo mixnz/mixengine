@@ -7,6 +7,7 @@ import type {
   DiskUsage,
   ElevationStatus,
   MetricsFrame,
+  PathReport,
   ProjectList,
   ServiceList,
   ServiceSummary,
@@ -252,6 +253,13 @@ export const mixengineHandlers: Handlers = {
   mixengine_site: (args): SiteDetail => siteDetail(args.domain as string),
   mixengine_projects: returns<ProjectList>(PROJECTS),
   mixengine_disk_usage: returns<DiskUsage>(DISK),
+  // Set up already, so the Dashboard's PATH reminder stays out of the pictures.
+  mixengine_path_status: returns<PathReport>({
+    directory: `${HOME}/bin`,
+    on_path: true,
+    places: [{ name: "/Users/ada/.zprofile", present: true, changed: false }],
+    commands: ["composer", "node", "npm", "php", "python3"],
+  }),
   mixengine_elevation_status: returns<ElevationStatus>(ELEVATION),
   mixengine_blueprints: returns<BlueprintList>(BLUEPRINTS),
   mixengine_database_client: (args): DatabaseClientReport => databaseClient(args.service as string),

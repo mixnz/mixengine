@@ -37,6 +37,7 @@
 pub mod apply;
 pub mod feed;
 pub mod helper;
+pub mod installed;
 pub mod offer;
 pub mod placement;
 pub mod records;

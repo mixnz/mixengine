@@ -306,6 +306,9 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       `open` from the daemon. The spec lists them.
       Design: [2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md](../specs/2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md),
       and [ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md).
+      **Readings taken 2026-09-24 and the code built.** What is left is the design's check by hand
+      on a Mac, which needs a v0.0.8 `.pkg` and a test feed offering a later build; this is ticked
+      once it has been run.
 
 - [x] **T88c** `daemon.status` is not backwards compatible within one protocol version, and the
       sentence written for exactly that case no longer reaches anybody. Every field added to

@@ -1763,6 +1763,7 @@ async fn serve(
         store,
         &sources.feed,
         Some(daemon_exe.as_path()),
+        Arc::clone(&host),
         events.clone(),
         transport,
     )

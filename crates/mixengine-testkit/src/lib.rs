@@ -41,7 +41,7 @@ pub use create::{call, create, create_blocking};
 pub use declare::{Service, VERSION};
 pub use home::Home;
 pub use package::{FakePackage, Packed, Packing};
-pub use process::{kill, stop, try_kill, try_stop};
+pub use process::{end_daemon, kill, stop, try_kill, try_stop};
 pub use registry::MockRegistry;
 pub use service::FakeService;
 pub use signing::Signer;

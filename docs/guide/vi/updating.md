@@ -4,7 +4,7 @@ slug = "updating"
 order = 12
 summary = "Cập nhật do bạn quyết, có kiểm tra chữ ký, và có chạy thử trước khi thay bất cứ thứ gì. Riêng một chương trình cố ý không bao giờ được thay theo đường này."
 translation_of = "en/updating.md"
-source_sha256 = "6648f6150072a130bf20411274e936e77decf29ebd514836f0085fe48dde17fc"
+source_sha256 = "0c946716d0d12b04cdc752b9f40e2ad582410f1af0c74e88b7422df3affdb144"
 +++
 
 # Giữ MixLab luôn mới
@@ -65,11 +65,26 @@ Trong lúc đó, bản cũ và bản mới cùng tồn tại an toàn. Daemon v�
 phiên bản giao thức khi nói chuyện với nhau. Chương trình phụ trợ cũ vẫn phục vụ các thao tác nó
 biết, trong khi MixEngine nhắc bạn nâng cấp nó.
 
+## Khi bạn cài MixLab trên Mac bằng file `.pkg`
+
+`mix self-update` vẫn cập nhật được, theo đúng cách file `.pkg` đã cài. Nó tải file `.pkg` mới,
+kiểm tra với bản phát hành đã ký, rồi mở bằng Installer.app. Trong lúc bạn cài, không có gì bị dừng,
+và bấm Cancel cũng không mất gì.
+
+Cài xong thì chạy `mix self-update --finish`, hoặc bấm **Hoàn tất cập nhật** trong MixLab. MixEngine
+khởi động lại ở bản mới và chạy lại các service đang chạy trước đó.
+
+Nếu bạn SSH vào máy, Installer hiện trên màn hình của chính máy Mac đó. `mix self-update` in
+thêm đường dẫn file đã tải và lệnh `sudo installer` để cài file đó từ terminal.
+
+Bản đầu tiên có tính năng này thì vẫn phải cài tay một lần, như mọi file `.pkg`.
+
 ## Khi MixLab được cài bằng trình quản lý gói
 
-`mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ không phải vô
-ích: bản cài bằng `apt`, `dnf` hay `.pkg` thuộc về trình quản lý gói đó. Thay file sau lưng nó sẽ
-khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn đã cài.
+Trên Linux, `mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ
+không phải vô ích: bản cài bằng `apt` hay `dnf` thuộc về trình quản lý gói đó. Thay file sau lưng
+nó sẽ khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn
+đã cài.
 
 Bản zip portable, AppImage, bộ cài Windows theo người dùng và bản build từ mã nguồn đều cập nhật
 bình thường bằng `mix self-update`.

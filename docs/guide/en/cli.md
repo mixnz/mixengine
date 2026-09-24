@@ -880,6 +880,10 @@ prompt of its own.
 A copy of MixEngine that a package manager installed is not updated by this: it says so, and names
 the directory.
 
+On a Mac that installed MixLab from the .pkg, the next .pkg is downloaded, checked and opened in
+Installer.app instead, and nothing is stopped. When the installation is done, `mix self-update
+--finish` restarts MixEngine on the new version.
+
 ```
 mix self-update [OPTIONS]
 ```
@@ -888,6 +892,7 @@ mix self-update [OPTIONS]
 | --- | --- |
 | `--check` | Check and print what is available. Installs nothing |
 | `--yes` | Answer the prompt in advance, for a script with nobody at the keyboard |
+| `--finish` | Finish an update Installer.app has installed: stop the services, start the new daemon, and start them again |
 
 ## mix disk
 

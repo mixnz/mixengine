@@ -79,6 +79,9 @@ printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-linux-x86_64"
 printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-windows-x86_64.exe"
 printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-macos-universal"
 
+# The macOS `.pkg` — roadmap task T88f. `feed.sh` refuses a macOS payload with none beside it.
+printf 'not a package\n' >"$work/dist/$MIX_ARTIFACT-$version-macos-universal.pkg"
+
 bash "$MIX_ROOT/packaging/feed.sh" --dist "$work/dist" --version "$version" --tag "v$version"
 
 python3 - "$work/dist/latest.json" <<'PY'
@@ -141,9 +144,25 @@ if ("windows", "x86_64") in helpers and not helpers[("windows", "x86_64")].endsw
 if helpers.get(("macos", "x86_64")) != helpers.get(("macos", "aarch64")):
     problems.append("the two macOS helper rows point at different files, and macOS publishes one")
 
+# T88f. A copy the `.pkg` installed is offered its update only through this row, so a release with
+# a macOS payload and no installer row leaves every such Mac on the old version, silently. One
+# universal `.pkg` under both architecture rows, bound by a SHA-256.
+installers = {(row["os"], row["arch"]): row for row in document.get("installers", [])}
+
+for pair in [("macos", "x86_64"), ("macos", "aarch64")]:
+    if pair not in installers:
+        problems.append(f"no macOS installer for {pair[0]}/{pair[1]}: {sorted(installers)}")
+
+for row in installers.values():
+    if row.get("kind") != "pkg" or not row["url"].endswith(".pkg"):
+        problems.append(f"a macOS installer row that is not a .pkg: {row}")
+    if len(row.get("sha256", "")) != 64:
+        problems.append(f"an installer row without a SHA-256: {row}")
+
 if problems:
     raise SystemExit("\n".join(problems))
 
 print(f"provides: {len(document['artifacts'])} artifact(s), each naming {sorted(expected)}")
 print(f"helpers: {len(document['helpers'])} row(s) for {sorted(helpers)}")
+print(f"installers: {len(installers)} row(s) for {sorted(installers)}")
 PY

@@ -75,7 +75,9 @@ too.
 - **Each artifact is a plain archive of the release's binaries**, one top-level `mixengine/`
   directory, published beside the installers — `packaging/README.md`. None of the five installers is
   a thing an updater can apply: three need root, one needs a Finder dialog, and an AppImage is a file
-  the user placed. The updater applies the archive and never runs an installer.
+  the user placed. The updater applies the archive and never runs an installer, with one exception:
+  a macOS copy the `.pkg` installed is handed the next `.pkg`, below
+  ([ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md)).
 - **The payload carries the window, and an update never adds one** — roadmap task **T106**. Since
   T105 every payload holds `mixlab` beside the four command-line binaries, and on macOS that entry is
   `MixLab.app`, a *directory*: `packaging/feed.sh` emits one `provides` row for the bundle and
@@ -92,6 +94,20 @@ too.
   overwritten, which is what the swap already relies on. On Linux the window must have read its own
   path *before* the swap: `/proc/self/exe` follows the inode, so a window asking afterwards is told
   its own path is `…/mixlab.old` and would relaunch the version the user had just replaced.
+- **A macOS copy the `.pkg` installed is updated by the next `.pkg`, through Installer.app** —
+  roadmap task **T88f**, [ADR 0050](../decisions/0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md),
+  [design](../specs/2026-09-23-t88f-a-pkg-is-updated-by-its-installer-design.md). The copy is
+  recognised by the package receipt that names `mixengined` (`pkgutil --file-info`), asked
+  **before** the write probe, because `/usr/local/bin` can be writable and a swap there would update
+  four binaries and leave the window and the helper behind. The feed lists the `.pkg` under
+  `installers`, bound by its SHA-256 like a payload. `update.hand_over` downloads and checks it and
+  opens it in Installer.app, stopping nothing; the person installs it and macOS asks for the
+  password. `update.status` then reads the new version from the binary on disk (by inode: the
+  installer keeps the file's modification time), and `update.finish` stops the services, records
+  them, and exits, as `update.apply` does after its swap. Nothing in MixEngine elevates, and the
+  `.pkg` has no scripts. `mix self-update` always prints the package's path and the `installer`
+  command, because over SSH the installer opens on the Mac's own screen. The first release carrying
+  this cannot reach itself: a `.pkg` user installs it by hand once.
 - **A copy of MixEngine a package manager installed is refused in words, before anything is
   downloaded** (T88, D7). `mix self-update` write-probes the directory holding `mixengined`; a
   directory this account cannot write means something else put MixEngine there and something else

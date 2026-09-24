@@ -1208,6 +1208,31 @@ pub enum Error {
         arch: String,
     },
 
+    /// This copy was installed by the macOS `.pkg`, and the next `.pkg` updates it — roadmap task
+    /// **T88f**. What `update.apply` answers for it, naming the way that does work.
+    #[error("the .pkg installed MixEngine in {}, so the next .pkg updates it", directory.display())]
+    UpdateUsesInstaller {
+        /// Where this copy is installed.
+        directory: PathBuf,
+    },
+
+    /// The published release has no installer for this machine — roadmap task **T88f**. A feed from
+    /// before the task lists none at all.
+    #[error("the published release has no installer for {os}/{arch}")]
+    InstallerUnavailable {
+        /// This machine's operating system, as the feed spells it.
+        os: String,
+        /// This machine's architecture, as the feed spells it.
+        arch: String,
+    },
+
+    /// `update.finish` was asked for before the new binaries were on disk — roadmap task **T88f**.
+    #[error("MixEngine {version} is not installed yet")]
+    UpdateNotInstalled {
+        /// The version that was handed to the installer.
+        version: String,
+    },
+
     /// A candidate privileged helper is not signed by the key this build trusts — roadmap task
     /// **T88a**.
     ///
