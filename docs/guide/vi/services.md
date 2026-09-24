@@ -54,6 +54,9 @@ Phần trước dấu `@` trong id service là tên package mà service đó là
 để phân biệt hai service với nhau; MixEngine không gán ý nghĩa gì cho chữ đó. Caddy chỉ chạy một
 lần cho cả home MixEngine, nên service của nó chỉ đơn giản là `caddy`, không có `@`.
 
+Tên service không cần ghi phiên bản. `mix service list` hiện phiên bản ngay cạnh id, MixLab cũng
+vậy, nên đặt `mysql@main` là đủ.
+
 Id không đổi được sau khi tạo, vì nó cũng là tên thư mục cấu hình sinh ra, thư mục log, socket, và
 địa chỉ lưu mật khẩu. Muốn đổi tên thì tạo service mới rồi xóa cái cũ; dữ liệu vẫn được giữ lại.
 

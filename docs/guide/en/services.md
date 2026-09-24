@@ -52,6 +52,9 @@ The part of a service id before the `@` is the package it is an instance of, whi
 tells two of them apart, and MixEngine attaches no meaning to the words. Caddy runs once for a whole
 MixEngine home, so its service is simply `caddy` with no `@` at all.
 
+The name does not have to say which version a service runs. `mix service list` shows the version
+beside each id, and so does MixLab, so `mysql@main` is enough.
+
 The id cannot be changed afterwards — it is also the generated configuration directory, the log
 directory, the socket and the address the password is stored at — so renaming one means creating the
 other and deleting this one, which keeps the data.

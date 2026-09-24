@@ -42,6 +42,8 @@ what tells two of them apart, and nothing in MixEngine knows the words `main` or
 be changed afterwards — the id is also the generated config directory, the log directory, the socket
 file and the keyring address — so renaming one is creating the other and deleting this one, which
 keeps the data directory.
+What tells a person which program an instance is, is `ServiceSummary::version` (T182), reported
+beside the id: the name is a label, the version is a fact.
 
 **A data directory belongs to one service.** Two servers over one set of files corrupt them, and the
 cost lands on the data rather than on a start that fails, so `service.create` refuses a `data_dir`
