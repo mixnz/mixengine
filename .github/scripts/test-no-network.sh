@@ -328,12 +328,14 @@ if sudo -n unshare --net -- sh -c 'ip link set lo up && command -v runuser' >/de
   # the fourth entry after a run did exactly that; T35 added the fifth and sixth after a run did it
   # again, judging neither cache on this leg while every job went green; T36 added the second
   # MariaDB after a third run did it a third time. The warning is an annotation rather than a log
-  # line, which is why the same mistake keeps arriving unnoticed.
+  # line, which is why the same mistake keeps arriving unnoticed. T183 added
+  # MIXENGINE_CREDENTIAL_STORE: without it the Linux leg would keep its credentials in a file and the
+  # real store would go untested with every job green.
   # CARGO_HOME matters most: losing it would send cargo looking for the registry in the default
   # location, find nothing there, and fail instantly because there is no network to fall back on.
   # CARGO_NET_OFFLINE matters for the same reason, one level down: `cargo metadata`, which the
   # layering test spawns, inherits no `--offline` flag of ours.
-  for name in CARGO CARGO_HOME RUSTUP_HOME CARGO_NET_OFFLINE CARGO_TERM_COLOR CARGO_INCREMENTAL RUST_BACKTRACE MIXENGINE_CADDY_PACKAGE MIXENGINE_NGINX_PACKAGE MIXENGINE_PHP_RUNTIME MIXENGINE_PHP_RUNTIMES MIXENGINE_MARIADB_PACKAGE MIXENGINE_MARIADB_LEGACY_PACKAGE MIXENGINE_MYSQL_PACKAGE MIXENGINE_POSTGRES_PACKAGE MIXENGINE_REDIS_PACKAGE MIXENGINE_MEMCACHED_PACKAGE MIXENGINE_MONGODB_PACKAGE; do
+  for name in CARGO CARGO_HOME RUSTUP_HOME CARGO_NET_OFFLINE CARGO_TERM_COLOR CARGO_INCREMENTAL RUST_BACKTRACE MIXENGINE_CADDY_PACKAGE MIXENGINE_NGINX_PACKAGE MIXENGINE_PHP_RUNTIME MIXENGINE_PHP_RUNTIMES MIXENGINE_MARIADB_PACKAGE MIXENGINE_MARIADB_LEGACY_PACKAGE MIXENGINE_MYSQL_PACKAGE MIXENGINE_POSTGRES_PACKAGE MIXENGINE_REDIS_PACKAGE MIXENGINE_MEMCACHED_PACKAGE MIXENGINE_MONGODB_PACKAGE MIXENGINE_CREDENTIAL_STORE; do
     if [ -n "${!name-}" ]; then
       env_args+=("$name=${!name}")
     fi
