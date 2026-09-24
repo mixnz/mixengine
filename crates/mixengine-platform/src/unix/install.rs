@@ -96,3 +96,12 @@ pub(crate) fn own_as_root(path: &Path) -> Result<()> {
         source,
     })
 }
+
+/// `(device, inode)` of `path` — roadmap task **T88f**. [`None`] when it cannot be read.
+pub(crate) fn file_identity(path: &Path) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt as _;
+
+    fs::metadata(path)
+        .ok()
+        .map(|metadata| (metadata.dev(), metadata.ino()))
+}

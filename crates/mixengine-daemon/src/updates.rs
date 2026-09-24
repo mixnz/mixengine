@@ -28,13 +28,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use mixengine_core::install::{Installer, Watcher};
+use mixengine_core::install::{Installer, NotAnArchive, Watcher};
 use mixengine_core::paths::Paths;
 use mixengine_core::store::Store;
 use mixengine_core::updates::{self, Feed};
 use mixengine_proto::{
-    Error, ErrorCode, ServiceId, Timestamp, UpdateApplied, UpdateDecision, UpdateOffer,
-    UpdatePlacement, UpdateRelease, UpdateStatus,
+    Error, ErrorCode, ServiceId, Timestamp, UpdateApplied, UpdateDecision, UpdateHandedOver,
+    UpdateInstaller, UpdateOffer, UpdatePlacement, UpdateRelease, UpdateStatus,
 };
 
 use crate::error::ToWire as _;
@@ -74,6 +74,9 @@ struct Checked {
     /// Whether that reading came out of a cache the daemon could not refresh.
     stale: bool,
 }
+
+/// One reading of the daemon binary on disk: its `(device, inode)`, and the version it reported.
+type OnDisk = ((u64, u64), Option<String>);
 
 /// A payload that is on disk and has been run once.
 #[derive(Debug)]
@@ -125,6 +128,20 @@ pub(crate) struct Updates {
     /// that runs every 24 h for a month must not spend a client's stream allowance restating one
     /// fact.
     announced: Mutex<BTreeSet<String>>,
+
+    /// The machine, for the package receipt and Installer.app — roadmap task **T88f**.
+    host: std::sync::Arc<dyn mixengine_platform::Host>,
+
+    /// Where this daemon's own binary is, which `update.status` asks for its version while a `.pkg`
+    /// is handed over (T88f, D6).
+    daemon_exe: Option<PathBuf>,
+
+    /// The last reading of that binary: its `(device, inode)` and what it said it was.
+    ///
+    /// **Keyed by inode, not by modification time**: Installer.app writes a new inode and keeps the
+    /// time the file had in the package (the T88f readings, M3). So a status poll costs one `stat`
+    /// until the file is replaced.
+    installed: Mutex<Option<OnDisk>>,
 }
 
 /// A [`Watcher`] that reports to nobody.
@@ -163,6 +180,7 @@ impl Updates {
         store: &Store,
         source: &FeedSource,
         daemon_exe: Option<&std::path::Path>,
+        host: std::sync::Arc<dyn mixengine_platform::Host>,
         events: crate::api::Events,
         http: reqwest::Client,
     ) -> Result<std::sync::Arc<Self>, Error> {
@@ -172,6 +190,8 @@ impl Updates {
                 std::env::var_os(APPIMAGE)
                     .filter(|value| !value.is_empty())
                     .as_deref(),
+                // Asked first, and passed in: the receipt is the platform's to read (T88f, D1).
+                host.installers().receipt_of(exe).as_deref(),
             ),
             // A daemon whose own path the operating system will not name. Refused in words rather
             // than assumed writable: this is the one field an update is not allowed to guess at.
@@ -199,6 +219,9 @@ impl Updates {
             events,
             last: Mutex::new(None),
             announced: Mutex::new(BTreeSet::new()),
+            host,
+            daemon_exe: daemon_exe.map(std::path::Path::to_path_buf),
+            installed: Mutex::new(None),
         }))
     }
 
@@ -270,8 +293,14 @@ impl Updates {
     pub(crate) async fn status(&self, will_restart: Vec<ServiceId>) -> UpdateStatus {
         let current = env!("CARGO_PKG_VERSION").to_owned();
         let placement = placement(&self.placement);
+        let checked = self.last.lock().ok().and_then(|last| last.clone());
 
-        let Some(checked) = self.last.lock().ok().and_then(|last| last.clone()) else {
+        self.settle_handover(checked.as_ref().map(|checked| &checked.feed))
+            .await;
+        let installer = self.installer_of(checked.as_ref().map(|checked| &checked.feed));
+        let installed = self.installed_version().await;
+
+        let Some(checked) = checked else {
             return UpdateStatus {
                 current,
                 available: None,
@@ -281,6 +310,8 @@ impl Updates {
                 stale: false,
                 placement,
                 will_restart,
+                installer,
+                installed,
             };
         };
 
@@ -288,13 +319,15 @@ impl Updates {
 
         UpdateStatus {
             current,
-            available: Some(release(&checked.feed)),
+            available: Some(self.release(&checked.feed)),
             offered: decision.offered,
             because: decision.because,
             checked_at: Some(checked.at),
             stale: checked.stale,
             placement,
             will_restart,
+            installer,
+            installed,
         }
     }
 
@@ -394,18 +427,7 @@ impl Updates {
     /// unpacking or the smoke test reported. Every one of them leaves the installed binaries
     /// untouched.
     pub(crate) async fn stage(&self, version: &str) -> Result<Staged, Error> {
-        let checked = self
-            .last
-            .lock()
-            .ok()
-            .and_then(|last| last.clone())
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::PreconditionFailed,
-                    "this daemon has not read the update feed yet",
-                )
-                .with_hint("`mix self-update --check` reads it")
-            })?;
+        let checked = self.checked()?;
 
         if checked.feed.version != version {
             return Err(mixengine_core::Error::UpdateNotOffered {
@@ -415,16 +437,21 @@ impl Updates {
             .to_wire());
         }
 
-        let updates::Placement::SelfUpdatable { directory } = &self.placement else {
-            let updates::Placement::Managed { directory, because } = &self.placement else {
-                unreachable!("Placement has two variants and the other one is matched above")
-            };
-
-            return Err(mixengine_core::Error::UpdateNotWritable {
-                directory: directory.clone(),
-                because: because.clone(),
+        let directory = match &self.placement {
+            updates::Placement::SelfUpdatable { directory } => directory,
+            updates::Placement::Managed { directory, because } => {
+                return Err(mixengine_core::Error::UpdateNotWritable {
+                    directory: directory.clone(),
+                    because: because.clone(),
+                }
+                .to_wire());
             }
-            .to_wire());
+            updates::Placement::Installer { directory, .. } => {
+                return Err(mixengine_core::Error::UpdateUsesInstaller {
+                    directory: directory.clone(),
+                }
+                .to_wire());
+            }
         };
 
         let (os, arch) = host()?;
@@ -623,6 +650,280 @@ impl Updates {
         );
     }
 
+    /// The wire shape of a release, sized for *this* machine.
+    ///
+    /// `size` is what this machine would download and not the largest file published: it is shown
+    /// in a consent prompt, and a number from another architecture would be a number about somebody
+    /// else's download. For a copy the `.pkg` installed, that is the `.pkg` (T88f).
+    fn release(&self, feed: &Feed) -> UpdateRelease {
+        let size = host().ok().map_or(0, |(os, arch)| match &self.placement {
+            updates::Placement::Installer { .. } => feed
+                .installer(os, arch)
+                .map_or(0, |installer| installer.size),
+            _ => feed.artifact(os, arch).map_or(0, |artifact| artifact.size),
+        });
+
+        UpdateRelease {
+            version: feed.version.clone(),
+            published_at: feed.published_at.to_string(),
+            notes: feed.notes.clone(),
+            notes_url: feed.notes_url.clone(),
+            size,
+        }
+    }
+
+    /// The installer this copy is updated with, present exactly when the `.pkg` installed it —
+    /// T88f, D3. The size is the one the feed names for this machine, or 0 before a feed is read.
+    fn installer_of(&self, feed: Option<&Feed>) -> Option<UpdateInstaller> {
+        let updates::Placement::Installer { .. } = &self.placement else {
+            return None;
+        };
+
+        let size = feed
+            .zip(host().ok())
+            .and_then(|(feed, (os, arch))| feed.installer(os, arch))
+            .map_or(0, |installer| installer.size);
+
+        Some(UpdateInstaller {
+            kind: "pkg".to_owned(),
+            size,
+        })
+    }
+
+    /// `update.hand_over` — download and verify the next `.pkg`, open it in Installer.app, and write
+    /// the handover down (T88f, D4 and D5). **Nothing is stopped at any point**: a person who
+    /// cancels the installer has lost nothing.
+    ///
+    /// # Errors
+    ///
+    /// `precondition_failed` when no feed has been read, the version is not the one offered, this
+    /// copy is not the `.pkg`'s, or the release has no installer for this machine; whatever the
+    /// download and the checksum reported; and the platform's error, with the command that installs
+    /// the verified file without a window as its hint, when the installer would not open.
+    pub(crate) async fn hand_over(&self, version: &str) -> Result<UpdateHandedOver, Error> {
+        let checked = self.checked()?;
+
+        if checked.feed.version != version {
+            return Err(mixengine_core::Error::UpdateNotOffered {
+                asked: version.to_owned(),
+                offered: Some(checked.feed.version.clone()),
+            }
+            .to_wire());
+        }
+
+        let updates::Placement::Installer { .. } = &self.placement else {
+            return Err(Error::new(
+                ErrorCode::PreconditionFailed,
+                "this copy of MixEngine is not one the .pkg installed",
+            )
+            .with_hint("`mix self-update` updates it in place"));
+        };
+
+        let (os, arch) = host()?;
+        let installer = checked.feed.installer(os, arch).ok_or_else(|| {
+            mixengine_core::Error::InstallerUnavailable {
+                os: format!("{os:?}").to_lowercase(),
+                arch: format!("{arch:?}").to_lowercase(),
+            }
+            .to_wire()
+        })?;
+
+        let package = self.fetch_package(version, installer).await?;
+
+        // The platform's error keeps its own code; the hint is the line that installs the verified
+        // file without a window, which is also what over SSH somebody would need (D5, M4).
+        self.host
+            .installers()
+            .open(&package)
+            .map_err(|error| error.to_wire().with_hint(install_command(&package)))?;
+
+        updates::records::set(
+            &self.store,
+            updates::records::HANDED_OVER,
+            &updates::records::HandedOver {
+                version: version.to_owned(),
+                at: Timestamp::from_system_time(std::time::SystemTime::now()),
+            },
+        )
+        .await
+        .map_err(|error| error.to_wire())?;
+
+        tracing::info!(%version, package = %package.display(), "a .pkg was handed to Installer.app");
+
+        Ok(UpdateHandedOver {
+            version: version.to_owned(),
+            package: package.display().to_string(),
+            command: install_command(&package),
+        })
+    }
+
+    /// Download and verify the package, or reuse the one already verified for this version.
+    ///
+    /// **Reused**, because the ordinary way back into this is a person who cancelled Installer.app
+    /// and pressed Update again, and 70 MB fetched twice is a cost with nothing bought by it. The
+    /// file is hashed again first: it sits in the user's home, where any local process can change
+    /// it.
+    async fn fetch_package(
+        &self,
+        version: &str,
+        installer: &updates::feed::InstallerArtifact,
+    ) -> Result<PathBuf, Error> {
+        let into = self.staging_for(version);
+
+        if let Some(existing) = only_file_in(&into) {
+            let hashed = existing.clone();
+            let digest =
+                tokio::task::spawn_blocking(move || mixengine_core::install::sha256_of(&hashed))
+                    .await
+                    .ok()
+                    .and_then(Result::ok);
+
+            if digest.as_deref() == Some(installer.sha256.as_str()) {
+                return Ok(existing);
+            }
+        }
+
+        // Anything else there is a half-finished or wrong download, and `install` refuses a
+        // directory that exists: an update must not trip over its own leftovers.
+        let _ = tokio::fs::remove_dir_all(&into).await;
+
+        self.installer
+            .install(
+                &installer.as_artifact(),
+                &into,
+                None,
+                NotAnArchive::OneFile,
+                &Quiet,
+            )
+            .await
+            .map_err(|error| error.to_wire())?;
+
+        only_file_in(&into).ok_or_else(|| {
+            Error::new(
+                ErrorCode::Internal,
+                format!("{} holds no package after the download", into.display()),
+            )
+        })
+    }
+
+    /// The version on disk, while a handover is recorded and the binary there says it is that
+    /// version — T88f, D6. [`None`] otherwise, including for a different version somebody installed.
+    async fn installed_version(&self) -> Option<String> {
+        let handed: updates::records::HandedOver =
+            read(&self.store, updates::records::HANDED_OVER).await?;
+        let exe = self.daemon_exe.clone()?;
+        let identity = mixengine_platform::install::file_identity(&exe)?;
+
+        let cached = self.installed.lock().ok()?.clone();
+        let on_disk = match cached {
+            Some((seen, version)) if seen == identity => version,
+            _ => {
+                let version =
+                    tokio::task::spawn_blocking(move || updates::installed::version_of(&exe))
+                        .await
+                        .ok()
+                        .flatten();
+
+                if let Ok(mut installed) = self.installed.lock() {
+                    *installed = Some((identity, version.clone()));
+                }
+
+                version
+            }
+        };
+
+        on_disk.filter(|version| *version == handed.version)
+    }
+
+    /// Forget a handover that no longer applies — T88f, D6's last paragraph.
+    ///
+    /// Two ways: this daemon already is the version handed over (somebody installed and restarted
+    /// another way), or the feed now offers a different release than the one handed over.
+    async fn settle_handover(&self, feed: Option<&Feed>) {
+        let Some(handed) =
+            read::<updates::records::HandedOver>(&self.store, updates::records::HANDED_OVER).await
+        else {
+            return;
+        };
+
+        let running = handed.version == env!("CARGO_PKG_VERSION");
+        let superseded = feed.is_some_and(|feed| feed.version != handed.version);
+
+        if running || superseded {
+            self.forget(&handed.version).await;
+        }
+    }
+
+    /// The version `update.finish` may finish, or why not — T88f, D6.
+    ///
+    /// # Errors
+    ///
+    /// `precondition_failed` when nothing was handed over, or when the binary on disk is not yet
+    /// the version that was.
+    pub(crate) async fn finishable(&self) -> Result<String, Error> {
+        let Some(handed) =
+            read::<updates::records::HandedOver>(&self.store, updates::records::HANDED_OVER).await
+        else {
+            return Err(Error::new(
+                ErrorCode::PreconditionFailed,
+                "nothing has been handed to the installer",
+            )
+            .with_hint("`mix self-update` opens the next .pkg in Installer.app"));
+        };
+
+        match self.installed_version().await {
+            Some(version) => Ok(version),
+            None => Err(mixengine_core::Error::UpdateNotInstalled {
+                version: handed.version,
+            }
+            .to_wire()),
+        }
+    }
+
+    /// Clear the handover `update.finish` has just finished.
+    pub(crate) async fn forget_handover(&self) {
+        if let Some(handed) =
+            read::<updates::records::HandedOver>(&self.store, updates::records::HANDED_OVER).await
+        {
+            self.forget(&handed.version).await;
+        }
+    }
+
+    /// Clear the record and the package it named.
+    async fn forget(&self, version: &str) {
+        if let Err(error) =
+            updates::records::clear(&self.store, updates::records::HANDED_OVER).await
+        {
+            tracing::warn!(%error, "a finished handover's record could not be removed");
+        }
+
+        let _ = tokio::fs::remove_dir_all(self.staging_for(version)).await;
+    }
+
+    /// The directory this copy's binaries are in, whatever installed them.
+    pub(crate) fn directory(&self) -> &std::path::Path {
+        match &self.placement {
+            updates::Placement::SelfUpdatable { directory }
+            | updates::Placement::Managed { directory, .. }
+            | updates::Placement::Installer { directory, .. } => directory,
+        }
+    }
+
+    /// The last feed this daemon read, or the refusal a caller that needs one answers with.
+    fn checked(&self) -> Result<Checked, Error> {
+        self.last
+            .lock()
+            .ok()
+            .and_then(|last| last.clone())
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PreconditionFailed,
+                    "this daemon has not read the update feed yet",
+                )
+                .with_hint("`mix self-update --check` reads it")
+            })
+    }
+
     /// Where a payload is unpacked. One directory per version, under `cache/`.
     fn staging_for(&self, version: &str) -> PathBuf {
         // Not `join`ed from the feed's string without thought: a version out of a document is a
@@ -648,7 +949,11 @@ impl Updates {
         let skipped: Option<String> = read(&self.store, updates::records::SKIPPED_VERSION).await;
         let remind_after: Option<Timestamp> =
             read(&self.store, updates::records::REMIND_AFTER).await;
-        let has_build = host().is_ok_and(|(os, arch)| feed.artifact(os, arch).is_some());
+        // A copy the `.pkg` installed is offered what it can install: the next `.pkg` (T88f).
+        let has_build = host().is_ok_and(|(os, arch)| match &self.placement {
+            updates::Placement::Installer { .. } => feed.installer(os, arch).is_some(),
+            _ => feed.artifact(os, arch).is_some(),
+        });
 
         updates::offer::decide(
             env!("CARGO_PKG_VERSION"),
@@ -663,6 +968,27 @@ impl Updates {
 
 /// The environment variable a running AppImage sets, and the one thing that identifies one.
 const APPIMAGE: &str = "APPIMAGE";
+
+/// Why a copy the `.pkg` installed is not swapped in place, as an old client reads it — T88f.
+const INSTALLER_BECAUSE: &str = "the .pkg installed this copy, and MixEngine updates it by opening the next .pkg in Installer.app";
+
+/// The line that installs `package` without a window — T88f, D5. Quoted, because the path is in
+/// `Application Support` on macOS and has a space in it.
+fn install_command(package: &std::path::Path) -> String {
+    format!("sudo installer -pkg '{}' -target /", package.display())
+}
+
+/// The one file in `directory`, or [`None`] when there is not exactly one.
+fn only_file_in(directory: &std::path::Path) -> Option<PathBuf> {
+    let mut files = std::fs::read_dir(directory)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.is_file());
+    let first = files.next()?;
+
+    files.next().is_none().then_some(first)
+}
 
 /// Where payloads are unpacked, under the home's `cache/`.
 const STAGING_DIR: &str = "updates";
@@ -715,26 +1041,12 @@ fn placement(placement: &updates::Placement) -> UpdatePlacement {
             directory: directory.display().to_string(),
             because: because.clone(),
         },
-    }
-}
-
-/// The wire shape of a release, sized for *this* machine.
-///
-/// `size` is the payload this machine would download and not the largest one published: it is shown
-/// in a consent prompt, and a number from another architecture would be a number about somebody
-/// else's download.
-fn release(feed: &Feed) -> UpdateRelease {
-    let size = host()
-        .ok()
-        .and_then(|(os, arch)| feed.artifact(os, arch))
-        .map_or(0, |artifact| artifact.size);
-
-    UpdateRelease {
-        version: feed.version.clone(),
-        published_at: feed.published_at.to_string(),
-        notes: feed.notes.clone(),
-        notes_url: feed.notes_url.clone(),
-        size,
+        // `managed` on the wire, with a sentence still true for a client from before T88f: a new
+        // tagged variant would make an old client fail to read the whole status (the design, D3).
+        updates::Placement::Installer { directory, .. } => UpdatePlacement::Managed {
+            directory: directory.display().to_string(),
+            because: INSTALLER_BECAUSE.to_owned(),
+        },
     }
 }
 

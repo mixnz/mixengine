@@ -575,6 +575,12 @@ const vi: typeof en = {
         managed: "Bản này không tự cập nhật được: {{because}}",
         windowKept:
           "MixEngine đã được cập nhật, còn cửa sổ MixLab thì chưa: nó không nằm cạnh các binary. Chạy bộ cài để cập nhật cửa sổ.",
+        installerApply: "Tải về và cài",
+        installerDownloading: "Đang tải bộ cài",
+        installerOpen: "Installer đã mở. Cài xong ở đó rồi quay lại đây.",
+        installerCommand: "Muốn cài bằng terminal thì chạy: {{command}}",
+        installerReady: "Đã cài xong MixEngine {{version}}. Khởi động lại để hoàn tất cập nhật.",
+        installerFinish: "Hoàn tất cập nhật",
       },
       doctor: {
         title: "Chẩn đoán",

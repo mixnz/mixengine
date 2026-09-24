@@ -200,15 +200,28 @@ pub(crate) async fn upgrade(
     // A `.deb`, an `.rpm` or a `.pkg` put the helper where it is as root, and the same package
     // manager replaces it. Refused in words before a byte is fetched, exactly as `mix self-update`
     // refuses the binaries beside it.
-    if let mixengine_core::updates::Placement::Managed { directory, because } = updates.placement()
-    {
+    //
+    // A copy the `.pkg` installed counts as managed here too (T88f, D9): the next `.pkg` writes the
+    // helper, as the first one did.
+    let refusal = match updates.placement() {
+        mixengine_core::updates::Placement::Managed { directory, because } => {
+            Some(mixengine_core::Error::UpdateNotWritable {
+                directory: directory.clone(),
+                because: because.clone(),
+            })
+        }
+        mixengine_core::updates::Placement::Installer { directory, .. } => {
+            Some(mixengine_core::Error::UpdateUsesInstaller {
+                directory: directory.clone(),
+            })
+        }
+        mixengine_core::updates::Placement::SelfUpdatable { .. } => None,
+    };
+
+    if let Some(refusal) = refusal {
         return queue(
             HelperUpgradeOutcome::Unavailable {
-                reason: mixengine_core::Error::UpdateNotWritable {
-                    directory: directory.clone(),
-                    because: because.clone(),
-                }
-                .to_string(),
+                reason: refusal.to_string(),
             },
             None,
             None,

@@ -78,6 +78,14 @@ pub struct Feed {
     /// move: this module's own rule is that adding an optional field is not a bump.
     #[serde(default)]
     pub helpers: Vec<HelperArtifact>,
+
+    /// One installer per machine — roadmap task **T88f**. Today only the macOS `.pkg`, listed under
+    /// both architectures, which a copy the `.pkg` installed is updated with (ADR 0050).
+    ///
+    /// `default`, so a feed published before this field existed still reads and [`SCHEMA`] does not
+    /// move, on [`Feed::helpers`]' rule.
+    #[serde(default)]
+    pub installers: Vec<InstallerArtifact>,
 }
 
 /// Where one machine's `mixengine-elevate` is published — roadmap task **T88a**.
@@ -105,6 +113,53 @@ pub struct HelperArtifact {
     pub size: u64,
 }
 
+/// Where one machine's installer is published — roadmap task **T88f**.
+///
+/// **Bound by a SHA-256 inside this signed document**, as an [`Artifact`] is (T88's D3), and unlike
+/// a [`HelperArtifact`], whose detached signature is for the elevated process to check. No second
+/// key-handling path is added (ADR 0050, decision 2).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct InstallerArtifact {
+    /// Which operating system this installer is for.
+    pub os: Os,
+
+    /// Which architecture. The universal `.pkg` is listed under both Mac rows.
+    pub arch: Arch,
+
+    /// What kind of installer it is: `pkg`.
+    pub kind: String,
+
+    /// Where it is.
+    pub url: String,
+
+    /// How big it is, for the sentence a person reads before it is fetched.
+    pub size: u64,
+
+    /// What its bytes hash to, which is what binds it to this signed document.
+    pub sha256: String,
+}
+
+impl InstallerArtifact {
+    /// The download pipeline's shape for this file: one file, providing nothing, requiring nothing.
+    ///
+    /// What lets [`crate::install::Installer`] fetch it with the resume and the checksum every
+    /// other download has, rather than a second download path.
+    #[must_use]
+    pub fn as_artifact(&self) -> Artifact {
+        Artifact {
+            os: self.os,
+            arch: self.arch,
+            url: self.url.clone(),
+            sha256: self.sha256.clone(),
+            size: self.size,
+            provides: std::collections::BTreeMap::new(),
+            requires: crate::index::Requires::default(),
+            extension_dir: None,
+            extensions: crate::index::Extensions::default(),
+        }
+    }
+}
+
 impl Feed {
     /// The payload for one machine, or [`None`] when this release has no build for it.
     ///
@@ -127,6 +182,15 @@ impl Feed {
         self.helpers
             .iter()
             .find(|helper| helper.os == os && helper.arch == arch)
+    }
+
+    /// The installer for one machine, or [`None`] when this release published none for it — roadmap
+    /// task **T88f**. A release from before it has an empty list and answers [`None`] for every pair.
+    #[must_use]
+    pub fn installer(&self, os: Os, arch: Arch) -> Option<&InstallerArtifact> {
+        self.installers
+            .iter()
+            .find(|installer| installer.os == os && installer.arch == arch)
     }
 }
 
@@ -238,5 +302,43 @@ mod tests {
 
         let feed: Feed = serde_json::from_value(document).expect("a feed");
         assert_eq!(feed.notes_url, None);
+    }
+
+    #[test]
+    fn a_feed_from_before_installers_still_reads_and_has_none() {
+        let feed: Feed = serde_json::from_value(serde_json::json!({
+            "schema": 1, "generated_at": "2026-09-05T09:12:00Z", "version": "0.0.9",
+            "published_at": "2026-09-05T09:12:00Z", "notes": "", "artifacts": []
+        }))
+        .expect("a feed without installers reads");
+
+        assert!(feed.installer(Os::Macos, Arch::Aarch64).is_none());
+    }
+
+    /// One universal `.pkg`, listed under both Mac rows as the payload is (the T88f design, D2).
+    #[test]
+    fn the_universal_pkg_is_found_under_either_mac_row() {
+        let row = |arch: &str| {
+            serde_json::json!({
+                "os": "macos", "arch": arch, "kind": "pkg",
+                "url": "https://example.invalid/mixlab-0.0.9-macos-universal.pkg",
+                "size": 68_638_683,
+                "sha256": "ce6d0802b50ac4f59108e4b2deebadbe404486a1cad5a35a7b0722923eb85072"
+            })
+        };
+        let feed: Feed = serde_json::from_value(serde_json::json!({
+            "schema": 1, "generated_at": "2026-09-05T09:12:00Z", "version": "0.0.9",
+            "published_at": "2026-09-05T09:12:00Z", "notes": "", "artifacts": [],
+            "installers": [row("x86_64"), row("aarch64")]
+        }))
+        .expect("a feed with installers reads");
+
+        let installer = feed
+            .installer(Os::Macos, Arch::Aarch64)
+            .expect("the aarch64 row");
+        assert_eq!(installer.kind, "pkg");
+        assert_eq!(installer.as_artifact().sha256, installer.sha256);
+        assert_eq!(installer.as_artifact().url, installer.url);
+        assert!(feed.installer(Os::Linux, Arch::X86_64).is_none());
     }
 }

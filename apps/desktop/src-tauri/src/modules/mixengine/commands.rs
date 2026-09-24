@@ -711,6 +711,19 @@ pub async fn mixengine_update_apply(params: Value) -> Result<Value, AppError> {
     rpc::call("update.apply", params).await
 }
 
+/// `params` is `UpdateHandOver { version }`. The daemon downloads, checks and opens the .pkg, and
+/// keeps running (T88f).
+#[tauri::command]
+pub async fn mixengine_update_hand_over(params: Value) -> Result<Value, AppError> {
+    rpc::call("update.hand_over", params).await
+}
+
+/// `update.finish {}`. The daemon answers and exits, as after `update.apply` (T88f).
+#[tauri::command]
+pub async fn mixengine_update_finish() -> Result<Value, AppError> {
+    rpc::call("update.finish", json!({})).await
+}
+
 /// `service.stop` with no `service` — every declared service, stopped by the daemon in reverse
 /// dependency order (T168, the tray's *Stop all*).
 ///

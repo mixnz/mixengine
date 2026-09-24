@@ -115,6 +115,36 @@ pub fn make_executable(path: &std::path::Path) -> Result<()> {
     crate::sys::install::make_executable(path)
 }
 
+/// The package receipt that names `path` — the T88f design, D1. [`None`] off macOS.
+///
+/// The daemon asks through [`crate::Host::installers`], which its tests can replace; this is the
+/// same question for a caller holding no host.
+#[cfg(feature = "host")]
+#[must_use]
+pub fn receipt_of(path: &std::path::Path) -> Option<String> {
+    crate::host().installers().receipt_of(path)
+}
+
+/// Open `package` in the system's installer — the T88f design, D5.
+///
+/// # Errors
+///
+/// As [`crate::Installers::open`].
+#[cfg(feature = "host")]
+pub fn open_installer(package: &std::path::Path) -> Result<()> {
+    crate::host().installers().open(package)
+}
+
+/// `(device, inode)` of `path`, or [`None`] where the system has no such pair or the file is gone.
+///
+/// What the T88f install check is cached by: Installer.app writes each file under a new inode and
+/// keeps the modification time it had in the package (the T88f readings, M3), so a time would miss
+/// a reinstall of the same build.
+#[must_use]
+pub fn file_identity(path: &std::path::Path) -> Option<(u64, u64)> {
+    crate::sys::install::file_identity(path)
+}
+
 /// Every directory an installer of this operating system puts MixEngine's programs in, in the order
 /// they are consulted — roadmap task **T107**.
 ///
@@ -321,6 +351,39 @@ pub fn remove_helper() -> Result<HelperRemoval> {
 
 #[cfg(test)]
 mod tests {
+
+    /// Installer.app writes each file under a new inode and keeps its modification time (the T88f
+    /// readings, M3), so the identity is what tells the file at a path was replaced.
+    #[test]
+    fn a_file_renamed_over_another_has_a_new_identity() {
+        let directory = tempfile::tempdir().expect("a directory");
+        let path = directory.path().join("mixengined");
+        std::fs::write(&path, b"old").expect("the old file");
+        let before = file_identity(&path);
+
+        let fresh = directory.path().join("mixengined.new");
+        std::fs::write(&fresh, b"new").expect("the new file");
+        std::fs::rename(&fresh, &path).expect("renamed over the old one");
+
+        if cfg!(unix) {
+            assert!(before.is_some(), "a Unix file has a device and an inode");
+            assert_ne!(
+                before,
+                file_identity(&path),
+                "a replaced file is a different file"
+            );
+        } else {
+            assert_eq!(before, None, "no inode to read on this system");
+        }
+    }
+
+    #[test]
+    fn a_missing_file_has_no_identity() {
+        assert_eq!(
+            file_identity(std::path::Path::new("/nonexistent/mixengined")),
+            None
+        );
+    }
     use super::*;
 
     /// An empty removal is neither a failure nor a change, and the two vectors are how a caller

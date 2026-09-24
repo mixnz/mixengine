@@ -585,6 +585,12 @@ export default {
         managed: "This copy cannot update itself: {{because}}",
         windowKept:
           "MixEngine was updated; the MixLab window was not, because it is not installed beside the binaries. Run the installer to update the window.",
+        installerApply: "Download and install",
+        installerDownloading: "Downloading the installer",
+        installerOpen: "Installer is open. Finish the installation there, then come back here.",
+        installerCommand: "To install from a terminal instead, run: {{command}}",
+        installerReady: "MixEngine {{version}} is installed. Restart it to finish the update.",
+        installerFinish: "Finish update",
       },
       doctor: {
         title: "Diagnostics",

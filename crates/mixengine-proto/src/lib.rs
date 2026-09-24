@@ -159,8 +159,9 @@ pub use storage_api::{StorageChoice, StorageDirectory, StoragePaths, StorageRepo
 pub use time::{Millis, Timestamp, Uptime};
 pub use uninstall_api::{Removal, Residue, ResidueId, UninstallQuery, UninstallReport};
 pub use update_api::{
-    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdateOffer,
-    UpdatePlacement, UpdateRelease, UpdateStatus,
+    UpdateApplied, UpdateApply, UpdateCheck, UpdateDecide, UpdateDecision, UpdateFinish,
+    UpdateHandOver, UpdateHandedOver, UpdateInstaller, UpdateOffer, UpdatePlacement, UpdateRelease,
+    UpdateStatus,
 };
 pub use version::{Execution, PackageChannel, PackageVersion, VersionConstraint, VersionError};
 
