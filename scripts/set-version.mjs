@@ -256,10 +256,19 @@ if (dryRun) {
     writeFileSync(page, stamped);
     console.log(`docs/guide/vi/${name}: restamped against en/${name}`);
   }
+
+  // **And record the helper this release ships as the next baseline** — roadmap task T182b, D1.
+  // From here on, `helper-lock --check` asks for a bump only when the helper changes again. Node
+  // and not the `.sh` beside it, for the `bash` reason above.
+  execFileSync("node", [join(ROOT, "packaging", "helper-lock.mjs"), "--release"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
 }
 
 console.log(
-  "\nNext: commit Cargo.toml, Cargo.lock, MixLab's files, cli.md and the handbook pages above, " +
+  "\nNext: commit Cargo.toml, Cargo.lock, crates/mixengine-elevate/helper.lock, MixLab's files, " +
+    "cli.md and the handbook pages above, " +
     "then tag — see " +
     "docs/operations/releasing.md",
 );

@@ -8,7 +8,8 @@ git tag v0.0.1
 git push origin v0.0.1
 ```
 
-`set-version.mjs` writes the version in one place, regenerates `cli.md`, and rewrites the release
+`set-version.mjs` writes the version in one place, regenerates `cli.md`, records the privileged
+helper this release ships as the baseline in `crates/mixengine-elevate/helper.lock`, and rewrites the release
 the handbook names in prose — which is why `git add` takes the whole of `docs/guide`. It refuses the
 bump outright if `packaging/` or `.github/` types a version out instead of deriving it from
 `mix_version()`.

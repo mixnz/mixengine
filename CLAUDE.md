@@ -86,6 +86,8 @@ All design detail lives in [docs/](docs/) — start at [docs/README.md](docs/REA
 ```bash
 cargo check --workspace --all-targets   # fast feedback loop
 cargo clippy --workspace -- -D warnings  # must be clean before commit
+bash packaging/helper-lock.sh --check    # after touching anything the helper is built from; --bump if it says so (T182b)
+git config core.hooksPath .githooks      # once per clone: the pre-commit hook runs the check above for you
 cargo fmt --all --check                  # CI's lint job gates on this too; clippy clean != fmt clean
 cargo test --workspace                   # unit + integration
 cargo nextest run --workspace --all-targets --all-features --profile ci  # what CI runs; optional here, cargo test stays the contract

@@ -102,6 +102,25 @@ set there — and breaks everyone else's build. That is the one failure `lint` r
 sitting where every build finds it silently replaces the committed answers with whatever that file
 happens to contain.
 
+### After changing anything the privileged helper is built from
+
+The helper carries a version of its own, `HELPER_VERSION` in `mixengine-proto::privileged`, and an
+installed MixLab replaces the helper on a machine only when that version moves (the T182b design,
+D1). So a change to what goes into the helper has to move it, once per release:
+
+```bash
+git config core.hooksPath .githooks          # once per clone
+rustup target add x86_64-unknown-linux-gnu aarch64-apple-darwin   # once, beside your host target
+bash packaging/helper-lock.sh --check        # what the hook runs for you
+bash packaging/helper-lock.sh --bump         # when --check says so; commit the result with the change
+```
+
+`crates/mixengine-elevate/helper.lock` holds the fingerprint of every source file the compiler
+builds into the helper on all three systems, and of every external crate in its closure, as the
+last release shipped them. The pre-commit hook runs the check whenever a staged file is one of those
+or `Cargo.lock`, the `lint` job runs it on every branch, and `set-version.mjs` moves the baseline
+when a release is cut.
+
 ## CI matrix
 
 CI fires by itself on a `v*` **tag** and on nothing else — a workspace that compiles for three
