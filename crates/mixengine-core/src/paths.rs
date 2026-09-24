@@ -23,6 +23,10 @@ pub const DATABASE_FILE_NAME: &str = "mixengine.db";
 /// means nothing — see [`mixengine_platform::lock`].
 pub const LOCK_FILE_NAME: &str = "mixengined.lock";
 
+/// A development build's credential store, directly under the root — T183, ADR 0051. A release
+/// never writes it.
+pub const CREDENTIALS_FILE_NAME: &str = "credentials.json";
+
 /// The daemon's own log, inside `logs/`.
 ///
 /// Rotated copies sit next to it as `daemon.log.1` … `daemon.log.5`; the daemon owns that naming
@@ -136,6 +140,7 @@ pub struct Paths {
     cache: PathBuf,
     database_file: PathBuf,
     config_file: PathBuf,
+    credentials_file: PathBuf,
     daemon_log_file: PathBuf,
     lock_file: PathBuf,
 }
@@ -188,6 +193,7 @@ impl Paths {
             run,
             database_file: under(DATABASE_FILE_NAME, None),
             config_file: under(CONFIG_FILE_NAME, None),
+            credentials_file: under(CREDENTIALS_FILE_NAME, None),
             root,
         }
     }
@@ -289,6 +295,12 @@ impl Paths {
     #[must_use]
     pub fn config_file(&self) -> &Path {
         &self.config_file
+    }
+
+    /// `credentials.json`: where a build that is not a release keeps its credentials — T183.
+    #[must_use]
+    pub fn credentials_file(&self) -> &Path {
+        &self.credentials_file
     }
 
     /// The daemon's own log, inside [`logs`](Self::logs) and therefore moved by the same override.
@@ -402,5 +414,25 @@ impl Paths {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// T183: the credentials belong to the home, so no `[paths]` override moves them.
+    #[test]
+    fn the_credentials_file_stays_at_the_root_whatever_moves() {
+        let overrides = PathOverrides {
+            data: Some(PathBuf::from("/elsewhere/data")),
+            ..PathOverrides::default()
+        };
+        let paths = Paths::new(PathBuf::from("/home/me/MixEngine-dev"), &overrides);
+
+        assert_eq!(
+            paths.credentials_file(),
+            Path::new("/home/me/MixEngine-dev/credentials.json")
+        );
     }
 }
