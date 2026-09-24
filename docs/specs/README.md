@@ -164,3 +164,4 @@ status means: [plans-and-specs.md](../standards/plans-and-specs.md).
 | 2026-09-24 | [Removing MixLab is one act](2026-09-24-t182-removing-mixlab-is-one-act-design.md) | T182 | approved |
 | 2026-09-24 | [A service says which version it runs](2026-09-24-t183-a-service-says-which-version-it-runs-design.md) | T183 | implemented |
 | 2026-09-24 | [A build that is not a release keeps its own credentials](2026-09-24-t184-a-build-that-is-not-a-release-keeps-its-own-credentials-design.md) | T184 | implemented |
+| 2026-09-25 | [A helper that keeps up, and an uninstall that finishes](2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that-finishes-design.md) | T182b | approved |
