@@ -1921,6 +1921,7 @@ dependencies = [
  "pem",
  "rcgen",
  "rustls-native-certs",
+ "serde",
  "serde_json",
  "sysinfo",
  "tempfile",

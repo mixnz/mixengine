@@ -26,6 +26,8 @@ mixengine-proto = { workspace = true, optional = true }
 # exactly as `directories` and `tracing` are — `mixengine-elevate` compiles this crate with
 # `elevated` alone and must not gain a process enumerator, and CI diffs that closure against
 # `.github/elevate-dependencies.txt`.
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 sysinfo = { workspace = true, optional = true }
 # T132: every root this machine already trusts, so a bundle can be written that holds them and
 # MixEngine's own. The per-OS work is this crate's — the Windows `ROOT` store, macOS's trust
@@ -196,6 +198,10 @@ host = [
     # `dbus-secret-service`'s arrangement, and for its reason.
     "dep:pem",
     "dep:rustls-native-certs",
+    # T183: a development build's credential file. Both already in the tree through
+    # `mixengine-proto`, so naming them adds no crate to any build.
+    "dep:serde",
+    "dep:serde_json",
     "dep:sysinfo",
     "dep:tracing",
     # T71: a group is identified by a pid *and* the moment it began, and reading that moment is
