@@ -1,4 +1,4 @@
-//! Which credential store this daemon keeps passwords in — roadmap task **T183**, ADR 0051.
+//! Which credential store this daemon keeps passwords in — roadmap task **T184**, ADR 0052.
 //!
 //! **Decided by where the binary came from**, the way ADR 0024 decides the default home: a release
 //! keeps the operating system's store, and anything else keeps a file in its own home, so an

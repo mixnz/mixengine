@@ -200,10 +200,10 @@ compile_error!(
 /// one is used.
 pub const RELEASE: bool = option_env!("MIXENGINE_RELEASE").is_some();
 
-/// Where a [`Host`]'s [`keyring`](Host::keyring) keeps credentials — roadmap task **T183**.
+/// Where a [`Host`]'s [`keyring`](Host::keyring) keeps credentials — roadmap task **T184**.
 ///
 /// [`Os`](Self::Os) is the machine's own store and what every release uses. [`File`](Self::File)
-/// is one private file, which is what `mixengined` uses when it is not a release (ADR 0051): an
+/// is one private file, which is what `mixengined` uses when it is not a release (ADR 0052): an
 /// unsigned development build is a stranger to the Keychain after every rebuild, and a file in its
 /// own home never has to ask anybody.
 #[cfg(feature = "host")]

@@ -36,7 +36,7 @@ use crate::{Error, Keyring, Result};
 
 mod file;
 
-/// The keyring a [`crate::Host`] hands out, for the store it was built with — T183.
+/// The keyring a [`crate::Host`] hands out, for the store it was built with — T184.
 pub(crate) fn store(credentials: crate::Credentials) -> Box<dyn Keyring> {
     match credentials {
         crate::Credentials::Os => Box::new(Secrets),

@@ -320,7 +320,7 @@ struct Args {
     log_format: Option<LogFormat>,
 
     /// Where credentials are kept: `os`, the machine's credential store, or `home`, a private file
-    /// in the home — roadmap task **T183**, ADR 0051.
+    /// in the home — roadmap task **T184**, ADR 0052.
     ///
     /// A release uses `os` and refuses `home`. Any other build defaults to `home`, because an
     /// unsigned daemon is a stranger to the Keychain after every rebuild and asks for the login
@@ -425,7 +425,7 @@ impl Args {
 }
 
 /// What this process brought with it from `main` beside its configuration: its own path, and where
-/// its credentials live (T183). Grouped for [`Sources`]' reason — `serve` is at clippy's seven.
+/// its credentials live (T184). Grouped for [`Sources`]' reason — `serve` is at clippy's seven.
 #[derive(Debug)]
 struct Launch {
     /// The running binary — see the note where `run` reads it.
@@ -552,7 +552,7 @@ async fn run() -> anyhow::Result<()> {
 
     let mut args = Args::parse();
 
-    // T183: decided before the home is opened, so a release asked to keep its passwords in a file
+    // T184: decided before the home is opened, so a release asked to keep its passwords in a file
     // refuses without having created anything.
     let credential_store = credentials::choose(mixengine_platform::RELEASE, args.credential_store)
         .map_err(anyhow::Error::msg)?;
@@ -1215,7 +1215,7 @@ async fn serve(
     // One host for both, rather than two: `declared` asks it what this system makes a front end
     // bind, and the registry keeps it for everything else.
     //
-    // T183: and the one host that reaches `keyring()` — directly, and through `elevation.host()`,
+    // T184: and the one host that reaches `keyring()` — directly, and through `elevation.host()`,
     // which the API hands to extensions and databases. Every other `host()` in this crate reaches
     // pools, activation, shims, autostart or machine facts, none of which read a credential.
     tracing::info!(credentials = %credentials::describe(&credentials), "credentials");
@@ -1259,7 +1259,7 @@ async fn serve(
         store,
         events.clone(),
         Arc::clone(&jobs),
-        // T183: the same host as the registry's, and not a second one. The API hands this one on
+        // T184: the same host as the registry's, and not a second one. The API hands this one on
         // to extensions, databases, bundles and certificates, which is where most credentials are
         // read and written — a separate `host()` here kept them in the OS store.
         Arc::clone(&host),

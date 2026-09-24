@@ -1,7 +1,7 @@
 ---
 status: implemented
 date: 2026-09-24
-task: T183
+task: T184
 ---
 
 # A build that is not a release keeps its own credentials
@@ -185,7 +185,7 @@ with every job still green.
 
 ## Documents
 
-- **New ADR 0051**, *A build that is not a release keeps its own credentials*. It extends
+- **New ADR 0052**, *A build that is not a release keeps its own credentials*. It extends
   ADR 0024 rather than editing it, as the working agreements require.
 - `docs/features/services.md`: the sentence saying where a service's credential lives gains the
   development-build row.
@@ -196,7 +196,7 @@ with every job still green.
 
 ## Open questions
 
-1. **Settled: T183, in phase 24** (*A test job that scales*). A test run that stops for a password
+1. **Settled: T184, in phase 24** (*A test job that scales*). A test run that stops for a password
    dialog does not scale either.
 2. **T126's fallback in released builds.** It still reads an address every home on a machine shares,
    and still copies whatever it finds into the reading home. Restricting it to a home whose database

@@ -23,7 +23,7 @@ pub const DATABASE_FILE_NAME: &str = "mixengine.db";
 /// means nothing — see [`mixengine_platform::lock`].
 pub const LOCK_FILE_NAME: &str = "mixengined.lock";
 
-/// A development build's credential store, directly under the root — T183, ADR 0051. A release
+/// A development build's credential store, directly under the root — T184, ADR 0052. A release
 /// never writes it.
 pub const CREDENTIALS_FILE_NAME: &str = "credentials.json";
 
@@ -297,7 +297,7 @@ impl Paths {
         &self.config_file
     }
 
-    /// `credentials.json`: where a build that is not a release keeps its credentials — T183.
+    /// `credentials.json`: where a build that is not a release keeps its credentials — T184.
     #[must_use]
     pub fn credentials_file(&self) -> &Path {
         &self.credentials_file
@@ -421,7 +421,7 @@ impl Paths {
 mod tests {
     use super::*;
 
-    /// T183: the credentials belong to the home, so no `[paths]` override moves them.
+    /// T184: the credentials belong to the home, so no `[paths]` override moves them.
     #[test]
     fn the_credentials_file_stays_at_the_root_whatever_moves() {
         let overrides = PathOverrides {

@@ -406,7 +406,7 @@ async fn a_web_app_is_configured_from_the_database_it_was_linked_to() {
     // And `{secret}` was answered by something, rather than left standing as a literal brace.
     assert!(!written.contains("{secret}"), "{written}");
 
-    // **T183: the secret is in this home's file, and nowhere on the machine.** A development
+    // **T184: the secret is in this home's file, and nowhere on the machine.** A development
     // daemon keeps its credentials beside everything else of its home's, so this test no longer
     // writes the developer's Keychain — and no longer reads `extensions/phpmyadmin/config` out of
     // it through T126's fallback, which every home on the machine shares.

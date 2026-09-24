@@ -39,7 +39,7 @@ another home running the same binary) is reported as such, rather than as os err
 
 **A development build keeps its credentials in its home too**, in `credentials.json` instead of the
 Keychain, Credential Manager or Secret Service
-([ADR 0051](../decisions/0051-a-build-that-is-not-a-release-keeps-its-own-credentials.md)). An unsigned
+([ADR 0052](../decisions/0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md)). An unsigned
 daemon is a stranger to the Keychain after every rebuild, and a file never has to ask anybody. The
 cost is the hand-off: MixDB and the desktop window read a managed database's password from the
 machine's store, so to work on that path start the daemon with `--credential-store os`

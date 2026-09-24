@@ -1,4 +1,4 @@
-# 0051. A build that is not a release keeps its own credentials
+# 0052. A build that is not a release keeps its own credentials
 
 **Status**: Accepted. It extends [0024](0024-a-build-that-is-not-a-release-keeps-its-own-home.md)
 from the home to the credential store, and leaves 0024 as it is.
@@ -55,7 +55,7 @@ home is.**
   each one has to remember is a flag the next one will forget.
 
 The design, with the reasoning for each point, is
-[the T183 spec](../specs/2026-09-24-a-build-that-is-not-a-release-keeps-its-own-credentials-design.md).
+[the T184 spec](../specs/2026-09-24-t184-a-build-that-is-not-a-release-keeps-its-own-credentials-design.md).
 
 ## Consequences
 

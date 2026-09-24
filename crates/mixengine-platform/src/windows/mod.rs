@@ -110,7 +110,7 @@ pub(crate) struct Host {
     autostart: autostart::Logon,
     // Not a `windows/` module: the Credential Manager is reached through the same crate the other
     // two systems' stores are. See `crate::secrets`.
-    // Boxed because a development daemon keeps it in a file instead — T183.
+    // Boxed because a development daemon keeps it in a file instead — T184.
     secrets: Box<dyn crate::Keyring>,
     env: path::Env,
     ports: ports::Ports,

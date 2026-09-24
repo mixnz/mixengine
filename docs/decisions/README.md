@@ -50,8 +50,8 @@ that supersedes the old one and update the old one's status line — never edit 
 | [0048](0048-a-file-a-package-manager-placed-leaves-with-the-package.md) | A file a package manager placed leaves with the package; `mix uninstall` keeps a packaged helper on Linux | Accepted |
 | [0049](0049-a-download-is-named-after-what-it-installs.md) | A download is named after what it installs: `mixlab-…` with the window, `mixengine-…-headless` without | Accepted |
 | [0050](0050-a-copy-the-pkg-installed-is-updated-by-the-pkg.md) | A copy the `.pkg` installed is updated by the `.pkg`, through Installer.app | Accepted |
-| [0051](0051-a-build-that-is-not-a-release-keeps-its-own-credentials.md) | A build that is not a release keeps its credentials in its home, not in the OS store | Accepted |
 | [0051](0051-an-uninstall-ends-what-it-undoes.md) | An uninstall ends what it undoes, and is the uninstaller's rather than the window's | Accepted |
+| [0052](0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md) | A build that is not a release keeps its credentials in its home, not in the OS store | Accepted |
 
 ### Desktop (recorded in MixDB)
 
