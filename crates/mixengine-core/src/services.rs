@@ -227,6 +227,14 @@ pub struct ServiceRecord {
     /// read in the same statement and answered in the same summary, and splitting it out would buy
     /// a second query per listing to keep a distinction nothing acts on.
     pub autostart: bool,
+
+    /// Which version of its program this service runs — roadmap task **T182**.
+    ///
+    /// Out of whichever parent the row names: the package's for a server, the runtime's for
+    /// php-fpm. [`None`] for an extension's service, whose version is the extension's rather than a
+    /// program's, and for a stored text this build cannot parse, which a listing reports as a blank
+    /// cell rather than failing over.
+    pub version: Option<PackageVersion>,
 }
 
 /// Where the binary a service runs comes from.
@@ -744,7 +752,7 @@ pub async fn version(store: &Store, service: &ServiceId) -> Result<Option<Packag
     .map_err(|source| store.failure("read", source))?
     .flatten();
 
-    Ok(found.and_then(|version| PackageVersion::parse(version).ok()))
+    Ok(installed_version(found))
 }
 
 /// One service's row.
@@ -758,9 +766,12 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
     let id = service.as_str();
 
     let row = sqlx::query!(
-        "SELECT state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,
-                autostart
-         FROM services WHERE id = ?",
+        r#"SELECT s.state, s.pid, s.pid_start_time, s.last_started_at, s.last_exit_code, s.port,
+                  s.stopped_by, s.autostart, coalesce(p.version, r.version) AS version
+           FROM services s
+           LEFT JOIN packages p ON p.id = s.package_id
+           LEFT JOIN runtime_installs r ON r.id = s.runtime_install_id
+           WHERE s.id = ?"#,
         id
     )
     .fetch_optional(store.pool())
@@ -780,6 +791,7 @@ pub async fn record(store: &Store, service: &ServiceId) -> Result<ServiceRecord>
         last_exit_code: exit_code(row.last_exit_code),
         port: listening_port(row.port),
         autostart: row.autostart != 0,
+        version: installed_version(row.version),
     })
 }
 
@@ -899,9 +911,11 @@ pub async fn declaration(store: &Store, service: &ServiceId) -> Result<Declarati
 /// services has no rows, which is an answer and not a failure.
 pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
     let rows = sqlx::query!(
-        "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,
-                autostart
-         FROM services"
+        r#"SELECT s.id, s.state, s.pid, s.pid_start_time, s.last_started_at, s.last_exit_code,
+                  s.port, s.stopped_by, s.autostart, coalesce(p.version, r.version) AS version
+           FROM services s
+           LEFT JOIN packages p ON p.id = s.package_id
+           LEFT JOIN runtime_installs r ON r.id = s.runtime_install_id"#
     )
     .fetch_all(store.pool())
     .await
@@ -928,6 +942,7 @@ pub async fn records(store: &Store) -> Result<BTreeMap<String, ServiceRecord>> {
                     last_exit_code: exit_code(row.last_exit_code),
                     port: listening_port(row.port),
                     autostart: row.autostart != 0,
+                    version: installed_version(row.version),
                 },
             ))
         })
@@ -950,6 +965,12 @@ fn process_id(stored: Option<i64>) -> Option<u32> {
 /// port, not take a listing down.
 fn listening_port(stored: Option<i64>) -> Option<u16> {
     stored.and_then(|port| u16::try_from(port).ok())
+}
+
+/// The same, for a version — a text this build cannot parse is a blank cell, not a failed listing
+/// (T182).
+fn installed_version(stored: Option<String>) -> Option<PackageVersion> {
+    stored.and_then(|version| PackageVersion::parse(version).ok())
 }
 
 /// The same, for an exit code — [`ended`] writes an `i32`.
@@ -1936,6 +1957,90 @@ mod tests {
         assert!(
             matches!(error, Error::DataDirectoryTaken { .. }),
             "refused for the directory rather than for something else: {error}"
+        );
+    }
+
+    /// **T182.** Each of the three parents answers for its own version, and a listing and a single
+    /// read agree.
+    #[tokio::test]
+    async fn a_record_carries_the_version_of_the_program_it_runs() {
+        let (_home, store) = store().await;
+
+        // A server, out of a `packages` row — `service_row` installs its package at 1.0.0.
+        let server = service_row(&store, "fakeservice", ServiceState::Stopped).await;
+
+        // php-fpm, out of a `runtime_installs` row.
+        sqlx::query(
+            "INSERT INTO runtime_installs
+                 (kind, version, channel, install_path, installed_at, size_bytes, source_url, sha256)
+             VALUES ('php', '8.3.33', 'stable', '/runtimes/php/8.3.33', '2026-09-24T00:00:00Z',
+                     1, 'https://example.invalid/php', 'abc')",
+        )
+        .execute(store.pool())
+        .await
+        .expect("a runtime install");
+        sqlx::query(
+            "INSERT INTO services (id, runtime_install_id, instance_name, state)
+             VALUES ('php-fpm@8.3.33', (SELECT id FROM runtime_installs LIMIT 1), '8.3.33',
+                     'stopped')",
+        )
+        .execute(store.pool())
+        .await
+        .expect("a php-fpm row");
+
+        // An extension's service: its version is the extension's, not a program's.
+        sqlx::query(
+            "INSERT INTO extensions (id, name, version, kind, manifest_json, install_dir, data_dir,
+                                     source, signed, installed_at)
+             VALUES ('mailpit', 'Mailpit', '0.9.0', 'service', '{}', '/ext/mailpit',
+                     '/data/extensions/mailpit', 'path', 0, '2026-09-24T00:00:00Z')",
+        )
+        .execute(store.pool())
+        .await
+        .expect("an extension row");
+        sqlx::query(
+            "INSERT INTO services (id, extension_id, instance_name, state)
+             VALUES ('mailpit', 'mailpit', 'mailpit', 'stopped')",
+        )
+        .execute(store.pool())
+        .await
+        .expect("an extension's service row");
+
+        let listed = records(&store).await.expect("the rows");
+        let version_of = |id: &str| listed[id].version.as_ref().map(PackageVersion::as_str);
+
+        assert_eq!(version_of("fakeservice"), Some("1.0.0"));
+        assert_eq!(version_of("php-fpm@8.3.33"), Some("8.3.33"));
+        assert_eq!(
+            version_of("mailpit"),
+            None,
+            "an extension's version is not the program's"
+        );
+
+        assert_eq!(
+            record(&store, &server).await.expect("the row").version,
+            listed["fakeservice"].version,
+            "the single read and the listing must not drift"
+        );
+    }
+
+    /// A version nobody can parse is a listing with one blank cell, not a listing that fails.
+    #[tokio::test]
+    async fn a_version_that_does_not_parse_is_reported_as_none() {
+        let (_home, store) = store().await;
+        let service = service_row(&store, "fakeservice", ServiceState::Stopped).await;
+        sqlx::query("UPDATE packages SET version = 'not a version' WHERE name = 'fakeservice'")
+            .execute(store.pool())
+            .await
+            .expect("a hand-edited row");
+
+        assert_eq!(
+            record(&store, &service).await.expect("the row").version,
+            None
+        );
+        assert_eq!(
+            records(&store).await.expect("the rows")["fakeservice"].version,
+            None
         );
     }
 

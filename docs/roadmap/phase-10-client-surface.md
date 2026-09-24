@@ -73,6 +73,11 @@ subscription that is supposed to gate it.
       Reachable as `mix service front-end` and `mix service set-front-end <caddy|nginx>`.
       Design:
       [docs/specs/2026-09-07-t97-the-active-front-end-design.md](../specs/2026-09-07-t97-the-active-front-end-design.md).
+- [ ] **T182** A service says which version it runs. `ServiceSummary` had no version, so
+      `mysql@main` told nobody which MySQL it was, and the only fix open to a client was to guess
+      from the id. `service.list` carries `version` from the row's parent, `mix service list` gains
+      a `VERSION` column, and MixLab draws it beside the id. Design:
+      [docs/specs/2026-09-24-t182-a-service-says-which-version-it-runs-design.md](../specs/2026-09-24-t182-a-service-says-which-version-it-runs-design.md).
 
 **Milestone M10 — MixDB's Dashboard and Settings screens draw whole, with no business logic in the
 client.** Not *a client can call these methods*: the test is that the screen `client-surface.md`
