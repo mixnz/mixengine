@@ -259,7 +259,7 @@ pub struct ServiceSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped_by: Option<StoppedBy>,
 
-    /// Which version of its program this service runs — roadmap task **T182**.
+    /// Which version of its program this service runs — roadmap task **T183**.
     ///
     /// **What a person reads next to the id**, because the id is a name they chose and says
     /// nothing about the program: `mysql@main` is whichever MySQL was installed when it was created.
@@ -592,11 +592,11 @@ mod tests {
         );
         assert_eq!(
             decoded.version, None,
-            "an absent version is a daemon that predates T182"
+            "an absent version is a daemon that predates T183"
         );
     }
 
-    /// **T182.** A version goes out as the plain string it was installed as, and comes back equal.
+    /// **T183.** A version goes out as the plain string it was installed as, and comes back equal.
     #[test]
     fn a_summary_carries_the_version_it_runs_and_omits_one_it_does_not_know() {
         let known = ServiceSummary {

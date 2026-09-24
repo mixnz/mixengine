@@ -59,6 +59,10 @@ pub mod markers;
 pub(crate) mod metrics;
 #[cfg(feature = "host")]
 pub mod mock;
+// Documented by its own `//!` header. `host` only, on `metrics`' reasoning: the daemon asks it
+// before an uninstall, and `mixengine-elevate` has no business enumerating processes (T182).
+#[cfg(feature = "host")]
+pub mod occupants;
 pub mod paths;
 // Documented by its own `//!` header. Under both features for `hosts`' reason.
 #[cfg(any(feature = "host", feature = "elevated"))]
@@ -114,6 +118,9 @@ mod secrets;
 pub(crate) mod desktop;
 #[cfg(feature = "signal")]
 pub mod signal;
+// Documented by its own `//!` header. Under no feature: it is `std::fs` only, and `mix` reads it
+// as well as the daemon (T182).
+pub mod tombstone;
 #[cfg(feature = "host")]
 mod traits;
 

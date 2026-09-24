@@ -14,7 +14,6 @@ import FrontEndSection from "./FrontEndSection";
 import PathSection from "./PathSection";
 import styles from "./Settings.module.css";
 import SaveResourcesSection from "./SaveResourcesSection";
-import UninstallSection from "./UninstallSection";
 import UpdatesSection from "./UpdatesSection";
 
 /**
@@ -31,11 +30,9 @@ import UpdatesSection from "./UpdatesSection";
 export default function Settings({
   active,
   onUpdateApplied,
-  onUninstalled,
 }: {
   active: boolean;
   onUpdateApplied: () => void;
-  onUninstalled: () => void;
 }) {
   const [status, setStatus] = useState<DaemonStatus | null>(null);
   const [error, setError] = useState("");
@@ -78,7 +75,6 @@ export default function Settings({
       <PathSection active={active} onError={setError} />
       <UpdatesSection active={active} onError={setError} onApplied={onUpdateApplied} />
       <DoctorSection active={active} onError={setError} />
-      <UninstallSection onError={setError} onUninstalled={onUninstalled} />
       <DiagnosticsSection onError={setError} />
     </div>
   );

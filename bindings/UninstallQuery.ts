@@ -17,6 +17,15 @@ export type UninstallQuery = {
  */
 keep_home: boolean, 
 /**
+ * Leave every directory `[paths]` has moved out of the root where it is — roadmap task **T182**.
+ *
+ * **Its own choice and not part of `keep_home`** (the T182 design, D2): those directories are
+ * moved to another disk because they are large, and a person may want the home gone and the
+ * databases on the other disk kept, or the reverse. A directory that was never moved lies inside
+ * the home and follows `keep_home`.
+ */
+keep_relocated: boolean, 
+/**
  * Flush the elevation queue in this same call, raising the one prompt.
  *
  * **Defaults to `false`**, and ignored by `daemon.uninstall_plan`, which raises nothing. The

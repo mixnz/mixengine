@@ -38,7 +38,7 @@ describe("rowsFrom", () => {
     ]);
   });
 
-  /* T182: phiên bản là thứ người dùng đọc cạnh id. Daemon cũ không gửi field này, nên nó thành
+  /* T183: phiên bản là thứ người dùng đọc cạnh id. Daemon cũ không gửi field này, nên nó thành
      `null`, và `null` nghĩa là không vẽ gì. */
   it("carries a service's version onto its row, and null when the daemon sent none", () => {
     const base = {

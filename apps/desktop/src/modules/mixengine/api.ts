@@ -83,8 +83,6 @@ import type { UpdateApplied } from "@mixengine/api";
 import type { DoctorReport } from "@mixengine/api";
 import type { DoctorRepair } from "@mixengine/api";
 import type { RepairReport } from "@mixengine/api";
-import type { UninstallQuery } from "@mixengine/api";
-import type { UninstallReport } from "@mixengine/api";
 import type { BundleReport } from "@mixengine/api";
 
 /**
@@ -645,15 +643,6 @@ export function doctor(): Promise<DoctorReport> {
  *  biết có cần mở `ElevationDialog` không, không tự trả một dialog riêng. */
 export function doctorRepair(input: DoctorRepair): Promise<RepairReport> {
   return invoke<RepairReport>("mixengine_doctor_repair", { params: input });
-}
-
-export function uninstallPlan(input: UninstallQuery): Promise<UninstallReport> {
-  return invoke<UninstallReport>("mixengine_uninstall_plan", { params: input });
-}
-
-/** Trả một `JobSummary` — theo dõi qua `jobStatus`, không phải `UninstallReport` trực tiếp. */
-export function uninstall(input: UninstallQuery): Promise<JobSummary> {
-  return invoke<JobSummary>("mixengine_uninstall", { params: input });
 }
 
 export function bundle(): Promise<BundleReport> {

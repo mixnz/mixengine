@@ -22,7 +22,7 @@ export interface ServiceRow {
   /** Ai để nó dừng, khi nó đang dừng — T167g. `daemon` nghĩa là MixEngine tự dừng (vì rảnh), và
    *  request kế tiếp sẽ bật lại; `null` khi đang chạy hoặc daemon cũ không gửi. */
   stoppedBy: StoppedBy | null;
-  /** Phiên bản chương trình service đang chạy — T182. `null` khi daemon không gửi (daemon cũ,
+  /** Phiên bản chương trình service đang chạy — T183. `null` khi daemon không gửi (daemon cũ,
    *  service của extension…), và khi đó không vẽ gì cả. */
   version: string | null;
 }

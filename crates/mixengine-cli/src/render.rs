@@ -800,7 +800,7 @@ pub(crate) fn service_list(list: &ServiceList) -> String {
 
     // `AUTOSTART` beside `STATE` rather than out at the end — roadmap task T112. The two are the
     // question somebody scanning this table is actually asking: what is running, and what will be
-    // running after the next login. `VERSION` beside the id (T182), because the id is a name
+    // running after the next login. `VERSION` beside the id (T183), because the id is a name
     // somebody chose and the version is what it actually is.
     table(
         [
@@ -2473,6 +2473,7 @@ pub(crate) fn uninstall_report(report: &UninstallReport) -> String {
             Removal::OnRestart { what } => ("restart  ", Some(what)),
             Removal::Kept { because } => ("kept     ", Some(because)),
             Removal::Failed { because } => ("LEFT     ", Some(because)),
+            Removal::Blocked { by } => ("BLOCKED  ", Some(by)),
         };
 
         out.push_str(&format!("{mark}{}\n", item.what));
@@ -5309,7 +5310,7 @@ mod tests {
         );
     }
 
-    /// **T182.** A status names the version beside the other facts, and a service with none
+    /// **T183.** A status names the version beside the other facts, and a service with none
     /// prints no empty line for it.
     #[test]
     fn a_status_names_the_version_the_service_runs() {

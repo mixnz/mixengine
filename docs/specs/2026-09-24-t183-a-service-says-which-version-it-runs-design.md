@@ -1,7 +1,7 @@
 ---
 status: implemented
 date: 2026-09-24
-task: T182
+task: T183
 ---
 
 # A service says which version it runs
@@ -34,18 +34,18 @@ becomes wrong the day that happens, and it can never be corrected. The id stays 
 ### Protocol: `ServiceSummary::version`
 
 ```rust
-/// Which version of its program this service runs — roadmap task **T182**.
+/// Which version of its program this service runs — roadmap task **T183**.
 #[serde(default, skip_serializing_if = "Option::is_none")]
 pub version: Option<PackageVersion>,
 ```
 
 Optional, as [ADR 0019](../decisions/0019-an-added-response-member-is-optional.md) requires of an
-added response member: a newer MixLab talking to a daemon built before T182 reads the member as
+added response member: a newer MixLab talking to a daemon built before T183 reads the member as
 absent and draws no version instead of refusing the whole list.
 
 **[`None`] covers four cases, and a client treats all four the same way: it draws nothing.**
 
-- the daemon predates T182;
+- the daemon predates T183;
 - the service is declared but has no row, and has no state for the same reason;
 - the service comes from an extension (`services.extension_id`). The extension's version is the
   extension's, not the program's, and `services::version` already leaves this case out;

@@ -160,10 +160,10 @@ export default function MixEngineTab({
     };
   }, []);
 
-  /* `update.apply` và `daemon.uninstall` (`keep_home: false`) đều tự kết thúc chính daemon đang phục
-     vụ request đó — không có gì ở tầng này khởi động lại nó giùm người dùng (đúng luật "không tự
-     khởi động daemon" ở đầu file). Settings gọi `pollUntilDaemonLeaves` ngay khi một trong hai xong
-     (`onUpdateApplied`/`onUninstalled`, cùng một hàm) để nghe đúng lúc `presence` rời khỏi
+  /* `update.apply` tự kết thúc chính daemon đang phục vụ request đó — không có gì ở tầng này khởi
+     động lại nó giùm người dùng (đúng luật "không tự khởi động daemon" ở đầu file). Gỡ MixEngine
+     không còn là một màn của app (T182) mà là việc của bộ gỡ cài đặt và `mix uninstall`. Settings
+     gọi `pollUntilDaemonLeaves` ngay khi update xong (`onUpdateApplied`) để nghe đúng lúc `presence` rời khỏi
      `"running"`, rồi để gate phía trên tự vẽ màn đúng — "Start" nếu chương trình vẫn còn trên đĩa mà
      chỉ tiến trình dừng, "Cài lại" kèm danh sách thư mục đã tìm nếu đã gỡ sạch (`notInstalled`),
      hoặc màn hình bình thường nếu
@@ -365,7 +365,6 @@ export default function MixEngineTab({
           <Settings
             active={active}
             onUpdateApplied={pollUntilDaemonLeaves}
-            onUninstalled={pollUntilDaemonLeaves}
           />
         ))}
       </div>

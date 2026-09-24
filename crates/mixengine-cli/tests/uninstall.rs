@@ -171,14 +171,79 @@ fn needs_an_administrator(home: &Home) -> bool {
     !waiting.is_empty()
 }
 
-/// `--keep-home` undoes what is outside the home, leaves the home, and leaves the daemon running.
+/// T182, D9. On a home with nothing relocated, the listing the Windows uninstaller reads is empty
+/// and the command succeeds.
+#[tokio::test(flavor = "multi_thread")]
+async fn listing_relocated_directories_on_a_plain_home_prints_nothing() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let printed = home.mix(&["uninstall", "--dry-run", "--relocated"]);
+
+    assert!(printed.status.success(), "{}", stderr(&printed));
+    assert_eq!(stdout(&printed).trim(), "", "{}", stdout(&printed));
+}
+
+/// T182, D4. A program running from inside the home makes the dry run exit `3` and name it — the
+/// code the Windows uninstaller reads as *close this and try again*.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_program_running_from_the_home_blocks_with_exit_code_three() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let (source, args): (std::path::PathBuf, &[&str]) = if cfg!(windows) {
+        (
+            std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
+                .join(r"System32\PING.EXE"),
+            &["-n", "30", "127.0.0.1"],
+        )
+    } else {
+        (std::path::PathBuf::from("/bin/sleep"), &["30"])
+    };
+    let directory = home.path().join("t182-occupant");
+    std::fs::create_dir_all(&directory).expect("a directory in the home");
+    let copy = directory.join(source.file_name().expect("a file name"));
+    std::fs::copy(&source, &copy).expect("copy the program");
+    let mut occupant = std::process::Command::new(&copy)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("start the occupant");
+
+    let printed = home.mix(&["uninstall", "--dry-run"]);
+
+    let _ = occupant.kill();
+    let _ = occupant.wait();
+
+    assert_eq!(printed.status.code(), Some(3), "{}", stdout(&printed));
+    assert!(
+        stdout(&printed).contains("BLOCKED"),
+        "the program in the way is named: {}",
+        stdout(&printed)
+    );
+}
+
+/// T182, D9. `--relocated` without `--dry-run` is refused by the parser: it changes nothing, and
+/// must never be mistaken for the act.
+#[test]
+fn listing_requires_a_dry_run() {
+    let home = Home::new();
+
+    let printed = home.mix(&["uninstall", "--relocated"]);
+
+    assert_eq!(printed.status.code(), Some(2), "{}", stderr(&printed));
+}
+
+/// `--keep-home` undoes what is outside the home, leaves the home, and ends the daemon.
 ///
 /// **Nothing outside the home is asserted to have gone.** What is proved is the half this flag is
-/// for: the home survives, and so does the daemon serving it.
+/// for — the home survives — and the half T182 changed: a finished uninstall ends the daemon
+/// whatever was kept, because a kept home is no reason to go on serving a machine that has just been
+/// told to forget it (the T182 design, D1).
 #[tokio::test(flavor = "multi_thread")]
-async fn keeping_the_home_leaves_the_home_and_the_daemon() {
+async fn keeping_the_home_leaves_the_home_and_ends_the_daemon() {
     let home = Home::new();
-    let daemon = home.start_daemon();
+    let mut daemon = home.start_daemon();
 
     if needs_an_administrator(&home) {
         return;
@@ -195,13 +260,11 @@ async fn keeping_the_home_leaves_the_home_and_the_daemon() {
         .expect("the home is always a row");
 
     assert_eq!(kept["outcome"]["removal"], "kept", "{report}");
+    assert!(
+        daemon.wait_until_gone(),
+        "a finished uninstall that kept the home left its daemon running: {report}"
+    );
     assert!(home.path().exists());
-
-    // Still answering: `--keep-home` stops nothing, because there is still a home to serve.
-    let status = json(&home.mix(&["status", "--json"]));
-    assert!(status["daemon"]["pid"].is_number(), "{status}");
-
-    drop(daemon);
 }
 
 /// A complete uninstall takes the home with it, and the daemon goes so that it can.

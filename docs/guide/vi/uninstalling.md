@@ -4,7 +4,7 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "00473e7d334eab4c37e82c0dc4b7befc003621b4a6369a0de9e50ced0833bbee"
+source_sha256 = "8fb28e6a48941aaf2abe92c8610eb413420a9770107a00ff45c8b375021b5220"
 +++
 
 # Gỡ MixLab
@@ -16,6 +16,25 @@ source_sha256 = "00473e7d334eab4c37e82c0dc4b7befc003621b4a6369a0de9e50ced0833bbe
 
 MixLab ghi gần như mọi thứ vào một thư mục duy nhất. Ngoại lệ là vài thay đổi đặc quyền mà nó
 đã xin phép bạn, và `mix uninstall` chính là để thu hồi những thay đổi đó.
+
+## Trên Windows, Installed apps lo hết
+
+Gỡ MixLab trong Installed apps. Bộ gỡ hỏi hai lựa chọn, mặc định đều không tick:
+
+- **Also delete MixLab's data**: thư mục home, gồm database, chứng chỉ và bản ghi các project.
+- **Also delete the folders you moved out of it**: chỉ hiện khi bạn đã dùng `[paths]` để chuyển
+  `runtimes`, `packages`, `data` hoặc `logs` sang chỗ khác, và liệt kê các thư mục đó.
+
+Nếu MixLab đang mở, bộ gỡ hỏi rồi đóng nó. Sau đó nó kiểm tra mọi thứ có thể làm kẹt giữa chừng:
+file đang được dùng, hoặc chương trình đang chạy từ thư mục của MixLab, ví dụ một `php` bạn chạy
+qua shim. Có thứ nào chặn thì nó nêu tên và không xóa gì cả. Tắt thứ đó rồi bấm Uninstall lại.
+
+Tiếp theo là một hộp thoại quản trị để hoàn tác các thay đổi trên máy liệt kê bên dưới, rồi đến
+lượt chương trình. Nếu bạn từ chối hộp thoại, không có gì bị xóa và MixLab vẫn còn nguyên. Khi nào
+sẵn sàng thì chạy Uninstall lại.
+
+Phần còn lại của trang này là cùng việc đó nhưng làm bằng `mix`, cũng là cách làm trên macOS và
+Linux.
 
 ## Xem danh sách trước
 
@@ -43,6 +62,13 @@ mix uninstall
 Bạn sẽ được hỏi xác nhận, và một hộp thoại quản trị duy nhất bao trọn phần đặc quyền. `--yes` trả
 lời trước câu xác nhận đó, dành cho script.
 
+**Chưa có gì thay đổi cho tới khi bạn cho phép.** Từ chối hộp thoại thì `PATH`, mục tự khởi động
+và các browser của bạn vẫn y như cũ. Khi nào sẵn sàng thì chạy lại lệnh.
+
+**Có chương trình đang chạy từ thư mục của MixLab thì lệnh dừng ngay từ đầu.** Danh sách đánh dấu
+nó là `BLOCKED` và lệnh thoát với mã `3`, để script phân biệt được "tắt cái này rồi thử lại" với
+một lỗi thật. Tắt chương trình đó rồi chạy lại lệnh.
+
 **Báo cáo là kết quả đo được, không phải lời khẳng định.** Thứ trả về là những gì MixLab tìm
 thấy trên máy *sau khi* gỡ, từng dòng một, kể cả những dòng trả lời *không có gì ở đây*. Nếu báo
 cáo giấu những dòng đó, bạn sẽ không phân biệt được "không có cấu hình resolver nào" với "chưa
@@ -60,9 +86,17 @@ mix uninstall --keep-home
 ```
 
 Lệnh này hoàn tác mọi thứ **bên ngoài** thư mục home và để nguyên home: cơ sở dữ liệu trong `data/`,
-chứng chỉ, bản ghi các project. Daemon vẫn chạy, vì vẫn còn home để nó phục vụ.
+chứng chỉ, bản ghi các project. Xong việc thì daemon dừng, và lần cài sau sẽ dùng lại home này.
 
-Đây là lệnh đúng khi bạn muốn trả lại cấu hình mạng cho máy nhưng vẫn chưa xong việc với dữ liệu.
+Nếu bạn đã dùng `[paths]` để chuyển `runtimes`, `packages`, `data` hoặc `logs` sang ổ khác, các thư
+mục đó là một lựa chọn riêng:
+
+```bash
+mix uninstall --keep-relocated
+```
+
+giữ chúng lại và xóa home. Dùng cả hai cờ để giữ tất cả. Thư mục nào bạn chưa từng chuyển đi thì
+nằm trong home, nên đi cùng home.
 
 ## Rồi gỡ chính chương trình
 
@@ -76,7 +110,7 @@ sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengin
   /Applications/MixLab.app
 ```
 
-Trên Windows, dùng Apps & Features nếu cài bằng bộ cài, hoặc xóa thư mục nếu dùng bản zip portable.
+Trên Windows, bộ gỡ của bộ cài đã làm luôn phần này. Nếu dùng bản zip portable thì xóa thư mục.
 Trên macOS, dòng thứ ba ở trên xóa những gì `.pkg` đã đặt vào, **MixLab** cũng nằm trong đó.
 AppImage chỉ là một file, xóa đi là xong.
 

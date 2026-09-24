@@ -1423,9 +1423,11 @@ impl Api {
     /// **The guard that ends the daemon is taken after the job, not around it.** A grant nobody
     /// answers keeps the job open for as long as the dialog is on the screen, and a `Going` held
     /// across that wait would end the daemon the moment the wait gave up — with the prompt still on
-    /// the person's screen. So this waits for the job to finish, and only then asks whether anything
-    /// was armed: a declined grant arms nothing, the daemon stays up, and the same command works when
-    /// the person is ready (the T87 design, D9).
+    /// the person's screen. So this waits for the job to finish, and only then asks whether the
+    /// uninstall finished: a declined grant or a refused row finishes nothing, the daemon stays up,
+    /// and the same command works when the person is ready (the T87 design, D9). **A finished one
+    /// ends the daemon whatever was kept** — a kept home is no reason to go on serving a machine
+    /// that has just been told to forget it (the T182 design, D1).
     async fn uninstall_now(&self, query: UninstallQuery) -> Result<JobSummary, Error> {
         let uninstall = Arc::clone(&self.uninstall);
         let started = self
@@ -1467,13 +1469,13 @@ impl Api {
                 }
             }
 
-            if armed.is_empty() {
+            if !armed.is_finished() {
                 return;
             }
 
             tracing::info!(
-                "this home has been removed from this machine; the daemon is stopping so its own \
-                 directory can go with it"
+                "this home has been removed from this machine; the daemon is stopping, and takes \
+                 whatever of its own directories were not kept with it"
             );
 
             token.cancel();
@@ -2354,7 +2356,7 @@ pub(super) fn summary(
         stopped_by: record
             .filter(|record| record.state == mixengine_proto::ServiceState::Stopped)
             .map(|record| record.stopped_by.into()),
-        // The row's parent's version (T182), on `port`'s rule: no row, no version to report.
+        // The row's parent's version (T183), on `port`'s rule: no row, no version to report.
         version: record.and_then(|record| record.version.clone()),
     }
 }
@@ -3025,10 +3027,11 @@ mod tests {
         }
     }
 
-    /// And `keep_home` leaves the home where it is, says so on its row, and arms nothing — which is
-    /// what stops this daemon ending itself.
+    /// And `keep_home` leaves the home where it is, says so on its row, and arms no directory. The
+    /// daemon ends when the run finished and not otherwise — whatever was kept (the T182 design,
+    /// D1).
     #[tokio::test]
-    async fn keeping_the_home_arms_nothing_and_says_so() {
+    async fn keeping_the_home_arms_no_directory_and_says_so() {
         let daemon = undeclared().await;
 
         let started: JobSummary = daemon
@@ -3051,10 +3054,156 @@ mod tests {
             "{home:?}"
         );
         assert!(daemon.api.armed.is_empty(), "the home was armed anyway");
-        assert!(
-            !daemon.api.shutdown.token().is_cancelled(),
-            "a home that is being kept is a daemon that keeps running"
+
+        let waiting = report
+            .items
+            .iter()
+            .any(|item| matches!(item.outcome, mixengine_proto::Removal::Enqueued { .. }));
+        assert_eq!(
+            daemon.api.armed.is_finished(),
+            !waiting,
+            "a run with a privileged row still waiting is not finished, and one without is: \
+             {report:?}"
         );
+    }
+
+    /// T182, D5. Without a grant, the three things that need no token are not touched either: an
+    /// uninstall that cannot finish the privileged half changes nothing else.
+    #[tokio::test]
+    async fn without_a_grant_nothing_that_needs_no_token_is_touched_either() {
+        let daemon = undeclared().await;
+
+        let started: JobSummary = daemon
+            .expect(
+                rpc::method::DAEMON_UNINSTALL,
+                serde_json::json!({ "keep_home": true, "grant": false }),
+            )
+            .await;
+
+        let report = uninstall_result(&daemon, started).await;
+
+        let waiting = report
+            .items
+            .iter()
+            .any(|item| matches!(item.outcome, mixengine_proto::Removal::Enqueued { .. }));
+
+        if waiting {
+            for item in &report.items {
+                assert!(
+                    !matches!(item.outcome, mixengine_proto::Removal::Removed { .. }),
+                    "a privileged row is waiting and this was removed anyway: {item:?}"
+                );
+            }
+        }
+    }
+
+    /// T182, D4. A process running from the home refuses the act before anything is enqueued.
+    #[tokio::test]
+    async fn a_process_in_the_home_refuses_the_uninstall() {
+        let daemon = undeclared().await;
+        let root = daemon._home.path().to_path_buf();
+
+        let (source, args): (std::path::PathBuf, &[&str]) = if cfg!(windows) {
+            (
+                std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
+                    .join(r"System32\PING.EXE"),
+                &["-n", "30", "127.0.0.1"],
+            )
+        } else {
+            (std::path::PathBuf::from("/bin/sleep"), &["30"])
+        };
+        let occupant = root.join("t182-occupant");
+        std::fs::create_dir_all(&occupant).expect("a directory in the home");
+        let copy = occupant.join(source.file_name().expect("a file name"));
+        std::fs::copy(&source, &copy).expect("copy the program");
+
+        // Not a child of this test process: `processes_under` spares the daemon's descendants, and
+        // in this harness the daemon *is* the test process. `cmd /c start` and a backgrounded `sh`
+        // job both leave the program behind a launcher that has exited — `setsid` would too, but
+        // macOS has none.
+        let mut launcher = if cfg!(windows) {
+            let mut command = std::process::Command::new("cmd");
+            command
+                .args(["/c", "start", "/b", ""])
+                .arg(&copy)
+                .args(args);
+            command
+        } else {
+            let mut command = std::process::Command::new("sh");
+            command
+                .args(["-c", "\"$0\" \"$@\" >/dev/null 2>&1 &"])
+                .arg(&copy)
+                .args(args);
+            command
+        };
+        launcher
+            .stdout(std::process::Stdio::null())
+            .status()
+            .expect("start the occupant");
+
+        let pending_before = daemon
+            .api
+            .elevation
+            .status()
+            .await
+            .expect("a queue")
+            .pending;
+
+        let answer = daemon
+            .ask(
+                rpc::method::DAEMON_UNINSTALL,
+                serde_json::json!({ "keep_home": false, "grant": false }),
+            )
+            .await;
+
+        let refused = match answer.get("result") {
+            Some(result) => {
+                let started: JobSummary =
+                    serde_json::from_value(result.clone()).expect("a job summary");
+                matches!(
+                    finished_job(&daemon, started).await.outcome,
+                    Some(mixengine_proto::JobOutcome::Failed { .. })
+                )
+            }
+            None => true,
+        };
+
+        let pending_after = daemon
+            .api
+            .elevation
+            .status()
+            .await
+            .expect("a queue")
+            .pending;
+
+        for occupant in
+            mixengine_platform::occupants::processes_under(std::slice::from_ref(&occupant), None)
+        {
+            let _ = kill(occupant.pid);
+        }
+
+        assert!(refused, "{answer}");
+        assert_eq!(
+            pending_before.len(),
+            pending_after.len(),
+            "something was enqueued"
+        );
+        assert!(daemon.api.armed.is_empty());
+        assert!(!daemon.api.armed.is_finished());
+    }
+
+    /// End a process this test started by pid, on any system.
+    fn kill(pid: u32) -> std::io::Result<std::process::ExitStatus> {
+        if cfg!(windows) {
+            std::process::Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string()])
+                .stdout(std::process::Stdio::null())
+                .status()
+        } else {
+            std::process::Command::new("kill")
+                .args(["-9", &pid.to_string()])
+                .status()
+        }
     }
 
     /// A complete uninstall keeps the home when something outside it is still there, and takes it
@@ -3136,19 +3285,22 @@ mod tests {
         daemon: &Daemon,
         started: JobSummary,
     ) -> mixengine_proto::UninstallReport {
-        let finished: JobSummary = daemon
-            .expect(
-                rpc::method::JOB_WAIT,
-                serde_json::json!({ "job": started.id, "timeout": 30_000 }),
-            )
-            .await;
-
-        match finished.outcome {
+        match finished_job(daemon, started).await.outcome {
             Some(mixengine_proto::JobOutcome::Succeeded { result }) => {
                 serde_json::from_value(result).expect("an uninstall report")
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    /// A job, once it has finished.
+    async fn finished_job(daemon: &Daemon, started: JobSummary) -> JobSummary {
+        daemon
+            .expect(
+                rpc::method::JOB_WAIT,
+                serde_json::json!({ "job": started.id, "timeout": 30_000 }),
+            )
+            .await
     }
 
     #[tokio::test]
