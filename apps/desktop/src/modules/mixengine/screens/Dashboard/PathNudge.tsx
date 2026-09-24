@@ -18,8 +18,13 @@ import styles from "./PathNudge.module.css";
  *
  * Đọc `path.status` hỏng thì im lặng: một Dashboard đỏ vì một lời nhắc là một Dashboard đỏ vì một
  * câu trang trí. Bật/tắt đầy đủ, kèm báo lỗi, nằm ở Settings.
+ *
+ * **Read again each time Dashboard comes back to the front**, not once at mount: Dashboard stays
+ * mounted after its first visit (`mountedScreens`), so a switch flipped in Settings, or a
+ * `mix path install` in a terminal, would otherwise never reach this card. The "open a new
+ * terminal" line goes with the same reading, which is what "gone the next time" means here.
  */
-export default function PathNudge() {
+export default function PathNudge({ active }: { active: boolean }) {
   const [report, setReport] = useState<PathReport | null>(null);
   const [installing, setInstalling] = useState(false);
   const [done, setDone] = useState(false);
@@ -27,13 +32,22 @@ export default function PathNudge() {
   const { t } = useTranslation();
 
   useEffect(() => {
+    if (!active) return;
+    let live = true;
     api
       .pathStatus()
-      .then(setReport)
+      .then((next) => {
+        if (!live) return;
+        setReport(next);
+        setDone(false);
+      })
       .catch(() => {
-        // Để nguyên `null`: không biết thì không nhắc.
+        // Để nguyên report cũ: không biết thì không đổi gì.
       });
-  }, []);
+    return () => {
+      live = false;
+    };
+  }, [active]);
 
   async function install() {
     setInstalling(true);

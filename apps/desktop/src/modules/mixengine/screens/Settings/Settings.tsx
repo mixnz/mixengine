@@ -75,8 +75,8 @@ export default function Settings({
       <AutostartSection onError={setError} />
       <LoginItemSection onError={setError} />
       <SaveResourcesSection onError={setError} />
-      <PathSection onError={setError} />
-      <UpdatesSection onError={setError} onApplied={onUpdateApplied} />
+      <PathSection active={active} onError={setError} />
+      <UpdatesSection active={active} onError={setError} onApplied={onUpdateApplied} />
       <DoctorSection active={active} onError={setError} />
       <UninstallSection onError={setError} onUninstalled={onUninstalled} />
       <DiagnosticsSection onError={setError} />
