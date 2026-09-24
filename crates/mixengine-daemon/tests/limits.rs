@@ -374,7 +374,7 @@ async fn declared() -> (Home, Daemon) {
     (home, daemon)
 }
 
-/// The daemon process, killed when the test ends however it ends.
+/// The daemon process, ended when the test ends however it ends.
 struct Daemon(Child);
 
 impl Daemon {
@@ -393,10 +393,10 @@ impl Daemon {
 
 impl Drop for Daemon {
     fn drop(&mut self) {
-        // Killed rather than asked: a test that failed halfway must not leave a process holding the
-        // temporary home open, which on Windows would make the directory unremovable.
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        // Asked to stop first: this suite starts services, and on macOS a killed daemon leaves them
+        // running for good. Killed if it does not go, so a test that failed halfway still does not
+        // leave a process holding the temporary home open. See `end_daemon`.
+        mixengine_testkit::end_daemon(&mut self.0);
     }
 }
 
