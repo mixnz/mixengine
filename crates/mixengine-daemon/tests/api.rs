@@ -32,7 +32,11 @@ use tempfile::TempDir;
 /// Generous, because the first start of a daemon creates its home, runs the migrations and opens
 /// SQLite — and because a loaded CI runner is the machine this has to be reliable on. It is a
 /// ceiling and not a wait: the poll below returns the moment the endpoint answers.
-const STARTUP: Duration = Duration::from_secs(30);
+///
+/// Sixty rather than thirty since CI run 35996827418 (windows-latest): two daemons of this suite
+/// were still writing the blueprint gallery at about one a second when thirty ran out, and their
+/// neighbours took 46 s to finish. The daemon log shows it working, not stuck.
+const STARTUP: Duration = Duration::from_secs(60);
 
 /// A `mixengined` running against a throwaway home, killed when the test ends.
 struct Daemon {
