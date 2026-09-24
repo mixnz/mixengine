@@ -396,6 +396,22 @@ async fn a_web_app_is_configured_from_the_database_it_was_linked_to() {
     // And `{secret}` was answered by something, rather than left standing as a literal brace.
     assert!(!written.contains("{secret}"), "{written}");
 
+    // **T183: the secret is in this home's file, and nowhere on the machine.** A development
+    // daemon keeps its credentials beside everything else of its home's, so this test no longer
+    // writes the developer's Keychain — and no longer reads `extensions/phpmyadmin/config` out of
+    // it through T126's fallback, which every home on the machine shares.
+    let secret = stored_config_secret(&home).unwrap_or_else(|| {
+        panic!(
+            "the extension's `{{secret}}` was not stored in this home's credentials.json: {:?}\n{}",
+            std::fs::read_to_string(home.path().join("credentials.json")),
+            home.daemon_log()
+        )
+    });
+    assert!(
+        written.contains(&format!("'{secret}'")),
+        "the rendered file does not carry the stored secret:\n{written}"
+    );
+
     // **The link armed the refusal that was already there** — D4. No new refusal exists for this.
     let deleted = home.mix(&["service", "delete", "mariadb@main"]);
     assert!(!deleted.status.success(), "{}", stdout(&deleted));
@@ -417,5 +433,22 @@ async fn a_web_app_is_configured_from_the_database_it_was_linked_to() {
     let removed = home.mix(&["extension", "uninstall", "phpmyadmin"]);
     assert!(removed.status.success(), "{}", stderr(&removed));
     assert!(!config.exists(), "the generated file outlived the install");
+    assert_eq!(
+        stored_config_secret(&home),
+        None,
+        "the uninstall left the extension's secret behind in credentials.json"
+    );
     assert!(user_half.exists(), "an uninstall keeps what a person wrote");
+}
+
+/// The phpMyAdmin `{secret}` this home's daemon stored, read out of `<root>/credentials.json`.
+fn stored_config_secret(home: &Home) -> Option<String> {
+    let text = std::fs::read_to_string(home.path().join("credentials.json")).ok()?;
+    let document: serde_json::Value = serde_json::from_str(&text).expect("credentials.json parses");
+
+    document["entries"]["mixengine"]
+        .as_object()?
+        .iter()
+        .find(|(key, _)| key.ends_with("/extensions/phpmyadmin/config"))
+        .and_then(|(_, value)| value.as_str().map(str::to_owned))
 }

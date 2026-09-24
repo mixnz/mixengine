@@ -1215,9 +1215,9 @@ async fn serve(
     // One host for both, rather than two: `declared` asks it what this system makes a front end
     // bind, and the registry keeps it for everything else.
     //
-    // T183: and the one host that reaches `keyring()`. Every other `host()` in this crate reaches
-    // pools, activation, shims, autostart, elevation or machine facts, none of which read a
-    // credential.
+    // T183: and the one host that reaches `keyring()` — directly, and through `elevation.host()`,
+    // which the API hands to extensions and databases. Every other `host()` in this crate reaches
+    // pools, activation, shims, autostart or machine facts, none of which read a credential.
     tracing::info!(credentials = %credentials::describe(&credentials), "credentials");
     let host = mixengine_platform::host_with(credentials);
 
@@ -1259,7 +1259,10 @@ async fn serve(
         store,
         events.clone(),
         Arc::clone(&jobs),
-        mixengine_platform::host(),
+        // T183: the same host as the registry's, and not a second one. The API hands this one on
+        // to extensions, databases, bundles and certificates, which is where most credentials are
+        // read and written — a separate `host()` here kept them in the OS store.
+        Arc::clone(&host),
         elevation::Candidates {
             program,
             // Where this operating system keeps an installed privileged helper — T85. `ok()` and
