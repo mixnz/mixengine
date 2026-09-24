@@ -12,7 +12,7 @@ Release process: [`docs/operations/build-and-release.md`](../docs/operations/bui
 ```bash
 bash packaging/desktop.sh            # anywhere:   MixLab, the window — see below
 bash packaging/windows/build.sh      # on Windows: a per-user installer, a headless one, and the update zip
-bash packaging/macos/build.sh        # on macOS:   one universal .pkg and a headless .tar.gz
+bash packaging/macos/build.sh        # on macOS:   one universal .pkg with the window and one without
 bash packaging/linux/build-deb.sh    # on Linux:   .deb
 bash packaging/linux/build-rpm.sh    #             .rpm
 bash packaging/linux/build-appimage.sh  #          AppImage
@@ -62,7 +62,7 @@ bash packaging/bindings.sh --check    # the committed API contract is what the c
 | OS | Artifacts |
 | --- | --- |
 | Windows | `mixlab-<version>-windows-x86_64-setup.exe`, `mixengine-<version>-windows-x86_64-headless-setup.exe`, and `mixlab-<version>-windows-x86_64.zip` (the update payload, not linked for installing) |
-| macOS | `mixlab-<version>-macos-universal.pkg`, `mixlab-<version>-macos-universal.tar.gz`, `mixengine-<version>-macos-universal-headless.tar.gz` |
+| macOS | `mixlab-<version>-macos-universal.pkg`, `mixengine-<version>-macos-universal-headless.pkg` |
 | Linux | `mixlab-<version>-linux-x86_64.AppImage`, `mixlab_<version>-1_amd64.deb`, `mixlab-<version>-1.x86_64.rpm`, `mixlab-<version>-linux-x86_64.tar.gz`, `mixengine-<version>-linux-x86_64-headless.tar.gz` |
 
 **What carries the window is named `mixlab`, and what does not keeps MixEngine's name** —

@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "ce19a6527f5ffe6028b0e71dfa9501c374ffe5bfb18da25e3ec56c80f2110ded"
+source_sha256 = "aa19b3ede4770536e50ae5046aca56538f164c83ef0a96dd396beded66acbca4"
 +++
 
 # Cài đặt MixLab
@@ -78,15 +78,15 @@ gắn với từng file chứ không gắn với dự án.
 ## macOS
 
 [**Tải gói cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-macos-universal.pkg)
-· [bản headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
+· [gói headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.pkg)
 
 **`mixlab-<version>-macos-universal.pkg`**: một gói dùng chung cho cả Intel lẫn Apple silicon. Nó
 đặt các chương trình dòng lệnh vào `/usr/local/bin` và **MixLab** vào `/Applications`, nên cửa sổ có
 mặt trong Spotlight và Launchpad ngay khi cài xong.
 
-**`mixengine-<version>-macos-universal-headless.tar.gz`** là đúng bốn chương trình dòng lệnh đó
-nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Giải nén rồi đặt thư mục ở đâu tùy bạn;
-không có gì được cài sẵn cho bạn cả.
+**`mixengine-<version>-macos-universal-headless.pkg`** cài đúng bốn chương trình dòng lệnh đó và
+cùng chương trình phụ trợ đặc quyền, nhưng không kèm MixLab, dành cho máy không cần cửa sổ. Khi
+cập nhật, mỗi máy Mac nhận đúng loại gói nó đang dùng.
 
 MixLab cũng chưa có Apple Developer ID, nên nếu bạn nhấp đúp gói cài trong Finder thì sẽ gặp hộp
 thoại Gatekeeper. Trên macOS 15 trở lên còn phải vào **System Settings → Privacy & Security → Open

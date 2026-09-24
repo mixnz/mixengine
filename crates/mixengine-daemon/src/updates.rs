@@ -234,6 +234,21 @@ impl Updates {
         &self.placement
     }
 
+    /// Is this a copy without the window — the T182b design, D5?
+    ///
+    /// Which installer an update hands over depends on it: the headless package for a copy that has
+    /// no window, the window's package otherwise. Asked of the machine each time rather than
+    /// remembered, since installing the other flavour is exactly what changes the answer.
+    fn headless(&self) -> bool {
+        !matches!(
+            self.host.desktop_apps().locate_window(
+                mixengine_core::window::EXECUTABLE,
+                mixengine_core::window::BUNDLE
+            ),
+            Ok(mixengine_platform::Located::Installed(_))
+        )
+    }
+
     /// The privileged helper this release publishes for this machine — roadmap task **T88a**.
     ///
     /// Reads the feed the way `update.status` does, through the cache, so a machine that checked an
@@ -268,10 +283,7 @@ impl Updates {
 
         // The helper's own version where the feed names one (T182b, D1), and the release's where
         // it predates that, which is what the helper carried then.
-        let version = helper
-            .version
-            .clone()
-            .unwrap_or(catalogue.index.version);
+        let version = helper.version.clone().unwrap_or(catalogue.index.version);
 
         Ok((version, helper))
     }
@@ -665,7 +677,7 @@ impl Updates {
     fn release(&self, feed: &Feed) -> UpdateRelease {
         let size = host().ok().map_or(0, |(os, arch)| match &self.placement {
             updates::Placement::Installer { .. } => feed
-                .installer(os, arch)
+                .installer(os, arch, self.headless())
                 .map_or(0, |installer| installer.size),
             _ => feed.artifact(os, arch).map_or(0, |artifact| artifact.size),
         });
@@ -688,7 +700,7 @@ impl Updates {
 
         let size = feed
             .zip(host().ok())
-            .and_then(|(feed, (os, arch))| feed.installer(os, arch))
+            .and_then(|(feed, (os, arch))| feed.installer(os, arch, self.headless()))
             .map_or(0, |installer| installer.size);
 
         Some(UpdateInstaller {
@@ -727,13 +739,16 @@ impl Updates {
         };
 
         let (os, arch) = host()?;
-        let installer = checked.feed.installer(os, arch).ok_or_else(|| {
-            mixengine_core::Error::InstallerUnavailable {
-                os: format!("{os:?}").to_lowercase(),
-                arch: format!("{arch:?}").to_lowercase(),
-            }
-            .to_wire()
-        })?;
+        let installer = checked
+            .feed
+            .installer(os, arch, self.headless())
+            .ok_or_else(|| {
+                mixengine_core::Error::InstallerUnavailable {
+                    os: format!("{os:?}").to_lowercase(),
+                    arch: format!("{arch:?}").to_lowercase(),
+                }
+                .to_wire()
+            })?;
 
         let package = self.fetch_package(version, installer).await?;
 
@@ -958,7 +973,9 @@ impl Updates {
             read(&self.store, updates::records::REMIND_AFTER).await;
         // A copy the `.pkg` installed is offered what it can install: the next `.pkg` (T88f).
         let has_build = host().is_ok_and(|(os, arch)| match &self.placement {
-            updates::Placement::Installer { .. } => feed.installer(os, arch).is_some(),
+            updates::Placement::Installer { .. } => {
+                feed.installer(os, arch, self.headless()).is_some()
+            }
             _ => feed.artifact(os, arch).is_some(),
         });
 

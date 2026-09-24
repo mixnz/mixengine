@@ -75,15 +75,15 @@ release, because reputation with no publisher identity accrues to a file rather 
 ## macOS
 
 [**Download the package**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-macos-universal.pkg)
-· [headless archive](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.tar.gz)
+· [headless package](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-macos-universal-headless.pkg)
 
 **`mixlab-<version>-macos-universal.pkg`**, one package for both Intel and Apple silicon. It puts
 the command-line programs in `/usr/local/bin` and **MixLab** in `/Applications`, so the window is in
 Spotlight and the Launchpad the moment the install finishes.
 
-**`mixengine-<version>-macos-universal-headless.tar.gz`** is the same four command-line programs
-without MixLab, for a machine that wants no window. Extract it and put the folder wherever you like;
-nothing about it is installed for you.
+**`mixengine-<version>-macos-universal-headless.pkg`** installs the same four command-line programs
+and the same privileged helper, without MixLab, for a machine that wants no window. Updates offer
+each Mac the package of the kind it has.
 
 MixLab has no Apple Developer ID either, so double-clicking the package in Finder gets you a
 Gatekeeper dialog and, on macOS 15 and later, a trip through **System Settings → Privacy & Security

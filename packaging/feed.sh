@@ -230,12 +230,22 @@ fi
 # the in-place swap cannot reach, so it is updated by the next `.pkg`, handed to Installer.app. Bound
 # by its SHA-256 inside this signed document, as a payload is, and listed under both Mac rows, as
 # the universal payload is.
+#
+# **Two flavours since T182b, D5**: the package with the window and the headless one, which replaced
+# the macOS archives. The updater hands a Mac the flavour it has, told apart by whether the window's
+# bundle is installed.
 installers=""
-for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg; do
+for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg \
+  "$dist/$MIX_HEADLESS_ARTIFACT-$version-macos-"*-headless.pkg; do
   [ -f "$file" ] || continue
 
   name="$(basename "$file")"
   size="$(wc -c <"$file" | tr -d ' ')"
+
+  case "$name" in
+    *-headless.pkg) flavour=headless ;;
+    *) flavour=window ;;
+  esac
 
   if [ -f "$file.sha256" ]; then
     sha="$(cut -d' ' -f1 <"$file.sha256")"
@@ -244,14 +254,14 @@ for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg; do
   fi
 
   url="https://github.com/$repo/releases/download/$tag/$name"
-  installers="$installers"$'\n'"macos x86_64 pkg $url $sha $size"
-  installers="$installers"$'\n'"macos aarch64 pkg $url $sha $size"
+  installers="$installers"$'\n'"macos x86_64 pkg $url $sha $size $flavour"
+  installers="$installers"$'\n'"macos aarch64 pkg $url $sha $size $flavour"
 done
 
-# A release with a macOS payload and no `.pkg` would leave every Mac that installed the `.pkg`
-# offered nothing, and nothing else would notice.
-if [ -z "$installers" ] && printf '%s' "$rows" | grep -q '^macos '; then
-  echo "no macOS .pkg in $dist for $version, and the feed lists a macOS payload" >&2
+# A release with a macOS helper and no `.pkg` would leave every Mac offered nothing — the `.pkg` is
+# the only way a Mac updates now — and nothing else would notice.
+if printf '%s' "$helpers" | grep -q '^macos ' && ! printf '%s' "$installers" | grep -q '^macos '; then
+  echo "no macOS .pkg in $dist for $version, and the feed lists a macOS helper" >&2
   exit 1
 fi
 
@@ -318,9 +328,17 @@ for line in os.environ["MIX_FEED_INSTALLERS"].splitlines():
     if not line.strip():
         continue
 
-    os_name, arch, kind, url, sha256, size = line.split(" ")
+    os_name, arch, kind, url, sha256, size, flavour = line.split(" ")
     installers.append(
-        {"os": os_name, "arch": arch, "kind": kind, "url": url, "sha256": sha256, "size": int(size)}
+        {
+            "os": os_name,
+            "arch": arch,
+            "kind": kind,
+            "url": url,
+            "sha256": sha256,
+            "size": int(size),
+            "flavour": flavour,
+        }
     )
 
 document = {
