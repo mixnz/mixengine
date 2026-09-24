@@ -118,6 +118,9 @@ mod secrets;
 pub(crate) mod desktop;
 #[cfg(feature = "signal")]
 pub mod signal;
+// Documented by its own `//!` header. Under no feature: it is `std::fs` only, and `mix` reads it
+// as well as the daemon (T182).
+pub mod tombstone;
 #[cfg(feature = "host")]
 mod traits;
 
