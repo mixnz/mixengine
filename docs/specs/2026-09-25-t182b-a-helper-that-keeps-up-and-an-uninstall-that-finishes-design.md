@@ -244,7 +244,7 @@ exits non-zero and the Windows uninstaller stops with MixLab still installed (T1
 
 Before the act, `mix` reads the daemon's pid from `daemon.status`. After a finished run it waits
 until **that process has exited**, up to 120 s (removing a home with runtimes in it takes a while),
-and exits non-zero naming the pid if it has not. `mixengine-platform` gains `process::is_alive(pid)`.
+and exits non-zero naming the pid if it has not. The process is named by its pid **and** the moment it began (`mixengine_platform::process::started_at`, which the supervisor already uses), so a pid the OS reuses meanwhile reads as ended.
 The Windows uninstaller also retries deleting `mixengined.exe` once a second for 30 s before calling
 it stuck.
 
@@ -269,7 +269,7 @@ ADR 0050 to the Linux packages.
 | `crates/mixengine-elevate` | reports `HELPER_VERSION` in its header and audit lines (D1) |
 | `crates/mixengine-core/src/elevation.rs` | the D3 exception in `helper`/`choose`, with its table test |
 | `crates/mixengine-core/src/updates/` | `apply` without `KEPT` (D4); `placement` and the feed's `installers` for Linux packages (D5); `helper` fetched by `HELPER_VERSION` |
-| `crates/mixengine-platform` | `process::is_alive` (D8); Linux `Installers::receipt_of` and `open` (D5) |
+| `crates/mixengine-platform` | Linux `Installers::receipt_of` and `open` (D5) |
 | `crates/mixengine-daemon` | the D2 table at every start; `grant_only` and D6; D7 |
 | `crates/mixengine-cli` | D8's wait; `mix elevation upgrade` removed; `self-update` prints the Linux command (D5) |
 | `packaging/sign.sh`, `feed.sh`, `common.sh` | the helper asset named and stamped by `HELPER_VERSION` (D1); Linux installers in the feed; no zip, tarball or AppImage downloads (D5) |
@@ -310,7 +310,7 @@ separate decision, recorded as a follow-up task.
 - Updates: the swap replaces the helper beside the program and never the installed one (D4);
   `placement::of` answers `Installer` for a daemon a package owns and keeps the swap for the Windows
   per-user copy (D5).
-- Platform: `is_alive` is true for a child and false once it has been waited for.
+- CLI: the daemon's pid no longer names a running process when a finished `mix uninstall` returns.
 - CLI: a finished uninstall returns only after the daemon's process has gone (D8).
 - By hand, added to `packaging/windows/uninstall-check.md`, with one row of the goal table per case:
   - a machine with the `0.1.0` helper: the next launch asks once and leaves the helper at
