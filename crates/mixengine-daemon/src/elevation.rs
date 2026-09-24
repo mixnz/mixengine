@@ -95,6 +95,17 @@ pub(crate) struct Candidates {
 }
 
 /// The queue, the machine that can be asked about it, and the only door into a prompt.
+/// The helper a grant runs, and the protocol its request is written at — the T182b design, D3.
+#[derive(Debug, Clone)]
+struct Chosen {
+    /// The file handed to the elevation prompt.
+    path: PathBuf,
+
+    /// What the request is marked at: the lower of this daemon's and the installed helper's, or
+    /// this daemon's own when the shipped copy runs the batch.
+    speaks: mixengine_proto::ProtocolVersion,
+}
+
 #[derive(Debug)]
 pub(crate) struct Elevation {
     /// Where the rows live.
@@ -720,7 +731,7 @@ impl Elevation {
     /// # Errors
     ///
     /// As [`grant`](Self::grant), which is the whole of what this decides.
-    async fn preflight(&self) -> Result<(Vec<mixengine_proto::PendingOp>, PathBuf), Error> {
+    async fn preflight(&self) -> Result<(Vec<mixengine_proto::PendingOp>, Chosen), Error> {
         let waiting = mixengine_core::elevation::pending(&self.store)
             .await
             .map_err(|error| error.to_wire())?;
@@ -733,11 +744,7 @@ impl Elevation {
             .with_hint("`mix elevation status` lists what would be asked for"));
         }
 
-        let helper = mixengine_core::elevation::helper(
-            &self.candidates.program,
-            self.candidates.installed.as_deref(),
-        )
-        .map_err(|error| error.to_wire())?;
+        let helper = self.choose_for(&waiting).await?;
 
         if let Some(reason) = self.reason() {
             return Err(Error::new(
@@ -749,6 +756,68 @@ impl Elevation {
         self.reserve()?;
 
         Ok((waiting, helper))
+    }
+
+    /// Which helper runs this batch, and at which protocol — the T182b design, D3.
+    ///
+    /// **The installed one, unless it cannot read the batch** and the copy this release ships can.
+    /// The shipped copy is only probed when the installed one's `supported_ops` are missing an
+    /// operation, so an ordinary grant costs nothing extra. When it runs the batch, the request is
+    /// written at this daemon's own protocol, since that copy is this release.
+    async fn choose_for(&self, waiting: &[mixengine_proto::PendingOp]) -> Result<Chosen, Error> {
+        let installed_ops: Option<Vec<String>> = self
+            .facts
+            .lock()
+            .ok()
+            .and_then(|facts| facts.as_ref().map(|facts| facts.supported_ops.clone()));
+
+        let batch: Vec<&str> = waiting.iter().map(|pending| pending.op.name()).collect();
+
+        let unreadable = installed_ops
+            .as_ref()
+            .is_some_and(|known| batch.iter().any(|op| !known.iter().any(|name| name == op)));
+
+        let shipped_version = match unreadable {
+            true => match mixengine_core::elevation::shipped(&self.candidates.program) {
+                Some(shipped) => crate::helper::handshake(&shipped, &self.home, &self.elevate)
+                    .await
+                    .map(|facts| facts.version),
+                None => None,
+            },
+            false => None,
+        };
+
+        let bypass =
+            installed_ops
+                .as_deref()
+                .map(|installed_ops| mixengine_core::elevation::Bypass {
+                    installed_ops,
+                    shipped_version: shipped_version.as_deref(),
+                    batch_ops: &batch,
+                });
+
+        let path = mixengine_core::elevation::helper_for(
+            &self.candidates.program,
+            self.candidates.installed.as_deref(),
+            bypass.as_ref(),
+        )
+        .map_err(|error| error.to_wire())?;
+
+        let bypassed = bypass.is_some_and(|bypass| bypass.applies());
+        if bypassed {
+            tracing::info!(
+                helper = %path.display(),
+                "the installed helper cannot read this batch, so the one this release ships runs it"
+            );
+        }
+
+        Ok(Chosen {
+            path,
+            speaks: match bypassed {
+                true => mixengine_proto::PROTOCOL_VERSION,
+                false => self.speaks(),
+            },
+        })
     }
 
     /// Raise the prompt **inside the caller's job**, rather than starting one of its own.
@@ -864,7 +933,7 @@ impl Elevation {
     async fn flush(
         &self,
         handle: &crate::jobs::JobHandle,
-        helper: PathBuf,
+        helper: Chosen,
         waiting: Vec<mixengine_proto::PendingOp>,
     ) -> Result<serde_json::Value, Error> {
         // Released however this ends — including through a panic the RPC layer contains, which is
@@ -891,7 +960,7 @@ impl Elevation {
             &directory,
             &self.home,
             &waiting,
-            self.speaks(),
+            helper.speaks,
         )
         .map_err(|error| error.to_wire())?;
 
@@ -899,14 +968,15 @@ impl Elevation {
 
         let path = request.path().to_path_buf();
         let machine = Arc::clone(&self.host);
-        let raised = tokio::task::spawn_blocking(move || machine.elevation().run(&helper, &path))
-            .await
-            .map_err(|join| {
-                Error::new(
-                    ErrorCode::Internal,
-                    format!("the elevation prompt could not be waited on: {join}"),
-                )
-            })?;
+        let raised =
+            tokio::task::spawn_blocking(move || machine.elevation().run(&helper.path, &path))
+                .await
+                .map_err(|join| {
+                    Error::new(
+                        ErrorCode::Internal,
+                        format!("the elevation prompt could not be waited on: {join}"),
+                    )
+                })?;
 
         let answer = self.judge(handle, &request, raised, &waiting).await;
 
