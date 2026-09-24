@@ -12,8 +12,8 @@ import {
 } from "./daemonState";
 
 const rows: ServiceRow[] = [
-  { id: "mariadb@main", state: "running", port: 3306, autostart: true, stoppedBy: null },
-  { id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: null },
+  { id: "mariadb@main", state: "running", port: 3306, autostart: true, stoppedBy: null, version: "11.4.3" },
+  { id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: null, version: null },
 ];
 
 describe("rowsFrom", () => {
@@ -33,7 +33,26 @@ describe("rowsFrom", () => {
       },
     ]);
 
-    expect(made).toEqual([{ id: "redis@main", state: "stopped", port: null, autostart: true, stoppedBy: null }]);
+    expect(made).toEqual([
+      { id: "redis@main", state: "stopped", port: null, autostart: true, stoppedBy: null, version: null },
+    ]);
+  });
+
+  /* T183: phiên bản là thứ người dùng đọc cạnh id. Daemon cũ không gửi field này, nên nó thành
+     `null`, và `null` nghĩa là không vẽ gì. */
+  it("carries a service's version onto its row, and null when the daemon sent none", () => {
+    const base = {
+      id: "mysql@main",
+      state: "stopped" as const,
+      supervised: false,
+      pid: null,
+      last_started_at: null,
+      last_exit_code: null,
+      depends_on: [],
+      autostart: false,
+    };
+    expect(rowsFrom([{ ...base, version: "5.7.44" }])[0].version).toBe("5.7.44");
+    expect(rowsFrom([base])[0].version).toBeNull();
   });
 });
 
@@ -196,7 +215,7 @@ describe("stoppedBy from a transition", () => {
     expect(stoppedByReason({ kind: 3 })).toBeNull();
 
     const started = applyEvent(
-      [{ id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: "daemon" }],
+      [{ id: "caddy@main", state: "stopped", port: null, autostart: false, stoppedBy: "daemon", version: null }],
       JSON.stringify({ type: "service_state_changed", service: "caddy@main", to: "starting", reason: { kind: "requested" } }),
     ).rows[0];
     expect(started.stoppedBy).toBeNull();

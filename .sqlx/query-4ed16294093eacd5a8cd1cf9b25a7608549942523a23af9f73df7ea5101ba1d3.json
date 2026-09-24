@@ -1,22 +1,11 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT id, state, pid, pid_start_time, last_started_at, last_exit_code, port, stopped_by,\n                autostart\n         FROM services",
+  "query": "SELECT s.state, s.pid, s.pid_start_time, s.last_started_at, s.last_exit_code, s.port,\n                  s.stopped_by, s.autostart, coalesce(p.version, r.version) AS version\n           FROM services s\n           LEFT JOIN packages p ON p.id = s.package_id\n           LEFT JOIN runtime_installs r ON r.id = s.runtime_install_id\n           WHERE s.id = ?",
   "describe": {
     "columns": [
       {
-        "name": "id",
-        "ordinal": 0,
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "services",
-            "name": "id"
-          }
-        }
-      },
-      {
         "name": "state",
-        "ordinal": 1,
+        "ordinal": 0,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -27,7 +16,7 @@
       },
       {
         "name": "pid",
-        "ordinal": 2,
+        "ordinal": 1,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -38,7 +27,7 @@
       },
       {
         "name": "pid_start_time",
-        "ordinal": 3,
+        "ordinal": 2,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -49,7 +38,7 @@
       },
       {
         "name": "last_started_at",
-        "ordinal": 4,
+        "ordinal": 3,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -60,7 +49,7 @@
       },
       {
         "name": "last_exit_code",
-        "ordinal": 5,
+        "ordinal": 4,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -71,7 +60,7 @@
       },
       {
         "name": "port",
-        "ordinal": 6,
+        "ordinal": 5,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -82,7 +71,7 @@
       },
       {
         "name": "stopped_by",
-        "ordinal": 7,
+        "ordinal": 6,
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -93,7 +82,7 @@
       },
       {
         "name": "autostart",
-        "ordinal": 8,
+        "ordinal": 7,
         "type_info": "Integer",
         "origin": {
           "Table": {
@@ -101,22 +90,28 @@
             "name": "autostart"
           }
         }
+      },
+      {
+        "name": "version",
+        "ordinal": 8,
+        "type_info": "Text",
+        "origin": "Expression"
       }
     ],
     "parameters": {
-      "Right": 0
+      "Right": 1
     },
     "nullable": [
       false,
-      false,
       true,
       true,
       true,
       true,
       true,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "78e49943f53035fefc99a38bb13ee08dda8a5f67099d1731e9392c53078110d1"
+  "hash": "4ed16294093eacd5a8cd1cf9b25a7608549942523a23af9f73df7ea5101ba1d3"
 }
