@@ -1,6 +1,6 @@
 # 0028. The AppImage does not carry WebKitGTK, and the window's floor is the distribution's
 
-**Status**: Accepted
+**Status**: Superseded by [0053](0053-the-helper-has-its-own-version-and-follows-the-product.md), which stopped publishing the AppImage. The window's floor it set is still the one the `.deb` and the `.rpm` declare.
 **Date**: 2026-09-09
 
 ## Context

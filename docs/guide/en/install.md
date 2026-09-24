@@ -35,9 +35,11 @@ Five programs, and it is worth knowing what each is before one of them surprises
 | `mixengine-elevate` | The one program that runs as an administrator, for a few seconds at a time. |
 | **MixLab** | The window: a dashboard for the daemon, plus a database client, an HTTP client and a terminal. |
 
-The first three and MixLab are installed together, as you. `mixengine-elevate` is not placed by the
-installer at all on most systems — MixLab installs it itself, the first time something needs an
-administrator, inside a prompt you were going to see anyway.
+The first three and MixLab are installed together. On Windows they are installed as you, and
+`mixengine-elevate` is not placed by the installer: MixLab installs it itself, the first time
+something needs an administrator, inside a prompt you were going to see anyway. The `.pkg`, the
+`.deb` and the `.rpm` place it as root while they install. Either way MixLab keeps it current: when
+an update changes it, the next permission prompt replaces it.
 
 **If you do not want the window, there is a download without it.** Every system publishes a
 **headless** installer holding the four command-line programs and nothing else — no window, and on

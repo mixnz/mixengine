@@ -256,7 +256,7 @@ it stuck.
 
 ## ADR
 
-**ADR 0052, *The helper has its own version and follows the product through the daemon***, records
+**[ADR 0053](../decisions/0053-the-helper-has-its-own-version-and-follows-the-product.md), *The helper has its own version and follows the product through the daemon***, records
 D1 to D4 and D5's formats. It amends T85's D5 (the D3 exception), T88a (a replacement no longer
 waits to be asked for, and `mix elevation upgrade` goes), ADR 0049's list of downloads, and extends
 ADR 0050 to the Linux packages.
@@ -276,7 +276,7 @@ ADR 0050 to the Linux packages.
 | `packaging/windows/` | the headless setup; D8's retry; D9; no zips |
 | `packaging/macos/`, `packaging/linux/` | the headless `.pkg`; no archive, tarball or AppImage |
 | `.github/workflows/`, `packaging/helper-lock.sh`, `.githooks/pre-commit`, `crates/mixengine-elevate/helper.lock`, `CLAUDE.md` | the fingerprint, its check at commit, in the local gate and in CI (D1); build and release jobs for the formats that remain |
-| `docs/decisions/0052-…`, `docs/features/updates.md`, `docs/architecture/security-model.md`, `docs/guide/{en,vi}/{installing,updating,permissions,uninstalling}.md` | the flow above |
+| `docs/decisions/0053-…`, `docs/features/updates.md`, `docs/architecture/security-model.md`, `docs/guide/{en,vi}/{installing,updating,permissions,uninstalling}.md` | the flow above |
 | `docs/roadmap/phase-9-ship.md` | T182b, split into ordered subtasks by the plan; a follow-up for stale authorities |
 
 ## Out of scope

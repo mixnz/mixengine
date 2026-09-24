@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "3df15cc619d711653e49cf9811a39f561722b9e9b7af814affaab8d30b00f7f7"
+source_sha256 = "37c36dbc8dc39ba547c9e9c39bcdc26e0ac1d14c3af386e57577bd1021b6c576"
 +++
 
 # Cài đặt MixLab
@@ -36,10 +36,11 @@ Có năm chương trình. Nên biết mỗi cái làm gì trước khi một tro
 | `mixengine-elevate` | Chương trình duy nhất chạy với quyền quản trị, mỗi lần chỉ vài giây. |
 | **MixLab** | Cửa sổ: bảng điều khiển cho daemon, kèm một client cơ sở dữ liệu, một client HTTP và một terminal. |
 
-Ba chương trình đầu và MixLab được cài chung một lượt, dưới tài khoản của bạn.
-`mixengine-elevate` thì trên hầu hết hệ điều hành bộ cài không đặt vào máy. MixLab sẽ tự cài nó
-vào lần đầu tiên có việc cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ
-thấy.
+Ba chương trình đầu và MixLab được cài chung một lượt. Trên Windows chúng được cài dưới tài khoản
+của bạn, và bộ cài không đặt `mixengine-elevate` vào máy: MixLab tự cài nó vào lần đầu tiên có việc
+cần quyền quản trị, ngay trong hộp thoại xin quyền mà đằng nào bạn cũng sẽ thấy. `.pkg`, `.deb` và
+`.rpm` thì đặt nó vào máy với quyền root ngay lúc cài. Dù cài cách nào, MixLab cũng giữ nó luôn mới:
+khi một bản cập nhật thay đổi nó, lần xin quyền kế tiếp sẽ thay nó.
 
 **Nếu bạn không cần cửa sổ, có bản tải không kèm nó.** Mỗi hệ điều hành đều phát hành một bản
 **headless** chỉ chứa bốn chương trình dòng lệnh và không gì khác — không có cửa sổ, và trên Linux
