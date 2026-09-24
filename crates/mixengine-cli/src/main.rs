@@ -2991,6 +2991,7 @@ async fn uninstall(
         rpc::method::DAEMON_UNINSTALL_PLAN,
         encode(&UninstallQuery {
             keep_home,
+            keep_relocated: false,
             // A plan raises nothing whatever this says; sent as it will be sent to the act, so the
             // two calls are visibly one question asked twice.
             grant: false,
@@ -3023,6 +3024,7 @@ async fn uninstall(
         rpc::method::DAEMON_UNINSTALL,
         encode(&UninstallQuery {
             keep_home,
+            keep_relocated: false,
             // The plan above *is* the batch this allows, and it has just been shown or answered for
             // in advance — which is T64's rule met, so the prompt is raised inside the one job the
             // caller is already following.

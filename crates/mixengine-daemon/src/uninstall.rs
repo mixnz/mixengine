@@ -412,7 +412,8 @@ impl Uninstall {
             | ResidueId::AutostartEntry
             | ResidueId::PathEntry
             | ResidueId::Home
-            | ResidueId::RelocatedDirectory => None,
+            | ResidueId::RelocatedDirectory
+            | ResidueId::InUse => None,
         }
     }
 

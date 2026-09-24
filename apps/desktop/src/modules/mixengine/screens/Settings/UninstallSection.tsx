@@ -95,7 +95,7 @@ export default function UninstallSection({
 
   const reloadPlan = useCallback(async () => {
     try {
-      setPlan(await api.uninstallPlan({ keep_home: keepHome, grant: false }));
+      setPlan(await api.uninstallPlan({ keep_home: keepHome, keep_relocated: false, grant: false }));
     } catch (e) {
       onError(errorMessage(t, e));
     }
@@ -176,7 +176,7 @@ export default function UninstallSection({
     // saying nothing is installed (ADR 0042). Best effort: a login entry that could not be removed
     // is not a reason to refuse the uninstall somebody just confirmed.
     if (!keepHome) await setLoginItem(false).catch(() => undefined);
-    const summary = await api.uninstall({ keep_home: keepHome, grant: true });
+    const summary = await api.uninstall({ keep_home: keepHome, keep_relocated: false, grant: true });
     setDeclined(false);
     setJob(summary);
     setConfirmOpen(false);
