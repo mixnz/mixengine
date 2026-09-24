@@ -7,6 +7,19 @@
 
 use mixengine_platform::{Host as _, hosts, mock};
 
+/// Is this run allowed to change the machine, or to raise a real elevation prompt on it?
+///
+/// **`#[ignore]` alone is one `--ignored` away from a developer's desk**, which is where a prompt
+/// nobody asked for comes from — `docs/standards/testing.md`, rule 1. CI's `system` job sets
+/// `MIXENGINE_SYSTEM_TESTS=1`; everywhere else the test says it skipped rather than passing quietly.
+fn system_tests() -> bool {
+    let allowed = std::env::var("MIXENGINE_SYSTEM_TESTS").as_deref() == Ok("1");
+    if !allowed {
+        eprintln!("skipped: MIXENGINE_SYSTEM_TESTS is not set");
+    }
+    allowed
+}
+
 #[test]
 fn the_hosts_file_is_where_this_operating_system_keeps_it() {
     let path = hosts::path();
@@ -68,8 +81,12 @@ fn a_mock_host_answers_from_memory() {
 /// The real file, the real path, applied and then removed — with a copy taken first, so a failure
 /// halfway through leaves the machine's own hosts file recoverable by hand from the test's output.
 #[test]
-#[ignore = "writes the machine's real hosts file; run in CI's system job"]
+#[ignore = "writes the machine's real hosts file; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_real_hosts_file_is_edited_and_put_back() {
+    if !system_tests() {
+        return;
+    }
+
     let path = hosts::path();
     let before = std::fs::read_to_string(&path).expect("the machine has a hosts file");
 

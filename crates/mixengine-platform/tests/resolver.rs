@@ -16,6 +16,19 @@
 
 use mixengine_platform::{Host as _, ResolverMethod, mock};
 
+/// Is this run allowed to change the machine, or to raise a real elevation prompt on it?
+///
+/// **`#[ignore]` alone is one `--ignored` away from a developer's desk**, which is where a prompt
+/// nobody asked for comes from — `docs/standards/testing.md`, rule 1. CI's `system` job sets
+/// `MIXENGINE_SYSTEM_TESTS=1`; everywhere else the test says it skipped rather than passing quietly.
+fn system_tests() -> bool {
+    let allowed = std::env::var("MIXENGINE_SYSTEM_TESTS").as_deref() == Ok("1");
+    if !allowed {
+        eprintln!("skipped: MIXENGINE_SYSTEM_TESTS is not set");
+    }
+    allowed
+}
+
 /// The TLD every test here routes. `.test` is RFC 6761's and resolves nowhere in the world.
 const TLD: &str = "test";
 
@@ -119,8 +132,12 @@ fn the_plan_this_system_does_not_use_is_refused_by_name() {
 /// The whole arc, on whichever machine is running it: wire, resolve a name nothing has ever asked
 /// for, confirm the machine's other names are untouched, and unwire.
 #[test]
-#[ignore = "changes this machine's resolver configuration; run in CI's system job"]
+#[ignore = "changes this machine's resolver configuration; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn a_wired_machine_resolves_a_name_nothing_has_ever_asked_for_and_leaves_the_rest_alone() {
+    if !system_tests() {
+        return;
+    }
+
     let Some(server) = FakeDns::start() else {
         // A machine that cannot lend us a port cannot be measured on, and saying so is better than
         // asserting something about a socket that never opened — which is the whole of D14.
@@ -219,8 +236,12 @@ fn a_wired_machine_resolves_a_name_nothing_has_ever_asked_for_and_leaves_the_res
 
 /// Unwiring puts the machine back, and unwiring a machine that is not wired is not a change.
 #[test]
-#[ignore = "changes this machine's resolver configuration; run in CI's system job"]
+#[ignore = "changes this machine's resolver configuration; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn unwiring_a_machine_that_is_not_wired_changes_nothing() {
+    if !system_tests() {
+        return;
+    }
+
     let host = mixengine_platform::host();
 
     let Some(target) = host
