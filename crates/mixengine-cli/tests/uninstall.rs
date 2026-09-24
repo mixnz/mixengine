@@ -171,6 +171,69 @@ fn needs_an_administrator(home: &Home) -> bool {
     !waiting.is_empty()
 }
 
+/// T182, D9. On a home with nothing relocated, the listing the Windows uninstaller reads is empty
+/// and the command succeeds.
+#[tokio::test(flavor = "multi_thread")]
+async fn listing_relocated_directories_on_a_plain_home_prints_nothing() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let printed = home.mix(&["uninstall", "--dry-run", "--relocated"]);
+
+    assert!(printed.status.success(), "{}", stderr(&printed));
+    assert_eq!(stdout(&printed).trim(), "", "{}", stdout(&printed));
+}
+
+/// T182, D4. A program running from inside the home makes the dry run exit `3` and name it — the
+/// code the Windows uninstaller reads as *close this and try again*.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_program_running_from_the_home_blocks_with_exit_code_three() {
+    let home = Home::new();
+    let _daemon = home.start_daemon();
+
+    let (source, args): (std::path::PathBuf, &[&str]) = if cfg!(windows) {
+        (
+            std::path::PathBuf::from(std::env::var("SystemRoot").expect("SystemRoot"))
+                .join(r"System32\PING.EXE"),
+            &["-n", "30", "127.0.0.1"],
+        )
+    } else {
+        (std::path::PathBuf::from("/bin/sleep"), &["30"])
+    };
+    let directory = home.path().join("t182-occupant");
+    std::fs::create_dir_all(&directory).expect("a directory in the home");
+    let copy = directory.join(source.file_name().expect("a file name"));
+    std::fs::copy(&source, &copy).expect("copy the program");
+    let mut occupant = std::process::Command::new(&copy)
+        .args(args)
+        .stdout(std::process::Stdio::null())
+        .spawn()
+        .expect("start the occupant");
+
+    let printed = home.mix(&["uninstall", "--dry-run"]);
+
+    let _ = occupant.kill();
+    let _ = occupant.wait();
+
+    assert_eq!(printed.status.code(), Some(3), "{}", stdout(&printed));
+    assert!(
+        stdout(&printed).contains("BLOCKED"),
+        "the program in the way is named: {}",
+        stdout(&printed)
+    );
+}
+
+/// T182, D9. `--relocated` without `--dry-run` is refused by the parser: it changes nothing, and
+/// must never be mistaken for the act.
+#[test]
+fn listing_requires_a_dry_run() {
+    let home = Home::new();
+
+    let printed = home.mix(&["uninstall", "--relocated"]);
+
+    assert_eq!(printed.status.code(), Some(2), "{}", stderr(&printed));
+}
+
 /// `--keep-home` undoes what is outside the home, leaves the home, and ends the daemon.
 ///
 /// **Nothing outside the home is asserted to have gone.** What is proved is the half this flag is
