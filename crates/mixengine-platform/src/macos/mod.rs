@@ -38,8 +38,10 @@ pub(crate) mod process;
 mod prompt;
 // The Visual C++ Redistributable, which is Windows' alone — T150.
 #[cfg(feature = "host")]
-mod installers;
 mod redistributable;
+// The package receipt and the system installer a `.pkg` update is handed to — T88f.
+#[cfg(feature = "host")]
+mod installers;
 // The read half is `host` and the write half is `elevated`, as `port_access` is.
 #[cfg(feature = "host")]
 mod browsers;
