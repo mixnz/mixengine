@@ -283,6 +283,17 @@ impl Uninstall {
                 // `arm_the_home` rewrites it two statements below — so settling it turned every
                 // complete uninstall into one that reported the home as waiting for a prompt, and
                 // then kept the home because of it. Found by CI on 2026-09-04.
+                //
+                // Except for one of the three that needed no token which was absent and is now
+                // back: that is `settle`'s T182b rule, and it holds for them too.
+                None if !matches!(
+                    before.id,
+                    ResidueId::Home | ResidueId::RelocatedDirectory | ResidueId::InUse
+                ) =>
+                {
+                    settle(before, after, granted.is_some(), &waiting)
+                }
+
                 None => after,
             });
         }
@@ -711,7 +722,21 @@ fn settle(
     waiting: &[mixengine_proto::PendingOp],
 ) -> Residue {
     let Removal::Planned { how } = &before.outcome else {
-        // Absent, Kept or Failed before anything was attempted: the second reading is the answer.
+        // **Absent before and present after is a failure** (the T182b design, D7): the act left
+        // this on the machine, and the second reading's `Planned` would have read as nothing
+        // being wrong — which is how an uninstall that put the authority back reported success.
+        if matches!(before.outcome, Removal::Absent {})
+            && matches!(after.outcome, Removal::Planned { .. })
+        {
+            return Residue {
+                outcome: Removal::Failed {
+                    because: "this was not here before the uninstall and it is here now".to_owned(),
+                },
+                ..after
+            };
+        }
+
+        // Kept or Failed before anything was attempted: the second reading is the answer.
         return after;
     };
 
@@ -838,6 +863,24 @@ mod tests {
             matches!(settled.outcome, Removal::Removed { .. }),
             "{settled:?}"
         );
+    }
+
+    /// T182b, D7. A row that was absent before the act and is present after it is something the
+    /// act left on the machine — put back by a grant that carried more than it should, or by
+    /// anything else — and it is a failure, never the `Planned` the second reading spells it as.
+    #[test]
+    fn a_row_absent_before_and_present_after_is_a_failure() {
+        let mut absent = planned();
+        absent.outcome = Removal::Absent {};
+
+        for granted in [true, false] {
+            let settled = settle(absent.clone(), planned(), granted, &[]);
+
+            assert!(
+                matches!(settled.outcome, Removal::Failed { .. }),
+                "{settled:?}"
+            );
+        }
     }
 
     /// One row, planned, for the two above to work on.
