@@ -20,12 +20,12 @@ binaries. What they state is what the daemon **writes** —
 
 ## Screens, and what each one demands of the API
 
-1. **Dashboard** — per-service state, port and uptime from `service.list`, and CPU % and RSS from
-   the metrics stream, joined on `MetricsSubject::Service(id)`; start/stop/restart per service and a
-   global stop-all; disk usage broken down by **five** categories from `daemon.disk_usage` —
-   runtimes, data, logs, certs and `cache/` — each carrying what would reclaim it, with
-   `daemon.cleanup` behind the button and only two of the five in its reach (**T96**); the recent
-   slice of the event stream.
+1. **Dashboard** — per-service state, version (`ServiceSummary::version`, T183), port and uptime
+   from `service.list`, and CPU % and RSS from the metrics stream, joined on
+   `MetricsSubject::Service(id)`; start/stop/restart per service and a global stop-all; disk
+   usage broken down by **five** categories from `daemon.disk_usage` — runtimes, data, logs,
+   certs and `cache/` — each carrying what would reclaim it, with `daemon.cleanup` behind the
+   button and only two of the five in its reach (**T96**); the recent slice of the event stream.
 
    **This line said "in one read" until 2026-09-06, and the correction is the point rather than the
    pedantry.** The join is exact — `MetricsSubject` wraps a real `ServiceId` and not a guess — but
@@ -95,7 +95,8 @@ binaries. What they state is what the daemon **writes** —
    site's domain — and says the same three things `mix` says: which account, that the password comes
    from the OS keyring when the pool starts, and that nothing writes it to disk.
 4. **Services** — the settings a service accepts (port, bind, data dir, limits, autostart, idle
-   timeout) as data, not as a rendered form, and who left a stopped one stopped
+   timeout) as data, not as a rendered form, which version of its program it runs
+   (`ServiceSummary::version`, T183), and who left a stopped one stopped
    (`ServiceSummary::stopped_by`, T167d) — so a client draws a service MixEngine put to rest as
    resting rather than as a failure;
    **and `autostart` is one of them since T112, which it was not when this line was written.** The

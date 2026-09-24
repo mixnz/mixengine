@@ -102,6 +102,14 @@
   color: var(--text-muted);
 }
 
+/* T183: the version after the instance, in the name's own size so the line keeps its height. */
+.version {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
 .rowState {
   display: inline-flex;
   align-items: center;

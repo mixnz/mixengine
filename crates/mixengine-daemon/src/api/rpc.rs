@@ -2356,6 +2356,8 @@ pub(super) fn summary(
         stopped_by: record
             .filter(|record| record.state == mixengine_proto::ServiceState::Stopped)
             .map(|record| record.stopped_by.into()),
+        // The row's parent's version (T183), on `port`'s rule: no row, no version to report.
+        version: record.and_then(|record| record.version.clone()),
     }
 }
 

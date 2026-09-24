@@ -258,6 +258,18 @@ pub struct ServiceSummary {
     /// [ADR 0041]: https://github.com/mixnz/mixlab/blob/master/docs/decisions/0041-mixengine-stops-nothing-a-person-did-not-ask-it-to.md
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stopped_by: Option<StoppedBy>,
+
+    /// Which version of its program this service runs — roadmap task **T183**.
+    ///
+    /// **What a person reads next to the id**, because the id is a name they chose and says
+    /// nothing about the program: `mysql@main` is whichever MySQL was installed when it was created.
+    /// The full version as installed; a client that wants the `5.7` line drops the rest itself.
+    ///
+    /// [`None`] is drawn as nothing, whichever of its causes it has: a daemon from before this
+    /// member (ADR 0019), a declared service with no row, an extension's service, or a stored text
+    /// this build cannot parse.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<PackageVersion>,
 }
 
 /// Who left a service stopped — the wire half of `mixengine-core`'s `StoppedBy`, and of the
@@ -578,6 +590,28 @@ mod tests {
             decoded.role, None,
             "an absent role is a daemon that predates the member, never a role nobody established"
         );
+        assert_eq!(
+            decoded.version, None,
+            "an absent version is a daemon that predates T183"
+        );
+    }
+
+    /// **T183.** A version goes out as the plain string it was installed as, and comes back equal.
+    #[test]
+    fn a_summary_carries_the_version_it_runs_and_omits_one_it_does_not_know() {
+        let known = ServiceSummary {
+            version: Some(PackageVersion::parse("5.7.44").expect("a version")),
+            ..summary("mysql@main")
+        };
+        let encoded = serde_json::to_value(&known).unwrap();
+        assert_eq!(encoded["version"], "5.7.44");
+        assert_eq!(
+            serde_json::from_value::<ServiceSummary>(encoded).unwrap(),
+            known
+        );
+
+        let unknown = serde_json::to_value(summary("mysql@main")).unwrap();
+        assert!(unknown.get("version").is_none(), "{unknown}");
     }
 
     /// **D4.** The shape every client has sent since T31a still parses, and gains one optional key.
@@ -605,6 +639,7 @@ mod tests {
             role: Some(ServiceRole::Other {}),
             autostart: false,
             stopped_by: None,
+            version: None,
         }
     }
 
@@ -850,11 +885,13 @@ mod tests {
             role: None,
             autostart: false,
             stopped_by: None,
+            version: None,
         };
 
         let encoded = serde_json::to_value(&summary).unwrap();
         assert!(encoded.get("state").is_none(), "{encoded}");
         assert!(encoded.get("role").is_none(), "{encoded}");
+        assert!(encoded.get("version").is_none(), "{encoded}");
         assert_eq!(encoded["supervised"], false);
         assert_eq!(
             serde_json::from_value::<ServiceSummary>(encoded).unwrap(),

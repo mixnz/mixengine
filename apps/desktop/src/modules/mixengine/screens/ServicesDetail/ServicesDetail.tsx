@@ -212,6 +212,7 @@ export default function ServicesDetail({ active }: { active: boolean }) {
                 <span className={styles.rowName}>
                   {serviceName(service.id)}
                   <span className={styles.instance}>{serviceInstance(service.id)}</span>
+                  {service.version != null && <span className={styles.version}>{service.version}</span>}
                 </span>
                 <span className={styles.rowState}>
                   <span className={`${styles.dot} ${styles[dotTone(service.state, service.stopped_by)]}`} aria-hidden="true" />
@@ -243,6 +244,7 @@ export default function ServicesDetail({ active }: { active: boolean }) {
                     {current.role?.role === "front_end" && (
                       <span className={styles.tag}>{t("mixengine.servicesDetail.frontEnd")}</span>
                     )}
+                    {current.version != null && <span className={styles.port}>{current.version}</span>}
                     {current.port != null && (
                       <span className={styles.port}>{t("mixengine.servicesDetail.port", { port: current.port })}</span>
                     )}

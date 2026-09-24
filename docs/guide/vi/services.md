@@ -4,7 +4,7 @@ slug = "services"
 order = 6
 summary = "Caddy hoặc Nginx, MariaDB, MySQL, PostgreSQL, Redis và Memcached. Cài khi bạn yêu cầu, cấu hình sẵn cho bạn, và không bao giờ in mật khẩu ra màn hình."
 translation_of = "en/services.md"
-source_sha256 = "256332bb6a85c11fe9f4d3498d8a6bd501ed9204158888592e070a63bc260d8d"
+source_sha256 = "0e1c5ac2325014ad8e4070f35b60f82b3714d7b977c2eb981da7d456bf4e20c2"
 +++
 
 # Máy chủ, cơ sở dữ liệu và bộ nhớ đệm
@@ -53,6 +53,9 @@ Phần trước dấu `@` trong id service là tên package mà service đó là
 `mix service create` không cần thêm tham số riêng cho package. Phần sau dấu `@` là do bạn đặt, dùng
 để phân biệt hai service với nhau; MixEngine không gán ý nghĩa gì cho chữ đó. Caddy chỉ chạy một
 lần cho cả home MixEngine, nên service của nó chỉ đơn giản là `caddy`, không có `@`.
+
+Tên service không cần ghi phiên bản. `mix service list` hiện phiên bản ngay cạnh id, MixLab cũng
+vậy, nên đặt `mysql@main` là đủ.
 
 Id không đổi được sau khi tạo, vì nó cũng là tên thư mục cấu hình sinh ra, thư mục log, socket, và
 địa chỉ lưu mật khẩu. Muốn đổi tên thì tạo service mới rồi xóa cái cũ; dữ liệu vẫn được giữ lại.
