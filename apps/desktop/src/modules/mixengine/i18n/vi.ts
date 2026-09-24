@@ -579,6 +579,8 @@ const vi: typeof en = {
         installerDownloading: "Đang tải bộ cài",
         installerOpen: "Installer đã mở. Cài xong ở đó rồi quay lại đây.",
         installerCommand: "Muốn cài bằng terminal thì chạy: {{command}}",
+        installerReopen: "Mở lại Installer",
+        installerBack: "Quay lại",
         installerReady: "Đã cài xong MixEngine {{version}}. Khởi động lại để hoàn tất cập nhật.",
         installerFinish: "Hoàn tất cập nhật",
       },

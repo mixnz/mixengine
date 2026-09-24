@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "../../../../components/Button";
 import { errorMessage } from "../../../../core/errors";
+import { useWindowFocused } from "../../../../core/windowFocus";
 import { useTranslation } from "../../../../i18n";
 import * as api from "../../api";
 import type { UpdateHandedOver, UpdateStatus } from "@mixengine/api";
@@ -23,9 +24,11 @@ import { useRunningDots } from "./useRunningDots";
 const INSTALLER_POLL_MS = 3000;
 
 export default function UpdatesSection({
+  active,
   onError,
   onApplied,
 }: {
+  active: boolean;
   onError: (message: string) => void;
   onApplied: () => void;
 }) {
@@ -43,6 +46,7 @@ export default function UpdatesSection({
   const [handed, setHanded] = useState<UpdateHandedOver | null>(null);
   const [downloading, setDownloading] = useState(false);
   const dots = useRunningDots(applying);
+  const focused = useWindowFocused();
   const { t } = useTranslation();
 
   const reload = useCallback(async () => {
@@ -57,7 +61,9 @@ export default function UpdatesSection({
     void reload();
   }, [reload]);
 
-  const waitingOnInstaller = handed !== null && status?.installed == null;
+  /* Polled only while somebody can see this section: Settings stays mounted after its first visit,
+     and a person who cancelled Installer.app and went elsewhere must not leave a poll behind. */
+  const waitingOnInstaller = handed !== null && status?.installed == null && active && focused;
 
   useEffect(() => {
     if (!waitingOnInstaller) return;
@@ -160,6 +166,19 @@ export default function UpdatesSection({
           <p className={styles.muted}>
             {t("mixengine.settings.updates.installerCommand", { command: handed.command })}
           </p>
+          {/* Installer.app closed without installing: open the same verified package again, or go
+              back to the offer. Without these the section waits here until MixLab restarts. */}
+          <div className={styles.row}>
+            <Button
+              onClick={() => void handOver()}
+              busy={downloading ? t("mixengine.settings.updates.installerDownloading") : undefined}
+            >
+              {t("mixengine.settings.updates.installerReopen")}
+            </Button>
+            <Button variant="ghost" onClick={() => setHanded(null)}>
+              {t("mixengine.settings.updates.installerBack")}
+            </Button>
+          </div>
         </>
       ) : view === "offer" && status.available ? (
         <div className={styles.row}>

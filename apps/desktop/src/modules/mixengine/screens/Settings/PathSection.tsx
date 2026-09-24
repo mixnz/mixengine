@@ -18,7 +18,13 @@ import styles from "./Settings.module.css";
  * **Công tắc đọc `on_path`, không tự gấp `places`**: daemon đã quyết "đủ mọi nơi mới tính là có",
  * và một client tự gấp là chỗ hai client bất đồng về chữ "đã cài".
  */
-export default function PathSection({ onError }: { onError: (message: string) => void }) {
+export default function PathSection({
+  active,
+  onError,
+}: {
+  active: boolean;
+  onError: (message: string) => void;
+}) {
   const [report, setReport] = useState<PathReport | null>(null);
   const [outcome, setOutcome] = useState<PathOutcome | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,9 +39,11 @@ export default function PathSection({ onError }: { onError: (message: string) =>
     }
   }, [t, onError]);
 
+  // Read again each time Settings comes back to the front: the Dashboard's card and `mix path` in a
+  // terminal change the same thing, and this screen stays mounted after its first visit.
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (active) void reload();
+  }, [active, reload]);
 
   async function change(next: boolean) {
     setBusy(true);

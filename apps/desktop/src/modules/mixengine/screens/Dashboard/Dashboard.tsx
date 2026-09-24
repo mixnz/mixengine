@@ -27,6 +27,7 @@ import {
   StopIcon,
 } from "../../../../icons";
 import { copyText } from "../../../../core/clipboard";
+import { serialQueue } from "../../../../core/serialQueue";
 import { useWindowFocused } from "../../../../core/windowFocus";
 import { errorMessage } from "../../../../core/errors";
 import { useTranslation } from "../../../../i18n";
@@ -334,29 +335,32 @@ export default function Dashboard({
    * **And only while the window has focus**, the tray panel's rule. `active` says Dashboard is the
    * tab in front, not that anybody is looking: a window left on Dashboard behind another
    * application held the stream open for hours and kept the daemon sampling every second.
+   *
+   * **Opening and closing go through one queue.** Focus can leave and come back while a stream is
+   * still connecting, and the window keeps one `/metrics` slot: a close sent beside the next
+   * opening could land after it and end the stream the Dashboard now wants. Queued, each close
+   * follows the opening it belongs to, and the next opening follows that close.
    */
   const measuring = active && focused;
+  const [metricsQueue] = useState(serialQueue);
   useEffect(() => {
     if (!measuring) return;
     let live = true;
-    void api
-      .metricsWatch((raw) => {
+    metricsQueue(async () => {
+      // Put away before its turn came: nothing to open.
+      if (!live) return;
+      await api.metricsWatch((raw) => {
         if (!live) return;
         const next = parseMetricsFrame(raw);
         if (next !== null) setFrame(next);
-      })
-      // Put away while the stream was still opening: the unwatch below ran first and found nothing
-      // to close, so close what just opened.
-      .then(() => {
-        if (!live) void api.metricsUnwatch();
-      })
-      .catch(() => undefined);
+      });
+    });
     return () => {
       live = false;
       setFrame(null);
-      void api.metricsUnwatch();
+      metricsQueue(() => api.metricsUnwatch());
     };
-  }, [measuring]);
+  }, [measuring, metricsQueue]);
 
   useEffect(() => {
     return subscribeDaemonWatch((raw) => {
@@ -621,7 +625,7 @@ export default function Dashboard({
 
       {/* Trên bảng service, và chỉ khi home này chưa có site nào — T117. */}
       {shouldOfferQuickStart(sites) && <QuickStart onCreated={() => void readSites()} />}
-      <PathNudge />
+      <PathNudge active={active} />
 
       <Card
         flush

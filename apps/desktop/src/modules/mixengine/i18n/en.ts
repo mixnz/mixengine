@@ -589,6 +589,8 @@ export default {
         installerDownloading: "Downloading the installer",
         installerOpen: "Installer is open. Finish the installation there, then come back here.",
         installerCommand: "To install from a terminal instead, run: {{command}}",
+        installerReopen: "Open installer again",
+        installerBack: "Back",
         installerReady: "MixEngine {{version}} is installed. Restart it to finish the update.",
         installerFinish: "Finish update",
       },
