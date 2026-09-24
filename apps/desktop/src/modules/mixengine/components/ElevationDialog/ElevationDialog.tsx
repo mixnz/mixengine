@@ -54,7 +54,7 @@ export default function ElevationDialog({
   const dots = useRunningDots(busy);
   const { t } = useTranslation();
   /** Còn mount hay không — đặt `true` trong thân effect chứ không chỉ `false` ở cleanup, vì
-   *  `React.StrictMode` (dev) chạy mount → unmount giả → mount lại (xem `UninstallSection`). */
+   *  `React.StrictMode` (dev) chạy mount → unmount giả → mount lại. */
   const live = useRef(true);
   useEffect(() => {
     live.current = true;

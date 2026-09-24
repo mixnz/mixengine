@@ -340,8 +340,6 @@ pub fn handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
         mixengine::commands::mixengine_service_stop_all,
         mixengine::commands::mixengine_doctor,
         mixengine::commands::mixengine_doctor_repair,
-        mixengine::commands::mixengine_uninstall_plan,
-        mixengine::commands::mixengine_uninstall,
         mixengine::commands::mixengine_bundle,
     ]
 }
