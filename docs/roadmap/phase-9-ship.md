@@ -181,6 +181,16 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       The clean VM is a fresh CI runner, in the `system` job on all three systems — which is also
       what the two unignored tests that remove anything check for, and skip when the machine running
       them is a workstation with a helper of its own.
+- [ ] **T182** Removing MixLab is one act. The Windows uninstaller undoes the machine through
+      `mix uninstall`, offers the home and the relocated directories as two choices, closes the
+      window, and either finishes or changes nothing; MixLab loses its Uninstall section, and a
+      finished uninstall ends the daemon whatever it kept (ADR 0051).
+      Design: [2026-09-24-t182-removing-mixlab-is-one-act-design.md](../specs/2026-09-24-t182-removing-mixlab-is-one-act-design.md).
+      Left open until `packaging/windows/uninstall-check.md` has been walked on a real install.
+- [ ] **T182a** An uninstall path for macOS and Linux, which have no uninstaller to hang T182 on:
+      for example an *Uninstall MixLab…* item in the macOS app that runs the whole removal, deletes
+      the `.app` and quits, so the app never outlives it. Until then the handbook's order stands:
+      `mix uninstall`, then the package.
 - [x] **T88** Auto-update, MixEngine's own: `mix self-update` against `latest.json` on GitHub
       Releases via the stable asset URL (not the API), signature verified before the JSON is parsed,
       daemon check at startup + 24 h interval, silent on failure, consent prompt with notes and size,
