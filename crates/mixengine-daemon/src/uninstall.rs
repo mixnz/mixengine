@@ -131,10 +131,14 @@ impl Uninstall {
 
     /// `daemon.uninstall` — the job that takes MixEngine off this machine.
     ///
-    /// **Unprivileged first, privileged once, home last** (the T87 design, D7). This user's own
-    /// things are undone before the prompt, so a declined grant still leaves the browsers, the
-    /// `PATH` and the login entry clean; everything needing the helper goes into one batch, so there
-    /// is one dialog; and the home goes last because the daemon is running out of it.
+    /// **Refuse when blocked, privileged first, then this user's own things, home last** (the T182
+    /// design, D4 and D5). A process running from a directory that is going refuses the whole run
+    /// before anything is enqueued. Everything needing the helper goes into one batch, so there is
+    /// one dialog — and it goes *first*, so a declined prompt has changed nothing at all: `PATH`, the
+    /// login entry and the browsers are touched only once the machine is clear. That reverses T87's
+    /// D7, which cleaned them before the prompt so a declined grant still left them clean; an
+    /// uninstall that must either finish or change nothing cannot leave a half-clean machine behind.
+    /// The home goes last because the daemon is running out of it.
     ///
     /// **Nothing stops a service here, and nothing in the home is removed here.** Both happen on the
     /// way out: the home's directories are *armed*, and `mixengined` removes them after its own
@@ -144,9 +148,10 @@ impl Uninstall {
     ///
     /// # Errors
     ///
-    /// The wire error of a home whose layout could not be read, or of a queue that could not be
-    /// written. **A declined prompt is not an error** — ADR 0005 — and neither is a machine that
-    /// could not be read: both are rows.
+    /// [`ErrorCode::PreconditionFailed`](mixengine_proto::ErrorCode::PreconditionFailed) when a
+    /// process is in the way, with nothing changed; the wire error of a home whose layout could not
+    /// be read, or of a queue that could not be written. **A declined prompt is not an error** — ADR
+    /// 0005 — and neither is a machine that could not be read: both are rows.
     pub(crate) async fn run(
         &self,
         query: &UninstallQuery,
@@ -155,9 +160,79 @@ impl Uninstall {
         handle.progress(5, "reading what this machine holds").await;
         let planned = self.rows(query).await?;
 
+        // T182, D4: nothing is touched while a process runs from a directory that is going.
+        if let Some(row) = planned
+            .iter()
+            .find(|row| matches!(row.outcome, Removal::Blocked { .. }))
+        {
+            return Err(Error::new(
+                mixengine_proto::ErrorCode::PreconditionFailed,
+                format!(
+                    "{} is running from {}; close it and run the uninstall again — nothing was \
+                     changed",
+                    row.what, row.location
+                ),
+            ));
+        }
+
+        handle.progress(20, "asking for permission").await;
+        let asked = self.ask_for_the_rest(&planned).await?;
+
+        // **Only when something is waiting.** `elevation.grant` refuses an empty queue outright, and
+        // raising a dialog to discover that would be a prompt for nothing.
+        let granted = match query.grant && !asked.is_empty() {
+            true => Some(self.elevation.grant_within(handle).await),
+            false => None,
+        };
+
+        if let Some(Err(error)) = &granted {
+            // Logged and carried, never returned: what the machine holds now is read below, and a
+            // grant that failed against a store that turns out not to hold the authority anyway is
+            // still a removal — `cert.ca_uninstall`'s rule, and the reason this method measures.
+            tracing::warn!(%error, "the grant an uninstall raised did not finish");
+        }
+
+        handle.progress(50, "reading this machine back").await;
+        let measured = aligned(&planned, self.rows(query).await?)?;
+        let waiting = self.elevation.status().await?.pending;
+
+        let privileged: Vec<Residue> = planned
+            .iter()
+            .zip(&measured)
+            .filter(|(before, _)| needs_the_helper(before.id))
+            .map(|(before, after)| {
+                settle(before.clone(), after.clone(), granted.is_some(), &waiting)
+            })
+            .collect();
+
+        // `Kept` is a helper a package placed (T88e), which is the package's to remove.
+        let machine_clear = privileged.iter().all(|row| {
+            matches!(
+                row.outcome,
+                Removal::Removed { .. }
+                    | Removal::Absent {}
+                    | Removal::OnRestart { .. }
+                    | Removal::Kept { .. }
+            )
+        });
+
+        if !machine_clear {
+            // A prompt that was raised and did not clear the machine leaves nothing of this run
+            // waiting in the queue: the next run enqueues again. `grant: false` keeps them — that
+            // caller asked for exactly a queue.
+            if granted.is_some() {
+                self.drop_what_was_asked(&asked).await?;
+            }
+
+            let mut items = merge(measured, privileged);
+            self.arm_the_home(&mut items, true);
+
+            return Ok(UninstallReport { items });
+        }
+
         handle
             .progress(
-                20,
+                70,
                 "taking this home out of your PATH, your login and your browsers",
             )
             .await;
@@ -174,26 +249,8 @@ impl Uninstall {
                 .log("during an uninstall");
         }
 
-        handle.progress(45, "asking for permission").await;
-        let asked = self.ask_for_the_rest(&planned).await?;
-
-        // **Only when something is waiting.** `elevation.grant` refuses an empty queue outright, and
-        // raising a dialog to discover that would be a prompt for nothing.
-        let granted = match query.grant && asked > 0 {
-            true => Some(self.elevation.grant_within(handle).await),
-            false => None,
-        };
-
-        if let Some(Err(error)) = &granted {
-            // Logged and carried, never returned: what the machine holds now is read below, and a
-            // grant that failed against a store that turns out not to hold the authority anyway is
-            // still a removal — `cert.ca_uninstall`'s rule, and the reason this method measures.
-            tracing::warn!(%error, "the grant an uninstall raised did not finish");
-        }
-
-        handle.progress(80, "reading this machine back").await;
-        let measured = self.rows(query).await?;
-        let waiting = self.elevation.status().await?.pending;
+        handle.progress(85, "reading this machine back").await;
+        let measured = aligned(&planned, self.rows(query).await?)?;
 
         let mut items = Vec::with_capacity(planned.len());
         for (before, after) in planned.into_iter().zip(measured) {
@@ -216,32 +273,58 @@ impl Uninstall {
             });
         }
 
-        // **The home is kept when the grant did not finish, whatever was asked for.** A home removed
-        // while this machine still routes `.test` to a daemon that no longer exists is the worst of
-        // the states available, and it is one nobody could repair without the home that knew how.
-        let unfinished = matches!(granted, Some(Err(_)))
-            || items.iter().any(|item| {
-                matches!(
-                    item.outcome,
-                    Removal::Failed { .. } | Removal::Enqueued { .. }
-                )
-            });
+        // **The home is kept when anything outside it is still there, whatever was asked for.** A
+        // home removed while this machine still routes `.test` to a daemon that no longer exists is
+        // the worst of the states available, and one nobody could repair without the home that
+        // knew how.
+        let unfinished = items.iter().any(|item| {
+            matches!(
+                item.outcome,
+                Removal::Failed { .. } | Removal::Enqueued { .. }
+            )
+        });
 
-        if !query.keep_home {
-            handle
-                .progress(95, "arming this home's own directories")
-                .await;
-            self.arm_the_home(&mut items, unfinished);
-        }
+        handle
+            .progress(95, "arming this home's own directories")
+            .await;
+        self.arm_the_home(&mut items, unfinished);
 
         Ok(UninstallReport { items })
     }
 
+    /// Drop from the queue every operation this uninstall enqueued — T182, D5.
+    ///
+    /// **Compared as their wire form**, which is what the queue stores: an operation this run asked
+    /// for and one somebody else had already queued are the same operation, and dropping it is
+    /// right — the next uninstall asks for it again, and nothing else wants it once this home goes.
+    async fn drop_what_was_asked(&self, asked: &[PrivilegedOp]) -> Result<(), Error> {
+        let asked: Vec<serde_json::Value> = asked
+            .iter()
+            .filter_map(|op| serde_json::to_value(op).ok())
+            .collect();
+
+        for waiting in self.elevation.status().await?.pending {
+            let Ok(value) = serde_json::to_value(&waiting.op) else {
+                continue;
+            };
+
+            if asked.contains(&value) {
+                self.elevation
+                    .drop_pending(&mixengine_proto::ElevationDrop {
+                        op: Some(waiting.id),
+                    })
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// The three things outside the home that belong to this account rather than to the machine.
     ///
-    /// **Before the prompt, and complete on their own.** None needs a token, so a person who then
-    /// declines the dialog still ends up with their `PATH`, their login and their browsers clean —
-    /// which is the half of an uninstall that would otherwise be lost to one click.
+    /// **After the prompt, and only once the machine is clear** (the T182 design, D5). None needs a
+    /// token, which is exactly why they wait: a person who declines the dialog has then changed
+    /// nothing at all, and the next run finds all three where they were.
     ///
     /// Answers only the rows it acted on; everything else is settled from the second reading.
     async fn undo_what_needs_no_token(
@@ -304,7 +387,7 @@ impl Uninstall {
         done
     }
 
-    /// Put everything that needs the helper in the queue, and say how many rows that was.
+    /// Put everything that needs the helper in the queue, and say which operations those were.
     ///
     /// **In the order the batch is applied**, which the queue preserves: the log's own removal goes
     /// in last, so the last thing it ever records is the removal of the binary that writes it.
@@ -312,11 +395,11 @@ impl Uninstall {
     /// **Only the rows that said `Planned`.** A machine with no resolver mechanism, or one holding
     /// none of this home's wiring, asks for nothing — a row whose only possible outcome is
     /// `AlreadyDone` is a row that makes a dialog longer for no reason.
-    async fn ask_for_the_rest(&self, planned: &[Residue]) -> Result<usize, Error> {
+    async fn ask_for_the_rest(&self, planned: &[Residue]) -> Result<Vec<PrivilegedOp>, Error> {
         // T88d, and before anything else this asks for.
         drop_helper_installations(&self.elevation).await?;
 
-        let mut asked = 0;
+        let mut asked = Vec::new();
 
         for id in [
             ResidueId::HostsBlock,
@@ -336,7 +419,7 @@ impl Uninstall {
             };
 
             self.elevation.enqueue(&op).await?;
-            asked += 1;
+            asked.push(op);
         }
 
         Ok(asked)
@@ -412,7 +495,8 @@ impl Uninstall {
             | ResidueId::AutostartEntry
             | ResidueId::PathEntry
             | ResidueId::Home
-            | ResidueId::RelocatedDirectory => None,
+            | ResidueId::RelocatedDirectory
+            | ResidueId::InUse => None,
         }
     }
 
@@ -422,6 +506,10 @@ impl Uninstall {
     /// this daemon still has services running, a database open and a socket in `run/`. What this does
     /// is record the directories, and the process removes them on the way out — after its own
     /// shutdown has stopped every service and after `Store::close` has checkpointed the log.
+    ///
+    /// **Called whatever is kept, and it is what marks the run finished** (the T182 design, D1): a
+    /// directory the caller asked to keep stays exactly as the inventory said, and a finished run
+    /// ends the daemon even when nothing at all was armed.
     fn arm_the_home(&self, items: &mut [Residue], unfinished: bool) {
         let mut paths = Vec::new();
 
@@ -430,13 +518,16 @@ impl Uninstall {
                 continue;
             }
 
+            if !matches!(item.outcome, Removal::Planned { .. }) {
+                continue;
+            }
+
             item.outcome = match unfinished {
                 true => Removal::Kept {
-                    because:
-                        "something outside this home is still there, and a home removed while \
-                              this machine is still wired for it is one nothing could repair — run \
-                              `mix uninstall` again once the rows above are clear"
-                            .to_owned(),
+                    because: "something outside this home is still there, and a home removed \
+                              while this machine is still wired for it is one nothing could \
+                              repair — run the uninstall again once the rows above are clear"
+                        .to_owned(),
                 },
                 false => {
                     paths.push(std::path::PathBuf::from(&item.location));
@@ -451,6 +542,10 @@ impl Uninstall {
 
         if !paths.is_empty() {
             self.armed.arm(paths);
+        }
+
+        if !unfinished {
+            self.armed.finish();
         }
     }
 
@@ -495,6 +590,45 @@ pub(crate) async fn drop_helper_installations(
     }
 
     Ok(())
+}
+
+/// The second reading, paired with the first row by row — or a refusal when the two cannot be.
+///
+/// **Rows are paired by position**, as T87 always has. A process that started between the two
+/// readings adds an in-use row the first did not have, and those rows are dropped here: the run
+/// refused on any in-use row before it began, so a new one is somebody who arrived after the
+/// check, and the rename on the way out refuses rather than half-deletes if they are still there.
+/// Anything else that makes the readings disagree is a machine that changed underneath the
+/// uninstall, and mis-pairing its rows would report one thing's outcome against another's name.
+fn aligned(planned: &[Residue], mut measured: Vec<Residue>) -> Result<Vec<Residue>, Error> {
+    measured.retain(|row| row.id != ResidueId::InUse);
+
+    let agrees = planned.len() == measured.len()
+        && planned
+            .iter()
+            .zip(&measured)
+            .all(|(before, after)| before.id == after.id);
+
+    match agrees {
+        true => Ok(measured),
+        false => Err(Error::new(
+            mixengine_proto::ErrorCode::Internal,
+            "this machine changed while it was being uninstalled; run the uninstall again",
+        )),
+    }
+}
+
+/// The second reading, with each privileged row replaced by its settled outcome.
+fn merge(measured: Vec<Residue>, privileged: Vec<Residue>) -> Vec<Residue> {
+    let mut settled = privileged.into_iter();
+
+    measured
+        .into_iter()
+        .map(|row| match needs_the_helper(row.id) {
+            true => settled.next().unwrap_or(row),
+            false => row,
+        })
+        .collect()
 }
 
 /// Is this one of the rows the elevated helper answers for?

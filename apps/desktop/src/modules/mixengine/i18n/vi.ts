@@ -589,20 +589,6 @@ const vi: typeof en = {
         ok: "Ổn",
         repair: "Sửa",
       },
-      uninstall: {
-        title: "Gỡ MixEngine",
-        keepHome: "Giữ lại database và site (không xoá home của MixEngine)",
-        start: "Gỡ MixEngine",
-        confirmTitle: "Gỡ MixEngine?",
-        confirmLead: "Việc này sẽ hỏi quyền quản trị để xoá những mục đã liệt kê ở trên.",
-        confirmLeadElevate:
-          "Trên {{os}}, mixengine-elevate cũng sẽ bị gỡ theo. Đây là trình trợ giúp chạy với quyền root để cấp chứng chỉ SSL, nối DNS resolver, ghi audit log và làm các việc cần đặc quyền khác. Muốn có lại, cần cài lại MixEngine.",
-        confirmAllow: "Gỡ",
-        running: "Đang gỡ",
-        declined:
-          "Chưa được cấp quyền, nên chưa xoá gì cần quyền quản trị. Bấm Gỡ lại khi sẵn sàng.",
-        done: "Đã gỡ MixEngine.",
-      },
       diagnostics: {
         title: "Gói diagnostics",
         collect: "Thu thập diagnostics",

@@ -168,15 +168,14 @@ binaries. What they state is what the daemon **writes** —
    an empty folder nobody was told about. The same sentence is owed again afterwards, where the
    step comes back `NotRun`: `StepResult::NotRun`'s `why` ends in a `mix` flag, so a client with no
    command line writes its own.
-7a. **Taking MixEngine off this machine** — `daemon.uninstall_plan` first and always, because what
-   a person is about to allow is what they are shown; then `daemon.uninstall`, whose job raises the
-   one prompt and whose report is a measurement of the machine afterwards rather than a claim about
-   what was attempted. A client renders every row, including the ones that answered *nothing there*:
-   a screen that hid those leaves somebody unable to tell "there was no resolver wiring" from "the
-   resolver wiring was not looked at". `keep_home` is the offer to leave the databases in `data/`
-   alone. **The daemon ends itself when the home goes with it**, so a client should expect the
-   connection to close and should read the `on_exit` rows back off disk once it has — that is what
-   makes the answer *nothing is left behind* rather than *the daemon said so*.
+7a. **Taking MixEngine off this machine is not a screen of a graphical client**
+   ([ADR 0051](../decisions/0051-an-uninstall-ends-what-it-undoes.md)). A finished uninstall ends
+   the daemon, so a window offering one would outlive what it undid. It belongs to the Windows
+   uninstaller and to `mix uninstall`, which call `daemon.uninstall_plan` first and always, then
+   `daemon.uninstall`. The plan names any process running from a directory that would go
+   (`blocked`), and the act refuses while one is; `keep_home` and `keep_relocated` are the two
+   offers to leave data alone. The report is a measurement of the machine afterwards, and the
+   caller reads the `on_exit` rows back off disk once the daemon has gone.
 
 8. **Extensions** — browse the registry, install and uninstall, per-extension settings, and whatever
    an extension needs to be opened ([extensions.md](extensions.md)).

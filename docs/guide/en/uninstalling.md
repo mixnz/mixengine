@@ -15,6 +15,25 @@ summary = "Undo everything MixLab wrote outside its own directory, see the list 
 MixLab writes almost everything inside one directory. The exceptions are the handful of
 privileged changes it asked permission for, and taking those back is what `mix uninstall` is for.
 
+## On Windows, Installed apps does all of it
+
+Uninstall MixLab from Installed apps. The uninstaller asks two things, both unticked:
+
+- **Also delete MixLab's data**: the home, with your databases, certificates and project records.
+- **Also delete the folders you moved out of it**: shown only when `[paths]` moved `runtimes`,
+  `packages`, `data` or `logs` somewhere else, and listing where.
+
+If MixLab is open, it asks to close it. Then it checks everything that could stop it half-way: a
+file in use, or a program running from one of MixLab's folders, such as a `php` you started through
+a shim. If anything is in the way, it names it and removes nothing. Close it and click Uninstall
+again.
+
+Then one administrator prompt undoes the machine changes listed below, and the program goes. If you
+decline the prompt, nothing is removed and MixLab stays installed. Run Uninstall again when you are
+ready.
+
+The rest of this page is the same work done with `mix`, which is how you do it on macOS and Linux.
+
 ## See the list first
 
 ```bash
@@ -41,6 +60,13 @@ mix uninstall
 You are asked to confirm, and one administrator prompt covers the privileged half. `--yes` answers
 the confirmation in advance, for a script.
 
+**Nothing changes until the prompt is allowed.** Decline it and your `PATH`, your login entry and
+your browsers are exactly as they were; run the command again when you are ready.
+
+**A program running from MixLab's folders stops it before it starts.** The list marks it
+`BLOCKED`, and the command exits `3`, so a script can tell *close this and try again* from a
+failure. Close the program and run the command again.
+
 **The report is a measurement, not a claim.** What comes back is what MixLab found on the machine
 *afterwards*, row by row, including the rows that answered *nothing there* — a report that hid those
 would leave you unable to tell "there was no resolver wiring" from "the resolver wiring was not
@@ -58,11 +84,18 @@ mix uninstall --keep-home
 ```
 
 This undoes everything **outside** the home directory and leaves the home where it is: your
-databases in `data/`, your certificates, your projects' records. The daemon keeps running, because
-there is still a home for it to serve.
+databases in `data/`, your certificates, your projects' records. The daemon stops when it is done,
+and a later install picks the home up again.
 
-It is the right command when you are handing the machine's network configuration back but are not
-finished with the data yet.
+If you moved `runtimes`, `packages`, `data` or `logs` to another disk with `[paths]`, those folders
+are a separate choice:
+
+```bash
+mix uninstall --keep-relocated
+```
+
+keeps them and removes the home. Use both flags to keep everything. A folder you never moved is
+inside the home, so it goes with the home.
 
 ## Then remove the program itself
 
@@ -76,9 +109,9 @@ sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengin
   /Applications/MixLab.app
 ```
 
-On Windows, use Apps & Features for the installer, or delete the folder for the portable zip. On
-macOS, the third line above is what the `.pkg` placed — **MixLab** included. An AppImage is one file
-you delete.
+On Windows, the installer's own uninstaller already did this part. For the portable zip, delete the
+folder. On macOS, the third line above is what the `.pkg` placed, **MixLab** included. An AppImage
+is one file you delete.
 
 ## What is deliberately not automatic
 

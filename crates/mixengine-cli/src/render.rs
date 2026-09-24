@@ -2464,6 +2464,7 @@ pub(crate) fn uninstall_report(report: &UninstallReport) -> String {
             Removal::OnRestart { what } => ("restart  ", Some(what)),
             Removal::Kept { because } => ("kept     ", Some(because)),
             Removal::Failed { because } => ("LEFT     ", Some(because)),
+            Removal::Blocked { by } => ("BLOCKED  ", Some(by)),
         };
 
         out.push_str(&format!("{mark}{}\n", item.what));

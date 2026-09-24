@@ -31,6 +31,15 @@ pub struct UninstallQuery {
     #[serde(default)]
     pub keep_home: bool,
 
+    /// Leave every directory `[paths]` has moved out of the root where it is — roadmap task **T182**.
+    ///
+    /// **Its own choice and not part of `keep_home`** (the T182 design, D2): those directories are
+    /// moved to another disk because they are large, and a person may want the home gone and the
+    /// databases on the other disk kept, or the reverse. A directory that was never moved lies inside
+    /// the home and follows `keep_home`.
+    #[serde(default)]
+    pub keep_relocated: bool,
+
     /// Flush the elevation queue in this same call, raising the one prompt.
     ///
     /// **Defaults to `false`**, and ignored by `daemon.uninstall_plan`, which raises nothing. The
@@ -52,8 +61,9 @@ pub struct UninstallQuery {
 pub struct UninstallReport {
     /// One entry per thing MixEngine can have written, in a fixed order, whatever each answered.
     ///
-    /// Eleven of the twelve ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once
-    /// per directory `[paths]` has moved out of the root, and on an ordinary home not at all.
+    /// Eleven of the thirteen ids appear exactly once. [`ResidueId::RelocatedDirectory`] appears once
+    /// per directory `[paths]` has moved out of the root, and on an ordinary home not at all;
+    /// [`ResidueId::InUse`] once per process in the way.
     pub items: Vec<Residue>,
 }
 
@@ -70,6 +80,17 @@ impl UninstallReport {
         self.items
             .iter()
             .any(|item| matches!(item.outcome, Removal::Failed { .. }))
+    }
+
+    /// Is anything in the way of starting? — **T182**, D4.
+    ///
+    /// **What `mix uninstall --dry-run` exits `3` for**, and what makes `daemon.uninstall` refuse
+    /// before it enqueues a single operation.
+    #[must_use]
+    pub fn blocked(&self) -> bool {
+        self.items
+            .iter()
+            .any(|item| matches!(item.outcome, Removal::Blocked { .. }))
     }
 }
 
@@ -145,6 +166,11 @@ pub enum ResidueId {
     /// **Its own id rather than a second path hidden inside [`Home`](Self::Home)**: the client reads
     /// these back one by one once the daemon is gone, and a row is what it reads back.
     RelocatedDirectory,
+
+    /// A process running from inside a directory this uninstall would remove — **T182**, D4.
+    ///
+    /// One row per process. It is never removed: it is the reason the uninstall does not start.
+    InUse,
 }
 
 impl ResidueId {
@@ -165,6 +191,7 @@ impl ResidueId {
         Self::PathEntry,
         Self::Home,
         Self::RelocatedDirectory,
+        Self::InUse,
     ];
 }
 
@@ -235,6 +262,14 @@ pub enum Removal {
     Failed {
         /// What the machine said, and the fact that the thing is still there.
         because: String,
+    },
+
+    /// In the way: nothing on this list is touched while it is there — **T182**, D4.
+    ///
+    /// Only `daemon.uninstall_plan` answers it; `daemon.uninstall` refuses instead of acting.
+    Blocked {
+        /// What to do about it, in a sentence.
+        by: String,
     },
 }
 
@@ -323,7 +358,49 @@ mod tests {
         unique.dedup();
 
         assert_eq!(unique.len(), spellings.len(), "{spellings:?}");
-        assert_eq!(spellings.len(), 12);
+        assert_eq!(spellings.len(), 13);
+    }
+
+    /// T182, D2. The relocated directories are their own choice, and leaving the field out keeps
+    /// the old meaning: remove them.
+    #[test]
+    fn keeping_the_relocated_directories_is_its_own_field_and_defaults_to_no() {
+        let query: UninstallQuery = serde_json::from_str("{}").expect("no options is a shape");
+        assert!(!query.keep_relocated);
+
+        let query: UninstallQuery =
+            serde_json::from_str(r#"{"keep_home":false,"keep_relocated":true}"#).expect("both");
+        assert!(query.keep_relocated);
+        assert!(!query.keep_home);
+    }
+
+    /// T182, D4. A process in the way is a row of its own and an outcome of its own, and it is what
+    /// `blocked` answers — never what `left_behind` answers, because nothing was attempted.
+    #[test]
+    fn a_process_in_the_way_blocks_and_is_not_left_behind() {
+        let blocked = Residue {
+            id: ResidueId::InUse,
+            what: "php.exe (pid 42)".to_owned(),
+            location: r"C:\home\runtimes\php\8.3\php.exe".to_owned(),
+            outcome: Removal::Blocked {
+                by: "close php.exe and run the uninstall again".to_owned(),
+            },
+        };
+
+        let wire = serde_json::to_string(&blocked).expect("serialises");
+        assert!(wire.contains(r#""id":"in_use""#), "{wire}");
+        assert!(wire.contains(r#""removal":"blocked""#), "{wire}");
+
+        let report = UninstallReport {
+            items: vec![blocked],
+        };
+        assert!(report.blocked());
+        assert!(!report.left_behind());
+
+        let clear = UninstallReport {
+            items: vec![residue(Removal::Absent {})],
+        };
+        assert!(!clear.blocked());
     }
 
     /// A query that leaves both fields out is the ordinary one, and both default to the safe

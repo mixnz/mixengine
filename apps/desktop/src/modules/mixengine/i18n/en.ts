@@ -599,20 +599,6 @@ export default {
         ok: "OK",
         repair: "Repair",
       },
-      uninstall: {
-        title: "Uninstall MixEngine",
-        keepHome: "Keep my databases and sites (do not remove the MixEngine home)",
-        start: "Uninstall MixEngine",
-        confirmTitle: "Uninstall MixEngine?",
-        confirmLead: "This will ask an administrator to remove the items listed above.",
-        confirmLeadElevate:
-          "On {{os}}, this also removes mixengine-elevate, the helper that runs as root to issue SSL certificates, wire up the DNS resolver, keep the audit log and carry out other privileged work. To get it back, reinstall MixEngine.",
-        confirmAllow: "Uninstall",
-        running: "Uninstalling",
-        declined:
-          "Permission was not granted, so nothing that needs an administrator was removed. Uninstall again when you are ready.",
-        done: "MixEngine has been uninstalled.",
-      },
       diagnostics: {
         title: "Diagnostics bundle",
         collect: "Collect diagnostics",

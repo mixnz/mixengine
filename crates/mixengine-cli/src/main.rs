@@ -45,17 +45,17 @@ use mixengine_proto::{
     PackageRemoval, PackageTarget, PackageVersion, PathReport, PendingOpId, PlanAction, Priority,
     ProjectCreate, ProjectDetail, ProjectExport, ProjectList, ProjectQuery, ProjectRef,
     ProjectRemoval, ProjectUpdate, Reclaim, Remedy, Removal, RepairReport, Requirement,
-    Requirements, ResetCredential, ResolvedRuntime, ResourceLimits, RouteTarget, RuntimeCatalogue,
-    RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion, RuntimeRemoval,
-    RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources, SaveResourcesSet,
-    ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation, ServiceDelete, ServiceId,
-    ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList, ServiceQuery,
-    ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk, SignatureCheck,
-    SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery, SiteQuery, SiteRef,
-    SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate, StorageReport,
-    Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply, UpdateCheck,
-    UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver, UpdatePlacement,
-    UpdateStatus, VersionAnswer, VersionConstraint, rpc,
+    Requirements, ResetCredential, ResidueId, ResolvedRuntime, ResourceLimits, RouteTarget,
+    RuntimeCatalogue, RuntimeFilter, RuntimeInstall, RuntimeKind, RuntimeList, RuntimeQuestion,
+    RuntimeRemoval, RuntimeSummary, RuntimeTarget, RuntimeUninstall, SaveResources,
+    SaveResourcesSet, ScaffoldConsent, ServiceAutostartSet, ServiceCreate, ServiceCreation,
+    ServiceDelete, ServiceId, ServiceIdleSet, ServiceLimitsReport, ServiceLimitsSet, ServiceList,
+    ServiceQuery, ServiceRemoval, ServiceRole, ServiceSummary, ServiceTarget, ServiceWalk,
+    SignatureCheck, SiteCreate, SiteCreation, SiteDetail, SiteKind, SiteList, SiteListQuery,
+    SiteQuery, SiteRef, SiteRemoval, SiteRoute, SiteShare, SiteSharing, SiteState, SiteUpdate,
+    StorageReport, Timestamp, UninstallQuery, UninstallReport, UpdateApplied, UpdateApply,
+    UpdateCheck, UpdateDecide, UpdateDecision, UpdateFinish, UpdateHandOver, UpdateHandedOver,
+    UpdatePlacement, UpdateStatus, VersionAnswer, VersionConstraint, rpc,
 };
 
 use autostart::Autostart;
@@ -334,6 +334,19 @@ enum Command {
         /// daemon keeps running, because there is still a home for it to serve.
         #[arg(long)]
         keep_home: bool,
+
+        /// Leave the directories `[paths]` moved out of the home where they are.
+        ///
+        /// Its own choice, apart from `--keep-home`: a home can go while `data/` on another disk
+        /// stays, or the reverse. A directory that was never moved is inside the home.
+        #[arg(long)]
+        keep_relocated: bool,
+
+        /// With `--dry-run`: print only the relocated directories, one path per line.
+        ///
+        /// For a program to read — the Windows uninstaller shows them before it asks anything.
+        #[arg(long, requires = "dry_run")]
+        relocated: bool,
 
         /// Answer the confirmation in advance, for a script with nobody at the keyboard.
         #[arg(long, conflicts_with = "dry_run")]
@@ -2407,19 +2420,21 @@ async fn run(args: Args) -> Result<ExitCode, Error> {
         Command::Uninstall {
             dry_run,
             keep_home,
+            keep_relocated,
+            relocated,
             yes,
             no_wait,
         } => {
-            uninstall(
-                &endpoint,
-                autostart.as_ref(),
-                args.json,
+            let wanted = UninstallAsk {
                 dry_run,
                 keep_home,
+                keep_relocated,
+                relocated,
                 yes,
                 no_wait,
-            )
-            .await
+            };
+
+            uninstall(&endpoint, autostart.as_ref(), args.json, wanted).await
         }
         Command::SelfUpdate { check, yes, finish } => {
             let asked = SelfUpdateAsk { check, yes, finish };
@@ -2975,28 +2990,55 @@ fn agreed_to_cleanup(
 /// **The plan is asked for first and always**, even on the way to the real thing: what a person is
 /// about to allow is what they are shown, which is T64's rule applied to the one command that cannot
 /// be undone. `--dry-run` is that same call and then nothing else.
+///
+/// **Exit `3` is "something is in the way"** (the T182 design, D4): a process running from a
+/// directory that would be removed. Distinct from `1`, so the Windows uninstaller can tell *close
+/// this and try again* from *this failed*.
 async fn uninstall(
     endpoint: &Endpoint,
     autostart: Option<&Autostart>,
     json: bool,
-    dry_run: bool,
-    keep_home: bool,
-    yes: bool,
-    no_wait: bool,
+    wanted: UninstallAsk,
 ) -> Result<ExitCode, Error> {
+    let UninstallAsk {
+        dry_run,
+        keep_home,
+        keep_relocated,
+        relocated,
+        yes,
+        no_wait,
+    } = wanted;
+
     let mut client = Client::connect(endpoint, autostart).await?;
+
+    let query = UninstallQuery {
+        keep_home,
+        keep_relocated,
+        // A plan raises nothing whatever this says; sent as it will be sent to the act, so the two
+        // calls are visibly one question asked twice.
+        grant: false,
+    };
 
     let planned: UninstallReport = ask(
         &mut client,
         rpc::method::DAEMON_UNINSTALL_PLAN,
-        encode(&UninstallQuery {
-            keep_home,
-            // A plan raises nothing whatever this says; sent as it will be sent to the act, so the
-            // two calls are visibly one question asked twice.
-            grant: false,
-        }),
+        encode(&query),
     )
     .await?;
+
+    // T182, D9: the listing the Windows uninstaller reads — the directories `[paths]` moved out,
+    // and not the tombstones beside them, which are garbage and not a choice.
+    if relocated {
+        for item in &planned.items {
+            if item.id == ResidueId::RelocatedDirectory
+                && !item.location.contains(mixengine_platform::tombstone::MARK)
+            {
+                emit(&format!("{}\n", item.location))?;
+            }
+        }
+
+        return Ok(ExitCode::SUCCESS);
+    }
 
     // **One document per run under `--json`, and the plan is not it.** The plan is printed so that a
     // person can read what they are about to allow; a caller reading JSON is not being asked
@@ -3008,11 +3050,15 @@ async fn uninstall(
         }))?;
     }
 
+    if planned.blocked() {
+        return Ok(ExitCode::from(BLOCKED));
+    }
+
     if dry_run {
         return Ok(ExitCode::SUCCESS);
     }
 
-    if !yes && !agreed_to_uninstall(&planned, keep_home, json)? {
+    if !yes && !agreed_to_uninstall(&planned, keep_home, keep_relocated, json)? {
         // Saying no is an answer and not a failure — `mix elevation grant`'s rule. Nothing was
         // removed, so the same command works when the person is ready.
         return Ok(ExitCode::SUCCESS);
@@ -3022,11 +3068,11 @@ async fn uninstall(
         &mut client,
         rpc::method::DAEMON_UNINSTALL,
         encode(&UninstallQuery {
-            keep_home,
             // The plan above *is* the batch this allows, and it has just been shown or answered for
             // in advance — which is T64's rule met, so the prompt is raised inside the one job the
             // caller is already following.
             grant: true,
+            ..query
         }),
     )
     .await?;
@@ -3093,6 +3139,24 @@ async fn uninstall(
 /// protocol than the `mix` still running from the old image, and a protocol-mismatch error at the
 /// end of a successful update would be the worst possible last line. `--detach` exiting zero *is*
 /// the readiness probe, which is what `autostart.rs` already documents.
+/// What `mix uninstall` exits with when a process is in the way — the T182 design, D4.
+const BLOCKED: u8 = 3;
+
+/// What `mix uninstall` was asked to do: its six flags, on [`SelfUpdateAsk`]'s precedent.
+#[derive(Debug, Clone, Copy)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "six independent command-line switches, each named where it is read"
+)]
+struct UninstallAsk {
+    dry_run: bool,
+    keep_home: bool,
+    keep_relocated: bool,
+    relocated: bool,
+    yes: bool,
+    no_wait: bool,
+}
+
 /// What `mix self-update` was asked to do: its three flags.
 #[derive(Debug, Clone, Copy)]
 struct SelfUpdateAsk {
@@ -3420,7 +3484,20 @@ async fn left_behind(report: &UninstallReport, endpoint: &Endpoint) -> Vec<Strin
         .map(|item| item.location.as_str())
         .collect();
 
+    // T182, D1: a finished uninstall ends the daemon even when nothing of its own is going, and
+    // this waits for that too — a script reading the exit code should not find the daemon still up.
+    let finished = !report.items.iter().any(|item| {
+        matches!(
+            item.outcome,
+            Removal::Failed { .. } | Removal::Enqueued { .. }
+        )
+    });
+
     if going.is_empty() {
+        if finished && !Client::gone(endpoint, GOING).await {
+            report_left("this home's daemon is still running after a finished uninstall");
+        }
+
         return Vec::new();
     }
 
@@ -3431,11 +3508,21 @@ async fn left_behind(report: &UninstallReport, endpoint: &Endpoint) -> Vec<Strin
     let deadline = tokio::time::Instant::now() + GOING;
 
     loop {
-        let left: Vec<String> = going
+        // A tombstone beside a path is that path half-removed (T182, D6), and counts as left.
+        let mut left: Vec<String> = going
             .iter()
-            .filter(|path| std::path::Path::new(path).exists())
-            .map(|path| (*path).to_owned())
+            .flat_map(|path| {
+                let path = std::path::Path::new(path);
+
+                path.exists()
+                    .then(|| path.to_path_buf())
+                    .into_iter()
+                    .chain(mixengine_platform::tombstone::tombstones_beside(path))
+                    .map(|left| left.display().to_string())
+            })
             .collect();
+        left.sort();
+        left.dedup();
 
         if left.is_empty() || tokio::time::Instant::now() + STEP >= deadline {
             return left;
@@ -3462,16 +3549,41 @@ fn report_left(what: &str) {
 fn agreed_to_uninstall(
     planned: &UninstallReport,
     keep_home: bool,
+    keep_relocated: bool,
     json: bool,
 ) -> Result<bool, Error> {
     if json {
         return Err(unanswered());
     }
 
-    let question = match keep_home {
-        true => "undo everything MixEngine has done to this machine, and keep this home?",
-        false => {
+    // The relocated directories are only worth a clause of their own when there are some (T182, D2).
+    let moved = planned.items.iter().any(|item| {
+        item.id == ResidueId::RelocatedDirectory
+            && !item.location.contains(mixengine_platform::tombstone::MARK)
+    });
+
+    let question = match (keep_home, moved, keep_relocated) {
+        (true, false, _) => {
+            "undo everything MixEngine has done to this machine, and keep this home?"
+        }
+        (false, false, _) => {
             "remove MixEngine from this machine, including this home and every database in it?"
+        }
+        (true, true, true) => {
+            "undo everything MixEngine has done to this machine, and keep this home and the \
+             directories moved out of it?"
+        }
+        (true, true, false) => {
+            "undo everything MixEngine has done to this machine, keep this home, and remove the \
+             directories moved out of it?"
+        }
+        (false, true, true) => {
+            "remove MixEngine from this machine, including this home and every database in it, but \
+             keep the directories moved out of it?"
+        }
+        (false, true, false) => {
+            "remove MixEngine from this machine, including this home, the directories moved out of \
+             it, and every database in them?"
         }
     };
 

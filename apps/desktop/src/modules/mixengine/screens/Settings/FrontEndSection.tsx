@@ -21,7 +21,7 @@ import { useRunningDots } from "./useRunningDots";
 /** Hai giá trị `FrontEndServer` — đúng danh sách đóng của hợp đồng, không đọc từ package nào. */
 const SERVERS: FrontEndServer[] = ["caddy", "nginx"];
 
-/** `JobOutcome.error` thành `AppError` dịch được — cùng khuôn `UninstallSection.refusal`. */
+/** `JobOutcome.error` thành `AppError` dịch được. */
 function refusal(error: WireError): AppError {
   const params: Record<string, string> = { code: error.code, message: error.message };
   if (error.hint) params.hint = error.hint;
@@ -50,7 +50,7 @@ function activeFrontEnd(services: ServiceSummary[]): FrontEndServer | null | und
  * `errorMessage` như mọi lỗi khác, không tự kiểm tra package ở đây.
  *
  * **Ghi là một job**, không phải một setting: daemon dừng server cũ, dựng server mới, và có thể cần
- * một prompt (grant cổng 80/443 trên Linux đổi theo binary). Poll `jobStatus` như `UninstallSection`,
+ * một prompt (grant cổng 80/443 trên Linux đổi theo binary). Poll `jobStatus` như mọi job khác,
  * rồi đọc `FrontEndReport` trong `result` — năm `outcome` được vẽ như năm kết cục khác nhau, không
  * gộp thành "lỗi":
  *

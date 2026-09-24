@@ -348,7 +348,15 @@ pub(crate) struct Supervision {
 /// **Empty on every ordinary daemon**, and taken exactly once: a second reader finding the same list
 /// would remove a directory twice and report the second failure as a fault.
 #[derive(Debug, Default)]
-pub(crate) struct Armed(std::sync::Mutex<Vec<std::path::PathBuf>>);
+pub(crate) struct Armed {
+    /// What `main` removes once every handle inside them is closed.
+    paths: std::sync::Mutex<Vec<std::path::PathBuf>>,
+
+    /// Set by an uninstall that finished — T182, D1. The daemon ends on this, whether or not a
+    /// directory was armed: a home that is kept is no reason to go on serving a machine that has
+    /// just been told to forget it.
+    finished: std::sync::atomic::AtomicBool,
+}
 
 impl Armed {
     /// Record what is to go.
@@ -356,9 +364,22 @@ impl Armed {
         *self.held() = paths;
     }
 
-    /// Has anything been armed? Read by the task that decides whether this daemon is going at all.
+    /// Has anything been armed? What the tests assert; the daemon itself ends on
+    /// [`is_finished`](Self::is_finished).
+    #[cfg(test)]
     pub(crate) fn is_empty(&self) -> bool {
         self.held().is_empty()
+    }
+
+    /// The uninstall finished; the daemon is to end once its job is over — T182, D1.
+    pub(crate) fn finish(&self) {
+        self.finished
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    /// Did an uninstall finish? Read by the task that decides whether this daemon is going at all.
+    pub(crate) fn is_finished(&self) -> bool {
+        self.finished.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Hand them over, leaving nothing behind.
@@ -368,7 +389,7 @@ impl Armed {
 
     /// The lock, which is never held across an `await` — every caller is synchronous.
     fn held(&self) -> std::sync::MutexGuard<'_, Vec<std::path::PathBuf>> {
-        self.0
+        self.paths
             .lock()
             .expect("the armed list is not held across an await")
     }

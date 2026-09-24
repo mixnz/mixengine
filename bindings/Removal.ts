@@ -38,4 +38,8 @@ because: string, } | { "removal": "failed",
 /**
  * What the machine said, and the fact that the thing is still there.
  */
-because: string, };
+because: string, } | { "removal": "blocked", 
+/**
+ * What to do about it, in a sentence.
+ */
+by: string, };

@@ -751,20 +751,32 @@ async fn run() -> anyhow::Result<()> {
 /// its exit code mean *nothing is left behind* rather than *the daemon said so* — so a failure here
 /// is reported by the client whether or not anybody reads this line.
 ///
+/// **All of them or none** (the T182 design, D6): every directory is renamed aside first, and one
+/// that refuses — a file held open inside it, a shell whose working directory it is — puts every
+/// other one back, so no database is ever left half deleted. What could be renamed and then not
+/// deleted stays as a tombstone the next uninstall finds.
+///
 /// A path that is already gone is not a failure: on a home with no relocation the root removes
 /// everything under it, and a `[paths]` entry pointing inside the root would be removed with it.
 fn remove_what_the_uninstall_armed(armed: &[PathBuf]) {
-    for path in armed {
-        match std::fs::remove_dir_all(path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
+    match mixengine_platform::tombstone::remove_all_or_nothing(armed, std::process::id()) {
+        Ok(left) => {
+            for leftover in left {
                 let _ = writeln!(
                     std::io::stderr(),
-                    "mixengined: cannot remove {}: {error}",
-                    path.display()
+                    "mixengined: cannot finish removing {}: {}",
+                    leftover.path.display(),
+                    leftover.error
                 );
             }
+        }
+        Err(refused) => {
+            let _ = writeln!(
+                std::io::stderr(),
+                "mixengined: {} is in use, so nothing of this home was removed: {}",
+                refused.path.display(),
+                refused.error
+            );
         }
     }
 }

@@ -757,20 +757,6 @@ pub async fn mixengine_doctor_repair(params: Value) -> Result<Value, AppError> {
     rpc::call("daemon.doctor_repair", params).await
 }
 
-/// `params` đúng hình `UninstallQuery { keep_home, grant: false }` — đọc thuần (T87 rule), gọi
-/// trước và luôn luôn trước `mixengine_uninstall`.
-#[tauri::command]
-pub async fn mixengine_uninstall_plan(params: Value) -> Result<Value, AppError> {
-    rpc::call("daemon.uninstall_plan", params).await
-}
-
-/// `params` đúng hình `UninstallQuery { keep_home, grant: true }` — một job tự bật đúng một prompt,
-/// và trừ khi `keep_home` thì daemon tự thoát sau khi job ghi xong kết quả.
-#[tauri::command]
-pub async fn mixengine_uninstall(params: Value) -> Result<Value, AppError> {
-    rpc::call("daemon.uninstall", params).await
-}
-
 /// `daemon.bundle` — không tham số thật (`DiagnosticsBundle` rỗng), gom một archive và trả đường
 /// dẫn của nó.
 #[tauri::command]

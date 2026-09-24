@@ -8,6 +8,13 @@
 ; Driven by packaging/windows/build.sh, which defines VERSION, STAGE, OUTFILE and INSTALL_SUBDIR —
 ; the last of them packaging/common.sh's MIX_INSTALL_WINDOWS, which mixengine-platform's
 ; `install::program_dirs` reads too, so the daemon and the window look where this writes (T107).
+; ICON is the window's own icon, for the setup, the uninstaller and Installed apps (T182, D10).
+;
+; **The uninstaller removes MixEngine and MixLab completely, or changes nothing** — T182, design
+; docs/specs/2026-09-24-t182-removing-mixlab-is-one-act-design.md. Two promises hold it together:
+; everything that could stop it half-way is checked on the choices page while nothing has changed
+; (P2), and `uninstall.exe` with its Installed apps entry goes last, so a run that stops can always
+; be run again (P1).
 
 Unicode true
 RequestExecutionLevel user
@@ -15,6 +22,7 @@ SetCompressor /SOLID lzma
 
 !include "WinMessages.nsh"
 !include "LogicLib.nsh"
+!include "nsDialogs.nsh"
 
 !define NAME "MixLab"
 !define PUBLISHER "MixLab"
@@ -29,6 +37,8 @@ InstallDir "$LOCALAPPDATA\${INSTALL_SUBDIR}"
 InstallDirRegKey HKCU "Software\MixEngine" "InstallDir"
 ShowInstDetails show
 ShowUninstDetails show
+Icon "${ICON}"
+UninstallIcon "${ICON}"
 
 ; **A components page, for one optional thing** — T105. The desktop shortcut is the only choice this
 ; installer offers, and `/S` (which `packaging/windows/probe.sh` uses) takes the defaults, so an
@@ -37,7 +47,20 @@ Page components
 Page directory
 Page instfiles
 UninstPage uninstConfirm
+UninstPage custom un.ChoicesPage un.ChoicesLeave
 UninstPage instfiles
+
+; The uninstaller's two choices (T182, D7). "1" keeps. Both default to keeping, which is also what
+; `/S` gets: an unattended uninstall never deletes somebody's databases.
+Var KeepHome
+Var KeepRelocated
+; What `mix uninstall --dry-run --relocated` printed: the folders `[paths]` moved out of the home.
+Var Relocated
+Var HomeBox
+Var RelocatedBox
+; Collected by the checks: files that cannot be opened, and files that could not be deleted.
+Var Locked
+Var Stuck
 
 ; "Is $1 somewhere inside $0?" — leaves 1 in $2 when it is and 0 when it is not.
 ;
@@ -101,8 +124,75 @@ UninstPage instfiles
   ${EndIf}
 !macroend
 
+; Add ${FILE} to $Locked when it is there and cannot be opened for writing. A running program's
+; image is mapped, and a mapped file cannot be opened for writing, so this finds whatever started it.
+!macro CheckWritable FILE
+  ${If} ${FileExists} "${FILE}"
+    ClearErrors
+    FileOpen $0 "${FILE}" a
+    ${If} ${Errors}
+      StrCpy $Locked "$Locked$\r$\n${FILE}"
+    ${Else}
+      FileClose $0
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+; Delete ${FILE}, and add it to $Stuck when it was there and could not be deleted. `Delete` sets the
+; error flag only for a file that exists and stayed.
+!macro RemoveChecked FILE
+  ClearErrors
+  Delete "${FILE}"
+  ${If} ${Errors}
+    StrCpy $Stuck "$Stuck$\r$\n${FILE}"
+  ${EndIf}
+!macroend
+
+; Is this install's window running? Asks, then closes it — T182, D8. Leaves 1 in $R0 to go on, and
+; 0 to stop.
+;
+; **Only a process whose image is this file**, so a development build running from a checkout is
+; left alone. The path reaches PowerShell through an environment variable rather than inside a quoted
+; string, so an install directory holding an apostrophe cannot break the command. The window keeps
+; no state of its own that a forced close loses: the daemon holds it.
+!macro CloseMixLab UN
+Function ${UN}CloseMixLab
+  StrCpy $R0 1
+  System::Call 'Kernel32::SetEnvironmentVariable(t "MIXLAB_EXE", t "$INSTDIR\mixlab.exe")'
+  nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "@(Get-Process mixlab -ErrorAction SilentlyContinue | Where-Object { $$_.Path -eq $$env:MIXLAB_EXE }).Count"`
+  Pop $0
+  Pop $1
+  IntOp $1 $1 + 0
+  ${If} $1 > 0
+    MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "MixLab is running. Click OK to close it and continue, or Cancel to stop without changing anything." /SD IDOK IDOK closeit
+    StrCpy $R0 0
+    Return
+    closeit:
+    nsExec::ExecToStack `powershell -NoProfile -NonInteractive -Command "Get-Process mixlab -ErrorAction SilentlyContinue | Where-Object { $$_.Path -eq $$env:MIXLAB_EXE } | Stop-Process -Force"`
+    Pop $0
+    Pop $1
+    ; The image is unmapped a moment after the process has gone.
+    Sleep 1000
+  ${EndIf}
+FunctionEnd
+!macroend
+!insertmacro CloseMixLab ""
+!insertmacro CloseMixLab "un."
+
 Section "MixLab" SecCore
   SectionIn RO
+
+  ; **An update over a running copy** — T182, D8. The window is asked about and closed, then the
+  ; daemon stops its services and itself; `mix daemon stop` does nothing when none is running.
+  ${If} ${FileExists} "$INSTDIR\mixengined.exe"
+    Call CloseMixLab
+    ${If} $R0 == 0
+      Abort "Nothing was changed."
+    ${EndIf}
+    nsExec::ExecToLog '"$INSTDIR\mix.exe" daemon stop'
+    Pop $0
+  ${EndIf}
+
   SetOutPath "$INSTDIR"
   File "${STAGE}\mix.exe"
   File "${STAGE}\mixengined.exe"
@@ -122,7 +212,8 @@ Section "MixLab" SecCore
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${NAME}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${PUBLISHER}"
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\mix.exe"
+  ; The window's icon: `mix.exe` carries none, which left Installed apps with a blank (T182, D10).
+  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\mixlab.exe,0"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
@@ -221,34 +312,167 @@ Function un.RemoveScheme
   !insertmacro RemoveSchemeIfOurs "mixdb"
 FunctionEnd
 
+Function un.onInit
+  StrCpy $KeepHome 1
+  StrCpy $KeepRelocated 1
+FunctionEnd
+
+; The choices page — T182, D7. Two boxes, both unticked: keeping is what nobody regrets.
+;
+; The second box exists only when `[paths]` moved something out of the home, and it lists what. If
+; `mix` cannot answer, the page offers the home alone and the checks on leaving it say why nothing
+; can be removed.
+Function un.ChoicesPage
+  nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --relocated'
+  Pop $0
+  Pop $1
+  StrCpy $Relocated ""
+  ${If} $0 == 0
+    StrCpy $Relocated $1
+  ${EndIf}
+
+  nsDialogs::Create 1018
+  Pop $0
+
+  ${NSD_CreateCheckbox} 0 0 100% 12u "Also delete MixLab's data"
+  Pop $HomeBox
+  ${NSD_CreateLabel} 12u 14u -12u 28u "$LOCALAPPDATA\MixEngine$\r$\nYour databases, certificates and project records. Leave this unticked to keep them for a later install."
+  Pop $0
+
+  ${If} $Relocated != ""
+    ${NSD_CreateCheckbox} 0 50u 100% 12u "Also delete the folders you moved out of it"
+    Pop $RelocatedBox
+    ${NSD_CreateLabel} 12u 64u -12u 60u "$Relocated"
+    Pop $0
+  ${EndIf}
+
+  nsDialogs::Show
+FunctionEnd
+
+; Read the boxes, then check. **Checked here, on the page**: a failure keeps the person on it, so
+; they close what was named and click Uninstall again. Nothing has been changed.
+Function un.ChoicesLeave
+  StrCpy $KeepHome 1
+  ${NSD_GetState} $HomeBox $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $KeepHome 0
+  ${EndIf}
+
+  StrCpy $KeepRelocated 1
+  ${If} $Relocated != ""
+    ${NSD_GetState} $RelocatedBox $0
+    ${If} $0 == ${BST_CHECKED}
+      StrCpy $KeepRelocated 0
+    ${EndIf}
+  ${EndIf}
+
+  Call un.Checks
+  ${If} $R0 == 0
+    Abort
+  ${EndIf}
+FunctionEnd
+
+; The flags both `mix uninstall` calls take, in $R1, each with its leading space.
+Function un.Flags
+  StrCpy $R1 ""
+  ${If} $KeepHome == 1
+    StrCpy $R1 "$R1 --keep-home"
+  ${EndIf}
+  ${If} $KeepRelocated == 1
+    StrCpy $R1 "$R1 --keep-relocated"
+  ${EndIf}
+FunctionEnd
+
+; Everything that could stop the uninstall half-way, found while nothing has changed — T182, P2.
+; Leaves 1 in $R0 to go on, and 0 to stop.
+Function un.Checks
+  Call un.CloseMixLab
+  ${If} $R0 == 0
+    Return
+  ${EndIf}
+
+  ; `mixengined.exe` is not checked: `mix uninstall` ends the daemon and waits for it. If it is
+  ; somehow still held afterwards, the checked delete below keeps the uninstaller, so it can run
+  ; again (P1).
+  StrCpy $Locked ""
+  !insertmacro CheckWritable "$INSTDIR\mix.exe"
+  !insertmacro CheckWritable "$INSTDIR\mixengine-shim.exe"
+  !insertmacro CheckWritable "$INSTDIR\mixengine-elevate.exe"
+  !insertmacro CheckWritable "$INSTDIR\mixlab.exe"
+  ${If} $Locked != ""
+    MessageBox MB_ICONSTOP "These files are in use. Close the programs using them, then click Uninstall again. Nothing was removed.$\r$\n$Locked" /SD IDOK
+    StrCpy $R0 0
+    Return
+  ${EndIf}
+
+  ; The plan, with the choices made. Exit 3 is a program running from a folder that would go.
+  Call un.Flags
+  nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run$R1'
+  Pop $0
+  Pop $1
+  ${If} $0 == 3
+    MessageBox MB_ICONSTOP "Some programs are running from MixLab's folders. Close them, then click Uninstall again. Nothing was removed.$\r$\n$\r$\n$1" /SD IDOK
+    StrCpy $R0 0
+    Return
+  ${ElseIf} $0 != 0
+    MessageBox MB_ICONSTOP "MixLab could not check what it would remove, so nothing was removed.$\r$\n$\r$\n$1" /SD IDOK
+    StrCpy $R0 0
+    Return
+  ${EndIf}
+
+  StrCpy $R0 1
+FunctionEnd
+
 Section "Uninstall"
-  ; **Only the files this installer wrote.** What MixLab did to the *machine* — the hosts block,
-  ; the resolver wiring, the CA in every store, the port grant, and the helper it installed — is
-  ; `mix uninstall`'s, which is roadmap task T87 and does not exist yet. Saying so in the log beats
-  ; pretending this removed it.
-  DetailPrint "Removing the files this installer wrote."
-  DetailPrint "What MixLab changed on this machine is removed by `mix uninstall` (not yet built)."
+  ; `/S` skips the page, so it runs the same checks here, with the defaults.
+  ${If} ${Silent}
+    Call un.Checks
+    ${If} $R0 == 0
+      SetErrorLevel 2
+      Quit
+    ${EndIf}
+  ${EndIf}
+
+  ; **Always: what MixLab changed on this machine** — the hosts block, the resolver wiring, the
+  ; certificate authority, the port grant, firewall rules, the login entry, the helper and its log,
+  ; and whichever folders were not kept. One UAC prompt. A declined prompt changes nothing (T182,
+  ; D5), and MixLab stays installed so this can run again.
+  Call un.Flags
+  DetailPrint "Undoing what MixLab changed on this machine."
+  nsExec::ExecToLog '"$INSTDIR\mix.exe" uninstall --yes$R1'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "MixLab could not finish undoing its changes to this machine, so it is still installed. Run Uninstall again from Installed apps to finish. The details are in the log above." /SD IDOK
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
+
+  ; **The program: binaries first, and each one checked.** One `RemoveChecked` per `File` above, and
+  ; the pairing is not decoration: a binary with no line here would stay on the machine for ever. If
+  ; any stays, everything that makes MixLab findable and re-runnable stays too (P1).
+  StrCpy $Stuck ""
+  !insertmacro RemoveChecked "$INSTDIR\mix.exe"
+  !insertmacro RemoveChecked "$INSTDIR\mixengined.exe"
+  !insertmacro RemoveChecked "$INSTDIR\mixengine-shim.exe"
+  !insertmacro RemoveChecked "$INSTDIR\mixengine-elevate.exe"
+  !insertmacro RemoveChecked "$INSTDIR\mixlab.exe"
+  ${If} $Stuck != ""
+    MessageBox MB_ICONSTOP "These files are still in use and were not removed. Close the programs using them, then run Uninstall again from Installed apps.$\r$\n$Stuck" /SD IDOK
+    SetErrorLevel 2
+    Abort
+  ${EndIf}
 
   Call un.RemoveFromPath
   Call un.RemoveScheme
 
-  ; One `Delete` per `File` above, and the pairing is not decoration: `RMDir` below removes an
-  ; empty directory and says nothing when it does not, so a binary with no line here would stay on
-  ; the machine for ever with no sign of it.
-  Delete "$INSTDIR\mix.exe"
-  Delete "$INSTDIR\mixengined.exe"
-  Delete "$INSTDIR\mixengine-shim.exe"
-  Delete "$INSTDIR\mixengine-elevate.exe"
-  Delete "$INSTDIR\mixlab.exe"
-  Delete "$INSTDIR\uninstall.exe"
-
   ; Both shortcuts. `Delete` says nothing about a file that is not there, so the optional one needs
-  ; no condition — and a condition would need the section state, which an uninstaller does not have.
+  ; no condition, and a condition would need the section state, which an uninstaller does not have.
   Delete "$SMPROGRAMS\MixLab.lnk"
   Delete "$DESKTOP\MixLab.lnk"
 
+  ; Last: the uninstaller and its entry in Installed apps.
+  Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
-
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegKey HKCU "Software\MixEngine"
 SectionEnd
