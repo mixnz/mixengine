@@ -603,13 +603,18 @@ impl Bypass<'_> {
     /// Does this batch go through the shipped copy?
     #[must_use]
     pub fn applies(&self) -> bool {
-        let current = self.shipped_version == Some(mixengine_proto::privileged::HELPER_VERSION);
-        let unreadable = self
-            .batch_ops
-            .iter()
-            .any(|op| !self.installed_ops.iter().any(|known| known == op));
+        let knows = |op: &str| self.installed_ops.iter().any(|known| known == op);
 
-        current && unreadable
+        let current = self.shipped_version == Some(mixengine_proto::privileged::HELPER_VERSION);
+        let unreadable = self.batch_ops.iter().any(|op| !knows(op));
+
+        // **And an install over a helper too old to replace itself** (D2's last row). Such a helper
+        // does know `helper-install`, but run by it the operation copies *its own* image onto
+        // itself and answers `AlreadyDone`: only the shipped copy can install anything newer.
+        let install_over_old =
+            self.batch_ops.contains(&"helper-install") && !knows("helper-replace");
+
+        current && (unreadable || install_over_old)
     }
 }
 
@@ -913,6 +918,27 @@ mod tests {
         };
 
         assert!(bypass.applies());
+    }
+
+    /// T182b, D2's last row. A helper too old to replace itself does know `helper-install`, but run
+    /// by it that copies its own image onto itself; the install goes through the shipped copy. A
+    /// helper that can replace itself is never bypassed for an install.
+    #[test]
+    fn an_install_over_a_helper_too_old_to_replace_itself_goes_through_the_shipped_copy() {
+        let too_old = ops(&["hosts-apply", "helper-install"]);
+        let bypass = Bypass {
+            installed_ops: &too_old,
+            shipped_version: Some(mixengine_proto::privileged::HELPER_VERSION),
+            batch_ops: &["helper-install", "hosts-apply"],
+        };
+        assert!(bypass.applies());
+
+        let replaces_itself = ops(&["hosts-apply", "helper-install", "helper-replace"]);
+        let bypass = Bypass {
+            installed_ops: &replaces_itself,
+            ..bypass
+        };
+        assert!(!bypass.applies());
     }
 
     /// T182b, D3. A shipped copy that is not this release's, or that did not answer, is never the

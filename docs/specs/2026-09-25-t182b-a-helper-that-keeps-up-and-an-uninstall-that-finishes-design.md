@@ -160,9 +160,11 @@ underneath stays and is what the fourth row calls. MixLab never called the metho
 ### D3. A helper too old to understand a batch is not the one that runs it
 
 `mixengine_core::elevation::helper` prefers the installed copy (T85's D5) and gains one exception:
-**when the installed helper does not list an operation in the batch among its `supported_ops`, and
-the helper beside the program reports `HELPER_VERSION`**, the batch runs through the one beside the
-program.
+**when the helper beside the program reports `HELPER_VERSION`, and either the installed helper does
+not list an operation in the batch among its `supported_ops`, or the batch installs a helper over
+one that does not know `helper-replace`**, the batch runs through the one beside the program. The
+second case is D2's last row: such a helper does know `helper-install`, but run by it the operation
+copies its own image onto itself and answers `AlreadyDone`.
 
 That copy gets exactly the trust a first grant on a new machine already gives it, which
 `docs/architecture/security-model.md` states as a residual. It is used only when the installed copy

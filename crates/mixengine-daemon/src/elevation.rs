@@ -758,6 +758,38 @@ impl Elevation {
         Ok((waiting, helper))
     }
 
+    /// Is there a helper where this system keeps one? A read of the file system, no probe.
+    pub(crate) fn helper_is_installed(&self) -> bool {
+        self.candidates
+            .installed
+            .as_deref()
+            .is_some_and(Path::is_file)
+    }
+
+    /// Whether this is the first time this home is asked to prompt for `version`'s helper — the
+    /// T182b design, D2. Answers `true` once per version, so a person who declines is not asked at
+    /// every start; the replacement then waits for the next prompt the product needs anyway.
+    pub(crate) async fn first_prompt_for(&self, version: &str) -> bool {
+        const KEY: &str = "helper.prompted";
+
+        let seen: Option<String> = mixengine_core::updates::records::get(&self.store, KEY)
+            .await
+            .ok()
+            .flatten();
+
+        if seen.as_deref() == Some(version) {
+            return false;
+        }
+
+        if let Err(error) =
+            mixengine_core::updates::records::set(&self.store, KEY, &version.to_owned()).await
+        {
+            tracing::warn!(%error, "could not remember that the helper's prompt was raised");
+        }
+
+        true
+    }
+
     /// Which helper runs this batch, and at which protocol — the T182b design, D3.
     ///
     /// **The installed one, unless it cannot read the batch** and the copy this release ships can.
@@ -773,11 +805,15 @@ impl Elevation {
 
         let batch: Vec<&str> = waiting.iter().map(|pending| pending.op.name()).collect();
 
-        let unreadable = installed_ops
-            .as_ref()
-            .is_some_and(|known| batch.iter().any(|op| !known.iter().any(|name| name == op)));
+        // Both conditions `Bypass::applies` looks at, read first so that the shipped copy is only
+        // probed when one of them could be true.
+        let worth_asking = installed_ops.as_ref().is_some_and(|known| {
+            let knows = |op: &str| known.iter().any(|name| name == op);
+            batch.iter().any(|op| !knows(op))
+                || (batch.contains(&"helper-install") && !knows("helper-replace"))
+        });
 
-        let shipped_version = match unreadable {
+        let shipped_version = match worth_asking {
             true => match mixengine_core::elevation::shipped(&self.candidates.program) {
                 Some(shipped) => crate::helper::handshake(&shipped, &self.home, &self.elevate)
                     .await
@@ -934,11 +970,16 @@ impl Elevation {
         &self,
         handle: &crate::jobs::JobHandle,
         helper: Chosen,
-        waiting: Vec<mixengine_proto::PendingOp>,
+        mut waiting: Vec<mixengine_proto::PendingOp>,
     ) -> Result<serde_json::Value, Error> {
         // Released however this ends — including through a panic the RPC layer contains, which is
         // the whole reason it is not a line at the bottom.
         let _slot = Released(self);
+
+        // **The helper's own operation first** — the T182b design, D2. The batch is run by the
+        // helper installed when it starts, so anything after a replacement would still be answered
+        // by the old one. A stable sort keeps every other operation in the order it was queued.
+        put_the_helper_first(&mut waiting);
 
         if handle.is_cancelled() {
             return Err(Error::new(
@@ -1333,17 +1374,51 @@ impl Drop for Released<'_> {
 /// that removed the audit log recreates it on a machine whose token is already elevated, which is
 /// how CI's Windows runner read an uninstall as unfinished; see `judge`.
 fn may_have_changed_the_helper(waiting: &[mixengine_proto::PendingOp]) -> bool {
-    waiting.iter().any(|pending| {
-        matches!(
-            pending.op,
-            PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
-        )
-    })
+    waiting
+        .iter()
+        .any(|pending| is_about_the_helper(&pending.op))
+}
+
+/// The helper's own operation first, everything else in the order it was queued — the T182b
+/// design, D2.
+fn put_the_helper_first(waiting: &mut [mixengine_proto::PendingOp]) {
+    waiting.sort_by_key(|pending| !is_about_the_helper(&pending.op));
+}
+
+/// Does this operation put a helper where the system keeps one?
+fn is_about_the_helper(op: &PrivilegedOp) -> bool {
+    matches!(
+        op,
+        PrivilegedOp::HelperInstall {} | PrivilegedOp::HelperReplace {}
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// T182b, D2. A batch holding a helper operation and others runs the helper's first, and keeps
+    /// the rest in the order they were queued.
+    #[test]
+    fn the_helper_operation_goes_first_in_its_batch() {
+        let pending = |id: i64, op: PrivilegedOp| mixengine_proto::PendingOp {
+            id: mixengine_proto::PendingOpId(id),
+            description: op.describe(),
+            op,
+            requested_at: Timestamp(0),
+        };
+
+        let mut waiting = vec![
+            pending(1, PrivilegedOp::hosts_apply(Vec::new())),
+            pending(2, PrivilegedOp::AuditLogRemove {}),
+            pending(3, PrivilegedOp::HelperInstall {}),
+        ];
+
+        put_the_helper_first(&mut waiting);
+
+        let order: Vec<i64> = waiting.iter().map(|pending| pending.id.0).collect();
+        assert_eq!(order, vec![3, 1, 2]);
+    }
 
     use mixengine_platform::mock;
 

@@ -315,6 +315,146 @@ pub(crate) async fn upgrade(
     queue(HelperUpgradeOutcome::Staged, installed, Some(stamp.version)).await
 }
 
+/// What the start of a daemon does about the installed helper — the T182b design, D2's table.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Row {
+    /// The installed helper is `HELPER_VERSION`.
+    Current,
+
+    /// It is newer: a person went back a release. Nothing is downgraded.
+    Newer,
+
+    /// None is installed. `Elevation::require_helper` has already queued the install.
+    Install,
+
+    /// Older, and it knows `helper-replace`: this release's signed helper replaces it.
+    Replace,
+
+    /// Older, and it does not: the shipped copy installs itself over it (D3).
+    InstallOverOld,
+
+    /// A helper is installed and would not say what it is, so nothing is decided about it.
+    Unknown,
+}
+
+/// D2's table, over facts rather than a machine, so every row is a unit test.
+pub(crate) fn row(installed: bool, facts: Option<&HelperFacts>) -> Row {
+    use mixengine_proto::PackageVersion;
+
+    let Some(facts) = facts else {
+        return match installed {
+            true => Row::Unknown,
+            false => Row::Install,
+        };
+    };
+
+    let ordering = PackageVersion::parse(facts.version.clone())
+        .ok()
+        .zip(PackageVersion::parse(mixengine_proto::privileged::HELPER_VERSION.to_owned()).ok())
+        .map(|(here, ours)| here.cmp_precedence(&ours));
+
+    match ordering {
+        Some(std::cmp::Ordering::Equal) => Row::Current,
+        Some(std::cmp::Ordering::Greater) => Row::Newer,
+        // A version that does not parse is older than any this release could have written.
+        Some(std::cmp::Ordering::Less) | None => match facts.can_replace_itself() {
+            true => Row::Replace,
+            false => Row::InstallOverOld,
+        },
+    }
+}
+
+/// Keep the installed helper in step with this release — the T182b design, D2.
+///
+/// **Queued, not prompted**: the operation joins the next grant, first in its batch. The one
+/// exception is the first start after an update that changed the helper, which raises the prompt
+/// itself, once per `HELPER_VERSION`, because the person has just asked for something.
+///
+/// Spawned at every start and never fails it: a machine that cannot fetch this release's helper
+/// today (offline, a feed that will not answer) is asked again at the next start.
+pub(crate) async fn keep_in_step(
+    elevation: &std::sync::Arc<crate::elevation::Elevation>,
+    updates: &std::sync::Arc<crate::updates::Updates>,
+    paths: &mixengine_core::paths::Paths,
+) -> Row {
+    let facts = elevation.facts();
+    let decided = row(elevation.helper_is_installed(), facts.as_ref());
+
+    let queued = match decided {
+        Row::Replace => match stage_this_release(updates, paths).await {
+            Ok(()) => elevation.enqueue(&PrivilegedOp::HelperReplace {}).await,
+            Err(reason) => {
+                tracing::info!(%reason, "the privileged helper stays as it is until the next start");
+                return decided;
+            }
+        },
+        Row::InstallOverOld => elevation.enqueue(&PrivilegedOp::HelperInstall {}).await,
+        Row::Current | Row::Newer | Row::Install | Row::Unknown => return decided,
+    };
+
+    if let Err(error) = queued {
+        tracing::warn!(%error, "could not queue the privileged helper's replacement");
+        return decided;
+    }
+
+    if elevation
+        .first_prompt_for(mixengine_proto::privileged::HELPER_VERSION)
+        .await
+        && let Err(error) = elevation.grant().await
+    {
+        tracing::info!(%error, "the helper's replacement waits for the next prompt");
+    }
+
+    decided
+}
+
+/// Fetch, verify and smoke-test this release's signed helper into the candidate directory — the
+/// half of T88a's `upgrade` that stops before anything is queued.
+///
+/// # Errors
+///
+/// A sentence for a copy whose helper a package manages, a feed that will not answer, a published
+/// helper that is not this release's, one that did not verify, and one that will not start here.
+async fn stage_this_release(
+    updates: &std::sync::Arc<crate::updates::Updates>,
+    paths: &mixengine_core::paths::Paths,
+) -> Result<(), String> {
+    if !matches!(
+        updates.placement(),
+        mixengine_core::updates::Placement::SelfUpdatable { .. }
+    ) {
+        return Err("a package manages this copy's helper".to_owned());
+    }
+
+    let (offered, artifact) = updates
+        .published_helper()
+        .await
+        .map_err(|error| mixengine_proto::flatten(&error))?;
+
+    if offered != mixengine_proto::privileged::HELPER_VERSION {
+        return Err(format!(
+            "the feed offers helper {offered}, and this release is {}",
+            mixengine_proto::privileged::HELPER_VERSION
+        ));
+    }
+
+    let into = mixengine_proto::privileged::helper_candidate_dir(paths.root());
+    mixengine_core::updates::helper::stage(
+        updates.installer(),
+        &artifact,
+        mixengine_core::updates::PUBLIC_KEY,
+        &into,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+
+    let candidate = mixengine_proto::privileged::helper_candidate(paths.root());
+    match handshake(&candidate, paths.root(), &paths.run().join("elevate")).await {
+        Some(_) => Ok(()),
+        None => Err("this release's helper will not run on this machine".to_owned()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,6 +469,32 @@ mod tests {
                 vec!["probe".to_owned()]
             },
         }
+    }
+
+    /// T182b, D2: every row of the table, from the facts a probe answers.
+    #[test]
+    fn every_row_of_the_table_is_decided_from_what_the_probe_said() {
+        use mixengine_proto::privileged::HELPER_VERSION;
+
+        assert_eq!(row(false, None), Row::Install, "nothing installed");
+        assert_eq!(row(true, None), Row::Unknown, "installed, and silent");
+        assert_eq!(row(true, Some(&facts(HELPER_VERSION, true))), Row::Current);
+        assert_eq!(
+            row(true, Some(&facts("9.9.9", true))),
+            Row::Newer,
+            "never downgraded"
+        );
+        assert_eq!(row(true, Some(&facts("0.0.7", true))), Row::Replace);
+        assert_eq!(
+            row(true, Some(&facts("0.1.0", false))),
+            Row::InstallOverOld,
+            "the stray 0.1.0 knows no helper-replace"
+        );
+        assert_eq!(
+            row(true, Some(&facts("not a version", false))),
+            Row::InstallOverOld,
+            "a version that does not parse is older than any this release wrote"
+        );
     }
 
     #[test]
