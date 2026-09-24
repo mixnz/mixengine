@@ -4,7 +4,7 @@ slug = "uninstalling"
 order = 13
 summary = "Hoàn tác mọi thứ MixLab đã ghi bên ngoài thư mục của nó, xem danh sách trước khi đồng ý, và giữ lại cơ sở dữ liệu nếu bạn muốn."
 translation_of = "en/uninstalling.md"
-source_sha256 = "8fb28e6a48941aaf2abe92c8610eb413420a9770107a00ff45c8b375021b5220"
+source_sha256 = "987539d92d00161f71dd1a0d1640df46935aeee88995c7a123eb914c07975a3f"
 +++
 
 # Gỡ MixLab
@@ -110,9 +110,8 @@ sudo rm -rf /usr/local/bin/mix /usr/local/bin/mixengined /usr/local/bin/mixengin
   /Applications/MixLab.app
 ```
 
-Trên Windows, bộ gỡ của bộ cài đã làm luôn phần này. Nếu dùng bản zip portable thì xóa thư mục.
-Trên macOS, dòng thứ ba ở trên xóa những gì `.pkg` đã đặt vào, **MixLab** cũng nằm trong đó.
-AppImage chỉ là một file, xóa đi là xong.
+Trên Windows, bộ gỡ của bộ cài đã làm luôn phần này. Trên macOS, dòng thứ ba ở trên xóa những gì
+`.pkg` đã đặt vào, **MixLab** cũng nằm trong đó.
 
 ## Những gì cố ý không tự động
 

@@ -18,4 +18,10 @@ package: string,
  * not at this Mac's screen: over SSH, the installer opens on the desktop anyway (the T88f
  * readings, M4). Written by the daemon so no client composes it.
  */
-command: string, };
+command: string, 
+/**
+ * Whether a software installer opened on this machine's screen — roadmap task **T182b**, D5.
+ * `false` on a Linux machine with no desktop session: the package is verified and waiting,
+ * and [`UpdateHandedOver::command`] is the only way to install it.
+ */
+opened: boolean, };

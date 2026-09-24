@@ -72,9 +72,7 @@ install -m 0755 "$stage/$MIX_WINDOW" "$root$MIX_INSTALL_LINUX/$MIX_WINDOW"
 install -m 0644 "$MIX_ROOT/packaging/linux/mixlab.desktop" \
   "$root/usr/share/applications/mixlab.desktop"
 
-# The window's own icons, already committed for the Tauri bundle. `packaging/linux/mixengine.png` is
-# a 16x16 placeholder that exists because appimagetool refuses an AppDir without one, and is
-# deliberately not reused here.
+# The window's own icons, already committed for the Tauri bundle.
 install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/32x32.png" \
   "$root/usr/share/icons/hicolor/32x32/apps/mixlab.png"
 install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" \
@@ -83,8 +81,8 @@ install -m 0644 "$MIX_ROOT/apps/desktop/src-tauri/icons/128x128.png" \
 # **`Depends:` exists because of the window** — T105. WebKitGTK is a runtime dependency the four
 # command-line binaries never had, and Tauri 2 links the 4.1 API on libsoup 3. A distribution old
 # enough to carry only 4.0 cannot run this window at all, so a package that refuses to install there
-# says the true thing at the moment a person can still act on it. The headless archive
-# `build-tarball.sh` publishes is what that person downloads instead, and it declares nothing.
+# says the true thing at the moment a person can still act on it. The headless package below is
+# what that person installs instead, and it depends on nothing.
 #
 # **AppIndicator is `Recommends:`, not `Depends:`** — T168d. It is what draws MixEngine's tray icon,
 # and MixLab loads it at run time and goes without a tray when it is missing; nothing else stops
@@ -101,8 +99,8 @@ Section: devel
 Priority: optional
 Architecture: $deb_arch
 Provides: $MIX_HEADLESS_ARTIFACT
-Conflicts: $MIX_HEADLESS_ARTIFACT
-Replaces: $MIX_HEADLESS_ARTIFACT
+Conflicts: $MIX_HEADLESS_ARTIFACT, $MIX_HEADLESS_ARTIFACT-headless
+Replaces: $MIX_HEADLESS_ARTIFACT, $MIX_HEADLESS_ARTIFACT-headless
 Depends: libwebkit2gtk-4.1-0, libgtk-3-0
 Recommends: libayatana-appindicator3-1 | libappindicator3-1
 Maintainer: MixEngine <noreply@mixengine.dev>
@@ -166,10 +164,15 @@ test "$(dpkg-deb -f "$dist/$name" Package)" = "$MIX_ARTIFACT" || {
   echo "the package is not named $MIX_ARTIFACT" >&2
   exit 1
 }
-for field in Provides Conflicts Replaces; do
+test "$(dpkg-deb -f "$dist/$name" Provides)" = "$MIX_HEADLESS_ARTIFACT" || {
+  echo "the package does not provide $MIX_HEADLESS_ARTIFACT" >&2
+  exit 1
+}
+# And the headless package of T182b, D5: both own `/usr/bin/mix`, so one replaces the other.
+for field in Conflicts Replaces; do
   declared="$(dpkg-deb -f "$dist/$name" "$field")"
-  test "$declared" = "$MIX_HEADLESS_ARTIFACT" || {
-    echo "the package declares $field: $declared, not $MIX_HEADLESS_ARTIFACT" >&2
+  test "$declared" = "$MIX_HEADLESS_ARTIFACT, $MIX_HEADLESS_ARTIFACT-headless" || {
+    echo "the package declares $field: $declared" >&2
     exit 1
   }
 done
@@ -179,5 +182,74 @@ mix_checksum "$dist/$name"
 # The handbook's install page links this one, unversioned — see `mix_publish_alias` in `common.sh`.
 alias_deb="$(mix_publish_alias "$dist/$name" "${MIX_ARTIFACT}_${deb_arch}.deb")"
 
+# **The headless package** — T182b, D5, which replaces the headless tarball. The four programs and
+# the helper, placed as root the way the window's package places them, and no window, no menu entry
+# and no WebKitGTK to depend on: a server should not be made to carry them. `mixengine-headless`
+# rather than `mixengine`, which is the name the window's package took over from (T176f) and still
+# provides; the two conflict, because both own `/usr/bin/mix`.
+headless_root="$MIX_OUT/debroot-headless"
+rm -rf "$headless_root"
+mkdir -p "$headless_root/DEBIAN" "$headless_root$MIX_INSTALL_LINUX" \
+  "$headless_root/usr/local/libexec/mixengine"
+for binary in mix mixengined mixengine-shim mixengine-elevate; do
+  install -m 0755 "$stage/$binary" "$headless_root$MIX_INSTALL_LINUX/$binary"
+done
+install -m 0755 "$stage/mixengine-elevate" \
+  "$headless_root/usr/local/libexec/mixengine/mixengine-elevate"
+
+headless_package="$MIX_HEADLESS_ARTIFACT-headless"
+cat >"$headless_root/DEBIAN/control" <<EOF
+Package: $headless_package
+Version: $version
+Section: devel
+Priority: optional
+Architecture: $deb_arch
+Conflicts: $MIX_ARTIFACT, $MIX_HEADLESS_ARTIFACT
+Replaces: $MIX_ARTIFACT, $MIX_HEADLESS_ARTIFACT
+Maintainer: MixEngine <noreply@mixengine.dev>
+Homepage: https://github.com/mixnz/mixlab
+Description: A local web development environment, without the window
+ The command-line programs of MixLab: run and switch multiple PHP, Node.js,
+ Python and Ruby versions with a bundled web server, databases and caches,
+ local domains and automatic HTTPS.
+EOF
+
+headless_name="${headless_package}_$version-1_${deb_arch}.deb"
+rm -f "$dist/$headless_name"
+dpkg-deb --build --root-owner-group "$headless_root" "$dist/$headless_name"
+
+# Checked for what is in it **and for what is not**: a package that quietly grew a webview is the one
+# failure it exists to prevent.
+headless_contents="$(dpkg-deb -c "$dist/$headless_name")"
+for expected in \
+  .$MIX_INSTALL_LINUX/mix \
+  .$MIX_INSTALL_LINUX/mixengined \
+  .$MIX_INSTALL_LINUX/mixengine-shim \
+  .$MIX_INSTALL_LINUX/mixengine-elevate \
+  ./usr/local/libexec/mixengine/mixengine-elevate; do
+  printf '%s\n' "$headless_contents" | grep -q " $expected\$" || {
+    echo "$expected is not in the headless package" >&2
+    exit 1
+  }
+done
+if printf '%s\n' "$headless_contents" | grep -q " \.$MIX_INSTALL_LINUX/$MIX_WINDOW\$"; then
+  echo "the headless package carries $MIX_WINDOW, which is the one thing it must not" >&2
+  exit 1
+fi
+test -z "$(dpkg-deb -f "$dist/$headless_name" Depends)" || {
+  echo "the headless package declares a dependency; it has none to declare" >&2
+  exit 1
+}
+
+mix_checksum "$dist/$headless_name"
+alias_headless="$(mix_publish_alias "$dist/$headless_name" "${headless_package}_${deb_arch}.deb")"
+
+# T88a: the privileged helper on its own, so the `release` job can sign it and the feed can list it
+# under `HELPER_VERSION` (T182b, D1). Here since T182b removed the tarball that published it.
+helper_name="$(mix_publish_helper "$stage/mixengine-elevate" linux "$arch")"
+
 echo "$dist/$name"
 echo "$alias_deb"
+echo "$dist/$headless_name"
+echo "$alias_headless"
+echo "$helper_name"

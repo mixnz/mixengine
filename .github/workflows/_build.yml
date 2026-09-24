@@ -358,12 +358,12 @@ jobs:
           rm window.tar binaries.tar
           echo "MIX_PREBUILT=1" >> "$GITHUB_ENV"
 
-      # Neither is on the ubuntu image; appimagetool refuses to start without `desktop-file-utils`.
+      # `rpmbuild` is not on the ubuntu image.
       - name: Install the packaging tools this runner is missing
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install --yes rpm desktop-file-utils
+          sudo apt-get install --yes rpm
 
       # NSIS is not on the windows image; Chocolatey puts it where `packaging/windows/build.sh` looks.
       - name: Install the packaging tools this runner is missing
@@ -410,8 +410,6 @@ jobs:
           set -euo pipefail
           bash packaging/linux/build-deb.sh
           bash packaging/linux/build-rpm.sh
-          bash packaging/linux/build-appimage.sh
-          bash packaging/linux/build-tarball.sh
 
       # For a person reading the log rather than for the gate: every script has already opened what
       # it made and refused if a binary was missing from it.

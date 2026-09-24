@@ -4556,11 +4556,16 @@ mod tests {
     ) -> (Daemon, mixengine_testkit::MockRegistry) {
         let registry =
             mixengine_testkit::MockRegistry::start(&serde_json::json!({ "schema": 1 })).await;
-        let packed =
-            mixengine_testkit::Packed::one_file("mixlab-99.0.0-macos-universal.pkg", PKG_BYTES);
+        let packed = mixengine_testkit::Packed::one_file(
+            "mixengine-99.0.0-macos-universal-headless.pkg",
+            PKG_BYTES,
+        );
         let url = registry.publish_asset(&packed.path(), packed.bytes.clone());
+        // Headless, because the mock host has no window installed: the updater hands a machine the
+        // flavour it has (T182b, D5).
         let row = serde_json::json!({
             "os": std::env::consts::OS, "arch": std::env::consts::ARCH, "kind": "pkg",
+            "flavour": "headless",
             "url": url, "size": PKG_BYTES.len(), "sha256": sha256.unwrap_or(packed.sha256),
         });
 
@@ -4631,6 +4636,10 @@ mod tests {
             PKG_BYTES
         );
         assert!(handed.command.contains(&handed.package), "{handed:?}");
+        assert!(
+            handed.opened,
+            "the mock has an installer to open: {handed:?}"
+        );
         assert!(
             !daemon.api.shutdown.token().is_cancelled(),
             "hand_over never ends the daemon"

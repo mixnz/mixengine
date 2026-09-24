@@ -88,8 +88,8 @@ mkdir -p "$into"
 archive=""
 
 # **A blip from GitHub is not "no such package".** `--retry 3` spends its four attempts inside seven
-# seconds, which run 35483992873 rode out four HTTP 500s of and still failed; the runtime fetch in
-# `packaging/linux/build-appimage.sh` lost a release leg the same way to a 504 (run 34128004289).
+# seconds, which run 35483992873 rode out four HTTP 500s of and still failed; the AppImage's runtime fetch,
+# since removed, lost a release leg the same way to a 504 (run 34128004289).
 # Six tries ten seconds apart cover a minute of that, capped at four so a real outage is not waited
 # out. `--retry-all-errors` is not used: AlmaLinux 8's curl, which the manylinux legs run, is older
 # than that flag, and a 5xx is retried by `--retry` alone anyway.

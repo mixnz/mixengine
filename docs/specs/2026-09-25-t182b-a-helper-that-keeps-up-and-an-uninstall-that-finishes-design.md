@@ -194,7 +194,7 @@ still never touched by the swap, only by D2 through a prompt.
 | | Windows | macOS | Linux |
 | --- | --- | --- | --- |
 | With the window | `mixlab-<v>-windows-<arch>-setup.exe`, per user, no prompt | `mixlab-<v>-macos.pkg` | `mixlab_<v>_<arch>.deb`, `mixlab-<v>.<arch>.rpm` |
-| Headless | `mixengine-<v>-windows-<arch>-headless-setup.exe`, per user, no prompt | `mixengine-<v>-macos-headless.pkg` | `mixengine_<v>_<arch>.deb`, `mixengine-<v>.<arch>.rpm` |
+| Headless | `mixengine-<v>-windows-<arch>-headless-setup.exe`, per user, no prompt | `mixengine-<v>-macos-headless.pkg` | `mixengine-headless_<v>_<arch>.deb`, `mixengine-headless-<v>.<arch>.rpm` (the name `mixengine` is the one `mixlab` provides and replaces, ADR 0049) |
 
 **Removed as downloads, from v0.0.8:** the Windows zip and headless zip, the macOS archive, the Linux
 tarball and the AppImage. There is no transition release. Nobody depends on those formats yet, and

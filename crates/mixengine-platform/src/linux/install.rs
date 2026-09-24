@@ -76,16 +76,24 @@ const ASKING: std::time::Duration = std::time::Duration::from_secs(5);
 /// the row as it was before this task: a helper `mix uninstall` removes. Both programs answer an
 /// ordinary account, so the daemon asks and the helper never does.
 pub(crate) fn packaged_by(path: &std::path::Path) -> Option<String> {
+    owner(path).map(|(_, name)| name)
+}
+
+/// [`packaged_by`], and which database answered — roadmap task **T182b**, D5: an update of a
+/// packaged copy is the next package of *that* kind, `.deb` or `.rpm`.
+pub(crate) fn owner(path: &std::path::Path) -> Option<(crate::packages::PackageDatabase, String)> {
     use crate::packages::{PackageDatabase, owning_package};
 
     let path = path.to_str()?;
 
     let dpkg = answer(DPKG_QUERY, &["-S", path])
-        .and_then(|stdout| owning_package(PackageDatabase::Dpkg, &stdout));
+        .and_then(|stdout| owning_package(PackageDatabase::Dpkg, &stdout))
+        .map(|name| (PackageDatabase::Dpkg, name));
 
     dpkg.or_else(|| {
         answer(RPM, &["-qf", "--queryformat", "%{NAME}\n", path])
             .and_then(|stdout| owning_package(PackageDatabase::Rpm, &stdout))
+            .map(|name| (PackageDatabase::Rpm, name))
     })
 }
 

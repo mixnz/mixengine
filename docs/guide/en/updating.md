@@ -69,15 +69,20 @@ downloaded package and the `sudo installer` command that installs it from a term
 
 The first version that can do this has to be installed by hand once, like any `.pkg`.
 
-## When a package manager installed MixLab
+## On Linux
 
-On Linux, `mix self-update` refuses, says so, and names the directory. That is correct rather than
-unhelpful: a copy installed by `apt` or `dnf` is owned by that package manager, and replacing files
-underneath it would leave your system's own records describing something that is no longer there.
-Update it the way you installed it.
+A copy installed from the `.deb` or the `.rpm` is owned by `apt` or `dnf`, so MixLab does not
+replace its files itself. `mix self-update` downloads the next package of the same kind, checks it
+against the signed release, and prints the command that installs it:
 
-The portable zip, the AppImage, the Windows per-user installer and a build from source are all
-updated by `mix self-update` normally.
+```bash
+sudo apt install '<the path it printed>/mixlab_0.0.9-1_amd64.deb'
+```
+
+On a desktop it also opens the package in your software centre. Once it is installed, finish with
+`mix self-update --finish`.
+
+The Windows installer is updated by `mix self-update` in place.
 
 ## Versions
 

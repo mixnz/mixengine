@@ -203,10 +203,22 @@ impl Feed {
     /// **And for the flavour this copy is** — T182b, D5: `headless` for a copy with no window, which
     /// the headless package installs, and the window's package otherwise. A row with no `flavour` is
     /// the window's, which is all a feed from before T182b published.
-    pub fn installer(&self, os: Os, arch: Arch, headless: bool) -> Option<&InstallerArtifact> {
+    ///
+    /// `kind` is `pkg`, `deb` or `rpm`: a copy a package manager owns is updated by the next
+    /// package of the same kind (`updates::placement::installer_kind`).
+    pub fn installer(
+        &self,
+        os: Os,
+        arch: Arch,
+        kind: &str,
+        headless: bool,
+    ) -> Option<&InstallerArtifact> {
         self.installers.iter().find(|installer| {
             let theirs = installer.flavour.as_deref() == Some("headless");
-            installer.os == os && installer.arch == arch && theirs == headless
+            installer.os == os
+                && installer.arch == arch
+                && installer.kind == kind
+                && theirs == headless
         })
     }
 }
@@ -354,7 +366,10 @@ mod tests {
         }))
         .expect("a feed without installers reads");
 
-        assert!(feed.installer(Os::Macos, Arch::Aarch64, false).is_none());
+        assert!(
+            feed.installer(Os::Macos, Arch::Aarch64, "pkg", false)
+                .is_none()
+        );
     }
 
     /// T182b, D5. A copy is offered the package of its own flavour: the headless one when it has no
@@ -383,7 +398,7 @@ mod tests {
         .expect("a feed with both flavours reads");
 
         let url = |headless| {
-            feed.installer(Os::Macos, Arch::Aarch64, headless)
+            feed.installer(Os::Macos, Arch::Aarch64, "pkg", headless)
                 .map(|installer| installer.url.clone())
                 .expect("a row")
         };
@@ -410,11 +425,14 @@ mod tests {
         .expect("a feed with installers reads");
 
         let installer = feed
-            .installer(Os::Macos, Arch::Aarch64, false)
+            .installer(Os::Macos, Arch::Aarch64, "pkg", false)
             .expect("the aarch64 row");
         assert_eq!(installer.kind, "pkg");
         assert_eq!(installer.as_artifact().sha256, installer.sha256);
         assert_eq!(installer.as_artifact().url, installer.url);
-        assert!(feed.installer(Os::Linux, Arch::X86_64, false).is_none());
+        assert!(
+            feed.installer(Os::Linux, Arch::X86_64, "deb", false)
+                .is_none()
+        );
     }
 }

@@ -40,7 +40,7 @@ installer at all on most systems — MixLab installs it itself, the first time s
 administrator, inside a prompt you were going to see anyway.
 
 **If you do not want the window, there is a download without it.** Every system publishes a
-**headless** archive holding the four command-line programs and nothing else — no window, and on
+**headless** installer holding the four command-line programs and nothing else — no window, and on
 Linux no WebKitGTK to install. It is linked in each section below and is what a server, a container
 image, or any machine with no display wants.
 
@@ -100,43 +100,44 @@ it also places the privileged helper for you.
 
 [**`.deb`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_amd64.deb)
 · [**`.rpm`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-x86_64.rpm)
-· [**`.AppImage`**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-x86_64.AppImage)
 · arm64: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab_arm64.deb),
-[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-aarch64.rpm),
-[`.AppImage`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-linux-aarch64.AppImage)
-· headless: [`x86_64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-x86_64-headless.tar.gz),
-[`aarch64`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-linux-aarch64-headless.tar.gz)
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-aarch64.rpm)
+· headless: [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless_amd64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless-x86_64.rpm),
+arm64 [`.deb`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless_arm64.deb),
+[`.rpm`](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-headless-aarch64.rpm)
 
-Four files, each a complete install:
+Two packages for each family, each a complete install:
 
-- **`.deb`** for Debian, Ubuntu and their relatives
-- **`.rpm`** for Fedora, RHEL and openSUSE
-- **`.AppImage`**, which needs no package manager and no root at all
-- **`-headless.tar.gz`**, the four command-line programs with no window and no dependencies
+- **`mixlab`**: MixLab and the four command-line programs
+- **`mixengine-headless`**: the four command-line programs alone, for a server or a machine with no
+  display
+
+The `.deb` is for Debian, Ubuntu and their relatives, the `.rpm` for Fedora, RHEL and openSUSE:
 
 ```bash
-sudo dpkg -i mixlab_*_amd64.deb
-sudo rpm -i mixlab-*.x86_64.rpm
-chmod +x mixlab-*-linux-x86_64.AppImage && ./mixlab-*-linux-x86_64.AppImage status
-tar -xzf mixengine-*-linux-x86_64-headless.tar.gz
+sudo apt install ./mixlab_*_amd64.deb
+sudo dnf install ./mixlab-*.x86_64.rpm
 ```
 
-**The window needs WebKitGTK 4.1 and glibc 2.35** — Ubuntu 22.04, Debian 12, Fedora 38, openSUSE
+The two packages replace each other: installing one removes the other.
+
+**Other distributions are not supported.** Arch, NixOS, Gentoo and the rest have no package here;
+building from source (below) is the way there.
+
+**The window needs WebKitGTK 4.1 and glibc 2.35**: Ubuntu 22.04, Debian 12, Fedora 38, openSUSE
 Leap 15.6 or newer. MixLab is a webview application, and the library it draws with is your
 distribution's: `libwebkit2gtk-4.1-0` on Debian and Ubuntu, `webkit2gtk4.1` on Fedora and RHEL,
-`libwebkit2gtk-4_1-0` on openSUSE. The `.deb` and the `.rpm` declare it, so your package manager
-pulls it in; they also add a **MixLab** menu entry and its icon.
+`libwebkit2gtk-4_1-0` on openSUSE. The `mixlab` package declares it, so your package manager pulls
+it in; it also adds a **MixLab** menu entry and its icon.
 
-**The command line asks for none of that.** The four command-line programs are built against glibc
-2.28, so they run on the long-term-support distributions they are aimed at rather than only on
-something as new as the machine that built them — and they need no webview at all. If the machine
-has no display, take the headless archive: it declares nothing.
+**The headless package asks for none of that.** The four command-line programs are built against
+glibc 2.28, so they run on the long-term-support distributions they are aimed at, and they need no
+webview at all.
 
-**The AppImage does both jobs, and each half keeps its own floor.** Run it with an argument and it
-is the command line — `./mixlab-*-linux-x86_64.AppImage status` — on any system back to glibc
-2.28. Run it with none, or double-click it, and it opens MixLab, which needs what the first
-paragraph says. The image does not carry WebKitGTK; below the window's floor it says so by name, in
-a dialog if you double-clicked it, and the command line goes on working.
+**Updates come as the next package.** `mix self-update` downloads it, checks it against the signed
+release, and prints the command that installs it, `sudo apt install …` or `sudo dnf install …`. On
+a desktop it also opens the package in your software centre.
 
 `aarch64` builds are published beside the `x86_64` ones.
 
@@ -159,8 +160,8 @@ which is why placing the privileged helper is never a packager's job.
 Two files sit beside every artifact, and they answer different questions.
 
 ```bash
-sha256sum -c mixlab-*-linux-x86_64.tar.gz.sha256
-minisign -Vm mixlab-*-linux-x86_64.tar.gz -P <the key in packaging/updates.pub>
+sha256sum -c mixlab_*_amd64.deb.sha256
+minisign -Vm mixlab_*_amd64.deb -P <the key in packaging/updates.pub>
 ```
 
 The `.sha256` tells you whether two downloads of the same file are the same file. **It is not a

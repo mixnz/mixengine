@@ -607,18 +607,29 @@ pub(crate) fn update_status(status: &UpdateStatus) -> String {
     rendered
 }
 
-/// What `mix self-update` prints once the `.pkg` is open in Installer.app — roadmap task **T88f**.
+/// What `mix self-update` prints once the package is handed over — roadmap tasks **T88f** and
+/// **T182b** (D5).
 ///
 /// **The path and the command every time**, not only when opening failed. Over SSH, `open`
 /// succeeds and Installer.app comes up on the Mac's own screen, which the person at this prompt may
-/// not be looking at (the T88f readings, M4). Both are the daemon's, printed unchanged.
+/// not be looking at (the T88f readings, M4). Both are the daemon's, printed unchanged. A Linux
+/// machine with no desktop session opens nothing, and the command is then the only way.
 pub(crate) fn update_handed_over(handed: &UpdateHandedOver) -> String {
-    format!(
-        "Installer.app is open on this Mac. when it is done: mix self-update --finish\n  \
-         package   {}\n  \
-         or run    {}\n",
-        handed.package, handed.command
-    )
+    if handed.opened {
+        format!(
+            "the installer is open. when it is done: mix self-update --finish\n  \
+             package   {}\n  \
+             or run    {}\n",
+            handed.package, handed.command
+        )
+    } else {
+        format!(
+            "the update is downloaded. install it, then run: mix self-update --finish\n  \
+             package   {}\n  \
+             run       {}\n",
+            handed.package, handed.command
+        )
+    }
 }
 
 /// What an update did, printed while the daemon that did it is exiting — roadmap task **T88**.
@@ -4974,11 +4985,33 @@ mod tests {
             version: "0.0.9".to_owned(),
             package: package.to_owned(),
             command: format!("sudo installer -pkg '{package}' -target /"),
+            opened: true,
         });
 
         assert!(rendered.contains(package), "{rendered}");
         assert!(rendered.contains("sudo installer -pkg"), "{rendered}");
         assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+    }
+
+    /// T182b, D5. A Linux machine with no desktop session opens nothing: the command is printed as
+    /// the step to take, and nothing claims an installer is open.
+    #[test]
+    fn a_handover_with_nothing_opened_prints_the_command_as_the_way() {
+        let package = "/home/x/.local/share/mixengine/cache/updates/0.0.9/\
+                       mixengine-headless_0.0.9-1_amd64.deb";
+        let rendered = update_handed_over(&mixengine_proto::UpdateHandedOver {
+            version: "0.0.9".to_owned(),
+            package: package.to_owned(),
+            command: format!("sudo apt install '{package}'"),
+            opened: false,
+        });
+
+        assert!(
+            rendered.contains(&format!("sudo apt install '{package}'")),
+            "{rendered}"
+        );
+        assert!(rendered.contains("mix self-update --finish"), "{rendered}");
+        assert!(!rendered.contains("is open"), "{rendered}");
     }
 
     #[test]

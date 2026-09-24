@@ -68,9 +68,9 @@ is touched.
 
 `mixengine-elevate` itself has to live somewhere you cannot write to — a program that runs as an
 administrator and sits in a directory any process could overwrite is not a security boundary. So the
-first privileged thing MixLab ever does is put the helper in place. Four of the ways of
-installing MixLab run entirely as you (the Windows installer, the portable zip, the AppImage, and
-building from source), which is why this cannot be the installer's job. Where a `.deb`, an `.rpm` or
+first privileged thing MixLab ever does is put the helper in place. Two of the ways of installing
+MixLab run entirely as you (the Windows installer and building from source), which is why this
+cannot be the installer's job. Where a `.deb`, an `.rpm` or
 a `.pkg` has already placed it, MixLab notices and asks for nothing.
 
 ### Replacing the privileged helper

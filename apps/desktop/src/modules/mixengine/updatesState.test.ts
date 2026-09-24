@@ -22,6 +22,7 @@ const handed: UpdateHandedOver = {
   version: "0.0.9",
   package: "/x/mixlab-0.0.9-macos-universal.pkg",
   command: "sudo installer -pkg '/x/mixlab-0.0.9-macos-universal.pkg' -target /",
+  opened: true,
 };
 
 describe("updatesView", () => {

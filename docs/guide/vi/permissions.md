@@ -4,7 +4,7 @@ slug = "permissions"
 order = 11
 summary = "Mọi hộp thoại quyền quản trị mà MixLab có thể hiện lên, mỗi cái thay đổi chính xác điều gì, và vì sao không có gì của MixLab chạy thường trực với quyền root."
 translation_of = "en/permissions.md"
-source_sha256 = "0b31cbb2d597d90135a0b2fbe527262c6992a875112bac24c07db09f68f87e5d"
+source_sha256 = "e07a33677cf2b415fdbac300e2b84fbaf3cfd08bc31ab5380adeedde05a425c8"
 +++
 
 # MixLab xin quyền để làm gì
@@ -69,9 +69,9 @@ Chỉ khi bạn muốn một site truy cập được từ điện thoại hoặ
 
 Bản thân `mixengine-elevate` phải nằm ở nơi bạn không ghi được. Một chương trình chạy với quyền
 quản trị mà nằm trong thư mục bất kỳ tiến trình nào cũng ghi đè được thì không phải ranh giới bảo
-mật. Vì thế việc đặc quyền đầu tiên MixLab làm là đặt chương trình phụ trợ này vào chỗ. Bốn
-cách cài MixLab chạy hoàn toàn dưới tài khoản của bạn: bộ cài Windows, bản zip portable,
-AppImage, và build từ mã nguồn. Đó là lý do việc này không thể là việc của bộ cài. Ở đâu `.deb`,
+mật. Vì thế việc đặc quyền đầu tiên MixLab làm là đặt chương trình phụ trợ này vào chỗ. Hai
+cách cài MixLab chạy hoàn toàn dưới tài khoản của bạn: bộ cài Windows và build từ mã nguồn. Đó là
+lý do việc này không thể là việc của bộ cài. Ở đâu `.deb`,
 `.rpm` hoặc `.pkg` đã đặt sẵn nó, MixLab nhận ra và không hỏi gì.
 
 ### Thay chương trình phụ trợ đặc quyền

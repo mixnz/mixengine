@@ -4,7 +4,7 @@ slug = "updating"
 order = 12
 summary = "Cập nhật do bạn quyết, có kiểm tra chữ ký, và có chạy thử trước khi thay bất cứ thứ gì. Riêng một chương trình cố ý không bao giờ được thay theo đường này."
 translation_of = "en/updating.md"
-source_sha256 = "a873097581b753b0346717a9400640673c1498f0761bec875c9c029ae2d7d2e1"
+source_sha256 = "b03ced7dc13f41ca00d41656283a6b63004fb388ddd8d377353862d3f11c2be8"
 +++
 
 # Giữ MixLab luôn mới
@@ -70,15 +70,19 @@ thêm đường dẫn file đã tải và lệnh `sudo installer` để cài fil
 
 Bản đầu tiên có tính năng này thì vẫn phải cài tay một lần, như mọi file `.pkg`.
 
-## Khi MixLab được cài bằng trình quản lý gói
+## Trên Linux
 
-Trên Linux, `mix self-update` từ chối, nói rõ lý do, và nêu tên thư mục. Đó là hành vi đúng chứ
-không phải vô ích: bản cài bằng `apt` hay `dnf` thuộc về trình quản lý gói đó. Thay file sau lưng
-nó sẽ khiến hồ sơ của hệ thống mô tả một thứ không còn ở đó nữa. Hãy cập nhật theo đúng cách bạn
-đã cài.
+Bản cài từ `.deb` hoặc `.rpm` thuộc về `apt` hoặc `dnf`, nên MixLab không tự thay file của nó.
+`mix self-update` tải gói tiếp theo cùng loại, kiểm tra với bản phát hành đã ký, rồi in lệnh cài:
 
-Bản zip portable, AppImage, bộ cài Windows theo người dùng và bản build từ mã nguồn đều cập nhật
-bình thường bằng `mix self-update`.
+```bash
+sudo apt install '<đường dẫn nó in ra>/mixlab_0.0.9-1_amd64.deb'
+```
+
+Trên máy có desktop, nó mở luôn gói đó trong trình quản lý phần mềm. Cài xong thì chạy
+`mix self-update --finish`.
+
+Bộ cài Windows được `mix self-update` cập nhật tại chỗ.
 
 ## Phiên bản
 

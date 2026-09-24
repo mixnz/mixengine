@@ -278,9 +278,9 @@ looked.
 which writes `latest.json` into the distribution directory **between** gathering the legs and signing
 them — it is written there rather than in a leg because no leg can see the other four, and before the
 signing rather than after because being in that directory *is* how it gets signed. The artifact is
-the update payload: a plain `mixlab-<version>-<os>-<arch>.(zip|tar.gz)` of the release's binaries,
-which is the only thing `mix self-update` can apply, since every installer either needs root or is a
-file the user placed. `packaging/README.md` has the shape of both.
+the update payload: a plain `mixlab-<version>-windows-<arch>.zip` of the release's binaries, which is
+what `mix self-update` applies to a per-user Windows install. Every other installer needs root, and
+is updated by the next one of its kind (T88f, T182b). `packaging/README.md` has the shape of both.
 
 **The feed's notes come from `git` and not from GitHub**, and the ordering is why: `--generate-notes`
 runs when the draft is created, which is after the signing is over, so notes GitHub wrote cannot be
@@ -372,19 +372,20 @@ measured, because the suite was still starting the daemon from before the fix.
 | --- | --- | --- |
 | Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer, the same without the window, and the zip the per-user update swaps from |
 | macOS | `x86_64-apple-darwin`, `aarch64-apple-darwin` → universal binary | `.pkg` with the window + a headless `.pkg` |
-| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, the four binaries against glibc 2.28 and the window against glibc 2.35 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
+| Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, the four binaries against glibc 2.28 and the window against glibc 2.35 | `.deb` + `.rpm`, each with the window and headless |
 
 **Every installer in that column places five binaries** since T105 — the four command-line programs
 and MixLab, the window ([the design](../specs/2026-09-09-t105-the-window-in-every-installer-design.md)).
-The **headless** archive beside each is the same release without the window: four binaries, no
-WebKitGTK dependency, for the machine that has no display. It is a download and never an update
-payload — `packaging/feed.sh` skips it by name.
+The **headless** installer beside each is the same release without the window: four binaries, no
+WebKitGTK dependency, for the machine that has no display. The feed lists it as its own flavour, so
+an update hands a machine the package it has.
 
 **The window's floor is not the other four's, and T105a is why the row above writes them
 separately.** The four command-line binaries are built in the `manylinux_2_28` container; the window
 cannot be, so it is built on the leg's own `ubuntu-22.04` host and carries that machine's glibc 2.35,
-with WebKitGTK 4.1 from the distribution — which the AppImage deliberately does not carry
-([ADR 0028](../decisions/0028-the-appimage-does-not-carry-webkitgtk.md)).
+with WebKitGTK 4.1 from the distribution, which the package declares as a dependency
+([ADR 0028](../decisions/0028-the-appimage-does-not-carry-webkitgtk.md) settled this for the
+AppImage, which T182b removed).
 `packaging/linux/window-floor.sh` reads the floor off the binary on every Linux leg and fails the
 build if it has risen past `MIX_WINDOW_GLIBC`, which is the number both install pages promise.
 
@@ -419,9 +420,9 @@ package rather than dragged out of an image.
    `%ProgramFiles%\MixEngine\`, `/Library/PrivilegedHelperTools/` or
    `/usr/local/libexec/mixengine/`, and it must not sit anywhere the user can write. The `.deb`, the
    `.rpm` and the `.pkg` ship it at that same path anyway, because they run as root and can — and
-   the operation then answers `AlreadyDone`. **The four ways of installing that run entirely as the
-   user** — the per-user Windows installer, the portable zip, the AppImage, and a `cargo build` —
-   are why this cannot be a packager's job.
+   the operation then answers `AlreadyDone`. **The two ways of installing that run entirely as the
+   user** — the per-user Windows installer and a `cargo build` — are why this cannot be a
+   packager's job.
 3. **Does not register daemon autostart either. MixEngine does that too** — `autostart.enable`,
    reachable from `mix autostart enable`, and by nothing an installer runs
    ([ADR 0016](../decisions/0016-autostart-is-registered-by-mixengine.md)). Item 2's argument
@@ -447,15 +448,13 @@ there is no cross-packaging, which is why the `build` job is three legs.
 ```bash
 bash packaging/desktop.sh               # MixLab, once per leg — see below
 bash packaging/windows/build.sh         # the two per-user installers and the update zip
-bash packaging/macos/build.sh           # one universal .pkg and a headless .tar.gz
-bash packaging/linux/build-deb.sh       # .deb
-bash packaging/linux/build-rpm.sh       # .rpm
-bash packaging/linux/build-appimage.sh  # AppImage
-bash packaging/linux/build-tarball.sh   # the update payload and a headless .tar.gz
+bash packaging/macos/build.sh           # one universal .pkg and a headless one
+bash packaging/linux/build-deb.sh       # .deb, with the window and headless
+bash packaging/linux/build-rpm.sh       # .rpm, with the window and headless
 ```
 
 **The first line is optional and is there for speed.** `packaging/stage.sh` runs `desktop.sh` itself
-when nothing has staged the window, so any one of the lines below works on its own — but the four
+when nothing has staged the window, so any one of the lines below works on its own — but the two
 Linux scripts each call `stage.sh`, and running it once up front means one of them is not paying for
 a ten-minute webview build inside a packaging run. The window's crate is a workspace of its own that
 this one excludes (ADR 0027, rule 5), which is why `stage.sh` cannot build it with `cargo -p` like
@@ -468,8 +467,7 @@ job runs over that same directory — `.sha256` files are not signed, because a 
 checksum is a weaker way of saying what the signature over the artifact already says.
 
 Each script ends by opening the artifact it just made and asserting the five binaries are in it —
-`unzip -l`, `7z l`, `pkgutil --payload-files`, `dpkg-deb -c`, `rpm -qlp`, and for the AppImage a run
-of the thing itself. A packaging script that silently produced an empty archive is the failure this
+`unzip -l`, `7z l`, `pkgutil --payload-files`, `dpkg-deb -c` and `rpm -qlp`. A packaging script that silently produced an empty archive is the failure this
 whole job exists to prevent, and it is not one CI notices by itself.
 
 **A headless archive is checked for four, and for the absence of the fifth.** Counting would not
@@ -542,8 +540,8 @@ design are linked decisions.
   T88** — [design](../specs/2026-09-04-t88-self-update-design.md): the daemon
   checks at start and on a daily clock, both silent on failure; a release is downloaded, hashed
   against the signed feed, unpacked and *run once* before anything is replaced; and a copy of
-  MixEngine that a `.deb`, an `.rpm`, a `.pkg` or an AppImage installed is refused in words rather
-  than updated in place.
+  MixEngine that a `.deb`, an `.rpm` or a `.pkg` installed is updated by the next package of its
+  kind rather than in place (T88f, T182b).
 - **`mixengine-elevate` is excluded from auto-update** and is replaced only through its own explicit
   elevation prompt. This is a security boundary, not a convenience choice.
 - The daemon and clients negotiate a protocol version on connect; so do the daemon and
@@ -744,17 +742,6 @@ In `lint` rather than in `test` for two reasons: it is a check on this repositor
 tools it uses, which is what every step above it is; and `test` runs on three operating
 systems with network egress blocked, where installing minisign would be three problems in
 exchange for two answers nobody needs.
-
-**The AppImage's AppRun fills its cache and refuses in the right words.** T105a. `AppRun` is the first thing a person who downloaded the AppImage meets, and since
-ADR 0028 its refusal is this product's whole answer to a machine below the window's floor —
-which distributions those are is a promise on the install page. `apprun-check.sh` has been in
-this repository since T85c and nothing has ever run it: it was written to be run by hand by
-whoever was editing `AppRun`, and a fixture nothing runs is not a test. Same reasoning as the
-two steps above it — the only other thing that would ever exercise this script is somebody
-downloading a release.
-
-No AppImage and no `appimagetool` is involved: the fixture is a directory, five shell scripts
-standing in for the five binaries, and a stubbed `ldd`. It costs seconds.
 
 ### `test`
 
@@ -1419,12 +1406,8 @@ runs — asked of the one just built, rather than of a second compile of `mix` w
 
 ### `build`
 
-**Install the packaging tools this runner is missing.** Neither is on the ubuntu image. Installed rather than made optional: an artifact that is
+**Install the packaging tools this runner is missing.** `rpmbuild` is not on the ubuntu image. Installed rather than made optional: an artifact that is
 quietly not built is a release that is quietly missing one.
-
-`desktop-file-utils` is appimagetool's, and it is a hard requirement rather than a nicety —
-measured on a machine without it, where the tool exits with "desktop-file-validate command is
-missing" before it looks at the AppDir at all.
 
 **Install the packaging tools this runner is missing.** **NSIS is not on the windows image**, measured: the first run of this job got through the
 release build and the portable zip and then stopped at "missing tools: makensis". `7z` and

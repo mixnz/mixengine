@@ -136,11 +136,6 @@ jobs:
       - name: The feed describes the archives beside it
         run: bash .github/scripts/test-feed.sh
 
-      # T105a: `AppRun`'s refusal below the window's floor, against a fixture directory with stubbed
-      # binaries. Nothing else would run it but somebody downloading a release.
-      - name: The AppImage's AppRun fills its cache and refuses in the right words
-        run: bash packaging/linux/apprun-check.sh
-
   # T56: regenerates the TypeScript contract and fails on drift. Ubuntu alone: generation is
   # OS-independent, and `test` runs the exporter on all three.
   bindings:

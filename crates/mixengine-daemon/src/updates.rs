@@ -234,11 +234,21 @@ impl Updates {
         &self.placement
     }
 
-    /// Is this a copy without the window — the T182b design, D5?
+    /// Which kind of package updates this copy: `pkg`, `deb` or `rpm` — the T182b design, D5.
     ///
     /// Which installer an update hands over depends on it: the headless package for a copy that has
     /// no window, the window's package otherwise. Asked of the machine each time rather than
     /// remembered, since installing the other flavour is exactly what changes the answer.
+    fn installer_kind(&self) -> &'static str {
+        match &self.placement {
+            updates::Placement::Installer { receipt, .. } => {
+                updates::placement::installer_kind(receipt).unwrap_or("pkg")
+            }
+            _ => "pkg",
+        }
+    }
+
+    /// Is this a copy without the window?
     fn headless(&self) -> bool {
         !matches!(
             self.host.desktop_apps().locate_window(
@@ -677,7 +687,7 @@ impl Updates {
     fn release(&self, feed: &Feed) -> UpdateRelease {
         let size = host().ok().map_or(0, |(os, arch)| match &self.placement {
             updates::Placement::Installer { .. } => feed
-                .installer(os, arch, self.headless())
+                .installer(os, arch, self.installer_kind(), self.headless())
                 .map_or(0, |installer| installer.size),
             _ => feed.artifact(os, arch).map_or(0, |artifact| artifact.size),
         });
@@ -700,7 +710,9 @@ impl Updates {
 
         let size = feed
             .zip(host().ok())
-            .and_then(|(feed, (os, arch))| feed.installer(os, arch, self.headless()))
+            .and_then(|(feed, (os, arch))| {
+                feed.installer(os, arch, self.installer_kind(), self.headless())
+            })
             .map_or(0, |installer| installer.size);
 
         Some(UpdateInstaller {
@@ -733,7 +745,7 @@ impl Updates {
         let updates::Placement::Installer { .. } = &self.placement else {
             return Err(Error::new(
                 ErrorCode::PreconditionFailed,
-                "this copy of MixEngine is not one the .pkg installed",
+                "this copy of MixEngine was not placed by an installer",
             )
             .with_hint("`mix self-update` updates it in place"));
         };
@@ -741,7 +753,7 @@ impl Updates {
         let (os, arch) = host()?;
         let installer = checked
             .feed
-            .installer(os, arch, self.headless())
+            .installer(os, arch, self.installer_kind(), self.headless())
             .ok_or_else(|| {
                 mixengine_core::Error::InstallerUnavailable {
                     os: format!("{os:?}").to_lowercase(),
@@ -754,10 +766,18 @@ impl Updates {
 
         // The platform's error keeps its own code; the hint is the line that installs the verified
         // file without a window, which is also what over SSH somebody would need (D5, M4).
-        self.host
-            .installers()
-            .open(&package)
-            .map_err(|error| error.to_wire().with_hint(install_command(&package)))?;
+        //
+        // **No installer to open is not a failure** — T182b, D5. A Linux machine with no desktop
+        // session has the verified package and the command that installs it, which is the whole
+        // handover there.
+        let opened = match self.host.installers().open(&package) {
+            Ok(()) => true,
+            Err(mixengine_platform::Error::UnsupportedPlatform { reason, .. }) => {
+                tracing::info!(%reason, "no software installer to open the package in");
+                false
+            }
+            Err(error) => return Err(error.to_wire().with_hint(install_command(&package))),
+        };
 
         updates::records::set(
             &self.store,
@@ -770,12 +790,13 @@ impl Updates {
         .await
         .map_err(|error| error.to_wire())?;
 
-        tracing::info!(%version, package = %package.display(), "a .pkg was handed to Installer.app");
+        tracing::info!(%version, package = %package.display(), opened, "a package was handed over");
 
         Ok(UpdateHandedOver {
             version: version.to_owned(),
             package: package.display().to_string(),
             command: install_command(&package),
+            opened,
         })
     }
 
@@ -973,9 +994,9 @@ impl Updates {
             read(&self.store, updates::records::REMIND_AFTER).await;
         // A copy the `.pkg` installed is offered what it can install: the next `.pkg` (T88f).
         let has_build = host().is_ok_and(|(os, arch)| match &self.placement {
-            updates::Placement::Installer { .. } => {
-                feed.installer(os, arch, self.headless()).is_some()
-            }
+            updates::Placement::Installer { .. } => feed
+                .installer(os, arch, self.installer_kind(), self.headless())
+                .is_some(),
             _ => feed.artifact(os, arch).is_some(),
         });
 
@@ -999,7 +1020,12 @@ const INSTALLER_BECAUSE: &str = "the .pkg installed this copy, and MixEngine upd
 /// The line that installs `package` without a window — T88f, D5. Quoted, because the path is in
 /// `Application Support` on macOS and has a space in it.
 fn install_command(package: &std::path::Path) -> String {
-    format!("sudo installer -pkg '{}' -target /", package.display())
+    // By the file's own kind: the next package of a `.deb` copy is a `.deb` (T182b, D5).
+    match package.extension().and_then(|extension| extension.to_str()) {
+        Some("deb") => format!("sudo apt install '{}'", package.display()),
+        Some("rpm") => format!("sudo dnf install '{}'", package.display()),
+        _ => format!("sudo installer -pkg '{}' -target /", package.display()),
+    }
 }
 
 /// The one file in `directory`, or [`None`] when there is not exactly one.

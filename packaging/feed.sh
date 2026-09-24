@@ -67,9 +67,9 @@ fi
 [ -n "$notes" ] || notes="See the release page for what changed."
 
 # Every payload archive, and no installer among them: an installer is not something `update.apply`
-# can unpack. Matched by name rather than by extension: a `.zip` is the Windows payload and an `.rpm`
-# is not a payload at all, and the difference is the shape of the name the build scripts give them.
-# The one installer the feed does list, the macOS `.pkg`, has its own `installers` array below.
+# can unpack. **Since T182b, D5 the only payload is the Windows zip**: the per-user Windows install is
+# the one copy an updater may swap in place, and every other system updates through its installer,
+# listed in the `installers` array below.
 #
 # **And never a headless archive** — T105, D7. Those are named
 # `mixengine-<version>-<os>-<arch>-headless.<ext>`, and an updater has no use for one: an install
@@ -79,11 +79,9 @@ fi
 # a second row for an (os, arch) pair that already has one, and a client takes the first it matches.
 shopt -s nullglob
 payloads=()
-for file in "$dist/$MIX_ARTIFACT-$version-windows-"*.zip \
-  "$dist/$MIX_ARTIFACT-$version-linux-"*.tar.gz \
-  "$dist/$MIX_ARTIFACT-$version-macos-"*.tar.gz; do
+for file in "$dist/$MIX_ARTIFACT-$version-windows-"*.zip; do
   case "$file" in
-    *-headless.zip | *-headless.tar.gz) continue ;;
+    *-headless.zip) continue ;;
   esac
   [ -f "$file" ] && payloads+=("$file")
 done
@@ -165,10 +163,6 @@ for file in "${payloads[@]}"; do
   case "$name" in
     *-windows-x86_64.zip) pairs="windows x86_64" ;;
     *-windows-aarch64.zip) pairs="windows aarch64" ;;
-    *-linux-x86_64.tar.gz) pairs="linux x86_64" ;;
-    *-linux-aarch64.tar.gz) pairs="linux aarch64" ;;
-    *-macos-universal.tar.gz) pairs="macos x86_64
-macos aarch64" ;;
     *)
       echo "$name is not a payload name this script recognises" >&2
       exit 1
@@ -182,10 +176,9 @@ macos aarch64" ;;
   done <<<"$pairs"
 done
 
-# The privileged helper of each leg, published as its own asset — roadmap task T88a. `mix
-# self-update` never replaces `mixengine-elevate`, so a release cannot deliver it inside a payload;
-# what a machine fetches instead is this file and the `.minisig` `sign.sh` puts beside it, and this
-# is where the feed says where they are.
+# The privileged helper of each leg, published as its own asset — roadmap task T88a. The installed
+# copy is replaced by the helper itself, which checks this file against the `.minisig` `sign.sh`
+# puts beside it; this is where the feed says where they are.
 #
 # macOS publishes one universal helper listed under both architecture rows, exactly as its payload
 # archive is — the T88 design's D6, one artifact along.
@@ -226,25 +219,46 @@ if [ -z "$helpers" ]; then
   exit 1
 fi
 
-# The macOS `.pkg` — roadmap task T88f, ADR 0050. A copy the `.pkg` installed owns root-owned files
-# the in-place swap cannot reach, so it is updated by the next `.pkg`, handed to Installer.app. Bound
-# by its SHA-256 inside this signed document, as a payload is, and listed under both Mac rows, as
-# the universal payload is.
+# The installers — roadmap task T88f, ADR 0050, and T182b, D5. A copy an installer placed owns
+# root-owned files the in-place swap cannot reach, so it is updated by the next installer of its own
+# kind: the `.pkg` handed to Installer.app, the `.deb` and the `.rpm` through the command `mix
+# self-update` prints. Each is bound by its SHA-256 inside this signed document, as a payload is. The
+# universal `.pkg` is listed under both Mac rows.
 #
-# **Two flavours since T182b, D5**: the package with the window and the headless one, which replaced
-# the macOS archives. The updater hands a Mac the flavour it has, told apart by whether the window's
-# bundle is installed.
+# **Two flavours of each**: the package with the window and the headless one. The updater hands a
+# machine the flavour it has, told apart by whether the window is installed.
+#
+# By the versioned name only: every Linux package also has an unversioned alias beside it for the
+# handbook's links, and that is the same file under a name no release can be told apart by.
+native="$(printf '%s' "$version" | tr '+-' '~~')"
 installers=""
 for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg \
-  "$dist/$MIX_HEADLESS_ARTIFACT-$version-macos-"*-headless.pkg; do
+  "$dist/$MIX_HEADLESS_ARTIFACT-$version-macos-"*-headless.pkg \
+  "$dist/${MIX_ARTIFACT}_$native-1_"*.deb \
+  "$dist/${MIX_HEADLESS_ARTIFACT}-headless_$native-1_"*.deb \
+  "$dist/$MIX_ARTIFACT-$native-1."*.rpm \
+  "$dist/$MIX_HEADLESS_ARTIFACT-headless-$native-1."*.rpm; do
   [ -f "$file" ] || continue
 
   name="$(basename "$file")"
   size="$(wc -c <"$file" | tr -d ' ')"
 
   case "$name" in
-    *-headless.pkg) flavour=headless ;;
+    *-headless.pkg | *-headless_* | *-headless-*) flavour=headless ;;
     *) flavour=window ;;
+  esac
+
+  case "$name" in
+    *.pkg) targets="macos x86_64 pkg
+macos aarch64 pkg" ;;
+    *_amd64.deb) targets="linux x86_64 deb" ;;
+    *_arm64.deb) targets="linux aarch64 deb" ;;
+    *.x86_64.rpm) targets="linux x86_64 rpm" ;;
+    *.aarch64.rpm) targets="linux aarch64 rpm" ;;
+    *)
+      echo "$name is not an installer name this script recognises" >&2
+      exit 1
+      ;;
   esac
 
   if [ -f "$file.sha256" ]; then
@@ -254,16 +268,21 @@ for file in "$dist/$MIX_ARTIFACT-$version-macos-"*.pkg \
   fi
 
   url="https://github.com/$repo/releases/download/$tag/$name"
-  installers="$installers"$'\n'"macos x86_64 pkg $url $sha $size $flavour"
-  installers="$installers"$'\n'"macos aarch64 pkg $url $sha $size $flavour"
+  while read -r os arch kind; do
+    installers="$installers"$'\n'"$os $arch $kind $url $sha $size $flavour"
+  done <<<"$targets"
 done
 
-# A release with a macOS helper and no `.pkg` would leave every Mac offered nothing — the `.pkg` is
-# the only way a Mac updates now — and nothing else would notice.
-if printf '%s' "$helpers" | grep -q '^macos ' && ! printf '%s' "$installers" | grep -q '^macos '; then
-  echo "no macOS .pkg in $dist for $version, and the feed lists a macOS helper" >&2
-  exit 1
-fi
+# A release with a helper for macOS or Linux and no installer for it would leave every such machine
+# offered nothing — the installer is the only way those systems update now — and nothing else would
+# notice.
+for system in macos linux; do
+  if printf '%s' "$helpers" | grep -q "^$system " &&
+    ! printf '%s' "$installers" | grep -q "^$system "; then
+    echo "no $system installer in $dist for $version, and the feed lists a $system helper" >&2
+    exit 1
+  fi
+done
 
 # **Written by `python3` and not by `printf`**, because `notes` carries commit subjects and those
 # contain quotes, backslashes and newlines. `jq` is deliberately not reached for: `common.sh` already
@@ -368,8 +387,8 @@ with open(sys.argv[1], encoding="utf-8") as handle:
 if not document["artifacts"]:
     raise SystemExit("the feed lists no artifacts")
 
-# T88a. A release whose helper rows are missing is one where `mix elevation upgrade` answers
-# "no privileged helper for this machine" for ever, and nothing else would notice.
+# T88a. A release whose helper rows are missing is one where no installed helper can be replaced
+# from the download, and nothing else would notice.
 if not document["helpers"]:
     raise SystemExit("the feed lists no privileged helpers")
 

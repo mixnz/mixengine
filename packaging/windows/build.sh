@@ -68,7 +68,7 @@ done
 # **Listed once into a variable and never piped into `grep -q`.** That pipeline kills the lister
 # with a SIGPIPE the moment the match is found and — under `pipefail`, which `common.sh` sets —
 # reports a perfectly good artifact as broken for holding exactly what was looked for. Measured on
-# both Linux legs of run 33906595994; see the note in `packaging/linux/build-tarball.sh`.
+# both Linux legs of run 33906595994.
 #
 # **The zip is checked by whole entry name and not by substring** — `unzip -Z1`, matched with
 # `grep -qx`. A listing searched for `mix.exe` anywhere says yes to `mixengine\mix.exe`, which is
