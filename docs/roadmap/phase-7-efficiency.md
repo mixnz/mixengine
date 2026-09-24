@@ -247,6 +247,12 @@ has a platform-layer component and needs verification on Windows + macOS + Linux
       is correct. And no user override of the recipe's permission: nothing is persisted, so the day
       somebody wants one it arrives as a column whose `NULL` means *what the recipe says*, which is
       the three-state shape T69 had to buy in advance and this gets for nothing.
+- [x] **T181** A reading refreshes only the groups it measures. T71's sampler refreshes the whole
+      process table every tick to build a parent map, and on macOS `sysinfo` reads every process's
+      argv on each refresh — about 9 ms for ~700 processes, a steady 2% of a core at the one-second
+      rate, measuring six. Discovery becomes a cheap `pid → ppid` table per system, and `sysinfo`
+      refreshes only the walked members.
+      Design: [2026-09-24-t181-a-reading-refreshes-only-the-groups-it-measures-design.md](../specs/2026-09-24-t181-a-reading-refreshes-only-the-groups-it-measures-design.md).
 - [x] **T72** CI budgets: `mixengined` idle < 32 MB RSS, with the published total reported beside
       it — failing the build on regression. **(P)**
       Design: [2026-08-30-t72-ci-budgets-design.md](../specs/2026-08-30-t72-ci-budgets-design.md).

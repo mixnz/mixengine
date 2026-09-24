@@ -752,6 +752,85 @@ pub(crate) fn started_at(pid: u32) -> Result<Option<i64>> {
     Ok(Some(ticks(created) as i64))
 }
 
+/// Every process's parent — roadmap task **T181**, see `crate::process::parent_table`.
+///
+/// One `CreateToolhelp32Snapshot` of the whole system, walked for `th32ParentProcessID`, where
+/// `sysinfo` opens every process to read it. No process is opened here, so there is nothing this
+/// account can be refused.
+///
+/// # Errors
+///
+/// [`Error::Os`] when the snapshot cannot be taken or its first entry cannot be read.
+#[cfg(feature = "host")]
+pub(crate) fn parent_table() -> Result<std::collections::BTreeMap<u32, u32>> {
+    use std::os::windows::io::FromRawHandle as _;
+
+    use windows_sys::Win32::Foundation::ERROR_NO_MORE_FILES;
+    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
+        CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW,
+        TH32CS_SNAPPROCESS,
+    };
+
+    let failed = |source| Error::Os {
+        action: "list this machine's processes",
+        source,
+    };
+
+    #[expect(
+        unsafe_code,
+        reason = "two integers in, and a handle out that is owned by an OwnedHandle at once"
+    )]
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE_VALUE {
+        return Err(failed(io::Error::last_os_error()));
+    }
+
+    #[expect(
+        unsafe_code,
+        reason = "the handle was just returned valid by CreateToolhelp32Snapshot and nothing else \
+                  holds it, so this is its only owner and closes it once"
+    )]
+    let snapshot = unsafe { OwnedHandle::from_raw_handle(snapshot) };
+
+    #[expect(
+        unsafe_code,
+        reason = "PROCESSENTRY32W is a repr(C) struct of integers and arrays of them, so all \
+                  zeroes is a valid value for the kernel to overwrite"
+    )]
+    let mut entry: PROCESSENTRY32W = unsafe { std::mem::zeroed() };
+    entry.dwSize = size_of::<PROCESSENTRY32W>() as u32;
+
+    let mut table = std::collections::BTreeMap::new();
+
+    #[expect(
+        unsafe_code,
+        reason = "the handle is the snapshot owned above and the pointer is to a local whose \
+                  dwSize says how much of it may be written"
+    )]
+    let mut more = unsafe { Process32FirstW(snapshot.as_raw_handle(), &raw mut entry) } != 0;
+    if !more {
+        let error = io::Error::last_os_error();
+        if error.raw_os_error().map(|code| code as u32) != Some(ERROR_NO_MORE_FILES) {
+            return Err(failed(error));
+        }
+    }
+
+    while more {
+        if entry.th32ProcessID != 0 && entry.th32ParentProcessID != 0 {
+            table.insert(entry.th32ProcessID, entry.th32ParentProcessID);
+        }
+
+        #[expect(
+            unsafe_code,
+            reason = "the same snapshot and the same local as the first read"
+        )]
+        let next = unsafe { Process32NextW(snapshot.as_raw_handle(), &raw mut entry) };
+        more = next != 0;
+    }
+
+    Ok(table)
+}
+
 /// The two halves of a `FILETIME` as the one number it is.
 fn ticks(time: FILETIME) -> u64 {
     (u64::from(time.dwHighDateTime) << 32) | u64::from(time.dwLowDateTime)

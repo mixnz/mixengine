@@ -4,6 +4,9 @@
 //! dependency has already done the per-OS work: `sysinfo` reads `/proc` on Linux, `proc_pidinfo` on
 //! macOS and a toolhelp snapshot on Windows, and nothing here names which. The `#[cfg]` rule exists
 //! to keep operating-system differences out of the crates *above* this one, and this is inside it.
+//! The one per-system read this file needs of its own — every process's parent, which is what
+//! decides who a reading refreshes (T181) — lives with the other per-system process questions, in
+//! `crate::process::parent_table`.
 //!
 //! **The walk is a pure function over a table.** A test that had to grow a real process tree would
 //! be a test that only runs where unsigned children are allowed to start, which on a developer's
@@ -75,18 +78,8 @@ impl Snapshot {
                 let mut rss_bytes: u64 = 0;
                 let mut cpu = 0.0;
                 let mut processes = 0;
-                let mut stack = vec![root.pid];
 
-                // Iterative rather than recursive: a process table is a graph this crate did not
-                // build, and a cycle in one must not be a stack overflow in the daemon. `seen` is
-                // what makes that true rather than hoped for.
-                let mut seen = BTreeSet::new();
-
-                while let Some(pid) = stack.pop() {
-                    if !seen.insert(pid) {
-                        continue;
-                    }
-
+                for pid in walk(root.pid, &children, &boundaries) {
                     let Some(row) = self.rows.get(&pid) else {
                         continue;
                     };
@@ -94,13 +87,6 @@ impl Snapshot {
                     rss_bytes = rss_bytes.saturating_add(row.rss_bytes);
                     cpu += row.cpu_percent;
                     processes += 1;
-
-                    if let Some(kids) = children.get(&pid) {
-                        // A child that is a subject of its own belongs to that subject and not to
-                        // this one. Its own descendants go with it, which is why this prunes rather
-                        // than skips: the boundary is the whole subtree, not one process.
-                        stack.extend(kids.iter().copied().filter(|kid| !boundaries.contains(kid)));
-                    }
                 }
 
                 GroupReading {
@@ -116,16 +102,72 @@ impl Snapshot {
 
     /// Who each process started, inverted from each row's parent.
     fn children(&self) -> BTreeMap<u32, Vec<u32>> {
-        let mut children: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+        invert(
+            self.rows
+                .iter()
+                .filter_map(|(pid, row)| Some((*pid, row.parent?))),
+        )
+    }
+}
 
-        for (pid, row) in &self.rows {
-            if let Some(parent) = row.parent {
-                children.entry(parent).or_default().push(*pid);
-            }
+/// Who each process started, from `(pid, parent)` pairs.
+fn invert(pairs: impl Iterator<Item = (u32, u32)>) -> BTreeMap<u32, Vec<u32>> {
+    let mut children: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
+
+    for (pid, parent) in pairs {
+        children.entry(parent).or_default().push(pid);
+    }
+
+    children
+}
+
+/// `root` and every process under it, stopping at another subject's root.
+///
+/// The one walk both halves of a reading take: [`members`] to decide what to refresh, and
+/// [`Snapshot::aggregate`] to sum what the refresh saw. Each pid comes out once, in no promised
+/// order; whether a table holds a row for it is the caller's question.
+fn walk(root: u32, children: &BTreeMap<u32, Vec<u32>>, boundaries: &BTreeSet<u32>) -> Vec<u32> {
+    let mut stack = vec![root];
+
+    // Iterative rather than recursive: a process table is a graph this crate did not build, and a
+    // cycle in one must not be a stack overflow in the daemon. `seen` is what makes that true rather
+    // than hoped for.
+    let mut seen = BTreeSet::new();
+    let mut visited = Vec::new();
+
+    while let Some(pid) = stack.pop() {
+        if !seen.insert(pid) {
+            continue;
         }
 
-        children
+        visited.push(pid);
+
+        if let Some(kids) = children.get(&pid) {
+            // A child that is a subject of its own belongs to that subject and not to this one. Its
+            // own descendants go with it, which is why this prunes rather than skips: the boundary is
+            // the whole subtree, not one process.
+            stack.extend(kids.iter().copied().filter(|kid| !boundaries.contains(kid)));
+        }
     }
+
+    visited
+}
+
+/// Every process in any of these groups, read from a parent table — roadmap task **T181**.
+///
+/// What a reading refreshes, and so the whole of what it pays for. A root the table does not hold
+/// has ended, and contributes nothing. Whether a root is still the process the caller recorded is
+/// [`Snapshot::aggregate`]'s question, asked after the refresh; a recycled pid here costs one
+/// process refreshed for nothing.
+fn members(roots: &[GroupRoot], parents: &BTreeMap<u32, u32>) -> BTreeSet<u32> {
+    let children = invert(parents.iter().map(|(pid, parent)| (*pid, *parent)));
+    let boundaries: BTreeSet<u32> = roots.iter().map(|root| root.pid).collect();
+
+    roots
+        .iter()
+        .filter(|root| parents.contains_key(&root.pid))
+        .flat_map(|root| walk(root.pid, &children, &boundaries))
+        .collect()
 }
 
 /// This machine's own answer, with the state a CPU figure is a difference from.
@@ -153,31 +195,80 @@ impl ProcessMetrics for Sampler {
 
         let (system, previous) = &mut *state;
 
-        system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        // **Only the processes in a group, where the machine says who they are** — roadmap task
+        // T181. Refreshing everything to learn six parents cost ~12 ms a tick on macOS, where
+        // `sysinfo` reads every process's arguments on each refresh. A table that cannot be read
+        // falls back to exactly that, with `sysinfo`'s own parents.
+        let parents = crate::process::parent_table().ok();
 
-        let snapshot = Snapshot {
-            rows: system
-                .processes()
-                .iter()
-                // **Threads are not processes, and on Linux this list holds both** — found by T72,
-                // which read a single-binary Caddy as 445 MB. `sysinfo` reports each thread with its
-                // process's parent pid *and* its process's whole resident size, so a group walked
-                // over them counts one process once per thread and multiplies its memory by the
-                // thread count. `thread_kind` answers `Some` only for a thread, and only on Linux
-                // and Android; everywhere else this filter passes everything through, which is why
-                // Windows and macOS never showed the fault.
-                .filter(|(_, process)| process.thread_kind().is_none())
-                .map(|(pid, process)| {
-                    (
-                        pid.as_u32(),
-                        Row {
-                            parent: process.parent().map(sysinfo::Pid::as_u32),
+        let rows: BTreeMap<u32, Row> = match &parents {
+            Some(parents) => {
+                let wanted: Vec<sysinfo::Pid> = members(roots, parents)
+                    .into_iter()
+                    .map(sysinfo::Pid::from_u32)
+                    .collect();
+
+                // A process that left every group keeps running and is never asked about again, so
+                // `sysinfo` would hold it forever. Starting again costs this tick its CPU figures —
+                // the same as a daemon start — and nothing else.
+                if system.processes().len() > 2 * wanted.len() + 16 {
+                    *system = sysinfo::System::new();
+                    previous.clear();
+                }
+
+                system.refresh_processes_specifics(
+                    sysinfo::ProcessesToUpdate::Some(&wanted),
+                    true,
+                    sysinfo::ProcessRefreshKind::nothing()
+                        .with_cpu()
+                        .with_memory(),
+                );
+
+                wanted
+                    .iter()
+                    .filter_map(|pid| Some((pid.as_u32(), system.process(*pid)?)))
+                    .filter(|(_, process)| process.thread_kind().is_none())
+                    .map(|(pid, process)| {
+                        let row = Row {
+                            parent: parents.get(&pid).copied(),
                             cpu_percent: process.cpu_usage(),
                             rss_bytes: process.memory(),
-                        },
-                    )
-                })
-                .collect(),
+                        };
+                        (pid, row)
+                    })
+                    .collect()
+            }
+
+            None => {
+                system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+
+                system
+                    .processes()
+                    .iter()
+                    // **Threads are not processes, and on Linux this list holds both** — found by
+                    // T72, which read a single-binary Caddy as 445 MB. `sysinfo` reports each thread
+                    // with its process's parent pid *and* its process's whole resident size, so a
+                    // group walked over them counts one process once per thread and multiplies its
+                    // memory by the thread count. `thread_kind` answers `Some` only for a thread,
+                    // and only on Linux and Android; everywhere else this filter passes everything
+                    // through, which is why Windows and macOS never showed the fault.
+                    .filter(|(_, process)| process.thread_kind().is_none())
+                    .map(|(pid, process)| {
+                        (
+                            pid.as_u32(),
+                            Row {
+                                parent: process.parent().map(sysinfo::Pid::as_u32),
+                                cpu_percent: process.cpu_usage(),
+                                rss_bytes: process.memory(),
+                            },
+                        )
+                    })
+                    .collect()
+            }
+        };
+
+        let snapshot = Snapshot {
+            rows,
             previous: std::mem::take(previous),
         };
 
@@ -314,6 +405,69 @@ mod tests {
 
         assert_eq!(measured[0].processes, 2);
         assert_eq!(measured[0].rss_bytes, 20);
+    }
+
+    /// The parent table [`snapshot`] describes: a root, its two workers, and a stranger.
+    fn parents() -> BTreeMap<u32, u32> {
+        BTreeMap::from([(10, 1), (11, 10), (12, 10), (99, 1)])
+    }
+
+    /// **The members are what the walk would sum, and nothing else** — roadmap task **T181**. They
+    /// are the only processes a reading refreshes, so one missing is a worker drawn as free and one
+    /// extra is the machine-wide refresh this exists to avoid.
+    #[test]
+    fn the_members_are_each_root_and_everything_under_it() {
+        assert_eq!(
+            members(&[root(10, 7)], &parents()),
+            BTreeSet::from([10, 11, 12])
+        );
+    }
+
+    #[test]
+    fn the_members_of_two_groups_are_both_groups() {
+        let parents = BTreeMap::from([(10, 1), (11, 10), (12, 11), (20, 1), (21, 20)]);
+
+        assert_eq!(
+            members(&[root(10, 7), root(20, 7)], &parents),
+            BTreeSet::from([10, 11, 12, 20, 21])
+        );
+    }
+
+    #[test]
+    fn a_root_the_table_does_not_hold_has_no_members() {
+        assert!(members(&[root(4_242, 7)], &parents()).is_empty());
+    }
+
+    #[test]
+    fn a_cycle_in_the_parent_table_is_walked_once_rather_than_forever() {
+        let parents = BTreeMap::from([(10, 11), (11, 10)]);
+
+        assert_eq!(members(&[root(10, 7)], &parents), BTreeSet::from([10, 11]));
+    }
+
+    /// **A real reading, twice, of the process running the test** — roadmap task **T181**.
+    ///
+    /// The narrow refresh reaches `sysinfo` through a filter and a kind the table tests above never
+    /// see, so this is the one test that a group measured through them still has memory at once and
+    /// a CPU figure from its second reading on.
+    #[test]
+    fn this_process_is_measured_and_has_a_cpu_figure_the_second_time() {
+        let sampler = Sampler::default();
+        let mine = std::process::id();
+        let started = crate::process::started_at(mine)
+            .expect("this process can be asked about")
+            .expect("this process is running");
+        let roots = [GroupRoot { pid: mine, started }];
+
+        let first = sampler.measure(&roots);
+        assert_eq!(first.len(), 1, "{first:?}");
+        assert!(first[0].rss_bytes > 0, "{first:?}");
+        assert_eq!(first[0].cpu_percent, None, "no previous reading yet");
+
+        let second = sampler.measure(&roots);
+        assert_eq!(second.len(), 1, "{second:?}");
+        assert!(second[0].cpu_percent.is_some(), "{second:?}");
+        assert!(second[0].processes >= 1, "{second:?}");
     }
 
     /// What one refresh of every process on this machine costs.

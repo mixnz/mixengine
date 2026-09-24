@@ -129,6 +129,45 @@ fn unreadable_start_time(field: &str) -> Error {
     }
 }
 
+/// Every process's parent — roadmap task **T181**, see `crate::process::parent_table`.
+///
+/// One `stat` per numeric entry of `/proc`, where `sysinfo` reads several files for each. An entry
+/// that is gone by the time it is read, or whose line does not parse, is left out: it is a process
+/// that ended during the walk, and a supervised group does not contain it.
+///
+/// # Errors
+///
+/// [`Error::Io`] when `/proc` itself cannot be listed.
+#[cfg(feature = "host")]
+pub(crate) fn parent_table() -> Result<std::collections::BTreeMap<u32, u32>> {
+    let proc = PathBuf::from("/proc");
+    let entries = std::fs::read_dir(&proc).map_err(|source| Error::Io {
+        action: "list this machine's processes by reading",
+        path: proc,
+        source,
+    })?;
+
+    Ok(entries
+        .filter_map(|entry| entry.ok()?.file_name().to_str()?.parse::<u32>().ok())
+        .filter_map(|pid| {
+            let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+            Some((pid, parent_in_stat(&stat)?))
+        })
+        .collect())
+}
+
+/// Field 4 of a `/proc/<pid>/stat` line, or [`None`] for a line that does not parse or a process
+/// with no parent.
+///
+/// Split at the **last** `)`, [`started_at`]'s reasoning: field 2 may contain spaces and
+/// parentheses of its own.
+#[cfg(feature = "host")]
+fn parent_in_stat(stat: &str) -> Option<u32> {
+    let (_, rest) = stat.rsplit_once(')')?;
+    let parent = rest.split_whitespace().nth(1)?.parse::<u32>().ok()?;
+    (parent != 0).then_some(parent)
+}
+
 /// The same call on both Unixes, kept in `unix/process.rs` because nothing about it differs
 /// between them — re-exported here so that `process.rs` reaches it through `sys` exactly as it
 /// reaches Windows's empty counterpart.
@@ -250,5 +289,39 @@ impl Attachment {
 pub(crate) fn sweep_stale_groups() {
     if let Ok(delegation) = super::cgroup::Delegation::discover() {
         delegation.sweep_stale();
+    }
+}
+
+#[cfg(all(test, feature = "host"))]
+mod tests {
+    use super::parent_in_stat;
+
+    #[test]
+    fn the_parent_is_the_fourth_field() {
+        assert_eq!(
+            parent_in_stat("4242 (php-fpm) S 4200 4242 4242 0 -1 4194560"),
+            Some(4200)
+        );
+    }
+
+    /// **A name with spaces and parentheses of its own** is the trap this file is known for.
+    #[test]
+    fn a_name_with_parentheses_does_not_move_the_fields() {
+        assert_eq!(
+            parent_in_stat("4242 (a) b (c) S 4200 4242 4242 0 -1 4194560"),
+            Some(4200)
+        );
+    }
+
+    #[test]
+    fn a_process_with_no_parent_is_left_out() {
+        assert_eq!(parent_in_stat("1 (systemd) S 0 1 1 0 -1 4194560"), None);
+    }
+
+    #[test]
+    fn a_line_that_does_not_parse_is_left_out() {
+        assert_eq!(parent_in_stat("4242 php-fpm S 4200"), None);
+        assert_eq!(parent_in_stat("4242 (php-fpm) S"), None);
+        assert_eq!(parent_in_stat("4242 (php-fpm) S x"), None);
     }
 }

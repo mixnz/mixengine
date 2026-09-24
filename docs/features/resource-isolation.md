@@ -213,9 +213,12 @@ not using it".
 
 **Two rates, settled at T71.** A reading a second while a client holds `GET /metrics` open, and a
 reading a minute when nobody is watching. The second rate is what makes the history worth keeping:
-the night nobody was watching is exactly the night the battery question is about. One reading costs
-about 10 ms on Windows and about 2 ms on Linux, measured, which is a fiftieth of a percent of one
-core at the slow rate.
+the night nobody was watching is exactly the night the battery question is about. One reading
+refreshed every process on the machine until T181: about 10 ms on Windows, about 2 ms on Linux and
+12–15 ms on a busy Mac, measured, where `sysinfo` reads every process's arguments on each refresh.
+Since T181 a reading lists each process's parent the cheap way and refreshes only the processes in a
+group — about 0.5 ms on the same Mac, a two-thousandth of a core at the fast rate
+([design](../specs/2026-09-24-t181-a-reading-refreshes-only-the-groups-it-measures-design.md)).
 
 **The reading is `mixengine-platform`'s `ProcessMetrics`, not `sysinfo` in the daemon** — the same
 place every other question about this machine is asked, with a programmable mock beside it, which is
