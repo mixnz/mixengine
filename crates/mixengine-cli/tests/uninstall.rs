@@ -171,14 +171,16 @@ fn needs_an_administrator(home: &Home) -> bool {
     !waiting.is_empty()
 }
 
-/// `--keep-home` undoes what is outside the home, leaves the home, and leaves the daemon running.
+/// `--keep-home` undoes what is outside the home, leaves the home, and ends the daemon.
 ///
 /// **Nothing outside the home is asserted to have gone.** What is proved is the half this flag is
-/// for: the home survives, and so does the daemon serving it.
+/// for — the home survives — and the half T182 changed: a finished uninstall ends the daemon
+/// whatever was kept, because a kept home is no reason to go on serving a machine that has just been
+/// told to forget it (the T182 design, D1).
 #[tokio::test(flavor = "multi_thread")]
-async fn keeping_the_home_leaves_the_home_and_the_daemon() {
+async fn keeping_the_home_leaves_the_home_and_ends_the_daemon() {
     let home = Home::new();
-    let daemon = home.start_daemon();
+    let mut daemon = home.start_daemon();
 
     if needs_an_administrator(&home) {
         return;
@@ -195,13 +197,11 @@ async fn keeping_the_home_leaves_the_home_and_the_daemon() {
         .expect("the home is always a row");
 
     assert_eq!(kept["outcome"]["removal"], "kept", "{report}");
+    assert!(
+        daemon.wait_until_gone(),
+        "a finished uninstall that kept the home left its daemon running: {report}"
+    );
     assert!(home.path().exists());
-
-    // Still answering: `--keep-home` stops nothing, because there is still a home to serve.
-    let status = json(&home.mix(&["status", "--json"]));
-    assert!(status["daemon"]["pid"].is_number(), "{status}");
-
-    drop(daemon);
 }
 
 /// A complete uninstall takes the home with it, and the daemon goes so that it can.
