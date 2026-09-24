@@ -291,7 +291,7 @@ impl Drop for Home {
         }
 
         // Unconditional, and deliberately not folded into the branch above. A daemon this test is
-        // *holding* has already been killed by `Daemon::drop` — locals drop in reverse declaration
+        // *holding* has already been ended by `Daemon::drop` — locals drop in reverse declaration
         // order, so that runs first — which means `listening_pid` answers `None` on precisely the
         // runs where Windows is still letting go of the lock file and the working directory. Waiting
         // only where something answered would skip the case this constant was written for.
@@ -332,11 +332,10 @@ impl Daemon {
 
 impl Drop for Daemon {
     fn drop(&mut self) {
-        // Killed rather than asked to stop. `daemon.shutdown` (T9a) is what one test drives
-        // deliberately; every other test wants its daemon gone whatever state it left it in, and an
-        // interrupt cannot be delivered to a child portably.
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        // Asked to stop first, so the services it started stop with it — on macOS a killed daemon
+        // leaves them running for good. Killed if it does not go: every test wants its daemon gone
+        // whatever state it left it in. See `end_daemon`.
+        mixengine_testkit::end_daemon(&mut self.0);
     }
 }
 

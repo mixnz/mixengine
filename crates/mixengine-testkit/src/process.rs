@@ -124,3 +124,35 @@ pub fn kill(pid: u32) {
 pub fn stop(pid: u32) {
     assert!(try_stop(pid), "pid {pid} could not be stopped");
 }
+
+/// End a daemon this test started and is still holding: asked first, killed only if it does not go.
+///
+/// **For a `Drop`, and the reason is macOS.** A daemon that stops runs the shutdown that stops its
+/// services; one that is killed takes nothing with it there — no `PR_SET_PDEATHSIG`, no job object,
+/// ADR 0007 — so every service it had started kept running, reparented to `launchd`, serving a
+/// home the `TempDir` then removed. Nothing adopts a service of a home that no longer exists, so
+/// each run of the suite left more of them. Linux and Windows end those services in the kernel,
+/// which is why nothing else ever saw it.
+///
+/// Killed at [`SHUTDOWN`](crate::home::SHUTDOWN) rather than waited on forever: a test that failed
+/// halfway must still not leave a process holding the temporary home open. Nothing in here panics,
+/// because it runs while unwinding.
+pub fn end_daemon(child: &mut std::process::Child) {
+    // Already reaped — `wait_until_gone` does that — so its pid may belong to somebody else by now.
+    if !matches!(child.try_wait(), Ok(None)) {
+        return;
+    }
+
+    let _ = try_stop(child.id());
+
+    let deadline = std::time::Instant::now() + crate::home::SHUTDOWN;
+    while std::time::Instant::now() < deadline {
+        if !matches!(child.try_wait(), Ok(None)) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
+
+    let _ = child.kill();
+    let _ = child.wait();
+}
