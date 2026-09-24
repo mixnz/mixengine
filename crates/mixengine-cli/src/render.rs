@@ -5198,6 +5198,7 @@ mod tests {
             role: Some(mixengine_proto::ServiceRole::Other {}),
             autostart: false,
             stopped_by: None,
+            version: None,
         }
     }
 
