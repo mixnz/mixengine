@@ -702,6 +702,7 @@ export default function Dashboard({
                         <span className={styles.serviceName} title={row.id}>
                           {row.id}
                         </span>
+                        {row.version !== null && <span className={styles.serviceVersion}>{row.version}</span>}
                       </span>
                     </td>
                     <td data-nowrap>
