@@ -47,23 +47,22 @@ image, or any machine with no display wants.
 ## Windows
 
 [**Download the installer**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64-setup.exe)
-· [portable zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64.zip)
-· [headless zip](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
+· [headless installer](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless-setup.exe)
 · Windows ARM: [installer](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64.zip),
-[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
+[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless-setup.exe)
 
-Three files are published, and any of them is a complete install.
+Two installers are published, and either is a complete install.
 
-- **`mixlab-<version>-windows-x86_64-setup.exe`** — a per-user installer. It writes into your own
-  profile and puts its directory on your `PATH`, so no administrator prompt is involved and neither
-  is anybody else's account on the machine. It also adds **MixLab** to your Start Menu, offers a
-  desktop shortcut on the components page, and makes MixLab the program that opens a `mixlab://`
+- **`mixlab-<version>-windows-x86_64-setup.exe`**: a per-user installer. It writes into your own
+  profile and puts its directory on your `PATH`, so installing asks for no administrator and
+  touches nobody else's account on the machine. It also adds **MixLab** to your Start Menu, offers
+  a desktop shortcut on the components page, and makes MixLab the program that opens a `mixlab://`
   link.
-- **`mixlab-<version>-windows-x86_64.zip`** — the same programs in a folder. Extract it wherever
-  you like and run `mix.exe`, or `mixlab.exe` for the window.
-- **`mixengine-<version>-windows-x86_64-headless.zip`** — the same folder without MixLab: the four
-  command-line programs and nothing else.
+- **`mixengine-<version>-windows-x86_64-headless-setup.exe`**: the same installer without MixLab,
+  for the four command-line programs and nothing else.
+
+The first time MixLab needs an administrator, usually when you allow its first-run setup, one
+prompt also puts its privileged helper in place.
 
 Windows ARM builds are published beside them, named `aarch64`.
 

@@ -24,7 +24,14 @@ SetCompressor /SOLID lzma
 !include "LogicLib.nsh"
 !include "nsDialogs.nsh"
 
-!define NAME "MixLab"
+; **HEADLESS builds the setup without the window** — T182b, D5, which replaces the headless zip. The
+; same directory, uninstall entry and helper: one install or the other, and installing either
+; replaces the other.
+!ifdef HEADLESS
+  !define NAME "MixEngine"
+!else
+  !define NAME "MixLab"
+!endif
 !define PUBLISHER "MixLab"
 !define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\MixEngine"
 
@@ -224,7 +231,9 @@ Section "MixLab" SecCore
   ; payload's name up as `directory.join(binary_name(name))` and `binary_name` appends `.exe` and
   ; nothing else, so an install file spelled `MixLab.exe` is one every future update would skip.
   ; What a user actually clicks is the shortcut below, and that is named MixLab.
-  File "${STAGE}\mixlab.exe"
+  !ifndef HEADLESS
+    File "${STAGE}\mixlab.exe"
+  !endif
 
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
@@ -233,7 +242,12 @@ Section "MixLab" SecCore
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "Publisher" "${PUBLISHER}"
   ; The window's icon: `mix.exe` carries none, which left Installed apps with a blank (T182, D10).
-  WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\mixlab.exe,0"
+  ; Headless, the uninstaller's own, which carries the same icon.
+  !ifdef HEADLESS
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\uninstall.exe,0"
+  !else
+    WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayIcon" "$INSTDIR\mixlab.exe,0"
+  !endif
   WriteRegStr HKCU "${UNINSTALL_KEY}" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "${UNINSTALL_KEY}" "UninstallString" "$\"$INSTDIR\uninstall.exe$\""
   WriteRegDWORD HKCU "${UNINSTALL_KEY}" "NoModify" 1
@@ -243,16 +257,18 @@ Section "MixLab" SecCore
   ; default, which under `RequestExecutionLevel user` is this account's own Start Menu — nothing
   ; here asks for UAC. The `SetOutPath` at the top of this section is also the shortcut's working
   ; directory.
-  CreateShortcut "$SMPROGRAMS\MixLab.lnk" "$INSTDIR\mixlab.exe"
+  !ifndef HEADLESS
+    CreateShortcut "$SMPROGRAMS\MixLab.lnk" "$INSTDIR\mixlab.exe"
 
-  ; `mixlab://`, per user — ADR 0047. An earlier release registered `mixdb://` to this same
-  ; binary, which the window no longer answers; that key goes, but only while it still points here
-  ; — a standalone MixDB that holds it is left alone.
-  !insertmacro RemoveSchemeIfOurs "mixdb"
-  WriteRegStr HKCU "Software\Classes\mixlab" "" "URL:MixLab Protocol"
-  WriteRegStr HKCU "Software\Classes\mixlab" "URL Protocol" ""
-  WriteRegStr HKCU "Software\Classes\mixlab\DefaultIcon" "" "$INSTDIR\mixlab.exe,0"
-  WriteRegStr HKCU "Software\Classes\mixlab\shell\open\command" "" '"$INSTDIR\mixlab.exe" "%1"'
+    ; `mixlab://`, per user — ADR 0047. An earlier release registered `mixdb://` to this same
+    ; binary, which the window no longer answers; that key goes, but only while it still points
+    ; here — a standalone MixDB that holds it is left alone.
+    !insertmacro RemoveSchemeIfOurs "mixdb"
+    WriteRegStr HKCU "Software\Classes\mixlab" "" "URL:MixLab Protocol"
+    WriteRegStr HKCU "Software\Classes\mixlab" "URL Protocol" ""
+    WriteRegStr HKCU "Software\Classes\mixlab\DefaultIcon" "" "$INSTDIR\mixlab.exe,0"
+    WriteRegStr HKCU "Software\Classes\mixlab\shell\open\command" "" '"$INSTDIR\mixlab.exe" "%1"'
+  !endif
 
   Call AddToPath
 SectionEnd
@@ -260,10 +276,12 @@ SectionEnd
 ; **Unselected by default**, which is what `/o` means and what makes this optional in the sense the
 ; roadmap asks for: a person who wants an icon on their desktop ticks a box, and nobody else grows
 ; one. A silent install takes the defaults, so `probe.sh`'s readings are unchanged.
-Section /o "Desktop shortcut for MixLab" SecDesktop
-  SetOutPath "$INSTDIR"
-  CreateShortcut "$DESKTOP\MixLab.lnk" "$INSTDIR\mixlab.exe"
-SectionEnd
+!ifndef HEADLESS
+  Section /o "Desktop shortcut for MixLab" SecDesktop
+    SetOutPath "$INSTDIR"
+    CreateShortcut "$DESKTOP\MixLab.lnk" "$INSTDIR\mixlab.exe"
+  SectionEnd
+!endif
 
 ; Append $INSTDIR to this user's PATH — and refuse rather than risk it.
 ;

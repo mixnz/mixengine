@@ -75,9 +75,13 @@ PY
 # The two privileged-helper assets a release publishes beside its payloads — roadmap task T88a.
 # `feed.sh` refuses a distribution with none, so this is also what proves the fixture is a release
 # shape rather than half of one.
-printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-linux-x86_64"
-printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-windows-x86_64.exe"
-printf 'not a binary\n' >"$work/dist/mixengine-elevate-$version-macos-universal"
+#
+# Named by the helper's own version, not the release's — T182b, D1.
+helper_version="$(mix_helper_version)"
+export MIX_CHECK_HELPER_VERSION="$helper_version"
+printf 'not a binary\n' >"$work/dist/mixengine-elevate-$helper_version-linux-x86_64"
+printf 'not a binary\n' >"$work/dist/mixengine-elevate-$helper_version-windows-x86_64.exe"
+printf 'not a binary\n' >"$work/dist/mixengine-elevate-$helper_version-macos-universal"
 
 # The macOS `.pkg` — roadmap task T88f. `feed.sh` refuses a macOS payload with none beside it.
 printf 'not a package\n' >"$work/dist/$MIX_ARTIFACT-$version-macos-universal.pkg"
@@ -140,6 +144,13 @@ for pair in [("linux", "x86_64"), ("windows", "x86_64"), ("macos", "x86_64"), ("
 
 if ("windows", "x86_64") in helpers and not helpers[("windows", "x86_64")].endswith(".exe"):
     problems.append(f"the Windows helper is {helpers[('windows', 'x86_64')]}, which Windows will not run")
+
+for row in document["helpers"]:
+    if row.get("version") != os.environ["MIX_CHECK_HELPER_VERSION"]:
+        problems.append(
+            f"the helper row {row['url']} says version {row.get('version')!r}, and the helper is "
+            f"{os.environ['MIX_CHECK_HELPER_VERSION']} (T182b, D1)"
+        )
 
 if helpers.get(("macos", "x86_64")) != helpers.get(("macos", "aarch64")):
     problems.append("the two macOS helper rows point at different files, and macOS publishes one")

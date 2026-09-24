@@ -190,7 +190,9 @@ done
 # macOS publishes one universal helper listed under both architecture rows, exactly as its payload
 # archive is — the T88 design's D6, one artifact along.
 helpers=""
-for file in "$dist/mixengine-elevate-$version-"*; do
+# Named and stamped by the helper's own version, not the release's — T182b, D1.
+helper_version="$(mix_helper_version)"
+for file in "$dist/mixengine-elevate-$helper_version-"*; do
   case "$file" in
     *.sha256 | *.minisig) continue ;;
   esac
@@ -198,7 +200,7 @@ for file in "$dist/mixengine-elevate-$version-"*; do
 
   name="$(basename "$file")"
   size="$(wc -c <"$file" | tr -d ' ')"
-  rest="${name#mixengine-elevate-"$version"-}"
+  rest="${name#mixengine-elevate-"$helper_version"-}"
   rest="${rest%.exe}"
   helper_os="${rest%%-*}"
   helper_arch="${rest#*-}"
@@ -206,11 +208,11 @@ for file in "$dist/mixengine-elevate-$version-"*; do
 
   case "$helper_os-$helper_arch" in
     macos-universal)
-      helpers="$helpers"$'\n'"macos x86_64 $url $size"
-      helpers="$helpers"$'\n'"macos aarch64 $url $size"
+      helpers="$helpers"$'\n'"macos x86_64 $url $size $helper_version"
+      helpers="$helpers"$'\n'"macos aarch64 $url $size $helper_version"
       ;;
     windows-* | linux-* | macos-*)
-      helpers="$helpers"$'\n'"$helper_os $helper_arch $url $size"
+      helpers="$helpers"$'\n'"$helper_os $helper_arch $url $size $helper_version"
       ;;
     *)
       echo "$name is not a helper name this script recognises" >&2
@@ -306,8 +308,10 @@ for line in os.environ["MIX_FEED_HELPERS"].splitlines():
     if not line.strip():
         continue
 
-    os_name, arch, url, size = line.split(" ")
-    helpers.append({"os": os_name, "arch": arch, "url": url, "size": int(size)})
+    os_name, arch, url, size, version = line.split(" ")
+    helpers.append(
+        {"os": os_name, "arch": arch, "url": url, "size": int(size), "version": version}
+    )
 
 installers = []
 for line in os.environ["MIX_FEED_INSTALLERS"].splitlines():

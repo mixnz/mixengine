@@ -111,6 +111,13 @@ pub struct HelperArtifact {
 
     /// How big it is, for the sentence a person reads before it is fetched.
     pub size: u64,
+
+    /// The helper's own version, which is not the release's — roadmap task **T182b**, D1.
+    ///
+    /// Optional on the wire, so a feed from before T182b still reads: there the helper carried the
+    /// release's version, and [`None`] means exactly that.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 /// Where one machine's installer is published — roadmap task **T88f**.
@@ -274,9 +281,31 @@ mod tests {
             .helper(Os::Windows, Arch::X86_64)
             .expect("the row for this machine");
         assert_eq!(helper.size, 812_345);
+        assert_eq!(helper.version, None, "a feed from before T182b names no helper version");
         assert!(
             feed.helper(Os::Linux, Arch::X86_64).is_none(),
             "a release with no helper for this pair answers None rather than the first row it holds"
+        );
+    }
+
+    /// T182b, D1. The helper carries a version of its own, which is not the release's.
+    #[test]
+    fn a_helper_names_its_own_version() {
+        let mut document = document();
+        document["helpers"] = serde_json::json!([{
+            "os": "linux",
+            "arch": "x86_64",
+            "url": "https://example.invalid/mixengine-elevate-0.1.1-linux-x86_64",
+            "size": 812_345,
+            "version": "0.1.1"
+        }]);
+
+        let feed: Feed = serde_json::from_value(document).expect("a feed");
+
+        assert_eq!(
+            feed.helper(Os::Linux, Arch::X86_64)
+                .and_then(|helper| helper.version.as_deref()),
+            Some("0.1.1")
         );
     }
 

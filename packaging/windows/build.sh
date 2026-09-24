@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Windows: a portable zip, a headless zip, and a per-user NSIS installer.
+# Windows: a per-user NSIS installer with the window and one without it, and the zip the per-user
+# swap updates from (T182b, D5): the update payload, no longer offered as a way to install.
 
 source "$(dirname "${BASH_SOURCE[0]}")/../common.sh"
 
@@ -25,7 +26,7 @@ mkdir -p "$dist"
 
 zip_name="$MIX_ARTIFACT-$version-windows-$arch.zip"
 setup_name="$MIX_ARTIFACT-$version-windows-$arch-setup.exe"
-headless_name="$MIX_HEADLESS_ARTIFACT-$version-windows-$arch-headless.zip"
+headless_name="$MIX_HEADLESS_ARTIFACT-$version-windows-$arch-headless-setup.exe"
 
 # The zip holds one directory, so unzipping it into Downloads does not scatter five binaries there.
 # Through `zip.ps1` rather than `Compress-Archive`, which spells the separator inside the archive
@@ -39,27 +40,24 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
   -Source "$(cygpath -w "$MIX_OUT/zip/mixengine")" \
   -Destination "$(cygpath -w "$dist/$zip_name")"
 
-# **The archive the CLI-only user downloads** — T105, D7. The same one `mixengine/` directory, the
-# four binaries, and no webview: a machine with no display should not be made to carry one, and
-# nothing in here declares a dependency it cannot satisfy.
-rm -rf "$MIX_OUT/zip-headless"
-mkdir -p "$MIX_OUT/zip-headless/mixengine"
-for binary in $(mix_headless_binaries); do
-  cp "$stage/$binary.exe" "$MIX_OUT/zip-headless/mixengine/$binary.exe"
-done
-rm -f "$dist/$headless_name"
-powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
-  -File "$(cygpath -w "$MIX_ROOT/packaging/windows/zip.ps1")" \
-  -Source "$(cygpath -w "$MIX_OUT/zip-headless/mixengine")" \
-  -Destination "$(cygpath -w "$dist/$headless_name")"
+# **The setup, twice: with the window and without it** — T182b, D5. The headless one is what the
+# CLI-only user runs instead of the headless zip this used to publish: the same per-user install,
+# the four binaries, and no webview.
+for flavour in window headless; do
+  case "$flavour" in
+    window) out="$dist/$setup_name" define="" ;;
+    headless) out="$dist/$headless_name" define="-DHEADLESS" ;;
+  esac
 
-"$makensis" -NOCD \
-  "-DVERSION=$version" \
-  "-DSTAGE=$(cygpath -w "$stage")" \
-  "-DOUTFILE=$(cygpath -w "$dist/$setup_name")" \
-  "-DINSTALL_SUBDIR=$MIX_INSTALL_WINDOWS" \
-  "-DICON=$(cygpath -w "$MIX_ROOT/apps/desktop/src-tauri/icons/icon.ico")" \
-  "$(cygpath -w "$MIX_ROOT/packaging/windows/mixengine.nsi")"
+  "$makensis" -NOCD \
+    $define \
+    "-DVERSION=$version" \
+    "-DSTAGE=$(cygpath -w "$stage")" \
+    "-DOUTFILE=$(cygpath -w "$out")" \
+    "-DINSTALL_SUBDIR=$MIX_INSTALL_WINDOWS" \
+    "-DICON=$(cygpath -w "$MIX_ROOT/apps/desktop/src-tauri/icons/icon.ico")" \
+    "$(cygpath -w "$MIX_ROOT/packaging/windows/mixengine.nsi")"
+done
 
 # **Open what was just made and check the binaries are in it** — the T85 design, D11. An empty
 # archive is a perfectly valid archive, and this is the only step that would notice.
@@ -78,7 +76,7 @@ powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass \
 # reader asks for is the thing worth asserting.
 zip_entries="$(unzip -Z1 "$dist/$zip_name")"
 setup_entries="$(7z l "$dist/$setup_name")"
-headless_entries="$(unzip -Z1 "$dist/$headless_name")"
+headless_entries="$(7z l "$dist/$headless_name")"
 for binary in "${MIX_BINARIES[@]}"; do
   grep -qx "mixengine/$binary.exe" <<<"$zip_entries" || {
     echo "the zip has no mixengine/$binary.exe" >&2
@@ -90,17 +88,18 @@ for binary in "${MIX_BINARIES[@]}"; do
   }
 done
 
-# **The headless archive is checked for what is in it and for what is not.** An archive that quietly
-# grew a webview is the one failure this artifact exists to prevent, and counting four would not
-# catch a fifth entry — only asking about the window by name does.
+# **The headless setup is checked for what is in it and for what is not.** A setup that quietly grew
+# a webview is the one failure this artifact exists to prevent, and counting four would not catch a
+# fifth entry — only asking about the window by name does. `7z l` lists an NSIS installer's files as
+# a table, so the name is matched as a word at the end of a line.
 for binary in $(mix_headless_binaries); do
-  grep -qx "mixengine/$binary.exe" <<<"$headless_entries" || {
-    echo "the headless zip has no mixengine/$binary.exe" >&2
+  grep -qE "(^| )$binary\.exe$" <<<"$headless_entries" || {
+    echo "the headless setup has no $binary.exe" >&2
     exit 1
   }
 done
-if grep -qx "mixengine/$MIX_WINDOW.exe" <<<"$headless_entries"; then
-  echo "the headless zip carries $MIX_WINDOW.exe, which is the one thing it must not" >&2
+if grep -qE "(^| )$MIX_WINDOW\.exe$" <<<"$headless_entries"; then
+  echo "the headless setup carries $MIX_WINDOW.exe, which is the one thing it must not" >&2
   exit 1
 fi
 
@@ -124,21 +123,20 @@ mix_checksum "$dist/$zip_name"
 mix_checksum "$dist/$setup_name"
 mix_checksum "$dist/$headless_name"
 
-# T88a: the privileged helper on its own, so the `release` job can sign it and `mix elevation
-# upgrade` can fetch it. It is inside both artifacts above as well; what this asset adds is a file
-# that can carry a detached signature.
+# T88a: the privileged helper on its own, so the `release` job can sign it and a daemon replacing
+# an older helper can fetch it (T182b, D2). It is inside the setups as well; what this asset adds is
+# a file that can carry a detached signature, named by the helper's own version.
 helper_name="$(mix_publish_helper "$stage/mixengine-elevate.exe" windows "$arch")"
 
 # The handbook's install page links these, unversioned — see `mix_publish_alias` in `common.sh`.
-alias_zip="$(mix_publish_alias "$dist/$zip_name" "$MIX_ARTIFACT-windows-$arch.zip")"
+# The zip has none: it is the update payload now, and nothing points a person at it (T182b, D5).
 alias_setup="$(mix_publish_alias "$dist/$setup_name" "$MIX_ARTIFACT-windows-$arch-setup.exe")"
 alias_headless="$(mix_publish_alias "$dist/$headless_name" \
-  "$MIX_HEADLESS_ARTIFACT-windows-$arch-headless.zip")"
+  "$MIX_HEADLESS_ARTIFACT-windows-$arch-headless-setup.exe")"
 
 echo "$dist/$zip_name"
 echo "$dist/$setup_name"
 echo "$dist/$headless_name"
 echo "$helper_name"
-echo "$alias_zip"
 echo "$alias_setup"
 echo "$alias_headless"

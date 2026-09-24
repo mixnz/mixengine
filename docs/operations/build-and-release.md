@@ -370,7 +370,7 @@ measured, because the suite was still starting the daemon from before the fix.
 
 | OS | Targets | Installer |
 | --- | --- | --- |
-| Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer + a portable zip + a headless zip |
+| Windows | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | NSIS per-user installer, the same without the window, and the zip the per-user update swaps from |
 | macOS | `x86_64-apple-darwin`, `aarch64-apple-darwin` → universal binary | `.pkg` + a headless `.tar.gz` |
 | Linux | `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, the four binaries against glibc 2.28 and the window against glibc 2.35 | AppImage + `.deb` + `.rpm` + a headless `.tar.gz` |
 
@@ -446,7 +446,7 @@ there is no cross-packaging, which is why the `build` job is three legs.
 
 ```bash
 bash packaging/desktop.sh               # MixLab, once per leg — see below
-bash packaging/windows/build.sh         # a per-user installer, a portable zip and a headless zip
+bash packaging/windows/build.sh         # the two per-user installers and the update zip
 bash packaging/macos/build.sh           # one universal .pkg and a headless .tar.gz
 bash packaging/linux/build-deb.sh       # .deb
 bash packaging/linux/build-rpm.sh       # .rpm

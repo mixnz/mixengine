@@ -266,7 +266,14 @@ impl Updates {
             })?
             .clone();
 
-        Ok((catalogue.index.version, helper))
+        // The helper's own version where the feed names one (T182b, D1), and the release's where
+        // it predates that, which is what the helper carried then.
+        let version = helper
+            .version
+            .clone()
+            .unwrap_or(catalogue.index.version);
+
+        Ok((version, helper))
     }
 
     /// The download pipeline, for the one caller that fetches something which is not an archive:

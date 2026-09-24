@@ -127,6 +127,14 @@ mix_version() {
     | head -1
 }
 
+# The privileged helper's own version, which is not the release's — roadmap task T182b, D1. Read out
+# of the one constant both the helper and the daemon compile in, so the asset's name and its signed
+# stamp say what the helper itself will answer a probe with.
+mix_helper_version() {
+  sed -n 's/^pub const HELPER_VERSION: &str = "\(.*\)";$/\1/p' \
+    "$MIX_ROOT/crates/mixengine-proto/src/privileged.rs" | head -1
+}
+
 # The same version, spelled the way a native Linux package manager can order it.
 #
 # **`.deb` and `.rpm` both read `-` as structure rather than as text**, so a pre-release cannot be
@@ -319,7 +327,7 @@ mix_publish_helper() {
     *.exe) suffix=".exe" ;;
   esac
 
-  local name="mixengine-elevate-$(mix_version)-$os-$arch$suffix"
+  local name="mixengine-elevate-$(mix_helper_version)-$os-$arch$suffix"
   cp "$source" "$MIX_OUT/dist/$name"
   mix_checksum "$MIX_OUT/dist/$name"
   echo "$MIX_OUT/dist/$name"

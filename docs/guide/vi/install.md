@@ -4,7 +4,7 @@ slug = "install"
 order = 2
 summary = "Bộ cài cho hệ điều hành của bạn, nó đụng vào những gì, cố ý không đụng vào những gì, và cách kiểm tra file vừa tải."
 translation_of = "en/install.md"
-source_sha256 = "f939fdf166a411a5036a17e0c8fcf8f9d9a3647113490a31ac7b6c9269d03503"
+source_sha256 = "ce19a6527f5ffe6028b0e71dfa9501c374ffe5bfb18da25e3ec56c80f2110ded"
 +++
 
 # Cài đặt MixLab
@@ -49,23 +49,22 @@ container, hay bất kỳ máy nào không có màn hình.
 ## Windows
 
 [**Tải bộ cài**](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64-setup.exe)
-· [bản zip portable](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-x86_64.zip)
-· [bản zip headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless.zip)
+· [bộ cài headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-x86_64-headless-setup.exe)
 · Windows ARM: [bộ cài](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64-setup.exe),
-[zip](https://github.com/mixnz/mixlab/releases/latest/download/mixlab-windows-aarch64.zip),
-[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless.zip)
+[headless](https://github.com/mixnz/mixlab/releases/latest/download/mixengine-windows-aarch64-headless-setup.exe)
 
-Có ba file được phát hành, file nào cũng là một bản cài đầy đủ.
+Có hai bộ cài được phát hành, bộ nào cũng là một bản cài đầy đủ.
 
 - **`mixlab-<version>-windows-x86_64-setup.exe`**: bộ cài theo từng người dùng. Nó ghi vào
-  profile của bạn và thêm thư mục cài vào `PATH`, nên không cần hộp thoại quản trị, và cũng không
-  đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho bạn
-  chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
+  profile của bạn và thêm thư mục cài vào `PATH`, nên lúc cài không cần quyền quản trị, và cũng
+  không đụng tới tài khoản của người khác trên cùng máy. Nó còn thêm **MixLab** vào Start Menu, cho
+  bạn chọn tạo shortcut ngoài desktop ở trang thành phần, và đặt MixLab làm chương trình mở link
   `mixlab://`.
-- **`mixlab-<version>-windows-x86_64.zip`**: cùng bộ chương trình đó, đóng gói trong một thư
-  mục. Giải nén ở đâu tùy bạn rồi chạy `mix.exe`, hoặc `mixlab.exe` nếu muốn mở cửa sổ.
-- **`mixengine-<version>-windows-x86_64-headless.zip`**: cũng thư mục đó nhưng không có MixLab, chỉ
-  bốn chương trình dòng lệnh và không gì khác.
+- **`mixengine-<version>-windows-x86_64-headless-setup.exe`**: cũng bộ cài đó nhưng không có
+  MixLab, chỉ bốn chương trình dòng lệnh và không gì khác.
+
+Lần đầu MixLab cần quyền quản trị, thường là lúc bạn cho phép bước thiết lập đầu tiên, cùng một hộp
+thoại đó cũng đặt chương trình phụ trợ đặc quyền vào chỗ.
 
 Bản cho Windows ARM được phát hành bên cạnh, đặt tên `aarch64`.
 
