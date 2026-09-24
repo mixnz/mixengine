@@ -59,19 +59,127 @@ pub(crate) async fn take(
     rows.push(audit_log());
     rows.push(autostart_entry(uninstall));
     rows.push(path_entry(uninstall).await);
-    rows.push(home(uninstall.paths.root(), query.keep_home));
-
     // Every directory `[paths]` has moved out of the root, in `directories()`' own order. On an
     // ordinary home there are none: `Paths::directories` answers the root's own subdirectories, and
     // only a relocation makes one of them lie somewhere else.
     let root = uninstall.paths.root().to_path_buf();
-    for directory in uninstall.paths.directories() {
-        if directory != root && !directory.starts_with(&root) {
-            rows.push(relocated(directory, query.keep_home));
-        }
-    }
+    let moved: Vec<std::path::PathBuf> = uninstall
+        .paths
+        .directories()
+        .into_iter()
+        .filter(|directory| *directory != root && !directory.starts_with(&root))
+        .map(Path::to_path_buf)
+        .collect();
+
+    rows.extend(directory_rows(&root, &moved, query));
+    rows.extend(in_use(going(&root, &moved, query)).await);
 
     Ok(rows)
+}
+
+/// **11.** The home, each relocated directory, and every tombstone an earlier run left beside them
+/// — T182, D2 and D6.
+///
+/// The home answers `keep_home` and the relocated directories answer `keep_relocated`: two choices,
+/// because a person may want the home gone and the databases on another disk kept, or the reverse.
+/// A tombstone is garbage whatever is kept, so it is always `Planned`.
+pub(crate) fn directory_rows(
+    root: &Path,
+    moved: &[std::path::PathBuf],
+    query: &mixengine_proto::UninstallQuery,
+) -> Vec<Residue> {
+    let mut rows = vec![home(root, query.keep_home)];
+
+    for directory in moved {
+        rows.push(relocated(directory, query.keep_relocated));
+    }
+
+    rows.extend(
+        mixengine_platform::tombstone::tombstones_beside(root)
+            .iter()
+            .map(|path| tombstone(ResidueId::Home, path)),
+    );
+
+    for directory in moved {
+        rows.extend(
+            mixengine_platform::tombstone::tombstones_beside(directory)
+                .iter()
+                .map(|path| tombstone(ResidueId::RelocatedDirectory, path)),
+        );
+    }
+
+    rows
+}
+
+/// The directories this uninstall would remove: the ones nobody asked to keep.
+pub(crate) fn going(
+    root: &Path,
+    moved: &[std::path::PathBuf],
+    query: &mixengine_proto::UninstallQuery,
+) -> Vec<std::path::PathBuf> {
+    let mut going = Vec::new();
+
+    if !query.keep_home {
+        going.push(root.to_path_buf());
+    }
+
+    if !query.keep_relocated {
+        going.extend(moved.iter().cloned());
+    }
+
+    going
+}
+
+/// **11c.** A tombstone an earlier uninstall renamed and could not delete — T182, D6.
+fn tombstone(id: ResidueId, path: &Path) -> Residue {
+    Residue {
+        id,
+        what: "a directory an earlier uninstall set aside and could not finish removing".to_owned(),
+        location: path.display().to_string(),
+        outcome: Removal::Planned {
+            how: "remove this directory and everything under it".to_owned(),
+        },
+    }
+}
+
+/// **12.** Every process running from a directory this uninstall would remove — T182, D4.
+///
+/// **This daemon and everything it started are spared**: its own shutdown stops them, in
+/// dependency order, before anything is removed. A process table that cannot be read spares
+/// everybody — the rename in `mixengine_platform::tombstone` is the second line of defence, and it
+/// refuses rather than half-deletes.
+async fn in_use(directories: Vec<std::path::PathBuf>) -> Vec<Residue> {
+    if directories.is_empty() {
+        return Vec::new();
+    }
+
+    let occupants = crate::api::on_a_blocking_thread(move || {
+        Ok(mixengine_platform::occupants::processes_under(
+            &directories,
+            Some(std::process::id()),
+        ))
+    })
+    .await
+    .unwrap_or_else(|error| {
+        tracing::warn!(%error, "the processes in the way of an uninstall could not be read");
+        Vec::new()
+    });
+
+    occupants
+        .into_iter()
+        .map(|occupant| Residue {
+            id: ResidueId::InUse,
+            what: format!("{} (pid {})", occupant.name, occupant.pid),
+            location: occupant.executable.display().to_string(),
+            outcome: Removal::Blocked {
+                by: format!(
+                    "{} is running from a directory this uninstall removes; close it and run the \
+                     uninstall again",
+                    occupant.name
+                ),
+            },
+        })
+        .collect()
 }
 
 /// **1.** The block in this machine's hosts file, read the way T41 reads it.
@@ -615,7 +723,9 @@ fn relocated(directory: &Path, keep: bool) -> Residue {
         location: directory.display().to_string(),
         outcome: match keep {
             true => Removal::Kept {
-                because: "you asked for this home to be left where it is".to_owned(),
+                because: "you asked for the directories moved out of this home to be left where \
+                          they are"
+                    .to_owned(),
             },
             false => Removal::Planned {
                 how: "remove this directory and everything under it".to_owned(),
@@ -670,6 +780,65 @@ fn trust_place(method: mixengine_platform::TrustStoreMethod) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn query(keep_home: bool, keep_relocated: bool) -> mixengine_proto::UninstallQuery {
+        mixengine_proto::UninstallQuery {
+            keep_home,
+            keep_relocated,
+            grant: false,
+        }
+    }
+
+    /// T182, D2. The home answers `keep_home` and a relocated directory answers `keep_relocated`,
+    /// in all four combinations.
+    #[test]
+    fn the_home_and_the_relocated_directories_are_kept_separately() {
+        let place = tempfile::tempdir().expect("tempdir");
+        let root = place.path().join("MixEngine");
+        let moved = vec![place.path().join("logs")];
+
+        for (keep_home, keep_relocated) in
+            [(false, false), (true, false), (false, true), (true, true)]
+        {
+            let rows = directory_rows(&root, &moved, &query(keep_home, keep_relocated));
+            let kept = |id| {
+                rows.iter()
+                    .find(|row| row.id == id)
+                    .map(|row| matches!(row.outcome, Removal::Kept { .. }))
+                    .expect("a row")
+            };
+
+            assert_eq!(kept(ResidueId::Home), keep_home, "{rows:?}");
+            assert_eq!(
+                kept(ResidueId::RelocatedDirectory),
+                keep_relocated,
+                "{rows:?}"
+            );
+
+            let going = going(&root, &moved, &query(keep_home, keep_relocated));
+            assert_eq!(going.contains(&root), !keep_home);
+            assert_eq!(going.contains(&moved[0]), !keep_relocated);
+        }
+    }
+
+    /// T182, D6. A tombstone an earlier run could not delete is planned for removal, whatever is
+    /// kept, under the id of the directory it was.
+    #[test]
+    fn an_old_tombstone_is_planned_for_removal_whatever_is_kept() {
+        let place = tempfile::tempdir().expect("tempdir");
+        let root = place.path().join("MixEngine");
+        let old = place.path().join("MixEngine.removing-1");
+        std::fs::create_dir_all(&old).expect("a tombstone");
+
+        let rows = directory_rows(&root, &[], &query(true, true));
+
+        let row = rows
+            .iter()
+            .find(|row| row.location == old.display().to_string())
+            .expect("the tombstone is a row");
+        assert_eq!(row.id, ResidueId::Home);
+        assert!(matches!(row.outcome, Removal::Planned { .. }), "{row:?}");
+    }
 
     /// `keep_home` is a row's answer and not a missing row: a person reading the plan has to see
     /// that the home was considered and deliberately left.
