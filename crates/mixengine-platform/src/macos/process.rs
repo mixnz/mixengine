@@ -128,6 +128,89 @@ fn zeroed_because_every_field_is_a_number() -> libc::proc_bsdinfo {
     unsafe { std::mem::zeroed() }
 }
 
+/// Every process's parent — roadmap task **T181**, see `crate::process::parent_table`.
+///
+/// `proc_listallpids` and then one `PROC_PIDT_SHORTBSDINFO` per pid, rather than the single
+/// `sysctl(KERN_PROC_ALL)` that answers the same question: `libc` does not define `kinfo_proc` for
+/// this system, and a 648-byte struct restated here would be a layout trusted rather than checked.
+/// The short struct is `libc`'s own, and one small read per process is a fraction of the five
+/// `sysinfo` makes for each on every refresh.
+///
+/// A pid whose read fails or comes back short is left out: it ended between the list and the read,
+/// or this account may not ask about it, and either way it is not one a supervised group contains.
+#[cfg(feature = "host")]
+pub(crate) fn parent_table() -> Result<std::collections::BTreeMap<u32, u32>> {
+    let listing_failed = |source| Error::Os {
+        action: "list this machine's processes",
+        source,
+    };
+
+    #[expect(
+        unsafe_code,
+        reason = "a null buffer of length zero is the documented way to ask for the count alone"
+    )]
+    let count = unsafe { libc::proc_listallpids(std::ptr::null_mut(), 0) };
+    if count <= 0 {
+        return Err(listing_failed(io::Error::last_os_error()));
+    }
+
+    // Headroom for the processes started between the two calls; one started after the second is
+    // found on the next reading.
+    let mut pids: Vec<libc::c_int> = vec![0; count as usize + 64];
+    let capacity = (pids.len() * size_of::<libc::c_int>()) as libc::c_int;
+
+    #[expect(
+        unsafe_code,
+        reason = "the buffer is a local vector and the length passed is its own size in bytes, so \
+                  the kernel writes no further than what is there"
+    )]
+    let listed = unsafe { libc::proc_listallpids(pids.as_mut_ptr().cast(), capacity) };
+    if listed <= 0 {
+        return Err(listing_failed(io::Error::last_os_error()));
+    }
+    pids.truncate(listed as usize);
+
+    let size = size_of::<libc::proc_bsdshortinfo>();
+
+    Ok(pids
+        .into_iter()
+        .filter(|pid| *pid > 0)
+        .filter_map(|pid| {
+            let mut info = zeroed_short_info();
+
+            #[expect(
+                unsafe_code,
+                reason = "the buffer is a local this closure owns and the length passed is that \
+                          local's own size, so the kernel writes exactly the struct that is there"
+            )]
+            let written = unsafe {
+                libc::proc_pidinfo(
+                    pid,
+                    libc::PROC_PIDT_SHORTBSDINFO,
+                    0,
+                    std::ptr::from_mut(&mut info).cast(),
+                    size as libc::c_int,
+                )
+            };
+
+            (written == size as libc::c_int && info.pbsi_ppid != 0)
+                .then_some((pid as u32, info.pbsi_ppid))
+        })
+        .collect())
+}
+
+/// An all-zero `proc_bsdshortinfo`, for the kernel to fill in — the reasoning of
+/// [`zeroed_because_every_field_is_a_number`], for the shorter struct.
+#[cfg(feature = "host")]
+#[expect(
+    unsafe_code,
+    reason = "zeroed is sound for a repr(C) struct of integers and arrays of them, which the kernel \
+              is about to overwrite"
+)]
+fn zeroed_short_info() -> libc::proc_bsdshortinfo {
+    unsafe { std::mem::zeroed() }
+}
+
 /// The same call on both Unixes, kept in `unix/process.rs` because nothing about it differs
 /// between them — re-exported here so that `process.rs` reaches it through `sys` exactly as it
 /// reaches Windows's empty counterpart.

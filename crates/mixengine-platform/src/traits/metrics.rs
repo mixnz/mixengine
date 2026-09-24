@@ -76,14 +76,16 @@ pub trait ProcessMetrics: std::fmt::Debug + Send + Sync {
     ///
     /// # What one call costs
     ///
-    /// Every root is served by a single refresh of this machine's process table, because the parent
-    /// map has to be built before any group can be walked — so the cost is the machine's, not the
-    /// caller's, and asking about ten groups costs what asking about one does.
+    /// Two halves since roadmap task **T181**. Every process's *parent* is read once, the cheapest
+    /// way the system offers, because the parent map has to exist before any group can be walked;
+    /// then only the processes in a group are refreshed for their CPU and memory. So the machine
+    /// still pays one pass over its process list, and each group pays for its own members.
     ///
-    /// Measured over ten calls on one developer's machine with 276 processes running: **about 10 ms
-    /// on Windows 11** (9–16 ms across runs) and **about 2 ms under WSL Ubuntu 24.04**. Windows is
-    /// five times dearer because the snapshot it takes is of the whole system rather than of a
-    /// directory that can be read per entry.
+    /// Before T181 the whole table was refreshed every call. Measured over ten calls on one
+    /// developer's machine with 276 processes running, that was **about 10 ms on Windows 11** (9–16
+    /// ms across runs) and **about 2 ms under WSL Ubuntu 24.04**; on a Mac with 773 running it was
+    /// **12–15 ms**, because `sysinfo` reads every process's arguments there on each refresh. After
+    /// it, the same Mac measures **about 0.5 ms**. Windows and Linux have not been re-measured.
     ///
     /// That is the number the sampling periods are chosen against, and it is measured rather than
     /// argued because the documents in this repository criticise polling a sleeping laptop by name:

@@ -116,6 +116,10 @@ windows-sys = { workspace = true, features = [
     # and its matching `CoUninitialize`, which must not run on a thread that was already in an
     # apartment of another kind. See `windows/prompt.rs`.
     "Win32_System_Com",
+    # One snapshot of every process and its parent, which is how a metrics reading learns who is in
+    # a group without opening every process on the machine (T181). A feature adds modules, not
+    # crates.
+    "Win32_System_Diagnostics_ToolHelp",
     # This user's `Path`, which Windows keeps in `HKCU\Environment` rather than anywhere a file
     # could be edited. `setx` would write it too and would truncate it at 1024 characters, which is
     # the whole argument for reaching the API here — see `windows/path.rs`.

@@ -1230,6 +1230,23 @@ pub fn started_at(pid: u32) -> Result<Option<StartTime>> {
     sys::started_at(pid).map(|started| started.map(StartTime))
 }
 
+/// Who started each process on this machine, as `pid → parent pid` — roadmap task **T181**.
+///
+/// **The cheap half of a metrics reading.** Walking a service's group needs every process's parent
+/// and nothing else, and reading only that is a fraction of what refreshing every process costs —
+/// on macOS most of all, where `sysinfo` reads each process's arguments on every refresh. A process
+/// this account may not ask about, or one that ended during the read, is simply absent; so is one
+/// with no parent.
+///
+/// # Errors
+///
+/// [`Error::Os`], or [`Error::Io`] on Linux, when the list of processes itself could not be read.
+/// The metrics sampler then refreshes the whole table the way it did before this existed.
+#[cfg(feature = "host")]
+pub(crate) fn parent_table() -> Result<BTreeMap<u32, u32>> {
+    sys::parent_table()
+}
+
 /// A process that survived the daemon which started it, taken over by the one running now.
 ///
 /// **The third kind of relationship in this module, and the weakest.** A [`Supervised`] child is
@@ -1540,6 +1557,26 @@ mod tests {
             std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o755))
                 .expect("an executable bit");
         }
+    }
+
+    /// **The parent table knows this process, and knows its parent** — roadmap task **T181**.
+    ///
+    /// Asserted against the process running the test because it is the one process every system
+    /// guarantees is there and this account may ask about. Windows has no parent query in `std`,
+    /// so there the claim is only that this process is listed with one.
+    #[cfg(feature = "host")]
+    #[test]
+    fn the_parent_table_knows_this_process_and_its_parent() {
+        let table = super::parent_table().expect("this machine's processes can be listed");
+        let parent = table.get(&std::process::id()).copied();
+
+        #[cfg(unix)]
+        assert_eq!(parent, Some(std::os::unix::process::parent_id()));
+
+        #[cfg(windows)]
+        assert!(parent.is_some_and(|parent| parent != 0), "{parent:?}");
+
+        assert!(table.len() > 1, "more than this one process is running");
     }
 
     /// **The rule is the shell's** — roadmap task **T78b**, its design's D4. A program the shell
