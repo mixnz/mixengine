@@ -274,7 +274,15 @@ mod tests {
         if cfg!(unix) {
             assert_eq!(ports, [None, None], "a socket needs no port");
         } else {
-            assert_eq!(ports, [Some(9000), Some(9001)]);
+            // Not `[Some(9000), Some(9001)]`: `allocate` binds each candidate for real, and CI run
+            // 35994559333 (windows-latest) found 9000 held for a moment by another test process,
+            // so the first pool took 9001 and the second 9000. Which number is `allocate`'s
+            // question; this one asks that each pool has a port of its own.
+            assert!(
+                ports.iter().all(Option::is_some),
+                "a pool listening on TCP needs a port: {ports:?}"
+            );
+            assert_ne!(ports[0], ports[1], "two pools, two ports: {ports:?}");
         }
     }
 
