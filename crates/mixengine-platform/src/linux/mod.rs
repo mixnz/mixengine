@@ -115,7 +115,8 @@ pub(crate) struct Host {
     autostart: autostart::Unit,
     // Not a `linux/` module, and not a `unix/` one either: the secret service is reached through the
     // same crate the other two systems' stores are. See `crate::secrets`.
-    secrets: crate::secrets::Secrets,
+    // Boxed because a development daemon keeps it in a file instead — T184.
+    secrets: Box<dyn crate::Keyring>,
     profiles: path::Profiles,
     ports: ports::Ports,
     port_access: port_access::Ports,
@@ -138,12 +139,12 @@ pub(crate) struct Host {
 
 #[cfg(feature = "host")]
 impl Host {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn with_credentials(credentials: crate::Credentials) -> Self {
         Self {
             home: home::Home,
             access: access::Access,
             autostart: autostart::Unit::of_this_user(),
-            secrets: crate::secrets::Secrets,
+            secrets: crate::secrets::store(credentials),
             profiles: path::Profiles::of_this_user(PROFILES, FALLBACK),
             ports: ports::Ports,
             port_access: port_access::Ports,
@@ -177,7 +178,7 @@ impl crate::Host for Host {
     }
 
     fn keyring(&self) -> &dyn crate::Keyring {
-        &self.secrets
+        self.secrets.as_ref()
     }
 
     fn path_integration(&self) -> &dyn crate::PathIntegration {

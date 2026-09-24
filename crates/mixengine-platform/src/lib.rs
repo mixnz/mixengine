@@ -200,14 +200,37 @@ compile_error!(
 /// one is used.
 pub const RELEASE: bool = option_env!("MIXENGINE_RELEASE").is_some();
 
+/// Where a [`Host`]'s [`keyring`](Host::keyring) keeps credentials — roadmap task **T184**.
+///
+/// [`Os`](Self::Os) is the machine's own store and what every release uses. [`File`](Self::File)
+/// is one private file, which is what `mixengined` uses when it is not a release (ADR 0052): an
+/// unsigned development build is a stranger to the Keychain after every rebuild, and a file in its
+/// own home never has to ask anybody.
+#[cfg(feature = "host")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Credentials {
+    /// Credential Manager, the login Keychain, or the Secret Service.
+    Os,
+    /// This file, created on first write.
+    File(std::path::PathBuf),
+}
+
 /// The machine this process is running on.
 ///
 /// Constructed once at startup and passed down as `Arc<dyn Host>`; tests inject
-/// [`mock::Host`] instead and assert on what it recorded.
+/// [`mock::Host`] instead and assert on what it recorded. Its keyring is the OS store — see
+/// [`host_with`] for the one caller that chooses otherwise.
 #[cfg(feature = "host")]
 #[must_use]
 pub fn host() -> Arc<dyn Host> {
-    Arc::new(sys::Host::new())
+    host_with(Credentials::Os)
+}
+
+/// [`host`], with its keyring kept in `credentials`.
+#[cfg(feature = "host")]
+#[must_use]
+pub fn host_with(credentials: Credentials) -> Arc<dyn Host> {
+    Arc::new(sys::Host::with_credentials(credentials))
 }
 
 /// [`sys::replace::atomically`], for the integration suite.
@@ -283,7 +306,7 @@ pub enum Error {
     /// failures is not vocabulary the daemon should be matching on, and the one distinction that
     /// *is* actionable — no store on this machine at all — is already
     /// [`Error::UnsupportedPlatform`] by the time it gets here.
-    #[error("cannot {action} the credential {service}/{key} in the OS keyring")]
+    #[error("cannot {action} the credential {service}/{key} in the credential store")]
     Secret {
         /// What was being attempted: `"read"`, `"store"`, `"forget"`, `"address"`.
         action: &'static str,

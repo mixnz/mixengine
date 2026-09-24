@@ -10,6 +10,19 @@ use std::path::{Path, PathBuf};
 use mixengine_platform::{ElevationSupport, Host as _, host, mock};
 use mixengine_proto::privileged::ElevationOutcome;
 
+/// Is this run allowed to change the machine, or to raise a real elevation prompt on it?
+///
+/// **`#[ignore]` alone is one `--ignored` away from a developer's desk**, which is where a prompt
+/// nobody asked for comes from — `docs/standards/testing.md`, rule 1. CI's `system` job sets
+/// `MIXENGINE_SYSTEM_TESTS=1`; everywhere else the test says it skipped rather than passing quietly.
+fn system_tests() -> bool {
+    let allowed = std::env::var("MIXENGINE_SYSTEM_TESTS").as_deref() == Ok("1");
+    if !allowed {
+        eprintln!("skipped: MIXENGINE_SYSTEM_TESTS is not set");
+    }
+    allowed
+}
+
 /// Two absolute paths, which is all the mock looks at.
 fn a_helper_and_a_request() -> (PathBuf, PathBuf) {
     let root = if cfg!(windows) {
@@ -253,8 +266,12 @@ fn report(pending: &Pending) -> Option<mixengine_proto::privileged::PrivilegedRe
 /// working directory it sets, the handle it waits on.
 #[cfg(windows)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn windows_runs_the_helper_and_a_report_appears_beside_the_request() {
+    if !system_tests() {
+        return;
+    }
+
     let pending = a_pending_request();
 
     let outcome = host()
@@ -281,8 +298,12 @@ fn windows_runs_the_helper_and_a_report_appears_beside_the_request() {
 /// is T29's method applied to a yes/no question: measure it, do not reason about it.
 #[cfg(target_os = "macos")]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn macos_runs_the_helper_and_a_report_appears_beside_the_request() {
+    if !system_tests() {
+        return;
+    }
+
     let pending = a_pending_request();
 
     let outcome = host()
@@ -305,8 +326,12 @@ fn macos_runs_the_helper_and_a_report_appears_beside_the_request() {
 /// only place the fallback is ever exercised for real.
 #[cfg(target_os = "linux")]
 #[test]
-#[ignore = "asserts a property of a headless machine; run in CI's system job"]
+#[ignore = "asserts a property of a headless machine; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn linux_says_it_cannot_prompt_and_hands_back_the_command_to_run_by_hand() {
+    if !system_tests() {
+        return;
+    }
+
     let pending = a_pending_request();
     let machine = host();
 

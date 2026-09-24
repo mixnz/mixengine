@@ -33,7 +33,10 @@ it.
 2. **Every test gets its own `MIXENGINE_HOME`** in a `tempfile::TempDir`, **passed as an argument,
    never through the environment**. `std::env::set_var` is `unsafe` in edition 2024 and
    process-global regardless, so two tests in the same binary would rewrite each other's home. The
-   environment is read once, at `main`; everything below takes the path it was given.
+   environment is read once, at `main`; everything below takes the path it was given. A test
+   home's credentials are in the home too: a daemon that is not a release keeps them in
+   `credentials.json` ([ADR 0052](../decisions/0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md)),
+   so no test reads or writes the developer's credential store.
 3. **`mock::Host` records operations**; assertions are on the recorded sequence
    (`assert_eq!(host.restricted(), [...])`, and one like it per capability), not on side effects.
    It grows one recorder per

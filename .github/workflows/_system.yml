@@ -32,6 +32,11 @@ jobs:
     name: system (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    # Rule 1 of docs/standards/testing.md: every suite below is `#[ignore]`d **and** gated on this,
+    # so a developer's `cargo test -- --ignored` never writes their machine or raises a prompt on it.
+    # Set for the whole job because writing the machine is the whole job; `sudo -E` carries it.
+    env:
+      MIXENGINE_SYSTEM_TESTS: "1"
     strategy:
       fail-fast: false
       matrix:
@@ -225,7 +230,6 @@ jobs:
         timeout-minutes: 12
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: |
           cargo test -p mixengine-cli --test cert --locked --offline -- --ignored --nocapture --test-threads=1
           cargo test -p mixengine-cli --test caddy --locked --offline -- --ignored --nocapture --test-threads=1
@@ -237,7 +241,6 @@ jobs:
         timeout-minutes: 12
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: |
           set -euo pipefail
           for name in cert caddy; do
@@ -254,7 +257,6 @@ jobs:
         timeout-minutes: 12
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: |
           set -euo pipefail
           suite=$(cargo test -p mixengine-cli --test cert --locked --offline --no-run \
@@ -268,7 +270,6 @@ jobs:
         if: runner.os != 'macOS'
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: cargo test -p mixengine-platform --lib --locked --offline autostart -- --ignored --nocapture --test-threads=1
 
       # What that suite left behind, on the resolver step's shape below and for its reason.
@@ -292,7 +293,6 @@ jobs:
         timeout-minutes: 12
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: cargo test -p mixengine-cli --test uninstall --locked --offline -- --ignored --nocapture --test-threads=1
 
       - name: Nothing of ours is left on this machine (Unix)
@@ -300,7 +300,6 @@ jobs:
         timeout-minutes: 12
         env:
           CARGO_NET_OFFLINE: "true"
-          MIXENGINE_SYSTEM_TESTS: "1"
         run: |
           set -euo pipefail
           suite=$(cargo test -p mixengine-cli --test uninstall --locked --offline --no-run \

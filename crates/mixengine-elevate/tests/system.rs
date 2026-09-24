@@ -15,6 +15,19 @@ use std::path::Path;
 
 use mixengine_proto::privileged::OpOutcome;
 
+/// Is this run allowed to change the machine, or to raise a real elevation prompt on it?
+///
+/// **`#[ignore]` alone is one `--ignored` away from a developer's desk**, which is where a prompt
+/// nobody asked for comes from — `docs/standards/testing.md`, rule 1. CI's `system` job sets
+/// `MIXENGINE_SYSTEM_TESTS=1`; everywhere else the test says it skipped rather than passing quietly.
+fn system_tests() -> bool {
+    let allowed = std::env::var("MIXENGINE_SYSTEM_TESTS").as_deref() == Ok("1");
+    if !allowed {
+        eprintln!("skipped: MIXENGINE_SYSTEM_TESTS is not set");
+    }
+    allowed
+}
+
 /// Where the log belongs on this system. Duplicated from `mixengine_platform::elevated` on purpose:
 /// a test that asked the code under test where to look could not notice it looking in the wrong
 /// place.
@@ -35,8 +48,12 @@ fn directory() -> std::path::PathBuf {
 }
 
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_helper_reports_itself_elevated_and_says_where_its_log_is() {
+    if !system_tests() {
+        return;
+    }
+
     let request = harness::Request::new().owned_by_the_caller();
     let path = request.write();
 
@@ -56,8 +73,12 @@ fn the_helper_reports_itself_elevated_and_says_where_its_log_is() {
 }
 
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_log_is_created_on_first_run_and_appended_to_on_the_second() {
+    if !system_tests() {
+        return;
+    }
+
     let log = directory().join("elevate.log");
     let before = lines(&log);
 
@@ -98,8 +119,12 @@ fn the_log_is_created_on_first_run_and_appended_to_on_the_second() {
 
 #[cfg(unix)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn unix_keeps_the_log_root_owned_and_world_readable() {
+    if !system_tests() {
+        return;
+    }
+
     use std::os::unix::fs::MetadataExt as _;
     use std::os::unix::fs::PermissionsExt as _;
 
@@ -127,8 +152,12 @@ fn unix_keeps_the_log_root_owned_and_world_readable() {
 /// state permanent. Here the wrong permissions are set deliberately; the next run must correct them.
 #[cfg(unix)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn unix_repairs_permissions_it_finds_wrong() {
+    if !system_tests() {
+        return;
+    }
+
     use std::os::unix::fs::PermissionsExt as _;
 
     // Make sure it is there, and root's, before breaking it.
@@ -157,8 +186,12 @@ fn unix_repairs_permissions_it_finds_wrong() {
 /// straight from `%ProgramData%`, on a directory whose whole purpose is not to inherit from there.
 #[cfg(windows)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn windows_repairs_an_acl_it_finds_inherited() {
+    if !system_tests() {
+        return;
+    }
+
     let first = harness::Request::new().owned_by_the_caller();
     assert_eq!(harness::run(&first.write()).code, Some(0));
 
@@ -184,8 +217,12 @@ fn windows_repairs_an_acl_it_finds_inherited() {
 /// ordinary suite does not have. Running as root, this test's own request *is* root's.
 #[cfg(unix)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn unix_refuses_a_request_that_belongs_to_root() {
+    if !system_tests() {
+        return;
+    }
+
     let request = harness::Request::new();
     let path = request.write();
 
@@ -199,8 +236,12 @@ fn unix_refuses_a_request_that_belongs_to_root() {
 
 #[cfg(windows)]
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn windows_keeps_the_log_out_of_reach_of_an_ordinary_account() {
+    if !system_tests() {
+        return;
+    }
+
     let request = harness::Request::new().owned_by_the_caller();
     assert_eq!(harness::run(&request.write()).code, Some(0));
 
@@ -253,8 +294,12 @@ fn lines(log: &Path) -> usize {
 /// trust setting out with the certificate. `mixengine_platform`'s macOS module carries the whole
 /// measurement; what matters here is that this test asks all three for the same four answers again.
 #[test]
-#[ignore = "changes this machine's trust store; run in CI's system job"]
+#[ignore = "changes this machine's trust store; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn an_authority_goes_into_this_machines_trust_store_and_comes_back_out() {
+    if !system_tests() {
+        return;
+    }
+
     let (der, key_id) = an_authority();
 
     let installed = apply(&format!(
@@ -306,8 +351,12 @@ fn an_authority_goes_into_this_machines_trust_store_and_comes_back_out() {
 /// refusal survives the whole path — the request file, the validation, the dispatch — while the
 /// process actually holds the privilege to have done the damage.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn an_elevated_helper_still_refuses_to_remove_something_that_is_not_our_authority() {
+    if !system_tests() {
+        return;
+    }
+
     let outcome = apply(&format!(
         r#"[{{ "op": "trust-ca-remove", "target": {{ "method": "{}", "key_id": "DigiCert" }} }}]"#,
         method()
@@ -321,8 +370,12 @@ fn an_elevated_helper_still_refuses_to_remove_something_that_is_not_our_authorit
 
 /// And the same for an install that is not a MixEngine authority.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn an_elevated_helper_still_refuses_to_trust_something_it_did_not_make() {
+    if !system_tests() {
+        return;
+    }
+
     let outcome = apply(&format!(
         r#"[{{ "op": "trust-ca-install", "plan": {{ "method": "{}", "der": [48, 130, 1, 0] }} }}]"#,
         method()
@@ -410,8 +463,12 @@ fn helper() -> std::path::PathBuf {
 /// already carries the same build has nothing to do, and a test that demanded `Applied` would be
 /// asserting that the runner is fresh rather than that the operation works.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_helper_installs_itself_once() {
+    if !system_tests() {
+        return;
+    }
+
     let destination = helper();
 
     let first = apply(r#"[{ "op": "helper-install" }]"#);
@@ -460,8 +517,12 @@ fn the_helper_installs_itself_once() {
 /// only another elevation could clear it. This runs the operation itself rather than relying on the
 /// test above having run, so it asserts the same thing whichever order the suite happens to take.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_staged_copy_is_not_left_behind() {
+    if !system_tests() {
+        return;
+    }
+
     let _ = apply(r#"[{ "op": "helper-install" }]"#);
 
     let staged = helper().with_extension("new");
@@ -474,8 +535,12 @@ fn the_staged_copy_is_not_left_behind() {
 /// this test is about — *a copy anything running as the user could replace is not one whose
 /// signature check means anything* — is unreachable on an ordinary machine.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn a_helper_that_is_not_the_installed_one_refuses_to_replace_anything() {
+    if !system_tests() {
+        return;
+    }
+
     let outcome = apply(r#"[{ "op": "helper-replace" }]"#);
 
     assert!(
@@ -494,8 +559,12 @@ fn a_helper_that_is_not_the_installed_one_refuses_to_replace_anything() {
 /// It installs the helper first rather than relying on another test having run, so the assertion is
 /// the same whichever order the suite takes.
 #[test]
-#[ignore = "needs an administrative token; run in CI's system job"]
+#[ignore = "needs an administrative token; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn the_installed_helper_refuses_a_candidate_nobody_signed() {
+    if !system_tests() {
+        return;
+    }
+
     let installed = helper();
     let _ = apply(r#"[{ "op": "helper-install" }]"#);
     let before = std::fs::read(&installed).expect("the installed helper");

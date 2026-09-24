@@ -34,6 +34,16 @@ use keyring::error::Error as KeyringError;
 
 use crate::{Error, Keyring, Result};
 
+mod file;
+
+/// The keyring a [`crate::Host`] hands out, for the store it was built with — T184.
+pub(crate) fn store(credentials: crate::Credentials) -> Box<dyn Keyring> {
+    match credentials {
+        crate::Credentials::Os => Box::new(Secrets),
+        crate::Credentials::File(path) => Box::new(file::File::new(path)),
+    }
+}
+
 /// The real credential store.
 #[derive(Debug, Default)]
 pub(crate) struct Secrets;

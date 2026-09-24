@@ -6,6 +6,7 @@ mod bin_scan;
 mod blueprints;
 mod certs;
 mod crash;
+mod credentials;
 mod databases;
 mod diagnostics;
 mod disk;
@@ -318,6 +319,16 @@ struct Args {
     #[arg(long, value_enum, env = "MIXENGINE_LOG_FORMAT")]
     log_format: Option<LogFormat>,
 
+    /// Where credentials are kept: `os`, the machine's credential store, or `home`, a private file
+    /// in the home — roadmap task **T184**, ADR 0052.
+    ///
+    /// A release uses `os` and refuses `home`. Any other build defaults to `home`, because an
+    /// unsigned daemon is a stranger to the Keychain after every rebuild and asks for the login
+    /// password to read what the last one wrote. Pass `os` to a development build to work on the
+    /// hand-off to MixDB or the desktop window, which read the machine's store.
+    #[arg(long, value_enum, env = "MIXENGINE_CREDENTIAL_STORE")]
+    credential_store: Option<credentials::Store>,
+
     /// Read the package index from here instead of the one MixEngine publishes.
     ///
     /// A team mirror, or a test's own registry. `docs/operations/runtime-packaging.md` promises
@@ -411,6 +422,17 @@ impl Args {
             feed: self.feed_source(),
         }
     }
+}
+
+/// What this process brought with it from `main` beside its configuration: its own path, and where
+/// its credentials live (T184). Grouped for [`Sources`]' reason — `serve` is at clippy's seven.
+#[derive(Debug)]
+struct Launch {
+    /// The running binary — see the note where `run` reads it.
+    program: PathBuf,
+
+    /// The store `serve` builds its host with.
+    credentials: mixengine_platform::Credentials,
 }
 
 /// The two signed documents this daemon reads, and what verifies each.
@@ -529,6 +551,11 @@ async fn run() -> anyhow::Result<()> {
     let started = api::Started::now();
 
     let mut args = Args::parse();
+
+    // T184: decided before the home is opened, so a release asked to keep its passwords in a file
+    // refuses without having created anything.
+    let credential_store = credentials::choose(mixengine_platform::RELEASE, args.credential_store)
+        .map_err(anyhow::Error::msg)?;
 
     // Before anything else: find the home directory, read config.toml, create what is missing.
     // It happens before logging is set up because the log level is one of the things it reads —
@@ -710,7 +737,10 @@ async fn run() -> anyhow::Result<()> {
         &endpoint,
         &home.config,
         &args.sources(),
-        program,
+        Launch {
+            program,
+            credentials: credential_store.at(home.paths.credentials_file()),
+        },
     )
     .await;
 
@@ -1012,8 +1042,13 @@ async fn serve(
     endpoint: &ipc::Endpoint,
     config: &config::Config,
     sources: &Sources,
-    program: PathBuf,
+    launch: Launch,
 ) -> anyhow::Result<Vec<PathBuf>> {
+    let Launch {
+        program,
+        credentials,
+    } = launch;
+
     // The two settings this function spends, read out of the file `main` loaded. One argument
     // rather than two, because a seventh would put this over the count clippy allows and because
     // the next task to want a key would have added an eighth.
@@ -1179,7 +1214,12 @@ async fn serve(
 
     // One host for both, rather than two: `declared` asks it what this system makes a front end
     // bind, and the registry keeps it for everything else.
-    let host = mixengine_platform::host();
+    //
+    // T184: and the one host that reaches `keyring()` — directly, and through `elevation.host()`,
+    // which the API hands to extensions and databases. Every other `host()` in this crate reaches
+    // pools, activation, shims, autostart or machine facts, none of which read a credential.
+    tracing::info!(credentials = %credentials::describe(&credentials), "credentials");
+    let host = mixengine_platform::host_with(credentials);
 
     let services = Arc::new(
         services::Registry::new(
@@ -1219,7 +1259,10 @@ async fn serve(
         store,
         events.clone(),
         Arc::clone(&jobs),
-        mixengine_platform::host(),
+        // T184: the same host as the registry's, and not a second one. The API hands this one on
+        // to extensions, databases, bundles and certificates, which is where most credentials are
+        // read and written — a separate `host()` here kept them in the OS store.
+        Arc::clone(&host),
         elevation::Candidates {
             program,
             // Where this operating system keeps an installed privileged helper — T85. `ok()` and

@@ -9,6 +9,20 @@ use std::path::Path;
 
 use mixengine_platform::{Host as _, PortAccessMethod, PortBinding, mock};
 
+/// Is this run allowed to change the machine, or to raise a real elevation prompt on it?
+///
+/// **`#[ignore]` alone is one `--ignored` away from a developer's desk**, which is where a prompt
+/// nobody asked for comes from — `docs/standards/testing.md`, rule 1. CI's `system` job sets
+/// `MIXENGINE_SYSTEM_TESTS=1`; everywhere else the test says it skipped rather than passing quietly.
+#[cfg(all(unix, feature = "elevated"))]
+fn system_tests() -> bool {
+    let allowed = std::env::var("MIXENGINE_SYSTEM_TESTS").as_deref() == Ok("1");
+    if !allowed {
+        eprintln!("skipped: MIXENGINE_SYSTEM_TESTS is not set");
+    }
+    allowed
+}
+
 /// D2's table, from the machine's own side. Each system has one mechanism and does not negotiate.
 #[test]
 fn this_machine_says_which_mechanism_it_uses_and_which_port_to_bind() {
@@ -221,8 +235,12 @@ fn the_plan_this_system_does_not_use_is_refused_by_name() {
 /// remembered.
 #[cfg(all(target_os = "linux", feature = "elevated"))]
 #[test]
-#[ignore = "writes an extended attribute, which needs CAP_SETFCAP; run in CI's system job"]
+#[ignore = "writes an extended attribute, which needs CAP_SETFCAP; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn a_capability_is_granted_read_back_lost_to_a_write_and_revoked() {
+    if !system_tests() {
+        return;
+    }
+
     use mixengine_platform::port_access::{self, Change};
     use mixengine_proto::privileged::{PortAccessPlan, PortAccessTarget};
 
@@ -283,8 +301,12 @@ fn a_capability_is_granted_read_back_lost_to_a_write_and_revoked() {
 /// the test undoes whatever `apply` changed about pf's enabled state.
 #[cfg(all(target_os = "macos", feature = "elevated"))]
 #[test]
-#[ignore = "edits /etc/pf.conf and enables the packet filter; run in CI's system job"]
+#[ignore = "edits /etc/pf.conf and enables the packet filter; run in CI's system job, with MIXENGINE_SYSTEM_TESTS=1"]
 fn a_redirect_is_installed_reaches_a_server_on_8080_and_leaves_the_machine_as_it_was() {
+    if !system_tests() {
+        return;
+    }
+
     use std::io::{Read as _, Write as _};
 
     use mixengine_platform::port_access::{self, Change};

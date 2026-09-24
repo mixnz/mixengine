@@ -37,6 +37,14 @@ executable be replaced, so a stop that waited for the copy to be refused never h
 the window went on talking to the previous build. A copy still refused after the stop (a daemon of
 another home running the same binary) is reported as such, rather than as os error 5.
 
+**A development build keeps its credentials in its home too**, in `credentials.json` instead of the
+Keychain, Credential Manager or Secret Service
+([ADR 0052](../decisions/0052-a-build-that-is-not-a-release-keeps-its-own-credentials.md)). An unsigned
+daemon is a stranger to the Keychain after every rebuild, and a file never has to ask anybody. The
+cost is the hand-off: MixDB and the desktop window read a managed database's password from the
+machine's store, so to work on that path start the daemon with `--credential-store os`
+(`MIXENGINE_CREDENTIAL_STORE=os`).
+
 Environment knobs: `MIXENGINE_HOME` (isolated sandbox root — always set this when experimenting),
 `MIXENGINE_LOG_FORMAT=json`, `MIXENGINE_SYSTEM_TESTS=1`, and the pair `MIXENGINE_INDEX_URL` +
 `MIXENGINE_INDEX_KEY` (`--index-url` / `--index-key`), which point `mixengined` at another package
