@@ -148,6 +148,26 @@ Var Stuck
   ${EndIf}
 !macroend
 
+; RemoveChecked, tried once a second for 30 seconds — T182b, D8. For `mixengined.exe` only: `mix
+; uninstall` waits for the daemon's process to end, and this covers a daemon something else started
+; a moment after it returned, whose image stays mapped until it has stopped.
+!macro RemoveWithRetry FILE
+  StrCpy $R2 0
+  ${Do}
+    ClearErrors
+    Delete "${FILE}"
+    ${IfNot} ${Errors}
+      ${ExitDo}
+    ${EndIf}
+    IntOp $R2 $R2 + 1
+    ${If} $R2 >= 30
+      StrCpy $Stuck "$Stuck$\r$\n${FILE}"
+      ${ExitDo}
+    ${EndIf}
+    Sleep 1000
+  ${Loop}
+!macroend
+
 ; Is this install's window running? Asks, then closes it — T182, D8. Leaves 1 in $R0 to go on, and
 ; 0 to stop.
 ;
@@ -312,9 +332,27 @@ Function un.RemoveScheme
   !insertmacro RemoveSchemeIfOurs "mixdb"
 FunctionEnd
 
+; **The slow question is asked before any window exists** — T182b, D9. Listing the relocated folders
+; starts a daemon and reads the machine, which takes seconds; asked while the choices page was being
+; drawn, it left a blank page whose Uninstall button already took clicks. Here nothing can be clicked
+; yet, and the banner says what is happening.
 Function un.onInit
   StrCpy $KeepHome 1
   StrCpy $KeepRelocated 1
+
+  StrCpy $Relocated ""
+  ${IfNot} ${Silent}
+    Banner::show /NOUNLOAD "Checking MixLab's folders…"
+  ${EndIf}
+  nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --relocated'
+  Pop $0
+  Pop $1
+  ${If} $0 == 0
+    StrCpy $Relocated $1
+  ${EndIf}
+  ${IfNot} ${Silent}
+    Banner::destroy
+  ${EndIf}
 FunctionEnd
 
 ; The choices page — T182, D7. Two boxes, both unticked: keeping is what nobody regrets.
@@ -323,14 +361,7 @@ FunctionEnd
 ; `mix` cannot answer, the page offers the home alone and the checks on leaving it say why nothing
 ; can be removed.
 Function un.ChoicesPage
-  nsExec::ExecToStack '"$INSTDIR\mix.exe" uninstall --dry-run --relocated'
-  Pop $0
-  Pop $1
-  StrCpy $Relocated ""
-  ${If} $0 == 0
-    StrCpy $Relocated $1
-  ${EndIf}
-
+  ; $Relocated was read in un.onInit, before any page existed.
   nsDialogs::Create 1018
   Pop $0
 
@@ -452,7 +483,7 @@ Section "Uninstall"
   ; any stays, everything that makes MixLab findable and re-runnable stays too (P1).
   StrCpy $Stuck ""
   !insertmacro RemoveChecked "$INSTDIR\mix.exe"
-  !insertmacro RemoveChecked "$INSTDIR\mixengined.exe"
+  !insertmacro RemoveWithRetry "$INSTDIR\mixengined.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-shim.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixengine-elevate.exe"
   !insertmacro RemoveChecked "$INSTDIR\mixlab.exe"

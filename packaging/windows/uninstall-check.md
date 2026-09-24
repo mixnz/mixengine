@@ -30,3 +30,18 @@ site so there is something outside the home to undo. Then:
 7. **Silent.** `uninstall.exe /S` with MixLab open closes it, keeps both kinds of data, and exits 0.
 8. **An update over a running copy.** Running a newer setup while MixLab and the daemon are up asks,
    closes both, and installs without an "error opening file for writing" dialog.
+
+## T182b
+
+Design [docs/specs/2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that-finishes-design.md](../../docs/specs/2026-09-25-t182b-a-helper-that-keeps-up-and-an-uninstall-that-finishes-design.md).
+
+9. **An old helper.** On a machine whose `C:\Program Files\MixEngine\mixengine-elevate.exe` is older
+   than `HELPER_VERSION` (the stray `0.1.0` is one), the first launch after installing asks once,
+   and afterwards `mix elevation status --json` reports `installed_helper.version` as
+   `HELPER_VERSION`.
+10. **An update that did not change the helper** asks nothing.
+11. **A kept home with sites.** Uninstall with the data box unticked: afterwards there is no NRPT rule
+    (`Get-DnsClientNrptRule`), no `MixEngine Local CA` of this home in `LocalMachine\Root`, no
+    MixEngine block in the hosts file, and no `mixengined` process.
+12. **The uninstaller opens on a banner**, *Checking MixLab's folders…*, and then on a page whose
+    boxes are already drawn when it appears.
